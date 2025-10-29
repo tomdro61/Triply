@@ -926,9 +926,9 @@
             padding-bottom: 0.5rem;
         }
 
-        /* Trust Section - Elegant Grid */
+        /* Trust Section - Comparison Design */
         .trust-section {
-            padding: 5rem 3rem 10rem 3rem;
+            padding: 4rem 3rem 6rem 3rem;
             background: linear-gradient(to bottom, #ffffff, #f8fafc);
         }
 
@@ -937,70 +937,154 @@
             margin: 0 auto;
         }
 
-        .trust-grid {
+        .comparison-container {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 2rem;
-            margin-top: 4rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 2.5rem;
+            margin-top: 3rem;
         }
 
-        .trust-item {
-            text-align: center;
-            padding: 2rem 1.5rem;
+        .comparison-side {
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s ease;
-            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 2.5rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            position: relative;
         }
 
-        .trust-item:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        .comparison-side.traditional {
+            border: 2px solid #e2e8f0;
         }
 
-        .trust-icon {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 70px;
-            height: 70px;
+        .comparison-side.triply {
+            border: 3px solid var(--accent-orange);
+            box-shadow: 0 8px 32px rgba(249, 115, 22, 0.2);
+        }
+
+        .comparison-badge {
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.4rem 1.25rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .comparison-badge.traditional-badge {
+            background: #64748b;
+            color: white;
+        }
+
+        .comparison-badge.triply-badge {
             background: var(--accent-orange);
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+            color: white;
         }
 
-        .trust-icon svg {
-            width: 32px;
-            height: 32px;
-            stroke: white;
-            fill: none;
-            stroke-width: 2.5;
+        .comparison-header {
+            text-align: center;
+            margin-bottom: 2rem;
         }
 
-        .trust-item h3 {
-            font-size: 1.125rem;
+        .comparison-header h3 {
+            font-size: 1.5rem;
             font-weight: 600;
-            margin-bottom: 0.75rem;
-            letter-spacing: -0.01em;
+            margin-bottom: 0.35rem;
             color: var(--dark-gray);
         }
 
-        .trust-item p {
-            font-size: 0.9rem;
+        .comparison-header p {
+            font-size: 0.85rem;
             color: var(--medium-gray);
-            line-height: 1.6;
-            font-weight: 400;
         }
 
-        .trust-stat {
-            display: block;
-            font-size: 1.75rem;
-            font-weight: 700;
+        .comparison-items {
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .comparison-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.85rem;
+        }
+
+        .comparison-icon {
+            flex-shrink: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 0.85rem;
+        }
+
+        .comparison-icon.negative {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .comparison-icon.positive {
+            background: #ffedd5;
             color: var(--accent-orange);
-            margin-bottom: 0.5rem;
+        }
+
+        .comparison-text {
+            flex: 1;
+            line-height: 1.5;
+        }
+
+        .comparison-text strong {
+            display: block;
+            font-weight: 600;
+            color: var(--dark-gray);
+            margin-bottom: 0.2rem;
+            font-size: 0.95rem;
+        }
+
+        .comparison-text span {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+        }
+
+        .comparison-footer {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+
+        .comparison-total {
+            font-size: 0.75rem;
+            color: var(--medium-gray);
+            margin-bottom: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .comparison-price {
+            font-size: 2.25rem;
+            font-weight: 700;
+        }
+
+        .comparison-side.traditional .comparison-price {
+            color: var(--dark-gray);
+        }
+
+        .comparison-side.triply .comparison-price {
+            color: var(--accent-orange);
+        }
+
+        .comparison-time {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            margin-top: 0.4rem;
         }
 
         /* Stats Section */
@@ -1926,52 +2010,97 @@
     <section class="trust-section">
         <div class="trust-container">
             <div class="section-title">
-                <h2>Why Choose Triply</h2>
-                <p>Join millions of travelers who trust us with their journey</p>
+                <h2>Why Choose Triply?</h2>
+                <p>See how much time and money you save booking with us</p>
             </div>
-            <div class="trust-grid">
-                <div class="trust-item">
-                    <div class="trust-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <line x1="12" y1="1" x2="12" y2="23"></line>
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                        </svg>
+            
+            <div class="comparison-container">
+                <!-- Booking Separately -->
+                <div class="comparison-side traditional">
+                    <div class="comparison-badge traditional-badge">The Old Way</div>
+                    <div class="comparison-header">
+                        <h3>Booking Separately</h3>
+                        <p>Multiple websites, multiple hassles</p>
                     </div>
-                    <span class="trust-stat">Save 70%</span>
-                    <h3>Best Price Guarantee</h3>
-                    <p>Find a lower price within 24 hours? We'll refund the difference plus 10%.</p>
+                    <div class="comparison-items">
+                        <div class="comparison-item">
+                            <div class="comparison-icon negative">✗</div>
+                            <div class="comparison-text">
+                                <strong>5+ Different Websites</strong>
+                                <span>Search parking, hotels, flights separately</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon negative">✗</div>
+                            <div class="comparison-text">
+                                <strong>Higher Prices</strong>
+                                <span>No bundled discounts or deals</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon negative">✗</div>
+                            <div class="comparison-text">
+                                <strong>No Price Protection</strong>
+                                <span>Stuck with whatever you find</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon negative">✗</div>
+                            <div class="comparison-text">
+                                <strong>Complicated Cancellations</strong>
+                                <span>Different policies for each booking</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="comparison-footer">
+                        <div class="comparison-total">Average Cost</div>
+                        <div class="comparison-price">$250+</div>
+                        <div class="comparison-time">⏱️ 45+ minutes to book</div>
+                    </div>
                 </div>
-                <div class="trust-item">
-                    <div class="trust-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                        </svg>
+
+                <!-- With Triply -->
+                <div class="comparison-side triply">
+                    <div class="comparison-badge triply-badge">The Triply Way</div>
+                    <div class="comparison-header">
+                        <h3>Booking with Triply</h3>
+                        <p>One platform, complete control</p>
                     </div>
-                    <span class="trust-stat">2 Minutes</span>
-                    <h3>Instant Booking</h3>
-                    <p>Book parking, hotels, flights, and transport in under 2 minutes with instant confirmation.</p>
-                </div>
-                <div class="trust-item">
-                    <div class="trust-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                        </svg>
+                    <div class="comparison-items">
+                        <div class="comparison-item">
+                            <div class="comparison-icon positive">✓</div>
+                            <div class="comparison-text">
+                                <strong>Everything in One Place</strong>
+                                <span>Parking, hotels, flights, transportation</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon positive">✓</div>
+                            <div class="comparison-text">
+                                <strong>Save Up to 70%</strong>
+                                <span>Exclusive deals and bundled discounts</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon positive">✓</div>
+                            <div class="comparison-text">
+                                <strong>Best Price Guarantee</strong>
+                                <span>Find lower? We refund the difference + 10%</span>
+                            </div>
+                        </div>
+                        <div class="comparison-item">
+                            <div class="comparison-icon positive">✓</div>
+                            <div class="comparison-text">
+                                <strong>Free Cancellation</strong>
+                                <span>Cancel up to 24 hours before—no fees</span>
+                            </div>
+                        </div>
                     </div>
-                    <span class="trust-stat">100% Secure</span>
-                    <h3>Verified Partners</h3>
-                    <p>Every facility is thoroughly vetted, insured, and monitored 24/7 for your security.</p>
-                </div>
-                <div class="trust-item">
-                    <div class="trust-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                            <circle cx="12" cy="12" r="10"></circle>
-                            <line x1="15" y1="9" x2="9" y2="15"></line>
-                            <line x1="9" y1="9" x2="15" y2="15"></line>
-                        </svg>
+                    <div class="comparison-footer">
+                        <div class="comparison-total">Average Cost</div>
+                        <div class="comparison-price">$75</div>
+                        <div class="comparison-time">⚡ 2 minutes to book</div>
                     </div>
-                    <span class="trust-stat">Free Always</span>
-                    <h3>Flexible Cancellation</h3>
-                    <p>Cancel anytime up to 24 hours before arrival with zero fees. Plans change—we get it.</p>
                 </div>
             </div>
         </div>
