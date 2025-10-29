@@ -1,0 +1,2086 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triply - Your Travel Simplified</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #F43F5E;
+            --secondary-color: #f97316;
+            --primary-magenta: #F43F5E;
+            --primary-teal: #0891b2;
+            --accent-orange: #f97316;
+            --dark-gray: #1e293b;
+            --medium-gray: #64748b;
+            --light-gray: #f8fafc;
+            --white: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.7;
+            color: var(--dark-gray);
+            background: var(--white);
+            overflow-x: hidden;
+        }
+
+        /* Smooth Scroll */
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Header - Transparent & Inside Hero */
+        .header {
+            background: transparent;
+            backdrop-filter: none;
+            padding: 2rem 3rem;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            border-bottom: none;
+            border-radius: 0;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: white;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: white;
+            font-weight: 400;
+            font-size: 0.9rem;
+            letter-spacing: 0.05em;
+            transition: color 0.3s;
+            text-transform: uppercase;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-magenta);
+        }
+
+        /* Hamburger Menu */
+        .hamburger {
+            display: none;
+            flex-direction: column;
+            gap: 0.375rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .hamburger span {
+            width: 25px;
+            height: 2px;
+            background: white;
+            transition: all 0.3s;
+        }
+
+        /* Hero - Full Screen Cinematic with Airplane/Travel Energy */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.7), rgba(8, 145, 178, 0.6)), 
+                        linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5)),
+                        url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=2000') center/cover fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            overflow: visible;
+            padding-bottom: 3rem;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            padding: 0 3rem;
+            animation: fadeInUp 1.2s ease;
+            position: relative;
+            z-index: 2;
+            margin-bottom: 3rem;
+            margin-top: 2rem;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero h1 {
+            font-size: 4rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            opacity: 0.95;
+            font-weight: 400;
+            letter-spacing: 0;
+            line-height: 1.4;
+        }
+
+        /* Trust Badge with Mirror Effect */
+        .trust-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            padding: 0.65rem 1.25rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: white;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .trust-badge::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0.1), transparent);
+            border-radius: 50px;
+            opacity: 0.3;
+            transform: scaleY(-1);
+        }
+
+        .trust-badge-icon {
+            font-size: 1rem;
+        }
+
+        /* Service badges under hero text */
+        .hero-services {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .hero-service-badge {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.9;
+        }
+
+        .hero-service-badge span {
+            font-size: 2rem;
+        }
+
+        .hero-service-badge p {
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .hero-cta {
+            display: inline-block;
+            padding: 1.25rem 3.5rem;
+            background: var(--primary-magenta);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            box-shadow: 0 10px 30px rgba(244, 63, 94, 0.3);
+        }
+
+        .hero-cta:hover {
+            background: var(--accent-orange);
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(249, 115, 22, 0.4);
+        }
+
+        /* Booking Engine - Compact & Visual */
+        .booking-section {
+            position: relative;
+            padding: 0 0 4rem 0;
+            margin-top: 0;
+            z-index: 50;
+        }
+
+        .booking-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 3rem;
+        }
+
+        .booking-engine {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(20px);
+            padding: 2.5rem 3rem;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.15);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            border-radius: 20px;
+        }
+
+        .booking-tabs {
+            display: flex;
+            gap: 0;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .booking-tab {
+            flex: 1;
+            padding: 0.875rem 1.5rem;
+            border: none;
+            background: transparent;
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: var(--medium-gray);
+            border-bottom: 2px solid transparent;
+            position: relative;
+        }
+
+        .booking-tab.active {
+            color: var(--primary-magenta);
+            border-bottom: 2px solid var(--primary-magenta);
+        }
+
+        /* Add icons to tabs */
+        .booking-tab:nth-child(1)::before { content: '🅿️ '; }
+        .booking-tab:nth-child(2)::before { content: '🏨 '; }
+        .booking-tab:nth-child(3)::before { content: '✈️ '; }
+        .booking-tab:nth-child(4)::before { content: '🚗 '; }
+
+        .booking-form {
+            display: grid;
+            grid-template-columns: 2fr 1fr 2fr 2fr auto;
+            gap: 1.25rem;
+            align-items: end;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--medium-gray);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 0.875rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+            background: var(--white);
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary-magenta);
+            box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1);
+        }
+
+        .search-button {
+            padding: 0.875rem 2.5rem;
+            background: var(--primary-magenta);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+            height: fit-content;
+        }
+
+        .search-button:hover {
+            background: var(--accent-orange);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.25);
+        }
+
+        /* Quick Stats Bar - Travel Service Feel */
+        .quick-stats {
+            padding: 2.5rem 3rem;
+            background: #F1F5F9;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .quick-stats-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3rem;
+            text-align: center;
+        }
+
+        .quick-stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quick-stat-icon {
+            width: 28px;
+            height: 28px;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+            opacity: 0.85;
+        }
+
+        .quick-stat h3 {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #475569;
+        }
+
+        .quick-stat p {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            font-weight: 400;
+            letter-spacing: 0.05em;
+        }
+
+        /* Full Width Image Section */
+        .image-section {
+            position: relative;
+            height: 70vh;
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .image-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(244, 63, 94, 0.75), rgba(8, 145, 178, 0.7)),
+                        linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.4));
+        }
+
+        .image-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            color: white;
+            max-width: 700px;
+            padding: 0 3rem;
+        }
+
+        .image-content h2 {
+            font-size: 3rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+            line-height: 1.4;
+        }
+
+        .image-content p {
+            font-size: 1.25rem;
+            font-weight: 300;
+            line-height: 1.5;
+            opacity: 0.95;
+        }
+
+        .image-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4rem;
+            margin-top: 4rem;
+            max-width: 900px;
+        }
+
+        .image-stats .stat-item {
+            text-align: center;
+        }
+
+        .image-stats .stat-item h3 {
+            font-size: 4rem;
+            font-weight: 200;
+            margin-bottom: 0.5rem;
+            color: white;
+        }
+
+        .image-stats .stat-item p {
+            font-size: 0.95rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            opacity: 0.9;
+        }
+
+        /* Feature Banner */
+        .feature-banner {
+            padding: 6rem 3rem;
+            background: var(--light-gray);
+        }
+
+        .feature-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .feature-image {
+            height: 500px;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 20px 80px rgba(0,0,0,0.1);
+            border-radius: 20px;
+        }
+
+        .feature-content h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+            color: var(--dark-gray);
+            line-height: 1.4;
+        }
+
+        .feature-content p {
+            font-size: 1.125rem;
+            color: var(--medium-gray);
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+            font-weight: 300;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 2.5rem;
+        }
+
+        .feature-list li {
+            padding: 1rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 1rem;
+            color: var(--dark-gray);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-magenta);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        /* Products/Listings Section */
+        .products-section {
+            padding: 4rem 3rem;
+            background: var(--white);
+        }
+
+        .products-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-top: 3rem;
+        }
+
+        .product-card {
+            background: var(--white);
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .product-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+            border-color: var(--primary-magenta);
+        }
+
+        .product-image {
+            width: 100%;
+            height: 220px;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+        }
+
+        .product-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: #10b981;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+        }
+
+        .product-badge.featured {
+            background: #f97316;
+            box-shadow: 0 2px 8px rgba(249, 115, 22, 0.25);
+        }
+
+        .product-content {
+            padding: 1.1rem 1.25rem;
+        }
+
+        .product-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 0.5rem;
+        }
+
+        .product-title {
+            flex: 1;
+        }
+
+        .product-title h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.01em;
+        }
+
+        .product-location {
+            font-size: 0.9rem;
+            color: var(--medium-gray);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .product-rating {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            flex-shrink: 0;
+        }
+
+        .product-rating::before {
+            content: '⭐';
+            font-size: 0.9rem;
+        }
+
+        .product-features {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .product-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.82rem;
+            color: var(--medium-gray);
+            background: var(--light-gray);
+            padding: 0.35rem 0.6rem;
+            border-radius: 8px;
+        }
+
+        .product-feature::before {
+            content: '✓';
+            color: var(--primary-magenta);
+            font-weight: 700;
+        }
+
+        .product-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .product-price {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .price-amount {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--dark-gray);
+            letter-spacing: -0.02em;
+        }
+
+        .price-period {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        .product-cta {
+            padding: 0.65rem 1.25rem;
+            background: var(--primary-magenta);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .product-cta:hover {
+            background: var(--accent-orange);
+            transform: scale(1.05);
+        }
+
+        /* Filter/Sort Bar */
+        .products-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .products-filters {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-button {
+            padding: 0.6rem 1.1rem;
+            background: #F1F5F9;
+            color: var(--dark-gray);
+            border: 1px solid #E2E8F0;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .filter-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .filter-button.active {
+            background: var(--primary-magenta);
+            color: white;
+            border-color: var(--primary-magenta);
+        }
+
+        .products-sort {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .products-sort label {
+            font-size: 0.875rem;
+            color: var(--medium-gray);
+            font-weight: 500;
+        }
+
+        .products-sort select {
+            padding: 0.625rem 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            background: var(--white);
+            color: var(--dark-gray);
+            cursor: pointer;
+        }
+
+        /* View All Link */
+        .view-all-container {
+            text-align: center;
+            margin-top: 2rem;
+        }
+
+        .view-all-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.85rem 2rem;
+            background: transparent;
+            color: var(--primary-magenta);
+            border: 2px solid var(--primary-magenta);
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+
+        .view-all-link:hover {
+            background: var(--primary-magenta);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(244, 63, 94, 0.25);
+        }
+
+        /* Services - Minimal Grid */
+        .services-section {
+            padding: 4rem 3rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            margin-bottom: 2.25rem;
+        }
+
+        .section-title h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+            color: var(--dark-gray);
+            line-height: 1.4;
+        }
+
+        .section-title p {
+            font-size: 1.05rem;
+            color: var(--medium-gray);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+            line-height: 1.4;
+        }
+
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+        }
+
+        .service-card {
+            position: relative;
+            height: 400px;
+            background-size: cover;
+            background-position: center;
+            overflow: hidden;
+            cursor: pointer;
+            border-radius: 16px;
+        }
+
+        .service-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.2));
+            transition: all 0.5s ease;
+        }
+
+        .service-card:hover .service-overlay {
+            background: linear-gradient(to top, rgba(249, 115, 22, 0.85), rgba(249, 115, 22, 0.4));
+        }
+
+        .service-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 2rem;
+            color: white;
+            z-index: 2;
+        }
+
+        .service-card h3 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .service-card p {
+            font-size: 0.9rem;
+            font-weight: 300;
+            line-height: 1.5;
+            opacity: 0.9;
+            margin-bottom: 1rem;
+        }
+
+        .service-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border-bottom: 1px solid white;
+            padding-bottom: 0.25rem;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .service-link:hover {
+            padding-bottom: 0.5rem;
+        }
+
+        /* Trust Section - Elegant Grid */
+        .trust-section {
+            padding: 5rem 3rem 10rem 3rem;
+            background: linear-gradient(to bottom, #ffffff, #f8fafc);
+        }
+
+        .trust-container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .trust-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+            margin-top: 4rem;
+        }
+
+        .trust-item {
+            text-align: center;
+            padding: 2rem 1.5rem;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s ease;
+            border: 1px solid #e2e8f0;
+        }
+
+        .trust-item:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        }
+
+        .trust-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 70px;
+            height: 70px;
+            background: var(--accent-orange);
+            border-radius: 16px;
+            box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3);
+        }
+
+        .trust-icon svg {
+            width: 32px;
+            height: 32px;
+            stroke: white;
+            fill: none;
+            stroke-width: 2.5;
+        }
+
+        .trust-item h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.01em;
+            color: var(--dark-gray);
+        }
+
+        .trust-item p {
+            font-size: 0.9rem;
+            color: var(--medium-gray);
+            line-height: 1.6;
+            font-weight: 400;
+        }
+
+        .trust-stat {
+            display: block;
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--accent-orange);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Stats Section */
+        .stats-section {
+            padding: 5rem 3rem;
+            background: #334155;
+            color: white;
+        }
+
+        .stats-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3rem;
+            text-align: center;
+        }
+
+        .stat-item h3 {
+            font-size: 4rem;
+            font-weight: 200;
+            margin-bottom: 1rem;
+            color: var(--primary-magenta);
+        }
+
+        .stat-item p {
+            font-size: 1rem;
+            font-weight: 300;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 4rem 3rem;
+            text-align: center;
+            background: linear-gradient(135deg, var(--light-gray), var(--white));
+        }
+
+        .cta-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cta-content h2 {
+            font-size: 3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            letter-spacing: -0.02em;
+            color: var(--dark-gray);
+            line-height: 1.4;
+        }
+
+        .cta-content p {
+            font-size: 1.25rem;
+            color: var(--medium-gray);
+            margin-bottom: 3rem;
+            font-weight: 300;
+            line-height: 1.5;
+        }
+
+        .cta-button {
+            display: inline-block;
+            padding: 1.25rem 3.5rem;
+            background: var(--primary-magenta);
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            transition: all 0.4s ease;
+            border-radius: 50px;
+        }
+
+        .cta-button:hover {
+            background: var(--accent-orange);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(249, 115, 22, 0.3);
+        }
+
+        /* Trust Badges Section */
+        .trust-badges-section {
+            padding: 3rem 3rem;
+            background: var(--white);
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .trust-badges-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .trust-badges-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--medium-gray);
+            margin-bottom: 2rem;
+            opacity: 0.7;
+        }
+
+        .badges-grid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .badge-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .badge-item:hover {
+            opacity: 1;
+        }
+
+        .badge-icon {
+            font-size: 2.5rem;
+            color: var(--medium-gray);
+        }
+
+        .badge-text {
+            font-size: 0.8rem;
+            font-weight: 500;
+            letter-spacing: 0.05em;
+            color: var(--medium-gray);
+            text-transform: uppercase;
+        }
+
+        .payment-icons {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+        }
+
+        .payment-icon {
+            width: 50px;
+            height: 32px;
+            background: var(--light-gray);
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--medium-gray);
+            transition: all 0.3s;
+        }
+
+        .payment-icon:hover {
+            border-color: var(--primary-magenta);
+            background: var(--white);
+            transform: translateY(-2px);
+        }
+
+        /* Footer - Minimal */
+        .footer {
+            background: var(--light-gray);
+            color: var(--dark-gray);
+            padding: 4rem 3rem 2rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr repeat(3, 1fr);
+            gap: 3rem;
+            margin-bottom: 3rem;
+        }
+
+        .footer-section h4 {
+            font-size: 0.85rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--medium-gray);
+        }
+
+        .footer-about p {
+            font-size: 0.95rem;
+            line-height: 1.8;
+            color: var(--medium-gray);
+            font-weight: 300;
+            max-width: 350px;
+        }
+
+        .footer-section ul {
+            list-style: none;
+        }
+
+        .footer-section ul li {
+            margin-bottom: 1rem;
+        }
+
+        .footer-section a {
+            color: var(--medium-gray);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 300;
+            transition: color 0.3s;
+        }
+
+        .footer-section a:hover {
+            color: var(--accent-orange);
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            font-weight: 300;
+        }
+
+        /* Footer Trust Badges */
+        .footer-trust-badges {
+            max-width: 1200px;
+            margin: 3rem auto 2rem;
+            padding: 2rem 0;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .footer-trust-title {
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--medium-gray);
+            margin-bottom: 1.5rem;
+        }
+
+        .footer-badges-grid {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-badge-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+        }
+
+        .footer-badge-icon {
+            font-size: 1.25rem;
+        }
+
+        .footer-badge-item.payment-methods {
+            gap: 1rem;
+        }
+
+        .payment-label {
+            font-weight: 500;
+        }
+
+        .payment-icons-list {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .payment-icon-footer {
+            padding: 0.35rem 0.65rem;
+            background: #f1f5f9;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--dark-gray);
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Chatbot Icon */
+        .chatbot-icon {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: var(--primary-magenta);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(244, 63, 94, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .chatbot-icon:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(244, 63, 94, 0.5);
+            background: var(--accent-orange);
+        }
+
+        .chatbot-icon::before {
+            content: '💬';
+            font-size: 1.75rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .hero h1 {
+                font-size: 3.5rem;
+            }
+
+            .booking-form {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .search-button {
+                grid-column: 1 / -1;
+            }
+
+            .quick-stats-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .feature-container {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+
+            .feature-image {
+                height: 400px;
+                order: -1;
+            }
+
+            .services-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .products-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .service-card {
+                height: 350px;
+            }
+
+            .trust-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .stats-container {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.25rem 1.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .hamburger {
+                display: flex;
+            }
+
+            .hero {
+                min-height: auto;
+                padding: 6rem 0 2rem 0;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            .hero-content {
+                margin-bottom: 2rem;
+            }
+
+            .booking-wrapper {
+                padding: 0 1.5rem;
+            }
+
+            .booking-engine {
+                padding: 1.5rem 1.25rem;
+            }
+
+            .booking-form {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .booking-tabs {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+
+            .booking-tab {
+                padding: 0.625rem 1rem;
+                font-size: 0.75rem;
+                flex: 1 1 45%;
+            }
+
+            .quick-stats {
+                padding: 3rem 1.5rem;
+            }
+
+            .quick-stats-container {
+                grid-template-columns: 1fr 1fr;
+                gap: 2rem;
+            }
+
+            .quick-stat h3 {
+                font-size: 2rem;
+            }
+
+            .quick-stat p {
+                font-size: 0.8rem;
+            }
+
+            .products-section {
+                padding: 4rem 1.5rem;
+            }
+
+            .products-controls {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .products-filters {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .filter-button {
+                padding: 0.5rem 1rem;
+                font-size: 0.8rem;
+            }
+
+            .feature-banner {
+                padding: 4rem 1.5rem;
+            }
+
+            .image-section {
+                height: 60vh;
+            }
+
+            .image-content {
+                padding: 0 1.5rem;
+            }
+
+            .image-content h2 {
+                font-size: 2rem;
+            }
+
+            .image-content p {
+                font-size: 1rem;
+            }
+
+            .image-stats {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+                margin-top: 2rem;
+            }
+
+            .image-stats .stat-item h3 {
+                font-size: 3rem;
+            }
+
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .products-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .products-controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .products-sort {
+                width: 100%;
+            }
+
+            .products-sort select {
+                flex: 1;
+            }
+
+            .section-title h2 {
+                font-size: 2rem;
+            }
+
+            .trust-grid {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+            }
+
+            .badges-grid {
+                gap: 2rem;
+            }
+
+            .payment-icons {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .cta-content h2 {
+                font-size: 2.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="nav-container">
+            <div class="logo">
+                <img src="/mnt/user-data/uploads/triply-app-icon-pink-white-bg.png" alt="Triply" class="logo-img">
+                Triply
+            </div>
+            <nav>
+                <ul class="nav-links">
+                    <li><a href="#services">Services</a></li>
+                    <li><a href="#about">About</a></li>
+                    <li><a href="#contact">Contact</a></li>
+                </ul>
+            </nav>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Your Trip, Simplified</h1>
+            <p>Book flights, airport parking, hotels, and transportation all in one place. Save time, save money, travel smarter.</p>
+        </div>
+        
+        <!-- Trust Badge -->
+        <div class="trust-badge">
+            <span class="trust-badge-icon">🛡️</span>
+            <span>Powered by 1,000+ Verified Parking Locations</span>
+        </div>
+        
+        <!-- Booking Engine -->
+        <div class="booking-wrapper">
+            <div class="booking-engine">
+                <div class="booking-tabs">
+                    <button class="booking-tab active">Parking</button>
+                    <button class="booking-tab">Hotels</button>
+                    <button class="booking-tab">Flights</button>
+                    <button class="booking-tab">Transportation</button>
+                </div>
+                <form class="booking-form">
+                    <div class="form-group">
+                        <label>Airport</label>
+                        <select>
+                            <option>Select Airport</option>
+                            <option>Boston Logan (BOS)</option>
+                            <option>JFK New York (JFK)</option>
+                            <option>LAX Los Angeles (LAX)</option>
+                            <option>O'Hare Chicago (ORD)</option>
+                            <option>Miami International (MIA)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Check-in Time</label>
+                        <input type="time" placeholder="--:-- --">
+                    </div>
+                    <div class="form-group">
+                        <label>Check-in Date</label>
+                        <input type="date" placeholder="mm/dd/yyyy">
+                    </div>
+                    <div class="form-group">
+                        <label>Check-out Date</label>
+                        <input type="date" placeholder="mm/dd/yyyy">
+                    </div>
+                    <button type="submit" class="search-button">Search</button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Stats Bar -->
+    <section class="quick-stats">
+        <div class="quick-stats-container">
+            <div class="quick-stat">
+                <svg class="quick-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a1 1 0 0 0-.8-.4H5.24a2 2 0 0 0-1.8 1.1l-.8 1.63A6 6 0 0 0 2 12.42V16h2"></path>
+                    <circle cx="6.5" cy="16.5" r="2.5"></circle>
+                    <circle cx="16.5" cy="16.5" r="2.5"></circle>
+                </svg>
+                <h3>1,000+</h3>
+                <p>Verified Parking Facilities</p>
+            </div>
+            <div class="quick-stat">
+                <svg class="quick-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"></path>
+                </svg>
+                <h3>89</h3>
+                <p>Major U.S. Airports</p>
+            </div>
+            <div class="quick-stat">
+                <svg class="quick-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="15" y1="9" x2="9" y2="15"></line>
+                    <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+                <h3>Free</h3>
+                <p>Cancellation Anytime</p>
+            </div>
+            <div class="quick-stat">
+                <svg class="quick-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                </svg>
+                <h3>Instant</h3>
+                <p>Secure Confirmation</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products/Listings Section -->
+    <section class="products-section">
+        <div class="products-container">
+            <div class="section-title">
+                <h2>Featured Parking Near You</h2>
+                <p>Secure, convenient parking options at the best rates</p>
+            </div>
+
+            <!-- Filter/Sort Controls -->
+            <div class="products-controls">
+                <div class="products-filters">
+                    <button class="filter-button active">Boston</button>
+                    <button class="filter-button">New York</button>
+                    <button class="filter-button">Los Angeles</button>
+                    <button class="filter-button">Chicago</button>
+                    <button class="filter-button">Miami</button>
+                </div>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="products-grid">
+                <!-- Product Card 1 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=800');">
+                        <div class="product-badge">Best Value</div>
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Logan Airport Park & Fly</h3>
+                                <div class="product-location">📍 0.5 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.8</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Covered</div>
+                            <div class="product-feature">24/7 Shuttle</div>
+                            <div class="product-feature">Security</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$12</span>
+                                <span class="price-period">per day</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Card 2 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800');">
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Premium Garage Parking</h3>
+                                <div class="product-location">📍 0.2 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.9</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Indoor</div>
+                            <div class="product-feature">Valet</div>
+                            <div class="product-feature">EV Charging</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$18</span>
+                                <span class="price-period">per day</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Product Card 3 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800');">
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Economy Outdoor Lot</h3>
+                                <div class="product-location">📍 1.2 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.6</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Outdoor</div>
+                            <div class="product-feature">Shuttle</div>
+                            <div class="product-feature">Long-term</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$8</span>
+                                <span class="price-period">per day</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View All Link -->
+            <div class="view-all-container">
+                <a href="/parking" class="view-all-link">View All Parking Options →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hotels Section -->
+    <section class="products-section" style="background: #F1F5F9;">
+        <div class="products-container">
+            <div class="section-title">
+                <h2>Airport Hotels & Park Stay Packages</h2>
+                <p>Comfortable stays with convenient parking included</p>
+            </div>
+
+            <!-- Filter/Sort Controls -->
+            <div class="products-controls">
+                <div class="products-filters">
+                    <button class="filter-button active">Boston</button>
+                    <button class="filter-button" style="background: white; border-color: #E2E8F0;">New York</button>
+                    <button class="filter-button" style="background: white; border-color: #E2E8F0;">Los Angeles</button>
+                    <button class="filter-button" style="background: white; border-color: #E2E8F0;">Chicago</button>
+                    <button class="filter-button" style="background: white; border-color: #E2E8F0;">Miami</button>
+                </div>
+            </div>
+
+            <!-- Hotels Grid -->
+            <div class="products-grid">
+                <!-- Hotel Card 1 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800');">
+                        <div class="product-badge featured">Park & Stay</div>
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Hilton Boston Logan Airport</h3>
+                                <div class="product-location">📍 0.1 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.7</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Free Parking</div>
+                            <div class="product-feature">Airport Shuttle</div>
+                            <div class="product-feature">Restaurant</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$159</span>
+                                <span class="price-period">per night</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hotel Card 2 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800');">
+                        <div class="product-badge">Best Value</div>
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Courtyard Boston Airport</h3>
+                                <div class="product-location">📍 0.3 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.6</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Free Breakfast</div>
+                            <div class="product-feature">Pool</div>
+                            <div class="product-feature">Fitness Center</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$129</span>
+                                <span class="price-period">per night</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hotel Card 3 -->
+                <div class="product-card">
+                    <div class="product-image" style="background-image: url('https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800');">
+                        <div class="product-badge featured">Park & Stay</div>
+                    </div>
+                    <div class="product-content">
+                        <div class="product-header">
+                            <div class="product-title">
+                                <h3>Hyatt Regency Boston Harbor</h3>
+                                <div class="product-location">📍 0.2 mi from BOS</div>
+                            </div>
+                            <div class="product-rating">4.8</div>
+                        </div>
+                        <div class="product-features">
+                            <div class="product-feature">Harbor View</div>
+                            <div class="product-feature">7 Days Parking</div>
+                            <div class="product-feature">Restaurant</div>
+                        </div>
+                        <div class="product-footer">
+                            <div class="product-price">
+                                <span class="price-amount">$189</span>
+                                <span class="price-period">per night</span>
+                            </div>
+                            <a href="#" class="product-cta">Book Now</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View All Link -->
+            <div class="view-all-container">
+                <a href="/hotels" class="view-all-link">View All Hotel Options →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Services -->
+    <section id="services" class="services-section">
+        <div class="section-title">
+            <h2>Complete Travel Solutions</h2>
+            <p>Everything you need for a seamless journey</p>
+        </div>
+        <div class="services-grid">
+            <div class="service-card" style="background-image: url('https://images.unsplash.com/photo-1590674899484-d5640e854abe?w=1000');">
+                <div class="service-overlay"></div>
+                <div class="service-content">
+                    <h3>Airport Parking</h3>
+                    <p>Secure, convenient parking at 89+ major airports nationwide. Compare rates, reserve instantly, and park with confidence.</p>
+                    <a href="#" class="service-link">Explore Parking</a>
+                </div>
+            </div>
+            <div class="service-card" style="background-image: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1000');">
+                <div class="service-overlay"></div>
+                <div class="service-content">
+                    <h3>Park & Stay</h3>
+                    <p>Seamlessly combine hotel stays with parking for early flights or convenient layovers. Save time and money with our packages.</p>
+                    <a href="#" class="service-link">View Packages</a>
+                </div>
+            </div>
+            <div class="service-card" style="background-image: url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1000');">
+                <div class="service-overlay"></div>
+                <div class="service-content">
+                    <h3>Flight Booking</h3>
+                    <p>Compare and book flights from hundreds of airlines. Find the best fares and complete your entire trip in one place.</p>
+                    <a href="#" class="service-link">Search Flights</a>
+                </div>
+            </div>
+            <div class="service-card" style="background-image: url('https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=1000');">
+                <div class="service-overlay"></div>
+                <div class="service-content">
+                    <h3>Transportation</h3>
+                    <p>Reliable shuttle services and ground transportation options to get you to the airport on time, every time.</p>
+                    <a href="#" class="service-link">Book Transport</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Section -->
+    <section class="trust-section">
+        <div class="trust-container">
+            <div class="section-title">
+                <h2>Why Choose Triply</h2>
+                <p>Join millions of travelers who trust us with their journey</p>
+            </div>
+            <div class="trust-grid">
+                <div class="trust-item">
+                    <div class="trust-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <line x1="12" y1="1" x2="12" y2="23"></line>
+                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                    </div>
+                    <span class="trust-stat">Save 70%</span>
+                    <h3>Best Price Guarantee</h3>
+                    <p>Find a lower price within 24 hours? We'll refund the difference plus 10%.</p>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                        </svg>
+                    </div>
+                    <span class="trust-stat">2 Minutes</span>
+                    <h3>Instant Booking</h3>
+                    <p>Book parking, hotels, flights, and transport in under 2 minutes with instant confirmation.</p>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                        </svg>
+                    </div>
+                    <span class="trust-stat">100% Secure</span>
+                    <h3>Verified Partners</h3>
+                    <p>Every facility is thoroughly vetted, insured, and monitored 24/7 for your security.</p>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <line x1="15" y1="9" x2="9" y2="15"></line>
+                            <line x1="9" y1="9" x2="15" y2="15"></line>
+                        </svg>
+                    </div>
+                    <span class="trust-stat">Free Always</span>
+                    <h3>Flexible Cancellation</h3>
+                    <p>Cancel anytime up to 24 hours before arrival with zero fees. Plans change—we get it.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Full Width Image Section -->
+    <section class="image-section" style="background-image: url('https://images.unsplash.com/photo-1488085061387-422e29b40080?w=2000');">
+        <div class="image-overlay"></div>
+        <div class="image-content">
+            <h2>Our Mission</h2>
+            <p>We're revolutionizing travel by creating the safest, most affordable, and easiest way to manage everything before takeoff. One platform. Complete control. Book your parking, accommodations, flights, and ground transportation—all seamlessly integrated to save you time and money.</p>
+            
+            <!-- Stats integrated into image -->
+            <div class="image-stats">
+                <div class="stat-item">
+                    <h3>89+</h3>
+                    <p>Major Airports</p>
+                </div>
+                <div class="stat-item">
+                    <h3>1,000+</h3>
+                    <p>Verified Facilities</p>
+                </div>
+                <div class="stat-item">
+                    <h3>24/7</h3>
+                    <p>Customer Support</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-section">
+        <div class="cta-content">
+            <h2>Ready to Simplify Your Travel?</h2>
+            <p>Book your flights, airport parking, hotel, or transportation in minutes. Experience the elegance of streamlined travel planning.</p>
+            <a href="#booking" class="cta-button">Get Started</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section footer-about">
+                <h4>Triply</h4>
+                <p>Your complete travel booking platform for flights, airport parking, hotels, and transportation. Simplifying travel, one journey at a time.</p>
+            </div>
+            <div class="footer-section">
+                <h4>Services</h4>
+                <ul>
+                    <li><a href="#">Airport Parking</a></li>
+                    <li><a href="#">Park & Stay Hotels</a></li>
+                    <li><a href="#">Transportation</a></li>
+                    <li><a href="#">Travel Insurance</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Company</h4>
+                <ul>
+                    <li><a href="#">About Us</a></li>
+                    <li><a href="#">How It Works</a></li>
+                    <li><a href="#">Partnerships</a></li>
+                    <li><a href="#">Careers</a></li>
+                </ul>
+            </div>
+            <div class="footer-section">
+                <h4>Support</h4>
+                <ul>
+                    <li><a href="#">Help Center</a></li>
+                    <li><a href="#">Contact Us</a></li>
+                    <li><a href="#">Terms of Service</a></li>
+                    <li><a href="#">Privacy Policy</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Trust Badges in Footer -->
+        <div class="footer-trust-badges">
+            <p class="footer-trust-title">Secure & Trusted Booking</p>
+            <div class="footer-badges-grid">
+                <div class="footer-badge-item">
+                    <div class="footer-badge-icon">🔒</div>
+                    <span>SSL Encrypted</span>
+                </div>
+                <div class="footer-badge-item">
+                    <div class="footer-badge-icon">✓</div>
+                    <span>PCI Compliant</span>
+                </div>
+                <div class="footer-badge-item payment-methods">
+                    <span class="payment-label">We Accept:</span>
+                    <div class="payment-icons-list">
+                        <span class="payment-icon-footer">VISA</span>
+                        <span class="payment-icon-footer">MC</span>
+                        <span class="payment-icon-footer">AMEX</span>
+                        <span class="payment-icon-footer">PayPal</span>
+                    </div>
+                </div>
+                <div class="footer-badge-item">
+                    <div class="footer-badge-icon">🛡️</div>
+                    <span>Money Back Guarantee</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 Triply. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Chatbot Icon -->
+    <div class="chatbot-icon"></div>
+</body>
+</html>
