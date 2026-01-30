@@ -3,14 +3,20 @@ export interface Airport {
   name: string;
   city: string;
   state: string;
+  country?: string;
   timezone: string;
   latitude: number;
   longitude: number;
   slug: string;
   enabled: boolean;
+  isTest?: boolean; // Flag for test locations
+  reslabLocationId?: number; // Direct mapping to ResLab location ID
 }
 
 export const airports: Airport[] = [
+  // ==========================================================================
+  // Production Airports (NYC)
+  // ==========================================================================
   {
     code: "JFK",
     name: "John F. Kennedy International Airport",
@@ -29,9 +35,66 @@ export const airports: Airport[] = [
     state: "NY",
     timezone: "America/New_York",
     latitude: 40.7769,
-    longitude: -73.8740,
+    longitude: -73.874,
     slug: "new-york-lga",
     enabled: true,
+  },
+
+  // ==========================================================================
+  // Test Locations (ResLab Sandbox)
+  // ==========================================================================
+  {
+    code: "TEST-NY",
+    name: "Beacon Test Airport (TEST)",
+    city: "Beacon",
+    state: "NY",
+    timezone: "America/New_York",
+    latitude: 41.5048158,
+    longitude: -73.9695832,
+    slug: "beacon-test",
+    enabled: true,
+    isTest: true,
+    reslabLocationId: 195,
+  },
+  {
+    code: "TEST-OH",
+    name: "Cincinnati Test Airport (TEST)",
+    city: "Cincinnati",
+    state: "OH",
+    timezone: "America/New_York",
+    latitude: 39.1031182,
+    longitude: -84.5120196,
+    slug: "cincinnati-test",
+    enabled: true,
+    isTest: true,
+    reslabLocationId: 194,
+  },
+  {
+    code: "TEST-CA",
+    name: "Albany CA Test Airport (TEST)",
+    city: "Albany",
+    state: "CA",
+    timezone: "America/Los_Angeles",
+    latitude: 35.125801,
+    longitude: -117.9859038,
+    slug: "albany-ca-test",
+    enabled: true,
+    isTest: true,
+    reslabLocationId: 197,
+  },
+  {
+    code: "TEST-QC",
+    name: "Montreal Test Airport (TEST)",
+    city: "Montreal",
+    state: "QC",
+    country: "Canada",
+    timezone: "America/New_York",
+    latitude: 45.5016889,
+    longitude: -73.567256,
+    slug: "montreal-test",
+    enabled: true,
+    isTest: true,
+    reslabLocationId: 196,
   },
 ];
 
@@ -53,10 +116,24 @@ export const airportsBySlug = airports.reduce(
 
 export const enabledAirports = airports.filter((a) => a.enabled);
 
+// Production airports only (excludes test locations)
+export const productionAirports = airports.filter(
+  (a) => a.enabled && !a.isTest
+);
+
+// Test airports only
+export const testAirports = airports.filter((a) => a.enabled && a.isTest);
+
 export function getAirportByCode(code: string): Airport | undefined {
   return airportsByCode[code.toUpperCase()];
 }
 
 export function getAirportBySlug(slug: string): Airport | undefined {
   return airportsBySlug[slug.toLowerCase()];
+}
+
+export function getAirportByReslabLocationId(
+  locationId: number
+): Airport | undefined {
+  return airports.find((a) => a.reslabLocationId === locationId);
 }

@@ -18,21 +18,23 @@ function SearchPageContent() {
   const searchParams = useSearchParams();
 
   // Get initial values from URL params
-  const initialAirport = searchParams.get("airport") || "JFK";
+  const initialAirport = searchParams.get("airport") || "TEST-NY"; // Default to test location
   const initialCheckin =
     searchParams.get("checkin") ||
     new Date().toISOString().split("T")[0];
   const initialCheckout =
     searchParams.get("checkout") ||
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const initialCheckinTime = searchParams.get("checkinTime") || "10:00 AM";
+  const initialCheckoutTime = searchParams.get("checkoutTime") || "2:00 PM";
 
   // State
   const [tab, setTab] = useState<SearchTab>("parking");
   const [airport, setAirport] = useState(initialAirport);
   const [departDate, setDepartDate] = useState(initialCheckin);
   const [returnDate, setReturnDate] = useState(initialCheckout);
-  const [departTime, setDepartTime] = useState("10:00 AM");
-  const [returnTime, setReturnTime] = useState("2:00 PM");
+  const [departTime, setDepartTime] = useState(initialCheckinTime);
+  const [returnTime, setReturnTime] = useState(initialCheckoutTime);
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,11 +52,18 @@ function SearchPageContent() {
         airport,
         checkin: departDate,
         checkout: returnDate,
+        checkinTime: departTime,
+        checkoutTime: returnTime,
         sort: sortBy,
       });
       const response = await fetch(`/api/search?${params.toString()}`);
       const data = await response.json();
-      setLots(data.results || []);
+      if (data.error) {
+        console.error("Search API error:", data.error);
+        setLots([]);
+      } else {
+        setLots(data.results || []);
+      }
     } catch (error) {
       console.error("Error fetching search results:", error);
       setLots([]);
@@ -110,6 +119,8 @@ function SearchPageContent() {
       airport,
       checkin: departDate,
       checkout: returnDate,
+      checkinTime: departTime,
+      checkoutTime: returnTime,
     });
     router.push(`/search?${params.toString()}`);
     fetchResults();
@@ -177,6 +188,8 @@ function SearchPageContent() {
           lot={selectedLot}
           checkIn={departDate}
           checkOut={returnDate}
+          checkInTime={departTime}
+          checkOutTime={returnTime}
           airportCode={airport}
           onClose={() => setSelectedLot(null)}
         />

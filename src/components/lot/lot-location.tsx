@@ -1,4 +1,4 @@
-import { MapPin, Info } from "lucide-react";
+import { MapPin, Info, Phone } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
 interface LotLocationProps {
@@ -44,11 +44,21 @@ export function LotLocation({ lot }: LotLocationProps) {
       <div className="mt-4 space-y-2">
         <p className="text-gray-700 font-medium">
           {lot.address}, {lot.city}, {lot.state} {lot.zipCode}
+          {lot.country && `, ${lot.country}`}
         </p>
         {lot.distanceFromAirport && (
           <p className="text-brand-blue font-medium text-sm">
             {lot.distanceFromAirport.toFixed(1)} miles from airport
           </p>
+        )}
+        {lot.phone && (
+          <a
+            href={`tel:${lot.phone}`}
+            className="flex items-center text-sm text-gray-600 hover:text-brand-orange transition-colors"
+          >
+            <Phone size={14} className="mr-1.5" />
+            {lot.phone}
+          </a>
         )}
       </div>
 

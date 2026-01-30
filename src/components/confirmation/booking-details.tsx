@@ -10,6 +10,7 @@ import {
   Phone,
   Mail,
   Navigation,
+  Wallet,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
@@ -17,24 +18,30 @@ interface BookingDetailsProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   days: number;
   total: number;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   vehicleInfo?: string;
+  dueAtLocation?: number;
 }
 
 export function BookingDetails({
   lot,
   checkIn,
   checkOut,
+  checkInTime = "10:00 AM",
+  checkOutTime = "2:00 PM",
   days,
   total,
   customerName,
   customerEmail,
   customerPhone,
   vehicleInfo,
+  dueAtLocation,
 }: BookingDetailsProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -95,6 +102,7 @@ export function BookingDetails({
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkIn)}</p>
             <p className="text-sm text-gray-600">{formatDate(checkIn)}</p>
+            <p className="text-sm text-brand-orange font-medium mt-1">{checkInTime}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center text-gray-500 text-sm mb-1">
@@ -103,6 +111,7 @@ export function BookingDetails({
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkOut)}</p>
             <p className="text-sm text-gray-600">{formatDate(checkOut)}</p>
+            <p className="text-sm text-brand-orange font-medium mt-1">{checkOutTime}</p>
           </div>
         </div>
 
@@ -118,12 +127,27 @@ export function BookingDetails({
             </div>
           </div>
           <div className="text-right">
-            <p className="text-sm text-gray-600">Total Paid</p>
+            <p className="text-sm text-gray-600">
+              {dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
+            </p>
             <p className="text-2xl font-bold text-brand-orange">
               ${total.toFixed(2)}
             </p>
           </div>
         </div>
+
+        {/* Due at Location Notice */}
+        {dueAtLocation && dueAtLocation > 0 && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
+            <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-amber-800">Pay at Location</p>
+              <p className="text-sm text-amber-700">
+                ${dueAtLocation.toFixed(2)} will be collected when you arrive
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Customer & Vehicle Info */}
         {(customerName || vehicleInfo) && (

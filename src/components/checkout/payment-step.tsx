@@ -8,6 +8,8 @@ import {
   Loader2,
   Check,
   Smartphone,
+  AlertCircle,
+  Wallet,
 } from "lucide-react";
 import { PriceBreakdown } from "@/types/checkout";
 
@@ -17,6 +19,9 @@ interface PaymentStepProps {
   onTermsChange: (accepted: boolean) => void;
   onBack: () => void;
   onSubmit: () => Promise<void>;
+  isSubmitting?: boolean;
+  submitError?: string | null;
+  dueAtLocation?: boolean;
 }
 
 export function PaymentStep({
@@ -25,8 +30,12 @@ export function PaymentStep({
   onTermsChange,
   onBack,
   onSubmit,
+  isSubmitting = false,
+  submitError,
+  dueAtLocation = false,
 }: PaymentStepProps) {
   const [isProcessing, setIsProcessing] = useState(false);
+  const processing = isProcessing || isSubmitting;
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvc, setCvc] = useState("");
@@ -54,17 +63,22 @@ export function PaymentStep({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!acceptedTerms) return;
+    if (!acceptedTerms || processing) return;
 
     setIsProcessing(true);
     try {
-      // Simulate payment processing
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Simulate payment processing delay
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       await onSubmit();
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Determine amount to show on button
+  const buttonAmount = dueAtLocation && priceBreakdown.dueAtLocation > 0
+    ? priceBreakdown.dueNow
+    : priceBreakdown.total;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -234,6 +248,30 @@ export function PaymentStep({
         </label>
       </div>
 
+      {/* Due at Location Notice */}
+      {dueAtLocation && priceBreakdown.dueAtLocation > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <Wallet size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-semibold text-amber-800">Pay at Location</span>
+            <p className="text-amber-700 text-xs mt-0.5">
+              ${priceBreakdown.dueAtLocation.toFixed(2)} will be collected on-site at check-in
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {submitError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-semibold text-red-800">Booking Failed</span>
+            <p className="text-red-700 text-xs mt-0.5">{submitError}</p>
+          </div>
+        </div>
+      )}
+
       {/* Security Notice */}
       <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
         <Lock size={14} />
@@ -245,7 +283,7 @@ export function PaymentStep({
         <button
           type="button"
           onClick={onBack}
-          disabled={isProcessing}
+          disabled={processing}
           className="flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
         >
           <ChevronLeft size={18} className="mr-1" />
@@ -253,10 +291,10 @@ export function PaymentStep({
         </button>
         <button
           type="submit"
-          disabled={isProcessing || !acceptedTerms}
+          disabled={processing || !acceptedTerms}
           className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {isProcessing ? (
+          {processing ? (
             <>
               <Loader2 size={20} className="animate-spin" />
               Processing...
@@ -264,7 +302,9 @@ export function PaymentStep({
           ) : (
             <>
               <Check size={20} />
-              Complete Booking - ${priceBreakdown.total.toFixed(2)}
+              {dueAtLocation && priceBreakdown.dueAtLocation > 0
+                ? `Pay Now - $${buttonAmount.toFixed(2)}`
+                : `Complete Booking - $${buttonAmount.toFixed(2)}`}
             </>
           )}
         </button>

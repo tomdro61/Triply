@@ -10,7 +10,8 @@ import {
   BookingWidget,
 } from "@/components/lot";
 import { getAirportBySlug } from "@/config/airports";
-import { getLotById } from "@/lib/data/mock-lots";
+import { getLotById } from "@/lib/reslab/get-lot";
+import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
 
 interface LotPageProps {
   params: Promise<{
@@ -20,7 +21,25 @@ interface LotPageProps {
   searchParams: Promise<{
     checkin?: string;
     checkout?: string;
+    checkinTime?: string;
+    checkoutTime?: string;
   }>;
+}
+
+/**
+ * Convert 12-hour time format to 24-hour format
+ */
+function convertTo24Hour(time12h: string): string {
+  const [time, modifier] = time12h.split(" ");
+  let [hours, minutes] = time.split(":");
+
+  if (hours === "12") {
+    hours = modifier === "AM" ? "00" : "12";
+  } else if (modifier === "PM") {
+    hours = String(parseInt(hours, 10) + 12);
+  }
+
+  return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
 function LoadingState() {
@@ -36,7 +55,7 @@ function LoadingState() {
 
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout } = await searchParams;
+  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
 
   // Validate airport slug
   const airport = getAirportBySlug(slug);
@@ -44,21 +63,37 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
-  // Get lot data directly from mock data
-  const lot = getLotById(lotSlug);
+  // Default dates and times
+  const defaultCheckin = checkin || new Date().toISOString().split("T")[0];
+  const defaultCheckout =
+    checkout ||
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const defaultCheckinTime = checkinTime || "10:00 AM";
+  const defaultCheckoutTime = checkoutTime || "2:00 PM";
+
+  // Format dates for API
+  const checkinTime24 = convertTo24Hour(defaultCheckinTime);
+  const checkoutTime24 = convertTo24Hour(defaultCheckoutTime);
+  const fromDate = `${defaultCheckin} ${checkinTime24}:00`;
+  const toDate = `${defaultCheckout} ${checkoutTime24}:00`;
+
+  // Try to get lot from ResLab API first
+  let lot = await getLotById(lotSlug, fromDate, toDate);
+
+  // Fallback to mock data if API fails (for development)
+  if (!lot) {
+    const mockLot = getMockLotById(lotSlug);
+    if (mockLot) {
+      lot = mockLot;
+    }
+  }
+
   if (!lot) {
     notFound();
   }
 
-  // Default dates
-  const defaultCheckin =
-    checkin || new Date().toISOString().split("T")[0];
-  const defaultCheckout =
-    checkout ||
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-
   // Build back URL
-  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}`;
+  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}&checkinTime=${encodeURIComponent(defaultCheckinTime)}&checkoutTime=${encodeURIComponent(defaultCheckoutTime)}`;
 
   return (
     <div className="bg-gray-50 min-h-screen">
@@ -87,6 +122,8 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
                 lot={lot}
                 initialCheckIn={defaultCheckin}
                 initialCheckOut={defaultCheckout}
+                initialCheckInTime={defaultCheckinTime}
+                initialCheckOutTime={defaultCheckoutTime}
               />
             </div>
           </div>
@@ -107,11 +144,28 @@ export default function LotPage(props: LotPageProps) {
 }
 
 // Generate metadata
-export async function generateMetadata({ params }: LotPageProps) {
+export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
+  const { checkin, checkout } = await searchParams;
 
   const airport = getAirportBySlug(slug);
-  const lot = getLotById(lotSlug);
+
+  // Default dates for metadata
+  const defaultCheckin = checkin || new Date().toISOString().split("T")[0];
+  const defaultCheckout =
+    checkout ||
+    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const fromDate = `${defaultCheckin} 10:00:00`;
+  const toDate = `${defaultCheckout} 14:00:00`;
+
+  // Try to get lot
+  let lot = await getLotById(lotSlug, fromDate, toDate);
+  if (!lot) {
+    const mockLot = getMockLotById(lotSlug);
+    if (mockLot) {
+      lot = mockLot;
+    }
+  }
 
   if (!airport || !lot) {
     return {

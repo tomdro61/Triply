@@ -9,6 +9,8 @@ import {
   CustomerDetails,
   VehicleDetails,
   PriceBreakdown,
+  CheckoutCostData,
+  ExtraFieldValue,
 } from "@/types/checkout";
 import { CheckoutSteps } from "./checkout-steps";
 import { CustomerDetailsStep } from "./customer-details-step";
@@ -20,6 +22,11 @@ interface CheckoutFormProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  costData?: CheckoutCostData | null;
+  fromDate?: string;
+  toDate?: string;
 }
 
 // Demo promo codes
@@ -29,9 +36,20 @@ const PROMO_CODES: Record<string, number> = {
   TRIPLY: 0.15, // 15% off
 };
 
-export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
+export function CheckoutForm({
+  lot,
+  checkIn,
+  checkOut,
+  checkInTime = "10:00 AM",
+  checkOutTime = "2:00 PM",
+  costData,
+  fromDate,
+  toDate,
+}: CheckoutFormProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("details");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Form data
   const [customerDetails, setCustomerDetails] = useState<CustomerDetails>({
@@ -49,6 +67,9 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
     state: "",
   });
 
+  // Dynamic extra fields from API
+  const [extraFieldValues, setExtraFieldValues] = useState<Record<string, string>>({});
+
   const [promoCode, setPromoCode] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -60,15 +81,38 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
     Partial<Record<keyof VehicleDetails, string>>
   >({});
 
-  // Calculate price breakdown
+  // Calculate price breakdown using API data when available
   const priceBreakdown = useMemo<PriceBreakdown>(() => {
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
+    // Use API data if available
+    if (costData) {
+      const days = costData.numberOfDays || calculatedDays;
+      const dailyRate = costData.subtotal / days;
+
+      // Apply promo discount (note: in production, promo would be applied via API)
+      const discountPercent = promoCode ? PROMO_CODES[promoCode] || 0 : 0;
+      const discount = costData.subtotal * discountPercent;
+
+      return {
+        dailyRate,
+        days,
+        subtotal: costData.subtotal,
+        discount,
+        taxes: costData.taxTotal,
+        fees: costData.feesTotal,
+        total: costData.grandTotal - discount,
+        dueNow: costData.dueNow - discount,
+        dueAtLocation: costData.dueAtLocation,
+      };
+    }
+
+    // Fallback calculation
     const dailyRate = lot.pricing?.minPrice ?? 0;
-    const subtotal = dailyRate * days;
+    const subtotal = dailyRate * calculatedDays;
 
     // Apply promo discount
     const discountPercent = promoCode ? PROMO_CODES[promoCode] || 0 : 0;
@@ -80,13 +124,16 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
 
     return {
       dailyRate,
-      days,
+      days: calculatedDays,
       subtotal,
       discount,
       taxes,
+      fees: 0,
       total,
+      dueNow: total,
+      dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoCode]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoCode, costData]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -173,21 +220,61 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
 
   // Submit booking
   const handleSubmit = async () => {
-    const bookingData: CheckoutData = {
-      customer: customerDetails,
-      vehicle: vehicleDetails,
-      promoCode: promoCode || undefined,
-      acceptedTerms,
-    };
+    setIsSubmitting(true);
+    setSubmitError(null);
 
-    // In production, this would call the booking API
-    console.log("Booking submitted:", bookingData);
+    try {
+      // Get parking type ID
+      const parkingTypeId = lot.pricing?.parkingTypes?.[0]?.id;
 
-    // Generate a mock confirmation ID
-    const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+      if (!lot.reslabLocationId || !costData?.costsToken || !parkingTypeId) {
+        // Fallback for mock data or missing API data
+        console.log("Creating mock reservation (no API data available)");
+        const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+        router.push(
+          `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+        );
+        return;
+      }
 
-    // Redirect to confirmation page
-    router.push(`/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}`);
+      // Build extra fields for API
+      const extraFields: Record<string, string> = { ...extraFieldValues };
+
+      // Create reservation via API
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          locationId: lot.reslabLocationId,
+          costsToken: costData.costsToken,
+          fromDate: fromDate,
+          toDate: toDate,
+          parkingTypeId: parkingTypeId,
+          customer: customerDetails,
+          vehicle: vehicleDetails,
+          extraFields,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create reservation");
+      }
+
+      // Redirect to confirmation page with reservation number
+      router.push(
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+      );
+    } catch (error) {
+      console.error("Reservation error:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to complete booking"
+      );
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -213,6 +300,11 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
               onNext={handleVehicleNext}
               onBack={handleVehicleBack}
               errors={vehicleErrors}
+              extraFields={lot.extraFields}
+              extraFieldValues={extraFieldValues}
+              onExtraFieldChange={(name, value) =>
+                setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
+              }
             />
           )}
 
@@ -223,6 +315,9 @@ export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
               onTermsChange={setAcceptedTerms}
               onBack={handlePaymentBack}
               onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+              submitError={submitError}
+              dueAtLocation={lot.dueAtLocation}
             />
           )}
         </div>

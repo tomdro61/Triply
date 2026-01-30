@@ -33,6 +33,7 @@ export interface UnifiedLot {
   id: string;
   source: "reslab" | "direct";
   sourceId: string;
+  reslabLocationId?: number; // ResLab location ID for API calls
 
   name: string;
   slug: string;
@@ -40,12 +41,14 @@ export interface UnifiedLot {
   city: string;
   state: string;
   zipCode?: string;
+  country?: string;
   latitude: number;
   longitude: number;
 
   description?: string;
   directions?: string;
   shuttleInfo?: ShuttleInfo;
+  specialConditions?: string;
   phone?: string;
 
   amenities: Amenity[];
@@ -60,7 +63,15 @@ export interface UnifiedLot {
     minPrice: number;
     maxPrice?: number;
     currency: string;
+    currencyCode?: string;
     parkingTypes: ParkingType[];
+    taxValue?: number;
+    taxType?: "net" | "gross";
+    grandTotal?: number;
+    subtotal?: number;
+    feesTotal?: number;
+    taxTotal?: number;
+    numberOfDays?: number;
   };
 
   availability: "available" | "limited" | "unavailable";
@@ -68,12 +79,34 @@ export interface UnifiedLot {
   minimumBookingDays?: number;
   hoursBeforeReservation?: number;
   dailyOrHourly?: "daily" | "hourly";
+
+  // Payment handling
+  dueAtLocation?: boolean; // If true, customer pays at the lot
+  dueAtLocationAmount?: number;
+
+  // Extra fields required by location
+  extraFields?: {
+    id: number;
+    name: string;
+    label: string;
+    type: string;
+    inputType: string;
+    perCar: boolean;
+  }[];
+
+  // Cancellation policy
+  cancellationPolicies?: {
+    numberOfDays: number;
+    percentage: number;
+  }[];
 }
 
 export interface SearchParams {
   airport: string;
   checkin: string;
   checkout: string;
+  checkinTime?: string; // Format: "HH:mm" or "10:00 AM"
+  checkoutTime?: string;
   spots?: number;
 }
 

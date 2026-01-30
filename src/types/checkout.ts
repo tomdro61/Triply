@@ -13,9 +13,16 @@ export interface VehicleDetails {
   state: string;
 }
 
+export interface ExtraFieldValue {
+  fieldId: number;
+  fieldName: string;
+  value: string;
+}
+
 export interface CheckoutData {
   customer: CustomerDetails;
   vehicle: VehicleDetails;
+  extraFields?: ExtraFieldValue[];
   promoCode?: string;
   acceptedTerms: boolean;
 }
@@ -28,5 +35,20 @@ export interface PriceBreakdown {
   subtotal: number;
   discount: number;
   taxes: number;
+  fees: number;
   total: number;
+  dueNow: number;
+  dueAtLocation: number;
+}
+
+export interface CheckoutCostData {
+  costsToken: string;
+  grandTotal: number;
+  subtotal: number;
+  taxTotal: number;
+  feesTotal: number;
+  dueAtLocation: number;
+  dueNow: number;
+  numberOfDays?: number;
+  soldOut: boolean;
 }

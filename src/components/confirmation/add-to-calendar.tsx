@@ -7,6 +7,8 @@ interface AddToCalendarProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   confirmationId: string;
 }
 
@@ -14,15 +16,38 @@ export function AddToCalendar({
   lot,
   checkIn,
   checkOut,
+  checkInTime = "10:00 AM",
+  checkOutTime = "2:00 PM",
   confirmationId,
 }: AddToCalendarProps) {
+  // Convert 12-hour time to 24-hour format
+  const convertTo24Hour = (time12h: string): string => {
+    const [time, modifier] = time12h.split(" ");
+    let [hours, minutes] = time.split(":");
+
+    if (hours === "12") {
+      hours = modifier === "AM" ? "00" : "12";
+    } else if (modifier === "PM") {
+      hours = String(parseInt(hours, 10) + 12);
+    }
+
+    return `${hours.padStart(2, "0")}${minutes}`;
+  };
+
+  const formatDateTimeForICS = (dateStr: string, time12h: string) => {
+    // Convert YYYY-MM-DD and time to YYYYMMDDTHHMMSS format
+    const datePart = dateStr.replace(/-/g, "");
+    const timePart = convertTo24Hour(time12h) + "00";
+    return `${datePart}T${timePart}`;
+  };
+
   const formatDateForICS = (dateStr: string) => {
     // Convert YYYY-MM-DD to YYYYMMDD format
     return dateStr.replace(/-/g, "");
   };
 
   const eventTitle = `Parking at ${lot.name}`;
-  const eventDescription = `Confirmation: ${confirmationId}\\n\\nAddress: ${lot.address}, ${lot.city}, ${lot.state}\\n\\nRemember to:\\n- Arrive 15 minutes early\\n- Have your QR code ready\\n- Keep your parking ticket`;
+  const eventDescription = `Confirmation: ${confirmationId}\\n\\nCheck-in: ${checkInTime}\\nCheck-out: ${checkOutTime}\\n\\nAddress: ${lot.address}, ${lot.city}, ${lot.state}\\n\\nRemember to:\\n- Arrive 15 minutes early\\n- Have your QR code ready\\n- Keep your parking ticket`;
   const eventLocation = `${lot.address}, ${lot.city}, ${lot.state} ${lot.zipCode || ""}`;
 
   const generateGoogleCalendarUrl = () => {
@@ -58,8 +83,8 @@ export function AddToCalendar({
   };
 
   const generateICSFile = () => {
-    const startDate = formatDateForICS(checkIn);
-    const endDate = formatDateForICS(checkOut);
+    const startDateTime = formatDateTimeForICS(checkIn, checkInTime);
+    const endDateTime = formatDateTimeForICS(checkOut, checkOutTime);
     const now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
 
     const icsContent = `BEGIN:VCALENDAR
@@ -68,8 +93,8 @@ PRODID:-//Triply//Parking Reservation//EN
 BEGIN:VEVENT
 UID:${confirmationId}@triplypro.com
 DTSTAMP:${now}
-DTSTART;VALUE=DATE:${startDate}
-DTEND;VALUE=DATE:${endDate}
+DTSTART:${startDateTime}
+DTEND:${endDateTime}
 SUMMARY:${eventTitle}
 DESCRIPTION:${eventDescription}
 LOCATION:${eventLocation}

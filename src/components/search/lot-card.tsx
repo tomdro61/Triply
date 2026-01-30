@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Star, MapPin, Check, X, Sun, Warehouse, Key } from "lucide-react";
+import { Star, MapPin, Check, X, Sun, Warehouse, Key, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
 interface LotCardProps {
@@ -104,9 +104,15 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
               </div>
             )}
             <div className="text-xl font-bold text-gray-900">
-              ${price}
+              ${price.toFixed(2)}
               <span className="text-xs text-gray-500 font-normal">/day</span>
             </div>
+            {lot.dueAtLocation && (
+              <div className="flex items-center justify-end gap-1 text-[10px] text-amber-700 font-medium mt-1">
+                <Wallet size={10} />
+                Pay at Location
+              </div>
+            )}
           </div>
         </div>
 

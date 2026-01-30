@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Calendar, MapPin, Star, Shield, Clock } from "lucide-react";
+import { Calendar, MapPin, Star, Shield, Clock, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
 import { PromoCode } from "./promo-code";
@@ -133,8 +133,16 @@ export function OrderSummary({
               <span>-${priceBreakdown.discount.toFixed(2)}</span>
             </div>
           )}
+          {priceBreakdown.fees > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Fees</span>
+              <span className="text-gray-900">
+                ${priceBreakdown.fees.toFixed(2)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Taxes & Fees</span>
+            <span className="text-gray-600">Taxes</span>
             <span className="text-gray-900">
               ${priceBreakdown.taxes.toFixed(2)}
             </span>
@@ -147,6 +155,25 @@ export function OrderSummary({
               </span>
             </div>
           </div>
+          {priceBreakdown.dueAtLocation > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Due Now</span>
+                <span className="font-medium text-gray-900">
+                  ${priceBreakdown.dueNow.toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm mt-1">
+                <span className="flex items-center gap-1 text-amber-700">
+                  <Wallet size={14} />
+                  Due at Location
+                </span>
+                <span className="font-medium text-amber-700">
+                  ${priceBreakdown.dueAtLocation.toFixed(2)}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

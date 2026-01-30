@@ -13,6 +13,8 @@ import {
   Clock,
   Shield,
   ExternalLink,
+  AlertCircle,
+  Wallet,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
@@ -21,6 +23,8 @@ interface ProductDetailSliderProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   airportCode: string;
   onClose: () => void;
 }
@@ -29,12 +33,16 @@ export function ProductDetailSlider({
   lot,
   checkIn,
   checkOut,
+  checkInTime = "10:00 AM",
+  checkOutTime = "2:00 PM",
   airportCode,
   onClose,
 }: ProductDetailSliderProps) {
   const router = useRouter();
   const [localCheckIn, setLocalCheckIn] = useState(checkIn);
   const [localCheckOut, setLocalCheckOut] = useState(checkOut);
+  const [localCheckInTime, setLocalCheckInTime] = useState(checkInTime);
+  const [localCheckOutTime, setLocalCheckOutTime] = useState(checkOutTime);
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
@@ -42,7 +50,7 @@ export function ProductDetailSlider({
 
   const airport = getAirportByCode(airportCode);
   const lotDetailUrl = airport
-    ? `/${airport.slug}/airport-parking/${lot.slug}?checkin=${localCheckIn}&checkout=${localCheckOut}`
+    ? `/${airport.slug}/airport-parking/${lot.slug}?checkin=${localCheckIn}&checkout=${localCheckOut}&checkinTime=${encodeURIComponent(localCheckInTime)}&checkoutTime=${encodeURIComponent(localCheckOutTime)}`
     : "#";
 
   const handleReserve = () => {
@@ -50,6 +58,8 @@ export function ProductDetailSlider({
       lot: lot.id,
       checkin: localCheckIn,
       checkout: localCheckOut,
+      checkinTime: localCheckInTime,
+      checkoutTime: localCheckOutTime,
     });
     router.push(`/checkout?${params.toString()}`);
   };
@@ -147,13 +157,24 @@ export function ProductDetailSlider({
                     </div>
                   )}
                   <div className="text-2xl font-bold text-gray-900">
-                    ${price}
+                    ${price.toFixed(2)}
                     <span className="text-sm text-gray-500 font-normal">
                       /day
                     </span>
                   </div>
                 </div>
               </div>
+
+              {/* Pay at Location Indicator */}
+              {lot.dueAtLocation && (
+                <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <Wallet size={18} className="text-amber-600 flex-shrink-0" />
+                  <div className="text-sm">
+                    <span className="font-semibold text-amber-800">Pay at Location</span>
+                    <span className="text-amber-700"> - Payment collected on-site at check-in</span>
+                  </div>
+                </div>
+              )}
 
               {/* Dates Input */}
               <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm mb-5 space-y-3 shadow-sm">

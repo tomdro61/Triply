@@ -1,7 +1,16 @@
 "use client";
 
 import { VehicleDetails } from "@/types/checkout";
-import { Car, Palette, CreditCard, ChevronLeft } from "lucide-react";
+import { Car, Palette, CreditCard, ChevronLeft, FileText } from "lucide-react";
+
+interface ExtraField {
+  id: number;
+  name: string;
+  label: string;
+  type: string;
+  inputType: string;
+  perCar: boolean;
+}
 
 interface VehicleDetailsStepProps {
   data: VehicleDetails;
@@ -9,6 +18,9 @@ interface VehicleDetailsStepProps {
   onNext: () => void;
   onBack: () => void;
   errors: Partial<Record<keyof VehicleDetails, string>>;
+  extraFields?: ExtraField[];
+  extraFieldValues?: Record<string, string>;
+  onExtraFieldChange?: (name: string, value: string) => void;
 }
 
 const US_STATES = [
@@ -29,10 +41,21 @@ export function VehicleDetailsStep({
   onNext,
   onBack,
   errors,
+  extraFields = [],
+  extraFieldValues = {},
+  onExtraFieldChange,
 }: VehicleDetailsStepProps) {
   const handleChange = (field: keyof VehicleDetails, value: string) => {
     onChange({ ...data, [field]: value });
   };
+
+  // Filter extra fields that are not standard vehicle fields (we handle those already)
+  const additionalFields = extraFields.filter(
+    (field) =>
+      !["car_make", "car_model", "car_color", "license_plate", "license_plate_state"].includes(
+        field.name
+      )
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,6 +210,63 @@ export function VehicleDetailsStep({
           )}
         </div>
       </div>
+
+      {/* Dynamic Extra Fields */}
+      {additionalFields.length > 0 && (
+        <div className="border-t border-gray-200 pt-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Additional Information
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {additionalFields.map((field) => (
+              <div key={field.id}>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {field.label}
+                  {field.type === "required" && " *"}
+                </label>
+                <div className="relative">
+                  <FileText
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  {field.inputType === "textarea" ? (
+                    <textarea
+                      value={extraFieldValues[field.name] || ""}
+                      onChange={(e) =>
+                        onExtraFieldChange?.(field.name, e.target.value)
+                      }
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors resize-none"
+                      rows={3}
+                      required={field.type === "required"}
+                    />
+                  ) : field.inputType === "select" ? (
+                    <select
+                      value={extraFieldValues[field.name] || ""}
+                      onChange={(e) =>
+                        onExtraFieldChange?.(field.name, e.target.value)
+                      }
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer"
+                      required={field.type === "required"}
+                    >
+                      <option value="">Select...</option>
+                    </select>
+                  ) : (
+                    <input
+                      type={field.inputType === "number" ? "number" : "text"}
+                      value={extraFieldValues[field.name] || ""}
+                      onChange={(e) =>
+                        onExtraFieldChange?.(field.name, e.target.value)
+                      }
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors"
+                      required={field.type === "required"}
+                    />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-4">
         <button
