@@ -1,0 +1,245 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { UnifiedLot } from "@/types/lot";
+import {
+  CheckoutData,
+  CheckoutStep,
+  CustomerDetails,
+  VehicleDetails,
+  PriceBreakdown,
+} from "@/types/checkout";
+import { CheckoutSteps } from "./checkout-steps";
+import { CustomerDetailsStep } from "./customer-details-step";
+import { VehicleDetailsStep } from "./vehicle-details-step";
+import { PaymentStep } from "./payment-step";
+import { OrderSummary } from "./order-summary";
+
+interface CheckoutFormProps {
+  lot: UnifiedLot;
+  checkIn: string;
+  checkOut: string;
+}
+
+// Demo promo codes
+const PROMO_CODES: Record<string, number> = {
+  SAVE10: 0.1, // 10% off
+  SAVE20: 0.2, // 20% off
+  TRIPLY: 0.15, // 15% off
+};
+
+export function CheckoutForm({ lot, checkIn, checkOut }: CheckoutFormProps) {
+  const router = useRouter();
+  const [currentStep, setCurrentStep] = useState<CheckoutStep>("details");
+
+  // Form data
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+  });
+
+  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetails>({
+    make: "",
+    model: "",
+    color: "",
+    licensePlate: "",
+    state: "",
+  });
+
+  const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Validation errors
+  const [customerErrors, setCustomerErrors] = useState<
+    Partial<Record<keyof CustomerDetails, string>>
+  >({});
+  const [vehicleErrors, setVehicleErrors] = useState<
+    Partial<Record<keyof VehicleDetails, string>>
+  >({});
+
+  // Calculate price breakdown
+  const priceBreakdown = useMemo<PriceBreakdown>(() => {
+    const start = new Date(checkIn);
+    const end = new Date(checkOut);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const days = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    const dailyRate = lot.pricing?.minPrice ?? 0;
+    const subtotal = dailyRate * days;
+
+    // Apply promo discount
+    const discountPercent = promoCode ? PROMO_CODES[promoCode] || 0 : 0;
+    const discount = subtotal * discountPercent;
+
+    const afterDiscount = subtotal - discount;
+    const taxes = Math.round(afterDiscount * 0.08 * 100) / 100; // 8% tax
+    const total = afterDiscount + taxes;
+
+    return {
+      dailyRate,
+      days,
+      subtotal,
+      discount,
+      taxes,
+      total,
+    };
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoCode]);
+
+  // Validation functions
+  const validateCustomerDetails = (): boolean => {
+    const errors: Partial<Record<keyof CustomerDetails, string>> = {};
+
+    if (!customerDetails.firstName.trim()) {
+      errors.firstName = "First name is required";
+    }
+    if (!customerDetails.lastName.trim()) {
+      errors.lastName = "Last name is required";
+    }
+    if (!customerDetails.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerDetails.email)) {
+      errors.email = "Please enter a valid email";
+    }
+    if (!customerDetails.phone.trim()) {
+      errors.phone = "Phone number is required";
+    }
+
+    setCustomerErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateVehicleDetails = (): boolean => {
+    const errors: Partial<Record<keyof VehicleDetails, string>> = {};
+
+    if (!vehicleDetails.make.trim()) {
+      errors.make = "Make is required";
+    }
+    if (!vehicleDetails.model.trim()) {
+      errors.model = "Model is required";
+    }
+    if (!vehicleDetails.color) {
+      errors.color = "Color is required";
+    }
+    if (!vehicleDetails.licensePlate.trim()) {
+      errors.licensePlate = "License plate is required";
+    }
+    if (!vehicleDetails.state) {
+      errors.state = "State is required";
+    }
+
+    setVehicleErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Step handlers
+  const handleCustomerNext = () => {
+    if (validateCustomerDetails()) {
+      setCurrentStep("vehicle");
+    }
+  };
+
+  const handleVehicleNext = () => {
+    if (validateVehicleDetails()) {
+      setCurrentStep("payment");
+    }
+  };
+
+  const handleVehicleBack = () => {
+    setCurrentStep("details");
+  };
+
+  const handlePaymentBack = () => {
+    setCurrentStep("vehicle");
+  };
+
+  // Promo code handlers
+  const handleApplyPromo = async (code: string): Promise<boolean> => {
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    if (PROMO_CODES[code]) {
+      setPromoCode(code);
+      return true;
+    }
+    return false;
+  };
+
+  const handleRemovePromo = () => {
+    setPromoCode(null);
+  };
+
+  // Submit booking
+  const handleSubmit = async () => {
+    const bookingData: CheckoutData = {
+      customer: customerDetails,
+      vehicle: vehicleDetails,
+      promoCode: promoCode || undefined,
+      acceptedTerms,
+    };
+
+    // In production, this would call the booking API
+    console.log("Booking submitted:", bookingData);
+
+    // Generate a mock confirmation ID
+    const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+
+    // Redirect to confirmation page
+    router.push(`/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}`);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {/* Main Form */}
+      <div className="lg:col-span-2">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+          <CheckoutSteps currentStep={currentStep} />
+
+          {currentStep === "details" && (
+            <CustomerDetailsStep
+              data={customerDetails}
+              onChange={setCustomerDetails}
+              onNext={handleCustomerNext}
+              errors={customerErrors}
+            />
+          )}
+
+          {currentStep === "vehicle" && (
+            <VehicleDetailsStep
+              data={vehicleDetails}
+              onChange={setVehicleDetails}
+              onNext={handleVehicleNext}
+              onBack={handleVehicleBack}
+              errors={vehicleErrors}
+            />
+          )}
+
+          {currentStep === "payment" && (
+            <PaymentStep
+              priceBreakdown={priceBreakdown}
+              acceptedTerms={acceptedTerms}
+              onTermsChange={setAcceptedTerms}
+              onBack={handlePaymentBack}
+              onSubmit={handleSubmit}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Order Summary Sidebar */}
+      <div className="lg:col-span-1">
+        <OrderSummary
+          lot={lot}
+          checkIn={checkIn}
+          checkOut={checkOut}
+          priceBreakdown={priceBreakdown}
+          promoCode={promoCode}
+          onApplyPromo={handleApplyPromo}
+          onRemovePromo={handleRemovePromo}
+        />
+      </div>
+    </div>
+  );
+}
