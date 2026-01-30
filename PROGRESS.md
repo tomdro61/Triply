@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 30, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow
-> **Next Task:** Confirmation Page
+> **Current Phase:** Phase 2 - Core Booking Flow (Near Complete)
+> **Next Task:** Real API Integration / Phase 3
 
 ---
 
@@ -52,7 +52,7 @@
 | Search Results Page | ✅ Done | Split view: list + map, mock data |
 | Lot Detail Page | ✅ Done | Image gallery, booking widget, full details |
 | Checkout Page | ✅ Done | Multi-step form, mock Stripe, promo codes |
-| Confirmation Page | ⏳ Next | QR code, details summary |
+| Confirmation Page | ✅ Done | QR code, booking details, add-to-calendar |
 | API Routes | 🔄 Partial | /api/search, /api/lots/[id] done (mock), /api/cost, /api/booking todo |
 | Reservations Lab Integration | 🔲 Todo | Connect to real API |
 | Stripe Integration | 🔄 Partial | Mock UI done, real integration todo |
@@ -95,13 +95,15 @@
 - [x] Step progress indicator
 
 **Confirmation Page Requirements:**
-- [ ] Confirmation number display
-- [ ] Booking details summary
-- [ ] QR code for check-in
-- [ ] Add to Calendar buttons
-- [ ] Get Directions link
-- [ ] "What's Next" instructions
-- [ ] Email sent confirmation
+- [x] Confirmation number display
+- [x] Booking details summary (lot, dates, duration, total, customer/vehicle info)
+- [x] QR code for check-in (with download and copy)
+- [x] Add to Calendar buttons (Google, Outlook, Apple, ICS download)
+- [x] Get Directions link (opens Google Maps)
+- [x] "What's Next" instructions (step-by-step guide)
+- [x] Email sent confirmation indicator
+- [x] Add to Wallet button (placeholder)
+- [x] Return Home / Book Another buttons
 
 ---
 
@@ -191,7 +193,7 @@ triply/
 │   │   │   └── airport-parking/
 │   │   │       └── [lot]/page.tsx   # Lot detail ✅
 │   │   ├── checkout/page.tsx        # Checkout ✅
-│   │   ├── confirmation/[id]/page.tsx # Confirmation 🔲
+│   │   ├── confirmation/[id]/page.tsx # Confirmation ✅
 │   │   └── api/
 │   │       ├── search/route.ts      # Search API 🔲
 │   │       ├── cost/route.ts        # Pricing API 🔲
@@ -253,12 +255,15 @@ npm run start
 ## Notes for Next Session
 
 1. **Read this file first** to understand current progress
-2. **Next task:** Build Confirmation page at `/confirmation/[id]/page.tsx`
-3. **Reference the mockup** at `Triply_design_mock/` for design patterns
-4. **Search Results Page Complete** - includes split view, map, result cards, sorting, slide-out panel
-5. **Lot Detail Page Complete** - image gallery, booking widget, full details, SEO metadata
-6. **Checkout Page Complete** - multi-step form, mock payment, promo codes, order summary
-7. **All service credentials are placeholders** - will need real ones before launch
+2. **Phase 2 Core Booking Flow COMPLETE** - All 4 main pages done with mock data
+3. **Next steps:** Real API integration, Stripe, Email, or start Phase 3 (Content & Admin)
+4. **All service credentials are placeholders** - will need real ones before launch
+
+**Phase 2 Completed Pages:**
+- Search Results - split view, map, result cards, sorting, slide-out panel
+- Lot Detail - image gallery, booking widget, full details, SEO metadata
+- Checkout - multi-step form, mock payment, promo codes, order summary
+- Confirmation - QR code, booking details, add-to-calendar, directions
 
 **Search Components Created:**
 - `src/components/search/search-header.tsx` - Sticky header with tabs and inputs
@@ -288,6 +293,13 @@ npm run start
 - `src/types/checkout.ts` - Checkout-related TypeScript types
 
 **Demo Promo Codes:** SAVE10, SAVE20, TRIPLY
+
+**Confirmation Components Created:**
+- `src/components/confirmation/confirmation-header.tsx` - Success message, confirmation ID
+- `src/components/confirmation/booking-details.tsx` - Lot info, dates, pricing, customer info
+- `src/components/confirmation/qr-code-section.tsx` - QR code with download/copy
+- `src/components/confirmation/add-to-calendar.tsx` - Google, Outlook, Apple, ICS export
+- `src/components/confirmation/whats-next.tsx` - Step-by-step check-in instructions
 
 ---
 
