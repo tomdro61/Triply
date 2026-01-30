@@ -1,0 +1,9 @@
+export { Navbar } from "./navbar";
+export { Hero } from "./hero";
+export { StatsBar } from "./stats-bar";
+export { FeatureCards } from "./feature-cards";
+export { HowItWorks } from "./how-it-works";
+export { FAQ } from "./faq";
+export { Newsletter } from "./newsletter";
+export { Footer } from "./footer";
+export { CookieBanner } from "./cookie-banner";
