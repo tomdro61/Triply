@@ -48,9 +48,9 @@ function transformLocationToLot(
   // Get currency code
   const currencyCode = location.currency?.code || "USD";
 
-  // Get parking type info from minPriceData if available
-  const parkingTypeId = minPriceData?.parking_type?.id || 0;
-  const parkingTypeName = minPriceData?.parking_type?.name || "Standard Parking";
+  // Get parking type info from minPriceData rates
+  // The rates array contains location_parking_type_id
+  const parkingTypeId = minPriceData?.rates?.[0]?.location_parking_type_id || 0;
   const numberOfDays = minPriceData?.reservation?.totals?.parking?.number_of_days || 1;
   const subtotal = minPriceData?.reservation?.sub_total || 0;
   const dailyRate = numberOfDays > 0 ? subtotal / numberOfDays : 0;
@@ -58,7 +58,7 @@ function transformLocationToLot(
   // Create parking types array from the response
   const pricingParkingTypes = parkingTypeId ? [{
     id: parkingTypeId,
-    name: parkingTypeName,
+    name: "Standard Parking", // min-price doesn't return the name
     price: dailyRate,
     spotsAvailable: location.number_of_parkings,
   }] : [];

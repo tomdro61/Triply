@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { PriceBreakdown } from "@/types/checkout";
 
+// Dev mode - skip Stripe payment for testing
+const DEV_SKIP_PAYMENT = process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
+
 interface PaymentStepProps {
   priceBreakdown: PriceBreakdown;
   acceptedTerms: boolean;
@@ -82,10 +85,24 @@ export function PaymentStep({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Dev Mode Banner */}
+      {DEV_SKIP_PAYMENT && (
+        <div className="bg-purple-100 border border-purple-300 rounded-lg p-3 flex items-center gap-2">
+          <div className="bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+            DEV MODE
+          </div>
+          <p className="text-purple-800 text-sm">
+            Stripe payment is bypassed. Reservations will be created directly in ResLab.
+          </p>
+        </div>
+      )}
+
       <div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">Payment</h2>
         <p className="text-gray-500 text-sm">
-          Your payment information is secure and encrypted
+          {DEV_SKIP_PAYMENT
+            ? "Payment will be skipped in dev mode"
+            : "Your payment information is secure and encrypted"}
         </p>
       </div>
 

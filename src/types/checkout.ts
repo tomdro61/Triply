@@ -42,7 +42,7 @@ export interface PriceBreakdown {
 }
 
 export interface CheckoutCostData {
-  costsToken: string;
+  costsToken: string | null;
   grandTotal: number;
   subtotal: number;
   taxTotal: number;
@@ -51,4 +51,5 @@ export interface CheckoutCostData {
   dueNow: number;
   numberOfDays?: number;
   soldOut: boolean;
+  parkingTypeId?: number | null;
 }

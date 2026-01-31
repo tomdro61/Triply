@@ -36,6 +36,9 @@ const PROMO_CODES: Record<string, number> = {
   TRIPLY: 0.15, // 15% off
 };
 
+// Dev mode - skip Stripe payment for testing
+const DEV_SKIP_PAYMENT = process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
+
 export function CheckoutForm({
   lot,
   checkIn,
@@ -224,17 +227,33 @@ export function CheckoutForm({
     setSubmitError(null);
 
     try {
-      // Get parking type ID
-      const parkingTypeId = lot.pricing?.parkingTypes?.[0]?.id;
+      // Get parking type ID from costData or lot pricing
+      const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
 
-      if (!lot.reslabLocationId || !costData?.costsToken || !parkingTypeId) {
-        // Fallback for mock data or missing API data
-        console.log("Creating mock reservation (no API data available)");
-        const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
-        router.push(
-          `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
-        );
-        return;
+      // Check if we have the required data for ResLab reservation
+      const canCreateResLabReservation =
+        lot.reslabLocationId &&
+        costData?.costsToken &&
+        parkingTypeId;
+
+      if (!canCreateResLabReservation) {
+        if (DEV_SKIP_PAYMENT) {
+          // Dev mode without full API data - create mock confirmation
+          console.log("[DEV MODE] Creating mock reservation (missing costsToken or parkingTypeId)");
+          const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+          router.push(
+            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+          );
+          return;
+        }
+
+        // Production mode - missing required data
+        throw new Error("Unable to complete booking. Please try again.");
+      }
+
+      // In dev mode, skip Stripe payment and go straight to ResLab
+      if (DEV_SKIP_PAYMENT) {
+        console.log("[DEV MODE] Skipping Stripe payment, creating ResLab reservation directly");
       }
 
       // Build extra fields for API
