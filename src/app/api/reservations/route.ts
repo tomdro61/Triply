@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reslab } from "@/lib/reslab/client";
+import { createAdminClient } from "@/lib/supabase/server";
 
 interface CreateReservationBody {
   locationId: number;
@@ -21,6 +22,15 @@ interface CreateReservationBody {
     state: string;
   };
   extraFields?: Record<string, string>;
+  // Location info for storing in Supabase
+  locationName?: string;
+  locationAddress?: string;
+  airportCode?: string;
+  // Pricing info
+  subtotal?: number;
+  taxTotal?: number;
+  feesTotal?: number;
+  grandTotal?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -36,6 +46,13 @@ export async function POST(request: NextRequest) {
       customer,
       vehicle,
       extraFields,
+      locationName,
+      locationAddress,
+      airportCode,
+      subtotal,
+      taxTotal,
+      feesTotal,
+      grandTotal,
     } = body;
 
     // Validate required fields
@@ -87,6 +104,77 @@ export async function POST(request: NextRequest) {
       ],
       ...apiExtraFields,
     });
+
+    // Save to Supabase
+    try {
+      const supabase = await createAdminClient();
+
+      // Create or find customer by email
+      const { data: existingCustomer } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("email", customer.email)
+        .single();
+
+      let customerId: string;
+
+      if (existingCustomer) {
+        customerId = existingCustomer.id;
+        // Update customer info
+        await supabase
+          .from("customers")
+          .update({
+            first_name: customer.firstName,
+            last_name: customer.lastName,
+            phone: customer.phone,
+          })
+          .eq("id", customerId);
+      } else {
+        // Create new customer
+        const { data: newCustomer, error: customerError } = await supabase
+          .from("customers")
+          .insert({
+            email: customer.email,
+            first_name: customer.firstName,
+            last_name: customer.lastName,
+            phone: customer.phone,
+          })
+          .select("id")
+          .single();
+
+        if (customerError) {
+          console.error("Error creating customer:", customerError);
+          throw customerError;
+        }
+        customerId = newCustomer.id;
+      }
+
+      // Create booking record
+      const { error: bookingError } = await supabase.from("bookings").insert({
+        customer_id: customerId,
+        reslab_reservation_number: reservation.reservation_number,
+        reslab_location_id: locationId,
+        location_name: locationName || reservation.location?.name || `Location ${locationId}`,
+        location_address: locationAddress || reservation.location?.address || "",
+        airport_code: airportCode || "",
+        check_in: fromDate,
+        check_out: toDate,
+        subtotal: subtotal || reservation.subtotal || 0,
+        tax_total: taxTotal || reservation.tax_total || 0,
+        fees_total: feesTotal || reservation.fees_total || 0,
+        grand_total: grandTotal || reservation.grand_total || 0,
+        vehicle_info: vehicle,
+        status: "confirmed",
+      });
+
+      if (bookingError) {
+        console.error("Error creating booking:", bookingError);
+        // Don't fail the whole request - ResLab reservation was already created
+      }
+    } catch (supabaseError) {
+      // Log but don't fail - ResLab reservation was successful
+      console.error("Supabase save error:", supabaseError);
+    }
 
     return NextResponse.json({
       success: true,

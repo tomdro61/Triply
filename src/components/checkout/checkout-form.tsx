@@ -274,6 +274,15 @@ export function CheckoutForm({
           customer: customerDetails,
           vehicle: vehicleDetails,
           extraFields,
+          // Location info for Supabase
+          locationName: lot.name,
+          locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
+          airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+          // Pricing info
+          subtotal: costData.subtotal || priceBreakdown.subtotal,
+          taxTotal: costData.taxTotal || priceBreakdown.taxes,
+          feesTotal: costData.feesTotal || priceBreakdown.serviceFee,
+          grandTotal: costData.grandTotal || priceBreakdown.total,
         }),
       });
 

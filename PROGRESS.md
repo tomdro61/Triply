@@ -1,8 +1,8 @@
 # Triply Development Progress
 
-> **Last Updated:** January 30, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow (Supabase/Auth remaining)
-> **Next Task:** Supabase Setup → User Auth → Store Bookings
+> **Last Updated:** January 31, 2026
+> **Current Phase:** Phase 2 - Core Booking Flow (User Auth remaining)
+> **Next Task:** User Auth (Email + Google) → Optional Account Creation
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -59,10 +59,10 @@
 | Reservations Lab Integration | ✅ Done | Full booking flow working end-to-end |
 | Stripe Integration | 🔄 Partial | Dev bypass available, needs real test keys |
 | Email Confirmation | 🔲 Todo | Resend templates |
-| **Supabase Setup** | 🔲 Todo | Database + Auth project |
+| **Supabase Setup** | ✅ Done | Database + Auth project created |
 | **User Auth (Email + Google)** | 🔲 Todo | Login/signup UI, Supabase Auth |
-| **Database Schema** | 🔲 Todo | bookings, customers tables |
-| **Store Guest Bookings** | 🔲 Todo | Save all bookings to Supabase |
+| **Database Schema** | ✅ Done | customers + bookings tables |
+| **Store Guest Bookings** | ✅ Done | All bookings saved to Supabase |
 | **Optional Account Creation** | 🔲 Todo | Offer signup after booking |
 
 **✅ Full Booking Flow Tested & Working:**
@@ -161,8 +161,8 @@
 |-------|------------|--------|
 | Framework | Next.js 16 (App Router) | ✅ Configured |
 | Styling | Tailwind CSS + shadcn/ui | ✅ Configured |
-| Database | Supabase PostgreSQL | 🔲 Need account |
-| Auth | Supabase Auth (Email + Google) | 🔲 Need account |
+| Database | Supabase PostgreSQL | ✅ Configured |
+| Auth | Supabase Auth (Email + Google) | 🔄 Need to enable providers |
 | Payments | Stripe | 🔲 Need test keys |
 | Maps | Mapbox | 🔲 Need account |
 | CMS | Sanity | 🔲 Need account |
@@ -178,7 +178,7 @@
 | Service | Phase | Status | Action Required |
 |---------|-------|--------|-----------------|
 | Reservations Lab | 2 | ✅ Configured | Test API key working (triplypro.com) |
-| Supabase | 2 | ❌ Not created | Create project at supabase.com (DB + Auth) |
+| Supabase | 2 | ✅ Configured | Triply-prod project, DB schema deployed |
 | Stripe | 2 | ❌ Placeholder keys | Get real test keys from stripe.com |
 | Resend | 2 | ❌ Not created | Create account at resend.com (emails) |
 | Mapbox | 2 | ❌ Not created | Create account at mapbox.com (maps) |
