@@ -384,4 +384,38 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 
 ---
 
+## Documentation Update Checklist
+
+**This file (`PROGRESS.md`) is the source of truth.** Update it every session.
+
+### When to Update Each File
+
+| Trigger | Update |
+|---------|--------|
+| Task completed | ✅ Mark task done in PROGRESS.md |
+| Major decision made | ✅ Add to PROGRESS.md notes + update affected reference docs |
+| Phase completed | ✅ Update phase status, review all docs for accuracy |
+| Tech stack change | ✅ Update CLAUDE.md tech stack table |
+| Scope change (in/out) | ✅ Update PROGRESS.md + triply_mvp_plan.md |
+
+### Reference Documentation (Update Only When Relevant)
+
+| File | Update When... |
+|------|----------------|
+| `CLAUDE.md` | Project structure, tech stack, or phase status changes |
+| `triply_mvp_plan.md` | Phase scope or priorities change |
+| `triply_solution_design.md` | Building that specific feature (use as reference) |
+| `triply_architecture_overview.md` | Major architectural decisions |
+| `triply_reslab_integration.md` | ResLab API usage changes |
+
+### End of Session Checklist
+
+- [ ] Update "Last Updated" date at top of this file
+- [ ] Update "Current Phase" and "Next Task" if changed
+- [ ] Mark completed tasks with ✅
+- [ ] Add any new decisions to "Notes for Next Session"
+- [ ] Commit PROGRESS.md with descriptive message
+
+---
+
 *This file is updated as development progresses. Always check the "Last Updated" date and "Current Phase" at the top.*
