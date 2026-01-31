@@ -1,8 +1,10 @@
 # Triply Development Progress
 
 > **Last Updated:** January 30, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow (Complete)
-> **Next Task:** Stripe Integration / Phase 3
+> **Current Phase:** Phase 2 - Core Booking Flow ✅ FULLY WORKING
+> **Next Task:** Stripe Test Keys / Email Templates / Phase 3
+>
+> **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
 ---
 
@@ -45,18 +47,23 @@
 
 ---
 
-### Phase 2: Core Booking Flow ✅ COMPLETE
+### Phase 2: Core Booking Flow ✅ COMPLETE & WORKING
 
 | Task | Status | Notes |
 |------|--------|-------|
 | Search Results Page | ✅ Done | Split view: list + map, real ResLab data |
 | Lot Detail Page | ✅ Done | Image gallery, booking widget, real pricing |
 | Checkout Page | ✅ Done | Multi-step form, real lot/pricing data |
-| Confirmation Page | ✅ Done | QR code, booking details, add-to-calendar |
+| Confirmation Page | ✅ Done | QR code, booking details from ResLab |
 | API Routes | ✅ Done | /api/search, /api/checkout/lot, /api/reservations |
-| Reservations Lab Integration | ✅ Done | Full API client with auth, search, pricing |
-| Stripe Integration | 🔄 Partial | UI done, needs real test keys to complete |
+| Reservations Lab Integration | ✅ Done | Full booking flow working end-to-end |
+| Stripe Integration | 🔄 Partial | Dev bypass available, needs real test keys |
 | Email Confirmation | 🔲 Todo | Resend templates |
+
+**✅ Full Booking Flow Tested & Working:**
+- Search → Checkout → Payment (dev bypass) → ResLab Reservation → Confirmation
+- Reservations appear in ResLab dashboard
+- Confirmation page shows real booking data from ResLab API
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
@@ -256,22 +263,35 @@ npm run start
 ## Notes for Next Session
 
 1. **Read this file first** to understand current progress
-2. **Phase 2 Core Booking Flow COMPLETE** - All pages working with real ResLab API
-3. **ResLab Integration Working** - Search, lot details, pricing all from real API
-4. **Next steps:** Configure Stripe test keys, then Email templates, or start Phase 3
-5. **Stripe needs real test keys** - Currently has placeholder keys in .env.local
+2. **🎉 FULL BOOKING FLOW WORKING** - Reservations create successfully in ResLab!
+3. **Dev Mode Available** - Set `NEXT_PUBLIC_DEV_SKIP_PAYMENT=true` to bypass Stripe
+4. **Next steps:** Add Stripe test keys for real payments, or start Phase 3
+5. **Test airports:** TEST-NY (location 195) and TEST-OH (location 194)
 
 **Phase 2 Completed Pages:**
 - Search Results - split view, map, result cards, sorting, slide-out panel (real ResLab data)
 - Lot Detail - image gallery, booking widget, full details, SEO metadata (real ResLab data)
 - Checkout - multi-step form, vehicle details, order summary (real pricing from ResLab)
-- Confirmation - QR code, booking details, add-to-calendar, directions
+- Confirmation - QR code, booking details fetched from ResLab API
 
 **ResLab Integration Details:**
 - Full API client with JWT authentication (auto-refresh)
-- Endpoints: searchLocations, getLocation, getMinPrice, getCost, createReservation
-- Test location ID 195 working for development
-- Airport config includes reslabLocationId for test airport (TEST-NY)
+- Endpoints: searchLocations, getLocation, getMinPrice, getCost, createReservation, getReservation
+- Test locations: 194 (TEST-OH) and 195 (TEST-NY)
+- Reservations successfully created and viewable in ResLab dashboard
+- Confirmation page fetches real reservation data from ResLab
+
+**Dev Mode (Stripe Bypass):**
+```bash
+# In .env.local - set to bypass Stripe payment:
+NEXT_PUBLIC_DEV_SKIP_PAYMENT=true
+
+# Set to false (or remove) to require real Stripe payment:
+NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
+```
+- Shows purple "DEV MODE" banner on payment step
+- Skips Stripe, creates reservation directly in ResLab
+- Useful for testing full flow without Stripe account
 
 **Search Components Created:**
 - `src/components/search/search-header.tsx` - Sticky header with tabs and inputs
