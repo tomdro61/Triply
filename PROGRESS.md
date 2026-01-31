@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 30, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow ✅ FULLY WORKING
-> **Next Task:** Stripe Test Keys / Email Templates / Phase 3
+> **Current Phase:** Phase 2 - Core Booking Flow (Supabase/Auth remaining)
+> **Next Task:** Supabase Setup → User Auth → Store Bookings
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -47,7 +47,7 @@
 
 ---
 
-### Phase 2: Core Booking Flow ✅ COMPLETE & WORKING
+### Phase 2: Core Booking Flow 🔄 IN PROGRESS
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -59,11 +59,24 @@
 | Reservations Lab Integration | ✅ Done | Full booking flow working end-to-end |
 | Stripe Integration | 🔄 Partial | Dev bypass available, needs real test keys |
 | Email Confirmation | 🔲 Todo | Resend templates |
+| **Supabase Setup** | 🔲 Todo | Database + Auth project |
+| **User Auth (Email + Google)** | 🔲 Todo | Login/signup UI, Supabase Auth |
+| **Database Schema** | 🔲 Todo | bookings, customers tables |
+| **Store Guest Bookings** | 🔲 Todo | Save all bookings to Supabase |
+| **Optional Account Creation** | 🔲 Todo | Offer signup after booking |
 
 **✅ Full Booking Flow Tested & Working:**
 - Search → Checkout → Payment (dev bypass) → ResLab Reservation → Confirmation
 - Reservations appear in ResLab dashboard
 - Confirmation page shows real booking data from ResLab API
+
+**🔲 Supabase / User Accounts (MVP Scope):**
+- Auth methods: Email/password + Google OAuth
+- Guest checkout remains available (no account required)
+- All bookings stored in Supabase (guest + logged in)
+- Optional "Create Account" prompt after booking
+- Link guest bookings to account if user signs up later
+- Apple Sign-In deferred to Phase 3
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
@@ -124,6 +137,9 @@
 | Legal Pages | 🔲 Todo | Terms, Privacy, etc. |
 | Admin Dashboard | 🔲 Todo | Bookings list, stats |
 | Email Templates | 🔲 Todo | Booking confirmation |
+| **My Reservations Page** | 🔲 Todo | User's upcoming/past bookings |
+| **Account Settings Page** | 🔲 Todo | Profile, password, preferences |
+| **Apple Sign-In** | 🔲 Todo | Requires Apple Developer account |
 
 ---
 
@@ -146,12 +162,12 @@
 |-------|------------|--------|
 | Framework | Next.js 16 (App Router) | ✅ Configured |
 | Styling | Tailwind CSS + shadcn/ui | ✅ Configured |
-| Database | Supabase | 🔲 Need account |
-| Auth | Supabase Auth | 🔲 Need account |
-| Payments | Stripe | 🔲 Need account |
+| Database | Supabase PostgreSQL | 🔲 Need account (MVP) |
+| Auth | Supabase Auth (Email + Google) | 🔲 Need account (MVP) |
+| Payments | Stripe | 🔲 Need test keys (MVP) |
 | Maps | Mapbox | 🔲 Need account |
-| CMS | Sanity | 🔲 Need account |
-| Email | Resend | 🔲 Need account |
+| CMS | Sanity | 🔲 Need account (Phase 3) |
+| Email | Resend | 🔲 Need account (MVP) |
 | Hosting | Vercel | ✅ Account exists |
 | Error Tracking | Sentry | 🔲 Need account |
 
@@ -159,15 +175,21 @@
 
 ## Service Accounts Needed
 
+**MVP Required:**
 | Service | Status | Action Required |
 |---------|--------|-----------------|
-| Supabase | ❌ Not created | Create project at supabase.com |
+| Supabase | ❌ Not created | Create project at supabase.com (DB + Auth) |
 | Stripe | ❌ Placeholder keys | Get real test keys from stripe.com |
+| Resend | ❌ Not created | Create account at resend.com (emails) |
+| Reservations Lab | ✅ Configured | Test API key working (triplypro.com) |
+
+**Post-MVP / Phase 3+:**
+| Service | Status | Action Required |
+|---------|--------|-----------------|
 | Mapbox | ❌ Not created | Create account at mapbox.com |
 | Sanity | ❌ Not created | Create project at sanity.io |
-| Resend | ❌ Not created | Create account at resend.com |
 | Sentry | ❌ Not created | Create project at sentry.io |
-| Reservations Lab | ✅ Configured | Test API key working (triplypro.com) |
+| Apple Developer | ❌ Not created | $99/year for Apple Sign-In |
 
 ---
 
@@ -260,12 +282,45 @@ npm run start
 
 ---
 
+## Supabase Database Schema (Planned)
+
+```sql
+-- Users table (managed by Supabase Auth)
+-- Includes: id, email, created_at, etc.
+
+-- Customers table (links to users, stores guest info)
+customers:
+  - id (uuid, primary key)
+  - user_id (uuid, nullable, foreign key to auth.users)
+  - email (text, required)
+  - first_name (text)
+  - last_name (text)
+  - phone (text)
+  - created_at (timestamp)
+
+-- Bookings table (all reservations)
+bookings:
+  - id (uuid, primary key)
+  - customer_id (uuid, foreign key to customers)
+  - reslab_reservation_number (text, unique)
+  - reslab_location_id (int)
+  - location_name (text)
+  - check_in (timestamp)
+  - check_out (timestamp)
+  - grand_total (decimal)
+  - status (text: confirmed, cancelled, completed)
+  - vehicle_info (jsonb)
+  - created_at (timestamp)
+```
+
+---
+
 ## Notes for Next Session
 
 1. **Read this file first** to understand current progress
 2. **🎉 FULL BOOKING FLOW WORKING** - Reservations create successfully in ResLab!
 3. **Dev Mode Available** - Set `NEXT_PUBLIC_DEV_SKIP_PAYMENT=true` to bypass Stripe
-4. **Next steps:** Add Stripe test keys for real payments, or start Phase 3
+4. **Next priority:** Supabase setup for user accounts + storing bookings
 5. **Test airports:** TEST-NY (location 195) and TEST-OH (location 194)
 
 **Phase 2 Completed Pages:**
