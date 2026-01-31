@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 30, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow (Near Complete)
-> **Next Task:** Real API Integration / Phase 3
+> **Current Phase:** Phase 2 - Core Booking Flow (Complete)
+> **Next Task:** Stripe Integration / Phase 3
 
 ---
 
@@ -45,17 +45,17 @@
 
 ---
 
-### Phase 2: Core Booking Flow 🔄 IN PROGRESS
+### Phase 2: Core Booking Flow ✅ COMPLETE
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Search Results Page | ✅ Done | Split view: list + map, mock data |
-| Lot Detail Page | ✅ Done | Image gallery, booking widget, full details |
-| Checkout Page | ✅ Done | Multi-step form, mock Stripe, promo codes |
+| Search Results Page | ✅ Done | Split view: list + map, real ResLab data |
+| Lot Detail Page | ✅ Done | Image gallery, booking widget, real pricing |
+| Checkout Page | ✅ Done | Multi-step form, real lot/pricing data |
 | Confirmation Page | ✅ Done | QR code, booking details, add-to-calendar |
-| API Routes | 🔄 Partial | /api/search, /api/lots/[id] done (mock), /api/cost, /api/booking todo |
-| Reservations Lab Integration | 🔲 Todo | Connect to real API |
-| Stripe Integration | 🔄 Partial | Mock UI done, real integration todo |
+| API Routes | ✅ Done | /api/search, /api/checkout/lot, /api/reservations |
+| Reservations Lab Integration | ✅ Done | Full API client with auth, search, pricing |
+| Stripe Integration | 🔄 Partial | UI done, needs real test keys to complete |
 | Email Confirmation | 🔲 Todo | Resend templates |
 
 **Search Results Page Requirements:**
@@ -155,12 +155,12 @@
 | Service | Status | Action Required |
 |---------|--------|-----------------|
 | Supabase | ❌ Not created | Create project at supabase.com |
-| Stripe | ❌ Not created | Create account at stripe.com |
+| Stripe | ❌ Placeholder keys | Get real test keys from stripe.com |
 | Mapbox | ❌ Not created | Create account at mapbox.com |
 | Sanity | ❌ Not created | Create project at sanity.io |
 | Resend | ❌ Not created | Create account at resend.com |
 | Sentry | ❌ Not created | Create project at sentry.io |
-| Reservations Lab | ❌ No credentials | Contact ResLab for API key |
+| Reservations Lab | ✅ Configured | Test API key working (triplypro.com) |
 
 ---
 
@@ -195,9 +195,9 @@ triply/
 │   │   ├── checkout/page.tsx        # Checkout ✅
 │   │   ├── confirmation/[id]/page.tsx # Confirmation ✅
 │   │   └── api/
-│   │       ├── search/route.ts      # Search API 🔲
-│   │       ├── cost/route.ts        # Pricing API 🔲
-│   │       └── booking/route.ts     # Booking API 🔲
+│   │       ├── search/route.ts      # Search API ✅ (ResLab)
+│   │       ├── checkout/lot/route.ts # Lot details for checkout ✅
+│   │       └── reservations/route.ts # Create/get reservations ✅
 │   ├── components/
 │   │   ├── shared/                  # Layout components ✅
 │   │   ├── search/                  # Search components ✅
@@ -205,7 +205,8 @@ triply/
 │   │   ├── checkout/                # Checkout components ✅
 │   │   └── ui/                      # shadcn/ui ✅
 │   ├── lib/
-│   │   ├── reslab/client.ts         # ResLab API ✅ (stub)
+│   │   ├── reslab/client.ts         # ResLab API ✅ (fully integrated)
+│   │   ├── reslab/get-lot.ts        # Lot fetching helpers ✅
 │   │   ├── supabase/                # Supabase ✅ (stub)
 │   │   ├── stripe/client.ts         # Stripe ✅ (stub)
 │   │   └── utils.ts                 # Utilities ✅
@@ -255,15 +256,22 @@ npm run start
 ## Notes for Next Session
 
 1. **Read this file first** to understand current progress
-2. **Phase 2 Core Booking Flow COMPLETE** - All 4 main pages done with mock data
-3. **Next steps:** Real API integration, Stripe, Email, or start Phase 3 (Content & Admin)
-4. **All service credentials are placeholders** - will need real ones before launch
+2. **Phase 2 Core Booking Flow COMPLETE** - All pages working with real ResLab API
+3. **ResLab Integration Working** - Search, lot details, pricing all from real API
+4. **Next steps:** Configure Stripe test keys, then Email templates, or start Phase 3
+5. **Stripe needs real test keys** - Currently has placeholder keys in .env.local
 
 **Phase 2 Completed Pages:**
-- Search Results - split view, map, result cards, sorting, slide-out panel
-- Lot Detail - image gallery, booking widget, full details, SEO metadata
-- Checkout - multi-step form, mock payment, promo codes, order summary
+- Search Results - split view, map, result cards, sorting, slide-out panel (real ResLab data)
+- Lot Detail - image gallery, booking widget, full details, SEO metadata (real ResLab data)
+- Checkout - multi-step form, vehicle details, order summary (real pricing from ResLab)
 - Confirmation - QR code, booking details, add-to-calendar, directions
+
+**ResLab Integration Details:**
+- Full API client with JWT authentication (auto-refresh)
+- Endpoints: searchLocations, getLocation, getMinPrice, getCost, createReservation
+- Test location ID 195 working for development
+- Airport config includes reslabLocationId for test airport (TEST-NY)
 
 **Search Components Created:**
 - `src/components/search/search-header.tsx` - Sticky header with tabs and inputs
@@ -271,7 +279,7 @@ npm run start
 - `src/components/search/lot-card.tsx` - Individual lot card component
 - `src/components/search/mock-map.tsx` - Mock map with price pins
 - `src/components/search/product-detail-slider.tsx` - Slide-out detail panel
-- `src/app/api/search/route.ts` - Search API with mock data (6 lots for JFK/LGA)
+- `src/app/api/search/route.ts` - Search API connected to ResLab (real data)
 
 **Lot Detail Components Created:**
 - `src/components/lot/lot-header.tsx` - Back button, title, rating
@@ -279,8 +287,8 @@ npm run start
 - `src/components/lot/lot-overview.tsx` - Description and feature icons
 - `src/components/lot/lot-amenities.tsx` - Amenities checklist
 - `src/components/lot/lot-location.tsx` - Map placeholder and address
-- `src/components/lot/booking-widget.tsx` - Sticky sidebar with pricing
-- `src/app/api/lots/[id]/route.ts` - Single lot API with detailed mock data
+- `src/components/lot/booking-widget.tsx` - Sticky sidebar with real pricing
+- `src/lib/reslab/get-lot.ts` - Lot fetching from ResLab API
 
 **Checkout Components Created:**
 - `src/components/checkout/checkout-form.tsx` - Main form orchestrator
