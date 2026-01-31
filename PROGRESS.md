@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 31, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow (User Auth remaining)
-> **Next Task:** User Auth (Email + Google) → Optional Account Creation
+> **Current Phase:** Phase 2 - Core Booking Flow (almost complete!)
+> **Next Task:** Optional Account Creation → Stripe → Email
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -60,7 +60,7 @@
 | Stripe Integration | 🔄 Partial | Dev bypass available, needs real test keys |
 | Email Confirmation | 🔲 Todo | Resend templates |
 | **Supabase Setup** | ✅ Done | Database + Auth project created |
-| **User Auth (Email + Google)** | 🔲 Todo | Login/signup UI, Supabase Auth |
+| **User Auth (Email + Google)** | ✅ Done | Login/signup UI, Google OAuth working |
 | **Database Schema** | ✅ Done | customers + bookings tables |
 | **Store Guest Bookings** | ✅ Done | All bookings saved to Supabase |
 | **Optional Account Creation** | 🔲 Todo | Offer signup after booking |
@@ -162,7 +162,7 @@
 | Framework | Next.js 16 (App Router) | ✅ Configured |
 | Styling | Tailwind CSS + shadcn/ui | ✅ Configured |
 | Database | Supabase PostgreSQL | ✅ Configured |
-| Auth | Supabase Auth (Email + Google) | 🔄 Need to enable providers |
+| Auth | Supabase Auth (Email + Google) | ✅ Configured |
 | Payments | Stripe | 🔲 Need test keys |
 | Maps | Mapbox | 🔲 Need account |
 | CMS | Sanity | 🔲 Need account |

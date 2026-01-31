@@ -2,17 +2,25 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { Menu, X, User, Plane } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Menu, X, User, Plane, LogOut, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarProps {
   forceSolid?: boolean;
 }
 
 export function Navbar({ forceSolid = false }: NavbarProps) {
+  const router = useRouter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const supabase = createClient();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,6 +30,30 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    // Get initial user
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+      setLoading(false);
+    };
+    getUser();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase.auth]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsUserMenuOpen(false);
+    router.push("/");
+    router.refresh();
+  };
+
   const showSolid = isScrolled || forceSolid;
 
   const navLinks = [
@@ -29,6 +61,19 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
     { label: "Blog", href: "/blog" },
     { label: "Support", href: "/help" },
   ];
+
+  const getUserDisplayName = () => {
+    if (!user) return "";
+    if (user.user_metadata?.full_name) return user.user_metadata.full_name;
+    if (user.user_metadata?.name) return user.user_metadata.name;
+    if (user.email) return user.email.split("@")[0];
+    return "User";
+  };
+
+  const getUserInitial = () => {
+    const name = getUserDisplayName();
+    return name.charAt(0).toUpperCase();
+  };
 
   return (
     <nav
@@ -65,9 +110,65 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                 {item.label}
               </Link>
             ))}
-            <Button className="bg-brand-orange text-white px-5 py-2 rounded-full font-semibold hover:bg-brand-orange/90 transition-all shadow-sm hover:shadow-md">
-              Sign In
-            </Button>
+
+            {loading ? (
+              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-full" />
+            ) : user ? (
+              /* User Menu */
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className={`flex items-center gap-2 font-medium transition-colors ${
+                    showSolid ? "text-gray-700" : "text-white"
+                  }`}
+                >
+                  <div className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center text-sm font-bold">
+                    {getUserInitial()}
+                  </div>
+                  <span className="hidden lg:inline">{getUserDisplayName()}</span>
+                  <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {isUserMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-20">
+                      <div className="px-4 py-2 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {getUserDisplayName()}
+                        </p>
+                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                      </div>
+                      <Link
+                        href="/account"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <User size={16} />
+                        My Account
+                      </Link>
+                      <button
+                        onClick={handleSignOut}
+                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        <LogOut size={16} />
+                        Sign Out
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : (
+              /* Sign In Button */
+              <Link href="/auth/login">
+                <Button className="bg-brand-orange text-white px-5 py-2 rounded-full font-semibold hover:bg-brand-orange/90 transition-all shadow-sm hover:shadow-md">
+                  Sign In
+                </Button>
+              </Link>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -95,9 +196,42 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
               {item.label}
             </Link>
           ))}
-          <Button className="bg-brand-orange text-white px-5 py-3 rounded-lg font-bold w-full flex justify-center items-center">
-            <User size={20} className="mr-2" /> Sign In
-          </Button>
+
+          {user ? (
+            <>
+              <div className="flex items-center gap-3 py-2 border-b border-gray-100">
+                <div className="w-10 h-10 bg-brand-orange text-white rounded-full flex items-center justify-center font-bold">
+                  {getUserInitial()}
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">{getUserDisplayName()}</p>
+                  <p className="text-sm text-gray-500">{user.email}</p>
+                </div>
+              </div>
+              <Link
+                href="/account"
+                className="text-gray-800 font-medium py-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                My Account
+              </Link>
+              <button
+                onClick={() => {
+                  handleSignOut();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="text-red-600 font-medium py-2 text-left"
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
+              <Button className="bg-brand-orange text-white px-5 py-3 rounded-lg font-bold w-full flex justify-center items-center">
+                <User size={20} className="mr-2" /> Sign In
+              </Button>
+            </Link>
+          )}
         </div>
       )}
     </nav>
