@@ -366,26 +366,35 @@ async function request<T>(
 ): Promise<T> {
   const token = await getToken();
 
+  const headers: HeadersInit = {
+    ...options.headers,
+    Authorization: `Bearer ${token}`,
+  };
+
+  // Only set Content-Type for requests with a body
+  if (options.body) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${RESLAB_API_URL}${endpoint}`, {
     ...options,
-    headers: {
-      ...options.headers,
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
+    headers,
   });
 
   if (response.status === 401) {
     // Token expired, clear cache and retry once
     cachedToken = null;
     const newToken = await getToken();
+    const retryHeaders: HeadersInit = {
+      ...options.headers,
+      Authorization: `Bearer ${newToken}`,
+    };
+    if (options.body) {
+      retryHeaders["Content-Type"] = "application/json";
+    }
     const retryResponse = await fetch(`${RESLAB_API_URL}${endpoint}`, {
       ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${newToken}`,
-        "Content-Type": "application/json",
-      },
+      headers: retryHeaders,
     });
 
     if (!retryResponse.ok) {

@@ -1,7 +1,7 @@
 import {
   reslab,
   ReslabLocation,
-  ReslabCostResponse,
+  ReslabMinPriceResponse,
   stripHtml,
   getFeaturedPhoto,
 } from "./client";
@@ -22,8 +22,7 @@ function generateSlug(name: string): string {
  */
 function transformLocationToLot(
   location: ReslabLocation,
-  costData: ReslabCostResponse | null,
-  parkingTypes: { id: number; name: string; number_of_parkings: number }[]
+  minPriceData: ReslabMinPriceResponse | null
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
@@ -49,16 +48,20 @@ function transformLocationToLot(
   // Get currency code
   const currencyCode = location.currency?.code || "USD";
 
-  // Transform parking types with pricing
-  const pricingParkingTypes = parkingTypes.map((pt) => ({
-    id: pt.id,
-    name: pt.name,
-    price: costData?.reservation.sub_total
-      ? costData.reservation.sub_total /
-        (costData.reservation.totals?.parking?.number_of_days || 1)
-      : 0,
-    spotsAvailable: pt.number_of_parkings,
-  }));
+  // Get parking type info from minPriceData if available
+  const parkingTypeId = minPriceData?.parking_type?.id || 0;
+  const parkingTypeName = minPriceData?.parking_type?.name || "Standard Parking";
+  const numberOfDays = minPriceData?.reservation?.totals?.parking?.number_of_days || 1;
+  const subtotal = minPriceData?.reservation?.sub_total || 0;
+  const dailyRate = numberOfDays > 0 ? subtotal / numberOfDays : 0;
+
+  // Create parking types array from the response
+  const pricingParkingTypes = parkingTypeId ? [{
+    id: parkingTypeId,
+    name: parkingTypeName,
+    price: dailyRate,
+    spotsAvailable: location.number_of_parkings,
+  }] : [];
 
   return {
     id: `reslab-${location.id}`,
@@ -105,32 +108,30 @@ function transformLocationToLot(
 
     distanceFromAirport: undefined,
 
-    pricing: costData
+    pricing: minPriceData
       ? {
-          minPrice:
-            costData.reservation.sub_total /
-            (costData.reservation.totals?.parking?.number_of_days || 1),
+          minPrice: dailyRate,
           currency: currencyCode === "USD" ? "$" : currencyCode,
           currencyCode,
           parkingTypes: pricingParkingTypes,
-          grandTotal: costData.reservation.grand_total,
-          subtotal: costData.reservation.sub_total,
-          feesTotal: costData.reservation.fees_total,
-          taxTotal: costData.reservation.tax_total,
+          grandTotal: minPriceData.reservation.grand_total,
+          subtotal: minPriceData.reservation.sub_total,
+          feesTotal: minPriceData.reservation.fees_total,
+          taxTotal: minPriceData.reservation.tax_total,
           taxValue: location.tax_value,
           taxType: location.tax_type,
-          numberOfDays: costData.reservation.totals?.parking?.number_of_days,
+          numberOfDays: minPriceData.reservation.totals?.parking?.number_of_days,
         }
       : undefined,
 
-    availability: costData?.reservation.sold_out ? "unavailable" : "available",
+    availability: minPriceData?.reservation.sold_out ? "unavailable" : "available",
 
     minimumBookingDays: location.minimum_booking_days || undefined,
     hoursBeforeReservation: location.hours_before_reservation || undefined,
     dailyOrHourly: location.daily_or_hourly,
 
     dueAtLocation: Boolean(location.parking_due_at_location),
-    dueAtLocationAmount: costData?.reservation.due_at_location,
+    dueAtLocationAmount: minPriceData?.reservation.due_at_location,
 
     extraFields: location.extra_fields.map((f) => ({
       id: f.id,
@@ -152,6 +153,7 @@ function transformLocationToLot(
 
 /**
  * Fetch lot details from ResLab API
+ * Uses getMinPrice instead of getLocationTypes (which has API issues)
  */
 export async function getLotFromReslab(
   locationId: number,
@@ -162,30 +164,22 @@ export async function getLotFromReslab(
     // Get location details
     const location = await reslab.getLocation(locationId);
 
-    // Get parking types
-    const typesData = await reslab.getLocationTypes(locationId);
-    const parkingTypes = typesData.parking || [];
-
-    // Get cost for the first parking type (if available)
-    let costData: ReslabCostResponse | null = null;
-    if (parkingTypes.length > 0) {
-      try {
-        costData = await reslab.getCost(locationId, [
-          {
-            type: "parking",
-            reservation_type: "parking",
-            type_id: parkingTypes[0].id,
-            from_date: fromDate,
-            to_date: toDate,
-            number_of_spots: 1,
-          },
-        ]);
-      } catch (error) {
-        console.error("Error getting cost:", error);
-      }
+    // Get minimum price (which also returns parking type info)
+    let minPriceData: ReslabMinPriceResponse | null = null;
+    try {
+      minPriceData = await reslab.getMinPrice(locationId, {
+        type: "parking",
+        reservation_type: "parking",
+        from_date: fromDate,
+        to_date: toDate,
+        number_of_spots: 1,
+      });
+    } catch (error) {
+      console.error("Error getting min price:", error);
+      // Continue without pricing - we can still show the lot
     }
 
-    return transformLocationToLot(location, costData, parkingTypes);
+    return transformLocationToLot(location, minPriceData);
   } catch (error) {
     console.error("Error fetching lot from ResLab:", error);
     return null;
