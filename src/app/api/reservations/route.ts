@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       // Standard vehicle fields
       car_make: vehicle.make,
       car_model: vehicle.model,
+      car_makemodel: `${vehicle.make} ${vehicle.model}`, // Combined field required by ResLab
       car_color: vehicle.color,
       license_plate: vehicle.licensePlate,
       license_plate_state: vehicle.state,
@@ -96,19 +97,27 @@ export async function POST(request: NextRequest) {
         grandTotal: reservation.grand_total,
         dueNow: reservation.due_now,
         dueAtLocation: reservation.due_at_location,
-        customer: {
-          firstName: reservation.customer.first_name,
-          lastName: reservation.customer.last_name,
-          email: reservation.customer.email,
-          phone: reservation.customer.phone,
-        },
-        items: reservation.items.map((item) => ({
+        // Customer data may not be in the response, use the input data as fallback
+        customer: reservation.customer
+          ? {
+              firstName: reservation.customer.first_name,
+              lastName: reservation.customer.last_name,
+              email: reservation.customer.email,
+              phone: reservation.customer.phone,
+            }
+          : {
+              firstName: customer.firstName,
+              lastName: customer.lastName,
+              email: customer.email,
+              phone: customer.phone,
+            },
+        items: reservation.items?.map((item) => ({
           type: item.type,
           fromDate: item.from_date,
           toDate: item.to_date,
           numberOfDays: item.number_of_days,
           numberOfSpots: item.number_of_spots,
-        })),
+        })) || [],
         location: reservation.location
           ? {
               id: reservation.location.id,

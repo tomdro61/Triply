@@ -18,41 +18,59 @@ export async function GET(
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
 
+    // ResLab returns data nested in history[0]
+    const history = reservation.history?.[0];
+    const location = history?.location;
+
+    // Parse customer name from reserved_for
+    const reservedFor = history?.reserved_for || reservation.reserved_by || "";
+    const nameParts = reservedFor.split(" ");
+    const firstName = nameParts[0] || "";
+    const lastName = nameParts.slice(1).join(" ") || "";
+
+    // Get dates from the first item in history
+    const dates = history?.dates?.[0];
+    const parkingRates = dates?.parking_rates?.[0];
+
     return NextResponse.json({
       reservation: {
-        id: reservation.id,
+        id: history?.id || reservation.id,
         reservationNumber: reservation.reservation_number,
-        status: reservation.status,
-        grandTotal: reservation.grand_total,
-        dueNow: reservation.due_now,
-        dueAtLocation: reservation.due_at_location,
+        status: reservation.cancelled ? "cancelled" : "confirmed",
+        grandTotal: history?.grand_total || 0,
+        subtotal: history?.subtotal || 0,
+        taxTotal: history?.total_tax || 0,
+        feesTotal: history?.total_fees || 0,
+        dueNow: history?.grand_total - (history?.due_at_location_total || 0),
+        dueAtLocation: history?.due_at_location_total || 0,
         customer: {
-          firstName: reservation.customer.first_name,
-          lastName: reservation.customer.last_name,
-          email: reservation.customer.email,
-          phone: reservation.customer.phone,
+          firstName,
+          lastName,
+          email: history?.email || "",
+          phone: history?.phone || "",
         },
-        items: reservation.items.map((item) => ({
-          type: item.type,
-          fromDate: item.from_date,
-          toDate: item.to_date,
-          numberOfDays: item.number_of_days,
-          numberOfSpots: item.number_of_spots,
-        })),
-        location: reservation.location
+        items: dates ? [{
+          type: "parking",
+          fromDate: parkingRates?.from_date || dates.from_date,
+          toDate: parkingRates?.to_date || dates.to_date,
+          numberOfDays: parkingRates?.number_of_days || dates.number_of_days,
+          numberOfSpots: parkingRates?.number_of_parkings || 1,
+          parkingType: parkingRates?.rate?.location_parking_type?.name || dates.type?.name,
+        }] : [],
+        location: location
           ? {
-              id: reservation.location.id,
-              name: reservation.location.name,
-              address: reservation.location.address,
-              city: reservation.location.city,
-              state: reservation.location.state?.code,
-              zipCode: reservation.location.zip_code,
-              phone: reservation.location.phone,
-              latitude: reservation.location.latitude,
-              longitude: reservation.location.longitude,
+              id: location.id,
+              name: location.name,
+              address: location.address,
+              city: location.city,
+              state: location.state?.code,
+              zipCode: location.zip_code,
+              phone: location.phone,
+              latitude: location.latitude,
+              longitude: location.longitude,
             }
           : null,
-        extraFields: reservation.extra_fields,
+        extraFields: history?.extra_fields || [],
       },
     });
   } catch (error) {

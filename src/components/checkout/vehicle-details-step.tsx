@@ -50,11 +50,17 @@ export function VehicleDetailsStep({
   };
 
   // Filter extra fields that are not standard vehicle fields (we handle those already)
+  // Also filter car_makemodel since we collect make/model separately and combine them
   const additionalFields = extraFields.filter(
     (field) =>
-      !["car_make", "car_model", "car_color", "license_plate", "license_plate_state"].includes(
-        field.name
-      )
+      ![
+        "car_make",
+        "car_model",
+        "car_makemodel",
+        "car_color",
+        "license_plate",
+        "license_plate_state"
+      ].includes(field.name)
   );
 
   const handleSubmit = (e: React.FormEvent) => {
