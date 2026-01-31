@@ -161,33 +161,30 @@
 |-------|------------|--------|
 | Framework | Next.js 16 (App Router) | ✅ Configured |
 | Styling | Tailwind CSS + shadcn/ui | ✅ Configured |
-| Database | Supabase PostgreSQL | 🔲 Need account (MVP) |
-| Auth | Supabase Auth (Email + Google) | 🔲 Need account (MVP) |
-| Payments | Stripe | 🔲 Need test keys (MVP) |
+| Database | Supabase PostgreSQL | 🔲 Need account |
+| Auth | Supabase Auth (Email + Google) | 🔲 Need account |
+| Payments | Stripe | 🔲 Need test keys |
 | Maps | Mapbox | 🔲 Need account |
-| CMS | Sanity | 🔲 Need account (Phase 3) |
-| Email | Resend | 🔲 Need account (MVP) |
+| CMS | Sanity | 🔲 Need account |
+| Email | Resend | 🔲 Need account |
 | Hosting | Vercel | ✅ Account exists |
 | Error Tracking | Sentry | 🔲 Need account |
+| Analytics | Google Analytics 4 | 🔲 Need account |
 
 ---
 
 ## Service Accounts Needed
 
-**MVP Required:**
-| Service | Status | Action Required |
-|---------|--------|-----------------|
-| Supabase | ❌ Not created | Create project at supabase.com (DB + Auth) |
-| Stripe | ❌ Placeholder keys | Get real test keys from stripe.com |
-| Resend | ❌ Not created | Create account at resend.com (emails) |
-| Reservations Lab | ✅ Configured | Test API key working (triplypro.com) |
-
-**Post-MVP / Phase 3+:**
-| Service | Status | Action Required |
-|---------|--------|-----------------|
-| Mapbox | ❌ Not created | Create account at mapbox.com |
-| Sanity | ❌ Not created | Create project at sanity.io |
-| Sentry | ❌ Not created | Create project at sentry.io |
+| Service | Phase | Status | Action Required |
+|---------|-------|--------|-----------------|
+| Reservations Lab | 2 | ✅ Configured | Test API key working (triplypro.com) |
+| Supabase | 2 | ❌ Not created | Create project at supabase.com (DB + Auth) |
+| Stripe | 2 | ❌ Placeholder keys | Get real test keys from stripe.com |
+| Resend | 2 | ❌ Not created | Create account at resend.com (emails) |
+| Mapbox | 2 | ❌ Not created | Create account at mapbox.com (maps) |
+| Sanity | 3 | ❌ Not created | Create project at sanity.io (blog/CMS) |
+| Sentry | 4 | ❌ Not created | Create project at sentry.io (error tracking) |
+| Google Analytics | 4 | ❌ Not created | Create GA4 property (analytics) |
 
 ---
 
