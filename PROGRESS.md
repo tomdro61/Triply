@@ -70,13 +70,16 @@
 - Reservations appear in ResLab dashboard
 - Confirmation page shows real booking data from ResLab API
 
-**🔲 Supabase / User Accounts (MVP Scope):**
+**✅ Supabase / User Accounts (Implemented):**
 - Auth methods: Email/password + Google OAuth
 - Guest checkout remains available (no account required)
 - All bookings stored in Supabase (guest + logged in)
-- Optional "Create Account" prompt after booking
-- Link guest bookings to account if user signs up later
+- Logged-in users: bookings linked to account via `user_id`
+- Checkout form pre-fills with user's name/email when logged in
 - Apple Sign-In out of scope for MVP
+
+**🔲 Remaining:**
+- Optional "Create Account" prompt after booking (for guests)
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
