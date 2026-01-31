@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UnifiedLot } from "@/types/lot";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import {
   CheckoutData,
   CheckoutStep,
@@ -50,9 +52,31 @@ export function CheckoutForm({
   toDate,
 }: CheckoutFormProps) {
   const router = useRouter();
+  const supabase = createClient();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("details");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Get current user on mount
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+
+      // Pre-fill customer details if user is logged in
+      if (user) {
+        const nameParts = (user.user_metadata?.full_name || user.user_metadata?.name || "").split(" ");
+        setCustomerDetails(prev => ({
+          ...prev,
+          firstName: nameParts[0] || prev.firstName,
+          lastName: nameParts.slice(1).join(" ") || prev.lastName,
+          email: user.email || prev.email,
+        }));
+      }
+    };
+    getUser();
+  }, [supabase.auth]);
 
   // Form data
   const [customerDetails, setCustomerDetails] = useState<CustomerDetails>({
@@ -283,6 +307,8 @@ export function CheckoutForm({
           taxTotal: costData.taxTotal || priceBreakdown.taxes,
           feesTotal: costData.feesTotal || priceBreakdown.serviceFee,
           grandTotal: costData.grandTotal || priceBreakdown.total,
+          // User ID for linking to account (if logged in)
+          userId: user?.id || null,
         }),
       });
 

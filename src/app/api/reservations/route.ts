@@ -31,6 +31,8 @@ interface CreateReservationBody {
   taxTotal?: number;
   feesTotal?: number;
   grandTotal?: number;
+  // User ID for linking to account (if logged in)
+  userId?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -53,6 +55,7 @@ export async function POST(request: NextRequest) {
       taxTotal,
       feesTotal,
       grandTotal,
+      userId,
     } = body;
 
     // Validate required fields
@@ -109,24 +112,46 @@ export async function POST(request: NextRequest) {
     try {
       const supabase = await createAdminClient();
 
-      // Create or find customer by email
-      const { data: existingCustomer } = await supabase
-        .from("customers")
-        .select("id")
-        .eq("email", customer.email)
-        .single();
-
+      // Create or find customer
       let customerId: string;
+      let existingCustomer = null;
+
+      // If user is logged in, first try to find customer by user_id
+      if (userId) {
+        const { data: customerByUserId } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("user_id", userId)
+          .single();
+
+        if (customerByUserId) {
+          existingCustomer = customerByUserId;
+        }
+      }
+
+      // If not found by user_id, try to find by email
+      if (!existingCustomer) {
+        const { data: customerByEmail } = await supabase
+          .from("customers")
+          .select("id")
+          .eq("email", customer.email)
+          .single();
+
+        if (customerByEmail) {
+          existingCustomer = customerByEmail;
+        }
+      }
 
       if (existingCustomer) {
         customerId = existingCustomer.id;
-        // Update customer info
+        // Update customer info and link to user if logged in
         await supabase
           .from("customers")
           .update({
             first_name: customer.firstName,
             last_name: customer.lastName,
             phone: customer.phone,
+            ...(userId && { user_id: userId }), // Link to user account if logged in
           })
           .eq("id", customerId);
       } else {
@@ -138,6 +163,7 @@ export async function POST(request: NextRequest) {
             first_name: customer.firstName,
             last_name: customer.lastName,
             phone: customer.phone,
+            ...(userId && { user_id: userId }), // Link to user account if logged in
           })
           .select("id")
           .single();
