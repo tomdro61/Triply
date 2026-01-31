@@ -76,7 +76,7 @@
 - All bookings stored in Supabase (guest + logged in)
 - Optional "Create Account" prompt after booking
 - Link guest bookings to account if user signs up later
-- Apple Sign-In deferred to Phase 3
+- Apple Sign-In out of scope for MVP
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
@@ -139,7 +139,6 @@
 | Email Templates | 🔲 Todo | Booking confirmation |
 | **My Reservations Page** | 🔲 Todo | User's upcoming/past bookings |
 | **Account Settings Page** | 🔲 Todo | Profile, password, preferences |
-| **Apple Sign-In** | 🔲 Todo | Requires Apple Developer account |
 
 ---
 
@@ -189,7 +188,6 @@
 | Mapbox | ❌ Not created | Create account at mapbox.com |
 | Sanity | ❌ Not created | Create project at sanity.io |
 | Sentry | ❌ Not created | Create project at sentry.io |
-| Apple Developer | ❌ Not created | $99/year for Apple Sign-In |
 
 ---
 
