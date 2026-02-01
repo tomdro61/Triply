@@ -1,3 +1,4 @@
+import { withPayload } from "@payloadcms/next/withPayload";
 import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
@@ -73,4 +74,5 @@ const nextConfig = {
   },
 };
 
-export default withPWA(nextConfig);
+// Wrap with both Payload and PWA
+export default withPayload(withPWA(nextConfig));

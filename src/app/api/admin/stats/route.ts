@@ -26,7 +26,8 @@ export async function GET(request: NextRequest) {
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // Helper to build filtered query
-    const applyDateFilter = (query: ReturnType<typeof supabase.from>) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const applyDateFilter = (query: any) => {
       if (filterStartDate) {
         query = query.gte("created_at", filterStartDate);
       }

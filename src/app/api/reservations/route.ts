@@ -109,6 +109,9 @@ export async function POST(request: NextRequest) {
       ...apiExtraFields,
     });
 
+    // Get history data for use throughout the response handling
+    const resHistory = reservation.history?.[0];
+
     // Save to Supabase
     try {
       const supabase = await createAdminClient();
@@ -181,15 +184,15 @@ export async function POST(request: NextRequest) {
         customer_id: customerId,
         reslab_reservation_number: reservation.reservation_number,
         reslab_location_id: locationId,
-        location_name: locationName || reservation.location?.name || `Location ${locationId}`,
-        location_address: locationAddress || reservation.location?.address || "",
+        location_name: locationName || resHistory?.location?.name || `Location ${locationId}`,
+        location_address: locationAddress || resHistory?.location?.address || "",
         airport_code: airportCode || "",
         check_in: fromDate,
         check_out: toDate,
-        subtotal: subtotal || reservation.subtotal || 0,
-        tax_total: taxTotal || reservation.tax_total || 0,
-        fees_total: feesTotal || reservation.fees_total || 0,
-        grand_total: grandTotal || reservation.grand_total || 0,
+        subtotal: subtotal || resHistory?.subtotal || 0,
+        tax_total: taxTotal || resHistory?.total_tax || 0,
+        fees_total: feesTotal || resHistory?.total_fees || 0,
+        grand_total: grandTotal || resHistory?.grand_total || 0,
         vehicle_info: vehicle,
         status: "confirmed",
       });
@@ -210,12 +213,12 @@ export async function POST(request: NextRequest) {
         to: customer.email,
         customerName: `${customer.firstName} ${customer.lastName}`,
         confirmationNumber: reservation.reservation_number,
-        lotName: locationName || reservation.location?.name || `Location ${locationId}`,
-        lotAddress: locationAddress || reservation.location?.address || "",
+        lotName: locationName || resHistory?.location?.name || `Location ${locationId}`,
+        lotAddress: locationAddress || resHistory?.location?.address || "",
         checkInDate: fromDate.split(" ")[0], // Extract date part
         checkOutDate: toDate.split(" ")[0],
-        totalAmount: reservation.grand_total || grandTotal || 0,
-        dueAtLocation: reservation.due_at_location,
+        totalAmount: resHistory?.grand_total || grandTotal || 0,
+        dueAtLocation: resHistory?.due_at_location_total || 0,
         vehicleInfo,
       });
     } catch (emailError) {
@@ -223,45 +226,40 @@ export async function POST(request: NextRequest) {
       console.error("Email send error:", emailError);
     }
 
+    // Build response from history data
+    const resLocation = resHistory?.location;
+
     return NextResponse.json({
       success: true,
       reservation: {
-        id: reservation.id,
+        id: resHistory?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
-        status: reservation.status,
-        grandTotal: reservation.grand_total,
-        dueNow: reservation.due_now,
-        dueAtLocation: reservation.due_at_location,
-        // Customer data may not be in the response, use the input data as fallback
-        customer: reservation.customer
-          ? {
-              firstName: reservation.customer.first_name,
-              lastName: reservation.customer.last_name,
-              email: reservation.customer.email,
-              phone: reservation.customer.phone,
-            }
-          : {
-              firstName: customer.firstName,
-              lastName: customer.lastName,
-              email: customer.email,
-              phone: customer.phone,
-            },
-        items: reservation.items?.map((item) => ({
-          type: item.type,
-          fromDate: item.from_date,
-          toDate: item.to_date,
-          numberOfDays: item.number_of_days,
-          numberOfSpots: item.number_of_spots,
+        status: reservation.cancelled ? "cancelled" : "confirmed",
+        grandTotal: resHistory?.grand_total || grandTotal || 0,
+        dueNow: (resHistory?.grand_total || 0) - (resHistory?.due_at_location_total || 0),
+        dueAtLocation: resHistory?.due_at_location_total || 0,
+        customer: {
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email,
+          phone: customer.phone,
+        },
+        items: resHistory?.dates?.map((date) => ({
+          type: "parking",
+          fromDate: date.from_date,
+          toDate: date.to_date,
+          numberOfDays: null,
+          numberOfSpots: 1,
         })) || [],
-        location: reservation.location
+        location: resLocation
           ? {
-              id: reservation.location.id,
-              name: reservation.location.name,
-              address: reservation.location.address,
-              city: reservation.location.city,
-              state: reservation.location.state?.code,
-              zipCode: reservation.location.zip_code,
-              phone: reservation.location.phone,
+              id: resLocation.id,
+              name: resLocation.name,
+              address: resLocation.address,
+              city: resLocation.city,
+              state: resLocation.state?.code,
+              zipCode: resLocation.zip_code,
+              phone: resLocation.phone,
             }
           : null,
       },

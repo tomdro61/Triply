@@ -366,8 +366,8 @@ async function request<T>(
 ): Promise<T> {
   const token = await getToken();
 
-  const headers: HeadersInit = {
-    ...options.headers,
+  const headers: Record<string, string> = {
+    ...(options.headers as Record<string, string>),
     Authorization: `Bearer ${token}`,
   };
 
@@ -385,8 +385,8 @@ async function request<T>(
     // Token expired, clear cache and retry once
     cachedToken = null;
     const newToken = await getToken();
-    const retryHeaders: HeadersInit = {
-      ...options.headers,
+    const retryHeaders: Record<string, string> = {
+      ...(options.headers as Record<string, string>),
       Authorization: `Bearer ${newToken}`,
     };
     if (options.body) {

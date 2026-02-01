@@ -29,12 +29,13 @@ export async function GET(
     const lastName = nameParts.slice(1).join(" ") || "";
 
     // Get dates from the first item in history
-    const dates = history?.dates?.[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dates = history?.dates?.[0] as any;
     const parkingRates = dates?.parking_rates?.[0];
 
     return NextResponse.json({
       reservation: {
-        id: history?.id || reservation.id,
+        id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
         status: reservation.cancelled ? "cancelled" : "confirmed",
         grandTotal: history?.grand_total || 0,

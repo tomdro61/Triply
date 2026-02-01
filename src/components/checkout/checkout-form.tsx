@@ -416,7 +416,7 @@ export function CheckoutForm({
           // Pricing info
           subtotal: costData.subtotal || priceBreakdown.subtotal,
           taxTotal: costData.taxTotal || priceBreakdown.taxes,
-          feesTotal: costData.feesTotal || priceBreakdown.serviceFee,
+          feesTotal: costData.feesTotal || priceBreakdown.fees,
           grandTotal: costData.grandTotal || priceBreakdown.total,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
