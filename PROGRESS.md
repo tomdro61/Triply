@@ -1,8 +1,8 @@
 # Triply Development Progress
 
-> **Last Updated:** January 31, 2026
+> **Last Updated:** February 1, 2026
 > **Current Phase:** Phase 3 - Content & Admin (In Progress)
-> **Next Task:** Sanity CMS Setup
+> **Next Task:** Create blog content in Payload CMS
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -140,8 +140,8 @@ All core booking flow features are implemented.
 | **Legal Pages** | ✅ Done | Terms of Service, Privacy Policy |
 | **Contact Us Page** | ✅ Done | Contact form with Resend email |
 | **Admin Dashboard** | ✅ Done | Stats, bookings list, detail view |
-| Sanity CMS Setup | 🔲 Todo | Blog, pages |
-| Blog Implementation | 🔲 Todo | List, post, categories |
+| **Payload CMS Setup** | ✅ Done | Replaced Sanity with self-hosted Payload CMS |
+| **Blog Implementation** | ✅ Done | /blog, /blog/[slug], RichText component |
 | Email Templates | ✅ Done | Booking confirmation (completed in Phase 2) |
 
 ---
@@ -169,7 +169,7 @@ All core booking flow features are implemented.
 | Auth | Supabase Auth (Email + Google) | ✅ Configured |
 | Payments | Stripe | ✅ Configured |
 | Maps | Mapbox | 🔲 Need account |
-| CMS | Sanity | 🔲 Need account |
+| CMS | Payload CMS 3.0 | ✅ Configured (self-hosted, /cms admin) |
 | Email | Resend | ✅ Configured |
 | Hosting | Vercel | ✅ Account exists |
 | Error Tracking | Sentry | 🔲 Need account |
@@ -186,7 +186,7 @@ All core booking flow features are implemented.
 | Stripe | 2 | ✅ Configured | Test keys working (pk_test_51Svg...) |
 | Resend | 2 | ✅ Configured | API key working, confirmation template ready |
 | Mapbox | 2 | ❌ Not created | Create account at mapbox.com (maps) |
-| Sanity | 3 | ❌ Not created | Create project at sanity.io (blog/CMS) |
+| Payload CMS | 3 | ✅ Configured | Self-hosted, uses existing Supabase PostgreSQL |
 | Sentry | 4 | ❌ Not created | Create project at sentry.io (error tracking) |
 | Google Analytics | 4 | ❌ Not created | Create GA4 property (analytics) |
 
@@ -235,6 +235,12 @@ triply/
 │   │   │   ├── layout.tsx           # Admin layout + auth ✅
 │   │   │   ├── page.tsx             # Admin dashboard ✅
 │   │   │   └── bookings/page.tsx    # Bookings list ✅
+│   │   ├── blog/
+│   │   │   ├── page.tsx             # Blog listing ✅
+│   │   │   └── [slug]/page.tsx      # Single post ✅
+│   │   ├── (payload)/
+│   │   │   ├── cms/[[...segments]]/ # Payload admin panel ✅
+│   │   │   └── api/cms/[...slug]/   # Payload REST API ✅
 │   │   └── api/
 │   │       ├── search/route.ts      # Search API ✅ (ResLab)
 │   │       ├── checkout/lot/route.ts # Lot details for checkout ✅
@@ -257,7 +263,17 @@ triply/
 │   │   ├── confirmation/            # Confirmation components ✅
 │   │   ├── reservations/            # My Reservations components ✅
 │   │   │   └── reservation-card.tsx # Reservation card component ✅
+│   │   ├── blog/                    # Blog components ✅
+│   │   │   └── RichText.tsx         # Lexical content renderer ✅
 │   │   └── ui/                      # shadcn/ui ✅
+│   ├── payload/
+│   │   ├── payload.config.ts        # Payload CMS config ✅
+│   │   └── collections/             # CMS collections ✅
+│   │       ├── Posts.ts             # Blog posts ✅
+│   │       ├── Categories.ts        # Post categories ✅
+│   │       ├── Tags.ts              # Post tags ✅
+│   │       ├── Media.ts             # Image uploads ✅
+│   │       └── Users.ts             # CMS admin users ✅
 │   ├── lib/
 │   │   ├── reslab/client.ts         # ResLab API ✅ (fully integrated)
 │   │   ├── reslab/get-lot.ts        # Lot fetching helpers ✅
@@ -351,12 +367,12 @@ bookings:
 
 1. **Read this file first** to understand current progress
 2. **🎉 PHASE 2 COMPLETE** - Full booking flow with payments and email confirmations!
-3. **My Reservations Page** - `/reservations` shows user's upcoming/past bookings
-3. **Stripe configured** - Test keys working, PaymentElement integrated
-4. **Resend configured** - Booking confirmation emails sending successfully
-5. **Supabase configured** - Auth (Email + Google) and database (customers + bookings)
-6. **Next priority:** Phase 3 - Sanity CMS, Help pages, Legal pages, Admin dashboard
-7. **Test airports:** TEST-NY (location 195) and TEST-OH (location 194)
+3. **🎉 PHASE 3 NEARLY COMPLETE** - All content pages, admin dashboard, and CMS done!
+4. **Payload CMS** - Self-hosted at `/cms`, uses existing Supabase PostgreSQL
+5. **Blog** - Frontend at `/blog` and `/blog/[slug]`, fetches from Payload API
+6. **Make/N8N Integration** - Payload supports API key auth for automation
+7. **Next priority:** Create blog content, then Phase 4 (SEO, performance, launch)
+8. **Test airports:** TEST-NY (location 195) and TEST-OH (location 194)
 
 **Dev Mode (Stripe Bypass):**
 - Set `NEXT_PUBLIC_DEV_SKIP_PAYMENT=true` to bypass Stripe payment
@@ -495,6 +511,41 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 - `src/app/admin/bookings/page.tsx` - Full bookings list with filters
 - `src/app/api/admin/stats/route.ts` - Stats API (bookings, revenue)
 - `src/app/api/admin/bookings/route.ts` - Bookings list API with pagination
+
+**Payload CMS (Phase 3) - Replaced Sanity:**
+- **Why Payload:** Free (self-hosted), integrates into Next.js, supports API key auth for Make/N8N automation
+- **Admin URL:** `/cms` (avoids conflict with `/admin` bookings dashboard)
+- **API URL:** `/api/cms` (REST API for automation)
+- **Database:** Uses existing Supabase PostgreSQL (separate tables, no conflicts)
+- **Features:** Blog posts with SEO fields, categories, tags, media uploads, user roles
+
+**Payload CMS Collections:**
+- `Posts` - Blog posts with title, slug, excerpt, content (Lexical), featured image, category, tags, SEO fields
+- `Categories` - Post categories with name, slug, description
+- `Tags` - Post tags with name, slug
+- `Media` - Image uploads with auto-generated sizes (thumbnail, card, feature)
+- `Users` - CMS admin users with API key auth for automation
+
+**Payload CMS Files:**
+- `src/payload/payload.config.ts` - Main Payload configuration
+- `src/payload/collections/*.ts` - Collection definitions
+- `src/app/(payload)/cms/[[...segments]]/page.tsx` - Admin panel route
+- `src/app/(payload)/api/cms/[...slug]/route.ts` - REST API route
+- `src/app/blog/page.tsx` - Blog listing page
+- `src/app/blog/[slug]/page.tsx` - Single post page
+- `src/components/blog/RichText.tsx` - Lexical content renderer
+
+**Payload Environment Variables:**
+```bash
+PAYLOAD_SECRET=your-secret-key-at-least-32-characters
+DATABASE_URI=postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres
+```
+
+**Make/N8N API Integration:**
+- Create a CMS user at `/cms`
+- Generate API key in user settings
+- Use header: `Authorization: users API-Key YOUR_KEY_HERE`
+- Endpoints: POST `/api/cms/posts`, GET `/api/cms/posts`, POST `/api/cms/media`
 
 ---
 

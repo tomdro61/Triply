@@ -49,6 +49,8 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
     },
+    schemaName: 'payload', // Use separate schema to avoid conflicts with existing tables
+    push: false, // Tables already created manually - don't auto-sync
   }),
 
   sharp,
