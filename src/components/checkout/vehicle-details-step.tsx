@@ -1,7 +1,7 @@
 "use client";
 
 import { VehicleDetails } from "@/types/checkout";
-import { Car, Palette, CreditCard, ChevronLeft, FileText } from "lucide-react";
+import { Car, Palette, CreditCard, ChevronLeft, FileText, Loader2 } from "lucide-react";
 
 interface ExtraField {
   id: number;
@@ -21,6 +21,7 @@ interface VehicleDetailsStepProps {
   extraFields?: ExtraField[];
   extraFieldValues?: Record<string, string>;
   onExtraFieldChange?: (name: string, value: string) => void;
+  isLoading?: boolean;
 }
 
 const US_STATES = [
@@ -44,6 +45,7 @@ export function VehicleDetailsStep({
   extraFields = [],
   extraFieldValues = {},
   onExtraFieldChange,
+  isLoading = false,
 }: VehicleDetailsStepProps) {
   const handleChange = (field: keyof VehicleDetails, value: string) => {
     onChange({ ...data, [field]: value });
@@ -285,9 +287,17 @@ export function VehicleDetailsStep({
         </button>
         <button
           type="submit"
-          className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98]"
+          disabled={isLoading}
+          className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          Continue to Payment
+          {isLoading ? (
+            <>
+              <Loader2 size={18} className="animate-spin" />
+              Initializing Payment...
+            </>
+          ) : (
+            "Continue to Payment"
+          )}
         </button>
       </div>
     </form>

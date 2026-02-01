@@ -57,7 +57,7 @@
 | Confirmation Page | ✅ Done | QR code, booking details from ResLab |
 | API Routes | ✅ Done | /api/search, /api/checkout/lot, /api/reservations |
 | Reservations Lab Integration | ✅ Done | Full booking flow working end-to-end |
-| Stripe Integration | 🔄 Partial | Dev bypass available, needs real test keys |
+| Stripe Integration | ✅ Done | Test keys configured, PaymentElement working |
 | Email Confirmation | 🔲 Todo | Resend templates |
 | **Supabase Setup** | ✅ Done | Database + Auth project created |
 | **User Auth (Email + Google)** | ✅ Done | Login/signup UI, Google OAuth working |
@@ -79,7 +79,6 @@
 - Apple Sign-In out of scope for MVP
 
 **🔲 Phase 2 Remaining:**
-- Stripe Integration (real test keys)
 - Email Confirmation (Resend)
 
 **Search Results Page Requirements:**
@@ -167,7 +166,7 @@
 | Styling | Tailwind CSS + shadcn/ui | ✅ Configured |
 | Database | Supabase PostgreSQL | ✅ Configured |
 | Auth | Supabase Auth (Email + Google) | ✅ Configured |
-| Payments | Stripe | 🔲 Need test keys |
+| Payments | Stripe | ✅ Configured |
 | Maps | Mapbox | 🔲 Need account |
 | CMS | Sanity | 🔲 Need account |
 | Email | Resend | 🔲 Need account |
@@ -183,7 +182,7 @@
 |---------|-------|--------|-----------------|
 | Reservations Lab | 2 | ✅ Configured | Test API key working (triplypro.com) |
 | Supabase | 2 | ✅ Configured | Triply-prod project, DB schema deployed |
-| Stripe | 2 | ❌ Placeholder keys | Get real test keys from stripe.com |
+| Stripe | 2 | ✅ Configured | Test keys working (pk_test_51Svg...) |
 | Resend | 2 | ❌ Not created | Create account at resend.com (emails) |
 | Mapbox | 2 | ❌ Not created | Create account at mapbox.com (maps) |
 | Sanity | 3 | ❌ Not created | Create project at sanity.io (blog/CMS) |

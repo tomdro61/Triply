@@ -18,6 +18,8 @@ import { CheckoutSteps } from "./checkout-steps";
 import { CustomerDetailsStep } from "./customer-details-step";
 import { VehicleDetailsStep } from "./vehicle-details-step";
 import { PaymentStep } from "./payment-step";
+import { StripeProvider } from "./stripe-provider";
+import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 
 interface CheckoutFormProps {
@@ -57,6 +59,9 @@ export function CheckoutForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
 
   // Get current user on mount
   useEffect(() => {
@@ -215,9 +220,48 @@ export function CheckoutForm({
     }
   };
 
-  const handleVehicleNext = () => {
-    if (validateVehicleDetails()) {
+  const handleVehicleNext = async () => {
+    if (!validateVehicleDetails()) return;
+
+    // In dev mode, skip payment intent creation
+    if (DEV_SKIP_PAYMENT) {
       setCurrentStep("payment");
+      return;
+    }
+
+    // Create PaymentIntent for Stripe
+    setIsCreatingPaymentIntent(true);
+    try {
+      const amount = priceBreakdown.dueNow || priceBreakdown.total;
+      const response = await fetch("/api/payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          lotName: lot.name,
+          lotId: lot.id,
+          checkIn,
+          checkOut,
+          customerEmail: customerDetails.email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to initialize payment");
+      }
+
+      setClientSecret(data.clientSecret);
+      setPaymentIntentId(data.paymentIntentId);
+      setCurrentStep("payment");
+    } catch (error) {
+      console.error("PaymentIntent creation error:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Failed to initialize payment"
+      );
+    } finally {
+      setIsCreatingPaymentIntent(false);
     }
   };
 
@@ -245,7 +289,70 @@ export function CheckoutForm({
     setPromoCode(null);
   };
 
-  // Submit booking
+  // Handle successful Stripe payment - then create ResLab reservation
+  const handlePaymentSuccess = async (stripePaymentIntentId: string) => {
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // Get parking type ID from costData or lot pricing
+      const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
+
+      // Build extra fields for API
+      const extraFields: Record<string, string> = { ...extraFieldValues };
+
+      // Create reservation via API
+      const response = await fetch("/api/reservations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          locationId: lot.reslabLocationId,
+          costsToken: costData?.costsToken,
+          fromDate: fromDate,
+          toDate: toDate,
+          parkingTypeId: parkingTypeId,
+          customer: customerDetails,
+          vehicle: vehicleDetails,
+          extraFields,
+          // Location info for Supabase
+          locationName: lot.name,
+          locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
+          airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+          // Pricing info
+          subtotal: costData?.subtotal || priceBreakdown.subtotal,
+          taxTotal: costData?.taxTotal || priceBreakdown.taxes,
+          feesTotal: costData?.feesTotal || priceBreakdown.fees,
+          grandTotal: costData?.grandTotal || priceBreakdown.total,
+          // User ID for linking to account (if logged in)
+          userId: user?.id || null,
+          // Stripe payment reference
+          stripePaymentIntentId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to create reservation");
+      }
+
+      // Store lot data for confirmation page
+      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+
+      // Redirect to confirmation page
+      router.push(
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+      );
+    } catch (error) {
+      console.error("Reservation error after payment:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Payment succeeded but reservation failed. Please contact support."
+      );
+      setIsSubmitting(false);
+    }
+  };
+
+  // Submit booking (dev mode - no Stripe payment)
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setSubmitError(null);
@@ -366,20 +473,41 @@ export function CheckoutForm({
               onExtraFieldChange={(name, value) =>
                 setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
               }
+              isLoading={isCreatingPaymentIntent}
             />
           )}
 
           {currentStep === "payment" && (
-            <PaymentStep
-              priceBreakdown={priceBreakdown}
-              acceptedTerms={acceptedTerms}
-              onTermsChange={setAcceptedTerms}
-              onBack={handlePaymentBack}
-              onSubmit={handleSubmit}
-              isSubmitting={isSubmitting}
-              submitError={submitError}
-              dueAtLocation={lot.dueAtLocation}
-            />
+            DEV_SKIP_PAYMENT ? (
+              <PaymentStep
+                priceBreakdown={priceBreakdown}
+                acceptedTerms={acceptedTerms}
+                onTermsChange={setAcceptedTerms}
+                onBack={handlePaymentBack}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                submitError={submitError}
+                dueAtLocation={lot.dueAtLocation}
+              />
+            ) : clientSecret ? (
+              <StripeProvider clientSecret={clientSecret}>
+                <StripePaymentForm
+                  priceBreakdown={priceBreakdown}
+                  acceptedTerms={acceptedTerms}
+                  onTermsChange={setAcceptedTerms}
+                  onBack={handlePaymentBack}
+                  onPaymentSuccess={handlePaymentSuccess}
+                  isSubmitting={isSubmitting}
+                  submitError={submitError}
+                  dueAtLocation={lot.dueAtLocation}
+                />
+              </StripeProvider>
+            ) : (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-orange mx-auto mb-4" />
+                <p className="text-gray-500">Initializing payment...</p>
+              </div>
+            )
           )}
         </div>
       </div>
