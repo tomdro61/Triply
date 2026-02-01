@@ -1,0 +1,268 @@
+/* Triply CMS Admin Theme */
+/* Brand Colors: Coral #f87356, Dark Navy #1A1A2E */
+
+:root {
+  /* Override Payload's CSS variables with Triply brand colors */
+  --theme-elevation-0: #ffffff;
+  --theme-elevation-50: #fafafa;
+  --theme-elevation-100: #f5f5f5;
+  --theme-elevation-150: #eeeeee;
+  --theme-elevation-200: #e0e0e0;
+  --theme-elevation-250: #bdbdbd;
+  --theme-elevation-300: #9e9e9e;
+  --theme-elevation-350: #757575;
+  --theme-elevation-400: #616161;
+  --theme-elevation-450: #424242;
+  --theme-elevation-500: #1A1A2E;
+
+  /* Brand accent color - Coral Orange */
+  --theme-success-500: #f87356;
+  --theme-text-accent: #f87356;
+}
+
+/* Login page styling */
+.login,
+.create-first-user {
+  background: linear-gradient(135deg, #1A1A2E 0%, #2d2d44 100%);
+}
+
+.login__brand,
+.create-first-user__brand {
+  margin-bottom: 2rem;
+}
+
+/* Form card styling */
+.login .card,
+.create-first-user .card {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  border: none;
+}
+
+/* Primary button styling - Coral */
+.btn--style-primary {
+  background-color: #f87356 !important;
+  border-color: #f87356 !important;
+  color: white !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn--style-primary:hover {
+  background-color: #e5634a !important;
+  border-color: #e5634a !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(248, 115, 86, 0.3);
+}
+
+/* Secondary button styling */
+.btn--style-secondary {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+}
+
+/* Sidebar/Nav styling */
+.nav {
+  background: #1A1A2E;
+}
+
+.nav__link {
+  color: rgba(255, 255, 255, 0.8);
+  border-radius: 6px;
+  margin: 2px 8px;
+  transition: all 0.2s ease;
+}
+
+.nav__link:hover {
+  background: rgba(248, 115, 86, 0.15);
+  color: #f87356;
+}
+
+.nav__link--active {
+  background: rgba(248, 115, 86, 0.2) !important;
+  color: #f87356 !important;
+}
+
+.nav__link--active::before {
+  background: #f87356;
+}
+
+/* Nav header/logo area */
+.nav__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+}
+
+/* Form inputs */
+.field-type input,
+.field-type textarea,
+.field-type select {
+  border-radius: 8px !important;
+  border: 1px solid #e0e0e0 !important;
+  transition: all 0.2s ease !important;
+}
+
+.field-type input:focus,
+.field-type textarea:focus,
+.field-type select:focus {
+  border-color: #f87356 !important;
+  box-shadow: 0 0 0 3px rgba(248, 115, 86, 0.1) !important;
+}
+
+/* Table styling */
+.table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table th {
+  background: #f5f5f5;
+  font-weight: 600;
+  color: #1A1A2E;
+}
+
+.table tr:hover td {
+  background: rgba(248, 115, 86, 0.05);
+}
+
+/* Card styling */
+.card {
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+}
+
+/* Pills/Tags */
+.pill {
+  border-radius: 20px;
+}
+
+.pill--style-success {
+  background: rgba(248, 115, 86, 0.1);
+  color: #f87356;
+}
+
+/* Status indicators */
+.status-indicator--published {
+  background: #10b981;
+}
+
+.status-indicator--draft {
+  background: #f59e0b;
+}
+
+/* Dashboard welcome */
+.dashboard__label {
+  color: #1A1A2E;
+  font-weight: 700;
+}
+
+/* Document header */
+.doc-header__title h1 {
+  color: #1A1A2E;
+  font-weight: 700;
+}
+
+/* Collection list cards */
+.collection-list__card {
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.collection-list__card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Triply logo container */
+.triply-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.triply-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f5f5f5;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #bdbdbd;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9e9e9e;
+}
+
+/* Rich text editor toolbar */
+.rich-text-toolbar {
+  border-radius: 8px 8px 0 0;
+  background: #f5f5f5;
+}
+
+/* Media library */
+.upload-gallery__item {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Drawer/Modal styling */
+.drawer__content {
+  border-radius: 12px 0 0 12px;
+}
+
+/* Toast notifications */
+.toast-container .toast {
+  border-radius: 8px;
+}
+
+.toast--success {
+  background: #f87356;
+}
+
+/* Loading spinner */
+.loading-overlay__bars span {
+  background: #f87356;
+}
+
+/* Checkbox styling */
+.checkbox-input:checked + .checkbox-input__icon {
+  background: #f87356;
+  border-color: #f87356;
+}
+
+/* Date picker */
+.react-datepicker__day--selected {
+  background: #f87356 !important;
+}
+
+.react-datepicker__day:hover {
+  background: rgba(248, 115, 86, 0.2) !important;
+}
+
+/* Account dropdown */
+.account__name {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Step nav (for onboarding) */
+.step-nav__step--active {
+  color: #f87356;
+}
+
+.step-nav__step--active::after {
+  background: #f87356;
+}
