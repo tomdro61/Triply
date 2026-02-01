@@ -20,21 +20,6 @@ export default buildConfig({
     user: Users.slug,
     meta: {
       titleSuffix: '- Triply CMS',
-      title: 'Triply CMS',
-      description: 'Content management for Triply',
-      icons: [
-        {
-          rel: 'icon',
-          type: 'image/png',
-          url: '/Coral-logo.png',
-        },
-      ],
-    },
-    components: {
-      graphics: {
-        Logo: '/src/payload/components/Logo',
-        Icon: '/src/payload/components/Icon',
-      },
     },
   },
 
