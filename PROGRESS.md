@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 31, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow (almost complete!)
-> **Next Task:** Stripe Integration → Email Confirmation
+> **Current Phase:** Phase 2 - Core Booking Flow ✅ COMPLETE
+> **Next Task:** Phase 3 - Content & Admin
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -47,7 +47,7 @@
 
 ---
 
-### Phase 2: Core Booking Flow 🔄 IN PROGRESS
+### Phase 2: Core Booking Flow ✅ COMPLETE
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -58,7 +58,7 @@
 | API Routes | ✅ Done | /api/search, /api/checkout/lot, /api/reservations |
 | Reservations Lab Integration | ✅ Done | Full booking flow working end-to-end |
 | Stripe Integration | ✅ Done | Test keys configured, PaymentElement working |
-| Email Confirmation | 🔲 Todo | Resend templates |
+| Email Confirmation | ✅ Done | Resend integrated, confirmation email template |
 | **Supabase Setup** | ✅ Done | Database + Auth project created |
 | **User Auth (Email + Google)** | ✅ Done | Login/signup UI, Google OAuth working |
 | **Database Schema** | ✅ Done | customers + bookings tables |
@@ -78,8 +78,8 @@
 - Checkout form pre-fills with user's name/email when logged in
 - Apple Sign-In out of scope for MVP
 
-**🔲 Phase 2 Remaining:**
-- Email Confirmation (Resend)
+**✅ Phase 2 Complete!**
+All core booking flow features are implemented.
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
@@ -169,7 +169,7 @@
 | Payments | Stripe | ✅ Configured |
 | Maps | Mapbox | 🔲 Need account |
 | CMS | Sanity | 🔲 Need account |
-| Email | Resend | 🔲 Need account |
+| Email | Resend | ✅ Configured |
 | Hosting | Vercel | ✅ Account exists |
 | Error Tracking | Sentry | 🔲 Need account |
 | Analytics | Google Analytics 4 | 🔲 Need account |
@@ -183,7 +183,7 @@
 | Reservations Lab | 2 | ✅ Configured | Test API key working (triplypro.com) |
 | Supabase | 2 | ✅ Configured | Triply-prod project, DB schema deployed |
 | Stripe | 2 | ✅ Configured | Test keys working (pk_test_51Svg...) |
-| Resend | 2 | ❌ Not created | Create account at resend.com (emails) |
+| Resend | 2 | ✅ Configured | API key working, confirmation template ready |
 | Mapbox | 2 | ❌ Not created | Create account at mapbox.com (maps) |
 | Sanity | 3 | ❌ Not created | Create project at sanity.io (blog/CMS) |
 | Sentry | 4 | ❌ Not created | Create project at sentry.io (error tracking) |

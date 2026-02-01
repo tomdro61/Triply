@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reslab } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
+import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 
 interface CreateReservationBody {
   locationId: number;
@@ -200,6 +201,26 @@ export async function POST(request: NextRequest) {
     } catch (supabaseError) {
       // Log but don't fail - ResLab reservation was successful
       console.error("Supabase save error:", supabaseError);
+    }
+
+    // Send confirmation email (don't fail if email fails)
+    try {
+      const vehicleInfo = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
+      await sendBookingConfirmation({
+        to: customer.email,
+        customerName: `${customer.firstName} ${customer.lastName}`,
+        confirmationNumber: reservation.reservation_number,
+        lotName: locationName || reservation.location?.name || `Location ${locationId}`,
+        lotAddress: locationAddress || reservation.location?.address || "",
+        checkInDate: fromDate.split(" ")[0], // Extract date part
+        checkOutDate: toDate.split(" ")[0],
+        totalAmount: reservation.grand_total || grandTotal || 0,
+        dueAtLocation: reservation.due_at_location,
+        vehicleInfo,
+      });
+    } catch (emailError) {
+      // Log but don't fail - reservation was successful
+      console.error("Email send error:", emailError);
     }
 
     return NextResponse.json({
