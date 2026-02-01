@@ -63,7 +63,7 @@
 | **User Auth (Email + Google)** | ✅ Done | Login/signup UI, Google OAuth working |
 | **Database Schema** | ✅ Done | customers + bookings tables |
 | **Store Guest Bookings** | ✅ Done | All bookings saved to Supabase |
-| **Optional Account Creation** | 🔲 Todo | Offer signup after booking |
+| **Optional Account Creation** | ✅ Done | Prompt on confirmation page for guests |
 
 **✅ Full Booking Flow Tested & Working:**
 - Search → Checkout → Payment (dev bypass) → ResLab Reservation → Confirmation
@@ -78,8 +78,9 @@
 - Checkout form pre-fills with user's name/email when logged in
 - Apple Sign-In out of scope for MVP
 
-**🔲 Remaining:**
-- Optional "Create Account" prompt after booking (for guests)
+**🔲 Phase 2 Remaining:**
+- Stripe Integration (real test keys)
+- Email Confirmation (Resend)
 
 **Search Results Page Requirements:**
 - [x] Split view layout (40% list / 60% map)
