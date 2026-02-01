@@ -1,3 +1,4 @@
+import { render } from "@react-email/render";
 import { resend, FROM_EMAIL } from "./client";
 import { BookingConfirmationEmail } from "./templates/booking-confirmation";
 
@@ -31,11 +32,9 @@ export async function sendBookingConfirmation({
   vehicleInfo,
 }: SendBookingConfirmationParams) {
   try {
-    const { data, error } = await resend.emails.send({
-      from: FROM_EMAIL,
-      to: [to],
-      subject: `Booking Confirmed - ${confirmationNumber}`,
-      react: BookingConfirmationEmail({
+    // Render React component to HTML
+    const emailHtml = await render(
+      BookingConfirmationEmail({
         customerName,
         confirmationNumber,
         lotName,
@@ -47,7 +46,14 @@ export async function sendBookingConfirmation({
         totalAmount,
         dueAtLocation,
         vehicleInfo,
-      }),
+      })
+    );
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [to],
+      subject: `Booking Confirmed - ${confirmationNumber}`,
+      html: emailHtml,
     });
 
     if (error) {
