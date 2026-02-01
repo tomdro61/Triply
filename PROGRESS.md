@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** January 31, 2026
-> **Current Phase:** Phase 2 - Core Booking Flow ✅ COMPLETE
-> **Next Task:** Phase 3 - Content & Admin
+> **Current Phase:** Phase 3 - Content & Admin (In Progress)
+> **Next Task:** Admin Dashboard
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -130,18 +130,19 @@ All core booking flow features are implemented.
 
 ---
 
-### Phase 3: Content & Admin 🔲 NOT STARTED
+### Phase 3: Content & Admin 🔄 IN PROGRESS
 
 | Task | Status | Notes |
 |------|--------|-------|
+| **My Reservations Page** | ✅ Done | User's upcoming/past bookings |
+| **Account Settings Page** | ✅ Done | Profile, password, preferences |
+| **Help/FAQ Page** | ✅ Done | Support content, searchable FAQs |
+| **Legal Pages** | ✅ Done | Terms of Service, Privacy Policy |
+| **Contact Us Page** | ✅ Done | Contact form with Resend email |
 | Sanity CMS Setup | 🔲 Todo | Blog, pages |
 | Blog Implementation | 🔲 Todo | List, post, categories |
-| Help/FAQ Page | 🔲 Todo | Support content |
-| Legal Pages | 🔲 Todo | Terms, Privacy, etc. |
 | Admin Dashboard | 🔲 Todo | Bookings list, stats |
-| Email Templates | 🔲 Todo | Booking confirmation |
-| **My Reservations Page** | 🔲 Todo | User's upcoming/past bookings |
-| **Account Settings Page** | 🔲 Todo | Profile, password, preferences |
+| Email Templates | ✅ Done | Booking confirmation (completed in Phase 2) |
 
 ---
 
@@ -224,11 +225,21 @@ triply/
 │   │   │       └── [lot]/page.tsx   # Lot detail ✅
 │   │   ├── checkout/page.tsx        # Checkout ✅
 │   │   ├── confirmation/[id]/page.tsx # Confirmation ✅
+│   │   ├── reservations/page.tsx    # My Reservations ✅
+│   │   ├── account/page.tsx         # Account Settings ✅
+│   │   ├── help/page.tsx            # Help/FAQ Page ✅
+│   │   ├── terms/page.tsx           # Terms of Service ✅
+│   │   ├── privacy/page.tsx         # Privacy Policy ✅
+│   │   ├── contact/page.tsx         # Contact Us Page ✅
 │   │   └── api/
 │   │       ├── search/route.ts      # Search API ✅ (ResLab)
 │   │       ├── checkout/lot/route.ts # Lot details for checkout ✅
 │   │       ├── reservations/route.ts # Create/get reservations ✅
-│   │       └── payment-intent/route.ts # Stripe PaymentIntent ✅
+│   │       ├── payment-intent/route.ts # Stripe PaymentIntent ✅
+│   │       ├── contact/route.ts      # Contact form API ✅
+│   │       └── user/
+│   │           ├── bookings/route.ts # User's bookings API ✅
+│   │           └── profile/route.ts  # User profile API ✅
 │   ├── components/
 │   │   ├── shared/                  # Layout components ✅
 │   │   ├── search/                  # Search components ✅
@@ -237,6 +248,8 @@ triply/
 │   │   │   ├── stripe-provider.tsx  # Stripe Elements wrapper ✅
 │   │   │   └── stripe-payment-form.tsx # PaymentElement form ✅
 │   │   ├── confirmation/            # Confirmation components ✅
+│   │   ├── reservations/            # My Reservations components ✅
+│   │   │   └── reservation-card.tsx # Reservation card component ✅
 │   │   └── ui/                      # shadcn/ui ✅
 │   ├── lib/
 │   │   ├── reslab/client.ts         # ResLab API ✅ (fully integrated)
@@ -331,6 +344,7 @@ bookings:
 
 1. **Read this file first** to understand current progress
 2. **🎉 PHASE 2 COMPLETE** - Full booking flow with payments and email confirmations!
+3. **My Reservations Page** - `/reservations` shows user's upcoming/past bookings
 3. **Stripe configured** - Test keys working, PaymentElement integrated
 4. **Resend configured** - Booking confirmation emails sending successfully
 5. **Supabase configured** - Auth (Email + Google) and database (customers + bookings)
@@ -427,6 +441,36 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 - Falls back to sessionStorage for lot data (supports ResLab lots not in mock data)
 - Shows account creation prompt for guest users (dismissible)
 - Checks Supabase auth state to hide prompt for logged-in users
+
+**My Reservations Page (Phase 3):**
+- URL: `/reservations`
+- Requires authentication (redirects to login if not signed in)
+- Displays user's bookings from Supabase (linked via customer.user_id)
+- Tabs for "Upcoming" and "Past" reservations
+- Each card shows: location, dates/times, vehicle info, status badge, price
+- Status badges: Upcoming (blue), Active (green), Completed (gray), Cancelled (red)
+- Click card to view full confirmation details
+- Empty state with "Find Parking" CTA
+- Navbar includes "My Reservations" link in user dropdown
+
+**My Reservations Components:**
+- `src/app/reservations/page.tsx` - Main page with auth check, tabs, booking list
+- `src/components/reservations/reservation-card.tsx` - Booking card with status, details
+- `src/app/api/user/bookings/route.ts` - API to fetch user's bookings from Supabase
+
+**Account Settings Page (Phase 3):**
+- URL: `/account`
+- Requires authentication (redirects to login if not signed in)
+- Profile section: edit first name, last name, phone number
+- Shows avatar and email (read-only)
+- Password change section (only for email/password users, hidden for OAuth)
+- Security section: shows sign-in method, member since date
+- Quick links to My Reservations, Help, Book Parking
+- Updates both Supabase auth metadata and customers table
+
+**Account Settings Components:**
+- `src/app/account/page.tsx` - Main account settings page
+- `src/app/api/user/profile/route.ts` - GET and PUT endpoints for user profile
 
 ---
 

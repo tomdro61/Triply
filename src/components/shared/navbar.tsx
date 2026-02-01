@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Menu, X, User, Plane, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, User, Plane, LogOut, ChevronDown, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -143,6 +143,14 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
                       <Link
+                        href="/reservations"
+                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        <Ticket size={16} />
+                        My Reservations
+                      </Link>
+                      <Link
                         href="/account"
                         className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -209,10 +217,19 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                 </div>
               </div>
               <Link
-                href="/account"
-                className="text-gray-800 font-medium py-2"
+                href="/reservations"
+                className="text-gray-800 font-medium py-2 flex items-center gap-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
+                <Ticket size={18} />
+                My Reservations
+              </Link>
+              <Link
+                href="/account"
+                className="text-gray-800 font-medium py-2 flex items-center gap-2"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <User size={18} />
                 My Account
               </Link>
               <button
@@ -220,8 +237,9 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                   handleSignOut();
                   setIsMobileMenuOpen(false);
                 }}
-                className="text-red-600 font-medium py-2 text-left"
+                className="text-red-600 font-medium py-2 text-left flex items-center gap-2"
               >
+                <LogOut size={18} />
                 Sign Out
               </button>
             </>

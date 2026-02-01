@@ -15,10 +15,10 @@ export function Footer() {
     {
       header: "Support",
       links: [
-        { label: "Help Center", href: "/help" },
+        { label: "FAQs", href: "/help" },
+        { label: "Contact Us", href: "/contact" },
         { label: "Terms of Service", href: "/terms" },
         { label: "Privacy Policy", href: "/privacy" },
-        { label: "Cookie Policy", href: "/cookies" },
       ],
     },
     {

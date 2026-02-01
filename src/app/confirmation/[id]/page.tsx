@@ -199,7 +199,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Navbar />
+        <Navbar forceSolid />
         <main className="pt-20">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange mx-auto mb-4" />
@@ -214,7 +214,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   if (!lot) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Navbar />
+        <Navbar forceSolid />
         <main className="pt-20">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
@@ -240,7 +240,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navbar />
+      <Navbar forceSolid />
 
       <main className="pt-20 pb-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

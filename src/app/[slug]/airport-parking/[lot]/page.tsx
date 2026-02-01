@@ -97,7 +97,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      <Navbar />
+      <Navbar forceSolid />
 
       <main className="pt-20 animate-fade-in">
         <LotHeader lot={lot} backUrl={backUrl} />

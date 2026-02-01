@@ -128,7 +128,7 @@ function SearchPageContent() {
 
   return (
     <div className="bg-white h-screen flex flex-col">
-      <Navbar />
+      <Navbar forceSolid />
 
       {/* Add padding for navbar */}
       <div className="pt-20 flex flex-col flex-1 overflow-hidden">
