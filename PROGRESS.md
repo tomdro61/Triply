@@ -484,6 +484,7 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 - Admin emails: vin@triplypro.com, john@triplypro.com, tom@triplypro.com
 - Dashboard: Stats cards (total bookings, revenue, today/week/month)
 - Bookings page: Full list with search, status filter, pagination
+- Date range filtering: Today, This Week, This Month, Custom date picker
 - Booking detail modal: Customer info, reservation details, vehicle info
 - Export CSV functionality for bookings
 - Non-admin users see "Access Denied" page
