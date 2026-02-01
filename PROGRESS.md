@@ -2,7 +2,7 @@
 
 > **Last Updated:** January 31, 2026
 > **Current Phase:** Phase 3 - Content & Admin (In Progress)
-> **Next Task:** Admin Dashboard
+> **Next Task:** Sanity CMS Setup
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -139,9 +139,9 @@ All core booking flow features are implemented.
 | **Help/FAQ Page** | ✅ Done | Support content, searchable FAQs |
 | **Legal Pages** | ✅ Done | Terms of Service, Privacy Policy |
 | **Contact Us Page** | ✅ Done | Contact form with Resend email |
+| **Admin Dashboard** | ✅ Done | Stats, bookings list, detail view |
 | Sanity CMS Setup | 🔲 Todo | Blog, pages |
 | Blog Implementation | 🔲 Todo | List, post, categories |
-| Admin Dashboard | 🔲 Todo | Bookings list, stats |
 | Email Templates | ✅ Done | Booking confirmation (completed in Phase 2) |
 
 ---
@@ -231,15 +231,22 @@ triply/
 │   │   ├── terms/page.tsx           # Terms of Service ✅
 │   │   ├── privacy/page.tsx         # Privacy Policy ✅
 │   │   ├── contact/page.tsx         # Contact Us Page ✅
+│   │   ├── admin/
+│   │   │   ├── layout.tsx           # Admin layout + auth ✅
+│   │   │   ├── page.tsx             # Admin dashboard ✅
+│   │   │   └── bookings/page.tsx    # Bookings list ✅
 │   │   └── api/
 │   │       ├── search/route.ts      # Search API ✅ (ResLab)
 │   │       ├── checkout/lot/route.ts # Lot details for checkout ✅
 │   │       ├── reservations/route.ts # Create/get reservations ✅
 │   │       ├── payment-intent/route.ts # Stripe PaymentIntent ✅
 │   │       ├── contact/route.ts      # Contact form API ✅
-│   │       └── user/
-│   │           ├── bookings/route.ts # User's bookings API ✅
-│   │           └── profile/route.ts  # User profile API ✅
+│   │       ├── user/
+│   │       │   ├── bookings/route.ts # User's bookings API ✅
+│   │       │   └── profile/route.ts  # User profile API ✅
+│   │       └── admin/
+│   │           ├── stats/route.ts    # Admin stats API ✅
+│   │           └── bookings/route.ts # Admin bookings API ✅
 │   ├── components/
 │   │   ├── shared/                  # Layout components ✅
 │   │   ├── search/                  # Search components ✅
@@ -471,6 +478,22 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 **Account Settings Components:**
 - `src/app/account/page.tsx` - Main account settings page
 - `src/app/api/user/profile/route.ts` - GET and PUT endpoints for user profile
+
+**Admin Dashboard (Phase 3):**
+- URL: `/admin` (protected - email whitelist only)
+- Admin emails: vin@triplypro.com, john@triplypro.com, tom@triplypro.com
+- Dashboard: Stats cards (total bookings, revenue, today/week/month)
+- Bookings page: Full list with search, status filter, pagination
+- Booking detail modal: Customer info, reservation details, vehicle info
+- Export CSV functionality for bookings
+- Non-admin users see "Access Denied" page
+
+**Admin Dashboard Components:**
+- `src/app/admin/layout.tsx` - Admin layout with sidebar, auth check
+- `src/app/admin/page.tsx` - Dashboard with stats and recent bookings
+- `src/app/admin/bookings/page.tsx` - Full bookings list with filters
+- `src/app/api/admin/stats/route.ts` - Stats API (bookings, revenue)
+- `src/app/api/admin/bookings/route.ts` - Bookings list API with pagination
 
 ---
 
