@@ -11,9 +11,12 @@ import {
   QRCodeSection,
   AddToCalendar,
   WhatsNext,
+  CreateAccountPrompt,
 } from "@/components/confirmation";
 import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
 import { UnifiedLot } from "@/types/lot";
+import { createClient } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -55,6 +58,7 @@ interface ReservationData {
 
 function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const searchParams = useSearchParams();
+  const supabase = createClient();
 
   const lotId = searchParams.get("lot");
   const checkInParam = searchParams.get("checkin");
@@ -65,6 +69,17 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [showAccountPrompt, setShowAccountPrompt] = useState(true);
+
+  // Check if user is logged in
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setUser(user);
+    };
+    getUser();
+  }, [supabase.auth]);
 
   // Fetch reservation data from API
   useEffect(() => {
@@ -262,6 +277,16 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
               <WhatsNext lot={lot} checkIn={checkIn} checkInTime={checkInTime} />
             </div>
           </div>
+
+          {/* Create Account Prompt (for guests only) */}
+          {!user && showAccountPrompt && (
+            <div className="mt-8">
+              <CreateAccountPrompt
+                email={customerEmail}
+                onClose={() => setShowAccountPrompt(false)}
+              />
+            </div>
+          )}
 
           {/* Bottom Actions */}
           <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
