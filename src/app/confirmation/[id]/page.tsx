@@ -109,7 +109,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     fetchReservation();
   }, [confirmationId]);
 
-  // Get lot data - either from reservation or fallback
+  // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
     if (reservation?.location) {
       // Build UnifiedLot from reservation data
@@ -140,9 +140,21 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
       };
     }
 
-    // Fallback to mock data
+    // Fallback to mock data or sessionStorage
     if (lotId) {
-      return getMockLotById(lotId) || null;
+      // Try mock data first
+      const mockLot = getMockLotById(lotId);
+      if (mockLot) return mockLot;
+
+      // Try sessionStorage (for ResLab lots that aren't in mock data)
+      try {
+        const storedLot = sessionStorage.getItem(`lot-${lotId}`);
+        if (storedLot) {
+          return JSON.parse(storedLot) as UnifiedLot;
+        }
+      } catch {
+        // sessionStorage not available or parsing failed
+      }
     }
 
     return null;

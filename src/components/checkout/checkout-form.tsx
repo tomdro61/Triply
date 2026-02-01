@@ -265,6 +265,10 @@ export function CheckoutForm({
           // Dev mode without full API data - create mock confirmation
           console.log("[DEV MODE] Creating mock reservation (missing costsToken or parkingTypeId)");
           const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+
+          // Store lot data for confirmation page (in case lot ID isn't in mock data)
+          sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+
           router.push(
             `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
           );
@@ -317,6 +321,9 @@ export function CheckoutForm({
       if (!response.ok) {
         throw new Error(result.error || "Failed to create reservation");
       }
+
+      // Store lot data for confirmation page (in case lot ID isn't in mock data)
+      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
 
       // Redirect to confirmation page with reservation number
       router.push(

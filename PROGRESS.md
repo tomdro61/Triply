@@ -2,7 +2,7 @@
 
 > **Last Updated:** January 31, 2026
 > **Current Phase:** Phase 2 - Core Booking Flow (almost complete!)
-> **Next Task:** Optional Account Creation → Stripe → Email
+> **Next Task:** Stripe Integration → Email Confirmation
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -382,6 +382,13 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 - `src/components/confirmation/qr-code-section.tsx` - QR code with download/copy
 - `src/components/confirmation/add-to-calendar.tsx` - Google, Outlook, Apple, ICS export
 - `src/components/confirmation/whats-next.tsx` - Step-by-step check-in instructions
+- `src/components/confirmation/create-account-prompt.tsx` - Guest account creation (Google or email)
+
+**Confirmation Page Features:**
+- Fetches reservation data from ResLab API for real bookings
+- Falls back to sessionStorage for lot data (supports ResLab lots not in mock data)
+- Shows account creation prompt for guest users (dismissible)
+- Checks Supabase auth state to hide prompt for logged-in users
 
 ---
 
