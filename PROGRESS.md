@@ -130,7 +130,7 @@ All core booking flow features are implemented.
 
 ---
 
-### Phase 3: Content & Admin 🔄 IN PROGRESS
+### Phase 3: Content & Admin ✅ COMPLETE
 
 | Task | Status | Notes |
 |------|--------|-------|
@@ -508,7 +508,7 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 
 > **Architecture Change:** Payload CMS was moved to a separate project (`triply-cms/`) deployed to its own subdomain (`cms.triplypro.com`) due to CSS conflicts between Tailwind CSS v4's Preflight and Payload's admin panel styles. The main `triply/` app no longer contains any Payload code.
 
-- **Why Separate Subdomain:** Tailwind CSS v4's Preflight reset conflicted with Payload's admin styles. CSS isolation techniques (scoped styles, nested imports) failed. Separate deployment cleanly isolates the CSS concerns.
+- **Why Separate Subdomain:** Clean deployment separation - independent git repos, separate Vercel projects, isolated dependencies, no build-time coupling. Each project can be deployed and versioned independently.
 - **CMS Project:** `triply-cms/` (sibling to `triply/`)
 - **Admin URL:** `http://localhost:3001/admin` (dev) / `https://cms.triplypro.com/admin` (prod)
 - **API URL:** `http://localhost:3001/api` (dev) / `https://cms.triplypro.com/api` (prod)
