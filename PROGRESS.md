@@ -1,8 +1,8 @@
 # Triply Development Progress
 
-> **Last Updated:** February 1, 2026
-> **Current Phase:** Phase 3 - Content & Admin (Complete)
-> **Next Task:** Phase 4 - SEO, Performance, Launch Prep
+> **Last Updated:** February 2, 2026
+> **Current Phase:** Phase 4 - Polish & Launch (In Progress)
+> **Next Task:** Create CMS admin user, add sample blog content, continue Phase 4 tasks
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -146,16 +146,29 @@ All core booking flow features are implemented.
 
 ---
 
-### Phase 4: Polish & Launch 🔲 NOT STARTED
+### Phase 4: Polish & Launch 🔄 IN PROGRESS
 
 | Task | Status | Notes |
 |------|--------|-------|
+| **Staging Deployment - CMS** | ✅ Done | triply-cms.vercel.app |
+| **Staging Deployment - Main App** | ✅ Done | Deployed to Vercel |
 | SEO Implementation | 🔲 Todo | Meta tags, sitemap |
 | Performance Optimization | 🔲 Todo | Images, caching |
 | Testing | 🔲 Todo | E2E booking flow |
-| Production Setup | 🔲 Todo | Vercel, domain, SSL |
-| Staging Environment | 🔲 Todo | staging.triplypro.com |
+| Production Setup | 🔲 Todo | Custom domains, SSL |
 | Launch Checklist | 🔲 Todo | Final verification |
+
+**Staging URLs:**
+- **CMS:** https://triply-cms.vercel.app/admin
+- **Main App:** Deployed to Vercel (URL from dashboard)
+
+**Environment Variables Configured:**
+- NEXT_PUBLIC_CMS_URL (pointing to CMS Vercel URL)
+- Supabase keys (URL, anon key, service role key)
+- ResLab API key (test)
+- Stripe keys (test mode)
+- Resend API key
+- NEXT_PUBLIC_APP_URL, RESLAB_API_DOMAIN
 
 ---
 
@@ -171,7 +184,7 @@ All core booking flow features are implemented.
 | Maps | Mapbox | 🔲 Need account |
 | CMS | Payload CMS 3.0 | ✅ Configured (separate subdomain: triply-cms/) |
 | Email | Resend | ✅ Configured |
-| Hosting | Vercel | ✅ Account exists |
+| Hosting | Vercel | ✅ Staging deployed (CMS + Main App) |
 | Error Tracking | Sentry | 🔲 Need account |
 | Analytics | Google Analytics 4 | 🔲 Need account |
 
@@ -358,13 +371,14 @@ bookings:
 ## Notes for Next Session
 
 1. **Read this file first** to understand current progress
-2. **🎉 PHASE 2 COMPLETE** - Full booking flow with payments and email confirmations!
-3. **🎉 PHASE 3 NEARLY COMPLETE** - All content pages, admin dashboard, and CMS done!
-4. **Payload CMS** - Self-hosted at `/cms`, uses existing Supabase PostgreSQL
-5. **Blog** - Frontend at `/blog` and `/blog/[slug]`, fetches from Payload API
+2. **🎉 PHASE 3 COMPLETE** - All content pages, admin dashboard, and CMS done!
+3. **🎉 STAGING DEPLOYED** - Both CMS and main app deployed to Vercel!
+4. **Payload CMS** - Separate project deployed to triply-cms.vercel.app
+5. **Blog** - Frontend at `/blog` and `/blog/[slug]`, fetches from CMS subdomain
 6. **Make/N8N Integration** - Payload supports API key auth for automation
-7. **Next priority:** Create blog content, then Phase 4 (SEO, performance, launch)
+7. **Next priority:** Create CMS admin user, add blog content, continue Phase 4 tasks
 8. **Test airports:** TEST-NY (location 195) and TEST-OH (location 194)
+9. **Custom domains:** Set up cms.triplypro.com and staging.triplypro.com when DNS ready
 
 **Dev Mode (Stripe Bypass):**
 - Set `NEXT_PUBLIC_DEV_SKIP_PAYMENT=true` to bypass Stripe payment
