@@ -10,12 +10,12 @@ type Props = {
   params: Promise<{ slug: string }>
 }
 
-// Fetch single post by slug
+// Fetch single post by slug from Payload CMS (separate subdomain)
 async function getPost(slug: string) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
     const res = await fetch(
-      `${baseUrl}/api/cms/posts?where[slug][equals]=${slug}&where[status][equals]=published&depth=2`,
+      `${cmsUrl}/api/posts?where[slug][equals]=${slug}&where[status][equals]=published&depth=2`,
       { next: { revalidate: 60 } }
     )
 

@@ -1,8 +1,8 @@
 # Triply Development Progress
 
 > **Last Updated:** February 1, 2026
-> **Current Phase:** Phase 3 - Content & Admin (In Progress)
-> **Next Task:** Create blog content in Payload CMS
+> **Current Phase:** Phase 3 - Content & Admin (Complete)
+> **Next Task:** Phase 4 - SEO, Performance, Launch Prep
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -140,8 +140,8 @@ All core booking flow features are implemented.
 | **Legal Pages** | ✅ Done | Terms of Service, Privacy Policy |
 | **Contact Us Page** | ✅ Done | Contact form with Resend email |
 | **Admin Dashboard** | ✅ Done | Stats, bookings list, detail view |
-| **Payload CMS Setup** | ✅ Done | Replaced Sanity with self-hosted Payload CMS |
-| **Blog Implementation** | ✅ Done | /blog, /blog/[slug], RichText component |
+| **Payload CMS Setup** | ✅ Done | Separate subdomain deployment (triply-cms/) |
+| **Blog Implementation** | ✅ Done | /blog, /blog/[slug] fetching from CMS subdomain |
 | Email Templates | ✅ Done | Booking confirmation (completed in Phase 2) |
 
 ---
@@ -169,7 +169,7 @@ All core booking flow features are implemented.
 | Auth | Supabase Auth (Email + Google) | ✅ Configured |
 | Payments | Stripe | ✅ Configured |
 | Maps | Mapbox | 🔲 Need account |
-| CMS | Payload CMS 3.0 | ✅ Configured (self-hosted, /cms admin) |
+| CMS | Payload CMS 3.0 | ✅ Configured (separate subdomain: triply-cms/) |
 | Email | Resend | ✅ Configured |
 | Hosting | Vercel | ✅ Account exists |
 | Error Tracking | Sentry | 🔲 Need account |
@@ -238,9 +238,8 @@ triply/
 │   │   ├── blog/
 │   │   │   ├── page.tsx             # Blog listing ✅
 │   │   │   └── [slug]/page.tsx      # Single post ✅
-│   │   ├── (payload)/
-│   │   │   ├── cms/[[...segments]]/ # Payload admin panel ✅
-│   │   │   └── api/cms/[...slug]/   # Payload REST API ✅
+│   │   ├── (main)/
+│   │   │   └── blog/                # Blog pages (fetches from CMS subdomain) ✅
 │   │   └── api/
 │   │       ├── search/route.ts      # Search API ✅ (ResLab)
 │   │       ├── checkout/lot/route.ts # Lot details for checkout ✅
@@ -266,14 +265,7 @@ triply/
 │   │   ├── blog/                    # Blog components ✅
 │   │   │   └── RichText.tsx         # Lexical content renderer ✅
 │   │   └── ui/                      # shadcn/ui ✅
-│   ├── payload/
-│   │   ├── payload.config.ts        # Payload CMS config ✅
-│   │   └── collections/             # CMS collections ✅
-│   │       ├── Posts.ts             # Blog posts ✅
-│   │       ├── Categories.ts        # Post categories ✅
-│   │       ├── Tags.ts              # Post tags ✅
-│   │       ├── Media.ts             # Image uploads ✅
-│   │       └── Users.ts             # CMS admin users ✅
+│   │   # Note: Payload CMS is in separate triply-cms/ directory
 │   ├── lib/
 │   │   ├── reslab/client.ts         # ResLab API ✅ (fully integrated)
 │   │   ├── reslab/get-lot.ts        # Lot fetching helpers ✅
@@ -512,40 +504,72 @@ NEXT_PUBLIC_DEV_SKIP_PAYMENT=false
 - `src/app/api/admin/stats/route.ts` - Stats API (bookings, revenue)
 - `src/app/api/admin/bookings/route.ts` - Bookings list API with pagination
 
-**Payload CMS (Phase 3) - Replaced Sanity:**
-- **Why Payload:** Free (self-hosted), integrates into Next.js, supports API key auth for Make/N8N automation
-- **Admin URL:** `/cms` (avoids conflict with `/admin` bookings dashboard)
-- **API URL:** `/api/cms` (REST API for automation)
-- **Database:** Uses existing Supabase PostgreSQL (separate tables, no conflicts)
+**Payload CMS (Phase 3) - Separate Subdomain Deployment:**
+
+> **Architecture Change:** Payload CMS was moved to a separate project (`triply-cms/`) deployed to its own subdomain (`cms.triplypro.com`) due to CSS conflicts between Tailwind CSS v4's Preflight and Payload's admin panel styles. The main `triply/` app no longer contains any Payload code.
+
+- **Why Separate Subdomain:** Tailwind CSS v4's Preflight reset conflicted with Payload's admin styles. CSS isolation techniques (scoped styles, nested imports) failed. Separate deployment cleanly isolates the CSS concerns.
+- **CMS Project:** `triply-cms/` (sibling to `triply/`)
+- **Admin URL:** `http://localhost:3001/admin` (dev) / `https://cms.triplypro.com/admin` (prod)
+- **API URL:** `http://localhost:3001/api` (dev) / `https://cms.triplypro.com/api` (prod)
+- **Database:** Uses existing Supabase PostgreSQL with `payload` schema
 - **Features:** Blog posts with SEO fields, categories, tags, media uploads, user roles
 
-**Payload CMS Collections:**
-- `Posts` - Blog posts with title, slug, excerpt, content (Lexical), featured image, category, tags, SEO fields
-- `Categories` - Post categories with name, slug, description
-- `Tags` - Post tags with name, slug
-- `Media` - Image uploads with auto-generated sizes (thumbnail, card, feature)
-- `Users` - CMS admin users with API key auth for automation
+**CMS Project Structure (triply-cms/):**
+```
+triply-cms/
+├── src/
+│   ├── app/
+│   │   ├── (frontend)/           # Optional frontend (not used)
+│   │   └── (payload)/
+│   │       ├── admin/[[...segments]]/page.tsx
+│   │       ├── api/[...slug]/route.ts
+│   │       └── layout.tsx        # Payload layout with CSS import
+│   ├── collections/
+│   │   ├── Posts.ts
+│   │   ├── Categories.ts
+│   │   ├── Tags.ts
+│   │   ├── Media.ts
+│   │   └── Users.ts
+│   └── payload.config.ts
+├── next.config.mjs
+├── package.json
+└── .env.local
+```
 
-**Payload CMS Files:**
-- `src/payload/payload.config.ts` - Main Payload configuration
-- `src/payload/collections/*.ts` - Collection definitions
-- `src/app/(payload)/cms/[[...segments]]/page.tsx` - Admin panel route
-- `src/app/(payload)/api/cms/[...slug]/route.ts` - REST API route
-- `src/app/blog/page.tsx` - Blog listing page
-- `src/app/blog/[slug]/page.tsx` - Single post page
-- `src/components/blog/RichText.tsx` - Lexical content renderer
+**Main App Blog Integration:**
+- Blog pages in `triply/src/app/(main)/blog/` fetch from CMS subdomain
+- Uses `NEXT_PUBLIC_CMS_URL` environment variable
+- Example: `fetch(\`${process.env.NEXT_PUBLIC_CMS_URL}/api/posts\`)`
 
-**Payload Environment Variables:**
+**Running Both Projects (Development):**
+```bash
+# Terminal 1 - Main app (port 3000)
+cd triply && npm run dev
+
+# Terminal 2 - CMS (port 3001)
+cd triply-cms && npm run dev -- -p 3001
+```
+
+**Environment Variables:**
+
+Main app (`triply/.env.local`):
+```bash
+NEXT_PUBLIC_CMS_URL=http://localhost:3001
+# Production: NEXT_PUBLIC_CMS_URL=https://cms.triplypro.com
+```
+
+CMS (`triply-cms/.env.local`):
 ```bash
 PAYLOAD_SECRET=your-secret-key-at-least-32-characters
-DATABASE_URI=postgresql://postgres.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres
+DATABASE_URI=postgresql://postgres.[ref]:[pass]@aws-1-us-east-2.pooler.supabase.com:5432/postgres
 ```
 
 **Make/N8N API Integration:**
-- Create a CMS user at `/cms`
+- Create a CMS user at `http://localhost:3001/admin`
 - Generate API key in user settings
 - Use header: `Authorization: users API-Key YOUR_KEY_HERE`
-- Endpoints: POST `/api/cms/posts`, GET `/api/cms/posts`, POST `/api/cms/media`
+- Endpoints: POST `/api/posts`, GET `/api/posts`, POST `/api/media`
 
 ---
 

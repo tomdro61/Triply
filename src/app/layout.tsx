@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import "./globals.css";
+// globals.css is now imported in (main)/layout.tsx to isolate from Payload CMS
 
 const inter = Inter({
   variable: "--font-inter",

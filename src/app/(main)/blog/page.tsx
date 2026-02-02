@@ -8,11 +8,11 @@ export const metadata: Metadata = {
   description: 'Expert tips on airport parking, travel hacks, and guides to make your trip easier. Your Trip Simplified.',
 }
 
-// Fetch posts from Payload CMS
+// Fetch posts from Payload CMS (separate subdomain)
 async function getPosts() {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/cms/posts?where[status][equals]=published&sort=-publishedAt&depth=2`, {
+    const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
+    const res = await fetch(`${cmsUrl}/api/posts?where[status][equals]=published&sort=-publishedAt&depth=2`, {
       next: { revalidate: 60 }, // Revalidate every 60 seconds
     })
 
