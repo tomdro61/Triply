@@ -1,8 +1,8 @@
 # Triply Development Progress
 
-> **Last Updated:** February 4, 2026 (auto-integration test)
+> **Last Updated:** February 4, 2026
 > **Current Phase:** Phase 4 - Polish & Launch (In Progress)
-> **Next Task:** Create CMS admin user, add sample blog content, continue Phase 4 tasks
+> **Next Task:** SEO implementation, performance optimization, testing
 >
 > **🎉 MILESTONE: Full booking flow working end-to-end with ResLab!**
 
@@ -152,11 +152,22 @@ All core booking flow features are implemented.
 |------|--------|-------|
 | **Staging Deployment - CMS** | ✅ Done | triply-cms.vercel.app |
 | **Staging Deployment - Main App** | ✅ Done | Deployed to Vercel |
+| **GitHub → Vercel Auto-Deploy** | ✅ Done | Both repos auto-deploy on push |
+| **Staging Workflow** | ✅ Done | staging branch → Preview, main → Production |
 | SEO Implementation | 🔲 Todo | Meta tags, sitemap |
 | Performance Optimization | 🔲 Todo | Images, caching |
 | Testing | 🔲 Todo | E2E booking flow |
 | Production Setup | 🔲 Todo | Custom domains, SSL |
 | Launch Checklist | 🔲 Todo | Final verification |
+
+**Deployment Workflow (Configured Feb 4):**
+- Push to `staging` → Vercel Preview deployment
+- Merge to `main` → Vercel Production deployment
+- Both repos must be **public** for GitHub App auto-deploy to work
+
+**GitHub Repos:**
+- **Main App:** github.com/tomdro61/Triply (public)
+- **CMS:** github.com/tomdro61/triply-cms (public)
 
 **Staging URLs:**
 - **CMS:** https://triply-cms.vercel.app/admin
