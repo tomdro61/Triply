@@ -1,106 +1,138 @@
-import Image from "next/image";
-import { Search, CheckCircle2, Zap, ShieldCheck } from "lucide-react";
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { Search, MousePointerClick, CreditCard, Plane, ArrowRight } from "lucide-react";
+
+interface Step {
+  number: number;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+}
+
+const steps: Step[] = [
+  {
+    number: 1,
+    title: "Search",
+    description: "Enter your airport and travel dates to see all options",
+    icon: Search,
+  },
+  {
+    number: 2,
+    title: "Compare",
+    description: "Filter by price, distance, and amenities",
+    icon: MousePointerClick,
+  },
+  {
+    number: 3,
+    title: "Book",
+    description: "Secure checkout with instant confirmation",
+    icon: CreditCard,
+  },
+  {
+    number: 4,
+    title: "Travel",
+    description: "Park and catch your flight stress-free",
+    icon: Plane,
+  },
+];
 
 export function HowItWorks() {
-  const steps = [
-    {
-      title: "Search & Compare",
-      description:
-        "Compare prices for parking options near major airports all in one place.",
-      icon: Search,
-    },
-    {
-      title: "Select Your Spot",
-      description:
-        "Choose the best deals based on price, distance, and amenities.",
-      icon: CheckCircle2,
-    },
-    {
-      title: "Book Instantly",
-      description:
-        "Get instant confirmation with free cancellation up to 24 hours before your trip.",
-      icon: Zap,
-    },
-    {
-      title: "Travel With Confidence",
-      description:
-        "Your spot is reserved. We handle the details so you can focus on your journey.",
-      icon: ShieldCheck,
-    },
-  ];
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <section className="py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left Column: Steps */}
-          <div className="order-2 lg:order-1">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12 leading-tight">
-              Streamline your travel planning from search to booking
-            </h2>
+    <section
+      ref={sectionRef}
+      className="py-20 lg:py-24 bg-brand-dark relative overflow-hidden"
+    >
+      {/* Subtle background decoration */}
+      <div className="absolute inset-0">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-brand-orange/5 rounded-full blur-3xl" />
+      </div>
 
-            <div className="space-y-12 relative">
-              {/* Vertical Line */}
-              <div className="absolute left-6 top-8 bottom-8 w-0.5 bg-gray-200 hidden md:block"></div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <span className="inline-block text-brand-orange font-bold text-sm uppercase tracking-wider mb-3">
+            How It Works
+          </span>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white">
+            Book in 4 Simple Steps
+          </h2>
+        </div>
 
-              {steps.map((step, index) => (
-                <div key={index} className="relative flex items-start group">
-                  {/* Icon Bubble */}
-                  <div className="flex-shrink-0 relative z-10">
-                    <div className="w-12 h-12 rounded-full bg-white border border-gray-200 shadow-sm flex items-center justify-center group-hover:border-brand-orange group-hover:scale-110 transition-all duration-300">
-                      <step.icon className="text-brand-orange w-6 h-6" />
+        {/* Steps */}
+        <div className="relative">
+          {/* Connecting line - desktop only */}
+          <div className="hidden lg:block absolute top-16 left-[12%] right-[12%] h-0.5 bg-gradient-to-r from-brand-orange/20 via-brand-orange/40 to-brand-orange/20" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-6">
+            {steps.map((step, index) => {
+              const Icon = step.icon;
+
+              return (
+                <div
+                  key={step.number}
+                  className={`relative text-center group ${
+                    isVisible ? "animate-fade-in-up" : "opacity-0"
+                  }`}
+                  style={{
+                    animationDelay: isVisible ? `${index * 100}ms` : "0ms",
+                    animationFillMode: "forwards",
+                  }}
+                >
+                  {/* Icon Circle */}
+                  <div className="relative inline-flex mb-6">
+                    <div className="w-32 h-32 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-brand-orange/10 group-hover:border-brand-orange/30 transition-all duration-300">
+                      <div className="w-20 h-20 rounded-full bg-brand-orange/10 flex items-center justify-center group-hover:bg-brand-orange group-hover:scale-110 transition-all duration-300">
+                        <Icon className="w-9 h-9 text-brand-orange group-hover:text-white transition-colors duration-300" />
+                      </div>
+                    </div>
+
+                    {/* Step Number */}
+                    <div className="absolute -top-1 -right-1 w-9 h-9 bg-brand-orange rounded-full flex items-center justify-center shadow-lg shadow-brand-orange/30">
+                      <span className="font-bold text-white text-sm">{step.number}</span>
                     </div>
                   </div>
 
-                  {/* Text */}
-                  <div className="ml-6 pt-1">
-                    <h3 className="text-xl font-bold text-gray-900 mb-2">
-                      {step.title}
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      {step.description}
-                    </p>
-                  </div>
+                  {/* Content */}
+                  <h3 className="text-xl font-bold text-white mb-2">{step.title}</h3>
+                  <p className="text-gray-400 text-sm leading-relaxed max-w-[200px] mx-auto">
+                    {step.description}
+                  </p>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Right Column: Image Grid */}
-          <div className="order-1 lg:order-2 grid grid-cols-2 gap-4">
-            <div className="relative h-48 rounded-2xl shadow-lg overflow-hidden transform translate-y-8 hover:scale-105 transition-transform duration-500">
-              <Image
-                src="https://images.unsplash.com/photo-1470224114660-3f6686c562eb?auto=format&fit=crop&w=600&q=80"
-                alt="Airport Parking"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="relative h-48 rounded-2xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-500">
-              <Image
-                src="https://images.unsplash.com/photo-1512428559087-560fa5ce7d87?auto=format&fit=crop&w=600&q=80"
-                alt="Mobile Booking"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="relative h-48 rounded-2xl shadow-lg overflow-hidden transform translate-y-8 hover:scale-105 transition-transform duration-500">
-              <Image
-                src="https://images.unsplash.com/photo-1523906834658-6e24ef2386f9?auto=format&fit=crop&w=600&q=80"
-                alt="Traveler at Airport"
-                fill
-                className="object-cover"
-              />
-            </div>
-            <div className="relative h-48 rounded-2xl shadow-lg overflow-hidden hover:scale-105 transition-transform duration-500">
-              <Image
-                src="https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=600&q=80"
-                alt="Airplane Taking Off"
-                fill
-                className="object-cover"
-              />
-            </div>
-          </div>
+        {/* Bottom CTA */}
+        <div className="text-center mt-16">
+          <a
+            href="#"
+            className="inline-flex items-center gap-2 bg-brand-orange text-white font-bold px-8 py-4 rounded-full hover:bg-white hover:text-brand-dark transition-all duration-300 shadow-lg shadow-brand-orange/30 hover:shadow-xl hover:scale-105"
+          >
+            Find Parking Now
+            <ArrowRight size={20} />
+          </a>
         </div>
       </div>
     </section>

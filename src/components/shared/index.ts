@@ -5,6 +5,7 @@ export { FeatureCards } from "./feature-cards";
 export { Comparison } from "./comparison";
 export { HowItWorks } from "./how-it-works";
 export { Testimonials } from "./testimonials";
+export { SavingsCalculator } from "./savings-calculator";
 export { FAQ } from "./faq";
 export { Newsletter } from "./newsletter";
 export { Footer } from "./footer";

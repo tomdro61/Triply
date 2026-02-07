@@ -59,7 +59,7 @@ export function FAQ() {
   };
 
   return (
-    <section className="py-20 bg-brand-gray">
+    <section className="py-20 lg:py-24 bg-brand-gray">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900">

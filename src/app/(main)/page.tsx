@@ -2,10 +2,11 @@ import {
   Navbar,
   Hero,
   StatsBar,
-  FeatureCards,
+  // FeatureCards, // TODO: Re-enable when Hotels, Transfers, Bundles are available
   Comparison,
   HowItWorks,
   Testimonials,
+  SavingsCalculator,
   FAQ,
   Newsletter,
   Footer,
@@ -20,10 +21,11 @@ export default function Home() {
         <div className="animate-fade-in">
           <Hero />
           <StatsBar />
-          <FeatureCards />
+          {/* <FeatureCards /> TODO: Re-enable when Hotels, Transfers, Bundles are available */}
           <Comparison />
           <HowItWorks />
           <Testimonials />
+          <SavingsCalculator />
           <FAQ />
           <Newsletter />
         </div>

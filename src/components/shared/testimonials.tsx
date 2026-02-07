@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Star, Quote, CheckCircle } from "lucide-react";
 
 interface Testimonial {
@@ -43,8 +44,28 @@ const testimonials: Testimonial[] = [
 ];
 
 export function Testimonials() {
+  const [isVisible, setIsVisible] = useState(false);
+  const sectionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+        }
+      },
+      { threshold: 0.2 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <section className="py-20 bg-white">
+    <section ref={sectionRef} className="py-20 lg:py-24 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900">
@@ -56,10 +77,16 @@ export function Testimonials() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8">
-          {testimonials.map((review) => (
+          {testimonials.map((review, index) => (
             <div
               key={review.id}
-              className="bg-gray-50 p-8 rounded-2xl relative hover:shadow-lg transition-shadow shadow-sm group"
+              className={`bg-gray-50 p-8 rounded-2xl relative hover:shadow-lg transition-shadow shadow-sm group ${
+                isVisible ? "animate-fade-in-up" : "opacity-0"
+              }`}
+              style={{
+                animationDelay: isVisible ? `${index * 150}ms` : "0ms",
+                animationFillMode: "forwards",
+              }}
             >
               <Quote className="absolute top-6 right-6 text-brand-orange opacity-20 w-10 h-10 group-hover:opacity-30 transition-opacity" />
 
@@ -104,7 +131,7 @@ export function Testimonials() {
         </div>
 
         <div className="mt-12 text-center">
-          <button className="px-8 py-3 border-2 border-brand-orange text-brand-orange rounded-full font-bold hover:bg-brand-orange hover:text-white transition-colors">
+          <button className="px-8 py-3 border-2 border-brand-orange text-brand-orange rounded-full font-bold hover:bg-brand-orange hover:text-white transition-colors animate-subtle-pulse">
             View More Reviews
           </button>
         </div>
