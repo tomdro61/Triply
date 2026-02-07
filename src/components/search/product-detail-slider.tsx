@@ -46,7 +46,6 @@ export function ProductDetailSlider({
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  const originalPrice = lot.pricing?.parkingTypes[0]?.originalPrice;
 
   const airport = getAirportByCode(airportCode);
   const lotDetailUrl = airport
@@ -151,11 +150,6 @@ export function ProductDetailSlider({
                   </p>
                 </div>
                 <div className="text-right">
-                  {originalPrice && (
-                    <div className="text-sm text-gray-400 line-through font-medium">
-                      ${originalPrice}
-                    </div>
-                  )}
                   <div className="text-2xl font-bold text-gray-900">
                     ${price.toFixed(2)}
                     <span className="text-sm text-gray-500 font-normal">

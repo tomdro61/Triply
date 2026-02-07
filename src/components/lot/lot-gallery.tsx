@@ -11,27 +11,19 @@ interface LotGalleryProps {
   tag?: string;
 }
 
-// Default gallery images when lot doesn't have enough photos
-const defaultGalleryImages = [
-  "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=400",
-  "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&q=80&w=400",
-  "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&q=80&w=400",
-  "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?auto=format&fit=crop&q=80&w=400",
-];
-
 export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Build gallery images array
-  const mainImage = photos[0]?.url || defaultGalleryImages[0];
-  const galleryImages = [
-    mainImage,
-    ...defaultGalleryImages.slice(0, 4),
-  ];
+  // Only use photos from the API
+  const galleryImages = photos.map((p) => p.url);
 
-  const totalPhotos = photos.length || galleryImages.length;
-  const extraPhotos = Math.max(0, totalPhotos - 5);
+  // If no photos, don't render the gallery
+  if (galleryImages.length === 0) {
+    return null;
+  }
+
+  const extraPhotos = Math.max(0, galleryImages.length - 5);
 
   const openLightbox = (index: number) => {
     setCurrentIndex(index);
@@ -52,16 +44,65 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
     );
   };
 
+  // Single image layout
+  if (galleryImages.length === 1) {
+    return (
+      <>
+        <div className="h-96 rounded-xl overflow-hidden shadow-sm">
+          <div
+            className="relative w-full h-full cursor-pointer group"
+            onClick={() => openLightbox(0)}
+          >
+            <Image
+              src={galleryImages[0]}
+              alt={`${lotName} - Main view`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 768px) 100vw, 100vw"
+              priority
+            />
+            {tag && (
+              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
+                {tag}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lightbox */}
+        {lightboxOpen && (
+          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+            <button
+              onClick={closeLightbox}
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <X size={24} className="text-white" />
+            </button>
+            <div className="relative w-full max-w-4xl h-[80vh]">
+              <Image
+                src={galleryImages[0]}
+                alt={`${lotName} - Photo`}
+                fill
+                className="object-contain"
+                sizes="100vw"
+              />
+            </div>
+          </div>
+        )}
+      </>
+    );
+  }
+
   return (
     <>
       <div className="grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
         {/* Main Image */}
         <div
-          className="col-span-2 row-span-2 relative cursor-pointer group"
+          className={`${galleryImages.length < 5 ? "col-span-2" : "col-span-2"} row-span-2 relative cursor-pointer group`}
           onClick={() => openLightbox(0)}
         >
           <Image
-            src={mainImage}
+            src={galleryImages[0]}
             alt={`${lotName} - Main view`}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -75,13 +116,11 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
           )}
         </div>
 
-        {/* Gallery Thumbnails */}
+        {/* Gallery Thumbnails - show up to 4 more images */}
         {galleryImages.slice(1, 5).map((image, index) => (
           <div
             key={index}
-            className={`col-span-1 row-span-1 relative cursor-pointer group ${
-              index === 3 ? "relative" : ""
-            }`}
+            className="col-span-1 row-span-1 relative cursor-pointer group"
             onClick={() => openLightbox(index + 1)}
           >
             <Image

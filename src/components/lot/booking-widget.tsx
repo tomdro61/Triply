@@ -90,7 +90,6 @@ export function BookingWidget({
   // Use API pricing if available
   const hasApiPricing = lot.pricing?.grandTotal !== undefined;
   const price = lot.pricing?.minPrice ?? 0;
-  const originalPrice = lot.pricing?.parkingTypes[0]?.originalPrice;
 
   // Calculate number of days and total
   const { days, subtotal, fees, taxes, total } = useMemo(() => {
@@ -121,11 +120,6 @@ export function BookingWidget({
       total: sub + tax,
     };
   }, [checkIn, checkOut, price, hasApiPricing, lot.pricing]);
-
-  const savings = originalPrice ? (originalPrice - price) * days : 0;
-  const savingsPercent = originalPrice
-    ? Math.round(((originalPrice - price) / originalPrice) * 100)
-    : 0;
 
   // Get cancellation policy text
   const cancellationText = lot.cancellationPolicies?.[0]
@@ -166,23 +160,11 @@ export function BookingWidget({
   return (
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
-      <div className="flex justify-between items-start mb-6">
-        <div>
-          <span className="text-3xl font-bold text-gray-900">
-            ${price.toFixed(2)}
-          </span>
-          <span className="text-gray-500 font-medium"> / day</span>
-        </div>
-        {originalPrice && savingsPercent > 0 && (
-          <div className="flex flex-col items-end">
-            <span className="text-sm text-gray-400 line-through">
-              ${originalPrice}
-            </span>
-            <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded">
-              Save {savingsPercent}%
-            </span>
-          </div>
-        )}
+      <div className="mb-6">
+        <span className="text-3xl font-bold text-gray-900">
+          ${price.toFixed(2)}
+        </span>
+        <span className="text-gray-500 font-medium"> / day</span>
       </div>
 
       {/* Pay at Location Indicator */}
@@ -304,12 +286,6 @@ export function BookingWidget({
           <span>Taxes</span>
           <span>${taxes.toFixed(2)}</span>
         </div>
-        {savings > 0 && (
-          <div className="flex justify-between text-sm text-green-600 mb-2">
-            <span>Your Savings</span>
-            <span>-${savings.toFixed(2)}</span>
-          </div>
-        )}
         <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
           <span>Total</span>
           <span>${total.toFixed(2)}</span>
