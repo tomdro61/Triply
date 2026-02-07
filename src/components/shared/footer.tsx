@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plane, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Plane, Facebook, Twitter, Instagram, Linkedin, ShieldCheck, CreditCard } from "lucide-react";
 
 export function Footer() {
   const footerLinks = [
@@ -49,10 +49,14 @@ export function Footer() {
               </div>
               <span className="text-2xl font-bold tracking-tight">Triply</span>
             </div>
-            <p className="text-gray-400 text-sm leading-relaxed mb-6">
+            <p className="text-gray-400 text-sm leading-relaxed mb-4">
               Making travel simple, affordable, and smart. Compare hundreds of
               parking options in one click.
             </p>
+            <div className="flex items-center text-sm text-brand-orange font-medium mb-4">
+              <ShieldCheck size={16} className="mr-1.5" />
+              100+ Verified Parking Partners
+            </div>
             <div className="flex space-x-4">
               {socialIcons.map((social, i) => (
                 <a
@@ -86,18 +90,46 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="border-t border-gray-800 mt-16 pt-8 flex flex-col md:flex-row justify-between items-center">
+        {/* Payment Methods & Trust */}
+        <div className="border-t border-gray-800 mt-12 pt-8">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+            {/* Payment Methods */}
+            <div className="flex items-center gap-3">
+              <span className="text-gray-500 text-xs mr-2">We accept:</span>
+              <div className="flex items-center gap-2">
+                <div className="bg-gray-800 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">
+                  Visa
+                </div>
+                <div className="bg-gray-800 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">
+                  Mastercard
+                </div>
+                <div className="bg-gray-800 px-3 py-1.5 rounded text-xs text-gray-300 font-medium">
+                  Amex
+                </div>
+                <div className="bg-gray-800 px-3 py-1.5 rounded text-xs text-gray-300 font-medium flex items-center">
+                  <CreditCard size={12} className="mr-1" />
+                  Apple Pay
+                </div>
+              </div>
+            </div>
+
+            {/* Security Badges */}
+            <div className="flex items-center space-x-2">
+              <div className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-400 font-mono">
+                SSL Secured
+              </div>
+              <div className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-400 font-mono">
+                PCI DSS
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="border-t border-gray-800 mt-6 pt-6 text-center">
           <p className="text-gray-500 text-sm">
             &copy; {new Date().getFullYear()} Triply Inc. All rights reserved.
           </p>
-          <div className="flex items-center space-x-2 mt-4 md:mt-0">
-            <div className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-400 font-mono">
-              SSL Secured
-            </div>
-            <div className="bg-gray-800 px-2 py-1 rounded text-xs text-gray-400 font-mono">
-              PCI DSS
-            </div>
-          </div>
         </div>
       </div>
     </footer>
