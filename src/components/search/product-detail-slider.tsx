@@ -9,11 +9,7 @@ import {
   Star,
   MapPin,
   Check,
-  ChevronRight,
-  Clock,
-  Shield,
   ExternalLink,
-  AlertCircle,
   Wallet,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
@@ -211,42 +207,46 @@ export function ProductDetailSlider({
             </div>
           </div>
 
-          {/* Amenities Section */}
-          <div>
-            <h3 className="font-bold text-gray-900 mb-4 text-lg">Amenities</h3>
-            <div className="grid grid-cols-2 gap-y-4 gap-x-6">
-              {lot.amenities.map((amenity) => (
-                <div key={amenity.id} className="flex items-center text-gray-700">
-                  <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
-                    <Check size={14} className="text-brand-orange stroke-[3]" />
+          {/* Amenities Section - only show if API returns amenities */}
+          {lot.amenities.length > 0 && (
+            <div>
+              <h3 className="font-bold text-gray-900 mb-4 text-lg">Amenities</h3>
+              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                {lot.amenities.map((amenity) => (
+                  <div key={amenity.id} className="flex items-center text-gray-700">
+                    <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
+                      <Check size={14} className="text-brand-orange stroke-[3]" />
+                    </div>
+                    <span className="capitalize font-medium text-sm">
+                      {amenity.displayName}
+                    </span>
                   </div>
-                  <span className="capitalize font-medium text-sm">
-                    {amenity.displayName}
-                  </span>
-                </div>
-              ))}
-              <div className="flex items-center text-gray-700">
-                <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
-                  <Clock size={14} className="text-brand-orange stroke-[3]" />
-                </div>
-                <span className="font-medium text-sm">24 Hour Access</span>
-              </div>
-              <div className="flex items-center text-gray-700">
-                <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
-                  <Shield size={14} className="text-brand-orange stroke-[3]" />
-                </div>
-                <span className="font-medium text-sm">Secure Facility</span>
+                ))}
               </div>
             </div>
-            <Link
-              href={lotDetailUrl}
-              className="text-brand-orange font-bold text-sm mt-6 flex items-center hover:underline"
-            >
-              View full details <ExternalLink size={14} className="ml-1.5" />
-            </Link>
-          </div>
+          )}
 
-          {/* Description / Info */}
+          {/* View Full Details Link */}
+          <Link
+            href={lotDetailUrl}
+            className="text-brand-orange font-bold text-sm flex items-center hover:underline"
+          >
+            View full details <ExternalLink size={14} className="ml-1.5" />
+          </Link>
+
+          {/* Overview / Description */}
+          {lot.description && (
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                Overview
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {lot.description}
+              </p>
+            </div>
+          )}
+
+          {/* Shuttle Information */}
           {lot.shuttleInfo && (
             <div className="bg-blue-50/50 rounded-xl p-6 border border-blue-100">
               <h3 className="font-bold text-gray-900 mb-2 text-lg">
