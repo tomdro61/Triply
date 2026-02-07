@@ -2,6 +2,7 @@ import {
   Navbar,
   Hero,
   StatsBar,
+  FeaturedParking,
   // FeatureCards, // TODO: Re-enable when Hotels, Transfers, Bundles are available
   Comparison,
   HowItWorks,
@@ -21,6 +22,7 @@ export default function Home() {
         <div className="animate-fade-in">
           <Hero />
           <StatsBar />
+          <FeaturedParking />
           {/* <FeatureCards /> TODO: Re-enable when Hotels, Transfers, Bundles are available */}
           <Comparison />
           <HowItWorks />

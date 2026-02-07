@@ -1,6 +1,7 @@
 export { Navbar } from "./navbar";
 export { Hero } from "./hero";
 export { StatsBar } from "./stats-bar";
+export { FeaturedParking } from "./featured-parking";
 export { FeatureCards } from "./feature-cards";
 export { Comparison } from "./comparison";
 export { HowItWorks } from "./how-it-works";
