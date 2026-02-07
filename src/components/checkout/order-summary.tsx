@@ -59,10 +59,12 @@ export function OrderSummary({
                 {lot.rating.toFixed(1)}
               </div>
             )}
-            <div className="flex items-center text-white/90 text-xs">
-              <MapPin size={12} className="mr-1" />
-              {lot.distanceFromAirport?.toFixed(1)} mi from airport
-            </div>
+            {lot.distanceFromAirport !== undefined && (
+              <div className="flex items-center text-white/90 text-xs">
+                <MapPin size={12} className="mr-1" />
+                {lot.distanceFromAirport.toFixed(1)} mi from airport
+              </div>
+            )}
           </div>
         </div>
       </div>

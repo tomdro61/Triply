@@ -107,7 +107,9 @@ export function ProductDetailSlider({
                 className="mr-1 flex-shrink-0 text-brand-orange"
               />
               <span>
-                {lot.address}, {lot.city}, {lot.state}
+                {lot.distanceFromAirport !== undefined
+                  ? `${lot.distanceFromAirport.toFixed(1)} mi from airport`
+                  : `${lot.address}, ${lot.city}, ${lot.state}`}
               </span>
             </div>
             <div className="flex items-center space-x-4 text-sm">

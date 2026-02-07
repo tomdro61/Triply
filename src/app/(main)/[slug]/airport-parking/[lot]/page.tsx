@@ -78,7 +78,11 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   const toDate = `${defaultCheckout} ${checkoutTime24}:00`;
 
   // Try to get lot from ResLab API first
-  let lot = await getLotById(lotSlug, fromDate, toDate);
+  // Pass airport coordinates for distance calculation
+  let lot = await getLotById(lotSlug, fromDate, toDate, {
+    latitude: airport.latitude,
+    longitude: airport.longitude,
+  });
 
   // Fallback to mock data if API fails (for development)
   if (!lot) {

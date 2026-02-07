@@ -1,7 +1,24 @@
 "use client";
 
 import Image from "next/image";
-import { Star, MapPin, Check, X, Sun, Warehouse, Key, Wallet } from "lucide-react";
+import {
+  Star,
+  MapPin,
+  Check,
+  X,
+  Sun,
+  Warehouse,
+  Key,
+  Wallet,
+  Bus,
+  Shield,
+  Car,
+  Zap,
+  Accessibility,
+  Clock,
+  Camera,
+  Fence,
+} from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
 interface LotCardProps {
@@ -13,43 +30,62 @@ interface LotCardProps {
 
 export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
   const getAmenityConfig = (name: string) => {
-    const key = name.toLowerCase().replace(/\s+/g, "_");
-    switch (key) {
-      case "shuttle":
-      case "free_shuttle":
-        return {
-          label: "Free Shuttle",
-          icon: <Check size={14} className="text-green-600" />,
-        };
-      case "no_shuttle":
-        return {
-          label: "No Shuttle",
-          icon: <X size={14} className="text-red-500" />,
-        };
-      case "outdoor_self":
-      case "outdoor":
-        return {
-          label: "Outdoor Self-Park",
-          icon: <Sun size={14} className="text-orange-500" />,
-        };
-      case "covered_self":
-      case "covered":
-        return {
-          label: "Covered Self-Park",
-          icon: <Warehouse size={14} className="text-blue-500" />,
-        };
-      case "outdoor_valet":
-      case "valet":
-        return {
-          label: "Valet",
-          icon: <Key size={14} className="text-purple-500" />,
-        };
-      default:
-        return {
-          label: name,
-          icon: <Check size={14} className="text-gray-500" />,
-        };
+    const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+
+    // Shuttle related
+    if (key.includes("shuttle") || key.includes("free_shuttle")) {
+      if (key.includes("no_shuttle") || key.includes("no shuttle")) {
+        return { label: "No Shuttle", icon: <X size={14} className="text-red-500" /> };
+      }
+      return { label: "Free Shuttle", icon: <Bus size={14} className="text-green-600" /> };
     }
+
+    // Security related
+    if (key.includes("security") || key.includes("secure") || key.includes("guarded") || key.includes("attendant")) {
+      return { label: "Security", icon: <Shield size={14} className="text-blue-600" /> };
+    }
+
+    // Parking type
+    if (key.includes("covered") || key.includes("indoor") || key.includes("garage")) {
+      return { label: "Covered", icon: <Warehouse size={14} className="text-blue-500" /> };
+    }
+    if (key.includes("outdoor") || key.includes("open_air") || key.includes("surface")) {
+      return { label: "Outdoor", icon: <Sun size={14} className="text-orange-500" /> };
+    }
+    if (key.includes("valet")) {
+      return { label: "Valet", icon: <Key size={14} className="text-purple-500" /> };
+    }
+    if (key.includes("self_park") || key.includes("self-park")) {
+      return { label: "Self-Park", icon: <Car size={14} className="text-gray-600" /> };
+    }
+
+    // EV charging
+    if (key.includes("ev") || key.includes("electric") || key.includes("charging")) {
+      return { label: "EV Charging", icon: <Zap size={14} className="text-green-500" /> };
+    }
+
+    // Accessibility
+    if (key.includes("handicap") || key.includes("accessible") || key.includes("ada")) {
+      return { label: "Accessible", icon: <Accessibility size={14} className="text-blue-600" /> };
+    }
+
+    // 24 hour
+    if (key.includes("24") || key.includes("hour") || key.includes("always_open")) {
+      return { label: "24/7 Access", icon: <Clock size={14} className="text-gray-600" /> };
+    }
+
+    // Surveillance
+    if (key.includes("camera") || key.includes("surveillance") || key.includes("cctv")) {
+      return { label: "Surveillance", icon: <Camera size={14} className="text-gray-600" /> };
+    }
+
+    // Fenced
+    if (key.includes("fence") || key.includes("gated")) {
+      return { label: "Fenced", icon: <Fence size={14} className="text-gray-600" /> };
+    }
+
+    // Default - show the display name with a check icon
+    return { label: name, icon: <Check size={14} className="text-green-500" /> };
   };
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
@@ -92,7 +128,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
             </h3>
             <div className="flex items-center text-gray-500 text-xs mt-1">
               <MapPin size={12} className="mr-1 text-brand-blue" />
-              {lot.distanceFromAirport
+              {lot.distanceFromAirport !== undefined
                 ? `${lot.distanceFromAirport.toFixed(1)} mi from airport`
                 : lot.address}
             </div>
@@ -117,20 +153,27 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
         </div>
 
         {/* Amenities */}
-        <div className="flex flex-wrap gap-2 mt-2 mb-3">
-          {lot.amenities.slice(0, 3).map((amenity) => {
-            const config = getAmenityConfig(amenity.displayName);
-            return (
-              <div
-                key={amenity.id}
-                className="inline-flex items-center px-2 py-1 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600"
-              >
-                <span className="mr-1.5">{config.icon}</span>
-                <span className="capitalize">{config.label}</span>
+        {lot.amenities.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2 mb-3">
+            {lot.amenities.slice(0, 4).map((amenity) => {
+              const config = getAmenityConfig(amenity.displayName);
+              return (
+                <div
+                  key={amenity.id}
+                  className="inline-flex items-center px-2.5 py-1 bg-white border border-gray-200 rounded-full text-xs text-gray-700 font-medium"
+                >
+                  <span className="mr-1.5">{config.icon}</span>
+                  <span>{config.label}</span>
+                </div>
+              );
+            })}
+            {lot.amenities.length > 4 && (
+              <div className="inline-flex items-center px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-full text-xs text-gray-500 font-medium">
+                +{lot.amenities.length - 4} more
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Footer Row */}
         <div className="mt-auto flex items-end justify-between border-t border-gray-50 pt-3">

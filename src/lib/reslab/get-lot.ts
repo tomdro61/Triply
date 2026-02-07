@@ -6,6 +6,15 @@ import {
   getFeaturedPhoto,
 } from "./client";
 import { UnifiedLot } from "@/types/lot";
+import { calculateDistance } from "@/lib/utils/geo";
+
+/**
+ * Airport coordinates for distance calculation
+ */
+interface AirportCoords {
+  latitude: number;
+  longitude: number;
+}
 
 /**
  * Generate a URL-friendly slug from location name
@@ -22,10 +31,16 @@ function generateSlug(name: string): string {
  */
 function transformLocationToLot(
   location: ReslabLocation,
-  minPriceData: ReslabMinPriceResponse | null
+  minPriceData: ReslabMinPriceResponse | null,
+  airportCoords?: AirportCoords
 ): UnifiedLot {
   const lat = parseFloat(location.latitude);
   const lng = parseFloat(location.longitude);
+
+  // Calculate distance from airport if coordinates provided
+  const distanceFromAirport = airportCoords
+    ? calculateDistance(airportCoords.latitude, airportCoords.longitude, lat, lng)
+    : undefined;
 
   // Get featured photo or first photo
   const featuredPhotoUrl = getFeaturedPhoto(location);
@@ -106,7 +121,7 @@ function transformLocationToLot(
     rating: undefined,
     reviewCount: undefined,
 
-    distanceFromAirport: undefined,
+    distanceFromAirport,
 
     pricing: minPriceData
       ? {
@@ -158,7 +173,8 @@ function transformLocationToLot(
 export async function getLotFromReslab(
   locationId: number,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
   try {
     // Get location details
@@ -179,7 +195,7 @@ export async function getLotFromReslab(
       // Continue without pricing - we can still show the lot
     }
 
-    return transformLocationToLot(location, minPriceData);
+    return transformLocationToLot(location, minPriceData, airportCoords);
   } catch (error) {
     console.error("Error fetching lot from ResLab:", error);
     return null;
@@ -193,7 +209,8 @@ export async function getLotFromReslab(
 export async function findLotBySlug(
   slug: string,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
   try {
     // Get all locations in the channel
@@ -209,7 +226,7 @@ export async function findLotBySlug(
       return null;
     }
 
-    return getLotFromReslab(matchingLocation.id, fromDate, toDate);
+    return getLotFromReslab(matchingLocation.id, fromDate, toDate, airportCoords);
   } catch (error) {
     console.error("Error finding lot by slug:", error);
     return null;
@@ -222,22 +239,23 @@ export async function findLotBySlug(
 export async function getLotById(
   id: string,
   fromDate: string,
-  toDate: string
+  toDate: string,
+  airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
   // Check if it's a reslab ID
   if (id.startsWith("reslab-")) {
     const locationId = parseInt(id.replace("reslab-", ""), 10);
     if (!isNaN(locationId)) {
-      return getLotFromReslab(locationId, fromDate, toDate);
+      return getLotFromReslab(locationId, fromDate, toDate, airportCoords);
     }
   }
 
   // Try as a direct location ID
   const locationId = parseInt(id, 10);
   if (!isNaN(locationId)) {
-    return getLotFromReslab(locationId, fromDate, toDate);
+    return getLotFromReslab(locationId, fromDate, toDate, airportCoords);
   }
 
   // Try as a slug
-  return findLotBySlug(id, fromDate, toDate);
+  return findLotBySlug(id, fromDate, toDate, airportCoords);
 }

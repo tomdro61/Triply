@@ -25,7 +25,7 @@ export function LotHeader({ lot, backUrl }: LotHeaderProps) {
         <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
           <div className="flex items-center text-brand-blue">
             <MapPin size={16} className="mr-1" />
-            {lot.distanceFromAirport
+            {lot.distanceFromAirport !== undefined
               ? `${lot.distanceFromAirport.toFixed(1)} mi from airport`
               : `${lot.address}, ${lot.city}, ${lot.state}`}
           </div>

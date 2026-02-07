@@ -46,7 +46,7 @@ export function LotLocation({ lot }: LotLocationProps) {
           {lot.address}, {lot.city}, {lot.state} {lot.zipCode}
           {lot.country && `, ${lot.country}`}
         </p>
-        {lot.distanceFromAirport && (
+        {lot.distanceFromAirport !== undefined && (
           <p className="text-brand-blue font-medium text-sm">
             {lot.distanceFromAirport.toFixed(1)} miles from airport
           </p>
