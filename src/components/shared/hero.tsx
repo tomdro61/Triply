@@ -47,10 +47,18 @@ export function Hero() {
       }}
     >
       <div className="w-full max-w-5xl px-4 sm:px-6 relative z-10 pb-16">
-        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-8 drop-shadow-lg">
-          Your Trip, <br />
-          <span className="text-brand-orange">Simplified</span>
+        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-4 drop-shadow-lg">
+          Save Up to <span className="text-brand-orange">60%</span> on
+          <br />
+          Airport Parking
         </h1>
+        <p className="text-white/90 text-center text-lg md:text-xl mb-3 max-w-2xl mx-auto">
+          Compare 100+ parking options at JFK and LaGuardia.
+          <br className="hidden sm:block" /> Free cancellation on most bookings.
+        </p>
+        <p className="text-white/70 text-center text-sm mb-8">
+          Trusted by 10,000+ travelers
+        </p>
 
         {/* Search Container */}
         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">

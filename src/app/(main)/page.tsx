@@ -3,7 +3,9 @@ import {
   Hero,
   StatsBar,
   FeatureCards,
+  Comparison,
   HowItWorks,
+  Testimonials,
   FAQ,
   Newsletter,
   Footer,
@@ -19,7 +21,9 @@ export default function Home() {
           <Hero />
           <StatsBar />
           <FeatureCards />
+          <Comparison />
           <HowItWorks />
+          <Testimonials />
           <FAQ />
           <Newsletter />
         </div>
