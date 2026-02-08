@@ -57,8 +57,10 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
   const showSolid = isScrolled || forceSolid;
 
   const navLinks = [
+    { label: "Find Parking", href: "/search" },
     { label: "Deals", href: "/deals" },
     { label: "Blog", href: "/blog" },
+    { label: "FAQs", href: "/help" },
     { label: "Support", href: "/help" },
   ];
 
@@ -83,49 +85,77 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          {/* Logo */}
-          <Link href="/" className="flex items-center">
-            <div className="bg-brand-orange text-white p-2 rounded-lg mr-2">
-              <Plane size={24} fill="currentColor" />
-            </div>
-            <span
-              className={`text-2xl font-bold tracking-tight ${
-                showSolid ? "text-gray-900" : "text-white"
-              }`}
-            >
-              Triply
-            </span>
-          </Link>
+          {/* Left side: Hamburger + Logo */}
+          <div className="flex items-center gap-4">
+            {/* Hamburger Menu Button */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(!isMobileMenuOpen);
+                  setIsUserMenuOpen(false);
+                }}
+                className={`cursor-pointer ${showSolid ? "text-gray-900" : "text-white"}`}
+              >
+                {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+              </button>
 
-          {/* Desktop Nav */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`font-medium hover:text-brand-orange transition-colors ${
-                  showSolid ? "text-gray-600" : "text-white/90"
+              {/* Nav Dropdown */}
+              {isMobileMenuOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  />
+                  <div className="absolute left-0 mt-4 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-20 animate-fade-in">
+                    {navLinks.map((item) => (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className="block px-4 py-2.5 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Logo */}
+            <Link href="/" className="flex items-center">
+              <div className="bg-brand-orange text-white p-2 rounded-lg mr-2">
+                <Plane size={24} fill="currentColor" />
+              </div>
+              <span
+                className={`text-2xl font-bold tracking-tight ${
+                  showSolid ? "text-gray-900" : "text-white"
                 }`}
               >
-                {item.label}
-              </Link>
-            ))}
+                Triply
+              </span>
+            </Link>
+          </div>
 
+          {/* Right side: Account */}
+          <div className="flex items-center">
+            {/* Account */}
             {loading ? (
-              <div className="w-24 h-10 bg-gray-200 animate-pulse rounded-full" />
+              <div className="w-8 h-8 bg-gray-200 animate-pulse rounded-full" />
             ) : user ? (
-              /* User Menu */
               <div className="relative">
                 <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className={`flex items-center gap-2 font-medium transition-colors ${
+                  onClick={() => {
+                    setIsUserMenuOpen(!isUserMenuOpen);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center gap-1.5 cursor-pointer font-medium transition-colors ${
                     showSolid ? "text-gray-700" : "text-white"
                   }`}
                 >
                   <div className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center text-sm font-bold">
                     {getUserInitial()}
                   </div>
-                  <span className="hidden lg:inline">{getUserDisplayName()}</span>
                   <ChevronDown size={16} className={`transition-transform ${isUserMenuOpen ? "rotate-180" : ""}`} />
                 </button>
 
@@ -135,7 +165,7 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                       className="fixed inset-0 z-10"
                       onClick={() => setIsUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-20">
+                    <div className="absolute right-0 mt-4 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-2 z-20 animate-fade-in">
                       <div className="px-4 py-2 border-b border-gray-100">
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {getUserDisplayName()}
@@ -144,7 +174,7 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                       </div>
                       <Link
                         href="/reservations"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <Ticket size={16} />
@@ -152,7 +182,7 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                       </Link>
                       <Link
                         href="/account"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
                         <User size={16} />
@@ -160,7 +190,7 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                       </Link>
                       <button
                         onClick={handleSignOut}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 cursor-pointer"
                       >
                         <LogOut size={16} />
                         Sign Out
@@ -170,88 +200,15 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
                 )}
               </div>
             ) : (
-              /* Sign In Button */
               <Link href="/auth/login">
-                <Button className="bg-brand-orange text-white px-5 py-2 rounded-full font-semibold hover:bg-brand-orange/90 transition-all shadow-sm hover:shadow-md">
+                <Button className="bg-brand-orange text-white px-5 py-2 rounded-full font-semibold hover:bg-brand-orange/90 transition-all shadow-sm hover:shadow-md cursor-pointer">
                   Sign In
                 </Button>
               </Link>
             )}
           </div>
-
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center">
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className={`${showSolid ? "text-gray-900" : "text-white"}`}
-            >
-              {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
-            </button>
-          </div>
         </div>
       </div>
-
-      {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-white shadow-lg py-4 px-4 flex flex-col space-y-4 animate-fade-in">
-          {navLinks.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="text-gray-800 font-medium py-2 border-b border-gray-100"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          {user ? (
-            <>
-              <div className="flex items-center gap-3 py-2 border-b border-gray-100">
-                <div className="w-10 h-10 bg-brand-orange text-white rounded-full flex items-center justify-center font-bold">
-                  {getUserInitial()}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{getUserDisplayName()}</p>
-                  <p className="text-sm text-gray-500">{user.email}</p>
-                </div>
-              </div>
-              <Link
-                href="/reservations"
-                className="text-gray-800 font-medium py-2 flex items-center gap-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <Ticket size={18} />
-                My Reservations
-              </Link>
-              <Link
-                href="/account"
-                className="text-gray-800 font-medium py-2 flex items-center gap-2"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <User size={18} />
-                My Account
-              </Link>
-              <button
-                onClick={() => {
-                  handleSignOut();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="text-red-600 font-medium py-2 text-left flex items-center gap-2"
-              >
-                <LogOut size={18} />
-                Sign Out
-              </button>
-            </>
-          ) : (
-            <Link href="/auth/login" onClick={() => setIsMobileMenuOpen(false)}>
-              <Button className="bg-brand-orange text-white px-5 py-3 rounded-lg font-bold w-full flex justify-center items-center">
-                <User size={20} className="mr-2" /> Sign In
-              </Button>
-            </Link>
-          )}
-        </div>
-      )}
     </nav>
   );
 }

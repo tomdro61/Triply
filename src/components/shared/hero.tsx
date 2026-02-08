@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Calendar, Loader2, SquareParking, Hotel } from "lucide-react";
+import { MapPin, Calendar, Loader2, SquareParking, Hotel, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type SearchTab = "parking" | "hotel";
@@ -41,23 +41,20 @@ export function Hero() {
 
   return (
     <div
-      className="relative min-h-[600px] flex items-center justify-center bg-cover bg-center pt-20"
+      className="relative min-h-[700px] lg:min-h-[750px] flex items-center justify-center bg-cover bg-center pt-20"
       style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.3)), url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=2021&q=80')`,
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=2021&q=80')`,
       }}
     >
       <div className="w-full max-w-5xl px-4 sm:px-6 relative z-10 pb-16">
-        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-4 drop-shadow-lg">
+        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
           Save Up to <span className="text-brand-orange">60%</span> on
           <br />
           Airport Parking
         </h1>
-        <p className="text-white/90 text-center text-lg md:text-xl mb-3 max-w-2xl mx-auto">
+        <p className="text-white/90 text-center text-lg md:text-xl mb-10 max-w-2xl mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
           Compare 100+ parking options at JFK and LaGuardia.
           <br className="hidden sm:block" /> Free cancellation on most bookings.
-        </p>
-        <p className="text-white/70 text-center text-sm mb-8">
-          Trusted by 10,000+ travelers
         </p>
 
         {/* Search Container */}
@@ -167,6 +164,24 @@ export function Hero() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Trust badges */}
+        <div className="flex flex-wrap justify-center gap-3 mt-8">
+          {[
+            { icon: Star, label: "4.9 Rating", color: "text-yellow-400" },
+            { icon: ShieldCheck, label: "Verified Partners", color: "text-brand-orange" },
+            { icon: Clock, label: "24/7 Support", color: "text-blue-400" },
+            { icon: RefreshCw, label: "Free Cancellation", color: "text-green-400" },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="flex items-center gap-2 bg-white/[0.08] backdrop-blur-sm border border-white/[0.12] rounded-full px-4 py-2"
+            >
+              <item.icon size={16} className={item.color} />
+              <span className="text-white/70 text-sm font-medium">{item.label}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
