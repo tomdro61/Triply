@@ -186,6 +186,9 @@
     font-family: var(--font-poppins), var(--font-sans), system-ui, sans-serif;
     @apply font-bold tracking-tight;
   }
+  a, button, [role="button"], select {
+    @apply cursor-pointer;
+  }
 }
 
 @layer utilities {

@@ -15,7 +15,7 @@ export function FAQ() {
     {
       question: "How does Triply save me money?",
       answer:
-        "Triply aggregates real-time pricing from parking facilities near major airports. By comparing all available options instantly, we highlight exclusive deals and lower rates that you might miss by booking directly. Most customers save 40-60% compared to drive-up rates.",
+        "Triply aggregates real-time pricing from parking facilities near major airports. By comparing all available options instantly, we highlight exclusive deals and lower rates that you might miss by booking directly. Most customers save 40-60% compared to on-site airport parking rates.",
     },
     {
       question: "What airports do you serve?",

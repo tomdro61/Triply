@@ -229,7 +229,7 @@ export function Comparison() {
             See How Much You Save
           </h3>
           <p className="text-gray-400 text-center mb-8">
-            Compare drive-up rates vs. booking with Triply
+            Compare on-site airport rates vs. booking with Triply
           </p>
 
           <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-6 md:p-8">
@@ -292,10 +292,10 @@ export function Comparison() {
                   isAnimating ? "scale-105 opacity-80" : "scale-100 opacity-100"
                 }`}
               >
-                {/* Drive-up */}
+                {/* On-site */}
                 <div className="bg-red-500/15 border border-red-500/25 rounded-xl p-5 text-center">
                   <p className="text-red-400 text-xs font-bold uppercase mb-1">
-                    Airport Drive-Up
+                    On-Site Airport
                   </p>
                   <p className="text-3xl font-bold text-red-400 line-through decoration-2">
                     ${savings.driveUpTotal}
