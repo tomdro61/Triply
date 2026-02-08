@@ -218,10 +218,12 @@ function sortLots(lots: UnifiedLot[], sortBy: SortOption): UnifiedLot[] {
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const airport = searchParams.get("airport") || "JFK";
-  const checkin = searchParams.get("checkin") || new Date().toISOString().split("T")[0];
+  // Default dates use tomorrow (ResLab requires advance booking)
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const checkin = searchParams.get("checkin") || tomorrow.toISOString().split("T")[0];
   const checkout =
     searchParams.get("checkout") ||
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const checkinTime = searchParams.get("checkinTime") || "10:00 AM";
   const checkoutTime = searchParams.get("checkoutTime") || "2:00 PM";
   const sort = (searchParams.get("sort") || "popularity") as SortOption;

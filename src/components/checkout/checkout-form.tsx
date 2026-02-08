@@ -216,6 +216,7 @@ export function CheckoutForm({
   // Step handlers
   const handleCustomerNext = () => {
     if (validateCustomerDetails()) {
+      setSubmitError(null); // Clear any previous errors
       setCurrentStep("vehicle");
     }
   };
@@ -462,19 +463,26 @@ export function CheckoutForm({
           )}
 
           {currentStep === "vehicle" && (
-            <VehicleDetailsStep
-              data={vehicleDetails}
-              onChange={setVehicleDetails}
-              onNext={handleVehicleNext}
-              onBack={handleVehicleBack}
-              errors={vehicleErrors}
-              extraFields={lot.extraFields}
-              extraFieldValues={extraFieldValues}
-              onExtraFieldChange={(name, value) =>
-                setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
-              }
-              isLoading={isCreatingPaymentIntent}
-            />
+            <>
+              <VehicleDetailsStep
+                data={vehicleDetails}
+                onChange={setVehicleDetails}
+                onNext={handleVehicleNext}
+                onBack={handleVehicleBack}
+                errors={vehicleErrors}
+                extraFields={lot.extraFields}
+                extraFieldValues={extraFieldValues}
+                onExtraFieldChange={(name, value) =>
+                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
+                }
+                isLoading={isCreatingPaymentIntent}
+              />
+              {submitError && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-red-700 text-sm">{submitError}</p>
+                </div>
+              )}
+            </>
           )}
 
           {currentStep === "payment" && (

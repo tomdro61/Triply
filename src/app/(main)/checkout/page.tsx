@@ -20,11 +20,13 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
 
   const lotId = searchParams.get("lot");
+  // Default dates use tomorrow (ResLab requires advance booking)
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const checkIn =
-    searchParams.get("checkin") || new Date().toISOString().split("T")[0];
+    searchParams.get("checkin") || tomorrow.toISOString().split("T")[0];
   const checkOut =
     searchParams.get("checkout") ||
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const checkInTime = searchParams.get("checkinTime") || "10:00 AM";
   const checkOutTime = searchParams.get("checkoutTime") || "2:00 PM";
 

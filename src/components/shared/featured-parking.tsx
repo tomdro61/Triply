@@ -71,11 +71,13 @@ export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingP
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Get default dates (today + 7 days)
+  // Get default dates (tomorrow + 7 days)
+  // Note: ResLab requires advance booking, so we use tomorrow, not today
   const getDefaultDates = () => {
     const checkin = new Date();
+    checkin.setDate(checkin.getDate() + 1); // Tomorrow
     const checkout = new Date();
-    checkout.setDate(checkout.getDate() + 7);
+    checkout.setDate(checkout.getDate() + 8); // Tomorrow + 7 days
     return {
       checkin: checkin.toISOString().split("T")[0],
       checkout: checkout.toISOString().split("T")[0],

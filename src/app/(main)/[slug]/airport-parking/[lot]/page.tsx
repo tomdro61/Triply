@@ -64,10 +64,12 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   }
 
   // Default dates and times
-  const defaultCheckin = checkin || new Date().toISOString().split("T")[0];
+  // Note: ResLab requires advance booking, so use tomorrow if no date provided
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // tomorrow + 7 days
   const defaultCheckinTime = checkinTime || "10:00 AM";
   const defaultCheckoutTime = checkoutTime || "2:00 PM";
 
@@ -155,10 +157,12 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const airport = getAirportBySlug(slug);
 
   // Default dates for metadata
-  const defaultCheckin = checkin || new Date().toISOString().split("T")[0];
+  // Note: ResLab requires advance booking, so use tomorrow if no date provided
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const fromDate = `${defaultCheckin} 10:00:00`;
   const toDate = `${defaultCheckout} 14:00:00`;
 
