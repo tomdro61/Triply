@@ -24,8 +24,18 @@ export function Newsletter() {
   ];
 
   return (
-    <section className="pt-20 lg:pt-24 pb-16 bg-brand-dark">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+    <section
+      className="relative overflow-hidden"
+      style={{
+        backgroundImage: `url('https://images.unsplash.com/photo-1464037866556-6812c9d1c72e?auto=format&fit=crop&w=2000&q=80')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Dark overlay fading to solid brand-dark at bottom for seamless footer transition */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#1A1A2E]/85 via-[#1A1A2E]/90 to-[#1A1A2E]" />
+
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 pt-20 lg:pt-24 pb-16">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-brand-orange/20 mb-6">
             <Mail className="w-7 h-7 text-brand-orange" />
@@ -85,7 +95,7 @@ export function Newsletter() {
       </div>
 
       {/* Divider */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16 relative z-10">
         <div className="border-t border-gray-700/50" />
       </div>
     </section>

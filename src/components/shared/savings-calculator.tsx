@@ -45,11 +45,19 @@ export function SavingsCalculator() {
   const dayOptions = [3, 5, 7, 10, 14, 21];
 
   return (
-    <section className="py-20 lg:py-24 bg-gradient-to-br from-brand-dark via-gray-900 to-brand-dark relative overflow-hidden">
+    <section
+      className="py-20 lg:py-24 relative overflow-hidden"
+      style={{
+        backgroundImage: `url('https://images.unsplash.com/photo-1530521954074-e64f6810b32d?auto=format&fit=crop&w=2000&q=80')`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Dark overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1a]/90 via-[#1A1A2E]/92 to-[#0d1033]/90" />
       {/* Background decoration */}
       <div className="absolute inset-0 opacity-10">
         <div className="absolute top-20 left-10 w-72 h-72 bg-brand-orange rounded-full blur-3xl" />
-        <div className="absolute bottom-20 right-10 w-96 h-96 bg-brand-blue rounded-full blur-3xl" />
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10">
