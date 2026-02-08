@@ -6,7 +6,7 @@ import { Navbar } from "@/components/shared";
 import {
   SearchHeader,
   SearchResultsList,
-  MockMap,
+  SearchMap,
   ProductDetailSlider,
   type SearchTab,
 } from "@/components/search";
@@ -172,7 +172,7 @@ function SearchPageContent() {
 
           {/* Right: Map */}
           <div className="hidden lg:block w-3/5 h-full relative border-l border-gray-200">
-            <MockMap
+            <SearchMap
               lots={sortedLots}
               hoveredId={hoveredId}
               onHover={setHoveredId}
