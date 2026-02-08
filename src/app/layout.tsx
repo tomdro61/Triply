@@ -90,6 +90,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${inter.variable} ${poppins.variable} font-sans antialiased`}
+        suppressHydrationWarning
       >
         {children}
         <Toaster position="top-right" richColors />
