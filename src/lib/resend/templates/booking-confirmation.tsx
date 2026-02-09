@@ -46,28 +46,24 @@ export function BookingConfirmationEmail({
   return (
     <div style={{ fontFamily: "Inter, Arial, sans-serif", maxWidth: "600px", margin: "0 auto", padding: "20px", backgroundColor: "#ffffff" }}>
       {/* Header with Triply + Powered by Reservations Lab */}
-      <div style={{ display: "flex", marginBottom: "30px", borderBottom: "2px solid #f87356", paddingBottom: "15px" }}>
-        <table style={{ width: "100%" }}>
-          <tbody>
-            <tr>
-              <td style={{ textAlign: "left" }}>
-                <h1 style={{ color: "#f87356", fontSize: "28px", margin: "0" }}>Triply</h1>
-                <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>Your Trip Simplified</p>
-              </td>
-              <td style={{ textAlign: "right", verticalAlign: "middle" }}>
-                <img
-                  src={`${appUrl}/reslab-logo.png`}
-                  alt="Powered by Reservations Lab"
-                  width="120"
-                  height="auto"
-                  style={{ maxWidth: "120px" }}
-                />
-                <p style={{ color: "#94a3b8", fontSize: "10px", margin: "2px 0 0" }}>Powered by Reservations Lab</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      <table style={{ width: "100%", marginBottom: "24px" }}>
+        <tbody>
+          <tr>
+            <td style={{ textAlign: "left" }}>
+              <h1 style={{ color: "#f87356", fontSize: "28px", margin: "0" }}>Triply</h1>
+              <p style={{ color: "#64748b", fontSize: "12px", margin: "2px 0 0" }}>Your Trip Simplified</p>
+            </td>
+            <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+              <img
+                src={`${appUrl}/reslab-logo.png`}
+                alt="Powered by Reservations Lab"
+                width="120"
+                style={{ maxWidth: "120px", height: "auto" }}
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
 
       {/* Confirmation Banner */}
       <div style={{ backgroundColor: "#ecfdf5", border: "1px solid #10b981", borderRadius: "8px", padding: "20px", textAlign: "center", marginBottom: "24px" }}>
