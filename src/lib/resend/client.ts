@@ -6,6 +6,6 @@ if (!process.env.RESEND_API_KEY) {
 
 export const resend = new Resend(process.env.RESEND_API_KEY);
 
-// Default from address - update after domain verification
-// For testing, Resend allows sending from onboarding@resend.dev
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Triply <onboarding@resend.dev>";
+// Send from verified domain (triplypro.com)
+// Falls back to Resend test sender for local development
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Triply <bookings@triplypro.com>";
