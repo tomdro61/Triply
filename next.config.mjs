@@ -1,3 +1,4 @@
+import { withSentryConfig } from "@sentry/nextjs";
 import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
@@ -94,5 +95,17 @@ const nextConfig = {
   },
 };
 
-// Wrap with PWA
-export default withPWA(nextConfig);
+// Wrap with PWA, then Sentry
+export default withSentryConfig(withPWA(nextConfig), {
+  // Only upload source maps when auth token is available
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Widen source map upload scope
+  widenClientFileUpload: true,
+
+  // Hide source maps from clients
+  hideSourceMaps: true,
+});
