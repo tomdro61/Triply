@@ -61,14 +61,14 @@ export function BookingConfirmationEmail({
             <td style={{ textAlign: "left" }}>
               <span style={{ color: "#f87356", fontSize: "24px", fontWeight: "700" }}>Triply</span>
             </td>
-            <td style={{ textAlign: "right", verticalAlign: "bottom" }}>
+            <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+              <p style={{ color: "#94a3b8", fontSize: "9px", margin: "0 0 2px", textAlign: "right" }}>Powered by</p>
               <img
                 src={`${appUrl}/reslab-logo.png`}
                 alt="Reservations Lab"
                 width="90"
-                style={{ maxWidth: "90px", height: "auto", display: "block", marginLeft: "auto" }}
+                style={{ maxWidth: "90px", height: "auto" }}
               />
-              <p style={{ color: "#94a3b8", fontSize: "9px", margin: "3px 0 0", textAlign: "right" }}>Powered by</p>
             </td>
           </tr>
         </tbody>
