@@ -321,15 +321,22 @@ export async function GET(request: NextRequest) {
     // Sort lots
     const sortedLots = sortLots(availableLots, sort);
 
-    return NextResponse.json({
-      airport: airportInfo,
-      checkin,
-      checkout,
-      checkinTime,
-      checkoutTime,
-      results: sortedLots,
-      total: sortedLots.length,
-    });
+    return NextResponse.json(
+      {
+        airport: airportInfo,
+        checkin,
+        checkout,
+        checkinTime,
+        checkoutTime,
+        results: sortedLots,
+        total: sortedLots.length,
+      },
+      {
+        headers: {
+          "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+        },
+      }
+    );
   } catch (error) {
     console.error("Search API error:", error);
     return NextResponse.json(
