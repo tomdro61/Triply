@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { MapPin, Calendar, Loader2, ChevronDown, Search, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { enabledAirports } from "@/config/airports";
 
 export function HeroRedesign() {
   const router = useRouter();
@@ -94,8 +95,11 @@ export function HeroRedesign() {
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-slate-800 focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none cursor-pointer appearance-none"
                 >
                   <option value="">Select Airport</option>
-                  <option value="JFK">JFK - John F. Kennedy International</option>
-                  <option value="LGA">LGA - LaGuardia Airport</option>
+                  {enabledAirports.map((a) => (
+                    <option key={a.code} value={a.code}>
+                      {a.code} - {a.name}
+                    </option>
+                  ))}
                 </select>
                 <ChevronDown
                   size={16}

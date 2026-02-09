@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Calendar, Loader2, SquareParking, Hotel, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { enabledAirports } from "@/config/airports";
 
 type SearchTab = "parking" | "hotel";
 
@@ -104,8 +105,11 @@ export function Hero() {
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer"
                   >
                     <option value="">Select Airport</option>
-                    <option value="JFK">JFK - John F. Kennedy International</option>
-                    <option value="LGA">LGA - LaGuardia Airport</option>
+                    {enabledAirports.map((a) => (
+                      <option key={a.code} value={a.code}>
+                        {a.code} - {a.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
