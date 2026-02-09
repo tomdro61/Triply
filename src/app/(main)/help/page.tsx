@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
+import { JsonLd } from "@/components/seo/JsonLd";
 import {
   Search,
   ChevronDown,
@@ -230,6 +231,22 @@ function FAQCategorySection({ category }: { category: FAQCategory }) {
   );
 }
 
+// Build FAQ schema from all categories
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqCategories.flatMap((category) =>
+    category.faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    }))
+  ),
+};
+
 export default function HelpPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -249,6 +266,7 @@ export default function HelpPage() {
 
   return (
     <>
+      <JsonLd data={faqSchema} />
       <Navbar forceSolid />
       <div className="min-h-screen bg-gray-50">
         {/* Header */}

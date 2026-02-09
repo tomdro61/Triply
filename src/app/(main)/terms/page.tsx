@@ -5,6 +5,7 @@ import { ArrowLeft, FileText } from "lucide-react";
 export const metadata = {
   title: "Terms of Service | Triply",
   description: "Terms and conditions for using Triply airport parking services.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

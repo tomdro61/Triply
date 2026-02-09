@@ -2,43 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { reslab } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
-
-interface CreateReservationBody {
-  locationId: number;
-  costsToken: string;
-  fromDate: string;
-  toDate: string;
-  parkingTypeId: number;
-  customer: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-  };
-  vehicle: {
-    make: string;
-    model: string;
-    color: string;
-    licensePlate: string;
-    state: string;
-  };
-  extraFields?: Record<string, string>;
-  // Location info for storing in Supabase
-  locationName?: string;
-  locationAddress?: string;
-  airportCode?: string;
-  // Pricing info
-  subtotal?: number;
-  taxTotal?: number;
-  feesTotal?: number;
-  grandTotal?: number;
-  // User ID for linking to account (if logged in)
-  userId?: string | null;
-}
+import { reservationSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CreateReservationBody = await request.json();
+    const body = await request.json();
+
+    // Validate with Zod
+    const result = reservationSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json(
+        { error: result.error.issues[0].message },
+        { status: 400 }
+      );
+    }
 
     const {
       locationId,
@@ -57,22 +34,7 @@ export async function POST(request: NextRequest) {
       feesTotal,
       grandTotal,
       userId,
-    } = body;
-
-    // Validate required fields
-    if (!locationId || !costsToken || !fromDate || !toDate || !parkingTypeId) {
-      return NextResponse.json(
-        { error: "Missing required booking parameters" },
-        { status: 400 }
-      );
-    }
-
-    if (!customer.firstName || !customer.lastName || !customer.email || !customer.phone) {
-      return NextResponse.json(
-        { error: "Missing required customer information" },
-        { status: 400 }
-      );
-    }
+    } = result.data;
 
     // Build extra fields for API
     const apiExtraFields: Record<string, string> = {

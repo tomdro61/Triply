@@ -11,12 +11,7 @@ import {
   Loader2,
   ShieldAlert,
 } from "lucide-react";
-
-const ADMIN_EMAILS = [
-  "vin@triplypro.com",
-  "john@triplypro.com",
-  "tom@triplypro.com",
-];
+import { isAdminEmail } from "@/config/admin";
 
 export default function AdminLayout({
   children,
@@ -41,7 +36,7 @@ export default function AdminLayout({
       const email = user.email?.toLowerCase() || "";
       setUserEmail(email);
 
-      if (ADMIN_EMAILS.map(e => e.toLowerCase()).includes(email)) {
+      if (isAdminEmail(email)) {
         setAuthorized(true);
       }
 

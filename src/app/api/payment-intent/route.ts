@@ -1,28 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPaymentIntent } from "@/lib/stripe/client";
-
-interface CreatePaymentIntentBody {
-  amount: number;
-  lotName: string;
-  lotId: string;
-  checkIn: string;
-  checkOut: string;
-  customerEmail: string;
-}
+import { paymentIntentSchema } from "@/lib/validation/schemas";
 
 export async function POST(request: NextRequest) {
   try {
-    const body: CreatePaymentIntentBody = await request.json();
+    const body = await request.json();
 
-    const { amount, lotName, lotId, checkIn, checkOut, customerEmail } = body;
-
-    // Validate required fields
-    if (!amount || amount <= 0) {
+    // Validate with Zod
+    const result = paymentIntentSchema.safeParse(body);
+    if (!result.success) {
       return NextResponse.json(
-        { error: "Invalid payment amount" },
+        { error: result.error.issues[0].message },
         { status: 400 }
       );
     }
+
+    const { amount, lotName, lotId, checkIn, checkOut, customerEmail } =
+      result.data;
 
     // Create PaymentIntent with metadata
     const paymentIntent = await createPaymentIntent(amount, {

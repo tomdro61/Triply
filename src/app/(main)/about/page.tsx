@@ -6,6 +6,7 @@ export const metadata = {
   title: "About Us | Triply",
   description:
     "Learn about Triply — our mission to simplify airport parking and save travelers money.",
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {

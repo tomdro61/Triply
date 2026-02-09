@@ -67,6 +67,27 @@ const nextConfig = {
             key: "Referrer-Policy",
             value: "strict-origin-when-cross-origin",
           },
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=31536000; includeSubDomains",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(self), payment=(self)",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://api.mapbox.com",
+              "style-src 'self' 'unsafe-inline' https://api.mapbox.com https://fonts.googleapis.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com",
+              "font-src 'self' https://fonts.gstatic.com",
+              "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.sentry.io",
+              "frame-src https://js.stripe.com https://hooks.stripe.com",
+              "worker-src 'self' blob:",
+            ].join("; "),
+          },
         ],
       },
     ];

@@ -6,6 +6,7 @@ import { format } from 'date-fns'
 export const metadata: Metadata = {
   title: 'Blog | Triply - Airport Parking Tips & Travel Guides',
   description: 'Expert tips on airport parking, travel hacks, and guides to make your trip easier. Your Trip Simplified.',
+  alternates: { canonical: '/blog' },
 }
 
 // Fetch posts from Payload CMS (separate subdomain)

@@ -5,6 +5,7 @@ import { ArrowLeft, Shield } from "lucide-react";
 export const metadata = {
   title: "Privacy Policy | Triply",
   description: "How Triply collects, uses, and protects your personal information.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

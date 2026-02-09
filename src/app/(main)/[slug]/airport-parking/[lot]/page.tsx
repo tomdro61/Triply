@@ -9,6 +9,7 @@ import {
   LotLocation,
   BookingWidget,
 } from "@/components/lot";
+import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
 import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
@@ -101,8 +102,37 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   // Build back URL
   const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}&checkinTime=${encodeURIComponent(defaultCheckinTime)}&checkoutTime=${encodeURIComponent(defaultCheckoutTime)}`;
 
+  // Structured data for parking facility
+  const parkingSchema = {
+    "@context": "https://schema.org",
+    "@type": "ParkingFacility",
+    name: lot.name,
+    ...(lot.address && {
+      address: {
+        "@type": "PostalAddress",
+        streetAddress: lot.address,
+        ...(lot.city && { addressLocality: lot.city }),
+        ...(lot.state && { addressRegion: lot.state }),
+        ...(lot.zipCode && { postalCode: lot.zipCode }),
+      },
+    }),
+    ...(lot.latitude &&
+      lot.longitude && {
+        geo: {
+          "@type": "GeoCoordinates",
+          latitude: lot.latitude,
+          longitude: lot.longitude,
+        },
+      }),
+    ...(lot.pricing?.minPrice && {
+      priceRange: `From $${lot.pricing.minPrice.toFixed(2)}/day`,
+    }),
+    ...(lot.phone && { telephone: lot.phone }),
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
+      <JsonLd data={parkingSchema} />
       <Navbar forceSolid />
 
       <main className="pt-20 animate-fade-in">
@@ -181,8 +211,16 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
     };
   }
 
+  const description = `Book ${lot.name} near ${airport.name}. ${lot.description?.slice(0, 150) || "Secure, affordable airport parking with free shuttle service."}`;
+  const ogImage = lot.photos?.[0]?.url || "/opengraph-image";
+
   return {
     title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
-    description: `Book ${lot.name} near ${airport.name}. ${lot.description?.slice(0, 150) || "Secure, affordable airport parking with free shuttle service."}`,
+    description,
+    openGraph: {
+      title: `${lot.name} - ${airport.code} Airport Parking`,
+      description,
+      images: [ogImage],
+    },
   };
 }

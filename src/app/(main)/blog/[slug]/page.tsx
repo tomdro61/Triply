@@ -48,6 +48,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${title} | Triply Blog`,
     description,
+    alternates: { canonical: `/blog/${slug}` },
     openGraph: {
       title,
       description,

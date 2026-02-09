@@ -61,6 +61,7 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
     { label: "Deals", href: "/deals" },
     { label: "Blog", href: "/blog" },
     { label: "FAQs", href: "/help" },
+    { label: "About", href: "/about" },
     { label: "Support", href: "/help" },
   ];
 
