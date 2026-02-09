@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 // globals.css is now imported in (main)/layout.tsx to isolate from Payload CMS
+
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
 const inter = Inter({
   variable: "--font-inter",
@@ -46,7 +49,7 @@ export const metadata: Metadata = {
       "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
     images: [
       {
-        url: "/og-image.jpg",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "Triply - Your Trip Simplified",
@@ -58,7 +61,7 @@ export const metadata: Metadata = {
     title: "Triply - Airport Parking Made Simple",
     description:
       "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
-    images: ["/og-image.jpg"],
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
@@ -88,6 +91,31 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {GA_MEASUREMENT_ID && (
+          <>
+            <Script
+              src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
+              strategy="afterInteractive"
+            />
+            <Script id="gtag-init" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('consent', 'default', {
+                  analytics_storage: 'denied',
+                  ad_storage: 'denied',
+                  ad_user_data: 'denied',
+                  ad_personalization: 'denied',
+                  wait_for_update: 500,
+                });
+                gtag('js', new Date());
+                gtag('config', '${GA_MEASUREMENT_ID}');
+              `}
+            </Script>
+          </>
+        )}
+      </head>
       <body
         className={`${inter.variable} ${poppins.variable} font-sans antialiased`}
         suppressHydrationWarning
