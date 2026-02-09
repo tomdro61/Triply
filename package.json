@@ -40,6 +40,7 @@
     "mapbox-gl": "^3.18.1",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.3",
     "react-day-picker": "^9.13.0",
     "react-dom": "19.2.3",

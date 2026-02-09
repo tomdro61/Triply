@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState, useCallback } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { Download, Copy, Check, Smartphone } from "lucide-react";
 
 interface QRCodeSectionProps {
@@ -8,61 +9,11 @@ interface QRCodeSectionProps {
   lotName: string;
 }
 
-// Simple QR code pattern generator (demo purposes)
-// In production, use a proper QR code library like 'qrcode' or 'qrcode.react'
-function generateQRPattern(data: string): boolean[][] {
-  const size = 21; // 21x21 for Version 1 QR code
-  const pattern: boolean[][] = [];
-
-  // Create a deterministic pattern based on the data
-  const hash = data.split("").reduce((acc, char) => {
-    return ((acc << 5) - acc + char.charCodeAt(0)) | 0;
-  }, 0);
-
-  for (let y = 0; y < size; y++) {
-    pattern[y] = [];
-    for (let x = 0; x < size; x++) {
-      // Position detection patterns (corners)
-      const isFinderPattern =
-        (x < 7 && y < 7) || // Top-left
-        (x >= size - 7 && y < 7) || // Top-right
-        (x < 7 && y >= size - 7); // Bottom-left
-
-      if (isFinderPattern) {
-        // Create finder pattern
-        const inOuter =
-          x === 0 ||
-          x === 6 ||
-          y === 0 ||
-          y === 6 ||
-          x === size - 7 ||
-          x === size - 1 ||
-          y === size - 7 ||
-          y === size - 1;
-        const inInner =
-          (x >= 2 && x <= 4 && y >= 2 && y <= 4) ||
-          (x >= size - 5 && x <= size - 3 && y >= 2 && y <= 4) ||
-          (x >= 2 && x <= 4 && y >= size - 5 && y <= size - 3);
-        pattern[y][x] = inOuter || inInner;
-      } else {
-        // Generate pseudo-random data pattern
-        const seed = (hash + x * 31 + y * 17) >>> 0;
-        pattern[y][x] = seed % 3 !== 0;
-      }
-    }
-  }
-
-  return pattern;
-}
-
 export function QRCodeSection({ confirmationId, lotName }: QRCodeSectionProps) {
   const [copied, setCopied] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
 
-  const qrData = `TRIPLY:${confirmationId}`;
-  const pattern = generateQRPattern(qrData);
-  const cellSize = 8;
-  const padding = 16;
-  const qrSize = pattern.length * cellSize + padding * 2;
+  const qrData = confirmationId;
 
   const handleCopyCode = async () => {
     await navigator.clipboard.writeText(confirmationId);
@@ -70,35 +21,34 @@ export function QRCodeSection({ confirmationId, lotName }: QRCodeSectionProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDownloadQR = () => {
-    // Create SVG string
-    const svgContent = `
-      <svg xmlns="http://www.w3.org/2000/svg" width="${qrSize}" height="${qrSize}" viewBox="0 0 ${qrSize} ${qrSize}">
-        <rect width="100%" height="100%" fill="white"/>
-        ${pattern
-          .map((row, y) =>
-            row
-              .map((cell, x) =>
-                cell
-                  ? `<rect x="${padding + x * cellSize}" y="${padding + y * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`
-                  : ""
-              )
-              .join("")
-          )
-          .join("")}
-      </svg>
-    `;
+  const handleDownloadQR = useCallback(() => {
+    const svgElement = qrRef.current?.querySelector("svg");
+    if (!svgElement) return;
 
-    const blob = new Blob([svgContent], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `triply-${confirmationId}.svg`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+
+    img.onload = () => {
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
+      if (ctx) {
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+      const pngUrl = canvas.toDataURL("image/png");
+      const a = document.createElement("a");
+      a.href = pngUrl;
+      a.download = `triply-checkin-${confirmationId}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
+
+    img.src = "data:image/svg+xml;base64," + btoa(svgData);
+  }, [confirmationId]);
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -113,30 +63,16 @@ export function QRCodeSection({ confirmationId, lotName }: QRCodeSectionProps) {
 
       {/* QR Code Display */}
       <div className="flex justify-center mb-6">
-        <div className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-inner">
-          <svg
-            width={qrSize}
-            height={qrSize}
-            viewBox={`0 0 ${qrSize} ${qrSize}`}
-            className="block"
-          >
-            <rect width="100%" height="100%" fill="white" />
-            {pattern.map((row, y) =>
-              row.map(
-                (cell, x) =>
-                  cell && (
-                    <rect
-                      key={`${x}-${y}`}
-                      x={padding + x * cellSize}
-                      y={padding + y * cellSize}
-                      width={cellSize}
-                      height={cellSize}
-                      fill="black"
-                    />
-                  )
-              )
-            )}
-          </svg>
+        <div
+          ref={qrRef}
+          className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-inner"
+        >
+          <QRCodeSVG
+            value={qrData}
+            size={200}
+            level="H"
+            includeMargin={true}
+          />
         </div>
       </div>
 
@@ -181,7 +117,6 @@ export function QRCodeSection({ confirmationId, lotName }: QRCodeSectionProps) {
         </button>
         <button
           onClick={() => {
-            // In a real app, this would open the mobile wallet
             alert("Add to Wallet feature coming soon!");
           }}
           className="flex items-center justify-center gap-2 py-3 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors"
