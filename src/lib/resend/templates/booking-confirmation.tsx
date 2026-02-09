@@ -44,10 +44,26 @@ export function BookingConfirmationEmail({
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
   const paidOnline = dueAtLocation && dueAtLocation > 0 ? totalAmount - dueAtLocation : totalAmount;
 
+  const cardStyle = {
+    backgroundColor: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: "8px",
+    padding: "20px",
+    marginBottom: "16px",
+  } as const;
+
+  const labelStyle = {
+    color: "#64748b",
+    fontSize: "11px",
+    margin: "0 0 4px" as const,
+    textTransform: "uppercase" as const,
+    letterSpacing: "1px",
+  };
+
   return (
     <div style={{ fontFamily: "Arial, Helvetica, sans-serif", maxWidth: "600px", margin: "0 auto", backgroundColor: "#f5f5f5" }}>
       {/* Header */}
-      <table style={{ width: "100%", backgroundColor: "#1A1A2E", padding: "20px 30px" }}>
+      <table style={{ width: "100%", backgroundColor: "#ffffff", padding: "20px 30px" }}>
         <tbody>
           <tr>
             <td style={{ textAlign: "left" }}>
@@ -64,116 +80,120 @@ export function BookingConfirmationEmail({
           </tr>
         </tbody>
       </table>
+      <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0" }} />
 
       {/* Main Content */}
-      <div style={{ backgroundColor: "#ffffff", padding: "30px" }}>
+      <div style={{ padding: "24px 30px" }}>
 
-        {/* Confirmation Header */}
-        <p style={{ color: "#10b981", fontSize: "14px", fontWeight: "600", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Booking Confirmed</p>
-        <p style={{ color: "#1e293b", fontSize: "14px", margin: "0 0 24px", lineHeight: "1.5" }}>
+        {/* Confirmation Badge */}
+        <div style={{ marginBottom: "8px" }}>
+          <span style={{ display: "inline-block", backgroundColor: "#ecfdf5", color: "#059669", fontSize: "12px", fontWeight: "700", padding: "4px 12px", borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            &#10003; Booking Confirmed
+          </span>
+        </div>
+        <p style={{ color: "#1e293b", fontSize: "14px", margin: "0 0 20px", lineHeight: "1.5" }}>
           Hi {customerName}, your parking reservation is confirmed. Show the QR code below at the facility entrance.
         </p>
 
-        {/* QR Code + Confirmation Number */}
-        <table style={{ width: "100%", marginBottom: "28px" }}>
-          <tbody>
-            <tr>
-              <td style={{ width: "140px", verticalAlign: "top" }}>
-                <img
-                  src={qrCodeUrl}
-                  alt={`QR Code: ${confirmationNumber}`}
-                  width="130"
-                  height="130"
-                  style={{ display: "block" }}
-                />
-              </td>
-              <td style={{ verticalAlign: "top", paddingLeft: "16px" }}>
-                <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "1px" }}>Confirmation</p>
-                <p style={{ color: "#1e293b", fontSize: "24px", fontWeight: "700", margin: "0 0 16px", fontFamily: "monospace" }}>{confirmationNumber}</p>
-                <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 2px", textTransform: "uppercase", letterSpacing: "1px" }}>Guest</p>
-                <p style={{ color: "#1e293b", fontSize: "16px", fontWeight: "600", margin: "0" }}>{customerName}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Divider */}
-        <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0 0 24px" }} />
-
-        {/* Location */}
-        <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "1px" }}>Parking Location</p>
-        <p style={{ color: "#1e293b", fontSize: "16px", fontWeight: "600", margin: "0 0 4px" }}>{lotName}</p>
-        <p style={{ color: "#64748b", fontSize: "14px", margin: "0 0 6px" }}>{lotAddress}</p>
-        {shuttlePhone && (
-          <p style={{ color: "#1e293b", fontSize: "14px", margin: "0 0 6px" }}>
-            Shuttle: <a href={`tel:${shuttlePhone}`} style={{ color: "#f87356", textDecoration: "none" }}>{shuttlePhone}</a>
-          </p>
-        )}
-        <p style={{ margin: "0 0 24px" }}>
-          <a href={directionsUrl} style={{ color: "#f87356", fontSize: "14px", textDecoration: "none", fontWeight: "600" }}>Get Directions &rarr;</a>
-        </p>
-
-        {/* Divider */}
-        <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0 0 24px" }} />
-
-        {/* Dates + Vehicle in a simple table */}
-        <table style={{ width: "100%", marginBottom: "24px" }}>
-          <tbody>
-            <tr>
-              <td style={{ width: "50%", verticalAlign: "top" }}>
-                <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "1px" }}>Check-in</p>
-                <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0 0 2px" }}>{formatDate(checkInDate)}</p>
-                <p style={{ color: "#64748b", fontSize: "13px", margin: "0" }}>{checkInTime}</p>
-              </td>
-              <td style={{ width: "50%", verticalAlign: "top" }}>
-                <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "1px" }}>Check-out</p>
-                <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0 0 2px" }}>{formatDate(checkOutDate)}</p>
-                <p style={{ color: "#64748b", fontSize: "13px", margin: "0" }}>{checkOutTime}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {vehicleInfo && (
-          <>
-            <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "1px" }}>Vehicle</p>
-            <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0 0 24px" }}>{vehicleInfo}</p>
-          </>
-        )}
-
-        {/* Divider */}
-        <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0 0 24px" }} />
-
-        {/* Payment */}
-        <p style={{ color: "#64748b", fontSize: "11px", margin: "0 0 12px", textTransform: "uppercase", letterSpacing: "1px" }}>Payment</p>
-        <table style={{ width: "100%", marginBottom: "24px" }}>
-          <tbody>
-            {dueAtLocation && dueAtLocation > 0 ? (
-              <>
-                <tr>
-                  <td style={{ padding: "4px 0", color: "#1e293b", fontSize: "14px" }}>Paid online</td>
-                  <td style={{ padding: "4px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${paidOnline.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "4px 0", color: "#64748b", fontSize: "14px" }}>Due at location</td>
-                  <td style={{ padding: "4px 0", color: "#64748b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "18px", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>Total</td>
-                  <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "18px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>${totalAmount.toFixed(2)}</td>
-                </tr>
-              </>
-            ) : (
+        {/* QR Code + Confirmation Card */}
+        <div style={cardStyle}>
+          <table style={{ width: "100%" }}>
+            <tbody>
               <tr>
-                <td style={{ padding: "0", color: "#1e293b", fontSize: "18px", fontWeight: "700" }}>Total Paid</td>
-                <td style={{ padding: "0", color: "#1e293b", fontSize: "18px", textAlign: "right", fontWeight: "700" }}>${totalAmount.toFixed(2)}</td>
+                <td style={{ width: "140px", verticalAlign: "top" }}>
+                  <img
+                    src={qrCodeUrl}
+                    alt={`QR Code: ${confirmationNumber}`}
+                    width="130"
+                    height="130"
+                    style={{ display: "block" }}
+                  />
+                </td>
+                <td style={{ verticalAlign: "top", paddingLeft: "16px" }}>
+                  <p style={labelStyle}>Confirmation</p>
+                  <p style={{ color: "#1e293b", fontSize: "22px", fontWeight: "700", margin: "0 0 14px", fontFamily: "monospace" }}>{confirmationNumber}</p>
+                  <p style={labelStyle}>Guest</p>
+                  <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0" }}>{customerName}</p>
+                </td>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Location Card */}
+        <div style={cardStyle}>
+          <p style={labelStyle}>Parking Location</p>
+          <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0 0 4px" }}>{lotName}</p>
+          <p style={{ color: "#64748b", fontSize: "13px", margin: "0 0 6px" }}>{lotAddress}</p>
+          {shuttlePhone && (
+            <p style={{ color: "#1e293b", fontSize: "13px", margin: "0 0 6px" }}>
+              Shuttle: <a href={`tel:${shuttlePhone}`} style={{ color: "#f87356", textDecoration: "none" }}>{shuttlePhone}</a>
+            </p>
+          )}
+          <p style={{ margin: "0" }}>
+            <a href={directionsUrl} style={{ color: "#f87356", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>Get Directions &rarr;</a>
+          </p>
+        </div>
+
+        {/* Dates & Vehicle Card */}
+        <div style={cardStyle}>
+          <table style={{ width: "100%" }}>
+            <tbody>
+              <tr>
+                <td style={{ width: "50%", verticalAlign: "top" }}>
+                  <p style={labelStyle}>Check-in</p>
+                  <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0 0 2px" }}>{formatDate(checkInDate)}</p>
+                  <p style={{ color: "#64748b", fontSize: "13px", margin: "0" }}>{checkInTime}</p>
+                </td>
+                <td style={{ width: "50%", verticalAlign: "top" }}>
+                  <p style={labelStyle}>Check-out</p>
+                  <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0 0 2px" }}>{formatDate(checkOutDate)}</p>
+                  <p style={{ color: "#64748b", fontSize: "13px", margin: "0" }}>{checkOutTime}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          {vehicleInfo && (
+            <>
+              <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "16px 0" }} />
+              <p style={labelStyle}>Vehicle</p>
+              <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{vehicleInfo}</p>
+            </>
+          )}
+        </div>
+
+        {/* Payment Card */}
+        <div style={cardStyle}>
+          <p style={{ ...labelStyle, marginBottom: "10px" }}>Payment Summary</p>
+          <table style={{ width: "100%" }}>
+            <tbody>
+              {dueAtLocation && dueAtLocation > 0 ? (
+                <>
+                  <tr>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Paid online</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${paidOnline.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px" }}>Due at location</td>
+                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>Total</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>${totalAmount.toFixed(2)}</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td style={{ padding: "0", color: "#1e293b", fontSize: "17px", fontWeight: "700" }}>Total Paid</td>
+                  <td style={{ padding: "0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700" }}>${totalAmount.toFixed(2)}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* CTA Button */}
-        <div style={{ textAlign: "center", marginBottom: "28px" }}>
+        <div style={{ textAlign: "center", margin: "24px 0" }}>
           <a
             href={`${appUrl}/confirmation/${confirmationNumber}`}
             style={{
@@ -191,8 +211,8 @@ export function BookingConfirmationEmail({
           </a>
         </div>
 
-        {/* What to Expect */}
-        <div style={{ backgroundColor: "#f8fafc", borderRadius: "6px", padding: "20px", marginBottom: "20px" }}>
+        {/* What to Expect Card */}
+        <div style={{ ...cardStyle, backgroundColor: "#f8fafc" }}>
           <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "700", margin: "0 0 10px" }}>What to Expect</p>
           <ol style={{ color: "#475569", fontSize: "13px", lineHeight: "1.9", paddingLeft: "18px", margin: "0" }}>
             <li>Drive to the parking facility on your check-in date</li>
@@ -202,7 +222,7 @@ export function BookingConfirmationEmail({
           </ol>
         </div>
 
-        {/* Cancellation */}
+        {/* Cancellation & Help */}
         <p style={{ color: "#64748b", fontSize: "12px", margin: "0 0 4px", lineHeight: "1.5" }}>
           <strong style={{ color: "#1e293b" }}>Cancellation:</strong> Free up to 24 hours before check-in. Late cancellations may incur fees.
         </p>
@@ -214,7 +234,7 @@ export function BookingConfirmationEmail({
       </div>
 
       {/* Footer */}
-      <table style={{ width: "100%", padding: "20px 30px" }}>
+      <table style={{ width: "100%", padding: "16px 30px" }}>
         <tbody>
           <tr>
             <td style={{ textAlign: "center" }}>
