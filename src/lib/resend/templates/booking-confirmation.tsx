@@ -44,14 +44,6 @@ export function BookingConfirmationEmail({
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
   const paidOnline = dueAtLocation && dueAtLocation > 0 ? totalAmount - dueAtLocation : totalAmount;
 
-  const cardStyle = {
-    backgroundColor: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: "8px",
-    padding: "20px",
-    marginBottom: "16px",
-  } as const;
-
   const labelStyle = {
     color: "#64748b",
     fontSize: "11px",
@@ -61,82 +53,81 @@ export function BookingConfirmationEmail({
   };
 
   return (
-    <div style={{ fontFamily: "Arial, Helvetica, sans-serif", maxWidth: "600px", margin: "0 auto", backgroundColor: "#f5f5f5" }}>
+    <div style={{ fontFamily: "Arial, Helvetica, sans-serif", maxWidth: "600px", margin: "0 auto", backgroundColor: "#ffffff" }}>
       {/* Header */}
-      <table style={{ width: "100%", backgroundColor: "#ffffff", padding: "20px 30px" }}>
+      <table style={{ width: "100%", padding: "20px 30px" }}>
         <tbody>
           <tr>
             <td style={{ textAlign: "left" }}>
               <span style={{ color: "#f87356", fontSize: "24px", fontWeight: "700" }}>Triply</span>
             </td>
-            <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+            <td style={{ textAlign: "right", verticalAlign: "bottom" }}>
               <img
                 src={`${appUrl}/reslab-logo.png`}
-                alt="Powered by Reservations Lab"
-                width="100"
-                style={{ maxWidth: "100px", height: "auto" }}
+                alt="Reservations Lab"
+                width="90"
+                style={{ maxWidth: "90px", height: "auto", display: "block", marginLeft: "auto" }}
               />
+              <p style={{ color: "#94a3b8", fontSize: "9px", margin: "3px 0 0", textAlign: "right" }}>Powered by</p>
             </td>
           </tr>
         </tbody>
       </table>
-      <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "0" }} />
+      <hr style={{ border: "none", borderTop: "1px solid #e9ecef", margin: "0 30px" }} />
 
       {/* Main Content */}
-      <div style={{ padding: "24px 30px" }}>
+      <div style={{ padding: "24px 30px 30px" }}>
 
-        {/* Confirmation Badge */}
-        <div style={{ marginBottom: "8px" }}>
-          <span style={{ display: "inline-block", backgroundColor: "#ecfdf5", color: "#059669", fontSize: "12px", fontWeight: "700", padding: "4px 12px", borderRadius: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            &#10003; Booking Confirmed
-          </span>
-        </div>
-        <p style={{ color: "#1e293b", fontSize: "14px", margin: "0 0 20px", lineHeight: "1.5" }}>
-          Hi {customerName}, your parking reservation is confirmed. Show the QR code below at the facility entrance.
-        </p>
-
-        {/* QR Code + Confirmation Card */}
-        <div style={cardStyle}>
-          <table style={{ width: "100%" }}>
-            <tbody>
-              <tr>
-                <td style={{ width: "140px", verticalAlign: "top" }}>
-                  <img
-                    src={qrCodeUrl}
-                    alt={`QR Code: ${confirmationNumber}`}
-                    width="130"
-                    height="130"
-                    style={{ display: "block" }}
-                  />
-                </td>
-                <td style={{ verticalAlign: "top", paddingLeft: "16px" }}>
-                  <p style={labelStyle}>Confirmation</p>
-                  <p style={{ color: "#1e293b", fontSize: "22px", fontWeight: "700", margin: "0 0 14px", fontFamily: "monospace" }}>{confirmationNumber}</p>
-                  <p style={labelStyle}>Guest</p>
-                  <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0" }}>{customerName}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* Location Card */}
-        <div style={cardStyle}>
-          <p style={labelStyle}>Parking Location</p>
-          <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0 0 4px" }}>{lotName}</p>
-          <p style={{ color: "#64748b", fontSize: "13px", margin: "0 0 6px" }}>{lotAddress}</p>
-          {shuttlePhone && (
-            <p style={{ color: "#1e293b", fontSize: "13px", margin: "0 0 6px" }}>
-              Shuttle: <a href={`tel:${shuttlePhone}`} style={{ color: "#f87356", textDecoration: "none" }}>{shuttlePhone}</a>
-            </p>
-          )}
-          <p style={{ margin: "0" }}>
-            <a href={directionsUrl} style={{ color: "#f87356", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>Get Directions &rarr;</a>
+        {/* Confirmation Banner */}
+        <div style={{ backgroundColor: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "14px 18px", marginBottom: "20px" }}>
+          <p style={{ color: "#059669", fontSize: "16px", fontWeight: "700", margin: "0 0 4px" }}>&#10003; Booking Confirmed</p>
+          <p style={{ color: "#065f46", fontSize: "13px", margin: "0", lineHeight: "1.4" }}>
+            Hi {customerName}, your parking reservation is confirmed. Show the QR code below at the facility entrance.
           </p>
         </div>
 
-        {/* Dates & Vehicle Card */}
-        <div style={cardStyle}>
+        {/* QR Code + Confirmation */}
+        <table style={{ width: "100%", marginBottom: "24px" }}>
+          <tbody>
+            <tr>
+              <td style={{ width: "140px", verticalAlign: "top" }}>
+                <img
+                  src={qrCodeUrl}
+                  alt={`QR Code: ${confirmationNumber}`}
+                  width="130"
+                  height="130"
+                  style={{ display: "block", borderRadius: "6px" }}
+                />
+              </td>
+              <td style={{ verticalAlign: "top", paddingLeft: "16px" }}>
+                <p style={labelStyle}>Confirmation</p>
+                <p style={{ color: "#1e293b", fontSize: "22px", fontWeight: "700", margin: "0 0 14px", fontFamily: "monospace" }}>{confirmationNumber}</p>
+                <p style={labelStyle}>Guest</p>
+                <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0" }}>{customerName}</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <hr style={{ border: "none", borderTop: "1px solid #e9ecef", margin: "0 0 24px" }} />
+
+        {/* Location */}
+        <div style={{ backgroundColor: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+          <p style={{ ...labelStyle, color: "#0369a1" }}>Parking Location</p>
+          <p style={{ color: "#1e293b", fontSize: "15px", fontWeight: "600", margin: "0 0 4px" }}>{lotName}</p>
+          <p style={{ color: "#64748b", fontSize: "13px", margin: "0 0 8px" }}>{lotAddress}</p>
+          {shuttlePhone && (
+            <p style={{ color: "#1e293b", fontSize: "13px", margin: "0 0 8px" }}>
+              Shuttle: <a href={`tel:${shuttlePhone}`} style={{ color: "#f87356", textDecoration: "none", fontWeight: "600" }}>{shuttlePhone}</a>
+            </p>
+          )}
+          <p style={{ margin: "0" }}>
+            <a href={directionsUrl} style={{ color: "#0369a1", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>Get Directions &rarr;</a>
+          </p>
+        </div>
+
+        {/* Dates & Vehicle */}
+        <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
           <table style={{ width: "100%" }}>
             <tbody>
               <tr>
@@ -155,16 +146,16 @@ export function BookingConfirmationEmail({
           </table>
           {vehicleInfo && (
             <>
-              <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "16px 0" }} />
+              <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "14px 0" }} />
               <p style={labelStyle}>Vehicle</p>
               <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{vehicleInfo}</p>
             </>
           )}
         </div>
 
-        {/* Payment Card */}
-        <div style={cardStyle}>
-          <p style={{ ...labelStyle, marginBottom: "10px" }}>Payment Summary</p>
+        {/* Payment */}
+        <div style={{ backgroundColor: "#fef7f5", border: "1px solid #fed7ca", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
+          <p style={{ ...labelStyle, color: "#c2410c", marginBottom: "10px" }}>Payment Summary</p>
           <table style={{ width: "100%" }}>
             <tbody>
               {dueAtLocation && dueAtLocation > 0 ? (
@@ -178,8 +169,8 @@ export function BookingConfirmationEmail({
                     <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
                   </tr>
                   <tr>
-                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>Total</td>
-                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #e2e8f0" }}>${totalAmount.toFixed(2)}</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Total</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>${totalAmount.toFixed(2)}</td>
                   </tr>
                 </>
               ) : (
@@ -193,7 +184,7 @@ export function BookingConfirmationEmail({
         </div>
 
         {/* CTA Button */}
-        <div style={{ textAlign: "center", margin: "24px 0" }}>
+        <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <a
             href={`${appUrl}/confirmation/${confirmationNumber}`}
             style={{
@@ -211,8 +202,8 @@ export function BookingConfirmationEmail({
           </a>
         </div>
 
-        {/* What to Expect Card */}
-        <div style={{ ...cardStyle, backgroundColor: "#f8fafc" }}>
+        {/* What to Expect */}
+        <div style={{ backgroundColor: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
           <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "700", margin: "0 0 10px" }}>What to Expect</p>
           <ol style={{ color: "#475569", fontSize: "13px", lineHeight: "1.9", paddingLeft: "18px", margin: "0" }}>
             <li>Drive to the parking facility on your check-in date</li>
@@ -234,6 +225,7 @@ export function BookingConfirmationEmail({
       </div>
 
       {/* Footer */}
+      <hr style={{ border: "none", borderTop: "1px solid #e9ecef", margin: "0 30px" }} />
       <table style={{ width: "100%", padding: "16px 30px" }}>
         <tbody>
           <tr>
