@@ -119,7 +119,7 @@ export function Comparison() {
       }}
     >
       {/* Dark overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1a]/85 via-[#1A1A2E]/87 to-[#0d1033]/85" />
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a1a]/92 via-[#1A1A2E]/93 to-[#0d1033]/92" />
 
       {/* Floating orb */}
       <div className="absolute top-20 right-20 w-96 h-96 bg-brand-orange/8 rounded-full blur-3xl pointer-events-none" />
@@ -159,7 +159,7 @@ export function Comparison() {
               return (
                 <div key={i} className="contents">
                   <div
-                    className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-brand-orange/30 transition-all duration-300 group text-center ${
+                    className={`bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-6 hover:bg-white/10 hover:border-brand-orange/30 transition-all duration-300 group text-center ${
                       isVisible ? "animate-fade-in-up" : "opacity-0"
                     }`}
                     style={{
@@ -206,7 +206,7 @@ export function Comparison() {
               return (
                 <div
                   key={i}
-                  className={`bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-5 text-center hover:bg-white/10 transition-all duration-300 group ${
+                  className={`bg-white/10 backdrop-blur-sm border border-white/15 rounded-xl p-5 text-center hover:bg-white/10 transition-all duration-300 group ${
                     isVisible ? "animate-fade-in-up" : "opacity-0"
                   }`}
                   style={{

@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Menu, X, User, Plane, LogOut, ChevronDown, Ticket } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
@@ -125,9 +126,13 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
 
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <div className="bg-brand-orange text-white p-2 rounded-lg mr-2">
-                <Plane size={24} fill="currentColor" />
-              </div>
+              <Image
+                src="/Coral-logo.png"
+                alt="Triply"
+                width={36}
+                height={36}
+                className="rounded-lg mr-2"
+              />
               <span
                 className={`text-2xl font-bold tracking-tight ${
                   showSolid ? "text-gray-900" : "text-white"
