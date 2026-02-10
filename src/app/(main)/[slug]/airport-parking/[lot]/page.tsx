@@ -12,6 +12,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
+import { convertTo24Hour } from "@/lib/utils/time";
 
 interface LotPageProps {
   params: Promise<{
@@ -24,22 +25,6 @@ interface LotPageProps {
     checkinTime?: string;
     checkoutTime?: string;
   }>;
-}
-
-/**
- * Convert 12-hour time format to 24-hour format
- */
-function convertTo24Hour(time12h: string): string {
-  const [time, modifier] = time12h.split(" ");
-  let [hours, minutes] = time.split(":");
-
-  if (hours === "12") {
-    hours = modifier === "AM" ? "00" : "12";
-  } else if (modifier === "PM") {
-    hours = String(parseInt(hours, 10) + 12);
-  }
-
-  return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
 function LoadingState() {

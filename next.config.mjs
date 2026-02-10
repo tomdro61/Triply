@@ -76,7 +76,7 @@ const nextConfig = {
             key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://www.googletagmanager.com https://api.mapbox.com",
+              "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://api.mapbox.com",
               "style-src 'self' 'unsafe-inline' https://api.mapbox.com https://fonts.googleapis.com",
               "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com",
               "font-src 'self' https://fonts.gstatic.com",

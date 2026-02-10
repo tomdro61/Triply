@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.log("Payment succeeded:", paymentIntent.id);
+      // Payment succeeded for paymentIntent.id
 
       // Look up booking by stripe_payment_intent_id and confirm status
       const { data: booking } = await supabase
@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
         ? charge.payment_intent
         : charge.payment_intent?.id;
 
-      console.log("Charge refunded:", charge.id, "for PI:", paymentIntentId);
+      // Charge refunded
 
       if (paymentIntentId) {
         const { data: booking } = await supabase
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     default:
-      console.log("Unhandled event type:", event.type);
+      break;
   }
 
   return NextResponse.json({ received: true });

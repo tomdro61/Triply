@@ -2,7 +2,6 @@
  * Supabase Client Configuration
  *
  * This file sets up the Supabase client for use in the application.
- * TODO: Configure after Supabase project is created
  */
 
 import { createBrowserClient } from "@supabase/ssr";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { captureAPIError } from "@/lib/sentry";
 
 const promoValidateSchema = z.object({
   code: z.string().min(1).max(50),
@@ -48,6 +49,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Promo validation error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/promo/validate",
+      method: "POST",
+    });
     return NextResponse.json(
       { valid: false, error: "Failed to validate promo code" },
       { status: 500 }

@@ -10,24 +10,18 @@ import {
 } from "@/lib/reslab/client";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
+import { convertTo24Hour } from "@/lib/utils/time";
+import { captureAPIError } from "@/lib/sentry";
+import { z } from "zod";
 
-/**
- * Convert 12-hour time format to 24-hour format
- * "10:00 AM" -> "10:00"
- * "2:30 PM" -> "14:30"
- */
-function convertTo24Hour(time12h: string): string {
-  const [time, modifier] = time12h.split(" ");
-  let [hours, minutes] = time.split(":");
-
-  if (hours === "12") {
-    hours = modifier === "AM" ? "00" : "12";
-  } else if (modifier === "PM") {
-    hours = String(parseInt(hours, 10) + 12);
-  }
-
-  return `${hours.padStart(2, "0")}:${minutes}`;
-}
+const searchQuerySchema = z.object({
+  airport: z.string().min(2).max(10),
+  checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").optional(),
+  checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format").optional(),
+  checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
+  checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
+  sort: z.enum(["popularity", "price_asc", "price_desc", "rating", "distance"]).optional(),
+});
 
 /**
  * Generate a URL-friendly slug from location name
@@ -217,6 +211,24 @@ function sortLots(lots: UnifiedLot[], sortBy: SortOption): UnifiedLot[] {
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
+
+  // Validate query parameters
+  const validation = searchQuerySchema.safeParse({
+    airport: searchParams.get("airport") || "JFK",
+    checkin: searchParams.get("checkin") || undefined,
+    checkout: searchParams.get("checkout") || undefined,
+    checkinTime: searchParams.get("checkinTime") || undefined,
+    checkoutTime: searchParams.get("checkoutTime") || undefined,
+    sort: searchParams.get("sort") || undefined,
+  });
+
+  if (!validation.success) {
+    return NextResponse.json(
+      { error: "Invalid search parameters", fields: validation.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
   const airport = searchParams.get("airport") || "JFK";
   // Default dates use tomorrow (ResLab requires advance booking)
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -339,11 +351,12 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("Search API error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/search",
+      method: "GET",
+    });
     return NextResponse.json(
-      {
-        error: "Failed to search for parking",
-        details: error instanceof Error ? error.message : "Unknown error",
-      },
+      { error: "Failed to search for parking" },
       { status: 500 }
     );
   }

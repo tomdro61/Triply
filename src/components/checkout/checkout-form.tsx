@@ -20,6 +20,7 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import { trackBeginCheckout } from "@/lib/analytics/gtag";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -260,6 +261,7 @@ export function CheckoutForm({
         setServerCostsToken(data.costsToken);
       }
       setCurrentStep("payment");
+      trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
     } catch (error) {
       console.error("PaymentIntent creation error:", error);
       setSubmitError(

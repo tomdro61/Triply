@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { z } from "zod";
 import crypto from "crypto";
+import { captureAPIError } from "@/lib/sentry";
 
 const newsletterSchema = z.object({
   email: z.string().email("Invalid email address").max(254),
@@ -141,6 +142,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Newsletter signup error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/newsletter",
+      method: "POST",
+    });
     return NextResponse.json(
       { error: "An unexpected error occurred" },
       { status: 500 }

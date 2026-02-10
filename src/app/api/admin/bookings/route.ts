@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
-
-const supabase = createSupabaseClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { captureAPIError } from "@/lib/sentry";
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,6 +14,8 @@ export async function GET(request: NextRequest) {
     if (!isAdminEmail(user.email)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const supabase = await createAdminClient();
 
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
@@ -88,6 +85,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Admin bookings error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/admin/bookings",
+      method: "GET",
+    });
     return NextResponse.json(
       { error: "Failed to fetch bookings" },
       { status: 500 }

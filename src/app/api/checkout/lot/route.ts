@@ -4,26 +4,41 @@ import { reslab } from "@/lib/reslab/client";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
+import { convertTo24Hour } from "@/lib/utils/time";
+import { captureAPIError } from "@/lib/sentry";
+
+const checkoutGetSchema = z.object({
+  lotId: z.string().min(1),
+  checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
+  checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
+});
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
 
-  const lotId = searchParams.get("lotId");
-  const checkin = searchParams.get("checkin");
-  const checkout = searchParams.get("checkout");
-  const checkinTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkoutTime = searchParams.get("checkoutTime") || "2:00 PM";
+  // Validate query parameters
+  const validation = checkoutGetSchema.safeParse({
+    lotId: searchParams.get("lotId") || undefined,
+    checkin: searchParams.get("checkin") || undefined,
+    checkout: searchParams.get("checkout") || undefined,
+    checkinTime: searchParams.get("checkinTime") || undefined,
+    checkoutTime: searchParams.get("checkoutTime") || undefined,
+  });
 
-  if (!lotId) {
-    return NextResponse.json({ error: "Lot ID is required" }, { status: 400 });
-  }
-
-  if (!checkin || !checkout) {
+  if (!validation.success) {
     return NextResponse.json(
-      { error: "Check-in and check-out dates are required" },
+      { error: "Invalid parameters", fields: validation.error.flatten().fieldErrors },
       { status: 400 }
     );
   }
+
+  const lotId = searchParams.get("lotId")!;
+  const checkin = searchParams.get("checkin")!;
+  const checkout = searchParams.get("checkout")!;
+  const checkinTime = searchParams.get("checkinTime") || "10:00 AM";
+  const checkoutTime = searchParams.get("checkoutTime") || "2:00 PM";
 
   try {
     // Convert times to 24-hour format
@@ -108,6 +123,10 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Checkout lot API error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/checkout/lot",
+      method: "GET",
+    });
     return NextResponse.json(
       { error: "Failed to fetch lot data" },
       { status: 500 }
@@ -242,6 +261,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Checkout POST error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/checkout/lot",
+      method: "POST",
+    });
     return NextResponse.json(
       { error: "Failed to create payment intent" },
       { status: 500 }
@@ -249,15 +272,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function convertTo24Hour(time12h: string): string {
-  const [time, modifier] = time12h.split(" ");
-  let [hours, minutes] = time.split(":");
-
-  if (hours === "12") {
-    hours = modifier === "AM" ? "00" : "12";
-  } else if (modifier === "PM") {
-    hours = String(parseInt(hours, 10) + 12);
-  }
-
-  return `${hours.padStart(2, "0")}:${minutes}`;
-}

@@ -15,6 +15,7 @@ import {
   Calendar,
   X,
 } from "lucide-react";
+import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
 
 interface Booking {
   id: string;
@@ -47,31 +48,6 @@ interface Pagination {
   limit: number;
   total: number;
   totalPages: number;
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -389,16 +365,16 @@ export default function AdminBookingsPage() {
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-gray-600">
                             <Clock size={14} className="text-gray-400" />
-                            {formatDate(booking.check_in)}
+                            {formatDate(booking.check_in, { month: "short", day: "numeric", year: "numeric" })}
                           </div>
                           <div className="text-gray-400 text-xs mt-0.5">
-                            to {formatDate(booking.check_out)}
+                            to {formatDate(booking.check_out, { month: "short", day: "numeric", year: "numeric" })}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-semibold text-gray-900">
-                          {formatCurrency(parseFloat(booking.grand_total))}
+                          {formatPrice(parseFloat(booking.grand_total))}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -516,7 +492,7 @@ export default function AdminBookingsPage() {
                   <p>
                     <span className="text-gray-500">Total:</span>{" "}
                     <span className="font-semibold">
-                      {formatCurrency(parseFloat(selectedBooking.grand_total))}
+                      {formatPrice(parseFloat(selectedBooking.grand_total))}
                     </span>
                   </p>
                 </div>

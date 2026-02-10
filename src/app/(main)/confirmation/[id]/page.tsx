@@ -16,6 +16,7 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
+import { trackPurchase } from "@/lib/analytics/gtag";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -71,6 +72,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const [user, setUser] = useState<User | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
 
+  // Track purchase when reservation data loads
+  useEffect(() => {
+    if (reservation?.location) {
+      trackPurchase({
+        confirmationNumber: confirmationId,
+        lotId: String(reservation.location.id),
+        lotName: reservation.location.name,
+        grandTotal: reservation.grandTotal,
+      });
+    }
+  }, [reservation, confirmationId]);
+
   // Check if user is logged in
   useEffect(() => {
     const getUser = async () => {
@@ -90,7 +103,6 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           setReservation(data.reservation);
         } else {
           // If not found, continue with fallback data
-          console.log("Reservation not found in API, using fallback");
         }
       } catch (err) {
         console.error("Error fetching reservation:", err);

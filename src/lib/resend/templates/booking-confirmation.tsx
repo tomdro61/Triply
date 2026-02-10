@@ -1,4 +1,5 @@
 import * as React from "react";
+import { formatDate } from "@/lib/utils";
 
 interface BookingConfirmationEmailProps {
   customerName: string;
@@ -29,16 +30,6 @@ export function BookingConfirmationEmail({
   vehicleInfo,
   shuttlePhone,
 }: BookingConfirmationEmailProps) {
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;

@@ -2,7 +2,6 @@
  * Stripe Client Configuration
  *
  * Server-side Stripe client for payment processing.
- * TODO: Configure after Stripe account is created
  */
 
 import Stripe from "stripe";
