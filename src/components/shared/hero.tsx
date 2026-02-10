@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Calendar, Loader2, SquareParking, Hotel, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { MapPin, Calendar, Loader2, SquareParking, Hotel, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { enabledAirports } from "@/config/airports";
+import { HeroChatInput } from "@/components/chat";
 
-type SearchTab = "parking" | "hotel";
+type SearchTab = "parking" | "hotel" | "ai";
 
 export function Hero() {
   const router = useRouter();
@@ -38,6 +39,7 @@ export function Hero() {
   const tabs = [
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
     { id: "hotel" as const, icon: Hotel, label: "Park + Hotel" },
+    { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
   ];
 
   return (
@@ -88,6 +90,11 @@ export function Hero() {
 
           {/* Content Area */}
           <div className="p-4 md:p-6 bg-white">
+            {activeTab === "ai" ? (
+              <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 md:p-6">
+                <HeroChatInput />
+              </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end animate-fade-in">
               {/* Location */}
               <div className="md:col-span-4 relative group">
@@ -167,6 +174,7 @@ export function Hero() {
                 </Button>
               </div>
             </div>
+            )}
           </div>
         </div>
 
