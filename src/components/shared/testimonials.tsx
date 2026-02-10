@@ -76,11 +76,11 @@ export function Testimonials() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:gap-8 md:overflow-visible md:pb-0 no-scrollbar">
           {testimonials.map((review, index) => (
             <div
               key={review.id}
-              className={`bg-gray-50 p-8 rounded-2xl relative hover:shadow-lg transition-shadow shadow-sm group ${
+              className={`min-w-[300px] snap-start md:min-w-0 bg-gray-50 p-8 rounded-2xl relative hover:shadow-lg transition-shadow shadow-sm group ${
                 isVisible ? "animate-fade-in-up" : "opacity-0"
               }`}
               style={{

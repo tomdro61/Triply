@@ -175,7 +175,7 @@ export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingP
 
         {/* Parking Cards Grid */}
         {!loading && !error && lots.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 sm:overflow-visible sm:pb-0 no-scrollbar">
             {lots.map((lot) => {
               const { rating, count } = getSimulatedRating(lot.id);
               const amenities = getTopAmenities(lot);
@@ -183,7 +183,7 @@ export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingP
               return (
                 <div
                   key={lot.id}
-                  className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-gray-100 group"
+                  className="min-w-[280px] snap-start sm:min-w-0 bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow border border-gray-100 group"
                 >
                   {/* Image */}
                   <div className="relative h-44 overflow-hidden">

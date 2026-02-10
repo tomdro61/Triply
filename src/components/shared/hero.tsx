@@ -47,14 +47,14 @@ export function Hero() {
         backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?ixlib=rb-4.0.3&auto=format&fit=crop&w=2021&q=80')`,
       }}
     >
-      <div className="w-full max-w-5xl px-4 sm:px-6 relative z-10 pb-16">
-        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-4 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
+      <div className="w-full max-w-5xl px-4 sm:px-6 relative z-10 pb-16 mt-6 md:mt-0">
+        <h1 className="text-4xl md:text-6xl font-bold text-white text-center mb-6 drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
           Save Up to <span className="text-brand-orange">60%</span> on
           <br />
           Airport Parking
         </h1>
-        <p className="text-white/90 text-center text-lg md:text-xl mb-10 max-w-2xl mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
-          Compare 100+ parking options at JFK and LaGuardia.
+        <p className="text-white/90 text-center text-base md:text-xl mb-10 max-w-2xl mx-auto drop-shadow-[0_1px_4px_rgba(0,0,0,0.5)]">
+          Compare 100+ parking options.
           <br className="hidden sm:block" /> Free cancellation on most bookings.
         </p>
 
@@ -68,7 +68,7 @@ export function Hero() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center px-6 py-4 min-w-[100px] md:flex-1 transition-colors text-sm md:text-base font-medium
+                  className={`flex items-center justify-center px-6 py-4 flex-1 transition-colors text-sm md:text-base font-medium
                     ${
                       isActive
                         ? "bg-white text-brand-orange border-b-2 border-brand-orange"

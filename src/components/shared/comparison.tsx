@@ -60,7 +60,7 @@ const steps = [
 
 const trustProps = [
   { icon: CalendarX, label: "Free Cancellation", description: "Cancel most bookings for free up to 24 hours before check-in.", iconColor: "text-purple-400" },
-  { icon: Award, label: "Best Price Guarantee", description: "Find a lower price elsewhere and we'll match it — guaranteed.", iconColor: "text-brand-orange" },
+  { icon: Award, label: "Best Price Guarantee", description: "Find a lower price and we'll match it.", iconColor: "text-brand-orange" },
   { icon: ShieldCheck, label: "Verified Partners", description: "Every lot is vetted for security, quality, and reliability.", iconColor: "text-teal-400" },
   { icon: Headphones, label: "24/7 Support", description: "Real humans ready to help via phone, email, or chat.", iconColor: "text-blue-400" },
 ];
