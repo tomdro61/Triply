@@ -2,6 +2,7 @@
 
 import { Calendar } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { convertTo24Hour } from "@/lib/utils/time";
 
 interface AddToCalendarProps {
   lot: UnifiedLot;
@@ -20,24 +21,14 @@ export function AddToCalendar({
   checkOutTime = "2:00 PM",
   confirmationId,
 }: AddToCalendarProps) {
-  // Convert 12-hour time to 24-hour format
-  const convertTo24Hour = (time12h: string): string => {
-    const [time, modifier] = time12h.split(" ");
-    let [hours, minutes] = time.split(":");
-
-    if (hours === "12") {
-      hours = modifier === "AM" ? "00" : "12";
-    } else if (modifier === "PM") {
-      hours = String(parseInt(hours, 10) + 12);
-    }
-
-    return `${hours.padStart(2, "0")}${minutes}`;
+  const formatTimePart = (time12h: string): string => {
+    return convertTo24Hour(time12h).replace(":", "") + "00";
   };
 
   const formatDateTimeForICS = (dateStr: string, time12h: string) => {
     // Convert YYYY-MM-DD and time to YYYYMMDDTHHMMSS format
     const datePart = dateStr.replace(/-/g, "");
-    const timePart = convertTo24Hour(time12h) + "00";
+    const timePart = formatTimePart(time12h);
     return `${datePart}T${timePart}`;
   };
 

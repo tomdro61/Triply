@@ -12,7 +12,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
-import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
+import { convertTo24Hour } from "@/lib/utils/time";
 
 interface LotPageProps {
   params: Promise<{
@@ -25,22 +25,6 @@ interface LotPageProps {
     checkinTime?: string;
     checkoutTime?: string;
   }>;
-}
-
-/**
- * Convert 12-hour time format to 24-hour format
- */
-function convertTo24Hour(time12h: string): string {
-  const [time, modifier] = time12h.split(" ");
-  let [hours, minutes] = time.split(":");
-
-  if (hours === "12") {
-    hours = modifier === "AM" ? "00" : "12";
-  } else if (modifier === "PM") {
-    hours = String(parseInt(hours, 10) + 12);
-  }
-
-  return `${hours.padStart(2, "0")}:${minutes}`;
 }
 
 function LoadingState() {
@@ -86,14 +70,6 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     latitude: airport.latitude,
     longitude: airport.longitude,
   });
-
-  // Fallback to mock data if API fails (for development)
-  if (!lot) {
-    const mockLot = getMockLotById(lotSlug);
-    if (mockLot) {
-      lot = mockLot;
-    }
-  }
 
   if (!lot) {
     notFound();
@@ -197,13 +173,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const toDate = `${defaultCheckout} 14:00:00`;
 
   // Try to get lot
-  let lot = await getLotById(lotSlug, fromDate, toDate);
-  if (!lot) {
-    const mockLot = getMockLotById(lotSlug);
-    if (mockLot) {
-      lot = mockLot;
-    }
-  }
+  const lot = await getLotById(lotSlug, fromDate, toDate);
 
   if (!airport || !lot) {
     return {

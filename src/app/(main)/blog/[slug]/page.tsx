@@ -15,7 +15,7 @@ async function getPost(slug: string) {
   try {
     const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
     const res = await fetch(
-      `${cmsUrl}/api/posts?where[slug][equals]=${slug}&where[status][equals]=published&depth=2`,
+      `${cmsUrl}/api/posts?where[slug][equals]=${encodeURIComponent(slug)}&where[status][equals]=published&depth=2`,
       { next: { revalidate: 60 } }
     )
 

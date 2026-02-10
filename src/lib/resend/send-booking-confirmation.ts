@@ -61,7 +61,6 @@ export async function sendBookingConfirmation({
       return { success: false, error };
     }
 
-    console.log("Booking confirmation email sent:", data?.id);
     return { success: true, emailId: data?.id };
   } catch (err) {
     console.error("Error sending booking confirmation email:", err);

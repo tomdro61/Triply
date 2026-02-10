@@ -12,6 +12,7 @@ import {
 } from "@/components/search";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
+import { trackSearch } from "@/lib/analytics/gtag";
 
 function SearchPageContent() {
   const router = useRouter();
@@ -63,6 +64,7 @@ function SearchPageContent() {
         setLots([]);
       } else {
         setLots(data.results || []);
+        trackSearch({ airport, checkin: departDate, checkout: returnDate });
       }
     } catch (error) {
       console.error("Error fetching search results:", error);

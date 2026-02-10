@@ -17,10 +17,10 @@ import {
 import { CheckoutSteps } from "./checkout-steps";
 import { CustomerDetailsStep } from "./customer-details-step";
 import { VehicleDetailsStep } from "./vehicle-details-step";
-import { PaymentStep } from "./payment-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import { trackBeginCheckout } from "@/lib/analytics/gtag";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -33,15 +33,10 @@ interface CheckoutFormProps {
   toDate?: string;
 }
 
-// Demo promo codes
-const PROMO_CODES: Record<string, number> = {
-  SAVE10: 0.1, // 10% off
-  SAVE20: 0.2, // 20% off
-  TRIPLY: 0.15, // 15% off
-};
-
-// Dev mode - skip Stripe payment for testing
-const DEV_SKIP_PAYMENT = process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
+// Dev mode - skip Stripe payment for testing (only in development)
+const DEV_SKIP_PAYMENT =
+  process.env.NODE_ENV === "development" &&
+  process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
 
 export function CheckoutForm({
   lot,
@@ -103,6 +98,8 @@ export function CheckoutForm({
   const [extraFieldValues, setExtraFieldValues] = useState<Record<string, string>>({});
 
   const [promoCode, setPromoCode] = useState<string | null>(null);
+  const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
+  const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   // Validation errors
@@ -125,9 +122,8 @@ export function CheckoutForm({
       const days = costData.numberOfDays || calculatedDays;
       const dailyRate = costData.subtotal / days;
 
-      // Apply promo discount (note: in production, promo would be applied via API)
-      const discountPercent = promoCode ? PROMO_CODES[promoCode] || 0 : 0;
-      const discount = costData.subtotal * discountPercent;
+      // Apply promo discount using server-validated percentage
+      const discount = costData.subtotal * (promoDiscountPercent / 100);
 
       return {
         dailyRate,
@@ -146,9 +142,8 @@ export function CheckoutForm({
     const dailyRate = lot.pricing?.minPrice ?? 0;
     const subtotal = dailyRate * calculatedDays;
 
-    // Apply promo discount
-    const discountPercent = promoCode ? PROMO_CODES[promoCode] || 0 : 0;
-    const discount = subtotal * discountPercent;
+    // Apply promo discount using server-validated percentage
+    const discount = subtotal * (promoDiscountPercent / 100);
 
     const afterDiscount = subtotal - discount;
     const taxes = Math.round(afterDiscount * 0.08 * 100) / 100; // 8% tax
@@ -165,7 +160,7 @@ export function CheckoutForm({
       dueNow: total,
       dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoCode, costData]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -230,20 +225,27 @@ export function CheckoutForm({
       return;
     }
 
-    // Create PaymentIntent for Stripe
+    // Create PaymentIntent with server-verified price
     setIsCreatingPaymentIntent(true);
     try {
-      const amount = priceBreakdown.dueNow || priceBreakdown.total;
-      const response = await fetch("/api/payment-intent", {
+      const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
+      if (!parkingTypeId || !lot.reslabLocationId) {
+        throw new Error("Missing required lot data for payment");
+      }
+
+      const response = await fetch("/api/checkout/lot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount,
-          lotName: lot.name,
           lotId: lot.id,
-          checkIn,
-          checkOut,
+          locationId: lot.reslabLocationId,
+          checkin: checkIn,
+          checkout: checkOut,
+          checkinTime: checkInTime,
+          checkoutTime: checkOutTime,
+          parkingTypeId,
           customerEmail: customerDetails.email,
+          ...(promoCode && { promoCode }),
         }),
       });
 
@@ -255,7 +257,11 @@ export function CheckoutForm({
 
       setClientSecret(data.clientSecret);
       setPaymentIntentId(data.paymentIntentId);
+      if (data.costsToken) {
+        setServerCostsToken(data.costsToken);
+      }
       setCurrentStep("payment");
+      trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
     } catch (error) {
       console.error("PaymentIntent creation error:", error);
       setSubmitError(
@@ -274,20 +280,29 @@ export function CheckoutForm({
     setCurrentStep("vehicle");
   };
 
-  // Promo code handlers
+  // Promo code handlers — validates server-side
   const handleApplyPromo = async (code: string): Promise<boolean> => {
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    if (PROMO_CODES[code]) {
-      setPromoCode(code);
-      return true;
+    try {
+      const response = await fetch("/api/promo/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await response.json();
+      if (data.valid) {
+        setPromoCode(code);
+        setPromoDiscountPercent(data.discountPercent);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
     }
-    return false;
   };
 
   const handleRemovePromo = () => {
     setPromoCode(null);
+    setPromoDiscountPercent(0);
   };
 
   // Handle successful Stripe payment - then create ResLab reservation
@@ -308,7 +323,7 @@ export function CheckoutForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           locationId: lot.reslabLocationId,
-          costsToken: costData?.costsToken,
+          costsToken: serverCostsToken || costData?.costsToken,
           fromDate: fromDate,
           toDate: toDate,
           parkingTypeId: parkingTypeId,
@@ -487,16 +502,40 @@ export function CheckoutForm({
 
           {currentStep === "payment" && (
             DEV_SKIP_PAYMENT ? (
-              <PaymentStep
-                priceBreakdown={priceBreakdown}
-                acceptedTerms={acceptedTerms}
-                onTermsChange={setAcceptedTerms}
-                onBack={handlePaymentBack}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-                submitError={submitError}
-                dueAtLocation={lot.dueAtLocation}
-              />
+              // Dev mode: skip payment, create reservation directly
+              <div className="space-y-6">
+                <div className="bg-purple-100 border border-purple-300 rounded-lg p-3 flex items-center gap-2">
+                  <div className="bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                    DEV MODE
+                  </div>
+                  <p className="text-purple-800 text-sm">
+                    Stripe payment is bypassed. Reservation will be created directly.
+                  </p>
+                </div>
+                {submitError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 text-sm">{submitError}</p>
+                  </div>
+                )}
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={handlePaymentBack}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center px-6 py-3 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? "Creating Reservation..." : `Complete Booking (Dev) - $${priceBreakdown.total.toFixed(2)}`}
+                  </button>
+                </div>
+              </div>
             ) : clientSecret ? (
               <StripeProvider clientSecret={clientSecret}>
                 <StripePaymentForm

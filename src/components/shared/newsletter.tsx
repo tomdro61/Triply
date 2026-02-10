@@ -1,19 +1,42 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, ArrowRight, Check, Tag, Bell, Lightbulb } from "lucide-react";
+import { Mail, ArrowRight, Check, Tag, Bell, Lightbulb, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export function Newsletter() {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
+    if (!email) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to subscribe");
+      }
+
       setIsSubmitted(true);
       setEmail("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -63,7 +86,7 @@ export function Newsletter() {
           {isSubmitted ? (
             <div className="flex items-center justify-center space-x-2 text-green-400 bg-green-500/10 border border-green-500/20 rounded-full py-4 px-6 animate-fade-in max-w-md mx-auto">
               <Check className="w-6 h-6" />
-              <span className="font-medium">Thanks for subscribing! Check your email for your 10% off code.</span>
+              <span className="font-medium">Check your email for your 10% off code!</span>
             </div>
           ) : (
             <form
@@ -74,18 +97,29 @@ export function Newsletter() {
                 type="email"
                 placeholder="Enter your email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 focus:border-brand-orange focus:ring-brand-orange h-12"
                 required
+                disabled={isLoading}
               />
               <Button
                 type="submit"
                 className="bg-brand-orange hover:bg-brand-orange/90 text-white font-bold px-6 h-12"
+                disabled={isLoading}
               >
-                Get 10% Off
-                <ArrowRight className="ml-2 w-4 h-4" />
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Get 10% Off
+                    <ArrowRight className="ml-2 w-4 h-4" />
+                  </>
+                )}
               </Button>
             </form>
+          )}
+          {error && (
+            <p className="text-red-400 text-sm mt-2">{error}</p>
           )}
 
           <p className="text-gray-500 text-sm mt-5">

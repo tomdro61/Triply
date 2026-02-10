@@ -2,7 +2,6 @@
  * Supabase Server Client Configuration
  *
  * This file sets up the Supabase client for use in Server Components and API routes.
- * TODO: Configure after Supabase project is created
  */
 
 import { createServerClient, type CookieOptions } from "@supabase/ssr";

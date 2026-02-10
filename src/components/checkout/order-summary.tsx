@@ -5,6 +5,7 @@ import { Calendar, MapPin, Star, Shield, Clock, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
 import { PromoCode } from "./promo-code";
+import { formatDate } from "@/lib/utils";
 
 interface OrderSummaryProps {
   lot: UnifiedLot;
@@ -27,9 +28,8 @@ export function OrderSummary({
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("en-US", {
+  const formatCheckoutDate = (dateStr: string) => {
+    return formatDate(dateStr + "T00:00:00", {
       weekday: "short",
       month: "short",
       day: "numeric",
@@ -79,7 +79,7 @@ export function OrderSummary({
             </div>
             <div>
               <p className="text-xs text-gray-500">Check-in</p>
-              <p className="font-medium text-gray-900">{formatDate(checkIn)}</p>
+              <p className="font-medium text-gray-900">{formatCheckoutDate(checkIn)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -88,7 +88,7 @@ export function OrderSummary({
             </div>
             <div>
               <p className="text-xs text-gray-500">Check-out</p>
-              <p className="font-medium text-gray-900">{formatDate(checkOut)}</p>
+              <p className="font-medium text-gray-900">{formatCheckoutDate(checkOut)}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

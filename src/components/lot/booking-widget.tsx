@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -13,6 +13,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { trackLotView } from "@/lib/analytics/gtag";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -81,6 +82,11 @@ export function BookingWidget({
   initialCheckOutTime = "2:00 PM",
 }: BookingWidgetProps) {
   const router = useRouter();
+
+  useEffect(() => {
+    trackLotView({ id: lot.id, name: lot.name, price: lot.pricing?.minPrice });
+  }, [lot.id, lot.name, lot.pricing?.minPrice]);
+
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);

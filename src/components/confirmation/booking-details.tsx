@@ -13,6 +13,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { formatDate as sharedFormatDate } from "@/lib/utils";
 
 interface BookingDetailsProps {
   lot: UnifiedLot;
@@ -45,9 +46,8 @@ export function BookingDetails({
 }: BookingDetailsProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("en-US", {
+  const formatLongDate = (dateStr: string) => {
+    return sharedFormatDate(dateStr + "T00:00:00", {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -56,8 +56,7 @@ export function BookingDetails({
   };
 
   const formatShortDate = (dateStr: string) => {
-    const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("en-US", {
+    return sharedFormatDate(dateStr + "T00:00:00", {
       month: "short",
       day: "numeric",
     });
@@ -101,7 +100,7 @@ export function BookingDetails({
               Check-in
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkIn)}</p>
-            <p className="text-sm text-gray-600">{formatDate(checkIn)}</p>
+            <p className="text-sm text-gray-600">{formatLongDate(checkIn)}</p>
             <p className="text-sm text-brand-orange font-medium mt-1">{checkInTime}</p>
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
@@ -110,7 +109,7 @@ export function BookingDetails({
               Check-out
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkOut)}</p>
-            <p className="text-sm text-gray-600">{formatDate(checkOut)}</p>
+            <p className="text-sm text-gray-600">{formatLongDate(checkOut)}</p>
             <p className="text-sm text-brand-orange font-medium mt-1">{checkOutTime}</p>
           </div>
         </div>

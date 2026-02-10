@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resend } from "@/lib/resend/client";
+import { resend, FROM_EMAIL } from "@/lib/resend/client";
+import { ADMIN_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml } from "@/lib/validation/schemas";
+import { captureAPIError } from "@/lib/sentry";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,8 +26,8 @@ export async function POST(request: NextRequest) {
 
     // Send email to support team
     const { data, error } = await resend.emails.send({
-      from: "Triply Contact Form <onboarding@resend.dev>",
-      to: ["tom@triplypro.com"],
+      from: FROM_EMAIL,
+      to: ADMIN_EMAILS,
       replyTo: email,
       subject: `[Contact Form] ${subject}`,
       html: `
@@ -59,12 +61,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Contact form email sent:", data?.id);
-
     // Send confirmation email to user
     try {
       await resend.emails.send({
-        from: "Triply <onboarding@resend.dev>",
+        from: FROM_EMAIL,
         to: [email],
         subject: "We received your message - Triply",
         html: `
@@ -92,15 +92,17 @@ export async function POST(request: NextRequest) {
           </div>
         `,
       });
-      console.log("Confirmation email sent to:", email);
-    } catch (confirmError) {
+    } catch {
       // Don't fail the request if confirmation email fails (common in test mode)
-      console.log("Confirmation email skipped (test mode restriction):", email);
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Contact form error:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/contact",
+      method: "POST",
+    });
     return NextResponse.json(
       { error: "An unexpected error occurred. Please try again." },
       { status: 500 }

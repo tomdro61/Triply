@@ -102,7 +102,7 @@ export function PromoCode({
       </div>
       {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
       <p className="text-gray-500 text-xs mt-1">
-        Try "SAVE10" for 10% off (demo)
+        Have a promo code? Enter it above.
       </p>
     </div>
   );

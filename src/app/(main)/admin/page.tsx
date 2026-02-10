@@ -13,6 +13,7 @@ import {
   Clock,
   X,
 } from "lucide-react";
+import { formatDate, formatPrice } from "@/lib/utils";
 
 interface Stats {
   bookings: {
@@ -45,21 +46,6 @@ interface Booking {
     first_name: string;
     last_name: string;
   };
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-  }).format(amount);
-}
-
-function formatDate(dateString: string): string {
-  return new Date(dateString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function formatTime(dateString: string): string {
@@ -276,22 +262,22 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Total Revenue"
-          value={formatCurrency(stats?.revenue.total || 0)}
-          subValue={`${formatCurrency(stats?.revenue.thisMonth || 0)} this month`}
+          value={formatPrice(stats?.revenue.total || 0)}
+          subValue={`${formatPrice(stats?.revenue.thisMonth || 0)} this month`}
           icon={DollarSign}
           color="green"
         />
         <StatCard
           title="Today's Bookings"
           value={stats?.bookings.today || 0}
-          subValue={`${formatCurrency(stats?.revenue.today || 0)} revenue`}
+          subValue={`${formatPrice(stats?.revenue.today || 0)} revenue`}
           icon={Calendar}
           color="blue"
         />
         <StatCard
           title="This Week"
           value={stats?.bookings.thisWeek || 0}
-          subValue={`${formatCurrency(stats?.revenue.thisWeek || 0)} revenue`}
+          subValue={`${formatPrice(stats?.revenue.thisWeek || 0)} revenue`}
           icon={TrendingUp}
           color="purple"
         />
@@ -323,19 +309,19 @@ export default function AdminDashboard() {
             <div>
               <p className="text-sm text-gray-500">Today</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(stats?.revenue.today || 0)}
+                {formatPrice(stats?.revenue.today || 0)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">This Week</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(stats?.revenue.thisWeek || 0)}
+                {formatPrice(stats?.revenue.thisWeek || 0)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">This Month</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatCurrency(stats?.revenue.thisMonth || 0)}
+                {formatPrice(stats?.revenue.thisMonth || 0)}
               </p>
             </div>
           </div>
@@ -411,12 +397,12 @@ export default function AdminDashboard() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-1 text-sm text-gray-600">
                         <Clock size={14} className="text-gray-400" />
-                        {formatDate(booking.check_in)} - {formatDate(booking.check_out)}
+                        {formatDate(booking.check_in, { month: "short", day: "numeric", year: "numeric" })} - {formatDate(booking.check_out, { month: "short", day: "numeric", year: "numeric" })}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-gray-900">
-                        {formatCurrency(parseFloat(booking.grand_total))}
+                        {formatPrice(parseFloat(booking.grand_total))}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

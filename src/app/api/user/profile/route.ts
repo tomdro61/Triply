@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { captureAPIError } from "@/lib/sentry";
+import { z } from "zod";
+
+const profileSchema = z.object({
+  firstName: z.string().max(100).trim().optional(),
+  lastName: z.string().max(100).trim().optional(),
+  phone: z.string().max(20).trim().optional(),
+});
 
 // GET user profile
 export async function GET() {
@@ -42,6 +49,10 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error fetching user profile:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/user/profile",
+      method: "GET",
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }
@@ -65,7 +76,14 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { firstName, lastName, phone } = body;
+    const validation = profileSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: "Invalid profile data", fields: validation.error.flatten().fieldErrors },
+        { status: 400 }
+      );
+    }
+    const { firstName, lastName, phone } = validation.data;
 
     // Update or create customer record
     const { data: existingCustomer } = await adminSupabase
@@ -124,6 +142,10 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error updating user profile:", error);
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/user/profile",
+      method: "PUT",
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

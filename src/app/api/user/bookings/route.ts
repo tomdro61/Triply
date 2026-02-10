@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { captureBookingError } from "@/lib/sentry";
 
 export async function GET() {
   try {
@@ -48,6 +49,9 @@ export async function GET() {
     return NextResponse.json({ bookings: bookings || [] });
   } catch (error) {
     console.error("Error in user bookings route:", error);
+    captureBookingError(error instanceof Error ? error : new Error(String(error)), {
+      step: "confirmation",
+    });
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 }

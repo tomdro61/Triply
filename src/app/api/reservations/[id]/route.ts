@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { reslab } from "@/lib/reslab/client";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
+import { captureBookingError } from "@/lib/sentry";
 
 export async function GET(
   request: NextRequest,
@@ -15,6 +17,59 @@ export async function GET(
   }
 
   try {
+    // --- Auth check (R1: IDOR protection) ---
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (user) {
+      // Logged-in user: verify they own this booking via Supabase
+      const adminClient = await createAdminClient();
+      const { data: booking } = await adminClient
+        .from("bookings")
+        .select("customer_id, customers(user_id)")
+        .eq("reslab_reservation_number", id)
+        .single();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const customerUserId = (booking?.customers as any)?.user_id;
+      if (!booking || customerUserId !== user.id) {
+        // Check if user is admin
+        const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
+        if (!adminEmails.includes(user.email?.toLowerCase() || "")) {
+          return NextResponse.json(
+            { error: "Not authorized to view this reservation" },
+            { status: 403 }
+          );
+        }
+      }
+    } else {
+      // Not logged in: require email query param for verification
+      const email = request.nextUrl.searchParams.get("email");
+      if (!email) {
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 403 }
+        );
+      }
+
+      // Look up booking in Supabase to verify email matches
+      const adminClient = await createAdminClient();
+      const { data: booking } = await adminClient
+        .from("bookings")
+        .select("customer_id, customers(email)")
+        .eq("reslab_reservation_number", id)
+        .single();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const customerEmail = (booking?.customers as any)?.email;
+      if (!booking || customerEmail?.toLowerCase() !== email.toLowerCase()) {
+        return NextResponse.json(
+          { error: "Not authorized to view this reservation" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
 
@@ -76,6 +131,9 @@ export async function GET(
     });
   } catch (error) {
     console.error("Error fetching reservation:", error);
+    captureBookingError(error instanceof Error ? error : new Error(String(error)), {
+      step: "confirmation",
+    });
 
     // Return a more specific error for not found
     if (error instanceof Error && error.message.includes("404")) {
