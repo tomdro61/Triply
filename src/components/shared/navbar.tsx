@@ -59,11 +59,10 @@ export function Navbar({ forceSolid = false }: NavbarProps) {
 
   const navLinks = [
     { label: "Find Parking", href: "/search" },
-    { label: "Deals", href: "/deals" },
     { label: "Blog", href: "/blog" },
-    { label: "FAQs", href: "/help" },
+    { label: "Help Center", href: "/help" },
     { label: "About", href: "/about" },
-    { label: "Support", href: "/help" },
+    { label: "Contact Us", href: "/contact" },
   ];
 
   const getUserDisplayName = () => {

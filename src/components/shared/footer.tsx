@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Plane, Facebook, Twitter, Instagram, Linkedin, ShieldCheck, CreditCard } from "lucide-react";
+import Image from "next/image";
+import { Facebook, Twitter, Instagram, Linkedin, ShieldCheck, CreditCard } from "lucide-react";
 
 export function Footer() {
   const footerLinks = [
@@ -7,8 +8,6 @@ export function Footer() {
       header: "Company",
       links: [
         { label: "About Us", href: "/about" },
-        { label: "Careers", href: "/careers" },
-        { label: "Press", href: "/press" },
         { label: "Blog", href: "/blog" },
       ],
     },
@@ -44,9 +43,13 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1">
             <div className="flex items-center mb-6">
-              <div className="bg-brand-orange p-1.5 rounded-md mr-2">
-                <Plane size={20} fill="currentColor" className="text-white" />
-              </div>
+              <Image
+                src="/Coral-logo.png"
+                alt="Triply"
+                width={32}
+                height={32}
+                className="rounded-lg mr-2"
+              />
               <span className="text-2xl font-bold tracking-tight">Triply</span>
             </div>
             <p className="text-gray-400 text-sm leading-relaxed mb-4">
