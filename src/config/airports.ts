@@ -42,6 +42,10 @@ export const airports: Airport[] = [
 
   // ==========================================================================
   // Test Locations (ResLab Sandbox)
+  // TODO: When production ResLab API key is received:
+  //   1. Set enabled: false on all TEST-* airports below
+  //   2. Verify JFK/LGA return real inventory from ResLab
+  //   3. Update the default airport in the homepage search component
   // ==========================================================================
   {
     code: "TEST-NY",

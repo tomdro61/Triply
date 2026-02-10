@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Star, Check, ChevronRight, Loader2 } from "lucide-react";
+import { MapPin, ShieldCheck, Check, ChevronRight, Loader2 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
 interface FeaturedParkingProps {
@@ -16,19 +16,6 @@ const airports = [
   { code: "TEST-NY", name: "New York", displayCode: "JFK", slug: "beacon-test" },
   { code: "TEST-OH", name: "Cincinnati", displayCode: "CVG", slug: "cincinnati-test" },
 ];
-
-// Simulated ratings since ResLab doesn't provide them
-// In production, this would come from a reviews system
-function getSimulatedRating(lotId: string): { rating: number; count: number } {
-  // Use lot ID to generate consistent pseudo-random rating
-  const hash = lotId.split("").reduce((a, b) => {
-    a = (a << 5) - a + b.charCodeAt(0);
-    return a & a;
-  }, 0);
-  const rating = 4.2 + (Math.abs(hash) % 8) / 10; // 4.2 - 4.9
-  const count = 500 + (Math.abs(hash) % 3000); // 500 - 3500
-  return { rating: Math.round(rating * 10) / 10, count };
-}
 
 // Get top amenities to display
 function getTopAmenities(lot: UnifiedLot): string[] {
@@ -177,7 +164,6 @@ export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingP
         {!loading && !error && lots.length > 0 && (
           <div className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 -mx-4 px-4 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 sm:overflow-visible sm:pb-0 no-scrollbar">
             {lots.map((lot) => {
-              const { rating, count } = getSimulatedRating(lot.id);
               const amenities = getTopAmenities(lot);
 
               return (
@@ -194,12 +180,11 @@ export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingP
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
 
-                    {/* Rating Badge */}
+                    {/* Verified Lot Badge */}
                     <div className="absolute top-3 right-3">
-                      <div className="bg-white/95 backdrop-blur-sm rounded-md px-2 py-1 flex items-center gap-1 shadow">
-                        <Star size={14} className="text-yellow-400 fill-yellow-400" />
-                        <span className="text-sm font-bold text-gray-900">{rating}</span>
-                        <span className="text-xs text-gray-500">({count.toLocaleString()})</span>
+                      <div className="bg-white/95 backdrop-blur-sm rounded-md px-2.5 py-1 flex items-center gap-1.5 shadow">
+                        <ShieldCheck size={14} className="text-green-600" />
+                        <span className="text-xs font-semibold text-gray-900">Verified Lot</span>
                       </div>
                     </div>
                   </div>

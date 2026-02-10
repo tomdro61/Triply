@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resend } from "@/lib/resend/client";
+import { resend, FROM_EMAIL } from "@/lib/resend/client";
+import { ADMIN_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml } from "@/lib/validation/schemas";
 
 export async function POST(request: NextRequest) {
@@ -24,8 +25,8 @@ export async function POST(request: NextRequest) {
 
     // Send email to support team
     const { data, error } = await resend.emails.send({
-      from: "Triply Contact Form <onboarding@resend.dev>",
-      to: ["tom@triplypro.com"],
+      from: FROM_EMAIL,
+      to: ADMIN_EMAILS,
       replyTo: email,
       subject: `[Contact Form] ${subject}`,
       html: `
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest) {
     // Send confirmation email to user
     try {
       await resend.emails.send({
-        from: "Triply <onboarding@resend.dev>",
+        from: FROM_EMAIL,
         to: [email],
         subject: "We received your message - Triply",
         html: `

@@ -44,6 +44,7 @@ export const reservationSchema = z.object({
   feesTotal: z.number().optional(),
   grandTotal: z.number().optional(),
   userId: z.string().nullable().optional(),
+  stripePaymentIntentId: z.string().optional(),
 });
 
 export function escapeHtml(str: string): string {

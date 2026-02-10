@@ -3,6 +3,12 @@ import { reslab } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { reservationSchema } from "@/lib/validation/schemas";
+import { stripe } from "@/lib/stripe/client";
+import { capturePaymentError } from "@/lib/sentry";
+
+const DEV_SKIP_PAYMENT =
+  process.env.NODE_ENV === "development" &&
+  process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +40,58 @@ export async function POST(request: NextRequest) {
       feesTotal,
       grandTotal,
       userId,
+      stripePaymentIntentId,
     } = result.data;
+
+    // Verify Stripe payment (unless dev mode)
+    if (!DEV_SKIP_PAYMENT) {
+      if (!stripePaymentIntentId) {
+        return NextResponse.json(
+          { error: "Payment verification required" },
+          { status: 400 }
+        );
+      }
+
+      // Check for replay — has this PaymentIntent already been used?
+      const supabaseCheck = await createAdminClient();
+      const { data: existingBooking } = await supabaseCheck
+        .from("bookings")
+        .select("id")
+        .eq("stripe_payment_intent_id", stripePaymentIntentId)
+        .single();
+
+      if (existingBooking) {
+        return NextResponse.json(
+          { error: "This payment has already been used for a reservation" },
+          { status: 409 }
+        );
+      }
+
+      // Verify PaymentIntent status with Stripe
+      try {
+        const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
+
+        if (paymentIntent.status !== "succeeded") {
+          capturePaymentError(
+            new Error(`PaymentIntent status is ${paymentIntent.status}, expected succeeded`),
+            { stripePaymentIntentId, amount: paymentIntent.amount / 100 }
+          );
+          return NextResponse.json(
+            { error: "Payment has not been completed" },
+            { status: 402 }
+          );
+        }
+      } catch (stripeError) {
+        capturePaymentError(
+          stripeError instanceof Error ? stripeError : new Error("Stripe verification failed"),
+          { stripePaymentIntentId }
+        );
+        return NextResponse.json(
+          { error: "Payment verification failed" },
+          { status: 500 }
+        );
+      }
+    }
 
     // Build extra fields for API
     const apiExtraFields: Record<string, string> = {
@@ -157,6 +214,7 @@ export async function POST(request: NextRequest) {
         grand_total: grandTotal || resHistory?.grand_total || 0,
         vehicle_info: vehicle,
         status: "confirmed",
+        ...(stripePaymentIntentId && { stripe_payment_intent_id: stripePaymentIntentId }),
       });
 
       if (bookingError) {

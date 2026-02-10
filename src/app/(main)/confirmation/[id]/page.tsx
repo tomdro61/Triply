@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo } from "react";
+import { Suspense, useState, useEffect, useMemo, use } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Home, Search, AlertCircle } from "lucide-react";
@@ -13,7 +13,6 @@ import {
   WhatsNext,
   CreateAccountPrompt,
 } from "@/components/confirmation";
-import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
@@ -84,12 +83,6 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   // Fetch reservation data from API
   useEffect(() => {
     const fetchReservation = async () => {
-      // Skip API call for mock confirmation IDs (TRP- prefix)
-      if (confirmationId.startsWith("TRP-")) {
-        setLoading(false);
-        return;
-      }
-
       try {
         const response = await fetch(`/api/reservations/${confirmationId}`);
         if (response.ok) {
@@ -140,13 +133,8 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
       };
     }
 
-    // Fallback to mock data or sessionStorage
+    // Fallback to sessionStorage
     if (lotId) {
-      // Try mock data first
-      const mockLot = getMockLotById(lotId);
-      if (mockLot) return mockLot;
-
-      // Try sessionStorage (for ResLab lots that aren't in mock data)
       try {
         const storedLot = sessionStorage.getItem(`lot-${lotId}`);
         if (storedLot) {
@@ -341,8 +329,8 @@ function LoadingState() {
   );
 }
 
-export default async function ConfirmationPage({ params }: ConfirmationPageProps) {
-  const { id } = await params;
+export default function ConfirmationPage({ params }: ConfirmationPageProps) {
+  const { id } = use(params);
 
   return (
     <Suspense fallback={<LoadingState />}>

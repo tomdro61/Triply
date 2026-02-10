@@ -12,7 +12,6 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
-import { getLotById as getMockLotById } from "@/lib/data/mock-lots";
 
 interface LotPageProps {
   params: Promise<{
@@ -86,14 +85,6 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     latitude: airport.latitude,
     longitude: airport.longitude,
   });
-
-  // Fallback to mock data if API fails (for development)
-  if (!lot) {
-    const mockLot = getMockLotById(lotSlug);
-    if (mockLot) {
-      lot = mockLot;
-    }
-  }
 
   if (!lot) {
     notFound();
@@ -197,13 +188,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const toDate = `${defaultCheckout} 14:00:00`;
 
   // Try to get lot
-  let lot = await getLotById(lotSlug, fromDate, toDate);
-  if (!lot) {
-    const mockLot = getMockLotById(lotSlug);
-    if (mockLot) {
-      lot = mockLot;
-    }
-  }
+  const lot = await getLotById(lotSlug, fromDate, toDate);
 
   if (!airport || !lot) {
     return {
