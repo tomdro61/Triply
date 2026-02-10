@@ -48,7 +48,7 @@ export function PriceMarker({
                 : "bg-white text-gray-900 border-gray-200"
             }`}
           >
-            ${price}
+            ${price.toFixed(2)}
           </div>
           <div
             className={`w-3 h-3 rotate-45 transform -mt-2.5 ${
