@@ -143,7 +143,7 @@ export function ChatBubble() {
                     : "Ask me anything..."
                 }
                 disabled={isLoading || authRequired}
-                className="flex-1 text-sm bg-white border border-gray-200 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-base sm:text-sm bg-white border border-gray-200 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
