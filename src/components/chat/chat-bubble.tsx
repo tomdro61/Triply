@@ -129,7 +129,7 @@ export function ChatBubble() {
           {/* Input */}
           <form
             onSubmit={handleSubmit}
-            className="px-3 py-2 border-t border-gray-200 bg-gray-50"
+            className="px-3 py-2 border-t border-gray-200 bg-gray-50 max-sm:pb-[env(safe-area-inset-bottom,1rem)]"
           >
             <div className="flex items-center gap-2">
               <input
