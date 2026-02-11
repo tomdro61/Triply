@@ -163,7 +163,7 @@ export function ChatBubble() {
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
           isOpen
-            ? "bg-gray-600 hover:bg-gray-700 scale-90"
+            ? "bg-gray-600 hover:bg-gray-700 scale-90 max-sm:hidden"
             : "bg-brand-orange hover:bg-orange-600 scale-100 hover:scale-105"
         }`}
         aria-label={isOpen ? "Close chat" : "Open chat"}
