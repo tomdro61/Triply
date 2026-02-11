@@ -10,6 +10,12 @@ type Props = {
   params: Promise<{ slug: string }>
 }
 
+function resolveCmsImageUrl(url: string, cmsUrl: string): string {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `${cmsUrl}${url}`
+}
+
 // Fetch single post by slug from Payload CMS (separate subdomain)
 async function getPost(slug: string) {
   try {
@@ -24,7 +30,11 @@ async function getPost(slug: string) {
     }
 
     const data = await res.json()
-    return data.docs?.[0] || null
+    const post = data.docs?.[0] || null
+    if (post?.featuredImage?.url) {
+      post.featuredImage.url = resolveCmsImageUrl(post.featuredImage.url, cmsUrl)
+    }
+    return post
   } catch (error) {
     console.error('Error fetching post:', error)
     return null
