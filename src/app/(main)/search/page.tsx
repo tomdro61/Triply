@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, Suspense } from "react";
+import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { Map, List } from "lucide-react";
 import { Navbar } from "@/components/shared";
 import {
   SearchHeader,
@@ -10,6 +11,7 @@ import {
   ProductDetailSlider,
   type SearchTab,
 } from "@/components/search";
+import { MobileMapCard } from "@/components/search/mobile-map-card";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
@@ -41,6 +43,9 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(true);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedLot, setSelectedLot] = useState<UnifiedLot | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "map">("list");
+  const [activeMapCardIndex, setActiveMapCardIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   const airportInfo = getAirportByCode(airport);
   const locationName = airportInfo?.city || "New York";
@@ -128,6 +133,22 @@ function SearchPageContent() {
     fetchResults();
   };
 
+  // Handle carousel scroll to detect active card
+  const handleCarouselScroll = () => {
+    const el = carouselRef.current;
+    if (!el) return;
+    const cardWidth = el.offsetWidth * 0.88 + 12; // 88% width + gap
+    const index = Math.round(el.scrollLeft / cardWidth);
+    setActiveMapCardIndex(Math.min(index, sortedLots.length - 1));
+  };
+
+  // Highlight the corresponding map marker when carousel scrolls
+  useEffect(() => {
+    if (mobileView === "map" && sortedLots[activeMapCardIndex]) {
+      setHoveredId(sortedLots[activeMapCardIndex].id);
+    }
+  }, [activeMapCardIndex, mobileView, sortedLots]);
+
   return (
     <div className="bg-white h-screen flex flex-col">
       <Navbar forceSolid />
@@ -152,8 +173,9 @@ function SearchPageContent() {
 
         {/* Split View Content */}
         <div className="flex-1 flex overflow-hidden relative">
+          {/* Mobile: List View */}
           {loading ? (
-            <div className="w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50">
+            <div className={`w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50 ${mobileView === "map" ? "hidden lg:flex" : ""}`}>
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange mx-auto mb-4" />
                 <p className="text-gray-500">Searching for parking...</p>
@@ -169,10 +191,43 @@ function SearchPageContent() {
               hoveredId={hoveredId}
               onHover={setHoveredId}
               onSelect={setSelectedLot}
+              className={mobileView === "map" ? "hidden lg:block" : ""}
             />
           )}
 
-          {/* Right: Map */}
+          {/* Mobile: Map View */}
+          {mobileView === "map" && !loading && (
+            <div className="lg:hidden w-full h-full relative">
+              <SearchMap
+                lots={sortedLots}
+                hoveredId={hoveredId}
+                onHover={setHoveredId}
+                onSelect={setSelectedLot}
+                showControls={false}
+              />
+
+              {/* Card carousel at bottom */}
+              {sortedLots.length > 0 && (
+                <div className="absolute bottom-0 left-0 right-0 pb-20 pt-2">
+                  <div
+                    ref={carouselRef}
+                    onScroll={handleCarouselScroll}
+                    className="flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 no-scrollbar"
+                  >
+                    {sortedLots.map((lot) => (
+                      <MobileMapCard
+                        key={lot.id}
+                        lot={lot}
+                        onSelect={setSelectedLot}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Desktop: Map (always visible on lg+) */}
           <div className="hidden lg:block w-3/5 h-full relative border-l border-gray-200">
             <SearchMap
               lots={sortedLots}
@@ -183,6 +238,26 @@ function SearchPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Mobile View Toggle Button */}
+      {!loading && sortedLots.length > 0 && (
+        <button
+          onClick={() => setMobileView(mobileView === "list" ? "map" : "list")}
+          className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 bg-navy text-white font-semibold text-sm px-5 py-3 rounded-full shadow-lg active:scale-95 transition-transform"
+        >
+          {mobileView === "list" ? (
+            <>
+              <Map size={18} />
+              Map
+            </>
+          ) : (
+            <>
+              <List size={18} />
+              List
+            </>
+          )}
+        </button>
+      )}
 
       {/* Slide-out Product Detail */}
       {selectedLot && (

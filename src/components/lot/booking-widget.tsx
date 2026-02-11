@@ -6,7 +6,6 @@ import {
   Calendar,
   Shield,
   Share2,
-  Heart,
   Clock,
   ChevronDown,
   Wallet,
@@ -91,7 +90,6 @@ export function BookingWidget({
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);
   const [checkOutTime, setCheckOutTime] = useState(initialCheckOutTime);
-  const [isSaved, setIsSaved] = useState(false);
 
   // Use API pricing if available
   const hasApiPricing = lot.pricing?.grandTotal !== undefined;
@@ -145,8 +143,11 @@ export function BookingWidget({
     router.push(`/checkout?${params.toString()}`);
   };
 
+  const [copied, setCopied] = useState(false);
+
   const handleShare = async () => {
-    if (navigator.share) {
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile && navigator.share) {
       try {
         await navigator.share({
           title: lot.name,
@@ -157,9 +158,9 @@ export function BookingWidget({
         // User cancelled or error
       }
     } else {
-      // Fallback: copy to clipboard
       await navigator.clipboard.writeText(window.location.href);
-      alert("Link copied to clipboard!");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -321,27 +322,13 @@ export function BookingWidget({
         </div>
       </div>
 
-      {/* Share & Save */}
-      <div className="mt-6 flex justify-between items-center pt-6 border-t border-gray-100">
+      {/* Share */}
+      <div className="mt-6 pt-6 border-t border-gray-100">
         <button
           onClick={handleShare}
           className="flex items-center text-gray-500 hover:text-gray-900 text-sm font-medium transition-colors"
         >
-          <Share2 size={16} className="mr-2" /> Share
-        </button>
-        <button
-          onClick={() => setIsSaved(!isSaved)}
-          className={`flex items-center text-sm font-medium transition-colors ${
-            isSaved
-              ? "text-brand-orange"
-              : "text-gray-500 hover:text-brand-orange"
-          }`}
-        >
-          <Heart
-            size={16}
-            className={`mr-2 ${isSaved ? "fill-brand-orange" : ""}`}
-          />
-          {isSaved ? "Saved" : "Save"}
+          <Share2 size={16} className="mr-2" /> {copied ? "Copied!" : "Share"}
         </button>
       </div>
     </div>
