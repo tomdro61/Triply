@@ -71,12 +71,12 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
 
         {/* Lightbox */}
         {lightboxOpen && (
-          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+          <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
             <button
               onClick={closeLightbox}
-              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
             >
-              <X size={24} className="text-white" />
+              <X size={28} className="text-white" />
             </button>
             <div className="relative w-full max-w-4xl h-[80vh]">
               <Image
@@ -143,12 +143,12 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
 
       {/* Lightbox */}
       {lightboxOpen && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center">
+        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
           <button
             onClick={closeLightbox}
-            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
           >
-            <X size={24} className="text-white" />
+            <X size={28} className="text-white" />
           </button>
 
           <button
