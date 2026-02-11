@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { format } from 'date-fns'
 import { RichText } from '@/components/blog/RichText'
 import { ArrowLeft } from 'lucide-react'
+import { Navbar, Footer } from '@/components/shared'
 
 type Props = {
   params: Promise<{ slug: string }>
@@ -85,7 +86,9 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <>
+    <Navbar forceSolid />
+    <main className="min-h-screen bg-white pt-20">
       {/* Back Link */}
       <div className="bg-gray-50 border-b">
         <div className="container mx-auto px-4 py-4">
@@ -192,5 +195,7 @@ export default async function BlogPostPage({ params }: Props) {
         </section>
       </article>
     </main>
+    <Footer />
+    </>
   )
 }
