@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
   Ticket,
+  MessageCircle,
   LogOut,
   Loader2,
   ShieldAlert,
@@ -118,6 +119,13 @@ export default function AdminLayout({
           >
             <Ticket size={20} />
             Bookings
+          </Link>
+          <Link
+            href="/admin/chats"
+            className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <MessageCircle size={20} />
+            Chat Sessions
           </Link>
         </nav>
 
