@@ -129,7 +129,7 @@ export function ChatBubble() {
           {/* Input */}
           <form
             onSubmit={handleSubmit}
-            className="px-3 py-2 border-t border-gray-200 bg-gray-50"
+            className="px-3 py-2 border-t border-gray-200 bg-gray-50 max-sm:pb-[env(safe-area-inset-bottom,1rem)]"
           >
             <div className="flex items-center gap-2">
               <input
@@ -143,7 +143,7 @@ export function ChatBubble() {
                     : "Ask me anything..."
                 }
                 disabled={isLoading || authRequired}
-                className="flex-1 text-sm bg-white border border-gray-200 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 text-base sm:text-sm bg-white border border-gray-200 rounded-full px-4 py-2 outline-none focus:ring-2 focus:ring-brand-orange/30 focus:border-brand-orange disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
@@ -163,7 +163,7 @@ export function ChatBubble() {
         onClick={() => setIsOpen(!isOpen)}
         className={`fixed bottom-4 right-4 z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${
           isOpen
-            ? "bg-gray-600 hover:bg-gray-700 scale-90"
+            ? "bg-gray-600 hover:bg-gray-700 scale-90 max-sm:hidden"
             : "bg-brand-orange hover:bg-orange-600 scale-100 hover:scale-105"
         }`}
         aria-label={isOpen ? "Close chat" : "Open chat"}
