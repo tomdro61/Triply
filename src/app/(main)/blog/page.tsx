@@ -10,6 +10,12 @@ export const metadata: Metadata = {
 }
 
 // Fetch posts from Payload CMS (separate subdomain)
+function resolveCmsImageUrl(url: string, cmsUrl: string): string {
+  if (!url) return ''
+  if (url.startsWith('http')) return url
+  return `${cmsUrl}${url}`
+}
+
 async function getPosts() {
   try {
     const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
@@ -23,7 +29,14 @@ async function getPosts() {
     }
 
     const data = await res.json()
-    return data.docs || []
+    const docs = data.docs || []
+    // Resolve relative image URLs to absolute CMS URLs
+    return docs.map((post: any) => {
+      if (post.featuredImage?.url) {
+        post.featuredImage.url = resolveCmsImageUrl(post.featuredImage.url, cmsUrl)
+      }
+      return post
+    })
   } catch (error) {
     console.error('Error fetching posts:', error)
     return []

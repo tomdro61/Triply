@@ -23,7 +23,7 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.supabase.co",
       },
-{
+      {
         protocol: "https",
         hostname: "images.unsplash.com",
       },
@@ -34,6 +34,14 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "**.amazonaws.com",
+      },
+      {
+        protocol: "https",
+        hostname: "cms.triplypro.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.public.blob.vercel-storage.com",
       },
     ],
   },
@@ -78,7 +86,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://api.mapbox.com",
               "style-src 'self' 'unsafe-inline' https://api.mapbox.com https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.sentry.io",
               "frame-src https://js.stripe.com https://hooks.stripe.com",
