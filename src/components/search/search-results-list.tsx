@@ -14,6 +14,7 @@ interface SearchResultsListProps {
   hoveredId: string | null;
   onHover: (id: string | null) => void;
   onSelect: (lot: UnifiedLot) => void;
+  className?: string;
 }
 
 export function SearchResultsList({
@@ -25,9 +26,10 @@ export function SearchResultsList({
   hoveredId,
   onHover,
   onSelect,
+  className = "",
 }: SearchResultsListProps) {
   return (
-    <div className="w-full lg:w-2/5 h-full overflow-y-auto no-scrollbar bg-gray-50">
+    <div className={`w-full lg:w-2/5 h-full overflow-y-auto no-scrollbar bg-gray-50 ${className}`}>
       {/* Sticky Filters & Results Header */}
       <div className="sticky top-0 z-20 bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200 shadow-sm backdrop-blur-sm bg-opacity-95">
         <div className="flex justify-between items-end">

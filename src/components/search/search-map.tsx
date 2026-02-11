@@ -11,6 +11,7 @@ interface SearchMapProps {
   hoveredId: string | null;
   onHover: (id: string | null) => void;
   onSelect: (lot: UnifiedLot) => void;
+  showControls?: boolean;
 }
 
 export function SearchMap({
@@ -18,6 +19,7 @@ export function SearchMap({
   hoveredId,
   onHover,
   onSelect,
+  showControls = true,
 }: SearchMapProps) {
   const mapRef = useRef<MapRef>(null);
 
@@ -61,7 +63,7 @@ export function SearchMap({
   }
 
   return (
-    <MapboxMap ref={mapRef} onLoad={fitBounds}>
+    <MapboxMap ref={mapRef} onLoad={fitBounds} showControls={showControls}>
       {lots.map((lot) => {
         if (!lot.latitude || !lot.longitude) return null;
         const price = lot.pricing?.minPrice ?? 0;

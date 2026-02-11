@@ -1,7 +1,16 @@
 "use client";
 
-import { MapPin, ChevronDown, SquareParking, Hotel } from "lucide-react";
-import { enabledAirports } from "@/config/airports";
+import { useState } from "react";
+import {
+  MapPin,
+  ChevronDown,
+  ChevronUp,
+  SquareParking,
+  Hotel,
+  SlidersHorizontal,
+  Calendar,
+} from "lucide-react";
+import { enabledAirports, getAirportByCode } from "@/config/airports";
 
 export type SearchTab = "parking" | "hotels";
 
@@ -77,6 +86,11 @@ const tabs = [
   { id: "hotels" as SearchTab, icon: Hotel, label: "Park + Hotel" },
 ];
 
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function SearchHeader({
   tab,
   onTabChange,
@@ -92,9 +106,160 @@ export function SearchHeader({
   onReturnTimeChange,
   onSearch,
 }: SearchHeaderProps) {
+  const [expanded, setExpanded] = useState(false);
+  const airportInfo = getAirportByCode(airport);
+  const airportLabel = airportInfo
+    ? `${airportInfo.code}`
+    : airport;
+
   return (
     <div className="bg-white border-b border-gray-200 z-30 shadow-sm relative flex-shrink-0">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
+      {/* Mobile: Compact summary bar */}
+      <div className="lg:hidden">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full px-4 py-3 flex items-center justify-between"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+              <MapPin size={16} className="text-brand-orange flex-shrink-0" />
+              <span>{airportLabel}</span>
+            </div>
+            <span className="text-gray-300">|</span>
+            <div className="flex items-center gap-1.5 text-sm text-gray-600 truncate">
+              <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+              <span className="truncate">
+                {formatShortDate(departDate)} — {formatShortDate(returnDate)}
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 ml-3 flex-shrink-0 text-brand-orange">
+            <SlidersHorizontal size={16} />
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </div>
+        </button>
+
+        {/* Expandable form */}
+        {expanded && (
+          <div className="px-4 pb-4 border-t border-gray-100">
+            {/* Type Tabs */}
+            <div className="flex mt-3 mb-3 gap-6 border-b border-gray-100">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => onTabChange(t.id)}
+                  className={`flex items-center pb-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+                    tab === t.id
+                      ? "border-brand-orange text-brand-orange"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  }`}
+                >
+                  <t.icon
+                    size={18}
+                    className={`mr-2 ${tab === t.id ? "stroke-2" : "stroke-1"}`}
+                  />
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Location */}
+            <div className="relative mb-3">
+              <MapPin
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none"
+                size={18}
+              />
+              <select
+                value={airport}
+                onChange={(e) => onAirportChange(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all appearance-none cursor-pointer"
+              >
+                {enabledAirports.map((a) => (
+                  <option key={a.code} value={a.code}>
+                    {a.city} ({a.code})
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                size={14}
+              />
+            </div>
+
+            {/* Depart */}
+            <div className="flex gap-2 mb-3">
+              <div className="relative flex-grow">
+                <input
+                  type="date"
+                  value={departDate}
+                  onChange={(e) => onDepartDateChange(e.target.value)}
+                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                />
+              </div>
+              <div className="relative w-32">
+                <select
+                  value={departTime}
+                  onChange={(e) => onDepartTimeChange(e.target.value)}
+                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                >
+                  {timeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                  size={14}
+                />
+              </div>
+            </div>
+
+            {/* Return */}
+            <div className="flex gap-2 mb-3">
+              <div className="relative flex-grow">
+                <input
+                  type="date"
+                  value={returnDate}
+                  onChange={(e) => onReturnDateChange(e.target.value)}
+                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                />
+              </div>
+              <div className="relative w-32">
+                <select
+                  value={returnTime}
+                  onChange={(e) => onReturnTimeChange(e.target.value)}
+                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                >
+                  {timeOptions.map((time) => (
+                    <option key={time} value={time}>
+                      {time}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
+                  size={14}
+                />
+              </div>
+            </div>
+
+            {/* Update Button */}
+            <button
+              onClick={() => {
+                onSearch();
+                setExpanded(false);
+              }}
+              className="w-full bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95"
+            >
+              Update Search
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: Full form (unchanged) */}
+      <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
         {/* Type Tabs */}
         <div className="flex mb-3 gap-6 border-b border-gray-100">
           {tabs.map((t) => (

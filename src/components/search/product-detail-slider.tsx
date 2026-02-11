@@ -11,6 +11,8 @@ import {
   Check,
   ExternalLink,
   Wallet,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
@@ -39,9 +41,10 @@ export function ProductDetailSlider({
   const [localCheckOut, setLocalCheckOut] = useState(checkOut);
   const [localCheckInTime, setLocalCheckInTime] = useState(checkInTime);
   const [localCheckOutTime, setLocalCheckOutTime] = useState(checkOutTime);
+  const [currentPhoto, setCurrentPhoto] = useState(0);
 
-  const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
+  const photoCount = lot.photos.length || 1;
 
   const airport = getAirportByCode(airportCode);
   const lotDetailUrl = airport
@@ -69,29 +72,57 @@ export function ProductDetailSlider({
 
       {/* Slider Panel */}
       <div className="relative w-full max-w-2xl bg-white h-full shadow-2xl flex flex-col transform transition-transform animate-slide-in-right overflow-hidden">
-        {/* Header / Image Area */}
-        <div className="relative h-64 flex-shrink-0 group">
-          <Image
-            src={mainImage}
-            alt={lot.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 672px) 100vw, 672px"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
-          <button
-            onClick={onClose}
-            className="absolute top-4 left-4 p-2 bg-white/90 backdrop-blur rounded-full shadow-md hover:bg-white transition-colors z-10"
-          >
-            <X size={20} className="text-gray-900" />
-          </button>
-          <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
-            1/{lot.photos.length || 1} Photos
-          </div>
-        </div>
+        {/* Close button (fixed position) */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 left-4 p-2 bg-white/90 backdrop-blur rounded-full shadow-md hover:bg-white transition-colors z-10"
+        >
+          <X size={20} className="text-gray-900" />
+        </button>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 bg-white">
+        {/* Scrollable Content (image scrolls with content) */}
+        <div className="flex-1 overflow-y-auto bg-white">
+          {/* Image Area */}
+          <div className="relative h-72 sm:h-80 group">
+            <Image
+              src={lot.photos[currentPhoto]?.url || "/placeholder-lot.jpg"}
+              alt={lot.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 672px) 100vw, 672px"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60" />
+
+            {/* Photo navigation arrows */}
+            {photoCount > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentPhoto((prev) => (prev - 1 + photoCount) % photoCount);
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+                >
+                  <ChevronLeft size={18} className="text-gray-800" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentPhoto((prev) => (prev + 1) % photoCount);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+                >
+                  <ChevronRight size={18} className="text-gray-800" />
+                </button>
+              </>
+            )}
+
+            <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
+              {currentPhoto + 1}/{photoCount} Photos
+            </div>
+          </div>
+
+          <div className="p-6 md:p-8 space-y-8">
           {/* Header Info */}
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
@@ -200,7 +231,7 @@ export function ProductDetailSlider({
 
               <button
                 onClick={handleReserve}
-                className="w-full bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98]"
+                className="hidden md:block w-full bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98]"
               >
                 Reserve Now
               </button>
@@ -269,22 +300,18 @@ export function ProductDetailSlider({
               </p>
             </div>
           )}
+          </div>
         </div>
 
         {/* Sticky Mobile Footer */}
-        <div className="border-t border-gray-200 p-4 bg-white md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <span className="text-2xl font-bold text-gray-900">${price}</span>
-              <span className="text-sm text-gray-500">/day</span>
-            </div>
-            <span className="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded">
-              Best Price
-            </span>
+        <div className="border-t border-gray-200 px-4 py-3 bg-white md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
+            <span className="text-sm text-gray-500">/day</span>
           </div>
           <button
             onClick={handleReserve}
-            className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md"
+            className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md"
           >
             Book Now
           </button>
