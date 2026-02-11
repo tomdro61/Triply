@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
 import { format } from 'date-fns'
+import { Navbar, Footer } from '@/components/shared'
 
 export const metadata: Metadata = {
   title: 'Blog | Triply - Airport Parking Tips & Travel Guides',
@@ -47,7 +48,9 @@ export default async function BlogPage() {
   const posts = await getPosts()
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <>
+    <Navbar forceSolid />
+    <main className="min-h-screen bg-gray-50 pt-20">
       {/* Hero Section */}
       <section className="bg-navy text-white py-16">
         <div className="container mx-auto px-4">
@@ -126,5 +129,7 @@ export default async function BlogPage() {
         </div>
       </section>
     </main>
+    <Footer />
+    </>
   )
 }
