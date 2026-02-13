@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Photo } from "@/types/lot";
@@ -33,6 +33,18 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
   const closeLightbox = () => {
     setLightboxOpen(false);
   };
+
+  // Lock body scroll when lightbox is open
+  useEffect(() => {
+    if (lightboxOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen]);
 
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % galleryImages.length);
@@ -72,27 +84,24 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
         {/* Lightbox */}
         {lightboxOpen && (
           <div
-            className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+            className="fixed inset-0 z-[60] bg-black/90 flex flex-col overflow-hidden"
             onClick={closeLightbox}
           >
-            <div className="flex justify-end p-4">
+            <div className="flex-shrink-0 flex justify-end p-3">
               <button
                 onClick={closeLightbox}
-                className="p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+                className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
               >
-                <X size={24} className="text-white" />
+                <X size={22} className="text-white" />
               </button>
             </div>
-            <div
-              className="flex-1 relative mx-4 mb-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Image
+            <div className="flex-1 min-h-0 flex items-center justify-center p-4 pt-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={galleryImages[0]}
                 alt={`${lotName} - Photo`}
-                fill
-                className="object-contain"
-                sizes="100vw"
+                className="max-w-full max-h-full object-contain"
+                onClick={(e) => e.stopPropagation()}
               />
             </div>
           </div>
@@ -152,46 +161,43 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
       {/* Lightbox */}
       {lightboxOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+          className="fixed inset-0 z-[60] bg-black/90 flex flex-col overflow-hidden"
           onClick={closeLightbox}
         >
-          <div className="flex justify-end p-4">
+          <div className="flex-shrink-0 flex justify-end p-3">
             <button
               onClick={closeLightbox}
-              className="p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+              className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
             >
-              <X size={24} className="text-white" />
+              <X size={22} className="text-white" />
             </button>
           </div>
 
-          <div
-            className="flex-1 relative mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Image
+          <div className="flex-1 min-h-0 flex items-center justify-center px-12 sm:px-16">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
               src={galleryImages[currentIndex]}
               alt={`${lotName} - Photo ${currentIndex + 1}`}
-              fill
-              className="object-contain"
-              sizes="100vw"
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
             />
 
             <button
-              onClick={prevImage}
-              className="absolute left-0 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
+              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
             >
               <ChevronLeft size={28} className="text-white" />
             </button>
 
             <button
-              onClick={nextImage}
-              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
+              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
             >
               <ChevronRight size={28} className="text-white" />
             </button>
           </div>
 
-          <div className="py-4 text-center text-white text-sm">
+          <div className="flex-shrink-0 py-3 text-center text-white text-sm">
             {currentIndex + 1} / {galleryImages.length}
           </div>
         </div>
