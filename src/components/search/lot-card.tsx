@@ -143,6 +143,11 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
               ${price.toFixed(2)}
               <span className="text-xs text-gray-500 font-normal">/day</span>
             </div>
+            {lot.pricing?.grandTotal && (
+              <div className="text-xs text-gray-500 font-medium">
+                ${lot.pricing.grandTotal.toFixed(2)} total
+              </div>
+            )}
             {lot.dueAtLocation && (
               <div className="flex items-center justify-end gap-1 text-[10px] text-amber-700 font-medium mt-1">
                 <Wallet size={10} />
