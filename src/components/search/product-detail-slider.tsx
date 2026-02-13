@@ -206,7 +206,70 @@ export function ProductDetailSlider({
 
           <hr className="border-gray-100" />
 
-          {/* Booking Section */}
+          {/* Overview / Description */}
+          {lot.description && (
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                Overview
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {lot.description}
+              </p>
+            </div>
+          )}
+
+          {/* Amenities Section */}
+          {lot.amenities.length > 0 && (
+            <div>
+              <h3 className="font-bold text-gray-900 mb-4 text-lg">Amenities</h3>
+              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
+                {lot.amenities.map((amenity) => (
+                  <div key={amenity.id} className="flex items-center text-gray-700">
+                    <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
+                      <Check size={14} className="text-brand-orange stroke-[3]" />
+                    </div>
+                    <span className="capitalize font-medium text-sm">
+                      {amenity.displayName}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Shuttle Information */}
+          {lot.shuttleInfo && (
+            <div className="bg-blue-50/50 rounded-xl p-6 border border-blue-100">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                Shuttle Information
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {lot.shuttleInfo.summary}
+                {lot.shuttleInfo.details && ` ${lot.shuttleInfo.details}`}
+              </p>
+            </div>
+          )}
+
+          {lot.directions && (
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                Directions
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {lot.directions}
+              </p>
+            </div>
+          )}
+
+          {/* View Full Details Link */}
+          <Link
+            href={lotDetailUrl}
+            className="text-brand-orange font-bold text-sm flex items-center hover:underline"
+          >
+            View full details <ExternalLink size={14} className="ml-1.5" />
+          </Link>
+
+          {/* Booking Section — dates & price breakdown */}
           <div>
             {/* Price Header */}
             <div className="mb-4">
@@ -305,7 +368,7 @@ export function ProductDetailSlider({
             </div>
 
             {/* Price Breakdown */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-100">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
               <div className="flex justify-between text-sm text-gray-600 mb-2">
                 <span>
                   ${price.toFixed(2)} x {days} {days === 1 ? "day" : "days"}
@@ -335,89 +398,12 @@ export function ProductDetailSlider({
                 </div>
               )}
             </div>
-
-            {/* Reserve Button — hidden on mobile, sticky footer handles it */}
-            <div className="hidden md:block space-y-3">
-              <button
-                onClick={handleReserve}
-                className="w-full bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98]"
-              >
-                Reserve Now
-              </button>
-              <div className="flex items-center justify-center text-sm text-gray-500 font-medium">
-                <Shield size={14} className="mr-1.5 text-green-500" />
-                Free cancellation up to 24h before
-              </div>
-            </div>
           </div>
-
-          {/* Amenities Section - only show if API returns amenities */}
-          {lot.amenities.length > 0 && (
-            <div>
-              <h3 className="font-bold text-gray-900 mb-4 text-lg">Amenities</h3>
-              <div className="grid grid-cols-2 gap-y-4 gap-x-6">
-                {lot.amenities.map((amenity) => (
-                  <div key={amenity.id} className="flex items-center text-gray-700">
-                    <div className="w-8 h-8 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center mr-3 shrink-0">
-                      <Check size={14} className="text-brand-orange stroke-[3]" />
-                    </div>
-                    <span className="capitalize font-medium text-sm">
-                      {amenity.displayName}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* View Full Details Link */}
-          <Link
-            href={lotDetailUrl}
-            className="text-brand-orange font-bold text-sm flex items-center hover:underline"
-          >
-            View full details <ExternalLink size={14} className="ml-1.5" />
-          </Link>
-
-          {/* Overview / Description */}
-          {lot.description && (
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-2 text-lg">
-                Overview
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {lot.description}
-              </p>
-            </div>
-          )}
-
-          {/* Shuttle Information */}
-          {lot.shuttleInfo && (
-            <div className="bg-blue-50/50 rounded-xl p-6 border border-blue-100">
-              <h3 className="font-bold text-gray-900 mb-2 text-lg">
-                Shuttle Information
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {lot.shuttleInfo.summary}
-                {lot.shuttleInfo.details && ` ${lot.shuttleInfo.details}`}
-              </p>
-            </div>
-          )}
-
-          {lot.directions && (
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-2 text-lg">
-                Directions
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {lot.directions}
-              </p>
-            </div>
-          )}
           </div>
         </div>
 
-        {/* Sticky Mobile Footer */}
-        <div className="border-t border-gray-200 px-4 py-3 bg-white md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
+        {/* Sticky Footer — both mobile and desktop */}
+        <div className="border-t border-gray-200 px-4 py-3 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
           <div>
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
@@ -427,9 +413,9 @@ export function ProductDetailSlider({
           </div>
           <button
             onClick={handleReserve}
-            className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md"
+            className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98]"
           >
-            Book Now
+            Reserve Now
           </button>
         </div>
       </div>
