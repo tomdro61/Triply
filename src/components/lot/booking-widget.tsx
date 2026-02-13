@@ -170,7 +170,7 @@ export function BookingWidget({
 
   return (
     <>
-    {/* Mobile Sticky Footer — rendered via portal to escape parent stacking context */}
+    {/* Mobile-only Sticky Footer — rendered via portal to escape parent stacking context */}
     {mounted && createPortal(
       <div
         className="lg:hidden"
@@ -184,12 +184,14 @@ export function BookingWidget({
           padding: "12px 16px",
           backgroundColor: "white",
           boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)",
+        }}
+      >
+      <div style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
           gap: 16,
-        }}
-      >
+        }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
             <span style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>${price.toFixed(2)}</span>
@@ -204,6 +206,7 @@ export function BookingWidget({
         >
           Reserve Now
         </button>
+      </div>
       </div>,
       document.body
     )}
