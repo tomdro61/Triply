@@ -17,6 +17,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [signupComplete, setSignupComplete] = useState(false);
 
   const supabase = createClient();
 
@@ -44,7 +45,7 @@ function LoginForm() {
           },
         });
         if (error) throw error;
-        setMessage("Check your email for the confirmation link!");
+        setSignupComplete(true);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -101,6 +102,32 @@ function LoginForm() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow-lg sm:rounded-lg sm:px-10">
+          {signupComplete ? (
+            <div className="text-center py-4">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Mail className="h-8 w-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Check your email</h3>
+              <p className="text-gray-600 mb-6">
+                We sent a confirmation link to <span className="font-semibold text-gray-900">{email}</span>. Click the link to activate your account.
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Didn&apos;t receive it? Check your spam folder.
+              </p>
+              <button
+                onClick={() => {
+                  setSignupComplete(false);
+                  setIsLogin(true);
+                  setEmail("");
+                  setPassword("");
+                }}
+                className="text-brand-orange font-semibold hover:text-orange-500 transition-colors"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+          <>
           {/* Google Sign In */}
           <button
             onClick={handleGoogleAuth}
@@ -211,6 +238,8 @@ function LoginForm() {
                 Forgot your password?
               </Link>
             </p>
+          )}
+          </>
           )}
         </div>
       </div>

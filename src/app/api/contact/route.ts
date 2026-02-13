@@ -31,23 +31,27 @@ export async function POST(request: NextRequest) {
       replyTo: email,
       subject: `[Contact Form] ${subject}`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #f87356; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0;">New Contact Form Submission</h1>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+          <div style="background-color: #1A1A2E; padding: 32px 40px; text-align: center;">
+            <h1 style="margin: 0; color: #f87356; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Triply</h1>
+            <p style="margin: 4px 0 0; color: #94a3b8; font-size: 13px;">Your Trip Simplified</p>
           </div>
-          <div style="padding: 30px; background-color: #f9fafb;">
-            <p style="margin-bottom: 20px;"><strong>From:</strong> ${safeName} (${escapeHtml(email)})</p>
-            <p style="margin-bottom: 20px;"><strong>Subject:</strong> ${safeSubject}</p>
-            <div style="background-color: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <p style="margin: 0; white-space: pre-wrap;">${safeMessage}</p>
+          <div style="padding: 40px;">
+            <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">New Contact Form Submission</h2>
+            <p style="margin-bottom: 16px; color: #374151; font-size: 15px;"><strong>From:</strong> ${safeName} (${escapeHtml(email)})</p>
+            <p style="margin-bottom: 16px; color: #374151; font-size: 15px;"><strong>Subject:</strong> ${safeSubject}</p>
+            <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <p style="margin: 0; white-space: pre-wrap; color: #374151; font-size: 14px; line-height: 1.6;">${safeMessage}</p>
             </div>
-            <p style="margin-top: 20px; font-size: 14px; color: #6b7280;">
+            <p style="margin-top: 20px; font-size: 13px; color: #9ca3af; line-height: 1.5;">
               Reply directly to this email to respond to ${safeName}.
             </p>
           </div>
-          <div style="padding: 20px; text-align: center; background-color: #1a1a2e; color: #9ca3af; font-size: 12px;">
-            <p style="margin: 0;">Triply - Your Trip Simplified</p>
-            <p style="margin: 5px 0 0;">triplypro.com</p>
+          <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
+            <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+              Triply - Airport Parking Made Easy<br>
+              <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a>
+            </p>
           </div>
         </div>
       `,
@@ -68,26 +72,30 @@ export async function POST(request: NextRequest) {
         to: [email],
         subject: "We received your message - Triply",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #f87356; padding: 20px; text-align: center;">
-              <h1 style="color: white; margin: 0;">Thanks for contacting us!</h1>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div style="background-color: #1A1A2E; padding: 32px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #f87356; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Triply</h1>
+              <p style="margin: 4px 0 0; color: #94a3b8; font-size: 13px;">Your Trip Simplified</p>
             </div>
-            <div style="padding: 30px; background-color: #f9fafb;">
-              <p>Hi ${safeName},</p>
-              <p>We've received your message and will get back to you as soon as possible, typically within 24-48 hours.</p>
-              <div style="background-color: white; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
-                <p style="margin: 0 0 10px; font-weight: bold;">Your message:</p>
-                <p style="margin: 0; color: #6b7280; white-space: pre-wrap;">${safeMessage}</p>
+            <div style="padding: 40px;">
+              <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Thanks for contacting us!</h2>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi ${safeName},</p>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message and will get back to you as soon as possible, typically within 24-48 hours.</p>
+              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
+                <p style="margin: 0 0 10px; font-weight: bold; color: #374151; font-size: 14px;">Your message:</p>
+                <p style="margin: 0; color: #6b7280; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${safeMessage}</p>
               </div>
-              <p>In the meantime, you might find answers to common questions in our <a href="https://triplypro.com/help" style="color: #f87356;">FAQs</a>.</p>
-              <p style="margin-top: 20px;">
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">In the meantime, you might find answers to common questions in our <a href="https://www.triplypro.com/help" style="color: #f87356; text-decoration: none;">FAQs</a>.</p>
+              <p style="margin-top: 24px; color: #374151; font-size: 15px; line-height: 1.6;">
                 Best regards,<br>
                 The Triply Team
               </p>
             </div>
-            <div style="padding: 20px; text-align: center; background-color: #1a1a2e; color: #9ca3af; font-size: 12px;">
-              <p style="margin: 0;">Triply - Your Trip Simplified</p>
-              <p style="margin: 5px 0 0;">triplypro.com</p>
+            <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                Triply - Airport Parking Made Easy<br>
+                <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a>
+              </p>
             </div>
           </div>
         `,
