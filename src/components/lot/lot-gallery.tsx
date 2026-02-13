@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Photo } from "@/types/lot";
@@ -9,6 +10,149 @@ interface LotGalleryProps {
   photos: Photo[];
   lotName: string;
   tag?: string;
+}
+
+function Lightbox({
+  images,
+  currentIndex,
+  onClose,
+  onPrev,
+  onNext,
+  lotName,
+}: {
+  images: string[];
+  currentIndex: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  lotName: string;
+}) {
+  const showNav = images.length > 1;
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        backgroundColor: "rgba(0, 0, 0, 0.92)",
+        overflow: "hidden",
+      }}
+    >
+      {/* X button */}
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          padding: 8,
+          backgroundColor: "rgba(255,255,255,0.2)",
+          borderRadius: "50%",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <X size={22} color="white" />
+      </button>
+
+      {/* Previous button */}
+      {showNav && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrev();
+          }}
+          style={{
+            position: "absolute",
+            left: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 10,
+            padding: 8,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            borderRadius: "50%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ChevronLeft size={28} color="white" />
+        </button>
+      )}
+
+      {/* Next button */}
+      {showNav && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          style={{
+            position: "absolute",
+            right: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 10,
+            padding: 8,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            borderRadius: "50%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ChevronRight size={28} color="white" />
+        </button>
+      )}
+
+      {/* Centered image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={images[currentIndex]}
+        alt={`${lotName} - Photo ${currentIndex + 1}`}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          maxWidth: "90vw",
+          maxHeight: "85vh",
+          objectFit: "contain",
+        }}
+      />
+
+      {/* Counter */}
+      {showNav && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: "white",
+            fontSize: 14,
+          }}
+        >
+          {currentIndex + 1} / {images.length}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
 }
 
 export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
@@ -81,28 +225,15 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
           </div>
         </div>
 
-        {/* Lightbox */}
         {lightboxOpen && (
-          <div
-            className="fixed inset-0 z-[60] bg-black/90 overflow-hidden"
-            onClick={closeLightbox}
-          >
-            <button
-              onClick={closeLightbox}
-              className="absolute top-3 right-3 z-10 p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-            >
-              <X size={22} className="text-white" />
-            </button>
-            <div className="w-full h-full flex items-center justify-center p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={galleryImages[0]}
-                alt={`${lotName} - Photo`}
-                style={{ maxWidth: "100%", maxHeight: "calc(100vh - 2rem)", objectFit: "contain" }}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
+          <Lightbox
+            images={galleryImages}
+            currentIndex={0}
+            onClose={closeLightbox}
+            onPrev={prevImage}
+            onNext={nextImage}
+            lotName={lotName}
+          />
         )}
       </>
     );
@@ -113,7 +244,7 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
       <div className="grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
         {/* Main Image */}
         <div
-          className={`${galleryImages.length < 5 ? "col-span-2" : "col-span-2"} row-span-2 relative cursor-pointer group`}
+          className="col-span-2 row-span-2 relative cursor-pointer group"
           onClick={() => openLightbox(0)}
         >
           <Image
@@ -156,47 +287,15 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
         ))}
       </div>
 
-      {/* Lightbox */}
       {lightboxOpen && (
-        <div
-          className="fixed inset-0 z-[60] bg-black/90 overflow-hidden"
-          onClick={closeLightbox}
-        >
-          <button
-            onClick={closeLightbox}
-            className="absolute top-3 right-3 z-10 p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-          >
-            <X size={22} className="text-white" />
-          </button>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); prevImage(); }}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChevronLeft size={28} className="text-white" />
-          </button>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); nextImage(); }}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChevronRight size={28} className="text-white" />
-          </button>
-
-          <div className="w-full h-full flex items-center justify-center p-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={galleryImages[currentIndex]}
-              alt={`${lotName} - Photo ${currentIndex + 1}`}
-              style={{ maxWidth: "calc(100% - 6rem)", maxHeight: "calc(100vh - 2rem)", objectFit: "contain" }}
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-white text-sm">
-            {currentIndex + 1} / {galleryImages.length}
-          </div>
-        </div>
+        <Lightbox
+          images={galleryImages}
+          currentIndex={currentIndex}
+          onClose={closeLightbox}
+          onPrev={prevImage}
+          onNext={nextImage}
+          lotName={lotName}
+        />
       )}
     </>
   );
