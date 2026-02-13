@@ -165,6 +165,25 @@ export function BookingWidget({
   };
 
   return (
+    <>
+    {/* Mobile Sticky Footer */}
+    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 px-4 py-3 bg-white lg:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
+      <div>
+        <div className="flex items-baseline gap-1">
+          <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
+          <span className="text-sm text-gray-500">/day</span>
+        </div>
+        <span className="text-xs text-gray-500">${total.toFixed(2)} total</span>
+      </div>
+      <button
+        onClick={handleReserve}
+        disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
+        className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Reserve Now
+      </button>
+    </div>
+
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
       <div className="mb-6">
@@ -332,5 +351,6 @@ export function BookingWidget({
         </button>
       </div>
     </div>
+    </>
   );
 }

@@ -200,48 +200,51 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
     );
   };
 
-  // Single image layout
-  if (galleryImages.length === 1) {
-    return (
-      <>
-        <div className="h-96 rounded-xl overflow-hidden shadow-sm">
-          <div
-            className="relative w-full h-full cursor-pointer group"
-            onClick={() => openLightbox(0)}
-          >
-            <Image
-              src={galleryImages[0]}
-              alt={`${lotName} - Main view`}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 100vw, 100vw"
-              priority
-            />
-            {tag && (
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
-                {tag}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {lightboxOpen && (
-          <Lightbox
-            images={galleryImages}
-            currentIndex={0}
-            onClose={closeLightbox}
-            onPrev={prevImage}
-            onNext={nextImage}
-            lotName={lotName}
-          />
-        )}
-      </>
-    );
-  }
-
   return (
     <>
-      <div className="grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
+      {/* Mobile: Image Carousel */}
+      <div className="lg:hidden relative h-64 sm:h-72 rounded-xl overflow-hidden shadow-sm">
+        <Image
+          src={galleryImages[currentIndex]}
+          alt={`${lotName} - Photo ${currentIndex + 1}`}
+          fill
+          className="object-cover cursor-pointer"
+          sizes="100vw"
+          priority
+          onClick={() => openLightbox(currentIndex)}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
+
+        {tag && (
+          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
+            {tag}
+          </div>
+        )}
+
+        {galleryImages.length > 1 && (
+          <>
+            <button
+              onClick={() => prevImage()}
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+            >
+              <ChevronLeft size={18} className="text-gray-800" />
+            </button>
+            <button
+              onClick={() => nextImage()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+            >
+              <ChevronRight size={18} className="text-gray-800" />
+            </button>
+          </>
+        )}
+
+        <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
+          {currentIndex + 1}/{galleryImages.length} Photos
+        </div>
+      </div>
+
+      {/* Desktop: Grid Gallery */}
+      <div className="hidden lg:grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
         {/* Main Image */}
         <div
           className="col-span-2 row-span-2 relative cursor-pointer group"
@@ -252,7 +255,7 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
             alt={`${lotName} - Main view`}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="50vw"
             priority
           />
           {tag && (
@@ -274,7 +277,7 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
               alt={`${lotName} - Gallery ${index + 1}`}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 50vw, 25vw"
+              sizes="25vw"
             />
             {index === 3 && extraPhotos > 0 && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
