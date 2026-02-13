@@ -71,14 +71,22 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
 
         {/* Lightbox */}
         {lightboxOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
-            <button
-              onClick={closeLightbox}
-              className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+          <div
+            className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+            onClick={closeLightbox}
+          >
+            <div className="flex justify-end p-4">
+              <button
+                onClick={closeLightbox}
+                className="p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+              >
+                <X size={24} className="text-white" />
+              </button>
+            </div>
+            <div
+              className="flex-1 relative mx-4 mb-4"
+              onClick={(e) => e.stopPropagation()}
             >
-              <X size={28} className="text-white" />
-            </button>
-            <div className="relative w-full max-w-4xl h-[80vh]">
               <Image
                 src={galleryImages[0]}
                 alt={`${lotName} - Photo`}
@@ -143,22 +151,23 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
 
       {/* Lightbox */}
       {lightboxOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
-          <button
-            onClick={closeLightbox}
-            className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-          >
-            <X size={28} className="text-white" />
-          </button>
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 flex flex-col"
+          onClick={closeLightbox}
+        >
+          <div className="flex justify-end p-4">
+            <button
+              onClick={closeLightbox}
+              className="p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+            >
+              <X size={24} className="text-white" />
+            </button>
+          </div>
 
-          <button
-            onClick={prevImage}
-            className="absolute left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          <div
+            className="flex-1 relative mx-4"
+            onClick={(e) => e.stopPropagation()}
           >
-            <ChevronLeft size={32} className="text-white" />
-          </button>
-
-          <div className="relative w-full max-w-4xl h-[80vh]">
             <Image
               src={galleryImages[currentIndex]}
               alt={`${lotName} - Photo ${currentIndex + 1}`}
@@ -166,16 +175,23 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
               className="object-contain"
               sizes="100vw"
             />
+
+            <button
+              onClick={prevImage}
+              className="absolute left-0 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <ChevronLeft size={28} className="text-white" />
+            </button>
+
+            <button
+              onClick={nextImage}
+              className="absolute right-0 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+            >
+              <ChevronRight size={28} className="text-white" />
+            </button>
           </div>
 
-          <button
-            onClick={nextImage}
-            className="absolute right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChevronRight size={32} className="text-white" />
-          </button>
-
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm">
+          <div className="py-4 text-center text-white text-sm">
             {currentIndex + 1} / {galleryImages.length}
           </div>
         </div>
