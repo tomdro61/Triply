@@ -103,30 +103,33 @@ export async function POST(request: NextRequest) {
         to: [email],
         subject: "Welcome to Triply! Here's your 10% off code",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #f87356; padding: 30px; text-align: center;">
-              <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Triply!</h1>
-              <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0; font-size: 16px;">Your Trip Simplified</p>
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+            <div style="background-color: #1A1A2E; padding: 32px 40px; text-align: center;">
+              <h1 style="margin: 0; color: #f87356; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Triply</h1>
+              <p style="margin: 4px 0 0; color: #94a3b8; font-size: 13px;">Your Trip Simplified</p>
             </div>
-            <div style="padding: 30px; background-color: #f9fafb;">
-              <p style="font-size: 16px; color: #1e293b;">Thanks for subscribing! Here's your exclusive 10% discount code:</p>
-              <div style="background-color: white; padding: 20px; border-radius: 8px; border: 2px dashed #f87356; text-align: center; margin: 20px 0;">
-                <p style="font-size: 14px; color: #64748b; margin: 0 0 8px;">Your Promo Code</p>
+            <div style="padding: 40px;">
+              <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Welcome to Triply!</h2>
+              <p style="font-size: 15px; color: #374151; line-height: 1.6;">Thanks for subscribing! Here's your exclusive 10% discount code:</p>
+              <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; border: 2px dashed #f87356; text-align: center; margin: 24px 0;">
+                <p style="font-size: 13px; color: #9ca3af; margin: 0 0 8px;">Your Promo Code</p>
                 <p style="font-size: 28px; font-weight: bold; color: #f87356; margin: 0; letter-spacing: 2px;">${code}</p>
-                <p style="font-size: 13px; color: #64748b; margin: 8px 0 0;">Valid for 30 days &bull; One-time use</p>
+                <p style="font-size: 13px; color: #9ca3af; margin: 8px 0 0;">Valid for 30 days &bull; One-time use</p>
               </div>
               <div style="text-align: center; margin: 30px 0;">
-                <a href="https://triplypro.com" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+                <a href="https://www.triplypro.com" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
                   Book Now &amp; Save 10%
                 </a>
               </div>
-              <p style="font-size: 14px; color: #64748b; text-align: center;">
+              <p style="font-size: 14px; color: #9ca3af; text-align: center;">
                 Apply this code at checkout to get 10% off your first airport parking reservation.
               </p>
             </div>
-            <div style="padding: 20px; text-align: center; background-color: #1a1a2e; color: #9ca3af; font-size: 12px;">
-              <p style="margin: 0;">Triply - Your Trip Simplified</p>
-              <p style="margin: 5px 0 0;">triplypro.com</p>
+            <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0; color: #9ca3af; font-size: 12px;">
+                Triply - Airport Parking Made Easy<br>
+                <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a>
+              </p>
             </div>
           </div>
         `,
