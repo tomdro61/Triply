@@ -84,23 +84,21 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
         {/* Lightbox */}
         {lightboxOpen && (
           <div
-            className="fixed inset-0 z-[60] bg-black/90 flex flex-col overflow-hidden"
+            className="fixed inset-0 z-[60] bg-black/90 overflow-hidden"
             onClick={closeLightbox}
           >
-            <div className="flex-shrink-0 flex justify-end p-3">
-              <button
-                onClick={closeLightbox}
-                className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-              >
-                <X size={22} className="text-white" />
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 flex items-center justify-center p-4 pt-0">
+            <button
+              onClick={closeLightbox}
+              className="absolute top-3 right-3 z-10 p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+            >
+              <X size={22} className="text-white" />
+            </button>
+            <div className="w-full h-full flex items-center justify-center p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={galleryImages[0]}
                 alt={`${lotName} - Photo`}
-                className="max-w-full max-h-full object-contain"
+                style={{ maxWidth: "100%", maxHeight: "calc(100vh - 2rem)", objectFit: "contain" }}
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
@@ -161,43 +159,41 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
       {/* Lightbox */}
       {lightboxOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-black/90 flex flex-col overflow-hidden"
+          className="fixed inset-0 z-[60] bg-black/90 overflow-hidden"
           onClick={closeLightbox}
         >
-          <div className="flex-shrink-0 flex justify-end p-3">
-            <button
-              onClick={closeLightbox}
-              className="p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-            >
-              <X size={22} className="text-white" />
-            </button>
-          </div>
+          <button
+            onClick={closeLightbox}
+            className="absolute top-3 right-3 z-10 p-2 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
+          >
+            <X size={22} className="text-white" />
+          </button>
 
-          <div className="flex-1 min-h-0 flex items-center justify-center px-12 sm:px-16">
+          <button
+            onClick={(e) => { e.stopPropagation(); prevImage(); }}
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <ChevronLeft size={28} className="text-white" />
+          </button>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); nextImage(); }}
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-10 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+          >
+            <ChevronRight size={28} className="text-white" />
+          </button>
+
+          <div className="w-full h-full flex items-center justify-center p-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={galleryImages[currentIndex]}
               alt={`${lotName} - Photo ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
+              style={{ maxWidth: "calc(100% - 6rem)", maxHeight: "calc(100vh - 2rem)", objectFit: "contain" }}
               onClick={(e) => e.stopPropagation()}
             />
-
-            <button
-              onClick={(e) => { e.stopPropagation(); prevImage(); }}
-              className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-            >
-              <ChevronLeft size={28} className="text-white" />
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); nextImage(); }}
-              className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-            >
-              <ChevronRight size={28} className="text-white" />
-            </button>
           </div>
 
-          <div className="flex-shrink-0 py-3 text-center text-white text-sm">
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-white text-sm">
             {currentIndex + 1} / {galleryImages.length}
           </div>
         </div>
