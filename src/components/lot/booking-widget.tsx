@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -164,25 +165,48 @@ export function BookingWidget({
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   return (
     <>
-    {/* Mobile Sticky Footer */}
-    <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 px-4 py-3 bg-white lg:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
-      <div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
-          <span className="text-sm text-gray-500">/day</span>
-        </div>
-        <span className="text-xs text-gray-500">${total.toFixed(2)} total</span>
-      </div>
-      <button
-        onClick={handleReserve}
-        disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
-        className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+    {/* Mobile Sticky Footer — rendered via portal to escape parent stacking context */}
+    {mounted && createPortal(
+      <div
+        className="lg:hidden"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9998,
+          borderTop: "1px solid #e5e7eb",
+          padding: "12px 16px",
+          backgroundColor: "white",
+          boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
       >
-        Reserve Now
-      </button>
-    </div>
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>${price.toFixed(2)}</span>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>/day</span>
+          </div>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>${total.toFixed(2)} total</span>
+        </div>
+        <button
+          onClick={handleReserve}
+          disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
+          className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Reserve Now
+        </button>
+      </div>,
+      document.body
+    )}
 
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
@@ -326,8 +350,8 @@ export function BookingWidget({
         )}
       </div>
 
-      {/* Reserve Button */}
-      <div className="space-y-3">
+      {/* Reserve Button — hidden on mobile, sticky footer handles it */}
+      <div className="hidden lg:block space-y-3">
         <button
           onClick={handleReserve}
           disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
