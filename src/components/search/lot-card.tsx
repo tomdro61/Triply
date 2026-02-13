@@ -196,20 +196,12 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
             )}
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onSelect(lot)}
-              className="text-sm font-semibold text-brand-orange hover:text-orange-600 transition-colors"
-            >
-              View Details
-            </button>
-            <button
-              onClick={() => onSelect(lot)}
-              className="bg-brand-orange text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
-            >
-              Book Now
-            </button>
-          </div>
+          <button
+            onClick={() => onSelect(lot)}
+            className="bg-brand-orange text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
+          >
+            View Details
+          </button>
         </div>
       </div>
     </div>
