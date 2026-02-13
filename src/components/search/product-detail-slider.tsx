@@ -300,7 +300,7 @@ export function ProductDetailSlider({
                   Check-in
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center flex-1">
+                  <div className="flex items-center flex-1 relative">
                     <Calendar
                       size={16}
                       className="mr-2 text-brand-blue pointer-events-none"
@@ -309,7 +309,7 @@ export function ProductDetailSlider({
                       type="date"
                       value={localCheckIn}
                       onChange={(e) => setLocalCheckIn(e.target.value)}
-                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm"
+                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                     />
                   </div>
                   <div className="relative w-28">
@@ -336,7 +336,7 @@ export function ProductDetailSlider({
                   Check-out
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center flex-1">
+                  <div className="flex items-center flex-1 relative">
                     <Calendar
                       size={16}
                       className="mr-2 text-brand-blue pointer-events-none"
@@ -345,7 +345,7 @@ export function ProductDetailSlider({
                       type="date"
                       value={localCheckOut}
                       onChange={(e) => setLocalCheckOut(e.target.value)}
-                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm"
+                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                     />
                   </div>
                   <div className="relative w-28">
