@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,9 +13,24 @@ import {
   Wallet,
   ChevronLeft,
   ChevronRight,
+  Calendar,
+  Clock,
+  ChevronDown,
+  Shield,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
+
+const timeOptions = [
+  "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
+  "3:00 AM", "3:30 AM", "4:00 AM", "4:30 AM", "5:00 AM", "5:30 AM",
+  "6:00 AM", "6:30 AM", "7:00 AM", "7:30 AM", "8:00 AM", "8:30 AM",
+  "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
+  "12:00 PM", "12:30 PM", "1:00 PM", "1:30 PM", "2:00 PM", "2:30 PM",
+  "3:00 PM", "3:30 PM", "4:00 PM", "4:30 PM", "5:00 PM", "5:30 PM",
+  "6:00 PM", "6:30 PM", "7:00 PM", "7:30 PM", "8:00 PM", "8:30 PM",
+  "9:00 PM", "9:30 PM", "10:00 PM", "10:30 PM", "11:00 PM", "11:30 PM",
+];
 
 interface ProductDetailSliderProps {
   lot: UnifiedLot;
@@ -46,6 +61,35 @@ export function ProductDetailSlider({
   const price = lot.pricing?.minPrice ?? 0;
   const photoCount = lot.photos.length || 1;
 
+  // Calculate number of days and total (matches BookingWidget logic)
+  const hasApiPricing = lot.pricing?.grandTotal !== undefined;
+  const { days, subtotal, fees, taxes, total } = useMemo(() => {
+    const start = new Date(localCheckIn);
+    const end = new Date(localCheckOut);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    if (hasApiPricing) {
+      return {
+        days: lot.pricing?.numberOfDays || diffDays,
+        subtotal: lot.pricing?.subtotal || price * diffDays,
+        fees: lot.pricing?.feesTotal || 0,
+        taxes: lot.pricing?.taxTotal || 0,
+        total: lot.pricing?.grandTotal || price * diffDays,
+      };
+    }
+
+    const sub = price * diffDays;
+    const tax = Math.round(sub * (lot.pricing?.taxValue || 8) / 100 * 100) / 100;
+    return {
+      days: diffDays,
+      subtotal: sub,
+      fees: 0,
+      taxes: tax,
+      total: sub + tax,
+    };
+  }, [localCheckIn, localCheckOut, price, hasApiPricing, lot.pricing]);
+
   const airport = getAirportByCode(airportCode);
   const lotDetailUrl = airport
     ? `/${airport.slug}/airport-parking/${lot.slug}?checkin=${localCheckIn}&checkout=${localCheckOut}&checkinTime=${encodeURIComponent(localCheckInTime)}&checkoutTime=${encodeURIComponent(localCheckOutTime)}`
@@ -63,7 +107,7 @@ export function ProductDetailSlider({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-[60] flex justify-end">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
@@ -162,83 +206,19 @@ export function ProductDetailSlider({
 
           <hr className="border-gray-100" />
 
-          {/* Option Selection */}
-          <div>
-            <h3 className="font-bold text-gray-900 mb-4 text-lg">
-              Parking Type
-            </h3>
-
-            <div className="border border-brand-orange rounded-xl p-5 bg-orange-50/20 relative">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h4 className="font-bold text-gray-900 text-lg">
-                    {lot.pricing?.parkingTypes[0]?.name || "Standard Parking"}
-                  </h4>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Free cancellation up to 24h before
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-gray-900">
-                    ${price.toFixed(2)}
-                    <span className="text-sm text-gray-500 font-normal">
-                      /day
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Pay at Location Indicator */}
-              {lot.dueAtLocation && (
-                <div className="flex items-center gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <Wallet size={18} className="text-amber-600 flex-shrink-0" />
-                  <div className="text-sm">
-                    <span className="font-semibold text-amber-800">Pay at Location</span>
-                    <span className="text-amber-700"> - Payment collected on-site at check-in</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Dates Input */}
-              <div className="bg-white rounded-lg p-4 border border-gray-200 text-sm mb-5 space-y-3 shadow-sm">
-                <div className="flex items-center border-b border-gray-50 pb-2">
-                  <span className="text-gray-500 font-medium w-24">
-                    Check In
-                  </span>
-                  <div className="flex-1 relative">
-                    <input
-                      type="date"
-                      value={localCheckIn}
-                      onChange={(e) => setLocalCheckIn(e.target.value)}
-                      className="w-full font-bold text-brand-blue bg-transparent outline-none focus:ring-1 focus:ring-brand-orange rounded px-1 cursor-pointer"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center pt-1">
-                  <span className="text-gray-500 font-medium w-24">
-                    Check Out
-                  </span>
-                  <div className="flex-1 relative">
-                    <input
-                      type="date"
-                      value={localCheckOut}
-                      onChange={(e) => setLocalCheckOut(e.target.value)}
-                      className="w-full font-bold text-brand-blue bg-transparent outline-none focus:ring-1 focus:ring-brand-orange rounded px-1 cursor-pointer"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleReserve}
-                className="hidden md:block w-full bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98]"
-              >
-                Reserve Now
-              </button>
+          {/* Overview / Description */}
+          {lot.description && (
+            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
+              <h3 className="font-bold text-gray-900 mb-2 text-lg">
+                Overview
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                {lot.description}
+              </p>
             </div>
-          </div>
+          )}
 
-          {/* Amenities Section - only show if API returns amenities */}
+          {/* Amenities Section */}
           {lot.amenities.length > 0 && (
             <div>
               <h3 className="font-bold text-gray-900 mb-4 text-lg">Amenities</h3>
@@ -254,26 +234,6 @@ export function ProductDetailSlider({
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* View Full Details Link */}
-          <Link
-            href={lotDetailUrl}
-            className="text-brand-orange font-bold text-sm flex items-center hover:underline"
-          >
-            View full details <ExternalLink size={14} className="ml-1.5" />
-          </Link>
-
-          {/* Overview / Description */}
-          {lot.description && (
-            <div className="bg-gray-50 rounded-xl p-6 border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-2 text-lg">
-                Overview
-              </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                {lot.description}
-              </p>
             </div>
           )}
 
@@ -300,20 +260,162 @@ export function ProductDetailSlider({
               </p>
             </div>
           )}
+
+          {/* View Full Details Link */}
+          <Link
+            href={lotDetailUrl}
+            className="text-brand-orange font-bold text-sm flex items-center hover:underline"
+          >
+            View full details <ExternalLink size={14} className="ml-1.5" />
+          </Link>
+
+          {/* Booking Section — dates & price breakdown */}
+          <div>
+            {/* Price Header */}
+            <div className="mb-4">
+              <span className="text-3xl font-bold text-gray-900">
+                ${price.toFixed(2)}
+              </span>
+              <span className="text-gray-500 font-medium"> / day</span>
+            </div>
+
+            {/* Pay at Location Indicator */}
+            {lot.dueAtLocation && (
+              <div className="flex items-start gap-2 mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <Wallet size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <span className="font-semibold text-amber-800">Pay at Location</span>
+                  <p className="text-amber-700 text-xs mt-0.5">
+                    Payment will be collected on-site at check-in
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Date Selection */}
+            <div className="space-y-3 mb-4">
+              {/* Check-in Date & Time */}
+              <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors focus-within:ring-1 focus-within:ring-brand-orange">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Check-in
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center flex-1 relative">
+                    <Calendar
+                      size={16}
+                      className="mr-2 text-brand-blue pointer-events-none"
+                    />
+                    <input
+                      type="date"
+                      value={localCheckIn}
+                      onChange={(e) => setLocalCheckIn(e.target.value)}
+                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </div>
+                  <div className="relative w-28">
+                    <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <select
+                      value={localCheckInTime}
+                      onChange={(e) => setLocalCheckInTime(e.target.value)}
+                      className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Check-out Date & Time */}
+              <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors focus-within:ring-1 focus-within:ring-brand-orange">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                  Check-out
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center flex-1 relative">
+                    <Calendar
+                      size={16}
+                      className="mr-2 text-brand-blue pointer-events-none"
+                    />
+                    <input
+                      type="date"
+                      value={localCheckOut}
+                      onChange={(e) => setLocalCheckOut(e.target.value)}
+                      className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    />
+                  </div>
+                  <div className="relative w-28">
+                    <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <select
+                      value={localCheckOutTime}
+                      onChange={(e) => setLocalCheckOutTime(e.target.value)}
+                      className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>
+                          {time}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Price Breakdown */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>
+                  ${price.toFixed(2)} x {days} {days === 1 ? "day" : "days"}
+                </span>
+                <span>${subtotal.toFixed(2)}</span>
+              </div>
+              {fees > 0 && (
+                <div className="flex justify-between text-sm text-gray-600 mb-2">
+                  <span>Fees</span>
+                  <span>${fees.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Taxes</span>
+                <span>${taxes.toFixed(2)}</span>
+              </div>
+              <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
+                <span>Total</span>
+                <span>${total.toFixed(2)}</span>
+              </div>
+              {lot.dueAtLocation && lot.dueAtLocationAmount && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="flex justify-between text-sm text-amber-700">
+                    <span>Due at location</span>
+                    <span>${lot.dueAtLocationAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           </div>
         </div>
 
-        {/* Sticky Mobile Footer */}
-        <div className="border-t border-gray-200 px-4 py-3 bg-white md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
-          <div className="flex items-baseline gap-1">
-            <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
-            <span className="text-sm text-gray-500">/day</span>
+        {/* Sticky Footer — both mobile and desktop */}
+        <div className="border-t border-gray-200 px-4 py-3 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
+              <span className="text-sm text-gray-500">/day</span>
+            </div>
+            <span className="text-xs text-gray-500">${total.toFixed(2)} total</span>
           </div>
           <button
             onClick={handleReserve}
-            className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md"
+            className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98]"
           >
-            Book Now
+            Reserve Now
           </button>
         </div>
       </div>

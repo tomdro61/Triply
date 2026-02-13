@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Photo } from "@/types/lot";
@@ -9,6 +10,149 @@ interface LotGalleryProps {
   photos: Photo[];
   lotName: string;
   tag?: string;
+}
+
+function Lightbox({
+  images,
+  currentIndex,
+  onClose,
+  onPrev,
+  onNext,
+  lotName,
+}: {
+  images: string[];
+  currentIndex: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  lotName: string;
+}) {
+  const showNav = images.length > 1;
+
+  return createPortal(
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 9999,
+        backgroundColor: "rgba(0, 0, 0, 0.92)",
+        overflow: "hidden",
+      }}
+    >
+      {/* X button */}
+      <button
+        onClick={onClose}
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 12,
+          zIndex: 10,
+          padding: 8,
+          backgroundColor: "rgba(255,255,255,0.2)",
+          borderRadius: "50%",
+          border: "none",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <X size={22} color="white" />
+      </button>
+
+      {/* Previous button */}
+      {showNav && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrev();
+          }}
+          style={{
+            position: "absolute",
+            left: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 10,
+            padding: 8,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            borderRadius: "50%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ChevronLeft size={28} color="white" />
+        </button>
+      )}
+
+      {/* Next button */}
+      {showNav && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          style={{
+            position: "absolute",
+            right: 8,
+            top: "50%",
+            transform: "translateY(-50%)",
+            zIndex: 10,
+            padding: 8,
+            backgroundColor: "rgba(255,255,255,0.15)",
+            borderRadius: "50%",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <ChevronRight size={28} color="white" />
+        </button>
+      )}
+
+      {/* Centered image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={images[currentIndex]}
+        alt={`${lotName} - Photo ${currentIndex + 1}`}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          maxWidth: "90vw",
+          maxHeight: "85vh",
+          objectFit: "contain",
+        }}
+      />
+
+      {/* Counter */}
+      {showNav && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            color: "white",
+            fontSize: 14,
+          }}
+        >
+          {currentIndex + 1} / {images.length}
+        </div>
+      )}
+    </div>,
+    document.body
+  );
 }
 
 export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
@@ -34,6 +178,18 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
     setLightboxOpen(false);
   };
 
+  // Lock body scroll when lightbox is open
+  useEffect(() => {
+    if (lightboxOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [lightboxOpen]);
+
   const nextImage = () => {
     setCurrentIndex((prev) => (prev + 1) % galleryImages.length);
   };
@@ -44,61 +200,54 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
     );
   };
 
-  // Single image layout
-  if (galleryImages.length === 1) {
-    return (
-      <>
-        <div className="h-96 rounded-xl overflow-hidden shadow-sm">
-          <div
-            className="relative w-full h-full cursor-pointer group"
-            onClick={() => openLightbox(0)}
-          >
-            <Image
-              src={galleryImages[0]}
-              alt={`${lotName} - Main view`}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 100vw, 100vw"
-              priority
-            />
-            {tag && (
-              <div className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
-                {tag}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Lightbox */}
-        {lightboxOpen && (
-          <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
-            <button
-              onClick={closeLightbox}
-              className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-            >
-              <X size={28} className="text-white" />
-            </button>
-            <div className="relative w-full max-w-4xl h-[80vh]">
-              <Image
-                src={galleryImages[0]}
-                alt={`${lotName} - Photo`}
-                fill
-                className="object-contain"
-                sizes="100vw"
-              />
-            </div>
-          </div>
-        )}
-      </>
-    );
-  }
-
   return (
     <>
-      <div className="grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
+      {/* Mobile: Image Carousel */}
+      <div className="lg:hidden relative h-64 sm:h-72 rounded-xl overflow-hidden shadow-sm">
+        <Image
+          src={galleryImages[currentIndex]}
+          alt={`${lotName} - Photo ${currentIndex + 1}`}
+          fill
+          className="object-cover cursor-pointer"
+          sizes="100vw"
+          priority
+          onClick={() => openLightbox(currentIndex)}
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
+
+        {tag && (
+          <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-gray-800 shadow-sm">
+            {tag}
+          </div>
+        )}
+
+        {galleryImages.length > 1 && (
+          <>
+            <button
+              onClick={() => prevImage()}
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+            >
+              <ChevronLeft size={18} className="text-gray-800" />
+            </button>
+            <button
+              onClick={() => nextImage()}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 bg-white/80 backdrop-blur rounded-full shadow hover:bg-white transition-colors"
+            >
+              <ChevronRight size={18} className="text-gray-800" />
+            </button>
+          </>
+        )}
+
+        <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm border border-white/20">
+          {currentIndex + 1}/{galleryImages.length} Photos
+        </div>
+      </div>
+
+      {/* Desktop: Grid Gallery */}
+      <div className="hidden lg:grid grid-cols-4 grid-rows-2 gap-2 h-96 rounded-xl overflow-hidden shadow-sm">
         {/* Main Image */}
         <div
-          className={`${galleryImages.length < 5 ? "col-span-2" : "col-span-2"} row-span-2 relative cursor-pointer group`}
+          className="col-span-2 row-span-2 relative cursor-pointer group"
           onClick={() => openLightbox(0)}
         >
           <Image
@@ -106,7 +255,7 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
             alt={`${lotName} - Main view`}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="50vw"
             priority
           />
           {tag && (
@@ -128,7 +277,7 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
               alt={`${lotName} - Gallery ${index + 1}`}
               fill
               className="object-cover group-hover:scale-105 transition-transform duration-300"
-              sizes="(max-width: 768px) 50vw, 25vw"
+              sizes="25vw"
             />
             {index === 3 && extraPhotos > 0 && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center group-hover:bg-black/50 transition-colors">
@@ -141,44 +290,15 @@ export function LotGallery({ photos, lotName, tag }: LotGalleryProps) {
         ))}
       </div>
 
-      {/* Lightbox */}
       {lightboxOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/90 flex items-center justify-center">
-          <button
-            onClick={closeLightbox}
-            className="absolute top-6 right-6 z-10 p-2.5 bg-white/20 hover:bg-white/40 rounded-full transition-colors"
-          >
-            <X size={28} className="text-white" />
-          </button>
-
-          <button
-            onClick={prevImage}
-            className="absolute left-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChevronLeft size={32} className="text-white" />
-          </button>
-
-          <div className="relative w-full max-w-4xl h-[80vh]">
-            <Image
-              src={galleryImages[currentIndex]}
-              alt={`${lotName} - Photo ${currentIndex + 1}`}
-              fill
-              className="object-contain"
-              sizes="100vw"
-            />
-          </div>
-
-          <button
-            onClick={nextImage}
-            className="absolute right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
-          >
-            <ChevronRight size={32} className="text-white" />
-          </button>
-
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm">
-            {currentIndex + 1} / {galleryImages.length}
-          </div>
-        </div>
+        <Lightbox
+          images={galleryImages}
+          currentIndex={currentIndex}
+          onClose={closeLightbox}
+          onPrev={prevImage}
+          onNext={nextImage}
+          lotName={lotName}
+        />
       )}
     </>
   );

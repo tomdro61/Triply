@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
   Calendar,
@@ -164,7 +165,52 @@ export function BookingWidget({
     }
   };
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   return (
+    <>
+    {/* Mobile-only Sticky Footer — rendered via portal to escape parent stacking context */}
+    {mounted && createPortal(
+      <div
+        className="lg:hidden"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9998,
+          borderTop: "1px solid #e5e7eb",
+          padding: "12px 16px",
+          backgroundColor: "white",
+          boxShadow: "0 -4px 6px -1px rgba(0,0,0,0.05)",
+        }}
+      >
+      <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 16,
+        }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>${price.toFixed(2)}</span>
+            <span style={{ fontSize: 14, color: "#6b7280" }}>/day</span>
+          </div>
+          <span style={{ fontSize: 12, color: "#6b7280" }}>${total.toFixed(2)} total</span>
+        </div>
+        <button
+          onClick={handleReserve}
+          disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
+          className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Reserve Now
+        </button>
+      </div>
+      </div>,
+      document.body
+    )}
+
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
       <div className="mb-6">
@@ -208,7 +254,7 @@ export function BookingWidget({
             Check-in
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex items-center flex-1">
+            <div className="flex items-center flex-1 relative">
               <Calendar
                 size={16}
                 className="mr-2 text-brand-blue pointer-events-none"
@@ -217,7 +263,7 @@ export function BookingWidget({
                 type="date"
                 value={checkIn}
                 onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm"
+                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
             </div>
             <div className="relative w-28">
@@ -244,7 +290,7 @@ export function BookingWidget({
             Check-out
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex items-center flex-1">
+            <div className="flex items-center flex-1 relative">
               <Calendar
                 size={16}
                 className="mr-2 text-brand-blue pointer-events-none"
@@ -253,7 +299,7 @@ export function BookingWidget({
                 type="date"
                 value={checkOut}
                 onChange={(e) => setCheckOut(e.target.value)}
-                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm"
+                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
               />
             </div>
             <div className="relative w-28">
@@ -307,8 +353,8 @@ export function BookingWidget({
         )}
       </div>
 
-      {/* Reserve Button */}
-      <div className="space-y-3">
+      {/* Reserve Button — hidden on mobile, sticky footer handles it */}
+      <div className="hidden lg:block space-y-3">
         <button
           onClick={handleReserve}
           disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
@@ -332,5 +378,6 @@ export function BookingWidget({
         </button>
       </div>
     </div>
+    </>
   );
 }
