@@ -11,6 +11,11 @@ type LexicalNode = {
   tag?: string
   listType?: string
   url?: string
+  fields?: {
+    linkType?: string
+    url?: string
+    newTab?: boolean
+  }
   newTab?: boolean
   src?: string
   altText?: string
@@ -37,6 +42,16 @@ const IS_ITALIC = 2
 const IS_STRIKETHROUGH = 4
 const IS_UNDERLINE = 8
 const IS_CODE = 16
+
+function extractText(node: LexicalNode): string {
+  if (node.text) return node.text
+  if (node.children) return node.children.map(extractText).join('')
+  return ''
+}
+
+function slugify(text: string): string {
+  return text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+}
 
 function formatText(text: string, format: number = 0): React.ReactNode {
   let result: React.ReactNode = text
@@ -77,7 +92,7 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
         </p>
       )
 
-    case 'heading':
+    case 'heading': {
       const HeadingTag = (node.tag || 'h2') as 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
       const headingClasses: Record<string, string> = {
         h1: 'text-3xl font-bold mt-8 mb-4',
@@ -87,11 +102,13 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
         h5: 'text-base font-semibold mt-3 mb-2',
         h6: 'text-sm font-semibold mt-3 mb-2',
       }
+      const headingId = slugify(extractText(node))
       return (
-        <HeadingTag key={key} className={headingClasses[node.tag || 'h2']}>
+        <HeadingTag key={key} id={headingId} className={headingClasses[node.tag || 'h2']}>
           {node.children?.map((child, i) => renderNode(child, i))}
         </HeadingTag>
       )
+    }
 
     case 'list':
       if (node.listType === 'number') {
@@ -115,18 +132,21 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
       )
 
     case 'link':
-    case 'autolink':
+    case 'autolink': {
+      const linkUrl = node.fields?.url || node.url
+      const openNewTab = node.fields?.newTab ?? node.newTab
       return (
         <a
           key={key}
-          href={node.url}
-          target={node.newTab ? '_blank' : undefined}
-          rel={node.newTab ? 'noopener noreferrer' : undefined}
+          href={linkUrl}
+          target={openNewTab ? '_blank' : undefined}
+          rel={openNewTab ? 'noopener noreferrer' : undefined}
           className="text-coral hover:underline"
         >
           {node.children?.map((child, i) => renderNode(child, i))}
         </a>
       )
+    }
 
     case 'quote':
       return (
