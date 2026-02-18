@@ -14,6 +14,8 @@ interface BookingConfirmationEmailProps {
   dueAtLocation?: number;
   vehicleInfo?: string;
   shuttlePhone?: string;
+  shuttleDetails?: string;
+  specialConditions?: string;
 }
 
 export function BookingConfirmationEmail({
@@ -29,6 +31,8 @@ export function BookingConfirmationEmail({
   dueAtLocation,
   vehicleInfo,
   shuttlePhone,
+  shuttleDetails,
+  specialConditions,
 }: BookingConfirmationEmailProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
@@ -117,6 +121,22 @@ export function BookingConfirmationEmail({
           </p>
         </div>
 
+        {/* Special Conditions */}
+        {specialConditions && (
+          <div style={{ backgroundColor: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#9888; Important Information</p>
+            <p style={{ color: "#78350f", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{specialConditions}</p>
+          </div>
+        )}
+
+        {/* Shuttle Instructions */}
+        {shuttleDetails && (
+          <div style={{ backgroundColor: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+            <p style={{ ...labelStyle, color: "#166534", marginBottom: "8px" }}>&#128652; Shuttle Instructions</p>
+            <p style={{ color: "#14532d", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{shuttleDetails}</p>
+          </div>
+        )}
+
         {/* Dates & Vehicle */}
         <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
           <table style={{ width: "100%" }}>
@@ -199,7 +219,7 @@ export function BookingConfirmationEmail({
           <ol style={{ color: "#475569", fontSize: "13px", lineHeight: "1.9", paddingLeft: "18px", margin: "0" }}>
             <li>Drive to the parking facility on your check-in date</li>
             <li>Scan your QR code at the entrance gate</li>
-            <li>Park and take the shuttle to the terminal{shuttlePhone ? ` (${shuttlePhone})` : ""}</li>
+            <li>Park and take the shuttle to the terminal{shuttlePhone ? ` (${shuttlePhone})` : ""}{shuttleDetails && !shuttlePhone ? " — see shuttle instructions above" : ""}</li>
             <li>On return, call for shuttle pickup and retrieve your vehicle</li>
           </ol>
         </div>

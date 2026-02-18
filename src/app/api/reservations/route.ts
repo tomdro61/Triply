@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { reslab } from "@/lib/reslab/client";
+import { reslab, stripHtml } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { reservationSchema } from "@/lib/validation/schemas";
@@ -226,6 +226,11 @@ export async function POST(request: NextRequest) {
       console.error("Supabase save error:", supabaseError);
     }
 
+    // Extract location data from reservation history
+    const resLocation = resHistory?.location;
+    const shuttleDetails = stripHtml(resLocation?.shuttle_info_details ?? null) || undefined;
+    const specialConditions = stripHtml(resLocation?.special_conditions ?? null) || undefined;
+
     // Send confirmation email (don't fail if email fails)
     try {
       const vehicleInfo = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
@@ -233,13 +238,15 @@ export async function POST(request: NextRequest) {
         to: customer.email,
         customerName: `${customer.firstName} ${customer.lastName}`,
         confirmationNumber: reservation.reservation_number,
-        lotName: locationName || resHistory?.location?.name || `Location ${locationId}`,
-        lotAddress: locationAddress || resHistory?.location?.address || "",
+        lotName: locationName || resLocation?.name || `Location ${locationId}`,
+        lotAddress: locationAddress || resLocation?.address || "",
         checkInDate: fromDate.split(" ")[0], // Extract date part
         checkOutDate: toDate.split(" ")[0],
         totalAmount: resHistory?.grand_total || grandTotal || 0,
         dueAtLocation: resHistory?.due_at_location_total || 0,
         vehicleInfo,
+        shuttleDetails,
+        specialConditions,
       });
     } catch (emailError) {
       // Log but don't fail - reservation was successful
@@ -247,8 +254,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Build response from history data
-    const resLocation = resHistory?.location;
-
     return NextResponse.json({
       success: true,
       reservation: {
@@ -280,6 +285,8 @@ export async function POST(request: NextRequest) {
               state: resLocation.state?.code,
               zipCode: resLocation.zip_code,
               phone: resLocation.phone,
+              shuttleDetails,
+              specialConditions,
             }
           : null,
       },

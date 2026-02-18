@@ -15,6 +15,8 @@ interface SendBookingConfirmationParams {
   totalAmount: number;
   dueAtLocation?: number;
   vehicleInfo?: string;
+  shuttleDetails?: string;
+  specialConditions?: string;
 }
 
 export async function sendBookingConfirmation({
@@ -30,6 +32,8 @@ export async function sendBookingConfirmation({
   totalAmount,
   dueAtLocation,
   vehicleInfo,
+  shuttleDetails,
+  specialConditions,
 }: SendBookingConfirmationParams) {
   try {
     // Render React component to HTML
@@ -46,6 +50,8 @@ export async function sendBookingConfirmation({
         totalAmount,
         dueAtLocation,
         vehicleInfo,
+        shuttleDetails,
+        specialConditions,
       })
     );
 

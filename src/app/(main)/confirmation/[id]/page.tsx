@@ -52,6 +52,8 @@ interface ReservationData {
     phone: string;
     latitude: string;
     longitude: string;
+    shuttleDetails?: string;
+    specialConditions?: string;
   } | null;
   extraFields?: Record<string, string>;
 }
@@ -132,6 +134,10 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         latitude: parseFloat(reservation.location.latitude),
         longitude: parseFloat(reservation.location.longitude),
         phone: reservation.location.phone,
+        shuttleInfo: reservation.location.shuttleDetails
+          ? { summary: "", details: reservation.location.shuttleDetails }
+          : undefined,
+        specialConditions: reservation.location.specialConditions,
         photos: [{ id: "1", url: "/placeholder-parking.jpg", alt: reservation.location.name }],
         amenities: [],
         pricing: {
