@@ -59,14 +59,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     );
     if (res.ok) {
       const data = await res.json();
-      blogPages = (
-        data.docs || []
-      ).map((post: { slug: string; updatedAt: string }) => ({
-        url: `${baseUrl}/blog/${post.slug}`,
-        lastModified: new Date(post.updatedAt),
-        changeFrequency: "monthly" as const,
-        priority: 0.6,
-      }));
+      const priorityMap: Record<string, number> = {
+        hub: 0.9,
+        "sub-pillar": 0.7,
+        spoke: 0.6,
+      };
+      blogPages = (data.docs || []).map(
+        (post: { slug: string; updatedAt: string; articleType?: string }) => ({
+          url: `${baseUrl}/blog/${post.slug}`,
+          lastModified: new Date(post.updatedAt),
+          changeFrequency: "monthly" as const,
+          priority: priorityMap[post.articleType || ""] || 0.6,
+        })
+      );
     }
   } catch (error) {
     console.error("Error fetching blog posts for sitemap:", error);

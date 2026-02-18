@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { format } from 'date-fns'
 import { Navbar, Footer } from '@/components/shared'
+import { getPublishedPosts } from '@/lib/cms'
 
 export const metadata: Metadata = {
   title: 'Blog | Triply - Airport Parking Tips & Travel Guides',
@@ -10,42 +11,19 @@ export const metadata: Metadata = {
   alternates: { canonical: '/blog' },
 }
 
-// Fetch posts from Payload CMS (separate subdomain)
-function resolveCmsImageUrl(url: string, cmsUrl: string): string {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `${cmsUrl}${url}`
-}
+type SearchParams = Promise<{ page?: string; airport?: string }>
 
-async function getPosts() {
-  try {
-    const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
-    const res = await fetch(`${cmsUrl}/api/posts?where[status][equals]=published&sort=-publishedAt&depth=2`, {
-      next: { revalidate: 60 }, // Revalidate every 60 seconds
-    })
+export default async function BlogPage({ searchParams }: { searchParams: SearchParams }) {
+  const params = await searchParams
+  const page = parseInt(params.page || '1', 10)
+  const airportFilter = params.airport?.toUpperCase()
 
-    if (!res.ok) {
-      console.error('Failed to fetch posts:', res.status)
-      return []
-    }
-
-    const data = await res.json()
-    const docs = data.docs || []
-    // Resolve relative image URLs to absolute CMS URLs
-    return docs.map((post: any) => {
-      if (post.featuredImage?.url) {
-        post.featuredImage.url = resolveCmsImageUrl(post.featuredImage.url, cmsUrl)
-      }
-      return post
-    })
-  } catch (error) {
-    console.error('Error fetching posts:', error)
-    return []
+  const extraFilters: Record<string, string> = {}
+  if (airportFilter) {
+    extraFilters['where[airportCode][equals]'] = airportFilter
   }
-}
 
-export default async function BlogPage() {
-  const posts = await getPosts()
+  const { docs: posts, totalPages } = await getPublishedPosts(extraFilters, page, 12)
 
   return (
     <>
@@ -124,6 +102,31 @@ export default async function BlogPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-12">
+              {page > 1 && (
+                <Link
+                  href={`/blog?page=${page - 1}${airportFilter ? `&airport=${airportFilter}` : ''}`}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Previous
+                </Link>
+              )}
+              <span className="px-4 py-2 text-sm text-gray-500">
+                Page {page} of {totalPages}
+              </span>
+              {page < totalPages && (
+                <Link
+                  href={`/blog?page=${page + 1}${airportFilter ? `&airport=${airportFilter}` : ''}`}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Next
+                </Link>
+              )}
             </div>
           )}
         </div>

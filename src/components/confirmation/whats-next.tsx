@@ -8,6 +8,7 @@ import {
   Clock,
   Phone,
   HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 
@@ -43,6 +44,7 @@ export function WhatsNext({ lot, checkIn, checkInTime = "10:00 AM" }: WhatsNextP
       icon: Bus,
       title: "Take the Shuttle",
       description:
+        lot.shuttleInfo?.details ||
         lot.shuttleInfo?.summary ||
         "Board the complimentary shuttle to your terminal. Shuttles run frequently.",
       color: "bg-green-100 text-green-600",
@@ -87,6 +89,17 @@ export function WhatsNext({ lot, checkIn, checkInTime = "10:00 AM" }: WhatsNextP
           </div>
         ))}
       </div>
+
+      {/* Special Conditions */}
+      {lot.specialConditions && (
+        <div className="bg-amber-50 rounded-lg p-4 border border-amber-200 mb-6">
+          <h4 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+            <AlertTriangle size={18} />
+            Important Information
+          </h4>
+          <p className="text-sm text-amber-700 leading-relaxed">{lot.specialConditions}</p>
+        </div>
+      )}
 
       {/* Tips */}
       <div className="bg-amber-50 rounded-lg p-4 border border-amber-100">

@@ -6,46 +6,20 @@ import { format } from 'date-fns'
 import { RichText } from '@/components/blog/RichText'
 import { ArrowLeft } from 'lucide-react'
 import { Navbar, Footer } from '@/components/shared'
+import { getPostBySlug } from '@/lib/cms'
+import { FaqAccordion } from '@/components/blog/FaqAccordion'
+import { HubLayout } from '@/components/blog/HubLayout'
+import { SubPillarLayout } from '@/components/blog/SubPillarLayout'
+import { SpokeLayout } from '@/components/blog/SpokeLayout'
 
 type Props = {
   params: Promise<{ slug: string }>
 }
 
-function resolveCmsImageUrl(url: string, cmsUrl: string): string {
-  if (!url) return ''
-  if (url.startsWith('http')) return url
-  return `${cmsUrl}${url}`
-}
-
-// Fetch single post by slug from Payload CMS (separate subdomain)
-async function getPost(slug: string) {
-  try {
-    const cmsUrl = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
-    const res = await fetch(
-      `${cmsUrl}/api/posts?where[slug][equals]=${encodeURIComponent(slug)}&where[status][equals]=published&depth=2`,
-      { next: { revalidate: 60 } }
-    )
-
-    if (!res.ok) {
-      return null
-    }
-
-    const data = await res.json()
-    const post = data.docs?.[0] || null
-    if (post?.featuredImage?.url) {
-      post.featuredImage.url = resolveCmsImageUrl(post.featuredImage.url, cmsUrl)
-    }
-    return post
-  } catch (error) {
-    console.error('Error fetching post:', error)
-    return null
-  }
-}
-
 // Generate metadata for SEO
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params
-  const post = await getPost(slug)
+  const post = await getPostBySlug(slug)
 
   if (!post) {
     return {
@@ -77,9 +51,47 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+async function ArticleContent({ post }: { post: any }) {
+  const content = (
+    <>
+      <RichText content={post.content} className="text-gray-700" />
+
+      {/* Tags */}
+      {post.tags && post.tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-8 pt-6 border-t">
+          {post.tags.map((tag: any) => (
+            <span
+              key={tag.id}
+              className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full"
+            >
+              #{tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* FAQ Accordion */}
+      {post.faqItems && post.faqItems.length > 0 && (
+        <FaqAccordion items={post.faqItems} />
+      )}
+    </>
+  )
+
+  switch (post.articleType) {
+    case 'hub':
+      return <HubLayout post={post}>{content}</HubLayout>
+    case 'sub-pillar':
+      return <SubPillarLayout post={post}>{content}</SubPillarLayout>
+    case 'spoke':
+      return <SpokeLayout post={post}>{content}</SpokeLayout>
+    default:
+      return content
+  }
+}
+
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params
-  const post = await getPost(slug)
+  const post = await getPostBySlug(slug)
 
   if (!post) {
     notFound()
@@ -88,6 +100,34 @@ export default async function BlogPostPage({ params }: Props) {
   return (
     <>
     <Navbar forceSolid />
+    {/* Article JSON-LD */}
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{
+        __html: JSON.stringify({
+          '@context': 'https://schema.org',
+          '@type': 'Article',
+          headline: post.title,
+          description: post.excerpt,
+          image: post.featuredImage?.url,
+          datePublished: post.publishedAt,
+          dateModified: post.updatedAt || post.publishedAt,
+          author: {
+            '@type': 'Person',
+            name: post.author?.name || post.author?.email || 'Triply',
+          },
+          publisher: {
+            '@type': 'Organization',
+            name: 'Triply',
+            url: 'https://www.triplypro.com',
+          },
+          mainEntityOfPage: {
+            '@type': 'WebPage',
+            '@id': `https://www.triplypro.com/blog/${slug}`,
+          },
+        }),
+      }}
+    />
     <main className="min-h-screen bg-white pt-20">
       {/* Back Link */}
       <div className="bg-gray-50 border-b">
@@ -151,30 +191,12 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         )}
 
-        {/* Article Content */}
+        {/* Article Content with Layout */}
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-3xl mx-auto">
-            <RichText content={post.content} className="text-gray-700" />
+            <ArticleContent post={post} />
           </div>
         </div>
-
-        {/* Tags */}
-        {post.tags && post.tags.length > 0 && (
-          <div className="container mx-auto px-4 pb-12">
-            <div className="max-w-3xl mx-auto">
-              <div className="flex flex-wrap gap-2">
-                {post.tags.map((tag: any) => (
-                  <span
-                    key={tag.id}
-                    className="px-3 py-1 bg-gray-100 text-gray-600 text-sm rounded-full"
-                  >
-                    #{tag.name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* CTA Section */}
         <section className="bg-coral/5 py-12">
