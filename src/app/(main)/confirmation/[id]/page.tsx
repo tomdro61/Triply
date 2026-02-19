@@ -55,6 +55,13 @@ interface ReservationData {
     shuttleDetails?: string;
     specialConditions?: string;
   } | null;
+  vehicleInfo?: {
+    make: string;
+    model: string;
+    color: string;
+    licensePlate: string;
+    state: string;
+  } | null;
   extraFields?: Record<string, string>;
 }
 
@@ -209,9 +216,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     : "Customer";
   const customerEmail = reservation?.customer.email || "customer@example.com";
   const customerPhone = reservation?.customer.phone || "(555) 123-4567";
-  const vehicleInfo = reservation?.extraFields
-    ? `${reservation.extraFields.car_make || ""} ${reservation.extraFields.car_model || ""} (${reservation.extraFields.car_color || ""}) - ${reservation.extraFields.license_plate || ""}`.trim()
-    : "Vehicle details unavailable";
+  const vehicleInfo = reservation?.vehicleInfo
+    ? `${reservation.vehicleInfo.make} ${reservation.vehicleInfo.model} (${reservation.vehicleInfo.color}) - ${reservation.vehicleInfo.licensePlate}`
+    : reservation?.extraFields && Object.keys(reservation.extraFields).length > 0
+      ? `${reservation.extraFields.car_make || ""} ${reservation.extraFields.car_model || ""} (${reservation.extraFields.car_color || ""}) - ${reservation.extraFields.license_plate || ""}`.trim()
+      : undefined;
 
   if (loading) {
     return (

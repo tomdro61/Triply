@@ -70,6 +70,14 @@ export async function GET(
       }
     }
 
+    // Fetch vehicle info from Supabase (stored reliably at booking time)
+    const adminClientForVehicle = await createAdminClient();
+    const { data: bookingData } = await adminClientForVehicle
+      .from("bookings")
+      .select("vehicle_info")
+      .eq("reslab_reservation_number", id)
+      .single();
+
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
 
@@ -126,6 +134,8 @@ export async function GET(
               longitude: location.longitude,
             }
           : null,
+        // Vehicle info from Supabase (reliable), with ResLab extra_fields as fallback
+        vehicleInfo: bookingData?.vehicle_info || null,
         extraFields: Array.isArray(history?.extra_fields)
           ? Object.fromEntries(
               history.extra_fields
