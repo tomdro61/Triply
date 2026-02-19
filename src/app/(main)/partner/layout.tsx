@@ -113,7 +113,7 @@ export default function PartnerLayout({
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 h-full w-64 bg-brand-navy text-white">
+      <aside className="fixed left-0 top-0 h-full w-64 bg-brand-dark text-white">
         <div className="p-6">
           <Link href="/partner" className="flex items-center gap-2">
             <span className="text-2xl font-bold text-brand-orange">Triply</span>

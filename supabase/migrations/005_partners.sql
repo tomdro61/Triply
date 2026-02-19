@@ -35,7 +35,20 @@ CREATE POLICY "Partners can view own record"
   ON partners FOR SELECT
   USING (auth.uid() = user_id);
 
--- No INSERT/UPDATE/DELETE policies — only service role can modify
+-- Allow inserts (admin API uses service role)
+CREATE POLICY "Service role can insert partners"
+  ON partners FOR INSERT
+  WITH CHECK (true);
+
+-- Allow updates (admin API uses service role)
+CREATE POLICY "Service role can update partners"
+  ON partners FOR UPDATE
+  USING (true);
+
+-- Allow deletes (admin API uses service role)
+CREATE POLICY "Service role can delete partners"
+  ON partners FOR DELETE
+  USING (true);
 
 -- =============================================
 -- UPDATED_AT TRIGGER
