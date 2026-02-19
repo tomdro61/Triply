@@ -55,6 +55,13 @@ interface ReservationData {
     shuttleDetails?: string;
     specialConditions?: string;
   } | null;
+  vehicleInfo?: {
+    make: string;
+    model: string;
+    color: string;
+    licensePlate: string;
+    state: string;
+  } | null;
   extraFields?: Record<string, string>;
 }
 
@@ -118,7 +125,25 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
 
   // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
+    // Try to get stored lot from sessionStorage (has real photos)
+    let storedLot: UnifiedLot | null = null;
+    if (lotId) {
+      try {
+        const stored = sessionStorage.getItem(`lot-${lotId}`);
+        if (stored) {
+          storedLot = JSON.parse(stored) as UnifiedLot;
+        }
+      } catch {
+        // sessionStorage not available or parsing failed
+      }
+    }
+
     if (reservation?.location) {
+      // Use photos from sessionStorage if available, otherwise placeholder
+      const photos = storedLot?.photos?.length
+        ? storedLot.photos
+        : [{ id: "1", url: "/placeholder-parking.jpg", alt: reservation.location.name }];
+
       // Build UnifiedLot from reservation data
       return {
         id: `reslab-${reservation.location.id}`,
@@ -138,8 +163,8 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           ? { summary: "", details: reservation.location.shuttleDetails }
           : undefined,
         specialConditions: reservation.location.specialConditions,
-        photos: [{ id: "1", url: "/placeholder-parking.jpg", alt: reservation.location.name }],
-        amenities: [],
+        photos,
+        amenities: storedLot?.amenities || [],
         pricing: {
           minPrice: reservation.grandTotal / (reservation.items[0]?.numberOfDays || 1),
           currency: "$",
@@ -151,16 +176,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
       };
     }
 
-    // Fallback to sessionStorage
-    if (lotId) {
-      try {
-        const storedLot = sessionStorage.getItem(`lot-${lotId}`);
-        if (storedLot) {
-          return JSON.parse(storedLot) as UnifiedLot;
-        }
-      } catch {
-        // sessionStorage not available or parsing failed
-      }
+    // Fallback to sessionStorage lot entirely
+    if (storedLot) {
+      return storedLot;
     }
 
     return null;
@@ -198,9 +216,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     : "Customer";
   const customerEmail = reservation?.customer.email || "customer@example.com";
   const customerPhone = reservation?.customer.phone || "(555) 123-4567";
-  const vehicleInfo = reservation?.extraFields
-    ? `${reservation.extraFields.car_make || ""} ${reservation.extraFields.car_model || ""} (${reservation.extraFields.car_color || ""}) - ${reservation.extraFields.license_plate || ""}`.trim()
-    : "Vehicle details unavailable";
+  const vehicleInfo = reservation?.vehicleInfo
+    ? `${reservation.vehicleInfo.make} ${reservation.vehicleInfo.model} (${reservation.vehicleInfo.color}) - ${reservation.vehicleInfo.licensePlate}`
+    : reservation?.extraFields && Object.keys(reservation.extraFields).length > 0
+      ? `${reservation.extraFields.car_make || ""} ${reservation.extraFields.car_model || ""} (${reservation.extraFields.car_color || ""}) - ${reservation.extraFields.license_plate || ""}`.trim()
+      : undefined;
 
   if (loading) {
     return (

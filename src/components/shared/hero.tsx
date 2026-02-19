@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Calendar, Loader2, SquareParking, Hotel, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { MapPin, Calendar, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { enabledAirports } from "@/config/airports";
 import { HeroChatInput } from "@/components/chat";
 
-type SearchTab = "parking" | "hotel" | "ai";
+type SearchTab = "parking" | "ai";
 
 export function Hero() {
   const router = useRouter();
@@ -38,7 +38,6 @@ export function Hero() {
 
   const tabs = [
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
-    { id: "hotel" as const, icon: Hotel, label: "Park + Hotel" },
     { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
   ];
 
@@ -134,8 +133,11 @@ export function Hero() {
                   <input
                     type="date"
                     value={departDate}
+                    onFocus={(e) => e.currentTarget.showPicker()}
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    onKeyDown={(e) => e.preventDefault()}
                     onChange={(e) => setDepartDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer"
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>
@@ -153,8 +155,11 @@ export function Hero() {
                   <input
                     type="date"
                     value={returnDate}
+                    onFocus={(e) => e.currentTarget.showPicker()}
+                    onClick={(e) => e.currentTarget.showPicker()}
+                    onKeyDown={(e) => e.preventDefault()}
                     onChange={(e) => setReturnDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer"
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
                   />
                 </div>
               </div>

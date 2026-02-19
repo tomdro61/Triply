@@ -34,6 +34,17 @@ function LoginForm() {
           password,
         });
         if (error) throw error;
+
+        // If no explicit redirect, check if user is a partner
+        if (redirectTo === "/") {
+          const partnerRes = await fetch("/api/partner/me");
+          if (partnerRes.ok) {
+            router.push("/partner");
+            router.refresh();
+            return;
+          }
+        }
+
         router.push(redirectTo);
         router.refresh();
       } else {

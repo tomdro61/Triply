@@ -15,20 +15,21 @@ import { MobileMapCard } from "@/components/search/mobile-map-card";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
+import { getDefaultDepartTime } from "@/lib/utils/time";
 
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   // Get initial values from URL params
-  const initialAirport = searchParams.get("airport") || "TEST-NY"; // Default to test location
+  const initialAirport = searchParams.get("airport") || "JFK";
   const initialCheckin =
     searchParams.get("checkin") ||
     new Date().toISOString().split("T")[0];
   const initialCheckout =
     searchParams.get("checkout") ||
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const initialCheckinTime = searchParams.get("checkinTime") || "10:00 AM";
+  const initialCheckinTime = searchParams.get("checkinTime") || getDefaultDepartTime();
   const initialCheckoutTime = searchParams.get("checkoutTime") || "2:00 PM";
 
   // State
@@ -204,6 +205,7 @@ function SearchPageContent() {
                 onHover={setHoveredId}
                 onSelect={setSelectedLot}
                 showControls={false}
+                airport={airportInfo}
               />
 
               {/* Card carousel at bottom */}
@@ -234,6 +236,7 @@ function SearchPageContent() {
               hoveredId={hoveredId}
               onHover={setHoveredId}
               onSelect={setSelectedLot}
+              airport={airportInfo}
             />
           </div>
         </div>

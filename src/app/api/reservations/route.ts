@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { reslab, stripHtml } from "@/lib/reslab/client";
+import { reslab, ReslabError, stripHtml } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { reservationSchema } from "@/lib/validation/schemas";
@@ -294,16 +294,28 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Reservation creation error:", error);
 
-    // Check if it's an API error with a message
-    if (error instanceof Error) {
-      return NextResponse.json(
-        { error: error.message || "Failed to create reservation" },
-        { status: 500 }
-      );
+    // Sanitize error messages — never expose raw API responses to users
+    let userMessage = "Failed to create reservation. Please try again.";
+
+    if (error instanceof ReslabError) {
+      // Try to extract a clean message from the ResLab error
+      try {
+        const parsed = JSON.parse(error.message.replace("API request failed: ", ""));
+        if (parsed.message && typeof parsed.message === "string") {
+          userMessage = parsed.message;
+        }
+      } catch {
+        // If parsing fails, use status-code-based messages
+        if (error.statusCode === 500) {
+          userMessage = "This property's system is temporarily unavailable. Please try again later or choose a different property.";
+        } else if (error.statusCode === 409) {
+          userMessage = "This parking option is no longer available. Please go back and select a different option.";
+        }
+      }
     }
 
     return NextResponse.json(
-      { error: "Failed to create reservation" },
+      { error: userMessage },
       { status: 500 }
     );
   }
