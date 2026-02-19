@@ -136,7 +136,7 @@ export function BookingDetails({
         </div>
 
         {/* Due at Location Notice */}
-        {dueAtLocation && dueAtLocation > 0 && (
+        {typeof dueAtLocation === "number" && dueAtLocation > 0 && (
           <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
             <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>

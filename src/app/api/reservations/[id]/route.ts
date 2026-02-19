@@ -126,7 +126,13 @@ export async function GET(
               longitude: location.longitude,
             }
           : null,
-        extraFields: history?.extra_fields || [],
+        extraFields: Array.isArray(history?.extra_fields)
+          ? Object.fromEntries(
+              history.extra_fields
+                .filter((f) => f.name && f.value)
+                .map((f) => [f.name, f.value as string])
+            )
+          : {},
       },
     });
   } catch (error) {
