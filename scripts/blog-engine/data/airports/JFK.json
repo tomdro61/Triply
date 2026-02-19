@@ -1,0 +1,19 @@
+{
+  "code": "JFK",
+  "fullName": "John F. Kennedy International Airport",
+  "lastVerified": "2026-02-14",
+  "terminals": [
+    { "name": "Terminal 1", "airlines": ["Air France", "Japan Airlines", "Korean Air", "Lufthansa"] },
+    { "name": "Terminal 4", "airlines": ["Delta Air Lines", "Emirates", "KLM", "Virgin Atlantic"] },
+    { "name": "Terminal 5", "airlines": ["JetBlue Airways"] },
+    { "name": "Terminal 7", "airlines": ["Alaska Airlines", "British Airways"] },
+    { "name": "Terminal 8", "airlines": ["American Airlines"] }
+  ],
+  "roads": ["Van Wyck Expressway", "Belt Parkway", "JFK Expressway", "Lefferts Boulevard"],
+  "transit": ["AirTrain JFK", "E Train", "A Train", "Q10 Bus", "Long Island Rail Road"],
+  "neighborhoods": ["Jamaica", "Howard Beach", "Ozone Park", "South Ozone Park"],
+  "authority": "Port Authority of New York and New Jersey",
+  "parkingRates": "Official on-airport rates: $18/day (long-term), $39/day (short-term garage). Off-site lots typically $8-$18/day.",
+  "shuttleInfo": "Most off-site lots run free shuttles every 5-15 minutes, 24/7. AirTrain connects all terminals.",
+  "distanceFromCity": "15 miles southeast of Midtown Manhattan, roughly 45-75 min by car depending on traffic"
+}
