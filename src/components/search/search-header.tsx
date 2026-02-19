@@ -5,14 +5,12 @@ import {
   MapPin,
   ChevronDown,
   ChevronUp,
-  SquareParking,
-  Hotel,
   SlidersHorizontal,
   Calendar,
 } from "lucide-react";
 import { enabledAirports, getAirportByCode } from "@/config/airports";
 
-export type SearchTab = "parking" | "hotels";
+export type SearchTab = "parking";
 
 interface SearchHeaderProps {
   tab: SearchTab;
@@ -81,11 +79,6 @@ const timeOptions = [
   "11:30 PM",
 ];
 
-const tabs = [
-  { id: "parking" as SearchTab, icon: SquareParking, label: "Parking" },
-  { id: "hotels" as SearchTab, icon: Hotel, label: "Park + Hotel" },
-];
-
 function formatShortDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -142,29 +135,8 @@ export function SearchHeader({
         {/* Expandable form */}
         {expanded && (
           <div className="px-4 pb-4 border-t border-gray-100">
-            {/* Type Tabs */}
-            <div className="flex mt-3 mb-3 gap-6 border-b border-gray-100">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => onTabChange(t.id)}
-                  className={`flex items-center pb-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                    tab === t.id
-                      ? "border-brand-orange text-brand-orange"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                  }`}
-                >
-                  <t.icon
-                    size={18}
-                    className={`mr-2 ${tab === t.id ? "stroke-2" : "stroke-1"}`}
-                  />
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
             {/* Location */}
-            <div className="relative mb-3">
+            <div className="relative mt-3 mb-3">
               <MapPin
                 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none"
                 size={18}
@@ -260,27 +232,6 @@ export function SearchHeader({
 
       {/* Desktop: Full form (unchanged) */}
       <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
-        {/* Type Tabs */}
-        <div className="flex mb-3 gap-6 border-b border-gray-100">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => onTabChange(t.id)}
-              className={`flex items-center pb-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                tab === t.id
-                  ? "border-brand-orange text-brand-orange"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <t.icon
-                size={18}
-                className={`mr-2 ${tab === t.id ? "stroke-2" : "stroke-1"}`}
-              />
-              {t.label}
-            </button>
-          ))}
-        </div>
-
         {/* Search Inputs */}
         <div className="flex flex-col xl:flex-row gap-3">
           {/* Location */}
