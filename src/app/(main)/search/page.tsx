@@ -205,6 +205,7 @@ function SearchPageContent() {
                 onHover={setHoveredId}
                 onSelect={setSelectedLot}
                 showControls={false}
+                airport={airportInfo}
               />
 
               {/* Card carousel at bottom */}
@@ -235,6 +236,7 @@ function SearchPageContent() {
               hoveredId={hoveredId}
               onHover={setHoveredId}
               onSelect={setSelectedLot}
+              airport={airportInfo}
             />
           </div>
         </div>

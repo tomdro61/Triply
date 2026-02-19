@@ -2,8 +2,9 @@
 
 import { useRef, useCallback, useEffect } from "react";
 import type { MapRef } from "react-map-gl/mapbox";
-import { MapboxMap, PriceMarker } from "@/components/map";
+import { MapboxMap, PriceMarker, AirportMarker } from "@/components/map";
 import { UnifiedLot } from "@/types/lot";
+import { Airport } from "@/config/airports";
 import { DEFAULT_MAP_CONFIG } from "@/lib/mapbox/config";
 
 interface SearchMapProps {
@@ -12,6 +13,7 @@ interface SearchMapProps {
   onHover: (id: string | null) => void;
   onSelect: (lot: UnifiedLot) => void;
   showControls?: boolean;
+  airport?: Airport;
 }
 
 export function SearchMap({
@@ -20,6 +22,7 @@ export function SearchMap({
   onHover,
   onSelect,
   showControls = true,
+  airport,
 }: SearchMapProps) {
   const mapRef = useRef<MapRef>(null);
 
@@ -29,6 +32,12 @@ export function SearchMap({
 
     const lats = lots.map((l) => l.latitude).filter((l) => l !== 0);
     const lngs = lots.map((l) => l.longitude).filter((l) => l !== 0);
+
+    // Include airport coordinates in bounds
+    if (airport) {
+      lats.push(airport.latitude);
+      lngs.push(airport.longitude);
+    }
 
     if (lats.length === 0 || lngs.length === 0) return;
 
@@ -47,7 +56,7 @@ export function SearchMap({
         duration: 500,
       }
     );
-  }, [lots]);
+  }, [lots, airport]);
 
   useEffect(() => {
     fitBounds();
@@ -64,6 +73,13 @@ export function SearchMap({
 
   return (
     <MapboxMap ref={mapRef} onLoad={fitBounds} showControls={showControls}>
+      {airport && (
+        <AirportMarker
+          longitude={airport.longitude}
+          latitude={airport.latitude}
+          code={airport.code}
+        />
+      )}
       {lots.map((lot) => {
         if (!lot.latitude || !lot.longitude) return null;
         const price = lot.pricing?.minPrice ?? 0;
