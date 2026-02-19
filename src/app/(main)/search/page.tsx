@@ -21,7 +21,7 @@ function SearchPageContent() {
   const searchParams = useSearchParams();
 
   // Get initial values from URL params
-  const initialAirport = searchParams.get("airport") || "TEST-NY"; // Default to test location
+  const initialAirport = searchParams.get("airport") || "JFK";
   const initialCheckin =
     searchParams.get("checkin") ||
     new Date().toISOString().split("T")[0];

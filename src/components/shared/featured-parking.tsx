@@ -10,11 +10,12 @@ interface FeaturedParkingProps {
   defaultAirport?: string;
 }
 
-// Using test locations until production inventory is available
-// Display names are user-friendly, codes map to ResLab test locations
+// Top airports for the featured parking tabs
 const airports = [
-  { code: "TEST-NY", name: "New York", displayCode: "JFK", slug: "beacon-test" },
-  { code: "TEST-OH", name: "Cincinnati", displayCode: "CVG", slug: "cincinnati-test" },
+  { code: "JFK", name: "New York (JFK)", displayCode: "JFK", slug: "new-york-jfk" },
+  { code: "LAX", name: "Los Angeles", displayCode: "LAX", slug: "los-angeles-lax" },
+  { code: "ORD", name: "Chicago", displayCode: "ORD", slug: "chicago-ord" },
+  { code: "MIA", name: "Miami", displayCode: "MIA", slug: "miami-mia" },
 ];
 
 // Get top amenities to display
@@ -51,7 +52,7 @@ function getTopAmenities(lot: UnifiedLot): string[] {
 }
 
 
-export function FeaturedParking({ defaultAirport = "TEST-NY" }: FeaturedParkingProps) {
+export function FeaturedParking({ defaultAirport = "JFK" }: FeaturedParkingProps) {
   const [selectedAirport, setSelectedAirport] = useState(defaultAirport);
   const selectedAirportInfo = airports.find((a) => a.code === selectedAirport) || airports[0];
   const [lots, setLots] = useState<UnifiedLot[]>([]);
