@@ -35,7 +35,7 @@ export function SearchResultsList({
         <div className="flex justify-between items-end">
           <div className="flex items-baseline gap-2">
             <h2 className="text-lg font-bold text-gray-900 capitalize leading-none">
-              {tab === "hotels" ? "Park + Hotel" : "Parking"} in {location}
+              Parking in {location}
             </h2>
             <span className="text-sm font-medium text-gray-400">
               {lots.length} Results
