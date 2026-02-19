@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reslab, ReslabError, stripHtml } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
+import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-notification";
 import { reservationSchema } from "@/lib/validation/schemas";
 import { stripe } from "@/lib/stripe/client";
 import { capturePaymentError } from "@/lib/sentry";
@@ -251,6 +252,27 @@ export async function POST(request: NextRequest) {
     } catch (emailError) {
       // Log but don't fail - reservation was successful
       console.error("Email send error:", emailError);
+    }
+
+    // Send admin notification email (don't fail if email fails)
+    try {
+      const vehicleInfoStr = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
+      await sendAdminBookingNotification({
+        confirmationNumber: reservation.reservation_number,
+        customerName: fullName,
+        customerEmail: customer.email,
+        customerPhone: customer.phone,
+        lotName: locationName || resLocation?.name || `Location ${locationId}`,
+        lotAddress: locationAddress || resLocation?.address || "",
+        checkInDate: fromDate.split(" ")[0],
+        checkOutDate: toDate.split(" ")[0],
+        totalAmount: resHistory?.grand_total || grandTotal || 0,
+        dueAtLocation: resHistory?.due_at_location_total || 0,
+        vehicleInfo: vehicleInfoStr,
+        airportCode: airportCode || undefined,
+      });
+    } catch (adminEmailError) {
+      console.error("Admin notification email error:", adminEmailError);
     }
 
     // Build response from history data
