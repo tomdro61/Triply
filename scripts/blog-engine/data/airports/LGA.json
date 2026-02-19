@@ -1,0 +1,17 @@
+{
+  "code": "LGA",
+  "fullName": "LaGuardia Airport",
+  "lastVerified": "2026-02-14",
+  "terminals": [
+    { "name": "Terminal A", "airlines": ["Spirit Airlines", "Frontier Airlines", "Southwest Airlines"] },
+    { "name": "Terminal B", "airlines": ["American Airlines", "United Airlines", "Air Canada", "Southwest Airlines"] },
+    { "name": "Terminal C", "airlines": ["Delta Air Lines"] }
+  ],
+  "roads": ["Grand Central Parkway", "Brooklyn-Queens Expressway", "Astoria Boulevard", "Ditmars Boulevard"],
+  "transit": ["Q70-SBS LaGuardia Link", "M60-SBS Bus", "Q48 Bus", "Q72 Bus"],
+  "neighborhoods": ["East Elmhurst", "Jackson Heights", "Astoria", "Flushing"],
+  "authority": "Port Authority of New York and New Jersey",
+  "parkingRates": "Official on-airport rates: $18/day (long-term economy), $39/day (terminal garage). Off-site lots typically $10-$20/day.",
+  "shuttleInfo": "Most off-site lots run free shuttles every 5-15 minutes, 24/7. Terminal B has a new pedestrian bridge to parking garage.",
+  "distanceFromCity": "8 miles east of Midtown Manhattan, roughly 20-45 min by car depending on traffic"
+}
