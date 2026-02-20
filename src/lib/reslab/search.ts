@@ -315,9 +315,12 @@ export async function searchParking(
     })
   );
 
-  // Filter out unavailable lots
+  // Filter out unavailable lots and lots with no valid pricing
   const availableLots = lotsWithPricing.filter(
-    (lot) => lot.availability !== "unavailable"
+    (lot) =>
+      lot.availability !== "unavailable" &&
+      lot.pricing?.grandTotal !== undefined &&
+      lot.pricing.grandTotal > 0
   );
 
   // Sort lots
