@@ -15,7 +15,7 @@ export function Calendar({ classNames, ...props }: CalendarProps) {
         selected:
           "bg-brand-orange border-brand-orange text-white rounded-full font-bold",
         root: `${defaultClassNames.root} p-3`,
-        chevron: `${defaultClassNames.chevron} fill-brand-orange`,
+        chevron: `${defaultClassNames.chevron} fill-gray-800`,
         day: "rounded-full",
         ...classNames,
       }}
