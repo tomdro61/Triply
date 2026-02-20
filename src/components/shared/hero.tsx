@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
-import { DatePicker } from "@/components/ui/date-picker";
+import { MapPin, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
+import { format, parse } from "date-fns";
+import { DateRangePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { enabledAirports } from "@/config/airports";
 import { HeroChatInput } from "@/components/chat";
@@ -121,35 +122,62 @@ export function Hero() {
                 </div>
               </div>
 
-              {/* Depart Date */}
-              <div className="md:col-span-3 relative group">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Depart
-                </label>
-                <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
-                  <DatePicker
-                    value={departDate}
-                    onChange={setDepartDate}
-                    placeholder="Depart date"
-                    minDate={new Date()}
-                  />
-                </div>
-              </div>
+              {/* Depart & Return Dates */}
+              <DateRangePicker
+                startDate={departDate}
+                endDate={returnDate}
+                onStartChange={setDepartDate}
+                onEndChange={setReturnDate}
+                minDate={new Date()}
+              >
+                {({ startTriggerProps, endTriggerProps }) => (
+                  <>
+                    <div className="md:col-span-3 relative group">
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                        Depart
+                      </label>
+                      <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
+                        <button
+                          type="button"
+                          ref={startTriggerProps.ref}
+                          onClick={startTriggerProps.onClick}
+                          className="flex items-center w-full text-left cursor-pointer"
+                        >
+                          <CalendarIcon
+                            size={20}
+                            className="mr-2 text-brand-blue opacity-80 flex-shrink-0"
+                          />
+                          <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                            {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
 
-              {/* Return Date */}
-              <div className="md:col-span-3 relative group">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Return
-                </label>
-                <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
-                  <DatePicker
-                    value={returnDate}
-                    onChange={setReturnDate}
-                    placeholder="Return date"
-                    minDate={new Date()}
-                  />
-                </div>
-              </div>
+                    <div className="md:col-span-3 relative group">
+                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                        Return
+                      </label>
+                      <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
+                        <button
+                          type="button"
+                          ref={endTriggerProps.ref}
+                          onClick={endTriggerProps.onClick}
+                          className="flex items-center w-full text-left cursor-pointer"
+                        >
+                          <CalendarIcon
+                            size={20}
+                            className="mr-2 text-brand-blue opacity-80 flex-shrink-0"
+                          />
+                          <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                            {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </DateRangePicker>
 
               {/* Search Button */}
               <div className="md:col-span-2">

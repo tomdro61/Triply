@@ -17,7 +17,9 @@ import {
   ChevronDown,
   Shield,
 } from "lucide-react";
-import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-picker";
+import { format, parse } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 
@@ -293,73 +295,87 @@ export function ProductDetailSlider({
             )}
 
             {/* Date Selection */}
-            <div className="space-y-3 mb-4">
-              {/* Check-in Date & Time */}
-              <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Check-in
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <DatePicker
-                      value={localCheckIn}
-                      onChange={setLocalCheckIn}
-                      placeholder="Check-in date"
-                      minDate={new Date()}
-                      className="text-sm font-bold"
-                    />
+            <DateRangePicker
+              startDate={localCheckIn}
+              endDate={localCheckOut}
+              onStartChange={setLocalCheckIn}
+              onEndChange={setLocalCheckOut}
+              minDate={new Date()}
+            >
+              {({ startTriggerProps, endTriggerProps }) => (
+                <div className="space-y-3 mb-4">
+                  {/* Check-in Date & Time */}
+                  <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                      Check-in
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <button
+                          type="button"
+                          ref={startTriggerProps.ref}
+                          onClick={startTriggerProps.onClick}
+                          className="flex items-center w-full text-left cursor-pointer text-sm font-bold"
+                        >
+                          <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                          <span className={localCheckIn ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                            {localCheckIn ? format(parse(localCheckIn, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Check-in date"}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="relative w-28">
+                        <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={localCheckInTime}
+                          onChange={(e) => setLocalCheckInTime(e.target.value)}
+                          className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                        >
+                          {timeOptions.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative w-28">
-                    <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <select
-                      value={localCheckInTime}
-                      onChange={(e) => setLocalCheckInTime(e.target.value)}
-                      className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
-                    >
-                      {timeOptions.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
 
-              {/* Check-out Date & Time */}
-              <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
-                  Check-out
-                </label>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <DatePicker
-                      value={localCheckOut}
-                      onChange={setLocalCheckOut}
-                      placeholder="Check-out date"
-                      minDate={new Date()}
-                      className="text-sm font-bold"
-                    />
-                  </div>
-                  <div className="relative w-28">
-                    <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
-                    <select
-                      value={localCheckOutTime}
-                      onChange={(e) => setLocalCheckOutTime(e.target.value)}
-                      className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
-                    >
-                      {timeOptions.map((time) => (
-                        <option key={time} value={time}>
-                          {time}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  {/* Check-out Date & Time */}
+                  <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
+                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                      Check-out
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1">
+                        <button
+                          type="button"
+                          ref={endTriggerProps.ref}
+                          onClick={endTriggerProps.onClick}
+                          className="flex items-center w-full text-left cursor-pointer text-sm font-bold"
+                        >
+                          <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                          <span className={localCheckOut ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                            {localCheckOut ? format(parse(localCheckOut, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Check-out date"}
+                          </span>
+                        </button>
+                      </div>
+                      <div className="relative w-28">
+                        <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <select
+                          value={localCheckOutTime}
+                          onChange={(e) => setLocalCheckOutTime(e.target.value)}
+                          className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                        >
+                          {timeOptions.map((time) => (
+                            <option key={time} value={time}>{time}</option>
+                          ))}
+                        </select>
+                        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
+              )}
+            </DateRangePicker>
 
             {/* Price Breakdown */}
             <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
