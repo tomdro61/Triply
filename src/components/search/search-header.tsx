@@ -6,9 +6,11 @@ import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  Calendar,
+  Calendar as CalendarIcon,
 } from "lucide-react";
+import { format, parse } from "date-fns";
 import { enabledAirports, getAirportByCode } from "@/config/airports";
+import { DateRangePicker } from "@/components/ui/date-picker";
 
 export type SearchTab = "parking";
 
@@ -120,7 +122,7 @@ export function SearchHeader({
             </div>
             <span className="text-gray-300">|</span>
             <div className="flex items-center gap-1.5 text-sm text-gray-600 truncate">
-              <Calendar size={14} className="text-gray-400 flex-shrink-0" />
+              <CalendarIcon size={14} className="text-gray-400 flex-shrink-0" />
               <span className="truncate">
                 {formatShortDate(departDate)} — {formatShortDate(returnDate)}
               </span>
@@ -158,63 +160,74 @@ export function SearchHeader({
               />
             </div>
 
-            {/* Depart */}
-            <div className="flex gap-2 mb-3">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
-                  value={departDate}
-                  onChange={(e) => onDepartDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
-                />
-              </div>
-              <div className="relative w-32">
-                <select
-                  value={departTime}
-                  onChange={(e) => onDepartTimeChange(e.target.value)}
-                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                >
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                  size={14}
-                />
-              </div>
-            </div>
+            {/* Depart & Return */}
+            <DateRangePicker
+              startDate={departDate}
+              endDate={returnDate}
+              onStartChange={onDepartDateChange}
+              onEndChange={onReturnDateChange}
+              minDate={new Date()}
+            >
+              {({ startTriggerProps, endTriggerProps }) => (
+                <>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <button
+                        type="button"
+                        ref={startTriggerProps.ref}
+                        onClick={startTriggerProps.onClick}
+                        className="flex items-center w-full text-left cursor-pointer text-sm"
+                      >
+                        <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                        <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                          {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="relative w-32">
+                      <select
+                        value={departTime}
+                        onChange={(e) => onDepartTimeChange(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                      >
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                    </div>
+                  </div>
 
-            {/* Return */}
-            <div className="flex gap-2 mb-3">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
-                  value={returnDate}
-                  onChange={(e) => onReturnDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
-                />
-              </div>
-              <div className="relative w-32">
-                <select
-                  value={returnTime}
-                  onChange={(e) => onReturnTimeChange(e.target.value)}
-                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                >
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                  size={14}
-                />
-              </div>
-            </div>
+                  <div className="flex gap-2 mb-3">
+                    <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                      <button
+                        type="button"
+                        ref={endTriggerProps.ref}
+                        onClick={endTriggerProps.onClick}
+                        className="flex items-center w-full text-left cursor-pointer text-sm"
+                      >
+                        <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                        <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                          {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                        </span>
+                      </button>
+                    </div>
+                    <div className="relative w-32">
+                      <select
+                        value={returnTime}
+                        onChange={(e) => onReturnTimeChange(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                      >
+                        {timeOptions.map((time) => (
+                          <option key={time} value={time}>{time}</option>
+                        ))}
+                      </select>
+                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                    </div>
+                  </div>
+                </>
+              )}
+            </DateRangePicker>
 
             {/* Update Button */}
             <button
@@ -258,65 +271,75 @@ export function SearchHeader({
           </div>
 
           {/* Date & Time Group */}
-          <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
-            {/* Depart */}
-            <div className="flex flex-1 gap-2">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
-                  value={departDate}
-                  onChange={(e) => onDepartDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
-                />
-              </div>
-              <div className="relative w-32">
-                <select
-                  value={departTime}
-                  onChange={(e) => onDepartTimeChange(e.target.value)}
-                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                >
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                  size={14}
-                />
-              </div>
-            </div>
+          <DateRangePicker
+            startDate={departDate}
+            endDate={returnDate}
+            onStartChange={onDepartDateChange}
+            onEndChange={onReturnDateChange}
+            minDate={new Date()}
+          >
+            {({ startTriggerProps, endTriggerProps }) => (
+              <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
+                {/* Depart */}
+                <div className="flex flex-1 gap-2">
+                  <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      ref={startTriggerProps.ref}
+                      onClick={startTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="relative w-32">
+                    <select
+                      value={departTime}
+                      onChange={(e) => onDepartTimeChange(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                  </div>
+                </div>
 
-            {/* Return */}
-            <div className="flex flex-1 gap-2">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
-                  value={returnDate}
-                  onChange={(e) => onReturnDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
-                />
+                {/* Return */}
+                <div className="flex flex-1 gap-2">
+                  <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      ref={endTriggerProps.ref}
+                      onClick={endTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                      </span>
+                    </button>
+                  </div>
+                  <div className="relative w-32">
+                    <select
+                      value={returnTime}
+                      onChange={(e) => onReturnTimeChange(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
+                  </div>
+                </div>
               </div>
-              <div className="relative w-32">
-                <select
-                  value={returnTime}
-                  onChange={(e) => onReturnTimeChange(e.target.value)}
-                  className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                >
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time}>
-                      {time}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                  size={14}
-                />
-              </div>
-            </div>
-          </div>
+            )}
+          </DateRangePicker>
 
           {/* Update Button */}
           <button
