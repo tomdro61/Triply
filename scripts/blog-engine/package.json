@@ -6,6 +6,8 @@
   "scripts": {
     "generate": "tsx src/index.ts generate",
     "report": "tsx src/index.ts report",
+    "score": "tsx src/index.ts score",
+    "publish": "tsx src/index.ts publish",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
