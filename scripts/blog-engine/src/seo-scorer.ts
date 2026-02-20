@@ -6,9 +6,11 @@
  *
  * Five categories, 100 total points:
  *   1. Keyword Optimization (21) — Rank Math "Basic SEO" + Yoast keyphrase checks
- *   2. Content Structure (30)    — Rank Math "Content Readability" + Surfer structure + CTA + anchor quality
+ *   2. Content Structure (32)    — Rank Math "Content Readability" + Surfer structure + CTA + anchor quality
  *   3. AI Search Optimization (21) — GEO best practices for AI citation
- *   4. Content Quality (28)      — E-E-A-T, readability, unique value, engagement signals
+ *   4. Content Quality (26)      — E-E-A-T, readability, unique value, engagement signals
+ *
+ *   Total: 100 points (maxPoints computed dynamically from checks)
  *
  * Updated with 8 additions from team SEO audit:
  *   - CTA Placement, Readability Score, Anchor Text Quality, Unique Value Indicator,
@@ -301,7 +303,8 @@ function scoreKeywordOptimization(input: ScorerInput, root: HTMLElement, fullTex
   })
 
   const points = checks.reduce((sum, c) => sum + c.points, 0)
-  return { name: 'Keyword Optimization', points, maxPoints: 21, checks }
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'Keyword Optimization', points, maxPoints, checks }
 }
 
 function scoreContentStructure(input: ScorerInput, root: HTMLElement, fullText: string): CategoryScore {
@@ -496,7 +499,8 @@ function scoreContentStructure(input: ScorerInput, root: HTMLElement, fullText: 
   })
 
   const points = checks.reduce((sum, c) => sum + c.points, 0)
-  return { name: 'Content Structure', points, maxPoints: 30, checks }
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'Content Structure', points, maxPoints, checks }
 }
 
 function scoreAiSearchOptimization(input: ScorerInput, root: HTMLElement, fullText: string): CategoryScore {
@@ -602,7 +606,8 @@ function scoreAiSearchOptimization(input: ScorerInput, root: HTMLElement, fullTe
   })
 
   const points = checks.reduce((sum, c) => sum + c.points, 0)
-  return { name: 'AI Search Optimization', points, maxPoints: 21, checks }
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'AI Search Optimization', points, maxPoints, checks }
 }
 
 function scoreContentQuality(input: ScorerInput, root: HTMLElement, fullText: string): CategoryScore {
@@ -692,8 +697,8 @@ function scoreContentQuality(input: ScorerInput, root: HTMLElement, fullText: st
   checks.push({
     name: 'Power words in title',
     passed: hasPowerWord,
-    points: hasPowerWord ? 1 : 0,
-    maxPoints: 1,
+    points: hasPowerWord ? 2 : 0,
+    maxPoints: 2,
     detail: hasPowerWord ? 'Title contains engaging power word(s)' : 'No power words found in title',
   })
 
@@ -758,7 +763,8 @@ function scoreContentQuality(input: ScorerInput, root: HTMLElement, fullText: st
   })
 
   const points = checks.reduce((sum, c) => sum + c.points, 0)
-  return { name: 'Content Quality', points, maxPoints: 28, checks }
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'Content Quality', points, maxPoints, checks }
 }
 
 // ── Main Scorer ─────────────────────────────────────────────────────────────
