@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Calendar, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { MapPin, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { enabledAirports } from "@/config/airports";
 import { HeroChatInput } from "@/components/chat";
@@ -125,19 +126,12 @@ export function Hero() {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                   Depart
                 </label>
-                <div className="relative flex items-center">
-                  <Calendar
-                    className="absolute left-3 text-brand-blue opacity-80 pointer-events-none"
-                    size={20}
-                  />
-                  <input
-                    type="date"
+                <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
+                  <DatePicker
                     value={departDate}
-                    onFocus={(e) => e.currentTarget.showPicker()}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    onKeyDown={(e) => e.preventDefault()}
-                    onChange={(e) => setDepartDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    onChange={setDepartDate}
+                    placeholder="Depart date"
+                    minDate={new Date()}
                   />
                 </div>
               </div>
@@ -147,19 +141,12 @@ export function Hero() {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                   Return
                 </label>
-                <div className="relative flex items-center">
-                  <Calendar
-                    className="absolute left-3 text-brand-blue opacity-80 pointer-events-none"
-                    size={20}
-                  />
-                  <input
-                    type="date"
+                <div className="py-3 px-3 bg-gray-50 border border-gray-200 rounded-lg group-hover:bg-white transition-colors">
+                  <DatePicker
                     value={returnDate}
-                    onFocus={(e) => e.currentTarget.showPicker()}
-                    onClick={(e) => e.currentTarget.showPicker()}
-                    onKeyDown={(e) => e.preventDefault()}
-                    onChange={(e) => setReturnDate(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                    onChange={setReturnDate}
+                    placeholder="Return date"
+                    minDate={new Date()}
                   />
                 </div>
               </div>

@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import {
-  Calendar,
   Shield,
   Share2,
   Clock,
@@ -12,6 +11,7 @@ import {
   Wallet,
   AlertCircle,
 } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
 
@@ -249,21 +249,18 @@ export function BookingWidget({
       {/* Date Selection */}
       <div className="space-y-3 mb-6">
         {/* Check-in Date & Time */}
-        <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors focus-within:ring-1 focus-within:ring-brand-orange">
+        <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
             Check-in
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex items-center flex-1 relative">
-              <Calendar
-                size={16}
-                className="mr-2 text-brand-blue pointer-events-none"
-              />
-              <input
-                type="date"
+            <div className="flex-1">
+              <DatePicker
                 value={checkIn}
-                onChange={(e) => setCheckIn(e.target.value)}
-                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                onChange={setCheckIn}
+                placeholder="Check-in date"
+                minDate={new Date()}
+                className="text-sm font-bold"
               />
             </div>
             <div className="relative w-28">
@@ -285,21 +282,18 @@ export function BookingWidget({
         </div>
 
         {/* Check-out Date & Time */}
-        <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors focus-within:ring-1 focus-within:ring-brand-orange">
+        <div className="border border-gray-200 rounded-lg p-3 hover:border-brand-orange transition-colors">
           <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
             Check-out
           </label>
           <div className="flex items-center gap-2">
-            <div className="flex items-center flex-1 relative">
-              <Calendar
-                size={16}
-                className="mr-2 text-brand-blue pointer-events-none"
-              />
-              <input
-                type="date"
+            <div className="flex-1">
+              <DatePicker
                 value={checkOut}
-                onChange={(e) => setCheckOut(e.target.value)}
-                className="w-full bg-transparent outline-none cursor-pointer font-bold text-sm [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+                onChange={setCheckOut}
+                placeholder="Check-out date"
+                minDate={new Date()}
+                className="text-sm font-bold"
               />
             </div>
             <div className="relative w-28">

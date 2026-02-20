@@ -9,6 +9,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { enabledAirports, getAirportByCode } from "@/config/airports";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export type SearchTab = "parking";
 
@@ -160,12 +161,13 @@ export function SearchHeader({
 
             {/* Depart */}
             <div className="flex gap-2 mb-3">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
+              <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <DatePicker
                   value={departDate}
-                  onChange={(e) => onDepartDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                  onChange={onDepartDateChange}
+                  placeholder="Depart date"
+                  minDate={new Date()}
+                  className="text-sm"
                 />
               </div>
               <div className="relative w-32">
@@ -189,12 +191,13 @@ export function SearchHeader({
 
             {/* Return */}
             <div className="flex gap-2 mb-3">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
+              <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <DatePicker
                   value={returnDate}
-                  onChange={(e) => onReturnDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                  onChange={onReturnDateChange}
+                  placeholder="Return date"
+                  minDate={new Date()}
+                  className="text-sm"
                 />
               </div>
               <div className="relative w-32">
@@ -261,12 +264,13 @@ export function SearchHeader({
           <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
             {/* Depart */}
             <div className="flex flex-1 gap-2">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
+              <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <DatePicker
                   value={departDate}
-                  onChange={(e) => onDepartDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                  onChange={onDepartDateChange}
+                  placeholder="Depart date"
+                  minDate={new Date()}
+                  className="text-sm"
                 />
               </div>
               <div className="relative w-32">
@@ -290,12 +294,13 @@ export function SearchHeader({
 
             {/* Return */}
             <div className="flex flex-1 gap-2">
-              <div className="relative flex-grow">
-                <input
-                  type="date"
+              <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                <DatePicker
                   value={returnDate}
-                  onChange={(e) => onReturnDateChange(e.target.value)}
-                  className="w-full pl-4 pr-2 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all cursor-pointer"
+                  onChange={onReturnDateChange}
+                  placeholder="Return date"
+                  minDate={new Date()}
+                  className="text-sm"
                 />
               </div>
               <div className="relative w-32">
