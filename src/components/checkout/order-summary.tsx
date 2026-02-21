@@ -143,6 +143,14 @@ export function OrderSummary({
               </span>
             </div>
           )}
+          {priceBreakdown.serviceFee > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Service Fee</span>
+              <span className="text-gray-900">
+                ${priceBreakdown.serviceFee.toFixed(2)}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-gray-600">Taxes</span>
             <span className="text-gray-900">

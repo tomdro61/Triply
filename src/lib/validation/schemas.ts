@@ -43,6 +43,7 @@ export const reservationSchema = z.object({
   taxTotal: z.number().optional(),
   feesTotal: z.number().optional(),
   grandTotal: z.number().optional(),
+  triplyServiceFee: z.number().optional(),
   userId: z.string().nullable().optional(),
   stripePaymentIntentId: z.string().optional(),
 });
