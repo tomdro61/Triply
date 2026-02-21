@@ -109,8 +109,8 @@ export function BookingWidget({
     if (hasApiPricing) {
       return {
         days: lot.pricing?.numberOfDays || diffDays,
-        subtotal: lot.pricing?.subtotal || price * diffDays,
-        fees: lot.pricing?.feesTotal || 0,
+        subtotal: (lot.pricing?.subtotal || 0) + (lot.pricing?.feesTotal || 0),
+        fees: 0,
         taxes: lot.pricing?.taxTotal || 0,
         total: lot.pricing?.grandTotal || price * diffDays,
       };

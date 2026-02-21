@@ -125,7 +125,7 @@ export function transformLocation(
     pricing: minPriceData
       ? {
           minPrice:
-            minPriceData.reservation.grand_total /
+            (minPriceData.reservation.sub_total + minPriceData.reservation.fees_total) /
             (minPriceData.reservation.totals?.parking?.number_of_days || 1),
           currency: currencyCode === "USD" ? "$" : currencyCode,
           currencyCode,

@@ -120,7 +120,9 @@ export function CheckoutForm({
     // Use API data if available
     if (costData) {
       const days = costData.numberOfDays || calculatedDays;
-      const dailyRate = costData.subtotal / days;
+      // Roll fees into the daily rate so it matches the search page
+      const baseWithFees = costData.subtotal + costData.feesTotal;
+      const dailyRate = baseWithFees / days;
 
       // Apply promo discount using server-validated percentage
       const discount = costData.subtotal * (promoDiscountPercent / 100);
@@ -128,10 +130,10 @@ export function CheckoutForm({
       return {
         dailyRate,
         days,
-        subtotal: costData.subtotal,
+        subtotal: baseWithFees,
         discount,
         taxes: costData.taxTotal,
-        fees: costData.feesTotal,
+        fees: 0,
         total: costData.grandTotal - discount,
         dueNow: costData.dueNow - discount,
         dueAtLocation: costData.dueAtLocation,
