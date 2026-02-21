@@ -68,7 +68,8 @@ function transformLocationToLot(
   const parkingTypeId = minPriceData?.rates?.[0]?.location_parking_type_id || 0;
   const numberOfDays = minPriceData?.reservation?.totals?.parking?.number_of_days || 1;
   const subtotal = minPriceData?.reservation?.sub_total || 0;
-  const dailyRate = numberOfDays > 0 ? subtotal / numberOfDays : 0;
+  const feesTotal = minPriceData?.reservation?.fees_total || 0;
+  const dailyRate = numberOfDays > 0 ? (subtotal + feesTotal) / numberOfDays : 0;
 
   // Create parking types array from the response
   const pricingParkingTypes = parkingTypeId ? [{
