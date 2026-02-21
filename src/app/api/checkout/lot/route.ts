@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { captureAPIError } from "@/lib/sentry";
+import { calculateServiceFee } from "@/lib/utils/service-fee";
 
 const checkoutGetSchema = z.object({
   lotId: z.string().min(1),
@@ -69,14 +70,18 @@ export async function GET(request: NextRequest) {
           },
         ]);
 
+        const serviceFee = calculateServiceFee(
+          costResponse.reservation.sub_total + costResponse.reservation.fees_total
+        );
         costData = {
           costsToken: costResponse.costs_token,
           grandTotal: costResponse.reservation.grand_total,
           subtotal: costResponse.reservation.sub_total,
           taxTotal: costResponse.reservation.tax_total,
           feesTotal: costResponse.reservation.fees_total,
+          serviceFee,
           dueAtLocation: costResponse.reservation.due_at_location,
-          dueNow: costResponse.reservation.grand_total - costResponse.reservation.due_at_location,
+          dueNow: costResponse.reservation.grand_total - costResponse.reservation.due_at_location + serviceFee,
           numberOfDays: costResponse.reservation.totals?.parking?.number_of_days,
           soldOut: costResponse.reservation.sold_out,
           parkingTypeId: lot.pricing.parkingTypes[0].id,
@@ -84,6 +89,9 @@ export async function GET(request: NextRequest) {
       } catch (costError) {
         console.error("Error getting costs_token:", costError);
         // Fall back to pricing from lot data
+        const fallbackServiceFee = lot.pricing
+          ? calculateServiceFee((lot.pricing.subtotal || 0) + (lot.pricing.feesTotal || 0))
+          : 0;
         costData = lot.pricing
           ? {
               costsToken: null,
@@ -91,8 +99,9 @@ export async function GET(request: NextRequest) {
               subtotal: lot.pricing.subtotal,
               taxTotal: lot.pricing.taxTotal,
               feesTotal: lot.pricing.feesTotal,
+              serviceFee: fallbackServiceFee,
               dueAtLocation: lot.dueAtLocationAmount || 0,
-              dueNow: (lot.pricing.grandTotal || 0) - (lot.dueAtLocationAmount || 0),
+              dueNow: (lot.pricing.grandTotal || 0) - (lot.dueAtLocationAmount || 0) + fallbackServiceFee,
               numberOfDays: lot.pricing.numberOfDays,
               soldOut: lot.availability === "unavailable",
               parkingTypeId: null,
@@ -101,14 +110,18 @@ export async function GET(request: NextRequest) {
       }
     } else if (lot.pricing) {
       // No parking type ID available, use lot pricing
+      const lotServiceFee = calculateServiceFee(
+        (lot.pricing.subtotal || 0) + (lot.pricing.feesTotal || 0)
+      );
       costData = {
         costsToken: null,
         grandTotal: lot.pricing.grandTotal,
         subtotal: lot.pricing.subtotal,
         taxTotal: lot.pricing.taxTotal,
         feesTotal: lot.pricing.feesTotal,
+        serviceFee: lotServiceFee,
         dueAtLocation: lot.dueAtLocationAmount || 0,
-        dueNow: (lot.pricing.grandTotal || 0) - (lot.dueAtLocationAmount || 0),
+        dueNow: (lot.pricing.grandTotal || 0) - (lot.dueAtLocationAmount || 0) + lotServiceFee,
         numberOfDays: lot.pricing.numberOfDays,
         soldOut: lot.availability === "unavailable",
         parkingTypeId: null,
@@ -198,7 +211,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let verifiedTotal = costResponse.reservation.grand_total;
+    // Calculate Triply service fee on the parking base (sub_total + fees_total)
+    const postServiceFee = calculateServiceFee(
+      costResponse.reservation.sub_total + costResponse.reservation.fees_total
+    );
+
+    let verifiedTotal = costResponse.reservation.grand_total + postServiceFee;
     const dueAtLocation = costResponse.reservation.due_at_location;
     let verifiedDueNow = verifiedTotal - dueAtLocation;
     let discountPercent = 0;
@@ -243,6 +261,7 @@ export async function POST(request: NextRequest) {
       checkout,
       customerEmail,
       verifiedTotal: String(verifiedTotal),
+      serviceFee: String(postServiceFee),
       ...(promoCode && { promoCode }),
       ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
     });
@@ -257,6 +276,7 @@ export async function POST(request: NextRequest) {
       subtotal: costResponse.reservation.sub_total,
       taxTotal: costResponse.reservation.tax_total,
       feesTotal: costResponse.reservation.fees_total,
+      serviceFee: postServiceFee,
       discountPercent,
     });
   } catch (error) {

@@ -124,6 +124,9 @@ export function transformLocation(
 
     pricing: minPriceData
       ? {
+          // Daily rate includes ResLab fees but excludes taxes.
+          // Fees are hidden as a separate line — rolled into the per-day rate
+          // so pricing is consistent across search, lot detail, and checkout.
           minPrice:
             (minPriceData.reservation.sub_total + minPriceData.reservation.fees_total) /
             (minPriceData.reservation.totals?.parking?.number_of_days || 1),

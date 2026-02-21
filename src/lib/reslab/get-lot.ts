@@ -67,6 +67,9 @@ function transformLocationToLot(
   // The rates array contains location_parking_type_id
   const parkingTypeId = minPriceData?.rates?.[0]?.location_parking_type_id || 0;
   const numberOfDays = minPriceData?.reservation?.totals?.parking?.number_of_days || 1;
+  // Daily rate includes ResLab fees but excludes taxes.
+  // Fees are hidden as a separate line — rolled into the per-day rate
+  // so pricing is consistent across search, lot detail, and checkout.
   const subtotal = minPriceData?.reservation?.sub_total || 0;
   const feesTotal = minPriceData?.reservation?.fees_total || 0;
   const dailyRate = numberOfDays > 0 ? (subtotal + feesTotal) / numberOfDays : 0;

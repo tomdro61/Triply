@@ -36,6 +36,7 @@ export interface PriceBreakdown {
   discount: number;
   taxes: number;
   fees: number;
+  serviceFee: number;
   total: number;
   dueNow: number;
   dueAtLocation: number;
@@ -47,6 +48,7 @@ export interface CheckoutCostData {
   subtotal: number;
   taxTotal: number;
   feesTotal: number;
+  serviceFee: number;
   dueAtLocation: number;
   dueNow: number;
   numberOfDays?: number;

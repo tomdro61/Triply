@@ -127,6 +127,8 @@ export function CheckoutForm({
       // Apply promo discount using server-validated percentage
       const discount = costData.subtotal * (promoDiscountPercent / 100);
 
+      const serviceFee = costData.serviceFee || 0;
+
       return {
         dailyRate,
         days,
@@ -134,7 +136,8 @@ export function CheckoutForm({
         discount,
         taxes: costData.taxTotal,
         fees: 0,
-        total: costData.grandTotal - discount,
+        serviceFee,
+        total: costData.grandTotal + serviceFee - discount,
         dueNow: costData.dueNow - discount,
         dueAtLocation: costData.dueAtLocation,
       };
@@ -158,6 +161,7 @@ export function CheckoutForm({
       discount,
       taxes,
       fees: 0,
+      serviceFee: 0,
       total,
       dueNow: total,
       dueAtLocation: 0,
@@ -341,6 +345,7 @@ export function CheckoutForm({
           taxTotal: costData?.taxTotal || priceBreakdown.taxes,
           feesTotal: costData?.feesTotal || priceBreakdown.fees,
           grandTotal: costData?.grandTotal || priceBreakdown.total,
+          triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
           // Stripe payment reference
@@ -436,6 +441,7 @@ export function CheckoutForm({
           taxTotal: costData.taxTotal || priceBreakdown.taxes,
           feesTotal: costData.feesTotal || priceBreakdown.fees,
           grandTotal: costData.grandTotal || priceBreakdown.total,
+          triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
         }),

@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
       taxTotal,
       feesTotal,
       grandTotal,
+      triplyServiceFee,
       userId,
       stripePaymentIntentId,
     } = result.data;
@@ -213,6 +214,7 @@ export async function POST(request: NextRequest) {
         tax_total: taxTotal || resHistory?.total_tax || 0,
         fees_total: feesTotal || resHistory?.total_fees || 0,
         grand_total: grandTotal || resHistory?.grand_total || 0,
+        triply_service_fee: triplyServiceFee || 0,
         vehicle_info: vehicle,
         status: "confirmed",
         ...(stripePaymentIntentId && { stripe_payment_intent_id: stripePaymentIntentId }),
