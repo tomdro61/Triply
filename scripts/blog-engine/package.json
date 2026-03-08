@@ -8,10 +8,14 @@
     "report": "tsx src/index.ts report",
     "score": "tsx src/index.ts score",
     "publish": "tsx src/index.ts publish",
-    "dev": "tsx src/index.ts"
+    "plan": "tsx src/index.ts plan",
+    "bootstrap": "tsx src/index.ts bootstrap",
+    "dev": "tsx src/index.ts",
+    "migrate-tables": "tsx src/migrate-tables.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.52.0",
+    "@resvg/resvg-js": "^2.6.2",
     "cheerio": "^1.0.0",
     "commander": "^13.1.0",
     "dotenv": "^16.4.7",

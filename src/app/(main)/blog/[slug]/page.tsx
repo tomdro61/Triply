@@ -8,6 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Navbar, Footer } from '@/components/shared'
 import { getPostBySlug } from '@/lib/cms'
 import { FaqAccordion } from '@/components/blog/FaqAccordion'
+import { TableOfContents } from '@/components/blog/TableOfContents'
 import { HubLayout } from '@/components/blog/HubLayout'
 import { SubPillarLayout } from '@/components/blog/SubPillarLayout'
 import { SpokeLayout } from '@/components/blog/SpokeLayout'
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!post) {
     return {
-      title: 'Post Not Found | Triply Blog',
+      title: 'Post Not Found | Triply',
     }
   }
 
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = post.seo?.metaDescription || post.excerpt
 
   return {
-    title: `${title} | Triply Blog`,
+    title: `${title} | Triply`,
     description,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: {
@@ -54,6 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 async function ArticleContent({ post }: { post: any }) {
   const content = (
     <>
+      <TableOfContents content={post.content} />
       <RichText content={post.content} className="text-gray-700" />
 
       {/* Tags */}
@@ -113,8 +115,8 @@ export default async function BlogPostPage({ params }: Props) {
           datePublished: post.publishedAt,
           dateModified: post.updatedAt || post.publishedAt,
           author: {
-            '@type': 'Person',
-            name: post.author?.name || post.author?.email || 'Triply',
+            '@type': post.author?.name ? 'Person' : 'Organization',
+            name: post.author?.name || 'Triply Editorial Team',
           },
           publisher: {
             '@type': 'Organization',
@@ -128,6 +130,7 @@ export default async function BlogPostPage({ params }: Props) {
         }),
       }}
     />
+    {/* BreadcrumbList and FAQPage JSON-LD are emitted by ArticleBreadcrumbs and FaqAccordion components */}
     <main className="min-h-screen bg-white pt-20">
       {/* Back Link */}
       <div className="bg-gray-50 border-b">
@@ -161,11 +164,9 @@ export default async function BlogPostPage({ params }: Props) {
             </p>
 
             <div className="flex items-center gap-4 text-sm text-gray-500">
-              {post.author && (
-                <span className="font-medium text-navy">
-                  {post.author.name || post.author.email}
-                </span>
-              )}
+              <span className="font-medium text-navy">
+                {post.author?.name || 'Triply Editorial Team'}
+              </span>
               {post.publishedAt && (
                 <>
                   <span>•</span>
@@ -202,13 +203,13 @@ export default async function BlogPostPage({ params }: Props) {
         <section className="bg-coral/5 py-12">
           <div className="container mx-auto px-4 text-center">
             <h2 className="text-2xl font-heading font-bold text-navy mb-4">
-              Ready to Book Your Airport Parking?
+              Ready to Book Your {post.airportCode ? `${post.airportCode} ` : ''}Airport Parking?
             </h2>
             <p className="text-gray-600 mb-6 max-w-xl mx-auto">
               Compare prices from top-rated parking lots and save up to 70% on your next trip.
             </p>
             <Link
-              href="/"
+              href={post.airportCode ? `/search?airport=${post.airportCode}` : '/'}
               className="inline-block bg-coral text-white px-8 py-3 rounded-lg font-semibold hover:bg-coral/90 transition-colors"
             >
               Find Parking Now

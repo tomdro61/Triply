@@ -17,6 +17,15 @@ export interface AirportData {
   parkingRates: string
   shuttleInfo: string
   distanceFromCity: string
+  liveSources?: Record<string, Record<string, string> | string>
+  onAirportParking?: Record<string, Record<string, unknown> | string>
+  parkingLots?: Record<string, unknown>[]
+  evCharging?: Record<string, unknown>
+  lounges?: Record<string, unknown>[]
+  construction?: unknown
+  construction2026?: Record<string, unknown>
+  emergencyContacts?: Record<string, string>
+  [key: string]: unknown  // Allow dynamic access for construction2026, etc.
 }
 
 export function loadAirportData(code: string): AirportData | null {
