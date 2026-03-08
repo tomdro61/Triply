@@ -20,6 +20,7 @@
 
 import { parse, HTMLElement, TextNode } from 'node-html-parser'
 import { loadAirportData, getEntityPatterns } from './airport-data.js'
+import { getApprovedDomains } from './external-links.js'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,12 +33,15 @@ interface ScorerInput {
   excerpt: string
   faqItems: { question: string; answer: string }[]
   articleType: 'hub' | 'sub-pillar' | 'spoke'
+  articleStyle?: 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
   targetWords: number
   hasImage: boolean
   imageAlt: string | null
   airportCode?: string       // For topical authority link validation
   parentSlug?: string | null // For topical authority link validation
   hubSlug?: string | null    // For topical authority link validation
+  earlyCta?: string          // For CTA relevance check
+  closingCta?: string        // For CTA relevance check
 }
 
 interface Check {
@@ -767,6 +771,199 @@ function scoreContentQuality(input: ScorerInput, root: HTMLElement, fullText: st
   return { name: 'Content Quality', points, maxPoints, checks }
 }
 
+// ── Style Adherence ─────────────────────────────────────────────────────────
+
+function scoreStyleAdherence(input: ScorerInput, root: HTMLElement, fullText: string): CategoryScore {
+  const checks: Check[] = []
+  const style = input.articleStyle || 'standard'
+  const h2s = getAllElements(root, 'h2')
+  const h2Texts = h2s.map(h => getTextContent(h).trim())
+
+  switch (style) {
+    case 'listicle': {
+      const numberedH2s = h2Texts.filter(t => /^\d+[\.\)]\s/.test(t))
+      const ratio = h2s.length > 0 ? numberedH2s.length / h2s.length : 0
+      const pass = ratio >= 0.7
+      checks.push({
+        name: 'Listicle numbered H2s',
+        passed: pass,
+        points: pass ? 3 : ratio >= 0.4 ? 1 : 0,
+        maxPoints: 3,
+        detail: `${numberedH2s.length}/${h2s.length} H2s start with a number (${Math.round(ratio * 100)}%, target: 70%+)`,
+      })
+      break
+    }
+    case 'narrative': {
+      const hasKeyTakeaways = /key takeaway/i.test(fullText)
+      const noTakeaways = !hasKeyTakeaways
+      checks.push({
+        name: 'Narrative: no Key Takeaways',
+        passed: noTakeaways,
+        points: noTakeaways ? 2 : 0,
+        maxPoints: 2,
+        detail: noTakeaways ? 'Correctly omits Key Takeaways section' : 'Narrative style should not have Key Takeaways',
+      })
+      const firstP = root.querySelector('p')
+      const firstPText = firstP ? getTextContent(firstP).toLowerCase() : ''
+      const hasScenario = /imagine|picture this|you're|you just|after a long|stepping off/i.test(firstPText)
+      checks.push({
+        name: 'Narrative: traveler scenario opening',
+        passed: hasScenario,
+        points: hasScenario ? 2 : 0,
+        maxPoints: 2,
+        detail: hasScenario ? 'Opens with traveler scenario' : 'Missing traveler scenario opening',
+      })
+      break
+    }
+    case 'data-heavy': {
+      const hasPricingTable = /<table/i.test(input.html)
+      checks.push({
+        name: 'Data-heavy: pricing table',
+        passed: hasPricingTable,
+        points: hasPricingTable ? 3 : 0,
+        maxPoints: 3,
+        detail: hasPricingTable ? 'Contains pricing/comparison table' : 'Missing required pricing table',
+      })
+      const priceCount = (fullText.match(/\$\d+/g) || []).length
+      const pricePass = priceCount >= 5
+      checks.push({
+        name: 'Data-heavy: price mentions',
+        passed: pricePass,
+        points: pricePass ? 2 : priceCount >= 2 ? 1 : 0,
+        maxPoints: 2,
+        detail: `${priceCount} price mentions (target: 5+)`,
+      })
+      break
+    }
+    case 'comparison': {
+      const hasVsHeading = h2Texts.some(t => /\bvs\.?\b/i.test(t))
+      checks.push({
+        name: 'Comparison: vs. heading',
+        passed: hasVsHeading,
+        points: hasVsHeading ? 3 : 0,
+        maxPoints: 3,
+        detail: hasVsHeading ? 'Contains "vs." comparison heading' : 'Missing "vs." comparison heading',
+      })
+      const hasProsCons = /pros|cons|advantages|disadvantages/i.test(fullText)
+      checks.push({
+        name: 'Comparison: pros/cons elements',
+        passed: hasProsCons,
+        points: hasProsCons ? 2 : 0,
+        maxPoints: 2,
+        detail: hasProsCons ? 'Contains pros/cons comparison elements' : 'Missing pros/cons elements',
+      })
+      break
+    }
+    case 'standard':
+    default: {
+      const hasTakeaways = /key takeaway/i.test(fullText)
+      checks.push({
+        name: 'Standard: Key Takeaways present',
+        passed: hasTakeaways,
+        points: hasTakeaways ? 2 : 0,
+        maxPoints: 2,
+        detail: hasTakeaways ? 'Key Takeaways section found' : 'Missing Key Takeaways section',
+      })
+      break
+    }
+  }
+
+  const points = checks.reduce((sum, c) => sum + c.points, 0)
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'Style Adherence', points, maxPoints, checks }
+}
+
+// ── External Link Validation ────────────────────────────────────────────────
+
+function scoreExternalLinkValidation(input: ScorerInput, root: HTMLElement): CategoryScore {
+  const checks: Check[] = []
+  const links = getAllElements(root, 'a')
+  const externalLinks = links.filter(a => {
+    const href = a.getAttribute('href') || ''
+    return href.startsWith('http') && !href.includes('triplypro.com')
+  })
+
+  if (input.airportCode && externalLinks.length > 0) {
+    const approved = getApprovedDomains(input.airportCode)
+    let approvedCount = 0
+    const unapprovedDomains: string[] = []
+
+    for (const link of externalLinks) {
+      const href = link.getAttribute('href') || ''
+      try {
+        const domain = new URL(href).hostname.replace(/^www\./, '')
+        if (approved.has(domain)) {
+          approvedCount++
+        } else {
+          if (!unapprovedDomains.includes(domain)) unapprovedDomains.push(domain)
+        }
+      } catch { /* malformed URL */ }
+    }
+
+    const ratio = externalLinks.length > 0 ? approvedCount / externalLinks.length : 0
+    const pass = ratio >= 0.8
+    checks.push({
+      name: 'External links from approved DB',
+      passed: pass,
+      points: pass ? 3 : ratio >= 0.5 ? 2 : approvedCount > 0 ? 1 : 0,
+      maxPoints: 3,
+      detail: `${approvedCount}/${externalLinks.length} external links use approved domains (${Math.round(ratio * 100)}%)${unapprovedDomains.length > 0 ? ` — unapproved: ${unapprovedDomains.slice(0, 3).join(', ')}` : ''}`,
+    })
+  } else {
+    checks.push({
+      name: 'External links from approved DB',
+      passed: true,
+      points: externalLinks.length === 0 ? 1 : 3,
+      maxPoints: 3,
+      detail: input.airportCode ? 'No external links to validate' : 'No airport code — skipping domain validation',
+    })
+  }
+
+  const points = checks.reduce((sum, c) => sum + c.points, 0)
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'Link Validation', points, maxPoints, checks }
+}
+
+// ── CTA Relevance ───────────────────────────────────────────────────────────
+
+function scoreCtaRelevance(input: ScorerInput): CategoryScore {
+  const checks: Check[] = []
+  const kwWords = input.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+
+  // Check if CTAs reference the article topic
+  const earlyCta = input.earlyCta?.toLowerCase() || ''
+  const closingCta = input.closingCta?.toLowerCase() || ''
+  const earlyHasKeyword = kwWords.some(w => earlyCta.includes(w))
+  const closingHasKeyword = kwWords.some(w => closingCta.includes(w))
+  const ctaRelevant = earlyHasKeyword || closingHasKeyword
+
+  checks.push({
+    name: 'CTA topic relevance',
+    passed: ctaRelevant,
+    points: (earlyHasKeyword ? 1 : 0) + (closingHasKeyword ? 1 : 0),
+    maxPoints: 2,
+    detail: ctaRelevant
+      ? `CTA references article keywords${earlyHasKeyword && closingHasKeyword ? ' (both)' : earlyHasKeyword ? ' (early)' : ' (closing)'}`
+      : `CTAs don't reference keyword terms: ${kwWords.join(', ')}`,
+  })
+
+  // Check CTAs are different
+  if (earlyCta && closingCta) {
+    const areDifferent = earlyCta !== closingCta
+    checks.push({
+      name: 'CTAs are distinct',
+      passed: areDifferent,
+      points: areDifferent ? 1 : 0,
+      maxPoints: 1,
+      detail: areDifferent ? 'Early and closing CTAs use different text' : 'Early and closing CTAs are identical (copy-pasted)',
+    })
+  }
+
+  const points = checks.reduce((sum, c) => sum + c.points, 0)
+  const maxPoints = checks.reduce((sum, c) => sum + c.maxPoints, 0)
+  return { name: 'CTA Quality', points, maxPoints, checks }
+}
+
 // ── Main Scorer ─────────────────────────────────────────────────────────────
 
 export function scoreArticle(input: ScorerInput): SeoScore {
@@ -778,6 +975,9 @@ export function scoreArticle(input: ScorerInput): SeoScore {
     scoreContentStructure(input, root, fullText),
     scoreAiSearchOptimization(input, root, fullText),
     scoreContentQuality(input, root, fullText),
+    scoreStyleAdherence(input, root, fullText),
+    scoreExternalLinkValidation(input, root),
+    scoreCtaRelevance(input),
   ]
 
   const total = categories.reduce((sum, c) => sum + c.points, 0)

@@ -61,7 +61,9 @@ export async function uploadMedia(file: Buffer, filename: string, alt: string) {
   const mimeType = mimeTypes[ext] || 'image/jpeg'
 
   const formData = new FormData()
-  formData.append('file', new Blob([new Uint8Array(file)], { type: mimeType }), filename)
+  // Use File (not Blob) so the Vercel Blob storage adapter gets proper filename/type metadata
+  const fileObj = new File([new Uint8Array(file)], filename, { type: mimeType })
+  formData.append('file', fileObj)
   formData.append('_payload', JSON.stringify({ alt: alt || 'Airport parking' }))
 
   const url = `${env.PAYLOAD_CMS_URL}/api/media`
@@ -111,6 +113,67 @@ export async function findOrCreateTag(name: string) {
 export async function getApiUser() {
   const result = await payloadFetch('/users/me')
   return result.user || null
+}
+
+// Published posts (for internal link intelligence)
+export interface PublishedPost {
+  slug: string
+  title: string
+  articleType: string
+  airportCode: string
+}
+
+export async function getAllPublishedSlugs(airportCode?: string): Promise<PublishedPost[]> {
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    limit: '500',
+    select: 'slug,title,articleType,airportCode',
+  })
+  if (airportCode) {
+    params.set('where[airportCode][equals]', airportCode.toUpperCase())
+  }
+
+  const result = await payloadFetch(`/posts?${params.toString()}`)
+  return (result.docs || []).map((doc: Record<string, unknown>) => ({
+    slug: doc.slug as string,
+    title: doc.title as string,
+    articleType: (doc.articleType as string) || 'spoke',
+    airportCode: (doc.airportCode as string) || '',
+  }))
+}
+
+// Cluster context — fetch hub + sibling article headings for cross-article awareness
+export interface ClusterArticle {
+  slug: string
+  title: string
+  articleType: string
+  headings: { level: number; text: string }[]
+  excerpt: string
+}
+
+export async function getClusterContext(item: { airportCode: string; articleType: string; hubSlug?: string; parentSlug?: string; slug: string }): Promise<ClusterArticle[]> {
+  // Dynamically import to avoid circular deps
+  const { extractHeadingsFromLexical } = await import('./lexical-to-html.js')
+
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    'where[airportCode][equals]': item.airportCode.toUpperCase(),
+    limit: '20',
+  })
+
+  const result = await payloadFetch(`/posts?${params.toString()}`)
+  const docs = result.docs || []
+
+  return docs
+    .filter((doc: Record<string, unknown>) => doc.slug !== item.slug)
+    .map((doc: Record<string, unknown>) => ({
+      slug: doc.slug as string,
+      title: doc.title as string,
+      articleType: (doc.articleType as string) || 'spoke',
+      headings: extractHeadingsFromLexical(doc.content as Parameters<typeof extractHeadingsFromLexical>[0]),
+      excerpt: ((doc.excerpt as string) || '').slice(0, 200),
+    }))
+    .slice(0, 10)
 }
 
 // Content Queue

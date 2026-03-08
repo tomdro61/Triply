@@ -1,9 +1,11 @@
 import { env } from './config.js'
 
-interface UnsplashPhoto {
+export interface UnsplashPhoto {
   id: string
   urls: { regular: string; small: string }
   alt_description: string | null
+  width: number
+  height: number
   user: { name: string; links: { html: string } }
 }
 

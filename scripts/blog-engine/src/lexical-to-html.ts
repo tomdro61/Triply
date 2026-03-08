@@ -92,6 +92,37 @@ function renderBlockNode(node: LexicalNode): string {
       return `<blockquote>${inner}</blockquote>`
     }
 
+    case 'table': {
+      // Support both native Lexical table nodes and legacy raw HTML format
+      if ((node as { html?: string }).html) {
+        return (node as unknown as { html: string }).html
+      }
+      const tableRows = children.map(renderBlockNode).join('')
+      return `<table>${tableRows}</table>`
+    }
+
+    case 'tablerow': {
+      const cells = children.map(renderBlockNode).join('')
+      return `<tr>${cells}</tr>`
+    }
+
+    case 'tablecell': {
+      const cellNode = node as { headerState?: number }
+      const tag = cellNode.headerState === 1 ? 'th' : 'td'
+      const inner = children.map(renderBlockNode).join('')
+      // Strip wrapping <p> tags inside cells for cleaner HTML
+      const cleaned = inner.replace(/^<p>(.*)<\/p>$/s, '$1')
+      return `<${tag}>${cleaned}</${tag}>`
+    }
+
+    case 'upload': {
+      // Upload nodes represent infographic images
+      const uploadNode = node as { value?: { url?: string; alt?: string } }
+      const url = uploadNode.value?.url || ''
+      const alt = uploadNode.value?.alt || ''
+      return url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}">` : ''
+    }
+
     default: {
       // Unknown block type — render children
       return children.map(renderBlockNode).join('')
@@ -102,4 +133,26 @@ function renderBlockNode(node: LexicalNode): string {
 export function lexicalToHtml(doc: LexicalDocument): string {
   if (!doc?.root?.children) return ''
   return doc.root.children.map(renderBlockNode).join('\n')
+}
+
+/** Extract H2/H3 heading texts from Lexical JSON (lightweight, no HTML conversion). */
+export function extractHeadingsFromLexical(doc: LexicalDocument | null | undefined): { level: number; text: string }[] {
+  if (!doc?.root?.children) return []
+  const headings: { level: number; text: string }[] = []
+
+  function extractText(node: LexicalNode): string {
+    if (node.text) return node.text
+    if (node.children) return node.children.map(extractText).join('')
+    return ''
+  }
+
+  for (const node of doc.root.children) {
+    if (node.type === 'heading' && (node.tag === 'h2' || node.tag === 'h3')) {
+      const text = extractText(node).trim()
+      if (text) {
+        headings.push({ level: node.tag === 'h2' ? 2 : 3, text })
+      }
+    }
+  }
+  return headings
 }

@@ -6,9 +6,27 @@ export function resolveCmsImageUrl(url: string): string {
   return `${CMS_URL}${url}`
 }
 
+function resolveContentImageUrls(content: any): void {
+  if (!content?.root?.children) return
+  const walk = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (node.type === 'upload' && node.value?.url) {
+        node.value.url = resolveCmsImageUrl(node.value.url)
+      }
+      if (node.children) {
+        walk(node.children)
+      }
+    }
+  }
+  walk(content.root.children)
+}
+
 export function resolvePostImages(post: any): any {
   if (post?.featuredImage?.url) {
     post.featuredImage.url = resolveCmsImageUrl(post.featuredImage.url)
+  }
+  if (post?.content) {
+    resolveContentImageUrls(post.content)
   }
   return post
 }

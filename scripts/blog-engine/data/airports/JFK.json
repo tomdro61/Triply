@@ -1,19 +1,669 @@
 {
   "code": "JFK",
   "fullName": "John F. Kennedy International Airport",
-  "lastVerified": "2026-02-14",
+  "lastVerified": "2026-02-26",
+  "overview": {
+    "location": "Queens, New York — 16 miles southeast of Midtown Manhattan",
+    "passengerVolume": "55+ million passengers per year",
+    "distinction": "Busiest international commercial airport in North America",
+    "operator": "Port Authority of New York and New Jersey",
+    "activeTerminals": 5,
+    "averageExitTime": "41 minutes from gate to curb"
+  },
   "terminals": [
-    { "name": "Terminal 1", "airlines": ["Air France", "Japan Airlines", "Korean Air", "Lufthansa"] },
-    { "name": "Terminal 4", "airlines": ["Delta Air Lines", "Emirates", "KLM", "Virgin Atlantic"] },
-    { "name": "Terminal 5", "airlines": ["JetBlue Airways"] },
-    { "name": "Terminal 7", "airlines": ["Alaska Airlines", "British Airways"] },
-    { "name": "Terminal 8", "airlines": ["American Airlines"] }
+    {
+      "name": "Terminal 1",
+      "status": "Being replaced by New Terminal One (Phase 1 opening June 2026)",
+      "airlines": ["Air China", "Air France", "Austrian Airlines", "Brussels Airlines", "EgyptAir", "EVA Air", "ITA Airlines", "Korean Air", "Lufthansa", "Philippine Airlines", "Royal Air Maroc", "Saudi Arabian Airlines", "Scandinavian Airlines", "SWISS", "TAP Portugal", "Turkish Airlines"],
+      "notes": "28+ carriers total. New Terminal One ($9.5B) will replace Terminals 1, 2, and 3 sites. Phase 1 opens June 2026 with 13 gates. Full 23-gate completion by 2030. 2.6M sq ft with 300,000+ sq ft of retail/dining/lounges."
+    },
+    {
+      "name": "Terminal 4",
+      "status": "Active — largest current terminal",
+      "airlines": ["Aeromexico", "Air Europa", "Air India", "Arkia", "Avianca", "Caribbean Airlines", "China Airlines", "Copa Airlines", "Delta Air Lines", "EgyptAir", "EL AL", "Emirates", "Etihad Airways", "Kenya Airways", "KLM Royal Dutch Airlines", "LATAM", "Singapore Airlines", "Uzbekistan Airways", "Virgin Atlantic", "WestJet", "XiamenAir"],
+      "notes": "22 airlines, 25+ million passengers/year. Delta is the dominant carrier (~30% market share). Operated by JFKIAT."
+    },
+    {
+      "name": "Terminal 5",
+      "status": "Active — undergoing refresh (completion end of 2026)",
+      "airlines": ["JetBlue Airways", "Cape Air"],
+      "notes": "JetBlue's flagship terminal. $100M+ refresh adding 40+ new concessions (Shake Shack, Eataly). BlueHouse premium lounge opened Dec 2025. Will connect seamlessly to new Terminal 6."
+    },
+    {
+      "name": "Terminal 6",
+      "status": "NEW — Phase 1 opening first half of 2026",
+      "airlines": ["Aer Lingus", "Air Canada", "ANA (All Nippon Airways)", "Austrian Airlines", "Avianca", "Brussels Airlines", "Cathay Pacific", "Condor", "Frontier Airlines", "Icelandair", "JetBlue", "Kuwait Airways", "Lufthansa", "Norse Atlantic", "SWISS"],
+      "notes": "Brand new $4.2B terminal, 10 gates optimized for widebody aircraft. Phase 1 (6 gates) opening 2026, full completion 2028. Connects to Terminal 5. Developed by JFK Millennium Partners. 15 airlines confirmed."
+    },
+    {
+      "name": "Terminal 7",
+      "status": "Active but CLOSING — scheduled for demolition in 2026",
+      "airlines": ["Aer Lingus", "Alaska Airlines", "ANA", "Aerolineas Argentinas", "Icelandair", "LOT Polish Airlines"],
+      "notes": "British Airways moved to Terminal 8 in Nov 2022. Terminal 7 will be demolished to make way for Terminal 6 Phase 2. Airlines will relocate to T6/T8. Managed by JMP until closure."
+    },
+    {
+      "name": "Terminal 8",
+      "status": "Active — $400M expansion completed Nov 2022",
+      "airlines": ["American Airlines", "British Airways", "Cathay Pacific", "China Southern", "Finnair", "Iberia", "Japan Airlines", "Qantas", "Qatar Airways", "Royal Jordanian"],
+      "notes": "American Airlines hub. British Airways relocated here from T7 in late 2022. 10 carriers."
+    }
   ],
-  "roads": ["Van Wyck Expressway", "Belt Parkway", "JFK Expressway", "Lefferts Boulevard"],
-  "transit": ["AirTrain JFK", "E Train", "A Train", "Q10 Bus", "Long Island Rail Road"],
-  "neighborhoods": ["Jamaica", "Howard Beach", "Ozone Park", "South Ozone Park"],
+  "terminalChanges2026": "Around 50 airlines (~2/3 of all JFK carriers) are expected to change terminals in 2026 due to the opening of New Terminal One and Terminal 6, plus the demolition of Terminal 7. Travelers should verify their terminal before every trip.",
+  "roads": ["Van Wyck Expressway", "Belt Parkway", "JFK Expressway", "Lefferts Boulevard", "South Conduit Avenue", "Rockaway Boulevard"],
+  "transit": ["AirTrain JFK", "E Train (to Jamaica)", "A Train (to Howard Beach)", "J/Z Trains (to Jamaica)", "Q10 Bus", "Long Island Rail Road (LIRR)"],
+  "neighborhoods": ["Jamaica", "Howard Beach", "Ozone Park", "South Ozone Park", "Springfield Gardens", "Rosedale"],
   "authority": "Port Authority of New York and New Jersey",
-  "parkingRates": "Official on-airport rates: $18/day (long-term), $39/day (short-term garage). Off-site lots typically $8-$18/day.",
-  "shuttleInfo": "Most off-site lots run free shuttles every 5-15 minutes, 24/7. AirTrain connects all terminals.",
-  "distanceFromCity": "15 miles southeast of Midtown Manhattan, roughly 45-75 min by car depending on traffic"
+  "airTrain": {
+    "fareOneWay": 8.50,
+    "fareRoundTripPerPerson": 17.00,
+    "fare10Trip": 26.50,
+    "fare10TripPerRide": 2.65,
+    "summerDiscount": {
+      "fare": 4.25,
+      "period": "June 30 through Labor Day",
+      "reason": "50% reduction to encourage public transit during peak construction"
+    },
+    "paymentMethods": ["OMNY (contactless/tap)", "MetroCard"],
+    "freeStations": ["All terminal stations (inter-terminal travel is free)", "Lefferts Boulevard (long-term parking)", "Federal Circle (hotel/rental car shuttles)"],
+    "paidStations": ["Jamaica Station", "Howard Beach Station"],
+    "childrenUnder5": "Free",
+    "connections": {
+      "jamaica": {
+        "subway": ["E", "J", "Z lines at Sutphin Blvd-Archer Ave station"],
+        "lirr": "20 minutes to Penn Station/Grand Central Madison/Atlantic Terminal",
+        "lirrFare": "$5 off-peak, $7 peak"
+      },
+      "howardBeach": {
+        "subway": ["A line at Howard Beach station"]
+      }
+    },
+    "totalCostWithSubway": 11.40,
+    "travelTimeToManhattan": "60-90 minutes via subway + AirTrain",
+    "competitorNote": "CRITICAL for off-site parking comparison: AirTrain costs $8.50/person one-way ($17.00 round-trip). A couple pays $34 round-trip on AirTrain alone. Off-site lots with direct shuttle service eliminate this cost entirely."
+  },
+  "groundTransportation": {
+    "taxi": {
+      "flatRateToManhattan": 70.00,
+      "peakSurcharge": 5.00,
+      "peakHours": "4-8 PM weekdays (excluding holidays)",
+      "typicalTotalWithTolls": "85-100",
+      "notes": "Metered to other destinations. Flat rate is predictable — no surge pricing."
+    },
+    "rideshare": {
+      "uberXRange": "50-65 (no surge)",
+      "surgeRange": "100-150 (peak hours)",
+      "surgeFrequency": "34% of Manhattan-bound rides experience surge pricing",
+      "surgeMultiplier": "1.5-2.5x during peak periods",
+      "notes": "No flat rate — upfront pricing shown. Can be cheaper off-peak but unpredictable during rush hours."
+    },
+    "lirr": {
+      "fareOffPeak": 5.00,
+      "farePeak": 7.00,
+      "travelTime": "20 minutes to Penn Station/Grand Central",
+      "totalWithAirTrain": "13.50-15.50 per person"
+    },
+    "expressBus": {
+      "travelTime": "60-120 minutes depending on traffic",
+      "routes": "From Grand Central/Penn Station"
+    }
+  },
+  "parkingRates": "On-airport: Yellow/Blue Garage $6/half-hr ($80/day max, $48 pre-booked), Red Garage (T8) $4/half-hr ($70/day max, $36 pre-booked), Economy Lot 9 $29/first 24hrs then $10/hr. Off-site via Triply: $10.62-$30.45/day. IMPORTANT: AirTrain costs $8.50/person one-way — off-site lots with direct shuttles save this cost vs. on-airport parking + AirTrain from Lot 9.",
+  "onAirportParking": {
+    "yellowGarage": {
+      "rate": "$6 per half hour",
+      "dailyMax": 80,
+      "preBookRate": 48,
+      "terminals": "Terminal 1 area"
+    },
+    "blueGarage": {
+      "rate": "$6 per half hour",
+      "dailyMax": 80,
+      "preBookRate": 48,
+      "terminals": "Terminal 4 area"
+    },
+    "redGarage": {
+      "rate": "$4 per half hour",
+      "dailyMax": 70,
+      "preBookRate": 36,
+      "terminals": "Terminal 8"
+    },
+    "lot9Economy": {
+      "rate": "$29 for first 24 hours",
+      "additionalRate": "$10/hour after first 24 hours",
+      "location": "Lefferts Boulevard",
+      "connection": "Free AirTrain from Lefferts Blvd station to all terminals",
+      "notes": "Cheapest on-airport option but still requires AirTrain transfer (free from Lot 9 station)"
+    },
+    "cellPhoneLot": {
+      "count": 2,
+      "cost": "Free",
+      "rules": "Driver must remain with vehicle at all times"
+    },
+    "federalCircle": {
+      "description": "AirTrain station for hotel shuttles, rental car offices, and off-site parking lot shuttles",
+      "airTrainCost": "Free (no fare charged at Federal Circle)"
+    },
+    "parkingInquiries": "(347) 238-3231",
+    "parkingCustomerService": "(888) 250-8277"
+  },
+  "shuttleInfo": "Most off-site lots run free shuttles every 10-45 minutes. AirTrain connects all terminals (free for inter-terminal travel). Federal Circle AirTrain station is free and serves as the pickup point for many hotel/parking shuttles. Some budget lots (Parking 4 Airport, Hyatt Place Flushing, Queens Crossing) have limited shuttle hours with NO overnight service.",
+  "distanceFromCity": "16 miles southeast of Midtown Manhattan, roughly 45-75 min by car depending on traffic. 20 min via LIRR to Penn Station + AirTrain.",
+  "construction2026": {
+    "status": "Major $19 billion redevelopment at peak activity in 2026",
+    "projects": [
+      "New Terminal One ($9.5B) — Phase 1 opening June 2026, 13 gates, full completion 2030",
+      "New Terminal 6 ($4.2B) — Phase 1 (6 gates) opening first half 2026, full completion 2028",
+      "Terminal 7 demolition scheduled for 2026 to make room for T6 Phase 2",
+      "Terminal 5 refresh by JetBlue — 40+ new concessions, completion end of 2026",
+      "Major roadway reconstruction causing significant traffic delays"
+    ],
+    "travelImpact": "Airlines recommend arriving 2-3 hours before departure. Multiple parking lots advise arriving 3 hours early. Roadway construction causing delays getting into airport. About 50 airlines changing terminals in 2026.",
+    "airTrainDiscount": "50% off AirTrain fare ($4.25 instead of $8.50) from June 30 through Labor Day to reduce road congestion during peak construction"
+  },
+  "parkingLots": [
+    {
+      "name": "Safe Park (JFK)",
+      "slug": "safe-park-jfk",
+      "dailyRate": 30.45,
+      "totalFor6Days": 201.66,
+      "taxesFor6Days": 18.96,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["24/7 Front Desk", "Restrooms"],
+      "shuttleInfo": "24/7, every 45 minutes. Valet service — must leave keys.",
+      "overview": "Located just 5 minutes drive from JFK Airport, right next to the JFK Expressway. Restrooms on premises. Valet team parks your car.",
+      "phone": null,
+      "address": null,
+      "freeCancellation": true,
+      "knownCoupons": ["PARKJFK7 ($7 off)", "Up to 20% off via coupon aggregators"],
+      "notes": "JFK construction may affect shuttle times. Every 7th day free on their direct website at $24.95/day."
+    },
+    {
+      "name": "Purchase Park 2 Fly (JFK)",
+      "slug": "purchase-park-2-fly-jfk",
+      "dailyRate": 27.61,
+      "totalFor6Days": 181.16,
+      "taxesFor6Days": 15.53,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "1.9 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "24/7 Front Desk", "Luggage Assistance"],
+      "shuttleInfo": "24/7, on demand. Call 888-960-7275 for return shuttle pickup.",
+      "overview": "Professional valet service with complimentary luggage assistance. Fully fenced and staffed 24/7 with video surveillance. GPS address: 123-70 S Conduit Ave (some GPS may need 124-10 S Conduit Ave). Look for blue and orange signage.",
+      "phone": "888-960-7275",
+      "address": "123-70 S Conduit Ave, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off via AirportParkingReservations)"],
+      "notes": "Third driveway on the right when traveling on South Conduit Avenue. Must leave keys."
+    },
+    {
+      "name": "DoubleTree by Hilton (JFK)",
+      "slug": "doubletree-by-hilton-jfk",
+      "dailyRate": 25.99,
+      "totalFor6Days": 155.94,
+      "taxesFor6Days": 0.00,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "2.1 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "24/7, every 30 minutes (first-come, first-served). Return pickup: call 718-322-2300. Pickup at Federal Circle — white van with DoubleTree signage.",
+      "overview": "Formerly Radisson JFK. Fully gated, monitored 24/7 by on-site staff and video surveillance. Hotel amenities accessible. Arrive 30 min before desired shuttle departure.",
+      "phone": "718-322-2300",
+      "address": null,
+      "freeCancellation": true,
+      "knownCoupons": ["JFK319 ($8 off via AirportParkingReservations)"],
+      "notes": "No taxes on Triply rate. Renovation traffic warning — arrive at least 3 hours before flight. Must leave keys."
+    },
+    {
+      "name": "Bolt Parking (JFK)",
+      "slug": "bolt-parking-jfk",
+      "dailyRate": 26.99,
+      "totalFor7Days": 204.91,
+      "taxesFor7Days": 15.98,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "2.3 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "24/7 Front Desk"],
+      "shuttleInfo": "24/7, every 30 minutes. Return: call 718-525-0099.",
+      "overview": "Convenient valet parking with 24/7 security and attentive staff. Located 5 minutes from JFK.",
+      "phone": "718-525-0099",
+      "address": null,
+      "freeCancellation": true,
+      "knownCoupons": ["PARKJFK7 ($7 off)", "JFK319 ($8 off)", "Up to 70% off via aggregators"],
+      "notes": "Direct website rate starts at $18.99/day. Must leave keys."
+    },
+    {
+      "name": "ARB Parking (JFK)",
+      "slug": "arb-parking-jfk",
+      "dailyRate": 15.45,
+      "totalFor6Days": 102.78,
+      "taxesFor6Days": 10.08,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "24/7 Front Desk", "Free Internet/Wifi"],
+      "shuttleInfo": "24/7, every 10-15 minutes (continuous). Return: call 718-480-6663 or 718-480-6664.",
+      "overview": "Budget-friendly off-airport parking. Fast shuttle to all JFK terminals. 24/7 staff, fenced and gated lot. Arrive 30 min before desired shuttle departure.",
+      "phone": "718-480-6663",
+      "address": null,
+      "freeCancellation": true,
+      "knownCoupons": ["PARKJFK7 ($7 off)", "B2PD25 ($3 off via Book2Park)", "Groupon deals available"],
+      "notes": "Surcharge for SUVs: small SUV $5/day extra, large SUV/truck $7/day extra. Available on Groupon. Direct rate from $12.95/day."
+    },
+    {
+      "name": "PARK AC JFK Airport Parking (JFK)",
+      "slug": "park-ac-jfk-airport-parking-jfk",
+      "dailyRate": 12.95,
+      "totalFor6Days": 85.76,
+      "taxesFor6Days": 8.06,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "2.5 mi (0.5 mi direct)",
+      "driveTime": "5 minutes",
+      "parkingType": "Self-Park (uncovered)",
+      "amenities": ["24/7 Front Desk"],
+      "shuttleInfo": "24/7, every 10 minutes to and from all JFK terminals.",
+      "overview": "Cheapest JFK-dedicated lot on Triply. Entrance at corner of 126th Street and 152nd Avenue. Monitored around the clock. Self-park with staff directing you.",
+      "phone": null,
+      "address": "126th St & 152nd Ave, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": ["PARKJFK7 ($7 off)", "Groupon deals available"],
+      "notes": "Lowest daily rate for JFK-proximity lots. JFK renovation may cause traffic delays — arrive 3 hours before flight. Mixed reviews on pickup wait times."
+    },
+    {
+      "name": "Parking 4 Airport (JFK)",
+      "slug": "parking-4-airport-jfk",
+      "dailyRate": 15.77,
+      "totalFor6Days": 104.92,
+      "taxesFor6Days": 10.29,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "4.7 mi",
+      "driveTime": "15 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "Wheelchair Access"],
+      "shuttleInfo": "5:15 AM - 9:00 PM only, every 20-30 minutes. NO shuttle 9 PM - 5:15 AM (use Uber/Lyft). Return: call from Arrivals pickup area.",
+      "overview": "Affordable option but farther from JFK (15-min drive). Limited shuttle hours. Valet with key drop required.",
+      "phone": null,
+      "address": null,
+      "freeCancellation": true,
+      "knownCoupons": ["JFK319 ($8 off via AirportParkingReservations)"],
+      "notes": "NO overnight shuttle — must use rideshare after 9 PM. Arrive 30-60 min before desired airport time. Farther away than other options."
+    },
+    {
+      "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
+      "slug": "hyatt-place-flushing-laz-parking-lga",
+      "dailyRate": 11.62,
+      "totalFor6Days": 76.52,
+      "taxesFor6Days": 6.82,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "8.6 mi",
+      "driveTime": "20-30 minutes",
+      "parkingType": "Valet (indoor garage, covered)",
+      "amenities": ["Valet", "Covered/Garage", "Security", "Restaurant", "Free Wifi", "Rooftop Lounge"],
+      "shuttleInfo": "7 AM - 10 PM, every hour on the hour. NO shuttle 10 PM - 7 AM. Call 718-888-1234 press 0 for return pickup.",
+      "overview": "Indoor garage at Hyatt Place hotel in Flushing. Elevator from lot to hotel lobby with coffee-to-cocktails bar, free wifi, rooftop lounge (5PM-1AM). Security cameras. Does NOT accept pickup trucks, extra-large trucks, vans, or oversized vehicles.",
+      "phone": "718-888-1234",
+      "address": "Flushing, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Technically an LGA lot but appears in JFK search results. Covered/indoor parking. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours."
+    },
+    {
+      "name": "Queens Crossing - LAZ Parking (LGA)",
+      "slug": "queens-crossing-laz-parking-lga",
+      "dailyRate": 10.62,
+      "totalFor6Days": 68.97,
+      "taxesFor6Days": 5.27,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "8.7 mi",
+      "driveTime": "20-30 minutes",
+      "parkingType": "Valet (indoor garage, covered)",
+      "amenities": ["Valet", "Covered/Garage", "Security"],
+      "shuttleInfo": "6:30 AM - 10:30 PM, every hour on the half-hour. NO shuttle 10:30 PM - 6:30 AM. Call 718-888-1234 press 0 for return.",
+      "overview": "Budget indoor garage parking near Flushing. Prepaid only — must print receipt and present to valet. 7'6\" clearance. Open weekdays 6 AM - 11:59 PM, weekends 7 AM - 11:59 PM.",
+      "phone": "718-888-1234",
+      "address": "Flushing, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Cheapest option but 8.7 mi from JFK. LGA lot appearing in JFK results. Limited availability badge shown. Must print receipt — no receipt = no service, no refund. Arrive 2 hours before flight. Limited shuttle hours."
+    }
+  ],
+  "couponCodes": {
+    "general": [
+      { "code": "JFK319", "discount": "$8 off", "source": "AirportParkingReservations.com", "verified": true },
+      { "code": "PARKJFK7", "discount": "$7 off", "source": "jfkparking.discount", "verified": true },
+      { "code": "JFKOFF", "discount": "$5 off", "source": "On Air Parking", "verified": true },
+      { "code": "JFK5", "discount": "5% off", "source": "Rightway Parking", "verified": true },
+      { "code": "B2PD25", "discount": "$3 off", "source": "Book2Park.com (ARB Parking)", "verified": true }
+    ],
+    "tips": [
+      "Subscribe to JFK Long Term Parking email newsletter for up to 30% off exclusive deals",
+      "AAA members can get up to 20% off at participating JFK lots",
+      "Check Groupon for bundled deals on ARB Parking and PARK AC",
+      "Book through aggregators like Triply, Way.com, or SpotHero to compare rates",
+      "Prices are dynamic — booking further in advance generally locks in lower rates",
+      "AirTrain is 50% off ($4.25) during summer (June 30 - Labor Day) due to construction"
+    ]
+  },
+  "evCharging": {
+    "terminal5": "5 dual-plug ChargePoint stations (10 plugs total) in Yellow Parking Level 2. Requires ChargePoint RFID card.",
+    "fhvHoldLot": "24 brand-new EV chargers in the for-hire vehicle hold lot (accessible via Van Wyck Expressway or Belt Parkway).",
+    "nearbyMegaHub": "Wildflower EV station (largest in NYC) breaking ground 2026 north of JFK between Nassau Expressway and Rockaway Boulevard — 65+ charging stations including 12 rapid chargers, 24/7.",
+    "offSiteLots": "No off-site parking lots currently advertise EV charging. EV drivers should charge before parking."
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 4", "Terminal 5", "Terminal 8"],
+      "enrollmentHours": "4:30 AM - 8:00 PM",
+      "avgWaitTime": "1-11 minutes"
+    },
+    "clear": {
+      "terminals": ["Terminal 4 only"],
+      "operatingHours": "Until 10:00 PM",
+      "registrationTime": "5 minutes on-site",
+      "waitTimeReduction": "15-20 minutes faster than standard"
+    },
+    "globalEntry": {
+      "waitTimeReduction": "12-15 minutes through customs"
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHoliday": "30-60 minutes",
+      "terminal4Range": "6-36 minutes standard, 1-11 minutes PreCheck",
+      "terminal5Note": "Most clear within 10 minutes, but spikes around 9 AM"
+    }
+  },
+  "lounges": {
+    "terminal1": ["Lufthansa Business Lounge", "Air France Lounge (9:45AM-11:30PM, near Air France boarding area Gate 1)", "KAL Lounge (8AM-12PM, across from Gate 3)"],
+    "terminal4": ["HelloSky Lounge (Priority Pass accepted)", "Air India Maharaja Lounge (Priority Pass accepted, subject to capacity)", "Delta Sky Club", "Virgin Atlantic Clubhouse", "Emirates Lounge"],
+    "terminal5": ["JetBlue BlueHouse premium lounge (opened Dec 2025)", "Be Relax Spa (opposite Gates 6-7, Priority Pass: select complimentary treatments)"],
+    "terminal8": ["Bobby Van's Steakhouse (opposite Gate 14, 6AM-9PM, Priority Pass: $28 credit)", "Admirals Club (American Airlines)", "British Airways Galleries Lounge"],
+    "priorityPassTip": "Priority Pass holders get $28 off at Bobby Van's Steakhouse (T8) and select treatments at Be Relax Spa (T5). HelloSky and Air India Maharaja lounges in T4 accept Priority Pass subject to capacity."
+  },
+  "wifi": {
+    "networkName": "_Free JFK WiFi",
+    "cost": "Free — no registration, no time limit",
+    "loginUrl": "freeJFKwifi.com (loads automatically or open manually)",
+    "avgSpeed": "151 Mbps download",
+    "terminal4Speed": "~160 Mbps (after booster installation)",
+    "peakCongestionSpeed": "80-120 Mbps (6-9 AM and 4-7 PM)",
+    "coverage": "All terminals",
+    "note": "15-20% of users may experience issues during peak travel. Lounge wifi is significantly faster and more secure."
+  },
+  "luggageStorage": {
+    "onSite": {
+      "provider": "Smarte Carte",
+      "terminal1": "7:00 AM - 10:00 PM daily",
+      "terminal4": "24/7 access",
+      "rate": "$25 per bag per day",
+      "maxDuration": "72 hours standard (advance reservation for longer)"
+    },
+    "offSiteAlternatives": [
+      { "provider": "Stasher", "rate": "From $2.99/day per item", "coverage": "$1,300 guarantee" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily rates" },
+      { "provider": "Bounce", "rate": "From $3.25/day", "locations": "Throughout Queens" }
+    ],
+    "note": "No luggage lockers inside JFK (removed for security). Only staffed counters at T1 and T4."
+  },
+  "petFacilities": {
+    "totalReliefAreas": 11,
+    "terminals": {
+      "terminal1": "1 area — outside Arrivals, east end, pre-security",
+      "terminal4": "4 areas — indoor on Level 2 near gates, indoor post-security near Gate B31 Level 3, outdoor Level 1 east end, outdoor curbside Level 1 west end",
+      "terminal5": "2 areas — Wooftop outdoor rooftop near Gate 28 Level 3 (largest at JFK, post-security), outdoor curbside Level 1 north end pre-security",
+      "terminal7": "2 areas — outdoor curbside Level 1, indoor post-security Level 3 near Gates 9-10",
+      "terminal8": "2 areas — indoor post-security near Gate 38 Level 3"
+    },
+    "arkFacility": {
+      "name": "The ARK at JFK",
+      "location": "Cargo Area D, off the runway",
+      "size": "178,000 sq ft building + 14 acres surrounding",
+      "services": ["Day pet care", "Animal shipping", "Airline check-in assistance", "Veterinary services", "Quarantine center"],
+      "animals": "Horses, pets, companion animals, birds, livestock",
+      "note": "One of the most unique animal facilities at any airport worldwide"
+    }
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["6-9 AM (morning rush, domestic + international)", "3-7 PM (evening peak)"],
+    "busiestDays": ["Friday", "Sunday"],
+    "quietestDay": "Tuesday",
+    "quietDays": ["Tuesday", "Wednesday"],
+    "busiestHolidays": ["Thanksgiving", "Christmas", "July 4th", "Memorial Day", "Labor Day"],
+    "bestTimeToFly": "Early morning (6-8 AM) — 80%+ on-time arrival rate",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "during2026Construction": "Add 30-60 extra minutes due to roadway construction and terminal changes"
+    }
+  },
+  "tolls": {
+    "manhattanToJFK": {
+      "ezPass": "$6.12",
+      "cash": "$9.50",
+      "tollCrossings": ["RFK/Triboro Bridge", "Midtown Tunnel", "Brooklyn-Battery (Hugh L. Carey) Tunnel"],
+      "freeBridges": "Most other bridge crossings are toll-free"
+    },
+    "fromLongIsland": {
+      "route": "Southern State Parkway to Belt Parkway West Exit 20",
+      "estimatedDriveTime": "~45 minutes",
+      "tolls": "Generally toll-free via Belt Parkway"
+    },
+    "taxiTollsIncluded": "Tolls ($6-$9.50) are added on top of the $70 flat fare to Manhattan"
+  },
+  "savingsComparison": {
+    "scenario": "6-day trip for 2 travelers",
+    "onAirport": {
+      "lot9Economy": {
+        "parkingCost": "~$145 (estimated 6 days)",
+        "airTrainCost": 0,
+        "airTrainNote": "Free from Lot 9 Lefferts Blvd station",
+        "totalEstimate": "~$145"
+      },
+      "garagePreBooked": {
+        "parkingCost": "~$216-$288 (6 days at $36-$48/day pre-booked)",
+        "airTrainCost": 0,
+        "airTrainNote": "Walk to terminal from garage",
+        "totalEstimate": "~$216-$288"
+      }
+    },
+    "offSiteWithShuttle": {
+      "parkAC": {
+        "parkingCost": 85.76,
+        "airTrainCost": 0,
+        "airTrainNote": "Direct shuttle to terminal — no AirTrain needed",
+        "totalEstimate": 85.76,
+        "savingsVsLot9": "~$59 saved vs Lot 9"
+      },
+      "arbParking": {
+        "parkingCost": 102.78,
+        "airTrainCost": 0,
+        "airTrainNote": "Direct shuttle every 10-15 min — no AirTrain needed",
+        "totalEstimate": 102.78,
+        "savingsVsLot9": "~$42 saved vs Lot 9"
+      }
+    },
+    "publicTransit": {
+      "subwayPlusAirTrain": {
+        "costPerPersonOneWay": 11.40,
+        "costPerPersonRoundTrip": 22.80,
+        "costForCoupleRoundTrip": 45.60,
+        "travelTime": "60-90 minutes each way"
+      },
+      "lirrPlusAirTrain": {
+        "costPerPersonOneWayOffPeak": 13.50,
+        "costPerPersonRoundTripOffPeak": 27.00,
+        "costForCoupleRoundTripOffPeak": 54.00,
+        "travelTime": "35-45 minutes each way"
+      }
+    }
+  },
+  "rentalCars": {
+    "location": "Federal Circle — accessible via free AirTrain",
+    "companies": ["Avis (305 Federal Circle)", "Budget (310 Federal Circle)", "Dollar (318 Federal Circle)", "Enterprise/National/Alamo (Building 308)", "Hertz (69 Federal Circle)", "SIXT (312 Federal Circle)", "Payless (in Avis building)"],
+    "avgDailyRate": "$30-40/day for economy/compact (off-peak)",
+    "note": "Must take AirTrain to Federal Circle station (free). AirTrain runs every 2-5 min."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near JFK — stay the night before, park free for your trip, shuttle to terminal.",
+    "priceRange": "$43-49/night typical",
+    "popularHotels": ["DoubleTree by Hilton JFK (24/7 shuttle every 30 min)", "Holiday Inn Express JFK (free breakfast + shuttle + wifi)", "Fairfield Inn JFK"],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "airportparkingreservations.com"]
+  },
+  "currencyExchange": {
+    "providers": ["Travelex", "CXI (Currency Exchange International)", "ICE"],
+    "locations": {
+      "terminal1": "Gate 1 area",
+      "terminal4": "Arrivals Hall, Concourse B Gate 31, Retail Hall East, Retail Hall West",
+      "terminal5": "Near food court (close to iS Duty Free)",
+      "terminal7": "Arrivals and Departures levels",
+      "terminal8": "Pre-security and post-security areas"
+    },
+    "atms": "Available in every terminal, 24/7, dispense USD only. Accept international cards. Fee: up to $5/transaction for non-network users.",
+    "warning": "Airport exchange rates charge up to 14% markup vs. outside rates. Use ATM or exchange before arriving for better rates."
+  },
+  "interTerminalTransfers": {
+    "method": "AirTrain (free for inter-terminal travel)",
+    "frequency": "Every 2-5 minutes",
+    "minimumConnectionTimes": {
+      "domesticToDomestic": "90 minutes minimum, 2 hours recommended",
+      "internationalToDomestic": "2 hours minimum, 3 hours recommended",
+      "domesticToInternational": "2-3 hours recommended"
+    },
+    "criticalNote": "All international arrivals must clear Customs, collect checked bags, and re-check them — even for connecting flights. You must exit security and re-clear at your departure terminal.",
+    "during2026Construction": "Add extra time — terminal changes affecting ~50 airlines. Verify your terminal before every trip."
+  },
+  "weatherPatterns": {
+    "worstMonths": ["January", "February", "December"],
+    "commonDisruptions": "Snow, ice, nor'easters, summer thunderstorms, fog",
+    "winterImpact": "Major storms can cancel 400+ flights. JFK's location (surrounded by water and dense development) limits runway flexibility during severe weather.",
+    "cascadingEffect": "JFK disruptions cascade nationwide — 5,000+ flights affected during major storms as inbound flights are preemptively canceled.",
+    "summerStorms": "Afternoon thunderstorms June-August can cause 1-3 hour delays",
+    "bestMonths": "September-October and April-May typically see fewest weather disruptions"
+  },
+  "tippingGuide": {
+    "skycap": "$2-3 per bag",
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app tipping, typically $3-5 or 15-20%"
+  },
+  "familyFacilities": {
+    "lactationRooms": {
+      "total": 15,
+      "types": "11 Mamava pods + 4 nursing rooms",
+      "locations": {
+        "terminal1": "Gate 1 (outside Air France Lounge), Gate C70",
+        "terminal4": "Gate A3, Gate B31, West Retail Hall, Level 3 private family room with changing table",
+        "terminal5": "Gate 1, Gate 12, Gate 27",
+        "terminal7": "Next to Gate 10, Gates 3-4",
+        "terminal8": "3rd floor interior hallway, Gate 14, Gate 42"
+      },
+      "features": "Lockable door, electrical outlets, seating for family of 4 + luggage"
+    }
+  },
+  "premiumTransport": {
+    "blade": {
+      "service": "BLADE helicopter — JFK to Manhattan",
+      "flightTime": "5 minutes",
+      "costPerSeat": "$195+ (by-the-seat)",
+      "privateCharter": "$795-995",
+      "luggage": "Under 25lbs included. Extra bag: $145 advance / $175 at lounge",
+      "hours": "Mon-Wed 7AM-7PM, Thu-Fri 7AM-8PM, Sun 3PM-7PM",
+      "heliports": "West 30th St and East 34th St Manhattan",
+      "includes": "Ground transportation between helicopter and flight",
+      "note": "Joby Aviation (electric air taxi) acquired BLADE's passenger service. Bookable through Uber app starting 2026."
+    }
+  },
+  "emergencyContacts": {
+    "airportInfo": "(718) 244-4444",
+    "parkingInquiries": "(347) 238-3231",
+    "parkingCustomerService": "(888) 250-8277",
+    "tsa": "(866) 289-9673",
+    "customsBorderProtection": "(646) 733-3100",
+    "lostAndFound": "Contact individual terminal or airline"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs to scrape for fresh data when generating articles. Grouped by topic.",
+    "officialAirport": {
+      "parking": "https://www.jfkairport.com/to-from-airport/parking",
+      "airTrain": "https://www.jfkairport.com/to-from-airport/air-train",
+      "airlines": "https://www.jfkairport.com/flight/airlines",
+      "taxiCarService": "https://www.jfkairport.com/to-from-airport/taxi-car-and-van-service",
+      "securityWaitTimes": "https://www.jfkairport.com/security-wait-times",
+      "connectingFlights": "https://www.jfkairport.com/at-airport/connecting-flights",
+      "terminalMap": "https://www.jfkairport.com/terminal-map"
+    },
+    "terminal4": {
+      "airlines": "https://www.jfkt4.nyc/4info/airlines/",
+      "services": "https://www.jfkt4.nyc/t4-services/",
+      "gettingToT4": "https://www.jfkt4.nyc/4info/getting-to/",
+      "pets": "https://www.jfkt4.nyc/faq/traveling-with-pets/"
+    },
+    "construction": {
+      "overview": "https://www.portauthoritybuilds.com/redevelopment/us/en/jfk.html",
+      "newTerminalOne": "https://www.portauthoritybuilds.com/redevelopment/us/en/jfk/planned-projects/terminal-1.html",
+      "terminal6": "https://www.portauthoritybuilds.com/redevelopment/us/en/jfk/planned-projects/terminal-6.html"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=JFK",
+      "airportParkingReservations": "https://airportparkingreservations.com/jfk/parking-coupons",
+      "spothero": "https://spothero.com/airport/nyc/jfk-parking",
+      "way": "https://www.way.com/jfk",
+      "grouponJFK": "https://www.groupon.com/local/new-york-city/airport-parking",
+      "jfkParkingDiscount": "https://jfkparking.discount/",
+      "jfkAirportParking": "https://jfk-airportparking.com/",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/john-f-kennedy-international-airport-jfk"
+    },
+    "couponAggregators": {
+      "simplyCodes": "https://simplycodes.com/store/jfklongtermparking.com",
+      "knojiBoltParking": "https://boltparking.knoji.com/promo-codes/",
+      "knojiSafePark": "https://safeparkjfk.knoji.com/promo-codes/",
+      "greenPromoCode": "https://www.greenpromocode.com/coupons/jfk-parking/",
+      "onAirParking": "https://www.onairparking.com/parking-coupons/JFK"
+    },
+    "groundTransportation": {
+      "mta": "https://www.mta.info/guides/airports/jfk",
+      "bladeHelicopter": "https://www.blade.com/p/jfk",
+      "taxiFare": "https://www.nyc.gov/site/tlc/passengers/taxi-fare.page"
+    },
+    "lounges": {
+      "priorityPass": "https://www.prioritypass.com/airport-guides/new-york-ny-jfk-international",
+      "nerdwalletGuide": "https://www.nerdwallet.com/travel/learn/jfk-lounges-guide",
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/new-york-jfk-airport-lounges/"
+    },
+    "reviews": {
+      "yelpLot9": "https://www.yelp.com/biz/jfk-long-term-parking-lot-9-jamaica",
+      "trustpilotDiscountParking": "https://www.trustpilot.com/review/discountparkingjfk.com"
+    },
+    "weatherAndDelays": {
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/JFK",
+      "accuweather": "https://www.accuweather.com/en/us/john-f-kennedy-international-airport/11430/air-travel-weather/2627476"
+    },
+    "evCharging": {
+      "plugshareT5": "https://www.plugshare.com/location/7127",
+      "plugshareCellPhoneLot": "https://www.plugshare.com/location/263480"
+    },
+    "comprehensiveGuides": {
+      "blacklane2026": "https://www.blacklane.com/en/blog/travel/airports/complete-guide-to-jfk-airport/",
+      "chase": "https://www.chase.com/personal/credit-cards/education/basics/guide-to-jfk-airport",
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/john-f-kennedy-jfk-airport/",
+      "neighborBlog": "https://www.neighbor.com/storage-blog/jfk-airport-parking/"
+    },
+    "lactation": {
+      "mamava": "https://www.momspumphere.com/places/place/details/699_john-f-kennedy-international-airport"
+    },
+    "luggageStorage": {
+      "smarteCarte": "https://smartecarte.com/john-f-kennedy/",
+      "stasher": "https://stasher.com/luggage-storage/united-states-of-america/new-york/jfk-airport"
+    },
+    "rentalCars": {
+      "kayak": "https://www.kayak.com/New-York-John-F-Kennedy-Intl-Airport-Car-Rentals.JFK.cap.ksp",
+      "autoslash": "https://blog.autoslash.com/john-f-kennedy-airport-jfk-car-rental-guide/"
+    }
+  }
 }

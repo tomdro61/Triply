@@ -1,17 +1,565 @@
 {
   "code": "LGA",
   "fullName": "LaGuardia Airport",
-  "lastVerified": "2026-02-14",
+  "lastVerified": "2026-02-26",
+  "overview": {
+    "location": "East Elmhurst, Queens, New York — 8 miles east of Midtown Manhattan",
+    "passengerVolume": "33.5 million passengers per year (31.8M domestic, 1.7M international)",
+    "distinction": "Closest NYC airport to Manhattan. Busiest airport without nonstop transcontinental wide-body service (due to short runways).",
+    "operator": "Port Authority of New York and New Jersey",
+    "activeTerminals": 3,
+    "runways": 2,
+    "runwayLength": "7,001 ft and 7,003 ft — short by major airport standards",
+    "dominantAirline": "Delta Air Lines (220+ daily departures)"
+  },
   "terminals": [
-    { "name": "Terminal A", "airlines": ["Spirit Airlines", "Frontier Airlines", "Southwest Airlines"] },
-    { "name": "Terminal B", "airlines": ["American Airlines", "United Airlines", "Air Canada", "Southwest Airlines"] },
-    { "name": "Terminal C", "airlines": ["Delta Air Lines"] }
+    {
+      "name": "Terminal A (Marine Air Terminal)",
+      "status": "Active — historic 1939 landmarked building. Passenger facility replacement planned (2026-2035 capital plan) while preserving rotunda.",
+      "airlines": ["Spirit Airlines"],
+      "notes": "Sole airline is Spirit (as of 2026). Frontier moved to Terminal B in April 2024. 6 gates (A1-A6). Historic rotunda features the famous 'Flight' mural by James Brooks. TSA PreCheck and CLEAR NOT available. No lounges. Port Authority announced plans (Nov 2025) to replace passenger facilities while preserving the rotunda."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — NEW terminal from $4B redevelopment (fully operational)",
+      "airlines": ["Air Canada", "American Airlines", "Frontier Airlines", "JetBlue Airways", "Porter Airlines", "Southwest Airlines", "United Airlines"],
+      "notes": "35 gates across Eastern and Western concourses. Operated by LaGuardia Gateway Partners. Features spacious central hall, 105 self-service kiosks, 9 baggage claim carousels, pedestrian bridge to parking garage. JetBlue moved here July 2022, Frontier April 2024, Porter Airlines added as newest carrier (3 daily roundtrips to Toronto Pearson). TSA PreCheck available. Lounges: Chase Sapphire Lounge, Amex Centurion, Admirals Club, United Club, Air Canada Maple Leaf, Capital One Landing, Minute Suites Express."
+    },
+    {
+      "name": "Terminal C",
+      "status": "Active — NEW terminal opened June 2022 (Delta exclusive)",
+      "airlines": ["Delta Air Lines"],
+      "notes": "37 gates across 4 concourses (including new 10-gate Concourse E). 1.3 million sq ft. Delta's flagship LGA terminal with 220+ daily departures. Former Terminals C and D consolidated into this new facility. TSA PreCheck and CLEAR+ available. Home to the largest Delta Sky Club in the entire network (~600 seats, expanded 2024 with Sky Deck, second bar, and 100+ additional seats)."
+    }
   ],
   "roads": ["Grand Central Parkway", "Brooklyn-Queens Expressway", "Astoria Boulevard", "Ditmars Boulevard"],
-  "transit": ["Q70-SBS LaGuardia Link", "M60-SBS Bus", "Q48 Bus", "Q72 Bus"],
-  "neighborhoods": ["East Elmhurst", "Jackson Heights", "Astoria", "Flushing"],
+  "transit": ["Q70-SBS LaGuardia Link (FREE)", "M60-SBS Bus", "Q72 Bus", "Q33 Bus", "Q90 Bus"],
+  "neighborhoods": ["East Elmhurst", "Jackson Heights", "Astoria", "Flushing", "Woodside"],
   "authority": "Port Authority of New York and New Jersey",
-  "parkingRates": "Official on-airport rates: $18/day (long-term economy), $39/day (terminal garage). Off-site lots typically $10-$20/day.",
-  "shuttleInfo": "Most off-site lots run free shuttles every 5-15 minutes, 24/7. Terminal B has a new pedestrian bridge to parking garage.",
-  "distanceFromCity": "8 miles east of Midtown Manhattan, roughly 20-45 min by car depending on traffic"
+  "groundTransportation": {
+    "q70LaGuardiaLink": {
+      "fare": "FREE (fare-free since May 1, 2022)",
+      "hours": "24/7 operation",
+      "frequency": "Every 5-8 minutes (weekday peak), every 10-15 minutes (weekends), every 20 minutes (overnight)",
+      "route": "LGA terminals to Jackson Heights-Roosevelt Ave station (7/E/F/M/R subway) and Woodside-61st St station (LIRR + 7 train)",
+      "features": "Select Bus Service — fewer stops, luggage racks, extra seating",
+      "investment": "$160 million to enhance Q70 service (replacement for cancelled AirTrain)",
+      "competitorNote": "CRITICAL: The Q70 is FREE. This means public transit to LGA costs only a single $2.90 subway fare with a free transfer to Q70. Compare this to JFK's $8.50 AirTrain + subway."
+    },
+    "m60SBS": {
+      "fare": "$2.90 (standard MTA fare; free transfer to subway within 2 hours)",
+      "frequency": "Every 8-10 minutes",
+      "route": "Upper West Side Manhattan (Broadway/W 106th St) through Harlem, across RFK-Triborough Bridge, through Astoria to LGA Terminal C (19 stops)",
+      "subwayConnections": ["1/2/3 (Broadway)", "A/B/C/D (125th St)", "4/5/6 (Lexington Ave)", "N/W (Astoria)", "Metro-North (Harlem-125th St)"]
+    },
+    "taxi": {
+      "fareType": "METERED — NOT flat rate (unlike JFK)",
+      "initialCharge": 3.00,
+      "perFifthMile": 0.70,
+      "perMinuteWaiting": 0.70,
+      "lgaSurcharge": 5.00,
+      "lgaAccessFee": 1.75,
+      "rushHourSurcharge": "4-8 PM weekdays: $2.50",
+      "overnightSurcharge": "8 PM-6 AM: $1.00",
+      "improvementSurcharge": 1.00,
+      "mtaStateTax": 0.50,
+      "congestionSurcharge": "South of 96th St: $2.50",
+      "mtaCongestionPricing": "South of 60th St: $0.75",
+      "estimatedToMidtown": "$55-$90 depending on traffic and time of day",
+      "tollsNote": "Tolls via RFK Bridge add $6-$10 with E-ZPass on top of meter"
+    },
+    "rideshare": {
+      "uberXRange": "$40-$70 (subject to surge pricing)",
+      "uberBlack": "$80-$150 (no surge)",
+      "uberShuttle": {
+        "fare": "$18 flat per person (no surge pricing)",
+        "vehicle": "Shared 14-seat van",
+        "frequency": "Every 30 minutes",
+        "manhattanStops": ["Port Authority", "Grand Central", "Penn Station"],
+        "brooklynStop": "City Point mall",
+        "booking": "5 min to 7 days ahead, up to 4 passengers",
+        "luggage": "1 personal item + 1 bag (up to 50 lbs) per passenger"
+      },
+      "pickupLocations": {
+        "terminalA": "Directly outside arrivals",
+        "terminalB": "Row G, 2nd level of parking garage",
+        "terminalC": "Car Services Area between Terminals C and D (Lanes L and M)"
+      },
+      "pinVerification": "PIN verification system used for both Uber and Lyft"
+    },
+    "airTrainLGA": {
+      "status": "CANCELLED — Governor Hochul cancelled the project",
+      "replacement": "$160 million investment to enhance Q70 LaGuardia Link bus service instead"
+    },
+    "nycFerry": {
+      "status": "NOT operational. No active ferry service to LGA as of February 2026.",
+      "note": "NYC City Council has a proposal (Int 1170-2025) for ferry service to LGA and JFK, but it remains a proposal only."
+    }
+  },
+  "parkingRates": "On-airport: Terminal B Garage $80/day ($55 pre-booked), Terminal C Garage $89/day ($60 pre-booked), Economy Lot 3 $39/day (~$29 pre-booked). Cell Phone Lot: Free. Off-site via Triply: from $10.62/day. IMPORTANT: Unlike JFK, LGA has no AirTrain cost — the comparison is purely parking rate vs. rate plus shuttle convenience.",
+  "onAirportParking": {
+    "terminalBGarage": {
+      "rate": "$5 per first 30 min, $10 per additional 30 min",
+      "dailyMax": 80,
+      "preBookRate": 55,
+      "terminals": "Terminal B",
+      "features": "Pedestrian bridge directly to Terminal B"
+    },
+    "terminalCGarage": {
+      "rate": "$6 per first 30 min, $12 per additional 30 min",
+      "dailyMax": 89,
+      "preBookRate": 60,
+      "terminals": "Terminal C (Delta)"
+    },
+    "economyLot3": {
+      "rate": "$39/day drive-up",
+      "preBookRate": "~$29 first 24 hrs, then $14.50/12 hrs",
+      "connection": "Shuttle service to all terminals"
+    },
+    "cellPhoneLot": {
+      "location": "94th Street, about half a mile from the airport",
+      "cost": "Free",
+      "rules": "Driver must remain with vehicle at all times"
+    },
+    "preBookingUrl": "parking.laguardiaairport.com",
+    "parkingCustomerService": "(888) 250-8277"
+  },
+  "parkingLots": [
+    {
+      "name": "Purchase Park 2 Fly (LGA)",
+      "slug": "purchase-park-2-fly-lga",
+      "dailyRate": 28.94,
+      "totalFor4Days": 125.71,
+      "taxesFor4Days": 9.96,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "0.6 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Car Wash", "24/7 Front Desk", "Restrooms"],
+      "shuttleInfo": "24/7 on-demand shuttle. Call 888-960-7275 for return pickup.",
+      "overview": "Established off-airport lot (since 2018) just 5 minutes from LGA. Valet parking with complimentary car wash and 24/7 shuttle. Fenced lot with video surveillance and on-site staff. Does NOT accept full-size SUVs, large pickup trucks, or oversized vehicles.",
+      "phone": "888-960-7275",
+      "address": "22-61 94th Street, East Elmhurst, NY 11369",
+      "website": "pp2f.com",
+      "freeCancellation": true,
+      "googleRating": "4.3/5 (580+ reviews)",
+      "knownCoupons": ["PRIME15 (15% off)", "SUMMER20 (20% off)", "SAVE10", "Military 25% off"],
+      "notes": "Most-reviewed LGA lot. Priciest option at $28.94/day but most established. Recurring shuttle delay complaints (45+ min in bad weather). No large vehicles. Also has Westchester location."
+    },
+    {
+      "name": "Carvia Parking (LGA)",
+      "slug": "carvia-parking-lga",
+      "dailyRate": 15.45,
+      "totalFor4Days": 68.21,
+      "taxesFor4Days": 6.41,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "0.6 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "24/7 Front Desk", "Customer Lounge", "Restrooms", "Phone Charging"],
+      "shuttleInfo": "24/7 every 15 minutes to all LGA terminals. Call (848) 350-0288 for pickup.",
+      "overview": "Newer off-airport lot with 800+ spaces, fenced perimeter, CCTV surveillance, floodlights, and on-site staff. Customer lounge with restrooms, phone charging stations, and complimentary drinking water. Valet only — must leave keys.",
+      "phone": "(848) 350-0288",
+      "address": "90-01 23rd Ave, East Elmhurst, NY 11369",
+      "freeCancellation": true,
+      "googleRating": "4.6/5 on AirportParkingReservations (35 reviews)",
+      "knownCoupons": ["Groupon deal available (no code needed)"],
+      "notes": "Relatively new operation (likely opened 2024-2025). Good value at $15.45/day with 24/7 shuttle. SUV surcharges: small/midsize $6/day, large SUV/trucks $10/day. May share location with Parking Place LGA (same address block). Available on Groupon."
+    },
+    {
+      "name": "New York LaGuardia Marriott Airport Hotel (LGA)",
+      "slug": "new-york-laguardia-marriott-airport-hotel-lga",
+      "dailyRate": 21.20,
+      "totalFor4Days": 93.59,
+      "taxesFor4Days": 8.80,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "0.6 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Self-Park (uncovered, covered may be available first-come)",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "Was 24/7 every 15 minutes. Pickup at Terminal C (City Buses area) and Terminal B (Zone 3).",
+      "overview": "PARKING CLOSED INDEFINITELY as of January 31, 2026 due to construction. When open, this was self-parking at the LaGuardia Marriott operated by Prolink Management Inc. No re-entry permitted once you exit the lot. No room booking required.",
+      "phone": null,
+      "address": "102-05 Ditmars Blvd, East Elmhurst, NY 11369",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "WARNING: CLOSED INDEFINITELY since January 31, 2026 due to construction. No announced reopening date. If this lot appears as bookable on Triply, it may be a data issue."
+    },
+    {
+      "name": "Parking Place (LGA)",
+      "slug": "parking-place-lga",
+      "dailyRate": 14.95,
+      "totalFor4Days": 66.00,
+      "taxesFor4Days": 6.20,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "0.7 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "24/7 Front Desk", "Customer Lounge", "Restrooms", "Phone Charging"],
+      "shuttleInfo": "24/7 every 15 minutes to all LGA terminals. Call 848-350-5832 for pickup.",
+      "overview": "Valet-only open-air lot less than 5 minutes from all LGA terminals. Clean restrooms, customer lounge, phone charging, complimentary water. Fenced perimeter, floodlighting, CCTV surveillance, on-site personnel.",
+      "phone": "848-350-5832",
+      "address": "9001 23rd Ave, East Elmhurst, NY 11369",
+      "freeCancellation": true,
+      "googleRating": "4.7/5 (3 reviews on ParkingNearAirports)",
+      "knownCoupons": [],
+      "notes": "Cheapest close-proximity LGA lot at $14.95/day with 24/7 shuttle. Very few reviews (newer operation). Likely same physical lot as Carvia Parking (same address block, identical amenities, same 848 area code phones, same surcharges). SUV surcharges: $6/day small, $10/day large."
+    },
+    {
+      "name": "Park For U (LGA)",
+      "slug": "park-for-u-lga",
+      "dailyRate": 16.24,
+      "totalFor4Days": 71.69,
+      "taxesFor4Days": 6.74,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "1.3 mi",
+      "driveTime": "5-10 minutes",
+      "parkingType": "Valet (uncovered) — drives YOUR vehicle to terminal",
+      "amenities": ["Valet", "24/7 Front Desk"],
+      "shuttleInfo": "No traditional shuttle. Valet drives you to your terminal IN YOUR OWN vehicle, then parks it at their secure lot. Call 917-765-5171 for return pickup.",
+      "overview": "Unique service: valet drives your personal vehicle to the LGA terminal (no shuttle bus). Located at Bulova Corporate Center. Customer must photograph vehicle before handoff. Company does NOT keep odometer records or photos.",
+      "phone": "917-765-5171",
+      "address": "75-20 Astoria Blvd S, Suite 150, East Elmhurst, NY 11370 (Bulova Corporate Center, enter via 25th Ave)",
+      "website": "parkforu.com",
+      "freeCancellation": true,
+      "googleRating": "3.8/5 (107 reviews Google), 2.0/5 (31 reviews Trustpilot)",
+      "knownCoupons": [],
+      "notes": "CAUTION: Trustpilot rating is 2.0/5. Multiple reports of unauthorized mileage on vehicles (14-91+ extra miles), vehicle damage (scratches, cracked windshields), 30-90 minute pickup waits, and unresponsive phone/email. Customers must take their own photos as the company keeps no records. Convenient terminal drop-off concept but trust concerns."
+    },
+    {
+      "name": "Park N Depart (LGA)",
+      "slug": "park-n-depart-lga",
+      "dailyRate": 11.29,
+      "totalFor4Days": 62.52,
+      "taxesFor4Days": 6.07,
+      "paymentMethod": "Pay at Location",
+      "distanceFromAirport": "1.9 mi",
+      "driveTime": "10-15 minutes",
+      "parkingType": "Valet (uncovered)",
+      "amenities": ["Valet", "Security", "Wheelchair Access", "Luggage Assistance"],
+      "shuttleInfo": "4:00 AM - 8:00 PM on demand (15-min wait typical). NO SHUTTLE 8 PM - 4 AM. Call 718-577-8200 for return pickup.",
+      "overview": "Budget outdoor lot, fully gated with 24/7 security cameras and on-site staff. Handicap accessible. Facility operates 4 AM - 10 PM. NO overnight shuttle — must use rideshare after 8 PM.",
+      "phone": "(718) 577-8200",
+      "address": "60-20 30th Ave, Woodside, NY 11377",
+      "website": "parkndepart.io",
+      "freeCancellation": true,
+      "googleRating": "2.2/5 on AirportParkingReservations (71 reviews), BBB F rating",
+      "knownCoupons": ["LGA7 ($7 off, valid through 12/31/2026)"],
+      "notes": "CAUTION: BBB F rating with 10 unanswered complaints. Hidden fees reported: 4% credit card surcharge, 3.75% service charge, $5/day SUV surcharge. No shuttle 8PM-4AM. Cheapest LGA lot but numerous complaints about misleading pricing, unprofessional staff, and safety concerns. Advertised low price is misleading once surcharges are added."
+    },
+    {
+      "name": "Hyatt Place Flushing - LAZ Parking (LGA)",
+      "slug": "hyatt-place-flushing-laz-parking-lga",
+      "dailyRate": 11.95,
+      "totalFor4Days": 52.34,
+      "taxesFor4Days": null,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "20-30 minutes",
+      "parkingType": "Valet (indoor garage, covered)",
+      "amenities": ["Valet", "Covered/Garage", "Security", "Restaurant", "Free Wifi", "Rooftop Lounge"],
+      "shuttleInfo": "7 AM - 10 PM, every hour on the hour. NO shuttle 10 PM - 7 AM. Call 718-888-1234 press 0 for return pickup.",
+      "overview": "Indoor garage at Hyatt Place hotel in Flushing. Elevator from lot to hotel lobby with coffee-to-cocktails bar, free wifi, rooftop lounge (5PM-1AM). Security cameras. Does NOT accept pickup trucks, extra-large trucks, vans, or oversized vehicles.",
+      "phone": "718-888-1234",
+      "address": "Flushing, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Covered/indoor parking — only covered option near LGA. No oversized vehicles. Arrive 2 hours before flight. Limited shuttle hours — NO overnight service. 2.5 mi from airport."
+    },
+    {
+      "name": "Queens Crossing - LAZ Parking (LGA)",
+      "slug": "queens-crossing-laz-parking-lga",
+      "dailyRate": 10.95,
+      "totalFor4Days": 47.31,
+      "taxesFor4Days": null,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "2.6 mi",
+      "driveTime": "20-30 minutes",
+      "parkingType": "Valet (indoor garage, covered)",
+      "amenities": ["Valet", "Covered/Garage", "Security"],
+      "shuttleInfo": "6:30 AM - 10:30 PM, every hour on the half-hour. NO shuttle 10:30 PM - 6:30 AM. Call 718-888-1234 press 0 for return.",
+      "overview": "Budget indoor garage parking near Flushing. Prepaid only — must print receipt and present to valet. 7'6\" clearance. Open weekdays 6 AM - 11:59 PM, weekends 7 AM - 11:59 PM. Limited availability badge frequently shown.",
+      "phone": "718-888-1234",
+      "address": "Flushing, Queens, NY",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Cheapest Triply option for LGA at $10.95/day. Must print receipt — no receipt = no service, no refund. Limited shuttle hours — NO overnight service. 2.6 mi from airport."
+    },
+    {
+      "name": "Hearthstone Garage (LGA)",
+      "slug": "hearthstone-garage-lga",
+      "dailyRate": 20.95,
+      "totalFor4Days": 92.49,
+      "taxesFor4Days": 8.69,
+      "paymentMethod": "Prepaid Online",
+      "distanceFromAirport": "2.8 mi",
+      "driveTime": "15-20 minutes",
+      "parkingType": "Valet (indoor garage, covered)",
+      "amenities": ["Valet", "Covered/Garage", "24/7 Front Desk", "Security"],
+      "shuttleInfo": "NO SHUTTLE. Customers must arrange their own transportation to/from LGA (Uber/Lyft recommended, ~$15-25 each way).",
+      "overview": "Indoor garage in a brand new 13-story residential building (Hearthstone by Silverstein Properties) in Astoria. Operated by LAZ Parking. Valet parks your vehicle in covered garage with 24/7 security. Clean and well-maintained. However, NO shuttle service — must use rideshare to get to/from LGA.",
+      "phone": null,
+      "address": "34-35 44th Street, Astoria, NY 11101",
+      "freeCancellation": true,
+      "googleRating": "No reviews yet",
+      "knownCoupons": [],
+      "notes": "POOR VALUE: At $20.95/day with NO shuttle, effective daily cost is $35-70+ including Uber/Lyft each way ($15-25). This is a residential building garage, not a purpose-built airport lot. Oversized vehicle surcharge: $10/day. Zero reviews. Only advantage is covered/indoor parking."
+    }
+  ],
+  "shuttleInfo": "Off-site lots run shuttles with limited hours (most stop by 10-10:30 PM with NO overnight service). Terminal B has a pedestrian bridge to parking garage. Economy Lot 3 has shuttle service to all terminals. Rental car companies operate branded shuttles from terminal frontage.",
+  "distanceFromCity": "8 miles east of Midtown Manhattan, roughly 20-45 min by car depending on traffic. Closest of the three major NYC airports to Manhattan.",
+  "keyDistances": {
+    "toMidtownManhattan": "~8 miles, 20-45 min by car",
+    "toJFK": "~12 miles, 20-40 min via Grand Central Pkwy to Van Wyck",
+    "toNewark": "~22-33 miles, 35-60 min via GWB or tunnels",
+    "competitiveAdvantage": "LaGuardia is the closest of the three major NYC airports to Manhattan (8 mi vs JFK 16 mi vs Newark 16 mi)"
+  },
+  "construction2026": {
+    "status": "$8 billion LaGuardia transformation substantially complete — delivered approximately 18 months ahead of original timeline",
+    "projects": [
+      "Terminal B ($4B) — COMPLETE. New 35-gate terminal with central hall, operated by LaGuardia Gateway Partners.",
+      "Terminal C ($4B joint Delta/Port Authority) — COMPLETE. Opened June 2022. 1.3M sq ft, 37 gates, 4 concourses.",
+      "Marine Air Terminal (A) — Passenger facility replacement planned under 2026-2035 capital plan (rotunda preserved).",
+      "AirTrain LGA — CANCELLED. Replaced by $160M Q70 LaGuardia Link enhancement.",
+      "LaGuardia Marriott parking — CLOSED indefinitely as of January 31, 2026 due to ongoing construction."
+    ],
+    "travelImpact": "Terminal construction substantially complete. Some roadway and infrastructure work continues. Marriott parking lot closure affects travelers who previously used that option.",
+    "documentaryNote": "PBS NOVA aired 'The $8 Billion Overhaul of LaGuardia Airport: Engineering a New Era' in February 2026."
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal B", "Terminal C"],
+      "notAvailable": ["Terminal A (Marine Air Terminal)"],
+      "avgWaitTime": "Under 10 minutes"
+    },
+    "clear": {
+      "terminals": ["Terminal C (CLEAR+ lanes)"],
+      "notConfirmed": ["Terminal A", "Terminal B"],
+      "website": "clearme.com/all-locations/laguardia-airport"
+    },
+    "standardWaitTimes": {
+      "average": "9-20 minutes",
+      "peakHours": "7:30-9:30 AM and 4:30-6:30 PM (longer waits)",
+      "tsaTarget": "Under 30 minutes standard, under 10 minutes PreCheck"
+    }
+  },
+  "lounges": {
+    "terminalA": "No lounges in Terminal A (Marine Air Terminal).",
+    "terminalB": [
+      "Chase Sapphire Lounge by The Club (4:30 AM-9:30 PM — Chase Sapphire Reserve, J.P. Morgan Reserve, Ritz-Carlton Credit Card)",
+      "American Express Centurion Lounge (5 AM-9 PM, closes 8 PM Saturdays — Amex Centurion/Platinum cardholders)",
+      "American Airlines Admirals Club (AA membership, $79 day pass when available, Oneworld Emerald/Sapphire)",
+      "United Club (Eastern Concourse near gates 40-59, 5 AM-8:30 PM — United Club membership)",
+      "Air Canada Maple Leaf Lounge (Eastern Concourse — Air Canada/Star Alliance departing passengers, Chase Sapphire Reserve)",
+      "Capital One Landing (Capital One Venture X and eligible cardholders)",
+      "Minute Suites Express (Amex Platinum/Business Platinum: 1-hour free stay, or pay-per-use)"
+    ],
+    "terminalC": [
+      "Delta Sky Club — largest in the entire Delta network (~600 seats). Mon-Fri 5 AM-9:30 PM, Sat 5 AM-6:45 PM, Sun 5 AM-9:30 PM. 2024 expansion added all-weather Sky Deck, second bar, 100+ additional seats. Delta Sky Club membership, Delta Reserve Amex, Delta One passengers."
+    ]
+  },
+  "wifi": {
+    "networkName": "_Free LGA WiFi",
+    "cost": "Free — no registration, no time limit",
+    "loginUrl": "freelgawifi.com (opens automatically or visit manually)",
+    "coverage": "All terminals",
+    "customerService": "(800) 880-4117 (24/7)"
+  },
+  "evCharging": {
+    "fastChargingHub": {
+      "status": "Opened February 19, 2026",
+      "chargers": "12 charging towers with CCS plugs",
+      "power": "350 kW DC fast chargers",
+      "chargingTime": "Compatible EVs in as little as 30 minutes",
+      "cost": "Approximately $35-$45 for a full charge",
+      "location": "Runway Drive off Grand Central Parkway Exit 7",
+      "operator": "NYPA's EVolve NY network",
+      "expectedUse": "100+ drivers daily",
+      "networkMilestone": "Largest single charging hub in NYPA's EVolve NY network (bringing total to 300 units)"
+    },
+    "offSiteLots": "No off-site parking lots currently advertise EV charging. EV drivers should charge before parking or use the new on-airport fast-charging hub."
+  },
+  "luggageStorage": {
+    "onSite": "No on-airport luggage storage. Lockers removed for security. No staffed luggage storage counters at LGA.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $3.25/day", "protection": "$10,000 protection", "locations": "Multiple locations near LGA" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily rates" },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "locations": "Locations near Jackson Heights" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "protection": "$5,000 insurance", "note": "Closest 0.6 mi, open 7 AM-9 PM" },
+      { "provider": "Nannybag", "rate": "From $3.70/day", "protection": "$1,000 protection", "note": "Free cancellation" }
+    ]
+  },
+  "petFacilities": {
+    "preSecurity": [
+      "Terminal A — Curbside corner of Departures",
+      "Terminal B — Curbside by Bus & Shuttles",
+      "Terminal C — Curbside by Bus & Shuttles",
+      "Terminal C — Next to Delta Guest Services, Level 3"
+    ],
+    "postSecurity": [
+      "Terminal B — Food Courts & Shops, Level 4",
+      "Terminal B — Near Gate 11, Departures Level",
+      "Terminal B — Near Gate 59, Departures Level 3",
+      "Terminal C — Across from Gate 70, Departures",
+      "Terminal C — Food Courts, Gates 80-85, Level 3",
+      "Terminal C — Level 3, near Exit/Accessibility Services"
+    ],
+    "note": "No post-security pet relief areas in Terminal A."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["6-9 AM (morning rush)", "4-7 PM (evening peak)"],
+    "busiestDays": ["Friday", "Sunday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "busyPeriods": "2.5 hours before departure"
+    }
+  },
+  "weatherPatterns": {
+    "delayRate": "28% arrival delay rate (2024) — tied for 5th worst in U.S.",
+    "holidayDelayRate": "38.3% during November-January",
+    "worstMonths": ["January", "February", "December"],
+    "commonDisruptions": "Crosswinds (major issue on short runways), fog, snow/ice, nor'easters, summer thunderstorms",
+    "runwayIssue": "Only 2 runways (both ~7,000 ft, short by major airport standards). Runway 13/31 extends 944 ft over water on a deck, creating variable friction in winter. Limited flexibility during severe weather.",
+    "summerStorms": "Afternoon thunderstorms June-August can cause 1-3 hour delays",
+    "bestMonths": "September-October and April-May typically see fewest weather disruptions"
+  },
+  "rentalCars": {
+    "companies": ["Avis", "Budget", "Hertz", "Enterprise", "National", "Alamo", "Dollar", "Thrifty", "Sixt", "Drivo Rent-A-Car"],
+    "pickup": "Rental car shuttles pick up/drop off at terminal frontage. Enterprise, National, and Alamo share a branded shuttle bus.",
+    "enterpriseLocation": "9501 Ditmars Blvd, Queens",
+    "avgDailyRate": "From $27/day for economy/compact"
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near LGA — stay the night before, park free for your trip, shuttle to terminal.",
+    "priceRange": "From ~$202/night (includes 1-night stay + up to 14-21 days parking + free shuttle)",
+    "popularHotels": ["Courtyard by Marriott LGA (24/7 shuttle)", "Hampton Inn New York LGA (free hot breakfast)", "New York LaGuardia Airport Marriott", "SpringHill Suites New York LGA", "Fairfield Inn New York LGA", "Aloft New York LGA", "Clarion Hotel LGA (24/7 shuttle)"],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app tipping, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "6-day trip for 2 travelers",
+    "onAirport": {
+      "terminalBGaragePreBooked": {
+        "parkingCost": "~$330 (6 days at $55/day pre-booked)",
+        "totalEstimate": "~$330"
+      },
+      "terminalCGaragePreBooked": {
+        "parkingCost": "~$360 (6 days at $60/day pre-booked)",
+        "totalEstimate": "~$360"
+      },
+      "economyLot3": {
+        "parkingCost": "~$234 (6 days at $39/day)",
+        "totalEstimate": "~$234"
+      }
+    },
+    "offSiteWithShuttle": {
+      "queensCrossing": {
+        "parkingCost": 68.97,
+        "totalEstimate": 68.97,
+        "savingsVsEconomy": "~$165 saved vs Economy Lot 3",
+        "caveat": "Limited shuttle hours (6:30 AM-10:30 PM only)"
+      },
+      "hyattPlaceFlushing": {
+        "parkingCost": 76.52,
+        "totalEstimate": 76.52,
+        "savingsVsEconomy": "~$157 saved vs Economy Lot 3",
+        "caveat": "Limited shuttle hours (7 AM-10 PM only)"
+      }
+    },
+    "publicTransit": {
+      "subwayPlusQ70": {
+        "costPerPersonOneWay": 2.90,
+        "costPerPersonRoundTrip": 5.80,
+        "costForCoupleRoundTrip": 11.60,
+        "travelTime": "45-75 minutes each way",
+        "note": "Q70 LaGuardia Link is FREE — only pay subway fare ($2.90) with free transfer"
+      }
+    },
+    "keyDifference": "Unlike JFK, LGA has no AirTrain cost. The Q70 bus is free, so public transit to LGA is just $2.90 per person (subway fare only). At JFK, it's $11.40+ per person (subway + $8.50 AirTrain)."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(718) 533-3400",
+    "parkingCustomerService": "(888) 250-8277",
+    "tsa": "(866) 289-9673",
+    "wifiCustomerService": "(800) 880-4117",
+    "lostAndFound": "Contact individual terminal or airline"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs to scrape for fresh data when generating articles. Grouped by topic. All verified 2026-02-26.",
+    "officialAirport": {
+      "parking": "https://www.laguardiaairport.com/to-from-airport/parking",
+      "publicTransportation": "https://www.laguardiaairport.com/to-from-airport/public-transportation",
+      "busService": "https://www.laguardiaairport.com/to-from-airport/bus-service",
+      "taxiCarService": "https://www.laguardiaairport.com/to-from-airport/taxi-car-and-van-service",
+      "rideshare": "https://www.laguardiaairport.com/to-from-airport/rideshare",
+      "carRentals": "https://www.laguardiaairport.com/to-from-airport/car-rentals",
+      "hotelShuttle": "https://www.laguardiaairport.com/to-from-airport/hotel-shuttle",
+      "airlines": "https://www.laguardiaairport.com/flight/airlines",
+      "securityWaitTimes": "https://www.laguardiaairport.com/security-wait-times",
+      "connectingFlights": "https://www.laguardiaairport.com/at-airport/connecting-flights",
+      "terminalMap": "https://www.laguardiaairport.com/terminal-map",
+      "terminalA": "https://www.laguardiaairport.com/at-airport/terminal-a",
+      "terminalB": "https://www.laguardiaairport.com/at-airport/terminal-b",
+      "terminalC": "https://www.laguardiaairport.com/at-airport/terminal-c"
+    },
+    "terminalB": {
+      "website": "https://laguardiab.com/"
+    },
+    "construction": {
+      "portAuthorityLGA": "https://www.portauthoritybuilds.com/redevelopment/us/en/lga.html"
+    },
+    "transit": {
+      "mta": "https://new.mta.info/guides/airports/laguardia",
+      "q70Realtime": "https://bustime.mta.info/m/?q=Q70",
+      "taxiFare": "https://www.nyc.gov/site/tlc/passengers/taxi-fare.page"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/lga/",
+      "uberShuttle": "https://www.uber.com/global/en/r/airports/lga/shuttle/",
+      "lyft": "https://www.lyft.com/rider/airports/LGA"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=LGA",
+      "airportParkingReservations": "https://airportparkingreservations.com/lga",
+      "airportParkingCoupons": "https://airportparkingreservations.com/lga/parking-coupons",
+      "way": "https://www.way.com/lga",
+      "spothero": "https://spothero.com/airport/nyc/lga-parking",
+      "parkon": "https://www.parkon.com/lga",
+      "neighborBlog": "https://www.neighbor.com/storage-blog/lga-parking-rates/"
+    },
+    "security": {
+      "clearLGA": "https://www.clearme.com/all-locations/laguardia-airport",
+      "chaseTSAGuide": "https://www.chase.com/personal/credit-cards/education/basics/guide-to-tsa-wait-times-at-laguardia-airport"
+    },
+    "lounges": {
+      "priorityPass": "https://www.prioritypass.com/en/lounges/united-states-of-america/new-york/new-york-laguardia-airport"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://flightaware.com/live/airport/KLGA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/LGA"
+    },
+    "evCharging": {
+      "plugshareNearLGA": "https://www.plugshare.com/near/laguardia-airport"
+    },
+    "luggageStorage": {
+      "bounce": "https://usebounce.com/city/new-york/laguardia-airport",
+      "luggageHero": "https://luggagehero.com/newyork/laguardia/"
+    },
+    "rentalCars": {
+      "kayak": "https://www.kayak.com/New-York-LaGuardia-Airport-Car-Rentals.LGA.cap.ksp"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/lga/airport-hotels-with-parking"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/laguardia-lga-airport/"
+    }
+  }
 }

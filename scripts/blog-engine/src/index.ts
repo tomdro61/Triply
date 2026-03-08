@@ -8,6 +8,7 @@ import { scrapeCompetitors } from './scraper.js'
 import type { ScrapedArticle } from './scraper.js'
 import { generateArticle } from './claude.js'
 import { htmlToLexical } from './html-to-lexical.js'
+import { generateInfographics } from './infographics.js'
 import { getAirportPhoto } from './unsplash.js'
 import {
   createPost,
@@ -17,12 +18,16 @@ import {
   findOrCreateTag,
   getApiUser,
   getQueueItems,
+  getAllPublishedSlugs,
+  updateQueueItem,
 } from './payload.js'
 import { env } from './config.js'
 import { loadAirportData } from './airport-data.js'
 import { scoreArticle, printSeoScore } from './seo-scorer.js'
 import type { SeoScore } from './seo-scorer.js'
 import { lexicalToHtml } from './lexical-to-html.js'
+import { generateTopicalMap, topicalMapToQueueEntries, printTopicalMap, saveTopicalMap } from './topical-map.js'
+import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logsDir = path.resolve(__dirname, '..', 'logs')
@@ -69,6 +74,9 @@ interface ArticleReport {
     qualityScore: number
     changes: string[]
   }
+  infographics: {
+    count: number
+  }
   image: {
     found: boolean
     filename: string | null
@@ -90,6 +98,12 @@ interface ArticleReport {
     uploadSeconds: number
   }
   seoScore: SeoScore | null
+  revision: {
+    triggered: boolean
+    scoreBefore: number
+    scoreAfter: number
+    failedChecks: string[]
+  } | null
   error: string | null
 }
 
@@ -148,6 +162,20 @@ function printReport(report: ArticleReport) {
     console.log(`    ... and ${report.editing.changes.length - 5} more`)
   }
 
+  if (report.revision) {
+    console.log(`\n  REVISION:`)
+    console.log(`    Triggered: ${report.revision.triggered ? 'Yes' : 'No'}`)
+    if (report.revision.triggered) {
+      console.log(`    Score before: ${report.revision.scoreBefore}`)
+      console.log(`    Score after: ${report.revision.scoreAfter}`)
+      console.log(`    Improvement: ${report.revision.scoreAfter - report.revision.scoreBefore >= 0 ? '+' : ''}${report.revision.scoreAfter - report.revision.scoreBefore} points`)
+      console.log(`    Failed checks addressed: ${report.revision.failedChecks.length}`)
+    }
+  }
+
+  console.log(`\n  INFOGRAPHICS:`)
+  console.log(`    Generated: ${report.infographics.count}`)
+
   console.log(`\n  IMAGE:`)
   if (report.image.found) {
     console.log(`    File: ${report.image.filename}`)
@@ -197,6 +225,11 @@ program
 
       console.log(`Found ${items.length} queued item(s)\n`)
 
+      // Fetch all published slugs for internal link intelligence
+      console.log('Fetching published posts for internal linking...')
+      const publishedPosts = await getAllPublishedSlugs()
+      console.log(`  ✓ ${publishedPosts.length} published post(s) available for linking\n`)
+
       // Get the API user for the author field
       const apiUser = await getApiUser()
       if (!apiUser) {
@@ -205,7 +238,7 @@ program
       }
 
       for (const item of items) {
-        console.log(`\n━━━ Processing: ${item.suggestedTitle} ━━━`)
+        console.log(`\n━━━ Processing: ${item.suggestedTitle || item.keyword} ━━━`)
         console.log(`  Type: ${item.articleType} | Airport: ${item.airportCode} | Priority: ${item.priority}`)
 
         // Validate prerequisites
@@ -224,7 +257,7 @@ program
         const report: ArticleReport = {
           timestamp: new Date().toISOString(),
           queueItemId: item.id,
-          title: item.suggestedTitle,
+          title: item.suggestedTitle || item.keyword,
           slug: item.slug,
           keyword: item.keyword,
           articleType: item.articleType,
@@ -234,10 +267,12 @@ program
           analysis: { commonTopics: [], contentGaps: [], recommendedH2s: [], faqQuestions: [], suggestedTags: [] },
           article: { htmlLength: 0, estimatedWordCount: 0, faqCount: 0, excerpt: '', metaTitle: '', metaDescription: '', suggestedCategory: '' },
           editing: { changesCount: 0, qualityScore: 0, changes: [] },
+          infographics: { count: 0 },
           image: { found: false, filename: null, alt: null, mediaId: null },
           post: { postId: null, status: 'draft', categoryCreated: '', tagsCreated: [] },
           timing: { totalSeconds: 0, scrapeSeconds: 0, analyzeSeconds: 0, writeSeconds: 0, editSeconds: 0, uploadSeconds: 0 },
           seoScore: null,
+          revision: null,
           error: null,
         }
 
@@ -272,29 +307,44 @@ program
             console.log(`  ⚠ No verified data file for ${item.airportCode} — Claude will use general knowledge`)
           }
 
+          // Filter published posts to same airport (keep context focused)
+          const airportPosts = publishedPosts.filter(p =>
+            p.airportCode === item.airportCode || !p.airportCode
+          )
+
           // Generate with Claude (3-prompt pipeline)
           const result = await generateArticle(item, competitors, (step, data) => {
             // Callback to capture intermediate results for the report
+            const r = data.result as Record<string, unknown>
             if (step === 'analyze') {
               report.timing.analyzeSeconds = Math.round(data.elapsed / 1000)
               report.analysis = {
-                commonTopics: data.result.commonTopics || [],
-                contentGaps: data.result.gaps || [],
-                recommendedH2s: data.result.recommendedH2s || [],
-                faqQuestions: data.result.faqQuestions || [],
-                suggestedTags: data.result.suggestedTags || [],
+                commonTopics: (r.commonTopics as string[]) || [],
+                contentGaps: (r.gaps as string[]) || [],
+                recommendedH2s: (r.recommendedH2s as string[]) || [],
+                faqQuestions: (r.faqQuestions as string[]) || [],
+                suggestedTags: (r.suggestedTags as string[]) || [],
               }
             } else if (step === 'write') {
               report.timing.writeSeconds = Math.round(data.elapsed / 1000)
             } else if (step === 'edit') {
               report.timing.editSeconds = Math.round(data.elapsed / 1000)
               report.editing = {
-                changesCount: data.result.changes?.length || 0,
-                qualityScore: data.result.qualityScore || 0,
-                changes: data.result.changes || [],
+                changesCount: (r.changes as string[])?.length || 0,
+                qualityScore: (r.qualityScore as number) || 0,
+                changes: (r.changes as string[]) || [],
               }
             }
-          }, airportData || undefined)
+          }, airportData || undefined, airportPosts)
+
+          // Capture revision metadata
+          if (result.revision) {
+            report.revision = result.revision
+          }
+
+          // Resolve title: AI-generated > spreadsheet > keyword
+          const resolvedTitle = result.title || item.suggestedTitle || item.keyword
+          report.title = resolvedTitle
 
           // Article stats
           report.article = {
@@ -328,9 +378,27 @@ program
           report.seoScore = seoScore
           console.log(`  ✓ SEO Score: ${seoScore.total}/${seoScore.maxTotal} (${seoScore.grade})`)
 
+          // Generate infographics (Claude SVG → resvg PNG → Payload upload)
+          let contentHtml = result.html
+          if (airportData) {
+            try {
+              console.log('  Generating infographics...')
+              const infResult = await generateInfographics(contentHtml, airportData, item.airportCode)
+              contentHtml = infResult.html
+              report.infographics.count = infResult.count
+              if (infResult.count > 0) {
+                console.log(`  ✓ ${infResult.count} infographic(s) generated`)
+              } else {
+                console.log('  No infographics generated')
+              }
+            } catch (err) {
+              console.log(`  ⚠ Infographic generation failed: ${err instanceof Error ? err.message : err} — continuing without`)
+            }
+          }
+
           // Convert HTML to Lexical
           console.log('  Converting to Lexical format...')
-          const lexicalContent = htmlToLexical(result.html)
+          const lexicalContent = htmlToLexical(contentHtml)
 
           // Upload featured image
           const uploadStart = Date.now()
@@ -378,17 +446,18 @@ program
             report.post.tagsCreated.push(tagName)
           }
 
-          // Create the post as a draft
-          console.log('  Creating draft post in CMS...')
+          // Create the post — draft or review based on quality score
+          const postStatus = result.suggestedStatus || 'draft'
+          console.log(`  Creating ${postStatus} post in CMS...`)
           const postData: Record<string, unknown> = {
-            title: item.suggestedTitle,
+            title: resolvedTitle,
             slug: item.slug,
             excerpt: result.excerpt,
             content: lexicalContent,
             category: category.doc?.id || category.id,
             tags: tagIds,
             author: apiUser.id,
-            status: 'draft',
+            status: postStatus,
             airportCode: item.airportCode,
             articleType: item.articleType,
             parentSlug: item.parentSlug || undefined,
@@ -414,13 +483,17 @@ program
           const postId = post.doc?.id || post.id
           report.post.postId = postId
 
-          // Update queue item
-          await markDraft(item.id, postId)
+          // Update queue item status to match the post
+          if (postStatus === 'review') {
+            await updateQueueItem(item.id, { status: 'review', generatedPost: postId })
+          } else {
+            await markDraft(item.id, postId)
+          }
 
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
 
           console.log(`  ✅ Draft created! SEO Score: ${report.seoScore?.total}/${report.seoScore?.maxTotal} (${report.seoScore?.grade})`)
-          console.log(`  📝 Review at: CMS Admin → Posts → "${item.suggestedTitle}"`)
+          console.log(`  📝 Review at: CMS Admin → Posts → "${resolvedTitle}"`)
 
           // Print reports
           printReport(report)
@@ -488,7 +561,7 @@ program
         console.log(`\n${status.toUpperCase()} (${group.length}):`)
         for (const item of group) {
           const batchTag = item.batch ? ` [${item.batch}]` : ''
-          console.log(`  ${item.priority} | ${item.airportCode} | ${item.articleType.padEnd(11)} | ${item.suggestedTitle}${batchTag}`)
+          console.log(`  ${item.priority} | ${item.airportCode} | ${item.articleType.padEnd(11)} | ${item.suggestedTitle || item.keyword}${batchTag}`)
         }
       }
 
@@ -540,7 +613,7 @@ program
       for (const item of items) {
         const postId = typeof item.generatedPost === 'string' ? item.generatedPost : null
         console.log(`  ${item.slug}`)
-        console.log(`    Title: ${item.suggestedTitle}`)
+        console.log(`    Title: ${item.suggestedTitle || item.keyword}`)
         console.log(`    Status: ${item.status} → published`)
         console.log(`    Post ID: ${postId || 'none'}`)
 
@@ -701,6 +774,135 @@ program
         const avg = Math.round(results.reduce((s, r) => s + r.score, 0) / results.length)
         console.log(`\n  Average: ${avg}/100`)
       }
+
+      console.log('')
+    } catch (err) {
+      console.error('Error:', err)
+      process.exit(1)
+    }
+  })
+
+// Plan command — auto-generate a topical map for an airport
+program
+  .command('plan')
+  .description('Generate a topical map (content cluster) for an airport')
+  .requiredOption('-a, --airport <code>', 'Airport code (e.g., EWR)')
+  .option('--import', 'Import generated topics into CMS content queue')
+  .option('--batch <name>', 'Batch name for imported queue items (default: auto-generated)')
+  .action(async (options) => {
+    try {
+      const code = options.airport.toUpperCase()
+      console.log(`\n📋 Triply Blog Engine — Topical Map Planner\n`)
+      console.log(`Airport: ${code}\n`)
+
+      // Generate the topical map
+      const map = await generateTopicalMap(code)
+
+      // Display the map
+      printTopicalMap(map)
+
+      // Save to file
+      const filepath = saveTopicalMap(map)
+      console.log(`\n  📄 Topical map saved: ${filepath}`)
+
+      // Optionally import into CMS queue
+      if (options.import) {
+        const batch = options.batch || `${code.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
+        const entries = topicalMapToQueueEntries(map, batch)
+
+        console.log(`\n  Importing ${entries.length} items into CMS queue (batch: ${batch})...`)
+
+        let imported = 0
+        let failed = 0
+
+        for (const entry of entries) {
+          try {
+            const res = await fetch(`${env.PAYLOAD_CMS_URL}/api/content-queue`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
+              },
+              body: JSON.stringify(entry),
+            })
+
+            if (!res.ok) {
+              const body = await res.text()
+              throw new Error(`${res.status}: ${body}`)
+            }
+
+            imported++
+            console.log(`    ✓ ${entry.articleType.padEnd(11)} | ${entry.suggestedTitle}`)
+          } catch (err) {
+            failed++
+            const msg = err instanceof Error ? err.message : String(err)
+            console.log(`    ✗ ${entry.suggestedTitle}: ${msg}`)
+          }
+        }
+
+        console.log(`\n  Imported: ${imported} | Failed: ${failed}`)
+        if (imported > 0) {
+          console.log(`  Batch: "${batch}" — use \`npm run generate -- -a ${code}\` to start generating`)
+        }
+      } else {
+        console.log(`\n  💡 Add --import to load these topics into the CMS queue`)
+      }
+
+      console.log('')
+    } catch (err) {
+      console.error('Error:', err)
+      process.exit(1)
+    }
+  })
+
+// Bootstrap command — generate airport data JSON
+program
+  .command('bootstrap')
+  .description('Bootstrap a new airport data file using Claude + URL verification')
+  .requiredOption('-a, --airport <code>', 'Airport code (e.g., ORD)')
+  .option('--verify', 'Verify all URLs in the generated data with HTTP HEAD checks')
+  .action(async (options) => {
+    try {
+      const code = options.airport.toUpperCase()
+      console.log(`\n🏗️  Triply Blog Engine — Airport Data Bootstrap\n`)
+      console.log(`Airport: ${code}\n`)
+
+      // Generate base data
+      const data = await bootstrapAirport(code)
+
+      // Print summary
+      printBootstrapSummary(data)
+
+      // Optionally verify URLs
+      if (options.verify) {
+        console.log(`\n  URL Verification:`)
+        const verification = await verifyUrls(data)
+        console.log(`\n  Results: ${verification.valid} valid, ${verification.broken} broken out of ${verification.total} URLs`)
+
+        // Add verification results to the data file
+        ;(data as Record<string, unknown>)._urlVerification = {
+          date: new Date().toISOString().split('T')[0],
+          total: verification.total,
+          valid: verification.valid,
+          broken: verification.broken,
+          brokenUrls: verification.results
+            .filter(r => !r.ok)
+            .map(r => ({ path: r.path, url: r.url, status: r.status })),
+        }
+      }
+
+      // Save the data
+      const filepath = saveBootstrapData(data)
+      console.log(`\n  📄 Airport data saved: ${filepath}`)
+
+      console.log(`\n  💡 Next steps:`)
+      console.log(`  1. Review the generated JSON and fix [UNVERIFIED] values`)
+      console.log(`  2. Replace VERIFY_URL_NEEDED placeholders with real URLs`)
+      if (!options.verify) {
+        console.log(`  3. Run with --verify to check all URLs: npm run bootstrap -- -a ${code} --verify`)
+      }
+      console.log(`  4. Add parkingLots array with off-site lot data`)
+      console.log(`  5. Run npm run plan -- -a ${code} to generate the topical map`)
 
       console.log('')
     } catch (err) {
