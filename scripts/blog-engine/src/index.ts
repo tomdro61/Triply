@@ -26,7 +26,6 @@ import { loadAirportData } from './airport-data.js'
 import { scoreArticle, printSeoScore } from './seo-scorer.js'
 import type { SeoScore } from './seo-scorer.js'
 import { lexicalToHtml } from './lexical-to-html.js'
-import { generateTopicalMap, topicalMapToQueueEntries, printTopicalMap, saveTopicalMap } from './topical-map.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -238,7 +237,7 @@ program
       }
 
       for (const item of items) {
-        console.log(`\n━━━ Processing: ${item.suggestedTitle || item.keyword} ━━━`)
+        console.log(`\n━━━ Processing: ${item.keyword} ━━━`)
         console.log(`  Type: ${item.articleType} | Airport: ${item.airportCode} | Priority: ${item.priority}`)
 
         // Validate prerequisites
@@ -257,7 +256,7 @@ program
         const report: ArticleReport = {
           timestamp: new Date().toISOString(),
           queueItemId: item.id,
-          title: item.suggestedTitle || item.keyword,
+          title: item.keyword,
           slug: item.slug,
           keyword: item.keyword,
           articleType: item.articleType,
@@ -343,7 +342,7 @@ program
           }
 
           // Resolve title: AI-generated > spreadsheet > keyword
-          const resolvedTitle = result.title || item.suggestedTitle || item.keyword
+          const resolvedTitle = result.title || item.keyword
           report.title = resolvedTitle
 
           // Article stats
@@ -561,7 +560,7 @@ program
         console.log(`\n${status.toUpperCase()} (${group.length}):`)
         for (const item of group) {
           const batchTag = item.batch ? ` [${item.batch}]` : ''
-          console.log(`  ${item.priority} | ${item.airportCode} | ${item.articleType.padEnd(11)} | ${item.suggestedTitle || item.keyword}${batchTag}`)
+          console.log(`  ${item.priority} | ${item.airportCode} | ${item.articleType.padEnd(11)} | ${item.keyword}${batchTag}`)
         }
       }
 
@@ -613,7 +612,7 @@ program
       for (const item of items) {
         const postId = typeof item.generatedPost === 'string' ? item.generatedPost : null
         console.log(`  ${item.slug}`)
-        console.log(`    Title: ${item.suggestedTitle || item.keyword}`)
+        console.log(`    Title: ${item.keyword}`)
         console.log(`    Status: ${item.status} → published`)
         console.log(`    Post ID: ${postId || 'none'}`)
 
@@ -782,79 +781,6 @@ program
     }
   })
 
-// Plan command — auto-generate a topical map for an airport
-program
-  .command('plan')
-  .description('Generate a topical map (content cluster) for an airport')
-  .requiredOption('-a, --airport <code>', 'Airport code (e.g., EWR)')
-  .option('--import', 'Import generated topics into CMS content queue')
-  .option('--batch <name>', 'Batch name for imported queue items (default: auto-generated)')
-  .action(async (options) => {
-    try {
-      const code = options.airport.toUpperCase()
-      console.log(`\n📋 Triply Blog Engine — Topical Map Planner\n`)
-      console.log(`Airport: ${code}\n`)
-
-      // Generate the topical map
-      const map = await generateTopicalMap(code)
-
-      // Display the map
-      printTopicalMap(map)
-
-      // Save to file
-      const filepath = saveTopicalMap(map)
-      console.log(`\n  📄 Topical map saved: ${filepath}`)
-
-      // Optionally import into CMS queue
-      if (options.import) {
-        const batch = options.batch || `${code.toLowerCase()}-${new Date().toISOString().slice(0, 10)}`
-        const entries = topicalMapToQueueEntries(map, batch)
-
-        console.log(`\n  Importing ${entries.length} items into CMS queue (batch: ${batch})...`)
-
-        let imported = 0
-        let failed = 0
-
-        for (const entry of entries) {
-          try {
-            const res = await fetch(`${env.PAYLOAD_CMS_URL}/api/content-queue`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
-              },
-              body: JSON.stringify(entry),
-            })
-
-            if (!res.ok) {
-              const body = await res.text()
-              throw new Error(`${res.status}: ${body}`)
-            }
-
-            imported++
-            console.log(`    ✓ ${entry.articleType.padEnd(11)} | ${entry.suggestedTitle}`)
-          } catch (err) {
-            failed++
-            const msg = err instanceof Error ? err.message : String(err)
-            console.log(`    ✗ ${entry.suggestedTitle}: ${msg}`)
-          }
-        }
-
-        console.log(`\n  Imported: ${imported} | Failed: ${failed}`)
-        if (imported > 0) {
-          console.log(`  Batch: "${batch}" — use \`npm run generate -- -a ${code}\` to start generating`)
-        }
-      } else {
-        console.log(`\n  💡 Add --import to load these topics into the CMS queue`)
-      }
-
-      console.log('')
-    } catch (err) {
-      console.error('Error:', err)
-      process.exit(1)
-    }
-  })
-
 // Bootstrap command — generate airport data JSON
 program
   .command('bootstrap')
@@ -902,7 +828,7 @@ program
         console.log(`  3. Run with --verify to check all URLs: npm run bootstrap -- -a ${code} --verify`)
       }
       console.log(`  4. Add parkingLots array with off-site lot data`)
-      console.log(`  5. Run npm run plan -- -a ${code} to generate the topical map`)
+      console.log(`  5. Run npm run import-queue to load topics into the CMS queue`)
 
       console.log('')
     } catch (err) {

@@ -3,7 +3,6 @@ import { getQueueItems, updateQueueItem, findPublishedPostBySlug } from './paylo
 export interface QueueItem {
   id: string
   keyword: string
-  suggestedTitle?: string
   airportCode: string
   slug: string
   articleType: 'hub' | 'sub-pillar' | 'spoke'

@@ -8,8 +8,9 @@
     "report": "tsx src/index.ts report",
     "score": "tsx src/index.ts score",
     "publish": "tsx src/index.ts publish",
-    "plan": "tsx src/index.ts plan",
     "bootstrap": "tsx src/index.ts bootstrap",
+    "update-links": "tsx src/update-links.ts",
+    "import-queue": "tsx src/import-queue.ts",
     "dev": "tsx src/index.ts",
     "migrate-tables": "tsx src/migrate-tables.ts"
   },

@@ -309,15 +309,15 @@ export function buildWritePrompt(
 
 Write an SEO-optimized blog article with the following parameters:
 
-**Target keyword:** ${item.keyword}
+**Focus keyword:** ${item.keyword} — this is the exact search query we want to rank for
+**URL slug:** ${item.slug}
 **Airport:** ${item.airportCode}
 
 **Generate an article title** (50-65 characters) that:
-- Places the target keyword near the front
-- Is compelling and specific (not generic)
+- Contains the EXACT focus keyword, placed as close to the front as possible
+- Is compelling and specific — generated based on competitive analysis of what ranks
 - Omits the year unless content is genuinely time-sensitive
 - Hub = authoritative guide title; Sub-pillar = deep-dive title; Spoke = specific answer title
-${item.suggestedTitle ? `**Title guidance (optional angle):** ${item.suggestedTitle}` : ''}
 
 ${getArticleTypeInstructions(item)}
 ${publishedPosts && publishedPosts.length > 0 ? formatPublishedPosts(publishedPosts) : ''}${clusterArticles && clusterArticles.length > 0 ? formatClusterContext(clusterArticles, item) : ''}
