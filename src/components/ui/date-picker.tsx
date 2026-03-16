@@ -49,7 +49,7 @@ export function DateRangePicker({
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const openPicker = useCallback(() => {
+  const openPicker = useCallback((field: "start" | "end") => {
     const from = startDate
       ? startOfDay(parse(startDate, "yyyy-MM-dd", new Date()))
       : undefined;
@@ -58,7 +58,12 @@ export function DateRangePicker({
       : undefined;
     setInternalStart(from);
     setInternalEnd(to);
-    phaseRef.current = "start";
+    // If clicking the return field and both dates already exist, go straight to "end" phase
+    if (field === "end" && from && to) {
+      phaseRef.current = "end";
+    } else {
+      phaseRef.current = "start";
+    }
     setOpen(true);
   }, [startDate, endDate]);
 
@@ -77,12 +82,17 @@ export function DateRangePicker({
       } else {
         // Second click — set return date, auto-sort, close
         const start = internalStart!;
-        const [finalStart, finalEnd] =
-          day >= start ? [start, day] : [day, start];
-        setInternalStart(finalStart);
-        setInternalEnd(finalEnd);
-        onStartChange(format(finalStart, "yyyy-MM-dd"));
-        onEndChange(format(finalEnd, "yyyy-MM-dd"));
+        if (day >= start) {
+          // Return is after departure — just update return
+          setInternalEnd(day);
+          onEndChange(format(day, "yyyy-MM-dd"));
+        } else {
+          // Picked a date before departure — swap them
+          setInternalStart(day);
+          setInternalEnd(start);
+          onStartChange(format(day, "yyyy-MM-dd"));
+          onEndChange(format(start, "yyyy-MM-dd"));
+        }
         phaseRef.current = "start";
         setTimeout(() => setOpen(false), 150);
       }
@@ -127,8 +137,8 @@ export function DateRangePicker({
         }
       />
       {children({
-        startTriggerProps: { onClick: openPicker, ref: startRef },
-        endTriggerProps: { onClick: openPicker, ref: endRef },
+        startTriggerProps: { onClick: () => openPicker("start"), ref: startRef },
+        endTriggerProps: { onClick: () => openPicker("end"), ref: endRef },
       })}
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Content
