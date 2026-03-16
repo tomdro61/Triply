@@ -9,8 +9,9 @@ import {
   Calendar as CalendarIcon,
 } from "lucide-react";
 import { format, parse } from "date-fns";
-import { enabledAirports, getAirportByCode } from "@/config/airports";
+import { getAirportByCode } from "@/config/airports";
 import { DateRangePicker } from "@/components/ui/date-picker";
+import { AirportCombobox } from "@/components/shared/airport-combobox";
 
 export type SearchTab = "parking";
 
@@ -138,25 +139,12 @@ export function SearchHeader({
         {expanded && (
           <div className="px-4 pb-4 border-t border-gray-100">
             {/* Location */}
-            <div className="relative mt-3 mb-3">
-              <MapPin
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none"
-                size={18}
-              />
-              <select
+            <div className="mt-3 mb-3">
+              <AirportCombobox
                 value={airport}
-                onChange={(e) => onAirportChange(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all appearance-none cursor-pointer"
-              >
-                {enabledAirports.map((a) => (
-                  <option key={a.code} value={a.code}>
-                    {a.city} ({a.code})
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-                size={14}
+                onChange={onAirportChange}
+                placeholder="Search airports..."
+                variant="compact"
               />
             </div>
 
@@ -248,25 +236,12 @@ export function SearchHeader({
         {/* Search Inputs */}
         <div className="flex flex-col xl:flex-row gap-3">
           {/* Location */}
-          <div className="relative flex-grow group xl:w-1/4">
-            <MapPin
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500 pointer-events-none"
-              size={18}
-            />
-            <select
+          <div className="flex-grow xl:w-1/4">
+            <AirportCombobox
               value={airport}
-              onChange={(e) => onAirportChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-semibold text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-all appearance-none cursor-pointer"
-            >
-              {enabledAirports.map((a) => (
-                <option key={a.code} value={a.code}>
-                  {a.city} ({a.code})
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"
-              size={14}
+              onChange={onAirportChange}
+              placeholder="Search airports..."
+              variant="compact"
             />
           </div>
 

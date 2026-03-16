@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { MapPin, Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
+import { Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
 import { DateRangePicker } from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
-import { enabledAirports } from "@/config/airports";
+import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { HeroChatInput } from "@/components/chat";
 
 type SearchTab = "parking" | "ai";
@@ -102,24 +102,12 @@ export function Hero() {
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                   Where to?
                 </label>
-                <div className="relative flex items-center">
-                  <MapPin
-                    className="absolute left-3 text-brand-blue opacity-80 pointer-events-none"
-                    size={20}
-                  />
-                  <select
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none font-medium text-gray-900 group-hover:bg-white transition-colors cursor-pointer"
-                  >
-                    <option value="">Select Airport</option>
-                    {enabledAirports.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.code} - {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <AirportCombobox
+                  value={location}
+                  onChange={setLocation}
+                  placeholder="Search airports..."
+                  variant="hero"
+                />
               </div>
 
               {/* Depart & Return Dates */}
