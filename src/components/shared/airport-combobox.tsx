@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
 import { MapPin, ChevronDown, Search, X } from "lucide-react";
 import { enabledAirports, getAirportByCode } from "@/config/airports";
 
@@ -23,10 +24,11 @@ export function AirportCombobox({
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [highlightIndex, setHighlightIndex] = useState(0);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const selected = value ? getAirportByCode(value) : null;
 
-  // Filter airports by query — matches code, city, name, or state
+  // Only show results when the user has typed something
   const filtered = query.trim()
     ? enabledAirports.filter((a) => {
         const q = query.toLowerCase();
@@ -37,26 +39,57 @@ export function AirportCombobox({
           a.state.toLowerCase().includes(q)
         );
       })
-    : enabledAirports;
+    : [];
+
+  const showDropdown = open && filtered.length > 0;
 
   // Reset highlight when filtered list changes
   useEffect(() => {
     setHighlightIndex(0);
   }, [query]);
 
+  // Position the portal dropdown below the input
+  useLayoutEffect(() => {
+    if (!open || !containerRef.current) {
+      setDropdownPos(null);
+      return;
+    }
+    const updatePos = () => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        setDropdownPos({
+          top: rect.bottom + window.scrollY + 4,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+        });
+      }
+    };
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [open]);
+
   // Scroll highlighted item into view
   useEffect(() => {
-    if (open && listRef.current) {
+    if (showDropdown && listRef.current) {
       const items = listRef.current.querySelectorAll("[data-airport-item]");
       items[highlightIndex]?.scrollIntoView({ block: "nearest" });
     }
-  }, [highlightIndex, open]);
+  }, [highlightIndex, showDropdown]);
 
   // Close on click outside
   useEffect(() => {
     if (!open) return;
     const handleClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current && !containerRef.current.contains(target) &&
+        listRef.current && !listRef.current.contains(target)
+      ) {
         setOpen(false);
       }
     };
@@ -97,6 +130,47 @@ export function AirportCombobox({
   };
 
   const isHero = variant === "hero";
+
+  const dropdownList = showDropdown && dropdownPos
+    ? createPortal(
+        <div
+          ref={listRef}
+          style={{
+            position: "absolute",
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+          }}
+          className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+        >
+          {filtered.map((airport, index) => (
+            <button
+              key={airport.code}
+              type="button"
+              data-airport-item
+              onClick={() => selectAirport(airport.code)}
+              onMouseEnter={() => setHighlightIndex(index)}
+              className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors cursor-pointer ${
+                index === highlightIndex
+                  ? "bg-brand-orange/10"
+                  : value === airport.code
+                  ? "bg-gray-50"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              <span className="font-bold text-brand-orange text-sm w-10 flex-shrink-0">
+                {airport.code}
+              </span>
+              <span className="text-sm text-gray-700 truncate">
+                {airport.city}, {airport.state}
+                <span className="text-gray-400 ml-1">— {airport.name}</span>
+              </span>
+            </button>
+          ))}
+        </div>,
+        document.body
+      )
+    : null;
 
   return (
     <div ref={containerRef} className="relative w-full">
@@ -166,44 +240,7 @@ export function AirportCombobox({
         </div>
       )}
 
-      {/* Dropdown List */}
-      {open && (
-        <div
-          ref={listRef}
-          className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"
-        >
-          {filtered.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-gray-500">
-              No airports found
-            </div>
-          ) : (
-            filtered.map((airport, index) => (
-              <button
-                key={airport.code}
-                type="button"
-                data-airport-item
-                onClick={() => selectAirport(airport.code)}
-                onMouseEnter={() => setHighlightIndex(index)}
-                className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors cursor-pointer ${
-                  index === highlightIndex
-                    ? "bg-brand-orange/10"
-                    : value === airport.code
-                    ? "bg-gray-50"
-                    : "hover:bg-gray-50"
-                }`}
-              >
-                <span className="font-bold text-brand-orange text-sm w-10 flex-shrink-0">
-                  {airport.code}
-                </span>
-                <span className="text-sm text-gray-700 truncate">
-                  {airport.city}, {airport.state}
-                  <span className="text-gray-400 ml-1">— {airport.name}</span>
-                </span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
+      {dropdownList}
     </div>
   );
 }
