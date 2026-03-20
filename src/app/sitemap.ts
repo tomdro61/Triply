@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { productionAirports } from "@/config/airports";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://triplypro.com";
@@ -77,5 +78,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Error fetching blog posts for sitemap:", error);
   }
 
-  return [...staticPages, ...blogPages];
+  // Airport landing pages (85 airports + hub)
+  const airportHubPage: MetadataRoute.Sitemap = [
+    {
+      url: `${baseUrl}/airport-parking`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.85,
+    },
+  ];
+
+  const airportPages: MetadataRoute.Sitemap = productionAirports.map((airport) => ({
+    url: `${baseUrl}/${airport.slug}/airport-parking`,
+    lastModified: new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.9,
+  }));
+
+  return [...staticPages, ...airportHubPage, ...airportPages, ...blogPages];
 }

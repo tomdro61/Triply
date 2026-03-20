@@ -24,7 +24,11 @@ export function Footer() {
       header: "Airports",
       links: [
         { label: "JFK Parking", href: "/new-york-jfk/airport-parking" },
-        { label: "LaGuardia Parking", href: "/new-york-lga/airport-parking" },
+        { label: "LAX Parking", href: "/los-angeles-lax/airport-parking" },
+        { label: "ORD Parking", href: "/chicago-ord/airport-parking" },
+        { label: "ATL Parking", href: "/atlanta-atl/airport-parking" },
+        { label: "MIA Parking", href: "/miami-mia/airport-parking" },
+        { label: "View All Airports", href: "/airport-parking" },
       ],
     },
   ];
