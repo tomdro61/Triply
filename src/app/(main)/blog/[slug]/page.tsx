@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!post) {
     return {
-      title: 'Post Not Found | Triply',
+      title: 'Post Not Found',
     }
   }
 
@@ -32,7 +32,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = post.seo?.metaDescription || post.excerpt
 
   return {
-    title: `${title} | Triply`,
+    title,
     description,
     alternates: { canonical: `/blog/${slug}` },
     openGraph: {

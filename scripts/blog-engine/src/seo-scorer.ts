@@ -524,14 +524,22 @@ function scoreAiSearchOptimization(input: ScorerInput, root: HTMLElement, fullTe
   })
 
   // 2. Key Takeaways list near top (3 pts)
+  // Structural detection: any <ul>/<ol> appearing in the first 8 top-level elements
+  // (after the opening paragraph). Also matches if preceded by a heading/paragraph
+  // containing takeaway-like text.
   const children = root.childNodes.filter((n) => n instanceof HTMLElement) as HTMLElement[]
   let hasEarlyList = false
-  for (let i = 0; i < Math.min(children.length, 6); i++) {
-    if (children[i].tagName === 'UL' || children[i].tagName === 'OL') {
+  let foundFirstParagraph = false
+  for (let i = 0; i < Math.min(children.length, 8); i++) {
+    const tag = children[i].tagName
+    if (tag === 'P') foundFirstParagraph = true
+    // Any list appearing after the first paragraph counts as a takeaway/summary list
+    if (foundFirstParagraph && (tag === 'UL' || tag === 'OL')) {
       hasEarlyList = true
       break
     }
-    if (/key takeaway|takeaway|at a glance|quick summary/i.test(getTextContent(children[i]))) {
+    // Also check for labeled takeaway patterns (heading + list)
+    if (/key takeaway|takeaway|at a glance|quick summary|key points|key facts|highlights/i.test(getTextContent(children[i]))) {
       if (i + 1 < children.length && (children[i + 1].tagName === 'UL' || children[i + 1].tagName === 'OL')) {
         hasEarlyList = true
         break
@@ -543,22 +551,22 @@ function scoreAiSearchOptimization(input: ScorerInput, root: HTMLElement, fullTe
     passed: hasEarlyList,
     points: hasEarlyList ? 3 : 0,
     maxPoints: 3,
-    detail: hasEarlyList ? 'Bulleted summary found near top of article' : 'No Key Takeaways list found in first 6 elements',
+    detail: hasEarlyList ? 'Bulleted summary found near top of article' : 'No summary list found in first 8 elements after opening paragraph',
   })
 
-  // 3. Lists used in sections (4 pts) — Adjusted: 30% target (was 50%)
-  const sectionsWithLists = sections.filter((s) =>
-    s.content.some((el) => el.tagName === 'UL' || el.tagName === 'OL' ||
-      el.querySelector?.('ul, ol'))
+  // 3. Lists or tables used in sections (4 pts) — tables count as structured data equivalent
+  const sectionsWithStructure = sections.filter((s) =>
+    s.content.some((el) => el.tagName === 'UL' || el.tagName === 'OL' || el.tagName === 'TABLE' ||
+      el.querySelector?.('ul, ol, table'))
   )
-  const listRatio = sections.length > 0 ? sectionsWithLists.length / sections.length : 0
-  const listPass = listRatio >= 0.3
+  const structureRatio = sections.length > 0 ? sectionsWithStructure.length / sections.length : 0
+  const structurePass = structureRatio >= 0.3
   checks.push({
-    name: 'Lists in sections',
-    passed: listPass,
-    points: listRatio >= 0.45 ? 4 : listRatio >= 0.3 ? 3 : sectionsWithLists.length > 0 ? 1 : 0,
+    name: 'Structured data in sections',
+    passed: structurePass,
+    points: structureRatio >= 0.45 ? 4 : structureRatio >= 0.3 ? 3 : sectionsWithStructure.length > 0 ? 1 : 0,
     maxPoints: 4,
-    detail: `${sectionsWithLists.length} of ${sections.length} sections contain lists (${Math.round(listRatio * 100)}%, target: 30%+)`,
+    detail: `${sectionsWithStructure.length} of ${sections.length} sections contain lists or tables (${Math.round(structureRatio * 100)}%, target: 30%+)`,
   })
 
   // 4. Question-format H2 headings (3 pts)
@@ -928,13 +936,15 @@ function scoreExternalLinkValidation(input: ScorerInput, root: HTMLElement): Cat
 
 function scoreCtaRelevance(input: ScorerInput): CategoryScore {
   const checks: Check[] = []
-  const kwWords = input.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 3)
+  // Include keyword words AND airport code for matching
+  const kwWords = input.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+  const airportCode = input.airportCode?.toLowerCase() || ''
 
-  // Check if CTAs reference the article topic
+  // Check if CTAs reference the article topic — match on keyword words OR airport code
   const earlyCta = input.earlyCta?.toLowerCase() || ''
   const closingCta = input.closingCta?.toLowerCase() || ''
-  const earlyHasKeyword = kwWords.some(w => earlyCta.includes(w))
-  const closingHasKeyword = kwWords.some(w => closingCta.includes(w))
+  const earlyHasKeyword = kwWords.some(w => earlyCta.includes(w)) || !!(airportCode && earlyCta.includes(airportCode))
+  const closingHasKeyword = kwWords.some(w => closingCta.includes(w)) || !!(airportCode && closingCta.includes(airportCode))
   const ctaRelevant = earlyHasKeyword || closingHasKeyword
 
   checks.push({
@@ -943,8 +953,8 @@ function scoreCtaRelevance(input: ScorerInput): CategoryScore {
     points: (earlyHasKeyword ? 1 : 0) + (closingHasKeyword ? 1 : 0),
     maxPoints: 2,
     detail: ctaRelevant
-      ? `CTA references article keywords${earlyHasKeyword && closingHasKeyword ? ' (both)' : earlyHasKeyword ? ' (early)' : ' (closing)'}`
-      : `CTAs don't reference keyword terms: ${kwWords.join(', ')}`,
+      ? `CTA references article topic${earlyHasKeyword && closingHasKeyword ? ' (both)' : earlyHasKeyword ? ' (early)' : ' (closing)'}`
+      : `CTAs don't reference keyword terms or airport code: ${[...kwWords, airportCode].filter(Boolean).join(', ')}`,
   })
 
   // Check CTAs are different

@@ -466,6 +466,11 @@ function convertBlockElement(el: HTMLElement): LexicalNode[] {
       const imgEl = el.querySelector('img')
       if (imgEl) {
         const id = imgEl.getAttribute('data-media-id') || ''
+        // Skip images without a valid media ID — these are Claude-generated
+        // img tags that weren't uploaded to the CMS media library
+        if (!id || isNaN(parseInt(id, 10))) {
+          return []
+        }
         const src = imgEl.getAttribute('src') || ''
         const alt = imgEl.getAttribute('alt') || ''
         const width = parseInt(imgEl.getAttribute('data-width') || imgEl.getAttribute('width') || '0', 10)
@@ -487,6 +492,10 @@ function convertBlockElement(el: HTMLElement): LexicalNode[] {
       // Convert <img> to Lexical upload node
       // data-media-id and data-width/data-height are set by the inline-images resolver
       const id = el.getAttribute('data-media-id') || ''
+      // Skip images without a valid media ID
+      if (!id || isNaN(parseInt(id, 10))) {
+        return []
+      }
       const src = el.getAttribute('src') || ''
       const alt = el.getAttribute('alt') || ''
       const width = parseInt(el.getAttribute('data-width') || el.getAttribute('width') || '0', 10)

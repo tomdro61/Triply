@@ -4,7 +4,7 @@ import { env, CLAUDE_MODEL, MAX_TOKENS, DOMAIN, REVISION_THRESHOLDS, HARD_FLOOR_
 import { scoreArticle } from './seo-scorer.js'
 import type { SeoScore } from './seo-scorer.js'
 import { buildAnalyzePrompt } from './prompts/analyze.js'
-import { buildWritePrompt } from './prompts/write.js'
+import { buildWritePrompt, getWritingRulesBlock, getAirportDataBlock, getExternalLinksBlock } from './prompts/write.js'
 import { buildEditPrompt } from './prompts/edit.js'
 import type { QueueItem } from './queue.js'
 import type { ScrapedArticle } from './scraper.js'
@@ -245,6 +245,59 @@ type SystemMessage = string | Anthropic.MessageCreateParams['system']
 
 const RETRY_DELAYS = [2000, 4000, 8000]
 
+// Sonnet 4.6 pricing (per million tokens)
+const PRICING = {
+  input: 3.0,
+  output: 15.0,
+  cacheWrite: 3.75,
+  cacheRead: 0.30,
+}
+
+export interface TokenUsage {
+  step: string
+  inputTokens: number
+  outputTokens: number
+  cacheReadTokens: number
+  cacheWriteTokens: number
+  cost: number
+}
+
+// Accumulated token usage for the current article generation
+let _articleTokenUsage: TokenUsage[] = []
+
+export function resetTokenTracking(): void {
+  _articleTokenUsage = []
+}
+
+export function getTokenUsage(): TokenUsage[] {
+  return [..._articleTokenUsage]
+}
+
+export function getTokenSummary(): { totalInput: number; totalOutput: number; totalCacheRead: number; totalCacheWrite: number; totalCost: number; steps: TokenUsage[] } {
+  const steps = getTokenUsage()
+  const totalInput = steps.reduce((s, u) => s + u.inputTokens, 0)
+  const totalOutput = steps.reduce((s, u) => s + u.outputTokens, 0)
+  const totalCacheRead = steps.reduce((s, u) => s + u.cacheReadTokens, 0)
+  const totalCacheWrite = steps.reduce((s, u) => s + u.cacheWriteTokens, 0)
+  const totalCost = steps.reduce((s, u) => s + u.cost, 0)
+  return { totalInput, totalOutput, totalCacheRead, totalCacheWrite, totalCost, steps }
+}
+
+function calculateCost(input: number, output: number, cacheRead: number, cacheWrite: number): number {
+  return (
+    (input * PRICING.input / 1_000_000) +
+    (output * PRICING.output / 1_000_000) +
+    (cacheRead * PRICING.cacheRead / 1_000_000) +
+    (cacheWrite * PRICING.cacheWrite / 1_000_000)
+  )
+}
+
+let _currentStep = 'unknown'
+
+export function setCurrentStep(step: string): void {
+  _currentStep = step
+}
+
 async function callClaude(prompt: string, system?: SystemMessage): Promise<string> {
   let lastError: Error | null = null
 
@@ -262,10 +315,26 @@ async function callClaude(prompt: string, system?: SystemMessage): Promise<strin
         messages: [{ role: 'user', content: prompt }],
       })
 
-      // Log cache performance if available
-      const usage = response.usage as unknown as Record<string, unknown>
-      if (usage.cache_read_input_tokens || usage.cache_creation_input_tokens) {
-        console.log(`    Cache: ${usage.cache_read_input_tokens || 0} read, ${usage.cache_creation_input_tokens || 0} created`)
+      // Track token usage
+      const usage = response.usage as unknown as Record<string, number>
+      const inputTokens = (usage.input_tokens as number) || 0
+      const outputTokens = (usage.output_tokens as number) || 0
+      const cacheReadTokens = (usage.cache_read_input_tokens as number) || 0
+      const cacheWriteTokens = (usage.cache_creation_input_tokens as number) || 0
+      const cost = calculateCost(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens)
+
+      _articleTokenUsage.push({
+        step: _currentStep,
+        inputTokens,
+        outputTokens,
+        cacheReadTokens,
+        cacheWriteTokens,
+        cost,
+      })
+
+      console.log(`    Tokens: ${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out | Cost: $${cost.toFixed(4)}`)
+      if (cacheReadTokens || cacheWriteTokens) {
+        console.log(`    Cache: ${cacheReadTokens.toLocaleString()} read, ${cacheWriteTokens.toLocaleString()} created`)
       }
 
       const textBlock = response.content.find((b) => b.type === 'text')
@@ -335,6 +404,7 @@ export async function analyzeCompetitors(
   competitors: ScrapedArticle[]
 ): Promise<AnalysisResult> {
   console.log('  Step 1/3: Analyzing competitors...')
+  setCurrentStep('analyze')
   const prompt = buildAnalyzePrompt(keyword, competitors)
   const response = await callClaude(prompt, `You are an SEO content analyst for an airport parking comparison website (${DOMAIN}). Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`)
   const result = parseJsonResponse(response, AnalysisResultSchema)
@@ -347,17 +417,47 @@ export async function writeArticle(
   analysis: AnalysisResult,
   airportData?: AirportData,
   publishedPosts?: PublishedPost[],
-  clusterArticles?: { slug: string; title: string; articleType: string; headings: { level: number; text: string }[]; excerpt: string }[]
+  clusterArticles?: { slug: string; title: string; articleType: string; keyword?: string; headings: { level: number; text: string }[]; excerpt: string }[]
 ): Promise<WriteResult> {
   console.log('  Step 2/3: Writing article...')
+  setCurrentStep('write')
   const prompt = buildWritePrompt(item, analysis, airportData, publishedPosts, clusterArticles)
+
+  // Multi-block system prompt for caching:
+  // Block 1: Role (tiny, always cached)
+  // Block 2: Writing rules (static per airport, cached across articles in cluster)
+  // Block 3: Airport data (static per airport, cached across articles)
+  // Block 4: External links (static per airport+type, cached across articles)
   const systemBlocks: Anthropic.MessageCreateParams['system'] = [
     {
       type: 'text' as const,
       text: `You are a professional travel and airport parking content writer for ${DOMAIN}. Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`,
       cache_control: { type: 'ephemeral' as const },
     },
+    {
+      type: 'text' as const,
+      text: getWritingRulesBlock(item.airportCode),
+      cache_control: { type: 'ephemeral' as const },
+    },
   ]
+  // Add airport data block if available (large, benefits most from caching)
+  if (airportData) {
+    systemBlocks.push({
+      type: 'text' as const,
+      text: getAirportDataBlock(airportData, item.keyword),
+      cache_control: { type: 'ephemeral' as const },
+    })
+  }
+  // Add external links block if available
+  const extLinksBlock = getExternalLinksBlock(item.airportCode, item.articleType)
+  if (extLinksBlock) {
+    systemBlocks.push({
+      type: 'text' as const,
+      text: extLinksBlock,
+      cache_control: { type: 'ephemeral' as const },
+    })
+  }
+
   const response = await callClaude(prompt, systemBlocks)
   const result = parseJsonResponse(response, WriteResultSchema)
 
@@ -377,6 +477,7 @@ export async function editArticle(
   airportData?: AirportData
 ): Promise<EditResult> {
   console.log(failedChecks ? '  Step 3b/3: Re-editing with failed checks...' : '  Step 3/3: Editing & QA...')
+  setCurrentStep(failedChecks ? 'revision' : 'edit')
   const prompt = buildEditPrompt(html, keyword, articleType, articleStyle as 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | undefined, airportCode, publishedPosts, failedChecks, analysis, airportData)
   const systemBlocks: Anthropic.MessageCreateParams['system'] = [
     {
@@ -423,7 +524,7 @@ export async function generateArticle(
   // Step 2: Write article
   const writeStart = Date.now()
   // Fetch cluster context for cross-article awareness
-  let clusterArticles: { slug: string; title: string; articleType: string; headings: { level: number; text: string }[]; excerpt: string }[] = []
+  let clusterArticles: { slug: string; title: string; articleType: string; keyword?: string; headings: { level: number; text: string }[]; excerpt: string }[] = []
   if (item.articleType !== 'hub' && publishedPosts && publishedPosts.length > 0) {
     try {
       const { getClusterContext } = await import('./payload.js')

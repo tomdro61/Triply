@@ -6,7 +6,7 @@ import { getNextQueuedItems, validatePrerequisites, markGenerating, markDraft, m
 import type { QueueItem } from './queue.js'
 import { scrapeCompetitors } from './scraper.js'
 import type { ScrapedArticle } from './scraper.js'
-import { generateArticle } from './claude.js'
+import { generateArticle, resetTokenTracking, getTokenSummary, setCurrentStep } from './claude.js'
 import { htmlToLexical } from './html-to-lexical.js'
 import { generateInfographics } from './infographics.js'
 import { getAirportPhoto } from './unsplash.js'
@@ -20,6 +20,7 @@ import {
   getQueueItems,
   getAllPublishedSlugs,
   updateQueueItem,
+  getClusterUsedPhotoIds,
 } from './payload.js'
 import { env } from './config.js'
 import { loadAirportData } from './airport-data.js'
@@ -30,6 +31,22 @@ import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary 
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logsDir = path.resolve(__dirname, '..', 'logs')
+
+/**
+ * Strip any "Frequently Asked Questions" section from HTML body.
+ * FAQs are stored as structured faqItems and rendered by FaqAccordion —
+ * having them in the HTML body too causes duplicate rendering.
+ */
+function stripFaqSection(html: string): string {
+  // Match an H2 starting with "frequently asked questions" or "FAQ" (case-insensitive)
+  // and everything after it until the next H2 or end of string
+  const faqPattern = /<h2[^>]*>\s*(?:frequently\s+asked\s+questions|faqs?)\b[^<]*<\/h2>[\s\S]*?(?=<h2[\s>]|$)/i
+  const stripped = html.replace(faqPattern, '')
+  if (stripped.length < html.length) {
+    console.log('  ✓ Stripped FAQ section from HTML body (rendered separately via FaqAccordion)')
+  }
+  return stripped
+}
 
 interface ArticleReport {
   timestamp: string
@@ -103,6 +120,14 @@ interface ArticleReport {
     scoreAfter: number
     failedChecks: string[]
   } | null
+  tokenUsage?: {
+    totalInput: number
+    totalOutput: number
+    totalCacheRead: number
+    totalCacheWrite: number
+    totalCost: number
+    steps: { step: string; input: number; output: number; cost: number }[]
+  }
   error: string | null
 }
 
@@ -312,6 +337,7 @@ program
           )
 
           // Generate with Claude (3-prompt pipeline)
+          resetTokenTracking()
           const result = await generateArticle(item, competitors, (step, data) => {
             // Callback to capture intermediate results for the report
             const r = data.result as Record<string, unknown>
@@ -382,6 +408,7 @@ program
           if (airportData) {
             try {
               console.log('  Generating infographics...')
+              setCurrentStep('infographics')
               const infResult = await generateInfographics(contentHtml, airportData, item.airportCode)
               contentHtml = infResult.html
               report.infographics.count = infResult.count
@@ -395,15 +422,25 @@ program
             }
           }
 
+          // Strip any FAQ section from HTML body (FAQs are rendered separately via FaqAccordion)
+          contentHtml = stripFaqSection(contentHtml)
+
           // Convert HTML to Lexical
           console.log('  Converting to Lexical format...')
           const lexicalContent = htmlToLexical(contentHtml)
 
-          // Upload featured image
+          // Upload featured image (with cluster deduplication)
           const uploadStart = Date.now()
           let featuredImageId: string | null = null
           console.log('  Fetching featured image...')
-          const photo = await getAirportPhoto(item.airportCode)
+          let usedPhotoIds: string[] = []
+          try {
+            usedPhotoIds = await getClusterUsedPhotoIds(item.airportCode)
+            if (usedPhotoIds.length > 0) {
+              console.log(`    Excluding ${usedPhotoIds.length} photo(s) already used in ${item.airportCode} cluster`)
+            }
+          } catch { /* cluster dedup is optional */ }
+          const photo = await getAirportPhoto(item.airportCode, item.keyword, usedPhotoIds)
           if (photo) {
             const media = await uploadMedia(photo.buffer, photo.filename, photo.alt)
             featuredImageId = media.doc?.id || media.id
@@ -491,7 +528,22 @@ program
 
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
 
-          console.log(`  ✅ Draft created! SEO Score: ${report.seoScore?.total}/${report.seoScore?.maxTotal} (${report.seoScore?.grade})`)
+          // Token cost summary
+          const tokenSummary = getTokenSummary()
+          report.tokenUsage = {
+            totalInput: tokenSummary.totalInput,
+            totalOutput: tokenSummary.totalOutput,
+            totalCacheRead: tokenSummary.totalCacheRead,
+            totalCacheWrite: tokenSummary.totalCacheWrite,
+            totalCost: Math.round(tokenSummary.totalCost * 10000) / 10000,
+            steps: tokenSummary.steps.map(s => ({ step: s.step, input: s.inputTokens, output: s.outputTokens, cost: Math.round(s.cost * 10000) / 10000 })),
+          }
+          console.log(`\n  💰 Total API cost: $${tokenSummary.totalCost.toFixed(4)} (${tokenSummary.totalInput.toLocaleString()} in / ${tokenSummary.totalOutput.toLocaleString()} out)`)
+          for (const s of tokenSummary.steps) {
+            console.log(`     ${s.step}: $${s.cost.toFixed(4)} (${s.inputTokens.toLocaleString()} in / ${s.outputTokens.toLocaleString()} out)`)
+          }
+
+          console.log(`\n  ✅ Draft created! SEO Score: ${report.seoScore?.total}/${report.seoScore?.maxTotal} (${report.seoScore?.grade})`)
           console.log(`  📝 Review at: CMS Admin → Posts → "${resolvedTitle}"`)
 
           // Print reports

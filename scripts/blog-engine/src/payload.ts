@@ -147,6 +147,7 @@ export interface ClusterArticle {
   slug: string
   title: string
   articleType: string
+  keyword?: string
   headings: { level: number; text: string }[]
   excerpt: string
 }
@@ -164,7 +165,7 @@ export async function getClusterContext(item: { airportCode: string; articleType
   const result = await payloadFetch(`/posts?${params.toString()}`)
   const docs = result.docs || []
 
-  return docs
+  const siblings = docs
     .filter((doc: Record<string, unknown>) => doc.slug !== item.slug)
     .map((doc: Record<string, unknown>) => ({
       slug: doc.slug as string,
@@ -174,6 +175,53 @@ export async function getClusterContext(item: { airportCode: string; articleType
       excerpt: ((doc.excerpt as string) || '').slice(0, 200),
     }))
     .slice(0, 10)
+
+  // Enrich with keywords from content queue (for cross-link anchor text)
+  if (siblings.length > 0) {
+    try {
+      const queueParams = new URLSearchParams({ limit: '50' })
+      const queueResult = await payloadFetch(`/content-queue?${queueParams.toString()}`)
+      const queueDocs = (queueResult.docs || []) as Record<string, unknown>[]
+      const slugToKeyword = new Map<string, string>()
+      for (const q of queueDocs) {
+        if (q.slug && q.keyword) slugToKeyword.set(q.slug as string, q.keyword as string)
+      }
+      for (const sibling of siblings) {
+        const kw = slugToKeyword.get(sibling.slug)
+        if (kw) (sibling as ClusterArticle & { keyword?: string }).keyword = kw
+      }
+    } catch { /* keyword enrichment is optional */ }
+  }
+
+  return siblings
+}
+
+/**
+ * Get Unsplash photo IDs already used as featured images by published posts
+ * in the same airport cluster. Used to avoid duplicate hero images.
+ */
+export async function getClusterUsedPhotoIds(airportCode: string): Promise<string[]> {
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    'where[airportCode][equals]': airportCode.toUpperCase(),
+    limit: '50',
+    depth: '1', // resolve featuredImage to get filename
+  })
+
+  const result = await payloadFetch(`/posts?${params.toString()}`)
+  const docs = result.docs || []
+
+  const photoIds: string[] = []
+  for (const doc of docs) {
+    const img = doc.featuredImage as Record<string, unknown> | undefined
+    if (!img) continue
+    // Filename is the Unsplash photo ID (e.g., "0XV65AZ1hmY.jpg")
+    const filename = (img.filename as string) || ''
+    const photoId = filename.replace(/\.\w+$/, '') // strip extension
+    if (photoId) photoIds.push(photoId)
+  }
+
+  return photoIds
 }
 
 // Content Queue
@@ -182,7 +230,7 @@ export async function getQueueItems(filters: Record<string, string> = {}) {
   for (const [key, value] of Object.entries(filters)) {
     params.set(key, value)
   }
-  if (!params.has('limit')) params.set('limit', '50')
+  if (!params.has('limit')) params.set('limit', '200')
   return payloadFetch(`/content-queue?${params.toString()}`)
 }
 

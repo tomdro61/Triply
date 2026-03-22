@@ -108,8 +108,20 @@ export function getApprovedDomains(airportCode: string): Set<string> {
 }
 
 /**
+ * Cap and sort links by authority (high first), limiting total count.
+ */
+function capLinks(links: ExternalLink[], max: number): ExternalLink[] {
+  const sorted = [...links].sort((a, b) => {
+    const order = { high: 0, medium: 1, low: 2 }
+    return (order[a.authority] ?? 2) - (order[b.authority] ?? 2)
+  })
+  return sorted.slice(0, max)
+}
+
+/**
  * Format external links into a prompt-ready string for the AI writer.
  * Groups by authority level and includes anchor text + usage guidance.
+ * Capped at 15 links to reduce token costs.
  */
 export function formatExternalLinksForPrompt(
   links: ExternalLink[],
@@ -123,9 +135,10 @@ export function formatExternalLinksForPrompt(
     spoke: '2-4 external links',
   }
 
-  const high = links.filter((l) => l.authority === 'high')
-  const medium = links.filter((l) => l.authority === 'medium')
-  const low = links.filter((l) => l.authority === 'low')
+  const capped = capLinks(links, 15)
+  const high = capped.filter((l) => l.authority === 'high')
+  const medium = capped.filter((l) => l.authority === 'medium')
+  const low = capped.filter((l) => l.authority === 'low')
 
   let output = `**EXTERNAL LINKS DATABASE — use these verified links in the article:**
 Target: ${densityGuide[articleType] || '4-7 external links'}. At least 50% should be high-authority. Use 4+ unique domains.
@@ -150,5 +163,23 @@ Place links naturally within body paragraphs. Front-load high-authority links in
     output += `LOW AUTHORITY (use sparingly):\n${low.map(formatLink).join('\n')}\n\n`
   }
 
+  return output
+}
+
+/**
+ * Compact format for the editor — just URLs and rel attributes.
+ * The editor only needs to verify links exist, not choose them.
+ */
+export function formatExternalLinksForEditor(
+  links: ExternalLink[]
+): string {
+  if (links.length === 0) return ''
+
+  let output = '\n**Approved external link URLs (verify article links are in this list):**\n'
+  for (const l of links) {
+    const rel = l.rel === 'nofollow' ? ' rel="nofollow"' : ''
+    output += `- ${l.url}${rel}\n`
+  }
+  output += 'Remove any external links NOT in this list.\n'
   return output
 }

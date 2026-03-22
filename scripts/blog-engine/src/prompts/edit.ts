@@ -1,7 +1,7 @@
 import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { PublishedPost } from '../payload.js'
 import type { AirportData } from '../airport-data.js'
-import { getExternalLinks, formatExternalLinksForPrompt } from '../external-links.js'
+import { getExternalLinks, formatExternalLinksForEditor } from '../external-links.js'
 
 type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
 
@@ -56,7 +56,7 @@ export function buildEditPrompt(html: string, keyword: string, articleType: stri
   const externalLinksSection = airportCode
     ? (() => {
         const links = getExternalLinks(airportCode, articleType)
-        return links.length > 0 ? '\n' + formatExternalLinksForPrompt(links, articleType) : ''
+        return links.length > 0 ? formatExternalLinksForEditor(links) : ''
       })()
     : ''
 
@@ -77,14 +77,21 @@ export function buildEditPrompt(html: string, keyword: string, articleType: stri
 Verify this article covers the identified gaps. If a recommended H2 topic is entirely missing, add a section for it.\n`
     : ''
 
+  // Compact airport data for the editor — only names and rates for fact-checking
   const airportDataSection = airportData
-    ? `\n**Verified Airport Data (use for FACT-CHECKING — correct any wrong rates/times/names):**
-- Official parking rates: ${airportData.parkingRates}
-- Shuttle info: ${airportData.shuttleInfo}
-- Terminals: ${airportData.terminals.map(t => t.name).join(', ')}
-- Transit: ${airportData.transit.join(', ')}${airportData.parkingLots && airportData.parkingLots.length > 0 ? `
-- Verified lot prices: ${(airportData.parkingLots as Record<string, unknown>[]).filter(l => typeof l.dailyRate === 'number').sort((a, b) => (a.dailyRate as number) - (b.dailyRate as number)).slice(0, 10).map(l => `${l.name} $${l.dailyRate}/day`).join(', ')}` : ''}
-If the article cites specific rates that don't match this data, correct them. If rates are vague, replace with specific verified rates.\n`
+    ? (() => {
+        const lines = ['\n**Verified rates (fact-check only — correct any wrong prices/names):**']
+        lines.push(`- Official rates: ${airportData.parkingRates}`)
+        if (airportData.parkingLots && airportData.parkingLots.length > 0) {
+          const lots = (airportData.parkingLots as Record<string, unknown>[])
+            .filter(l => typeof l.dailyRate === 'number')
+            .sort((a, b) => (a.dailyRate as number) - (b.dailyRate as number))
+            .slice(0, 15)
+          lines.push(`- Off-site lots: ${lots.map(l => `${l.name} $${l.dailyRate}/day`).join(', ')}`)
+        }
+        lines.push('Correct any rates that don\'t match. Replace vague pricing with specific verified rates.\n')
+        return lines.join('\n')
+      })()
     : ''
 
   return `You are a senior editor reviewing an airport parking blog article for ${DOMAIN}.

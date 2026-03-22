@@ -41,13 +41,14 @@ function getArticleTypeInstructions(item: QueueItem): string {
       return `This is a SUB-PILLAR article — a detailed guide on a specific aspect of ${item.airportCode} airport parking.
 - Start the introduction with a link back to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
 - Go deep on this specific topic — more detail than the hub provides
-- Cross-link to 2-3 sibling sub-pillar articles where relevant
+- You MUST include at least 2 contextual links to sibling articles (not just the hub). Use natural anchor text containing the sibling's primary keyword. Place cross-links within relevant H2 sections, not bunched in one paragraph.
 - Target length: 1500-2000 words`
 
     case 'spoke':
       return `This is a SPOKE article — a focused, specific piece about ${item.airportCode} airport parking.
 - Include a link to the parent sub-pillar: <a href="${BLOG_BASE_URL}/${item.parentSlug}">Back to [parent topic]</a>
 - Include a link to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
+- You MUST include at least 1 contextual link to a sibling article. Use natural anchor text containing the sibling's primary keyword.
 - Very focused on one specific question or niche topic
 - Target length: 800-1200 words`
 
@@ -268,6 +269,7 @@ interface ClusterArticle {
   slug: string
   title: string
   articleType: string
+  keyword?: string
   headings: { level: number; text: string }[]
   excerpt: string
 }
@@ -280,7 +282,8 @@ function formatClusterContext(clusterArticles: ClusterArticle[], item: QueueItem
 
   for (const article of clusterArticles) {
     const h2s = article.headings.filter(h => h.level === 2).map(h => h.text)
-    lines.push(`- "${article.title}" (${article.articleType}) — ${BLOG_BASE_URL}/${article.slug}`)
+    const keywordNote = article.keyword ? ` | keyword: "${article.keyword}"` : ''
+    lines.push(`- "${article.title}" (${article.articleType}) — ${BLOG_BASE_URL}/${article.slug}${keywordNote}`)
     if (h2s.length > 0) {
       lines.push(`  Covers: ${h2s.join(', ')}`)
     }
@@ -288,8 +291,9 @@ function formatClusterContext(clusterArticles: ClusterArticle[], item: QueueItem
 
   lines.push('')
   lines.push('IMPORTANT: Do NOT repeat content already covered in depth by the hub or siblings above.')
-  lines.push('Instead, reference them with links (e.g., "For a complete overview, see our [guide](url)").')
-  lines.push('Go deeper on YOUR specific angle that siblings do not cover.\n')
+  lines.push('Instead, reference them with contextual links using natural anchor text that includes the sibling\'s keyword.')
+  lines.push('Go deeper on YOUR specific angle that siblings do not cover.')
+  lines.push('CROSS-LINKING IS MANDATORY: You MUST link to at least 2 sibling articles (not just the hub/pillar). Place these links within relevant H2 sections where the sibling topic naturally comes up — do NOT bunch them in one paragraph or the conclusion.\n')
 
   return lines.join('\n')
 }
@@ -318,6 +322,7 @@ Write an SEO-optimized blog article with the following parameters:
 - Is compelling and specific — generated based on competitive analysis of what ranks
 - Omits the year unless content is genuinely time-sensitive
 - Hub = authoritative guide title; Sub-pillar = deep-dive title; Spoke = specific answer title
+- Do NOT include any brand suffix like "| Triply" — the website template appends it automatically
 
 ${getArticleTypeInstructions(item)}
 ${publishedPosts && publishedPosts.length > 0 ? formatPublishedPosts(publishedPosts) : ''}${clusterArticles && clusterArticles.length > 0 ? formatClusterContext(clusterArticles, item) : ''}
@@ -382,6 +387,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 30. COMPARISON TABLES: For pricing data and side-by-side comparisons, use HTML tables (<table>, <thead>, <tbody>, <tr>, <th>, <td>). Tables are especially valuable in data-heavy and comparison style articles. Include at least one table when comparing parking options, rates, or features across providers. CRITICAL: Every row in a parking comparison table MUST use an ACTUAL named facility from the verified data above (e.g., "PARK AC", "ARB Parking", "Bolt Parking"). NEVER use generic categories like "Budget (Jamaica)" or "Premium (Near terminals)" — readers need real lot names they can search for and book.
 31. VERIFICATION DATES: When citing promo codes, specific rates, or time-sensitive facts, add "(verified [Month Year])" inline — e.g., "The early bird rate is $18/day (verified February 2026)." This builds trust and signals freshness.
 32. PAA TARGETS: Include 2-3 "People Also Ask" style questions as H2 or H3 headings, targeting common related queries that searchers ask about this topic. For example, if writing about JFK parking deals, include headings like "Is There Free Parking at JFK?" or "How Early Should I Book JFK Parking?"
+33. NO FAQ SECTION IN HTML: Do NOT include a "Frequently Asked Questions" section in the HTML body. FAQs are returned separately in the faqItems JSON field and rendered as a dedicated accordion component on the page. Including them in the HTML causes duplicate rendering.
 Respond with ONLY valid JSON in this exact format:
 {
   "title": "Display title for the article (50-65 chars, keyword-rich, compelling)",
@@ -397,4 +403,40 @@ Respond with ONLY valid JSON in this exact format:
   ],
   "suggestedCategory": "Airport Parking"
 }`
+}
+
+
+/**
+ * Static writing rules block — for use as cacheable system prompt.
+ * Identical across all articles for same airport, enabling prompt caching.
+ */
+export function getWritingRulesBlock(airportCode: string): string {
+  return `**Condensed writing rules for ${DOMAIN} (airport: ${airportCode}):**
+1. Output ONLY clean HTML: h2, h3, p, ul, ol, li, a, strong, em, blockquote, table, thead, tbody, tr, th, td, img. No h1/div/span/styles/classes/IDs.
+2. Internal links: ${BLOG_BASE_URL}/[slug]. External links: ONLY from verified database. Add rel="nofollow" where specified.
+3. Natural keyword placement in first paragraph, 2-3 H2s, conclusion. Friendly authoritative voice.
+4. EARLY CTA within 500 words (contextual, specific). CLOSING CTA in final section. Both link to https://www.${DOMAIN}/search?airport=${airportCode}.
+5. Readability: grade 6-9. Sentences 15-20 words avg, never >30. Simple words. Active voice.
+6. Opening answer paragraph (extractable standalone). Key Takeaways <ul> after (standard/data-heavy/comparison only).
+7. Question H2s where natural. Answer-first sections. Lists where they fit.
+8. Real source attribution. E-E-A-T language. Bold key terms. Entity coverage.
+9. Freshness signals for time-sensitive data. 3-5 sentence paragraphs. Zero filler.
+10. Comparison tables use REAL lot names from verified data (never generic categories).
+11. Verification dates: "(verified [Month ${new Date().getFullYear()}])". 2-3 PAA question headings.
+12. NO FAQ section in HTML (goes in faqItems JSON). No brand suffix in title.`
+}
+
+/**
+ * Get formatted airport data block for prompt caching.
+ */
+export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
+  return formatAirportData(airportData, keyword)
+}
+
+/**
+ * Get formatted external links block for prompt caching.
+ */
+export function getExternalLinksBlock(airportCode: string, articleType: string): string {
+  const links = getExternalLinks(airportCode, articleType)
+  return links.length > 0 ? formatExternalLinksForPrompt(links, articleType) : ''
 }

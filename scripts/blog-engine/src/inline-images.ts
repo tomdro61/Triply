@@ -1,5 +1,5 @@
 import { parse, HTMLElement, NodeType } from 'node-html-parser'
-import { searchPhoto, downloadPhoto } from './unsplash.js'
+import { searchPhotos, downloadPhoto } from './unsplash.js'
 import { uploadMedia } from './payload.js'
 
 /** Maximum inline images per article to avoid Unsplash rate limits */
@@ -90,7 +90,8 @@ async function sourceAndUploadImage(
   ]
 
   for (const query of queries) {
-    const photo = await searchPhoto(query)
+    const photos = await searchPhotos(query, 1)
+    const photo = photos[0]
     if (!photo) continue
 
     const downloaded = await downloadPhoto(photo)

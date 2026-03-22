@@ -9,15 +9,15 @@ export interface UnsplashPhoto {
   user: { name: string; links: { html: string } }
 }
 
-export async function searchPhoto(query: string): Promise<UnsplashPhoto | null> {
+export async function searchPhotos(query: string, perPage = 10): Promise<UnsplashPhoto[]> {
   if (!env.UNSPLASH_ACCESS_KEY) {
     console.log('  ⚠ No UNSPLASH_ACCESS_KEY — skipping image search. Upload manually.')
-    return null
+    return []
   }
 
   const params = new URLSearchParams({
     query,
-    per_page: '1',
+    per_page: String(perPage),
     orientation: 'landscape',
   })
 
@@ -27,11 +27,11 @@ export async function searchPhoto(query: string): Promise<UnsplashPhoto | null> 
 
   if (!res.ok) {
     console.error(`  Unsplash error ${res.status}: ${await res.text()}`)
-    return null
+    return []
   }
 
   const data = await res.json()
-  return data.results?.[0] || null
+  return data.results || []
 }
 
 export async function downloadPhoto(photo: UnsplashPhoto): Promise<{
@@ -61,20 +61,32 @@ export async function downloadPhoto(photo: UnsplashPhoto): Promise<{
   }
 }
 
-export async function getAirportPhoto(airportCode: string): Promise<{
+export async function getAirportPhoto(
+  airportCode: string,
+  keyword?: string,
+  usedPhotoIds: string[] = []
+): Promise<{
   buffer: Buffer
   filename: string
   alt: string
 } | null> {
+  const usedSet = new Set(usedPhotoIds)
+
+  // Build search queries — keyword-specific first, then generic fallbacks
   const queries = [
+    ...(keyword ? [`${keyword}`] : []),
     `${airportCode} airport parking`,
     `${airportCode} airport`,
     'airport parking lot',
   ]
 
   for (const query of queries) {
-    const photo = await searchPhoto(query)
-    if (photo) {
+    const photos = await searchPhotos(query)
+    // Skip photos already used by other articles in this cluster
+    const available = photos.filter(p => !usedSet.has(p.id))
+    if (available.length === 0) continue
+
+    for (const photo of available) {
       const result = await downloadPhoto(photo)
       if (result) return result
     }
