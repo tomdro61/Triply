@@ -5,7 +5,14 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_APP_URL || "https://triplypro.com",
   ogImage: "/og-image.jpg",
   links: {
-    twitter: "https://twitter.com/triplypro",
+    facebook: "https://www.facebook.com/profile.php?id=61582282989898",
+    instagram: "https://www.instagram.com/triplypro",
+    threads: "https://www.threads.com/@triplypro",
+    twitter: "https://x.com/TriplyPro",
+    linkedin: "https://www.linkedin.com/company/112306937",
+    pinterest: "https://www.pinterest.com/triplypro/",
+    tiktok: "https://www.tiktok.com/@triplypro",
+    youtube: "https://www.youtube.com/channel/UCfAn-_xDnCPd_CoJhJBDJbA",
     github: "https://github.com/tomdro61/triply",
   },
   contact: {

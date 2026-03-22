@@ -26,6 +26,21 @@ const organizationSchema = {
   logo: "https://triplypro.com/Coral-logo.png",
   description:
     "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
+  foundingDate: "2026",
+  areaServed: [
+    { "@type": "Country", name: "United States" },
+    { "@type": "Country", name: "Canada" },
+  ],
+  sameAs: [
+    "https://www.facebook.com/profile.php?id=61582282989898",
+    "https://www.instagram.com/triplypro",
+    "https://www.threads.com/@triplypro",
+    "https://x.com/TriplyPro",
+    "https://www.linkedin.com/company/112306937",
+    "https://www.pinterest.com/triplypro/",
+    "https://www.tiktok.com/@triplypro",
+    "https://www.youtube.com/channel/UCfAn-_xDnCPd_CoJhJBDJbA",
+  ],
   contactPoint: {
     "@type": "ContactPoint",
     email: "support@triplypro.com",

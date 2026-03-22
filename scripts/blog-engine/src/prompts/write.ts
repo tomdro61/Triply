@@ -388,6 +388,8 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 31. VERIFICATION DATES: When citing promo codes, specific rates, or time-sensitive facts, add "(verified [Month Year])" inline — e.g., "The early bird rate is $18/day (verified February 2026)." This builds trust and signals freshness.
 32. PAA TARGETS: Include 2-3 "People Also Ask" style questions as H2 or H3 headings, targeting common related queries that searchers ask about this topic. For example, if writing about JFK parking deals, include headings like "Is There Free Parking at JFK?" or "How Early Should I Book JFK Parking?"
 33. NO FAQ SECTION IN HTML: Do NOT include a "Frequently Asked Questions" section in the HTML body. FAQs are returned separately in the faqItems JSON field and rendered as a dedicated accordion component on the page. Including them in the HTML causes duplicate rendering.
+34. DEFINITION-FIRST OPENING: The very first sentence of the article MUST be a clear, standalone definition using the "X is..." pattern. It must pass the "island test" — if this sentence appeared alone on a search results page with no surrounding context, the reader would understand what the article is about. Example: "Off-site JFK parking is a budget-friendly alternative where private lots near the airport offer shuttle service to terminals at rates 40-60% below on-airport garages." This is DIFFERENT from rule 16 (opening answer paragraph) — rule 16 is about answering the query; this rule is about the sentence structure of the FIRST sentence being a definition.
+35. VERIFIABLE STATISTICS: Include at least 3-5 specific, data-backed statistics per article drawn from the verified parking lot data and airport facts provided above. Present savings as percentages ("save up to 55% vs on-airport rates"), distances in exact miles, shuttle frequencies in minutes, and price ranges with specific dollar amounts. Bold statistics with <strong> so AI engines can extract them. Attribute data to its source (e.g., "based on current Triply rates" or "per [airport authority name]"). NEVER fabricate statistics — only use numbers derivable from the data provided.
 Respond with ONLY valid JSON in this exact format:
 {
   "title": "Display title for the article (50-65 chars, keyword-rich, compelling)",
@@ -423,7 +425,9 @@ export function getWritingRulesBlock(airportCode: string): string {
 9. Freshness signals for time-sensitive data. 3-5 sentence paragraphs. Zero filler.
 10. Comparison tables use REAL lot names from verified data (never generic categories).
 11. Verification dates: "(verified [Month ${new Date().getFullYear()}])". 2-3 PAA question headings.
-12. NO FAQ section in HTML (goes in faqItems JSON). No brand suffix in title.`
+12. NO FAQ section in HTML (goes in faqItems JSON). No brand suffix in title.
+13. Definition-first opening: First sentence MUST be "X is..." standalone definition (island test). Different from opening answer paragraph — this is about sentence structure.
+14. Include 3-5+ verifiable statistics per article from provided data. Bold stats with <strong>. Attribute sources. Never fabricate numbers.`
 }
 
 /**

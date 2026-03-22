@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import { Navbar, Footer } from "@/components/shared";
 import {
   LotHeader,
@@ -106,12 +108,47 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     ...(lot.phone && { telephone: lot.phone }),
   };
 
+  const breadcrumbItems = [
+    { name: "Home", href: "/" },
+    { name: "Airport Parking", href: "/airport-parking" },
+    { name: `${airport.city} Airport (${airport.code})`, href: `/${airport.slug}/airport-parking` },
+    { name: lot.name, href: null },
+  ];
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: breadcrumbItems.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.name,
+      ...(item.href ? { item: `https://www.triplypro.com${item.href}` } : {}),
+    })),
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen">
       <JsonLd data={parkingSchema} />
+      <JsonLd data={breadcrumbSchema} />
       <Navbar forceSolid />
 
       <main className="pt-20 animate-fade-in">
+        <nav aria-label="Breadcrumb" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-2">
+          <ol className="flex items-center text-sm text-gray-500 flex-wrap">
+            {breadcrumbItems.map((item, idx) => (
+              <li key={idx} className="flex items-center">
+                {idx > 0 && <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />}
+                {item.href ? (
+                  <Link href={item.href} className="hover:text-brand-orange transition-colors">
+                    {item.name}
+                  </Link>
+                ) : (
+                  <span className="text-gray-700 font-medium">{item.name}</span>
+                )}
+              </li>
+            ))}
+          </ol>
+        </nav>
         <LotHeader lot={lot} backUrl={backUrl} />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24 lg:pb-8">

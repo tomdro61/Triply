@@ -34,10 +34,10 @@ export function Footer() {
   ];
 
   const socialIcons = [
-    { icon: Facebook, href: "#" },
-    { icon: Twitter, href: "#" },
-    { icon: Instagram, href: "#" },
-    { icon: Linkedin, href: "#" },
+    { icon: Facebook, href: "https://www.facebook.com/profile.php?id=61582282989898" },
+    { icon: Twitter, href: "https://x.com/TriplyPro" },
+    { icon: Instagram, href: "https://www.instagram.com/triplypro" },
+    { icon: Linkedin, href: "https://www.linkedin.com/company/112306937" },
   ];
 
   return (
@@ -69,6 +69,8 @@ export function Footer() {
                 <a
                   key={i}
                   href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-gray-400 hover:text-brand-orange transition-colors"
                 >
                   <social.icon size={20} />
