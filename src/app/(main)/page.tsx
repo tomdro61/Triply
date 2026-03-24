@@ -7,6 +7,7 @@ import {
   Testimonials,
   FAQ,
   Newsletter,
+  BrowseAirports,
   Footer,
 } from "@/components/shared";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -74,6 +75,7 @@ export default function Home() {
           <Comparison />
           <Testimonials />
           <FAQ />
+          <BrowseAirports />
           <Newsletter />
         </div>
       </main>

@@ -5,6 +5,7 @@ export { Comparison } from "./comparison";
 export { Testimonials } from "./testimonials";
 export { FAQ } from "./faq";
 export { Newsletter } from "./newsletter";
+export { BrowseAirports } from "./browse-airports";
 export { Footer } from "./footer";
 export { CookieBanner } from "./cookie-banner";
 export { ScrollReveal } from "./scroll-reveal";
