@@ -61,19 +61,16 @@ export default async function BlogPage({
   const { docs: posts, totalPages } = postsResult;
   const categories = categoriesResult.docs;
 
-  // Only fetch airport grid data on first page (no filters)
-  let airportGridData: Array<{ code: string; name: string; city: string }> = [];
-  if (isFirstPage) {
-    const codes = await getDistinctAirportCodes();
-    airportGridData = codes
-      .map((code) => {
-        const airport = getAirportByCode(code);
-        return airport
-          ? { code: airport.code, name: airport.name, city: airport.city }
-          : null;
-      })
-      .filter(Boolean) as Array<{ code: string; name: string; city: string }>;
-  }
+  // Fetch airports with blog content for the airport grid
+  const codes = await getDistinctAirportCodes();
+  const airportGridData = codes
+    .map((code) => {
+      const airport = getAirportByCode(code);
+      return airport
+        ? { code: airport.code, name: airport.name, city: airport.city }
+        : null;
+    })
+    .filter(Boolean) as Array<{ code: string; name: string; city: string }>;
 
   // Find featured post (latest hub article) for page 1
   const featuredPost = isFirstPage
@@ -106,11 +103,14 @@ export default async function BlogPage({
           </div>
         </section>
 
-        {/* Filter Bar + Sort */}
+        {/* Filter Bar + Airport Grid + Sort */}
         <section className="py-6 border-b border-gray-200 bg-white">
-          <div className="container mx-auto px-4 flex flex-wrap items-center justify-between gap-4">
-            <BlogFilterBar categories={categories} />
-            <BlogSortSelect currentSort={sort} baseHref="/blog" />
+          <div className="container mx-auto px-4 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <BlogFilterBar categories={categories} />
+              <BlogSortSelect currentSort={sort} baseHref="/blog" />
+            </div>
+            <BlogAirportGrid airports={airportGridData} />
           </div>
         </section>
 
@@ -148,8 +148,6 @@ export default async function BlogPage({
               }
             />
 
-            {/* Airport Grid — page 1 only */}
-            {isFirstPage && <BlogAirportGrid airports={airportGridData} />}
           </div>
         </section>
       </main>
