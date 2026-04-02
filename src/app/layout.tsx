@@ -34,6 +34,9 @@ export const metadata: Metadata = {
     "LaGuardia parking",
     "New York airport parking",
   ],
+  verification: {
+    google: "qeTHL0gAcsHZTxEHpavdd3olxY1UbdlIt-uxtVbpIIQ",
+  },
   authors: [{ name: "Triply" }],
   creator: "Triply",
   metadataBase: new URL(
