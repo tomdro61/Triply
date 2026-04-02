@@ -16,20 +16,9 @@ import {
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
+import { generateSlug } from "@/lib/utils/slug";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers (exported for direct use by search route)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Generate a URL-friendly slug from location name
- */
-export function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+export { generateSlug };
 
 /**
  * Transform ResLab location to UnifiedLot format

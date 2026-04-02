@@ -7,6 +7,7 @@ import {
 } from "./client";
 import { UnifiedLot } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
+import { generateSlug } from "@/lib/utils/slug";
 
 /**
  * Airport coordinates for distance calculation
@@ -14,16 +15,6 @@ import { calculateDistance } from "@/lib/utils/geo";
 interface AirportCoords {
   latitude: number;
   longitude: number;
-}
-
-/**
- * Generate a URL-friendly slug from location name
- */
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 /**
@@ -217,20 +208,25 @@ export async function findLotBySlug(
   airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
   try {
-    // Get all locations in the channel
-    const locationsData = await reslab.getAllLocations();
-    const locations = locationsData.data;
+    // Iterate through all pages of locations to find matching slug
+    let page = 1;
+    while (true) {
+      const locationsData = await reslab.getAllLocations(page);
+      const matchingLocation = locationsData.data.find(
+        (loc) => generateSlug(loc.name) === slug
+      );
 
-    // Find by slug
-    const matchingLocation = locations.find(
-      (loc) => generateSlug(loc.name) === slug
-    );
+      if (matchingLocation) {
+        return getLotFromReslab(matchingLocation.id, fromDate, toDate, airportCoords);
+      }
 
-    if (!matchingLocation) {
-      return null;
+      if (page >= locationsData.last_page) {
+        break;
+      }
+      page++;
     }
 
-    return getLotFromReslab(matchingLocation.id, fromDate, toDate, airportCoords);
+    return null;
   } catch (error) {
     console.error("Error finding lot by slug:", error);
     return null;

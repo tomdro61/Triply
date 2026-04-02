@@ -85,6 +85,54 @@ export async function getPostBySlug(slug: string) {
   return post ? resolvePostImages(post) : null
 }
 
+export async function getCategories() {
+  const data = await fetchFromCms('/categories', {
+    sort: 'name',
+    limit: '100',
+    depth: '0',
+  }, 3600)
+
+  return { docs: data?.docs || [] }
+}
+
+export async function getCategoryBySlug(slug: string) {
+  const data = await fetchFromCms('/categories', {
+    'where[slug][equals]': slug,
+    limit: '1',
+  })
+
+  return data?.docs?.[0] || null
+}
+
+export async function getPublishedPostCount(filters: Record<string, string> = {}) {
+  const params: Record<string, string> = {
+    'where[status][equals]': 'published',
+    limit: '1',
+    depth: '0',
+    ...filters,
+  }
+
+  const data = await fetchFromCms('/posts', params)
+  return data?.totalDocs || 0
+}
+
+export async function getDistinctAirportCodes() {
+  const data = await fetchFromCms('/posts', {
+    'where[status][equals]': 'published',
+    'where[airportCode][exists]': 'true',
+    limit: '500',
+    depth: '0',
+  }, 3600)
+
+  const codes = new Set<string>()
+  for (const post of data?.docs || []) {
+    if (post.airportCode) {
+      codes.add(post.airportCode.toUpperCase())
+    }
+  }
+  return Array.from(codes).sort()
+}
+
 export async function getRelatedPosts(airportCode: string, excludeSlug: string, limit = 3) {
   const data = await fetchFromCms('/posts', {
     'where[status][equals]': 'published',
