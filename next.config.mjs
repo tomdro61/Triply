@@ -54,6 +54,17 @@ const nextConfig = {
     },
   },
 
+  // Rewrite /sitemap.xml to the sitemap index API route
+  // (Next.js generateSitemaps() only creates /sitemap/[id].xml segments, not the index)
+  async rewrites() {
+    return [
+      {
+        source: "/sitemap.xml",
+        destination: "/api/sitemap-index",
+      },
+    ];
+  },
+
   // Headers for security
   async headers() {
     return [

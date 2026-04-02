@@ -4,61 +4,30 @@ import { reslab } from "@/lib/reslab/client";
 import { generateSlug } from "@/lib/utils/slug";
 import {
   getPublishedPosts,
-  getPublishedPostCount,
   getDistinctAirportCodes,
   getCategories,
 } from "@/lib/cms";
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Segment ID ranges — lots and blogs never collide
-// ─────────────────────────────────────────────────────────────────────────────
-const STATIC_ID = 0;
-const AIRPORTS_ID = 1;
-const BLOG_AIRPORT_HUBS_ID = 2;
-const BLOG_CATEGORIES_ID = 3;
-const LOTS_ID_START = 100;
-const BLOG_ID_START = 200;
-const AIRPORTS_PER_LOT_SEGMENT = 20;
-const BLOG_POSTS_PER_SEGMENT = 100;
+import {
+  STATIC_ID,
+  AIRPORTS_ID,
+  BLOG_AIRPORT_HUBS_ID,
+  BLOG_CATEGORIES_ID,
+  LOTS_ID_START,
+  BLOG_ID_START,
+  AIRPORTS_PER_LOT_SEGMENT,
+  BLOG_POSTS_PER_SEGMENT,
+  getSitemapSegmentIds,
+} from "@/lib/sitemap-config";
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://triplypro.com";
 
 /**
  * Generate all sitemap segment IDs.
- * Next.js calls this once to build the sitemap index at /sitemap.xml
+ * Next.js uses this to determine which /sitemap/[id].xml routes to build.
  */
 export async function generateSitemaps() {
-  const ids: { id: number }[] = [
-    { id: STATIC_ID },
-    { id: AIRPORTS_ID },
-    { id: BLOG_AIRPORT_HUBS_ID },
-    { id: BLOG_CATEGORIES_ID },
-  ];
-
-  // Lot segments: 20 airports each
-  const lotSegmentCount = Math.ceil(
-    productionAirports.length / AIRPORTS_PER_LOT_SEGMENT
-  );
-  for (let i = 0; i < lotSegmentCount; i++) {
-    ids.push({ id: LOTS_ID_START + i });
-  }
-
-  // Blog segments: 100 posts each
-  try {
-    const totalPosts = await getPublishedPostCount();
-    const blogSegmentCount = Math.max(
-      1,
-      Math.ceil(totalPosts / BLOG_POSTS_PER_SEGMENT)
-    );
-    for (let i = 0; i < blogSegmentCount; i++) {
-      ids.push({ id: BLOG_ID_START + i });
-    }
-  } catch {
-    // CMS down — still include at least one blog segment
-    ids.push({ id: BLOG_ID_START });
-  }
-
-  return ids;
+  const ids = await getSitemapSegmentIds();
+  return ids.map((id) => ({ id }));
 }
 
 /**
@@ -68,7 +37,7 @@ export async function generateSitemaps() {
 export default async function sitemap(props: {
   id: Promise<number>;
 }): Promise<MetadataRoute.Sitemap> {
-  const id = await props.id;
+  const id = Number(await props.id);
 
   if (id === STATIC_ID) return staticPages();
   if (id === AIRPORTS_ID) return airportPages();
