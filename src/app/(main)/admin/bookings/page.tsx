@@ -24,7 +24,11 @@ interface Booking {
   location_name: string;
   check_in: string;
   check_out: string;
+  subtotal: string;
+  tax_total: string;
+  fees_total: string;
   grand_total: string;
+  triply_service_fee: string;
   status: string;
   vehicle_info: {
     make: string;
@@ -489,12 +493,37 @@ export default function AdminBookingsPage() {
                     <span className="text-gray-500">Check-out:</span>{" "}
                     {formatDateTime(selectedBooking.check_out)}
                   </p>
-                  <p>
-                    <span className="text-gray-500">Total:</span>{" "}
-                    <span className="font-semibold">
-                      {formatPrice(parseFloat(selectedBooking.grand_total))}
+                </div>
+              </div>
+
+              {/* Payment Breakdown */}
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">Payment Breakdown</h3>
+                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Subtotal (to location)</span>
+                    <span>{formatPrice(parseFloat(selectedBooking.subtotal || "0"))}</span>
+                  </div>
+                  {parseFloat(selectedBooking.fees_total || "0") > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Fees</span>
+                      <span>{formatPrice(parseFloat(selectedBooking.fees_total))}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Taxes</span>
+                    <span>{formatPrice(parseFloat(selectedBooking.tax_total || "0"))}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Triply service fee</span>
+                    <span className="text-green-600 font-medium">
+                      {formatPrice(parseFloat(selectedBooking.triply_service_fee || "0"))}
                     </span>
-                  </p>
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
+                    <span>Total charged</span>
+                    <span>{formatPrice(parseFloat(selectedBooking.grand_total))}</span>
+                  </div>
                 </div>
               </div>
 
