@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { reslab } from "@/lib/reslab/client";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
+import { isAdminEmail } from "@/config/admin";
 
 export async function GET(
   request: NextRequest,
@@ -34,8 +35,7 @@ export async function GET(
       const customerUserId = (booking?.customers as any)?.user_id;
       if (!booking || customerUserId !== user.id) {
         // Check if user is admin
-        const adminEmails = (process.env.ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase());
-        if (!adminEmails.includes(user.email?.toLowerCase() || "")) {
+        if (!isAdminEmail(user.email)) {
           return NextResponse.json(
             { error: "Not authorized to view this reservation" },
             { status: 403 }
