@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { getConsent, setConsent, hasConsent } from "@/lib/cookies/consent";
 import { updateGtagConsent } from "@/lib/analytics/gtag";
+import { grantClarityConsent } from "@/lib/analytics/clarity";
 import { Button } from "@/components/ui/button";
 
 export function CookieBanner() {
@@ -19,6 +20,7 @@ export function CookieBanner() {
       const consent = getConsent();
       if (consent) {
         updateGtagConsent(consent.analytics, consent.marketing);
+        if (consent.analytics) grantClarityConsent();
       }
     }
   }, []);
@@ -26,6 +28,7 @@ export function CookieBanner() {
   const handleAcceptAll = () => {
     setConsent({ analytics: true, marketing: true });
     updateGtagConsent(true, true);
+    grantClarityConsent();
     setShow(false);
   };
 
@@ -38,6 +41,7 @@ export function CookieBanner() {
   const handleSavePreferences = () => {
     setConsent({ analytics, marketing });
     updateGtagConsent(analytics, marketing);
+    if (analytics) grantClarityConsent();
     setShow(false);
     setShowSettings(false);
   };
