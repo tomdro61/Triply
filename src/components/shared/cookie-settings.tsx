@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   hasAnalyticsOptOut,
   optOutAnalytics,
@@ -12,9 +12,16 @@ import { grantClarityConsent, revokeClarityConsent } from "@/lib/analytics/clari
 export function CookieSettings() {
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
   const [saved, setSaved] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setAnalyticsEnabled(!hasAnalyticsOptOut());
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, []);
 
   const handleToggle = () => {
@@ -32,14 +39,17 @@ export function CookieSettings() {
     }
 
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setSaved(false), 2000);
   };
 
   return (
     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 not-prose">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-medium text-gray-900">Analytics Cookies</p>
+          <p className="font-medium text-gray-900" id="analytics-cookies-label">
+            Analytics Cookies
+          </p>
           <p className="text-sm text-gray-500">
             Google Analytics and Microsoft Clarity help us understand how you use the site.
           </p>
@@ -49,6 +59,9 @@ export function CookieSettings() {
             <span className="text-sm text-green-600 font-medium">Saved</span>
           )}
           <button
+            role="switch"
+            aria-checked={analyticsEnabled}
+            aria-labelledby="analytics-cookies-label"
             onClick={handleToggle}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
               analyticsEnabled ? "bg-brand-orange" : "bg-gray-300"

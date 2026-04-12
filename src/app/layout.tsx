@@ -106,8 +106,13 @@ export default function RootLayout({
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);}
+                var _optOut = false;
+                try {
+                  var _m = document.cookie.match(/triply_cookie_consent=([^;]+)/);
+                  if (_m) _optOut = JSON.parse(decodeURIComponent(_m[1])).analyticsOptOut === true;
+                } catch(e) {}
                 gtag('consent', 'default', {
-                  analytics_storage: 'granted',
+                  analytics_storage: _optOut ? 'denied' : 'granted',
                   ad_storage: 'denied',
                   ad_user_data: 'denied',
                   ad_personalization: 'denied',

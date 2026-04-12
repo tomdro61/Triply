@@ -26,10 +26,10 @@ export function getConsent(): CookieConsent | null {
   }
 }
 
-export function dismissBanner(): CookieConsent {
+function writeConsent(analyticsOptOut: boolean): CookieConsent {
   const consent: CookieConsent = {
     dismissed: true,
-    analyticsOptOut: false,
+    analyticsOptOut,
     timestamp: new Date().toISOString(),
   };
   Cookies.set(CONSENT_COOKIE, JSON.stringify(consent), {
@@ -38,34 +38,18 @@ export function dismissBanner(): CookieConsent {
     secure: process.env.NODE_ENV === "production",
   });
   return consent;
+}
+
+export function dismissBanner(): CookieConsent {
+  return writeConsent(false);
 }
 
 export function optOutAnalytics(): CookieConsent {
-  const consent: CookieConsent = {
-    dismissed: true,
-    analyticsOptOut: true,
-    timestamp: new Date().toISOString(),
-  };
-  Cookies.set(CONSENT_COOKIE, JSON.stringify(consent), {
-    expires: 365,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
-  return consent;
+  return writeConsent(true);
 }
 
 export function optInAnalytics(): CookieConsent {
-  const consent: CookieConsent = {
-    dismissed: true,
-    analyticsOptOut: false,
-    timestamp: new Date().toISOString(),
-  };
-  Cookies.set(CONSENT_COOKIE, JSON.stringify(consent), {
-    expires: 365,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-  });
-  return consent;
+  return writeConsent(false);
 }
 
 export function isBannerDismissed(): boolean {
