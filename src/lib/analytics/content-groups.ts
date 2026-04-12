@@ -10,6 +10,8 @@ export function getContentGroup(pathname: string): string {
   if (pathname === "/airport-parking") return "Airport Directory";
   if (/^\/[^/]+\/airport-parking\/.+/.test(pathname)) return "Lot Detail";
   if (pathname === "/blog") return "Blog Index";
+  if (pathname.startsWith("/blog/airport/")) return "Blog Airport Hub";
+  if (pathname.startsWith("/blog/category/")) return "Blog Category Hub";
   if (pathname.startsWith("/blog/")) return "Blog Post";
   if (pathname === "/search") return "Search Results";
   if (pathname === "/checkout") return "Checkout";

@@ -12,7 +12,7 @@ import { getContentGroup } from "@/lib/analytics/content-groups";
  */
 export function AnalyticsProvider() {
   const pathname = usePathname();
-  const previousPathname = useRef<string | null>(null);
+  const previousPathname = useRef<string | null>(pathname);
 
   useEffect(() => {
     if (pathname === previousPathname.current) return;
@@ -20,7 +20,7 @@ export function AnalyticsProvider() {
 
     const contentGroup = getContentGroup(pathname);
 
-    if (typeof window !== "undefined" && window.gtag) {
+    if (window.gtag) {
       window.gtag("set", "user_properties", {
         content_group: contentGroup,
       });

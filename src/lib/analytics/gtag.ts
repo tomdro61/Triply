@@ -48,14 +48,13 @@ export function updateGtagConsent(analytics: boolean, marketing: boolean) {
  * Track a search event
  */
 export function trackSearch(params: {
-  airport: string;
   airportCode: string;
   checkin: string;
   checkout: string;
 }) {
   if (typeof window !== "undefined" && window.gtag) {
     window.gtag("event", "search", {
-      search_term: params.airport,
+      search_term: params.airportCode,
       airport_code: params.airportCode,
       checkin_date: params.checkin,
       checkout_date: params.checkout,

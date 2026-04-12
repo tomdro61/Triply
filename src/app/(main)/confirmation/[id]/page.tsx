@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect, useMemo, use } from "react";
+import { Suspense, useState, useEffect, useMemo, useRef, use } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Home, Search, AlertCircle } from "lucide-react";
@@ -81,10 +81,12 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
+  const hasFiredPurchase = useRef(false);
 
-  // Track purchase when reservation data loads
+  // Track purchase when reservation data loads (fire once)
   useEffect(() => {
-    if (reservation?.location) {
+    if (reservation?.location && !hasFiredPurchase.current) {
+      hasFiredPurchase.current = true;
       trackPurchase({
         confirmationNumber: confirmationId,
         lotId: String(reservation.location.id),
