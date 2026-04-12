@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { trackSignUp, trackLogin } from "@/lib/analytics/gtag";
 
 function LoginForm() {
   const router = useRouter();
@@ -34,6 +35,7 @@ function LoginForm() {
           password,
         });
         if (error) throw error;
+        trackLogin("email");
 
         // If no explicit redirect, check if user is a partner
         if (redirectTo === "/") {
@@ -56,6 +58,7 @@ function LoginForm() {
           },
         });
         if (error) throw error;
+        trackSignUp("email");
         setSignupComplete(true);
       }
     } catch (err) {

@@ -70,7 +70,7 @@ function SearchPageContent() {
         setLots([]);
       } else {
         setLots(data.results || []);
-        trackSearch({ airport, checkin: departDate, checkout: returnDate });
+        trackSearch({ airport, airportCode: airport, checkin: departDate, checkout: returnDate });
       }
     } catch (error) {
       console.error("Error fetching search results:", error);

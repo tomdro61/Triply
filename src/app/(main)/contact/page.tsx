@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
+import { trackContactFormSubmit } from "@/lib/analytics/gtag";
 import {
   ArrowLeft,
   Mail,
@@ -51,6 +52,7 @@ export default function ContactPage() {
       }
 
       setSuccess(true);
+      trackContactFormSubmit();
       setFormData({ name: "", email: "", subject: "", message: "" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");

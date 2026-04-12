@@ -74,6 +74,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkOutParam = searchParams.get("checkout");
   const checkInTime = searchParams.get("checkinTime") || "10:00 AM";
   const checkOutTime = searchParams.get("checkoutTime") || "2:00 PM";
+  const serviceFeeParam = searchParams.get("serviceFee");
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -89,9 +90,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         lotId: String(reservation.location.id),
         lotName: reservation.location.name,
         grandTotal: reservation.grandTotal,
+        serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
+        airportCode: lotId?.split("-")[0]?.toUpperCase(),
       });
     }
-  }, [reservation, confirmationId]);
+  }, [reservation, confirmationId, serviceFeeParam, lotId]);
 
   // Check if user is logged in
   useEffect(() => {

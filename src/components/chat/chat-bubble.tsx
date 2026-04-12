@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, AlertTriangle } from "lucide-react";
+import { trackChatStart } from "@/lib/analytics/gtag";
 import { useChatContext } from "./chat-context";
 import { ChatMessage } from "./chat-message";
 import { ChatAuthGate } from "./chat-auth-gate";
@@ -27,6 +28,7 @@ export function ChatBubble() {
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasFiredChatStart = useRef(false);
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -45,11 +47,19 @@ export function ChatBubble() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    if (!hasFiredChatStart.current) {
+      trackChatStart();
+      hasFiredChatStart.current = true;
+    }
     sendMessage(input);
     setInput("");
   };
 
   const handleSuggestion = (suggestion: string) => {
+    if (!hasFiredChatStart.current) {
+      trackChatStart();
+      hasFiredChatStart.current = true;
+    }
     sendMessage(suggestion);
   };
 

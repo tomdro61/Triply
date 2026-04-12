@@ -20,6 +20,7 @@ import {
   Fence,
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { trackSelectItem } from "@/lib/analytics/gtag";
 
 interface LotCardProps {
   lot: UnifiedLot;
@@ -202,7 +203,15 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
           </div>
 
           <button
-            onClick={() => onSelect(lot)}
+            onClick={() => {
+              trackSelectItem({
+                id: lot.id,
+                name: lot.name,
+                price: lot.pricing?.minPrice,
+                airport: lot.id.split("-")[0]?.toUpperCase(),
+              });
+              onSelect(lot);
+            }}
             className="bg-brand-orange text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-orange-600 transition-colors shadow-sm"
           >
             View Details

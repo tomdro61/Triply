@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Mail, ArrowRight, Check, Tag, Bell, Lightbulb, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { trackNewsletterSignup } from "@/lib/analytics/gtag";
 import { Input } from "@/components/ui/input";
 
 export function Newsletter() {
@@ -32,6 +33,7 @@ export function Newsletter() {
       }
 
       setIsSubmitted(true);
+      trackNewsletterSignup();
       setEmail("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");

@@ -20,7 +20,7 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
-import { trackBeginCheckout } from "@/lib/analytics/gtag";
+import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -268,6 +268,7 @@ export function CheckoutForm({
       }
       setCurrentStep("payment");
       trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
+      trackAddPaymentInfo({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
     } catch (error) {
       console.error("PaymentIntent creation error:", error);
       setSubmitError(
@@ -364,7 +365,7 @@ export function CheckoutForm({
 
       // Redirect to confirmation page
       router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
       );
     } catch (error) {
       console.error("Reservation error after payment:", error);
@@ -400,7 +401,7 @@ export function CheckoutForm({
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
 
           router.push(
-            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
           );
           return;
         }
@@ -458,7 +459,7 @@ export function CheckoutForm({
 
       // Redirect to confirmation page with reservation number
       router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
       );
     } catch (error) {
       console.error("Reservation error:", error);
