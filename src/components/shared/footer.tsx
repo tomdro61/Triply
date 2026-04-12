@@ -18,6 +18,7 @@ export function Footer() {
         { label: "Contact Us", href: "/contact" },
         { label: "Terms of Service", href: "/terms" },
         { label: "Privacy Policy", href: "/privacy" },
+        { label: "Cookie Settings", href: "/privacy#cookies" },
       ],
     },
     {

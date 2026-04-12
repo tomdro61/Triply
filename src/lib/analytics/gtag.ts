@@ -12,34 +12,23 @@ declare global {
 }
 
 /**
- * Initialize gtag consent with denied state (before user consent)
+ * Revoke analytics consent (user opted out)
  */
-export function initializeGtagConsent() {
-  if (typeof window !== "undefined") {
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function gtag(...args: unknown[]) {
-      window.dataLayer.push(args);
-    };
-    window.gtag("consent", "default", {
+export function revokeAnalyticsConsent() {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("consent", "update", {
       analytics_storage: "denied",
-      ad_storage: "denied",
-      ad_user_data: "denied",
-      ad_personalization: "denied",
-      wait_for_update: 500,
     });
   }
 }
 
 /**
- * Update gtag consent based on user preferences
+ * Restore analytics consent (user opted back in)
  */
-export function updateGtagConsent(analytics: boolean, marketing: boolean) {
+export function grantAnalyticsConsent() {
   if (typeof window !== "undefined" && window.gtag) {
     window.gtag("consent", "update", {
-      analytics_storage: analytics ? "granted" : "denied",
-      ad_storage: marketing ? "granted" : "denied",
-      ad_user_data: marketing ? "granted" : "denied",
-      ad_personalization: marketing ? "granted" : "denied",
+      analytics_storage: "granted",
     });
   }
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
+import { CookieSettings } from "@/components/shared/cookie-settings";
 import { ArrowLeft, Shield } from "lucide-react";
 
 export const metadata = {
@@ -117,7 +118,7 @@ export default function PrivacyPage() {
               While we strive to protect your information, no method of transmission over the Internet is 100% secure. We cannot guarantee absolute security.
             </p>
 
-            <h2>6. Cookies and Tracking Technologies</h2>
+            <h2 id="cookies">6. Cookies and Tracking Technologies</h2>
             <p>We use cookies and similar technologies to:</p>
             <ul>
               <li>Keep you signed in to your account</li>
@@ -135,8 +136,11 @@ export default function PrivacyPage() {
               <li><strong>Marketing Cookies:</strong> Used for advertising (only with consent)</li>
             </ul>
             <p>
-              You can manage cookie preferences through our cookie consent banner or your browser settings.
+              You can manage your cookie preferences below or through your browser settings.
             </p>
+
+            <h3>Manage Your Cookie Preferences</h3>
+            <CookieSettings />
 
             <h2>7. Your Rights and Choices</h2>
             <p>You have the right to:</p>
