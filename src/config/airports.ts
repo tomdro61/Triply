@@ -1015,7 +1015,13 @@ export const airports: Airport[] = [
   },
 ];
 
-export const airportsByCode = airports.reduce(
+// Include test airports only in development
+const isProduction = process.env.NEXT_PUBLIC_APP_ENV === "production" || process.env.NODE_ENV === "production";
+const visibleAirports = isProduction
+  ? airports.filter((a) => !a.isTest)
+  : airports;
+
+export const airportsByCode = visibleAirports.reduce(
   (acc, airport) => {
     acc[airport.code] = airport;
     return acc;
@@ -1023,7 +1029,7 @@ export const airportsByCode = airports.reduce(
   {} as Record<string, Airport>
 );
 
-export const airportsBySlug = airports.reduce(
+export const airportsBySlug = visibleAirports.reduce(
   (acc, airport) => {
     acc[airport.slug] = airport;
     return acc;
@@ -1031,15 +1037,15 @@ export const airportsBySlug = airports.reduce(
   {} as Record<string, Airport>
 );
 
-export const enabledAirports = airports.filter((a) => a.enabled);
+export const enabledAirports = visibleAirports.filter((a) => a.enabled);
 
 // Production airports only (excludes test locations)
-export const productionAirports = airports.filter(
+export const productionAirports = visibleAirports.filter(
   (a) => a.enabled && !a.isTest
 );
 
-// Test airports only
-export const testAirports = airports.filter((a) => a.enabled && a.isTest);
+// Test airports only (empty in production)
+export const testAirports = visibleAirports.filter((a) => a.enabled && a.isTest);
 
 export function getAirportByCode(code: string): Airport | undefined {
   return airportsByCode[code.toUpperCase()];
@@ -1052,5 +1058,5 @@ export function getAirportBySlug(slug: string): Airport | undefined {
 export function getAirportByReslabLocationId(
   locationId: number
 ): Airport | undefined {
-  return airports.find((a) => a.reslabLocationId === locationId);
+  return visibleAirports.find((a) => a.reslabLocationId === locationId);
 }
