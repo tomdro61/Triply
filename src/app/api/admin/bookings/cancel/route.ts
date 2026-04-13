@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
 import { createRefund } from "@/lib/stripe/client";
+import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError } from "@/lib/sentry";
 
 export async function POST(request: NextRequest) {
@@ -29,10 +30,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Pre-check: verify booking exists and is in a cancellable state
+    // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
       .from("bookings")
-      .select("status")
+      .select(`
+        status, location_name, location_address, check_in, check_out, grand_total,
+        customers ( email, first_name, last_name )
+      `)
       .eq("reslab_reservation_number", reservationNumber)
       .single();
 
@@ -53,11 +57,13 @@ export async function POST(request: NextRequest) {
       reslab: boolean;
       stripe: boolean;
       supabase: boolean;
+      email: boolean;
       errors: string[];
     } = {
       reslab: false,
       stripe: false,
       supabase: false,
+      email: false,
       errors: [],
     };
 
@@ -72,15 +78,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
-    const newStatus =
-      stripePaymentIntentId ? "refunded" : "cancelled";
+    const wasRefunded = !!stripePaymentIntentId;
+    const newStatus = wasRefunded ? "refunded" : "cancelled";
 
     const [stripeResult, supabaseResult] = await Promise.allSettled([
-      // Stripe refund
       stripePaymentIntentId
         ? createRefund(stripePaymentIntentId)
         : Promise.resolve(null),
-      // Supabase status update
       supabase
         .from("bookings")
         .update({ status: newStatus })
@@ -106,6 +110,33 @@ export async function POST(request: NextRequest) {
       results.errors.push(`Supabase: ${msg || "Update failed"}`);
     }
 
+    // Step 4: Send cancellation email to customer
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const customer = booking.customers as any;
+    if (customer?.email) {
+      try {
+        const emailResult = await sendCancellationConfirmation({
+          to: customer.email,
+          customerName: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
+          confirmationNumber: reservationNumber,
+          lotName: booking.location_name || "Parking Location",
+          lotAddress: booking.location_address || "",
+          checkInDate: booking.check_in,
+          checkOutDate: booking.check_out,
+          refundAmount: parseFloat(booking.grand_total) || 0,
+          wasRefunded,
+        });
+        results.email = emailResult.success;
+        if (!emailResult.success) {
+          results.errors.push("Email: Failed to send cancellation email");
+        }
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "Email send failed";
+        results.errors.push(`Email: ${msg}`);
+      }
+    }
+
     const allSucceeded =
       results.reslab && results.stripe && results.supabase;
 
@@ -115,7 +146,7 @@ export async function POST(request: NextRequest) {
         results,
         newStatus,
         message: allSucceeded
-          ? "Reservation cancelled and refunded successfully"
+          ? `Reservation cancelled and refunded successfully${results.email ? " — confirmation email sent" : ""}`
           : `Partial cancellation — ${results.errors.join("; ")}`,
       },
       { status: allSucceeded ? 200 : 207 }
