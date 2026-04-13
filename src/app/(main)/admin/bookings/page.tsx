@@ -29,6 +29,7 @@ interface Booking {
   fees_total: string;
   grand_total: string;
   triply_service_fee: string;
+  stripe_payment_intent_id: string | null;
   status: string;
   vehicle_info: {
     make: string;
@@ -58,6 +59,7 @@ function StatusBadge({ status }: { status: string }) {
   const statusStyles: Record<string, string> = {
     confirmed: "bg-green-100 text-green-800",
     cancelled: "bg-red-100 text-red-800",
+    refunded: "bg-yellow-100 text-yellow-800",
     completed: "bg-gray-100 text-gray-800",
   };
 
@@ -88,6 +90,43 @@ export default function AdminBookingsPage() {
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelResult, setCancelResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  async function handleCancelBooking(booking: Booking) {
+    if (!confirm(`Cancel reservation ${booking.reslab_reservation_number} and issue a full refund? This cannot be undone.`)) {
+      return;
+    }
+    setCancelling(true);
+    setCancelResult(null);
+    try {
+      const response = await fetch("/api/admin/bookings/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reservationNumber: booking.reslab_reservation_number,
+          stripePaymentIntentId: booking.stripe_payment_intent_id,
+        }),
+      });
+      const data = await response.json();
+      setCancelResult({ success: data.success, message: data.message });
+      if (data.success || data.results?.supabase) {
+        // Update local state to reflect cancellation
+        setBookings((prev) =>
+          prev.map((b) =>
+            b.id === booking.id ? { ...b, status: "cancelled" } : b
+          )
+        );
+        setSelectedBooking((prev) =>
+          prev?.id === booking.id ? { ...prev, status: "cancelled" } : prev
+        );
+      }
+    } catch {
+      setCancelResult({ success: false, message: "Network error — could not reach cancel API" });
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   async function fetchBookings(page = 1) {
     setLoading(true);
@@ -548,6 +587,13 @@ export default function AdminBookingsPage() {
                 </div>
               )}
 
+              {/* Cancel Result */}
+              {cancelResult && (
+                <div className={`p-3 rounded-lg text-sm ${cancelResult.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+                  {cancelResult.message}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <Link
@@ -557,8 +603,17 @@ export default function AdminBookingsPage() {
                 >
                   View Confirmation Page
                 </Link>
+                {selectedBooking.status === "confirmed" && (
+                  <button
+                    onClick={() => handleCancelBooking(selectedBooking)}
+                    disabled={cancelling}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {cancelling ? "Cancelling..." : "Cancel & Refund"}
+                  </button>
+                )}
                 <button
-                  onClick={() => setSelectedBooking(null)}
+                  onClick={() => { setSelectedBooking(null); setCancelResult(null); }}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Close
