@@ -111,14 +111,14 @@ export default function AdminBookingsPage() {
       const data = await response.json();
       setCancelResult({ success: data.success, message: data.message });
       if (data.success || data.results?.supabase) {
-        // Update local state to reflect cancellation
+        const newStatus = data.newStatus || "cancelled";
         setBookings((prev) =>
           prev.map((b) =>
-            b.id === booking.id ? { ...b, status: "cancelled" } : b
+            b.id === booking.id ? { ...b, status: newStatus } : b
           )
         );
         setSelectedBooking((prev) =>
-          prev?.id === booking.id ? { ...prev, status: "cancelled" } : prev
+          prev?.id === booking.id ? { ...prev, status: newStatus } : prev
         );
       }
     } catch {
@@ -425,7 +425,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => setSelectedBooking(booking)}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >
@@ -478,7 +478,7 @@ export default function AdminBookingsPage() {
                 Booking Details
               </h2>
               <button
-                onClick={() => setSelectedBooking(null)}
+                onClick={() => { setSelectedBooking(null); setCancelResult(null); }}
                 className="text-gray-400 hover:text-gray-600"
               >
                 &times;

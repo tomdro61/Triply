@@ -19,12 +19,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const supabase = await createAdminClient();
     const { reservationNumber, stripePaymentIntentId } = await request.json();
 
     if (!reservationNumber) {
       return NextResponse.json(
         { error: "Reservation number is required" },
         { status: 400 }
+      );
+    }
+
+    // Pre-check: verify booking exists and is in a cancellable state
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("status")
+      .eq("reslab_reservation_number", reservationNumber)
+      .single();
+
+    if (!booking) {
+      return NextResponse.json(
+        { error: "Booking not found" },
+        { status: 404 }
+      );
+    }
+    if (booking.status !== "confirmed") {
+      return NextResponse.json(
+        { error: `Booking is already ${booking.status}` },
+        { status: 409 }
       );
     }
 
@@ -50,34 +71,39 @@ export async function POST(request: NextRequest) {
       results.errors.push(`ResLab: ${msg}`);
     }
 
-    // Step 2: Refund in Stripe (if payment intent exists)
-    if (stripePaymentIntentId) {
-      try {
-        await createRefund(stripePaymentIntentId);
-        results.stripe = true;
-      } catch (error) {
-        const msg =
-          error instanceof Error ? error.message : "Stripe refund failed";
-        results.errors.push(`Stripe: ${msg}`);
-      }
+    // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
+    const newStatus =
+      stripePaymentIntentId ? "refunded" : "cancelled";
+
+    const [stripeResult, supabaseResult] = await Promise.allSettled([
+      // Stripe refund
+      stripePaymentIntentId
+        ? createRefund(stripePaymentIntentId)
+        : Promise.resolve(null),
+      // Supabase status update
+      supabase
+        .from("bookings")
+        .update({ status: newStatus })
+        .eq("reslab_reservation_number", reservationNumber),
+    ]);
+
+    if (stripeResult.status === "fulfilled") {
+      results.stripe = true;
     } else {
-      results.stripe = true; // No payment to refund (dev mode booking)
+      results.errors.push(`Stripe: ${stripeResult.reason?.message || "Refund failed"}`);
     }
 
-    // Step 3: Update status in Supabase
-    try {
-      const supabase = await createAdminClient();
-      const { error } = await supabase
-        .from("bookings")
-        .update({ status: "cancelled" })
-        .eq("reslab_reservation_number", reservationNumber);
-
-      if (error) throw error;
+    if (
+      supabaseResult.status === "fulfilled" &&
+      !supabaseResult.value?.error
+    ) {
       results.supabase = true;
-    } catch (error) {
+    } else {
       const msg =
-        error instanceof Error ? error.message : "Supabase update failed";
-      results.errors.push(`Supabase: ${msg}`);
+        supabaseResult.status === "rejected"
+          ? supabaseResult.reason?.message
+          : supabaseResult.value?.error?.message;
+      results.errors.push(`Supabase: ${msg || "Update failed"}`);
     }
 
     const allSucceeded =
@@ -87,6 +113,7 @@ export async function POST(request: NextRequest) {
       {
         success: allSucceeded,
         results,
+        newStatus,
         message: allSucceeded
           ? "Reservation cancelled and refunded successfully"
           : `Partial cancellation — ${results.errors.join("; ")}`,
