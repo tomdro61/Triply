@@ -108,7 +108,7 @@ export function CancellationConfirmationEmail({
         {/* Rebook CTA */}
         <div style={{ textAlign: "center", margin: "28px 0" }}>
           <p style={{ color: "#475569", fontSize: "14px", margin: "0 0 16px" }}>
-            Need to rebook? We&apos;re here to help.
+            Need to rebook? We're here to help.
           </p>
           <a
             href={appUrl}

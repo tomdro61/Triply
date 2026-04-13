@@ -111,8 +111,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 4: Send cancellation email to customer
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const customer = booking.customers as any;
+    const customer = booking.customers as unknown as {
+      email: string;
+      first_name: string | null;
+      last_name: string | null;
+    } | null;
     if (customer?.email) {
       try {
         const emailResult = await sendCancellationConfirmation({
