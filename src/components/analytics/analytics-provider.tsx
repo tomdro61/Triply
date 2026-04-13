@@ -32,10 +32,10 @@ export function AnalyticsProvider() {
     const contentGroup = getContentGroup(pathname);
 
     // Extract airport code from path, or fall back to ?airport= query param
-    const airportCode =
-      getAirportFromPath(pathname) ||
-      new URLSearchParams(window.location.search).get("airport") ||
-      undefined;
+    let airportCode = getAirportFromPath(pathname);
+    if (!airportCode && pathname === "/search") {
+      airportCode = new URLSearchParams(window.location.search).get("airport");
+    }
 
     if (window.gtag) {
       window.gtag("set", "user_properties", {

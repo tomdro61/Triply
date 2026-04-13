@@ -1,4 +1,4 @@
-import { airportsBySlug, airportsByCode } from "@/config/airports";
+import { airportsByCode, getAirportBySlug } from "@/config/airports";
 
 // Set of known codes (lowercased) for fast lookups in blog URL scanning
 const knownCodesLower = new Set(
@@ -20,8 +20,7 @@ export function getAirportFromPath(pathname: string): string | null {
   // Airport landing pages and lot detail pages: /{slug}/airport-parking[/{lot}]
   const airportPageMatch = pathname.match(/^\/([^/]+)\/airport-parking/);
   if (airportPageMatch) {
-    const slug = airportPageMatch[1];
-    const airport = airportsBySlug[slug];
+    const airport = getAirportBySlug(airportPageMatch[1]);
     if (airport) return airport.code;
   }
 
