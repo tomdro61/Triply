@@ -1,3 +1,43 @@
+import { airportsBySlug, airportsByCode } from "@/config/airports";
+
+// Set of known codes (lowercased) for fast lookups in blog URL scanning
+const knownCodesLower = new Set(
+  Object.keys(airportsByCode)
+    .filter((c) => !c.startsWith("TEST"))
+    .map((c) => c.toLowerCase())
+);
+
+/**
+ * Extract airport code from a URL pathname.
+ *
+ * Patterns matched:
+ *   /{slug}/airport-parking       → slug lookup (e.g. new-york-jfk → JFK)
+ *   /{slug}/airport-parking/{lot} → same
+ *   /blog/*                       → scan path segments for a known 3-letter code
+ *   /search                       → needs query param (handled by caller)
+ */
+export function getAirportFromPath(pathname: string): string | null {
+  // Airport landing pages and lot detail pages: /{slug}/airport-parking[/{lot}]
+  const airportPageMatch = pathname.match(/^\/([^/]+)\/airport-parking/);
+  if (airportPageMatch) {
+    const slug = airportPageMatch[1];
+    const airport = airportsBySlug[slug];
+    if (airport) return airport.code;
+  }
+
+  // Blog pages: scan path segments for a 3-letter airport code
+  if (pathname.startsWith("/blog/")) {
+    const segments = pathname.toLowerCase().split(/[/-]/);
+    for (const segment of segments) {
+      if (segment.length === 3 && knownCodesLower.has(segment)) {
+        return segment.toUpperCase();
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Content Group Classification
  *

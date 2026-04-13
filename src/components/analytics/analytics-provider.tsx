@@ -2,7 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { getContentGroup } from "@/lib/analytics/content-groups";
+import { getContentGroup, getAirportFromPath } from "@/lib/analytics/content-groups";
 import { hasAnalyticsOptOut } from "@/lib/cookies/consent";
 import { revokeAnalyticsConsent } from "@/lib/analytics/gtag";
 import { revokeClarityConsent } from "@/lib/analytics/clarity";
@@ -31,6 +31,12 @@ export function AnalyticsProvider() {
 
     const contentGroup = getContentGroup(pathname);
 
+    // Extract airport code from path, or fall back to ?airport= query param
+    const airportCode =
+      getAirportFromPath(pathname) ||
+      new URLSearchParams(window.location.search).get("airport") ||
+      undefined;
+
     if (window.gtag) {
       window.gtag("set", "user_properties", {
         content_group: contentGroup,
@@ -39,6 +45,7 @@ export function AnalyticsProvider() {
       window.gtag("event", "page_view", {
         page_path: pathname,
         content_group: contentGroup,
+        ...(airportCode && { airport_code: airportCode }),
       });
     }
   }, [pathname]);
