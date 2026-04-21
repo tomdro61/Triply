@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
+import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 
 interface LotCardProps {
   lot: UnifiedLot;
@@ -146,7 +147,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
             </div>
             {lot.pricing?.grandTotal && (
               <div className="text-xs text-gray-500 font-medium">
-                ${lot.pricing.grandTotal.toFixed(2)} total
+                ${(customerTotalFromPricing(lot.pricing) ?? lot.pricing.grandTotal).toFixed(2)} total
               </div>
             )}
             {lot.dueAtLocation && (

@@ -70,13 +70,15 @@ export async function GET(
       }
     }
 
-    // Fetch vehicle info from Supabase (stored reliably at booking time)
+    // Fetch vehicle info + service fee from Supabase (stored reliably at booking time)
     const adminClientForVehicle = await createAdminClient();
     const { data: bookingData } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info")
+      .select("vehicle_info, triply_service_fee")
       .eq("reslab_reservation_number", id)
       .single();
+
+    const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
 
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
@@ -101,11 +103,12 @@ export async function GET(
         id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
         status: reservation.cancelled ? "cancelled" : "confirmed",
-        grandTotal: history?.grand_total || 0,
+        grandTotal: (history?.grand_total || 0) + triplyServiceFee,
         subtotal: history?.subtotal || 0,
         taxTotal: history?.total_tax || 0,
         feesTotal: history?.total_fees || 0,
-        dueNow: history?.grand_total - (history?.due_at_location_total || 0),
+        serviceFee: triplyServiceFee,
+        dueNow: (history?.grand_total || 0) + triplyServiceFee - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         customer: {
           firstName,

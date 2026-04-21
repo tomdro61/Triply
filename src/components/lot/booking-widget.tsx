@@ -16,6 +16,7 @@ import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
+import { calculateServiceFee } from "@/lib/utils/service-fee";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -99,7 +100,7 @@ export function BookingWidget({
   const price = lot.pricing?.minPrice ?? 0;
 
   // Calculate number of days and total
-  const { days, subtotal, fees, taxes, total } = useMemo(() => {
+  const { days, subtotal, fees, taxes, serviceFee, total } = useMemo(() => {
     const start = new Date(checkIn);
     const end = new Date(checkOut);
     const diffTime = Math.abs(end.getTime() - start.getTime());
@@ -107,24 +108,30 @@ export function BookingWidget({
 
     // Use API values if available
     if (hasApiPricing) {
+      const sub = lot.pricing?.subtotal || 0;
+      const feesTotal = lot.pricing?.feesTotal || 0;
+      const fee = calculateServiceFee(sub + feesTotal);
       return {
         days: lot.pricing?.numberOfDays || diffDays,
-        subtotal: (lot.pricing?.subtotal || 0) + (lot.pricing?.feesTotal || 0),
+        subtotal: sub + feesTotal,
         fees: 0,
         taxes: lot.pricing?.taxTotal || 0,
-        total: lot.pricing?.grandTotal || price * diffDays,
+        serviceFee: fee,
+        total: (lot.pricing?.grandTotal || price * diffDays) + fee,
       };
     }
 
     // Fallback calculation
     const sub = price * diffDays;
     const tax = Math.round(sub * (lot.pricing?.taxValue || 8) / 100 * 100) / 100;
+    const fee = calculateServiceFee(sub);
     return {
       days: diffDays,
       subtotal: sub,
       fees: 0,
       taxes: tax,
-      total: sub + tax,
+      serviceFee: fee,
+      total: sub + tax + fee,
     };
   }, [checkIn, checkOut, price, hasApiPricing, lot.pricing]);
 
@@ -349,6 +356,12 @@ export function BookingWidget({
           <span>Taxes</span>
           <span>${taxes.toFixed(2)}</span>
         </div>
+        {serviceFee > 0 && (
+          <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <span>Service fee</span>
+            <span>${serviceFee.toFixed(2)}</span>
+          </div>
+        )}
         <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
           <span>Total</span>
           <span>${total.toFixed(2)}</span>

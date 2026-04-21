@@ -20,6 +20,7 @@ interface Booking {
   check_in: string;
   check_out: string;
   grand_total: number;
+  triply_service_fee: number | string | null;
   vehicle_info: {
     make: string;
     model: string;

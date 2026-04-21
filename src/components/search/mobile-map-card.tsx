@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 
 interface MobileMapCardProps {
   lot: UnifiedLot;
@@ -21,7 +22,7 @@ function getTopAmenityIcon(name: string) {
 export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  const grandTotal = lot.pricing?.grandTotal;
+  const grandTotal = customerTotalFromPricing(lot.pricing);
   const topAmenities = lot.amenities.slice(0, 3);
 
   return (

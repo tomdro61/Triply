@@ -81,25 +81,25 @@ export async function GET(request: NextRequest) {
         .gte("created_at", monthStart.toISOString()),
       // Total revenue (filtered)
       applyDateFilter(
-        supabase.from("bookings").select("grand_total").eq("status", "confirmed")
+        supabase.from("bookings").select("grand_total, triply_service_fee").eq("status", "confirmed")
       ),
       // Today's revenue
       supabase
         .from("bookings")
-        .select("grand_total")
+        .select("grand_total, triply_service_fee")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString()),
       // This week's revenue
       supabase
         .from("bookings")
-        .select("grand_total")
+        .select("grand_total, triply_service_fee")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString()),
       // This month's revenue
       supabase
         .from("bookings")
-        .select("grand_total")
+        .select("grand_total, triply_service_fee")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString()),
       // Confirmed bookings (filtered)
@@ -112,8 +112,17 @@ export async function GET(request: NextRequest) {
       ),
     ]);
 
-    const sumRevenue = (data: { grand_total: string }[] | null) =>
-      data?.reduce((sum, b) => sum + (parseFloat(b.grand_total) || 0), 0) || 0;
+    type RevenueRow = { grand_total: string; triply_service_fee: string | null };
+    const sumGross = (data: RevenueRow[] | null) =>
+      data?.reduce(
+        (sum, b) =>
+          sum +
+          (parseFloat(b.grand_total) || 0) +
+          (parseFloat(b.triply_service_fee || "0") || 0),
+        0
+      ) || 0;
+    const sumTriply = (data: RevenueRow[] | null) =>
+      data?.reduce((sum, b) => sum + (parseFloat(b.triply_service_fee || "0") || 0), 0) || 0;
 
     return NextResponse.json({
       bookings: {
@@ -125,10 +134,18 @@ export async function GET(request: NextRequest) {
         cancelled: cancelledResult.count || 0,
       },
       revenue: {
-        total: sumRevenue(revenueResult.data),
-        today: sumRevenue(todayRevenueResult.data),
-        thisWeek: sumRevenue(weekRevenueResult.data),
-        thisMonth: sumRevenue(monthRevenueResult.data),
+        gross: {
+          total: sumGross(revenueResult.data),
+          today: sumGross(todayRevenueResult.data),
+          thisWeek: sumGross(weekRevenueResult.data),
+          thisMonth: sumGross(monthRevenueResult.data),
+        },
+        triply: {
+          total: sumTriply(revenueResult.data),
+          today: sumTriply(todayRevenueResult.data),
+          thisWeek: sumTriply(weekRevenueResult.data),
+          thisMonth: sumTriply(monthRevenueResult.data),
+        },
       },
     });
   } catch (error) {

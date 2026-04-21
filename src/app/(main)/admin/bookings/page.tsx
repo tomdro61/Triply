@@ -218,7 +218,7 @@ export default function AdminBookingsPage() {
       b.location_name,
       formatDateTime(b.check_in),
       formatDateTime(b.check_out),
-      b.grand_total,
+      (parseFloat(b.grand_total) + parseFloat(b.triply_service_fee || "0")).toFixed(2),
       b.status,
       formatDateTime(b.created_at),
     ]);
@@ -417,7 +417,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-semibold text-gray-900">
-                          {formatPrice(parseFloat(booking.grand_total))}
+                          {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -561,7 +561,12 @@ export default function AdminBookingsPage() {
                   </div>
                   <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
                     <span>Total charged</span>
-                    <span>{formatPrice(parseFloat(selectedBooking.grand_total))}</span>
+                    <span>
+                      {formatPrice(
+                        parseFloat(selectedBooking.grand_total) +
+                          parseFloat(selectedBooking.triply_service_fee || "0")
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>

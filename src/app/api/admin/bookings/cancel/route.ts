@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
-import { createRefund } from "@/lib/stripe/client";
+import { createRefund, getPaymentIntent } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError } from "@/lib/sentry";
 
@@ -78,16 +78,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
-    // Service fee is non-refundable — refund grand_total minus the Triply service fee.
-    const grandTotal = parseFloat(booking.grand_total) || 0;
+    // Service fee is non-refundable. Refund = actual amount charged − service fee.
+    // We read the charge from Stripe rather than reconstructing it from stored fields,
+    // so partial captures / pricing changes / due-at-location splits can't desync us.
     const serviceFee = parseFloat(booking.triply_service_fee) || 0;
-    const refundAmount = Math.max(0, Math.round((grandTotal - serviceFee) * 100) / 100);
+    let refundAmount = 0;
+    if (stripePaymentIntentId) {
+      try {
+        const pi = await getPaymentIntent(stripePaymentIntentId);
+        const amountReceived = (pi.amount_received || 0) / 100;
+        refundAmount = Math.max(0, Math.round((amountReceived - serviceFee) * 100) / 100);
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "PaymentIntent lookup failed";
+        results.errors.push(`Stripe: ${msg}`);
+      }
+    }
     const wasRefunded = !!stripePaymentIntentId && refundAmount > 0;
     const newStatus = wasRefunded ? "refunded" : "cancelled";
 
-    if (stripePaymentIntentId && refundAmount <= 0) {
+    if (stripePaymentIntentId && refundAmount <= 0 && !results.errors.some(e => e.startsWith("Stripe:"))) {
       results.errors.push(
-        `Stripe: refund skipped — computed amount is $${refundAmount} (grand_total=${booking.grand_total}, triply_service_fee=${booking.triply_service_fee})`
+        `Stripe: refund skipped — computed amount is $${refundAmount} (service_fee=${serviceFee})`
       );
     }
 

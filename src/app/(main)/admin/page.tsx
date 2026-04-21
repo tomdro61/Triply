@@ -25,10 +25,18 @@ interface Stats {
     cancelled: number;
   };
   revenue: {
-    total: number;
-    today: number;
-    thisWeek: number;
-    thisMonth: number;
+    gross: {
+      total: number;
+      today: number;
+      thisWeek: number;
+      thisMonth: number;
+    };
+    triply: {
+      total: number;
+      today: number;
+      thisWeek: number;
+      thisMonth: number;
+    };
   };
 }
 
@@ -39,6 +47,7 @@ interface Booking {
   check_in: string;
   check_out: string;
   grand_total: string;
+  triply_service_fee: string | null;
   status: string;
   created_at: string;
   customers: {
@@ -261,23 +270,23 @@ export default function AdminDashboard() {
           color="orange"
         />
         <StatCard
-          title="Total Revenue"
-          value={formatPrice(stats?.revenue.total || 0)}
-          subValue={`${formatPrice(stats?.revenue.thisMonth || 0)} this month`}
+          title="Gross Revenue"
+          value={formatPrice(stats?.revenue.gross.total || 0)}
+          subValue={`Triply: ${formatPrice(stats?.revenue.triply.total || 0)}`}
           icon={DollarSign}
           color="green"
         />
         <StatCard
           title="Today's Bookings"
           value={stats?.bookings.today || 0}
-          subValue={`${formatPrice(stats?.revenue.today || 0)} revenue`}
+          subValue={`${formatPrice(stats?.revenue.gross.today || 0)} gross`}
           icon={Calendar}
           color="blue"
         />
         <StatCard
           title="This Week"
           value={stats?.bookings.thisWeek || 0}
-          subValue={`${formatPrice(stats?.revenue.thisWeek || 0)} revenue`}
+          subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} gross`}
           icon={TrendingUp}
           color="purple"
         />
@@ -309,19 +318,28 @@ export default function AdminDashboard() {
             <div>
               <p className="text-sm text-gray-500">Today</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatPrice(stats?.revenue.today || 0)}
+                {formatPrice(stats?.revenue.gross.today || 0)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Triply: {formatPrice(stats?.revenue.triply.today || 0)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">This Week</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatPrice(stats?.revenue.thisWeek || 0)}
+                {formatPrice(stats?.revenue.gross.thisWeek || 0)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Triply: {formatPrice(stats?.revenue.triply.thisWeek || 0)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">This Month</p>
               <p className="text-lg font-semibold text-gray-900">
-                {formatPrice(stats?.revenue.thisMonth || 0)}
+                {formatPrice(stats?.revenue.gross.thisMonth || 0)}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Triply: {formatPrice(stats?.revenue.triply.thisMonth || 0)}
               </p>
             </div>
           </div>
@@ -402,7 +420,7 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-gray-900">
-                        {formatPrice(parseFloat(booking.grand_total))}
+                        {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

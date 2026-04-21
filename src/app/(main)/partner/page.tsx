@@ -175,7 +175,7 @@ export default function PartnerReservationsPage() {
       "Check In",
       "Check Out",
       "Vehicle",
-      "Total",
+      "Parking revenue",
       "Status",
     ];
 
@@ -335,7 +335,7 @@ export default function PartnerReservationsPage() {
                       Vehicle
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
+                      Parking revenue
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -532,7 +532,7 @@ export default function PartnerReservationsPage() {
                     {formatDateTime(selectedBooking.check_out)}
                   </p>
                   <p>
-                    <span className="text-gray-500">Total:</span>{" "}
+                    <span className="text-gray-500">Parking revenue:</span>{" "}
                     <span className="font-semibold">
                       {formatPrice(
                         parseFloat(selectedBooking.grand_total)

@@ -9,6 +9,7 @@ import { searchParking } from "@/lib/reslab/search";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
+import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 
 // Build airport code enum from config
 const airportCodes = enabledAirports.map((a) => a.code) as [string, ...string[]];
@@ -166,13 +167,15 @@ export async function POST(request: NextRequest) {
                 checkoutTime,
               });
 
-              const lots = result.results.slice(0, 5).map((lot) => ({
+              const lots = result.results.slice(0, 5).map((lot) => {
+                const customerTotal = customerTotalFromPricing(lot.pricing);
+                return {
                 name: lot.name,
                 pricePerDay: lot.pricing?.minPrice
                   ? `$${lot.pricing.minPrice.toFixed(2)}`
                   : "Price unavailable",
-                totalPrice: lot.pricing?.grandTotal
-                  ? `$${lot.pricing.grandTotal.toFixed(2)}`
+                totalPrice: customerTotal !== null
+                  ? `$${customerTotal.toFixed(2)}`
                   : "N/A",
                 distance: lot.distanceFromAirport
                   ? `${lot.distanceFromAirport.toFixed(1)} mi`
@@ -184,7 +187,8 @@ export async function POST(request: NextRequest) {
                 slug: lot.slug,
                 numberOfDays: lot.pricing?.numberOfDays,
                 searchUrl: `/search?airport=${airport}&checkin=${checkin}&checkout=${checkout}${checkinTime ? `&checkinTime=${encodeURIComponent(checkinTime)}` : ""}${checkoutTime ? `&checkoutTime=${encodeURIComponent(checkoutTime)}` : ""}`,
-              }));
+                };
+              });
 
               return {
                 success: true as const,

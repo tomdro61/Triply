@@ -21,3 +21,22 @@ export function calculateServiceFee(parkingBase: number): number {
   const percentageFee = parkingBase * (FEE_PERCENT / 100);
   return Math.round(Math.max(FEE_MIN, percentageFee) * 100) / 100;
 }
+
+/**
+ * Customer-facing total (what they'll be charged), given a lot's pricing object.
+ * Prefers subtotal + feesTotal as the parking base; falls back to grandTotal − taxTotal.
+ * Returns null if there isn't enough data to compute.
+ */
+export function customerTotalFromPricing(pricing: {
+  grandTotal?: number;
+  subtotal?: number;
+  feesTotal?: number;
+  taxTotal?: number;
+} | undefined): number | null {
+  if (!pricing?.grandTotal) return null;
+  const parkingBase =
+    pricing.subtotal !== undefined
+      ? pricing.subtotal + (pricing.feesTotal || 0)
+      : pricing.grandTotal - (pricing.taxTotal || 0);
+  return pricing.grandTotal + calculateServiceFee(parkingBase);
+}
