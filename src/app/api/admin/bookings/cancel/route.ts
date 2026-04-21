@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const { data: booking } = await supabase
       .from("bookings")
       .select(`
-        status, location_name, location_address, check_in, check_out, grand_total,
+        status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -78,12 +78,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
-    const wasRefunded = !!stripePaymentIntentId;
+    // Service fee is non-refundable — refund grand_total minus the Triply service fee.
+    const grandTotal = parseFloat(booking.grand_total) || 0;
+    const serviceFee = parseFloat(booking.triply_service_fee) || 0;
+    const refundAmount = Math.max(0, Math.round((grandTotal - serviceFee) * 100) / 100);
+    const wasRefunded = !!stripePaymentIntentId && refundAmount > 0;
     const newStatus = wasRefunded ? "refunded" : "cancelled";
 
+    if (stripePaymentIntentId && refundAmount <= 0) {
+      results.errors.push(
+        `Stripe: refund skipped — computed amount is $${refundAmount} (grand_total=${booking.grand_total}, triply_service_fee=${booking.triply_service_fee})`
+      );
+    }
+
     const [stripeResult, supabaseResult] = await Promise.allSettled([
-      stripePaymentIntentId
-        ? createRefund(stripePaymentIntentId)
+      wasRefunded
+        ? createRefund(stripePaymentIntentId, refundAmount)
         : Promise.resolve(null),
       supabase
         .from("bookings")
@@ -126,7 +136,7 @@ export async function POST(request: NextRequest) {
           lotAddress: booking.location_address || "",
           checkInDate: booking.check_in,
           checkOutDate: booking.check_out,
-          refundAmount: parseFloat(booking.grand_total) || 0,
+          refundAmount,
           wasRefunded,
         });
         results.email = emailResult.success;
