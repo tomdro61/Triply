@@ -29,6 +29,7 @@ interface Booking {
   fees_total: string;
   grand_total: string;
   triply_service_fee: string;
+  due_at_location: string | null;
   stripe_payment_intent_id: string | null;
   status: string;
   vehicle_info: {
@@ -536,40 +537,60 @@ export default function AdminBookingsPage() {
               </div>
 
               {/* Payment Breakdown */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">Payment Breakdown</h3>
-                <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Subtotal (to location)</span>
-                    <span>{formatPrice(parseFloat(selectedBooking.subtotal || "0"))}</span>
-                  </div>
-                  {parseFloat(selectedBooking.fees_total || "0") > 0 && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Fees</span>
-                      <span>{formatPrice(parseFloat(selectedBooking.fees_total))}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Taxes</span>
-                    <span>{formatPrice(parseFloat(selectedBooking.tax_total || "0"))}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Triply service fee</span>
-                    <span className="text-green-600 font-medium">
-                      {formatPrice(parseFloat(selectedBooking.triply_service_fee || "0"))}
-                    </span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
-                    <span>Total charged</span>
-                    <span>
-                      {formatPrice(
-                        parseFloat(selectedBooking.grand_total) +
-                          parseFloat(selectedBooking.triply_service_fee || "0")
+              {(() => {
+                const subtotal = parseFloat(selectedBooking.subtotal || "0");
+                const fees = parseFloat(selectedBooking.fees_total || "0");
+                const taxes = parseFloat(selectedBooking.tax_total || "0");
+                const serviceFee = parseFloat(selectedBooking.triply_service_fee || "0");
+                const dueAtLocation = parseFloat(selectedBooking.due_at_location || "0");
+                const bookingTotal =
+                  parseFloat(selectedBooking.grand_total) + serviceFee;
+                const paidOnline = Math.max(0, bookingTotal - dueAtLocation);
+
+                return (
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-2">Payment Breakdown</h3>
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Subtotal (to location)</span>
+                        <span>{formatPrice(subtotal)}</span>
+                      </div>
+                      {fees > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Fees</span>
+                          <span>{formatPrice(fees)}</span>
+                        </div>
                       )}
-                    </span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Taxes</span>
+                        <span>{formatPrice(taxes)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Triply service fee</span>
+                        <span className="text-green-600 font-medium">
+                          {formatPrice(serviceFee)}
+                        </span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
+                        <span>Booking total</span>
+                        <span>{formatPrice(bookingTotal)}</span>
+                      </div>
+                      <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm">
+                        <span className="text-gray-500">Paid online</span>
+                        <span className="font-medium">{formatPrice(paidOnline)}</span>
+                      </div>
+                      {dueAtLocation > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Due at location</span>
+                          <span className="text-amber-700 font-medium">
+                            {formatPrice(dueAtLocation)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Vehicle Info */}
               {selectedBooking.vehicle_info && (
