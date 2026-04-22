@@ -679,9 +679,31 @@ export function getFeaturedPhoto(location: ReslabLocation): string | null {
 }
 
 /**
- * Strip HTML tags from description text
+ * Strip HTML tags and decode common HTML entities from ResLab copy so that
+ * values like "&nbsp;" and "&amp;" don't bleed through into user-visible text.
  */
+const HTML_ENTITIES: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  hellip: "…",
+  mdash: "—",
+  ndash: "–",
+  rsquo: "’",
+  lsquo: "‘",
+  rdquo: "”",
+  ldquo: "“",
+};
+
 export function stripHtml(html: string | null): string {
   if (!html) return "";
-  return html.replace(/<[^>]*>/g, "").trim();
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCodePoint(parseInt(n, 16)))
+    .replace(/&([a-z]+);/gi, (m, name) => HTML_ENTITIES[name.toLowerCase()] ?? m)
+    .trim();
 }
