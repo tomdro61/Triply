@@ -1,11 +1,7 @@
 import { Metadata } from "next";
 import { Navbar, Footer } from "@/components/shared";
-import {
-  getPublishedPosts,
-  getCategories,
-  getDistinctAirportCodes,
-} from "@/lib/cms";
-import { getAirportByCode } from "@/config/airports";
+import { getPublishedPosts, getCategories } from "@/lib/cms";
+import { enabledAirports } from "@/config/airports";
 import { BlogPostCard } from "@/components/blog/BlogPostCard";
 import { BlogPagination } from "@/components/blog/BlogPagination";
 import { BlogFilterBar } from "@/components/blog/BlogFilterBar";
@@ -61,16 +57,11 @@ export default async function BlogPage({
   const { docs: posts, totalPages } = postsResult;
   const categories = categoriesResult.docs;
 
-  // Fetch airports with blog content for the airport grid
-  const codes = await getDistinctAirportCodes();
-  const airportGridData = codes
-    .map((code) => {
-      const airport = getAirportByCode(code);
-      return airport
-        ? { code: airport.code, name: airport.name, city: airport.city }
-        : null;
-    })
-    .filter(Boolean) as Array<{ code: string; name: string; city: string }>;
+  // Show all enabled airports as filter chips (so every supported airport is
+  // browsable even before any posts exist for it).
+  const airportGridData = enabledAirports
+    .map((a) => ({ code: a.code, name: a.name, city: a.city }))
+    .sort((a, b) => a.code.localeCompare(b.code));
 
   // Find featured post (latest hub article) for page 1
   const featuredPost = isFirstPage

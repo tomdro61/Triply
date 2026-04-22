@@ -117,18 +117,27 @@ export async function getPublishedPostCount(filters: Record<string, string> = {}
 }
 
 export async function getDistinctAirportCodes() {
-  const data = await fetchFromCms('/posts', {
-    'where[status][equals]': 'published',
-    'where[airportCode][exists]': 'true',
-    limit: '500',
-    depth: '0',
-  }, 3600)
-
   const codes = new Set<string>()
-  for (const post of data?.docs || []) {
-    if (post.airportCode) {
-      codes.add(post.airportCode.toUpperCase())
+  let page = 1
+  while (true) {
+    const data = await fetchFromCms('/posts', {
+      'where[status][equals]': 'published',
+      'where[airportCode][exists]': 'true',
+      limit: '500',
+      page: String(page),
+      depth: '0',
+    }, 3600)
+
+    const docs = data?.docs || []
+    for (const post of docs) {
+      if (post.airportCode) {
+        codes.add(post.airportCode.toUpperCase())
+      }
     }
+
+    const totalPages = data?.totalPages ?? 1
+    if (page >= totalPages || docs.length === 0) break
+    page++
   }
   return Array.from(codes).sort()
 }
