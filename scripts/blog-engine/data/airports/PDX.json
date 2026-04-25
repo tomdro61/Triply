@@ -1,0 +1,613 @@
+{
+  "code": "PDX",
+  "fullName": "Portland International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Northeast Portland, Oregon — 12 miles northeast of downtown Portland, just south of the Columbia River in Multnomah County",
+    "iataCode": "PDX",
+    "icaoCode": "KPDX",
+    "faaLid": "PDX",
+    "elevation": "30 feet above mean sea level",
+    "acreage": 3000,
+    "coordinates": "45.5887N, 122.5975W",
+    "passengerVolume": "~20 million passengers annually (2025, recovering to pre-pandemic levels)",
+    "aircraftOperations": "~220,000 annually",
+    "cargoVolume": "Largest cargo airport in Oregon — handles over 95% of the state's air cargo",
+    "distinction": "Consistently rated the best airport in the United States. Named best U.S. airport by Travel + Leisure for seven consecutive years. Ranked #1 in J.D. Power customer satisfaction three times (most recently 2019) and top 5 every year from 2015 to 2020. Famous for its iconic teal carpet, which became a global pop culture phenomenon with its own Instagram hashtag (#pdxcarpet) and Wikipedia page. Alaska Airlines' second-largest hub. Accounts for 90% of Oregon's passenger air travel.",
+    "operator": "Port of Portland",
+    "owner": "Port of Portland",
+    "activeTerminals": 1,
+    "totalConcourses": 4,
+    "totalGates": 60,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "10L/28R", "length": "11,000 ft (3,353 m)", "surface": "Concrete", "note": "Primary runway for large aircraft" },
+      { "designation": "10R/28L", "length": "9,825 ft (2,995 m)", "surface": "Asphalt" },
+      { "designation": "3/21", "length": "6,000 ft (1,829 m)", "surface": "Asphalt", "note": "Crosswind runway" }
+    ],
+    "dominantAirline": "Alaska Airlines (largest carrier — ~34% of passenger traffic, operates primarily from Concourses B and C)",
+    "totalAirlines": "16 airlines",
+    "nonstopDestinations": "~140 destinations (domestic and international)",
+    "founded": "1940 (as Portland-Columbia Airport; renamed Portland International Airport in 1957)",
+    "hubCarriers": ["Alaska Airlines (hub)", "Horizon Air (hub/maintenance base)", "Southwest Airlines (focus city)", "United Airlines (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "TriMet MAX Red Line light rail station directly at the terminal — $2.80 fare to downtown Portland, ~40 minutes",
+    "militaryUse": "Oregon Air National Guard 142nd Wing (F-15 Eagles) operates from adjacent Portland Air National Guard Base",
+    "internationalNote": "PDX offers nonstop international service to Canada (Vancouver, Calgary, Toronto), Mexico (Guadalajara, Puerto Vallarta, Cabo San Lucas), Japan (Tokyo-Narita via Delta), Netherlands (Amsterdam via Delta seasonal), and the UK (London via Delta seasonal). Iceland (Reykjavik via Icelandair seasonal)."
+  },
+  "terminals": [
+    {
+      "name": "Concourse B",
+      "status": "Active — 9 gates (B3-B11). South security checkpoint.",
+      "airlines": ["Alaska Airlines", "Horizon Air", "JetBlue Airways", "American Airlines"],
+      "gates": "B3-B11",
+      "notes": "Alaska Airlines and Horizon Air primary concourse. JetBlue and American Airlines also operate here. Accessible via the south security checkpoint. Connected to Concourses D and E via the concourse connector."
+    },
+    {
+      "name": "Concourse C",
+      "status": "Active — 18 gates (C5-C13, C15-C23). Largest concourse. South security checkpoint.",
+      "airlines": ["Alaska Airlines", "Horizon Air", "American Airlines", "Allegiant Air", "Contour Airlines", "Frontier Airlines", "Hawaiian Airlines", "JetBlue Airways", "Spirit Airlines", "Sun Country Airlines", "Volaris"],
+      "gates": "C5-C13, C15-C23",
+      "notes": "The largest concourse at PDX with 18 gates. Serves Alaska Airlines overflow plus most low-cost and ultra-low-cost carriers. Pet relief area near gates C1/C2. Accessible via south security checkpoint."
+    },
+    {
+      "name": "Concourse D",
+      "status": "Active — 11 gates (D5-D15). North security checkpoint.",
+      "airlines": ["Delta Air Lines", "American Airlines", "Icelandair"],
+      "gates": "D5-D15",
+      "notes": "Delta Air Lines' primary concourse at PDX. Handles Delta's domestic and international flights (Tokyo-Narita, Amsterdam, London seasonal). Delta Sky Club between gates D5-D7. Escape Lounge near gate D8 (Priority Pass). International arrivals. North security checkpoint open 24/7."
+    },
+    {
+      "name": "Concourse E",
+      "status": "Active — 12 gates (E2-E13). North security checkpoint.",
+      "airlines": ["Southwest Airlines", "United Airlines"],
+      "gates": "E2-E13",
+      "notes": "Extended in 2020 with 6 additional gates for Southwest Airlines' relocation from Concourse C. United Airlines also operates here. Accessible via north security checkpoint or concourse connector."
+    }
+  ],
+  "roads": ["Interstate 205 (I-205)", "Interstate 84 (I-84, via I-205)", "NE Airport Way", "NE 82nd Avenue", "NE Marine Drive", "Interstate 5 (I-5, via I-205 or I-84)", "NE Columbia Boulevard"],
+  "transit": ["TriMet MAX Red Line (direct light rail to downtown Portland, Beaverton, Hillsboro — $2.80 fare, ~40 min to downtown)", "TriMet Bus Route 87 (Airport Way/181st)", "TriMet Bus Route 24 (Fremont)", "C-TRAN Express Route 65X (to Vancouver, WA)", "Amtrak Cascades and Coast Starlight (Portland Union Station, accessible via MAX)"],
+  "neighborhoods": ["Hollywood", "Lloyd District", "Northeast Portland", "Gateway", "Parkrose", "Cully", "Montavilla", "Downtown Portland", "Pearl District", "Alberta Arts District", "Sellwood-Moreland", "Hawthorne", "Division", "St. Johns", "Beaverton", "Lake Oswego", "Vancouver (WA)"],
+  "authority": "Port of Portland",
+  "groundTransportation": {
+    "maxLightRail": {
+      "description": "TriMet MAX Red Line light rail connects PDX directly to downtown Portland, Beaverton, and Hillsboro. Station located at the west end of the terminal building near baggage claim — no shuttle required.",
+      "fare": "$2.80 single trip (adult). $1.40 youth/honored citizen. $5.50 day pass. Contactless payment accepted.",
+      "frequency": "Every 15 minutes during peak hours, every 20-30 minutes evenings/weekends",
+      "hours": "First train arrives at PDX at 4:43 AM, last train departs PDX at 12:27 AM",
+      "accessFromTerminal": "Walk directly from baggage claim to the MAX station at the west end of the terminal — no shuttle needed",
+      "travelTimes": {
+        "toGatewayTransitCenter": "~10 minutes",
+        "toHollywood": "~20 minutes",
+        "toLloydCenter": "~25 minutes",
+        "toRoseQuarter": "~30 minutes",
+        "toPioneerSquare": "~38 minutes (downtown Portland)",
+        "toPSU": "~42 minutes (Portland State University)",
+        "toBeavertonTC": "~65 minutes",
+        "toHillsboro": "~85 minutes"
+      },
+      "competitorNote": "At $2.80, the MAX Red Line is the cheapest and most reliable way from PDX to downtown Portland. The 38-minute travel time is competitive with driving during rush hour and significantly cheaper than the $30-50 taxi fare. No shuttle, no transfer — walk directly from the terminal to the train."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Transportation Plaza, Level 1 of Short-Term Parking Garage (follow signs from baggage claim)",
+      "minimumFare": "$2.50 flag drop",
+      "perMileRate": "$2.60 per mile",
+      "estimatedMeteredFares": {
+        "toDowntownPortland": "$30-$45",
+        "toLloydDistrict": "$20-$30",
+        "toPearlDistrict": "$30-$45",
+        "toHawthorne": "$25-$35",
+        "toAlbertaArtsDistrict": "$20-$30",
+        "toBeaverton": "$40-$55",
+        "toLakeOswego": "$40-$55",
+        "toVancouverWA": "$35-$50",
+        "toSalem": "$140-$170",
+        "toMtHood": "$120-$150"
+      },
+      "note": "Taxis pick up at the Transportation Plaza inside Level 1 of the Short-Term Parking Garage. Follow signs from baggage claim. Cash and credit cards accepted."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Transportation Plaza, Level 1 of the Short-Term Parking Garage. Each garage column is labeled with the pick-up spot for Uber, Lyft, or Wingz. Follow signs from baggage claim.",
+      "estimatedFares": {
+        "uberXToDowntownPortland": "$20-$35",
+        "uberXToLloydDistrict": "$15-$25",
+        "uberXToPearlDistrict": "$20-$35",
+        "uberXToHawthorne": "$18-$30",
+        "uberXToAlbertaArts": "$15-$25",
+        "uberXToBeaverton": "$25-$40",
+        "uberXToVancouverWA": "$25-$40"
+      },
+      "surgePricing": "Surge pricing common during Rose Festival, Trail Blazers games, Timbers/Thorns matches, holiday weekends, and major snowstorms",
+      "note": "Rideshare is usually cheaper than taxis from PDX. The new Transportation Plaza (opened with the terminal renovation) consolidates all rideshare and taxi pickup in one convenient location inside the parking garage."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center adjacent to the terminal — accessible via a short covered walkway from the terminal building",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "note": "All rental car companies are consolidated at the Rental Car Center adjacent to the terminal. Short covered walkway from the terminal — no shuttle needed. Return your car at the same location."
+    },
+    "hotelShuttles": "Many nearby hotels along NE Airport Way and NE 82nd Avenue offer complimentary airport shuttle service. Check with your hotel before booking. Popular shuttle hotels include Holiday Inn, Hampton Inn, Courtyard by Marriott, and Sheraton."
+  },
+  "parkingRates": "On-airport: Short-Term Garage $3/hr ($27/day), Long-Term Garage $24/day, Economy Red/Blue Lots $12/day (7th day free), Gold Key Valet $10/hr ($35/day). Off-site: from ~$6.45/day with shuttle.",
+  "onAirportParking": {
+    "shortTermGarage": {
+      "name": "Short-Term Parking Garage",
+      "rate": "$3.00 per hour",
+      "dailyMax": 27,
+      "maxStay": "30 days",
+      "serves": "All concourses — directly connected to terminal",
+      "valetAvailable": false,
+      "features": "Closest parking to the terminal. Direct covered walkway to check-in and baggage claim. Transportation Plaza (rideshare/taxi pickup) on Level 1. Best for pickups, drop-offs, and short stays.",
+      "preBookingUrl": "https://www.flypdx.com/Parking"
+    },
+    "longTermGarage": {
+      "name": "Long-Term Parking Garage",
+      "rate": "$4.00 per hour",
+      "dailyMax": 24,
+      "maxStay": "30 days",
+      "serves": "All concourses — walking distance through Short-Term Garage",
+      "features": "Located adjacent to the Short-Term Garage with covered walkway to terminal. Best on-airport option for multi-day trips. No shuttle needed — walk to terminal in ~5-7 minutes.",
+      "preBookingUrl": "https://www.flypdx.com/Parking"
+    },
+    "economyParking": {
+      "name": "Economy Parking (Red and Blue Lots)",
+      "rate": "$4.00 per hour",
+      "dailyMax": 12,
+      "seventhDayFree": true,
+      "serves": "All concourses via free shuttle",
+      "connection": "FREE shuttle service every 7-9 minutes, 24/7",
+      "features": "Best budget option for on-airport parking. Two lots (Red and Blue) located near I-205. 7th day free makes it ideal for week-long trips ($72 for 7 days). Disabled parking near bus shelters in both lots.",
+      "note": "Economy lots can fill up during peak travel periods (summer, holidays). Arrive early or pre-book. The 7th-day-free promotion is a significant savings for weekly travelers.",
+      "preBookingUrl": "https://www.flypdx.com/Parking"
+    },
+    "valetParking": {
+      "name": "Gold Key Valet Parking",
+      "rate": "$10 per hour, $35/day max",
+      "maxStay": "30 days",
+      "locations": "Terminal curbside, Departures level",
+      "features": "Premium drop-off at the terminal curb. Car stored in covered garage. Vehicle delivered to you upon return. Most convenient option for frequent flyers."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "NE Airport Way and NE 82nd Avenue",
+      "cost": "FREE",
+      "capacity": 30,
+      "maxWait": "30 minutes",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Maximum 30-minute stay."
+    },
+    "evCharging": {
+      "locations": [
+        "Short-Term Garage Level 4 (6 Level 2 charging ports, 3 dual-connector stations)",
+        "Economy Red Lot (12 Level 1 PowerPost stations)",
+        "Economy Blue Lot (12 Level 1 PowerPost stations)"
+      ],
+      "totalPorts": "48 EV charging ports",
+      "note": "PDX has 48 EV charging stations — one of the largest airport EV charging installations in the U.S. Level 2 chargers in the Short-Term Garage provide faster charging. Economy lot chargers are Level 1 (slower, best for multi-day trips)."
+    },
+    "accessibleParking": "Accessible parking available in all parking areas. Economy lots have disabled spaces adjacent to shuttle bus shelters. Short-Term and Long-Term garages have accessible spaces near elevators.",
+    "totalCapacity": "~12,000 vehicles across all parking areas",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
+    "garageServiceAreas": "Short-Term Garage → direct terminal access. Long-Term Garage → covered walkway to terminal. Economy Lots → free shuttle every 7-9 minutes."
+  },
+  "parkingLots": [
+    {
+      "name": "Jiffy Portland Airport Parking",
+      "slug": "jiffy-portland-airport-parking-pdx",
+      "dailyRate": 10.49,
+      "reservationRate": 8.93,
+      "parkingType": "Outdoor self-park, fenced and gated",
+      "amenities": ["Free 24/7 Shuttle", "Fenced Lot", "Gated Entry", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "Free 24/7 on-demand shuttle to and from PDX terminal, approximately every 10-15 minutes",
+      "overview": "Popular off-site lot 1.4 miles from PDX with 24/7 on-demand shuttle service. Fenced and gated facility with security cameras. One of the most established off-site options near PDX.",
+      "distanceFromAirport": "1.4 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Well-established PDX off-site lot. 24/7 shuttle is reliable. Gated and fenced lot with security cameras. Pre-booking online saves ~$1.50/day."
+    },
+    {
+      "name": "AirPark Portland Airport Parking",
+      "slug": "airpark-portland-airport-parking-pdx",
+      "dailyRate": 13.75,
+      "reservationRate": 10.95,
+      "parkingType": "Outdoor self-park",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Luggage Assistance", "24/7 Operation"],
+      "shuttleInfo": "Free on-demand shuttle 24 hours a day — driver picks you up at your car and takes you directly to the terminal",
+      "overview": "Off-site parking 1.2 miles from PDX. Drivers are picked up at their car and shuttled directly to the terminal. One of the closest off-site options.",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-site lot to PDX. Personal pickup at your car is a nice touch. Pre-booking saves ~$3/day vs walk-up rate."
+    },
+    {
+      "name": "Park Shuttle and Fly (PDX)",
+      "slug": "park-shuttle-fly-pdx",
+      "dailyRate": 13.00,
+      "reservationRate": 10.00,
+      "parkingType": "Outdoor self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Gated Lot"],
+      "shuttleInfo": "Free shuttle every 15 minutes to PDX terminal",
+      "overview": "Off-site parking at 6455 NE 82nd Avenue with regular shuttle service to PDX. Gated lot with 24/7 security and surveillance.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Regular shuttle every 15 minutes. Gated and secure. Convenient location on NE 82nd Avenue near airport."
+    },
+    {
+      "name": "Holiday Inn Portland Airport Parking",
+      "slug": "holiday-inn-portland-airport-pdx",
+      "dailyRate": 9.95,
+      "reservationRate": 6.45,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities", "Handicap Accessible"],
+      "shuttleInfo": "Free airport shuttle service during operating hours",
+      "overview": "Hotel parking near PDX with competitive rates. No hotel stay required for parking. One of the cheapest pre-book rates near PDX at $6.45/day.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Best budget off-site option when pre-booked at $6.45/day. Hotel lot is well-lit and monitored. Verify shuttle hours for early/late flights."
+    },
+    {
+      "name": "Super 8 PDX Airport Parking",
+      "slug": "super-8-pdx-airport-parking",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "24/7 Front Desk", "Security Cameras", "Well-Lit Lot"],
+      "shuttleInfo": "Free airport shuttle — check with hotel for schedule",
+      "overview": "Budget-friendly hotel parking near PDX. Park-sleep-fly packages also available for travelers with early morning flights.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Good budget option. Park-sleep-fly packages available if you need a pre-flight hotel stay. Verify shuttle schedule before booking."
+    },
+    {
+      "name": "Hampton Inn & Suites Portland Airport Parking",
+      "slug": "hampton-inn-portland-airport-pdx",
+      "dailyRate": 12.00,
+      "reservationRate": 9.50,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Well-Lit Lot", "Security Cameras", "Hotel Amenities", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary airport shuttle service",
+      "overview": "Quality hotel parking option near PDX with reliable shuttle service. No hotel stay required. Well-maintained lot with good lighting.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "rating": "4.5/5",
+      "notes": "Reliable shuttle and well-maintained lot. Hampton Inn quality. Good option for travelers who value a trustworthy brand."
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Parking (Red and Blue Lots) has free 24/7 shuttle every 7-9 minutes. Short-Term and Long-Term garages require no shuttle (direct walk to terminal). Off-site: Most lots include free shuttle — Jiffy and AirPark offer 24/7 on-demand service. Hotel lots may have limited shuttle hours — always verify before booking for early/late flights.",
+  "distanceFromCity": "12 miles northeast of downtown Portland. 20-40 minutes by car depending on traffic. ~38 minutes by MAX Red Line ($2.80). Portland's only commercial airport — handles 90% of Oregon's passenger air travel.",
+  "keyDistances": {
+    "toDowntownPortland": "12 miles, 20-40 min by car, 38 min by MAX Red Line ($2.80), $20-35 rideshare",
+    "toLloydDistrict": "8 miles, 15-25 min by car, 25 min by MAX, $15-25 rideshare",
+    "toPearlDistrict": "12 miles, 20-40 min by car, 40 min by MAX, $20-35 rideshare",
+    "toHawthorne": "11 miles, 20-35 min by car, $18-30 rideshare",
+    "toAlbertaArtsDistrict": "7 miles, 15-25 min by car, $15-25 rideshare",
+    "toSellwoodMoreland": "14 miles, 25-40 min by car, $25-40 rideshare",
+    "toBeaverton": "20 miles, 25-40 min by car, 65 min by MAX, $25-40 rideshare",
+    "toLakeOswego": "18 miles, 25-40 min by car, $30-45 rideshare",
+    "toVancouverWA": "12 miles, 15-30 min by car, $25-40 rideshare",
+    "toSalem": "50 miles, 50-70 min by car",
+    "toMtHood": "65 miles, 75-100 min by car",
+    "toOregonCoast": "80-100 miles, 90-120 min by car (Cannon Beach/Seaside)",
+    "toColumbiaRiverGorge": "30 miles, 30-45 min by car (Multnomah Falls)",
+    "toSeattle": "175 miles, 3-3.5 hours by car, ~3.5 hours by Amtrak Cascades",
+    "competitiveAdvantage": "PDX's MAX Red Line provides cheap ($2.80) direct light rail to downtown Portland in ~38 minutes — no shuttle, no transfer. The station is built directly into the terminal. For travelers staying downtown, the MAX eliminates the need for parking or rideshare entirely. PDX is also uniquely compact — one terminal, four concourses — so ground transportation connections are simpler than at multi-terminal airports."
+  },
+  "construction2026": {
+    "status": "PDX Next — $2 billion terminal redevelopment program nearing completion. Phase 1 (new main terminal) opened August 2024. Phase 2 completing in 2026.",
+    "projects": [
+      "New Main Terminal (Phase 1, completed August 2024) — Pacific Northwest-inspired architecture with mass timber ceiling, 9-acre large-span roof, doubled ticketing/lobby area, new pre- and post-security concessions featuring local Portland businesses.",
+      "Terminal Expansion Phase 2 (completing early-mid 2026) — North and south expansion of post-security spaces. New concessions, seating areas, and passenger amenities.",
+      "Concourse Connector Restoration — Walkway connecting Concourses B/C to D/E reopened after temporary construction closure.",
+      "New Alaska Lounge (opening 2026) — 13,000+ sq ft lounge with Pacific Northwest design, fireplace, barista station, double the seating of the temporary Express Lounge.",
+      "150-foot Multi-Floor Addition — New structure between Concourses C and D with additional amenities.",
+      "Local Business Concessions — Portland-area restaurants and shops integrated throughout the new terminal (e.g., Stumptown Coffee, Portland food scene represented)."
+    ],
+    "travelImpact": "Most construction is complete or in final phases. Walking distances between Concourses B/E were temporarily longer during construction but normalizing as Phase 2 wraps up. No parking closures. The new terminal is fully operational.",
+    "timeline": {
+      "phase1MainTerminal": "Completed August 2024",
+      "phase2Expansion": "Early-mid 2026 completion",
+      "newAlaskaLounge": "Opening 2026",
+      "fullCompletion": "Summer 2026"
+    }
+  },
+  "securityAndScreening": {
+    "checkpoints": {
+      "southCheckpoint": {
+        "serves": "Concourses B and C",
+        "hours": "3:00 AM - 10:00 PM daily"
+      },
+      "northCheckpoint": {
+        "serves": "Concourses D and E",
+        "hours": "24/7"
+      }
+    },
+    "tsaPreCheck": {
+      "terminals": ["South Checkpoint (B/C)", "North Checkpoint (D/E)"],
+      "hours": "TSA PreCheck lanes typically open 4:00 AM - 4:00 PM daily",
+      "note": "TSA PreCheck available at both security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Available at PDX"],
+      "note": "CLEAR Plus uses biometric identity verification to expedite the screening process. Can be combined with TSA PreCheck."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in the arrivals area for international passengers."
+    },
+    "standardWaitTimes": {
+      "average": "18 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure rush), 12:00-2:00 PM",
+      "peakWait": "Up to 45 minutes during peak hours",
+      "tips": "PDX is a compact airport — security lines are generally reasonable. Early morning (5-8 AM) is the busiest. TSA PreCheck significantly reduces wait times."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during summer peak, Thanksgiving, Christmas, spring break"
+    }
+  },
+  "lounges": {
+    "concourseD": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse D, between gates D5 and D7",
+        "hours": "5:00 AM - 9:00 PM daily (hours may vary)",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Complimentary food and beverages, full-service bar, local craft beer, WiFi, workspaces, runway views."
+      },
+      {
+        "name": "Escape Lounge",
+        "location": "Concourse D, near gate D8",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "Priority Pass, American Express Platinum (through Priority Pass), day pass purchase",
+        "amenities": "Freshly prepared food, cocktails, local wines and craft beer, WiFi, power outlets, runway views. Day passes available."
+      }
+    ],
+    "concourseBC": [
+      {
+        "name": "Alaska Express Lounge (temporary)",
+        "location": "Concourse B",
+        "hours": "Varies",
+        "access": "Alaska Airlines Lounge membership, First Class on qualifying flights, day pass ($65)",
+        "amenities": "Temporary lounge accommodating up to 35 guests. Snacks, beverages, WiFi. Will be replaced by the new 13,000+ sq ft Alaska Lounge opening 2026."
+      }
+    ],
+    "upcoming": [
+      {
+        "name": "Alaska Lounge (new, opening 2026)",
+        "location": "Main terminal area",
+        "access": "Alaska Airlines Lounge membership, First Class, day pass ($65)",
+        "amenities": "13,000+ sq ft. Fireplace, Pacific Northwest design, custom signature Loungers, barista station with hand-crafted espresso, local craft beer and West Coast wines, complimentary food, spectacular terminal views. Double the seating of the temporary Express Lounge."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "flypdx",
+    "cost": "Free",
+    "coverage": "Entire terminal and all concourses",
+    "note": "Connect and accept Terms and Conditions. No time limit."
+  },
+  "evCharging": {
+    "shortTermGarage": {
+      "chargers": 6,
+      "location": "Level 4",
+      "type": "Level 2 (240V) — 3 dual-connector stations",
+      "cost": "Charging fees may apply"
+    },
+    "economyLots": {
+      "chargers": 24,
+      "location": "Economy Red Lot (12 stations) and Economy Blue Lot (12 stations)",
+      "type": "Level 1 PowerPost stations",
+      "cost": "Charging fees may apply"
+    },
+    "totalPorts": "48 EV charging ports (one of the largest airport installations in the U.S.)",
+    "note": "PDX was a pioneer in airport EV charging — 48 stations across parking areas. Level 2 chargers in Short-Term Garage charge faster; Level 1 PowerPosts in Economy lots are best for multi-day trips where slow charging is sufficient."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at PDX for security reasons.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.90/day", "locations": "Downtown Portland, Pearl District, Lloyd District" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Portland locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Portland, Pearl District" }
+    ]
+  },
+  "petFacilities": {
+    "total": "2 pet relief areas",
+    "locations": [
+      {
+        "name": "Landside Pet Relief Area",
+        "location": "Outside the Baggage Claim area (pre-security)",
+        "features": "Artificial grass, fire hydrant, refuse bags, sink, bench, ADA/wheelchair accessible, luggage counter"
+      },
+      {
+        "name": "Airside Pet Relief Area",
+        "location": "Near gates C1/C2 (post-security)",
+        "features": "Artificial grass, decorative rock, refuse bags, sink, bench, ADA/wheelchair accessible, luggage counter"
+      }
+    ],
+    "note": "Both pet relief areas are ADA accessible. Animals must remain on a leash at all times."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure rush)", "12:00-2:00 PM", "4:00-7:00 PM (evening arrivals)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "June through September is peak season (summer travel to the Pacific Northwest). Thanksgiving week, Christmas/New Year, and spring break (March-April) are also heavy. Rose Festival (June) brings additional regional traffic. Ski season (December-March) increases weekend traffic for Mt. Hood travelers.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during summer peak and holiday weekends"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Marine west coast climate. Mild, wet winters and warm, dry summers. Portland averages 36 inches of rain per year, mostly October through May.",
+    "commonDisruptions": "Ice storms are the primary severe disruption risk — freezing rain from cold air funneling through the Columbia River Gorge can shut down PDX for 1-3 days. Winter fog can cause delays and low-visibility approaches. Snow is rare but paralyzing when it occurs (Portland lacks major snow removal infrastructure).",
+    "bestMonths": "June through September — dry, warm, clear skies. July and August are peak with minimal precipitation and temperatures around 80°F.",
+    "worstMonths": "December through February (ice storm risk + persistent rain + occasional snow events)",
+    "iceStormNote": "PDX's biggest weather threat is ice storms caused by cold east winds channeling through the Columbia River Gorge meeting moist Pacific air. These freezing rain events can completely shut down the airport and roads for 1-3 days. Major ice storms occurred in January 2024 and February 2025. Travel insurance strongly recommended for December-February travel.",
+    "winterFog": "Dense fog is common October-February, especially in the Willamette Valley. Can cause ground delays and diversions. Morning fog usually burns off by midday.",
+    "rainNote": "Portland's reputation for rain is earned — October through May is consistently wet. However, rain rarely causes flight cancellations. Drizzle and overcast skies are the norm, not heavy downpours. Summer (June-September) is remarkably dry and sunny.",
+    "note": "Morning flights are the most reliable year-round. Winter travelers should monitor Columbia River Gorge wind conditions — east wind events signal potential freezing rain."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near PDX. Several hotels along NE Airport Way and NE 82nd Avenue offer park-sleep-fly packages including 7-14 days of free parking.",
+    "priceRange": "From ~$93/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Holiday Inn Portland Airport",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle during operating hours",
+        "parkOnlyRate": "$6.45/day (pre-booked)",
+        "highlight": "Cheapest pre-book rate. Good for budget-conscious travelers."
+      },
+      {
+        "name": "Super 8 PDX Airport",
+        "distance": "2.0 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle service",
+        "parkOnlyRate": "$7.95/day (pre-booked)",
+        "highlight": "Budget park-sleep-fly option. 24/7 front desk."
+      },
+      {
+        "name": "Hampton Inn & Suites Portland Airport",
+        "distance": "2.2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary airport shuttle",
+        "parkOnlyRate": "$9.50/day (pre-booked)",
+        "highlight": "Highly rated. Reliable shuttle service."
+      },
+      {
+        "name": "Four Points by Sheraton Portland Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "parkOnlyRate": "~$10/day",
+        "highlight": "Marriott brand reliability. Park-sleep-fly packages available."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "stayparktravel.com", "onestopparking.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "shortTermGarage": { "parkingCost": "$189 (7 x $27)", "totalEstimate": "$189" },
+      "longTermGarage": { "parkingCost": "$168 (7 x $24)", "totalEstimate": "$168" },
+      "economyParking": { "parkingCost": "$72 (7 x $12, 7th day free)", "totalEstimate": "$72" },
+      "valetParking": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" }
+    },
+    "offSiteWithShuttle": {
+      "holidayInn": { "parkingCost": "$45.15 (7 x $6.45 pre-booked)", "savingsVsLongTerm": "~$123 saved", "caveat": "Verify shuttle hours for early/late flights" },
+      "jiffyPortland": { "parkingCost": "$62.51 (7 x $8.93 pre-booked)", "savingsVsLongTerm": "~$105 saved", "caveat": "24/7 shuttle" },
+      "super8": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsLongTerm": "~$112 saved", "caveat": "Verify shuttle hours" }
+    },
+    "publicTransit": {
+      "maxRedLineRoundTrip": { "costPerPersonRoundTrip": "$5.60", "travelTime": "38 min to downtown", "note": "$2.80 per ride. Cheapest option for downtown Portland travelers. $5.50 day pass if doing multiple trips." },
+      "rideshareRoundTrip": { "costForCouple": "$40-$70 (UberX downtown round trip)", "note": "Cheaper than parking for trips of any length if staying downtown" }
+    },
+    "keyDifference": "PDX's Economy Lots at $12/day with the 7th day free ($72/week) are excellent value for on-airport parking. Off-site lots start at $6.45/day pre-booked. The MAX Red Line at $2.80 is unbeatable for downtown Portland travelers — direct walk from the terminal to the train, no shuttle needed. For longer trips, Economy parking or off-site lots save $100+ vs the Long-Term Garage."
+  },
+  "uniqueFeatures": {
+    "bestAirportReputation": "PDX has been consistently ranked the best airport in the United States. Named best domestic airport by Travel + Leisure for seven consecutive years. Ranked #1 in J.D. Power's North America Airport Satisfaction Study three times. Known for its compact layout, friendly staff, local food and shopping, and stress-free travel experience.",
+    "iconicCarpet": "PDX's teal geometric carpet is one of the most famous airport features in the world. Designed by SRG Partnership in 1987, the pattern represents the airport's runways as seen by air traffic controllers at night. The carpet spawned a pop culture phenomenon with its own Instagram hashtag (#pdxcarpet, 20,000+ posts), Wikipedia page, and merchandise (socks, shirts, bike helmets). After a temporary replacement, the original carpet returned to the new terminal in 2024.",
+    "directMaxConnection": "PDX is one of the few major U.S. airports with a light rail station built directly into the terminal — no shuttle, no bus, no transfer. Walk from baggage claim to the MAX Red Line in minutes. $2.80 to downtown Portland.",
+    "localFoodAndShopping": "PDX bucks the typical airport food trend by featuring beloved local Portland restaurants and shops. The terminal showcases the city's food culture with local eateries, craft beer, and artisan products — at street-level pricing (PDX was one of the first airports to mandate street pricing).",
+    "streetPricing": "PDX pioneered the 'street pricing' concept — airport restaurants and shops are required to charge the same prices as their downtown locations. No airport markup. This policy has been widely praised and adopted by other airports.",
+    "pacificNorthwestArchitecture": "The new terminal (opened August 2024) features stunning Pacific Northwest-inspired architecture by ZGF Architects with mass timber ceiling elements, natural light, and sustainable design. The 9-acre large-span roof is an engineering marvel.",
+    "evChargingPioneer": "With 48 EV charging stations, PDX was one of the first U.S. airports to install large-scale commercial EV charging infrastructure — reflecting Oregon's commitment to sustainable transportation.",
+    "compactDesign": "PDX's single-terminal, four-concourse layout makes it one of the most navigable major airports in the U.S. Maximum gate-to-gate walking time is about 15 minutes. No inter-terminal trains or buses needed.",
+    "oregonAirNationalGuard": "The Oregon Air National Guard 142nd Wing operates F-15 Eagles from the adjacent Portland Air National Guard Base — travelers may spot military jets alongside commercial aircraft."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(503) 460-4234",
+    "airportWebsite": "flypdx.com",
+    "parkingInfo": "flypdx.com/Parking",
+    "portOfPortland": "(503) 415-6000",
+    "tsa": "(866) 289-9673",
+    "triMetInfo": "(503) 238-7433",
+    "triMetWebsite": "trimet.org",
+    "airportPolice": "(503) 460-4600"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.flypdx.com/",
+      "parking": "https://www.flypdx.com/Parking",
+      "groundTransportation": "https://www.flypdx.com/GroundTransportation",
+      "rideshare": "https://flypdx.com/GroundTransportation/Rideshare",
+      "construction": "https://www.flypdx.com/construction",
+      "airportMap": "https://flypdx.com/Map",
+      "travelTips": "https://www.flypdx.com/TravelTips",
+      "accessibility": "https://www.flypdx.com/Accessibility",
+      "contact": "https://www.flypdx.com/Contact"
+    },
+    "pdxNext": {
+      "home": "https://www.pdxnext.com/",
+      "faq": "https://pdxnext.com/FAQ",
+      "carpet": "https://www.pdxnext.com/Stories/Details/PDX-carpet"
+    },
+    "transit": {
+      "trimet": "https://trimet.org/",
+      "maxRedLine": "https://trimet.org/schedules/maxredline.htm",
+      "triMetBlog": "https://blog.trimet.org/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/pdx/",
+      "lyft": "https://www.lyft.com/rider/airports/pdx"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=PDX",
+      "airportParkingReservations": "https://airportparkingreservations.com/pdx/airport-parking",
+      "way": "https://www.way.com/airport-parking/pdx-long-term-parking",
+      "spothero": "https://spothero.com/airport/portland/pdx-parking",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/portland-international-airport-pdx",
+      "parkon": "https://www.parkon.com/pdx",
+      "cheapAirportParking": "https://www.cheapairportparking.org/pdx"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearPDX": "https://www.clearme.com/all-locations/portland-international-airport"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/portland-international-pdx-airport/",
+      "alaskaLounge": "https://www.alaskaair.com/content/airport-lounge/location-and-hours",
+      "deltaSkiClub": "https://www.delta.com/us/en/airports/united-states/portland-sky-club-airport-map"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KPDX",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/PDX",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=pdx"
+    },
+    "evCharging": {
+      "plugshare": "https://www.plugshare.com/location/69773",
+      "chargehub": "https://chargehub.com/en/stations/or/portland/portland-international-airport-economy-red-lot.html"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/pdx/airport-hotels-with-parking",
+      "parkSleepHotels": "https://pdx.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/park-sleep-fly-portland-pdx-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/portland-international-pdx-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Portland_International_Airport",
+      "ifly": "https://www.ifly.com/airports/portland-international-airport",
+      "travelPortland": "https://www.travelportland.com/plan/portland-international-airport-pdx/"
+    },
+    "newsAndMedia": {
+      "oregonian": "https://www.oregonlive.com/",
+      "opb": "https://www.opb.org/",
+      "kgw": "https://www.kgw.com/",
+      "koin": "https://www.koin.com/"
+    }
+  }
+}

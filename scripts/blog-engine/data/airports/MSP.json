@@ -1,0 +1,586 @@
+{
+  "code": "MSP",
+  "fullName": "Minneapolis-Saint Paul International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Unincorporated Hennepin County, Minnesota — between Minneapolis and Saint Paul, adjacent to the cities of Richfield, Bloomington, Eagan, and Mendota Heights",
+    "iataCode": "MSP",
+    "icaoCode": "KMSP",
+    "faaLid": "MSP",
+    "elevation": "841 feet above mean sea level",
+    "acreage": 3400,
+    "coordinates": "44.8848N, 93.2223W",
+    "passengerVolume": "40.3 million passengers in 2024 (estimated 42 million in 2025)",
+    "aircraftOperations": "280,000+ annually",
+    "cargoVolume": "220,000+ tons annually",
+    "distinction": "Delta Air Lines' second-largest hub and the largest airport in the Upper Midwest. Serves the Twin Cities metropolitan area (3.7 million people) and the broader five-state region. Consistently ranked among the top U.S. airports for on-time performance, customer satisfaction, and operational efficiency. Originally opened in 1920 as Speedway Field — renamed Wold-Chamberlain Field in 1923. Over 300 daily nonstop destinations to 4 continents. Known for exceptionally efficient operations despite harsh winter weather.",
+    "operator": "Metropolitan Airports Commission (MAC)",
+    "owner": "Metropolitan Airports Commission",
+    "activeTerminals": 2,
+    "totalConcourses": 7,
+    "totalGates": 131,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "12L/30R", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "12R/30L", "length": "8,200 ft (2,499 m)", "surface": "Concrete" },
+      { "designation": "4/22", "length": "11,006 ft (3,355 m)", "surface": "Concrete", "note": "Longest runway — handles largest widebody aircraft" },
+      { "designation": "17/35", "length": "8,000 ft (2,438 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Delta Air Lines (second-largest hub — dominates Terminal 1 with ~70% of all flights)",
+    "totalAirlines": "18 airlines",
+    "nonstopDestinations": "300+ nonstop destinations on 4 continents",
+    "founded": "1920 (as Speedway Field, renamed Wold-Chamberlain Field 1923)",
+    "hubCarriers": ["Delta Air Lines (major hub)", "Sun Country Airlines (headquarters and primary hub)"],
+    "slotControlled": false,
+    "metroAccess": "METRO Blue Line light rail with stations at both terminals — $2.00 fare to downtown Minneapolis (~25 min) or Mall of America (~12 min)",
+    "internationalNote": "MSP is the primary international gateway for the Upper Midwest. Direct flights to Europe (Amsterdam, Paris, London, Reykjavik, Dublin, Frankfurt), Asia (Tokyo-Haneda via Delta), Mexico, Caribbean, and Central America. KLM, Air France, Lufthansa, Aer Lingus, Icelandair, and Condor provide transatlantic service."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 — Lindbergh",
+      "status": "Active — 117 gates across 7 concourses (A-G). Major $242M renovation completed 2025 — modernized all 6 original concourses and 75 gates. Concourse G expansion adding new gates.",
+      "airlines": ["Aer Lingus", "Air Canada", "Air France", "Alaska Airlines", "American Airlines", "Delta Air Lines", "Denver Air Connection", "KLM Royal Dutch Airlines", "Lufthansa", "Spirit Airlines", "United Airlines", "WestJet"],
+      "gates": "Concourses A, B, C, D, E, F, G — A1-A17, B1-B7, C1-C26, D1-D10, E1-E18, F1-F18, G1-G24",
+      "notes": "Delta Air Lines dominates Terminal 1 with approximately 70% of all flights. Three Delta Sky Club lounges (Concourse C near C12, Concourse F/G, and the newest/largest on the upper level of Concourse G — 21,000+ sq ft with 450+ seats and outdoor Sky Deck). Escape Lounge (Centurion Studio Partner) in Concourse E. PGA Lounge adjacent to Escape Lounge. Rental car counters on ground level of Silver Parking Ramp. Tram connects terminal to parking ramps. Completed $242M renovation in 2025 — largest concourse modernization in airport history. The iconic folded plate roof restoration is ongoing."
+    },
+    {
+      "name": "Terminal 2 — Humphrey",
+      "status": "Active — 14 gates on Concourse H. $263M North Expansion underway — adding 2 gates + 168,000 sq ft. South Expansion also adding 2 gates (opening late 2025).",
+      "airlines": ["Allegiant Air", "Condor", "Frontier Airlines", "Icelandair", "JetBlue Airways", "Southwest Airlines", "Sun Country Airlines"],
+      "gates": "Concourse H — H1-H14",
+      "notes": "Terminal 2 serves budget and leisure carriers plus Icelandair and Condor for transatlantic service. Sun Country Airlines is headquartered here. $263M North Expansion underway — adding 168,000 sq ft with 2 new gates, expanded seating, restrooms, and concessions. Completion expected early 2027. South Expansion adding 2 gates adjacent to H1 (opening late 2025). Rental car counters in Ground Transportation Center on ground level of Purple Ramp. Free METRO Blue Line connects Terminal 2 to Terminal 1 in ~10 minutes."
+    }
+  ],
+  "roads": ["Interstate 494 (south side of airport)", "MN-5 (north side of airport, connects to I-35W and I-35E)", "MN-77 (Cedar Avenue, east side)", "Post Road (between terminals)", "34th Avenue South (west access)", "I-35W (via MN-5 or I-494)", "I-35E (via MN-5 or I-494)", "I-94 (via I-35W or I-35E)"],
+  "transit": ["METRO Blue Line Light Rail — Terminal 1 station (below Red/Blue/Silver ramps) and Terminal 2 station (north side of Orange Ramp)", "Metro Transit Bus Route 54 (connects to southern suburbs)", "Metro Transit Bus Route 7 (limited service)", "Jefferson Lines (intercity bus to regional cities)", "Free light rail between Terminal 1 and Terminal 2 (24/7, every ~10 minutes)"],
+  "neighborhoods": ["Bloomington", "Richfield", "Eagan", "Mendota Heights", "South Minneapolis", "Downtown Minneapolis", "Downtown Saint Paul", "Mall of America area", "Edina", "Minnetonka", "Plymouth", "Maple Grove", "Burnsville", "Apple Valley", "Roseville", "Brooklyn Park"],
+  "authority": "Metropolitan Airports Commission (MAC)",
+  "groundTransportation": {
+    "lightRail": {
+      "description": "METRO Blue Line light rail with dedicated stations at both Terminal 1 and Terminal 2. Connects airport to downtown Minneapolis, Mall of America, and the broader Twin Cities transit network.",
+      "fare": "$2.00 single trip (simplified flat fare as of 2025). Free between airport terminals.",
+      "frequency": "Every 10-15 minutes, approximately 5:00 AM to midnight. Free 24/7 service between terminals.",
+      "hours": "Revenue service ~5:00 AM to midnight. Inter-terminal service 24/7.",
+      "accessFromTerminal1": "Terminal 1 METRO Blue Line station is located below the Red, Blue, and Silver parking ramps. Follow signs from baggage claim.",
+      "accessFromTerminal2": "Terminal 2 METRO Blue Line station is on the north side of the Orange Ramp.",
+      "travelTimes": {
+        "toMallOfAmerica": "~12 minutes (south terminus)",
+        "toFortSnelling": "~5 minutes",
+        "toVAMedicalCenter": "~8 minutes",
+        "to46thStreetStation": "~15 minutes",
+        "toLakeStreetStation": "~18 minutes",
+        "toDowntownMinneapolis": "~25 minutes (Warehouse District/Hennepin Ave station)",
+        "toTargetField": "~28 minutes (north terminus, Twins stadium)",
+        "toUSBankStadium": "~22 minutes (transfer to Green Line)"
+      },
+      "competitorNote": "At $2.00, the METRO Blue Line is by far the cheapest option from MSP to downtown Minneapolis — significantly cheaper than the $35-50 taxi/rideshare fare. The 25-minute travel time is competitive with driving during rush hour. Free inter-terminal service is a huge advantage over other airports."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Terminal 1: Ground Transportation Center, Level 1. Terminal 2: Ground Transportation Center on ground level of Purple Ramp.",
+      "flagDrop": "$3.50",
+      "perMile": "$2.50",
+      "minimumFare": "$5.00",
+      "estimatedMeteredFares": {
+        "toDowntownMinneapolis": "$35-$50",
+        "toDowntownSaintPaul": "$30-$45",
+        "toMallOfAmerica": "$15-$20",
+        "toBloomington": "$12-$20",
+        "toEdina": "$25-$35",
+        "toUniversityOfMinnesota": "$25-$35",
+        "toMapleGrove": "$55-$75",
+        "toRochester": "$180-$220"
+      },
+      "note": "Taxis are available 24/7 at both terminals. Credit cards accepted. Flat rates may be available to some destinations — ask driver."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Terminal 1: Level 1 of Silver Ramp. Terminal 2: Ground level of Purple Ramp, near rental car counters.",
+      "estimatedFares": {
+        "uberXToDowntownMinneapolis": "$25-$45",
+        "uberXToDowntownSaintPaul": "$25-$40",
+        "uberXToMallOfAmerica": "$10-$18",
+        "uberXToBloomington": "$10-$18",
+        "uberXToEdina": "$18-$30",
+        "uberXToMapleGrove": "$40-$60"
+      },
+      "surgePricing": "Standard surge pricing during Vikings/Twins/Wild/Timberwolves games, major conventions, holiday weekends, and severe weather events",
+      "note": "Rideshare availability may be affected by local regulations — Minneapolis enacted new driver pay rules in 2025. Check current availability before relying on Uber/Lyft for airport transportation. METRO Blue Line is a reliable backup for downtown trips."
+    },
+    "rentalCars": {
+      "terminal1Location": "Ground level of the Silver Parking Ramp — take the underground tram from Terminal 1 baggage claim and follow wayfinding signs",
+      "terminal2Location": "Ground Transportation Center on ground level of the Purple Ramp — directly across from terminal building",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "facilityCharge": "$5.90/day Rental Auto Facility Charge on all rentals",
+      "note": "All rental car companies have counters at both terminals. You can return your car to either terminal regardless of where you picked it up. Follow wayfinding signs from baggage claim."
+    },
+    "hotelShuttles": "Many nearby hotels in Bloomington (Mall of America area), Eagan, and Richfield offer complimentary shuttle service. The InterContinental MSP Airport hotel is connected to Terminal 1 via skyway. Check with your hotel before booking."
+  },
+  "parkingRates": "On-airport: Terminal 1 Daily Ramps $30/day ($5 first hour, $3/hr after), Valet $50/day, Value Parking (Terminal 2) $21/day, Quick Ride Ramp $19/day with free shuttle. Off-site: from ~$7.95/day with shuttle. Pre-booking recommended for holiday travel.",
+  "onAirportParking": {
+    "terminal1DailyParking": {
+      "name": "Terminal 1 Daily Parking Ramps (Green, Gold, Blue, Red, Silver, Pink, Brown)",
+      "rate": "$5.00 first hour, $3.00 each additional hour",
+      "dailyMax": 30,
+      "maxStay": "30 days",
+      "serves": "Terminal 1 — Lindbergh (all concourses A-G)",
+      "features": "Covered ramp parking with direct tram access to Terminal 1. Seven color-coded ramps surround Terminal 1. METRO Blue Line station below Red, Blue, and Silver ramps. EV charging available on Level 8 of Blue, Red, and Silver ramps (FREE).",
+      "evCharging": "Free EV charging stations on Level 8 of Blue, Red, and Silver Ramps (first-come, first-served, no time limit)"
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$10.00 first hour, $3.00 each additional hour",
+      "dailyMax": 50,
+      "maxStay": "30 days",
+      "location": "Terminal 1, upper east roadway near Door 2",
+      "features": "Premium drop-off option at Terminal 1 only. Vehicle is parked for you and returned when you call ahead upon landing."
+    },
+    "valueParking": {
+      "name": "Value Parking (Terminal 2 Orange Ramp)",
+      "rate": "$21.00 per day",
+      "dailyMax": 21,
+      "serves": "Terminal 2 — Humphrey. Connected to Terminal 1 via free METRO Blue Line (~10 min).",
+      "features": "Best on-airport budget option for Terminal 2 travelers. Covered ramp parking. METRO Blue Line station on north side of Orange Ramp provides free connection to Terminal 1. EV charging available on Level 7 (FREE).",
+      "evCharging": "Free EV charging stations on Level 7 of Orange Ramp (first-come, first-served, no time limit)"
+    },
+    "quickRideRamp": {
+      "name": "Quick Ride Ramp",
+      "rate": "$19.00 per day",
+      "dailyMax": 19,
+      "address": "5315 Northwest Drive, Saint Paul, MN 55111",
+      "connection": "FREE 24/7 curbside shuttle service to both terminals",
+      "features": "Cheapest on-airport parking option. Located on the southwest side of the airport. Shuttle picks you up at your vehicle and drives you to Terminal 1 or Terminal 2. 24/7 operation.",
+      "note": "Best value for on-airport parking. Shuttle runs 24/7 — reliable even for early morning or late night flights."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lots (East and West)",
+      "location": "South side of Post Road, between Terminal 1 and Terminal 2",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Two lots available — conveniently positioned between both terminals."
+    },
+    "evCharging": {
+      "locations": [
+        "Terminal 1: Level 8 of Blue, Red, and Silver Ramps (FREE, first-come first-served)",
+        "Terminal 2: Level 7 of Orange Ramp (FREE, first-come first-served)"
+      ],
+      "totalPorts": "50+ EV charging stations across both terminals",
+      "note": "MSP provides complimentary EV charging — unlike many airports that charge per kWh. No time limit on charging. First-come, first-served basis."
+    },
+    "accessibleParking": "Accessible parking available in all ramps at both terminals. ADA-compliant spaces on lower levels closest to terminal access points.",
+    "totalCapacity": "~26,000 vehicles across all on-airport parking facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
+    "garageServiceAreas": "Terminal 1: Green, Gold, Blue, Red, Silver, Pink, Brown Ramps. Terminal 2: Orange Ramp (Value Parking). Quick Ride Ramp serves both terminals via shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "EZ Air Park",
+      "slug": "ez-air-park-msp",
+      "dailyRate": 12.95,
+      "reservationRate": 12.95,
+      "parkingType": "Self-park, uncovered",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Fenced Lot", "Luggage Assistance", "1 Free Day per 7 Paid Days"],
+      "shuttleInfo": "24/7 shuttle service to both Terminal 1 and Terminal 2, approximately every 15 minutes",
+      "overview": "Well-established off-site parking facility near MSP with 24/7 shuttle service to both terminals. Offers 1 free day for every 7 paid days — best for long trips.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Long-running MSP off-site parking operator with strong reputation. 1 free day per 7 days is excellent for week-long trips. 24/7 shuttle is reliable."
+    },
+    {
+      "name": "Shepard Road Airport Parking",
+      "slug": "shepard-road-airport-parking-msp",
+      "dailyRate": 14.50,
+      "reservationRate": 14.00,
+      "parkingType": "Self-park, uncovered and covered ramp options",
+      "amenities": ["Free 24/7 Shuttle", "Covered Ramp Option", "Security Cameras", "24/7 Staffed", "Tire & Battery Assistance"],
+      "shuttleInfo": "Free 24/7 shuttle to both terminals, departing every 5-10 minutes during peak, 15-20 minutes off-peak",
+      "overview": "Off-site parking 2 miles from MSP with both uncovered and covered ramp options. Covered ramp at $16/day. Frequent shuttle service.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "coveredRate": 16.00,
+      "notes": "Only off-site lot with a covered ramp option — important for Minnesota winters. Shuttle frequency (every 5-10 min peak) is among the best. $16/day covered is still nearly half the on-airport rate."
+    },
+    {
+      "name": "Park 'N Go (MSP)",
+      "slug": "park-n-go-msp",
+      "dailyRate": 20.00,
+      "reservationRate": 16.00,
+      "parkingType": "Self-park, uncovered",
+      "amenities": ["Free 24/7 Shuttle", "Gated Entry", "Security Cameras", "Luggage Assistance", "Tire & Battery Assistance", "Attendant at Gate"],
+      "shuttleInfo": "Free shuttle every 5-10 minutes to both terminals, 24/7 operation",
+      "overview": "Popular off-site lot in Bloomington with attentive shuttle service. Attendant greets you at the gate and directs parking. Shuttle picks up at your vehicle.",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "8-12 minutes",
+      "freeCancellation": true,
+      "address": "7901 International Drive, Bloomington, MN 55425",
+      "notes": "Premium off-site option — shuttle every 5-10 min is fast and reliable. Attendant-assisted parking. Pre-book online for $16/day vs $20 walk-up."
+    },
+    {
+      "name": "Comfort Inn Minneapolis Airport (Park & Fly)",
+      "slug": "comfort-inn-minneapolis-airport-msp",
+      "dailyRate": 9.95,
+      "reservationRate": 8.95,
+      "parkingType": "Self-park, uncovered (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible", "Hotel Amenities Available"],
+      "shuttleInfo": "Free shuttle to both terminals, operates during peak hours (typically 4 AM - midnight)",
+      "overview": "Hotel parking near MSP with affordable rates. No hotel stay required for parking. Park-sleep-fly packages also available from $179/night.",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Budget-friendly option. Park-sleep-fly packages available if you need a hotel night before early flights. Verify shuttle hours for late arrivals."
+    },
+    {
+      "name": "InterContinental MSP Airport (Garage Parking)",
+      "slug": "intercontinental-msp-airport-msp",
+      "dailyRate": 29.00,
+      "reservationRate": 25.00,
+      "parkingType": "Covered garage, self-park",
+      "amenities": ["Covered Parking", "Skyway to Terminal 1", "24/7 Security", "Hotel Amenities", "Handicap Accessible"],
+      "shuttleInfo": "No shuttle needed — connected to Terminal 1 via enclosed skyway",
+      "overview": "Premium covered parking in the InterContinental hotel garage connected to Terminal 1 by skyway. Park-stay-fly packages available with up to 15 nights parking.",
+      "distanceFromAirport": "0.1 mi (connected via skyway)",
+      "driveTime": "0 minutes (walk via skyway)",
+      "freeCancellation": true,
+      "notes": "Most convenient off-site option — skyway-connected to Terminal 1, no shuttle or outdoor walk needed. Premium pricing but worth it for winter travel. Park-stay-fly packages include 1-night hotel + up to 15 nights parking."
+    },
+    {
+      "name": "Fairfield Inn & Suites Minneapolis Airport (Park & Fly)",
+      "slug": "fairfield-inn-minneapolis-airport-msp",
+      "dailyRate": 10.95,
+      "reservationRate": 9.95,
+      "parkingType": "Self-park, uncovered (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Marriott Property", "Handicap Accessible"],
+      "shuttleInfo": "Free shuttle to both terminals, 24/7 operation",
+      "overview": "Marriott-brand hotel parking near MSP with competitive rates and 24/7 shuttle. No hotel stay required for parking only.",
+      "distanceFromAirport": "2.8 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Marriott-brand reliability with 24/7 shuttle. Good mid-range option between budget lots and premium covered parking."
+    }
+  ],
+  "shuttleInfo": "On-airport: Quick Ride Ramp provides free 24/7 curbside shuttle to both terminals. Free METRO Blue Line light rail connects Terminal 1 and Terminal 2 every ~10 minutes, 24/7. Off-site: Most lots include free shuttle — EZ Air Park and Park 'N Go shuttle every 5-15 minutes, 24/7. Shepard Road runs every 5-10 minutes during peak. Hotel lots vary — verify shuttle hours before booking for early/late flights. CRITICAL: In winter, allow extra shuttle time due to snow and ice conditions.",
+  "distanceFromCity": "10 miles south of downtown Minneapolis. 8 miles west of downtown Saint Paul. 25 minutes by car or METRO Blue Line to downtown Minneapolis. The Twin Cities' primary commercial airport serving the entire Upper Midwest region.",
+  "keyDistances": {
+    "toDowntownMinneapolis": "10 miles, 20-35 min by car, 25 min by METRO Blue Line ($2.00), $25-45 rideshare",
+    "toDowntownSaintPaul": "8 miles, 15-30 min by car, $25-40 rideshare",
+    "toMallOfAmerica": "2 miles, 5-10 min by car, 12 min by METRO Blue Line ($2.00 or FREE from Terminal 2), $10-18 rideshare",
+    "toBloomington": "3 miles, 5-10 min by car, $10-18 rideshare",
+    "toEdina": "8 miles, 15-25 min by car, $18-30 rideshare",
+    "toUniversityOfMinnesota": "9 miles, 15-25 min by car, $25-35 rideshare",
+    "toMapleGrove": "25 miles, 30-45 min by car, $40-60 rideshare",
+    "toRochester": "85 miles, 75-90 min by car, $180-220 taxi",
+    "toStCloud": "70 miles, 65-80 min by car",
+    "toDuluth": "155 miles, 2.5 hours by car",
+    "toTargetField": "11 miles, 20-30 min by car, 28 min by METRO Blue Line ($2.00)",
+    "toUSBankStadium": "10 miles, 20-30 min by car, ~22 min by light rail (Blue Line + Green Line transfer)",
+    "toMayoClinic": "85 miles to Rochester, 75-90 min by car",
+    "competitiveAdvantage": "MSP's METRO Blue Line provides the cheapest ($2.00) and most reliable connection to downtown Minneapolis in 25 minutes — unbeatable during rush hour when driving can take 45+ minutes. Mall of America is just 12 minutes by light rail. Free 24/7 inter-terminal service is a standout feature. For Saint Paul, rideshare/taxi is faster as there is no direct rail connection."
+  },
+  "construction2026": {
+    "status": "$1.9 billion capital improvement program approved for 2026-2028 — $501 million in 2026 alone. Multiple major projects active.",
+    "projects": [
+      "Terminal 2 North Expansion ($263M) — 168,000 sq ft addition with 2 new gates, expanded seating, restrooms, and concessions. Completion expected early 2027.",
+      "Terminal 2 South Expansion — 2 additional gates adjacent to H1. Gates opening late 2025.",
+      "Concourse G Expansion (Terminal 1) — Additional gates and concessions space.",
+      "Terminal 1 Folded Plate Roof Restoration — Iconic mid-century modern roof structure being restored and waterproofed.",
+      "Runway Pavement Reconstruction Phase 2 — Ongoing runway surface improvements.",
+      "New Boarding Bridges — Replacing aging jet bridges across Terminal 1.",
+      "Ground Service Equipment Maintenance Facility — New facility for ground equipment servicing.",
+      "Terminal 1 Concourse Modernization Complete — $242M project completed 2025, modernizing all 6 concourses and 75 gates with brighter spaces, new technology, and refreshed gate areas."
+    ],
+    "travelImpact": "Terminal 2 North Expansion construction is active but terminal remains fully operational. Terminal 1 concourse renovation is complete. Runway work may cause occasional delays. No parking closures expected in 2026.",
+    "timeline": {
+      "terminal2SouthGates": "Late 2025 opening",
+      "terminal1ConcourseRenovation": "Completed 2025",
+      "terminal2NorthExpansion": "Early 2027 completion",
+      "concourseGExpansion": "2026-2027",
+      "capitalProgram2026to2028": "$1.9 billion total"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1 — Lindbergh", "Terminal 2 — Humphrey"],
+      "note": "TSA PreCheck available at all security checkpoints in both terminals"
+    },
+    "clear": {
+      "terminals": ["Terminal 1"],
+      "note": "CLEAR available at Terminal 1 security checkpoints"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in the Federal Inspection Station for international arrivals. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "10-25 minutes",
+      "peakHours": "5:00-7:00 AM (business travelers), 11:00 AM-1:00 PM, 3:00-5:00 PM",
+      "tips": "MSP is known for efficient security screening. Terminal 1 has multiple checkpoint options. Check MyTSA app or MSP website for real-time wait times."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, State Fair week"
+    }
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "Delta Sky Club (Concourse C)",
+        "location": "Concourse C, near Gate C12",
+        "hours": "4:45 AM - 9:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, workspaces, power outlets."
+      },
+      {
+        "name": "Delta Sky Club (Concourse F/G)",
+        "location": "Entrance to Concourse F",
+        "hours": "4:45 AM - 9:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, workspaces."
+      },
+      {
+        "name": "Delta Sky Club (Concourse G — Newest & Largest)",
+        "location": "Upper level of Concourse G",
+        "hours": "4:45 AM - 9:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "MSP's largest Sky Club at 21,000+ sq ft. Seating for 450+ indoors. First-of-its-kind all-weather Sky Deck with 110 seats. Menu by Top Chef alum Justin Sutherland. Premium bar, shower suites, workspaces, power outlets. Nature-inspired design."
+      },
+      {
+        "name": "Escape Lounge — The Centurion Studio Partner",
+        "location": "Terminal 1, Concourse E",
+        "hours": "4:00 AM - 9:00 PM daily",
+        "access": "American Express Platinum, Centurion, Business Platinum cardholders (up to 2 guests). Day passes available for purchase.",
+        "amenities": "Complimentary food, cocktails, premium spirits, WiFi, workspaces, power outlets."
+      },
+      {
+        "name": "PGA MSP Lounge",
+        "location": "Terminal 1, adjacent to Escape Lounge in Concourse E",
+        "access": "Priority Pass members ($15 food/beverage credit per guest, max 2 guests). Paid walk-ins.",
+        "amenities": "Food and beverage credit, WiFi, comfortable seating, golf-themed decor."
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "No dedicated lounges",
+        "location": "Terminal 2 — Humphrey",
+        "access": "N/A",
+        "amenities": "Terminal 2 does not have airline lounges. Travelers can access Terminal 1 lounges via free METRO Blue Line (~10 min)."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "MSP Free WiFi",
+    "cost": "Free",
+    "coverage": "All terminals, concourses, and parking ramps"
+  },
+  "evCharging": {
+    "terminal1": {
+      "chargers": "30+",
+      "location": "Level 8 of Blue, Red, and Silver Ramps",
+      "type": "Level 2",
+      "cost": "FREE (complimentary)"
+    },
+    "terminal2": {
+      "chargers": "20+",
+      "location": "Level 7 of Orange Ramp",
+      "type": "Level 2",
+      "cost": "FREE (complimentary)"
+    },
+    "totalPorts": "50+ EV charging stations",
+    "note": "MSP provides FREE EV charging — a significant perk compared to airports like MIA ($0.38/kWh) and others that charge for the service. No time limit on charging. First-come, first-served basis."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT widely available on-site at MSP.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Minneapolis, Mall of America area" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Minneapolis and Saint Paul locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Minneapolis, Bloomington" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas available in both terminals — indoor and outdoor options",
+    "locations": [
+      "Terminal 1: Pet relief areas in multiple concourse locations — check airport maps",
+      "Terminal 2: Pet relief area near Ground Transportation Center"
+    ],
+    "note": "Service animals welcome throughout the airport. Pet relief areas have waste bags and disposal. Indoor options available — important during Minnesota winters."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM (Delta business bank)", "11:00 AM-1:00 PM", "3:00-5:00 PM (afternoon Delta bank)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday morning"],
+    "seasonalPeak": "Summer (June-August) is peak season — vacationers heading to lakes and national parks. Thanksgiving week and Christmas/New Year are extremely busy. Minnesota State Fair (late August-Labor Day) drives significant traffic. March-April spring break travel. Major conventions at Minneapolis Convention Center create periodic spikes.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during Thanksgiving, Christmas, spring break, State Fair week"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental climate with extreme temperature swings. Hot, humid summers (avg 83F/28C July high). Brutally cold winters (avg 24F/-4C January high, lows regularly below 0F/-18C). Significant snowfall November through April.",
+    "commonDisruptions": "Winter blizzards and ice storms (November-March) are the primary disruption risk — heavy snow can cause widespread cancellations and ground stops. Extreme cold (below -20F/-29C) can cause equipment delays and de-icing backlogs. Summer thunderstorms (June-August) can cause temporary ground stops. Freezing rain in early winter and spring is especially disruptive.",
+    "bestMonths": "May through September — warm weather, long days, minimal weather disruptions. June and September are ideal (warm but less busy than July-August).",
+    "worstMonths": "January-February (extreme cold, blizzards, de-icing delays). December can be brutal as well.",
+    "winterNote": "MSP is one of the coldest major airports in the United States. Despite this, the airport is exceptionally well-prepared for winter operations — MSP maintains one of the best on-time records among cold-weather airports. The airport has a massive snow removal fleet and efficient de-icing procedures. However, 2-3 major blizzards per winter can still cause significant disruptions. Allow extra time for parking lot shuttles in winter conditions. Covered parking (Shepard Road ramp, InterContinental garage, on-airport ramps) is highly recommended to avoid snow-buried vehicles.",
+    "extremeCold": "Temperatures can drop below -30F/-34C with wind chill. Exposed parking lots mean your car battery may die during extended trips — consider covered parking or ask off-site lots about battery jump service. Plug-in engine block heaters are common in Minnesota — some parking facilities offer electrical outlets.",
+    "note": "MSP's winter weather preparedness is a competitive advantage — the airport rarely closes entirely even during major storms. Morning flights are most reliable in winter. Summer weather is generally excellent with occasional thunderstorm delays."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near MSP. Hotels in Bloomington, Eagan, and Richfield offer park-sleep-fly packages. The InterContinental MSP Airport is connected via skyway.",
+    "priceRange": "From ~$139/night (1-night stay + up to 15-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "InterContinental MSP Airport",
+        "distance": "Connected via skyway",
+        "parkingIncluded": "Up to 15 nights",
+        "shuttleHours": "No shuttle needed — skyway connected",
+        "parkOnlyRate": "$25-29/day",
+        "highlight": "Only hotel with skyway connection to Terminal 1. Premium option. In-hotel TSA checkpoint (5 AM-10 AM for carry-on passengers)."
+      },
+      {
+        "name": "Comfort Inn Minneapolis Airport",
+        "distance": "3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Shuttle to both terminals",
+        "parkOnlyRate": "$8.95/day",
+        "highlight": "Budget-friendly park-sleep-fly from $179/night."
+      },
+      {
+        "name": "Fairfield Inn & Suites Minneapolis Airport",
+        "distance": "2.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 shuttle",
+        "parkOnlyRate": "$9.95/day",
+        "highlight": "Marriott property with reliable 24/7 shuttle service."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "onestopparking.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "terminal1DailyRamp": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "valetParking": { "parkingCost": "$350 (7 x $50)", "totalEstimate": "$350" },
+      "valueParking": { "parkingCost": "$147 (7 x $21)", "totalEstimate": "$147" },
+      "quickRideRamp": { "parkingCost": "$133 (7 x $19)", "totalEstimate": "$133" }
+    },
+    "offSiteWithShuttle": {
+      "ezAirPark": { "parkingCost": "$77.70 (6 x $12.95 — 1 free day per 7)", "savingsVsRamp": "~$132 saved vs Terminal 1 ramp", "caveat": "24/7 shuttle. 1 free day bonus." },
+      "shepardRoadUncovered": { "parkingCost": "$98.00 (7 x $14.00 pre-booked)", "savingsVsRamp": "~$112 saved", "caveat": "24/7 shuttle every 5-10 min. Covered ramp option $112." },
+      "comfortInn": { "parkingCost": "$62.65 (7 x $8.95 pre-booked)", "savingsVsRamp": "~$147 saved", "caveat": "Verify shuttle hours for early/late flights" }
+    },
+    "publicTransit": {
+      "blueLineRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "25 min to downtown Minneapolis", "note": "$2.00 per ride. Cheapest option for downtown-bound travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$50-$90 (UberX downtown round trip)", "note": "Rideshare prices fluctuate — METRO Blue Line is more predictable and cheaper" }
+    },
+    "keyDifference": "MSP offers a clear parking cost hierarchy: off-site hotel lots ($8.95-10.95/day) < off-site dedicated lots ($12.95-16/day) < Quick Ride Ramp ($19/day) < Value Parking ($21/day) < Terminal 1 ramps ($30/day) < Valet ($50/day). The METRO Blue Line at $2.00 is unbeatable for downtown Minneapolis travelers. For winter travel, covered parking (Shepard Road ramp $16/day or InterContinental $25/day) is worth the premium to avoid snow-buried cars and dead batteries."
+  },
+  "uniqueFeatures": {
+    "deltaSecondLargestHub": "MSP is Delta Air Lines' second-largest hub after Atlanta. Delta operates approximately 70% of all flights from Terminal 1, with over 200 daily departures. This concentration means excellent connection options and frequency to domestic and international destinations.",
+    "winterOperationsExcellence": "Despite being one of the coldest major airports in the U.S. (temperatures regularly below 0F in winter), MSP consistently ranks among the top airports for on-time performance. The Metropolitan Airports Commission maintains a massive snow removal fleet and efficient de-icing operations that keep the airport running in conditions that would shut down other airports.",
+    "metroBlueLineAccess": "MSP has direct light rail access to both terminals via the METRO Blue Line — connecting to downtown Minneapolis (25 min), the University of Minnesota, and Mall of America (12 min) for just $2.00. Free 24/7 inter-terminal service. One of the best airport transit connections in the U.S.",
+    "mallOfAmericaProximity": "Mall of America — the largest shopping mall in the United States — is just 2 miles south of MSP, connected by METRO Blue Line in 12 minutes. Many travelers combine MSP layovers with Mall of America visits.",
+    "sunCountryHeadquarters": "Sun Country Airlines is headquartered at MSP and operates its primary hub from Terminal 2. The airline offers leisure-focused routes to warm-weather destinations — a natural fit for Minnesota travelers escaping winter.",
+    "lindberghLegacy": "Terminal 1 is named after Charles Lindbergh, the legendary aviator who grew up in Minnesota. The airport's history dates to 1920, and its mid-century modern folded plate roof (currently being restored) is an architectural landmark.",
+    "twinCitiesGateway": "MSP uniquely serves two major cities — Minneapolis and Saint Paul — plus the broader 3.7 million-person metro area. It's the primary commercial airport for a five-state region (Minnesota, Wisconsin, Iowa, North Dakota, South Dakota) with limited alternative airports.",
+    "freeEvCharging": "MSP provides complimentary EV charging at both terminals — a significant perk when many airports charge $0.30-0.50/kWh. No time limit, first-come first-served.",
+    "intercontinentalSkyway": "The InterContinental MSP Airport hotel is connected to Terminal 1 via an enclosed skyway — one of few U.S. airports where you can walk from your hotel room to the gate without going outside. The hotel also has an in-building TSA checkpoint for carry-on passengers (5 AM-10 AM)."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(612) 726-5555",
+    "airportWebsite": "mspairport.com",
+    "parkingInfo": "mspairport.com/parking",
+    "parkingPhone": "(612) 726-5500",
+    "tsa": "(866) 289-9673",
+    "metroTransitInfo": "(612) 373-3333",
+    "metroTransitWebsite": "metrotransit.org",
+    "airportPolice": "(612) 726-5577",
+    "metropolitanAirportsCommission": "metroairports.org"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.mspairport.com/",
+      "parking": "https://www.mspairport.com/parking",
+      "dailyParking": "https://www.mspairport.com/parking/daily-parking",
+      "valueParking": "https://www.mspairport.com/parking/value-parking",
+      "quickRideRamp": "https://www.mspairport.com/parking/quick-ride-ramp",
+      "groundTransportation": "https://www.mspairport.com/directions/ground-transportation",
+      "lightRail": "https://www.mspairport.com/directions/ground-transportation/light-rail-transit",
+      "rideshare": "https://www.mspairport.com/directions/ground-transportation/app-based-ride-services",
+      "rentalCars": "https://www.mspairport.com/directions/ground-transportation/car-rentals",
+      "terminalInfo": "https://www.mspairport.com/airport/terminal-information",
+      "flightsAndAirlines": "https://www.mspairport.com/flights-and-airlines",
+      "construction": "https://www.mspairport.com/about-msp/construction",
+      "deltaSkyClub": "https://www.mspairport.com/airport/eat-shop-relax/delta-sky-club",
+      "escapeLounge": "https://www.mspairport.com/airport/eat-shop-relax/escape-lounge"
+    },
+    "transit": {
+      "metroTransit": "https://www.metrotransit.org/",
+      "metroTransitAirport": "https://www.metrotransit.org/airport",
+      "metroTransitFares": "https://www.metrotransit.org/fares",
+      "blueLineWikipedia": "https://en.wikipedia.org/wiki/Metro_Blue_Line_(Minnesota)"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/msp/",
+      "lyft": "https://www.lyft.com/rider/airports/msp"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=MSP",
+      "airportParkingReservations": "https://airportparkingreservations.com/msp/airport-parking",
+      "way": "https://www.way.com/msp",
+      "spothero": "https://spothero.com/airport/minneapolis/msp-parking",
+      "ezAirPark": "https://ezairpark.com/",
+      "shepardRoad": "https://shepardparking.com/",
+      "parkNGo": "https://www.bookparkngo.com/minneapolis.php",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/minneapolis-st-paul-international-airport-msp",
+      "parkingAccess": "https://parkingaccess.com/airport-parking/lot-shepard-road-airport-parking-msp"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearMSP": "https://www.clearme.com"
+    },
+    "lounges": {
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations",
+      "deltaMSPMap": "https://www.delta.com/us/en/airports/united-states/minneapolis-st-paul-sky-club-airport-map",
+      "escapeLounge": "https://escapelounges.com/us/airport-lounges/minneapolis-saint-paul/",
+      "amexLounges": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/MSP/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KMSP",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/MSP",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=msp"
+    },
+    "evCharging": {
+      "mspEvInfo": "https://www.mspairport.com/parking"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/msp/airport-parking",
+      "parkSleepHotels": "https://msp.parksleepflyhotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/minneapolis-msp-airport",
+      "intercontinentalMSP": "https://www.intercontinentalmsp.com/offers/park-stay-go"
+    },
+    "comprehensiveGuides": {
+      "ifly": "https://www.ifly.com/airports/minneapolis-st-paul-international-airport",
+      "wikipedia": "https://en.wikipedia.org/wiki/Minneapolis%E2%80%93Saint_Paul_International_Airport",
+      "airportGuide": "https://www.airport.guide/kmsp"
+    },
+    "newsAndMedia": {
+      "starTribune": "https://www.startribune.com/",
+      "mprnews": "https://www.mprnews.org/",
+      "kare11": "https://www.kare11.com/",
+      "kstp": "https://kstp.com/"
+    },
+    "macAuthority": {
+      "home": "https://metroairports.org/",
+      "news": "https://metroairports.org/news"
+    }
+  }
+}

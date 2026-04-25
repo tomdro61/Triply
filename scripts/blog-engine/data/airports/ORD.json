@@ -1,0 +1,699 @@
+{
+  "code": "ORD",
+  "fullName": "Chicago O'Hare International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Unincorporated area of Cook County, Illinois — 14 miles northwest of downtown Chicago (the Loop)",
+    "iataCode": "ORD",
+    "icaoCode": "KORD",
+    "faaLid": "ORD",
+    "elevation": "672 feet above mean sea level",
+    "acreage": 7627,
+    "coordinates": "41.9742N, 87.9073W",
+    "passengerVolume": "84.9 million passengers in 2025 — reclaimed title as nation's busiest airport",
+    "aircraftOperations": "857,392 annually (2025) — second-busiest in the world for aircraft movements",
+    "cargoVolume": "1.85 million metric tons (2025)",
+    "distinction": "Reclaimed the title of busiest airport in the United States in 2025 with nearly 85 million passengers. Second-busiest airport in the world for aircraft movements. Major hub for both United Airlines and American Airlines — one of only two U.S. airports serving as a primary hub for two legacy carriers. Originally opened in 1944 as Orchard Field (hence the ORD code), built on the site of a Douglas aircraft factory. Over 2,500 daily flights to 250+ destinations worldwide. Set an all-time monthly passenger record in July 2025 (8.26 million).",
+    "operator": "Chicago Department of Aviation (CDA)",
+    "owner": "City of Chicago",
+    "activeTerminals": 4,
+    "totalConcourses": 9,
+    "totalGates": 215,
+    "runways": 8,
+    "runwayDetails": [
+      { "designation": "4L/22R", "length": "7,500 ft (2,286 m)", "surface": "Asphalt" },
+      { "designation": "4R/22L", "length": "8,075 ft (2,461 m)", "surface": "Concrete" },
+      { "designation": "9L/27R", "length": "7,500 ft (2,286 m)", "surface": "Concrete" },
+      { "designation": "9R/27L", "length": "7,967 ft (2,428 m)", "surface": "Concrete" },
+      { "designation": "10L/28R", "length": "13,000 ft (3,962 m)", "surface": "Concrete", "note": "One of the longest commercial runways in the U.S. — handles heaviest widebody aircraft" },
+      { "designation": "10C/28C", "length": "10,801 ft (3,292 m)", "surface": "Concrete" },
+      { "designation": "10R/28L", "length": "13,000 ft (3,962 m)", "surface": "Concrete", "note": "Parallel to 10L/28R — enables simultaneous arrivals in all weather" },
+      { "designation": "14R/32L", "length": "8,000 ft (2,438 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "United Airlines (largest global hub) and American Airlines (second-largest hub)",
+    "totalAirlines": "50+ airlines",
+    "nonstopDestinations": "250+ destinations worldwide (2,500+ daily flights)",
+    "founded": "1944 (as Orchard Field Airport, renamed O'Hare in 1949 after Medal of Honor recipient Lt. Cmdr. Edward 'Butch' O'Hare)",
+    "hubCarriers": ["United Airlines (primary hub)", "American Airlines (secondary hub)", "Spirit Airlines (focus city)", "Frontier Airlines (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "CTA Blue Line station in lower level of Terminal 2 — $5.00 fare, 24/7 service, ~45 minutes to downtown Loop",
+    "internationalNote": "ORD's Terminal 5 handles most international arrivals. The new O'Hare Global Terminal (opening ~2032) will revolutionize international connections. ORD serves as a critical connecting hub for domestic-to-international transfers across the United States."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 — Concourses B & C (United Airlines Hub)",
+      "status": "Active — 54 gates. United Airlines' largest global hub. New Concourse D (19 gates, $1.3B) under construction, opening late 2028.",
+      "airlines": ["United Airlines", "United Express", "All Nippon Airways (ANA)", "Lufthansa"],
+      "gates": "B1-B24, C1-C31",
+      "notes": "United Airlines' global hub — handles all mainline United domestic and international flights. Home to the United Polaris Lounge (reopened April 2025, 25,000 sq ft, 350+ seats), two United Clubs (Concourse B near gate B6 and Concourse C near gate C16). The new 19-gate circular Concourse D ($1.3B) broke ground August 2025 — vertical construction spring 2026, opening late 2028. Connected to Terminal 2 via underground walkway."
+    },
+    {
+      "name": "Terminal 2 — Concourses E & F",
+      "status": "Active — 41 gates. Mix of United Express regional flights and other carriers. Hilton O'Hare hotel connected via walkway.",
+      "airlines": ["United Express", "Air Canada", "JetBlue Airways"],
+      "gates": "E1-E18, F1-F22",
+      "notes": "Primarily handles United Express regional operations plus select carriers. Connected to Terminal 1 and Terminal 3 via airside walkways. Hilton Chicago O'Hare is connected via walkway from Terminal 2. Rideshare pickup for all terminals is located at Terminal 2 Upper Level. United Club near gate F8."
+    },
+    {
+      "name": "Terminal 3 — Concourses G, H, K & L (American Airlines Hub)",
+      "status": "Active — 80 gates. American Airlines' second-largest hub. Largest terminal at ORD by gate count.",
+      "airlines": ["American Airlines", "American Eagle", "Alaska Airlines", "Aer Lingus", "British Airways", "Iberia", "Japan Airlines", "Oneworld partners"],
+      "gates": "G1-G22, H1-H20, K1-K20, L1-L18",
+      "notes": "American Airlines' second-largest hub (after DFW). Largest terminal at ORD with 80 gates across 4 concourses. Home to three American Airlines Admirals Clubs (gates G8, H4, and L1) plus American Airlines Flagship Lounge (near gate K6). New expanded Admirals Club on L Concourse under construction — will be twice the size of current lounge. Alaska Airlines operates from Concourse L."
+    },
+    {
+      "name": "Terminal 5 — Concourse M (International Terminal)",
+      "status": "Active — 36 gates. Primary international terminal. Recently expanded with 10 new gates (2025). New Delta Sky Club opened.",
+      "airlines": ["Delta Air Lines", "Southwest Airlines", "Frontier Airlines", "Spirit Airlines", "Aeromexico", "Air France", "Cathay Pacific", "Copa Airlines", "Emirates", "Ethiopian Airlines", "EVA Air", "Icelandair", "KLM", "Korean Air", "LOT Polish Airlines", "Norse Atlantic Airways", "Qatar Airways", "Royal Jordanian", "Scandinavian Airlines", "Swiss International", "TAP Air Portugal", "Turkish Airlines", "Volaris", "PLAY"],
+      "gates": "M1-M36",
+      "notes": "ORD's primary international terminal. Terminal 5 expansion completed in 2025 — added 10 new gates, a 22,000 sq ft Delta Sky Club, and improved international arrivals/security. Also serves domestic flights on Delta, Southwest, Frontier, and Spirit. Accessible via ATS people mover from Terminals 1-3. Not connected airside to other terminals — allow extra time for connections. Turkish Airlines Lounge available."
+    }
+  ],
+  "roads": ["I-190 (Kennedy Expressway spur — direct airport access)", "I-90/94 (Kennedy Expressway)", "I-294 (Tri-State Tollway)", "I-90 (Jane Addams Memorial Tollway)", "IL-72 (Touhy Avenue)", "Mannheim Road (IL-45/US-12/US-20)", "Bessie Coleman Drive", "Irving Park Road"],
+  "transit": ["CTA Blue Line (24/7 rapid transit — O'Hare station in Terminal 2 lower level, $5.00 to downtown, ~45 min)", "Metra North Central Service (O'Hare Transfer station via ATS — weekday service to Union Station downtown)", "Pace Suburban Bus (Routes 223, 230, 250 from Multi-Modal Facility)", "Airport Transit System / ATS (free automated people mover connecting Terminals 1-2-3-5, Multi-Modal Facility, Economy Lots, Kiss & Fly)"],
+  "neighborhoods": ["Rosemont", "Des Plaines", "Park Ridge", "Schiller Park", "Elk Grove Village", "Franklin Park", "Bensenville", "Norridge", "Harwood Heights", "River Grove", "Downtown Chicago (the Loop)", "Gold Coast", "River North", "Lincoln Park", "Wicker Park", "Lakeview", "Evanston"],
+  "authority": "Chicago Department of Aviation (CDA)",
+  "groundTransportation": {
+    "ctaBlueLine": {
+      "description": "CTA Blue Line rapid transit train connecting O'Hare to downtown Chicago's Loop and beyond. 24-hour service — one of the few U.S. airport rail links running all night.",
+      "stationLocation": "Lower level of Terminal 2. Follow signs from any terminal — accessible via underground walkways from Terminals 1 and 3, or via ATS from Terminal 5.",
+      "fare": "$5.00 single trip from O'Hare (regular CTA fare is $2.50 — O'Hare station has a premium). Ventra card, contactless payment, or Ventra app.",
+      "hours": "24/7 — trains every 3-8 minutes during rush hour, every 10-15 minutes midday/evening, every 30 minutes overnight",
+      "travelTimes": {
+        "toRosemont": "~5 minutes",
+        "toJeffersonPark": "~15 minutes (transfer to Metra UP-Northwest Line)",
+        "toLoganSquare": "~25 minutes",
+        "toWickerPark": "~30 minutes (Damen station)",
+        "toTheLoop": "~45 minutes (Clark/Lake, Jackson, Monroe stations)",
+        "toLaSalle": "~45 minutes",
+        "toUICHalsted": "~40 minutes"
+      },
+      "competitorNote": "At $5.00, the Blue Line is by far the cheapest option from ORD to downtown — a taxi costs $40-55 and rideshare is $25-45. The 45-minute travel time is competitive with driving during rush hour (which can take 60-90 minutes on the Kennedy). 24/7 service means it works for late-night arrivals, though overnight frequency drops to every 30 minutes."
+    },
+    "metra": {
+      "description": "Metra North Central Service commuter rail — connects O'Hare Transfer station to downtown Chicago's Union Station via suburban stops",
+      "accessFromTerminal": "Take free ATS to Multi-Modal Facility (MMF), then follow signs to Metra/O'Hare Transfer station",
+      "fare": "$5.00 one-way to Union Station",
+      "hours": "Weekday only — limited schedule (6 inbound trains AM, 6 outbound trains PM). No weekend service.",
+      "travelTime": "~40 minutes to Union Station",
+      "note": "Metra is faster than the Blue Line for reaching the west side of downtown (Union Station area) but only runs weekdays during commute hours. Not practical for most travelers — Blue Line is more reliable."
+    },
+    "taxi": {
+      "fareType": "METERED — flat rate no longer offered to downtown",
+      "pickup": "Lower level (Arrivals) of each terminal, outside baggage claim",
+      "baseFare": "$3.25 flag drop + $2.25 per mile + $0.20 per 36 seconds waiting",
+      "airportSurcharge": "$4.00 departure surcharge from ORD",
+      "estimatedFares": {
+        "toDowntownLoop": "$40-$55",
+        "toRiverNorth": "$40-$55",
+        "toLincolnPark": "$35-$50",
+        "toWickerPark": "$35-$50",
+        "toNavyPier": "$40-$55",
+        "toMcCormickPlace": "$45-$60",
+        "toEvanston": "$30-$45",
+        "toOakBrook": "$35-$50",
+        "toMidwayAirport": "$50-$70",
+        "toMilwaukee": "$150-$200"
+      },
+      "note": "Taxis are available 24/7 at all terminals. Chicago taxis accept cash and credit cards. Shared ride services (to downtown only) may be available during peak hours at reduced rates. Expect 30-45 min to downtown off-peak, 60-90 min during rush hour."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Terminal 2 Upper Level — ALL rideshare pickups are centralized here regardless of which terminal you arrive at. Follow signs to Terminal 2 Upper Level or take underground walkways/ATS.",
+      "estimatedFares": {
+        "uberXToDowntownLoop": "$25-$45",
+        "uberXToRiverNorth": "$25-$45",
+        "uberXToLincolnPark": "$22-$40",
+        "uberXToWickerPark": "$20-$38",
+        "uberXToEvanston": "$18-$30",
+        "uberXToNavyPier": "$25-$45",
+        "uberXToMcCormickPlace": "$30-$50",
+        "uberXToMidwayAirport": "$35-$55"
+      },
+      "surgePricing": "Standard surge during holidays, conventions (McCormick Place events), Bears/Cubs/Sox game days, Lollapalooza, and winter storm cancellations",
+      "pickupZones": "Color-coded zones at Terminal 2 Upper Level: BLACK Zone A, BLUE Zone B, ORANGE Zone C, GREEN Zone D. Your app will direct you to the correct zone.",
+      "note": "Rideshare is typically $10-15 cheaper than a taxi to downtown. The centralized Terminal 2 pickup means a short walk or ATS ride if you arrive at Terminal 1, 3, or 5. During rush hour, the Blue Line is often faster and cheaper than both rideshare and taxi."
+    },
+    "rentalCars": {
+      "location": "Multi-Modal Facility (MMF) — Economy Lot F, accessible via free ATS people mover from all terminals",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "note": "All rental car companies are consolidated at the Multi-Modal Facility (MMF). Take the free ATS people mover from any terminal — the MMF is the last stop. Return rental cars at the MMF and take the ATS back to your terminal."
+    },
+    "hotelShuttles": "Many nearby hotels in Rosemont, Des Plaines, Schiller Park, and Elk Grove Village offer complimentary shuttle service to/from ORD. Check with your hotel before booking. The Hilton O'Hare is directly connected to Terminal 2 via walkway."
+  },
+  "parkingRates": "On-airport: Main Garages (Terminals 1, 2, 3, 5) $43/day, Economy Lot E $17/day, Economy Lot F (covered) $22/day, Economy Lot G $15/day. Off-site: from ~$7.99/day with shuttle. Book ahead at flychicago.com or SpotHero for guaranteed space.",
+  "onAirportParking": {
+    "terminal1Garage": {
+      "name": "Terminal 1 Garage",
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
+      "dailyMax": 43,
+      "maxStay": "30 days",
+      "serves": "Terminal 1 (United Airlines — Concourses B & C)",
+      "features": "Direct elevator/walkway access to Terminal 1 departures and arrivals. Short-term and daily parking. Best for United passengers.",
+      "payment": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay"
+    },
+    "terminal2Garage": {
+      "name": "Terminal 2 Garage",
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
+      "dailyMax": 43,
+      "maxStay": "30 days",
+      "serves": "Terminal 2 (United Express, Air Canada, JetBlue — Concourses E & F)",
+      "features": "Direct access to Terminal 2. Hilton O'Hare connected via walkway. Rideshare pickup is on Terminal 2 upper level.",
+      "payment": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay"
+    },
+    "terminal3Garage": {
+      "name": "Terminal 3 Garage",
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
+      "dailyMax": 43,
+      "maxStay": "30 days",
+      "serves": "Terminal 3 (American Airlines — Concourses G, H, K, L)",
+      "features": "Direct elevator/walkway access to Terminal 3 departures and arrivals. Best for American Airlines passengers.",
+      "payment": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay"
+    },
+    "terminal5Garage": {
+      "name": "Terminal 5 Garage",
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
+      "dailyMax": 43,
+      "maxStay": "30 days",
+      "serves": "Terminal 5 (International — Delta, Southwest, Frontier, Spirit, international carriers)",
+      "evCharging": "48 Level II EV chargers on first floor",
+      "features": "Newest garage — part of Terminal 5 expansion completed 2025. 48 EV chargers on Level 1. Direct access to Terminal 5 departures and arrivals. Best for Delta, Southwest, Frontier, Spirit, and international passengers.",
+      "payment": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay"
+    },
+    "economyLotE": {
+      "name": "Economy Lot E",
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
+      "dailyMax": 17,
+      "connection": "FREE ATS people mover to all terminals",
+      "features": "Budget on-airport option at $17/day. Connected via free ATS to all terminals. Open-air surface lot.",
+      "note": "Good budget alternative to garages — saves $26/day vs garage parking. ATS ride adds 10-15 minutes."
+    },
+    "economyLotF": {
+      "name": "Economy Lot F (Multi-Modal Facility)",
+      "rate": "$22/day",
+      "dailyMax": 22,
+      "connection": "FREE ATS people mover to all terminals",
+      "evCharging": "24 EV charging stations for public use",
+      "features": "Covered parking on Levels 4-5 of the Multi-Modal Facility (MMF). Rental car center on lower levels. Pace bus connections and Metra O'Hare Transfer station accessible. Pet relief area available. 24 EV chargers.",
+      "note": "Only covered economy option. $22/day is a premium over Lots E and G but provides weather protection — valuable during Chicago winters. Also serves as the rental car hub."
+    },
+    "economyLotG": {
+      "name": "Economy Lot G",
+      "rate": "$3 first hour, then $15/day max",
+      "dailyMax": 15,
+      "connection": "FREE ATS people mover to all terminals",
+      "evCharging": "EV charging stations available",
+      "features": "Cheapest on-airport parking at $15/day. Open-air surface lot. EV chargers available. Connected to all terminals via free ATS.",
+      "note": "Best value on-airport parking. Can fill up during peak travel periods — arrive early or pre-book online. $15/day saves $28/day vs terminal garages."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "560 North Bessie Coleman Drive (corner of Bessie Coleman & I-190)",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 15-minute maximum stay. A few minutes from terminal curbs.",
+      "directions": "From I-190: Take the Bessie Coleman Dr. exit and continue ahead to the lot."
+    },
+    "evCharging": {
+      "locations": [
+        "Terminal 5 Garage Level 1 (48 Level II ChargePoint chargers)",
+        "Economy Lot F / Multi-Modal Facility (24 EV charging stations)",
+        "Economy Lot G (EV chargers available)",
+        "bp pulse EV Charging Hub — 40 ultrafast DC fast chargers (400kW and 150kW, CCS + NACS connectors, covered canopy)"
+      ],
+      "totalPorts": "130+ EV charging ports across airport",
+      "note": "ORD has extensive EV charging infrastructure. The bp pulse hub (opened 2025) offers ultrafast DC charging — the fastest option. Terminal 5 garage has 48 Level II chargers. Economy Lot F has 24 chargers."
+    },
+    "accessibleParking": "Accessible parking available in all garages and economy lots. Clearly marked spaces near elevators and terminal entrances.",
+    "totalCapacity": "~18,000 vehicles across all garages and economy lots",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Pre-pay online via SpotHero for guaranteed space.",
+    "ats": "Free Airport Transit System (ATS) automated people mover connects all terminals (1, 2, 3, 5), Multi-Modal Facility, Economy Lots, and Kiss 'n' Fly. Runs continuously — trains every 3-5 minutes.",
+    "garageServiceAreas": "Terminal 1 Garage → United. Terminal 2 Garage → United Express, Air Canada, JetBlue. Terminal 3 Garage → American Airlines. Terminal 5 Garage → Delta, Southwest, Frontier, Spirit, internationals. Use free ATS to move between terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "Park 'N Jet O'Hare",
+      "slug": "park-n-jet-ohare-ord",
+      "dailyRate": 8.95,
+      "reservationRate": 7.99,
+      "parkingType": "Outdoor self-park and indoor covered options",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Covered Parking", "Outdoor Uncovered Parking", "Security Cameras", "Fenced Lot", "24/7 Attendant"],
+      "shuttleInfo": "24/7 shuttle service running every 10-15 minutes. 7-10 minute ride to ORD terminals.",
+      "overview": "One of the most popular off-site lots near ORD. Located on Mannheim Road in Schiller Park. Both outdoor ($7.99/day pre-booked) and indoor covered ($10.99/day) options. 24/7 shuttle is reliable and frequent.",
+      "address": "4005 N Mannheim Road, Schiller Park, IL 60176",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Well-established ORD off-site lot with strong reviews. Indoor option is great for Chicago winters. 24/7 shuttle runs every 10-15 minutes — one of the most frequent among off-site lots."
+    },
+    {
+      "name": "PreFlight Airport Parking",
+      "slug": "preflight-airport-parking-ord",
+      "dailyRate": 12.95,
+      "reservationRate": 9.95,
+      "parkingType": "Outdoor self-park and indoor covered options",
+      "amenities": ["Free 24/7 Shuttle", "Indoor & Outdoor Parking", "24/7 Security", "Car Wash", "Luggage Assistance", "EV Charging"],
+      "shuttleInfo": "24/7 complimentary shuttle every 5-10 minutes. One of the fastest shuttle frequencies near ORD.",
+      "overview": "Premium off-site parking on Mannheim Road in Schiller Park. Outdoor from $9.95/day, indoor from $12.95/day. Very frequent shuttle service. Known for car wash add-on and EV charging.",
+      "address": "4155 Mannheim Road, Schiller Park, IL 60176",
+      "distanceFromAirport": "2.3 mi",
+      "driveTime": "6-8 minutes",
+      "freeCancellation": true,
+      "notes": "Premium off-site option with one of the fastest shuttle frequencies (every 5-10 min). Indoor covered parking is valuable during Chicago winters. EV charging available — unusual for off-site lots."
+    },
+    {
+      "name": "WallyPark Premier Airport Parking",
+      "slug": "wallypark-premier-ohare-ord",
+      "dailyRate": 19.95,
+      "reservationRate": 16.95,
+      "parkingType": "Covered garage, valet and self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Garage", "Valet Service", "Luggage Assistance", "Car Wash", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "24/7 shuttle every 10-15 minutes. ~10 minute transfer time to terminals.",
+      "overview": "Premium covered garage parking near ORD in Schiller Park. Valet and self-park options. Full-service facility with luggage help and car wash. Higher price but premium experience.",
+      "address": "3232 N Mannheim Road, Schiller Park, IL 60176",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Premium option — higher rate but fully covered garage with valet. Good for travelers who want a hassle-free experience. Luggage assistance is a nice touch. $16.95/day pre-booked still saves vs $43/day terminal garages."
+    },
+    {
+      "name": "Loews Chicago O'Hare Hotel Parking",
+      "slug": "loews-chicago-ohare-ord",
+      "dailyRate": 17.95,
+      "reservationRate": 15.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Hotel Amenities Available", "Well-Lit Lot"],
+      "shuttleInfo": "Complimentary 24/7 shuttle departing every 15 minutes",
+      "overview": "Hotel parking at the Loews O'Hare in Rosemont, 10 minutes from ORD. No hotel stay required for parking. 24/7 shuttle every 15 minutes. Upscale facility near Rosemont entertainment district.",
+      "address": "5300 N River Road, Rosemont, IL 60018",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "8-12 minutes",
+      "freeCancellation": true,
+      "notes": "Upscale hotel parking option. 24/7 shuttle every 15 min is reliable. Close to Rosemont entertainment district (MB Financial Park, Fashion Outlets). Good option if you want hotel amenities before an early flight."
+    },
+    {
+      "name": "Hilton Chicago O'Hare Airport",
+      "slug": "hilton-chicago-ohare-ord",
+      "dailyRate": 39.00,
+      "reservationRate": 35.00,
+      "parkingType": "Uncovered valet parking",
+      "amenities": ["Valet Only", "Direct Terminal Access", "24/7 Operation", "Hotel Amenities"],
+      "shuttleInfo": "No shuttle needed — Hilton is physically connected to Terminal 2 via enclosed walkway",
+      "overview": "The only hotel directly inside ORD airport, connected to Terminal 2 via enclosed walkway. Valet parking at $39/day. No shuttle needed — walk directly to Terminal 2. Premium convenience for business travelers and early flights.",
+      "address": "O'Hare International Airport, Terminal 2, Chicago, IL 60666",
+      "distanceFromAirport": "0 mi (inside airport)",
+      "driveTime": "0 minutes (walkway to Terminal 2)",
+      "freeCancellation": true,
+      "notes": "Most convenient option — walk to Terminal 2 in minutes. Price is premium ($39/day valet only) but comparable to terminal garages. Best for business travelers, early flights, or avoiding shuttle logistics. Only on-airport hotel."
+    },
+    {
+      "name": "Routes Airport Parking",
+      "slug": "routes-airport-parking-ord",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Outdoor, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Fenced Lot", "24/7 Attendant"],
+      "shuttleInfo": "24/7 complimentary shuttle to all ORD terminals",
+      "overview": "Budget off-site parking near ORD on Mannheim Road. Outdoor self-park at competitive rates. 24/7 shuttle included. One of the more affordable options in the Mannheim Road corridor.",
+      "address": "Mannheim Road, Schiller Park, IL 60176",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Budget-friendly option on the Mannheim Road corridor. $7.95/day pre-booked is solid value. 24/7 shuttle. Good for price-conscious long-term parkers."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Airport Transit System (ATS) automated people mover connects all terminals (1, 2, 3, 5), Multi-Modal Facility, Economy Lots, and Kiss 'n' Fly — trains every 3-5 minutes, 24/7. Off-site: Most Mannheim Road lots (Park 'N Jet, PreFlight, WallyPark) offer free 24/7 shuttle every 5-15 minutes, with 7-10 minute ride to terminals. The Hilton O'Hare requires no shuttle — it's connected directly to Terminal 2.",
+  "distanceFromCity": "14 miles northwest of downtown Chicago (the Loop). 30-45 minutes by car (off-peak), 60-90 minutes during rush hour. ~45 minutes by CTA Blue Line ($5.00). Chicago's primary international airport.",
+  "keyDistances": {
+    "toDowntownLoop": "14 miles, 30-45 min by car (off-peak), 60-90 min rush hour, 45 min by Blue Line ($5.00), $25-45 rideshare",
+    "toRiverNorth": "15 miles, 30-45 min by car, $25-45 rideshare",
+    "toLincolnPark": "13 miles, 25-40 min by car, $22-40 rideshare",
+    "toWickerPark": "11 miles, 20-35 min by car, 30 min by Blue Line, $20-38 rideshare",
+    "toNavyPier": "16 miles, 35-50 min by car, $25-45 rideshare",
+    "toMcCormickPlace": "18 miles, 35-55 min by car, $30-50 rideshare",
+    "toEvanston": "12 miles, 20-35 min by car, $18-30 rideshare",
+    "toOakBrook": "17 miles, 25-40 min by car, $35-50 rideshare",
+    "toRosemont": "3 miles, 5-10 min by car, 5 min by Blue Line, $8-15 rideshare",
+    "toNaperville": "28 miles, 30-45 min by car",
+    "toSchaumburg": "10 miles, 15-25 min by car",
+    "toMidwayAirport": "22 miles, 35-55 min by car, $35-55 rideshare",
+    "toMilwaukee": "85 miles, 90-120 min by car",
+    "toMadisonWI": "148 miles, 2.5-3 hours by car",
+    "toIndianapolisIN": "185 miles, 3-3.5 hours by car",
+    "competitiveAdvantage": "ORD's CTA Blue Line is the standout — $5.00 to downtown, 24/7 service, no transfers needed. During rush hour, the Blue Line is often FASTER than driving (45 min vs 60-90 min in traffic on the Kennedy). For budget travelers, the Blue Line beats rideshare by $20-40. The Rosemont Blue Line station (1 stop from ORD) also connects to Pace buses serving northwest suburbs. ORD's 24/7 transit access is a major advantage over airports without overnight rail service."
+  },
+  "construction2026": {
+    "status": "ORDNext — the bold next phase of O'Hare 21, the largest terminal expansion in O'Hare history. Multiple billion-dollar projects underway simultaneously.",
+    "projects": [
+      "New Concourse D ($1.3B) — 19 gates in a circular design inspired by the airport's original name, Orchard Field. Broke ground August 2025. Vertical construction spring 2026. Opening late 2028. 30,000 sq ft of lounge space plus restaurants, bars, retail.",
+      "O'Hare Global Terminal — New centerpiece international terminal allowing international arrivals to connect seamlessly to domestic Terminals 1 and 3. Completion target ~2032.",
+      "Satellite Concourse 2 — Additional concourse extending ORD's capacity. Timeline pushed back to ~2034.",
+      "Terminal 5 Expansion — COMPLETED 2025. Added 10 new gates, a 22,000 sq ft Delta Sky Club, reconfigured international arrivals and security.",
+      "New American Airlines Admirals Club (L Concourse) — Under construction. Will be twice the size of the current L Concourse lounge.",
+      "United Polaris Lounge Renovation — COMPLETED April 2025. Reopened at 25,000 sq ft (50% larger) with 350+ seats, Crate & Barrel decor, speakeasy bar, expanded dining.",
+      "Runway and Taxiway Modernization — Ongoing realignment of the airfield as part of the O'Hare Modernization Program (OMP)."
+    ],
+    "travelImpact": "Active construction on Concourse D may cause temporary detours and noise near Terminal 1. Terminal 5 expansion is complete. Economy lot access remains normal via ATS. Allow a few extra minutes when navigating between terminals during 2026.",
+    "timeline": {
+      "terminal5Expansion": "Completed 2025",
+      "unitedPolarisLounge": "Completed April 2025",
+      "concourseD": "Late 2028 opening",
+      "newAdmiralsClub": "Under construction, 2026-2027",
+      "globalTerminal": "~2032 completion",
+      "satellite2": "~2034 completion"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 5"],
+      "note": "TSA PreCheck available at all terminal security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 5"],
+      "note": "CLEAR available at select checkpoints in all terminals"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals (Terminal 5). Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure banks), 11:00 AM-2:00 PM, 3:00-6:00 PM",
+      "tips": "ORD is one of the busiest U.S. airports — TSA PreCheck or CLEAR is strongly recommended. Terminal 3 (American) tends to have the longest lines due to its size (80 gates). Terminal 5 international security can be slow during peak departure banks."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure (Terminal 5 is not connected airside — allow time for ATS if arriving via Terminals 1-3)",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, Lollapalooza weekend"
+    }
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "United Polaris Lounge",
+        "location": "Terminal 1, Concourse C, mezzanine level",
+        "hours": "5:30 AM - last departure",
+        "access": "United Polaris business class on international flights, Star Alliance First/Business class on long-haul international routes ONLY. No credit card or membership access.",
+        "amenities": "25,000 sq ft (reopened April 2025, 50% larger). 350+ seats. Full-service a la carte dining, speakeasy-style bar, Crate & Barrel decor, shower suites with spa products, day beds, dedicated quiet rooms. One of the best airline lounges in North America."
+      },
+      {
+        "name": "United Club (Concourse B)",
+        "location": "Terminal 1, Concourse B, near Gate B6",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "United Club membership, United MileagePlus Premier 1K, Star Alliance Gold, Chase United Club Infinite card",
+        "amenities": "Complimentary food, drinks, full bar, WiFi, workspaces."
+      },
+      {
+        "name": "United Club (Concourse C)",
+        "location": "Terminal 1, Concourse C, near Gate C16",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "United Club membership, United MileagePlus Premier 1K, Star Alliance Gold, Chase United Club Infinite card",
+        "amenities": "Complimentary food, drinks, full bar, WiFi, workspaces, shower suites."
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "United Club (Concourse F)",
+        "location": "Terminal 2, Concourse F, near Gate F8",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "United Club membership, Star Alliance Gold, Chase United Club Infinite card",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      }
+    ],
+    "terminal3": [
+      {
+        "name": "American Airlines Admirals Club (Concourse G)",
+        "location": "Terminal 3, across from Gate G8",
+        "hours": "5:15 AM - 9:45 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Concierge Key/Executive Platinum, Citi AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, full bar, WiFi, workspaces."
+      },
+      {
+        "name": "American Airlines Admirals Club (Concourse H)",
+        "location": "Terminal 3, near Gate H4",
+        "hours": "5:15 AM - 9:30 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Concierge Key/Executive Platinum, Citi AAdvantage Executive card",
+        "amenities": "Food, drinks, bar, WiFi."
+      },
+      {
+        "name": "American Airlines Flagship Lounge",
+        "location": "Terminal 3, near Gate K6",
+        "hours": "5:30 AM - 9:30 PM daily",
+        "access": "American Airlines Flagship First/Business on qualifying long-haul routes, Oneworld Emerald on qualifying international flights, AAdvantage Concierge Key",
+        "amenities": "Premium a la carte dining, premium bar with craft cocktails, shower suites, day beds, workspaces. Elevated experience above Admirals Club."
+      },
+      {
+        "name": "American Airlines Admirals Club (Concourse L)",
+        "location": "Terminal 3, before Gate L1",
+        "hours": "5:00 AM - 9:45 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Concierge Key/Executive Platinum, Citi AAdvantage Executive card",
+        "amenities": "Food, drinks, WiFi. New expanded Admirals Club on L Concourse under construction — will be twice the current size."
+      }
+    ],
+    "terminal5": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal 5, Concourse M",
+        "hours": "4:45 AM - 9:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "22,000 sq ft (opened with Terminal 5 expansion 2025). Full-service bar, shower facilities, premium food, WiFi, workspaces, runway views."
+      },
+      {
+        "name": "Turkish Airlines Lounge",
+        "location": "Terminal 5, Concourse M",
+        "access": "Turkish Airlines Business Class, Star Alliance Gold, Priority Pass",
+        "amenities": "Full buffet, shower facilities, WiFi."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Terminal 5, Concourse M",
+        "hours": "6:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included.",
+        "amenities": "Premium food, signature cocktails by local mixologist, full bar, WiFi, shower suites, workspaces, phone rooms."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "ORD Free Wi-Fi (Boingo)",
+    "cost": "Free (basic). Premium speeds available for purchase via Boingo.",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "terminal5Garage": {
+      "chargers": 48,
+      "location": "Level 1",
+      "type": "Level II ChargePoint",
+      "cost": "Varies — check ChargePoint app"
+    },
+    "economyLotF": {
+      "chargers": 24,
+      "location": "Multi-Modal Facility",
+      "type": "Level II",
+      "cost": "Varies"
+    },
+    "bpPulseHub": {
+      "chargers": 40,
+      "location": "O'Hare airport grounds",
+      "type": "DC Fast Charging — 400kW and 150kW ultrafast (CCS + NACS connectors)",
+      "cost": "Per kWh via bp pulse app",
+      "note": "Opened 2025. Covered canopy. Fastest EV charging at any U.S. airport. Free WiFi at hub."
+    },
+    "totalPorts": "130+ EV charging ports across airport",
+    "note": "ORD has one of the most extensive EV charging networks of any U.S. airport. The bp pulse ultrafast hub (400kW) is the fastest option — can add 100+ miles of range in 10 minutes for compatible vehicles."
+  },
+  "luggageStorage": {
+    "onSite": "Multi-Modal Facility (MMF) offers luggage concierge service. Limited on-site options at terminals.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Chicago (Loop, River North, Magnificent Mile)" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Chicago locations including Union Station, Millennium Park area" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Loop, River North, Wrigleyville" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas in all terminals (pre-security and post-security)",
+    "locations": [
+      "Terminal 1 — post-security pet relief area",
+      "Terminal 2 — post-security pet relief area",
+      "Terminal 3 — post-security pet relief area",
+      "Terminal 5 — post-security pet relief area",
+      "Multi-Modal Facility — outdoor pet relief area (pre-security)"
+    ],
+    "note": "All four terminals have post-security pet relief areas — no need to exit security. The Multi-Modal Facility also has an outdoor pet relief area accessible via ATS."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure banks — United and American)", "11:00 AM-2:00 PM", "3:00-6:00 PM (evening departure banks)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August) is the busiest season — ORD set its all-time record in July 2025 (8.26 million passengers). Thanksgiving week is the single busiest travel period. Christmas/New Year, spring break (March-April), and Lollapalooza weekend (late July/early August) also create major spikes. Winter storms (December-February) can cause massive cancellation cascades.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during Thanksgiving, Christmas, and summer peaks"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental climate. Hot summers, cold winters. Lake Michigan moderates temperatures but creates 'lake effect' weather patterns.",
+    "commonDisruptions": "Winter storms (December-February) are ORD's biggest operational challenge — snow, ice, and freezing fog can cause hundreds of cancellations in a single day. ORD historically ranks among the worst U.S. airports for weather delays. Summer thunderstorms (June-August) cause ground stops and departure delays, typically in afternoon/evening. Wind shear from Lake Michigan is a year-round factor.",
+    "bestMonths": "September-October (fall) and April-May (spring) — mild weather, fewer storms, lower fares, manageable crowds",
+    "worstMonths": "January-February (polar vortex events, heavy snow, extreme cold) and late November (Thanksgiving + early winter storms)",
+    "winterNote": "ORD's winter weather is legendary for causing travel chaos. The airport has extensive de-icing operations, but major snowstorms can shut down runways and cause 500+ cancellations. In November 2025, ORD's snowiest November day in recorded history (8.4 inches) caused 1,300+ delays and 280+ cancellations. Travel insurance is strongly recommended for December-February travel. Morning flights have the best on-time rates.",
+    "summerThunderstorms": "June-August: afternoon thunderstorms are common, especially in July. Midwest convective weather can halt arrivals and departures for 1-3 hours. Ground stops and ground delay programs are frequent. Morning flights are most reliable.",
+    "note": "ORD's weather delays are the airport's single biggest drawback. If traveling in winter, book morning flights and build in buffer days. The CTA Blue Line provides a weather-immune backup when roads are impassable."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near ORD. Hotels in Rosemont, Des Plaines, Schiller Park, and Elk Grove Village commonly offer park-sleep-fly deals.",
+    "priceRange": "From ~$110/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hilton Chicago O'Hare Airport",
+        "distance": "0 miles (inside airport, connected to Terminal 2)",
+        "parkingIncluded": "Valet parking included with stay",
+        "shuttleHours": "No shuttle needed — walkway to Terminal 2",
+        "parkOnlyRate": "$39.00/day",
+        "highlight": "Only on-airport hotel. Walk to Terminal 2. Ultimate convenience for early flights."
+      },
+      {
+        "name": "Loews Chicago O'Hare Hotel",
+        "distance": "3.5 miles (Rosemont)",
+        "parkingIncluded": "Up to 7 nights parking (additional nights at discounted rate)",
+        "shuttleHours": "24/7 every 15 minutes",
+        "parkOnlyRate": "$17.95/day",
+        "highlight": "Upscale Rosemont location. Near Fashion Outlets and entertainment."
+      },
+      {
+        "name": "Crowne Plaza Chicago O'Hare Hotel & Conference Center",
+        "distance": "3 miles (Rosemont)",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "5 AM - 10 PM every 30 minutes",
+        "parkOnlyRate": "$12.00/day",
+        "highlight": "Good value park-sleep-fly. Conference center amenities."
+      },
+      {
+        "name": "SpringHill Suites Chicago O'Hare",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "parkOnlyRate": "$10.00/day",
+        "highlight": "Marriott property. All-suites hotel. Complimentary breakfast."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "onestopparking.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "terminalGarage": { "parkingCost": "$301 (7 x $43)", "totalEstimate": "$301" },
+      "economyLotF": { "parkingCost": "$154 (7 x $22)", "totalEstimate": "$154" },
+      "economyLotG": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" }
+    },
+    "offSiteWithShuttle": {
+      "parkNJet": { "parkingCost": "$55.93 (7 x $7.99 pre-booked)", "savingsVsGarage": "~$245 saved", "caveat": "24/7 shuttle, 7-10 min to terminals" },
+      "preFlightOutdoor": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$231 saved", "caveat": "24/7 shuttle every 5-10 min, fastest frequency" },
+      "routesAirportParking": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$245 saved", "caveat": "24/7 shuttle" }
+    },
+    "publicTransit": {
+      "blueLineRoundTrip": { "costPerPersonRoundTrip": "$10.00", "travelTime": "~45 min to Loop", "note": "$5.00 per ride. Cheapest option by far — $10 round trip per person vs $105-301 for parking." },
+      "rideshareRoundTrip": { "costForCouple": "$50-$90 (UberX downtown round trip)", "note": "Cheaper than parking for trips up to ~5 days. Subject to surge pricing." }
+    },
+    "keyDifference": "ORD's on-airport garages at $43/day are among the most expensive in the country. Off-site lots on Mannheim Road save $30+/day with free 24/7 shuttles. Economy Lot G at $15/day is the best on-airport value. The CTA Blue Line at $5/day is unbeatable for downtown-bound travelers — 24/7 service means it works for any flight time. For trips over 3 days, pre-booked off-site parking ($7.99/day) saves dramatically vs garages."
+  },
+  "uniqueFeatures": {
+    "dualLegacyHub": "ORD is one of only two U.S. airports (along with LAX) serving as a primary hub for two legacy carriers — United Airlines (Terminal 1) and American Airlines (Terminal 3). This creates exceptional route coverage and competitive fares.",
+    "busiestUSAirport": "Reclaimed the title of busiest U.S. airport in 2025 with nearly 85 million passengers. Second-busiest globally for aircraft movements (857,392 operations in 2025). Set an all-time monthly record of 8.26 million passengers in July 2025.",
+    "blueLine24Hour": "The CTA Blue Line provides 24/7 rail service from ORD to downtown Chicago for just $5.00. One of the few U.S. airports with round-the-clock rapid transit. During rush hour, the 45-minute train ride is often faster than a 60-90 minute drive on the Kennedy Expressway.",
+    "orchardFieldHistory": "Originally built in 1944 as Orchard Field on the site of a Douglas aircraft factory — the airport code ORD comes from 'Orchard.' Renamed in 1949 after Lt. Commander Edward 'Butch' O'Hare, the U.S. Navy's first Medal of Honor recipient in WWII. A restored Grumman F6F-5 Hellcat (O'Hare's aircraft type) is displayed between Terminals 2 and 3.",
+    "eightRunways": "ORD's 8 runways make it one of the most runway-rich airports in the world, enabling high-volume simultaneous operations. Two parallel 13,000-foot runways (10L/28R and 10R/28L) can handle the heaviest widebody aircraft.",
+    "ordNextExpansion": "The ORDNext expansion (part of O'Hare 21) is the largest terminal expansion in ORD history. The new Concourse D ($1.3B, opening 2028) and O'Hare Global Terminal (~2032) will transform the passenger experience with modern design, improved connections, and massive new lounge spaces.",
+    "multiModalFacility": "The Multi-Modal Facility (MMF) consolidates rental cars, EV charging, Metra commuter rail, Pace buses, and Economy Lot F parking into one connected hub, accessible via the free ATS people mover. Pet relief area and luggage concierge also available.",
+    "polarisLounge": "United's Polaris Lounge at ORD (reopened April 2025) is widely considered one of the best airline lounges in North America — 25,000 sq ft, a la carte dining, speakeasy bar, shower suites, and day beds. Exclusively for international business/first class passengers.",
+    "ordVsMdw": "ORD is Chicago's primary airport (50+ airlines, 250+ destinations). MDW (Midway, 10 miles southwest of downtown) is the budget alternative (Southwest's fortress hub). For international travel, ORD has no substitute. MDW offers cheaper fares on Southwest domestic routes and closer proximity to downtown."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(800) 832-6352",
+    "airportWebsite": "flychicago.com/ohare",
+    "parkingInfo": "flychicago.com/ohare/tofrom/parking",
+    "parkingPhone": "(773) 838-0756",
+    "tsa": "(866) 289-9673",
+    "ctaInfo": "(888) YOUR-CTA (888-968-7282)",
+    "ctaWebsite": "transitchicago.com",
+    "airportPolice": "(773) 686-2385",
+    "chicagoDeptOfAviation": "(773) 894-5400"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.flychicago.com/ohare/",
+      "parking": "https://www.flychicago.com/ohare/tofrom/parking/Pages/general.aspx",
+      "economyParking": "https://www.flychicago.com/ohare/tofrom/parking/Pages/economy.aspx",
+      "groundTransportation": "https://www.flychicago.com/ohare/tofrom/pages/default.aspx",
+      "publicTransit": "https://www.flychicago.com/ohare/tofrom/publictransit/Pages/default.aspx",
+      "taxiRideshare": "https://www.flychicago.com/ohare/tofrom/taxi/pages/default.aspx",
+      "airlines": "https://www.flychicago.com/ohare/myflight/airlines/Pages/default.aspx",
+      "terminalMaps": "https://www.flychicago.com/ohare/map/Pages/printablemaps.aspx",
+      "ats": "https://www.flychicago.com/ohare/ServicesAmenities/services/Pages/transitupdate.aspx",
+      "dropoffPickup": "https://www.flychicago.com/ohare/tofrom/dropoff/Pages/default.aspx",
+      "ordNext": "https://ord21.com/Pages/ORDNext.aspx"
+    },
+    "transit": {
+      "ctaBlueLine": "https://www.transitchicago.com/blueline/",
+      "ctaAirports": "https://www.transitchicago.com/airports/",
+      "metra": "https://metra.com/ncs",
+      "pace": "https://www.pacebus.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/ord/",
+      "lyft": "https://www.lyft.com/rider/airports/ord"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=ORD",
+      "airportParkingReservations": "https://airportparkingreservations.com/ord/airport-parking",
+      "way": "https://www.way.com/ord",
+      "spothero": "https://spothero.com/airport/chicago/ord-parking",
+      "book2park": "https://www.book2park.com/airport/ord-ohare-airport-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/ord",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/chicago-ohare-international-airport-ord",
+      "parkingAccess": "https://parkingaccess.com/airports/ord"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearORD": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/chicago-ord-airport-lounges/",
+      "unitedPolarisLounge": "https://www.united.com/en/us/fly/travel/airport/lounges/united-polaris-lounges.html",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/ord-club.jsp",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/ORD/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KORD",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/ORD",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=ord",
+      "flychicagoDelays": "https://www.flychicago.com/business/media/delays/pages/default.aspx"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "bpPulse": "https://www.bppulse.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/ord/airport-parking",
+      "parkSleepHotels": "https://ord.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/chicago-ohare-park-sleep-fly-hotels"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/chicago-ohare-ord-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/O%27Hare_International_Airport",
+      "ifly": "https://www.ifly.com/airports/chicago-ohare-international-airport"
+    },
+    "newsAndMedia": {
+      "chicagoSunTimes": "https://chicago.suntimes.com/",
+      "chicagoTribune": "https://www.chicagotribune.com/",
+      "wgn": "https://wgntv.com/"
+    }
+  }
+}

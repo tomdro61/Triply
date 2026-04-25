@@ -1,0 +1,652 @@
+{
+  "code": "SEA",
+  "fullName": "Seattle-Tacoma International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "City of SeaTac, Washington — 14 miles south of downtown Seattle and 20 miles north of Tacoma",
+    "iataCode": "SEA",
+    "icaoCode": "KSEA",
+    "faaLid": "SEA",
+    "elevation": "433 feet above mean sea level",
+    "acreage": 2500,
+    "coordinates": "47.4502N, 122.3088W",
+    "passengerVolume": "52.7 million passengers in 2025 (record year)",
+    "aircraftOperations": "435,896 annually (2025)",
+    "cargoVolume": "427,971 metric tons (2025)",
+    "distinction": "The largest airport in the Pacific Northwest and the primary hub for Alaska Airlines. Major international gateway for Delta Air Lines. 9th busiest airport in the United States by passenger traffic. Originally opened in 1944 during World War II as a military airfield, then converted to commercial use in 1947. Over 37 airlines serve 96 domestic and 36 international nonstop destinations. Home to the largest parking garage under one roof in North America (13,000+ spaces).",
+    "operator": "Port of Seattle",
+    "owner": "Port of Seattle",
+    "activeTerminals": 1,
+    "totalConcourses": 4,
+    "satelliteTerminals": 2,
+    "totalGates": 115,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "16L/34R", "length": "11,901 ft (3,627 m)", "surface": "Concrete", "note": "Primary runway for arrivals and departures" },
+      { "designation": "16C/34C", "length": "9,426 ft (2,873 m)", "surface": "Concrete" },
+      { "designation": "16R/34L", "length": "8,500 ft (2,591 m)", "surface": "Concrete", "note": "Third runway, opened 2008 after decades of planning" }
+    ],
+    "dominantAirline": "Alaska Airlines (primary hub — operates from Concourses C, D, and North Satellite)",
+    "totalAirlines": "37 airlines",
+    "nonstopDestinations": "132 destinations (96 domestic, 36 international)",
+    "founded": "1944 (military), 1947 (commercial operations began)",
+    "hubCarriers": ["Alaska Airlines (primary hub)", "Delta Air Lines (hub and international gateway)", "Horizon Air (Alaska Airlines regional partner)"],
+    "slotControlled": false,
+    "transitAccess": "Link Light Rail station on the airport's mezzanine level provides direct rail service to downtown Seattle (~40 min, $3.00 fare)",
+    "internationalNote": "SEA is the primary Pacific Northwest gateway for Asia-Pacific, European, and transborder Canadian routes. International traffic grew 7.9% in 2025 to 7.11 million passengers. Alaska Airlines and Delta Air Lines provide extensive domestic and international connectivity."
+  },
+  "terminals": [
+    {
+      "name": "Concourse A",
+      "status": "Active — 14 gates. Delta Air Lines hub operations and SkyTeam partners.",
+      "airlines": ["Delta Air Lines", "Delta Connection", "Air France", "Korean Air", "Virgin Atlantic"],
+      "gates": "A1-A14",
+      "notes": "Delta Air Lines' primary concourse at SEA. New Delta Sky Club in Concourse A opened 2025 as part of a concourse expansion. South Satellite is accessible via underground train from Concourse A."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 15 gates. Mix of domestic carriers.",
+      "airlines": ["Southwest Airlines", "Spirit Airlines", "Sun Country Airlines", "Frontier Airlines", "JetBlue Airways"],
+      "gates": "B1-B15",
+      "notes": "Home to the American Express Centurion Lounge (opposite Gate B3). Primarily serves low-cost and domestic carriers."
+    },
+    {
+      "name": "Concourse C",
+      "status": "Active — 20 gates. Alaska Airlines hub. Major expansion completing 2026.",
+      "airlines": ["Alaska Airlines", "Horizon Air"],
+      "gates": "C2-C20",
+      "notes": "Alaska Airlines' primary concourse. Major C Concourse expansion (Turner Construction, $260M) completing Q2 2026 — adds 10+ restaurants, new retail, artwork, and an airside observation deck. Alaska Lounge located in Concourse C."
+    },
+    {
+      "name": "Concourse D",
+      "status": "Active — 12 gates. Shared by Alaska Airlines, American Airlines, and United Airlines.",
+      "airlines": ["Alaska Airlines", "American Airlines", "United Airlines", "Condor", "Icelandair"],
+      "gates": "D1-D12",
+      "notes": "Alaska Lounge located in Concourse D. Serves a mix of domestic legacy carriers and European international flights."
+    },
+    {
+      "name": "North Satellite (N Gates)",
+      "status": "Active — 16 gates. Alaska Airlines overflow and international flights.",
+      "airlines": ["Alaska Airlines", "Hawaiian Airlines", "Cathay Pacific", "EVA Air", "Hainan Airlines"],
+      "gates": "N1-N16",
+      "notes": "Accessible via underground train from the main terminal. Alaska Lounge located in North Satellite. Handles overflow Alaska flights and select international carriers."
+    },
+    {
+      "name": "South Satellite (S Gates)",
+      "status": "Active — 12 gates. International flights and Delta operations.",
+      "airlines": ["Delta Air Lines", "British Airways", "Emirates", "Lufthansa", "Singapore Airlines", "Japan Airlines", "ANA (All Nippon Airways)"],
+      "gates": "S1-S12",
+      "notes": "Primary international departure area. Accessible via underground train from Concourse A. Handles most long-haul international flights including Emirates A380 service."
+    }
+  ],
+  "roads": ["Interstate 5 (primary north-south freeway)", "State Route 518 (east-west connector to I-5)", "State Route 99 (International Boulevard / Pacific Highway South)", "State Route 509 (freeway from West Seattle/Burien)", "Interstate 405 (Eastside connector via SR-518)"],
+  "transit": ["Link Light Rail — 1 Line (direct to downtown Seattle, University of Washington, and Northgate)", "Sound Transit Express Bus Route 560 (Bellevue, West Seattle)", "King County Metro Bus Routes 156, 161 (local service)", "RapidRide A Line (Federal Way to Tukwila, connects to Light Rail)", "Amtrak Cascades and Sounder Commuter Rail (via Link Light Rail to King Street Station)"],
+  "neighborhoods": ["SeaTac", "Tukwila", "Burien", "Des Moines", "Federal Way", "Renton", "Kent", "Downtown Seattle", "Capitol Hill", "Bellevue", "Tacoma", "West Seattle", "University District"],
+  "authority": "Port of Seattle",
+  "groundTransportation": {
+    "linkLightRail": {
+      "description": "Sound Transit Link Light Rail (1 Line) connects SEA Airport directly to downtown Seattle, University of Washington, Capitol Hill, and Northgate. Station is located on the airport's mezzanine level (4th floor of parking garage), accessible via skybridge from the main terminal.",
+      "stationName": "SeaTac/Airport Station",
+      "operator": "Sound Transit",
+      "lines": ["1 Line (formerly Central Link)"],
+      "fare": "$3.00 adult one-way to downtown Seattle. Fares range $2.25-$3.50 depending on distance. Payment: ORCA card, ORCA app, contactless tap.",
+      "hours": "Mon-Sat 5:00 AM - 1:00 AM, Sun/holidays 6:00 AM - midnight",
+      "frequency": "Every 8-15 minutes depending on time of day",
+      "accessFromTerminal": "Follow signs from baggage claim to the Link Light Rail station via the skybridge on the mezzanine level (4th floor of parking garage)",
+      "travelTimes": {
+        "toRainierBeachStation": "~10 minutes",
+        "toColumbiaCity": "~15 minutes",
+        "toBeaconHill": "~20 minutes",
+        "toInternationalDistrict": "~30 minutes",
+        "toPioneerSquare": "~33 minutes",
+        "toWestlakeCenter": "~38 minutes (downtown Seattle)",
+        "toCapitolHill": "~42 minutes",
+        "toUniversityOfWashington": "~47 minutes",
+        "toNorthgate": "~55 minutes"
+      },
+      "competitorNote": "At $3.00, Link Light Rail is the cheapest option from SEA to downtown Seattle — significantly cheaper than the $45-55 taxi/rideshare fare. 38-minute travel to Westlake makes it competitive with driving during rush hour traffic on I-5."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "3rd floor of the parking garage, north and south curbs",
+      "minimumFare": "$20.00 (for trips originating at SEA)",
+      "estimatedMeteredFares": {
+        "toDowntownSeattle": "$45-$55",
+        "toCapitolHill": "$45-$55",
+        "toBellevue": "$55-$70",
+        "toTacoma": "$50-$65",
+        "toUniversityDistrict": "$55-$65",
+        "toBurien": "$20-$30",
+        "toTukwila": "$20-$30",
+        "toRenton": "$35-$45",
+        "toKent": "$35-$45"
+      },
+      "note": "Flat-rate zones are NOT used at SEA — all fares are metered. $20 minimum. Cash and credit cards accepted. 24/7 service. Taxi stand on 3rd floor of garage."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "3rd floor of the parking garage (same area as taxis)",
+      "estimatedFares": {
+        "uberXToDowntownSeattle": "$30-$50",
+        "uberXToCapitolHill": "$30-$50",
+        "uberXToBellevue": "$40-$60",
+        "uberXToTacoma": "$40-$55",
+        "uberXToUniversityDistrict": "$35-$55",
+        "uberXToBurien": "$15-$25",
+        "uberXToKirkland": "$50-$70",
+        "uberXToRedmond": "$55-$75"
+      },
+      "surgePricing": "Standard surge pricing during Seahawks/Mariners/Kraken game days, cruise ship arrivals at Pier 91, holiday weekends, tech conferences (AWS re:Invent local events, Microsoft events)",
+      "note": "Rideshare is usually cheaper than metered taxi from SEA. I-5 traffic can significantly increase travel time and cost during rush hours (7-9 AM, 4-7 PM). Link Light Rail is often faster and cheaper to downtown during peak hours."
+    },
+    "rentalCars": {
+      "location": "Off-site Rental Car Facility — free 24/7 shuttle from the airport terminal (pickup on the 1st floor of the parking garage, center island)",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Fox Rent A Car", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 10,
+      "note": "All rental car companies are consolidated at an off-site facility. Free shuttle runs 24/7, approximately every 5 minutes. Shuttle pickup is on the 1st floor of the parking garage, center island. ~5-minute ride to the rental car facility."
+    },
+    "hotelShuttles": "Many airport-area hotels offer complimentary shuttle service — pickup on the 1st floor of the parking garage, center island. Hotels along International Boulevard (SR-99) and in Tukwila/SeaTac typically provide shuttle service. Verify with your hotel before arrival.",
+    "airporterShuttles": {
+      "description": "Scheduled shuttle services to destinations throughout the Puget Sound region",
+      "providers": ["Shuttle Express (door-to-door shared ride)", "Bellair Airporter Shuttle (to Bellingham, Anacortes, San Juan Islands ferry)", "Capital Aeroporter (to Olympia, Lacey)"],
+      "pickup": "3rd floor of the parking garage"
+    }
+  },
+  "parkingRates": "On-airport: General Parking $5/hr, $32/day, $149/week. Reserved Parking (Floor 4) $39/day, $273/week. Cell Phone Lot FREE. Off-site: from ~$9.95/day with shuttle. EV charging FREE in garage (48 stations).",
+  "onAirportParking": {
+    "generalParking": {
+      "name": "General Parking (Floors 1-3, 5-8)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 32,
+      "weeklyRate": 149,
+      "serves": "All concourses — connected to terminal via skybridge",
+      "features": "SEA's main parking garage is the largest under one roof in North America with over 13,000 spaces across 8 floors. Floors 1-3 and 5-8 are General Parking. Skybridge connects directly to the main terminal. Free EV charging available.",
+      "preBookingUrl": "https://www.portseattle.org/sea-tac/parking"
+    },
+    "reservedParking": {
+      "name": "Reserved Parking (Floor 4)",
+      "rate": "$39/day",
+      "weeklyRate": 273,
+      "serves": "All concourses — premium reserved spaces on Floor 4",
+      "features": "Formerly called Terminal Direct. Drive-up parking discontinued March 2024 — reservation required. Guaranteed space on Floor 4 closest to terminal skybridge. Best for short trips where convenience matters.",
+      "preBookingUrl": "https://www.portseattle.org/sea-tac/parking",
+      "note": "Must be pre-booked online. No drive-up availability for Floor 4."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Off Airport Expressway, south of the terminal",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 30-minute maximum stay. Monitor flight status before heading to arrivals."
+    },
+    "evCharging": {
+      "locations": [
+        "Main parking garage — 48 ChargePoint Level 2 stations spread across multiple floors"
+      ],
+      "totalPorts": "48 EV charging stations",
+      "cost": "FREE for parking garage users (included in parking fee)",
+      "note": "SEA leads all North American airports in free EV charging. 48 ChargePoint Level 2 stations available on a first-come, first-served basis. Compatible with most electric and plug-in hybrid vehicles."
+    },
+    "accessibleParking": "Accessible parking spaces available on all garage floors, closest to elevators and skybridge. ADA-compliant with proper signage.",
+    "totalCapacity": "~13,000 vehicles in the main parking garage",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, contactless payment",
+    "garageServiceAreas": "Single garage serves all concourses. Skybridge connects to main terminal between Concourses B and C. Follow signs to your concourse after entering terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "Doug Fox Airport Parking",
+      "slug": "doug-fox-airport-parking-sea",
+      "dailyRate": 14.95,
+      "reservationRate": 11.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced & Gated Lot", "Well-Lit"],
+      "shuttleInfo": "24/7 on-demand shuttle, ~3 minutes to terminal. Oldest and closest off-site lot to SEA.",
+      "overview": "The closest off-site parking lot to SEA Airport, operating for over 50 years. Located less than 1 mile from the terminal with the fastest shuttle ride (~3 minutes) of any off-site lot.",
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "3 minutes",
+      "address": "2626 S 170th St, SeaTac, WA 98188",
+      "freeCancellation": true,
+      "notes": "Closest off-site lot. 50+ years in business. 3-minute shuttle is fastest of all off-site options. Early booking saves up to 30%."
+    },
+    {
+      "name": "WallyPark Premier Garage",
+      "slug": "wallypark-premier-garage-sea",
+      "dailyRate": 18.95,
+      "reservationRate": 13.95,
+      "parkingType": "Covered garage, self-park",
+      "amenities": ["Free Shuttle", "Covered Parking", "Free WiFi", "Free Coffee & Water", "24/7 Security", "EV Charging"],
+      "shuttleInfo": "Complimentary shuttle every 15-20 minutes. Text 'shuttle' to (425) 336-2193 for return pickup.",
+      "overview": "Premium covered garage parking near SEA with complimentary amenities including WiFi, coffee, and bottled water in the waiting area. One of the few covered off-site options.",
+      "distanceFromAirport": "1.0 mi",
+      "driveTime": "5 minutes",
+      "address": "18613 International Blvd, SeaTac, WA 98188",
+      "freeCancellation": true,
+      "notes": "Best covered off-site option. Premium amenities (WiFi, coffee, water). Text-for-shuttle return service is convenient."
+    },
+    {
+      "name": "WallyPark Outdoor Self Park",
+      "slug": "wallypark-outdoor-self-park-sea",
+      "dailyRate": 14.95,
+      "reservationRate": 9.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "Free WiFi", "Free Coffee & Water", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "Complimentary shuttle every 15-20 minutes. Shared shuttle with Premier Garage.",
+      "overview": "Budget-friendly uncovered option from WallyPark with the same shuttle service and waiting area amenities as the Premier Garage at a lower price.",
+      "distanceFromAirport": "1.0 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "notes": "Same great shuttle and amenities as WallyPark Premier but uncovered and cheaper. Good value for budget-conscious travelers."
+    },
+    {
+      "name": "MasterPark Lot A",
+      "slug": "masterpark-lot-a-sea",
+      "dailyRate": 13.99,
+      "reservationRate": 9.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "EV Charging by Juicer", "Rewards Program"],
+      "shuttleInfo": "24/7 on-demand shuttle with bright yellow buses — largest eco-friendly shuttle fleet at SEA. Shuttle every 10-15 minutes.",
+      "overview": "Part of MasterPark's multi-lot operation near SEA with over 38 years of service. Eco-friendly shuttle fleet. EV charging available via Juicer. Loyalty rewards program earns free parking.",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "5-8 minutes",
+      "address": "2217 S 170th St, SeaTac, WA 98188",
+      "phone": "206-244-5363",
+      "freeCancellation": true,
+      "notes": "38+ years in business. EV charging available. Rewards program for frequent parkers. Largest shuttle fleet at SEA."
+    },
+    {
+      "name": "MasterPark Garage",
+      "slug": "masterpark-garage-sea",
+      "dailyRate": 17.99,
+      "reservationRate": 14.99,
+      "parkingType": "Covered garage, self-park and valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Valet Service", "24/7 Security", "EV Charging by Juicer", "Rewards Program"],
+      "shuttleInfo": "24/7 on-demand shuttle. Same bright yellow shuttle fleet as other MasterPark locations.",
+      "overview": "MasterPark's covered garage option with valet service available. Covered parking protects from Pacific Northwest rain. EV charging and rewards program included.",
+      "distanceFromAirport": "0.9 mi",
+      "driveTime": "4 minutes",
+      "address": "16826 International Blvd, SeaTac, WA 98188",
+      "phone": "206-244-5363",
+      "freeCancellation": true,
+      "notes": "Covered garage option from MasterPark. Valet available. Good for travelers concerned about Seattle rain."
+    },
+    {
+      "name": "Jiffy Airport Parking",
+      "slug": "jiffy-airport-parking-sea",
+      "dailyRate": 12.95,
+      "reservationRate": 10.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Well-Lit", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "24/7 shuttle service. Attendants pick you up at your car. ~6-minute ride to terminal.",
+      "overview": "Affordable long-term parking 1.5 miles from SEA. 24/7 shuttle with car-side pickup. Clean, secure, well-lit lot with fenced perimeter.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "6 minutes",
+      "address": "18836 International Blvd, SeaTac, WA 98188",
+      "freeCancellation": true,
+      "weeklyRate": 69.95,
+      "notes": "Good budget option with 24/7 shuttle and car-side pickup. Weekly rate ($69.95) is competitive for longer trips."
+    },
+    {
+      "name": "ShuttlePark2",
+      "slug": "shuttlepark2-sea",
+      "dailyRate": 12.95,
+      "reservationRate": 10.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Self-Park & Lock", "Open 365 Days"],
+      "shuttleInfo": "24/7 shuttle service. Shuttle picks up at your parking stall and drops off at 3rd floor of airport parking garage (Courtesy Vehicle area).",
+      "overview": "Self-park and lock lot 2 miles north of SEA. 24/7 shuttle drops you at the 3rd floor of the airport parking garage. Open 365 days a year.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "7-10 minutes",
+      "address": "3610 S 158th St, Tukwila, WA 98188",
+      "freeCancellation": true,
+      "weeklyRate": 80.00,
+      "notes": "Convenient self-park and lock — no waiting for valet. Pre-pay online for best rates. Shuttle drops at garage level for easy terminal access."
+    },
+    {
+      "name": "Ajax Parking R Us",
+      "slug": "ajax-parking-r-us-sea",
+      "dailyRate": 12.99,
+      "reservationRate": 9.99,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Gated Lot", "Well-Lit"],
+      "shuttleInfo": "Shuttle service to and from SEA terminal.",
+      "overview": "Budget-friendly off-site parking near SEA offering competitive daily rates and shuttle service to the terminal.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Competitive budget option. Online pre-booking recommended for best rates."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE rental car shuttle runs 24/7 from 1st floor of parking garage. Off-site: All major lots (Doug Fox, WallyPark, MasterPark, Jiffy, ShuttlePark2) include free 24/7 shuttle service with rides every 5-20 minutes. Most shuttles drop off/pick up at the 3rd floor of the parking garage (Courtesy Vehicle area). Doug Fox has the fastest shuttle (~3 minutes) as the closest lot.",
+  "distanceFromCity": "14 miles south of downtown Seattle. 25-45 minutes by car depending on I-5 traffic. ~38 minutes by Link Light Rail ($3.00). Seattle's primary commercial airport and the largest in the Pacific Northwest.",
+  "keyDistances": {
+    "toDowntownSeattle": "14 miles, 25-45 min by car, 38 min by Link Light Rail ($3.00), $30-50 rideshare",
+    "toCapitolHill": "15 miles, 25-45 min by car, 42 min by Light Rail, $30-50 rideshare",
+    "toUniversityDistrict": "18 miles, 30-50 min by car, 47 min by Light Rail, $35-55 rideshare",
+    "toBellevue": "20 miles, 30-50 min by car (I-405), $40-60 rideshare",
+    "toRedmond": "28 miles, 35-55 min by car (I-405), $55-75 rideshare",
+    "toTacoma": "25 miles, 25-40 min by car (I-5 south), $40-55 rideshare",
+    "toBurien": "3 miles, 5-10 min by car, $15-25 rideshare",
+    "toTukwila": "3 miles, 5-10 min by car, $15-25 rideshare",
+    "toRenton": "10 miles, 15-25 min by car, $30-40 rideshare",
+    "toKent": "12 miles, 15-25 min by car, $30-40 rideshare",
+    "toFederalWay": "15 miles, 20-30 min by car, $35-45 rideshare",
+    "toOlympia": "60 miles, 60-80 min by car (I-5 south)",
+    "toBellingham": "90 miles, 90-120 min by car (I-5 north), Bellair Airporter shuttle available",
+    "toCruiseTerminalPier91": "16 miles, 25-40 min by car to downtown Seattle cruise terminal",
+    "competitiveAdvantage": "SEA's Link Light Rail provides cheap ($3.00) direct transit to downtown Seattle in ~38 minutes, avoiding notoriously bad I-5 traffic. During rush hour, the train is often faster than driving. For Eastside destinations (Bellevue, Redmond, Kirkland), rideshare or rental car is the only practical option until East Link opens."
+  },
+  "construction2026": {
+    "status": "Massive Sustainable Airport Master Plan (SAMP) underway — FAA issued FONSI/ROD approval September 2025 for near-term projects.",
+    "projects": [
+      "C Concourse Expansion ($260M, Turner Construction) — 10+ new restaurants, new retail, artwork, and airside observation deck. Substantial completion Q2 2026.",
+      "SEA Gateway Project — Roadway and terminal frontage improvements. Completion 2026. Improved traffic flow for arrivals and departures.",
+      "New Second Terminal (19 gates) — FAA-approved. 575,000 sq ft, three-level terminal with skybridge and 1,350-space garage. Target capacity: 56M passengers by 2032.",
+      "Ground Transportation Center — New consolidated facility for buses, shuttles, and transit connections. Part of SAMP near-term projects.",
+      "Off-Site Cargo Facilities — Modernized cargo operations to replace aging facilities.",
+      "Airfield Taxiway Extensions — Safety and efficiency improvements to taxiway system.",
+      "Fuel Facility Expansion — Upgraded fuel storage and distribution infrastructure.",
+      "Delta Sky Club Concourse A — New second Sky Club location opened 2025 as part of Concourse A expansion."
+    ],
+    "travelImpact": "C Concourse expansion and roadway improvements targeting completion ahead of 2026 FIFA World Cup matches in Seattle. Some construction zones may cause temporary detours. Parking garage remains fully operational.",
+    "timeline": {
+      "cConcourseExpansion": "Q2 2026 completion",
+      "seaGatewayProject": "2026 completion",
+      "secondTerminal": "Under construction by 2032",
+      "groundTransportationCenter": "Part of SAMP near-term projects",
+      "fullSAMPBuildOut": "Projects through 2032"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Main Terminal (all checkpoints)"],
+      "note": "TSA PreCheck available at all central terminal security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Main Terminal"],
+      "note": "CLEAR available at the main security checkpoint"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in the international arrivals area. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure banks), 12:00-2:00 PM, 4:00-6:00 PM",
+      "tips": "SEA has centralized security checkpoints between check-in and the concourses. Once through security, you can access all concourses (A, B, C, D) airside. North and South Satellites require underground train after security."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, and summer weekends"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "Delta Sky Club (Concourse A)",
+        "location": "Concourse A",
+        "hours": "4:30 AM - 11:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, Pacific Northwest-inspired food, shower facilities, WiFi, workspaces. Newest Sky Club at SEA, opened 2025."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Concourse B, opposite Gate B3",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders",
+        "amenities": "Premium food, cocktails by local mixologist, full bar, WiFi, shower suites, workspaces, phone rooms. Pacific Northwest-themed design."
+      }
+    ],
+    "concourseC": [
+      {
+        "name": "Alaska Lounge (Concourse C)",
+        "location": "Concourse C",
+        "hours": "4:30 AM - 11:30 PM daily",
+        "access": "Alaska Lounge membership, Alaska Airlines First Class, MVP Gold 75K, Oneworld Emerald/Sapphire, day pass purchase",
+        "amenities": "Pacific Northwest food and drinks, Alaskan beer and wine, WiFi, workspaces, views of the airfield."
+      }
+    ],
+    "concourseD": [
+      {
+        "name": "Alaska Lounge (Concourse D)",
+        "location": "Concourse D, near Gate D1",
+        "hours": "4:30 AM - 11:30 PM daily",
+        "access": "Alaska Lounge membership, Alaska Airlines First Class, MVP Gold 75K, Oneworld Emerald/Sapphire, day pass purchase",
+        "amenities": "Pacific Northwest food and drinks, Alaskan beer and wine, WiFi, workspaces."
+      }
+    ],
+    "northSatellite": [
+      {
+        "name": "Alaska Lounge (North Satellite)",
+        "location": "North Satellite Terminal",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Alaska Lounge membership, Alaska Airlines First Class, MVP Gold 75K, Oneworld Emerald/Sapphire, day pass purchase",
+        "amenities": "Pacific Northwest food and drinks, Alaskan beer and wine, WiFi, workspaces. Quieter lounge option compared to main terminal locations."
+      }
+    ],
+    "southSatellite": [
+      {
+        "name": "Delta Sky Club (South Satellite)",
+        "location": "South Satellite, near Gate S8",
+        "hours": "5:00 AM - 10:45 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, shower facilities, WiFi, workspaces, runway views."
+      }
+    ],
+    "other": [
+      {
+        "name": "The Club at SEA",
+        "location": "Concourse A, near Gate A11",
+        "access": "Priority Pass, day pass purchase ($50)",
+        "amenities": "Food, drinks, WiFi, workspaces. Third-party lounge accessible to Priority Pass members."
+      },
+      {
+        "name": "USO Center",
+        "location": "Main Terminal, near baggage claim",
+        "access": "Active-duty military, reservists, and families. FREE.",
+        "amenities": "Refreshments, charging stations, WiFi, TV, rest area."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "SEA Free WiFi",
+    "cost": "Free",
+    "coverage": "All concourses, satellites, and terminal areas"
+  },
+  "evCharging": {
+    "mainGarage": {
+      "chargers": 48,
+      "location": "Multiple floors of the main parking garage",
+      "type": "ChargePoint Level 2",
+      "cost": "FREE (included with paid parking)"
+    },
+    "totalPorts": "48 EV charging stations",
+    "note": "SEA leads all North American airports in free EV charging. All 48 ChargePoint Level 2 stations are free for garage parkers — included in the daily parking rate. First-come, first-served basis."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at SEA Airport.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Seattle, Pioneer Square, Capitol Hill" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Seattle locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Seattle, Pike Place area" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Multiple pet relief areas available inside and outside the terminal",
+    "locations": ["Pre-security: outside the terminal near arrivals curb", "Post-security: indoor pet relief areas in Concourse A, Concourse B, and Concourse D areas"],
+    "note": "SEA has both indoor and outdoor pet relief areas. Check airport maps or information desks for current locations. Service animals welcome throughout the terminal."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure banks)", "12:00-2:00 PM", "4:00-7:00 PM (evening departures + I-5 rush hour)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "June through September is peak season (Pacific Northwest summer tourism + cruise season at Port of Seattle). Thanksgiving week, Christmas/New Year, and spring break (March-April) also create significant spikes. Summer weekends and Friday afternoons are the busiest times at SEA.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak season and holidays"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Oceanic/marine climate. Mild year-round but famously overcast and rainy October through April. Dry, pleasant summers June-September.",
+    "commonDisruptions": "Fog is the primary weather disruption, especially in fall and winter. Heavy rain can cause minor delays. Snow and ice are rare but can significantly disrupt operations (happens ~1-2 times per winter). Pacific storm systems can bring high winds November-March.",
+    "bestMonths": "June through September — dry, sunny, 70-80F. Best weather for travel and least disruptions.",
+    "worstMonths": "November through January — shortest days, most rain, occasional fog delays, rare snow/ice events",
+    "fogNote": "Tule fog events can reduce visibility and cause ground stops, especially in late fall and early winter. Morning fog typically burns off by late morning.",
+    "snowNote": "Snow is rare at SEA (averages ~5 inches per year) but when it happens, the region is not well-equipped for de-icing, leading to significant delays and cancellations. 2-3 day disruptions possible during rare snow events.",
+    "note": "SEA's mild maritime climate means weather disruptions are less frequent than most major airports. The biggest risk is fall/winter fog and the rare snow event. Summer is nearly ideal for air travel."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near SEA. Hotels along International Boulevard and in Tukwila/SeaTac offer park-sleep-fly packages with up to 21 days of parking included.",
+    "priceRange": "From ~$119/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Residence Inn by Marriott Seattle Sea-Tac Airport",
+        "distance": "2.4 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 on-demand",
+        "highlight": "Marriott property with suites. Kitchen in every room. 24/7 shuttle."
+      },
+      {
+        "name": "Country Inn & Suites by Radisson Seattle-Tacoma",
+        "distance": "2.1 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 on-demand",
+        "highlight": "Free breakfast included with stay. Good value park-and-fly option."
+      },
+      {
+        "name": "Hampton Inn & Suites Seattle-Airport 28th Ave",
+        "distance": "2.1 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 on-demand",
+        "highlight": "Hampton by Hilton quality. Free hot breakfast. Reliable shuttle service."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "parksleepflyhotels.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "generalParking": { "parkingCost": "$224 (7 x $32)", "totalEstimate": "$224" },
+      "reservedParking": { "parkingCost": "$273 (7 x $39)", "totalEstimate": "$273" }
+    },
+    "offSiteWithShuttle": {
+      "dougFoxParking": { "parkingCost": "$83.65 (7 x $11.95 pre-booked)", "savingsVsGarage": "~$140 saved", "caveat": "24/7 shuttle, closest lot" },
+      "wallyParkOutdoor": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$154 saved", "caveat": "Shuttle every 15-20 min, WiFi + coffee" },
+      "masterParkLotA": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$154 saved", "caveat": "24/7 shuttle, EV charging, rewards" },
+      "jiffyParking": { "parkingCost": "$69.95 (weekly rate)", "savingsVsGarage": "~$154 saved", "caveat": "24/7 shuttle, car-side pickup" }
+    },
+    "publicTransit": {
+      "lightRailRoundTrip": { "costPerPersonRoundTrip": "$6.00", "travelTime": "38 min to downtown Seattle", "note": "$3.00 per ride. Cheapest option for downtown-bound travelers. Often faster than driving during rush hour." },
+      "rideshareRoundTrip": { "costForCouple": "$60-$100 (UberX downtown round trip)", "note": "Cheaper than 7 days of parking but expensive for a couple compared to off-site lots" }
+    },
+    "keyDifference": "SEA's on-airport parking ($32-39/day) is expensive, but off-site lots offer excellent value at $9.95-14.95/day with free shuttle. Pre-booking online saves 20-30% at most lots. Link Light Rail at $3.00 is unbeatable for downtown Seattle travelers — often faster than driving during I-5 rush hour. Off-site lots save $100-150+ on a 7-day trip vs. the airport garage."
+  },
+  "uniqueFeatures": {
+    "alaskaAirlinesHub": "SEA is the primary hub for Alaska Airlines, the dominant carrier in the Pacific Northwest. Alaska operates more flights from SEA than any other airline, with connectivity across the West Coast, Hawaii, Mexico, and select international destinations.",
+    "deltaInternationalGateway": "Delta Air Lines has rapidly expanded SEA into a major international gateway, particularly for Asia-Pacific routes. Delta operates nonstop flights to Tokyo, Seoul, Shanghai, Osaka, and other Asian destinations from SEA.",
+    "largestParkingGarageInNorthAmerica": "SEA's single parking structure with 13,000+ spaces is the largest parking garage under one roof in North America.",
+    "freeEVCharging": "SEA leads all North American airports in free EV charging with 48 ChargePoint stations — free for anyone parking in the garage.",
+    "linkLightRailAccess": "One of the best airport rail connections in the western U.S. Link Light Rail provides direct, affordable ($3.00) service to downtown Seattle, Capitol Hill, University of Washington, and Northgate every 8-15 minutes.",
+    "pacificNorthwestGateway": "SEA is the primary gateway to the Pacific Northwest, serving as the closest major airport to Mount Rainier, Olympic National Park, San Juan Islands, and the Cascade Range. Also the primary airport for Alaska cruise departures from Port of Seattle.",
+    "cruisePortProximity": "Port of Seattle cruise terminal (Pier 91) is 16 miles from SEA — the departure point for Alaska cruises on major lines. Over 1 million cruise passengers annually. Link Light Rail + taxi/rideshare from International District is the most affordable route.",
+    "techHubAccess": "SEA serves the Seattle-Tacoma tech corridor — headquarters of Amazon, Microsoft, Boeing, Starbucks, and Costco are all within 30 miles of the airport.",
+    "thirdRunwayHistory": "SEA's third runway (16R/34L) opened in 2008 after decades of environmental review and community opposition, making it one of the most controversial runway projects in U.S. aviation history.",
+    "sustainabilityLeadership": "The Port of Seattle has committed to net-zero carbon emissions by 2050. SEA was the first airport to offer free EV charging and requires rideshare services to meet environmental performance standards."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(206) 787-5388",
+    "airportWebsite": "flysea.org",
+    "portOfSeattleWebsite": "portseattle.org",
+    "parkingInfo": "portseattle.org/sea-tac/parking",
+    "groundTransportation": "(206) 787-5906",
+    "tsa": "(866) 289-9673",
+    "soundTransit": "(888) 889-6368",
+    "soundTransitWebsite": "soundtransit.org",
+    "airportPolice": "(206) 787-5401"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.flysea.org/",
+      "portOfSeattle": "https://www.portseattle.org/sea-tac",
+      "parking": "https://www.portseattle.org/sea-tac/parking",
+      "parkingRates": "https://www.portseattle.org/sea-tac/parking/parking-information",
+      "groundTransportation": "https://www.portseattle.org/sea-tac/ground-transportation",
+      "lightRail": "https://www.portseattle.org/page/public-transit-link-light-rail",
+      "rentalCars": "https://www.flysea.org/sea-tac/ground-transportation/rental-car",
+      "rideshare": "https://www.portseattle.org/sea-tac/ground-transportation/app-based-rideshare",
+      "taxis": "https://www.portseattle.org/sea-tac/ground-transportation/taxis",
+      "lounges": "https://www.portseattle.org/services-amenities/airport-lounges",
+      "upgradeSEA": "https://www.portseattle.org/UpgradeSEA",
+      "samp": "https://www.portseattle.org/plans/sustainable-airport-master-plan-samp",
+      "airportStatistics": "https://www.portseattle.org/page/airport-statistics"
+    },
+    "transit": {
+      "soundTransit": "https://www.soundtransit.org/",
+      "seaTacStation": "https://www.soundtransit.org/ride-with-us/popular-destinations/sea-tac-airport",
+      "kingCountyMetro": "https://kingcounty.gov/en/dept/metro",
+      "bellairAirporter": "https://www.airporter.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/sea/",
+      "lyft": "https://www.lyft.com/rider/airports/sea"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SEA",
+      "airportParkingReservations": "https://airportparkingreservations.com/sea/airport-parking",
+      "way": "https://www.way.com/seatac",
+      "spothero": "https://spothero.com/airport/seattle/sea-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/sea",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/seattle-tacoma-international-airport-sea",
+      "parkon": "https://www.parkon.com/sea"
+    },
+    "offSiteLots": {
+      "dougFox": "https://dougfoxparking.com/",
+      "wallyPark": "https://www.wallypark.com/seattle-airport-parking/",
+      "masterPark": "https://www.masterparking.com/",
+      "jiffy": "https://www.jiffyseattle.com/",
+      "shuttlePark2": "https://www.shuttlepark2.com/",
+      "ajax": "https://ajaxparkingrus.com/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearSEA": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/seattle-tacoma-sea-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/SEA/",
+      "alaskaLounge": "https://www.alaskaair.com/content/airport-lounge"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KSEA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SEA",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=sea"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/sea/airport-parking",
+      "parkSleepHotels": "https://sea.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/park-fly-hotels-seattle-seatac-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/seattle-tacoma-sea-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Seattle%E2%80%93Tacoma_International_Airport",
+      "ifly": "https://www.ifly.com/airports/seattle-tacoma-international-airport"
+    },
+    "newsAndMedia": {
+      "seattleTimes": "https://www.seattletimes.com/",
+      "fox13Seattle": "https://www.fox13seattle.com/",
+      "king5": "https://www.king5.com/"
+    }
+  }
+}

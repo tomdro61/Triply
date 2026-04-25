@@ -1,0 +1,607 @@
+{
+  "code": "TPA",
+  "fullName": "Tampa International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Hillsborough County, Florida — 6 miles west of downtown Tampa",
+    "iataCode": "TPA",
+    "icaoCode": "KTPA",
+    "faaLid": "TPA",
+    "elevation": "26 feet above mean sea level",
+    "acreage": 3300,
+    "coordinates": "27.9756N, 82.5333W",
+    "passengerVolume": "24.5 million passengers in 2025",
+    "aircraftOperations": "215,000+ annually (2025)",
+    "distinction": "Consistently ranked the #1 large airport in the U.S. for customer satisfaction. Won the J.D. Power #1 Large Airport in North America award back-to-back (2022-2023), ranked #2 in 2024-2025. Three-time consecutive winner of the Airports Council International Airport Service Quality (ASQ) Award for best airport in North America (15-25 million passengers). Condé Nast Traveler named TPA the #2 airport in the world in 2008. Pioneered the landside/airside terminal design — a central main terminal connected to satellite airside concourses via automated people movers (APMs). This revolutionary layout, opened in 1971, became a model for airports worldwide.",
+    "operator": "Hillsborough County Aviation Authority (HCAA)",
+    "owner": "Hillsborough County",
+    "activeTerminals": 1,
+    "totalConcourses": 4,
+    "totalGates": 59,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "10/28", "length": "6,999 ft (2,133 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "19L/1R", "length": "8,300 ft (2,530 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "19R/1L", "length": "11,002 ft (3,353 m)", "surface": "Concrete", "note": "Primary runway for large aircraft and international operations" }
+    ],
+    "dominantAirline": "Southwest Airlines (largest carrier by departures — operates from Airside C)",
+    "totalAirlines": "25+ airlines",
+    "nonstopDestinations": "95+ destinations (domestic and international)",
+    "founded": "1971 (current terminal opened — replaced Drew Field, active since 1928)",
+    "hubCarriers": ["Southwest Airlines (focus city)", "Breeze Airways (focus city)", "Spirit Airlines (focus city)", "JetBlue Airways (focus city)"],
+    "slotControlled": false,
+    "landsideAirsideDesign": "TPA pioneered the landside/airside terminal concept — one central Main Terminal building handles ticketing, baggage claim, and ground transportation, while four separate airside satellite buildings house the gates. Automated People Movers (APMs/shuttles) connect the Main Terminal to each Airside in under 2 minutes. This design minimizes walking distances and keeps security screening at airside entrances rather than at a central checkpoint.",
+    "internationalNote": "TPA handles international flights primarily through Airside F (current) with U.S. Customs and Border Protection on the lower level. The new Airside D (opening late 2028) will become the primary international arrivals and departures facility with 16 gates and a modern CBP facility."
+  },
+  "terminals": [
+    {
+      "name": "Airside A",
+      "status": "Active — 16 gates (Gates 1, 3-12, 14-18). Located in the southeast corner of the airport.",
+      "airlines": ["JetBlue Airways", "Spirit Airlines", "United Airlines"],
+      "gates": "1, 3-12, 14-18",
+      "notes": "Home to JetBlue, Spirit, and United operations. TSA PreCheck and CLEAR lanes available at the Airside A security checkpoint. Connected to Main Terminal via automated people mover (APM)."
+    },
+    {
+      "name": "Airside C",
+      "status": "Active — 16 gates (Gates 30-45). Located in the northeast corner of the airport.",
+      "airlines": ["Alaska Airlines", "Avelo Airlines", "Breeze Airways", "Southwest Airlines", "Sun Country Airlines"],
+      "gates": "30-45",
+      "notes": "Southwest Airlines' primary airside — the airline's largest presence at TPA. Also serves low-cost and ultra-low-cost carriers. TSA PreCheck and CLEAR lanes available."
+    },
+    {
+      "name": "Airside E",
+      "status": "Active — 13 gates (Gates 62, 64-75). Located in the northwest corner of the airport. Roof replacement underway (original 2002 roof being replaced in phases).",
+      "airlines": ["Air Canada", "Delta Air Lines", "Frontier Airlines"],
+      "gates": "62, 64-75",
+      "notes": "Delta Air Lines' current airside at TPA. Delta Sky Club lounge located here. Delta will relocate to the new Airside D when it opens in late 2028, becoming the anchor tenant. TSA PreCheck and CLEAR lanes available. Airside E roof replacement project underway."
+    },
+    {
+      "name": "Airside F",
+      "status": "Active — 13 gates (Gates 78-90). Located in the southwest corner of the airport. Primary international terminal with U.S. Customs and Border Protection on the lower level.",
+      "airlines": ["Aeromexico", "American Airlines", "Avianca", "British Airways", "Cayman Airways", "Copa Airlines", "Discover Airlines", "Edelweiss Air", "Havana Air", "Porter Airlines", "Virgin Atlantic", "WestJet"],
+      "gates": "78-90",
+      "notes": "TPA's international hub — home to American Airlines, British Airways, and all Latin American/Caribbean carriers. U.S. Customs and Immigration on the lower level processes all international arrivals. Federal Inspection Station (FIS) facility. TSA PreCheck available."
+    }
+  ],
+  "roads": ["Interstate 275", "SR-60 (Memorial Highway / Courtney Campbell Causeway to Clearwater)", "SR-589 (Veterans Expressway, toll)", "SR-616 (Boy Scout Blvd)", "Spruce Street", "West Shore Blvd", "Dale Mabry Highway", "Interstate 4 (via I-275)"],
+  "transit": ["Hillsborough Area Regional Transit (HART) Route 30 bus to downtown Tampa", "Pinellas Suncoast Transit Authority (PSTA) Route 300X express to St. Petersburg/Clearwater (weekdays)", "SkyConnect Automated People Mover (free, connects Main Terminal to Economy Parking and Rental Car Center)", "No rail service to the airport — bus and rideshare are primary public transit options"],
+  "neighborhoods": ["Westshore", "Downtown Tampa", "Ybor City", "Channelside", "SoHo (South Howard)", "Hyde Park", "Davis Islands", "Harbour Island", "Clearwater", "St. Petersburg", "Clearwater Beach", "St. Pete Beach", "Dunedin", "Safety Harbor", "Brandon", "Temple Terrace", "Riverview"],
+  "authority": "Hillsborough County Aviation Authority (HCAA)",
+  "groundTransportation": {
+    "skyConnect": {
+      "description": "Free 1.5-mile automated people mover connecting the Main Terminal (Levels 1-3) to the Economy Parking Garage and the Rental Car Center",
+      "fare": "FREE",
+      "frequency": "Every 2 minutes",
+      "travelTime": "Under 5 minutes end-to-end",
+      "hours": "24/7",
+      "note": "The SkyConnect APM is the link to rental cars, Economy Parking, and HART/PSTA bus stops. Board from Levels 1-3 of the Main Terminal. Follow signs to 'SkyConnect / Rental Cars / Economy Parking'."
+    },
+    "taxi": {
+      "fareType": "METERED with flat rate zones",
+      "pickup": "Curbside outside Baggage Claim Level at Ground Transportation Areas (Red 1 and Blue 2)",
+      "provider": "Yellow Cab",
+      "baseFare": "$3.50 first 1/5 mile",
+      "perMile": "$2.50 per mile",
+      "minimumFare": "$20.00",
+      "flatRates": {
+        "toDowntownTampa": "$35 flat rate",
+        "toCruiseTerminal": "$35 flat rate (Port Tampa Bay)"
+      },
+      "estimatedMeteredFares": {
+        "toDowntownTampa": "$25-$35",
+        "toYborCity": "$30-$40",
+        "toWestshore": "$15-$20",
+        "toClearwaterBeach": "$55-$75",
+        "toStPetersburg": "$50-$65",
+        "toStPeteBeach": "$60-$80",
+        "toBuschGardens": "$30-$40",
+        "toBrandon": "$40-$55",
+        "toDisneyWorldOrlando": "$150-$200"
+      },
+      "note": "Flat rate zones to downtown Tampa and cruise terminal ($35) are the best value. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "Wridz"],
+      "pickupLocation": "Red Express Curbside, Blue Express Curbside, or SkyCenter One office building remote curbside (2nd level of Main Terminal)",
+      "airportFee": "$5.00 pickup fee charged by TPA",
+      "minimumFare": {
+        "uber": "$7.96",
+        "lyft": "$5.23"
+      },
+      "estimatedFares": {
+        "uberXToDowntownTampa": "$15-$25",
+        "uberXToYborCity": "$18-$28",
+        "uberXToClearwaterBeach": "$30-$50",
+        "uberXToStPetersburg": "$30-$45",
+        "uberXToBuschGardens": "$18-$28",
+        "uberXToWestshore": "$8-$15",
+        "uberXToDisneyWorldOrlando": "$100-$140"
+      },
+      "surgePricing": "Standard surge pricing during Gasparilla, spring break, Super Bowl, Buccaneers/Lightning game days, and holiday weekends",
+      "note": "Rideshare is generally cheaper than taxi from TPA except to downtown where the $35 flat-rate taxi is competitive. For Clearwater Beach and St. Pete, rideshare is usually the best ground option."
+    },
+    "rentalCars": {
+      "location": "TPA Rental Car Center — accessible via free SkyConnect people mover from Main Terminal",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "offAirportCompanies": "Off-airport rental companies offer courtesy vehicles from the Remote Curbside at the Rental Car Center",
+      "note": "All major rental car companies consolidated at the Rental Car Center. Take the SkyConnect from Main Terminal Levels 1-3. HART and PSTA bus stops are located at the Rental Car Center."
+    },
+    "publicTransit": {
+      "hart": {
+        "route": "Route 30",
+        "destination": "Downtown Tampa (Marion Transit Center)",
+        "fare": "$2.00 one-way",
+        "frequency": "Every 30 minutes (weekdays), hourly (weekends)",
+        "pickup": "Rental Car Center (take SkyConnect from Main Terminal)",
+        "note": "HART Route 30 is the only direct bus to downtown Tampa. Inexpensive but slow — allow 30-40 minutes to downtown."
+      },
+      "psta": {
+        "route": "Route 300X (express)",
+        "destination": "St. Petersburg, Clearwater",
+        "fare": "$2.25 one-way",
+        "frequency": "Limited weekday service only",
+        "pickup": "Rental Car Center (take SkyConnect from Main Terminal)",
+        "note": "PSTA 300X express provides weekday-only service to Pinellas County (St. Pete/Clearwater). No weekend/holiday service — use rideshare instead."
+      },
+      "noRail": "Tampa has no rail or light rail service to the airport. The Tampa Bay area lacks a metro rail system. Brightline high-speed rail has proposed a Tampa extension but it is not yet funded or under construction."
+    },
+    "hotelShuttles": "Many Westshore-area hotels offer complimentary airport shuttles — check with your hotel before booking. Hotels along Westshore Blvd, Boy Scout Blvd, and Cypress Street are closest to TPA."
+  },
+  "parkingRates": "On-airport: Short-Term Garage $24/day (1st hr free), Long-Term Garage $20/day ($18 online), Economy Garage $12/day ($10 online), Valet $32/day. Off-site: from ~$4.99/day with shuttle. Pre-booking at park.tampaairport.com for discounted rates and guaranteed space.",
+  "onAirportParking": {
+    "shortTermGarage": {
+      "name": "Short-Term Parking Garage",
+      "rate": "First hour FREE. $4 for 60-80 minutes, $2 each additional 20 minutes.",
+      "dailyMax": 24,
+      "location": "Levels 4-9 directly above the Main Terminal",
+      "serves": "All airsides — direct elevator/escalator access to Main Terminal ticketing and baggage claim",
+      "features": "Most convenient option — located directly above the terminal. Best for pickups, drop-offs, and short trips (1-2 days). First hour free makes it ideal for meeters/greeters. EV Level 2 charging stations available.",
+      "preBookingUrl": "https://park.tampaairport.com/"
+    },
+    "longTermGarage": {
+      "name": "Long-Term Parking Garage",
+      "rate": "First hour FREE. $4 for 60-80 minutes, $2 each additional 20 minutes.",
+      "dailyMax": 20,
+      "onlineRate": 18,
+      "location": "Adjacent to the Main Terminal",
+      "serves": "All airsides — connected to Main Terminal via covered walkway",
+      "features": "Best value on-airport garage for multi-day trips. Save $2/day by booking online. Covered parking protects from Florida sun and rain. EV Level 1 charging stations available.",
+      "preBookingUrl": "https://park.tampaairport.com/"
+    },
+    "economyGarage": {
+      "name": "Economy Parking Garage",
+      "rate": "$12/day (gate rate). $10/day when pre-booked online.",
+      "dailyMax": 12,
+      "onlineRate": 10,
+      "capacity": 11000,
+      "connection": "FREE SkyConnect automated people mover to Main Terminal (every 2 minutes, under 5-minute ride)",
+      "features": "Best budget on-airport option with 11,000 spaces. Connected via SkyConnect APM — no outdoor shuttle needed. Covered garage protects vehicles from weather. EV Level 1 charging stations available. Rarely fills up due to massive capacity.",
+      "note": "The Economy Garage is the most popular on-airport option for multi-day parkers. At $10/day pre-booked, it's competitive with off-site lots — and you get covered garage parking plus the SkyConnect people mover (no shuttle bus).",
+      "preBookingUrl": "https://park.tampaairport.com/"
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$32/day",
+      "weeklyRate": "$224/week",
+      "location": "Main Terminal departures level",
+      "features": "Premium drop-off at the terminal door. Vehicle stored in covered garage. Convenient for business travelers and families."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "South of Main Terminal, adjacent to SkyCenter One office building near the U.S. Post Office",
+      "cost": "FREE",
+      "driveToTerminal": "5 minutes to Main Terminal curbside",
+      "amenities": ["Free WiFi", "Restrooms", "Vending machines", "Live arrivals/departures board", "EV Level 2 charging stations", "Pet relief area"],
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Follow live arrivals board and drive to terminal when passenger has landed and collected baggage."
+    },
+    "evCharging": {
+      "locations": [
+        "Short-Term Parking Garage (Level 2 chargers)",
+        "Long-Term Parking Garage (Level 1 chargers)",
+        "Economy Parking Garage (Level 1 chargers)",
+        "Cell Phone Waiting Lot (Level 2 chargers)"
+      ],
+      "totalPorts": "EV chargers available in all parking facilities",
+      "cost": "FREE — TPA provides complimentary EV charging in all airport parking garages and the Cell Phone Lot",
+      "note": "TPA is one of the few major U.S. airports offering FREE EV charging. Level 2 chargers in the Short-Term Garage and Cell Phone Lot charge faster than Level 1 chargers in Long-Term and Economy."
+    },
+    "accessibleParking": "Accessible parking available in all garages with designated spaces near elevators and terminal access points. ADA-compliant paths to all facilities.",
+    "totalCapacity": "~20,000 vehicles across Short-Term, Long-Term, Economy garages and Valet",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Online pre-booking available at park.tampaairport.com for discounted rates.",
+    "garageServiceAreas": "Short-Term → directly above Main Terminal (Levels 4-9). Long-Term → adjacent to Main Terminal via covered walkway. Economy → connected via SkyConnect APM. All garages serve all airsides since everything routes through the central Main Terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "Safeway Parking (TPA)",
+      "slug": "safeway-parking-tpa",
+      "dailyRate": 7.99,
+      "reservationRate": 4.99,
+      "parkingType": "Covered and uncovered options, self-park",
+      "amenities": ["24/7 Security", "Surveillance Cameras", "Covered Parking Available", "Fenced Lot"],
+      "shuttleInfo": "No shuttle service provided. Guests use rideshare ($5-8) or HART bus ($2) to reach the terminal.",
+      "overview": "Closest off-site lot to TPA at 1.5 miles. Covered parking option is rare among off-site lots. No shuttle — budget-conscious travelers use rideshare or public bus.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "WARNING: No shuttle service. You must arrange your own ride to the terminal. Covered parking available — unusual for off-site lots in Tampa. Best for travelers who can rideshare cheaply."
+    },
+    {
+      "name": "The Godfrey Hotel & Cabanas Tampa (TPA)",
+      "slug": "godfrey-hotel-tampa-tpa",
+      "dailyRate": 8.00,
+      "reservationRate": 6.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities Available", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary shuttle to/from airport, runs on schedule during operating hours",
+      "overview": "Hotel parking 2.5 miles from TPA with shuttle service. No hotel stay required for park-and-fly. Competitive rates at $6/day pre-booked.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Good value at $6/day with shuttle included. Confirm shuttle hours before booking for early morning or late night flights."
+    },
+    {
+      "name": "DoubleTree by Hilton Tampa Airport - Westshore (TPA)",
+      "slug": "doubletree-hilton-tampa-airport-westshore-tpa",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary 24-hour airport shuttle",
+      "overview": "Well-known hotel parking just minutes from TPA with 24/7 complimentary shuttle. No hotel stay required. One of the most reliable shuttle services near TPA.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "24/7 shuttle is a major advantage — works for any flight time. DoubleTree is a trusted brand with good security. Slightly pricier than budget lots but the 24/7 shuttle justifies it."
+    },
+    {
+      "name": "Hyatt Place Tampa Airport/Westshore (TPA)",
+      "slug": "hyatt-place-tampa-airport-westshore-tpa",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Free WiFi", "Handicap Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary shuttle — every 30 minutes from 4-8 AM, on-demand after 8 AM",
+      "overview": "Hotel parking less than 2 miles from TPA with complimentary shuttle. No hotel stay required for park-and-fly. Shuttle starts at 4 AM for early flights.",
+      "distanceFromAirport": "1.7 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Early 4 AM shuttle start covers most morning departures. On-demand shuttle after 8 AM is convenient. Confirm late-night pickup availability for red-eye arrivals."
+    },
+    {
+      "name": "Holiday Inn Tampa Westshore - Airport Area (TPA)",
+      "slug": "holiday-inn-tampa-westshore-tpa",
+      "dailyRate": 9.99,
+      "reservationRate": 6.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible", "Hotel Amenities", "Free WiFi"],
+      "shuttleInfo": "Complimentary airport shuttle during operating hours",
+      "overview": "Hotel parking near TPA with up to 21 days of free parking when pre-booked. Good for extended trips. Shuttle service included.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Up to 21 days of parking makes this ideal for extended vacations or cruises. Confirm shuttle hours — may not run 24/7."
+    },
+    {
+      "name": "Fairfield Inn & Suites Tampa Fairgrounds (TPA)",
+      "slug": "fairfield-inn-tampa-fairgrounds-tpa",
+      "dailyRate": 8.99,
+      "reservationRate": 5.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle", "Security Cameras", "Handicap Accessible", "Free Breakfast (hotel guests)"],
+      "shuttleInfo": "Shuttle service to/from airport during operating hours",
+      "overview": "Budget-friendly hotel parking option east of TPA. Up to 10 days free parking. Good rates at $5.99/day pre-booked.",
+      "distanceFromAirport": "4.5 mi",
+      "driveTime": "12-15 minutes",
+      "freeCancellation": true,
+      "notes": "Further from airport but cheaper. Up to 10 days of parking. Confirm shuttle schedule — may have limited hours."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE SkyConnect automated people mover connects Main Terminal to Economy Parking Garage and Rental Car Center — every 2 minutes, 24/7, under 5-minute ride. No shuttle buses needed for on-airport parking (Short-Term and Long-Term garages are walkable from terminal). Off-site: Most hotel lots include complimentary shuttle — frequency varies from 24/7 (DoubleTree) to scheduled hours. CRITICAL: Safeway Parking does NOT provide shuttle service — you must arrange your own transportation to the terminal. Always verify shuttle hours before booking off-site lots for early morning or late night flights.",
+  "distanceFromCity": "6 miles west of downtown Tampa. 15-25 minutes by car. 30-40 minutes by HART bus ($2.00). Tampa Bay area's primary commercial airport serving Tampa, St. Petersburg, Clearwater, and surrounding communities.",
+  "keyDistances": {
+    "toDowntownTampa": "6 miles, 15-25 min by car, $35 flat-rate taxi, $15-25 rideshare",
+    "toYborCity": "9 miles, 15-25 min by car, $18-28 rideshare",
+    "toWestshore": "2 miles, 5-10 min by car, $8-15 rideshare",
+    "toHydePark": "7 miles, 15-20 min by car, $15-22 rideshare",
+    "toClearwaterBeach": "22 miles, 30-45 min via Courtney Campbell Causeway, $30-50 rideshare",
+    "toStPetersburg": "25 miles, 30-45 min via I-275, $30-45 rideshare",
+    "toStPeteBeach": "30 miles, 35-50 min by car, $40-60 rideshare",
+    "toBuschGardens": "12 miles, 20-30 min by car, $18-28 rideshare",
+    "toPortTampaBay": "7 miles, 15-20 min by car, $35 flat-rate taxi (cruise terminal)",
+    "toBrandon": "18 miles, 25-35 min by car, $30-45 rideshare",
+    "toSarasota": "60 miles, 55-75 min by car via I-275 and I-75",
+    "toDisneyWorldOrlando": "85 miles, 75-90 min by car via I-4",
+    "toUniversalStudiosOrlando": "85 miles, 75-90 min by car via I-4",
+    "toOrlandoAirport": "80 miles, 70-90 min by car via I-4",
+    "competitiveAdvantage": "TPA is centrally located for the entire Tampa Bay metro (Tampa, St. Pete, Clearwater). The Courtney Campbell Causeway (SR-60) provides a direct scenic route to Clearwater Beach in 30-45 minutes. For downtown Tampa, the $35 flat-rate taxi is reliable. TPA's unique advantage is its compact, efficient terminal — even with parking, security, and walking, most travelers get from their car to the gate in 30-40 minutes."
+  },
+  "construction2026": {
+    "status": "Major $1.5 billion Airside D construction underway plus $285.7 million Main Terminal ticketing expansion approved.",
+    "projects": [
+      "Airside D ($1.528 billion) — 16-gate state-of-the-art international arrivals and departures facility. Broke ground December 2024. Design hit 100% completion February 2026. Full-scale construction underway. Delta Air Lines is anchor tenant. Will include new Delta Sky Club and second lounge space on mezzanine level, modern TSA checkpoint, new CBP facility, and concessions. Completion late 2028.",
+      "Main Terminal Ticketing Level Expansion ($285.7 million total) — $25.4 million initial contract awarded to Austin Commercial in April 2026. Designed to handle projected 38 million passengers. Part Two construction contract in 2027. Full completion Q4 2029.",
+      "Airside E Roof Replacement — Original 2002 metal roof and gutters being replaced in phases. Work underway through 2026.",
+      "Cell Phone Lot Upgrades — New EV charging stations, pet relief area, upgraded arrivals/departures information board."
+    ],
+    "travelImpact": "Airside D construction is on the airport's perimeter and does not affect current operations. Airside E roof work may cause minor detours within that airside. No parking closures expected in 2026. Main Terminal ticketing expansion will be phased to minimize disruption.",
+    "timeline": {
+      "airsideD": "Late 2028 completion",
+      "ticketingExpansion": "Q4 2029 completion",
+      "airsideERoof": "2026 (phased)",
+      "cellPhoneLot": "2026"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "locations": ["Airside A", "Airside C", "Airside E", "Airside F"],
+      "note": "TSA PreCheck available at all four airside security checkpoints. TPA's unique design means security is at the entrance to each airside, not in the Main Terminal."
+    },
+    "clear": {
+      "locations": ["Airside A", "Airside C", "Airside E"],
+      "hours": "4:00 AM - 8:00 PM daily",
+      "note": "CLEAR available at 3 of 4 airsides. Not available at Airside F (international terminal)."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Airside F international arrivals area. Mobile Passport Control (MPC) also available for eligible travelers."
+    },
+    "tsaEnrollmentCenter": {
+      "hours": "Monday-Friday 8:00 AM - 6:00 PM, Saturday 9:00 AM - 3:00 PM",
+      "note": "TSA PreCheck enrollment office located at the airport for in-person enrollment and renewal."
+    },
+    "standardWaitTimes": {
+      "average": "8-15 minutes (TPA is known for fast security)",
+      "peakHours": "5:00-8:00 AM (morning departures), 4:00-7:00 PM (evening departures)",
+      "tips": "TPA's landside/airside design distributes security screening across four separate checkpoints, reducing congestion. Security lines are typically shorter than comparable airports. Mid-morning (10-11 AM) and early afternoon (1-3 PM) have the shortest waits."
+    },
+    "arrivalRecommendation": {
+      "domestic": "90 minutes before departure (TPA is efficient — 2 hours if anxious)",
+      "international": "2.5-3 hours before departure",
+      "holidays": "2+ hours for Thanksgiving, Christmas, spring break, Gasparilla weekend"
+    }
+  },
+  "lounges": {
+    "airsideE": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Airside E, post-security",
+        "hours": "5:15 AM - 8:45 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus, Amex Platinum (with restrictions)",
+        "amenities": "Food, premium drinks, full bar, WiFi, workspaces. Smaller lounge — will be replaced by a larger Delta Sky Club in Airside D when it opens in late 2028."
+      }
+    ],
+    "airsideF": [
+      {
+        "name": "The Club TPA (Priority Pass)",
+        "location": "Airside F, post-security",
+        "access": "Priority Pass, LoungeKey, or paid walk-in ($45)",
+        "amenities": "Food, drinks, WiFi, workspaces. Open to all travelers regardless of airline."
+      }
+    ],
+    "planned": [
+      {
+        "name": "Delta Sky Club (Airside D)",
+        "location": "Airside D mezzanine level — opening late 2028",
+        "note": "New, larger Delta Sky Club will be one of two lounge spaces on the Airside D mezzanine. Will replace the current Airside E Delta Sky Club."
+      },
+      {
+        "name": "Second Lounge (Airside D)",
+        "location": "Airside D mezzanine level — opening late 2028",
+        "note": "Second lounge space on the Airside D mezzanine. Operator TBD."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "TPA Free WiFi",
+    "cost": "Free",
+    "coverage": "All areas of the Main Terminal, all airsides, and the Cell Phone Waiting Lot"
+  },
+  "evCharging": {
+    "shortTermGarage": {
+      "chargers": "Level 2 chargers",
+      "location": "Short-Term Parking Garage",
+      "cost": "FREE"
+    },
+    "longTermGarage": {
+      "chargers": "Level 1 chargers (110V equivalent)",
+      "location": "Long-Term Parking Garage",
+      "cost": "FREE"
+    },
+    "economyGarage": {
+      "chargers": "Level 1 chargers (110V equivalent)",
+      "location": "Economy Parking Garage",
+      "cost": "FREE"
+    },
+    "cellPhoneLot": {
+      "chargers": "Level 2 chargers",
+      "location": "Cell Phone Waiting Lot",
+      "cost": "FREE"
+    },
+    "totalPorts": "EV chargers in all parking facilities",
+    "note": "TPA offers FREE EV charging at all parking locations — a rarity among major U.S. airports. Level 2 chargers (Short-Term Garage and Cell Phone Lot) charge significantly faster than Level 1 (Long-Term and Economy). Plan accordingly for multi-day trips."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at TPA. Smarte Carte luggage carts available ($6 rental) in Short-Term, Long-Term, and Economy garages and Main Terminal.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Tampa, Ybor City" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Tampa locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Tampa, Channelside" }
+    ]
+  },
+  "petFacilities": {
+    "preSecurity": "Pet relief areas located outside the Main Terminal building on the Baggage Claim Level — grassy areas across the vehicle drives on both the Red and Blue sides",
+    "postSecurity": "Service animal relief areas available inside each of the four Airsides (A, C, E, F) after passing through security",
+    "note": "TPA provides pet relief areas both before and after security — a traveler-friendly feature. Post-security relief areas are available in all four airsides."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departures)", "11:00 AM-1:00 PM", "4:00-7:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "January-April is peak season (snowbird season + spring break + Gasparilla Pirate Festival in late January). Thanksgiving week and Christmas/New Year are the busiest single periods. Summer (June-August) sees steady leisure travel. Cruise ship sailings from Port Tampa Bay create Friday/Saturday spikes.",
+    "arrivalRecommendation": {
+      "domestic": "90 minutes before departure",
+      "international": "2.5-3 hours before departure",
+      "holidays": "2+ hours during peak season"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot, humid summers. Mild, dry winters. Wet season June-September. Hurricane season June-November.",
+    "commonDisruptions": "Hurricane season (June-November) is the primary disruption risk — Tampa Bay is one of the most hurricane-vulnerable metro areas in the U.S. due to its shallow bay geography. Afternoon thunderstorms are nearly daily June-September and can cause ground stops and 1-2 hour delays.",
+    "bestMonths": "October through April — dry season, comfortable temperatures (60s-80s°F), peak tourist season but efficient airport handles volume well",
+    "worstMonths": "August-October (peak hurricane risk + extreme humidity + daily thunderstorms + tropical storm season)",
+    "hurricaneNote": "Tampa Bay is considered one of the most hurricane-vulnerable metros in the U.S. — the shallow bay can amplify storm surge. Category 3+ hurricanes could shut TPA down for days. Hurricane Ian (2022) and Hurricane Helene/Milton (2024) caused multi-day closures. Travel insurance strongly recommended for June-November travel.",
+    "summerThunderstorms": "June-September: daily afternoon thunderstorms are nearly guaranteed in the Tampa Bay area. Typically 2-5 PM. Usually clear by evening. Can cause 1-2 hour delays but rarely last all day. Morning flights are most reliable.",
+    "note": "TPA's location on Tampa Bay makes it particularly vulnerable to tropical weather. Morning flights year-round avoid the worst afternoon thunderstorm delays. The airport has robust storm recovery procedures but cancellations are inevitable during named storms."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near TPA. Most hotels in the Westshore business district (1-3 miles from airport) offer park-sleep-fly packages with up to 7-21 days of free parking.",
+    "priceRange": "From ~$98/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "DoubleTree by Hilton Tampa Airport - Westshore",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 complimentary",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "24/7 shuttle. Trusted Hilton brand. Best overall park-sleep-fly value."
+      },
+      {
+        "name": "Hyatt Place Tampa Airport/Westshore",
+        "distance": "1.7 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Every 30 min (4-8 AM), on-demand after",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "Early 4 AM shuttle start. Free WiFi. Modern hotel."
+      },
+      {
+        "name": "Holiday Inn Tampa Westshore - Airport Area",
+        "distance": "2.2 miles",
+        "parkingIncluded": "Up to 21 days",
+        "shuttleHours": "Complimentary during operating hours",
+        "parkOnlyRate": "$6.99/day",
+        "highlight": "Up to 21 days of parking — best for extended trips and cruises."
+      },
+      {
+        "name": "Tampa Airport Marriott",
+        "distance": "0.5 miles (on airport property)",
+        "parkingIncluded": "Park Here, Fly There package available",
+        "shuttleHours": "Walking distance to Main Terminal",
+        "highlight": "Only hotel on airport property. Walk to terminal — no shuttle needed. Premium option."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "shortTermGarage": { "parkingCost": "$168 (7 x $24)", "totalEstimate": "$168" },
+      "longTermGarage": { "parkingCost": "$126 (7 x $18 online)", "totalEstimate": "$126" },
+      "economyGarage": { "parkingCost": "$70 (7 x $10 online)", "totalEstimate": "$70" },
+      "valetParking": { "parkingCost": "$224 (7 x $32)", "totalEstimate": "$224" }
+    },
+    "offSiteWithShuttle": {
+      "safewayParking": { "parkingCost": "$34.93 (7 x $4.99 pre-booked)", "savingsVsLongTerm": "~$91 saved", "caveat": "NO shuttle — must arrange own ride ($5-8 rideshare each way)" },
+      "godfreyHotel": { "parkingCost": "$42.00 (7 x $6.00 pre-booked)", "savingsVsLongTerm": "~$84 saved", "caveat": "Shuttle included, verify hours" },
+      "doubletreeWestshore": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsLongTerm": "~$70 saved", "caveat": "24/7 shuttle — most reliable" }
+    },
+    "publicTransit": {
+      "hartBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "30-40 min to downtown Tampa", "note": "$2.00 per ride. Cheapest option but slow and limited frequency." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than parking for trips of any length if coming from nearby Westshore/downtown" }
+    },
+    "keyDifference": "TPA's Economy Garage at $10/day (online) is the sweet spot — covered garage parking with a free SkyConnect people mover is hard to beat. Off-site lots save $3-5/day but add shuttle time and hassle. The Economy Garage's 11,000-space capacity means it rarely fills up. For budget travelers, Safeway at $4.99/day is the cheapest but requires arranging your own ride to the terminal."
+  },
+  "uniqueFeatures": {
+    "bestAirportInAmerica": "TPA is consistently ranked the #1 large airport in the U.S. for customer satisfaction — back-to-back J.D. Power #1 rankings (2022-2023), #2 in 2024-2025, and three consecutive ACI Airport Service Quality #1 awards. Condé Nast Traveler ranked TPA the #2 airport in the world. Travelers routinely cite TPA as the best airport experience in the United States.",
+    "landsideAirsideDesign": "TPA pioneered the revolutionary landside/airside terminal concept in 1971. One central Main Terminal handles all ground-level functions (ticketing, baggage, ground transport), while four separate airside satellites house the gates. Automated people movers connect them in under 2 minutes. This design minimizes walking distances, distributes security across four checkpoints (reducing lines), and became a model for airports worldwide including Orlando, Pittsburgh, and others.",
+    "skyConnectPeopleMover": "The SkyConnect is a 1.5-mile automated people mover connecting the Main Terminal to the 11,000-space Economy Garage and Rental Car Center. Trains run every 2 minutes, 24/7, and the full journey takes under 5 minutes. Unlike shuttle buses at other airports, the SkyConnect is weather-protected and runs on a fixed schedule.",
+    "freeEvCharging": "TPA offers FREE electric vehicle charging at all parking facilities — Short-Term, Long-Term, Economy garages, and the Cell Phone Lot. This is a rarity among major U.S. airports, most of which charge for EV power.",
+    "compactEfficiency": "Despite serving 24+ million passengers, TPA maintains remarkably short distances and transit times. Most travelers get from their car to their gate in 30-40 minutes — faster than airports half its size. The four-airside design means no long terminal walks.",
+    "cruisePortProximity": "Port Tampa Bay (Carnival, Royal Caribbean, Celebrity, Norwegian) is just 7 miles from TPA — $35 flat-rate taxi. TPA is the natural airport for Tampa Bay cruise passengers. Many park-sleep-fly hotels offer extended parking (up to 21 days) specifically for cruise travelers.",
+    "gateVisitorAccess": "Since November 2025, TPA allows non-ticketed visitors to pass through security and access the airside gate areas — one of very few U.S. airports to offer this post-9/11. Visitors can accompany passengers to the gate or explore airside dining and shopping.",
+    "tpaVsSrqVsPie": "TPA is the primary commercial airport for the Tampa Bay region (25+ airlines, 95+ destinations). St. Pete-Clearwater (PIE, 20 miles south) is an ultra-low-cost alternative (Allegiant, Sun Country). Sarasota-Bradenton (SRQ, 60 miles south) serves the Sarasota/Manatee market. For variety of airlines and destinations, TPA has no substitute in the Tampa Bay area."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(813) 870-8700",
+    "airportWebsite": "tampaairport.com",
+    "parkingInfo": "park.tampaairport.com",
+    "parkingPhone": "(813) 870-8700",
+    "tsa": "(866) 289-9673",
+    "hartTransit": "(813) 254-4278",
+    "hartWebsite": "gohart.org",
+    "pstaTransit": "(727) 540-1800",
+    "pstaWebsite": "psta.net",
+    "airportPolice": "(813) 870-8740"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.tampaairport.com/",
+      "parking": "https://www.tampaairport.com/parking",
+      "parkingReservations": "https://park.tampaairport.com/",
+      "groundTransportation": "https://www.tampaairport.com/ground-transportation",
+      "arrivingGuide": "https://www.tampaairport.com/arriving-passenger-guide",
+      "security": "https://www.tampaairport.com/guest-experience/security-information",
+      "greenParking": "https://www.tampaairport.com/parking/green-parking-options",
+      "airsideD": "https://www.tampaairport.com/business/airside-d",
+      "factsStatistics": "https://www.tampaairport.com/business/facts-statistics-financials",
+      "news": "https://news.tampaairport.com/"
+    },
+    "transit": {
+      "hart": "https://www.gohart.org/",
+      "psta": "https://www.psta.net/",
+      "skyConnect": "https://www.tampaairport.com/parking"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/tpa/",
+      "lyft": "https://www.lyft.com/rider/airports/tpa"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=TPA",
+      "airportParkingReservations": "https://airportparkingreservations.com/tpa/airport-parking",
+      "way": "https://www.way.com/tpa",
+      "spothero": "https://spothero.com/airport/tampa/tpa-parking",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/tampa-international-airport-tpa",
+      "parkingAccess": "https://parkingaccess.com/airports/tpa",
+      "globalAirportParking": "https://www.globalairportparking.com/tpa"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/TPA/Tampa-International",
+      "clearTPA": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/tampa-airport-tpa-lounges/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KTPA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/TPA",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=tpa"
+    },
+    "evCharging": {
+      "plugShare": "https://www.plugshare.com/location/69655",
+      "chargeHub": "https://chargehub.com/en/stations/fl/tampa/tampa-international-airport-economy-parking-lot.html"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/tpa/airport-hotels-with-parking",
+      "parkSleepHotels": "https://www.parksleephotels.com/Tampa-International-airport-hotels-with-parking-tpa.htm",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/tpa"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/tampa-international-tpa-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Tampa_International_Airport",
+      "ifly": "https://www.ifly.com/airports/tampa-international-airport"
+    },
+    "newsAndMedia": {
+      "tampaBayTimes": "https://www.tampabay.com/",
+      "bayNews9": "https://www.baynews9.com/",
+      "fox13Tampa": "https://www.fox13news.com/"
+    }
+  }
+}

@@ -1,0 +1,569 @@
+{
+  "code": "AUS",
+  "fullName": "Austin-Bergstrom International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Southeastern Austin, Texas — 5 miles southeast of downtown Austin, built on the former Bergstrom Air Force Base",
+    "iataCode": "AUS",
+    "icaoCode": "KAUS",
+    "faaLid": "AUS",
+    "elevation": "541 feet above mean sea level",
+    "acreage": 4242,
+    "coordinates": "30.1945N, 97.6699W",
+    "passengerVolume": "21.67 million passengers in 2025 (third-busiest year on record)",
+    "aircraftOperations": "204,000+ annually (2025)",
+    "cargoVolume": "Cargo operations handled by FedEx, UPS, and DHL — primarily domestic freight",
+    "distinction": "Built on the site of the former Bergstrom Air Force Base, which was decommissioned in 1993. Opened May 23, 1999, replacing Robert Mueller Municipal Airport. Named after Captain John August Earl Bergstrom, killed at Clark Field in the Philippines in 1941. One of the fastest-growing major airports in the United States — passenger volume grew from 9.4 million (2013) to a peak of 22.1 million (2023). Famous for live music performances inside the terminal, honoring Austin's title as 'The Live Music Capital of the World.' The airport set a single-day TSA screening record of 45,048 departing passengers in October 2025 during the Formula 1 United States Grand Prix weekend. Bergstrom AFB was one of three Cold War bunkers where the President could be evacuated in the event of a nuclear attack.",
+    "operator": "City of Austin Department of Aviation",
+    "owner": "City of Austin",
+    "activeTerminals": 1,
+    "totalConcourses": 1,
+    "totalGates": 34,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "17L/35R", "length": "12,250 ft (3,733 m)", "surface": "Concrete", "note": "Primary runway — one of the longest commercial runways in Texas" },
+      { "designation": "17R/35L", "length": "9,000 ft (2,743 m)", "surface": "Asphalt/Concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (largest carrier — operates ~40% of departures)",
+    "totalAirlines": "20+ airlines",
+    "nonstopDestinations": "75+ nonstop destinations domestically and internationally",
+    "founded": "May 23, 1999 (airport); September 19, 1942 (original Del Valle Airfield/Bergstrom AFB)",
+    "hubCarriers": ["Southwest Airlines (focus city)", "Delta Air Lines (focus city)", "American Airlines (focus city)", "United Airlines (focus city)", "Allegiant Air (focus city)", "Frontier Airlines (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "Capital Metro Route 20 bus service from lower level outside baggage claim — $1.75 fare to downtown Austin in ~35 minutes. No rail service directly to airport.",
+    "internationalNote": "AUS offers limited but growing international service to Mexico (Aeromexico, VivaAerobus), Canada (Air Canada, WestJet), the UK (British Airways seasonal to London Heathrow), Netherlands (KLM seasonal to Amsterdam), and Germany (Lufthansa seasonal to Frankfurt)."
+  },
+  "terminals": [
+    {
+      "name": "Barbara Jordan Terminal",
+      "status": "Active — 34 gates (Gates 1-34). Primary and only active terminal as of April 2026. Named after Congresswoman Barbara Jordan in 2007. West Infill expansion (3 new gates + Checkpoint 4) completed February 2026.",
+      "airlines": ["Aeromexico", "Air Canada", "Alaska Airlines", "Allegiant Air", "American Airlines", "American Eagle", "British Airways (seasonal)", "Delta Air Lines", "Delta Connection", "Frontier Airlines", "JetBlue Airways", "KLM (seasonal)", "Lufthansa (seasonal)", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines", "United Airlines", "United Express", "VivaAerobus", "WestJet"],
+      "gates": "1-34",
+      "notes": "Single-terminal airport with all airlines under one roof. The 53-foot-high central marketplace features live music performances, local Austin restaurants, and shops. Built with Texas Pearl pink granite and extensive public art. Checkpoint 3 reopened early 2026 with expanded TSA lanes. Allegiant and Frontier relocated here from the South Terminal (which closed March 31, 2026). Delta Sky Club on mezzanine near Gate 4. American Airlines Admirals Club on mezzanine near Gate 22."
+    },
+    {
+      "name": "South Terminal",
+      "status": "PERMANENTLY CLOSED — Ceased operations March 31, 2026. Site will be demolished for new midfield taxiways and future Concourse B construction.",
+      "airlines": [],
+      "gates": "N/A",
+      "notes": "The South Terminal was a small, low-cost terminal that opened in 2017, serving Allegiant Air and Frontier Airlines. It permanently closed on March 31, 2026 as part of the Journey With AUS expansion program. Both carriers relocated to the Barbara Jordan Terminal. The site will be repurposed for critical airfield infrastructure."
+    }
+  ],
+  "roads": ["SH 71 (Ben White Boulevard / Spirit of Texas Drive)", "US 183 (Ed Bluestein Boulevard)", "SH 130 (toll road — eastern bypass)", "Presidential Boulevard", "Emma Browning Avenue", "Interstate 35 (via SH 71)", "Burleson Road"],
+  "transit": ["Capital Metro Route 20 (Manor Road/Riverside — bus to downtown Austin, ~35 min, $1.75)", "Capital Metro Route 350 (Airport Blvd/Lamar — connects to North Austin)", "MetroRapid Route 803 (connects at Riverside — rapid bus to downtown/UT campus area)", "No direct rail service to airport (MetroRail Red Line does not extend to AUS)"],
+  "neighborhoods": ["South Congress (SoCo)", "East Austin", "Riverside", "Downtown Austin", "Zilker", "Barton Hills", "Mueller", "Hyde Park", "University of Texas area", "Round Rock", "Cedar Park", "Pflugerville", "San Marcos", "Kyle", "Del Valle"],
+  "authority": "City of Austin Department of Aviation",
+  "groundTransportation": {
+    "bus": {
+      "description": "Capital Metro Route 20 provides frequent bus service between AUS and downtown Austin. Bus stop is on the lower level (baggage claim) outside the terminal.",
+      "operator": "Capital Metro",
+      "route": "Route 20 (Manor Road/Riverside)",
+      "fare": "$1.75 single ride ($3.50 day pass). Payment: CapMetro app, contactless tap, cash.",
+      "hours": "24 hours a day, 7 days a week",
+      "frequency": "Every 15 minutes during peak hours, every 30 minutes off-peak",
+      "travelTimes": {
+        "toDowntownAustin": "~35 minutes",
+        "toRiverside": "~15 minutes",
+        "toEastAustin": "~25 minutes"
+      },
+      "competitorNote": "At $1.75, Route 20 is the cheapest ground transportation from AUS. The 35-minute ride to downtown competes with rideshare on cost but not speed (rideshare is ~15-20 minutes). Best for solo budget travelers."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Lower level (arrivals/baggage claim), outside terminal under the Consolidated Rental Car Facility canopy",
+      "flagDrop": "$2.50",
+      "perMile": "$2.40 per mile",
+      "estimatedMeteredFares": {
+        "toDowntownAustin": "$25-$35",
+        "toUniversityOfTexas": "$25-$35",
+        "toSouthCongress": "$20-$30",
+        "toEastAustin": "$15-$25",
+        "toDomainNorthAustin": "$40-$55",
+        "toRoundRock": "$50-$65",
+        "toSanMarcos": "$60-$80",
+        "toCircuitOfTheAmericas": "$15-$20"
+      },
+      "note": "Taxis accept cash and credit cards. 24/7 service. During SXSW and ACL, expect longer wait times and higher demand."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Lower level (arrivals), under the Consolidated Rental Car Facility (CRCF), north of the Red Garage. Follow signs from baggage claim.",
+      "estimatedFares": {
+        "uberXToDowntownAustin": "$15-$25",
+        "uberXToSouthCongress": "$12-$22",
+        "uberXToUniversityOfTexas": "$15-$25",
+        "uberXToEastAustin": "$10-$20",
+        "uberXToDomainNorthAustin": "$25-$40",
+        "uberXToRoundRock": "$35-$50",
+        "uberXToSanMarcos": "$45-$60",
+        "uberXToCircuitOfTheAmericas": "$10-$18"
+      },
+      "surgePricing": "Extreme surge pricing during SXSW (March), ACL Festival (October), Formula 1 Grand Prix (October), UT football game days, and major convention weekends",
+      "note": "Rideshare is generally the best ground transportation option from AUS for most travelers. Cheaper and faster than taxis for downtown trips. During SXSW and F1 weekends, surge pricing can make rideshare 3-4x normal rates — consider the bus."
+    },
+    "rentalCars": {
+      "location": "Consolidated Rental Car Facility (CRCF) — connected to the terminal via a short covered walkway through the Blue Garage. No shuttle needed.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty", "Turo (off-site)"],
+      "totalBrands": 9,
+      "note": "All major rental car companies are located in the CRCF, which is directly connected to the terminal via a covered walkway through the Blue Garage. No shuttle required — one of the most convenient rental car setups of any major U.S. airport."
+    },
+    "hotelShuttles": "Several airport-area hotels offer complimentary shuttle service, including the Hilton Austin Airport (on airport grounds, 2-minute shuttle), Hyatt Place Austin Airport, and Hampton Inn & Suites Austin Airport. Check with your hotel before booking."
+  },
+  "parkingRates": "On-airport: Red Garage $35/day ($7/hr), Blue Garage $26/day ($5/hr), Economy Lot $12/day (free 24/7 shuttle). Off-site: from ~$10.81/day with shuttle. Yellow Garage Phase 1 (3,000 new spaces) opening in 2026. Pre-book at austintexas.gov/airport.",
+  "onAirportParking": {
+    "redGarage": {
+      "name": "Red Garage (Short-Term / Premium)",
+      "rate": "$7.00 per hour",
+      "dailyMax": 35,
+      "maxStay": "30 days",
+      "serves": "Closest garage to terminal — direct covered walkway to check-in and baggage claim",
+      "features": "Closest parking to terminal. Best for short stays and passenger pickup/drop-off. Covered, multi-level garage. Direct connection to departures (upper level) and arrivals (lower level).",
+      "preBookingUrl": "https://www.austintexas.gov/airport"
+    },
+    "blueGarage": {
+      "name": "Blue Garage (Long-Term Covered)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 26,
+      "maxStay": "30 days",
+      "serves": "Connected to terminal via covered walkway through CRCF. Best value for covered on-airport parking.",
+      "evCharging": "EV charging stations on ground floor (Rows A and B) — free with paid parking",
+      "features": "Best on-airport option for multi-day trips needing covered parking. EV chargers available on ground floor at no extra charge. Connected to Consolidated Rental Car Facility.",
+      "preBookingUrl": "https://www.austintexas.gov/airport"
+    },
+    "economyLot": {
+      "name": "Economy Lot (Long-Term Uncovered)",
+      "rate": "$12.00 per day",
+      "dailyMax": 12,
+      "capacity": "2,400+ spaces",
+      "address": "3600 Presidential Blvd, Austin, TX 78719",
+      "connection": "FREE 24/7 shuttle service to Barbara Jordan Terminal (every 10-15 minutes)",
+      "features": "Most affordable on-airport option. Large lot with 2,400+ spaces. Free shuttle runs 24/7 every 10-15 minutes. Uncovered lot — Texas sun can be intense in summer.",
+      "note": "Can fill up during peak events (SXSW, ACL, F1). Pre-book online or arrive early. Shuttle ride is approximately 5-7 minutes to the terminal."
+    },
+    "yellowGarage": {
+      "name": "Yellow Garage (NEW — Under Construction)",
+      "rate": "TBD (pricing not yet announced)",
+      "dailyMax": null,
+      "status": "Phase 1 (3,000 spaces) opening 2026. Full garage (7,100 spaces) completion expected 2027.",
+      "location": "North of the Blue Garage",
+      "features": "Seven-story garage with smart parking technology. Will nearly double on-airport covered parking capacity. Phase 1 delivering 3,000 spaces on an accelerated schedule in 2026. Full build-out adds 7,100 total spaces by 2027.",
+      "note": "The Yellow Garage is part of the Journey With AUS expansion program. It will significantly ease parking capacity constraints, especially during peak events."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$40/day",
+      "location": "Red Garage departures level",
+      "features": "Premium drop-off at the terminal. Car stored in covered garage. Convenient for business travelers and short trips."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "2901 Spirit of Texas Drive — follow signs from SH 71",
+      "cost": "FREE",
+      "features": "Free waiting area for passenger pickup. Restrooms available. DC fast EV charging stations powered by Green Choice (can fully charge most EVs in ~20 minutes). Driver must remain with vehicle.",
+      "evCharging": "DC fast chargers available in Cell Phone Lot — powered by Austin Energy Green Choice"
+    },
+    "evCharging": {
+      "locations": [
+        "Blue Garage ground floor, Rows A and B (Level 2 chargers — free with paid parking)",
+        "Cell Phone Waiting Lot (DC fast chargers — Austin Energy Green Choice)"
+      ],
+      "totalPorts": "20+ EV charging ports across airport facilities",
+      "note": "Blue Garage EV charging is FREE with paid parking — a significant perk compared to airports that charge per kWh. Cell Phone Lot has DC fast chargers capable of full charge in ~20 minutes."
+    },
+    "accessibleParking": "ADA-accessible parking spaces available on ground level of Red Garage and Blue Garage, and in the Economy Lot near shuttle pickup. Valid disabled parking permit required.",
+    "totalCapacity": "~7,000 vehicles across all current parking facilities (will nearly double to ~14,000 when Yellow Garage is complete)",
+    "paymentMethods": "Credit/debit cards (Visa, Mastercard, Amex, Discover), Apple Pay, Google Pay. Cash accepted at exit lanes. Pre-book online at austintexas.gov/airport.",
+    "garageServiceAreas": "Red Garage → closest to terminal (short-term). Blue Garage → covered long-term + rental cars. Economy Lot → budget long-term (shuttle). Yellow Garage → opening 2026."
+  },
+  "parkingLots": [
+    {
+      "name": "FastPark & Relax AUS",
+      "slug": "fastpark-relax-aus",
+      "dailyRate": 13.99,
+      "reservationRate": 10.81,
+      "parkingType": "Covered self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "24/7 Security", "Surveillance Cameras", "Luggage Assistance", "Car Care Services"],
+      "shuttleInfo": "24/7 on-demand shuttle — approximately every 5-10 minutes. Average ride to terminal is 3 minutes.",
+      "overview": "Premium covered off-site parking on Spirit of Texas Drive, just 3 minutes from AUS terminal. 24/7 shuttle service with one of the shortest ride times of any off-site lot. Covered parking protects vehicles from Austin's intense summer heat.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "3 minutes",
+      "freeCancellation": true,
+      "notes": "Best off-site option overall — covered parking + 24/7 shuttle + 3-minute ride. Pre-book online for $10.81/day (vs. $13.99 drive-up). Excellent for protecting cars from Texas sun."
+    },
+    {
+      "name": "The Parking Spot East AUS",
+      "slug": "the-parking-spot-east-aus",
+      "dailyRate": 15.99,
+      "reservationRate": 13.25,
+      "parkingType": "Uncovered and covered options",
+      "amenities": ["Free 24/7 Shuttle", "Covered Options Available", "24/7 Security", "Loyalty Program", "Car Care Services", "Luggage Assistance"],
+      "shuttleInfo": "24/7 shuttle service — buses depart every 5-7 minutes",
+      "overview": "Major off-site parking provider on Hwy 71 East with frequent shuttle service. Part of The Parking Spot national chain with a loyalty rewards program. Both covered and uncovered options available.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Reliable national chain with frequent shuttles. Loyalty program earns free days. Covered option available at premium. Pre-book for $13.25/day."
+    },
+    {
+      "name": "The Parking Spot West AUS",
+      "slug": "the-parking-spot-west-aus",
+      "dailyRate": 15.99,
+      "reservationRate": 13.25,
+      "parkingType": "Uncovered and covered options",
+      "amenities": ["Free 24/7 Shuttle", "Covered Options Available", "24/7 Security", "Loyalty Program", "Car Care Services"],
+      "shuttleInfo": "24/7 shuttle service — buses depart every 5-7 minutes",
+      "overview": "Second Parking Spot location on Hwy 71 serving AUS. Same rates, amenities, and loyalty program as the East location. Choose based on your approach direction.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Same as Parking Spot East — choose based on which direction you're coming from. West location may be slightly less crowded."
+    },
+    {
+      "name": "Park & Zoom AUS",
+      "slug": "park-and-zoom-aus",
+      "dailyRate": 14.95,
+      "reservationRate": 12.95,
+      "parkingType": "Covered self-park and covered valet",
+      "amenities": ["Free Shuttle", "Covered Parking", "Valet Service", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "Free shuttle directly to departures terminal. Located on airport property — shuttles avoid public road traffic.",
+      "overview": "Located at 9518 Hotel Drive on airport property. Because it's on airport grounds, shuttles don't have to navigate public road traffic — a significant time advantage. Both covered self-park ($12.95/day pre-booked) and covered valet ($16.95/day) available.",
+      "distanceFromAirport": "0.8 mi (on airport property)",
+      "driveTime": "3 minutes (no public road traffic)",
+      "freeCancellation": true,
+      "valetRate": 16.95,
+      "notes": "Unique advantage: located ON airport property so shuttles skip public road traffic. Covered valet at $16.95/day is a great mid-price option. Self-park at $12.95 pre-booked competes with on-airport Economy Lot."
+    },
+    {
+      "name": "Hilton Austin Airport",
+      "slug": "hilton-austin-airport-aus",
+      "dailyRate": 18.00,
+      "reservationRate": 14.95,
+      "parkingType": "Uncovered self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "24/7 Security", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary 24/7 shuttle — 2 minutes to terminal",
+      "overview": "The only hotel located directly on Austin-Bergstrom International Airport grounds. 2-minute shuttle ride to terminal. No hotel stay required for parking. Premium option for travelers who want proximity without on-airport garage prices.",
+      "distanceFromAirport": "0.5 mi (on airport grounds)",
+      "driveTime": "2 minutes",
+      "freeCancellation": true,
+      "notes": "Closest hotel to AUS — literally on airport grounds. 2-minute shuttle is unbeatable. Higher daily rate but excellent for park-sleep-fly packages."
+    },
+    {
+      "name": "Comfort Suites Austin Airport",
+      "slug": "comfort-suites-austin-airport-aus",
+      "dailyRate": 16.95,
+      "reservationRate": 14.95,
+      "parkingType": "Uncovered self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Gated Lot", "Security Cameras", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary shuttle service to terminal during operating hours",
+      "overview": "Hotel parking near AUS with gated lot and security cameras. No hotel stay required. Good option for travelers seeking hotel-level security and amenities.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Gated hotel lot with decent security. Shuttle operates during standard hours — verify late night/early morning availability before booking."
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Lot has FREE 24/7 shuttle every 10-15 minutes (~5-7 minute ride). Off-site: FastPark & Relax runs 24/7 shuttles every 5-10 minutes (3-minute ride). The Parking Spot East/West runs 24/7 shuttles every 5-7 minutes. Park & Zoom has shuttles on airport property (no public road traffic). Hotel lots (Hilton, Comfort Suites) offer complimentary shuttles. During SXSW and ACL Festival weekends, shuttle and curbside traffic is significantly heavier — allow extra time.",
+  "distanceFromCity": "5 miles southeast of downtown Austin. 15-20 minutes by car (no traffic). ~35 minutes by Capital Metro Route 20 bus ($1.75). Austin's only commercial airport.",
+  "keyDistances": {
+    "toDowntownAustin": "5 miles, 15-20 min by car, 35 min by bus ($1.75), $15-25 rideshare",
+    "toSouthCongress": "4 miles, 10-18 min by car, $12-22 rideshare",
+    "toUniversityOfTexas": "7 miles, 15-25 min by car, $15-25 rideshare",
+    "toEastAustin": "4 miles, 10-18 min by car, $10-20 rideshare",
+    "toZilkerPark": "5 miles, 12-20 min by car, $12-22 rideshare",
+    "toDomainNorthAustin": "18 miles, 25-40 min by car, $25-40 rideshare",
+    "toRoundRock": "25 miles, 30-45 min by car, $35-50 rideshare",
+    "toCedarPark": "28 miles, 35-50 min by car, $40-55 rideshare",
+    "toSanMarcos": "30 miles, 30-40 min by car (via I-35 or SH 130), $45-60 rideshare",
+    "toCircuitOfTheAmericas": "5 miles, 8-12 min by car, $10-18 rideshare",
+    "toNewBraunfels": "45 miles, 40-55 min by car",
+    "toSanAntonio": "80 miles, 75-90 min by car (via I-35 or SH 130)",
+    "toWaco": "100 miles, 90-110 min by car (via I-35)",
+    "toHouston": "165 miles, 2.5-3 hours by car (via SH 71/I-10 or US 290)",
+    "toDallasFortWorth": "195 miles, 3-3.5 hours by car (via I-35)",
+    "competitiveAdvantage": "AUS is Austin's only commercial airport — there is no competing airport nearby. The 15-20 minute drive to downtown is short compared to many major U.S. airports. Capital Metro Route 20 provides 24/7 bus service for $1.75. For Circuit of the Americas (F1, MotoGP), AUS is just 5 miles away — the closest major airport to a Formula 1 venue in the U.S."
+  },
+  "construction2026": {
+    "status": "Massive Journey With AUS expansion program underway — $4+ billion in capital improvements to nearly double airport capacity.",
+    "projects": [
+      "Yellow Garage Phase 1 (3,000 spaces) — Seven-story smart parking garage north of Blue Garage. Phase 1 opening 2026. Full 7,100-space completion by 2027.",
+      "West Infill & Checkpoint 4 — COMPLETED February 2026. Added 80,000 sq ft, 3 new gates, and a fourth security checkpoint with expanded TSA screening lanes.",
+      "South Terminal Closure — Permanently closed March 31, 2026. Allegiant and Frontier relocated to Barbara Jordan Terminal. Site being demolished for new midfield taxiways.",
+      "New Midfield Taxiways — Construction underway on former South Terminal site. Intermittent lane closures on Burleson Road and Emma Browning Avenue through December 2026.",
+      "Checkpoint 3 Renovation — Reopened early 2026 with more TSA screening lanes and ticket counters after nearly 2 years of renovation.",
+      "Concourse M (6 temporary gates) — Standalone midfield facility, passengers reach it via 3-5 minute bus ride from Gate 13. Expected to open 2027.",
+      "Concourse B (future) — Major new concourse on former South Terminal site. Southwest to anchor with 18 gates. Delta expanding to 15 gates. American expanding from 4 to 9 gates. Timeline extends into the 2030s.",
+      "Blue Garage Exit Ramp Modifications — Overnight closures during Yellow Garage ramp construction through 2026."
+    ],
+    "travelImpact": "Airport remains fully operational during construction. South Terminal closure moved all flights to Barbara Jordan Terminal — expect increased congestion at gates and security. Curbside and roadway construction may cause temporary lane closures and detours. Yellow Garage opening in 2026 will significantly ease parking constraints. Allow extra time for airport access during construction.",
+    "timeline": {
+      "westInfillCheckpoint4": "COMPLETED February 2026",
+      "southTerminalClosure": "Closed March 31, 2026",
+      "checkpoint3Renovation": "Reopened early 2026",
+      "yellowGaragePhase1": "Opening 2026 (3,000 spaces)",
+      "yellowGarageFull": "Completion 2027 (7,100 spaces)",
+      "concourseM": "Expected 2027 (6 gates)",
+      "concourseB": "2030s (32 new gates total across expansion)"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Barbara Jordan Terminal"],
+      "note": "TSA PreCheck available at all security checkpoints (Checkpoints 1, 2, 3, and new Checkpoint 4)"
+    },
+    "clear": {
+      "terminals": ["Barbara Jordan Terminal"],
+      "note": "CLEAR enrollment center located in the terminal. CLEAR expedited screening available at select checkpoints."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in the international arrivals area for returning CBP-eligible travelers. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "10-25 minutes",
+      "peakHours": "4:00-8:00 AM (early morning departures), 12:00-2:00 PM, 4:00-6:00 PM",
+      "tips": "Checkpoint 4 (new, opened 2026) typically has shorter lines. During SXSW, ACL, and F1 weekends, security waits can exceed 45 minutes — arrive early."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (2.5 hours during events)",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during Thanksgiving, Christmas, spring break, SXSW, ACL, F1 Grand Prix"
+    }
+  },
+  "lounges": {
+    "barbaraJordanTerminal": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Mezzanine level, across from Gate 22",
+        "hours": "4:15 AM - 8:15 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces. Planned relocation to new west gate expansion area in 2027."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Mezzanine level, near Gate 4",
+        "hours": "4:15 AM - 10:00 PM (Sun-Fri), 4:15 AM - 6:15 PM (Saturday)",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, complimentary food, WiFi, workspaces. One of the most popular lounges at AUS."
+      },
+      {
+        "name": "The Club AUS (Priority Pass)",
+        "location": "Barbara Jordan Terminal, post-security",
+        "hours": "Varies",
+        "access": "Priority Pass, LoungeKey, eligible credit cards (Chase Sapphire Reserve, Amex Platinum via Priority Pass)",
+        "amenities": "Food, beverages, WiFi, workspaces. Open to Priority Pass members regardless of airline."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "Boingo Hotspot",
+    "cost": "4 hours free WiFi via Boingo. Select 'Boingo Hotspot' from available networks and choose 'Complimentary Wi-Fi.'",
+    "coverage": "All areas of Barbara Jordan Terminal"
+  },
+  "evCharging": {
+    "blueGarage": {
+      "chargers": 10,
+      "location": "Ground floor, Rows A and B",
+      "type": "Level 2",
+      "cost": "FREE with paid parking"
+    },
+    "cellPhoneLot": {
+      "chargers": 4,
+      "location": "Cell Phone Waiting Lot, 2901 Spirit of Texas Drive",
+      "type": "DC Fast Chargers",
+      "cost": "Powered by Austin Energy Green Choice — pricing varies"
+    },
+    "totalPorts": "20+ EV charging ports across airport facilities",
+    "note": "Blue Garage EV charging is FREE with paid parking — one of the few major U.S. airports offering complimentary EV charging. Cell Phone Lot has DC fast chargers for quick top-ups. Austin is a strong EV market with Tesla's Gigafactory just 15 miles away in southeast Travis County."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at Austin-Bergstrom Airport.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Austin, South Congress, East Austin" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Austin locations (downtown, UT campus area)" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Austin, South Congress" }
+    ]
+  },
+  "petFacilities": {
+    "postSecurity": "Pet relief area located near Gate 11 (indoor, post-security)",
+    "preSecurity": "Outdoor pet relief areas on the lower level (baggage claim) — one in front of the Blue Garage and one near the Consolidated Rental Car Facility",
+    "total": 3,
+    "note": "Austin is one of the most pet-friendly cities in the U.S. The airport reflects this with multiple pet relief areas both pre- and post-security."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["4:00-8:00 AM (early morning departures)", "12:00-2:00 PM", "4:00-6:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "March (SXSW + spring break), October (ACL Festival + F1 Grand Prix — October 2025 was the busiest month in AUS history), November-December (Thanksgiving + Christmas), and summer (June-August). Major events can push daily TSA screenings above 45,000.",
+    "majorEvents": {
+      "sxsw": "South by Southwest (March) — 400,000+ attendees. Airport traffic surges for 10+ days. Rideshare surge pricing extreme. Book parking in advance.",
+      "aclFestival": "Austin City Limits Music Festival (two weekends in October) — 75,000+ daily attendees. Overlaps with F1 Grand Prix some years, creating the airport's busiest period.",
+      "f1GrandPrix": "Formula 1 United States Grand Prix at Circuit of the Americas (October) — 440,000+ attendees over race weekend. Set single-day TSA record of 45,048 in October 2025. Airport is just 5 miles from COTA.",
+      "utFootball": "University of Texas home football games (September-November) — 100,000+ capacity DKR Stadium. Friday arrivals and Sunday departures spike.",
+      "formula1AndAcl": "When ACL and F1 overlap in October, AUS experiences its absolute peak demand. Book parking weeks in advance. Arrive 3+ hours early."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (2.5 hours during events)",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during SXSW, ACL, F1, Thanksgiving, Christmas"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot summers (100°F+ common June-September). Mild winters. Volatile spring weather with severe thunderstorm risk.",
+    "commonDisruptions": "Summer heat (June-September) rarely disrupts flights but extreme heat advisories are common. Spring severe weather (March-May) can produce thunderstorms, hail, and rare tornadoes. Winter ice storms are rare but catastrophic when they occur — the February 2021 winter storm (Uri) shut down the airport for 4 days.",
+    "bestMonths": "October through November — comfortable temperatures (60s-80s°F), low humidity, beautiful fall weather. March is pleasant but SXSW makes the airport extremely busy.",
+    "worstMonths": "July-August (extreme heat, 100°F+ daily highs, oppressive humidity) and late February (rare ice storm risk)",
+    "iceStormNote": "Austin rarely gets ice storms, but when it does, the city effectively shuts down. The February 2021 Winter Storm Uri caused a 4-day airport closure, citywide power outages, and water system failures. Even minor ice events can close roads to the airport because Austin lacks the salt trucks and infrastructure of northern cities. Travel insurance strongly recommended for winter travel.",
+    "springStorms": "March through May brings severe thunderstorm season. Hail, lightning, and high winds can cause temporary ground stops and delays. Afternoon storms are most common.",
+    "summerHeat": "June through September: daily highs of 95-105°F with heat index exceeding 110°F. Uncovered parking lots become extremely hot — covered parking is worth the premium. Morning flights are most reliable as afternoon convective storms can develop.",
+    "note": "Austin's weather is generally flight-friendly with over 300 days of sunshine. The two main risks are rare winter ice storms (devastating but infrequent) and summer afternoon thunderstorms (common but brief). Morning flights are the most reliable year-round."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near AUS. Several hotels within 2 miles offer park-sleep-fly deals with 7-14 days of free parking included with a one-night stay.",
+    "priceRange": "From ~$98/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hilton Austin Airport",
+        "distance": "0.5 miles (on airport grounds)",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 complimentary shuttle (2-minute ride)",
+        "parkOnlyRate": "$14.95-$18.00/day",
+        "highlight": "Only hotel on airport grounds. 2-minute shuttle. Best park-sleep-fly location."
+      },
+      {
+        "name": "Hyatt Place Austin Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "parkOnlyRate": "$12.95-$15.00/day",
+        "highlight": "Modern hotel with free breakfast. Reliable shuttle service."
+      },
+      {
+        "name": "Hampton Inn & Suites Austin Airport",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle during operating hours",
+        "parkOnlyRate": "$12.95-$15.00/day",
+        "highlight": "Free hot breakfast. Good value park-sleep-fly option."
+      },
+      {
+        "name": "Comfort Suites Austin Airport",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "parkOnlyRate": "$14.95/day",
+        "highlight": "Gated lot with security cameras. Budget-friendly option."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "redGarage": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" },
+      "blueGarage": { "parkingCost": "$182 (7 x $26)", "totalEstimate": "$182" },
+      "economyLot": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" }
+    },
+    "offSiteWithShuttle": {
+      "fastParkRelax": { "parkingCost": "$75.67 (7 x $10.81 pre-booked)", "savingsVsBlueGarage": "~$106 saved", "caveat": "24/7 shuttle, covered parking, 3-min ride" },
+      "parkAndZoom": { "parkingCost": "$90.65 (7 x $12.95 pre-booked)", "savingsVsBlueGarage": "~$91 saved", "caveat": "On airport property, covered, no traffic on shuttle" },
+      "parkingSpot": { "parkingCost": "$92.75 (7 x $13.25 pre-booked)", "savingsVsBlueGarage": "~$89 saved", "caveat": "24/7 shuttle, loyalty program, covered option available" }
+    },
+    "publicTransit": {
+      "busRoundTrip": { "costPerPersonRoundTrip": "$3.50", "travelTime": "35 min to downtown", "note": "$1.75 per ride via Capital Metro Route 20. Cheapest option — runs 24/7." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than any parking option for trips of any length if coming from central Austin" }
+    },
+    "keyDifference": "AUS parking is relatively expensive: Red Garage at $35/day is among the highest on-airport rates in Texas. The Economy Lot at $12/day is the budget on-airport option. Off-site FastPark & Relax at $10.81/day pre-booked with covered parking and 24/7 shuttle is the best overall value. For downtown Austin travelers, a $15-25 rideshare each way beats parking costs for any trip over 2 days."
+  },
+  "uniqueFeatures": {
+    "liveMusicCapital": "Austin is 'The Live Music Capital of the World,' and AUS brings that culture into the terminal. A live music stage in the central marketplace hosts performances by local Austin artists. KUTX 98.9 FM (local public radio) curates a live-streamed playlist of Austin music throughout the terminal since 2019.",
+    "bergstromAfbHeritage": "Built on the former Bergstrom Air Force Base, which operated from 1942 to 1993. Named after Captain John August Earl Bergstrom, killed at Clark Field in the Philippines in 1941. The base was one of three Cold War presidential evacuation bunkers in the United States. The airport opened May 23, 1999, replacing Robert Mueller Municipal Airport.",
+    "barbaraJordanTerminal": "Named in 2007 after Congresswoman Barbara Jordan, the first African American elected to the Texas Senate and a nationally renowned civil rights leader. The terminal's 53-foot-high marketplace features Texas Pearl pink granite, extensive public art, and local Austin restaurants.",
+    "fastestGrowingAirport": "One of the fastest-growing major airports in the U.S. — passenger volume grew from 9.4 million (2013) to over 22 million (2023), driven by Austin's tech boom (Tesla, Apple, Google, Oracle, Samsung). The city's population grew 30%+ from 2010 to 2020.",
+    "formulaOneProximity": "Circuit of the Americas (COTA) — home of the Formula 1 United States Grand Prix — is just 5 miles from AUS. This makes AUS the closest major airport to a Formula 1 venue in the United States. F1 weekend is the airport's busiest period.",
+    "singleTerminalEfficiency": "Despite serving 21+ million passengers, AUS operates with a single terminal (Barbara Jordan Terminal). This makes connections, security, and navigation simpler than multi-terminal airports, though it creates capacity pressure during peak events.",
+    "localFoodAndDrink": "The terminal features beloved Austin restaurants and food brands rather than generic airport chains — including Salt Lick BBQ, Tacodeli, Tyler's, Jo's Coffee, and Amy's Ice Creams. The dining reflects Austin's celebrated food scene.",
+    "techCityHub": "Austin is a major tech hub — headquarters or large offices for Tesla, Apple, Google, Meta, Oracle, Dell, Samsung, AMD, and many startups. Business travel drives significant weekday traffic, and the airport's growth mirrors the city's tech-driven economic expansion.",
+    "rentalCarConvenience": "AUS has one of the most convenient rental car setups of any major U.S. airport — the Consolidated Rental Car Facility is connected directly to the terminal via a covered walkway through the Blue Garage. No shuttle required."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(512) 530-2242",
+    "airportWebsite": "austintexas.gov/airport",
+    "flightInfo": "flyaustin.com",
+    "parkingInfo": "austintexas.gov/airport (online booking available)",
+    "tsa": "(866) 289-9673",
+    "capitalMetroInfo": "(512) 474-1200",
+    "capitalMetroWebsite": "capmetro.org",
+    "airportPolice": "(512) 530-2242 (main airport line)"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.austintexas.gov/airport",
+      "flightInfo": "https://www.flyaustin.com/",
+      "parking": "https://www.austintexas.gov/department/parking-austin-bergstrom-international-airport",
+      "parkingMap": "https://airportmaps.flyaustin.com/",
+      "groundTransportation": "https://www.austintexas.gov/department/ground-transportation-barbara-jordan-terminal",
+      "constructionUpdates": "https://www.austintexas.gov/AUSConstructionUpdates",
+      "journeyWithAus": "https://www.austintexas.gov/AUSJourney",
+      "travelSecurity": "https://www.austintexas.gov/department/travel-security-austin-bergstrom-international-airport"
+    },
+    "transit": {
+      "capitalMetroAirport": "https://www.capmetro.org/airport",
+      "capitalMetroHome": "https://www.capmetro.org/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/aus/",
+      "lyft": "https://www.lyft.com/rider/airports/aus"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=AUS",
+      "abiaParking": "https://www.abiaparking.com/",
+      "airportParkingReservations": "https://airportparkingreservations.com/aus/airport-parking",
+      "way": "https://www.way.com/airport-parking/parking-austin-international-airport",
+      "spothero": "https://spothero.com/airport/austin/aus-parking",
+      "fastParkRelax": "https://www.thefastpark.com/airport-parking/austin-aus-bergstrom-fpr",
+      "parkAndZoom": "https://www.parkandzoom.com/",
+      "theParkingSpot": "https://www.theparkingspot.com/airport-parking/aus",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/austin-bergstrom-international-airport-aus"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearAUS": "https://www.clearme.com/all-locations/austin-bergstrom-international-airport"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/austin-bergstrom-aus-airport-lounges/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/aus-club.jsp"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KAUS",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/AUS",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=aus"
+    },
+    "evCharging": {
+      "plugshare": "https://www.plugshare.com/location/540736"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/aus/airport-hotels-with-parking",
+      "parkSleepHotels": "https://aus.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/aus"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/austin-bergstrom-international-aus-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Austin%E2%80%93Bergstrom_International_Airport",
+      "ifly": "https://www.ifly.com/airports/austin-bergstrom-international-airport",
+      "blacklane": "https://www.blacklane.com/en/blog/airports/a-guide-to-austin-airport-aus/"
+    },
+    "newsAndMedia": {
+      "austinAmericanStatesman": "https://www.statesman.com/",
+      "kxan": "https://www.kxan.com/",
+      "kutRadio": "https://www.kut.org/",
+      "kvue": "https://www.kvue.com/"
+    }
+  }
+}

@@ -1,0 +1,619 @@
+{
+  "code": "SLC",
+  "fullName": "Salt Lake City International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "5 miles west of downtown Salt Lake City, Utah — in the northwest quadrant of the Salt Lake Valley",
+    "iataCode": "SLC",
+    "icaoCode": "KSLC",
+    "faaLid": "SLC",
+    "elevation": "4,227 feet above mean sea level",
+    "acreage": 7700,
+    "coordinates": "40.7884N, 111.9778W",
+    "passengerVolume": "28.4 million passengers in 2024 (record year, 5.2% increase over 2023)",
+    "aircraftOperations": "343 scheduled nonstop departures per day",
+    "cargoVolume": "Significant cargo operations supporting regional logistics",
+    "distinction": "Delta Air Lines' third-largest hub. Underwent a historic $5.1 billion complete airport rebuild ('The New SLC') — the largest airport construction project in U.S. history at a single facility. New terminal opened September 2020 with phased concourse openings through 2026. Gateway to 11 world-class ski resorts within 60 minutes. Closest major airport to Park City and the Wasatch Range. Hosted 2002 Winter Olympics infrastructure. One of the fastest-growing airports in the western United States.",
+    "operator": "Salt Lake City Department of Airports",
+    "owner": "Salt Lake City Corporation",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "totalGates": 94,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "16L/34R", "length": "12,002 ft (3,658 m)", "surface": "Concrete" },
+      { "designation": "16R/34L", "length": "12,000 ft (3,658 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "17/35", "length": "9,596 ft (2,925 m)", "surface": "Asphalt" },
+      { "designation": "14/32", "length": "4,892 ft (1,491 m)", "surface": "Asphalt", "note": "General aviation use" }
+    ],
+    "dominantAirline": "Delta Air Lines (third-largest hub — operates majority of flights from both Concourses A and B)",
+    "totalAirlines": "14 airlines",
+    "nonstopDestinations": "110 destinations in 7 countries (93 U.S. cities + 17 international)",
+    "founded": "1911 (Woodward Field); 1968 (current terminal complex, replaced 2020-2026 by The New SLC)",
+    "hubCarriers": ["Delta Air Lines (primary hub)", "Breeze Airways (focus city)", "Frontier Airlines (focus city)", "Southwest Airlines (focus city)"],
+    "slotControlled": false,
+    "transitAccess": "UTA TRAX Green Line light rail station at south end of terminal — $2.50 fare to downtown Salt Lake City in 25 minutes",
+    "skiResortNote": "SLC is the closest major U.S. airport to world-class skiing. Seven Cottonwood Canyon resorts (Alta, Snowbird, Brighton, Solitude) are 30-45 minutes away. Park City Mountain Resort and Deer Valley are 35-50 minutes east via I-80."
+  },
+  "terminals": [
+    {
+      "name": "The New SLC — Central Terminal",
+      "status": "Active — 909,000 sq ft. Brand-new terminal opened September 15, 2020. Phase 4 final gates completing October 2026.",
+      "airlines": ["All airlines operate from the single terminal building"],
+      "gates": "Concourse A: Gates A1-A35 | Concourse B: Gates B1-B40+",
+      "notes": "The New SLC features a single 909,000 sq ft terminal with two linear concourses. Concourse A stretches 3,700 feet, Concourse B stretches 3,400 feet. Connected by the Central River Tunnel (opened October 2024) which cuts walking time to Concourse B gates by half. 94 total gates when fully complete. Art installations throughout reflect Utah's landscape. Floor-to-ceiling windows with Wasatch Mountain views."
+    },
+    {
+      "name": "Concourse A",
+      "status": "Active — 35 gates. Primary Delta Air Lines operations.",
+      "airlines": ["Delta Air Lines (majority)", "Alaska Airlines", "American Airlines", "JetBlue", "United Airlines"],
+      "gates": "A1-A35",
+      "notes": "Delta Sky Club located in Concourse A (near Gate A36). Concourse A handles most Delta domestic and international operations. Pet relief area near Gate A9 and Gate A34."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — gates expanding through October 2026. Phase 4 adding final 11 gates.",
+      "airlines": ["Delta Air Lines (overflow)", "Frontier Airlines", "Southwest Airlines", "Breeze Airways", "Sun Country Airlines", "Aeromexico", "KLM", "Volaris", "WestJet", "Air Canada", "Hawaiian Airlines"],
+      "gates": "B1-B40+",
+      "notes": "Concourse B Plaza opened October 2024 with Phase 3. New Delta Sky Club (34,000 sq ft — second-largest worldwide) and American Express Centurion Lounge (18,000 sq ft) opened October 2025 in Concourse B. United Club opening with final Phase 4 gates in October 2026. Central River Tunnel provides shortcut from security checkpoint to mid-Concourse B. Pet relief area near Gate B20."
+    }
+  ],
+  "roads": ["Interstate 80 (east-west, connects to Park City via Parley's Canyon)", "Interstate 15 (north-south, main Utah corridor)", "Interstate 215 (beltway, exits directly to airport)", "SR-154 (Bangerter Highway)", "North Temple Street (direct route to downtown)", "2400 West (airport access road)", "Terminal Drive"],
+  "transit": ["UTA TRAX Green Line (light rail to downtown Salt Lake City, University of Utah, West Valley City)", "UTA Bus Routes 2, 9, 35M, 455 (Ogden-SLC express)", "FrontRunner Commuter Rail (via North Temple TRAX transfer to Ogden/Provo)", "Ski resort shuttles (Alta, Snowbird, Park City — seasonal)", "Hotel shuttles (multiple airport-area hotels)"],
+  "neighborhoods": ["Downtown Salt Lake City", "The Gateway District", "Sugar House", "The Avenues", "Capitol Hill", "9th & 9th", "Liberty Park", "Marmalade District", "Rose Park", "West Valley City", "Murray", "Sandy", "Draper", "Park City", "Cottonwood Heights"],
+  "authority": "Salt Lake City Department of Airports",
+  "groundTransportation": {
+    "trax": {
+      "stationName": "Airport Station (south end of terminal)",
+      "operator": "Utah Transit Authority (UTA)",
+      "lines": ["Green Line"],
+      "fare": "$2.50 single trip. Day pass: $6.25. Payment: UTA GoRide app, contactless tap, FAREPAY card.",
+      "hours": "Weekdays 5:42 AM - 11:27 PM, Weekends 6:31 AM - 11:11 PM",
+      "frequency": "Every 15 minutes weekdays, every 20 minutes weekends",
+      "accessFromTerminal": "Walk south from baggage claim to the TRAX platform at the south end of the terminal",
+      "travelTimes": {
+        "toDowntownSLC": "~25 minutes (City Center station)",
+        "toTempleSquare": "~23 minutes (Temple Square station)",
+        "toUniversityOfUtah": "~35 minutes (transfer to Red Line at Library station)",
+        "toWestValleyCentral": "~45 minutes (western terminus)"
+      },
+      "competitorNote": "At $2.50, TRAX is the cheapest option from SLC to downtown — dramatically cheaper than the $20-35 rideshare fare. The 25-minute travel time is competitive with driving during rush hour."
+    },
+    "frontRunner": {
+      "description": "Commuter rail connecting Ogden, Salt Lake City, and Provo along the Wasatch Front",
+      "accessFromTerminal": "Take TRAX Green Line to North Temple station, transfer to FrontRunner at Salt Lake Central station",
+      "fare": "$2.50 - $5.75 depending on zones",
+      "coverage": "Ogden to Provo, 15 stations along the Wasatch Front",
+      "note": "Best for travelers headed to Ogden ($5.25) or Provo ($5.75). Runs weekdays every 30 minutes during peak, hourly off-peak. Limited weekend service."
+    },
+    "skiShuttles": {
+      "description": "Multiple authorized shuttle companies serve ski resorts directly from SLC baggage claim",
+      "providers": ["Canyon Transportation", "All Resort Express", "Park City Transportation", "Xpress Shuttle", "Cottonwood Connect"],
+      "parkCityFare": "$42-65 one-way per person (shared shuttle), $150-250 private vehicle",
+      "cottonwoodFare": "$35-55 one-way per person to Alta/Snowbird/Brighton/Solitude",
+      "counters": "Authorized shuttle counters located in baggage claim area",
+      "note": "Ski shuttles are the most convenient option for getting to Park City and the Cottonwood Canyon resorts. Book in advance during peak ski season (December-March). UTA Ski Bus (routes 953, 972, 994) offers budget option at $4.50 from downtown SLC to resorts."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Ground Transportation level, outside baggage claim at designated taxi stands",
+      "provider": "Yellow Cab of Utah (exclusive on-demand taxi provider at SLC)",
+      "phone": "(801) 521-2100",
+      "estimatedMeteredFares": {
+        "toDowntownSLC": "$20-$30",
+        "toUniversityOfUtah": "$25-$35",
+        "toSugarHouse": "$25-$35",
+        "toSandy": "$40-$55",
+        "toWestValleyCity": "$25-$35",
+        "toParkCity": "$90-$120",
+        "toSnowbird": "$55-$75",
+        "toOgden": "$80-$100"
+      },
+      "note": "Yellow Cab is the only authorized on-demand taxi at SLC. Available 24/7. Cash and credit cards accepted."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Center traffic lanes outside baggage claim",
+      "estimatedFares": {
+        "uberXToDowntownSLC": "$15-$25",
+        "uberXToUniversityOfUtah": "$18-$30",
+        "uberXToSugarHouse": "$18-$30",
+        "uberXToSandy": "$30-$45",
+        "uberXToParkCity": "$55-$85",
+        "uberXToSnowbird": "$40-$65",
+        "uberXToAlta": "$45-$70",
+        "uberXToOgden": "$50-$75"
+      },
+      "surgePricing": "Standard surge pricing during ski season weekends, Sundance Film Festival (January), outdoor festivals, University of Utah football games, and holiday weekends",
+      "note": "Rideshare is usually cheaper than taxi from SLC. Surge pricing is common during ski season weekends (Friday PM and Sunday PM). Book in advance for Park City trips during Sundance Film Festival."
+    },
+    "rentalCars": {
+      "location": "Ground floor of the short-term parking garage, directly across from the terminal buildings",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Thrifty"],
+      "totalBrands": 8,
+      "note": "All rental car counters are in the parking garage ground floor — no shuttle needed. Walk directly from baggage claim across the crosswalk. AWD/4WD vehicles recommended for winter travel to ski resorts. Tire chains may be required in Cottonwood Canyons."
+    },
+    "hotelShuttles": "Many airport-area hotels offer complimentary shuttle service — check with your hotel before booking. Hotels along North Temple and near I-215 typically provide shuttle service."
+  },
+  "parkingRates": "On-airport: Hourly Garage $5/hr ($35/day max), Lot E $5/hr ($21/day max), Premium Reserved $60/day, Economy Lot $12/day. Off-site: from ~$6.50/day with shuttle. Cell Phone Lot is free.",
+  "onAirportParking": {
+    "parkingGarage": {
+      "name": "Parking Garage (Short-Term/Hourly)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 35,
+      "maxStay": "30 days",
+      "serves": "All airlines — direct covered walkway to terminal",
+      "valetAvailable": false,
+      "features": "Multi-level covered garage directly connected to terminal via enclosed walkway. EV charging stations on every level (28 dual ports). Rental car counters on ground floor. Closest parking to terminal doors.",
+      "preBookingUrl": "https://slcairport.com/parking-and-transportation/parking/"
+    },
+    "premiumReserved": {
+      "name": "Premium Reserved Parking",
+      "rate": "$60.00 per day",
+      "dailyMax": 60,
+      "location": "Second level of parking garage, closest stalls to terminal doors",
+      "features": "Guaranteed reserved spot on Level 2, nearest to terminal entrance. Best for short trips where convenience is paramount.",
+      "preBookingUrl": "https://slcairport.com/parking-and-transportation/parking/"
+    },
+    "lotE": {
+      "name": "Lot E (Intermediate Parking)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 21,
+      "serves": "All airlines — short walk or shuttle to terminal",
+      "features": "Open-air surface lot. Good middle-ground between garage and economy pricing. EV charging stations available (10 dual ports in Lot E North and South).",
+      "preBookingUrl": "https://slcairport.com/parking-and-transportation/parking/"
+    },
+    "economyLot": {
+      "name": "Economy Parking Lot",
+      "rate": "$2.00 first hour, $1.00 each additional hour",
+      "dailyMax": 12,
+      "serves": "All airlines — free 24/7 shuttle to terminal",
+      "connection": "FREE 24/7 shuttle service, departing every 8-10 minutes",
+      "evCharging": "28 dual EV charging ports — currently FREE to use",
+      "features": "Best budget option for on-airport parking. 24/7 free shuttle every 8-10 minutes. EV charging is FREE (unlike most airports). Large capacity — rarely fills up.",
+      "note": "Economy lot is the best value for trips of 2+ days. At $12/day with free shuttle every 8-10 minutes, it's competitive with off-site lots.",
+      "preBookingUrl": "https://slcairport.com/parking-and-transportation/parking/economy-parking/"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "West of terminal, signed from Terminal Drive",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight status and proceed to arrivals when passenger is ready."
+    },
+    "evCharging": {
+      "locations": [
+        "Parking Garage Levels 1-4 (28 dual ports)",
+        "Lot E North (5 dual ports)",
+        "Lot E South (5 dual ports)",
+        "Economy Parking Lot (28 dual ports)"
+      ],
+      "totalPorts": "78 EV charging ports (accommodating 156 parking spaces)",
+      "cost": "Currently FREE to use",
+      "note": "SLC is one of the few major U.S. airports offering FREE EV charging. 78 ports across all parking areas. ChargePoint and Tesla compatible."
+    },
+    "accessibleParking": "135 accessible parking stalls in the short-term parking garage, available on all four levels, at the economy lot rate of $12 per day.",
+    "totalCapacity": "~18,000 vehicles across all airport parking areas",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay",
+    "garageServiceAreas": "All parking serves the single terminal. Garage is closest (covered walkway). Lot E is a short walk. Economy Lot uses free 24/7 shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot (SLC)",
+      "slug": "the-parking-spot-slc",
+      "dailyRate": 11.95,
+      "reservationRate": 9.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle Every 5-7 Min", "24/7 Security", "Surveillance Cameras", "Covered Waiting Area", "Loyalty Rewards Program", "Mobile App"],
+      "shuttleInfo": "Complimentary door-to-door shuttle every 5-7 minutes, 24/7",
+      "overview": "National chain off-site parking located just minutes from SLC via I-80 exit 117. High-frequency shuttle every 5-7 minutes is the best shuttle frequency among off-site lots.",
+      "address": "123 S. 2400 W, Salt Lake City, UT 84116",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Best shuttle frequency (every 5-7 min) of any off-site lot. National chain with loyalty rewards program. Pre-book on app for best rates."
+    },
+    {
+      "name": "Park 'n Jet (SLC)",
+      "slug": "park-n-jet-slc",
+      "dailyRate": 10.70,
+      "reservationRate": 8.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Fenced Lot", "Luggage Assistance", "Family Owned"],
+      "shuttleInfo": "On-demand shuttle picks up at your vehicle, runs 24/7",
+      "overview": "Family-owned Utah business providing airport parking and shuttle for over 30 years. Located off I-215 and I-80, just minutes from the terminal. Shuttle picks you up at your car.",
+      "address": "2200 W North Temple, Salt Lake City, UT 84116",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-airport parking facility to SLC. Family-owned for 30+ years with loyal customer base. Shuttle picks up at your vehicle — no walking to shuttle stop."
+    },
+    {
+      "name": "Park 'n Jet Arch Lot (SLC)",
+      "slug": "park-n-jet-arch-lot-slc",
+      "dailyRate": 8.95,
+      "reservationRate": 6.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Fenced Lot"],
+      "shuttleInfo": "Shared shuttle with Park 'n Jet main lot, runs 24/7",
+      "overview": "Budget overflow lot operated by Park 'n Jet. Lower rates than the main lot with same shuttle service. Good for budget-conscious long-term parkers.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "notes": "Best budget off-site option at $6.50/day pre-booked. Same shuttle service as main Park 'n Jet lot."
+    },
+    {
+      "name": "Diamond Airport Parking (SLC)",
+      "slug": "diamond-airport-parking-slc",
+      "dailyRate": 10.95,
+      "reservationRate": 9.00,
+      "parkingType": "Self-park and valet options, covered and uncovered",
+      "amenities": ["Free 24/7 Shuttle", "Valet Service", "Covered Parking Option", "Luggage Assistance", "Free Bottled Water", "Jump Start/Tire Inflation"],
+      "shuttleInfo": "Complimentary 24/7 shuttle directly to/from your car",
+      "overview": "Full-service off-site parking with both self-park and valet options. Notable 'We Care Program' offers free jump start or tire inflation. Covered parking available at premium rate.",
+      "address": "1969 W North Temple, Salt Lake City, UT 84116",
+      "distanceFromAirport": "1.3 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "phone": "(801) 355-7275",
+      "notes": "Best full-service option — valet available, covered parking option, free bottled water, and 'We Care Program' for roadside-style assistance. 24/7 shuttle."
+    },
+    {
+      "name": "Maas Airport Parking (SLC)",
+      "slug": "maas-airport-parking-slc",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24-Hour Lot Attendant", "Paved Lot", "Security Cameras"],
+      "shuttleInfo": "Complimentary 24/7 shuttle every 10-15 minutes",
+      "overview": "Affordable off-site parking with 24/7 shuttle service and on-site attendant. Well-paved lot with good security. Shuttle runs every 10-15 minutes.",
+      "address": "850 N 2200 W, Salt Lake City, UT 84116",
+      "distanceFromAirport": "1.4 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "24-hour lot attendant is a nice security feature. Shuttle every 10-15 minutes is reliable. Good mid-range off-site option."
+    },
+    {
+      "name": "Hyatt Place Salt Lake City Airport (SLC)",
+      "slug": "hyatt-place-slc-airport",
+      "dailyRate": 9.95,
+      "reservationRate": 8.50,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Security Cameras", "Well-Lit Lot"],
+      "shuttleInfo": "Hotel shuttle to airport, schedule varies — verify with hotel",
+      "overview": "Hotel parking near SLC with shuttle service. No hotel stay required for parking. Park-sleep-fly packages also available.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Good for park-sleep-fly combo. Verify shuttle schedule before booking — hotel shuttles may have limited hours."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE 24/7 shuttle from Economy Lot every 8-10 minutes. Off-site: Most lots include free shuttle — The Parking Spot runs every 5-7 min (best frequency), Park 'n Jet and Diamond run on-demand 24/7, Maas runs every 10-15 min. Ski resort shuttles available in baggage claim from authorized providers (Canyon Transportation, All Resort Express, Park City Transportation). UTA TRAX light rail is an alternative to shuttles for downtown-bound travelers.",
+  "distanceFromCity": "5 miles west of downtown Salt Lake City. 15-25 minutes by car. ~25 minutes by TRAX ($2.50). Gateway to ski resorts and national parks.",
+  "keyDistances": {
+    "toDowntownSLC": "5 miles, 15-25 min by car, 25 min by TRAX ($2.50), $15-25 rideshare",
+    "toTempleSquare": "6 miles, 15-20 min by car, 23 min by TRAX, $15-25 rideshare",
+    "toUniversityOfUtah": "9 miles, 15-25 min by car, 35 min by TRAX (transfer), $18-30 rideshare",
+    "toSugarHouse": "10 miles, 15-25 min by car, $18-30 rideshare",
+    "toSandy": "20 miles, 20-35 min by car, $30-45 rideshare",
+    "toParkCity": "38 miles, 40-55 min by car via I-80, $55-85 rideshare, $42-65 shared shuttle",
+    "toDeerValley": "36 miles, 40-50 min by car via I-80, $55-85 rideshare",
+    "toSnowbird": "29 miles, 35-50 min by car via I-215 to Little Cottonwood Canyon, $40-65 rideshare",
+    "toAlta": "32 miles, 40-55 min by car via Little Cottonwood Canyon, $45-70 rideshare",
+    "toBrighton": "28 miles, 35-50 min by car via Big Cottonwood Canyon, $40-60 rideshare",
+    "toSolitude": "27 miles, 35-45 min by car via Big Cottonwood Canyon, $40-60 rideshare",
+    "toOgden": "35 miles, 35-45 min by car via I-15, $50-75 rideshare, FrontRunner commuter rail",
+    "toProvo": "45 miles, 45-60 min by car via I-15, FrontRunner commuter rail available",
+    "toSaltFlats": "110 miles, 90 min by car via I-80 west (Bonneville Salt Flats)",
+    "toMoab": "235 miles, 3.5-4 hours by car (Arches & Canyonlands National Parks)",
+    "toZionNationalPark": "310 miles, 4.5 hours by car via I-15 south",
+    "competitiveAdvantage": "SLC's unique advantage is proximity to ski resorts — 7 resorts within 45 minutes, 4 more within 60 minutes. No other major U.S. airport can match this. The TRAX Green Line provides cheap ($2.50) direct transit to downtown in 25 minutes. For ski trips, pre-booked shared shuttles ($42-65) are the best value vs. rideshare ($55-85) or rental car (gas + canyon parking hassles)."
+  },
+  "construction2026": {
+    "status": "$5.1 billion 'The New SLC' rebuild — final Phase 4 completing October 2026. The largest single-airport construction project in U.S. history.",
+    "projects": [
+      "Phase 4 Final Gates (Concourse B East) — 11 remaining gates opening October 2026. Brings total to 94 gates. Includes United Club lounge.",
+      "Phase 3 Completed October 2024 — Central River Tunnel connecting terminal to mid-Concourse B (cuts walking time by half), Concourse B Plaza, 5 additional Concourse B gates.",
+      "Phase 4 First Stage Completed October 2025 — 10 additional gates, new Delta Sky Club (34,000 sq ft, second-largest worldwide), American Express Centurion Lounge (18,000 sq ft).",
+      "Final paving and exterior work extending into early 2027.",
+      "Bus operations facility opening October 2026 with final Phase 4 gates."
+    ],
+    "travelImpact": "Airport is fully operational during remaining construction. The new terminal, Concourse A, and most of Concourse B are already open and in use. No parking closures expected. Some construction zones visible but passenger flow is unaffected.",
+    "timeline": {
+      "phase3": "October 2024 (completed — tunnel, plaza, 5 gates)",
+      "phase4a": "October 2025 (completed — 10 gates, Delta Sky Club, Centurion Lounge)",
+      "phase4b": "October 2026 (final 11 gates, United Club, bus facility)",
+      "finalPaving": "Early 2027",
+      "totalBudget": "$5.1 billion"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Central Terminal"],
+      "note": "TSA PreCheck lanes available at the main security checkpoint"
+    },
+    "clear": {
+      "terminals": ["Central Terminal"],
+      "note": "CLEAR available at the main security checkpoint for expedited identity verification"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals. CBP enrollment office located at SLC."
+    },
+    "standardWaitTimes": {
+      "average": "10-20 minutes",
+      "peakHours": "5:00-7:00 AM (early morning departures), 11:00 AM-1:00 PM, 3:00-5:00 PM",
+      "tips": "The New SLC's redesigned security checkpoint is significantly more efficient than the old terminal. Wait times are generally shorter than at comparably-sized airports."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5+ hours for Thanksgiving, Christmas, spring break, ski season weekends (especially Friday PM and Sunday PM)"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "Delta Sky Club (Concourse A)",
+        "location": "Concourse A, near Gate A36",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Complimentary food, premium drinks, full bar, WiFi, workspaces, shower suites. Views of the Wasatch Mountains."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "Delta Sky Club (Concourse B) — NEW October 2025",
+        "location": "Concourse B",
+        "hours": "5:45 AM - 10:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus, Amex Platinum/Centurion with same-day Delta boarding pass",
+        "amenities": "34,000 sq ft — Delta's second-largest Sky Club worldwide. Seats up to 600 guests. Alpine ski chalet-inspired design with 360-degree fireplace. 'Dirty Soda' bar (a Utah tradition). 'Digital Immersion' wall with panoramic Utah landscape visuals and nature sounds. Floor-to-ceiling Wasatch Mountain views. Full food service, premium bar, shower suites, workspaces."
+      },
+      {
+        "name": "American Express Centurion Lounge — NEW October 2025",
+        "location": "Concourse B",
+        "hours": "4:45 AM - 11:15 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included with Platinum.",
+        "amenities": "18,000 sq ft — one of Amex's largest Centurion Lounges worldwide. Seats ~350 guests. Blue Roast coffee bar featuring Millcreek Coffee Roasters (local SLC roaster). 'Recovery Room' with lounge chairs, compression boots, and massage guns — designed for skiers heading home. Shower suites. Outdoor terrace with Wasatch Mountain views. Premium food and cocktails."
+      },
+      {
+        "name": "United Club — Opening October 2026",
+        "location": "Far east end of Concourse B",
+        "hours": "TBD (opening with Phase 4 final gates)",
+        "access": "United Club membership, United Polaris, Star Alliance Gold",
+        "amenities": "First non-Delta club at SLC. Details TBD for October 2026 opening."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Lounge",
+        "location": "Inside security",
+        "access": "Active-duty military, reservists, National Guard, military families. FREE.",
+        "amenities": "Refreshments, WiFi, charging stations, comfortable seating."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "SLCAirport.wifi",
+    "cost": "Free",
+    "coverage": "All areas of the terminal and both concourses"
+  },
+  "evCharging": {
+    "parkingGarage": {
+      "chargers": 28,
+      "location": "Dual ports on every level (Levels 1-4)",
+      "type": "Level 2",
+      "cost": "FREE"
+    },
+    "lotE": {
+      "chargers": 10,
+      "location": "5 dual ports in Lot E North, 5 dual ports in Lot E South",
+      "type": "Level 2",
+      "cost": "FREE"
+    },
+    "economyLot": {
+      "chargers": 28,
+      "location": "Economy Parking Lot",
+      "type": "Level 2",
+      "cost": "FREE"
+    },
+    "totalPorts": "78 EV charging ports (156 parking spaces) — all currently FREE",
+    "note": "SLC is one of the best airports in the U.S. for EV charging — 78 free ports across all parking areas. Unlike MIA ($0.38/kWh) and many other airports, SLC does not charge for EV charging."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at SLC.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Salt Lake City, The Gateway District" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Salt Lake City locations" },
+      { "provider": "Bringit Travel", "rate": "Varies", "locations": "Luggage pickup/delivery service from SLC baggage claim to hotels, vacation rentals, or businesses" }
+    ]
+  },
+  "petFacilities": {
+    "total": "3 animal relief areas — 1 outside terminal, 2 inside security",
+    "locations": [
+      "Outside terminal: West side of terminal building (pre-security)",
+      "Concourse A: Near Gate A9 and near Gate A34",
+      "Concourse B: Near Gate B20"
+    ],
+    "note": "SLC has post-security pet relief areas in both concourses — convenient for travelers with service animals or pets in-cabin."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM (early morning hub departures)", "11:00 AM-1:00 PM", "3:00-5:00 PM (afternoon connection banks)"],
+    "busiestDays": ["Friday (ski weekend arrivals)", "Sunday (ski weekend departures)", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "December through March is peak season (ski season). Christmas/New Year's week and President's Day weekend are the absolute busiest. Sundance Film Festival (late January) fills Park City and impacts airport traffic. Summer is a secondary peak for national park visitors (Yellowstone, Zion, Arches, Bryce Canyon). Spring break (March) overlaps with late ski season.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5+ hours during ski season weekends and holidays"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Semi-arid continental climate with four distinct seasons. Cold, snowy winters with frequent temperature inversions. Hot, dry summers. Significant elevation (4,227 ft) affects arriving travelers.",
+    "commonDisruptions": "Winter snowstorms (November-March) can cause delays and deicing requirements. Temperature inversions create persistent fog/smog in the Salt Lake Valley during winter, reducing visibility. Occasional summer thunderstorms with gusty winds.",
+    "bestMonths": "September-October (warm days, cool nights, fall colors) and June-August (hot but dry, long days, national park season)",
+    "worstMonths": "December-February for weather disruptions (snow, inversions, fog). However, this is peak travel season for skiing.",
+    "winterNote": "SLC is well-equipped for winter operations — the airport rarely closes due to snow. Deicing is routine and efficient. However, major winter storms can cause 1-3 hour delays. The 'Greatest Snow on Earth' that makes Utah skiing world-class also means regular snowfall at the airport. Morning flights tend to be most reliable in winter.",
+    "inversionNote": "December-February, the Salt Lake Valley frequently experiences temperature inversions — cold air trapped under warm air creates persistent fog and poor air quality. This can affect visibility and cause delays, especially for morning flights. The inversions typically clear within 2-3 days when a new weather system moves through.",
+    "altitudeNote": "SLC sits at 4,227 feet elevation. Travelers from sea level may notice mild altitude effects (slight breathlessness, faster dehydration). Stay hydrated, especially if heading to Park City (7,000 ft) or ski resorts (base elevations 8,000-9,000 ft).",
+    "note": "SLC's winter weather is manageable — the airport is experienced with snow operations. The bigger concern is temperature inversions causing fog. Summer is reliably clear and dry. Morning flights are most reliable year-round."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near SLC. Hotels along North Temple and near I-215/I-80 offer park-sleep-fly packages.",
+    "priceRange": "From ~$89/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hyatt Place Salt Lake City Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Hotel shuttle — verify schedule",
+        "parkOnlyRate": "$8.50/day",
+        "highlight": "Quality hotel with parking. Good for early morning flights."
+      },
+      {
+        "name": "Courtyard by Marriott Salt Lake City Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Hotel shuttle available",
+        "parkOnlyRate": "$9.95/day",
+        "highlight": "Marriott quality with long-term parking included."
+      },
+      {
+        "name": "Holiday Inn Express Salt Lake City Airport East",
+        "distance": "3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Hotel shuttle available",
+        "parkOnlyRate": "$8.95/day",
+        "highlight": "Budget-friendly with complimentary breakfast and parking."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "skiShuttleDriver": "$5-10 per person (especially if they help with ski/snowboard bags)",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "parkingGarage": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" },
+      "lotE": { "parkingCost": "$147 (7 x $21)", "totalEstimate": "$147" },
+      "economyLot": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" },
+      "premiumReserved": { "parkingCost": "$420 (7 x $60)", "totalEstimate": "$420" }
+    },
+    "offSiteWithShuttle": {
+      "parkNJetArchLot": { "parkingCost": "$45.50 (7 x $6.50 pre-booked)", "savingsVsGarage": "~$200 saved", "caveat": "24/7 shuttle" },
+      "maasAirportParking": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$189 saved", "caveat": "24/7 shuttle every 10-15 min" },
+      "theParkingSpot": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$175 saved", "caveat": "Shuttle every 5-7 min — best frequency" }
+    },
+    "publicTransit": {
+      "traxRoundTrip": { "costPerPersonRoundTrip": "$5.00", "travelTime": "25 min to downtown SLC", "note": "$2.50 per ride. Cheapest option for downtown-bound travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than parking for any length trip if headed downtown" }
+    },
+    "keyDifference": "SLC's economy lot at $12/day with free shuttle is excellent value and rarely fills. Off-site lots start at $6.50/day for even more savings. The parking garage at $35/day is expensive but convenient for short trips. TRAX at $2.50 is unbeatable for downtown-bound travelers. For ski trips, compare parking + rental car vs. ski shuttle ($42-65 each way) — shuttle is often more convenient and avoids canyon driving/parking hassles."
+  },
+  "uniqueFeatures": {
+    "theNewSLC": "SLC completed the largest single-airport rebuild in U.S. history — a $5.1 billion project that replaced the entire airport from the ground up. The New SLC features a stunning 909,000 sq ft terminal with floor-to-ceiling windows showcasing the Wasatch Mountains, public art installations reflecting Utah's landscape, and a modern single-terminal design that simplified navigation.",
+    "skiResortGateway": "No major U.S. airport is closer to world-class skiing. Seven ski resorts (Alta, Snowbird, Brighton, Solitude, Park City, Deer Valley, Woodward Park City) are within 35-55 minutes. Utah's 'Greatest Snow on Earth' trademark reflects average annual snowfall of 500+ inches at Alta. Multiple shuttle services run directly from baggage claim to slopes.",
+    "deltaThirdLargestHub": "Delta Air Lines operates SLC as its third-largest hub (after Atlanta and Minneapolis). Delta accounts for roughly 70% of all SLC flights, offering 200+ daily departures to 100+ destinations including nonstop international service to London, Paris, Amsterdam, Seoul, Tokyo, Cancun, and more.",
+    "freeEVCharging": "SLC offers 78 FREE EV charging ports across all parking areas — one of the most generous free EV charging programs at any U.S. airport.",
+    "centurionAndSkyClub": "The October 2025 opening of Delta's second-largest Sky Club (34,000 sq ft, 600 guests, 'Dirty Soda' bar) and one of Amex's largest Centurion Lounges (18,000 sq ft, Recovery Room with compression boots) made SLC one of the best airports in the U.S. for lounge access.",
+    "centralRiverTunnel": "The Central River Tunnel (opened October 2024) is a unique architectural feature connecting the terminal directly to mid-Concourse B, cutting walking time to distant B gates by up to half. The tunnel features art and design elements inspired by Utah's rivers.",
+    "nationalParkAccess": "Beyond skiing, SLC is the gateway to Utah's 'Mighty Five' national parks (Zion, Bryce Canyon, Capitol Reef, Canyonlands, Arches), plus Yellowstone and Grand Teton to the north. Summer travel is a growing secondary peak.",
+    "2002WinterOlympics": "Salt Lake City hosted the 2002 Winter Olympics and is a candidate for the 2034 Winter Games. Olympic venues (Utah Olympic Park, ski jump facilities) are popular tourist attractions in Park City.",
+    "sundanceFilmFestival": "SLC is the arrival airport for the Sundance Film Festival (late January), the world's premier independent film festival held in Park City. Airport traffic spikes significantly during the 10-day event."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(801) 575-2400",
+    "airportWebsite": "slcairport.com",
+    "parkingInfo": "slcairport.com/parking-and-transportation/parking/",
+    "tsa": "(866) 289-9673",
+    "utaTransitInfo": "(801) RIDE-UTA (743-3882)",
+    "utaWebsite": "rideuta.com",
+    "yellowCabUtah": "(801) 521-2100",
+    "airportPolice": "(801) 575-2405"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://slcairport.com/",
+      "parking": "https://slcairport.com/parking-and-transportation/parking/",
+      "economyParking": "https://slcairport.com/parking-and-transportation/parking/economy-parking/",
+      "parkingGarage": "https://slcairport.com/parking-and-transportation/parking/parking-garage/",
+      "groundTransportation": "https://slcairport.com/parking-and-transportation/ground-transportation/",
+      "publicTransportation": "https://slcairport.com/parking-and-transportation/public-transportation/",
+      "airportServices": "https://slcairport.com/airport-services/",
+      "airlinesAndFlights": "https://slcairport.com/airlines-flights/",
+      "theNewSLC": "https://slcairport.com/thenewslc/",
+      "futurePhases": "https://slcairport.com/thenewslc/future-phases/",
+      "constructionUpdates": "https://slcairport.com/thenewslc/construction-updates/",
+      "factSheet": "https://slcairport.com/thenewslc/the-new-slc-fact-sheet/",
+      "airTrafficStats": "https://slcairport.com/about-the-airport/airport-overview/air-traffic-statistics/"
+    },
+    "transit": {
+      "traxGreenLine": "https://rideuta.com/Rider-Tools/Schedules-and-Maps/704-Green-Line",
+      "utaMain": "https://www.rideuta.com/",
+      "frontRunner": "https://www.rideuta.com/Services/FrontRunner",
+      "utaSkiBus": "https://www.rideuta.com/Services/Ski-Service"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/slc/",
+      "lyft": "https://www.lyft.com/rider/airports/slc"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SLC",
+      "airportParkingReservations": "https://airportparkingreservations.com/slc/airport-parking",
+      "way": "https://www.way.com/airport-parking/slc-parking",
+      "spothero": "https://spothero.com/airport/salt-lake-city/slc-parking",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/salt-lake-city",
+      "parknjet": "https://www.parknjet.com/",
+      "cheapAirportParking": "https://www.cheapairportparking.org/slc",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/salt-lake-city-airport-slc"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearSLC": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/salt-lake-slc-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/SLC/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KSLC",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SLC",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=slc"
+    },
+    "evCharging": {
+      "slcEVInfo": "https://slcairport.com/blog/2018/07/slc-adds-ev-charging-stations/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/slc/airport-parking",
+      "parkSleepHotels": "https://slc.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/salt-lake-city-slc-airport"
+    },
+    "skiResorts": {
+      "skiUtah": "https://www.skiutah.com/",
+      "skiUtahAccess": "https://www.skiutah.com/explore/access/",
+      "parkCityMountain": "https://www.parkcitymountain.com/",
+      "deerValley": "https://www.deervalley.com/",
+      "snowbird": "https://www.snowbird.com/",
+      "alta": "https://www.alta.com/",
+      "brighton": "https://www.brightonresort.com/",
+      "solitude": "https://www.solitudemountain.com/"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/salt-lake-city-international-slc-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Salt_Lake_City_International_Airport",
+      "ifly": "https://www.ifly.com/airports/salt-lake-city-international-airport",
+      "visitSaltLake": "https://www.visitsaltlake.com/"
+    },
+    "newsAndMedia": {
+      "saltLakeTribune": "https://www.sltrib.com/",
+      "ksl": "https://www.ksl.com/",
+      "deseret": "https://www.deseret.com/"
+    }
+  }
+}

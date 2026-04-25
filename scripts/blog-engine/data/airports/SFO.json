@@ -1,0 +1,1030 @@
+{
+  "code": "SFO",
+  "fullName": "San Francisco International Airport",
+  "lastVerified": "2026-04-04",
+  "overview": {
+    "location": "Unincorporated San Mateo County, California — 12 miles south of downtown San Francisco",
+    "passengerVolume": "54.5 million passengers per year (2025) — 13th busiest in the U.S., 2nd busiest in California after LAX",
+    "distinction": "Primary airport for the San Francisco Bay Area. Major hub for United Airlines. One of the first U.S. airports with direct BART rail connection.",
+    "operator": "City and County of San Francisco (Airport Commission)",
+    "activeTerminals": 4,
+    "runways": 4,
+    "runwayLength": "7,650 ft to 11,870 ft — two sets of parallel runways with only 750 ft separation (capacity constraint in poor visibility)",
+    "dominantAirline": "United Airlines (largest hub, operating from Terminal 3 and International Terminal)",
+    "securityProvider": "Covenant Aviation Security (private contractor, not TSA — SFO is one of ~20 U.S. airports using private screeners under TSA oversight)"
+  },
+  "terminals": [
+    {
+      "name": "Harvey Milk Terminal 1 (Boarding Areas B & C)",
+      "gates": "37 gates (B2-B27, C1-C11)",
+      "status": "Active — $2.4 billion modernization completed 2024",
+      "airlines": ["Southwest Airlines", "JetBlue Airways", "American Airlines", "Hawaiian Airlines", "WestJet", "Alaska Airlines (select flights)"],
+      "notes": "Named after Harvey Milk since 2019. Boarding Areas B and C. New terminal features extensive art collection, local restaurant concessions, and sustainability features (LEED Gold). Southwest Airlines is the dominant carrier here."
+    },
+    {
+      "name": "Terminal 2 (Boarding Area D)",
+      "gates": "14 gates (D1-D12, D14-D16)",
+      "status": "Active — renovated 2011 ($383 million), LEED Gold certified",
+      "airlines": ["Alaska Airlines", "Air Canada", "Breeze Airways", "Sun Country Airlines", "Southwest Airlines (as of March 2025)"],
+      "notes": "Smallest terminal. Connected to Terminal 1 and Terminal 3 post-security. First U.S. airport terminal to achieve LEED Gold status. Houses the SkyTerrace observation deck (opened February 2020). Known for local food options and sustainability focus."
+    },
+    {
+      "name": "Terminal 3 (Boarding Areas E & F)",
+      "gates": "31 gates (E1-E13, F5-F22)",
+      "status": "Active — Terminal 3 West undergoing $2.6 billion renovation (completion expected 2029)",
+      "airlines": ["United Airlines (domestic)"],
+      "notes": "United Airlines domestic hub. Boarding Areas E and F. Terminal 3 East reopened January 2014 ($138 million renovation). Terminal 3 West renovation began 2024 — will add new gates, wider concourses, and improved passenger amenities. United Club lounges in both boarding areas. Solar roof installed 2007."
+    },
+    {
+      "name": "International Terminal (Boarding Areas A & G)",
+      "gates": "29 gates (A1-A15, G1-G14) — six gates can accommodate Airbus A380",
+      "status": "Active — opened December 2000 ($2.4 billion)",
+      "airlines": ["United Airlines (international)", "Air France", "ANA", "British Airways", "Cathay Pacific", "China Airlines", "Copa Airlines", "Delta Air Lines", "Emirates", "EVA Air", "Fiji Airways", "Finnair", "Japan Airlines", "KLM", "Korean Air", "LATAM", "Lufthansa", "Philippine Airlines", "Qantas", "Singapore Airlines", "Swiss", "Turkish Airlines", "Virgin Atlantic", "Volaris"],
+      "notes": "Boarding Areas A and G. Largest international terminal in North America when opened. Largest building in the world built on base isolators for earthquake protection. Houses BART station on Level 3. SFO Museum gallery with rotating exhibitions (American Alliance of Museums accredited since 1999). Multiple international airline lounges. Global Entry and TSA PreCheck available."
+    }
+  ],
+  "runways": [
+    {
+      "designation": "10L/28R",
+      "length": "11,870 ft",
+      "features": "Category III ILS equipped — primary instrument approach runway"
+    },
+    {
+      "designation": "10R/28L",
+      "length": "11,381 ft",
+      "features": "ILS equipped"
+    },
+    {
+      "designation": "01R/19L",
+      "length": "8,650 ft",
+      "features": "Secondary runway"
+    },
+    {
+      "designation": "01L/19R",
+      "length": "7,650 ft",
+      "features": "Secondary runway"
+    }
+  ],
+  "runwayOperations": {
+    "westPlan": "Used ~81% of the time — Runways 1L/1R for departures, 28L/28R for arrivals",
+    "southeastPlan": "Used ~4% of the time — Runways 10L/10R for departures, 19L/19R for arrivals",
+    "parallelSeparation": "750 feet centerline to centerline (unusually close — key capacity constraint)",
+    "clearWeatherCapacity": "~60 arrivals per hour with simultaneous parallel approaches (NOW RESTRICTED — see 2026 FAA changes)",
+    "poorVisibilityCapacity": "25-30 arrivals per hour (single-runway instrument approaches required)"
+  },
+  "roads": ["US-101 (Bayshore Freeway)", "I-380", "I-280", "San Bruno Avenue", "South Airport Boulevard"],
+  "transit": ["BART (Bay Area Rapid Transit)", "SamTrans Bus", "Caltrain (via Millbrae connection)", "AirTrain (free inter-terminal people mover)"],
+  "neighborhoods": ["South San Francisco", "San Bruno", "Millbrae", "Burlingame", "San Mateo"],
+  "authority": "San Francisco Airport Commission (City and County of San Francisco)",
+  "groundTransportation": {
+    "bart": {
+      "station": "SFO BART Station — Level 3 of International Terminal",
+      "fares": {
+        "powellSt": "$11.80 (Downtown SF)",
+        "montgomerySt": "$11.80 (Financial District)",
+        "embarcadero": "$11.80",
+        "dalyCity": "$10.80",
+        "millbrae": "$5.85 (Caltrain connection)",
+        "southSanFrancisco": "$10.10",
+        "oaklandCityCenter": "$12.20",
+        "downtownBerkeley": "$12.60",
+        "fremont": "$15.40",
+        "oaklandAirport": "$20.75"
+      },
+      "faresEffective": "January 1, 2026 (6.2% increase)",
+      "payment": "Contactless bank cards, Apple Pay, Google Pay, or Clipper card. Paper tickets no longer sold.",
+      "hours": {
+        "weekdays": "4:58 AM - Midnight",
+        "saturdays": "5:47 AM - Midnight",
+        "sundays": "8:08 AM - Midnight"
+      },
+      "frequency": "Combined Yellow + Red Line: every ~10 minutes to downtown SF (weekday peak). After 9 PM: every ~20 minutes. Weekends: every ~20 minutes.",
+      "travelTimes": {
+        "downtownSF": "~30 minutes",
+        "dalyCity": "~15 minutes",
+        "millbrae": "~4 minutes",
+        "oaklandCityCenter": "~43 minutes",
+        "downtownBerkeley": "~54 minutes",
+        "fremont": "~64 minutes (transfer at Balboa Park)"
+      },
+      "connection": "Free AirTrain from all terminals to BART station (3-5 min ride)",
+      "caltrainTransfer": "Transfer at Millbrae station (4-min BART ride from SFO). Caltrain zone fares: $3.45 Clipper/$4.00 cash to SF or Palo Alto, $5.70/$6.25 to San Jose Diridon. Two of four Caltrain trains per hour are timed with BART.",
+      "lateNightNote": "Sunday BART does not start until 8:08 AM — early morning flights require alternative transport. Late-night Millbrae shuttle runs every 15 min after 9 PM.",
+      "constructionAlert": "Train control modernization: expect 30-minute delays some Sunday-Thursday nights between Millbrae and SFO through Summer 2026."
+    },
+    "airTrain": {
+      "fare": "FREE — no ticket required",
+      "hours": "24/7 operation",
+      "frequency": "Every 4 minutes",
+      "totalDistance": "3 miles (4.8 km)",
+      "opened": "February 24, 2003",
+      "lines": {
+        "redLine": "Clockwise loop (~9 min): Terminal 2 → Terminal 3 (CLOSED for renovation, use Terminal 2 station) → International G → Garage G/BART → International A → Harvey Milk Terminal 1 → Garage A → Grand Hyatt at SFO",
+        "blueLine": "Counterclockwise loop (~25 min): All Red Line stops PLUS West Field Road, Rental Car Center, and Long-Term Parking. Blue Line is the ONLY way to reach Rental Car Center and Long-Term Parking."
+      },
+      "terminal3Closure": "Terminal 3 AirTrain station closed since November 4, 2025 for Terminal 3 West renovation. Use 'Terminals 2 & 3' station and walk. Reopening expected 2027.",
+      "funding": "Funded by rental car customer facility charges"
+    },
+    "taxi": {
+      "fareType": "METERED (SFMTA rates effective November 17, 2022)",
+      "flagDrop": "$4.15 (first 1/5 mile)",
+      "perFifthMile": "$0.65 ($3.25/mile)",
+      "perMinuteWaiting": "$0.65",
+      "sfoPickupSurcharge": "$6.00 (100% collected from passenger; NO surcharge for drop-offs)",
+      "luggageFee": "Up to $1.00/piece if it cannot fit in trunk/passenger compartment",
+      "outOfTownTrips": "150% of metered rate for trips exceeding 15 miles beyond SF city limits",
+      "bridgeTolls": "Paid by passenger",
+      "estimatedFares": {
+        "toDowntownSF": "$55-$75 (including $6 SFO surcharge, excluding tip)",
+        "toOakland": "~$95",
+        "toPaloAlto": "~$83",
+        "toSanJose": "~$100-$130 (150% meter applies beyond 15 mi from SF)"
+      },
+      "flatRateOption": "YoTaxi App: $35 flat rate to SFO from anywhere in SF. Shared ride flat rate: up to $20/person (requires advance consent).",
+      "pickup": "Taxi stands on Arrivals/lower level at every terminal, curbside outside baggage claim"
+    },
+    "rideshare": {
+      "estimatedFares": {
+        "toDowntownSF": "$25-$40 UberX/Lyft ($55-$85+ Uber Black/Lyft Lux). Surge can push standard to $60-80+",
+        "toOakland": "$40-$60 standard, $70-$100+ premium",
+        "toPaloAlto": "$45-$65 standard, $80-$120+ premium",
+        "toSanJose": "$45-$65 standard, $85-$130+ premium"
+      },
+      "airportFee": "$3.80 airport surcharge per pickup or drop-off (included in app fare)",
+      "pickupLocations": {
+        "domesticTerminals": "Level 5 of Domestic Parking Garage — follow signs and walk across connecting sky-bridges from Arrivals. Request ride AFTER arriving at Level 5.",
+        "internationalTerminal": "Center island of Departures-level roadway (upper level), curbside",
+        "terminal1Zones": "Zones A/B and B",
+        "terminal2Zones": "Zones C and D",
+        "terminal3Zones": "Zones E, F, and F/G"
+      },
+      "premiumPickup": "Uber Black SUV and WAV (wheelchair accessible) pick up curbside at domestic terminals. All other services (including Uber Black sedan) are Level 5.",
+      "sharedShuttleVans": "~$17-$23 per person to downtown SF",
+      "waymo": "Waymo autonomous vehicles began operating at SFO in January 2026",
+      "driverRequirement": "All rideshare drivers must display light blue SFO Airport placard (effective May 1, 2025)",
+      "waitTimes": "Typical: 3-8 min daytime, 10-15+ min late night/early morning"
+    },
+    "samTrans": {
+      "fare": "$2.25 cash/$2.05 Clipper (adult), $1.10/$1.00 (youth/senior/disabled)",
+      "dayPass": "$4.50",
+      "monthlyPass": "$65.60",
+      "routes": {
+        "route292": "San Francisco – Daly City – South SF – SFO – Millbrae – Burlingame – San Mateo (primary SFO route, weekday/Saturday/Sunday)",
+        "route397": "San Francisco – SFO – Palo Alto Transit Center (express)",
+        "route120": "Colma – SFO (one daily run, 4:41 AM weekdays)",
+        "ecrOwl": "Late-night/overnight service to SFO terminals"
+      },
+      "pickup": "Terminal 2 at Courtyard 2, Terminal 3 at Courtyard 4, International Terminal at Courtyard A/G",
+      "note": "SamTrans provides around-the-clock SFO service via combination of daytime routes and ECR OWL overnight"
+    },
+    "sharedShuttles": {
+      "superShuttle": {
+        "status": "Operating at SFO",
+        "pricing": "$17-$23/person shared ride van to downtown SF",
+        "booking": "supershuttle.com or 1-800-BLUE-VAN (1-800-258-3826)",
+        "pickup": "Terminal 1, center island"
+      }
+    },
+    "rentalCars": {
+      "location": "Rental Car Center — 780 N. McDonnell Road, San Francisco, CA 94128",
+      "connection": "Free AirTrain Blue Line from all terminals to Rental Car Center",
+      "onSiteCompanies": [
+        {"name": "Alamo", "phone": "+1 844-370-8302"},
+        {"name": "Avis", "phone": "+1 650-877-6780"},
+        {"name": "Budget", "phone": "+1 650-877-0998"},
+        {"name": "Dollar", "phone": "+1 866-434-2226"},
+        {"name": "Enterprise", "phone": "+1 833-635-0431"},
+        {"name": "Hertz", "phone": "+1 650-624-6600"},
+        {"name": "National", "phone": "+1 844-370-8301"},
+        {"name": "Sixt", "phone": "+1 888-749-8227"},
+        {"name": "Thrifty", "phone": "+1 877-283-0898"}
+      ],
+      "offSiteCompanies": [
+        {"name": "Airport Van Rental", "phone": "+1 650-952-5543", "hours": "6:00 AM-10:00 PM"},
+        {"name": "NU Car Rentals", "phone": "+1 800-55-NUCAR"},
+        {"name": "Payless Car Rental", "phone": "+1 650-548-5161", "hours": "5:00 AM-11:00 PM"},
+        {"name": "Silvercar", "phone": "+1 650-273-7110", "hours": "5:00 AM-11:00 PM"},
+        {"name": "Fox", "phone": "+1 415-917-2713", "hours": "5:00 AM-12:30 AM"}
+      ],
+      "offSiteAccess": "Free shuttle service from the south curb of the Rental Car Center upon customer request",
+      "avgDailyRates": {
+        "economy": "$27-$30/day",
+        "compact": "$29-$30/day",
+        "intermediate": "$31/day",
+        "standard": "$32/day",
+        "midSizeSUV": "$46/day",
+        "fullSizeSUV": "$98/day"
+      }
+    }
+  },
+  "parkingRates": "On-airport: Domestic Garage $39/day, International Garage $37/day, Long-Term Garage $27/day, ParkFAST $60/day, ParkVALET $45/day. Off-site: from $8/day with free shuttle. Cell Phone Waiting Lot: free (up to 60 minutes). BART from downtown SF: $8.95 one-way (~30 min).",
+  "onAirportParking": {
+    "domesticGarage": {
+      "rate": "$2 per 15 minutes",
+      "dailyMax": 39,
+      "terminals": "Terminal 1, 2, 3 (connected via walkways)",
+      "heightClearance": "6'6\" max",
+      "features": "Direct elevator access to terminals. EV charging available in Green Vehicle Parking Zones."
+    },
+    "internationalGarage": {
+      "rate": "$2 per 15 minutes",
+      "dailyMax": 37,
+      "terminals": "International Terminal (Boarding Areas A & G)",
+      "heightClearance": "8'2\" max",
+      "features": "Direct access to International Terminal. EV charging in Green Vehicle Parking Zones."
+    },
+    "longTermGarage": {
+      "rate": "$2 per 15 minutes",
+      "dailyMax": 27,
+      "address": "794 South Airport Boulevard, San Francisco, CA 94128",
+      "connection": "Free AirTrain Blue Line to all terminals (Level 5 access)",
+      "heightClearance": "Garage 1: 6'10\" max, Garage 2: 8'2\" max",
+      "features": "Most affordable on-airport option. Best for trips of 3+ days."
+    },
+    "parkFast": {
+      "dailyMax": 60,
+      "terminals": "Domestic terminals",
+      "features": "Premium reserved spots closest to terminal entrances. Guaranteed spot."
+    },
+    "parkValet": {
+      "dailyMax": 45,
+      "features": "Drop off your car at the terminal curbside, valet parks it for you. No online reservations."
+    },
+    "cellPhoneLot": {
+      "location": "North Access Road, near airport entrance",
+      "cost": "Free",
+      "rules": "Maximum 60 minutes. Driver must remain with vehicle."
+    }
+  },
+  "evCharging": {
+    "overview": "SFO provides complimentary Level 1 and Level 2 EV charging across all public garages in designated Green Vehicle Parking Zones. Charging is free (included with parking fee) on a first-come, first-served basis. Managed by ChargePoint network.",
+    "garageStations": {
+      "internationalGarageA": {
+        "level2Stalls": "4 stalls (near Terminal walkway)",
+        "level7Stalls": "6 stalls (near AirTrain terminal)",
+        "totalStalls": 10
+      },
+      "internationalGarageG": {
+        "level1Stalls": "6 stalls (Level 1, near elevators)",
+        "level3Stalls": "4 stalls (near Terminal walkway)",
+        "level7Stalls": "6 stalls (near AirTrain terminal)",
+        "totalStalls": 16
+      },
+      "longTermGarage": {
+        "levels2to6": "6 Level 1 stalls per floor near elevators (30 total)",
+        "level5Extra": "4 additional Level 1 stalls",
+        "totalStalls": 34,
+        "note": "Level 2 ChargePoint stations also available — 4th floor of Garage 2 has up to 104 ports"
+      },
+      "domesticGarage": {
+        "level1Stalls": "25 stalls distributed near elevator lobbies",
+        "totalStalls": 25
+      },
+      "surfaceLot": {
+        "stalls": "Level 1 charging adjacent to Bus Stops 5, 7, and 8"
+      },
+      "parkValetService": {
+        "location": "Level 4 of Domestic Garage — plug-in EV charging for valet customers"
+      }
+    },
+    "totalEstimatedPorts": "85+ Level 1/Level 2 ports across all garages, plus 104 ChargePoint Level 2 ports in Long-Term Garage 2",
+    "chargingTypes": {
+      "level1": "Standard 120V outlet — bring your own cable. Adds ~4-5 miles of range per hour.",
+      "level2": "240V ChargePoint stations — J1772 connector. Adds ~25 miles of range per hour."
+    },
+    "cost": "Free with paid parking. No separate charging fee.",
+    "findStations": "Search 'SFO' on chargepoint.com or ChargePoint app for real-time availability",
+    "skychargerHub": {
+      "status": "Under development (lease awarded 2025)",
+      "ports": "24 DC fast-charging ports at 400 kW",
+      "hardware": "Kempower — 12 Power Cabinets and 24 Satellite dispensers with dynamic power distribution",
+      "targetUsers": "Electric rideshare drivers (Uber/Lyft), airport guests, and general public",
+      "chargeTime": "15-30 minutes for meaningful range",
+      "amenities": "Convenience store on-site",
+      "access": "24/7",
+      "partners": "Burns & McDonnell (engineering/construction), Kempower (hardware)",
+      "context": "Supports California's Clean Miles Standard — 90% of Uber/Lyft miles must be EV by 2030"
+    },
+    "dcFastCharging": "No public DC fast charging currently at SFO garages. The Skycharger Hub (24 ports, 400 kW) will be the first when completed."
+  },
+  "luggageStorage": {
+    "onAirport": {
+      "provider": "Airport Travel Agency",
+      "location": "International Terminal, Main Hall, Level 3, near G Gates",
+      "hours": "6:00 AM - 11:00 PM daily",
+      "pricing": {
+        "purseOrCameraBag": "$3.00 per 24 hours",
+        "smallBag": "$6.00 per 24 hours",
+        "mediumSuitcase": "$8.00 per 24 hours",
+        "largeSuitcase": "$10.00 per 24 hours",
+        "oversized": "$15.00-$35.00 per 24 hours (bicycles, surfboards, skis)",
+        "note": "Less than 24 hours still charged the 24-hour rate"
+      },
+      "additionalServices": "Bag wrapping, travel insurance, passport photos, notary public, photocopies, faxing, showers",
+      "booking": "No pre-booking required — walk-in only",
+      "phone": "Check flysfo.com for current number"
+    },
+    "offSiteAlternatives": [
+      {
+        "name": "Bounce (formerly usebounce.com)",
+        "website": "bounce.com",
+        "ratePerBag": "From $5.90/day",
+        "locations": "Partner shops and hotels near SFO and in downtown SF",
+        "insurance": "Up to $10,000 per bag",
+        "booking": "Online booking required — app or website",
+        "hours": "Varies by location (many open 7 AM - 10 PM)"
+      },
+      {
+        "name": "LuggageHero",
+        "website": "luggagehero.com",
+        "ratePerBag": "From $1.49/hour or $7.39-$9.95/day",
+        "locations": "1000+ partner locations in San Francisco (hotels, shops, cafes)",
+        "insurance": "Up to $3,000 per bag included",
+        "booking": "Online — book now, pay later",
+        "hours": "Varies by location",
+        "note": "Hourly pricing is unique — good for short layovers"
+      },
+      {
+        "name": "Radical Storage",
+        "website": "radicalstorage.com",
+        "ratePerBag": "$6.00/day flat rate (all bag sizes)",
+        "locations": "Multiple partner locations in San Francisco",
+        "insurance": "Up to $3,000 per bag",
+        "booking": "Online booking",
+        "hours": "Varies by location"
+      },
+      {
+        "name": "Vertoe",
+        "website": "vertoe.com",
+        "ratePerBag": "From $5.95/day",
+        "locations": "1000+ locations including near SFO",
+        "insurance": "Up to $5,000 per bag",
+        "booking": "Online booking — guaranteed space",
+        "hours": "Varies by location"
+      },
+      {
+        "name": "Nannybag",
+        "website": "nannybag.com",
+        "ratePerBag": "From $2.50/day",
+        "locations": "Partner businesses and hotels near SFO and throughout SF",
+        "insurance": "Included (amount varies)",
+        "booking": "Online booking",
+        "hours": "Varies by location"
+      }
+    ],
+    "comparison": "Airport Travel Agency ($3-$15/day) is convenient but limited to International Terminal hours. Off-site services like Nannybag ($2.50/day) and LuggageHero ($1.49/hr) are cheaper but require travel to partner locations in the city. For quick airport layovers, the on-airport option is most practical."
+  },
+  "petReliefAreas": {
+    "overview": "SFO has 7+ designated pet relief areas: outdoor pre-security areas at Terminals 1, 2, and 3, plus indoor post-security areas in all four terminals. All are open 24 hours, handicap accessible, and provide water bowls and waste bags.",
+    "outdoor": [
+      {
+        "terminal": "Harvey Milk Terminal 1",
+        "type": "Outdoor, pre-security",
+        "location": "Courtyard 2, Arrivals/Baggage Claim Level",
+        "features": "Fully fenced, landscaped with trees and shrubs, waste bags, trash bins, water bowls, wheelchair accessible",
+        "navigation": "Follow painted paw-prints on the Arrivals Level terminal curbside walkways"
+      },
+      {
+        "terminal": "Terminal 2",
+        "type": "Outdoor, pre-security",
+        "location": "Courtyard 2, Arrivals/Baggage Claim Level",
+        "features": "Fully fenced, landscaped with trees and shrubs, waste bags, trash bins, water bowls, wheelchair accessible",
+        "navigation": "Follow painted paw-prints on the Arrivals Level terminal curbside walkways"
+      },
+      {
+        "terminal": "Terminal 3",
+        "type": "Outdoor, pre-security",
+        "location": "Close to Courtyard 4, Arrivals/Baggage Claim Level",
+        "features": "Fully fenced, landscaped with trees and shrubs, waste bags, trash bins, water bowls, wheelchair accessible",
+        "navigation": "Follow painted paw-prints on the Arrivals Level terminal curbside walkways"
+      }
+    ],
+    "indoor": [
+      {
+        "terminal": "Harvey Milk Terminal 1",
+        "type": "Indoor, post-security",
+        "location": "B Gates and C Gates (near gate C5)",
+        "features": "Artificial turf with built-in drainage, waste bags, trash bins, water bowls"
+      },
+      {
+        "terminal": "Terminal 2",
+        "type": "Indoor, post-security",
+        "location": "D Gates area",
+        "features": "Artificial turf with drainage, waste bags, trash bins, water bowls"
+      },
+      {
+        "terminal": "Terminal 3",
+        "type": "Indoor, post-security",
+        "location": "F Gates at entrance of F11-F22",
+        "features": "Artificial turf with drainage, waste bags, trash bins, water bowls"
+      },
+      {
+        "terminal": "International Terminal",
+        "type": "Indoor, post-security",
+        "location": "A Gates and G Gates areas",
+        "features": "Artificial turf with built-in drainage, waste bags, trash bins, water bowls"
+      }
+    ]
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "Alaska Lounge",
+        "location": "Retail street, Level 2, post-security (across from gate B6)",
+        "hours": "5:00 AM - 12:00 AM daily",
+        "access": {
+          "membership": "Alaska Lounge membership (~$595/year)",
+          "status": "Alaska MVP Gold 75K and above, oneworld Emerald",
+          "creditCard": "Not directly — requires Alaska status or membership",
+          "dayPass": "Available for purchase (check Alaska Airlines for current pricing)"
+        },
+        "amenities": "Hot and cold food options, cocktails, beer, wine, soft drinks, comfortable seating, Wi-Fi, power outlets"
+      },
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Adjacent to gate B13, Level 2, post-security",
+        "hours": "4:30 AM - 11:30 PM daily",
+        "access": {
+          "membership": "Admirals Club membership",
+          "status": "AA first/business class passengers, oneworld Emerald/Sapphire",
+          "creditCard": "Citi / AAdvantage Executive World Elite Mastercard",
+          "dayPass": "Available for purchase (~$65)"
+        },
+        "amenities": "Snacks, house drinks, cocktails, wine, beer, shower suites, business center, Wi-Fi, power outlets"
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Adjacent to gate C3, Level 2, post-security",
+        "hours": "Sun-Mon: 4:30 AM-10:30 PM, Tue-Fri: 4:30 AM-12:00 AM, Sat: 4:30 AM-10:30 PM",
+        "access": {
+          "membership": "Delta Sky Club membership",
+          "status": "Delta Diamond/Platinum/Gold Medallion on same-day Delta flight",
+          "creditCard": "Delta SkyMiles Reserve Amex, Delta SkyMiles Platinum Amex (conditions apply)",
+          "dayPass": "Delta has discontinued single-visit passes"
+        },
+        "amenities": "Full-service buffet, premium cocktails, wine, beer, complimentary Wi-Fi, digital Wall Street Journal and magazines, power outlets"
+      },
+      {
+        "name": "The Club SFO",
+        "location": "Level 3, post-security",
+        "hours": "4:30 AM - 11:30 PM daily",
+        "access": {
+          "membership": "Priority Pass, LoungeKey, Diners Club",
+          "creditCard": "Priority Pass cards (Chase Sapphire Reserve, Amex Platinum via Priority Pass, Capital One Venture X, etc.)",
+          "dayPass": "Walk-in day passes available (~$50)"
+        },
+        "amenities": "Fresh seasonal dishes and drinks, spa-style showers ($25 extra), forest-themed children's play area, Wi-Fi, power outlets, comfortable seating"
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "Air Canada Maple Leaf Lounge",
+        "location": "Sector 4, fourth floor, post-security",
+        "hours": "5:30 AM - 7:15 PM daily (hours may vary by day of week)",
+        "access": {
+          "membership": "Star Alliance Gold members",
+          "status": "Air Canada premium Rouge passengers, business class passengers",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Light snacks and beverages, shower facility, newspapers, entertainment, Wi-Fi, power outlets"
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Level 2, post-security",
+        "hours": "5:00 AM - 11:00 PM daily",
+        "access": {
+          "membership": "Not required — card-based access",
+          "status": "N/A",
+          "creditCard": "American Express Platinum Card, Centurion Card, Delta SkyMiles Reserve (with restrictions as of 2025)",
+          "dayPass": "Not available — Amex card required",
+          "guestPolicy": "Platinum cardholders: 2 guests at $50 each or free with $75K+ spend. Centurion cardholders: 2 free guests."
+        },
+        "amenities": "Open kitchen with seasonal menus, full bar with signature cocktails, wine tasting area, family room, high-speed Wi-Fi, business services, phone rooms, premium seating"
+      }
+    ],
+    "terminal3": [
+      {
+        "name": "United Club (Boarding Area E)",
+        "location": "Level 3, post-security, near gates E4-E7",
+        "hours": "5:00 AM - 11:55 PM daily",
+        "access": {
+          "membership": "United Club membership ($650/year)",
+          "status": "United premium cabin passengers, Star Alliance Gold",
+          "creditCard": "United Club Infinite Card",
+          "dayPass": "One-time passes available (~$59)"
+        },
+        "amenities": "Complimentary food, drinks (including beer, wine, spirits), Wi-Fi, digital magazines, power outlets, TV screens"
+      },
+      {
+        "name": "United Club (Boarding Area F)",
+        "location": "Post-security, Boarding Area F rotunda",
+        "hours": "5:00 AM - 11:55 PM daily",
+        "access": {
+          "membership": "United Club membership",
+          "status": "United premium cabin passengers, Star Alliance Gold",
+          "creditCard": "United Club Infinite Card",
+          "dayPass": "One-time passes available (~$59)"
+        },
+        "amenities": "Complimentary food, drinks, Wi-Fi, digital magazines, power outlets"
+      }
+    ],
+    "internationalTerminalA": [
+      {
+        "name": "Air France-KLM Lounge",
+        "location": "Adjacent to gate A1, Level 3, post-security",
+        "hours": "8:30 AM - 11:30 AM daily (may vary based on flight schedule)",
+        "access": {
+          "membership": "SkyTeam Elite Plus",
+          "status": "Air France business/first class, Flying Blue Platinum/Gold",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Self-service meals, beverages, free Wi-Fi, power outlets, USB ports, newspapers, magazines"
+      },
+      {
+        "name": "British Airways Lounge",
+        "location": "Gates A5-A9, post-security",
+        "hours": "5:00 AM - 11:30 AM and 1:30 PM - 6:45 PM daily (split hours)",
+        "access": {
+          "membership": "BA Executive Club Silver/Gold",
+          "status": "BA Club World/First passengers, oneworld Sapphire/Emerald",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Relaxed ambiance with cell-free zones, complimentary snacks and beverages, reading materials, Wi-Fi, shower facility"
+      },
+      {
+        "name": "Cathay Pacific Lounge",
+        "location": "Near gate A1, Level 4, post-security",
+        "hours": "Sun-Fri: 7:25 AM-11:10 AM and 6:55 PM-10:40 PM; Sat: 7:25 AM-11:10 AM and 5:45 PM-10:40 PM",
+        "access": {
+          "membership": "Marco Polo Club Diamond/Gold/Silver",
+          "status": "Cathay Pacific first/business class, oneworld Emerald/Sapphire",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "A la carte dining, premium cocktails and beverages, shower suites, massage services, Wi-Fi, comfortable seating"
+      },
+      {
+        "name": "China Airlines Lounge",
+        "location": "Near gate A1, Level 4, post-security",
+        "hours": "8:00 PM - 11:00 PM daily (airline passengers); Priority Pass: 8:30 AM - 6:00 PM",
+        "access": {
+          "membership": "Priority Pass, DragonPass, LoungeKey",
+          "status": "China Airlines business/premium class",
+          "creditCard": "Priority Pass cards (Chase Sapphire Reserve, Capital One Venture X, etc.)",
+          "dayPass": "Via Priority Pass or partner programs"
+        },
+        "amenities": "Premium food, beer, wine, non-smoking environment, Wi-Fi"
+      },
+      {
+        "name": "Emirates Lounge",
+        "location": "Gates A2-A6, Level 3, post-security",
+        "hours": "12:45 PM - 4:45 PM daily (limited hours tied to flight schedule)",
+        "access": {
+          "membership": "Emirates Skywards Gold/Platinum",
+          "status": "Emirates first/business class",
+          "creditCard": "Not directly",
+          "dayPass": "Paid access may be available"
+        },
+        "amenities": "Gourmet cuisine, full-service bars, shower spas, Wi-Fi, premium seating"
+      },
+      {
+        "name": "Golden Gate Lounge",
+        "location": "Level 4, post-security",
+        "hours": "7:00 AM - 11:30 AM daily",
+        "access": {
+          "membership": "SkyTeam Elite Plus",
+          "status": "SkyTeam member airline passengers (Air France, Aeromexico, KLM, Qatar Airways, Philippine Airlines, SAS, etc.)",
+          "creditCard": "Priority Pass (check current availability)",
+          "dayPass": "Via Priority Pass or SkyTeam status"
+        },
+        "amenities": "Disabled access, non-smoking, televisions, newspapers, magazines, beverages, snacks"
+      },
+      {
+        "name": "Virgin Atlantic Clubhouse",
+        "location": "Near gate A1, Level 5, post-security",
+        "hours": "9:00 AM - 11:30 PM daily; Priority Pass: 9:00 AM - 12:00 PM and 9:30 PM - 11:30 PM",
+        "access": {
+          "membership": "Virgin Atlantic Flying Club Gold",
+          "status": "Virgin Atlantic Upper Class passengers",
+          "creditCard": "Priority Pass (limited hours only)",
+          "dayPass": "Via Priority Pass during designated hours"
+        },
+        "amenities": "Complimentary dining, full bar service, charging facilities, Wi-Fi, premium seating"
+      }
+    ],
+    "internationalTerminalG": [
+      {
+        "name": "United Polaris Lounge",
+        "location": "Adjacent to gate G1, Level 2, post-security",
+        "hours": "7:00 AM - 11:00 PM daily",
+        "access": {
+          "membership": "Not required — class-based access",
+          "status": "United Polaris business class passengers on international flights, Star Alliance international first/business class",
+          "creditCard": "Not available via credit card alone",
+          "dayPass": "Not available"
+        },
+        "amenities": "Premium dining with made-to-order meals, signature cocktail bar, shower suites with spa products, individual daybeds, quiet relaxation area, premium Wi-Fi, business services"
+      }
+    ],
+    "priorityPassLounges": [
+      "The Club SFO (Terminal 1)",
+      "China Airlines Lounge (International Terminal A — limited hours)",
+      "Golden Gate Lounge (International Terminal A)",
+      "Virgin Atlantic Clubhouse (International Terminal A — limited hours)"
+    ],
+    "totalLoungeCount": "15+ lounges across all terminals"
+  },
+  "wifi": {
+    "networkName": "#SFO FREE WIFI",
+    "cost": "Free — unlimited access with no time limit (re-accept terms every 4 hours)",
+    "coverage": "All gate areas, baggage claims, International Terminal Main Hall, and common areas",
+    "speed": "Average 173 Mbps download, 100+ Mbps upload — capable of 4K streaming and large file downloads",
+    "technology": "Wi-Fi 6 (802.11ax) upgraded in many zones",
+    "premiumOption": "No separate premium tier — the free WiFi is already high-speed",
+    "howToConnect": "Select '#SFO FREE WIFI' from available networks, open browser, accept terms of service",
+    "customerServiceNumber": "(650) 821-8211 (SFO Airport Information)"
+  },
+  "securityAndScreening": {
+    "provider": "Covenant Aviation Security (private contractor under TSA oversight — SFO does NOT use federal TSA screeners)",
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "20-30 minutes (6-9 AM and 4-7 PM)",
+      "offPeak": "Under 15 minutes",
+      "bestTimes": "5:00-6:00 AM (early morning) and 2:00-4:00 PM (mid-afternoon)"
+    },
+    "tsaPreCheck": {
+      "available": true,
+      "terminals": ["Harvey Milk Terminal 1", "Terminal 2", "Terminal 3", "International Terminal"],
+      "avgWaitTime": "~2 minutes (roughly half of standard line)",
+      "benefits": "No need to remove shoes, light outerwear, belts; keep laptops and 3-1-1 liquids in carry-on",
+      "cost": "$78 for 5-year enrollment (or $85 via TSA direct)"
+    },
+    "clear": {
+      "available": true,
+      "annualCost": "$209/year (discounts for Delta SkyMiles members, United MileagePlus members)",
+      "locations": [
+        {"terminal": "International Terminal, A Gates", "hours": "6:00 AM - 10:00 PM"},
+        {"terminal": "Harvey Milk Terminal 1, B Gates", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Terminal 2, D Gates", "hours": "5:00 AM - 9:00 PM"},
+        {"terminal": "Terminal 3, E & F Gates (Checkpoint F1)", "hours": "4:00 AM - 12:00 AM"},
+        {"terminal": "Terminal 3, E & F Gates (Checkpoint F3)", "hours": "4:00 AM - 12:00 AM"},
+        {"terminal": "International Terminal, G Gates", "hours": "6:00 AM - 10:00 PM"}
+      ],
+      "howItWorks": "Biometric verification (fingerprint + iris scan) lets you skip the ID check line and go directly to physical screening"
+    },
+    "globalEntry": {
+      "available": true,
+      "terminals": ["International Terminal (Arrivals)"],
+      "notes": "Global Entry kiosks in International Arrivals — includes TSA PreCheck benefits"
+    },
+    "realId": {
+      "requirement": "REAL ID required for domestic air travel as of May 7, 2025",
+      "californiaCompliance": "Only ~58% of California license/ID holders were REAL ID-compliant as of 2025",
+      "identifier": "California REAL IDs have a gold bear with white star in the top right corner",
+      "alternative": "Valid passport, passport card, or military ID also accepted",
+      "nonCompliantFee": "Starting February 1, 2026: $45 fee for TSA ConfirmID (10-day travel period) if no acceptable ID is presented",
+      "howToGet": "Apply at California DMV — requires proof of identity (birth certificate/passport), Social Security number, and 2 proofs of California residency"
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "busyPeriods": "2.5+ hours before departure (especially during 2026 construction/FAA restrictions)"
+    }
+  },
+  "weatherAndDelays": {
+    "overview": "SFO ranks among the top U.S. airports for weather-related delays due to its unique geography. Marine fog from the Pacific regularly reduces visibility, forcing single-runway operations that halve arrival capacity.",
+    "onTimePerformance": {
+      "2024": {
+        "onTimeDepartures": "75% (down from 79% in 2023)",
+        "onTimeArrivals": "69% (down from 76% in 2023)",
+        "delayRate": "29.50% of flights delayed — highest among major U.S. airports in 2024",
+        "cancellationRate": "1.33% (up from 1.08% in 2023)",
+        "avgDepartureDelay": "69.76 minutes (when delayed)",
+        "avgArrivalDelay": "66.36 minutes (when delayed)"
+      },
+      "2025partial": {
+        "july2025": {
+          "overallOnTime": "67.85%",
+          "onTimeArrivals": "64.7%",
+          "onTimeDepartures": "71.0%"
+        }
+      }
+    },
+    "fogStatistics": {
+      "fogSeason": "June through August (Karl the Fog)",
+      "mechanism": "Pacific Ocean marine layer pushes fog over San Bruno Mountain and across SFO approach paths",
+      "impact": "Parallel runway approaches eliminated in fog — capacity drops from ~60 arrivals/hour to ~30 arrivals/hour (50% reduction)",
+      "frequency": "Fog or low ceilings affect SFO approaches on roughly 30-40% of summer mornings"
+    },
+    "worstMonths": {
+      "summer": "June, July, August — fog delays (morning and evening marine layer)",
+      "winter": "December, January — Pacific storms with rain and reduced visibility",
+      "best": "September-October (Indian summer) and April-May — fewest weather disruptions"
+    },
+    "runwayCapacityImpact": {
+      "clearWeather": "~60 arrivals per hour (side-by-side parallel approaches on 28L/28R)",
+      "foggyWeather": "~30 arrivals per hour (staggered single-runway operations)",
+      "reason": "Parallel runways are only 750 feet apart — too close for independent instrument approaches. FAA requires 4,300 ft lateral separation for simultaneous instrument approaches."
+    },
+    "faa2026Changes": {
+      "newRule": "FAA permanently banned simultaneous visual parallel approaches at SFO (effective March 2026). Pilots can no longer waive separation requirements in clear weather.",
+      "capacityReduction": "Peak arrival rate cut from ~54 to ~36 flights per hour — a 33% reduction even in clear weather",
+      "runway1RightClosure": {
+        "status": "Closed March 30, 2026 for repaving and taxiway improvements",
+        "reopening": "October 2, 2026",
+        "impact": "All operations concentrated on 28L/28R during closure"
+      },
+      "combinedDelayProjection": "~25% of arriving flights expected to face delays of 30+ minutes during overlap period (March-October 2026), up from ~15% before the FAA rule change",
+      "permanentImpact": "The FAA parallel approach restriction is permanent — ongoing capacity constraint even after runway 1R reopens in October 2026"
+    }
+  },
+  "construction2026": {
+    "status": "Major construction and FAA restrictions creating significant 2026 disruptions",
+    "projects": [
+      {
+        "name": "Terminal 3 West Modernization",
+        "budget": "$2.6 billion",
+        "contractor": "Turner Construction Company (design-build lead)",
+        "architects": "Gensler and TEF Design (both San Francisco-based)",
+        "scope": "200,000 sq ft expansion + 650,000 sq ft renovation",
+        "features": [
+          "New six-story building for airline lounges and operational offices",
+          "Redesigned check-in area with improved baggage handling",
+          "Expanded security checkpoint",
+          "New food and retail concessions",
+          "Intuitive wayfinding systems",
+          "Advanced technology for passenger flow",
+          "Seismic retrofit",
+          "International arrivals capability for up to four gates",
+          "Moving walkway replacement"
+        ],
+        "timeline": {
+          "groundbreaking": "2024",
+          "westHalfOpening": "Fall 2027",
+          "sixStoryBuildingOpening": "Early 2028",
+          "eastCheckInLobby": "Early 2029",
+          "fullCompletion": "2029"
+        },
+        "sustainability": "Targeting LEED Platinum certification",
+        "workforce": "500-600 workers at peak construction; $173M+ in contracts targeted for Local Business Enterprises",
+        "temporaryInfrastructure": "Prefabricated passenger corridors (1,000-foot West Corridor and 400-foot East Corridor) fabricated into 11 modules, transported across airfield over 11 consecutive nights to minimize disruption",
+        "travelerImpact": "Gate changes and detours for United Airlines domestic flights in Terminal 3. Check airline for specific gate assignments."
+      },
+      {
+        "name": "Runway 1R/19L Repaving",
+        "budget": "Not disclosed",
+        "timeline": "March 30, 2026 - October 2, 2026 (6 months)",
+        "impact": "All operations on 28L/28R during closure. Combined with FAA parallel approach ban, delays projected at 25% of flights experiencing 30+ minute delays."
+      }
+    ],
+    "completedProjects": [
+      "Harvey Milk Terminal 1 ($2.4B) — COMPLETE 2024. Full modernization with new Boarding Areas B and C.",
+      "Terminal 2 ($383M renovation) — COMPLETE 2011. First LEED Gold airport terminal in U.S.",
+      "Terminal 3 East ($138M) — COMPLETE January 2014.",
+      "International Terminal ($2.4B) — COMPLETE December 2000. Largest international terminal in North America when built.",
+      "New Control Tower ($102M) — COMPLETE October 2016. Earthquake-resistant, located between Terminals 1 and 2."
+    ],
+    "travelAdvice2026": "March-October 2026 is the peak disruption period due to simultaneous runway closure and FAA capacity restriction. Book morning flights when possible, build extra buffer time, check flight status frequently, and consider alternative airports (OAK, SJC) for time-sensitive travel."
+  },
+  "parkingLots": [
+    {
+      "name": "DoubleTree SFO North Bayfront",
+      "slug": "doubletree-sfo-north-bayfront",
+      "dailyRate": 8.00,
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Hotel Amenities"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "freeCancellation": true,
+      "notes": "Budget option. Hotel parking lot available to non-guests."
+    },
+    {
+      "name": "Travelodge SFO Airport Parking",
+      "slug": "travelodge-sfo-airport-parking",
+      "dailyRate": 9.75,
+      "distanceFromAirport": "2.4 mi",
+      "driveTime": "10 minutes",
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Security"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "address": "326 S Airport Blvd, South San Francisco, CA 94080",
+      "freeCancellation": true,
+      "googleRating": "4.6/5 (457 reviews)",
+      "knownCoupons": [],
+      "notes": "Budget-friendly option with strong reviews. Hotel parking lot."
+    },
+    {
+      "name": "Aloft Westin SFO Airport Parking",
+      "slug": "aloft-westin-sfo-airport-parking",
+      "dailyRate": 12.00,
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Security"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "address": "401 East Millbrae Avenue, Millbrae, CA 94030",
+      "freeCancellation": true,
+      "googleRating": "4.7/5 (757 reviews)",
+      "knownCoupons": [],
+      "notes": "Closest off-site lot at 0.8 mi. Best seller on multiple platforms. Minimum 2-day booking."
+    },
+    {
+      "name": "Burlingame Airport Parking",
+      "slug": "burlingame-airport-parking",
+      "dailyRate": 12.00,
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Security"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Mid-range option in Burlingame."
+    },
+    {
+      "name": "Hyatt Regency SFO Parking",
+      "slug": "hyatt-regency-sfo-parking",
+      "dailyRate": 13.00,
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Hotel parking with upscale amenities. Park-sleep-fly packages available (5 days self-parking included with overnight stay)."
+    },
+    {
+      "name": "The Westin SFO Parking",
+      "slug": "westin-sfo-parking",
+      "dailyRate": 13.99,
+      "distanceFromAirport": "0.9 mi",
+      "driveTime": "5 minutes",
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant", "Security"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "address": "1 Old Bayshore Hwy, Millbrae, CA 94030",
+      "freeCancellation": true,
+      "googleRating": "4.5/5 (304 reviews)",
+      "knownCoupons": [],
+      "notes": "Close proximity (0.9 mi). Frequently sells out — book in advance. Minimum 2-day booking."
+    },
+    {
+      "name": "Park N Fly SFO",
+      "slug": "park-n-fly-sfo",
+      "dailyRate": 19.50,
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "10-15 minutes",
+      "parkingType": "Outdoor Self-Park",
+      "amenities": ["Free Shuttle", "Security", "Luggage Assistance", "24/7 Operation"],
+      "shuttleInfo": "Free shuttle to SFO terminals, runs frequently",
+      "address": "160 Produce Ave, South San Francisco, CA 94080",
+      "freeCancellation": true,
+      "googleRating": "5.0/5 (971 reviews)",
+      "knownCoupons": [],
+      "notes": "Highest-rated SFO lot (5.0/5 with 971 reviews). Premium pricing but excellent service. Established airport parking operator with locations nationwide."
+    },
+    {
+      "name": "Crowne Plaza SFO Parking",
+      "slug": "crowne-plaza-sfo-parking",
+      "dailyRate": 45.00,
+      "parkingType": "Self-Park",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant", "Fitness Center"],
+      "shuttleInfo": "Free shuttle to SFO terminals",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Premium hotel parking. Park-sleep-fly packages available (7 days complimentary parking with overnight stay). Highest off-site rate — only worth it with hotel package."
+    }
+  ],
+  "shuttleInfo": "All off-site lots include free shuttle service to SFO terminals. On-airport Long-Term Garage connects via free AirTrain Blue Line (24/7 service, every 4 minutes). Rental Car Center also connected via AirTrain Blue Line.",
+  "distanceFromCity": "12 miles south of downtown San Francisco, roughly 25-45 min by car depending on US-101 traffic. BART takes ~30 minutes.",
+  "keyDistances": {
+    "toDowntownSF": "~12 miles, 25-45 min by car, ~30 min by BART",
+    "toOakland": "~30 miles, 40-60 min by car, ~50 min by BART",
+    "toSanJose": "~32 miles, 35-50 min by car, ~60 min by Caltrain (via Millbrae)",
+    "toPaloAlto": "~20 miles, 25-35 min by car",
+    "competitiveAdvantage": "SFO is the only Bay Area airport with direct BART rail connection. No parking shuttle or car needed — take AirTrain to BART to downtown SF in 30 min for $8.95."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near SFO — stay the night before, park free for your trip, shuttle to terminal.",
+    "priceRange": "From ~$136/night (includes 1-night stay + parking + free shuttle)",
+    "popularHotels": ["Crowne Plaza SFO (7 days parking)", "Hyatt Regency SFO (5 days parking)", "Hotel Focus SFO", "Ramada San Bruno", "Millwood Inn & Suites"],
+    "extendedParking": "$15/night for days 6-20",
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app tipping, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "5-day trip",
+    "onAirport": {
+      "domesticGarage": {
+        "parkingCost": "$195 (5 days at $39/day)",
+        "totalEstimate": "$195"
+      },
+      "longTermGarage": {
+        "parkingCost": "$135 (5 days at $27/day)",
+        "totalEstimate": "$135"
+      }
+    },
+    "offSiteWithShuttle": {
+      "travelodge": {
+        "parkingCost": "$48.75 (5 days at $9.75/day)",
+        "totalEstimate": "$48.75",
+        "savingsVsLongTerm": "~$86 saved vs Long-Term Garage"
+      },
+      "aloftWestin": {
+        "parkingCost": "$60 (5 days at $12/day)",
+        "totalEstimate": "$60",
+        "savingsVsLongTerm": "~$75 saved vs Long-Term Garage"
+      }
+    },
+    "publicTransit": {
+      "bartRoundTrip": {
+        "costPerPerson": 17.90,
+        "travelTime": "~30 minutes each way",
+        "note": "BART from downtown SF: $8.95 each way. Free AirTrain connection at SFO."
+      }
+    },
+    "keyDifference": "SFO has a major advantage: direct BART rail connection ($8.95 from downtown SF, 30 min). Many Bay Area travelers skip parking entirely and take BART. For those who drive, off-site lots start at $8/day vs $27-39/day on-airport."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(650) 821-8211",
+    "parkingInfo": "(650) 821-7900",
+    "tsa": "(866) 289-9673",
+    "lostAndFound": "(650) 821-7014"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs to scrape for fresh data when generating articles. Grouped by topic. All verified 2026-04-03.",
+    "officialAirport": {
+      "parking": "https://www.flysfo.com/passengers/parking",
+      "parkingRates": "https://www.flysfo.com/content/parking-rates",
+      "gettingToFrom": "https://www.flysfo.com/getting-to-from",
+      "terminalMap": "https://www.flysfo.com/passengers/terminal-map",
+      "airlines": "https://www.flysfo.com/flights-airlines/airlines",
+      "securityWaitTimes": "https://www.flysfo.com/passengers/security-screening",
+      "lounges": "https://www.flysfo.com/services-amenities/airport-lounges",
+      "petRelief": "https://www.flysfo.com/services-amenities/pet-relief-areas",
+      "evCharging": "https://www.flysfo.com/parking/electric-vehicle-charging",
+      "wifi": "https://www.flysfo.com/services-amenities/wifi",
+      "luggageStorage": "https://www.flysfo.com/services-amenities/luggage-storage"
+    },
+    "transit": {
+      "bart": "https://www.bart.gov/stations/sfia",
+      "bartFares": "https://www.bart.gov/tickets/calculator",
+      "caltrain": "https://www.caltrain.com/stations/millbrae",
+      "samTrans": "https://www.samtrans.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/sfo/",
+      "lyft": "https://www.lyft.com/rider/airports/SFO"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SFO",
+      "way": "https://www.way.com/sfo",
+      "parkon": "https://www.parkon.com/sfo",
+      "spothero": "https://spothero.com/airport/sfo-parking"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://flightaware.com/live/airport/KSFO",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SFO",
+      "btsStats": "https://www.bts.gov/annual-time-arrival-rankings-major-airports"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/sfo/airport-hotels-with-parking",
+      "parkSleepHotels": "https://sfo.parksleephotels.com"
+    },
+    "evChargingMaps": {
+      "chargePoint": "https://chargepoint.com (search 'SFO')",
+      "plugShare": "https://www.plugshare.com/near/san-francisco-international-airport",
+      "chargeHub": "https://chargehub.com/en/ev-charging-stations/united-states/california/san-francisco/"
+    },
+    "luggageStorageServices": {
+      "bounce": "https://bounce.com/city/san-francisco/sfo-airport",
+      "luggageHero": "https://luggagehero.com/san-francisco/san-francisco-international-airport-station/",
+      "radicalStorage": "https://radicalstorage.com/luggage-storage/san-francisco/san-francisco-airport",
+      "vertoe": "https://vertoe.com/luggage-storage/san-francisco/sfo-airport",
+      "nannybag": "https://www.nannybag.com/en/luggage-storage/san-francisco/airport"
+    },
+    "loungeGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/san-francisco-sfo-airport-lounges/",
+      "loungebuddy": "https://www.loungebuddy.com/SFO",
+      "priorityPass": "https://www.prioritypass.com/airport-guides/san-francisco-ca-international"
+    },
+    "security": {
+      "clear": "https://www.clearme.com/all-locations/san-francisco-international-airport",
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/SFO/San-Francisco-International",
+      "realId": "https://www.tsa.gov/travel/security-screening/identification"
+    },
+    "construction": {
+      "terminal3West": "https://www.turnerconstruction.com/insights/turner-breaks-ground-on-2-6-billion-sfo-terminal-3-west-modernization",
+      "faaChanges": "https://www.kqed.org/news/12078501/sfo-flight-delays-2026-runway-closure-faa-san-francisco-international-aiport-tsa"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/san-francisco-sfo-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/San_Francisco_International_Airport"
+    }
+  }
+}

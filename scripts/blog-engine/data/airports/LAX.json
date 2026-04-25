@@ -1,0 +1,1145 @@
+{
+  "code": "LAX",
+  "fullName": "Los Angeles International Airport",
+  "lastVerified": "2026-04-03",
+  "overview": {
+    "location": "Westchester neighborhood, Los Angeles, California — 16 miles southwest of downtown Los Angeles, bordered by El Segundo, Inglewood, and the Pacific Ocean",
+    "passengerVolume": "73.7 million passengers in 2025 (down 3.8% from 76.6 million in 2024) — 5th busiest in the U.S., busiest in California, busiest origin-and-destination airport in the world",
+    "internationalPassengers": "23.6 million international passengers (32% of total, 2025)",
+    "distinction": "Primary airport for the Greater Los Angeles area. Busiest airport on the U.S. West Coast. Gateway to the Pacific Rim with direct flights to 100+ international destinations. Named after former LA Mayor Tom Bradley (TBIT). Host airport for 2028 Summer Olympics.",
+    "operator": "Los Angeles World Airports (LAWA) — a proprietary department of the City of Los Angeles that also operates Van Nuys Airport (VNY)",
+    "activeTerminals": "9 passenger terminals (Terminals 1-8 + Tom Bradley International Terminal/Terminal B). Terminal 5 closed for construction since October 2025, reopening ~2028. Regional Terminal (American Eagle) east of main complex.",
+    "totalGates": 161,
+    "runways": 4,
+    "runwayNote": "Four parallel east-west runways in two pairs — north complex (24L/24R) and south complex (25L/25R)",
+    "acreage": "3,500 acres (1,400 hectares)",
+    "dominantAirlines": "American Airlines (Terminal 4, TBIT), Delta Air Lines (Terminals 2-3), United Airlines (Terminals 7-8), Southwest Airlines (Terminal 1), Alaska Airlines (Terminal 6)",
+    "securityProvider": "TSA (federal screeners)"
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1",
+      "gates": "14 gates (9, 11A, 11B, 12A, 12B, 13-16, 17A, 17B, 18A, 18B, bus gate)",
+      "status": "Active — renovated 2018, expanded 2021 with post-security connector to Terminal 2",
+      "airlines": ["Southwest Airlines (operating base)", "JetBlue Airways"],
+      "checkInOnly": ["Allegiant Air", "Breeze Airways", "Cayman Airways", "Frontier Airlines", "Sun Country Airlines", "Viva Aerobus"],
+      "notes": "Originally built 1984 for Pacific Southwest Airlines. Southwest Airlines is the dominant carrier. Post-security connector bridge to Terminal 2 opened 2021. Will connect to Automated People Mover. Airside walkway connects T1 through T3 to TBIT."
+    },
+    {
+      "name": "Terminal 2",
+      "gates": "13 gates (20, 21, 21B, 22, 23A, 23B, 24, 25A, 25B, 26A, 26B, 27, 28)",
+      "status": "Active — rebuilt 1984-1988 ($94 million), CBP facility being rebuilt as of 2023",
+      "airlines": ["Delta Air Lines (check-in and some departures)"],
+      "checkInOnly": ["Norse Atlantic Airways", "Spirit Airlines", "WestJet"],
+      "notes": "Originally opened 1962 as the international terminal. Delta Sky Club on upper level. Part of Delta's $1.9 billion Sky Way modernization project. Connected to Terminal 3 via airside walkway. Designed by Leo A Daly."
+    },
+    {
+      "name": "Terminal 3",
+      "gates": "15 gates (30A, 30B, 31A, 31B, 32A, 32B, 33, 34A, 34B, 35, 36, 37A, 37B, 38)",
+      "status": "Active — demolished and reconstructed November 2020-April 2022 as part of Delta Sky Way ($1.9 billion)",
+      "airlines": ["Delta Air Lines (hub)", "Aeromexico", "Virgin Atlantic", "WestJet"],
+      "notes": "Originally opened 1961 for Trans World Airlines (TWA). Completely rebuilt as part of Delta Sky Way modernization. Features 30,000 sq ft Delta Sky Club (one of the largest in Delta's portfolio) and Delta One Lounge (opened October 8, 2024). Secure connector bridge links T3 to TBIT for international connections. 11 new gates added during reconstruction."
+    },
+    {
+      "name": "Terminal 4",
+      "gates": "16 gates (40, 41, 42A, 42B, 43-45, 46A, 46C, 47A, 47B, 48A, 48B, 49A, 49B)",
+      "status": "Active — expanded 1983, renovated 2002 ($400 million), $1.6B modernization with Terminal 5 underway",
+      "airlines": ["American Airlines (hub)", "American Eagle"],
+      "notes": "American Airlines primary terminal. Two lounges: Admirals Club and Flagship Lounge (near gate 40). Designed by Rivers & Christian. Part of $1.6 billion Terminal 4/5 modernization creating unified departure hall."
+    },
+    {
+      "name": "Terminal 5",
+      "gates": "17 gates (50, 51A, 51B, 53A, 53B, 54A, 54B, 55A, 55B, 57-59, bus gate) — CLOSED",
+      "status": "CLOSED — last operational day October 28, 2025. Undergoing demolition and reconstruction. Reopening anticipated 2028.",
+      "airlines": [],
+      "notes": "Originally opened 1962 for Western Airlines. JetBlue relocated to Terminal 1 (October 21, 2025), Spirit Airlines relocated to Terminal 2 (October 22, 2025). $1.6 billion modernization will create unified departure hall with Terminal 4 and new south concourse. Regional Terminal gates 52A-52I serve American Eagle via shuttle buses."
+    },
+    {
+      "name": "Terminal 6",
+      "gates": "16 gates (60-63, 64A-64C, 65A-65C, 66, 67, 68A, 68B, 69A, 69B)",
+      "status": "Active — Alaska Airlines renovation 2011-2012, refurbishment began July 2021",
+      "airlines": ["Alaska Airlines (hub)", "Hawaiian Airlines (hub)", "Air Canada", "Porter Airlines", "Southern Airways Express"],
+      "notes": "Originally opened November 1963 as 'Satellite 6'. Two lounges: Air Canada Maple Leaf Lounge (closed for renovations) and Alaska Airlines Lounge. Four gates have dual jetways. Gameway gaming lounge available."
+    },
+    {
+      "name": "Terminal 7",
+      "gates": "13 gates (70A, 70B, 71A, 71B, 72A, 72B, 73, 74, 75A, 75B, 76A, 76B, 77)",
+      "status": "Active — interior renovated 1998-1999 ($250 million), concessions renovated 2017",
+      "airlines": ["United Airlines (hub)"],
+      "notes": "Originally opened 1962, expanded for widebody aircraft 1970. Two lounges: United Club and United Polaris Lounge. Customs area for select international flights. Four gates have dual jetways. Designed by HNTB, constructed by Hensel Phelps. LAX Fast Lane reservation service available for security screening."
+    },
+    {
+      "name": "Terminal 8",
+      "gates": "8 gates (80-85, 86A, 86B)",
+      "status": "Active — redeveloped 1982 ahead of 1984 Olympics",
+      "airlines": ["United Airlines (hub, shared with Terminal 7)"],
+      "notes": "Originally opened 1961 as 'Concourse 8' or 'Satellite 8'. Does not have its own passenger processing facilities — relies on Terminal 7 infrastructure. Connected airside to Terminal 7."
+    },
+    {
+      "name": "Tom Bradley International Terminal (Terminal B / TBIT)",
+      "gates": "40 gates (130-225) across North Concourse (9 gates), South Concourse (10 gates), West Gates (23 gates), Bus Gates (6 gates), Bus Port",
+      "status": "Active — opened June 18, 1984 for 1984 Summer Olympics, heavily modernized 2008-2021 in three phases. TBIT check-in/arrivals hall renovation began January 2026 for 2028 Olympics.",
+      "airlines": ["Air China", "Air France", "Air New Zealand", "Air Tahiti Nui", "ANA (All Nippon Airways)", "Avianca", "British Airways", "Cathay Pacific", "China Airlines", "China Eastern", "China Southern", "Copa Airlines", "El Al", "Emirates", "Ethiopian Airlines", "Etihad Airways", "EVA Air", "Fiji Airways", "Hainan Airlines", "Japan Airlines", "KLM", "Korean Air", "LATAM", "LOT Polish Airlines", "Lufthansa", "Malaysia Airlines", "Norwegian", "Philippine Airlines", "Qantas", "Qatar Airways", "Saudia", "Scandinavian Airlines (SAS)", "Sichuan Airlines", "Singapore Airlines", "Swiss International", "TAP Air Portugal", "Thai Airways", "Turkish Airlines", "Vietnam Airlines", "Virgin Atlantic", "Volaris", "XiamenAir", "Zipair"],
+      "notes": "Named after former Los Angeles Mayor Tom Bradley. Largest international terminal on the U.S. West Coast with 40+ airlines. Nine gates equipped with triple jetbridges for A380/747-8 aircraft. West Gates opened May 1, 2021. Midfield Satellite Concourse (MSC) South completed and opened October 24, 2025 (8 new gates for narrow-body aircraft). Nine lounges including Oneworld, Star Alliance, SkyTeam/Korean Air, Centurion, Emirates, Qantas, and more. Secure connector bridge to Terminal 3 (Delta). Major renovation began January 2026 for 2028 Olympics."
+    },
+    {
+      "name": "Regional Terminal (Eagle's Nest)",
+      "gates": "9 gates (52A-52I, with 52B as bus gate)",
+      "status": "Active — accessed via shuttle bus from Terminals 4/5",
+      "airlines": ["American Eagle (exclusive)"],
+      "notes": "Located southeast of LAX airfield, east of Sepulveda Boulevard from Terminal 8. Covered walkway and ramp at each gate instead of jet bridges. Nicknamed 'the eagle's nest'. One Admirals Club. Accessible only by shuttle bus to Terminal 4 or 5."
+    }
+  ],
+  "runways": [
+    {
+      "designation": "24R/6L",
+      "length": "8,926 ft",
+      "width": "150 ft",
+      "features": "North complex outer runway — primarily used for arrivals"
+    },
+    {
+      "designation": "24L/6R",
+      "length": "10,285 ft",
+      "width": "150 ft",
+      "features": "North complex inner runway — primarily used for departures"
+    },
+    {
+      "designation": "25L/7R",
+      "length": "11,095 ft",
+      "width": "200 ft",
+      "features": "South complex inner runway — primarily used for departures. Widest runway at LAX."
+    },
+    {
+      "designation": "25R/7L",
+      "length": "12,091 ft",
+      "width": "150 ft",
+      "features": "South complex outer runway — longest runway at LAX. Primarily used for arrivals. Category III ILS equipped for low-visibility approaches."
+    }
+  ],
+  "runwayOperations": {
+    "westerlyOperations": "Normal configuration (~75% of the time): Runways 24L/24R and 25L/25R in use. North complex handles north-side airlines, south complex handles south-side airlines.",
+    "overOceanOperations": "During Westerly Operations (most common), departures head west over the Pacific Ocean before turning — reduces noise impact on residential areas.",
+    "easterlyOperations": "Used during Santa Ana winds or other easterly wind conditions. Runways 6L/6R and 7L/7R.",
+    "configuration": "Two pairs of parallel runways separated by the Central Terminal Area. North pair (24L/24R) and south pair (25L/25R) operate independently.",
+    "capacity": "Approximately 80+ operations per hour in good weather"
+  },
+  "roads": ["I-405 (San Diego Freeway)", "I-105 (Century Freeway)", "Sepulveda Boulevard", "Century Boulevard", "Lincoln Boulevard", "La Cienega Boulevard"],
+  "transit": ["Metro C Line (formerly Green Line)", "Metro K Line (formerly Crenshaw/LAX)", "FlyAway Bus", "LAX Shuttle", "Automated People Mover (opening ~June 2026)"],
+  "neighborhoods": ["Westchester", "El Segundo", "Inglewood", "Playa del Rey", "Hawthorne", "Lennox", "Playa Vista", "Marina del Rey"],
+  "authority": "Los Angeles World Airports (LAWA) — City of Los Angeles proprietary department",
+  "groundTransportation": {
+    "automatedPeopleMover": {
+      "status": "Under construction — originally scheduled for 2023, delayed multiple times. Construction completion targeted June 2026 (ahead of FIFA World Cup). Safety testing and certification ongoing. Budget approximately $880 million over original estimate.",
+      "guideway": "2.25 miles of elevated guideway",
+      "stations": {
+        "total": 6,
+        "list": [
+          "Station 1: Terminal 1 (west end of CTA)",
+          "Station 2: Terminal 2/3 area",
+          "Station 3: Terminal 4/5/6 area",
+          "Station 4: Economy Parking facility",
+          "Station 5: LAX/Metro Transit Center (C and K Line rail connection)",
+          "Station 6: Consolidated Rent-A-Car (ConRAC) facility"
+        ]
+      },
+      "impact": "Will eliminate estimated 3,200 daily rental car shuttle trips from the Central Terminal Area. First rail connection to LAX terminals.",
+      "fare": "Expected to be free for all passengers",
+      "constructionNote": "Built by LAX Integrated Express Solutions (LINXS), a consortium led by Fluor, Balfour Beatty, ACS Infrastructure Development, and Bombardier Transportation. Guided by magnetic rail technology."
+    },
+    "laxMetroTransitCenter": {
+      "status": "Opened June 6, 2025",
+      "location": "Adjacent to the Aviation/Century station area, connected to APM Station 5",
+      "connections": ["Metro C Line (Green Line) — Norwalk, Downey, Lynwood, Hawthorne", "Metro K Line (Crenshaw/LAX) — Crenshaw, Inglewood, Redondo Beach", "11 bus lines", "LAX Shuttle"],
+      "directAPMconnection": "Direct connection to LAX Automated People Mover expected when APM opens (~June 2026). Until then, LAX Shuttle connects Transit Center to terminals.",
+      "metroFare": "$1.75 per ride (TAP card), $3.50 day pass, $12.50 weekly pass",
+      "kLineExtension": "K Line Extension to Torrance approved January 22, 2026 — will extend light rail service further into the South Bay"
+    },
+    "flyAway": {
+      "description": "Express bus service between LAX and major transit hubs in the LA area",
+      "fare": "$12.75 one-way (up to 2 children under 5 ride free per paying adult)",
+      "payment": "Purchase via TAP vending machines, FlyAway app, or online. Cash not accepted on board.",
+      "routes": {
+        "unionStation": {
+          "pickup": "Bus Stop 1 at Patsaouras Transit Plaza, Union Station East",
+          "travelTime": "30-60 minutes depending on traffic",
+          "connections": "Metro Rail (A, B, D, E, J, L Lines), Amtrak, Metrolink commuter rail",
+          "schedule": "Runs 365 days/year including holidays"
+        },
+        "vanNuys": {
+          "pickup": "7610 Woodley Ave, Van Nuys, CA 91406 (near Van Nuys Airport)",
+          "travelTime": "45-75 minutes depending on traffic",
+          "schedule": "Runs 365 days/year including holidays"
+        }
+      },
+      "suspendedRoutes": "Hollywood route suspended March 28, 2020 and has not resumed as of 2026. Long Beach and Westwood routes previously operated but also discontinued.",
+      "laxPickup": "FlyAway buses pick up outside baggage claim on the lower/arrivals level at each terminal",
+      "customerService": "1-866-435-9529 or 1-(323)-310-5292",
+      "website": "https://www.flylax.com/flyaway-bus"
+    },
+    "laxit": {
+      "description": "Designated rideshare and taxi pickup area for LAX — required pickup point for Uber, Lyft, Opoli, and taxis",
+      "location": "Adjacent to Terminal 1, on the west end of the Central Terminal Area",
+      "howToGetThere": "Free LAX-it shuttle buses arrive at each terminal outside baggage claim on the lower level and travel on a dedicated lane. Passengers can also walk to LAX-it from Terminal 1 (signs and marked sidewalk path).",
+      "pickupLanes": {
+        "uber": "Lanes 2-4 (Green zone)",
+        "lyft": "Lanes 5-7 (Pink zone)",
+        "taxis": "Designated taxi lanes",
+        "opoli": "Designated Opoli lanes"
+      },
+      "premiumExceptions": "Uber Black, Uber Black SUV, Uber XL, Lyft Black, and Lyft Lux pick up directly at the terminal curbside (not LAX-it)",
+      "amenities": "Benches, umbrellas for rain, four accessible restrooms, food trucks throughout the day",
+      "note": "When APM opens (~June 2026), rideshare pickup is expected to transition to a new location connected via the people mover system."
+    },
+    "taxi": {
+      "fareType": "METERED (Los Angeles Department of Transportation rates)",
+      "flagDrop": "$2.85",
+      "perMile": "$2.70",
+      "perMinuteWaiting": "$0.33 (per 37 seconds)",
+      "airportSurcharge": "$4.00 per trip (from LAX)",
+      "flatRateToDowntown": "$51.15 (includes $4.00 airport surcharge). Applies to area bounded by Alameda St, Santa Monica Fwy, Harbor Fwy, Cesar E. Chavez, Union Station, and Chinatown.",
+      "estimatedFares": {
+        "toDowntownLA": "$51.15 flat rate (1-6 passengers)",
+        "toHollywood": "$45-$60 (metered)",
+        "toSantaMonica": "$30-$40 (metered)",
+        "toBeverlyHills": "$40-$55 (metered)",
+        "toLongBeach": "$65-$85 (metered)",
+        "toAnaheim": "$100-$130 (metered)"
+      },
+      "pickup": "Taxis available at LAX-it lot adjacent to Terminal 1. Follow signs from baggage claim to LAX-it shuttle or walk.",
+      "tipping": "15-20% customary"
+    },
+    "rideshare": {
+      "estimatedFares": {
+        "toDowntownLA": "$25-$45 UberX/Lyft ($60-$90+ Uber Black/Lyft Lux). Surge pricing can double standard fares.",
+        "toHollywood": "$25-$40 standard, $55-$80+ premium",
+        "toSantaMonica": "$15-$25 standard, $35-$55+ premium",
+        "toLongBeach": "$30-$50 standard, $60-$90+ premium",
+        "toAnaheim": "$45-$70 standard, $90-$130+ premium"
+      },
+      "airportFee": "Airport surcharge included in app fare",
+      "pickup": "LAX-it lot adjacent to Terminal 1. Request ride AFTER arriving at LAX-it. Premium services (Uber Black, Black SUV, XL, Lyft Black, Lux) pick up curbside at terminals.",
+      "waitTimes": "Typical: 5-10 min daytime, 10-20+ min late night/early morning",
+      "waymo": "Waymo autonomous vehicles available at LAX (expanding service in 2026)"
+    },
+    "laxShuttle": {
+      "description": "Free shuttle bus connecting terminals and off-airport facilities",
+      "routes": {
+        "routeA": "Circulates among all terminals in the CTA — free, runs continuously",
+        "routeC": "Connects terminals to LAX/Metro Transit Center (C and K Lines)",
+        "routeG": "Connects terminals to parking lots and remote facilities"
+      },
+      "fare": "Free",
+      "frequency": "Every 10-15 minutes"
+    },
+    "rentalCars": {
+      "location": "Consolidated Rent-A-Car Facility (ConRAC) — 5251 W 98th Street, Los Angeles, CA 90045",
+      "opened": "March 11, 2026 (fully operational)",
+      "size": "6.4 million square feet — houses 18,000+ rental car vehicles",
+      "connection": "Will connect via Automated People Mover (APM). Until APM opens, rental car shuttles transport customers to/from terminals.",
+      "onSiteCompanies": [
+        {"name": "Alamo", "phone": "+1 844-354-6962"},
+        {"name": "Avis", "phone": "+1 800-633-3469"},
+        {"name": "Budget", "phone": "+1 800-218-7992"},
+        {"name": "Dollar", "phone": "+1 800-800-5252"},
+        {"name": "Enterprise", "phone": "+1 855-266-9565"},
+        {"name": "Fox Rent A Car", "phone": "+1 855-571-8406"},
+        {"name": "Hertz", "phone": "+1 800-654-3131"},
+        {"name": "National", "phone": "+1 844-382-6875"},
+        {"name": "Payless", "phone": "+1 800-729-5377"},
+        {"name": "Sixt", "phone": "+1 888-749-8227"},
+        {"name": "Thrifty", "phone": "+1 800-367-2277"},
+        {"name": "Zipcar", "phone": "+1 866-494-7227"}
+      ],
+      "impact": "Eliminates estimated 3,200 daily rental car shuttle trips from the Central Terminal Area",
+      "note": "All rental car companies previously scattered across the LAX vicinity are now consolidated into one location adjacent to I-405."
+    }
+  },
+  "parkingRates": "On-airport: CTA Terminal Garages (P1-P7) $60/day general, $70/day premium, $75/day valet. Economy Parking $35/day. Budget Parking $20/day. Off-site: from $8-$18/day with free shuttle.",
+  "onAirportParking": {
+    "ctaGeneralParking": {
+      "description": "General parking in CTA structures P1-P7 (attached to each terminal)",
+      "rate": "$9 first hour (P1, P2, P5, P6, P7) / $11 first hour (P3, P4), then $7 each 30 min ($9 for P3/P4)",
+      "dailyMax": 60,
+      "terminals": "P1 serves Terminal 1, P2 serves Terminal 2, P3 serves Terminal 3, P4 serves Terminal 4, P5 serves Terminal 5 (closed), P6 serves Terminal 6, P7 serves Terminals 7/8",
+      "heightClearance": "Varies by structure — typically 6'8\" to 7'0\"",
+      "features": "Direct elevator/walkway access to terminals. EV charging available in multiple garages.",
+      "preBooking": "https://parking.flylax.com"
+    },
+    "ctaPremiumParking": {
+      "description": "Premium reserved spots in P1, P3, and P7 — closest spots to terminal entrances",
+      "rate": "$11 first hour, $9 each 30 minutes after",
+      "dailyMax": 70,
+      "features": "Guaranteed spot nearest to terminal. Available in P1, P3, and P7 only."
+    },
+    "ctaValetParking": {
+      "description": "Valet parking available in P1, P3, P4, and P7",
+      "dailyMax": 75,
+      "minimumStay": "24-hour minimum",
+      "features": "Drop off vehicle at terminal entrance, valet parks for you. Available in P1, P3, P4, and P7."
+    },
+    "economyParking": {
+      "description": "LAX Economy Parking — large surface/structured lot southeast of the CTA",
+      "address": "6100 W. 94th Street, Los Angeles, CA 90045",
+      "rate": "$8 first hour, $7 each 30 minutes after",
+      "dailyMax": 35,
+      "preBookedRate": "$15/day (includes shuttle)",
+      "spaces": "4,000+ spaces",
+      "evChargers": "305 EV charging stations",
+      "shuttle": "Free shuttle to all terminals every 10-15 minutes, 24/7. Call (310) 486-8334 for shuttle info.",
+      "features": "Most affordable on-airport option for multi-day parking. Best for trips of 3+ days. Pre-booking available online.",
+      "preBooking": "https://parking.flylax.com/lax-economy.html"
+    },
+    "budgetParking": {
+      "description": "LAX Budget Parking — drive-up general parking at remote lot",
+      "rate": "$5 first hour",
+      "dailyMax": 20,
+      "features": "Most affordable on-airport option. Shuttle connection to terminals.",
+      "preBooking": "https://parking.flylax.com/lax-budget.html"
+    },
+    "cellPhoneLot": {
+      "location": "Northwest corner of 96th Street/Vicksburg Avenue, 400m west of the 96th Street Bridge entrance into the CTA",
+      "cost": "Free",
+      "rules": "Maximum 2 hours. Driver must remain with vehicle. For motorists waiting for arriving passengers — wait here until your party calls, then drive into the CTA for curbside pickup.",
+      "evCharging": "Not available at Cell Phone Lot"
+    }
+  },
+  "evCharging": {
+    "overview": "LAX provides EV charging stations across all CTA garages and the Economy Parking facility. Managed by PowerFlex. Available by reservation or first-come, first-served.",
+    "garageStations": {
+      "ctaGarages": "Level 2 and DCFC (DC Fast Charging) stations available in all CTA parking structures (P1-P7)",
+      "valetGarages": "EV charging available in P1, P3, and P4 valet parking garages",
+      "economyParking": "305 EV charging stations on Level 1 of the Economy Parking facility — largest EV charging deployment at any U.S. airport"
+    },
+    "rates": {
+      "level2": "$2.00 per session + $0.45 per kWh",
+      "dcFastCharging": "$2.00 per session + $0.80 per kWh"
+    },
+    "howToUse": "Download the PowerFlex app and create an account to begin your charging session",
+    "totalEstimatedPorts": "305+ in Economy Parking alone, plus additional ports across all CTA garages",
+    "chargingTypes": {
+      "level2": "240V J1772 connector — adds ~25 miles of range per hour",
+      "dcfc": "DC Fast Charging — adds significant range in 30-60 minutes"
+    }
+  },
+  "luggageStorage": {
+    "onAirport": {
+      "provider": "No dedicated luggage storage service inside LAX terminals",
+      "luggageCarts": "$8 rental — available at all terminals, upper and lower levels. Cash, debit, and credit cards accepted.",
+      "note": "LAX does not have a traditional left-luggage or bag storage counter inside the terminals."
+    },
+    "offSiteAlternatives": [
+      {
+        "name": "Bounce",
+        "website": "bounce.com",
+        "ratePerBag": "From $5.90/day",
+        "locations": "Partner shops and hotels near LAX and throughout Los Angeles",
+        "insurance": "Up to $10,000 per bag",
+        "booking": "Online booking required — app or website"
+      },
+      {
+        "name": "LuggageHero",
+        "website": "luggagehero.com",
+        "ratePerBag": "From $1.49/hour or $7.95/day",
+        "locations": "Partner locations in Los Angeles area",
+        "insurance": "Up to $3,000 per bag included",
+        "booking": "Online — book now, pay later"
+      },
+      {
+        "name": "Radical Storage",
+        "website": "radicalstorage.com",
+        "ratePerBag": "$6.00/day flat rate (all bag sizes)",
+        "locations": "Multiple partner locations in Los Angeles",
+        "insurance": "Up to $3,000 per bag",
+        "booking": "Online booking"
+      },
+      {
+        "name": "Vertoe",
+        "website": "vertoe.com",
+        "ratePerBag": "From $5.95/day",
+        "locations": "Locations near LAX and throughout LA",
+        "insurance": "Up to $5,000 per bag",
+        "booking": "Online booking — guaranteed space"
+      }
+    ],
+    "comparison": "LAX has no on-airport luggage storage. Off-site services like LuggageHero ($1.49/hr) and Bounce ($5.90/day) are the most practical option. All require travel to partner locations outside the airport."
+  },
+  "petReliefAreas": {
+    "overview": "LAX has 11 designated pet relief areas throughout the airport — 8 indoor post-security stations and 3 outdoor pre-security areas. All provide waste bags, trash bins, and water bowls.",
+    "outdoor": [
+      {
+        "location": "Between Terminals 1 and 2",
+        "type": "Outdoor, pre-security",
+        "level": "Lower/Arrivals Level of the Central Terminal Area",
+        "features": "Fenced area with waste bags, trash bins, water bowls"
+      },
+      {
+        "location": "Southeast end of CTA near Terminals 7-8",
+        "type": "Outdoor, pre-security",
+        "level": "Lower/Arrivals Level of the Central Terminal Area",
+        "features": "Fenced area with waste bags, trash bins, water bowls"
+      },
+      {
+        "location": "Near Tom Bradley International Terminal",
+        "type": "Outdoor, pre-security",
+        "level": "Lower/Arrivals Level",
+        "features": "Fenced area with waste bags, trash bins, water bowls"
+      }
+    ],
+    "indoor": [
+      {
+        "terminals": "Terminals 1, 2, 3, 4, 6, 7, Terminal B (TBIT)",
+        "type": "Indoor, post-security",
+        "count": 8,
+        "features": "Artificial turf with drainage, waste bags, trash bins, water bowls. Located in gate areas post-security."
+      }
+    ],
+    "petReliefMap": "https://www.flylax.com/sites/lax/files/documents/LAX%20Pet%20Relief%20Locations.pdf"
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "Plaza Premium Lounge",
+        "location": "Near gate 12, post-security",
+        "hours": "6:00 AM - 10:00 PM daily",
+        "access": {
+          "membership": "Priority Pass (with restrictions), DragonPass, LoungeKey",
+          "status": "Various airline elite status",
+          "creditCard": "Select credit cards with lounge access",
+          "dayPass": "Walk-in day passes available (~$50-$65)"
+        },
+        "amenities": "Hot and cold food, beverages including alcohol, Wi-Fi, power outlets, comfortable seating, shower facilities"
+      },
+      {
+        "name": "Be Relax Spa",
+        "location": "Near gate 12, post-security",
+        "hours": "Varies",
+        "access": {
+          "membership": "Priority Pass (excluding Amex and Capital One cardholders)",
+          "dayPass": "Walk-in available"
+        },
+        "amenities": "Spa treatments, massage chairs, relaxation area"
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Upper level between Terminals 2 and 3, post-security",
+        "hours": "4:30 AM - 12:00 AM (hours may vary by day)",
+        "access": {
+          "membership": "Delta Sky Club membership",
+          "status": "Delta Diamond/Platinum/Gold Medallion on same-day Delta flight",
+          "creditCard": "Delta SkyMiles Reserve Amex, Delta SkyMiles Platinum Amex (conditions apply)",
+          "dayPass": "Delta has discontinued single-visit passes"
+        },
+        "amenities": "Complimentary food and beverages including cocktails, beer, wine, Wi-Fi, power outlets",
+        "note": "3-hour access policy applies. Exemptions for Delta 360, Amex Centurion, and Lifetime Sky Club members."
+      }
+    ],
+    "terminal3": [
+      {
+        "name": "Delta Sky Club (30,000 sq ft)",
+        "location": "Terminal 3 connector area, post-security",
+        "hours": "4:30 AM - 12:00 AM (hours may vary)",
+        "access": {
+          "membership": "Delta Sky Club membership",
+          "status": "Delta Diamond/Platinum/Gold Medallion on same-day Delta flight",
+          "creditCard": "Delta SkyMiles Reserve Amex, Delta SkyMiles Platinum Amex",
+          "dayPass": "Not available"
+        },
+        "amenities": "One of the largest Delta Sky Clubs in the network at 30,000 sq ft. Full food buffet, premium cocktails, wine, beer, Wi-Fi, power outlets, premium seating",
+        "note": "Opened as part of the $1.9B Delta Sky Way project"
+      },
+      {
+        "name": "Delta One Lounge",
+        "location": "Terminal 3, post-security",
+        "hours": "Varies (opened October 8, 2024)",
+        "access": {
+          "membership": "Not required — class-based access",
+          "status": "Delta One passengers on same-day Delta One flights",
+          "creditCard": "Not available via credit card alone",
+          "dayPass": "Not available"
+        },
+        "amenities": "Premium dining, cocktail bar, shower suites, spa treatments, quiet relaxation areas, business center"
+      },
+      {
+        "name": "Gameway",
+        "location": "Terminal 3, post-security",
+        "hours": "Varies",
+        "access": {
+          "membership": "Priority Pass (excluding Amex and Capital One cardholders)",
+          "dayPass": "Walk-in available"
+        },
+        "amenities": "Gaming consoles, comfortable gaming chairs, snacks and beverages"
+      }
+    ],
+    "terminal4": [
+      {
+        "name": "American Airlines Flagship Lounge",
+        "location": "Near gate 40, post-security",
+        "hours": "4:30 AM - 1:00 AM daily",
+        "access": {
+          "membership": "Not required — class/status-based access",
+          "status": "ConciergeKey members, Flagship First/Business passengers on qualifying international/transcontinental flights, oneworld Emerald",
+          "creditCard": "Not available via credit card alone",
+          "dayPass": "Not available"
+        },
+        "amenities": "Premium dining with made-to-order meals, full bar, shower suites, spa treatments, quiet relaxation areas, high-speed Wi-Fi"
+      },
+      {
+        "name": "American Airlines Admirals Club (Terminal 4)",
+        "location": "Terminal 4, post-security",
+        "hours": "4:30 AM - 1:00 AM daily",
+        "access": {
+          "membership": "Admirals Club membership",
+          "status": "AA first/business class passengers, oneworld Emerald/Sapphire, ConciergeKey",
+          "creditCard": "Citi / AAdvantage Executive World Elite Mastercard",
+          "dayPass": "Available for purchase (~$65)"
+        },
+        "amenities": "Snacks, complimentary drinks, Wi-Fi, power outlets, business center"
+      }
+    ],
+    "terminal5": [
+      {
+        "name": "American Airlines Admirals Club (Terminal 5/Regional)",
+        "location": "Regional Terminal area",
+        "hours": "4:30 AM - varies",
+        "access": {
+          "membership": "Admirals Club membership",
+          "status": "Same as Terminal 4 Admirals Club",
+          "creditCard": "Citi / AAdvantage Executive World Elite Mastercard",
+          "dayPass": "Available for purchase (~$65)"
+        },
+        "amenities": "Snacks, complimentary drinks, Wi-Fi, power outlets",
+        "note": "Terminal 5 closed for construction. Regional Terminal Admirals Club may still be accessible."
+      }
+    ],
+    "terminal6": [
+      {
+        "name": "Alaska Airlines Lounge",
+        "location": "Terminal 6, post-security",
+        "hours": "5:00 AM - 11:00 PM daily (approximate)",
+        "access": {
+          "membership": "Alaska Lounge membership (~$595/year)",
+          "status": "Alaska MVP Gold 75K and above, oneworld Emerald",
+          "creditCard": "Not directly — requires Alaska status or membership",
+          "dayPass": "Available for purchase (~$59) — open to passengers on any airline"
+        },
+        "amenities": "Hot and cold food options, cocktails, beer, wine, soft drinks, comfortable seating, Wi-Fi, power outlets"
+      },
+      {
+        "name": "Air Canada Maple Leaf Lounge",
+        "location": "Terminal 6, post-security",
+        "hours": "Currently closed for renovations (check Air Canada for reopening)",
+        "access": {
+          "membership": "Star Alliance Gold members",
+          "status": "Air Canada business class passengers",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Light snacks and beverages, shower facility, Wi-Fi, power outlets"
+      },
+      {
+        "name": "Gameway",
+        "location": "Terminal 6, post-security",
+        "hours": "Varies",
+        "access": {
+          "membership": "Priority Pass (excluding Amex and Capital One cardholders)",
+          "dayPass": "Walk-in available"
+        },
+        "amenities": "Gaming consoles, comfortable gaming chairs, snacks and beverages"
+      }
+    ],
+    "terminal7": [
+      {
+        "name": "United Club",
+        "location": "Terminal 7, post-security",
+        "hours": "5:00 AM - 11:55 PM daily",
+        "access": {
+          "membership": "United Club membership ($650/year)",
+          "status": "United premium cabin passengers, Star Alliance Gold",
+          "creditCard": "United Club Infinite Card",
+          "dayPass": "One-time passes available (~$59)"
+        },
+        "amenities": "Complimentary food, drinks (including beer, wine, spirits), Wi-Fi, digital magazines, power outlets"
+      },
+      {
+        "name": "United Polaris Lounge",
+        "location": "Terminal 7, post-security",
+        "hours": "6:30 AM - 10:00 PM daily",
+        "access": {
+          "membership": "Not required — class-based access",
+          "status": "United Polaris business class passengers on international long-haul flights, Star Alliance international first/business class",
+          "creditCard": "Not available via credit card alone",
+          "dayPass": "Not available"
+        },
+        "amenities": "Premium dining with made-to-order meals, full bar, shower suites with spa products, individual daybeds, quiet relaxation area, high-speed Wi-Fi"
+      }
+    ],
+    "tbit": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Tom Bradley International Terminal, post-security",
+        "hours": "6:00 AM - 10:00 PM daily",
+        "access": {
+          "membership": "Not required — card-based access",
+          "status": "N/A",
+          "creditCard": "American Express Platinum Card, Business Platinum, Corporate Platinum, Centurion Card, Delta SkyMiles Reserve (with restrictions)",
+          "dayPass": "Not available — Amex card required",
+          "guestPolicy": "Platinum cardholders: 2 guests at $50 each or free with $75K+ spend. Centurion cardholders: 2 free guests."
+        },
+        "amenities": "Open kitchen with seasonal menus, full bar with signature cocktails, shower suites, family room, high-speed Wi-Fi, phone rooms, premium seating"
+      },
+      {
+        "name": "Oneworld Los Angeles Business Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies by flight schedule",
+        "access": {
+          "membership": "oneworld Emerald/Sapphire",
+          "status": "Business/first class passengers on oneworld airlines (American, British Airways, Cathay Pacific, Japan Airlines, Qantas, etc.)",
+          "creditCard": "Not directly",
+          "dayPass": "Not available"
+        },
+        "amenities": "Food and beverages, comfortable seating, Wi-Fi, power outlets, shower facilities"
+      },
+      {
+        "name": "Star Alliance Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies by flight schedule",
+        "access": {
+          "membership": "Star Alliance Gold",
+          "status": "Business/first class passengers on Star Alliance airlines (United, Lufthansa, ANA, Singapore Airlines, etc.)",
+          "creditCard": "Not directly",
+          "dayPass": "Not available"
+        },
+        "amenities": "Food and beverages, comfortable seating, Wi-Fi, power outlets, shower facilities"
+      },
+      {
+        "name": "SkyTeam Lounge / Korean Air Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies by flight schedule",
+        "access": {
+          "membership": "SkyTeam Elite Plus",
+          "status": "Business/first class passengers on SkyTeam airlines (Delta, Air France, KLM, Korean Air, etc.)",
+          "creditCard": "Not directly",
+          "dayPass": "Not available"
+        },
+        "amenities": "Korean-inspired cuisine, beverages, comfortable seating, Wi-Fi, shower facilities"
+      },
+      {
+        "name": "Emirates Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies (tied to Emirates flight schedule)",
+        "access": {
+          "membership": "Emirates Skywards Gold/Platinum",
+          "status": "Emirates first/business class passengers",
+          "creditCard": "Not directly",
+          "dayPass": "Paid access may be available"
+        },
+        "amenities": "Gourmet cuisine, full-service bar, shower suites, Wi-Fi, premium seating"
+      },
+      {
+        "name": "Etihad Airways Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies (tied to Etihad flight schedule)",
+        "access": {
+          "membership": "Etihad Guest Gold/Platinum",
+          "status": "Etihad first/business class passengers",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Full dining service, beverages, comfortable seating, Wi-Fi, shower facilities"
+      },
+      {
+        "name": "Qantas International Business Lounge",
+        "location": "TBIT, post-security",
+        "hours": "Varies (tied to Qantas flight schedule)",
+        "access": {
+          "membership": "Qantas Frequent Flyer Gold/Platinum/Chairman's Lounge, oneworld Emerald/Sapphire",
+          "status": "Qantas business/first class passengers",
+          "creditCard": "Not directly",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Full dining service, Australian-inspired cuisine, bar, Wi-Fi, shower facilities"
+      },
+      {
+        "name": "Virgin Atlantic Clubhouse",
+        "location": "TBIT, third floor, post-security",
+        "hours": "Varies (tied to Virgin Atlantic flight schedule)",
+        "access": {
+          "membership": "Virgin Atlantic Flying Club Gold",
+          "status": "Virgin Atlantic Upper Class passengers",
+          "creditCard": "Priority Pass (with $35 per person top-up fee)",
+          "dayPass": "Not typically available"
+        },
+        "amenities": "Complimentary dining, full bar, charging facilities, Wi-Fi, premium seating"
+      },
+      {
+        "name": "Los Angeles International Lounge (LA Lounge)",
+        "location": "TBIT, post-security",
+        "hours": "Varies",
+        "access": {
+          "membership": "Various lounge access programs",
+          "dayPass": "Walk-in day passes available"
+        },
+        "amenities": "Food and beverages, Wi-Fi, comfortable seating, power outlets"
+      },
+      {
+        "name": "USO Lounge",
+        "location": "TBIT",
+        "hours": "Varies",
+        "access": {
+          "membership": "Active-duty military, reservists, and their families",
+          "dayPass": "Free for eligible military personnel"
+        },
+        "amenities": "Snacks, beverages, comfortable seating, Wi-Fi, phone charging, entertainment"
+      }
+    ],
+    "priorityPassLounges": [
+      "Be Relax Spa (Terminal 1 — excluding Amex/Capital One cardholders)",
+      "Gameway (Terminal 3 — excluding Amex/Capital One cardholders)",
+      "Gameway (Terminal 6 — excluding Amex/Capital One cardholders)",
+      "Virgin Atlantic Clubhouse (TBIT — $35 per person top-up fee required)"
+    ],
+    "totalLoungeCount": "20+ lounges across all terminals",
+    "airsideConnections": "Terminals 1-3 connected via airside walkway. Terminals 4-6-7-8 connected via airside walkway. T3 connected to TBIT via secure connector bridge. Passengers can access many lounges without exiting security."
+  },
+  "wifi": {
+    "networkName": "_LAX Free WiFi",
+    "cost": "Free — unlimited 45-minute sessions (reconnect for additional sessions)",
+    "coverage": "All gate areas, baggage claims, and common areas in ALL terminals",
+    "speed": "Approximately 70-100+ Mbps download, ~87 Mbps upload — capable of streaming and video calls",
+    "provider": "Boingo Wireless",
+    "technology": "Passpoint technology for seamless connectivity",
+    "howToConnect": "Select '_LAX Free WiFi' from available networks, open browser, accept terms of service",
+    "customerServiceNumber": "(855) 550-9258 (LAWA information)"
+  },
+  "securityAndScreening": {
+    "provider": "TSA (federal screeners)",
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "25-40 minutes (5-8 AM and 4-7 PM)",
+      "offPeak": "Under 15 minutes",
+      "bestTimes": "10:00 AM - 2:00 PM (mid-morning to early afternoon) and after 8:00 PM"
+    },
+    "tsaPreCheck": {
+      "available": true,
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 4", "Terminal 6", "Terminal 7", "Terminal B (TBIT)"],
+      "avgWaitTime": "~5-10 minutes (significantly shorter than standard)",
+      "benefits": "No need to remove shoes, light outerwear, belts; keep laptops and 3-1-1 liquids in carry-on",
+      "cost": "$78 for 5-year enrollment (or $85 via TSA direct)"
+    },
+    "clear": {
+      "available": true,
+      "annualCost": "$209/year (discounts for Delta SkyMiles, United MileagePlus members)",
+      "locations": [
+        {"terminal": "Terminal 1", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Terminal 3", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Terminal 4", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Terminal 6", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Terminal 7", "hours": "4:00 AM - 11:00 PM"},
+        {"terminal": "Tom Bradley International Terminal (TBIT)", "hours": "4:00 AM - 11:00 PM"}
+      ],
+      "howItWorks": "Biometric verification (fingerprint + iris scan) lets you skip the ID check line and go directly to physical screening"
+    },
+    "globalEntry": {
+      "available": true,
+      "terminals": ["Tom Bradley International Terminal (International Arrivals)"],
+      "notes": "Global Entry kiosks in International Arrivals — includes TSA PreCheck benefits"
+    },
+    "laxFastLane": {
+      "terminal": "Terminal 7",
+      "description": "Free reservation service allowing travelers to book a specific time slot for security screening. Receive a QR code for access to a dedicated lane.",
+      "cost": "Free",
+      "booking": "Online via LAX website"
+    },
+    "realId": {
+      "requirement": "REAL ID required for domestic air travel as of May 7, 2025",
+      "californiaCompliance": "~58% of California license/ID holders were REAL ID-compliant as of 2025",
+      "identifier": "California REAL IDs have a gold bear with white star in the top right corner",
+      "alternative": "Valid passport, passport card, or military ID also accepted"
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "busyPeriods": "2.5-3 hours recommended during peak travel (holidays, summer, 2026 World Cup period)"
+    }
+  },
+  "weatherAndDelays": {
+    "overview": "LAX benefits from Southern California's mild, dry climate and consistently ranks among the better-performing major U.S. airports for on-time performance. The primary weather disruption is marine fog ('May Gray' and 'June Gloom'), which can reduce visibility during morning hours from May through June.",
+    "onTimePerformance": {
+      "2024": {
+        "delayRate": "~6.6% (below U.S. average of 7.5%)",
+        "ranking": "Top 10 among major U.S. airports for fewest delays and fewest cancellations",
+        "note": "LAX generally performs well due to favorable weather conditions year-round"
+      }
+    },
+    "fogStatistics": {
+      "fogSeason": "May through June ('May Gray' and 'June Gloom')",
+      "mechanism": "Pacific Ocean marine layer pushes low clouds and fog inland, typically arriving overnight and clearing by late morning (11 AM)",
+      "impact": "Morning fog can add 15-30 minutes to departure times and cause ground delays",
+      "frequency": "Marine layer affects LAX approaches on many mornings from May-June, occasionally into July"
+    },
+    "worstMonths": {
+      "fogSeason": "May-June (marine layer morning fog — 'May Gray' / 'June Gloom')",
+      "winterStorms": "December-February (rare Pacific storms can cause delays)",
+      "best": "September-November (warmest, clearest weather — 'second summer') and July-August (fog season ending, hot and dry)"
+    },
+    "climate": {
+      "avgRainyDays": "~36 per year",
+      "summerRain": "Near zero — June through September is essentially rain-free",
+      "avgTemperature": "60-75°F year-round, rarely exceeding 90°F",
+      "advantage": "LAX's mild Mediterranean climate means weather-related delays are far less common than at airports in the Northeast or Midwest"
+    },
+    "recommendation": "Book afternoon flights during May-June to avoid marine layer fog delays. LAX has excellent on-time performance overall."
+  },
+  "construction2026": {
+    "status": "Massive multi-billion dollar modernization program ('Transforming LAX') in progress, with several projects targeting completion for 2026 FIFA World Cup and 2028 Olympics",
+    "projects": [
+      {
+        "name": "Automated People Mover (APM)",
+        "budget": "$4.9 billion+ (originally ~$4 billion, $880 million+ over budget)",
+        "contractor": "LAX Integrated Express Solutions (LINXS) — consortium of Fluor, Balfour Beatty, ACS Infrastructure Development, Bombardier Transportation",
+        "scope": "2.25 miles of elevated guideway connecting 6 stations: 3 in CTA, 1 at Economy Parking, 1 at LAX/Metro Transit Center, 1 at ConRAC",
+        "timeline": {
+          "constructionStart": "2019",
+          "originalCompletion": "2023",
+          "revisedCompletion": "June 2026 (targeted ahead of FIFA World Cup)",
+          "currentStatus": "Safety testing and certification in progress. No firm opening date announced as of March 2026."
+        },
+        "impact": "First-ever rail connection to LAX terminals. Will eliminate 3,200+ daily rental car shuttle trips."
+      },
+      {
+        "name": "Consolidated Rent-A-Car Facility (ConRAC)",
+        "budget": "$2+ billion",
+        "scope": "6.4 million sq ft facility housing 18,000+ rental car vehicles for 12 brands",
+        "timeline": {
+          "opened": "March 11, 2026 (fully operational)",
+          "location": "5251 W 98th Street, adjacent to I-405"
+        },
+        "impact": "All rental car companies consolidated from scattered locations into one facility. Currently served by shuttles until APM opens."
+      },
+      {
+        "name": "Terminal 4/5 Modernization",
+        "budget": "$1.6 billion",
+        "scope": "Terminal 5 demolished and reconstructed. Unified departure hall with Terminal 4. New south concourse.",
+        "timeline": {
+          "terminal5Closure": "October 28, 2025",
+          "reopening": "~2028"
+        },
+        "impact": "American Airlines operations consolidated in Terminal 4 during construction. Airlines from Terminal 5 relocated."
+      },
+      {
+        "name": "Tom Bradley International Terminal (TBIT) Renovation",
+        "budget": "Not disclosed (approved December 2025)",
+        "scope": "Modernization of check-in hall and arrivals area at TBIT",
+        "timeline": {
+          "constructionStart": "January 2026",
+          "targetCompletion": "Before 2028 Summer Olympics"
+        },
+        "impact": "Cosmetic and functional upgrades to welcome international visitors for the Olympics."
+      },
+      {
+        "name": "Midfield Satellite Concourse (MSC) South",
+        "budget": "$1.4 billion",
+        "scope": "8 new gates for narrow-body aircraft at West Gates/TBIT, using innovative Offsite Construction and Relocation (OCR) technique",
+        "timeline": {
+          "completed": "October 24, 2025 (first flight: Frontier Airlines to Las Vegas, September 30, 2025)"
+        },
+        "impact": "Added 150,000+ sq ft of terminal space to TBIT West Gates."
+      },
+      {
+        "name": "Delta Sky Way (Terminal 2/3)",
+        "budget": "$1.9 billion",
+        "scope": "Complete demolition and reconstruction of Terminal 3, modernization of Terminal 2, secure connector to TBIT",
+        "timeline": {
+          "completed": "April 2022 (Terminal 3 reconstruction), ongoing finishing touches"
+        },
+        "impact": "Modernized Delta hub with 30,000 sq ft Sky Club, Delta One Lounge, and secure international connection."
+      },
+      {
+        "name": "LAX/Metro Transit Center",
+        "scope": "Transit hub connecting Metro C and K Lines, 11 bus routes, and future APM",
+        "timeline": {
+          "opened": "June 6, 2025"
+        },
+        "impact": "First direct Metro rail connection point for LAX. Served by shuttle until APM connects."
+      }
+    ],
+    "completedProjects": [
+      "Midfield Satellite Concourse South ($1.4B) — COMPLETE October 2025. 8 new gates at TBIT West.",
+      "Delta Sky Way Terminal 3 ($1.9B) — COMPLETE 2022. Full reconstruction of Terminal 3.",
+      "LAX/Metro Transit Center — COMPLETE June 2025. Metro C/K Line connection.",
+      "ConRAC ($2B+) — COMPLETE March 2026. Consolidated rental car facility.",
+      "Tom Bradley International Terminal West Gates — COMPLETE May 2021. 15 gates added."
+    ],
+    "travelAdvice2026": "LAX is undergoing its largest-ever construction program. Terminal 5 is closed. The APM is expected to open mid-2026 but dates are uncertain. The new ConRAC facility opened March 2026 — rental cars now at 5251 W 98th St (shuttle or future APM). Allow extra time for ground transportation until APM opens. Check terminal assignments before travel as airlines have shifted terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot Century",
+      "slug": "parking-spot-century-lax",
+      "address": "5701 W. Century Blvd, Los Angeles, CA 90045",
+      "phone": "(310) 642-0947",
+      "dailyRate": 19.95,
+      "parkingType": "Covered Self-Park & Valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Valet Available", "EV Charging", "Security", "Luggage Assistance"],
+      "shuttleInfo": "Complimentary 24/7 shuttle to all LAX terminals. Located on Century Blvd between Westin and Hilton hotels.",
+      "driveTime": "5-10 minutes to terminals",
+      "freeCancellation": true,
+      "website": "https://www.theparkingspot.com/locations/los-angeles/lax/the-parking-spot-century",
+      "notes": "Well-known national brand on LAX's main hotel corridor (Century Blvd). Covered and valet options available."
+    },
+    {
+      "name": "The Parking Spot Sepulveda",
+      "slug": "parking-spot-sepulveda-lax",
+      "address": "9101 S. Sepulveda Blvd, Los Angeles, CA 90045",
+      "phone": "(310) 846-4747",
+      "dailyRate": 19.95,
+      "valetRate": 25.95,
+      "parkingType": "Covered Self-Park, Uncovered Self-Park & Valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Uncovered Parking", "Valet Available", "EV Charging", "Security", "Luggage Assistance"],
+      "shuttleInfo": "Free 24/7 shuttle — 1.7 miles, ~6 minute ride to terminals",
+      "distanceFromAirport": "1.7 mi",
+      "driveTime": "6 minutes to terminals",
+      "freeCancellation": true,
+      "website": "https://www.theparkingspot.com",
+      "notes": "Second Parking Spot location. Uncovered from $19.95/day, covered from $24.95/day, valet from $25.95/day."
+    },
+    {
+      "name": "WallyPark Premier Garage",
+      "slug": "wallypark-premier-lax",
+      "address": "9700 Bellanca Ave, Los Angeles, CA 90045",
+      "phone": "(310) 308-6495 (text 'shuttle' for pickup)",
+      "dailyRate": 25.95,
+      "valetRate": 29.95,
+      "parkingType": "Indoor Garage Self-Park & Valet",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Garage", "Valet Available", "EV Charging", "Car Wash", "Luggage Assistance", "Free WiFi", "All-Electric Shuttle Fleet"],
+      "shuttleInfo": "Free 24/7 shuttle — all-electric fleet since 2016. Track shuttles in real time via WallyPark app.",
+      "freeCancellation": true,
+      "website": "https://www.wallypark.com/lax-airport-parking/",
+      "notes": "Premium indoor garage parking. All-electric shuttle fleet. Self park $25.95/day, valet $29.95/day. Car wash service available."
+    },
+    {
+      "name": "WallyPark Express",
+      "slug": "wallypark-express-lax",
+      "dailyRate": 31.95,
+      "parkingType": "Indoor Self-Park",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Parking", "Security"],
+      "shuttleInfo": "Free shuttle to all terminals, operates 24/7/365",
+      "freeCancellation": true,
+      "website": "https://www.wallypark.com",
+      "notes": "WallyPark's express option. ~$138.86/week."
+    },
+    {
+      "name": "105 Airport Parking",
+      "slug": "105-airport-parking-lax",
+      "address": "898 N Pacific Coast Hwy, El Segundo, CA 90245",
+      "phone": "(310) 615-1888",
+      "dailyRate": 7.72,
+      "parkingType": "Indoor Garage & Outdoor Rooftop Self-Park, Valet",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Parking (3 levels)", "Outdoor Rooftop Parking", "Valet Available", "Security"],
+      "shuttleInfo": "Free 24/7 shuttle to all terminals every 25-30 minutes",
+      "distanceFromAirport": "~2 mi",
+      "freeCancellation": true,
+      "notes": "Budget option off Sepulveda Blvd near I-105. 3 levels indoor + 1 rooftop outdoor. One of the cheapest LAX parking options starting at ~$7.72/day pre-booked."
+    },
+    {
+      "name": "QuikPark LAX",
+      "slug": "quikpark-lax",
+      "address": "9821 Vicksburg Ave, Los Angeles, CA 90045",
+      "phone": "(310) 645-7754",
+      "dailyRate": 16.95,
+      "valetRate": 17.95,
+      "parkingType": "Covered Garage Self-Park & Valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Garage", "Valet Available", "Security"],
+      "shuttleInfo": "Free shuttle every 5-10 minutes to all terminals, 24/7. Only one block from LAX — ride takes just a few minutes.",
+      "distanceFromAirport": "1 block",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "website": "https://www.quikparklosangelesairport.com/",
+      "notes": "Closest off-site lot — one block east of the airport, adjacent to the Concourse hotel. Self park $16.95/day, valet $17.95/day. Very fast shuttle due to proximity."
+    },
+    {
+      "name": "Joe's Airport Parking",
+      "slug": "joes-airport-parking-lax",
+      "address": "6351 W. Century Blvd, Los Angeles, CA 90045",
+      "phone": "(310) 670-0290",
+      "dailyRate": 17.95,
+      "parkingType": "Covered Self-Park",
+      "amenities": ["Free Shuttle", "Covered Parking (1,400+ spaces)", "Security", "24/7 Operation"],
+      "shuttleInfo": "Free shuttle to all terminals every 15-20 minutes",
+      "freeCancellation": true,
+      "website": "https://www.cheapairportparking.org/lot/Joes-LAX",
+      "notes": "Large covered facility with 1,400+ spaces on Century Blvd. ~$208.76/week. Solid mid-range option."
+    }
+  ],
+  "shuttleInfo": "All off-site lots include free shuttle service to LAX terminals. On-airport Economy Parking connects via free shuttle every 10-15 minutes. When APM opens (~June 2026), terminal connections will be via elevated train to Economy Parking, Metro Transit Center, and ConRAC.",
+  "distanceFromCity": "16 miles southwest of downtown Los Angeles, roughly 30-60 min by car depending on I-405/I-105 traffic. FlyAway bus takes 30-60 minutes to Union Station.",
+  "keyDistances": {
+    "toDowntownLA": "~16 miles, 30-60 min by car (highly traffic-dependent), 30-60 min by FlyAway bus. Taxi flat rate: $51.15.",
+    "toHollywood": "~15 miles, 30-60 min by car. No direct FlyAway service (Hollywood route suspended 2020).",
+    "toSantaMonica": "~8 miles, 15-30 min by car. Closest major LA neighborhood to LAX.",
+    "toBeverlyHills": "~12 miles, 25-45 min by car",
+    "toAnaheim": "~34 miles, 45-90 min by car. Closest major airport to Disneyland Resort.",
+    "toLongBeach": "~22 miles, 30-50 min by car. Alternative: Long Beach Airport (LGB) is closer to Long Beach itself.",
+    "toPasadena": "~28 miles, 40-75 min by car",
+    "toVenice": "~5 miles, 10-20 min by car. Venice Beach is the closest beach community to LAX.",
+    "competitiveAdvantage": "LAX is the only major airport in the Greater Los Angeles area with direct Metro rail connections (C and K Lines via LAX/Metro Transit Center, with APM connection coming ~June 2026). Centrally located for access to all major LA destinations."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near LAX — stay the night before, park free for your trip, shuttle to terminal.",
+    "priceRange": "From ~$123/night (includes 1-night stay + up to 7-14 days parking + free shuttle)",
+    "popularHotels": [
+      "Hyatt Regency Los Angeles International Airport — on-site at LAX, park-and-fly packages available",
+      "Courtyard by Marriott LAX/Century Boulevard — centrally located on Century Blvd with secure parking",
+      "Hilton Los Angeles Airport — Park & Go packages with multi-day parking",
+      "Residence Inn LAX — 'Park Here, Fly There' package: 1 night + up to 7 days parking + free shuttle",
+      "Holiday Inn Express LAX — budget-friendly park-sleep-fly option",
+      "Renaissance Los Angeles Airport Hotel — upscale option on Century Blvd",
+      "Four Points by Sheraton LAX — mid-range with parking packages"
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "stayparktravel.com"],
+    "bookingPhone": "800-851-5863",
+    "note": "Hotels on Century Blvd (the main LAX hotel corridor) offer the most convenient park-sleep-fly packages. Most include free airport shuttles and 7-14 days of parking with one overnight stay."
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app tipping, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "5-day trip",
+    "onAirport": {
+      "ctaGeneralGarage": {
+        "parkingCost": "$300 (5 days at $60/day)",
+        "totalEstimate": "$300"
+      },
+      "economyParking": {
+        "parkingCost": "$175 (5 days at $35/day)",
+        "totalEstimate": "$175"
+      },
+      "budgetParking": {
+        "parkingCost": "$100 (5 days at $20/day)",
+        "totalEstimate": "$100"
+      }
+    },
+    "offSiteWithShuttle": {
+      "105AirportParking": {
+        "parkingCost": "$38.60 (5 days at ~$7.72/day pre-booked)",
+        "totalEstimate": "$38.60",
+        "savingsVsEconomy": "~$136 saved vs Economy Parking"
+      },
+      "quikPark": {
+        "parkingCost": "$84.75 (5 days at $16.95/day)",
+        "totalEstimate": "$84.75",
+        "savingsVsEconomy": "~$90 saved vs Economy Parking"
+      },
+      "parkingSpot": {
+        "parkingCost": "$99.75 (5 days at $19.95/day)",
+        "totalEstimate": "$99.75",
+        "savingsVsEconomy": "~$75 saved vs Economy Parking"
+      }
+    },
+    "publicTransit": {
+      "flyAwayRoundTrip": {
+        "costPerPerson": 25.50,
+        "travelTime": "30-60 minutes each way (Union Station)",
+        "note": "FlyAway bus: $12.75 each way. Most affordable option for solo travelers."
+      },
+      "metroRoundTrip": {
+        "costPerPerson": 3.50,
+        "travelTime": "60-90 minutes each way (depending on origin)",
+        "note": "Metro C/K Line to LAX/Metro Transit Center + LAX Shuttle (or APM when open). $1.75 each way."
+      }
+    },
+    "keyDifference": "LAX on-airport CTA garages are expensive ($60/day). Economy parking ($35/day) and budget parking ($20/day) offer savings. Off-site lots like 105 Airport Parking (~$8/day) save dramatically. FlyAway bus ($12.75 one-way to Union Station) is the best deal for solo travelers. Metro ($1.75/ride) is cheapest but slowest."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(855) 550-9258 (LAWA)",
+    "parkingInfo": "(310) 646-2911 or parking@lawa.org",
+    "tsa": "(866) 289-9673",
+    "lostAndFound": "(424) 646-5678",
+    "flyAwayCustomerService": "1-866-435-9529",
+    "economyParkingShuttle": "(310) 486-8334"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs to scrape for fresh data when generating articles. Grouped by topic. All verified 2026-04-03.",
+    "officialAirport": {
+      "parking": "https://www.flylax.com/parking-at-lax",
+      "parkingReservations": "https://parking.flylax.com",
+      "terminalParking": "https://parking.flylax.com/lax-terminal.html",
+      "economyParking": "https://parking.flylax.com/lax-economy.html",
+      "budgetParking": "https://parking.flylax.com/lax-budget.html",
+      "evCharging": "https://parking.flylax.com/lax-ev.html",
+      "gettingToFrom": "https://www.flylax.com/lax-traffic-and-ground-transportation",
+      "terminalMaps": "https://www.flylax.com/lax-terminal-maps",
+      "airlines": "https://www.flylax.com/lax-terminal-maps",
+      "flyAway": "https://www.flylax.com/flyaway-bus",
+      "laxIt": "https://www.flylax.com/lax-it",
+      "faq": "https://www.flylax.com/lax-frequently-asked-questions-faq",
+      "wifi": "https://www.flylax.com/lax-wifi",
+      "petRelief": "https://www.flylax.com/sites/lax/files/documents/LAX%20Pet%20Relief%20Locations.pdf",
+      "statistics": "https://www.lawa.org/lawa-investor-relations/statistics-for-lax"
+    },
+    "construction": {
+      "transformingLAX": "https://www.lawa.org/transforminglax",
+      "projects": "https://www.lawa.org/transforminglax/projects",
+      "apm": "https://www.lawa.org/transforminglax/projects/automated-people-mover-train-system",
+      "conrac": "https://www.lawa.org/transforminglax/projects/consolidated-rent-a-car-facility---conrac",
+      "mscSouth": "https://www.lawa.org/transforminglax/projects/midfield-satellite-concourse-south---msc"
+    },
+    "transit": {
+      "metroTransitCenter": "https://www.metro.net/lax-metro-transit-center/",
+      "metroCLine": "https://en.wikipedia.org/wiki/C_Line_(Los_Angeles_Metro)",
+      "metroKLine": "https://en.wikipedia.org/wiki/K_Line_(Los_Angeles_Metro)",
+      "flyAwaySchedule": "https://static.lawa.charterup.com/schedule.html"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/lax/",
+      "lyft": "https://www.lyft.com/rider/airports/LAX"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=LAX",
+      "way": "https://www.way.com/lax",
+      "parkon": "https://www.parkon.com/lax",
+      "spothero": "https://spothero.com/airport/lax-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/lax"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://flightaware.com/live/airport/KLAX",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/LAX",
+      "btsStats": "https://www.bts.gov/annual-time-arrival-rankings-major-airports"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/lax/airport-hotels-with-parking",
+      "parkSleepHotels": "https://lax.parksleephotels.com"
+    },
+    "evChargingMaps": {
+      "chargeHub": "https://chargehub.com/en/stations/ca/los-angeles/los-angeles-international-airport-(lax)-lot-1-",
+      "plugShare": "https://www.plugshare.com/location/8444"
+    },
+    "luggageStorageServices": {
+      "bounce": "https://bounce.com",
+      "luggageHero": "https://luggagehero.com",
+      "radicalStorage": "https://radicalstorage.com",
+      "vertoe": "https://vertoe.com"
+    },
+    "loungeGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/los-angeles-lax-airport-lounges/",
+      "priorityPass": "https://www.prioritypass.com/en-GB/lounges/united-states-of-america/los-angeles-international",
+      "nerdwallet": "https://www.nerdwallet.com/travel/learn/lax-lounges"
+    },
+    "security": {
+      "clear": "https://www.clearme.com/all-locations/los-angeles-international-airport",
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/LAX/Los-Angeles-International",
+      "realId": "https://www.tsa.gov/travel/security-screening/identification"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/los-angeles-lax-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Los_Angeles_International_Airport",
+      "wikipediaTerminals": "https://en.wikipedia.org/wiki/Terminals_of_Los_Angeles_International_Airport"
+    }
+  }
+}

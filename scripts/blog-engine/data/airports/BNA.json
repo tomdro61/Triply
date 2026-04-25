@@ -1,0 +1,590 @@
+{
+  "code": "BNA",
+  "fullName": "Nashville International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Southeast Nashville, Tennessee — 8 miles southeast of downtown Nashville",
+    "iataCode": "BNA",
+    "icaoCode": "KBNA",
+    "faaLid": "BNA",
+    "elevation": "599 feet above mean sea level",
+    "acreage": 4600,
+    "coordinates": "36.1246N, 86.6782W",
+    "passengerVolume": "23.7 million passengers in 2024 (record year)",
+    "aircraftOperations": "237,000+ annually (2024)",
+    "distinction": "One of the fastest-growing major airports in the United States. Nashville's gateway to Music City, serving as a Southwest Airlines focus city and major hub for leisure and business travel. Named after Berry Field, the original airport. The terminal is officially named the John C. Tune Terminal. BNA has seen passenger growth of over 80% since 2014, driven by Nashville's tourism boom, bachelorette party culture, live music scene, and rapid population growth. Over 500 daily flights to 90+ nonstop destinations.",
+    "operator": "Metropolitan Nashville Airport Authority (MNAA)",
+    "owner": "Metropolitan Nashville Airport Authority",
+    "activeTerminals": 1,
+    "totalConcourses": 5,
+    "totalGates": 53,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "2L/20R", "length": "8,001 ft (2,439 m)", "surface": "Asphalt" },
+      { "designation": "2R/20L", "length": "11,030 ft (3,362 m)", "surface": "Asphalt", "note": "Primary runway — longest at BNA" },
+      { "designation": "2C/20C", "length": "7,703 ft (2,348 m)", "surface": "Asphalt" },
+      { "designation": "13/31", "length": "7,004 ft (2,135 m)", "surface": "Asphalt", "note": "Crosswind runway" }
+    ],
+    "dominantAirline": "Southwest Airlines (largest carrier by departures — operates from Concourse D)",
+    "totalAirlines": "20+ airlines",
+    "nonstopDestinations": "90+ nonstop destinations (500+ daily flights)",
+    "founded": "1937 (as Berry Field)",
+    "hubCarriers": ["Southwest Airlines (focus city — largest carrier)", "American Airlines (significant presence)", "Delta Air Lines (significant presence)", "United Airlines", "Frontier Airlines", "Spirit Airlines", "Allegiant Air", "Breeze Airways"],
+    "slotControlled": false,
+    "metroAccess": "No rail transit to BNA. WeGo Public Transit Route 18 bus provides hourly service to downtown Nashville for $2.00.",
+    "internationalNote": "BNA offers limited international service — nonstop flights to Cancun, London (BNA's first transatlantic route via British Airways, launched 2018), and seasonal Caribbean destinations. The airport is primarily a domestic powerhouse with strong low-cost carrier presence."
+  },
+  "terminals": [
+    {
+      "name": "Concourse A",
+      "status": "CLOSED for full reconstruction — reopening July 2028 with 16 new gates as part of New Horizon expansion program.",
+      "airlines": [],
+      "gates": "Temporarily closed — airlines relocated to other concourses",
+      "notes": "Concourse A is undergoing a complete rebuild as part of the $1.4 billion New Horizon expansion. When it reopens in July 2028, it will have 16 modern gates with expanded passenger amenities."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 11 gates.",
+      "airlines": ["Delta Air Lines", "United Airlines"],
+      "gates": "B1, B3-B11",
+      "notes": "Home to Delta Air Lines and United Airlines operations. Delta Sky Club located in Concourse B (renovated and expanded by 10,000+ sq ft in 2024)."
+    },
+    {
+      "name": "Concourse C (including Satellite Concourse)",
+      "status": "Active — 18 gates in main concourse + satellite gates. Largest concourse at BNA.",
+      "airlines": ["American Airlines", "Alaska Airlines", "Allegiant Air", "Breeze Airways", "Frontier Airlines", "JetBlue Airways", "Spirit Airlines", "Sun Country Airlines", "British Airways"],
+      "gates": "C1-C3, C13-C27 (main) + C4-C11 (Satellite Concourse via shuttle bus from gate C2)",
+      "notes": "Largest concourse at BNA. American Airlines Admirals Club located on the mezzanine level between gates C14 and C16. The Satellite Concourse (gates C4-C11) opened October 2023 as part of BNA Vision — accessed by shuttle bus from near gate C2. Arts at the Airport stage features live music performances."
+    },
+    {
+      "name": "Concourse D",
+      "status": "Active — Southwest Airlines exclusive. Extended July 2025 with 5 new gates as first New Horizon project.",
+      "airlines": ["Southwest Airlines"],
+      "gates": "D1-D16+",
+      "notes": "Southwest Airlines exclusive concourse. July 2025 expansion added 5 new gates, new concessions, and BNA's first outdoor terrace with views of the Nashville skyline. Minute Suites private rest pods near gate D3. USO Lounge in C/D connector for military members."
+    },
+    {
+      "name": "T Gates (BNA Marketplace)",
+      "status": "Active — 6 gates. Located straight ahead after security checkpoint.",
+      "airlines": ["Various — international carriers and domestic overflow"],
+      "gates": "T1-T6",
+      "notes": "T Gates sit in the BNA Marketplace area, directly past the central security checkpoint. Used for international flights and domestic overflow. Surrounded by shops and dining options."
+    }
+  ],
+  "roads": ["Interstate 40 (primary east-west highway)", "Interstate 24 (connects to Murfreesboro, Chattanooga)", "Interstate 65 (connects to downtown Nashville, Bowling Green KY)", "Donelson Pike (primary airport access road — being relocated as part of New Horizon)", "Briley Parkway (SR-155, airport loop highway)", "Terminal Drive", "Elm Hill Pike"],
+  "transit": ["WeGo Public Transit Route 18 (hourly bus to downtown Nashville, $2.00 fare)", "No rail transit service to BNA", "Rideshare (Uber/Lyft) from Ground Transportation Center, Level 1 of Terminal Garage 2", "Taxis from Ground Transportation Center", "Hotel shuttles from Ground Transportation Center"],
+  "neighborhoods": ["Donelson", "Hermitage", "Downtown Nashville", "East Nashville", "The Gulch", "Germantown", "Music Row", "Broadway/SoBro", "12 South", "Hillsboro Village", "Green Hills", "Berry Hill", "Brentwood", "Franklin", "Murfreesboro", "Mount Juliet"],
+  "authority": "Metropolitan Nashville Airport Authority (MNAA)",
+  "groundTransportation": {
+    "bus": {
+      "routeName": "WeGo Public Transit Route 18 — Airport",
+      "operator": "WeGo Public Transit (formerly Nashville MTA)",
+      "fare": "$2.00 single ride (exact change or WeGo app). Day pass: $4.00.",
+      "frequency": "Approximately every 60 minutes",
+      "hours": "Roughly 5:30 AM - 11:00 PM (check WeGo schedules for exact times)",
+      "pickupLocation": "Lower level of the terminal, Ground Transportation area",
+      "travelTimeToDowntown": "~32 minutes to downtown Nashville (Music City Central transit station)",
+      "note": "Route 18 is the only public bus route serving BNA. Runs hourly — not ideal for tight connections. Cheapest option at $2.00 but significantly slower than rideshare or taxi."
+    },
+    "rail": {
+      "description": "No rail service to BNA. Nashville does not have a metro, light rail, or commuter rail system.",
+      "note": "Nashville has explored rail transit proposals for decades but none have been built. The WeGo Star commuter rail runs from Lebanon to downtown Nashville but does not serve the airport."
+    },
+    "taxi": {
+      "fareType": "FLAT RATE to downtown Nashville",
+      "pickup": "Ground Transportation Center, Level 1 of Terminal Garage 2",
+      "flatRateToDowntown": "$25 (flat rate)",
+      "additionalPassenger": "$1 per additional passenger",
+      "estimatedFares": {
+        "toDowntownNashville": "$25 flat rate",
+        "toBroadway": "$25 flat rate",
+        "toTheGulch": "$25-$30",
+        "toGermantown": "$25-$30",
+        "toEastNashville": "$20-$25",
+        "toBrentwood": "$30-$40",
+        "toFranklin": "$45-$60",
+        "toMurfreesboro": "$70-$90",
+        "toOpryland": "$20-$25"
+      },
+      "note": "Flat rate of $25 to downtown Nashville is a good deal. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Ground Transportation Center, Level 1 of Terminal Garage 2. Follow signs after baggage claim.",
+      "estimatedFares": {
+        "uberXToDowntown": "$15-$25",
+        "uberXToBroadway": "$15-$25",
+        "uberXToTheGulch": "$15-$25",
+        "uberXToGermantown": "$15-$25",
+        "uberXToEastNashville": "$12-$20",
+        "uberXToBrentwood": "$20-$35",
+        "uberXToFranklin": "$35-$55",
+        "uberXToOpryland": "$12-$20"
+      },
+      "surgePricing": "Surge pricing common during Broadway/honky-tonk evening hours (especially Friday-Saturday nights), CMA Fest week, NFL Titans game days, bachelorette party weekends (spring-summer), and holiday travel periods. Surge can push fares to $60-$90 for a downtown trip.",
+      "note": "Rideshare is usually cheaper than the $25 flat-rate taxi during off-peak times. However, surge pricing during Nashville's many events can make taxis the better deal. Check both apps before choosing."
+    },
+    "rentalCars": {
+      "location": "Ground Transportation Level (Level 1) of Terminal Garage 2 — rental car counters are on-site, no separate shuttle needed",
+      "companies": ["Advantage", "Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 11,
+      "note": "All rental car counters are conveniently located on Level 1 of Terminal Garage 2. No off-site shuttle required — walk from baggage claim to rental counters. This is a significant advantage over airports that require a rental car shuttle bus."
+    },
+    "hotelShuttles": "Many airport-area hotels offer complimentary shuttle service. Popular options include hotels along Elm Hill Pike, Donelson Pike, and the Briley Parkway corridor. Check with your hotel before booking — shuttle hours and frequency vary by property."
+  },
+  "parkingRates": "On-airport: Terminal Garages $26/day ($4 per 20 min, first 20 min free), Valet $40/day, Economy Lots $16/day. Off-site: from ~$5.95/day with shuttle. Pre-booking recommended during peak periods.",
+  "onAirportParking": {
+    "terminalGarage1": {
+      "name": "Terminal Garage 1",
+      "rate": "$4.00 per 20 minutes (first 20 minutes FREE)",
+      "dailyMax": 26,
+      "serves": "Concourses A (when open), B, and ticketing/check-in",
+      "valetAvailable": true,
+      "valetRate": "$40/day",
+      "valetLocation": "Ground floor of Terminal Garage 1",
+      "evCharging": "EV charging stations on Levels 2-6",
+      "features": "Connected to terminal via covered walkway. Valet available 24/7 on ground floor. Dog park on Level P5. First 20 minutes free for quick pickups/drop-offs.",
+      "preBookingUrl": "https://flynashville.com/park-at-bna"
+    },
+    "terminalGarage2": {
+      "name": "Terminal Garage 2",
+      "rate": "$4.00 per 20 minutes (first 20 minutes FREE)",
+      "dailyMax": 26,
+      "serves": "Concourses C, D, and T Gates. Ground Transportation Center on Level 1.",
+      "evCharging": "EV charging stations on Levels 2-3",
+      "features": "Connected to terminal. Ground Transportation Center (taxis, rideshare, rental cars, shuttles) on Level 1. First 20 minutes free.",
+      "preBookingUrl": "https://flynashville.com/park-at-bna"
+    },
+    "economyLotB": {
+      "name": "Economy Lot B",
+      "rate": "$16/day",
+      "dailyMax": 16,
+      "connection": "FREE shuttle to terminal, runs every 10-15 minutes",
+      "features": "Uncovered surface lot. Free shuttle runs frequently. Best budget on-airport option.",
+      "preBookingUrl": "https://flynashville.com/park-at-bna"
+    },
+    "economyLotC": {
+      "name": "Economy Lot C",
+      "rate": "$16/day",
+      "dailyMax": 16,
+      "connection": "FREE shuttle to terminal, runs every 10-15 minutes",
+      "features": "Uncovered surface lot. Free shuttle runs frequently. Overflow economy option.",
+      "preBookingUrl": "https://flynashville.com/park-at-bna"
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$40/day",
+      "location": "Ground floor of Terminal Garage 1",
+      "hours": "24/7",
+      "features": "Premium drop-off option. Available 24/7. Convenient for short trips or travelers with heavy luggage."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Two cell phone lots available near the terminal",
+      "cost": "FREE (first 20 minutes free)",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight arrival status and proceed to terminal when passenger is ready."
+    },
+    "evCharging": {
+      "locations": [
+        "Terminal Garage 1, Levels 2-6 (ChargePoint stations)",
+        "Terminal Garage 2, Levels 2-3 (ChargePoint stations)"
+      ],
+      "totalPorts": "Multiple EV charging stations across both garages",
+      "note": "EV charging available in both terminal garages via ChargePoint. Check ChargePoint app for real-time availability and pricing."
+    },
+    "accessibleParking": "Accessible parking spaces available on all levels of both terminal garages, closest to elevators and terminal access points.",
+    "totalCapacity": "~12,000 vehicles across terminal garages and economy lots",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, contactless payment",
+    "garageServiceAreas": "Garage 1 → Concourses A/B. Garage 2 → Concourses C/D/T Gates + Ground Transportation Center. Economy Lots → shuttle to terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "Executive Travel & Parking (BNA)",
+      "slug": "executive-travel-parking-bna",
+      "dailyRate": 10.50,
+      "reservationRate": 9.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Fenced Lot", "24/7 Video Surveillance", "Well-Lit"],
+      "shuttleInfo": "Free shuttle runs 24/7, approximately every 15-20 minutes. 3-5 minute ride to terminal.",
+      "overview": "Established off-site parking lot 1.4 miles from BNA with 24/7 shuttle service. Fenced and monitored by continuous video surveillance.",
+      "distanceFromAirport": "1.4 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "24/7 shuttle is a strong advantage. One of the most established off-site lots near BNA. Fenced with continuous video surveillance."
+    },
+    {
+      "name": "Cambria Hotel Nashville Airport",
+      "slug": "cambria-hotel-nashville-airport-bna",
+      "dailyRate": 10.00,
+      "reservationRate": 9.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities Available", "Well-Lit"],
+      "shuttleInfo": "Complimentary shuttle 5:00 AM - 11:00 PM, runs every 30 minutes. NO shuttle outside those hours.",
+      "overview": "Hotel parking 1.5 miles from BNA at 44 Rachel Drive. No hotel stay required. Shuttle service during daytime hours.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "notes": "WARNING: No shuttle outside 5 AM - 11 PM. Not suitable for red-eye or very late flights. Good option for standard departure times."
+    },
+    {
+      "name": "Comfort Suites BNA Airport",
+      "slug": "comfort-suites-bna-airport",
+      "dailyRate": 9.95,
+      "reservationRate": 8.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible"],
+      "shuttleInfo": "Shuttle service every 60 minutes during operating hours.",
+      "overview": "Hotel parking at 2521 Elm Hill Pike, approximately 2 miles from BNA. Budget-friendly with hourly shuttle.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Hourly shuttle frequency is less convenient than other options. Good budget choice if your schedule aligns with shuttle times."
+    },
+    {
+      "name": "GLo Best Western Nashville Airport",
+      "slug": "glo-best-western-nashville-airport-bna",
+      "dailyRate": 7.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities"],
+      "shuttleInfo": "Shuttle service to and from terminal during operating hours.",
+      "overview": "Budget off-site parking near BNA with competitive daily rates. No hotel stay required for parking.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "One of the cheapest off-site options near BNA. Verify shuttle hours before booking for early/late flights."
+    },
+    {
+      "name": "Sheraton Music City Hotel (BNA)",
+      "slug": "sheraton-music-city-hotel-bna",
+      "dailyRate": 9.99,
+      "reservationRate": 9.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Full-Service Hotel", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary shuttle to and from BNA terminal.",
+      "overview": "Full-service Sheraton hotel offering park-and-fly parking near BNA. Premium hotel amenities available for guests.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Full-service hotel with upscale amenities. Good park-sleep-fly option. Shuttle included."
+    },
+    {
+      "name": "Holiday Inn Express Nashville Airport",
+      "slug": "holiday-inn-express-nashville-airport-bna",
+      "dailyRate": 10.00,
+      "reservationRate": 9.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Free shuttle to and from BNA. Runs during scheduled hours.",
+      "overview": "IHG hotel property near BNA offering park-and-fly parking. Convenient location with shuttle service.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "notes": "Reliable IHG brand with shuttle service. Good mid-range option for park-and-fly."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE shuttle from Economy Lots B and C to terminal every 10-15 minutes, 24/7. Off-site: Most lots include free shuttle — frequency varies from every 15 minutes (Executive Travel) to hourly (Comfort Suites). CRITICAL: Some off-site hotel lots have limited shuttle hours (e.g., Cambria 5 AM-11 PM only) — verify before booking for early morning or late night flights.",
+  "distanceFromCity": "8 miles southeast of downtown Nashville. 15-25 minutes by car. ~32 minutes by WeGo Route 18 bus ($2.00). Nashville's only commercial airport — Music City's gateway.",
+  "keyDistances": {
+    "toDowntownNashville": "8 miles, 15-25 min by car, 32 min by bus ($2.00), $15-25 rideshare, $25 flat-rate taxi",
+    "toBroadway": "9 miles, 15-25 min by car, $15-25 rideshare, $25 flat-rate taxi",
+    "toTheGulch": "9 miles, 15-25 min by car, $15-25 rideshare",
+    "toGermantown": "9 miles, 15-25 min by car, $15-25 rideshare",
+    "toEastNashville": "7 miles, 12-20 min by car, $12-20 rideshare",
+    "toMusicRow": "9 miles, 15-25 min by car, $15-25 rideshare",
+    "to12South": "10 miles, 18-28 min by car, $18-28 rideshare",
+    "toOpryland": "7 miles, 12-18 min by car, $12-20 rideshare",
+    "toGrandOleOpry": "7 miles, 12-18 min by car, $12-20 rideshare",
+    "toNissanStadium": "9 miles, 15-25 min by car, $15-25 rideshare",
+    "toBrentwood": "14 miles, 18-30 min by car, $20-35 rideshare",
+    "toFranklin": "24 miles, 25-40 min by car, $35-55 rideshare",
+    "toMurfreesboro": "35 miles, 35-50 min by car, $55-80 rideshare",
+    "toClarksville": "55 miles, 50-70 min by car",
+    "toBowlingGreenKY": "65 miles, 60-75 min by car",
+    "toChattanooga": "130 miles, 2-2.5 hours by car",
+    "toMemphis": "210 miles, 3-3.5 hours by car",
+    "toKnoxville": "180 miles, 2.5-3 hours by car",
+    "competitiveAdvantage": "BNA is Nashville's only commercial airport — there is no nearby alternative. The $25 flat-rate taxi is a reliable, no-surprise option for downtown. Rideshare is usually cheaper during off-peak hours but surge pricing during Broadway nights, CMA Fest, NFL games, and bachelorette weekends can push fares well above the taxi flat rate. WeGo Route 18 bus is the cheapest option ($2.00) but runs hourly and takes 32 minutes."
+  },
+  "construction2026": {
+    "status": "$1.4 billion New Horizon expansion program underway — successor to the completed BNA Vision project. Major transformation of airport capacity and passenger experience.",
+    "projects": [
+      "Concourse A Complete Reconstruction — Full rebuild with 16 new gates. Currently closed. Reopening July 2028.",
+      "Concourse D Extension (COMPLETED July 2025) — 5 new gates, new concessions, BNA's first outdoor terrace with Nashville skyline views. First New Horizon project completed.",
+      "Donelson Pike Relocation — Major road realignment to accommodate airport expansion. Completion scheduled 2026.",
+      "Terminal Access Roadway Improvements — Expanded and improved terminal approach roads. Completion late 2028.",
+      "Baggage Handling System Upgrade — Modernization of the entire baggage handling system across the terminal.",
+      "Satellite Concourse (COMPLETED October 2023) — Gates C4-C11, part of the preceding BNA Vision project. Accessed via shuttle bus from Concourse C.",
+      "BNA Vision Completion — The preceding $1.4B BNA Vision project delivered: new Grand Lobby, Satellite Concourse, expanded international arrivals, hotel, and parking garages."
+    ],
+    "travelImpact": "Concourse A is closed through July 2028 — airlines have been relocated to other concourses. Donelson Pike construction may cause temporary detours accessing the airport. Terminal garages and economy lots remain fully operational. Allow extra time for airport access during road construction phases.",
+    "timeline": {
+      "concourseD": "July 2025 (COMPLETED)",
+      "donelsonPikeRelocation": "2026",
+      "concourseA": "July 2028 reopening",
+      "terminalRoadways": "Late 2028",
+      "overallNewHorizon": "Phased completion through late 2028"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Central checkpoint (serves all concourses)"],
+      "note": "TSA PreCheck lanes available at BNA's single centralized security checkpoint."
+    },
+    "clear": {
+      "terminals": ["Central checkpoint"],
+      "note": "CLEAR is available at BNA's security checkpoint for expedited identity verification."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available for international arrivals. Mobile Passport Control (MPC) also accepted."
+    },
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "5:00-8:00 AM (first-wave departures), 2:00-6:00 PM (afternoon departures)",
+      "tips": "BNA has a single centralized security checkpoint — all passengers funnel through one area. During peak travel (CMA Fest, holidays, bachelorette season), wait times can reach 30-45 minutes. TSA PreCheck or CLEAR recommended."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during Thanksgiving, Christmas, CMA Fest week, spring break, and peak bachelorette season (March-June)"
+    }
+  },
+  "lounges": {
+    "concourseB": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse B",
+        "hours": "Varies — typically opens with first Delta departure",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Renovated and expanded in 2024 — added 10,000+ sq ft and nearly 200 seats. Full-service bar, premium food, shower suites, WiFi, workspaces, Nashville-inspired design."
+      }
+    ],
+    "concourseC": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Concourse C mezzanine level, between gates C14 and C16",
+        "hours": "4:00 AM - 8:30 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary snacks and non-alcoholic beverages, full-service bar, WiFi, workspaces."
+      }
+    ],
+    "concourseD": [
+      {
+        "name": "Minute Suites",
+        "location": "Concourse D, near gate D3",
+        "hours": "4:00 AM - 11:00 PM daily",
+        "access": "Open to all travelers — paid access. Walk-ins and reservations accepted.",
+        "amenities": "Private suites with daybed, TV, workstation, sound masking. Nap pods available. Ideal for layovers, delayed flights, or pre-flight rest."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Lounge",
+        "location": "C/D Connector area",
+        "access": "FREE for active-duty military, reservists, National Guard, and their families",
+        "amenities": "Refreshments, charging stations, WiFi, comfortable seating, quiet rest area."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "BNA Free WiFi",
+    "cost": "Free",
+    "speed": "Up to 20x faster than previous speeds — no ads, no interruptions",
+    "coverage": "All terminals, concourses, and public spaces including Ground Transportation Center"
+  },
+  "evCharging": {
+    "terminalGarage1": {
+      "chargers": "Multiple ChargePoint Level 2 stations",
+      "location": "Levels 2-6",
+      "type": "ChargePoint Level 2",
+      "cost": "Check ChargePoint app for current pricing"
+    },
+    "terminalGarage2": {
+      "chargers": "Multiple ChargePoint stations",
+      "location": "Levels 2-3",
+      "type": "ChargePoint Level 2",
+      "cost": "Check ChargePoint app for current pricing"
+    },
+    "note": "EV charging available in both terminal garages via ChargePoint network. Use ChargePoint app for real-time availability, pricing, and to start charging sessions."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at BNA.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Nashville, Broadway area" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Nashville locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Nashville, The Gulch" }
+    ]
+  },
+  "petFacilities": {
+    "indoorReliefAreas": "Indoor pet relief area in Concourse D (with more planned as part of New Horizon expansion)",
+    "outdoorReliefAreas": "Curbside pet relief areas outside the terminal — enhanced and enlarged as part of BNA Vision",
+    "dogPark": "Fenced dog park on Level P5 of Terminal Garage 1 — unique among U.S. airports",
+    "note": "BNA is notably pet-friendly with indoor relief areas, outdoor curbside areas, and a dedicated dog park in the parking garage. Nashville's dog-friendly culture extends to the airport."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (first-wave departures — Southwest, Delta, American)", "2:00-6:00 PM (afternoon departures and connecting traffic)", "Friday and Sunday evenings (weekend leisure travel)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "Nashville's tourism-driven economy creates multiple peak periods: CMA Fest (early June, 80,000+ attendees), bachelorette/bachelor party season (March-June, Nashville is the #1 U.S. bachelorette destination), NFL Titans season (September-January, especially home game weekends), SEC Tournament (March), Nashville Marathon (April), spring break (March-April), Bonnaroo weekend (June, though in Manchester 60mi away), Thanksgiving week, and December holidays. Summer months (June-August) are consistently the busiest.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during CMA Fest, Thanksgiving, Christmas, and peak bachelorette season"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Four distinct seasons. Hot, humid summers. Mild to cool winters with occasional ice storms.",
+    "commonDisruptions": "Winter ice storms (December-February) are the primary disruption risk — freezing rain and ice on runways can cause significant delays and cancellations. Severe thunderstorms and tornadoes (March-May spring storm season). Summer afternoon thunderstorms (June-August). Fog can cause morning delays in fall and winter.",
+    "bestMonths": "April-May (spring — pleasant temperatures, blooming) and September-October (fall — comfortable weather, lower humidity, beautiful foliage)",
+    "worstMonths": "January-February (ice storm risk + cold) and July-August (extreme heat + humidity + afternoon thunderstorms)",
+    "winterWeatherNote": "Nashville is susceptible to ice storms that can paralyze the airport for 1-2 days. Unlike northern airports equipped for heavy snow, BNA and Nashville roads can be severely impacted by even moderate ice events. Travel insurance recommended for December-February travel.",
+    "tornadoNote": "Nashville is in Tornado Alley's eastern extent. Severe weather events including tornadoes have directly impacted the airport area (notably the March 2020 tornado outbreak). Spring travel should include awareness of severe weather alerts.",
+    "note": "Morning flights are most reliable year-round, especially during summer thunderstorm season (storms typically develop mid-afternoon). Winter travelers should have flexible rebooking options."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near BNA. Several hotels along Elm Hill Pike, Donelson Pike, and Briley Parkway offer park-sleep-fly packages.",
+    "priceRange": "From ~$124/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Baymont by Wyndham Nashville Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Hourly 4:00 AM - midnight",
+        "parkOnlyRate": "$8.00/day",
+        "highlight": "Budget-friendly with early 4 AM first shuttle."
+      },
+      {
+        "name": "Cambria Hotel Nashville Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "5:00 AM - 11:00 PM every 30 min",
+        "parkOnlyRate": "$9.00/day",
+        "highlight": "Modern hotel with frequent shuttle service."
+      },
+      {
+        "name": "Holiday Inn Express Nashville Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "During operating hours",
+        "parkOnlyRate": "$9.00/day",
+        "highlight": "Reliable IHG brand with complimentary breakfast."
+      },
+      {
+        "name": "Sheraton Music City Hotel",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "During operating hours",
+        "parkOnlyRate": "$9.99/day",
+        "highlight": "Full-service hotel with premium amenities. Great for business travelers."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare (on top of flat rate)",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "terminalGarage": { "parkingCost": "$182 (7 x $26)", "totalEstimate": "$182" },
+      "valetParking": { "parkingCost": "$280 (7 x $40)", "totalEstimate": "$280" },
+      "economyLot": { "parkingCost": "$112 (7 x $16)", "totalEstimate": "$112" }
+    },
+    "offSiteWithShuttle": {
+      "globestWestern": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsGarage": "~$126 saved", "caveat": "Verify shuttle hours" },
+      "executiveTravel": { "parkingCost": "$66.50 (7 x $9.50 pre-booked)", "savingsVsGarage": "~$116 saved", "caveat": "24/7 shuttle" },
+      "comfortSuites": { "parkingCost": "$62.65 (7 x $8.95 pre-booked)", "savingsVsGarage": "~$119 saved", "caveat": "Hourly shuttle" }
+    },
+    "publicTransit": {
+      "wegoBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "32 min to downtown", "note": "$2.00 per ride. Cheapest option but runs hourly and only serves downtown route." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip off-peak)", "note": "Cheaper than parking for any trip length if headed downtown — but watch for surge pricing during Nashville events." }
+    },
+    "keyDifference": "BNA offers solid off-site parking savings — $7.95-10.00/day with shuttle vs $26/day terminal garages. Economy lots at $16/day are the budget on-airport option. The $25 flat-rate taxi is the most predictable transport to downtown. For budget travelers, WeGo Route 18 bus at $2.00 is unbeatable on price but limited by hourly frequency."
+  },
+  "uniqueFeatures": {
+    "liveMusicInTerminal": "BNA is the only major U.S. airport with dedicated live music performance stages inside the terminal — both pre- and post-security. Professional Nashville musicians perform regularly on the Arts at the Airport stage in Concourse C, making the airport experience uniquely Nashville.",
+    "fastestGrowingAirport": "BNA has been one of the fastest-growing major airports in America, with passenger numbers surging over 80% since 2014. Nashville's tourism boom, driven by the city's music scene, food culture, bachelorette party phenomenon, and rapid population growth, has fueled unprecedented demand.",
+    "bacheloretteCapital": "Nashville has surpassed Las Vegas and Miami as the #1 bachelorette party destination in the United States. This drives massive weekend travel volume, especially March through June, with large groups arriving every Friday and departing every Sunday. BNA's traffic patterns are heavily influenced by this trend.",
+    "southwestFocusCity": "Southwest Airlines is BNA's dominant carrier, operating exclusively from Concourse D with extensive domestic coverage. Southwest's point-to-point model and Nashville's central U.S. location make BNA a natural connecting point.",
+    "dogPark": "BNA features a fenced dog park on Level P5 of Terminal Garage 1 — one of the few U.S. airports with a dedicated dog park. Combined with indoor pet relief areas and enhanced curbside relief areas, BNA is one of the most pet-friendly airports in the country.",
+    "outdoorTerminalTerrace": "The July 2025 Concourse D expansion includes BNA's first outdoor terrace — an open-air space with views of the Nashville skyline, a rarity among U.S. airport concourses.",
+    "rentalCarsOnSite": "Unlike many major airports that require a shuttle bus to an off-site rental car center, BNA has all 11 rental car counters directly in Terminal Garage 2 on Level 1 — walk from baggage claim to your rental car.",
+    "centralUSLocation": "Nashville's central geographic position in the eastern United States means most domestic flights are 2-3 hours or less. This makes BNA a natural hub for both business and leisure travel across the Southeast, Midwest, and East Coast.",
+    "bnaVisionAndNewHorizon": "BNA has invested over $2.8 billion in back-to-back expansion programs: BNA Vision ($1.4B, completed 2023-2024) delivered a new Grand Lobby, Satellite Concourse, international arrivals facility, hotel, and parking garages. New Horizon ($1.4B, 2025-2028) continues with Concourse A rebuild, Concourse D expansion, road improvements, and systems upgrades."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(615) 275-1675",
+    "airportWebsite": "flynashville.com",
+    "parkingInfo": "flynashville.com/park-at-bna",
+    "tsa": "(866) 289-9673",
+    "wegoTransit": "(615) 862-5950",
+    "wegoWebsite": "wegotransit.com",
+    "airportPolice": "(615) 275-1675 (ask for police/security)"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://flynashville.com/",
+      "parking": "https://flynashville.com/park-at-bna",
+      "groundTransportation": "https://flynashville.com/ground-transportation",
+      "knowTheWay": "https://flynashville.com/know-the-way",
+      "newHorizon": "https://flynashville.com/bna-new-horizon",
+      "bnaVision": "https://bnavisionnashville.com/plans/"
+    },
+    "transit": {
+      "wegoRoute18": "https://www.wegotransit.com/ride/maps-schedules/bus/18-airport/",
+      "wegoTransit": "https://www.wegotransit.com/",
+      "wegoAirportService": "https://www.wegotransit.com/ride/transit-services/airport/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/bna/",
+      "lyft": "https://www.lyft.com/rider/airports/bna"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=BNA",
+      "airportParkingReservations": "https://airportparkingreservations.com/bna/airport-parking",
+      "way": "https://www.way.com/bna",
+      "spothero": "https://spothero.com/airport/nashville/bna-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/bna",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/tennessee-nashville-international-airport-parking-rightway",
+      "parkingAccess": "https://parkingaccess.com/airports/bna"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearBNA": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/nashville-international-bna-airport-lounges/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/bna-club.jsp",
+      "deltaSkyClub": "https://www.delta.com/us/en/airports/united-states/nashville-sky-club-airport-map"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KBNA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/BNA",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=bna"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugShare": "https://www.plugshare.com/location/63286"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/bna/airport-hotels-with-parking",
+      "parkSleepHotels": "https://bna.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/airports/bna"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/nashville-international-bna-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Nashville_International_Airport",
+      "ifly": "https://www.ifly.com/airports/nashville-international-airport"
+    },
+    "newsAndMedia": {
+      "tennessean": "https://www.tennessean.com/",
+      "nashvillepost": "https://www.nashvillepost.com/",
+      "wkrn": "https://www.wkrn.com/"
+    }
+  }
+}

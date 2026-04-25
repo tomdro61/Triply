@@ -1,0 +1,737 @@
+{
+  "code": "ATL",
+  "fullName": "Hartsfield-Jackson Atlanta International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "College Park, Georgia — 7 miles south of downtown Atlanta",
+    "iataCode": "ATL",
+    "icaoCode": "KATL",
+    "faaLid": "ATL",
+    "elevation": "1,026 feet above mean sea level",
+    "acreage": 4700,
+    "coordinates": "33.6367N, 84.4281W",
+    "passengerVolume": "108.1 million passengers in 2024 — busiest airport in the world",
+    "aircraftOperations": "796,224 annually (2024)",
+    "cargoVolume": "725,000+ metric tons (2024)",
+    "distinction": "The busiest airport in the world by passenger traffic since 1998 (except 2020). Delta Air Lines' primary global hub — the airline operates over 1,000 daily departures from ATL. Seven concourses (T, A, B, C, D, E, F) connected by the Plane Train automated people mover. Originally opened September 15, 1926 as Candler Field. Over 1,100 daily flights to 225+ destinations. On track to exceed 125 million passengers annually within five years.",
+    "operator": "Department of Aviation, City of Atlanta",
+    "owner": "City of Atlanta",
+    "activeTerminals": 2,
+    "totalConcourses": 7,
+    "totalGates": 192,
+    "runways": 5,
+    "runwayDetails": [
+      { "designation": "8L/26R", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "8R/26L", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "9L/27R", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "9R/27L", "length": "12,390 ft (3,776 m)", "surface": "Concrete", "note": "Longest runway at ATL — handles heaviest widebody aircraft" },
+      { "designation": "10/28", "length": "9,000 ft (2,743 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Delta Air Lines (primary global hub — 1,000+ daily departures, operates from all seven concourses)",
+    "totalAirlines": "30+ airlines",
+    "nonstopDestinations": "225+ destinations worldwide (1,100+ daily flights)",
+    "founded": "September 15, 1926 (as Candler Field)",
+    "hubCarriers": ["Delta Air Lines (primary hub)", "Frontier Airlines (focus city)", "Spirit Airlines (focus city)", "Southwest Airlines (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "MARTA Airport Station directly connected to Domestic Terminal — Red Line and Gold Line provide direct service to downtown Atlanta ($2.50 fare, 15-minute ride to Five Points)",
+    "planeTrain": "Free automated people mover (The Plane Train) connecting all seven concourses and both terminals underground — runs every 2 minutes, 24/7. Also accessible via underground pedestrian walkways.",
+    "internationalNote": "ATL handles 14.6 million international passengers annually (2024), up 14% year-over-year. The International Terminal (Concourses E and F) serves 30+ international airlines. Delta's hub status makes ATL the primary U.S. gateway for connections — more passengers connect through ATL than any other airport in the world."
+  },
+  "terminals": [
+    {
+      "name": "Domestic Terminal — Concourses T, A, B, C, D",
+      "status": "Active — 152 gates across 5 concourses. Split into North and South wings with separate security checkpoints. $1.4B Concourse D widening project underway through 2029.",
+      "airlines": ["Delta Air Lines (all concourses)", "American Airlines (Concourse T)", "United Airlines (Concourse T)", "Southwest Airlines (Concourse C)", "Alaska Airlines (Concourse C)", "Frontier Airlines (Concourses C/D)", "Spirit Airlines (Concourses C/D)", "JetBlue Airways (Concourse C)", "Breeze Airways (Concourse C)"],
+      "gates": "T1-T21, A1-A34, B1-B32, C1-C48, D1-D40",
+      "notes": "Delta dominates all five domestic concourses (A, B, C, D) plus shares Concourse T with American, United, and other carriers. Concourse T is the only concourse directly connected to the terminal atrium — all others accessible via Plane Train or underground walkways. Concourse D widening project ($1.4B) will deliver 34 widebody-capable gates by 2029. Concourse C $26.8M gate conversion underway. North Terminal security serves Southwest, American, United, Spirit, Alaska, JetBlue, Frontier. South Terminal security serves Delta."
+    },
+    {
+      "name": "International Terminal — Concourses E, F",
+      "status": "Active — 40 gates. Opened in 2012. Handles all international arrivals and most international departures. Concourse F has the only A380-capable gate at ATL.",
+      "airlines": ["Delta Air Lines (international flights)", "Air France", "British Airways", "KLM Royal Dutch Airlines", "Korean Air", "Lufthansa", "Turkish Airlines", "Virgin Atlantic", "Qatar Airways", "Aeromexico", "Copa Airlines", "Ethiopian Airlines", "Icelandair", "Japan Airlines", "LATAM Airlines", "Scandinavian Airlines", "Southwest Airlines (seasonal international)", "WestJet"],
+      "gates": "E1-E36, F1-F12",
+      "notes": "Concourse E serves Delta international flights and some partner airlines. Concourse F serves non-Delta international carriers and features the only Airbus A380-capable gate at ATL. International Terminal has its own parking deck, MARTA station access via Plane Train, and separate security checkpoint. Federal Inspection Station processes arriving international passengers."
+    }
+  ],
+  "roads": ["Interstate 85 (northeast/southwest corridor)", "Interstate 75 (north/south corridor)", "Interstate 285 (Perimeter, connects to I-85 and I-75)", "Interstate 20 (east/west corridor)", "Camp Creek Parkway (airport access road)", "Virginia Avenue", "Sullivan Road", "Charles W. Grant Parkway", "Loop Road (terminal access)"],
+  "transit": ["MARTA Red Line (Airport → Five Points → Midtown → Buckhead → North Springs)", "MARTA Gold Line (Airport → Five Points → Midtown → Brookhaven → Doraville)", "The Plane Train (free automated people mover connecting all 7 concourses)", "ATL SkyTrain (free automated train to Rental Car Center, Georgia International Convention Center, Gateway Center)", "Xpress Bus (regional commuter bus to suburbs)", "MARTA Bus Routes (connecting to MARTA rail stations)", "Groome Transportation (shared-ride shuttles to Macon, Athens, Augusta, Chattanooga)"],
+  "neighborhoods": ["College Park", "East Point", "Hapeville", "Downtown Atlanta", "Midtown Atlanta", "Buckhead", "Virginia-Highland", "Decatur", "Sandy Springs", "Marietta", "Smyrna", "Dunwoody", "Peachtree City", "Newnan"],
+  "authority": "Department of Aviation, City of Atlanta",
+  "groundTransportation": {
+    "planeTrain": {
+      "description": "Free automated people mover running underground beneath all seven concourses (T, A, B, C, D, E, F) and both terminals. Also known as 'The Plane Train' or APM (Automated People Mover).",
+      "fare": "FREE",
+      "frequency": "Every 2 minutes",
+      "hours": "24/7",
+      "note": "The Plane Train is essential for navigating ATL — it takes 8-10 minutes to travel from Concourse T to Concourse F (the full length). Pedestrian walkways run parallel underground if you prefer to walk (15-20 minutes end to end)."
+    },
+    "marta": {
+      "stationName": "Airport Station (directly connected to Domestic Terminal)",
+      "operator": "Metropolitan Atlanta Rapid Transit Authority (MARTA)",
+      "lines": ["Red Line (Airport → Five Points → Midtown → Buckhead → North Springs)", "Gold Line (Airport → Five Points → Midtown → Brookhaven → Doraville)"],
+      "fare": "$2.50 single trip. Breeze Card costs $2.00 (reloadable). 1-Day Pass: $9.00. 7-Day Pass: $23.75. 30-Day Pass: $95.00. Payment: Breeze Card only (purchase at station vending machines).",
+      "hours": "Monday-Friday: 4:36 AM - 2:06 AM. Weekends: 5:52 AM - 1:54 AM.",
+      "frequency": "Every 10-15 minutes (peak), every 20 minutes (off-peak/weekends)",
+      "accessFromTerminal": "Follow signs from Domestic Terminal baggage claim to MARTA Airport Station — direct connection, no shuttle needed",
+      "travelTimes": {
+        "toFivePointsDowntown": "~15 minutes (central hub, transfer to Blue/Green lines)",
+        "toGarnettDowntown": "~13 minutes",
+        "toGeorgiaStateDormitory": "~17 minutes (Georgia State University area)",
+        "toMidtownArtsCenter": "~22 minutes",
+        "toBuckhead": "~30 minutes",
+        "toNorthSprings": "~42 minutes (northern terminus, Red Line)",
+        "toDoraville": "~45 minutes (northeastern terminus, Gold Line)",
+        "toDecatur": "~25 minutes (transfer at Five Points to Blue/Green Line)"
+      },
+      "competitorNote": "At $2.50, MARTA is the cheapest option from ATL to downtown Atlanta — dramatically cheaper than the $30-50 taxi fare. The direct rail connection (no shuttle or transfer needed) makes it competitive on time too. MARTA is the best value for downtown, Midtown, and Buckhead travelers."
+    },
+    "atlSkyTrain": {
+      "description": "Free automated train connecting the Domestic Terminal to the Rental Car Center (ConRAC), Georgia International Convention Center, and Gateway Center MARTA station",
+      "fare": "FREE",
+      "frequency": "Every 3-5 minutes",
+      "hours": "24/7",
+      "note": "The SkyTrain is separate from the Plane Train. Use SkyTrain to reach rental cars, convention center, and some airport-area hotels. 5-minute ride to Rental Car Center."
+    },
+    "taxi": {
+      "fareType": "FLAT RATE zones from airport",
+      "pickup": "Ground Transportation Center (GTC), west end of Domestic Terminal, between North and South terminals",
+      "airportFee": "$1.50 added to all trips from ATL",
+      "flatRates": {
+        "toDowntownAtlanta": "$36 flat rate",
+        "toMidtownAtlanta": "$38 flat rate",
+        "toBuckhead": "$48 flat rate"
+      },
+      "estimatedMeteredFares": {
+        "toCollegePark": "$10-$15",
+        "toEastPoint": "$12-$18",
+        "toHapeville": "$10-$15",
+        "toDecatur": "$35-$45",
+        "toSandySprings": "$50-$65",
+        "toMarietta": "$55-$70",
+        "toAtlantaMotorSpeedway": "$20-$30",
+        "toStoneGA": "$40-$55"
+      },
+      "note": "Flat rates to Downtown ($36), Midtown ($38), and Buckhead ($48) are posted at taxi stands. For destinations outside flat-rate zones, the meter applies. Cash and credit cards accepted. 24/7 service. Use Curb app or Atlanta Checker Cab app for reliable service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Domestic Terminal: North Economy parking lot (follow signs to rideshare pickup). International Terminal: designated rideshare area.",
+      "estimatedFares": {
+        "uberXToDowntownAtlanta": "$15-$30",
+        "uberXToMidtown": "$18-$35",
+        "uberXToBuckhead": "$25-$45",
+        "uberXToDecatur": "$20-$35",
+        "uberXToMarietta": "$35-$55",
+        "uberXToSandySprings": "$30-$50",
+        "uberXToStoneGA": "$25-$40"
+      },
+      "surgePricing": "Standard surge pricing during SEC Championship, Peach Bowl, major conventions at Georgia World Congress Center, Braves/Falcons/Hawks game days, DragonCon (Labor Day weekend)",
+      "note": "Rideshare is generally cheaper than flat-rate taxi for most ATL destinations. However, the flat-rate taxi to downtown ($36) can beat surge pricing during major events. Rideshare pickup at the North Economy lot adds 5-10 minutes of walking from baggage claim."
+    },
+    "rentalCars": {
+      "location": "ATL Consolidated Rental Car Center (ConRAC) — 2200 Rental Car Center Parkway, Atlanta, GA 30337. Accessible via free ATL SkyTrain from Domestic Terminal (5-minute ride).",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "facilitySize": "2.8 million sq ft facility with 8,700 spaces across two four-level garages and a 128,000 sq ft customer terminal",
+      "note": "All rental car companies consolidated at the ConRAC. Take the free ATL SkyTrain from the Domestic Terminal — 5-minute ride. Return your car at the ConRAC and take SkyTrain back. The ConRAC is one of the largest rental car facilities in the U.S."
+    },
+    "hotelShuttles": "Many airport-area hotels in College Park, East Point, and Hapeville offer complimentary shuttle service. Some hotels also accessible via the free ATL SkyTrain to Gateway Center. Check with your hotel before booking.",
+    "groomeTransportation": {
+      "description": "Shared-ride shuttle service connecting ATL to cities across Georgia and nearby states",
+      "destinations": ["Macon (~90 min)", "Athens (~90 min)", "Augusta (~2.5 hrs)", "Warner Robins (~90 min)", "Chattanooga, TN (~2 hrs)"],
+      "pickup": "Ground Transportation Center",
+      "note": "Best option for travelers headed to smaller Georgia cities without direct flights."
+    }
+  },
+  "parkingRates": "On-airport (effective May 1, 2025): Hourly Decks $10/hr ($50 max Day 1, $75/day after), Daily Decks $30/day, Economy Lots $20/day, ATL West Deck $10/hr ($30/day max), ATL Select $15-$20/day, Domestic Park-Ride $15/day, International Park-Ride $30/day. Off-site: from ~$6.25/day with shuttle. Pre-book online for best rates.",
+  "onAirportParking": {
+    "hourlyDecks": {
+      "name": "Hourly Parking Decks (North & South)",
+      "rate": "$10.00 per hour",
+      "dailyMax": 50,
+      "dailyMaxAfterDay1": 75,
+      "maxStay": "30 days",
+      "serves": "Domestic Terminal — closest parking to terminal entrances",
+      "features": "Direct covered walkway to Domestic Terminal North and South wings. Best for short stays and passenger pickup/dropoff.",
+      "note": "Rates increased significantly May 1, 2025 (from $3/hr, $36 max). Consider Daily Decks or Economy for stays over 3 hours."
+    },
+    "dailyDecks": {
+      "name": "Daily Parking Decks (North & South)",
+      "rate": "$30.00 per day",
+      "dailyMax": 30,
+      "serves": "Domestic Terminal — covered parking with terminal access",
+      "features": "Covered multi-level garages connected to Domestic Terminal via covered walkways. Good for 1-3 day trips.",
+      "note": "Increased from $19/day on May 1, 2025. For trips longer than 3 days, Economy or Park-Ride lots offer significant savings."
+    },
+    "economyLots": {
+      "name": "Economy Parking Lots (North & South)",
+      "rate": "$20.00 per day",
+      "dailyMax": 20,
+      "serves": "Domestic Terminal via covered walkways (10-15 minute walk) or free shuttle",
+      "features": "Large uncovered lots with covered walkways to terminal. Free shuttle available during peak times.",
+      "note": "Increased from $14/day on May 1, 2025. Best on-airport value for trips of 4+ days if you don't mind the walk."
+    },
+    "atlWestDeck": {
+      "name": "ATL West Parking Deck",
+      "rate": "$10.00 per hour, $30.00 per day max",
+      "dailyMax": 30,
+      "serves": "Domestic Terminal via SkyTrain or shuttle",
+      "evCharging": true,
+      "features": "EV charging stations available. Contactless payment. Connected to terminal via ATL SkyTrain.",
+      "note": "Increased from $3/hr and $16/day max on May 1, 2025. Good option with EV charging and SkyTrain access."
+    },
+    "atlSelectLots": {
+      "name": "ATL Select Parking Lots",
+      "uncoveredRate": "$15.00 per day",
+      "coveredRate": "$20.00 per day",
+      "oversizedRate": "$40.00 per day",
+      "serves": "Domestic Terminal via free shuttle",
+      "features": "Both covered and uncovered options. Free shuttle to terminal. Oversized vehicle parking available at $40/day.",
+      "note": "Increased from $10/$14/$28 on May 1, 2025. Best mid-tier on-airport option for long-term parking."
+    },
+    "domesticParkRide": {
+      "name": "Domestic Park-Ride Lot",
+      "rate": "$15.00 per day",
+      "dailyMax": 15,
+      "serves": "Domestic Terminal via free shuttle",
+      "connection": "FREE 24/7 shuttle service to Domestic Terminal",
+      "features": "Budget on-airport option with free shuttle service. Uncovered lot.",
+      "note": "Increased from $10/day on May 1, 2025. Most affordable on-airport parking for the Domestic Terminal."
+    },
+    "internationalHourlyDeck": {
+      "name": "International Terminal Hourly Deck",
+      "rate": "$10.00 first hour, $15.00 per hour thereafter",
+      "dailyMax": 70,
+      "dailyMaxAfterDay1": 100,
+      "serves": "International Terminal (Concourses E & F)",
+      "features": "Direct covered access to International Terminal. Best for short stays and international passenger pickup.",
+      "note": "Day 1 max is $70, subsequent days $100/day. Significantly more expensive than domestic parking — use Park-Ride for international flights if staying multiple days."
+    },
+    "internationalParkRide": {
+      "name": "International Park-Ride Lot",
+      "rate": "$30.00 per day",
+      "dailyMax": 30,
+      "serves": "International Terminal via free shuttle",
+      "connection": "FREE shuttle service to International Terminal",
+      "features": "Dedicated parking for International Terminal passengers with shuttle service.",
+      "note": "Only dedicated long-term parking option for International Terminal. Alternative: park at Domestic lots and take the Plane Train to Concourse E/F."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "2300 Sullivan Road, College Park, GA 30337 (north side) and 1999 Sullivan Road (south side)",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight arrival boards before driving to terminal."
+    },
+    "evCharging": {
+      "locations": [
+        "North Daily Deck (ground floor)",
+        "South Daily Deck (ground floor)",
+        "North Economy Lot",
+        "South Economy Lot",
+        "North Hourly Deck (Level 3)",
+        "South Hourly Deck (Level 3)",
+        "ATL West Deck"
+      ],
+      "totalPorts": "275 EV charging stations across the ATL campus",
+      "note": "ATL has one of the largest EV charging networks of any U.S. airport with 275 stations. Stations are spread across multiple parking facilities."
+    },
+    "accessibleParking": "Accessible parking available in all parking facilities. Handicap-accessible spaces located closest to terminal entrances and elevators.",
+    "totalCapacity": "~30,000 parking spaces across all on-airport facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment, ParkATL app",
+    "garageServiceAreas": "Hourly/Daily Decks (North) → Domestic Terminal North. Hourly/Daily Decks (South) → Domestic Terminal South. Economy → both sides with walkways. ATL West → SkyTrain to terminal. Park-Ride → shuttle to terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "Peachy Airport Parking (ATL)",
+      "slug": "peachy-airport-parking-atl",
+      "dailyRate": 10.95,
+      "reservationRate": 8.99,
+      "parkingType": "Indoor, covered, and outdoor options",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Climate-Controlled Parking", "Covered Parking", "Outdoor Parking", "EV Charging (90 indoor stations)", "Surveillance Cameras", "Fenced & Gated", "Free Bottled Water on Shuttle"],
+      "shuttleInfo": "24/7 complimentary climate-controlled shuttle to both Domestic and International Terminals, every 10-15 minutes",
+      "overview": "Premier off-site parking near ATL with indoor, covered, and outdoor options. 4,325+ total spaces including 90 EV charging stations in the indoor facility. Serves both Domestic and International Terminals.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Best off-site option for covered/indoor parking. 24/7 shuttle to BOTH terminals is a major advantage. EV charging available. Book online for best rates (~$8.99/day)."
+    },
+    {
+      "name": "The Parking Spot 1 (ATL)",
+      "slug": "the-parking-spot-1-atl",
+      "dailyRate": 11.00,
+      "reservationRate": 9.00,
+      "parkingType": "Covered and uncovered options",
+      "amenities": ["Free Shuttle", "Covered Parking", "24/7 Security", "Surveillance Cameras", "Fenced Lot", "Car Wash", "Pet Boarding Nearby"],
+      "shuttleInfo": "Free shuttle to Domestic Terminal every 5-7 minutes. International Terminal shuttle every 30 minutes.",
+      "overview": "Large off-site parking facility at 2741 Camp Creek Parkway with covered and uncovered options. Formerly Park N Fly. Shuttle runs frequently to Domestic Terminal.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Formerly Park N Fly. Domestic shuttle every 5-7 min is very frequent. International Terminal shuttle only every 30 min — plan accordingly. Nearby Jiffy Lube, car wash, and pet boarding at The Parking Spot Plus."
+    },
+    {
+      "name": "WallyPark Premier (ATL)",
+      "slug": "wallypark-premier-atl",
+      "dailyRate": 10.99,
+      "reservationRate": 7.49,
+      "parkingType": "Covered and uncovered, self-park and valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Valet Service", "24/7 Security", "Surveillance Cameras", "Gated Facility", "Car Detailing"],
+      "shuttleInfo": "24/7 complimentary shuttle service, approximately every 10 minutes",
+      "overview": "Premium off-site parking with both self-park and valet options. Covered parking available. Online pre-booking saves up to 30%.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "4-7 minutes",
+      "freeCancellation": true,
+      "rating": "4.5/5",
+      "notes": "Pre-book online for $7.49/day — one of the cheapest off-site rates. 24/7 shuttle. Valet service available for premium convenience. Car detailing service while you travel."
+    },
+    {
+      "name": "FastPark & Relax (ATL)",
+      "slug": "fastpark-relax-atl",
+      "dailyRate": 11.95,
+      "reservationRate": 9.95,
+      "parkingType": "Covered long-term parking",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "24/7 Security", "Surveillance Cameras", "Gated Facility", "Complimentary Coffee"],
+      "shuttleInfo": "Free shuttle to International Terminal, approximately every 10-15 minutes, 24/7",
+      "overview": "Off-site covered parking primarily serving ATL International Terminal. Located on Camp Creek Parkway, 3 minutes from the airport.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Best off-site option for International Terminal travelers. Covered parking protects from Atlanta's summer heat and storms. Complimentary coffee in the lobby."
+    },
+    {
+      "name": "ATL Economy Parking by PreFlight (ATL)",
+      "slug": "preflight-economy-atl",
+      "dailyRate": 9.95,
+      "reservationRate": 6.25,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "24/7 on-demand shuttle to Domestic Terminal",
+      "overview": "Budget off-site parking with low daily rates. Uncovered lot with 24/7 shuttle. One of the cheapest ATL parking options when pre-booked.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "notes": "Pre-booking at $6.25/day makes this the cheapest ATL parking option. Uncovered lot — consider covered options during summer months. 24/7 shuttle is reliable."
+    },
+    {
+      "name": "Park N Go (ATL)",
+      "slug": "park-n-go-atl",
+      "dailyRate": 10.00,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered and covered options",
+      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced & Gated", "Handicap Accessible"],
+      "shuttleInfo": "Free shuttle every 10-15 minutes, 24/7",
+      "overview": "Off-site parking facility near ATL with both covered and uncovered options. Competitive rates with frequent shuttle service.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Reliable mid-range option with 24/7 shuttle. Covered parking available at slightly higher rate. Good reviews for shuttle reliability."
+    },
+    {
+      "name": "Quality Inn Atlanta Airport (Park & Fly)",
+      "slug": "quality-inn-atlanta-airport-atl",
+      "dailyRate": 7.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Gated Lot", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Free shuttle to airport, runs every 30 minutes, 5 AM - 11 PM",
+      "overview": "Hotel parking available without hotel stay. Budget-friendly with gated lot and regular shuttle service.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "notes": "Shuttle only runs 5 AM - 11 PM every 30 min. Not ideal for late-night flights or very early departures. Budget-friendly option for daytime travelers."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Plane Train connects all 7 concourses every 2 minutes, 24/7. FREE ATL SkyTrain connects to Rental Car Center every 3-5 minutes, 24/7. Domestic Park-Ride and ATL Select lots have free 24/7 shuttle. Off-site: Most off-site lots include free shuttle — frequency varies from every 5-7 minutes (The Parking Spot) to every 30 minutes (hotel lots). Allow 30-45 extra minutes for off-site parking + shuttle during peak travel periods.",
+  "distanceFromCity": "7 miles south of downtown Atlanta. 15-25 minutes by car. ~15 minutes by MARTA ($2.50). Atlanta's primary commercial airport and the world's busiest by passenger traffic.",
+  "keyDistances": {
+    "toDowntownAtlanta": "7 miles, 15-25 min by car, 15 min by MARTA ($2.50), $15-30 rideshare, $36 flat-rate taxi",
+    "toMidtownAtlanta": "10 miles, 20-30 min by car, 22 min by MARTA ($2.50), $18-35 rideshare, $38 flat-rate taxi",
+    "toBuckhead": "15 miles, 25-45 min by car, 30 min by MARTA ($2.50), $25-45 rideshare, $48 flat-rate taxi",
+    "toDecatur": "14 miles, 20-35 min by car, 25 min by MARTA (transfer at Five Points), $20-35 rideshare",
+    "toSandySprings": "20 miles, 30-50 min by car, $30-50 rideshare",
+    "toMarietta": "22 miles, 30-50 min by car, $35-55 rideshare",
+    "toStoneMountain": "25 miles, 35-55 min by car, $25-40 rideshare",
+    "toAlpharetta": "30 miles, 40-60 min by car, $40-65 rideshare",
+    "toMacon": "80 miles, 75-90 min by car, Groome Transportation shuttle available",
+    "toAthens": "80 miles, 75-90 min by car, Groome Transportation shuttle available",
+    "toSavannah": "248 miles, 3.5-4 hours by car",
+    "toChattanooga": "120 miles, 2-2.5 hours by car, Groome Transportation shuttle available",
+    "toBirmingham": "150 miles, 2-2.5 hours by car",
+    "competitiveAdvantage": "ATL's direct MARTA rail connection provides the cheapest ($2.50) and fastest ground option to downtown Atlanta — 15 minutes with no transfer. For Midtown and Buckhead, MARTA is both cheaper and more predictable than rideshare during rush hour. The flat-rate taxi zones ($36-$48) are reliable during major event surge pricing. ATL's ATL SkyTrain provides free, seamless connection to the rental car center."
+  },
+  "construction2026": {
+    "status": "Massive ATLNext capital improvement program underway — multi-billion dollar modernization of the world's busiest airport.",
+    "projects": [
+      "Concourse D Widening ($1.4B) — Expanding width from 60 ft to nearly 100 ft, raising height by 18 ft, adding 34 widebody-capable gates. Modular construction method. Five new gates opened 2025, steel erection for next phase begins Q2 2026. Full completion ~2029.",
+      "Concourse C Gate Conversion ($26.8M) — Converting existing gates for larger aircraft capability. Crews on-site late 2025, work continues through 2026.",
+      "International Terminal Expansion — Additional gates and enhanced Federal Inspection Station capacity to handle growing international traffic (14% growth in 2024).",
+      "Aviation Administration Center — New administrative facility under construction as part of ATLNext program.",
+      "Concourse E Modernization — Future project in pipeline for renovation of international concourse.",
+      "Ground Transportation Center (GTC) — Consolidated ground transportation facility at west end of Domestic Terminal. Modernization ongoing.",
+      "Parking Facility Upgrades — EV charging expansion (275 stations installed), contactless payment systems, improved wayfinding."
+    ],
+    "travelImpact": "Concourse D construction is the most impactful — some gates temporarily closed during widening phases. The Plane Train and pedestrian walkways remain operational. No major parking closures expected in 2026. Allow extra time navigating Concourse D area.",
+    "timeline": {
+      "concourseD_newGates": "5 gates opened 2025, next phase steel erection Q2 2026",
+      "concourseD_completion": "~2029 (34 widebody gates total)",
+      "concourseC_conversion": "Late 2025 - 2026",
+      "concourseE_modernization": "Future (TBD)"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Domestic Terminal South", "International Terminal"],
+      "note": "TSA PreCheck lanes available at Domestic Terminal South (4 AM - 10 PM) and International Terminal (7 AM - 10 AM and 2 PM - 7 PM). Most PreCheck passengers clear in under 10 minutes."
+    },
+    "clear": {
+      "terminals": ["Domestic Terminal North", "Domestic Terminal South"],
+      "note": "CLEAR biometric identification available at both North and South domestic checkpoints. Allows members to skip the ID check line."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in International Terminal arrivals for international passengers. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "20-25 minutes",
+      "peakHours": "5:00-9:00 AM (morning departure banks), 3:00-6:00 PM",
+      "tips": "ATL is the busiest airport in the world — security lines can exceed 60 minutes during peak morning hours and holidays. Use TSA PreCheck or CLEAR for significantly faster processing. Check live wait times at atl.com/times/ before arriving."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, SEC Championship weekend, and major event days"
+    }
+  },
+  "lounges": {
+    "concourseT": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Concourse T, near Gate T7",
+        "hours": "5:15 AM - 9:30 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "The Club at ATL",
+        "location": "Concourse T, near Gate T5",
+        "access": "Priority Pass, LoungeKey, paid walk-ins (~$45)",
+        "amenities": "Snacks, drinks, WiFi, workspaces. Good option for travelers without airline-specific lounge access."
+      },
+      {
+        "name": "United Club",
+        "location": "Concourse T, near Gate T17",
+        "hours": "5:30 AM - 9:00 PM daily",
+        "access": "United Club membership, Star Alliance Gold, United Polaris/Business Class",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Concourse T, across from Gate T11",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. Delta SkyMiles Reserve and Reserve Business cardholders (when flying Delta).",
+        "amenities": "Premium food by local chef, cocktails, full bar, WiFi, shower suites, workspaces, phone rooms. One of the newest Centurion Lounges in the network."
+      }
+    ],
+    "concourseA": [
+      {
+        "name": "Delta Sky Club (A17)",
+        "location": "Concourse A, near Gate A17",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, workspaces."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "Delta Sky Club (B18)",
+        "location": "Concourse B, near Gate B18",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, shower facilities, food, WiFi, workspaces."
+      }
+    ],
+    "concourseC": [
+      {
+        "name": "Delta Sky Club (C37)",
+        "location": "Concourse C, near Gate C37",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, workspaces."
+      }
+    ],
+    "concourseD": [
+      {
+        "name": "Delta Sky Club (D12)",
+        "location": "Concourse D, near Gate D12",
+        "hours": "4:45 AM - 10:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, workspaces."
+      },
+      {
+        "name": "Delta Sky Club (D16-D18) — NEW",
+        "location": "Concourse D, near Gates D16-D18",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "24,000 sq ft, 500+ seats — largest Delta Sky Club at ATL. Multiple food stations, grand bar area, Southern-inspired decor, gallery wall of Southern artwork, abundant natural light. Opened April 2025.",
+        "note": "The newest and largest Sky Club at ATL. Opened April 2025 as part of the Concourse D modernization."
+      }
+    ],
+    "concourseE": [
+      {
+        "name": "Delta Sky Club (E Concourse)",
+        "location": "Concourse E",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, shower facilities, workspaces."
+      }
+    ],
+    "concourseF": [
+      {
+        "name": "Delta Sky Club (F Concourse)",
+        "location": "Concourse F",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, WiFi, shower facilities, workspaces. International terminal location."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Center",
+        "location": "Domestic Terminal, near Concourse T",
+        "access": "Active-duty military, National Guard, Reservists, and their families. FREE.",
+        "amenities": "Refreshments, snacks, charging stations, WiFi, rest area, children's play area."
+      },
+      {
+        "name": "Minute Suites",
+        "location": "Concourse B (near Gate B16)",
+        "access": "Paid — starting at $45/hour",
+        "amenities": "Private suites with daybed, workstation, TV. Power naps and private workspace between flights."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "ATL Free Wi-Fi",
+    "cost": "Free",
+    "coverage": "All terminals, concourses, and the transportation mall (underground Plane Train area). One of the best-rated airport WiFi networks in the U.S."
+  },
+  "evCharging": {
+    "totalStations": 275,
+    "locations": [
+      "North Daily Deck (ground floor)",
+      "South Daily Deck (ground floor)",
+      "North Economy Lot",
+      "South Economy Lot",
+      "North Hourly Deck (Level 3)",
+      "South Hourly Deck (Level 3)",
+      "ATL West Deck"
+    ],
+    "types": "Level 2 charging stations",
+    "note": "ATL has 275 EV charging stations — one of the largest EV charging networks at any U.S. airport. Part of ATL's sustainability initiative. Check ChargePoint or PlugShare apps for real-time availability."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at ATL.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Atlanta, Midtown, Buckhead" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Atlanta locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Atlanta, Midtown" }
+    ]
+  },
+  "petFacilities": {
+    "total": "8 indoor pet relief areas + 1 outdoor dog park",
+    "locations": [
+      "Concourse T (near Gate T7)",
+      "Concourse A (near Gate A10)",
+      "Concourse B (near Gate B33)",
+      "Concourse C (near Gate C17)",
+      "Concourse D (center of concourse)",
+      "Concourse E (near Gate E15)",
+      "Concourse F (near Gate F7)",
+      "Domestic Terminal (outdoor dog park)"
+    ],
+    "note": "ATL has one of the best pet relief area networks of any airport — dedicated areas in every concourse plus an outdoor dog park. All indoor areas are climate-controlled."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-9:00 AM (morning departure banks — busiest period)", "11:00 AM-2:00 PM", "4:00-7:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "Peak travel occurs during Thanksgiving (busiest single travel period), Christmas/New Year, spring break (March-April), and summer (June-August). Major Atlanta events that spike airport traffic: SEC Championship (December), Chick-fil-A Peach Bowl (December/January), DragonCon (Labor Day weekend), major conventions at Georgia World Congress Center, Braves/Falcons/Hawks game days.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during Thanksgiving, Christmas, and major event weekends"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot, humid summers. Mild winters with occasional ice storms. Thunderstorms frequent spring through fall.",
+    "commonDisruptions": "Severe thunderstorms (spring/summer) are the primary disruption — Atlanta is in the heart of the Southeast thunderstorm belt. Afternoon/evening storms from April-September can cause ground stops, delays averaging 30-60 minutes, and cascade effects nationwide. Winter ice storms (January-February) are less frequent but more impactful — a single ice storm can cause 1,000+ cancellations in one day.",
+    "bestMonths": "October through November — mild temperatures, low precipitation, past peak thunderstorm season. Also March and April (before summer storms ramp up).",
+    "worstMonths": "July-August (daily afternoon thunderstorms + extreme humidity) and January-February (ice storm risk)",
+    "thunderstormNote": "April-September: afternoon/evening thunderstorms are very common, especially June-August. Storm lines can produce clusters of delays. Because ATL is the world's busiest hub, weather disruptions here cascade to airports nationwide — ATL delays ripple to JFK, ORD, LAX, BOS, and dozens of others.",
+    "iceStormNote": "Atlanta rarely gets snow, but freezing rain and ice storms (typically January-February) can shut down the airport for 12-48 hours. The city's limited winter weather infrastructure means even minor ice events cause major disruptions. Travel insurance recommended for January-February travel.",
+    "note": "Morning flights are most reliable year-round at ATL. Afternoon/evening flights face the highest thunderstorm risk in summer. ATL's status as the world's busiest hub means its weather delays have outsized national impact."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near ATL. Hotels in College Park, East Point, Hapeville, and along Camp Creek Parkway offer park-sleep-fly packages.",
+    "priceRange": "From ~$95/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Quality Suites Atlanta Airport East",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle to ATL",
+        "packageRate": "From $95/night",
+        "highlight": "Budget-friendly park-sleep-fly with 14 days parking included."
+      },
+      {
+        "name": "Motel 6 Atlanta Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle to ATL",
+        "packageRate": "From $119/night",
+        "highlight": "No-frills budget option with parking and shuttle."
+      },
+      {
+        "name": "Holiday Inn Express Atlanta Airport - College Park",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 shuttle",
+        "packageRate": "From $139/night",
+        "highlight": "Soundproof rooms. 24/7 shuttle. Breakfast included."
+      },
+      {
+        "name": "Courtyard by Marriott Atlanta Airport",
+        "distance": "1 mile",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "packageRate": "From $159/night",
+        "highlight": "Premium hotel with Marriott Bonvoy points. Close to airport."
+      },
+      {
+        "name": "Hilton Atlanta Airport",
+        "distance": "0.5 miles (connected via covered walkway)",
+        "parkingIncluded": "Up to 7 days",
+        "shuttleHours": "Connected to Domestic Terminal — no shuttle needed",
+        "packageRate": "From $189/night",
+        "highlight": "Only hotel directly connected to ATL terminal. Walk to your gate. Premium option."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "dailyDecks": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "economyLots": { "parkingCost": "$140 (7 x $20)", "totalEstimate": "$140" },
+      "atlSelect_uncovered": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" },
+      "domesticParkRide": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" },
+      "internationalParkRide": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" }
+    },
+    "offSiteWithShuttle": {
+      "preflightEconomy": { "parkingCost": "$43.75 (7 x $6.25 pre-booked)", "savingsVsDailyDeck": "~$166 saved", "caveat": "24/7 shuttle, uncovered" },
+      "wallyPark": { "parkingCost": "$52.43 (7 x $7.49 pre-booked)", "savingsVsDailyDeck": "~$158 saved", "caveat": "24/7 shuttle, covered available" },
+      "peachyParking": { "parkingCost": "$62.93 (7 x $8.99 pre-booked)", "savingsVsDailyDeck": "~$147 saved", "caveat": "24/7 shuttle, indoor/covered/outdoor options, EV charging" }
+    },
+    "publicTransit": {
+      "martaRoundTrip": { "costPerPersonRoundTrip": "$5.00 + $2.00 Breeze Card", "travelTime": "15 min to downtown, 22 min to Midtown, 30 min to Buckhead", "note": "$2.50 per ride. Breeze Card costs $2.00 (reusable). Cheapest option for downtown/Midtown/Buckhead travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$60 (UberX downtown round trip)", "note": "Cheaper than parking for short trips. Flat-rate taxi $72 round trip to downtown ($36 each way)." }
+    },
+    "keyDifference": "ATL parking rates increased dramatically on May 1, 2025 — Daily Decks jumped from $19 to $30/day, Economy from $14 to $20/day. Off-site lots now offer massive savings: $6.25-$8.99/day pre-booked vs $15-$30/day on-airport. MARTA at $2.50 is unbeatable for downtown/Midtown/Buckhead travelers. For a 7-day trip, off-site parking saves $100-$166 vs Daily Decks."
+  },
+  "uniqueFeatures": {
+    "busiestAirportInWorld": "ATL has been the world's busiest airport by passenger traffic since 1998 (with the sole exception of 2020 during COVID). In 2024, 108.1 million passengers passed through — 16 million more than #2 Dubai (DXB). No other airport handles this volume.",
+    "deltaHub": "Delta Air Lines operates over 1,000 daily departures from ATL — making it the world's largest airline hub operation. Delta occupies gates in all seven concourses and controls roughly 75% of ATL's total traffic. ATL IS Delta, and Delta IS ATL.",
+    "planeTrain": "The Plane Train (Automated People Mover) runs underground connecting all seven concourses. It's one of the busiest automated transit systems in the world — carrying over 200,000 passengers daily. Trains depart every 2 minutes, 24/7. Parallel pedestrian walkways with moving sidewalks offer an alternative.",
+    "sevenConcourses": "ATL's seven concourses (T, A, B, C, D, E, F) stretch over 1 mile from end to end. This linear layout, while efficient for connections, means the walk from T to F takes 20+ minutes on foot. The Plane Train covers the distance in 8-10 minutes.",
+    "connectionHub": "More passengers connect through ATL than any other airport in the world. Delta's hub-and-spoke model funnels domestic traffic through ATL for connections. Short connection times (as low as 45 minutes between gates) are possible thanks to the Plane Train.",
+    "a380Gate": "Concourse F has the only Airbus A380-capable gate at ATL — the only gate in the airport designed to handle the world's largest passenger aircraft.",
+    "concourseD_modularConstruction": "The $1.4 billion Concourse D widening project uses an innovative modular construction method — prefabricated modules are built off-site and installed in sections, minimizing disruption to airport operations. This technique is pioneering for airport construction.",
+    "directMartaConnection": "ATL is one of the few major U.S. airports with a direct rail connection right in the terminal — no shuttle or people mover transfer needed. Walk from baggage claim directly to the MARTA train platform.",
+    "largestConRac": "ATL's Consolidated Rental Car Center (ConRAC) is one of the largest in the U.S. — 2.8 million square feet with 8,700 spaces, connected to the terminal by the free ATL SkyTrain."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(404) 530-6830 (ATL Information Line)",
+    "airportWebsite": "atl.com",
+    "parkingInfo": "atl.com/parking",
+    "parkingPhone": "(404) 530-6830",
+    "tsa": "(866) 289-9673",
+    "martaInfo": "(404) 848-5000",
+    "martaWebsite": "itsmarta.com",
+    "airportPolice": "(404) 530-6880",
+    "lostAndFound": "(404) 530-2100"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.atl.com/",
+      "parking": "https://www.atl.com/parking/",
+      "groundTransportation": "https://www.atl.com/ground-transportation/",
+      "terminalMaps": "https://www.atl.com/maps/",
+      "airlines": "https://www.atl.com/passenger-information/airlines-at-atl/",
+      "security": "https://www.atl.com/passenger-information/passenger-security/",
+      "securityWaitTimes": "https://www.atl.com/times/",
+      "amenities": "https://www.atl.com/about-atl/airport-amenities/",
+      "atlNext": "https://next.atl.com/",
+      "statistics": "https://www.atl.com/business-information/statistics/"
+    },
+    "transit": {
+      "marta": "https://www.itsmarta.com/",
+      "martaSchedules": "https://www.itsmarta.com/train-schedules.aspx",
+      "atlSkyTrain": "https://www.atl.com/getting-to-the-airport/skytrain/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/atl/",
+      "lyft": "https://www.lyft.com/rider/airports/atl"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=ATL",
+      "airportParkingReservations": "https://airportparkingreservations.com/atl/airport-parking",
+      "spothero": "https://spothero.com/airport/atlanta/atl-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/atl",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/hartsfield-jackson-atlanta-international-airport-atl",
+      "parkon": "https://www.parkon.com/info/how-much-is-parking-at-atlanta-airport",
+      "peachyParking": "https://www.peachyairportparking.com/",
+      "wallyPark": "https://www.wallypark.com/atlanta-airport-parking/",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/atlanta",
+      "parkingAccess": "https://parkingaccess.com/airports/atl"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearATL": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/atlanta-atl-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/ATL/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KATL",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/ATL",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=atl"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugShare": "https://www.plugshare.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/atl/airport-hotels-with-parking",
+      "parkSleepHotels": "https://www.parksleephotels.com/Park-Stay-and-Fly-Hotel-Packages-Near-Atlanta-Airport.html",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/atl"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/hartsfield-jackson-atlanta-international-airport-review/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Hartsfield%E2%80%93Jackson_Atlanta_International_Airport",
+      "ifly": "https://www.ifly.com/airports/hartsfield-jackson-atlanta-international-airport"
+    },
+    "newsAndMedia": {
+      "ajc": "https://www.ajc.com/",
+      "fox5atlanta": "https://www.fox5atlanta.com/",
+      "atlantaNewsFirst": "https://www.atlantanewsfirst.com/"
+    }
+  }
+}

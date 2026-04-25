@@ -1,0 +1,728 @@
+{
+  "code": "DFW",
+  "fullName": "Dallas/Fort Worth International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Unincorporated areas of Tarrant and Dallas counties, Texas — between Dallas and Fort Worth, straddling the cities of Irving, Euless, Grapevine, and Coppell",
+    "iataCode": "DFW",
+    "icaoCode": "KDFW",
+    "faaLid": "DFW",
+    "elevation": "607 feet above mean sea level",
+    "acreage": 17207,
+    "coordinates": "32.8998N, 97.0403W",
+    "passengerVolume": "87.8 million passengers in 2024 — record year, 7.4% increase over 2023",
+    "aircraftOperations": "743,203 annually (2024) — 3rd busiest in the world by aircraft movements",
+    "cargoVolume": "818,484 tons (2024) — up 5.6% from 2023",
+    "distinction": "American Airlines' largest hub worldwide. Second-largest airport in the United States by land area (17,207 acres). Third-busiest airport globally by passenger traffic. The airport is so large it has its own zip code (75261), city designation (DFW Airport, TX), police department, fire department, and power plant. Five terminals connected by Skylink automated people mover. Seven runways allow simultaneous triple parallel approaches. Originally opened January 13, 1974.",
+    "operator": "DFW Airport Board",
+    "owner": "Cities of Dallas and Fort Worth (jointly owned)",
+    "activeTerminals": 5,
+    "totalConcourses": 5,
+    "totalGates": 165,
+    "runways": 7,
+    "runwayDetails": [
+      { "designation": "13L/31R", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "13R/31L", "length": "9,301 ft (2,835 m)", "surface": "Concrete" },
+      { "designation": "17C/35C", "length": "13,401 ft (4,084 m)", "surface": "Concrete", "note": "One of the longest commercial runways in the U.S." },
+      { "designation": "17L/35R", "length": "8,500 ft (2,591 m)", "surface": "Concrete" },
+      { "designation": "17R/35L", "length": "13,401 ft (4,084 m)", "surface": "Concrete" },
+      { "designation": "18L/36R", "length": "13,401 ft (4,084 m)", "surface": "Concrete" },
+      { "designation": "18R/36L", "length": "9,000 ft (2,743 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "American Airlines (largest hub worldwide — operates from Terminals A, B, C, and part of D)",
+    "totalAirlines": "25+ airlines",
+    "nonstopDestinations": "260+ destinations worldwide (900+ daily departures)",
+    "founded": "January 13, 1974 (replaced Dallas Love Field and Greater Southwest International as region's primary airport)",
+    "hubCarriers": ["American Airlines (primary hub — largest in AA's global network)", "Frontier Airlines (focus city)", "Spirit Airlines (focus city)", "Sun Country Airlines (focus city)"],
+    "slotControlled": false,
+    "skylink": "Free Skylink automated people mover connecting all five terminals airside. Trains every 2 minutes, 24/7. Full loop in ~13 minutes at 37 mph. One of the world's largest airport people mover systems.",
+    "internationalNote": "DFW serves as a major international gateway with nonstop flights to Europe, Asia, South America, and the Middle East. Terminal D is the dedicated international terminal with Federal Inspection Station. American Airlines operates the most trans-Pacific flights of any U.S. carrier from DFW."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A",
+      "status": "Active — 21 gates. American Airlines domestic operations. Terminal A expansion (10 gates, ~140,000 sq ft) completion anticipated late 2026.",
+      "airlines": ["American Airlines", "American Eagle"],
+      "gates": "A8-A11, A13, A17-A25, A28-A29, A33-A39",
+      "notes": "Exclusively American Airlines domestic flights. Admirals Club near gate A24. Terminal A expansion underway — five rebuilt and five new gates opening late 2026. DART Orange Line station at Terminal A provides direct rail to downtown Dallas. Remote South parking serves Terminal A."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — 45 gates. American Airlines' busiest terminal at DFW. DART Silver Line and TEXRail station at Terminal B.",
+      "airlines": ["American Airlines", "American Eagle"],
+      "gates": "B1-B11, B12a, B12b, B14, B16-B19, B21-B22, B24-B44, B46-B49",
+      "notes": "Largest terminal at DFW with 45 gates, exclusively American Airlines. Admirals Club near gate B3. DART Silver Line (opened October 2025) and Trinity Metro TEXRail both stop at Terminal B, providing direct rail access to Plano, Richardson, Addison, Fort Worth, and Grapevine. Remote North parking serves Terminal B."
+    },
+    {
+      "name": "Terminal C",
+      "status": "Active — 29 gates. American Airlines domestic and some international. Major $3 billion renovation underway with 9 new/rebuilt gates opening mid-2026.",
+      "airlines": ["American Airlines", "American Eagle"],
+      "gates": "C2, C4, C6-C8, C10-C12, C14-C17, C19-C22, C24, C26-C27, C33, C35-C39",
+      "notes": "American Airlines terminal undergoing massive $3B renovation. Nine new or rebuilt gates and expanded concourse expected to open mid-2026. Admirals Club near gate C20. Remote North parking serves Terminal C."
+    },
+    {
+      "name": "Terminal D",
+      "status": "Active — 32 gates. DFW's international terminal with Federal Inspection Station. Mix of American Airlines international and partner/foreign carrier flights.",
+      "airlines": ["Aeromexico", "Air France", "American Airlines", "Avianca", "British Airways", "Emirates", "Frontier Airlines", "Japan Airlines", "Korean Air", "Lufthansa", "Qantas", "Qatar Airways", "Sun Country Airlines", "Viva Aerobus", "Volaris"],
+      "gates": "D2, D4-D8, D10-D12, D14-D18, D20-D25, D27-D31, D33-D34, D36-D38, D40",
+      "notes": "DFW's international terminal opened in 2005. American Airlines Flagship Lounge between gates D21-D22. Admirals Club near gate D24. Capital One Lounge and American Express Centurion Lounge also in Terminal D. Future Terminal F will connect to Terminal D via walking corridor and new Skylink station. Remote North parking serves Terminal D."
+    },
+    {
+      "name": "Terminal E",
+      "status": "Active — 41 gates (26 main terminal + 15 satellite). Non-American Airlines domestic carriers plus some American Eagle regional flights.",
+      "airlines": ["Alaska Airlines", "American Airlines", "American Eagle", "Breeze Airways", "Delta Air Lines", "Frontier Airlines", "JetBlue Airways", "Spirit Airlines", "United Airlines"],
+      "gates": "E2-E38",
+      "notes": "Terminal E houses most non-AA carriers at DFW. Delta Sky Club in Terminal E. Admirals Club on satellite mezzanine. 15-gate satellite building connected to main terminal. American Airlines uses gates E35-E38 for overflow. Remote South parking serves Terminal E."
+    }
+  ],
+  "roads": ["International Parkway (main airport spine road)", "State Highway 114", "State Highway 121 (Sam Rayburn Tollway)", "State Highway 183", "State Highway 360", "Interstate 635 (LBJ Freeway)", "John W. Carpenter Freeway", "President George Bush Turnpike", "TEXpress Lanes (SH 183/SH 114)"],
+  "transit": ["DART Orange Line to Terminal A (direct to downtown Dallas — $3 single ride)", "DART Silver Line to Terminal B (Plano, Richardson, Addison, Carrollton, Coppell — opened October 2025)", "Trinity Metro TEXRail to Terminal B (Fort Worth T&P Station, North Richland Hills, Grapevine — $2.50 single ride)", "Rental Car Shuttle (free, every 10-15 minutes, 24/7)", "Trinity Metro Bus Route 65 (Northeast Connector)"],
+  "neighborhoods": ["Irving", "Grapevine", "Euless", "Coppell", "Southlake", "Colleyville", "Bedford", "Hurst", "North Richland Hills", "Las Colinas", "Arlington", "Grand Prairie", "Downtown Dallas", "Uptown Dallas", "Fort Worth Downtown", "Fort Worth Stockyards", "Frisco", "Plano"],
+  "authority": "DFW Airport Board (joint board of the cities of Dallas and Fort Worth)",
+  "groundTransportation": {
+    "skylink": {
+      "description": "Free automated people mover connecting all five terminals (A, B, C, D, E) airside. Operates on a bidirectional loop above the terminals.",
+      "fare": "FREE (requires boarding pass — airside only)",
+      "frequency": "Every 2 minutes",
+      "hours": "24/7",
+      "travelTime": "Full loop ~13 minutes. Adjacent terminals ~2-3 minutes.",
+      "note": "Skylink is one of the largest airport people mover systems in the world. Trains travel at up to 37 mph. A new Skylink station will be added for Terminal F (opening 2027). During overnight construction periods, reduced service may apply — check DFW website."
+    },
+    "dartOrangeLine": {
+      "stationName": "DFW Airport Terminal A Station",
+      "operator": "Dallas Area Rapid Transit (DART)",
+      "lines": ["Orange Line"],
+      "fare": "$3.00 single trip. $6.00 day pass. Payment: GoPass app, contactless tap, DART pass.",
+      "hours": "Approximately 4:00 AM - 1:00 AM daily",
+      "frequency": "Every 15 minutes (peak), 20 minutes (midday), 30 minutes (late night)",
+      "accessFromTerminal": "Take Skylink to Terminal A, exit to landside, follow signs to DART station",
+      "travelTimes": {
+        "toBeltLine": "~10 minutes",
+        "toIrving": "~15 minutes",
+        "toMarketCenter": "~30 minutes",
+        "toDowntownDallas": "~50 minutes (West End, Akard, St. Paul stations)",
+        "toCityplace": "~55 minutes (Uptown area)",
+        "toMockingbird": "~60 minutes (SMU area)",
+        "toParkerRoad": "~85 minutes (northern terminus, Plano)"
+      },
+      "competitorNote": "At $3.00, DART Orange Line is the cheapest option from DFW to downtown Dallas — dramatically cheaper than the $57 flat-rate taxi. However, the 50-minute travel time makes it slower than driving. Best for budget travelers with flexible schedules."
+    },
+    "dartSilverLine": {
+      "stationName": "DFW Airport Terminal B Station",
+      "operator": "Dallas Area Rapid Transit (DART)",
+      "lines": ["Silver Line"],
+      "fare": "$3.00 single trip. $6.00 day pass.",
+      "frequency": "Every 15-20 minutes during service hours",
+      "coverage": "Plano, Richardson, Addison, Carrollton, Coppell, DFW Airport Terminal B",
+      "note": "Opened October 2025. New commuter rail line connecting DFW directly to Plano and northern suburbs. Stops at Terminal B — take Skylink from other terminals."
+    },
+    "texRail": {
+      "stationName": "DFW Airport Terminal B Station",
+      "operator": "Trinity Metro",
+      "fare": "$2.50 single trip. Payment: GoPass app, cash, credit.",
+      "hours": "Approximately 3:45 AM - 12:15 AM daily",
+      "frequency": "Every 30 minutes (peak), 60 minutes (off-peak)",
+      "accessFromTerminal": "Take Skylink to Terminal B, exit to landside, follow signs to TEXRail station",
+      "travelTimes": {
+        "toGrapevineMainStreet": "~7 minutes",
+        "toNorthRichlandHills": "~18 minutes",
+        "toFortWorthT&P": "~50 minutes (downtown Fort Worth)"
+      },
+      "note": "TEXRail is the direct rail link from DFW to downtown Fort Worth. Clean, comfortable trains with free WiFi and bike racks. Best option for travelers headed to Fort Worth or Grapevine."
+    },
+    "taxi": {
+      "fareType": "METERED with flat rate zones to downtown Dallas",
+      "pickup": "Lower level of all terminals (A, B, C, D, E). DFW Guest Assistants at taxi stands 8 AM - midnight.",
+      "flatRates": {
+        "toDowntownDallas": "$57 flat rate",
+        "toDowntownFortWorth": "~$55-65 metered"
+      },
+      "estimatedMeteredFares": {
+        "toDowntownDallas": "$57 (flat rate)",
+        "toUptown": "$55-65",
+        "toDowntownFortWorth": "$55-65",
+        "toArlington": "$35-50",
+        "toIrving": "$25-35",
+        "toGrapevine": "$20-30",
+        "toPlano": "$65-85",
+        "toFrisco": "$75-95",
+        "toDallasFortWorthMidCities": "$30-50"
+      },
+      "note": "Flat rate $57 to downtown Dallas is posted at taxi stands. Cash and credit cards accepted. 24/7 service. DFW Guest Assistants help manage taxi queue during staffed hours."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Upper level curbside of each terminal (A, B, C, D, E). Follow signs to App-Based Transportation.",
+      "estimatedFares": {
+        "uberXToDowntownDallas": "$35-50",
+        "uberXToUptown": "$35-50",
+        "uberXToDowntownFortWorth": "$30-45",
+        "uberXToArlington": "$25-40",
+        "uberXToIrving": "$18-30",
+        "uberXToGrapevine": "$15-25",
+        "uberXToPlano": "$40-60",
+        "uberXToFrisco": "$45-65"
+      },
+      "surgePricing": "Standard surge pricing during Cowboys/Rangers/Mavericks/Stars game days, State Fair of Texas (Sep-Oct), major conventions, Friday/Sunday evening peaks",
+      "note": "Rideshare is typically cheaper than the $57 flat-rate taxi to downtown Dallas. Pick up on upper level — different from taxis which are on lower level. During surge events (Cowboys games, State Fair), fares can exceed taxi rates."
+    },
+    "rentalCars": {
+      "location": "DFW Rental Car Center — 2424 E. 38th Street, DFW Airport, TX (near south entrance)",
+      "companies": ["Advantage", "Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty", "Turo"],
+      "totalBrands": 11,
+      "shuttle": "Free Rental Car Shuttle runs 24/7, every 10-15 minutes from lower level of all terminals. Follow Rental Car signs in baggage claim.",
+      "note": "All rental car companies are consolidated at the Rental Car Center near the south entrance. Take the free shuttle from baggage claim — 10-15 minute ride. Return car at the center and take shuttle back."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Hotels along SH-114 (Grapevine area), SH-183 (Irving/Las Colinas), and SH-360 (Arlington) commonly provide shuttle service."
+  },
+  "parkingRates": "On-airport: Terminal Garages $27/day, Express Parking $10-15/day (uncovered/covered), Remote Parking $10/day, Valet $34/day. Off-site: from ~$4.95/day with shuttle. Pre-booking at dfwairport.com/park/ can save up to 50%.",
+  "onAirportParking": {
+    "terminalParking": {
+      "name": "Terminal Parking (Garages A, B, C, D, E)",
+      "rate": "$2.00 first 30 min, $3.00 up to 2 hours, $6.00 for under 8 min",
+      "dailyMax": 27,
+      "maxStay": "90 days",
+      "serves": "Each terminal garage serves its corresponding terminal — walk directly to check-in",
+      "features": "Closest parking to terminals. Direct covered walkway to terminal. Best for short stays, drop-offs, and pickups.",
+      "preBookingUrl": "https://www.dfwairport.com/park/",
+      "note": "Terminal parking is the most convenient but most expensive on-airport option. Pre-book online to save up to 50%."
+    },
+    "expressParking": {
+      "name": "Express Parking (North and South lots)",
+      "uncoveredRate": "$10.00/day",
+      "coveredRate": "$15.00/day",
+      "hourlyRate": "$3.00/hour",
+      "dailyMaxUncovered": 10,
+      "dailyMaxCovered": 15,
+      "capacity": 7000,
+      "locations": "Express North (near north entry) and Express South (near south entry)",
+      "connection": "FREE 24/7 shuttle to all terminals",
+      "payment": "Major credit cards, NTTA TollTag with credit card on file. NO cash accepted.",
+      "features": "Best mid-range on-airport option. 7,000 spaces across North and South lots. Free shuttle includes bottled water, newspapers, and luggage assistance. Covered option protects from Texas sun/hail.",
+      "preBookingUrl": "https://www.dfwairport.com/park/express/",
+      "note": "Express parking offers the best balance of price and convenience for on-airport parking. Pre-book to save up to 50%. Covered parking recommended during summer heat and spring hail season."
+    },
+    "remoteParking": {
+      "name": "Remote Parking (North and South lots)",
+      "rate": "$2.00/hour, $10.00/day max",
+      "dailyMax": 10,
+      "locations": "Remote North (serves Terminals B, C, D) and Remote South (serves Terminals A, E)",
+      "connection": "FREE 24/7 shuttle service every 15-20 minutes",
+      "features": "Most affordable on-airport option. 24/7 CCTV, lighting, and security patrols. Digital shuttle arrival displays at stops. Allow 15-20 minutes for shuttle transfer.",
+      "shuttleTracker": "https://www.dfwairport.com/shuttles/remote/",
+      "preBookingUrl": "https://www.dfwairport.com/park/remote/",
+      "note": "Budget on-airport option at $10/day. Remote North → Terminals B, C, D. Remote South → Terminals A, E. Pre-book to save up to 50%. Allow extra time for shuttle connection."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$34/day",
+      "maxStay": "90 days",
+      "locations": "Available at select terminals — check DFW website for current valet locations",
+      "features": "Premium drop-off and pickup. Vehicle retrieved when you return. Most convenient but most expensive option."
+    },
+    "cellPhoneLots": {
+      "name": "Cell Phone Waiting Lots (North and South)",
+      "locations": "North Cell Phone Lot (north end of airport) and South Cell Phone Lot (south end, near intersection of Rental Car Drive and Southgate Avenue)",
+      "cost": "FREE",
+      "capacity": "~60 spaces per lot",
+      "timeLimit": "2-hour maximum",
+      "hours": "24/7",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 2-hour limit enforced."
+    },
+    "evCharging": {
+      "locations": [
+        "Terminal A garage (one-hour parking area)",
+        "Terminal E garage (one-hour parking area)",
+        "Terminal D (Tesla Destination Chargers — 4 ports, 8kW max)"
+      ],
+      "totalPorts": "EV charging available in Terminals A, D, and E",
+      "note": "Limited EV charging compared to some major airports. Tesla Destination Chargers in Terminal D. Check DFW website for current charger availability and pricing."
+    },
+    "accessibleParking": "Accessible parking available in all terminal garages and express/remote lots. Follow ADA signs. DFW Airport complies with all ADA accessibility requirements.",
+    "totalCapacity": "~40,000+ parking spaces across all on-airport facilities",
+    "paymentMethods": "Major credit cards, NTTA TollTag (express/remote), DFW Airport app. NO cash at Express or Remote lots. Terminal garages accept cash and credit.",
+    "parkingPhone": "(972) 973-3112",
+    "parkingEmail": "finparkingrev@dfwairport.com",
+    "garageServiceAreas": "Terminal A Garage → Terminal A. Terminal B Garage → Terminal B. Terminal C Garage → Terminal C. Terminal D Garage → Terminal D. Terminal E Garage → Terminal E. Express North → all terminals via shuttle. Express South → all terminals via shuttle. Remote North → Terminals B, C, D via shuttle. Remote South → Terminals A, E via shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot North (DFW)",
+      "slug": "the-parking-spot-north-dfw",
+      "dailyRate": 10.95,
+      "reservationRate": 8.95,
+      "parkingType": "Uncovered and covered options, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Available", "Luggage Assistance", "Car Wash Service", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "On-demand 24/7 shuttle to all terminals. Shuttles depart from your vehicle — no walking to shuttle stop.",
+      "overview": "Major off-site parking brand located south of John Carpenter Freeway near Esters Blvd. Hundreds of covered spots available. On-demand shuttle with luggage assistance.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "On-demand shuttle is a strong advantage — no fixed schedule to worry about. Covered parking protects from Texas sun and hail. Loyalty rewards program available."
+    },
+    {
+      "name": "The Parking Spot Premium (DFW)",
+      "slug": "the-parking-spot-premium-dfw",
+      "dailyRate": 13.95,
+      "reservationRate": 11.95,
+      "parkingType": "Covered parking, self-park with premium service",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Priority Shuttle Service", "Luggage Assistance", "Car Wash Service", "24/7 Security"],
+      "shuttleInfo": "Priority on-demand shuttle — Premium guests dropped off first and picked up closest to terminals.",
+      "overview": "Premium tier from The Parking Spot with priority shuttle service. Located off Freeport Parkway near John Carpenter Freeway. Premium guests get priority boarding on shuttles.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Best off-site option for frequent travelers who want covered parking + priority shuttle. Higher rate justified by priority service and covered spots."
+    },
+    {
+      "name": "The Parking Spot South (DFW)",
+      "slug": "the-parking-spot-south-dfw",
+      "dailyRate": 10.95,
+      "reservationRate": 8.95,
+      "parkingType": "Uncovered and covered options, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Available", "Luggage Assistance", "Car Wash Service", "24/7 Security", "Surveillance Cameras"],
+      "shuttleInfo": "On-demand 24/7 shuttle to all terminals with luggage assistance.",
+      "overview": "Located on the south side of DFW airport, convenient for travelers coming from Fort Worth and Arlington. Same amenities as North location.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Best option for travelers approaching from the south (Fort Worth, Arlington). On-demand shuttle is reliable. Same quality as North location."
+    },
+    {
+      "name": "Ausby Airport Parking (DFW)",
+      "slug": "ausby-airport-parking-dfw",
+      "dailyRate": 6.95,
+      "reservationRate": 4.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Shuttle Service", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "Shuttle every 30 minutes, 10 AM - 9:30 PM. After-hours service (9:31 PM - 9:59 AM) available for $25 + tax per pickup.",
+      "overview": "Budget off-site parking with competitive rates starting at $4.95/day pre-booked. Standard shuttle during daytime hours. After-hours shuttle requires additional fee.",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "8-12 minutes",
+      "freeCancellation": true,
+      "notes": "WARNING: Shuttle only runs free 10 AM - 9:30 PM. After-hours pickup costs $25 extra. Not ideal for early morning or late night flights unless you factor in the after-hours fee. Budget rate is attractive for daytime travelers."
+    },
+    {
+      "name": "Days Inn by Wyndham DFW Airport North (Parking)",
+      "slug": "days-inn-dfw-airport-north",
+      "dailyRate": 7.99,
+      "reservationRate": 5.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle Service", "Security Cameras", "Hotel Amenities Available", "Handicap Accessible"],
+      "shuttleInfo": "Scheduled shuttle service to terminals. Verify shuttle hours before booking.",
+      "overview": "Hotel parking near north side of DFW. Budget-friendly rate with no hotel stay required. Located in Irving near Grapevine.",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Budget hotel parking option. Confirm current shuttle schedule before booking — hours may vary. Good option for park-sleep-fly packages."
+    },
+    {
+      "name": "Red Roof Inn Dallas DFW Airport North (Parking)",
+      "slug": "red-roof-inn-dfw-airport-north",
+      "dailyRate": 7.99,
+      "reservationRate": 5.49,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle Service", "24/7 Front Desk", "Security Cameras", "Well-Lit Lot"],
+      "shuttleInfo": "Shuttle service to terminals during operating hours. Confirm schedule at booking.",
+      "overview": "Hotel parking near the north entrance of DFW. No hotel stay required for parking. Budget pricing with shuttle included.",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "8-12 minutes",
+      "freeCancellation": true,
+      "notes": "Budget option near north DFW entrance. 24/7 front desk is helpful for late arrivals. Confirm shuttle hours before booking."
+    },
+    {
+      "name": "Clarion Inn & Suites North DFW Airport (Parking)",
+      "slug": "clarion-inn-suites-north-dfw",
+      "dailyRate": 8.99,
+      "reservationRate": 6.49,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle Service", "24/7 Security", "Hotel Amenities", "Handicap Accessible"],
+      "shuttleInfo": "Complimentary shuttle to all DFW terminals during scheduled hours.",
+      "overview": "Hotel parking lot near north DFW with competitive rates. Hotel amenities available. No stay required for parking only.",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Mid-range off-site option with hotel-quality security. Good for park-sleep-fly packages. Confirm shuttle schedule before booking."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Skylink connects all terminals airside every 2 minutes, 24/7. Rental Car Shuttle runs every 10-15 minutes 24/7 from lower level of all terminals. Remote parking shuttle every 15-20 minutes 24/7. Express parking has on-demand 24/7 shuttle. Off-site: The Parking Spot offers 24/7 on-demand shuttle. Ausby shuttle runs 10 AM-9:30 PM (after-hours $25 fee). Hotel lots have scheduled shuttle service — verify hours before booking. CRITICAL: Some off-site lots charge extra for after-hours shuttle — confirm before booking for early/late flights.",
+  "distanceFromCity": "20 miles northwest of downtown Dallas. 25 miles northeast of downtown Fort Worth. DFW sits almost exactly between the two cities. 30-55 minutes to either downtown by car depending on traffic. ~50 minutes by DART Orange Line to downtown Dallas ($3). ~50 minutes by TEXRail to downtown Fort Worth ($2.50).",
+  "keyDistances": {
+    "toDowntownDallas": "20 miles, 30-55 min by car, ~50 min by DART Orange Line ($3), $57 flat-rate taxi, $35-50 rideshare",
+    "toUptownDallas": "18 miles, 25-45 min by car, $35-50 rideshare",
+    "toDowntownFortWorth": "25 miles, 30-50 min by car, ~50 min by TEXRail ($2.50), $55-65 taxi, $30-45 rideshare",
+    "toFortWorthStockyards": "27 miles, 35-55 min by car, $35-50 rideshare",
+    "toArlington": "15 miles, 20-35 min by car, $25-40 rideshare (AT&T Stadium, Globe Life Field)",
+    "toIrving": "5 miles, 10-15 min by car, $18-30 rideshare (Las Colinas, Toyota Music Factory)",
+    "toGrapevine": "5 miles, 10-15 min by car, ~7 min by TEXRail ($2.50), $15-25 rideshare (Grapevine Mills, historic downtown)",
+    "toPlano": "30 miles, 30-45 min by car, DART Silver Line available, $40-60 rideshare",
+    "toFrisco": "35 miles, 35-50 min by car, $45-65 rideshare",
+    "toDenton": "35 miles, 40-55 min by car",
+    "toMcKinney": "45 miles, 45-60 min by car",
+    "toSouthlake": "10 miles, 15-20 min by car, $20-30 rideshare (Southlake Town Square)",
+    "toGrandPrairie": "12 miles, 15-25 min by car",
+    "toWaco": "100 miles, 90 min by car",
+    "toAustin": "195 miles, 3-3.5 hours by car",
+    "toHouston": "240 miles, 3.5-4 hours by car",
+    "toSanAntonio": "275 miles, 4-4.5 hours by car",
+    "competitiveAdvantage": "DFW's DART and TEXRail rail connections provide affordable transit to both Dallas ($3) and Fort Worth ($2.50), though travel times are ~50 minutes. The $57 flat-rate taxi to downtown Dallas is reliable and avoids surge pricing. DFW's central location between Dallas and Fort Worth makes it equidistant to both cities. For Arlington (AT&T Stadium, Rangers), DFW is significantly closer than Dallas Love Field."
+  },
+  "construction2026": {
+    "status": "Massive $12+ billion expansion program underway — the largest infrastructure project in DFW Airport's history.",
+    "projects": [
+      "Terminal F ($4 billion) — Brand new 6th terminal. 31 gates total when complete, exclusively American Airlines. Phase 1 (15 gates + new Skylink station) opening May 2027. Built using innovative modular construction — six prefabricated megastructure modules (largest weighing 3,320 tons) moved via self-propelled transporters. Walking connection to Terminal D. Phase 2 expands to 31 gates.",
+      "Terminal A Expansion (~$140M) — 10 gates (5 rebuilt, 5 new) in ~140,000 sq ft. Completion anticipated late 2026.",
+      "Terminal C Renovation ($3 billion) — Major overhaul with 9 new or rebuilt gates and expanded concourse. Phase opening mid-2026.",
+      "Skylink Station for Terminal F ($79 million) — New Skylink station to connect Terminal F to the people mover network. Opening with Terminal F Phase 1 in 2027.",
+      "DART Silver Line Station at Terminal B — Opened October 2025. New commuter rail connecting DFW to Plano, Richardson, Addison, Carrollton.",
+      "Roadway and infrastructure improvements across the airport campus."
+    ],
+    "travelImpact": "Construction is ongoing but airport remains fully operational. Some roadway detours possible. Terminal C travelers may encounter temporary walkway changes. No parking closures expected. Terminal F construction is airside and does not impact current terminal operations.",
+    "timeline": {
+      "terminalCPhase": "Mid-2026 (9 new/rebuilt gates)",
+      "terminalAExpansion": "Late 2026 (10 gates)",
+      "terminalFPhase1": "May 2027 (15 gates + Skylink station)",
+      "terminalFPhase2": "TBD (expanding to 31 total gates)",
+      "fullProgram": "Multi-year phased construction through late 2020s"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal A", "Terminal B", "Terminal C", "Terminal D", "Terminal E"],
+      "note": "TSA PreCheck available at all terminal security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Terminal A", "Terminal D", "Terminal E"],
+      "note": "CLEAR available at select checkpoints. Check DFW website for current locations."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Terminal D arrivals for international passengers. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure banks), 11:00 AM-1:00 PM, 4:00-7:00 PM (evening departure banks)",
+      "tips": "DFW handles enormous volume — allow extra time during peak departure banks, especially in the morning. American Airlines dominates scheduling, so departure waves create concentrated peaks."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, State Fair of Texas period"
+    }
+  },
+  "lounges": {
+    "terminalA": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal A, near gate A24",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "terminalB": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal B, near gate B3",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "terminalC": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal C, near gate C20",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "terminalD": [
+      {
+        "name": "American Airlines Flagship Lounge",
+        "location": "Terminal D, between gates D21 and D22",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "First/Business Class on qualifying long-haul American Airlines and Oneworld flights",
+        "amenities": "Premium dining, full-service bar, shower suites, day beds, premium WiFi, workspaces. DFW's most premium lounge experience."
+      },
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal D, near gate D24",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "Capital One Lounge",
+        "location": "Terminal D",
+        "hours": "5:30 AM - 10:00 PM daily",
+        "access": "Capital One Venture X cardholders (free + 2 guests). All other travelers: $65 per person with same-day boarding pass, up to 3 hours before departure.",
+        "amenities": "Premium dining, craft cocktails, espresso bar, shower suites, wellness room, multi-faith prayer room, premium WiFi. Often cited as the best overall lounge experience at DFW."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Terminal D",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. Additional guests $50/person ($30 for children 2-17).",
+        "amenities": "Premium food, cocktails by local mixologist, full bar, WiFi, shower suites, workspaces, phone rooms."
+      }
+    ],
+    "terminalE": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal E, satellite mezzanine",
+        "hours": "5:30 AM - 9:00 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal E",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, shower facilities, food, WiFi, workspaces."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Lounge",
+        "location": "Terminal B, near Gate B18",
+        "access": "Active-duty military, reservists, National Guard, and their families. FREE.",
+        "amenities": "Refreshments, snacks, charging stations, WiFi, rest area, gaming consoles."
+      },
+      {
+        "name": "Minute Suites",
+        "location": "Terminal D (near gate D23)",
+        "access": "Open to all — paid walk-in or Priority Pass",
+        "amenities": "Private suites with daybed, workstation, TV. Bookable by the hour. Shower suites available."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "DFW WiFi",
+    "cost": "Free",
+    "coverage": "All terminals, concourses, and common areas"
+  },
+  "evCharging": {
+    "terminalA": {
+      "chargers": "Available",
+      "location": "Terminal A garage, one-hour parking area",
+      "type": "Level 2"
+    },
+    "terminalD": {
+      "chargers": 4,
+      "location": "Terminal D valet area",
+      "type": "Tesla Destination Charger (8kW max)",
+      "cost": "Free for parked vehicles",
+      "note": "Tesla-specific connectors. 24/7 availability."
+    },
+    "terminalE": {
+      "chargers": "Available",
+      "location": "Terminal E garage, one-hour parking area",
+      "type": "Level 2"
+    },
+    "totalPorts": "Limited EV charging — available in Terminals A, D, E",
+    "note": "DFW's EV charging infrastructure is limited compared to some major airports. Tesla Destination Chargers at Terminal D. Check dfwairport.com/park/evchargers/ for current availability. Dallas-Fort Worth area has extensive ChargePoint, Blink, and Tesla Supercharger networks nearby."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT widely available on-site at DFW. Check terminal concierge services for options.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Dallas, Uptown, Fort Worth" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Dallas locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Dallas, Fort Worth" }
+    ]
+  },
+  "petFacilities": {
+    "total": "5 pet relief areas — one in each terminal (A, B, C, D, E)",
+    "note": "Each terminal has a designated pet relief area. Check DFW airport maps for exact locations within each terminal. Areas are maintained and accessible 24/7."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (American Airlines morning departure banks)", "11:00 AM-1:00 PM (midday departures)", "4:00-7:00 PM (evening departure banks)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Thanksgiving week is the single busiest period (DFW is America's busiest airport for Thanksgiving travel). Christmas/New Year, spring break (March), State Fair of Texas (late September-October), and major Cowboys/Rangers/Mavericks events also create significant spikes. Summer (June-August) is consistently busy.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving and Christmas travel"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot summers (June-September), mild winters, unpredictable spring weather. North Texas sits at the intersection of multiple weather systems — sometimes called 'Tornado Alley.'",
+    "commonDisruptions": "Ice storms (December-February) are the #1 disruption risk — even light ice accumulation can shut down the airport for hours or days as deicing capacity is overwhelmed. Severe thunderstorms with hail and tornadoes (March-June) cause ground stops. Extreme summer heat (100F+) can cause minor delays and affect aircraft performance.",
+    "bestMonths": "October through November — pleasant temperatures, lower storm risk, past summer heat. March through May are pleasant but tornado/severe storm risk is elevated.",
+    "worstMonths": "January-February (ice storm risk), late April-June (severe thunderstorm/tornado season), July-August (extreme heat, afternoon thunderstorms)",
+    "iceStormNote": "North Texas ice storms are DFW's Achilles heel. Unlike northern airports built for winter, DFW has limited deicing infrastructure relative to its size. A major ice storm can ground 1,000+ flights and strand travelers for 2-3 days. Travel insurance strongly recommended for December-February travel. The January 2026 ice event caused widespread multi-day disruptions.",
+    "tornadoNote": "DFW sits in Tornado Alley. Severe thunderstorm watches and tornado warnings are common March through June. The airport has extensive shelter protocols. Ground stops during severe weather typically last 1-3 hours.",
+    "summerHeat": "June-September: temperatures regularly exceed 100F. Afternoon thunderstorms common. Heat can affect aircraft weight limits on shorter runways. Early morning flights are most reliable in summer.",
+    "note": "DFW's weather is the most variable of any major U.S. hub. 'If you don't like the weather, wait 15 minutes' is a local saying. Morning flights are the most reliable year-round."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near DFW. Hotels along SH-114 (Grapevine), SH-183 (Irving/Las Colinas), and SH-360 (Arlington) offer park-sleep-fly packages.",
+    "priceRange": "From ~$69/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Days Inn by Wyndham Irving Grapevine DFW Airport North",
+        "distance": "3.0 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Scheduled service",
+        "parkOnlyRate": "$5.99/day",
+        "highlight": "Budget-friendly park-sleep-fly option."
+      },
+      {
+        "name": "The Westin Dallas Fort Worth Airport",
+        "distance": "On airport property",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Only hotel on DFW airport property. Premium option — walk to Terminal A."
+      },
+      {
+        "name": "Hyatt Place DFW Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Reliable brand with 24/7 shuttle."
+      },
+      {
+        "name": "Sheraton DFW Airport Hotel",
+        "distance": "Adjacent to airport",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Full-service hotel with reliable shuttle and parking packages."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "terminalGarage": { "parkingCost": "$189 (7 x $27)", "totalEstimate": "$189" },
+      "valetParking": { "parkingCost": "$238 (7 x $34)", "totalEstimate": "$238" },
+      "expressParkingUncovered": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" },
+      "expressParkingCovered": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" },
+      "remoteParking": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" }
+    },
+    "offSiteWithShuttle": {
+      "parkingSpotNorth": { "parkingCost": "$62.65 (7 x $8.95 pre-booked)", "savingsVsGarage": "~$126 saved", "caveat": "24/7 on-demand shuttle" },
+      "ausby": { "parkingCost": "$34.65 (7 x $4.95 pre-booked)", "savingsVsGarage": "~$154 saved", "caveat": "Shuttle 10 AM-9:30 PM only. After-hours $25 extra." },
+      "daysInn": { "parkingCost": "$41.93 (7 x $5.99 pre-booked)", "savingsVsGarage": "~$147 saved", "caveat": "Verify shuttle schedule" }
+    },
+    "publicTransit": {
+      "dartOrangeLineRoundTrip": { "costPerPersonRoundTrip": "$6.00", "travelTime": "~50 min to downtown Dallas", "note": "$3.00 per ride. Cheapest option for Dallas-bound travelers." },
+      "texRailRoundTrip": { "costPerPersonRoundTrip": "$5.00", "travelTime": "~50 min to downtown Fort Worth", "note": "$2.50 per ride. Best option for Fort Worth-bound travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$70-$100 (round trip to downtown Dallas)", "note": "Cheaper than a week of terminal parking — consider skipping parking entirely for short trips." }
+    },
+    "keyDifference": "DFW offers excellent value across the board. Remote parking at $10/day is the budget on-airport pick. Express parking at $10-15/day (uncovered/covered) balances cost and convenience. Off-site lots from $4.95/day can save ~$150 vs terminal garages on a 7-day trip. For Dallas or Fort Worth bound travelers, DART ($3) and TEXRail ($2.50) are unbeatable on price — just budget 50 minutes for the trip."
+  },
+  "uniqueFeatures": {
+    "ownZipCode": "DFW Airport has its own zip code (75261) and city designation — 'DFW Airport, TX' is a recognized U.S. address with its own post office. The airport has its own police department, fire department, and power plant.",
+    "secondLargestByArea": "At 17,207 acres (26.9 square miles), DFW is the second-largest airport in the U.S. by land area. The airport is larger than the island of Manhattan (22.8 sq mi). It could fit several small cities within its boundaries.",
+    "skylinkSystem": "Skylink is one of the world's largest airport people mover systems — a bidirectional automated train connecting all five terminals airside. Trains run every 2 minutes at up to 37 mph, completing a full loop in ~13 minutes. Free for all passengers with a boarding pass.",
+    "sevenRunways": "DFW has 7 runways — more than almost any other commercial airport in the world. The parallel runway configuration allows simultaneous triple approaches, enabling the airport to handle over 2,000 flights per day.",
+    "modularTerminalF": "Terminal F is being built using revolutionary modular construction — six prefabricated megastructure modules (the largest weighing 3,320 tons, about as heavy as 12 Boeing 787-9 Dreamliners) were moved into position using self-propelled modular transporters. This method will deliver the terminal 5+ months faster than traditional construction.",
+    "americanAirlinesHub": "DFW is American Airlines' largest hub worldwide. American and its regional partners operate from Terminals A, B, C, and part of D, accounting for roughly 85% of all DFW flights. AA's headquarters is located in Fort Worth, minutes from the airport.",
+    "dallasFortWorthGateway": "DFW uniquely serves two major cities — Dallas (pop. ~1.3M) and Fort Worth (pop. ~1M) — plus the entire DFW Metroplex (pop. ~8 million), the 4th-largest metro area in the United States.",
+    "texasRanch": "The airport property includes working cattle ranches and prairie restoration areas managed as part of DFW's environmental program. Longhorn cattle have been spotted grazing on airport property.",
+    "dualRailAccess": "DFW is one of the few U.S. airports served by multiple independent rail systems: DART Orange Line (to Dallas), DART Silver Line (to Plano/north suburbs), and Trinity Metro TEXRail (to Fort Worth/Grapevine) — providing affordable transit to the entire Metroplex."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(972) 973-3112",
+    "airportWebsite": "dfwairport.com",
+    "parkingInfo": "dfwairport.com/park/",
+    "parkingPhone": "(972) 973-3112",
+    "parkingEmail": "finparkingrev@dfwairport.com",
+    "tsa": "(866) 289-9673",
+    "dartInfo": "(214) 979-1111",
+    "dartWebsite": "dart.org",
+    "trinityMetroInfo": "(817) 215-8600",
+    "trinityMetroWebsite": "ridetrinitymetro.org",
+    "airportPolice": "(972) 973-3000",
+    "customsAndBorderProtection": "(972) 574-4082"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.dfwairport.com/",
+      "parking": "https://www.dfwairport.com/park/",
+      "terminalParking": "https://www.dfwairport.com/park/terminal/",
+      "expressParking": "https://www.dfwairport.com/park/express/",
+      "remoteParking": "https://www.dfwairport.com/park/remote/",
+      "evCharging": "https://www.dfwairport.com/park/evchargers/",
+      "cellPhoneLots": "https://www.dfwairport.com/park/cellphonelots/",
+      "remoteShuttleTracker": "https://www.dfwairport.com/shuttles/remote/",
+      "groundTransportation": "https://www.dfwairport.com/explore/transportation/",
+      "publicTransit": "https://www.dfwairport.com/explore/transportation/publictransit/",
+      "rentalCars": "https://www.dfwairport.com/explore/transportation/rentalcars/",
+      "airlines": "https://www.dfwairport.com/explore/plan/airlines/",
+      "map": "https://www.dfwairport.com/map/",
+      "statsAndFigures": "https://www.dfwairport.com/business/about/stats/",
+      "factsAndFigures": "https://www.dfwairport.com/business/about/facts/",
+      "terminalFConstruction": "https://www.dfwairport.com/construction/terminal-f/",
+      "skylink": "https://www.dfwairport.com/skylinkfaqs/"
+    },
+    "transit": {
+      "dartOrangeLine": "https://www.dart.org/guide/transit-and-use/rail/dart-orange-line",
+      "dartToDFW": "https://www.dart.org/guide/transit-and-use/rail/dart-to-dfw-airport",
+      "dartSilverLine": "https://www.dart.org/guide/transit-and-use/rail/rail-line-details/dart-silver-line",
+      "texRail": "https://ridetrinitymetro.org/texrail/",
+      "trinityMetro": "https://ridetrinitymetro.org/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/dfw/",
+      "lyft": "https://www.lyft.com/rider/airports/dfw"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=DFW",
+      "airportParkingReservations": "https://airportparkingreservations.com/dfw/airport-parking",
+      "way": "https://www.way.com/dfw",
+      "spothero": "https://spothero.com/airport/dallas/dfw-parking",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/dallas/dfw",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/dallas-fort-worth-international-airport-dfw",
+      "parkingAccess": "https://parkingaccess.com/airports/dfw",
+      "parkon": "https://www.parkon.com/info/airport-parking-guide-dfw"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearDFW": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/dallas-fort-worth-dfw-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/DFW/",
+      "capitalOneLounge": "https://www.capitalone.com/credit-cards/benefits/airport-lounges/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/dfw-club.jsp"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KDFW",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/DFW",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=dfw",
+      "nwsFortWorth": "https://www.weather.gov/fwd"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugShare": "https://www.plugshare.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/dfw/airport-hotels-with-parking",
+      "parkSleepHotels": "https://www.parksleephotels.com/Park-and-Fly-Hotel-Packages-Near-Dallas-Airport-DFW.html",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/dfw"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/dallas-fort-worth-international-dfw-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Dallas_Fort_Worth_International_Airport",
+      "ifly": "https://www.ifly.com/airports/dallas-fort-worth-international-airport"
+    },
+    "newsAndMedia": {
+      "dallasMorningNews": "https://www.dallasnews.com/",
+      "fortWorthStarTelegram": "https://www.star-telegram.com/",
+      "nbcDFW": "https://www.nbcdfw.com/",
+      "fox4DFW": "https://www.fox4news.com/"
+    }
+  }
+}
