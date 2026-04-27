@@ -1,0 +1,854 @@
+{
+  "code": "EWR",
+  "fullName": "Newark Liberty International Airport",
+  "lastVerified": "2026-04-03",
+  "overview": {
+    "location": "3 Brewster Rd, Newark, NJ 07114 — straddles Newark and Elizabeth, NJ, across Essex and Union counties. 9 miles west-southwest of Manhattan, 4.5 miles south of downtown Newark.",
+    "iataCode": "EWR",
+    "icaoCode": "KEWR",
+    "faaLid": "EWR",
+    "elevation": "18 feet above mean sea level",
+    "acreage": 2027,
+    "centralTerminalArea": "425 acres",
+    "cargoArea": "290 acres",
+    "coordinates": "40.6925N, 74.1687W",
+    "passengerVolume": "49.1 million passengers in 2023 (record year). 48.9 million in 2024 (14th busiest in U.S.). Approximately 47 million in 2025.",
+    "aircraftOperations": "Approximately 460,000 annually",
+    "distinction": "First major commercial airport in the New York metropolitan area (opened 1928). Second-busiest airport in the NY metro system behind JFK, ahead of LaGuardia. Fourth-largest United Airlines hub. United Airlines accounts for approximately 68% of all traffic.",
+    "operator": "Port Authority of New York and New Jersey (leased from the cities of Newark and Elizabeth)",
+    "activeTerminals": 3,
+    "totalGates": 110,
+    "runways": 3,
+    "runwayDesignations": ["4L/22R (11,000 ft x 150 ft, asphalt/concrete)", "4R/22L (9,999 ft x 150 ft, asphalt)", "11/29 (6,725 ft x 150 ft, asphalt)"],
+    "runwayNote": "Parallel runways 4L and 4R are only 950 feet apart — the fourth-smallest separation of any major U.S. airport. Runway 4L/22R primarily used for takeoffs, 4R/22L primarily for landings. Runway 11/29 used by smaller aircraft or during strong crosswinds.",
+    "dominantAirline": "United Airlines (hub — ~68% of traffic)",
+    "totalAirlines": "50+",
+    "nonstopDestinations": "250+ domestic and international destinations",
+    "founded": "October 1, 1928 (originally Newark Metropolitan Airport, later Newark Airport, renamed Newark Liberty International Airport on September 26, 2002 in memory of 9/11 victims)",
+    "hubCarrier": "United Airlines",
+    "faaCapacityLimits": "FAA imposed temporary flight limits effective May 2025: weekdays 34 arrivals + 34 departures per hour, weekends 28 + 28 per hour (through end of 2025, may be extended).",
+    "airTrafficControlNote": "Newark airspace control transferred from New York TRACON to Philadelphia TRACON in 2024 due to persistent staffing shortages at NY TRACON."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A (New Terminal A)",
+      "status": "Active — $2.7 billion replacement terminal opened January 12, 2023. All 33 gates operational. Named world's best new airport terminal by Skytrax in 2024, 5-star Skytrax rating, and UNESCO Prix Versailles award for exterior design.",
+      "airlines": ["Air Canada", "Alaska Airlines", "American Airlines", "Delta Air Lines", "JetBlue Airways", "United Airlines"],
+      "gates": "33 gates across 3 concourses (A1, A2, A3), all served by 1 central security checkpoint — passengers can move freely between concourses without reclearing security.",
+      "notes": "Brand-new state-of-the-art terminal designed by Grimshaw Architects. Light-filled concourses, 60% more seating near gates vs old terminal. Automated boarding pass scanning at security entrance. Millimeter wave scanners and advanced baggage screening. Free WiFi with Wi-Fi 6 throughout. United Club, American Airlines Admirals Club, Delta Sky Club. New American Express Centurion Lounge opening in 2026. Future expansion planned for additional gates."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — EWR's main international terminal. 3 concourses (B1, B2, B3) with approximately 25 gates. Earmarked for full demolition and replacement via public-private partnership under the Port Authority's 2026-2035 capital plan.",
+      "airlines": ["Aer Lingus", "Air India", "Austrian Airlines", "Avianca", "British Airways", "Cathay Pacific", "Copa Airlines", "Delta Air Lines (international)", "EgyptAir", "El Al", "Emirates", "Ethiopian Airlines", "Icelandair", "JetBlue Airways", "La Compagnie", "LOT Polish Airlines", "Lufthansa", "Norse Atlantic Airways", "Porter Airlines", "Scandinavian Airlines", "Singapore Airlines", "Spirit Airlines", "Swiss International Air Lines", "TAP Air Portugal", "Turkish Airlines", "Virgin Atlantic"],
+      "gates": "Concourse B1: ~10 gates (B40-B49). Concourse B2: ~6 gates (B51-B57). Concourse B3: ~9 gates (B60-B68).",
+      "notes": "IMPORTANT: Separate security checkpoints at each concourse — passengers CANNOT move freely between B1, B2, and B3 without reclearing security. Oldest terminal at EWR. International arrivals processing. Delta Sky Club in B1 Connector. Newly redesigned outdoor dog park with grassy turf, bone-shaped rock garden, and hydrant. Terminal B is slated for full replacement; procurement expected to begin 2026-2027."
+    },
+    {
+      "name": "Terminal C (United Airlines)",
+      "status": "Active — United Airlines exclusive terminal. Approximately 60-68 gates across 3 concourses. Heavily modernized with tablet-based ordering, digital wayfinding, and premium lounge facilities.",
+      "airlines": ["United Airlines (exclusive)"],
+      "gates": "Concourse C1: Gates C70-C99. Concourse C2: Gates C101-C115. Concourse C3: Gates C120-C139.",
+      "notes": "Three security checkpoints lead into a shared central area — passengers CAN move freely between all three C concourses without reclearing security. Home to the United Polaris Lounge (27,000 sq ft, second largest Polaris Lounge). Multiple United Clubs. Extensive dining and retail. United's domestic and international operations."
+    }
+  ],
+  "roads": ["New Jersey Turnpike (I-95, Exit 14)", "Interstate 78", "US Routes 1 & 9", "Garden State Parkway (via connecting routes)", "Route 21", "Haynes Avenue", "Brewster Road"],
+  "transit": ["AirTrain Newark (monorail connecting terminals + NJ Transit rail station)", "NJ Transit Northeast Corridor Line", "NJ Transit North Jersey Coast Line", "Amtrak Northeast Regional / Keystone Service (via Newark Liberty Airport Station)", "PATH (via NJ Transit to Newark Penn Station)", "NJ Transit Bus Routes 28, 37, 62, 67, 107", "Newark Airport Express Bus (to/from NYC)"],
+  "neighborhoods": ["Newark (Ironbound, Downtown)", "Elizabeth", "Hillside", "Linden", "Rahway", "Cranford", "Union", "Irvington", "Harrison", "Jersey City", "Hoboken"],
+  "authority": "Port Authority of New York and New Jersey",
+  "airTrain": {
+    "currentSystem": "1996 monorail (being replaced by new $3.5B cable-driven system, construction started October 2025, opening 2030)",
+    "fare": "Free for inter-terminal travel and P4 parking",
+    "accessFee": 8.75,
+    "accessFeeNote": "Required only at RailLink station (for NJ Transit/Amtrak connection). Raised from $8.50 to $8.75 on March 4, 2026.",
+    "paymentMethods": ["Included in NJ Transit mobile app ticket purchase", "MetroCard", "Contactless payment"],
+    "freeStations": ["Terminal A", "Terminal B", "Terminal C", "P4 Daily Parking"],
+    "paidStation": "RailLink (connection to NJ Transit / Amtrak)",
+    "frequency": "Every 3-5 minutes during peak hours",
+    "construction2026": "IMPORTANT: Starting January 15, 2026, AirTrain service is suspended on weekdays from 5:00 AM to 3:00 PM for replacement project construction. Free shuttle buses replace AirTrain during closures, with temporary additional stop at rental car facility outside Terminal A. Additional full closures planned September 30 - October 30, 2026 and October 30, 2026 - January 15, 2027.",
+    "replacementProject": {
+      "cost": "$3.5 billion",
+      "type": "Cable-driven automated system (replacing 1996 monorail)",
+      "length": "2.5 miles",
+      "stations": 4,
+      "capacity": "50,000 daily riders",
+      "openingDate": "2030",
+      "groundbreaking": "October 7, 2025",
+      "constructionContract": "$1.2 billion for stations and elevated tracks"
+    },
+    "competitorNote": "AirTrain access fee is $8.75/person one-way from the NJ Transit rail station. A couple pays $17.50 round-trip in AirTrain fees alone — on top of NJ Transit fares. Off-site parking lots with direct terminal shuttles eliminate this cost entirely."
+  },
+  "groundTransportation": {
+    "njTransitTrain": {
+      "operator": "NJ Transit",
+      "lines": ["Northeast Corridor Line", "North Jersey Coast Line"],
+      "stationName": "Newark Liberty International Airport Station",
+      "fareToNYPenn": "$7.50-$8.75 one-way (varies by peak/off-peak)",
+      "totalWithAirTrain": "$15.25-$17.50 per person one-way (train fare + $8.75 AirTrain access fee)",
+      "travelTimeToNYPenn": "~23 minutes",
+      "frequency": "6+ trains per hour (6 AM - 9 PM weekdays), 4 trains per hour (9 PM - midnight)",
+      "connections": "Newark Penn Station (PATH, Amtrak, NJ Transit local trains and buses)",
+      "note": "AirTrain access fee ($8.75) included when purchasing ticket through NJ Transit Mobile App or ticket vending machines."
+    },
+    "amtrak": {
+      "services": ["Northeast Regional", "Keystone Service"],
+      "stationName": "Newark Liberty International Airport Station (same as NJ Transit)",
+      "fareToNYPenn": "Varies ($10-$30+), plus $8.75 AirTrain access fee",
+      "travelTimeToNYPenn": "~20 minutes",
+      "alsoAvailable": "Newark Penn Station (5-minute NJ Transit ride) connects to full Amtrak Northeast Corridor (Acela, Northeast Regional to Boston, Washington DC, Philadelphia)"
+    },
+    "path": {
+      "connection": "No direct PATH service to airport. Transfer required: Take NJ Transit from EWR Airport Station to Newark Penn Station (~5 minutes), then connect to PATH.",
+      "pathFare": "$2.75 one-way",
+      "pathDestinations": "Hoboken, Jersey City (Journal Square, Exchange Place, Grove Street), World Trade Center (Lower Manhattan), 33rd Street (Midtown)",
+      "travelTimeToWTC": "~35-45 minutes total (NJ Transit + PATH transfer)",
+      "futureStudy": "Port Authority studying direct PATH extension to airport"
+    },
+    "njTransitBus": {
+      "routes": {
+        "go28": "Bloomfield - Newark - Airport",
+        "route37": "Maplewood - Irvington - Newark - Airport",
+        "route62": "Newark Penn Station - Airport - Elizabeth (frequent service)",
+        "route67": "Brick - Lakewood - Freehold - Jersey City - Newark - Airport",
+        "route107": "Serves Terminal A and airport area"
+      },
+      "fare": "$1.60-$5.00 depending on zone",
+      "note": "Buses stop at all three terminals. Route 62 most frequent for local connections."
+    },
+    "expressBus": {
+      "name": "Newark Airport Express (formerly CoachUSA / GO Airlink)",
+      "route": "EWR to/from Grand Central Terminal, Bryant Park, Port Authority Bus Terminal (NYC)",
+      "fare": "~$18-$20 one-way",
+      "hours": "Daily 5:00 AM - 1:00 AM",
+      "frequency": "Every 15-30 minutes",
+      "travelTime": "40-60 minutes depending on traffic"
+    },
+    "taxi": {
+      "fareType": "METERED (no flat rate to Manhattan)",
+      "estimatedFares": {
+        "toDowntownNewark": "$18-$30",
+        "toMidtownManhattan": "$80-$120 (metered + tolls + tip)",
+        "toLowerManhattan": "$70-$100 (metered + tolls + tip)",
+        "toJerseyCity": "$30-$50",
+        "toBrooklyn": "$90-$130"
+      },
+      "tolls": "NJ Turnpike and tunnel/bridge tolls added on top of fare",
+      "note": "Unlike JFK, there is NO flat rate from EWR to Manhattan. Fares are fully metered. Surcharges may apply during peak hours."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocations": {
+        "terminalA": "Arrivals level (lower level), Ride App Pick Up Zones 9 & 10",
+        "terminalB": "Standard pickup area at arrivals level",
+        "terminalC": "Standard pickup area at arrivals level"
+      },
+      "dropOff": "Departures level (upper level) at all terminals",
+      "estimatedFares": {
+        "uberXToMidtownManhattan": "$55-$90 (no surge)",
+        "uberXToLowerManhattan": "$45-$75 (no surge)",
+        "uberXToJerseyCity": "$25-$45",
+        "uberXToDowntownNewark": "$15-$25",
+        "surgeRange": "$100-$180 (peak hours)"
+      },
+      "surgeFrequency": "Common during rush hours, holidays, and bad weather",
+      "notes": "No flat rate from EWR. Upfront pricing shown in app. Can be cheaper than taxi during off-peak but highly unpredictable during rush hours."
+    },
+    "rentalCars": {
+      "location": "Consolidated Rental Car Center in P3 Parking Garage, accessible via free AirTrain",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "SIXT", "Thrifty", "Zipcar"],
+      "offSiteCompanies": ["Ace Rent a Car (shuttle)", "Dollar (some locations via shuttle)", "Sixt (some locations via shuttle)"],
+      "totalCompanies": "22+ rental car companies",
+      "avgDailyRate": "From $29/day for economy vehicles (off-peak). Average ~$55-$65/day.",
+      "airTrainNote": "Free AirTrain ride to P3 station. During AirTrain construction closures (2026), free shuttle buses serve as replacement."
+    },
+    "helicopter": {
+      "provider": "BLADE",
+      "route": "EWR to Manhattan heliports",
+      "flightTime": "5-7 minutes",
+      "costPerSeat": "$195+",
+      "note": "By-the-seat helicopter service. Book at blade.com."
+    }
+  },
+  "parkingRates": "On-airport: P1 (Terminal A) $65/day, P2 (Terminal B) $70/day, P3 (Terminal C) $70/day, P4 Daily Garage $60/day, P6 Economy Lot $35/day drive-up ($21 pre-booked). Cell Phone Lot: Free. Off-site: from ~$6.95/day (Apex, pre-booked). Pre-booking recommended — saves 28-36% vs drive-up rates.",
+  "onAirportParking": {
+    "p1ShortTerm": {
+      "terminal": "Terminal A",
+      "rate": "$5.25 per 30 minutes. After 3 hours: $10.50 per 30 minutes.",
+      "dailyMax": 65,
+      "type": "Short-term garage, direct terminal connection",
+      "heightClearance": "Standard garage clearance (~7 ft)",
+      "notes": "Attached to Terminal A. Most convenient for short stays and pickups. Expensive for long-term parking."
+    },
+    "p2ShortTerm": {
+      "terminal": "Terminal B",
+      "rate": "$5.25 per 30 minutes. After 3 hours: $10.50 per 30 minutes.",
+      "dailyMax": 70,
+      "type": "Short-term garage, direct terminal connection",
+      "notes": "Attached to Terminal B."
+    },
+    "p3ShortTerm": {
+      "terminal": "Terminal C",
+      "rate": "$5.25 per 30 minutes. After 3 hours: $10.50 per 30 minutes.",
+      "dailyMax": 70,
+      "type": "Short-term garage, direct terminal connection",
+      "notes": "Attached to Terminal C. Also houses consolidated Rental Car Center."
+    },
+    "p4DailyParking": {
+      "rate": "$4.25 per 30 minutes. After 3 hours: $8.50 per 30 minutes.",
+      "dailyMax": 60,
+      "preBookRate": "~$38/day (saves ~36%)",
+      "connection": "Free AirTrain to all terminals. Transit times: ~7 min to Terminal C, ~11 min to Terminal B, ~20 min to Terminal A.",
+      "heightClearance": "11 ft 6 in",
+      "evCharging": "13 ChargePoint Level 2 stations on ground level, free electricity",
+      "notes": "Best on-airport option for multi-day stays. Pre-booking strongly recommended. AirTrain closures in 2026 may require shuttle bus connection."
+    },
+    "p6EconomyLot": {
+      "rate": "$35 for first 24 hours, then $17.50 per 12-hour period",
+      "preBookRate": "$21/day (saves ~28%)",
+      "address": "112 Brewster Rd, Newark, NJ 07114",
+      "distanceFromTerminals": "3 miles from terminal area",
+      "shuttle": "Free 24/7 shuttle to all terminals, departing every 5-10 minutes",
+      "notes": "Cheapest on-airport option. Fills quickly during holidays and peak travel. Pre-book for guaranteed space and lower rate."
+    },
+    "cellPhoneLot": {
+      "address": "3 Brewster Rd, Newark, NJ 07114 (near P4 garage)",
+      "cost": "Free",
+      "capacity": "100+ spaces",
+      "hours": "7:00 AM - 1:00 AM daily",
+      "rules": "Driver must remain with vehicle. For pickup of arriving passengers only. Wait until your passenger has collected bags and is curbside.",
+      "evCharging": "ZAPP EV fast charging hub located at cell phone lot — available for airport users and for-hire vehicle drivers. Capacity doubled in September 2025."
+    },
+    "preBookingUrl": "https://www.newarkairport.com/to-from-airport/parking",
+    "parkingInquiries": "Call the Port Authority parking customer service line",
+    "paymentMethods": "Credit cards, debit cards, contactless payment. Pre-booking available online."
+  },
+  "shuttleInfo": "Most off-site lots run free shuttles every 5-15 minutes, 24/7. AirTrain connects terminals and P4 (free for inter-terminal travel). P6 Economy Lot shuttle every 5-10 minutes. During 2026 AirTrain construction closures, free shuttle buses replace monorail service. Off-site lots with direct terminal shuttles eliminate the $8.75/person AirTrain access fee required for NJ Transit rail connections.",
+  "parkingLots": [
+    {
+      "name": "E-Z Way Parking (EWR)",
+      "slug": "ez-way-parking-ewr",
+      "dailyRate": 15.00,
+      "reservationRate": 10.99,
+      "parkingType": "Valet (outdoor, uncovered)",
+      "amenities": ["Free Shuttle 24/7", "Valet", "24/7 Security", "Fenced Lot", "Luggage Assistance", "Video Surveillance"],
+      "shuttleInfo": "Free 24/7 shuttle to all terminals, 5-10 minute ride without traffic. Five shuttle vans in fleet.",
+      "overview": "Closest off-site parking lot to Newark Airport entrance. 24/7 valet service with luggage assistance. Fenced, lit, and monitored with video surveillance. One-time $6.00 airport access/service fee (plus tax) on top of daily rate. Silent Passenger fleet tracking for real-time shuttle info. 2-hour free extension if running late.",
+      "phone": "1-877-762-9095 (customer service), 1-908-994-1999 (shuttle dispatch)",
+      "address": "1140 Spring St, Elizabeth, NJ 07201",
+      "website": "ezwayparking.com",
+      "distanceFromAirport": "0.5 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["25PARK (friends & family discount — $17/day rate)", "FLYEWR10 ($10 off reservation)", "Check ezwayparking.com/promo-codes for seasonal codes"],
+      "notes": "Closest lot to EWR entrance. $6 one-time service fee added. Valet only — must leave keys. Promo code 25PARK is widely used."
+    },
+    {
+      "name": "ABC Airport Parking (EWR)",
+      "slug": "abc-airport-parking-ewr",
+      "dailyRate": 12.00,
+      "reservationRate": 8.99,
+      "parkingType": "Valet (outdoor)",
+      "amenities": ["Free Shuttle Every 10 Min", "24/7 Security", "Fenced Lot", "Lighting", "Luggage Assistance"],
+      "shuttleInfo": "Free shuttle every 10 minutes to all terminals (A, B, C). 24/7 operation.",
+      "overview": "Budget-friendly off-airport valet parking less than 2 miles from EWR. Well-lit, fenced lot with 24-hour security. $6.00 one-time service fee (plus tax). Shuttle directly to all terminals.",
+      "phone": "908-354-3444",
+      "address": "901 North Avenue East, Elizabeth, NJ 07201",
+      "website": "abcairportparking.net",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Check abcairportparking.net for current 48% off coupon", "EWR319 ($5 off via AirportParkingReservations)"],
+      "notes": "Good value with frequent shuttle. $6 service fee on top of daily rate. One of the more affordable options near EWR."
+    },
+    {
+      "name": "Apex EWR Airport Parking",
+      "slug": "apex-ewr-airport-parking",
+      "dailyRate": 8.95,
+      "reservationRate": 6.95,
+      "parkingType": "Valet (outdoor, uncovered)",
+      "amenities": ["Free Shuttle 24/7", "Valet", "Security", "Luggage Assistance"],
+      "shuttleInfo": "Round-the-clock shuttle every 5-10 minutes to all EWR terminals.",
+      "overview": "One of the cheapest off-airport options near Newark. Located just 0.3 miles from the airport entrance. Valet service with 24/7 shuttle. Pre-booking recommended for lowest rates.",
+      "phone": "Check website",
+      "address": "819 Spring Street, Elizabeth, NJ 07201",
+      "website": "via booking aggregators",
+      "distanceFromAirport": "0.3 mi",
+      "driveTime": "3 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)", "Book via Way.com from $3.35/day"],
+      "notes": "Extremely close to airport. Among the lowest daily rates when pre-booked. Valet only — must leave keys."
+    },
+    {
+      "name": "Victoria Parking (EWR)",
+      "slug": "victoria-parking-ewr",
+      "dailyRate": 12.00,
+      "reservationRate": 10.00,
+      "parkingType": "Indoor and Outdoor options",
+      "amenities": ["Free Shuttle Every 10 Min", "24/7 Security", "Indoor/Outdoor Parking", "Video Surveillance"],
+      "shuttleInfo": "Free shuttle every 10 minutes, 24/7/365 to all terminals.",
+      "overview": "Offers both indoor ($12/day) and outdoor ($10/day) parking. 1.8 miles from EWR. 24/7 operation with frequent shuttle service. Fenced and monitored facility.",
+      "phone": "862-230-8946 (main), 973-796-8922 (shuttle assistance), 973-344-7864 (shuttle bus)",
+      "address": "146 Haynes Ave, Newark, NJ 07114",
+      "website": "victoriaairportparking.com",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "googleRating": "Mixed reviews on Yelp (13 reviews)",
+      "knownCoupons": ["Groupon deals available", "WEBSITE code for website discount"],
+      "notes": "One of few lots offering indoor/covered parking. Indoor rate higher than outdoor. Shuttle is frequent and reliable."
+    },
+    {
+      "name": "Newark Airport Long Term Parking (NALTP)",
+      "slug": "newark-airport-long-term-parking-naltp",
+      "dailyRate": 18.00,
+      "reservationRate": 14.00,
+      "parkingType": "Self-park and Valet options",
+      "amenities": ["Free Shuttle 24/7", "24/7 Security", "Fenced Lot", "Video Surveillance", "Luggage Assistance", "EV Charging Stations", "NALTP Club (free loyalty program)"],
+      "shuttleInfo": "Free 24/7 shuttle, 2-3 minute ride to terminals.",
+      "overview": "Established off-airport parking facility minutes from EWR. Fenced, patrolled, and under video surveillance. EV charging stations available. NALTP Club is free to join with no annual fee. Not the cheapest, but known for customer service. Accessible via NJ Turnpike Exit 14.",
+      "phone": "1-973-466-9100",
+      "address": "NJ Turnpike Exit 14 area (see website for exact address)",
+      "website": "newarklongtermparking.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Check newarklongtermparking.com/resources/ for seasonal coupons", "NALTP Club members get exclusive deals"],
+      "notes": "Higher priced than competitors but emphasizes service quality. EV charging available. Dynamic pricing — rates vary by season and occupancy."
+    },
+    {
+      "name": "Hilton Newark Airport Parking",
+      "slug": "hilton-newark-airport-parking-ewr",
+      "dailyRate": 10.49,
+      "reservationRate": 9.99,
+      "parkingType": "Self-park (outdoor, uncovered)",
+      "amenities": ["Free Shuttle Every 15 Min", "Hotel Amenities", "24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "Free shuttle every 15 minutes, rides under 10 minutes to terminal.",
+      "overview": "Hotel parking lot at the Hilton Newark Airport. No hotel stay required. Located 1 mile from terminals. Self-park in uncovered lot with hotel security.",
+      "phone": "908-351-3900",
+      "address": "1170 Spring St, Elizabeth, NJ 07201",
+      "website": "via parkon.com or airportparkingreservations.com",
+      "distanceFromAirport": "1 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)"],
+      "notes": "Hotel lot — convenient if combining with Park-Sleep-Fly package. Self-park (keep your keys). Shuttle every 15 min."
+    },
+    {
+      "name": "Courtyard by Marriott Newark Airport Parking",
+      "slug": "courtyard-marriott-newark-airport-parking",
+      "dailyRate": 10.99,
+      "reservationRate": 8.99,
+      "parkingType": "Self-park (outdoor, uncovered)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "24/7 Front Desk"],
+      "shuttleInfo": "Free shuttle to EWR terminals.",
+      "overview": "Budget-friendly hotel parking near EWR. No hotel stay required. One of the more affordable options. Self-park lot with hotel amenities accessible.",
+      "phone": "Check booking platform",
+      "address": "Elizabeth, NJ (near airport)",
+      "website": "via booking aggregators",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via cheapairportparking.org from $8.99/day"],
+      "notes": "Among cheapest hotel-based parking options. Good for budget travelers who want a reliable lot."
+    },
+    {
+      "name": "The Parking Point (EWR)",
+      "slug": "the-parking-point-ewr",
+      "dailyRate": 9.95,
+      "reservationRate": 5.95,
+      "parkingType": "Valet (outdoor)",
+      "amenities": ["Free Shuttle 24/7", "Valet", "24/7 Security", "Digital Surveillance", "Silent Passenger Shuttle Tracking"],
+      "shuttleInfo": "Free 24/7 shuttle every 15 minutes. Real-time tracking via Silent Passenger system.",
+      "overview": "Located approximately 2 miles from EWR. Secure, fenced lot with digital surveillance. Vehicles never leave the fenced area without signed permission. 2-hour free extension available.",
+      "phone": "Check airportparkingpoint.com",
+      "address": "964-978 Frelinghuysen Avenue, Newark, NJ 07114",
+      "website": "airportparkingpoint.com",
+      "distanceFromAirport": "2 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Pre-book online from $5.95/day — significant savings vs walk-up"],
+      "notes": "Excellent pre-book savings ($5.95 vs $9.95 walk-up). Real-time shuttle tracking is a plus. Valet only — must leave keys."
+    }
+  ],
+  "couponCodes": {
+    "general": [
+      { "code": "EWR319", "discount": "$5 off", "source": "AirportParkingReservations.com", "verified": true },
+      { "code": "FLYEWR10", "discount": "$10 off", "source": "newark-airportparking.com", "verified": true },
+      { "code": "25PARK", "discount": "Friends & family rate ($17/day at EZ Way)", "source": "EZ Way Parking", "verified": true },
+      { "code": "WEBSITE", "discount": "Website discount", "source": "Vista Parking / Victoria Parking", "verified": true },
+      { "code": "EWR5", "discount": "5% off", "source": "Rightway Parking", "verified": true }
+    ],
+    "tips": [
+      "Pre-book online to save 28-36% vs drive-up rates at official lots",
+      "Off-site lots start as low as $3.35/day via Way.com or $5.95/day via The Parking Point",
+      "Check Groupon for bundled deals on Victoria Parking and other EWR lots",
+      "Book through aggregators like Triply, Way.com, SpotHero, or ParkWhiz to compare rates",
+      "Prices are dynamic — booking further in advance generally locks in lower rates",
+      "NALTP Club (free) offers exclusive member discounts at Newark Airport Long Term Parking",
+      "AAA members may get additional discounts at participating lots"
+    ]
+  },
+  "evCharging": {
+    "p4Garage": {
+      "chargers": 13,
+      "type": "ChargePoint Level 2 stations",
+      "location": "Ground level, immediately at entrance",
+      "cost": "Free electricity included with parking"
+    },
+    "cellPhoneLot": {
+      "provider": "ZAPP",
+      "type": "DC fast chargers",
+      "location": "Cell phone lot off Brewster Road, adjacent to P4",
+      "note": "Capacity doubled in September 2025. Available to airport users and for-hire vehicle drivers."
+    },
+    "offSiteLots": "NALTP offers EV charging stations. Most other off-site lots do not advertise EV charging. EV drivers should charge before parking or use NALTP/P4.",
+    "recommendation": "P4 garage offers free EV charging but fills up. Arrive early for a charging spot."
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal A", "Terminal B", "Terminal C"],
+      "enrollmentHours": "4:30 AM - 8:00 PM",
+      "avgWaitTime": "5-8 minutes during morning peak (vs 35-50 minutes standard)"
+    },
+    "clear": {
+      "terminals": ["Terminal A", "Terminal B", "Terminal C"],
+      "operatingHours": {
+        "terminalA": "Sun-Fri 4:30 AM - 8:00 PM, Sat 4:30 AM - 7:00 PM",
+        "terminalB": "Sun-Fri 4:30 AM - 8:00 PM, Sat 4:30 AM - 7:00 PM",
+        "terminalC": "4:00 AM - 10:00 PM daily"
+      },
+      "note": "CLEAR+ uses biometrics to skip ID check and go directly to TSA physical screening."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-9:00 AM, 3:00-7:00 PM",
+      "peakWait": "45-60 minutes, occasionally 90+ minutes during holiday rushes",
+      "shortestWait": "12 AM - 3 AM, 11 AM - 2 PM",
+      "tips": "Terminal A has a single centralized checkpoint for all 3 concourses. Terminal B has separate checkpoints per concourse — check your gate BEFORE entering security."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "duringAirTrainConstruction": "Add 15-30 extra minutes due to shuttle bus replacements for AirTrain service"
+    }
+  },
+  "lounges": {
+    "terminalA": [
+      {
+        "name": "United Club",
+        "location": "Terminal A",
+        "access": "United Club membership, Star Alliance Gold, United Polaris/Business on United or Star Alliance."
+      },
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal A",
+        "access": "Admirals Club membership, Citi AAdvantage Executive Card, oneworld Emerald/Sapphire on AA."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal A",
+        "access": "Delta Sky Club membership, Delta Reserve Amex, Delta One, SkyTeam Elite Plus."
+      },
+      {
+        "name": "American Express Centurion Lounge (opening 2026)",
+        "location": "Terminal A",
+        "access": "Amex Platinum, Centurion, Delta Reserve. Opening 2026.",
+        "note": "Brand new lounge coming to the newest terminal."
+      }
+    ],
+    "terminalB": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal B, B1 Connector",
+        "access": "Delta Sky Club membership, Delta Reserve Amex, Delta One, SkyTeam Elite Plus."
+      },
+      {
+        "name": "Art & Lounge",
+        "location": "Terminal B, pre-security",
+        "access": "Priority Pass accepted. Day pass available.",
+        "note": "Pre-security location — accessible without a boarding pass."
+      },
+      {
+        "name": "Be Relax Spa",
+        "location": "Terminal B",
+        "access": "Priority Pass accepted (select complimentary treatments)."
+      }
+    ],
+    "terminalC": [
+      {
+        "name": "United Polaris Lounge",
+        "location": "Between gates C102 and C120",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "size": "27,000 sq ft (second largest Polaris Lounge)",
+        "access": "ONLY for passengers flying United Polaris business class or first/business on long-haul Star Alliance partner flights. NO day passes. NO credit card access. NO United Club membership access.",
+        "amenities": "Full dining, shower suites, day beds, cocktail bar, à la carte menu."
+      },
+      {
+        "name": "United Club (multiple locations)",
+        "location": "Terminal C — multiple locations across concourses",
+        "access": "United Club membership, Star Alliance Gold, United Polaris/Business, United Club Infinite Card."
+      }
+    ],
+    "priorityPassTip": "Priority Pass options are limited at EWR. Art & Lounge (Terminal B, pre-security) and Be Relax Spa (Terminal B) accept Priority Pass. No Priority Pass lounges in Terminal A or C."
+  },
+  "wifi": {
+    "networkName": "_FreeEWRWiFi",
+    "cost": "Free — no registration, no time limit",
+    "avgSpeed": "20-50 Mbps download (up to 50 Mbps in normal conditions)",
+    "terminalASpeed": "Wi-Fi 6 in Terminal A — faster and more reliable than older terminals",
+    "peakCongestionSpeed": "Speeds may drop significantly during peak travel times",
+    "coverage": "All terminals and public areas",
+    "loginProcess": "Select _FreeEWRWiFi network, login portal appears automatically",
+    "note": "Terminal A has the newest WiFi infrastructure (Wi-Fi 6). Terminals B and C use older systems."
+  },
+  "luggageStorage": {
+    "onSite": "No luggage storage lockers at Newark Airport (removed for security). No staffed storage counters inside terminals.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $3.25/day per bag", "coverage": "$10,000 protection per booking" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily rates" },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "coverage": "$3,000 guarantee" },
+      { "provider": "Nannybag", "rate": "From $2.50/day", "locations": "Newark area partner shops and hotels" },
+      { "provider": "Stasher", "rate": "From $2.99/day", "coverage": "$1,300 guarantee" }
+    ],
+    "note": "All off-site services connect travelers with local shops and hotels for secure bag storage near the airport."
+  },
+  "petFacilities": {
+    "totalReliefAreas": 9,
+    "indoor": [
+      "Terminal A — Central Terminal Area (TSA re-composure area), post-security",
+      "Terminal B — B3 Satellite (near Gates 65-66), post-security",
+      "Terminal B — B1 Connector (next to Delta Sky Club), post-security",
+      "Terminal C — near Gate 131, post-security"
+    ],
+    "outdoor": [
+      "Terminal A — Level 1 Arrivals North Courtyard (North Side), pre-security",
+      "Terminal B — Outside Courtyard (across from Building 125), pre-security",
+      "Terminal B — Immigration Hall South Side, pre-security",
+      "Terminal C — Level 2, C1 Courtyard, pre-security"
+    ],
+    "dogPark": "Terminal B features a newly redesigned outdoor dog park with grassy turf, a bone-shaped rock garden, and a fire hydrant.",
+    "features": "Signs with international pet relief symbol designate all areas."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-9:00 AM (morning rush)", "3:00-7:00 PM (evening peak)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "busiestHolidays": ["Thanksgiving", "Christmas", "Memorial Day", "Labor Day", "July 4th", "Spring Break"],
+    "bestTimeToFly": "Early morning (6-7 AM) or midday (11 AM - 2 PM) for shortest security waits and best on-time performance",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "duringAirTrainConstruction": "Add 15-30 extra minutes for shuttle bus connections",
+      "holidays": "Add 30-60 extra minutes"
+    }
+  },
+  "weatherPatterns": {
+    "onTimeRate": "~84% of flights arriving within 14 minutes of schedule (mid-2025, best in NYC area). Performance varies significantly by season.",
+    "historicalReputation": "Historically one of the worst airports in the U.S. for delays. Significant improvement in mid-2025 after runway repairs and FAA capacity limits.",
+    "climate": "Humid subtropical/continental. Hot summers, cold winters. All four seasons impact operations.",
+    "commonDisruptions": "Winter nor'easters and snowstorms, summer afternoon thunderstorms, fog, wind shear",
+    "winterImpact": "Major storms can cancel hundreds of flights. Snow and ice require extensive deicing operations. Port Authority has invested in rapid-deicing technologies and expanded snow-removal fleets.",
+    "summerStorms": "Afternoon thunderstorms June-August cause 1-3 hour delays. Ground stops frequently imposed.",
+    "fogImpact": "Morning fog, especially spring and fall, can reduce runway capacity significantly.",
+    "cascadingEffect": "EWR disruptions cascade across the national network — Newark is a major United hub feeding connections nationwide.",
+    "bestMonths": "September-October and April-May typically see fewest weather disruptions",
+    "worstMonths": "January, February, December (winter storms), July-August (thunderstorms)",
+    "runwayClosureHistory": "Runway 4L-22R closed April 15 - June 2, 2025 for $121M renovation. Reopened 13 days early. Caused significant delays during closure period.",
+    "faaCapReduction": "FAA temporary flight caps (2025) reduced hourly operations, which paradoxically improved on-time performance by reducing congestion."
+  },
+  "construction2026": {
+    "status": "Major multi-billion-dollar redevelopment in progress across multiple projects.",
+    "projects": [
+      "AirTrain Newark Replacement ($3.5B) — New cable-driven system replacing 1996 monorail. Ground broken October 2025. 2.5-mile system with 4 stations. Opening 2030. Weekday service suspensions throughout 2026 with shuttle bus replacements.",
+      "Terminal A — COMPLETE (2023). $2.7B new terminal, 33 gates. Future expansion for additional gates planned.",
+      "Terminal B Replacement — Port Authority's 2026-2035 capital plan calls for full demolition and rebuild via public-private partnership. Procurement expected to begin 2026-2027. No construction start date announced.",
+      "Runway 4L-22R Renovation ($121M) — COMPLETE (June 2, 2025). Reopened 13 days ahead of schedule.",
+      "Third Major Taxiway — Proposed in capital plan to reduce flight delays.",
+      "New Simplified Roadway Network — Proposed in capital plan.",
+      "Community Access Point to Airport Train Station — Construction set for completion in 2026, improving mass transit access for underserved areas of Newark and Elizabeth.",
+      "Newark Penn Station to EWR — Study phase for potential PATH extension to the airport."
+    ],
+    "travelImpact": "AirTrain weekday suspensions (5 AM - 3 PM) are the primary traveler impact in 2026. Free shuttle buses run during closures. Allow extra time for connections. Terminal B travelers should be aware of future demolition timeline.",
+    "airTrainClosures2026": {
+      "closure1": "January 15 - September 29, 2026: Weekdays 5 AM - 3 PM",
+      "closure2": "September 30 - October 30, 2026: Full closure",
+      "closure3": "October 30, 2026 - January 15, 2027: To be confirmed",
+      "mitigation": "Free shuttle buses with stops at all terminals + rental car facility + P4 + RailLink station"
+    }
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near EWR — stay the night before, park free for your trip, shuttle to terminal.",
+    "priceRange": "From ~$105/night (1-night stay + up to 7-14 days parking + shuttle)",
+    "popularHotels": [
+      {
+        "name": "Newark Liberty International Airport Marriott",
+        "distance": "On airport grounds",
+        "shuttle": "Free shuttle to all terminals",
+        "parkingPackage": "7-night park & fly package available. Additional parking $38/night after 7 days.",
+        "highlight": "Only hotel directly on airport property."
+      },
+      {
+        "name": "Wyndham Garden Hotel - Newark Airport",
+        "distance": "1 mile",
+        "shuttle": "Free shuttle",
+        "priceFrom": "$149/night",
+        "highlight": "Pool, gym, high-speed internet."
+      },
+      {
+        "name": "SpringHill Suites Newark Liberty International Airport",
+        "shuttle": "Free shuttle",
+        "highlight": "Suites with microwave, wet bar, mini fridge. Free internet."
+      },
+      {
+        "name": "Hilton Newark Airport",
+        "distance": "1 mile",
+        "shuttle": "Free shuttle every 15 min",
+        "parkOnlyRate": "$9.99-$10.49/day",
+        "highlight": "Also offers parking-only (no hotel stay required)."
+      },
+      {
+        "name": "Hampton Inn Newark Airport",
+        "shuttle": "Free shuttle",
+        "highlight": "Free hot breakfast included."
+      },
+      {
+        "name": "The Kenilworth Hotel - Airport West",
+        "distance": "6 miles",
+        "rating": "4.5/5 (310 reviews)",
+        "shuttle": "Free shuttle",
+        "highlight": "Park, Sleep & Fly package with up to 14 days parking."
+      },
+      {
+        "name": "Fairfield Inn Newark Airport",
+        "shuttle": "Free shuttle",
+        "priceFrom": "$185/night",
+        "highlight": "Standard airport hotel with reliable service."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "keyDistances": {
+    "toMidtownManhattan": "16 miles, 30-60 min by car (highly variable), ~23 min by NJ Transit train + AirTrain",
+    "toLowerManhattan": "13 miles, 25-50 min by car, ~35-45 min via NJ Transit + PATH",
+    "toDowntownNewark": "4.5 miles, 10-15 min by car, $15-25 rideshare",
+    "toJerseyCity": "10 miles, 15-30 min by car, $25-45 rideshare",
+    "toHoboken": "12 miles, 20-35 min by car",
+    "toBrooklyn": "20 miles, 40-75 min by car, $90-$130 rideshare",
+    "toPrinceton": "40 miles, 50-70 min by car",
+    "toPhiladelphia": "85 miles, 90-120 min by car",
+    "toTrenton": "55 miles, 60-80 min by car",
+    "toStamford": "55 miles, 60-90 min by car",
+    "toNewBrunswick": "30 miles, 35-50 min by car",
+    "competitiveAdvantage": "EWR is significantly closer to Manhattan than JFK (16 mi vs 16 mi but faster via NJ Transit train at 23 min vs 60-90 min AirTrain+subway). However, the $8.75 AirTrain access fee + NJ Transit fare totals $15-17/person one-way. Off-site lots with direct terminal shuttles eliminate transit costs entirely."
+  },
+  "tolls": {
+    "fromManhattan": {
+      "linconTunnel": "E-ZPass: $10.50 off-peak / $13.75 peak; Cash: $16.00",
+      "hollandTunnel": "E-ZPass: $10.50 off-peak / $13.75 peak; Cash: $16.00",
+      "gwBridge": "E-ZPass: $10.50 off-peak / $13.75 peak; Cash: $16.00",
+      "note": "Tolls collected westbound (NJ to NY) only on bridges/tunnels. Eastbound (NY to NJ) is toll-free. NJ Turnpike tolls additional."
+    },
+    "njTurnpike": "Varies by entry/exit. Approximately $1.50-$4.60 E-ZPass within the EWR area.",
+    "taxiTollsNote": "All tolls charged on top of metered fare when taking a taxi."
+  },
+  "savingsComparison": {
+    "scenario": "6-day trip for 2 travelers",
+    "onAirport": {
+      "p1ShortTerm": {
+        "parkingCost": "$390 (6 x $65)",
+        "airTrainCost": 0,
+        "totalEstimate": "$390"
+      },
+      "p4DailyPreBooked": {
+        "parkingCost": "~$228 (6 x $38 pre-booked)",
+        "airTrainCost": 0,
+        "airTrainNote": "Free AirTrain from P4 to terminals",
+        "totalEstimate": "~$228"
+      },
+      "p6EconomyPreBooked": {
+        "parkingCost": "~$126 (6 x $21 pre-booked)",
+        "airTrainCost": 0,
+        "airTrainNote": "Free shuttle from P6",
+        "totalEstimate": "~$126"
+      }
+    },
+    "offSiteWithShuttle": {
+      "apexPreBooked": {
+        "parkingCost": "~$42 (6 x $6.95)",
+        "airTrainCost": 0,
+        "airTrainNote": "Direct shuttle to terminal — no AirTrain needed",
+        "totalEstimate": "~$42",
+        "savingsVsP6": "~$84 saved vs Economy Lot"
+      },
+      "parkingPointPreBooked": {
+        "parkingCost": "~$36 (6 x $5.95)",
+        "airTrainCost": 0,
+        "totalEstimate": "~$36",
+        "savingsVsP6": "~$90 saved vs Economy Lot"
+      },
+      "abcParkingPreBooked": {
+        "parkingCost": "~$54 (6 x $8.99)",
+        "airTrainCost": 0,
+        "totalEstimate": "~$54",
+        "savingsVsP6": "~$72 saved vs Economy Lot"
+      }
+    },
+    "publicTransit": {
+      "njTransitPlusAirTrain": {
+        "costPerPersonOneWay": 15.25,
+        "costPerPersonRoundTrip": 30.50,
+        "costForCoupleRoundTrip": 61.00,
+        "travelTime": "23 minutes train + AirTrain each way"
+      },
+      "expressBusRoundTrip": {
+        "costPerPersonRoundTrip": "~$36-$40",
+        "costForCoupleRoundTrip": "~$72-$80",
+        "travelTime": "40-60 minutes each way"
+      }
+    },
+    "keyDifference": "Off-site parking at EWR offers dramatic savings. Pre-booked rates from $3.35-$6.95/day vs $21-$65/day on-airport. Direct shuttles eliminate the $8.75/person AirTrain fee that NJ Transit riders pay. For a couple on a 6-day trip, off-site parking ($36-$54) beats NJ Transit round-trip ($61) AND saves the hassle of luggage on trains."
+  },
+  "interTerminalTransfers": {
+    "method": "AirTrain (free for inter-terminal travel) — during 2026 construction closures, free shuttle buses",
+    "frequency": "Every 3-5 minutes (AirTrain peak hours)",
+    "terminalBNote": "Terminal B has separate security at each concourse (B1, B2, B3). If transferring between concourses within Terminal B, you MUST reclear security.",
+    "terminalANote": "Terminal A has a single central checkpoint — all 3 concourses accessible without reclearing.",
+    "terminalCNote": "Terminal C has shared post-security area across all 3 concourses.",
+    "criticalNote": "International arrivals must clear Customs, collect checked bags, and re-check them for connecting flights. You must exit security and reclear at your departure terminal.",
+    "during2026Construction": "AirTrain suspended weekdays 5 AM - 3 PM throughout much of 2026. Free shuttle buses connect all terminals, P4, and RailLink station. Allow extra time."
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app tipping, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "emergencyContacts": {
+    "airportInfo": "(973) 961-6000",
+    "portAuthorityPolice": "911 or (973) 578-5700",
+    "parkingCustomerService": "See newarkairport.com/to-from-airport/parking",
+    "tsa": "(866) 289-9673",
+    "customsBorderProtection": "Contact via terminal CBP offices",
+    "lostAndFound": "Contact individual terminal or airline"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-03.",
+    "officialAirport": {
+      "home": "https://www.newarkairport.com/",
+      "parking": "https://www.newarkairport.com/to-from-airport/parking",
+      "airTrain": "https://www.newarkairport.com/to-from-airport/air-train",
+      "airlines": "https://www.newarkairport.com/at-airport/airlines",
+      "publicTransportation": "https://www.newarkairport.com/to-from-airport/public-transportation",
+      "pickupDropoff": "https://www.newarkairport.com/to-from-airport/pickup-and-dropoff",
+      "airportMaps": "https://www.newarkairport.com/at-airport/airport-maps",
+      "wifiInstructions": "https://www.newarkairport.com/at-airport/wifi-instructions",
+      "constructionAdvisory": "https://www.newarkairport.com/announcements/construction-advisory",
+      "newTerminalA": "https://www.newarkairport.com/static/EWR/announcements/pages/new-terminal-a-travel-tips.html"
+    },
+    "portAuthority": {
+      "ewrRedevelopment": "https://www.portauthoritybuilds.com/redevelopment/us/en/ewr.html",
+      "terminalA": "https://www.portauthoritybuilds.com/redevelopment/us/en/ewr/projects/terminal-a.html",
+      "airTrainReplacement": "https://www.portauthoritybuilds.com/redevelopment/us/en/ewr/projects/AirTrain.html",
+      "statistics": "https://www.panynj.gov/airports/en/statistics-general-info.html",
+      "airTrainGroundbreaking2025": "https://www.panynj.gov/port-authority/en/press-room/press-release-archives/2026-press-releases/port-authority-advances--3-5-billion-airtrain-newark-replacement.html",
+      "evChargingZapp": "https://www.panynj.gov/port-authority/en/press-room/press-release-archives/2025-press-releases/port-authority-of-new-york-and-new-jersey-and-zapp-unveil-new-electric-vehicle-fast-charging-station-at-newark-liberty.html",
+      "capitalPlan2026": "https://www.panynj.gov/port-authority/en/press-room/press-release-archives/2025-press-releases/port-authority-board-of-commissioners-approves-record--45-billio.html"
+    },
+    "transit": {
+      "njTransitEWR": "https://www.njtransit.com/destinations/newark-liberty-international-airport",
+      "njTransitSchedules": "https://www.njtransit.com/schedules-and-fares/",
+      "njTransitAirTrainAdvisory": "https://www.njtransit.com/station-advisory/2034972",
+      "mtaAirportGuide": "https://www.mta.info/guides/airports/newark-ewr",
+      "pathTrain": "https://www.panynj.gov/path/en/index.html",
+      "amtrakNewark": "https://www.amtrak.com/stations/nwk"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/ewr/",
+      "uberPickup": "https://www.uber.com/global/en/r/airports/ewr/pickup/",
+      "lyft": "https://www.lyft.com/rider/airports/EWR"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=EWR",
+      "airportParkingReservations": "https://airportparkingreservations.com/ewr/airport-parking",
+      "airportParkingCoupons": "https://airportparkingreservations.com/ewr/parking-coupons",
+      "way": "https://www.way.com/ewr",
+      "spothero": "https://spothero.com/airport/newark/ewr-parking",
+      "parkon": "https://www.parkon.com/info/airport-parking-guide-ewr",
+      "cheapairportparking": "https://www.cheapairportparking.org/ewr",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/newark-liberty-international-airport-ewr",
+      "newarkAirportParking": "https://newark-airportparking.com/",
+      "ezwayParking": "https://ezwayparking.com/",
+      "abcAirportParking": "https://www.abcairportparking.net/",
+      "victoriaParking": "https://www.victoriaairportparking.com/",
+      "naltp": "https://www.newarklongtermparking.com/",
+      "parkingPoint": "https://airportparkingpoint.com/",
+      "onAirParking": "https://www.onairparking.com/parking-coupons/EWR",
+      "simplyCodes": "https://simplycodes.com/store/newarkairport.com"
+    },
+    "couponAggregators": {
+      "simplyCodes": "https://simplycodes.com/store/newarkairport.com",
+      "vistaParking": "https://vistaparking.com/free-promo-code-coupons/",
+      "greenPromoCode": "https://www.greenpromocode.com/coupons/newark-parking/",
+      "onAirParking": "https://www.onairparking.com/parking-coupons/EWR",
+      "knoji": "https://newarkparking.knoji.com/promo-codes/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/EWR/Newark-International",
+      "clearEWR": "https://www.clearme.com/all-locations/newark-liberty-international-airport",
+      "tsaPreCheckSchedule": "https://www.tsa.gov/precheck/schedule"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/newark-liberty-ewr-airport-lounges/",
+      "nerdwallet": "https://www.nerdwallet.com/travel/learn/newark-airport-lounges",
+      "unitedPolarisGuide": "https://onemileatatime.com/guides/united-polaris-lounges/"
+    },
+    "weatherAndDelays": {
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/EWR",
+      "accuweather": "https://www.accuweather.com/en/us/newark-liberty-international-airport/07114/air-travel-weather/7761_poi",
+      "faaStatus": "https://www.fly.faa.gov/fly/flyfaa/flyfaaindex?ARPT=EWR&p=1",
+      "faaStatements": "https://www.faa.gov/newsroom/faa-statements-newark-liberty-international-airport"
+    },
+    "evCharging": {
+      "plugshareP4": "https://www.plugshare.com/location/13447",
+      "chargehubP4": "https://chargehub.com/en/ev-charging-stations/united-states/new-jersey/newark/ewr-station-p-4-daily-parking-garage/electric-car-stations-near-me"
+    },
+    "luggageStorage": {
+      "bounce": "https://bounce.com/luggage-storage/new-york/newark-airport",
+      "luggageHero": "https://luggagehero.com/newyork/newark-airport/",
+      "radicalstorage": "https://radicalstorage.com/luggage-storage/new-york/newark-airport"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/ewr/airport-hotels-with-parking",
+      "parksleephotels": "https://ewr.parksleephotels.com",
+      "stayparktravel": "https://ewr.stayparktravel.com/"
+    },
+    "construction": {
+      "portAuthorityBuilds": "https://www.portauthoritybuilds.com/redevelopment/us/en/ewr.html",
+      "airTrainProject": "https://www.portauthoritybuilds.com/redevelopment/us/en/ewr/projects/AirTrain.html",
+      "runwayReopening": "https://www.npr.org/2025/06/02/nx-s1-5421234/newark-airport-closed-runway-opens-early",
+      "terminalBRebuild": "https://www.enr.com/articles/59505-more-newark-airport-redevelopment-set-with-terminal-b-rebuild-plan-unveiled",
+      "capitalPlan": "https://www.enr.com/articles/62021-port-authorityny-nj-outlines-45b-building-plan-focused-on-delivery-renewal"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/newark-liberty-airport-ewr/",
+      "ifly": "https://www.ifly.com/airports/newark-liberty-international-airport",
+      "airportGuide": "https://www.airport.guide/kewr",
+      "wikipedia": "https://en.wikipedia.org/wiki/Newark_Liberty_International_Airport",
+      "airportMapHQ": "https://airportmaphq.com/newark-airport-map-terminal.html",
+      "bladeNewarkGuide": "https://www.blade.com/newark-manhattan",
+      "naltp_guide": "https://www.newarklongtermparking.com/travel-information/ewr-airport-guide/"
+    },
+    "rentalCars": {
+      "kayak": "https://www.kayak.com/Newark-Airport-Car-Rentals.EWR.cap.ksp",
+      "enterprise": "https://www.enterprise.com/en/car-rental-locations/us/nj/newark-liberty-international-airport-24jy.html"
+    },
+    "petRelief": {
+      "petFriendlyTravel": "https://petfriendlytravel.com/pft_airports/newark-liberty-international-airport-ewr-pet-relief-areas/",
+      "dogsOnPlanes": "https://www.dogsonplanes.com/airports/ewr/pet-relief-areas/"
+    },
+    "helicopter": {
+      "blade": "https://www.blade.com/newark-manhattan"
+    }
+  }
+}

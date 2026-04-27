@@ -1,0 +1,641 @@
+{
+  "code": "FLL",
+  "fullName": "Fort Lauderdale-Hollywood International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Dania Beach, Broward County, Florida — 3 miles southwest of downtown Fort Lauderdale, 21 miles north of downtown Miami",
+    "iataCode": "FLL",
+    "icaoCode": "KFLL",
+    "faaLid": "FLL",
+    "elevation": "9 feet above mean sea level",
+    "acreage": 1380,
+    "coordinates": "26.0726N, 80.1527W",
+    "passengerVolume": "32.2 million passengers in 2025 (35.2 million in 2024)",
+    "aircraftOperations": "271,000+ annually (2025)",
+    "distinction": "South Florida's second-busiest airport and a major gateway for low-cost carriers. Spirit Airlines' largest hub. Key airport for cruise passengers heading to Port Everglades. Known as the budget-friendly alternative to MIA for South Florida travel. Serves the Greater Fort Lauderdale, Hollywood, and northern Miami-Dade market. Over 700 daily flights to 140+ destinations across the U.S., Latin America, Caribbean, and Europe.",
+    "operator": "Broward County Aviation Department (BCAD)",
+    "owner": "Broward County",
+    "activeTerminals": 4,
+    "terminalUnderConstruction": "Terminal 5 (5 gates, ~230,000 sq ft, $404M, completion mid-2026)",
+    "totalGates": 67,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "10L/28R", "length": "9,000 ft (2,743 m)", "surface": "Asphalt" },
+      { "designation": "10R/28L", "length": "8,000 ft (2,438 m)", "surface": "Concrete", "note": "Unique sloped runway that rises gradually from west to east, passing over US-1 highway via a retaining wall. Extended in 2014 as part of the Airport Expansion Program." }
+    ],
+    "formerRunway": "Runway 13/31 (crosswind) — closed and decommissioned in 2013 to allow expansion of 10R/28L",
+    "dominantAirline": "Spirit Airlines (largest hub — operates from Terminal 4)",
+    "totalAirlines": "40+ airlines",
+    "nonstopDestinations": "140+ destinations (700+ daily flights)",
+    "founded": "1929 (as Merle Fogg Field)",
+    "hubCarriers": ["Spirit Airlines (primary hub)", "JetBlue Airways (focus city)", "Southwest Airlines (focus city)", "Frontier Airlines (focus city)", "United Airlines (focus city)"],
+    "slotControlled": false,
+    "cruisePortProximity": "Port Everglades is 2 miles east of FLL — one of the busiest cruise ports in the world. FLL is the primary airport for cruise passengers.",
+    "brightlineNote": "Brightline high-speed rail station in downtown Fort Lauderdale (4 miles from FLL) connects to Miami, West Palm Beach, and Orlando. Brightline Airport Connector shuttle available from terminal."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 (Yellow Terminal) — Concourses A, B, C",
+      "status": "Active — 24 gates across 3 concourses. Serves low-cost and domestic carriers.",
+      "airlines": ["Alaska Airlines", "Allegiant Air", "Bahamasair", "Caribbean Airlines", "Copa Airlines", "Frontier Airlines", "Southwest Airlines", "United Airlines", "Western Air"],
+      "gates": "A1-A7 (Concourse A), B1-B9 (Concourse B), C1-C9 (Concourse C)",
+      "notes": "Largest terminal by gate count. United Club lounge in Concourse C. Concourse A on east side, B in center, C on west side. TSA PreCheck and CLEAR available."
+    },
+    {
+      "name": "Terminal 2 (Red Terminal) — Concourse D",
+      "status": "Active — 9 gates. Recently modernized by Delta Air Lines.",
+      "airlines": ["Air Canada", "Delta Air Lines"],
+      "gates": "D1-D9",
+      "notes": "Smallest terminal. Delta Sky Club lounge between Gates D2 and D3. Delta completed a terminal modernization project. Located at the northwest end of the airport."
+    },
+    {
+      "name": "Terminal 3 (Purple Terminal) — Concourses E, F",
+      "status": "Active — 20 gates. Mix of domestic and international carriers.",
+      "airlines": ["American Airlines", "Avelo Airlines", "Azul Linhas Aereas", "BermudAir", "El Al", "Flair Airlines", "JetBlue Airways", "Sun Country Airlines"],
+      "gates": "E1-E10 (north), F1-F10 (south)",
+      "notes": "Escape Lounge - The Centurion Studio Partner located in this terminal. American Airlines and JetBlue are the primary carriers. Located at the far west end of the airport."
+    },
+    {
+      "name": "Terminal 4 (Green Terminal) — Concourse G",
+      "status": "Active — 14 gates. Spirit Airlines hub terminal.",
+      "airlines": ["Air Transat", "Flair Airlines", "Porter Airlines", "Spirit Airlines"],
+      "gates": "G1-G14",
+      "notes": "Spirit Airlines' largest hub operation. Terminal 5 (under construction, mid-2026 completion) will connect to Terminal 4 via multi-level pedestrian bridge. Primarily serves JetBlue overflow and Spirit."
+    }
+  ],
+  "roads": ["Interstate 95", "Interstate 595", "US-1 (Federal Highway)", "US-441 (State Road 7)", "Florida Turnpike (via I-595)", "State Road 84", "Griffin Road", "Stirling Road", "Ravenswood Road"],
+  "transit": ["Broward County Transit (BCT) Bus Route 1 (US-1 corridor)", "BCT Bus Route 40 (airport connector)", "BCT Breeze Shuttle (Terminal connector)", "Tri-Rail (Fort Lauderdale station — 3 miles north, shuttle/bus connection)", "Brightline high-speed rail (Fort Lauderdale station — 4 miles north, Airport Connector shuttle available)", "Miami-Dade Transit (connections via Tri-Rail/Brightline to Miami)"],
+  "neighborhoods": ["Fort Lauderdale", "Hollywood", "Dania Beach", "Davie", "Plantation", "Sunrise", "Pompano Beach", "Hallandale Beach", "Aventura", "Las Olas", "Fort Lauderdale Beach", "Wilton Manors", "Oakland Park", "Weston", "Pembroke Pines", "Coral Springs"],
+  "authority": "Broward County Aviation Department (BCAD)",
+  "groundTransportation": {
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Lower level (Arrivals) of each terminal at designated taxi stands",
+      "baseFare": "$4.50 flag drop",
+      "perMile": "$2.40 per mile",
+      "estimatedFares": {
+        "toDowntownFortLauderdale": "$15-$25",
+        "toFortLauderdaleBeach": "$15-$25",
+        "toHollywood": "$12-$20",
+        "toPortEverglades": "$10-$15",
+        "toDaniaBeach": "$8-$12",
+        "toBocaRaton": "$50-$65",
+        "toMiamiBeach": "$65-$85",
+        "toDowntownMiami": "$55-$75",
+        "toMIAAirport": "$65-$85",
+        "toWestPalmBeach": "$100-$130"
+      },
+      "note": "Metered fares. Licensed taxis available 24/7 at arrivals level of all terminals. Cash and credit cards accepted."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocations": ["Between Terminals 1 and 2 on innermost curb", "Between Terminals 3 and 4 on innermost curb (Palm Garage 1st floor, Zones A-D)"],
+      "estimatedFares": {
+        "uberXToDowntownFortLauderdale": "$12-$20",
+        "uberXToFortLauderdaleBeach": "$12-$20",
+        "uberXToPortEverglades": "$8-$15",
+        "uberXToHollywood": "$10-$18",
+        "uberXToMiamiBeach": "$35-$55",
+        "uberXToDowntownMiami": "$30-$50",
+        "uberXToBocaRaton": "$35-$50",
+        "uberXToWestPalmBeach": "$65-$90"
+      },
+      "surgePricing": "Standard surge pricing during spring break, cruise ship embarkation days, holidays, and Fort Lauderdale Boat Show",
+      "tip": "Going to the upper level (Departures) to request your ride can save time — lighter traffic flow than arrivals level.",
+      "note": "Rideshare is generally cheaper than metered taxi from FLL, especially for longer distances. Pickup zones clearly marked at GTA-2 (Terminals 1-2) and Palm Garage ground floor (Terminals 3-4)."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center (RCC) — accessible via free shuttle from lower level (Arrivals) of each terminal",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "note": "All rental car companies are consolidated at the RCC, located south of the airport. Free shuttle from arrivals level. Future plans include an automated people mover to replace shuttle buses."
+    },
+    "brightline": {
+      "description": "High-speed inter-city rail at Fort Lauderdale station (downtown, 4 miles from airport). Airport Connector shuttle available.",
+      "shuttleFare": "$12 per guest with same-day Brightline ticket",
+      "shuttlePickup": "Lower level Arrivals roadway at GTA-1, GTA-2, and GTA-3",
+      "destinations": "Miami (30 min) ↔ Fort Lauderdale ↔ West Palm Beach (45 min) ↔ Orlando (3 hours)",
+      "note": "Brightline is the fastest ground option to Miami (~30 min) and Orlando (~3 hours). The $12 Airport Connector shuttle links FLL to the Fort Lauderdale Brightline station downtown."
+    },
+    "triRail": {
+      "description": "Commuter rail connecting Miami, Fort Lauderdale, and West Palm Beach along the I-95 corridor",
+      "nearestStation": "Fort Lauderdale station (3 miles north of airport) — accessible via BCT bus or rideshare",
+      "fare": "$2.25 - $8.75 depending on zones",
+      "coverage": "18 stations from Miami Airport to Mangonia Park (West Palm Beach)",
+      "note": "Tri-Rail does not have a direct airport station at FLL. Take BCT bus Route 40 or a rideshare to the Fort Lauderdale Tri-Rail station. Future Intermodal Center at FLL will include direct Tri-Rail access."
+    },
+    "bus": {
+      "provider": "Broward County Transit (BCT)",
+      "routes": ["Route 1 (US-1 corridor)", "Route 40 (airport connector to Tri-Rail)", "Breeze shuttle (inter-terminal connector)"],
+      "fare": "$2.00 single trip",
+      "note": "BCT buses connect FLL to surrounding neighborhoods. Route 40 connects to the Tri-Rail Fort Lauderdale station."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Hotels along US-1, I-95, and near Port Everglades commonly provide airport shuttles."
+  },
+  "parkingRates": "On-airport: Short-term (Hibiscus Level 2, Palm Level 1) $36/day, Long-term (Hibiscus Levels 3-7, Palm Levels 2-4, Cypress Levels 7-9) $20/day, Valet $30/day, Overflow $10/day. Off-site: from ~$5-8/day with shuttle. Pre-booking recommended during peak season.",
+  "onAirportParking": {
+    "hibiscusGarage": {
+      "name": "Hibiscus Garage",
+      "shortTermRate": "$2.00 per 20 minutes",
+      "shortTermDailyMax": 36,
+      "shortTermFloors": "Level 2",
+      "longTermRate": "$2.00 per 20 minutes",
+      "longTermDailyMax": 20,
+      "longTermFloors": "Levels 3-7",
+      "serves": "Terminal 1 (Concourses A, B, C) and Terminal 2 (Concourse D)",
+      "evCharging": "EV charging stations available",
+      "features": "Connected to terminals via covered walkway. Short-term on Level 2, long-term on Levels 3-7. Accessible parking available. Automated payment systems.",
+      "totalLevels": 7,
+      "note": "Closest garage to Terminals 1 and 2. Short-term Level 2 is ideal for pickups/drop-offs."
+    },
+    "palmGarage": {
+      "name": "Palm Garage",
+      "shortTermRate": "$2.00 per 20 minutes",
+      "shortTermDailyMax": 36,
+      "shortTermFloors": "Level 1",
+      "longTermRate": "$2.00 per 20 minutes",
+      "longTermDailyMax": 20,
+      "longTermFloors": "Levels 2-4",
+      "serves": "Terminal 3 (Concourses E, F) and Terminal 4 (Concourse G)",
+      "evCharging": "EV charging stations and tire inflation stations available",
+      "features": "Parksmart-certified green garage. EV charging, tire inflation. Connected to terminals via covered walkway. Rideshare pickup area on Level 1 (Zones A-D) for Terminals 3-4. Free inter-terminal shuttle stops here.",
+      "totalLevels": 4,
+      "note": "Serves Terminals 3 and 4. Rideshare (Uber/Lyft) pickup zone for Terminals 3-4 is on Level 1."
+    },
+    "cypressGarage": {
+      "name": "Cypress Garage",
+      "longTermRate": "$2.00 per 20 minutes",
+      "longTermDailyMax": 20,
+      "longTermFloors": "Levels 7-9",
+      "serves": "All terminals via free shuttle/walkway connection",
+      "evCharging": "EV charging stations available",
+      "features": "Parksmart-certified green garage. Electric vehicle charging, tire inflation, electric utility vehicle fleet. Free shuttle to terminals and downtown Fort Lauderdale. Sustainability-focused design. Will connect to Terminal 5 via pedestrian bridge upon T5 completion.",
+      "totalLevels": 9,
+      "note": "Furthest garage from terminals but connected via free shuttle. Long-term only on upper levels. Best budget on-airport option at $20/day."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$30/day",
+      "locations": "Departures (upper) level curbside",
+      "features": "Premium curbside drop-off. Available at departures level. Most convenient option for quick airport access."
+    },
+    "overflowParking": {
+      "name": "Overflow Parking Lot",
+      "rate": "$10/day",
+      "availability": "Only opens during peak travel periods when garages are full",
+      "connection": "Free shuttle to terminals",
+      "note": "Cheapest on-airport option but only available during busy periods (holidays, spring break, cruise embarkation days). Cannot be relied upon for regular travel."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Perimeter Road, south of the airport",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight status and proceed to terminal when passenger is ready."
+    },
+    "evCharging": {
+      "locations": [
+        "Hibiscus Garage (select levels)",
+        "Palm Garage (select levels)",
+        "Cypress Garage (select levels)"
+      ],
+      "totalPorts": "30+ EV charging ports across all garages",
+      "note": "All three garages have EV charging capability. Palm and Cypress garages are Parksmart-certified green garages with additional sustainability features."
+    },
+    "accessibleParking": "ADA-compliant accessible parking spaces available on all garage levels closest to terminal connections. Van-accessible spaces available.",
+    "totalCapacity": "~11,000 vehicles across all garages and lots",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, contactless payment. Automated pay stations in garages.",
+    "garageServiceAreas": "Hibiscus → Terminals 1-2. Palm → Terminals 3-4. Cypress → All terminals (via shuttle). Free inter-terminal Breeze shuttle connects all terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "Park By The Ports (FLL)",
+      "slug": "park-by-the-ports-fll",
+      "dailyRate": 7.99,
+      "reservationRate": 7.99,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Gated Lot", "Well-Lit"],
+      "shuttleInfo": "Free 24/7 shuttle to FLL terminals, approximately every 10-15 minutes",
+      "overview": "Popular off-site lot about 5 minutes from FLL. Also serves Port Everglades cruise passengers. Free 24/7 shuttle service with frequent departures.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Dual-purpose lot serving both airport and cruise port travelers. 24/7 shuttle is reliable. Good value at $7.99/day compared to $20-36 on-airport."
+    },
+    {
+      "name": "Tropical Airport Parking at Homewood Suites (FLL)",
+      "slug": "tropical-airport-parking-fll",
+      "dailyRate": 8.95,
+      "reservationRate": 6.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Handicap Accessible"],
+      "shuttleInfo": "Free shuttle to FLL terminals, runs every 15-20 minutes",
+      "overview": "Off-site parking at Homewood Suites hotel just 1.4 miles from FLL. One of the closest off-site options. No hotel stay required.",
+      "distanceFromAirport": "1.4 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-site lot to FLL. Hotel lot means well-maintained and lit. Pre-book online for the $6.95 rate — walk-up is $8.95/day."
+    },
+    {
+      "name": "Self Park FLL",
+      "slug": "self-park-fll",
+      "dailyRate": 9.99,
+      "reservationRate": 7.99,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Fenced Lot", "Surveillance Cameras"],
+      "shuttleInfo": "Free shuttle service to FLL terminals",
+      "overview": "Established off-site parking provider near FLL. Pre-book online for discounted rate. Free shuttle included.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Well-known local provider. Note: lot may undergo construction/relocation — check website for current status before booking."
+    },
+    {
+      "name": "FastTrack Fort Lauderdale Airport Parking",
+      "slug": "fasttrack-fll",
+      "dailyRate": 9.95,
+      "reservationRate": 6.99,
+      "parkingType": "Uncovered with valet option",
+      "amenities": ["Free Shuttle", "Valet Available", "24/7 Security", "Surveillance"],
+      "shuttleInfo": "Free shuttle running every 10-15 minutes to FLL terminals",
+      "overview": "Off-site parking near FLL with both self-park and valet options. Frequent shuttle service. Competitive pre-booking rate.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Valet option is convenient for travelers in a rush. Pre-book online for best rate ($6.99 vs $9.95 walk-up)."
+    },
+    {
+      "name": "Gold Coast FLL Airport Parking",
+      "slug": "gold-coast-fll",
+      "dailyRate": 9.95,
+      "reservationRate": 7.49,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "Security Cameras", "Fenced Lot", "24/7 Operation"],
+      "shuttleInfo": "Free shuttle to FLL terminals, on-demand service",
+      "overview": "Off-site parking near Fort Lauderdale airport with on-demand shuttle service. Budget-friendly rates with pre-booking discounts.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "notes": "On-demand shuttle means less waiting. Fenced and monitored lot. Pre-book for $7.49 vs $9.95 walk-up."
+    },
+    {
+      "name": "Best Western Plus Fort Lauderdale Airport & Cruise Port (FLL)",
+      "slug": "best-western-plus-fll",
+      "dailyRate": 8.99,
+      "reservationRate": 7.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Gated Lot", "24/7 Security", "Hotel Amenities", "Handicap Accessible"],
+      "shuttleInfo": "Free shuttle to FLL terminals, hourly schedule",
+      "overview": "Hotel parking near FLL and Port Everglades. No hotel stay required for parking. Gated and secure lot with hotel-grade maintenance.",
+      "distanceFromAirport": "2.3 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Also serves Port Everglades cruise passengers. Hourly shuttle — plan accordingly for early/late flights. Gated lot adds security."
+    },
+    {
+      "name": "Rodeway Inn & Suites FLL Airport Parking",
+      "slug": "rodeway-inn-fll",
+      "dailyRate": 7.95,
+      "reservationRate": 5.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Gated Lot"],
+      "shuttleInfo": "Free shuttle to FLL terminals",
+      "overview": "Budget hotel parking option near FLL. Among the cheapest off-site rates when pre-booked at $5.95/day.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Best budget off-site option at $5.95/day pre-booked. Basic lot but gets the job done. Verify shuttle hours before booking for early/late flights."
+    }
+  ],
+  "shuttleInfo": "On-airport: Free Breeze shuttle connects all four terminals. Free shuttle from Cypress Garage to terminals. Rental Car Center shuttle from arrivals level. Off-site: Most lots include free shuttle — frequency ranges from every 10 minutes (Park By The Ports, FastTrack) to hourly (Best Western). Brightline Airport Connector shuttle available from arrivals level ($12 with same-day Brightline ticket). CRITICAL: Verify shuttle hours for early morning and late night flights — some off-site lots have limited shuttle schedules.",
+  "distanceFromCity": "3 miles southwest of downtown Fort Lauderdale. 10-15 minutes by car. 21 miles north of downtown Miami. South Florida's budget-friendly airport alternative to MIA.",
+  "keyDistances": {
+    "toDowntownFortLauderdale": "3 miles, 10-15 min by car, $12-20 rideshare",
+    "toFortLauderdaleBeach": "5 miles, 10-20 min by car, $12-20 rideshare",
+    "toLasOlas": "4 miles, 10-15 min by car, $12-18 rideshare",
+    "toHollywood": "3 miles, 8-15 min by car, $10-18 rideshare",
+    "toHollywoodBeach": "5 miles, 10-20 min by car, $12-22 rideshare",
+    "toPortEverglades": "2 miles, 5-10 min by car, $8-15 rideshare/taxi",
+    "toDaniaBeach": "2 miles, 5-10 min by car, $8-12 rideshare",
+    "toPompanoBeach": "12 miles, 15-25 min by car, $20-30 rideshare",
+    "toBocaRaton": "25 miles, 25-40 min by car, $35-50 rideshare",
+    "toAventura": "12 miles, 15-25 min by car, $18-28 rideshare",
+    "toMiamiBeach": "25 miles, 30-50 min by car, $35-55 rideshare",
+    "toDowntownMiami": "28 miles, 30-45 min by car, $30-50 rideshare, ~30 min Brightline",
+    "toMIAAirport": "26 miles, 25-40 min by car, Tri-Rail or Brightline available",
+    "toWestPalmBeach": "45 miles, 45-60 min by car, ~45 min Brightline, Tri-Rail available",
+    "toOrlando": "200 miles, 3-3.5 hours by car, ~3 hours Brightline",
+    "toKeyWest": "185 miles, 4-4.5 hours by car (Overseas Highway via Miami)",
+    "competitiveAdvantage": "FLL's proximity to Port Everglades (2 miles) makes it the #1 airport for cruise passengers — a $10 taxi ride vs $55+ from MIA. For downtown Fort Lauderdale, a $12-20 rideshare beats airport parking for any trip over 2-3 days. Brightline connects to Miami in 30 min and Orlando in 3 hours from the nearby Fort Lauderdale station."
+  },
+  "construction2026": {
+    "status": "Major expansion underway — $3.2 billion capital improvement program.",
+    "projects": [
+      "Terminal 5 ($404M) — 5 new domestic gates, 230,000 sq ft, two-level terminal. Multi-level pedestrian bridge connecting to Terminal 4 and Cypress Garage. Expected to accommodate 5 million additional passengers annually. Completion mid-2026.",
+      "Terminal Modernization Program — Facility-wide renovations to all terminals including interior finishes, restrooms, hold rooms, security checkpoints, airside connectors, signage/wayfinding, and concessions.",
+      "Airside Terminal Connections — Construction of airside connections between Terminals 1, 2, and 3 (currently passengers must exit security to switch terminals).",
+      "Automated People Mover — Planned system connecting all terminals, garages, and future intermodal center. Will replace current shuttle buses.",
+      "Palm Garage Reconstruction — Existing Palm Garage to be reconstructed with adjacent on-site hotel and conference center.",
+      "Terminal 3 Rebuild & Expansion — Complete rebuild and expansion of Terminal 3.",
+      "Intermodal Center — Future transit hub with direct Tri-Rail and potential Broward Commuter Rail (FEC Coastal Link) access.",
+      "Concessions Master Plan — Airport-wide food, beverage, and retail upgrades across all terminals."
+    ],
+    "travelImpact": "Terminal 5 construction is the most active project. Airport remains fully operational throughout. Some terminal areas may have temporary detours. No major parking closures expected in 2026.",
+    "timeline": {
+      "terminal5": "Mid-2026 completion",
+      "terminalModernization": "Multi-year phased program, ongoing",
+      "airsideConnections": "Planning/design phase",
+      "automatedPeopleMover": "Future phase",
+      "palmGarageReconstruction": "Future phase",
+      "terminal3Rebuild": "Future phase",
+      "intermodalCenter": "Future phase"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 4"],
+      "note": "TSA PreCheck dedicated lanes available at all four terminal security checkpoints. Average PreCheck wait: ~16 minutes vs ~31 minutes standard."
+    },
+    "clear": {
+      "terminals": ["Terminal 1", "Terminal 2", "Terminal 3", "Terminal 4"],
+      "hours": "Generally 4:30 AM - 7:30-9:00 PM (varies by terminal)",
+      "note": "CLEAR lanes available at all terminals. CLEAR members verify identity at kiosks, then escorted to front of security line. Combined with PreCheck for fastest experience."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals areas. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "25-35 minutes",
+      "peakHours": "5:00-8:00 AM (morning departures), 11:00 AM-2:00 PM, 4:00-7:00 PM",
+      "preCheckAverage": "~16 minutes",
+      "tips": "FLL can have significant security waits during winter tourist season and spring break. Best times: early morning (before 6 AM) and mid-afternoon (2-4 PM)."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during spring break, Thanksgiving, Christmas, and cruise embarkation days"
+    },
+    "checkpointHours": "Checkpoint hours vary by terminal — check fly-fll.com or the Broward County Aviation Department website for current hours."
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "United Club",
+        "location": "Terminal 1, Concourse C",
+        "access": "United Club membership, United or Star Alliance premium cabin, Star Alliance Gold, one-day pass ($59)",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces, power outlets."
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal 2, between Gates D2 and D3",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus, Amex Platinum (limited visits)",
+        "amenities": "Full-service bar, complimentary food, shower facilities, WiFi, workspaces, power outlets."
+      }
+    ],
+    "terminal3": [
+      {
+        "name": "Escape Lounge - The Centurion Studio Partner",
+        "location": "Terminal 3",
+        "hours": "5:30 AM - 9:00 PM daily",
+        "access": "Amex Platinum/Centurion cardholders (free), Priority Pass members, paid walk-in ($45-55)",
+        "amenities": "Premium food, cocktails, full bar, WiFi, power outlets. Only lounge at FLL open to walk-in guests and Priority Pass.",
+        "note": "The only lounge at FLL accessible via Priority Pass or paid walk-in. Best option for travelers without airline status."
+      }
+    ],
+    "terminal4": [
+      {
+        "name": "No dedicated lounge",
+        "note": "Terminal 4 (Spirit Airlines hub) does not currently have a lounge. Nearest lounge is the Escape Lounge in Terminal 3 — but requires exiting security and re-screening if connecting from Terminal 4."
+      }
+    ],
+    "importantNote": "FLL's lounge options are limited compared to MIA. There are no Priority Pass lounges outside of the Escape Lounge in Terminal 3. Travelers in Terminal 4 (Spirit) have no lounge access. The Escape Lounge in Concourse B was closed for renovation from October 2025 through end of 2026."
+  },
+  "wifi": {
+    "networkName": "FLL Free WiFi",
+    "cost": "Free and unlimited",
+    "coverage": "All terminals",
+    "note": "Free unlimited WiFi in all terminals. Performance may decrease during peak congestion hours."
+  },
+  "evCharging": {
+    "hibiscusGarage": {
+      "chargers": "Available on select levels",
+      "type": "Level 2"
+    },
+    "palmGarage": {
+      "chargers": "Available on select levels",
+      "type": "Level 2",
+      "additionalFeatures": "Tire inflation stations also available"
+    },
+    "cypressGarage": {
+      "chargers": "Available on select levels",
+      "type": "Level 2",
+      "additionalFeatures": "Parksmart-certified, electric utility vehicle fleet"
+    },
+    "totalPorts": "30+ EV charging ports across all garages",
+    "note": "All three garages (Hibiscus, Palm, Cypress) have EV charging stations. Palm and Cypress garages are Parksmart-certified green garages."
+  },
+  "luggageStorage": {
+    "onSite": "Bags to Go luggage storage service available in all four terminals.",
+    "details": {
+      "provider": "Bags to Go",
+      "locations": "All four terminals (Terminal 1: 2nd Floor near Concourse B exit)",
+      "hours": "8:00 AM - 5:30 PM (Fri-Mon), 8:30 AM - 6:30 PM (Sat-Sun)",
+      "limitation": "Limited hours — closes by 5:30-6:30 PM. Not available for late-night flights."
+    },
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Fort Lauderdale, Las Olas" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Fort Lauderdale locations" }
+    ]
+  },
+  "petFacilities": {
+    "total": "10 pet relief areas — 6 indoor Service Animal Relief Areas (SARAs) and 4 outdoor pet relief areas",
+    "indoorLocations": "6 indoor SARAs located inside the secure areas of the terminals",
+    "outdoorLocations": "4 outdoor pet relief areas on the lower level (arrivals), outside each baggage claim area: outside Terminal 1 under the garage walkway, outside Palm Garage across from Terminal 2, across from Terminal 3, and across from Terminal 4",
+    "amenities": "Complimentary waste disposal bags provided at all locations",
+    "note": "FLL has extensive pet relief options with both indoor (post-security) and outdoor (pre-security) facilities at every terminal."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departures)", "11:00 AM-2:00 PM", "4:00-7:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "November-April is peak season (snowbird season — massive influx of northeastern travelers). Spring break (March-April), Thanksgiving, Christmas/New Year, and cruise embarkation days at Port Everglades create major spikes. Fort Lauderdale International Boat Show (October) also drives significant traffic.",
+    "cruiseImpact": "Port Everglades cruise ship turnaround days (typically Saturday/Sunday) cause surges in both passenger volume and ground transportation demand. Parking garages can fill up on heavy cruise embarkation days.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during peak season (November-April), spring break, and cruise days"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Tropical rainforest climate. Hot and humid year-round. Wet season May-October. Hurricane season June-November.",
+    "commonDisruptions": "Hurricane season (June-November) is the primary disruption risk. Afternoon thunderstorms year-round but especially June-September. Heavy rain can cause temporary ground stops and flight delays.",
+    "bestMonths": "November through April — dry season, comfortable temperatures, but busier airport due to snowbird season",
+    "worstMonths": "August-October (peak hurricane risk + extreme humidity + daily afternoon thunderstorms)",
+    "hurricaneNote": "FLL is in a major hurricane zone. The airport has been shut down multiple times during hurricanes (notably Hurricane Irma in 2017). Travel insurance strongly recommended for June-November travel. Airport has robust recovery procedures but cancellations are inevitable during named storms.",
+    "floodingNote": "FLL experienced significant flooding in April 2023 that temporarily closed the airport. The Fort Lauderdale area is susceptible to urban flooding during extreme rainfall events.",
+    "summerThunderstorms": "June-September: daily afternoon thunderstorms are nearly guaranteed. Typically 2-5 PM. Usually clear by evening. Can cause 1-2 hour delays but rarely last all day.",
+    "note": "Morning flights are most reliable year-round. FLL's tropical location means weather disruptions are common but usually brief (except hurricanes and extreme flooding events)."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near FLL. Popular with both airport travelers and Port Everglades cruise passengers.",
+    "priceRange": "From ~$99/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Courtyard by Marriott Fort Lauderdale Airport & Cruise Port",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Close to both airport and Port Everglades. Popular with cruise travelers."
+      },
+      {
+        "name": "Holiday Inn Express Fort Lauderdale Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Budget-friendly with complimentary breakfast."
+      },
+      {
+        "name": "Sleep Inn & Suites Fort Lauderdale International Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Affordable park-sleep-fly option."
+      },
+      {
+        "name": "Hampton Inn & Suites Fort Lauderdale Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Reliable brand with good ratings."
+      },
+      {
+        "name": "Residence Inn Fort Lauderdale Airport & Cruise Port",
+        "distance": "0.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Closest hotel to FLL. Suite-style rooms good for families."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "trinityreservations.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "shortTermGarage": { "parkingCost": "$252 (7 x $36)", "totalEstimate": "$252" },
+      "longTermGarage": { "parkingCost": "$140 (7 x $20)", "totalEstimate": "$140" },
+      "valetParking": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "overflowLot": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70", "caveat": "Only available during peak periods" }
+    },
+    "offSiteWithShuttle": {
+      "rodewayInn": { "parkingCost": "$41.65 (7 x $5.95 pre-booked)", "savingsVsLongTerm": "~$98 saved", "caveat": "Budget option, verify shuttle hours" },
+      "tropicalParking": { "parkingCost": "$48.65 (7 x $6.95 pre-booked)", "savingsVsLongTerm": "~$91 saved", "caveat": "Closest off-site lot at 1.4 miles" },
+      "parkByThePorts": { "parkingCost": "$55.93 (7 x $7.99)", "savingsVsLongTerm": "~$84 saved", "caveat": "24/7 shuttle, reliable" }
+    },
+    "publicTransit": {
+      "rideshareRoundTrip": { "costForCouple": "$24-$40 (UberX downtown round trip)", "note": "Cheaper than parking for trips of any length if headed to downtown Fort Lauderdale" },
+      "brightlineToMiami": { "costPerPersonRoundTrip": "$24-40 (Brightline + $12 connector each way)", "note": "Fastest ground option to/from Miami — 30 min train ride" }
+    },
+    "keyDifference": "FLL off-site parking offers excellent value — $5.95-7.99/day with shuttle vs $20-36/day on-airport. The overflow lot at $10/day is the cheapest on-airport option but only opens during peak periods. For downtown Fort Lauderdale travelers, a rideshare at $12-20 beats even off-site parking for trips over 2 days. Port Everglades cruise passengers benefit from park-by-the-ports options serving both airport and cruise port."
+  },
+  "uniqueFeatures": {
+    "budgetCarrierHub": "FLL is South Florida's budget airline capital. Spirit Airlines' largest hub, plus major focus city operations for Frontier, JetBlue, and Southwest. Often significantly cheaper flights than MIA for domestic travel.",
+    "cruisePortProximity": "Port Everglades — one of the world's busiest cruise ports — is just 2 miles from FLL. A $10 taxi ride vs $55+ from MIA makes FLL the natural choice for cruise passengers. Many off-site parking lots serve both the airport and the cruise port.",
+    "slopedRunway": "Runway 10R/28L has a unique engineering feature — it rises gradually from west to east and passes over US-1 highway via a massive retaining wall. One of the most unusual runway designs at any major U.S. airport.",
+    "terminal5Coming": "Terminal 5 ($404M, mid-2026) will be the first new terminal in decades — adding 5 gates and 5 million annual passenger capacity. Represents the airport's transformation to handle growing South Florida demand.",
+    "snowbirdGateway": "FLL is the primary arrival point for 'snowbirds' — seasonal residents from the Northeast and Midwest who winter in South Florida. November-April is peak season with massive passenger volume increases.",
+    "fllVsMia": "FLL is the budget-friendly alternative to MIA (26 miles south). MIA dominates international travel (90+ airlines, 195 destinations) while FLL excels at domestic low-cost flights and cruise port convenience. Many savvy travelers fly into FLL for domestic trips even when staying in Miami — saving on both airfare and parking.",
+    "fortLauderdaleBoatShow": "The Fort Lauderdale International Boat Show (October) is the world's largest in-water boat show, driving significant airport traffic and filling nearby hotels and parking.",
+    "brightlineAccess": "Brightline high-speed rail from the nearby Fort Lauderdale station connects to Miami (30 min), West Palm Beach (45 min), and Orlando (3 hours) — making FLL a viable airport for a much larger geographic area.",
+    "portEvergladesEconomy": "Port Everglades handles 4+ million cruise passengers annually plus major cargo operations. The port's economic activity drives significant ground transportation demand at FLL."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(866) 435-9355 (866-I-FLY-FLL)",
+    "airportWebsite": "fly-fll.com",
+    "browardAviationDepartment": "broward.org/Airport",
+    "parkingInfo": "fly-fll.com/parking",
+    "tsa": "(866) 289-9673",
+    "browardCountyTransit": "(954) 357-8400",
+    "bctWebsite": "broward.org/BCT",
+    "brightline": "gobrightline.com",
+    "triRail": "(800) 874-7245",
+    "airportPolice": "(954) 359-1201",
+    "portEverglades": "(954) 523-3404"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.broward.org/Airport/Pages/default.aspx",
+      "flyFll": "https://fly-fll.com/",
+      "parking": "https://fly-fll.com/parking",
+      "terminals": "https://fly-fll.com/terminals",
+      "groundTransportation": "https://fly-fll.com/taxis-apps",
+      "servicesAmenities": "https://fly-fll.com/services-amenities",
+      "lounges": "https://fly-fll.com/lounges",
+      "securityHours": "https://www.broward.org/Airport/passengers/Services/Pages/Security.aspx",
+      "overflowParking": "https://www.broward.org/Airport/passengers/Parking/Pages/Overflowparking.aspx",
+      "statistics": "https://www.broward.org/Airport/Business/about/Pages/Statistics.aspx",
+      "whatsNew": "https://www.broward.org/Airport/Business/pages/whatsnew.aspx"
+    },
+    "transit": {
+      "browardCountyTransit": "https://www.broward.org/BCT/",
+      "triRail": "https://www.tri-rail.com/",
+      "brightline": "https://www.gobrightline.com/",
+      "brightlineAirportShuttle": "https://www.gobrightline.com/offers/airport-connector-shuttles"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/fll/",
+      "lyft": "https://www.lyft.com/rider/airports/fll"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=FLL",
+      "airportParkingReservations": "https://airportparkingreservations.com/fll/airport-parking",
+      "way": "https://www.way.com/fll",
+      "spothero": "https://spothero.com/airport/fort-lauderdale/fll-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/fll",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/fort-lauderdale-hollywood-international-airport-fll",
+      "parkingAccess": "https://parkingaccess.com/airports/fll",
+      "parkos": "https://parkos.com/fort-lauderdale-airport-parking/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/FLL/Ft.-Lauderdale-Hollywood-International",
+      "clearFLL": "https://www.clearme.com/all-locations/fort-lauderdale-hollywood-international-airport"
+    },
+    "lounges": {
+      "escapeLounge": "https://escapelounges.com/us/airport-lounges/fort-lauderdale/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations",
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/fort-lauderdale-hollywood-fll-airport/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KFLL",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/FLL",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=fll"
+    },
+    "evCharging": {
+      "plugShare": "https://www.plugshare.com/location/122585"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/fll/airport-hotels-with-parking",
+      "parkSleepHotels": "https://www.parksleephotels.com/Park-Stay-and-Fly-Hotel-Packages-Near-Ft.-Lauderdale-Airport.html",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/ft-lauderdale-hollywood-fll-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/fort-lauderdale-hollywood-fll-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Fort_Lauderdale%E2%80%93Hollywood_International_Airport",
+      "ifly": "https://www.ifly.com/airports/fort-lauderdale-hollywood-international-airport",
+      "nerdwallet": "https://www.nerdwallet.com/travel/learn/fll-airport"
+    },
+    "newsAndMedia": {
+      "sunSentinel": "https://www.sun-sentinel.com/",
+      "local10": "https://www.local10.com/",
+      "nbcMiami": "https://www.nbcmiami.com/"
+    }
+  }
+}

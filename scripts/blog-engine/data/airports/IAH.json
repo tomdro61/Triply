@@ -1,0 +1,658 @@
+{
+  "code": "IAH",
+  "fullName": "George Bush Intercontinental Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Houston, Texas — 23 miles north of downtown Houston, in unincorporated Harris County",
+    "iataCode": "IAH",
+    "icaoCode": "KIAH",
+    "faaLid": "IAH",
+    "elevation": "97 feet above mean sea level",
+    "acreage": 10000,
+    "coordinates": "29.9844N, 95.3414W",
+    "passengerVolume": "48.5 million passengers in 2024 (15th busiest in U.S.)",
+    "aircraftOperations": "447,000 annually (2024)",
+    "cargoVolume": "545,000 tons (2024)",
+    "distinction": "United Airlines' second-largest hub worldwide (after ORD). Primary international gateway for Houston and the Gulf Coast region. Serves the Houston metropolitan area (7+ million population, 4th largest U.S. metro). Five terminals connected by the Skyway automated people mover and underground Subway train. Named after 41st U.S. President George H. W. Bush. Opened June 8, 1969. Over 700 daily departures to 200+ destinations across five continents.",
+    "operator": "Houston Airport System",
+    "owner": "City of Houston",
+    "activeTerminals": 5,
+    "totalConcourses": 8,
+    "totalGates": 130,
+    "runways": 5,
+    "runwayDetails": [
+      { "designation": "8L/26R", "length": "9,402 ft (2,866 m)", "surface": "Concrete" },
+      { "designation": "8R/26L", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "9/27", "length": "12,001 ft (3,658 m)", "surface": "Concrete", "note": "Longest runway at IAH" },
+      { "designation": "15L/33R", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "15R/33L", "length": "9,402 ft (2,866 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "United Airlines (second-largest hub — operates from Terminals B, C, and E)",
+    "totalAirlines": "27+ airlines",
+    "nonstopDestinations": "200+ destinations worldwide (700+ daily departures)",
+    "founded": "June 8, 1969 (as Houston Intercontinental Airport)",
+    "hubCarriers": ["United Airlines (primary hub)", "Spirit Airlines (focus city)"],
+    "slotControlled": false,
+    "transitAccess": "METRO Bus Route 102 from Terminal C to downtown Houston ($1.25). Route 500 IAH Downtown Direct ($4.50, express). No rail service to IAH. Skyway people mover and underground Subway train connect all five terminals.",
+    "skyway": "Free automated people mover connecting all five terminals above ground (inside security). Subway train connects terminals underground (outside security).",
+    "internationalNote": "IAH is Houston's international gateway with nonstop service to all six inhabited continents. Terminal D (Mickey Leland International Terminal) handles non-United international carriers. United operates its own international flights from Terminal E. 24% of passengers travel internationally."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A",
+      "status": "Active — 29 gates. Non-United domestic and select international carriers. Two concourses (North and South) with separate security checkpoints.",
+      "airlines": ["Alaska Airlines", "American Airlines", "Delta Air Lines", "Frontier Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines"],
+      "gates": "A1-A3H (North Concourse, 18 gates), A17-A30 (South Concourse, 11 gates)",
+      "notes": "Terminal A serves all non-United domestic carriers. Spirit Airlines operates some international departures from Terminal A. North and South concourses each have their own security checkpoint — verify which concourse your gate is in before entering security. CLEAR+ lanes available at both Terminal A North and South checkpoints."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — United Airlines domestic. Ticketing lobby closed for $2.6B renovation until late 2026. All Terminal B passengers check in at Terminal C and ride Skyway to B gates.",
+      "airlines": ["United Airlines", "United Express"],
+      "gates": "B3-B31",
+      "notes": "Terminal B ticketing lobby closed January 2025 through late 2026 for United Airlines' $2.6 billion, 765,000-sq-ft Terminal B expansion — the largest single airline terminal project in the U.S. Check in at Terminal C and take the Skyway to Terminal B gates. United Club temporarily closed during renovation — will reopen as the largest United Club in the network. Terminal B North redevelopment concourse projected complete 2026."
+    },
+    {
+      "name": "Terminal C",
+      "status": "Active — 30 gates. United Airlines primary domestic terminal. Two concourses (North and South).",
+      "airlines": ["United Airlines", "United Express"],
+      "gates": "C1-C15 (North Concourse, 14 gates), C29-C45 (South Concourse, 16 gates)",
+      "notes": "United Airlines' main domestic terminal at IAH. Currently serves as check-in location for Terminal B passengers during renovation. Two United Club lounges (North and South). Multiple dining and shopping options. METRO Bus 102 and Route 500 Downtown Direct depart from Terminal C south side, Baggage Claim Level, Door C-105."
+    },
+    {
+      "name": "Terminal D (Mickey Leland International Terminal)",
+      "status": "Active — 12 gates + 6 new D-West Pier gates (opened October 2024). Primary international terminal for non-United carriers.",
+      "airlines": ["Air Canada", "Air France", "All Nippon Airways (ANA)", "Avianca", "British Airways", "Copa Airlines", "Emirates", "EVA Air", "KLM", "Korean Air", "Lufthansa", "Qatar Airways", "Singapore Airlines", "Turkish Airlines", "Volaris"],
+      "gates": "D1-D12, plus D-West Pier gates",
+      "notes": "Mickey Leland International Terminal handles all non-United international flights. D-West Pier opened October 2024 with 6 new wide-body gates and 16 new dining/shopping options. Equipped to handle Airbus A380 aircraft. American Express Centurion Lounge near Gate D12. British Airways Lounge. CLEAR+ lanes at Terminal D security checkpoint. Part of $1.46B Terminal Redevelopment Program wrapping up early 2026."
+    },
+    {
+      "name": "Terminal E",
+      "status": "Active — 23 gates. United Airlines domestic and international flights.",
+      "airlines": ["United Airlines", "United Express"],
+      "gates": "E1-E12, E14-E24",
+      "notes": "Terminal E is exclusively United Airlines for both domestic and international operations. New ticketing lobby and departures curb opened February 2025. United Polaris Lounge for premium international passengers. United Club lounge. Terminal E ticketing is now independent — passengers no longer need to check in at Terminal C."
+    }
+  ],
+  "roads": ["Interstate 69 / US-59 (Eastex Freeway)", "Sam Houston Tollway (Beltway 8)", "John F. Kennedy Boulevard", "Will Clayton Parkway", "Hardy Toll Road", "Interstate 45 (via Beltway 8)", "Lee Road", "Greens Road"],
+  "transit": ["METRO Bus Route 102 (IAH to downtown Houston, $1.25, from Terminal C)", "METRO Route 500 IAH Downtown Direct ($4.50, express to George R. Brown Convention Center, every 30 min, 5:30 AM-8 PM)", "Skyway (free automated people mover connecting all terminals, inside security, above ground)", "Subway (free underground train connecting all terminals, outside security)", "No rail service directly to IAH — METRORail serves downtown Houston but does not extend to IAH"],
+  "neighborhoods": ["Humble", "Kingwood", "Aldine", "Spring", "The Woodlands", "Greenspoint", "Downtown Houston", "Midtown", "Montrose", "The Heights", "River Oaks", "Galleria/Uptown", "Medical Center", "Sugar Land", "Pearland", "Clear Lake/NASA"],
+  "authority": "Houston Airport System (City of Houston)",
+  "groundTransportation": {
+    "skyway": {
+      "description": "Free automated people mover connecting all five terminals above ground, inside security. Runs on elevated guideway between terminals.",
+      "fare": "FREE",
+      "frequency": "Every 2-4 minutes",
+      "hours": "24/7",
+      "note": "The Skyway connects all terminals inside security — you do not need to re-clear security when transferring between terminals via Skyway. Best for connecting passengers."
+    },
+    "subway": {
+      "description": "Free underground train connecting all five terminals outside security. Runs beneath the airport between terminal lower levels.",
+      "fare": "FREE",
+      "frequency": "Every 2-4 minutes",
+      "hours": "24/7",
+      "note": "The Subway runs outside security — if you use it to transfer terminals, you will need to re-clear security. Best for meeters/greeters and terminal transfers when already outside security."
+    },
+    "metroBus": {
+      "route": "METRO Bus Route 102",
+      "operator": "Metropolitan Transit Authority of Harris County (METRO)",
+      "fare": "$1.25 (exact change or METRO Q Fare Card)",
+      "pickup": "Terminal C, south side, Baggage Claim Level, Door C-105",
+      "travelTime": "45-90 minutes to downtown Houston depending on traffic and stops",
+      "frequency": "Every 30-60 minutes",
+      "hours": "Approximately 5:00 AM - 11:00 PM",
+      "note": "Budget option but slow with many stops. Route 102 runs from IAH Terminal C to the Downtown Transit Center. No rail service connects to IAH."
+    },
+    "downtownDirect": {
+      "route": "METRO Route 500 IAH Downtown Direct",
+      "operator": "METRO",
+      "fare": "$4.50 each way",
+      "pickup": "Terminal C, Baggage Claim Level",
+      "travelTime": "~35-45 minutes to George R. Brown Convention Center",
+      "frequency": "Every 30 minutes",
+      "hours": "5:30 AM - 8:00 PM daily",
+      "note": "Express bus launched 2025 — nonstop from IAH to George R. Brown Convention Center downtown. Much faster than Route 102. Best public transit option for downtown-bound travelers."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Arrivals/Baggage Claim Level, outside Terminals A, C, and E. Airport personnel on-duty 24/7.",
+      "estimatedFares": {
+        "toDowntownHouston": "$55-$65",
+        "toGalleria": "$45-$55",
+        "toMedicalCenter": "$55-$65",
+        "toTheWoodlands": "$50-$60",
+        "toSugarLand": "$70-$85",
+        "toGalveston": "$120-$150",
+        "toHobbyAirport": "$65-$80"
+      },
+      "note": "Metered fares. Airport is 23 miles from downtown — expect $55-65 fare. Credit cards accepted. 24/7 service. Taxi stands are staffed at Terminals A, C, and E."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Arrivals/Baggage Claim Level at designated rideshare pickup zones at each terminal",
+      "estimatedFares": {
+        "uberXToDowntownHouston": "$35-$50",
+        "uberXToGalleria": "$30-$45",
+        "uberXToMedicalCenter": "$35-$50",
+        "uberXToTheWoodlands": "$30-$40",
+        "uberXToSugarLand": "$45-$65",
+        "uberXToGalveston": "$70-$100",
+        "uberXToHobbyAirport": "$40-$55"
+      },
+      "surgePricing": "Standard surge pricing during Houston Livestock Show and Rodeo (March), major sports events (Texans, Astros, Rockets), holidays, and severe weather events",
+      "note": "Rideshare is generally cheaper than taxi from IAH. UberX to downtown typically $35-50 vs $55-65 taxi. Follow terminal signs to rideshare pickup zones."
+    },
+    "rentalCars": {
+      "location": "IAH Rental Car Center — 17330 Palmetto Pines, Houston, TX 77032. Approximately 5 minutes from terminals by shuttle.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Thrifty"],
+      "totalBrands": 8,
+      "shuttle": "Free shuttle from all terminals to Rental Car Center, running 24/7",
+      "note": "All rental car companies consolidated at the Rental Car Center. Take the free shuttle from the baggage claim level. Open 24/7. Return your car at the Rental Car Center and take the shuttle back."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Most airport-area hotels along JFK Boulevard, Greens Road, and Will Clayton Parkway provide shuttle service to IAH."
+  },
+  "parkingRates": "On-airport: Terminal Garages $5/hr ($25/day max), Valet $30/day, ecopark uncovered ~$6.47/day, ecopark covered ~$8.31/day. Off-site: from ~$3.99/day with shuttle. Book online at fly2houston.com for discounts.",
+  "onAirportParking": {
+    "terminalGarages": {
+      "name": "Terminal Garages (A/B, C, D/E)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 25,
+      "maxStay": "30 days",
+      "serves": "Each terminal has its own adjacent garage — Terminal A/B Garage, Terminal C Garage, Terminal D/E Garage",
+      "features": "Direct covered walkway to terminals. Best for short stays and travelers who prioritize convenience. EV charging on Level 4 of Terminal A/B and Terminal CDE garages.",
+      "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
+    },
+    "ecopark": {
+      "name": "ecopark (Economy Parking)",
+      "uncoveredRate": "$6.47/day (plus tax)",
+      "coveredRate": "$8.31/day (plus tax)",
+      "location": "JFK Boulevard, near airport entrance",
+      "connection": "FREE 24/7 shuttle service to all terminals, every 10-15 minutes",
+      "features": "Best budget option for on-airport parking. Both covered and uncovered available. Free EV charging (Blink stations). 24/7 shuttle service. Book online for best rates.",
+      "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
+    },
+    "ecopark2": {
+      "name": "ecopark 2",
+      "coveredRate": "$7.39/day (plus tax)",
+      "location": "Will Clayton Parkway",
+      "connection": "FREE 24/7 shuttle service to all terminals",
+      "features": "Newer economy lot with covered parking. Free EV charging (Blink stations). Competitive rates between ecopark uncovered and covered.",
+      "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$30.00 per day",
+      "locations": "Available at Terminal A, Terminal C, and Terminal E departures level",
+      "features": "Premium drop-off option. Car is parked for you and retrieved upon return. Best for business travelers and short trips."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "17010 John F. Kennedy Boulevard (from Sam Houston Tollway exit JFK Blvd north, follow signs). Second lot at 4500 Will Clayton Parkway.",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight arrival status and proceed to terminal when passenger is ready."
+    },
+    "evCharging": {
+      "locations": [
+        "ecopark (Blink stations, free)",
+        "ecopark 2 (Blink stations, free)",
+        "Terminal A/B Garage Level 4 (Blink stations, free)",
+        "Terminal CDE Garage Level 4 (Blink stations, free)",
+        "Valet parking areas (Blink stations, free)"
+      ],
+      "totalPorts": "50+ EV charging ports across all parking areas",
+      "note": "IAH offers FREE EV charging via Blink stations — need Blink InCard or smartphone to activate. Scan QR code on charger touchscreen for guest access. Available in economy lots and terminal garages."
+    },
+    "accessibleParking": "Accessible parking available on ground level of all terminal garages and in ecopark lots. Van-accessible spaces available.",
+    "totalCapacity": "~40,000 parking spaces across all airport facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Online pre-booking at fly2houston.com.",
+    "garageServiceAreas": "Terminal A/B Garage → Terminals A and B. Terminal C Garage → Terminal C. Terminal D/E Garage → Terminals D and E. Use Skyway or Subway to reach other terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "Fine Airport Parking (IAH)",
+      "slug": "fine-airport-parking-iah",
+      "dailyRate": 9.99,
+      "reservationRate": 6.99,
+      "parkingType": "Self-park and valet options (uncovered and covered available)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Luggage Assistance", "EV Charging (20 spaces)", "Valet Service", "ADA Accessible"],
+      "shuttleInfo": "24/7 shuttle service running every 5-7 minutes. Shuttles rotate continuously between lot and all terminals.",
+      "overview": "Popular off-site lot on Greens Road, 1 block west of JFK Boulevard. 24/7 staffed facility with frequent shuttle service. Both covered and uncovered parking. 20 EV charging spaces available.",
+      "distanceFromAirport": "2.4 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Shuttle every 5-7 minutes is among the most frequent off-site options at IAH. Free luggage assistance. EV charging available on first-come basis. Valet option for premium service."
+    },
+    {
+      "name": "The Parking Spot (IAH)",
+      "slug": "the-parking-spot-iah",
+      "dailyRate": 11.25,
+      "reservationRate": 8.75,
+      "parkingType": "Uncovered ($8.75/day) and covered ($11.25/day) options",
+      "amenities": ["Free 24/7 Shuttle", "Spot Club Rewards", "Fenced Lots", "Well-Lit", "Free Water Bottle", "Covered Parking Available", "Valet Available"],
+      "shuttleInfo": "24/7 shuttle service every 15 minutes. Shuttle picks up at your car and drops you at the terminal.",
+      "overview": "National chain with 3 locations serving IAH on JFK Boulevard. Spot Club loyalty program earns free parking. Both covered and uncovered options. Well-known brand with consistent service.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "4-7 minutes",
+      "freeCancellation": true,
+      "notes": "3 IAH locations on JFK Blvd. Spot Club rewards earn free parking days. Covered parking available at a premium. Reliable national chain."
+    },
+    {
+      "name": "PreFlight Airport Parking (IAH)",
+      "slug": "preflight-airport-parking-iah",
+      "dailyRate": 6.63,
+      "reservationRate": 3.99,
+      "parkingType": "Uncovered ($5.78/day) and covered ($6.63/day), 7-day rate: uncovered $3.99/day, covered $5.78/day",
+      "amenities": ["Free 24/7 Shuttle", "Gated Facility", "Well-Lit", "24/7 Monitoring", "Security Cameras"],
+      "shuttleInfo": "24/7 shuttle service to and from all terminals",
+      "overview": "Budget-friendly off-site parking on Greens Road, 2.4 miles from IAH. Rates drop significantly for 7+ day stays. Gated and monitored 24/7.",
+      "distanceFromAirport": "2.4 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Best value for long-term parking — 7-day rate drops to $3.99/day uncovered. Same location as Fine Airport Parking on Greens Road. Budget pick."
+    },
+    {
+      "name": "Fast Park & Relax (IAH)",
+      "slug": "fast-park-relax-iah",
+      "dailyRate": 10.95,
+      "reservationRate": 7.95,
+      "parkingType": "Covered long-term parking",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "24/7 Staffed", "Security Cameras", "Luggage Assistance"],
+      "shuttleInfo": "Free shuttle service running 24/7, approximately every 10-15 minutes",
+      "overview": "Covered off-site parking approximately 4 minutes from IAH terminals. Fully covered facility protects vehicles from Houston sun and rain. Staffed 24/7.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "notes": "All covered parking — important in Houston's extreme heat and frequent rain. Staffed 24/7 for security. Good mid-range option."
+    },
+    {
+      "name": "Comfort Suites Houston IAH Airport (Parking)",
+      "slug": "comfort-suites-houston-iah-parking",
+      "dailyRate": 8.95,
+      "reservationRate": 6.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Security Cameras", "Gated Lot"],
+      "shuttleInfo": "Shuttle service to and from IAH terminals during operating hours",
+      "overview": "Hotel parking lot open to non-guests. Competitive rates with shuttle service included. Park-sleep-fly packages also available.",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "6-10 minutes",
+      "freeCancellation": true,
+      "notes": "Good for park-sleep-fly combo. Check shuttle hours before booking for early/late flights."
+    },
+    {
+      "name": "Hilton Garden Inn Houston/Bush IAH (Parking)",
+      "slug": "hilton-garden-inn-houston-bush-iah-parking",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Handicap Accessible", "Security"],
+      "shuttleInfo": "Shuttle service to and from IAH terminals",
+      "overview": "Hotel parking open to non-guests near IAH. Hilton brand reliability. Park-sleep-fly packages available with overnight stay + parking + shuttle.",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Hilton brand quality. Park-sleep-fly packages good value for early morning flights. Verify shuttle hours."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Skyway people mover and Subway train connect all five terminals 24/7. ecopark and ecopark 2 have free 24/7 shuttle service every 10-15 minutes. Free rental car shuttle runs 24/7 to Rental Car Center. Off-site: Most lots include free shuttle — Fine Airport Parking runs every 5-7 min (best frequency), The Parking Spot every 15 min, PreFlight and Fast Park every 10-15 min. All major off-site lots run 24/7 shuttles.",
+  "distanceFromCity": "23 miles north of downtown Houston. 25-40 minutes by car (traffic dependent — Houston traffic can be severe). ~35-45 minutes by Route 500 Downtown Direct ($4.50). Houston's primary international airport.",
+  "keyDistances": {
+    "toDowntownHouston": "23 miles, 25-40 min by car, 35-45 min by Route 500 ($4.50), $35-50 rideshare, $55-65 taxi",
+    "toGalleriaUptown": "18 miles, 20-35 min by car, $30-45 rideshare",
+    "toTexasMedicalCenter": "24 miles, 30-45 min by car, $35-50 rideshare",
+    "toTheWoodlands": "20 miles, 20-30 min by car, $30-40 rideshare",
+    "toSugarLand": "40 miles, 40-55 min by car, $45-65 rideshare",
+    "toKaty": "45 miles, 45-60 min by car",
+    "toGalveston": "75 miles, 75-90 min by car, $70-100 rideshare",
+    "toNASAJohnsonSpaceCenter": "45 miles, 45-60 min by car",
+    "toHobbyAirport": "33 miles, 35-50 min by car, $40-55 rideshare, $65-80 taxi",
+    "toGeorgeRBrownConventionCenter": "22 miles, 25-40 min by car, 35-45 min by Route 500 ($4.50)",
+    "toMinuteMaidPark": "22 miles, 25-40 min by car (Astros games)",
+    "toNRGStadium": "28 miles, 30-45 min by car (Texans games, Rodeo)",
+    "competitiveAdvantage": "IAH is far from downtown Houston (23 miles) making ground transportation a significant cost factor. The new Route 500 Downtown Direct ($4.50, express) is the best public transit option but only runs to 8 PM. Rideshare is usually cheaper than taxi ($35-50 vs $55-65 to downtown). For travelers headed to The Woodlands or north Houston, IAH is actually very convenient. Houston Hobby Airport (HOU) is closer to downtown (12 miles) and serves primarily domestic Southwest Airlines flights."
+  },
+  "construction2026": {
+    "status": "Major $1.46 billion Terminal Redevelopment Program wrapping up early 2026. United Airlines' separate $2.6B Terminal B expansion underway.",
+    "projects": [
+      "Terminal Redevelopment Program ($1.46B) — Final phase: baggage system certification in Terminal E (February 2026). International Central Processor ticketing hall and security checkpoints nearly complete.",
+      "Terminal D-West Pier — Opened October 2024. Six new wide-body gates with 16 new dining/shopping options. Part of $1.46B program.",
+      "Terminal E Ticketing Lobby — Opened February 2025. New departures curb and independent check-in (no longer requires Terminal C check-in).",
+      "United Airlines Terminal B Expansion ($2.6B, 765,000 sq ft) — Largest single-airline terminal project in the U.S. Terminal B North redevelopment concourse projected complete 2026. Will include largest United Club in the network.",
+      "Terminal B Ticketing Lobby — Closed January 2025 through late 2026. All Terminal B passengers check in at Terminal C.",
+      "International Central Processor (ICP) — New centralized ticketing hall and security screening for international passengers. Near completion."
+    ],
+    "travelImpact": "Terminal B ticketing lobby is CLOSED — all Terminal B passengers must check in at Terminal C and take Skyway to gates. Allow extra time. Other terminals fully operational. No parking closures expected in 2026.",
+    "timeline": {
+      "terminalDWestPier": "Completed October 2024",
+      "terminalETicketing": "Completed February 2025",
+      "baggageSystemCertification": "February 2026",
+      "terminalRedevelopmentCompletion": "Early 2026",
+      "terminalBNorthConcourse": "Late 2026",
+      "terminalBFullExpansion": "Multi-year (through ~2028)"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal A", "Terminal C", "Terminal D", "Terminal E"],
+      "note": "TSA PreCheck available at all terminal security checkpoints. Terminal B passengers clear security at Terminal C."
+    },
+    "clear": {
+      "terminals": ["Terminal A North", "Terminal A South", "Terminal D"],
+      "note": "CLEAR+ lanes at three checkpoints: Terminal A North, Terminal A South, and Terminal D. Biometric identity verification skips the standard ID check line."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals at Terminal D and Terminal E. Mobile Passport Control (MPC) also available."
+    },
+    "realId": {
+      "note": "Starting May 7, 2025, all travelers 18+ must present a REAL ID-compliant license or another TSA-accepted ID."
+    },
+    "standardWaitTimes": {
+      "average": "28 minutes (standard), 5-15 minutes (TSA PreCheck)",
+      "peakHours": "6:00-9:00 AM (morning departures), 4:00-7:00 PM (evening departures)",
+      "quietestHours": "11:00 AM - 2:00 PM (midday)",
+      "tips": "IAH wait times can exceed 90 minutes during peak hours and holiday seasons. TSA PreCheck cuts wait to ~5 minutes. CLEAR+ available at Terminals A and D."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "terminalB": "2.5+ hours (must check in at Terminal C and take Skyway to B gates during renovation)",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, Houston Livestock Show and Rodeo (March)"
+    }
+  },
+  "lounges": {
+    "terminalB": [
+      {
+        "name": "United Club (Terminal B)",
+        "location": "Terminal B",
+        "status": "TEMPORARILY CLOSED for Terminal B renovation. Expected to reopen as the largest United Club in the network.",
+        "access": "United Club membership, MileagePlus Premier 1K, Global Services, Star Alliance Gold",
+        "amenities": "Will be the largest United Club globally upon reopening."
+      }
+    ],
+    "terminalC": [
+      {
+        "name": "United Club (Terminal C North)",
+        "location": "Terminal C, North Concourse, near Gate C4",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "United Club membership, MileagePlus Premier 1K, Global Services, Star Alliance Gold, United Club one-time pass",
+        "amenities": "Complimentary food, snacks, premium beverages, bar, WiFi, workspaces, power outlets, restrooms."
+      },
+      {
+        "name": "United Club (Terminal C South)",
+        "location": "Terminal C, South Concourse, near Gate C33",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "United Club membership, MileagePlus Premier 1K, Global Services, Star Alliance Gold, United Club one-time pass",
+        "amenities": "Complimentary food, snacks, premium beverages, bar, WiFi, workspaces, power outlets."
+      }
+    ],
+    "terminalD": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Terminal D, near Gate D12",
+        "hours": "6:00 AM - 9:30 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. Delta SkyMiles Reserve cardholders on Delta flights. Complimentary guests per card terms.",
+        "amenities": "8,500 sq ft. Premium food, cocktails, full bar, high-speed WiFi, computer bar, work areas with charging, family room, reservable shower suite, phone rooms."
+      },
+      {
+        "name": "British Airways Lounge",
+        "location": "Terminal D",
+        "access": "British Airways First/Business Class, Emirates First/Business Class, EVA Air Business Class, Oneworld Emerald/Sapphire",
+        "amenities": "Full-service lounge with food, drinks, WiFi, shower facilities."
+      },
+      {
+        "name": "KLM Crown Lounge",
+        "location": "Terminal D",
+        "access": "KLM/Air France Business Class, SkyTeam Elite Plus, Flying Blue Platinum/Gold",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      },
+      {
+        "name": "Turkish Airlines Lounge",
+        "location": "Terminal D",
+        "access": "Turkish Airlines Business Class, Star Alliance Gold, Priority Pass",
+        "amenities": "Full buffet, drinks, WiFi, shower facilities."
+      }
+    ],
+    "terminalE": [
+      {
+        "name": "United Polaris Lounge",
+        "location": "Terminal E, international departures area",
+        "hours": "5:30 AM - 10:30 PM daily",
+        "access": "United Polaris (international Business Class), Star Alliance Business Class on qualifying long-haul flights",
+        "amenities": "Premium dining with à la carte menu, full bar, shower suites with Soaker tubs, daybeds, quiet suites, workspaces. One of the best airline lounges in the U.S."
+      },
+      {
+        "name": "United Club (Terminal E)",
+        "location": "Terminal E",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "United Club membership, MileagePlus Premier 1K, Global Services, Star Alliance Gold",
+        "amenities": "Complimentary food, snacks, premium beverages, bar, WiFi, workspaces."
+      }
+    ],
+    "other": [
+      {
+        "name": "The Club at IAH (Terminal A)",
+        "location": "Terminal A",
+        "access": "Priority Pass, LoungeKey, paid walk-in (~$45)",
+        "amenities": "Food, drinks, WiFi, workspaces. Open to all travelers regardless of airline."
+      },
+      {
+        "name": "USO Center",
+        "location": "Terminal C",
+        "access": "Active-duty military, reservists, and families. FREE.",
+        "amenities": "Refreshments, snacks, WiFi, charging stations, TV, rest area."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "IAH Free WiFi",
+    "cost": "Free",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "provider": "Blink",
+    "cost": "FREE (need Blink InCard or smartphone to activate — scan QR code for guest access)",
+    "locations": [
+      "ecopark (JFK Blvd location)",
+      "ecopark 2 (Will Clayton Pkwy location)",
+      "Terminal A/B Garage Level 4",
+      "Terminal CDE Garage Level 4",
+      "Valet parking areas"
+    ],
+    "totalPorts": "50+ EV charging ports",
+    "note": "Unlike MIA, IAH offers FREE EV charging via Blink stations. Must have Blink InCard or scan QR code on charger touchscreen for guest access. Available in both economy and terminal garage parking."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at IAH.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Houston, Galleria area, Midtown" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Houston locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Houston, Galleria" }
+    ]
+  },
+  "petFacilities": {
+    "total": "5 pet relief areas (post-security), plus outdoor grassy areas",
+    "locations": [
+      "Terminal A — near Gate A12",
+      "Terminal B — near Gate B1",
+      "Terminal C — across from Gate C2",
+      "Terminal D — across from Gate D6 (may be closed during renovations — check signage)",
+      "Terminal E — across from Gate E12"
+    ],
+    "note": "Each terminal has a designated service animal and pet relief area inside security. Outdoor grassy areas with signs also available pre-security."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["6:00-9:00 AM (morning departures)", "11:00 AM-2:00 PM (midday bank)", "4:00-7:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Houston Livestock Show and Rodeo (February-March) is the biggest event-driven spike. Thanksgiving and Christmas/New Year are peak holiday periods. Spring break (March-April) and summer (June-August) are consistently busy. Oil & gas industry conferences drive midweek business travel spikes.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during Rodeo, Thanksgiving, Christmas"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot and humid summers (frequently exceeding 95°F/35°C). Mild winters. Hurricane season June through November.",
+    "commonDisruptions": "Hurricane season (June-November) is the primary disruption risk — tropical storms can close the airport. Severe thunderstorms year-round but especially April-June and August-October. Flash flooding is a major Houston hazard (see Hurricane Harvey, 2017). Dense fog in winter months (December-February) can cause morning delays and ground stops.",
+    "bestMonths": "October through November and March through April — moderate temperatures, lower humidity, less severe weather risk",
+    "worstMonths": "August-September (peak hurricane risk + extreme heat/humidity + afternoon thunderstorms). June is also severe thunderstorm season.",
+    "hurricaneNote": "Houston is in a major hurricane zone. Hurricane Harvey (2017) shut down both Houston airports for days and caused catastrophic flooding. Tropical storms and hurricanes can close IAH for 1-3+ days. Travel insurance strongly recommended for June-November travel.",
+    "floodingNote": "Houston is exceptionally flood-prone. Major rainfall events can flood highways and access roads to IAH even without a named storm. Hardy Toll Road and US-59/I-69 can flood during heavy rain. Monitor conditions closely during rain events.",
+    "fogNote": "Dense fog in winter (December-February) can cause morning ground stops and delays, especially December-January. Morning flights may be delayed; afternoon flights are more reliable in fog season.",
+    "heatNote": "Houston summers (June-September) regularly exceed 95°F with high humidity. If parking long-term, covered parking protects your vehicle interior. Consider ecopark covered or Fast Park & Relax for covered options.",
+    "note": "IAH faces diverse weather risks: hurricanes (summer/fall), flooding (year-round), fog (winter mornings), and severe thunderstorms (spring/summer). Morning flights are most reliable except during fog season."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near IAH. Many hotels along JFK Boulevard, Greens Road, and Will Clayton Parkway offer park-sleep-fly packages.",
+    "priceRange": "From ~$81/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Comfort Suites Houston IAH Airport",
+        "distance": "3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Shuttle to IAH included",
+        "parkOnlyRate": "$6.95/day",
+        "highlight": "Budget-friendly with park-sleep-fly packages."
+      },
+      {
+        "name": "Hilton Garden Inn Houston/Bush IAH",
+        "distance": "3.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Shuttle to IAH included",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "Hilton brand quality. Reliable shuttle service."
+      },
+      {
+        "name": "Holiday Inn Houston Intercontinental Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Shuttle to IAH included",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "Close to airport with reliable shuttle."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "terminalGarage": { "parkingCost": "$175 (7 x $25)", "totalEstimate": "$175" },
+      "valetParking": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "ecoparkUncovered": { "parkingCost": "$45.29 (7 x $6.47)", "totalEstimate": "$45.29" },
+      "ecoparkCovered": { "parkingCost": "$58.17 (7 x $8.31)", "totalEstimate": "$58.17" }
+    },
+    "offSiteWithShuttle": {
+      "preFlightParking": { "parkingCost": "$27.93 (7 x $3.99 pre-booked 7-day rate)", "savingsVsGarage": "~$147 saved", "caveat": "24/7 shuttle, cheapest option" },
+      "fineAirportParking": { "parkingCost": "$48.93 (7 x $6.99 pre-booked)", "savingsVsGarage": "~$126 saved", "caveat": "24/7 shuttle every 5-7 min — best shuttle frequency" },
+      "fastParkRelax": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$119 saved", "caveat": "All covered parking — protects from Houston heat/rain" }
+    },
+    "publicTransit": {
+      "route500RoundTrip": { "costPerPersonRoundTrip": "$9.00", "travelTime": "35-45 min to downtown", "note": "$4.50 per ride. Best express option for downtown-bound travelers." },
+      "metroBus102RoundTrip": { "costPerPersonRoundTrip": "$2.50", "travelTime": "45-90 min to downtown", "note": "$1.25 per ride. Cheapest but slowest option." },
+      "rideshareRoundTrip": { "costForCouple": "$70-$100 (UberX downtown round trip)", "note": "Still cheaper than terminal garage for 3+ day trips" }
+    },
+    "keyDifference": "IAH's ecopark lots ($6.47-8.31/day) are among the cheapest on-airport economy parking in major U.S. airports. Off-site PreFlight at $3.99/day (7-day rate) is exceptional value. The terminal garages at $25/day are expensive — avoid for stays beyond a few hours. Unlike airports with rail connections, IAH relies on bus/shuttle/car — factor in ground transportation costs to your parking decision."
+  },
+  "uniqueFeatures": {
+    "unitedSecondLargestHub": "IAH is United Airlines' second-largest hub worldwide (after Chicago O'Hare). United dominates Terminals B, C, and E with 700+ daily departures. This makes IAH an excellent connecting hub for Star Alliance travelers.",
+    "fiveTerminalLayout": "IAH's sprawling 10,000-acre campus has 5 separate terminals — the most of any airport in Texas. Terminals are connected by the Skyway (above ground, inside security) and Subway (underground, outside security). Allow extra time for inter-terminal connections.",
+    "mickeyLelandTerminal": "Terminal D is named after Mickey Leland, a Houston congressman who died in a 1989 plane crash in Ethiopia while on a hunger relief mission. The terminal was renamed in his honor and serves as IAH's primary international gateway.",
+    "houstonOilCapital": "Houston is the energy capital of the world — IAH serves the headquarters of ExxonMobil, Chevron, ConocoPhillips, Shell USA, and dozens of oil & gas companies. Business travel is a major driver of IAH traffic, particularly midweek.",
+    "cheapEconomyParking": "IAH's ecopark lots at $6.47-8.31/day are among the cheapest on-airport economy parking at any major U.S. airport. Combined with free EV charging, IAH is one of the most parking-friendly major airports.",
+    "freeEvCharging": "IAH offers free EV charging via Blink stations across ecopark lots and terminal garages — a significant advantage over airports like MIA that charge $0.38/kWh.",
+    "nasaProximity": "IAH is the closest major airport to NASA's Johnson Space Center (45 miles) — home of Mission Control and astronaut training. 'Houston, we have a problem' was directed to the Johnson Space Center.",
+    "dualAirportCity": "Houston has two commercial airports: IAH (international, United hub, north Houston) and HOU/Hobby (domestic, Southwest hub, south Houston, 12 miles from downtown). IAH handles international flights while Hobby focuses on domestic Southwest service.",
+    "terminalBMegaProject": "United Airlines' $2.6 billion Terminal B expansion is the largest single-airline terminal project in the U.S. — bigger than most airports' entire capital programs. When complete, it will transform IAH's domestic capacity.",
+    "presidentialNaming": "Named after George H. W. Bush (41st President), a longtime Houston resident. Originally Houston Intercontinental Airport, renamed in 1997 to honor Bush's service."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(281) 230-3100",
+    "airportWebsite": "fly2houston.com",
+    "parkingInfo": "fly2houston.com/iah/parking",
+    "tsa": "(866) 289-9673",
+    "metroInfo": "(713) 635-4000",
+    "metroWebsite": "ridemetro.org",
+    "airportPolice": "(281) 233-1010",
+    "houstonEmergency": "911"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.fly2houston.com/iah/",
+      "parking": "https://www.fly2houston.com/iah/parking/",
+      "parkingRates": "https://www.fly2houston.com/parking/iah-parking-rates/",
+      "terminalParking": "https://www.fly2houston.com/iah/parking/terminal-parking/",
+      "evCharging": "https://www.fly2houston.com/iah/parking/ev-charging/",
+      "groundTransportation": "https://www.fly2houston.com/iah/ground-transportation/",
+      "taxiAndRideApps": "https://www.fly2houston.com/iah/ground-transportation/taxi-and-ride-apps/",
+      "rentalCars": "https://www.fly2houston.com/iah/ground-transportation/rental-cars/",
+      "downtownDirect": "https://www.fly2houston.com/iah/ground-transportation/metro-downtown-direct/",
+      "security": "https://www.fly2houston.com/iah/security/",
+      "tsaScreeningHours": "https://www.fly2houston.com/iah/security/tsa-screening-hours/",
+      "expeditedSecurity": "https://www.fly2houston.com/iah/security/expedited-security/",
+      "services": "https://www.fly2houston.com/iah/services",
+      "lounges": "https://www.fly2houston.com/iah/airline-clubrooms",
+      "alerts": "https://www.fly2houston.com/iah/alerts/",
+      "redevelopment": "https://www.fly2houston.com/iah/redevelopment/",
+      "cellPhoneLots": "https://www.fly2houston.com/iah/ground-transportation/pick-up-drop-off/cell-phone-lots2/"
+    },
+    "transit": {
+      "metro": "https://www.ridemetro.org/",
+      "metroToIAH": "https://www.ridemetro.org/riding-metro/houston-attractions/george-bush-intercontinental-airport",
+      "route500": "https://www.fly2houston.com/iah/ground-transportation/metro-downtown-direct/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/iah/",
+      "lyft": "https://www.lyft.com/rider/airports/iah"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=IAH",
+      "airportParkingReservations": "https://airportparkingreservations.com/iah/airport-parking",
+      "way": "https://www.way.com/iah",
+      "spothero": "https://spothero.com/airport/houston/iah-parking",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/george-bush-intercontinental-airport-iah",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/houston/iah",
+      "fineAirportParking": "https://fineairportparking.com/iah/",
+      "theFastPark": "https://www.thefastpark.com/airport-parking/houston-bush-intercontinental-iah",
+      "globalAirportParking": "https://www.globalairportparking.com/iah"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearIAH": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/george-bush-intercontinental-iah-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/IAH/",
+      "unitedClub": "https://www.united.com/en/us/fly/travel/airport/united-club-background.html"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KIAH",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/IAH",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=iah"
+    },
+    "evCharging": {
+      "blink": "https://www.blinkcharging.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/iah/airport-parking",
+      "parkSleepHotels": "https://iah.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/houston-iah-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/george-bush-intercontinental-iah-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/George_Bush_Intercontinental_Airport",
+      "ifly": "https://www.ifly.com/airports/george-bush-intercontinental-airport"
+    },
+    "newsAndMedia": {
+      "houstonChronicle": "https://www.houstonchronicle.com/",
+      "houstonPublicMedia": "https://www.houstonpublicmedia.org/",
+      "communityImpact": "https://communityimpact.com/houston/"
+    }
+  }
+}

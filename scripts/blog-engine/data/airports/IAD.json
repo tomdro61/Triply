@@ -1,0 +1,765 @@
+{
+  "code": "IAD",
+  "fullName": "Washington Dulles International Airport",
+  "lastVerified": "2026-04-06",
+  "overview": {
+    "location": "Dulles, Virginia — 26 miles west of downtown Washington, D.C., in Loudoun and Fairfax counties",
+    "iataCode": "IAD",
+    "icaoCode": "KIAD",
+    "faaLid": "IAD",
+    "elevation": "312 feet above mean sea level",
+    "acreage": 13000,
+    "coordinates": "38.9444N, 77.4558W",
+    "passengerVolume": "29.01 million passengers in 2025 (up 6.4% from 2024)",
+    "aircraftOperations": "293,019 annually (2025)",
+    "distinction": "The Washington, D.C. region's primary international gateway. Handles virtually all long-haul international flights for the DC area. One of the busiest airports for A380 operations in the U.S. (British Airways, Lufthansa, Emirates). Main terminal designed by Eero Saarinen (1958) — iconic suspended catenary roof with no interior columns, widely regarded as one of the most beautiful airport buildings ever designed. Connected to DC via Silver Line Metrorail (opened 2022). United Airlines' East Coast hub.",
+    "operator": "Metropolitan Washington Airports Authority (MWAA)",
+    "owner": "Metropolitan Washington Airports Authority (transferred from federal government in 1987)",
+    "activeTerminals": 1,
+    "totalConcourses": 4,
+    "totalGates": 139,
+    "gatesWithJetways": 123,
+    "hardstandLocations": 16,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "01L/19R", "length": "9,400 ft (2,865 m)", "surface": "Concrete" },
+      { "designation": "01C/19C", "length": "11,500 ft (3,505 m)", "surface": "Concrete", "note": "Primary runway — longest runway at IAD" },
+      { "designation": "01R/19L", "length": "11,500 ft (3,505 m)", "surface": "Concrete" },
+      { "designation": "12/30", "length": "10,501 ft (3,201 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "United Airlines (major East Coast hub — operates from Concourses C and D)",
+    "totalAirlines": "50+ airlines (as of February 2025)",
+    "nonstopDestinations": "140+ destinations worldwide",
+    "founded": "November 17, 1962",
+    "namedAfter": "John Foster Dulles, 52nd U.S. Secretary of State",
+    "hubCarrier": "United Airlines",
+    "slotControlled": false,
+    "metroAccess": "Silver Line Metrorail station connected to main terminal via indoor pedestrian tunnel with moving sidewalks (~600 ft, 5-minute walk)",
+    "aeroTrain": "Underground automated people mover (Mitsubishi) connecting main terminal to Concourses A, B, and C. Concourse D reached via mobile lounges.",
+    "mobileLounges": "Historic 'plane mate' vehicles still used for Concourse D transport and international arrivals. Named after U.S. state postal abbreviations.",
+    "architecturalNote": "Eero Saarinen's 1958 design features a suspended catenary roof — dramatic curved concrete shell suggesting flight. Extended to 1,240 feet in 1996. Designated a National Historic Landmark.",
+    "internationalNote": "IAD handles all long-haul international traffic for the DC metro area. DCA (Reagan National) is limited to short-haul Canada flights due to its perimeter rule. BWI has limited international service."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal (Z Gates, H Gates)",
+      "status": "Active — Eero Saarinen-designed main terminal building (1962, extended 1996). Contains ticketing, baggage claim, security checkpoints, and ground transportation.",
+      "airlines": ["All airlines (ticketing and baggage claim)"],
+      "gates": "Z gates and H gates",
+      "notes": "Iconic curved roof design. International Arrivals Building (41,400 sq ft, opened 2009) connected to main terminal. USO Lounge opposite Baggage Claim 12. Capital One Lounge opening soon (post-TSA PreCheck). All ground transportation, rental car shuttles, Metro access from this building."
+    },
+    {
+      "name": "Concourse A (International)",
+      "status": "Active — 47 gates. Eastern half of north midfield terminal.",
+      "airlines": ["Air France", "All Nippon Airways (ANA)", "Austrian Airlines", "British Airways", "Emirates", "Ethiopian Airlines", "Etihad Airways", "KLM", "Lufthansa", "Qatar Airways", "Royal Air Maroc", "Scandinavian Airlines (SAS)", "TAP Air Portugal", "Turkish Airlines", "Virgin Atlantic"],
+      "gates": "A gates",
+      "notes": "Primary international concourse. Accessed via AeroTrain. Interfaith Chapel across from Gate A32. Virgin Atlantic Clubhouse across from Gate A32. Air France-KLM Lounge with showers."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 28 gates. Built 1998, expanded 2003 and 2008.",
+      "airlines": ["American Airlines", "Delta Air Lines", "Condor", "Frontier Airlines", "Southwest Airlines", "JetBlue Airways", "Air Canada", "Copa Airlines"],
+      "gates": "B gates",
+      "notes": "Connected to main terminal by underground walkway. Serves non-United domestic and some international carriers. British Airways Galleries Lounge. Lufthansa Business Lounge. Turkish Airlines Lounge (near Gate B43 — one of the best Priority Pass lounges in the U.S.)."
+    },
+    {
+      "name": "Concourse C (United Airlines)",
+      "status": "Active — 22 gates.",
+      "airlines": ["United Airlines"],
+      "gates": "C gates",
+      "notes": "United Airlines hub operations. Connected via AeroTrain. United Polaris Lounge near Gate C17 (5:30 AM-10 PM, full à la carte dining, showers, workspaces). United Club. Chef Geoff's Restaurant (Priority Pass)."
+    },
+    {
+      "name": "Concourse D (United Airlines)",
+      "status": "Active — 22 gates. Temporary facilities built 1983, planned for replacement.",
+      "airlines": ["United Airlines", "United Express"],
+      "gates": "D gates",
+      "notes": "Accessed via mobile lounges (not AeroTrain). United Airlines regional and some mainline flights. Planned replacement as part of D2 Dulles Development Project."
+    },
+    {
+      "name": "Concourse E (Opening Fall 2026)",
+      "status": "Under construction — 14 gates (7 widebody or 14 narrowbody). 435,000 sq ft. Expected opening fall 2026.",
+      "airlines": ["United Airlines"],
+      "gates": "E gates",
+      "notes": "Part of 'Dulles Next' $500M+ expansion. Will connect directly to AeroTrain. New 40,000 sq ft United Club. New retail and dining concessions. First phase of nearly $7 billion capital improvement plan. Will accommodate international flights."
+    }
+  ],
+  "roads": ["Dulles Access Road (free, airport-only)", "Dulles Toll Road (VA-267)", "Dulles Greenway (VA-267 extension)", "Interstate 66 (via VA-28)", "VA-28 (Sully Road)", "US-50 (Lee Jackson Memorial Highway)"],
+  "transit": ["WMATA Silver Line Metrorail (Washington Dulles International Airport station)", "Fairfax Connector Bus Route 981 (Reston, Herndon)", "Fairfax Connector Bus Route 983 (Reston)", "Loudoun County Transit Bus"],
+  "neighborhoods": ["Herndon", "Reston", "Sterling", "Ashburn", "Chantilly", "Centreville", "Leesburg", "Tysons Corner", "Vienna", "Fairfax"],
+  "authority": "Metropolitan Washington Airports Authority (MWAA)",
+  "groundTransportation": {
+    "metro": {
+      "stationName": "Washington Dulles International Airport",
+      "operator": "WMATA (Washington Metropolitan Area Transit Authority)",
+      "lines": ["Silver Line"],
+      "fare": "$2.25-$6.75 peak; $2.25-$2.50 off-peak (after 9:30 PM and weekends). $6.75 to Metro Center (downtown DC) during peak.",
+      "paymentMethod": "Contactless credit/debit card tap-to-ride, SmarTrip card, Apple Pay, Google Pay. SmarTrip 1/3/7-day passes available at mezzanine fare machines.",
+      "hours": {
+        "mondayThursday": "5:00 AM - 12:00 AM",
+        "friday": "5:00 AM - 2:00 AM",
+        "saturday": "6:00 AM - 2:00 AM",
+        "sunday": "6:00 AM - 12:00 AM"
+      },
+      "frequency": "Every 8-12 minutes during peak, 12-20 minutes off-peak",
+      "stationLocation": "Connected to main terminal via indoor pedestrian tunnel with moving sidewalks (~600 ft walk, approximately 5 minutes). Same tunnel connects to Parking Garage 1.",
+      "travelTimes": {
+        "toMetroCenter": "~53 minutes — downtown DC, transfer hub for Red/Blue/Orange lines",
+        "toTysonsCorner": "~15 minutes (3 stops) — Tysons Corner Center, Tysons Galleria",
+        "toReston": "~8 minutes (2 stops) — Reston Town Center area",
+        "toRosslyn": "~40 minutes — transfer point for Blue/Orange lines, Georgetown access",
+        "toLEnfantPlaza": "~55 minutes (via transfer at Metro Center) — near National Mall, Smithsonian",
+        "toFoggyBottom": "~50 minutes (via transfer at Rosslyn) — Georgetown, GWU",
+        "toReaganNational": "~50-55 minutes (via transfer at Rosslyn to Blue Line)",
+        "toUnionStation": "~60 minutes (via transfer at Metro Center to Red Line)"
+      },
+      "competitorNote": "Silver Line opened to Dulles in November 2022, ending decades of bus-only public transit to the airport. However, the 53-minute ride to downtown DC is significantly longer than DCA's 10-minute Yellow Line trip. For budget travelers, Metro at $6.75 peak is far cheaper than $55-80 Uber/taxi. But for time-sensitive travelers, the long ride time is a major disadvantage vs. DCA."
+    },
+    "taxi": {
+      "company": "Washington Flyer Taxi Service",
+      "fareType": "METERED",
+      "pickup": "Ground Transportation/Taxi area on lower level of Terminal — down the ramp to Door 1 or Door 7. Follow signs for Ground Transportation or Taxi.",
+      "tripFee": "$5.00 surcharge on all taxi fares to/from IAD (effective January 2024)",
+      "onlineBookingFee": "$2.00 processing fee for pre-paid online bookings (effective September 2024)",
+      "phone": "703-572-TAXI (703-572-8294)",
+      "estimatedFares": {
+        "toDowntownDC": "$51-$58 (plus $5 trip fee)",
+        "toTysonsCorner": "$30-$40",
+        "toReston": "$20-$30",
+        "toArlington": "$40-$50",
+        "toAlexandria": "$45-$55",
+        "toBethesda": "$50-$60",
+        "toBaltimore": "$100-$130",
+        "toReaganNationalAirport": "$55-$65"
+      },
+      "note": "Washington Flyer Taxicabs serve Dulles exclusively. 24-hour service, no reservations necessary. Pre-paid online booking available at washingtonflyer.com. Reservations 24 hours in advance preferred."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocations": {
+        "arrivals": "3rd curb on ground level outside Baggage Claim, accessible via Doors 2, 4, or 6. Designated zones 3A-3H — follow in-app directions to your assigned zone."
+      },
+      "dropoffLocations": {
+        "departures": "Curbs 3A/3B and 3G/3H on ground level (short walk to ticketing escalators)"
+      },
+      "estimatedFares": {
+        "uberXToDowntownDC": "$55-$80",
+        "lyftToDowntownDC": "$40-$70",
+        "uberXToTysonsCorner": "$20-$35",
+        "uberXToReston": "$15-$25",
+        "uberXToArlington": "$35-$55",
+        "uberXToReaganNational": "$45-$65"
+      },
+      "surcharge": "$4.00 Lyft surcharge for trips to/from IAD and DCA",
+      "surgePricing": "Standard surge pricing during peak hours, weather events, and holidays",
+      "competitiveAdvantage": "At $55-80 to downtown DC, rideshare from Dulles is 3-4x more expensive than from DCA ($12-20). Metro at $6.75 is the budget option but takes ~53 minutes. For groups of 3-4, splitting a rideshare fare can approach Metro cost per person."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center on Autopilot Drive — all 9 companies located at the same facility",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "shuttle": "Free shuttle buses from Terminal Baggage Claim Level — exit down ramp to Door 2 or 4, board at Curb 2C or 2D. Enterprise/National/Alamo share shuttles. Hertz/Dollar/Thrifty share shuttles. Verify company before boarding.",
+      "returnDirections": "Follow roadway signs on airport to Rental Car Return on Autopilot Drive. After returning, ride your company's free shuttle to Terminal.",
+      "totalBrands": 9,
+      "note": "All rental car companies are on-airport at the Autopilot Drive facility. No off-airport rental locations needed. Check with company about tolls on Virginia Route 267 (Dulles Toll Road/Greenway)."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service to/from IAD, including Hyatt Regency Dulles, Crowne Plaza Dulles, Washington Dulles Marriott Suites, DoubleTree by Hilton, Hilton Washington Dulles, and Westin Dulles. Most run on 30-minute intervals during daytime hours."
+  },
+  "parkingRates": "On-airport: Terminal Lot $32/day (closest self-park), Garage 1 & 2 $21/day, Economy Lot $15/day, Valet $39/day. Off-site: from ~$5.95/day (Hyatt Regency Dulles). Pre-booking recommended for guaranteed space and lowest rates at reserve.flydulles.com.",
+  "onAirportParking": {
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$10/hour, $39/day (Day 1: $39 flat)",
+      "dailyMax": 39,
+      "dropoffLocations": {
+        "curbside": "Departures Zone 3, curbside — direct access to airline counters and TSA PreCheck. Hours: 4:00 AM - 10:00 PM.",
+        "serviceCenter": "Valet Service Center in Terminal Lot — available 24/7 for vehicle drop-offs."
+      },
+      "pickup": "All pickups at Valet Service Center (Terminal Lot) — short walk from Baggage Claim Level. Open 24 hours.",
+      "expressExit": "Text your valet ticket number to (703) 214-4455 upon landing — vehicle ready at Service Center when you arrive.",
+      "addOnServices": "Hand wash & interior vacuum (sedan $45, SUV/Van $65), hand wash/vacuum/polish $80. Available starting March 2026.",
+      "payment": "All major credit cards and cash accepted",
+      "phone": "703-572-4544",
+      "note": "Premium option — most convenient but most expensive. Express Exit text service is a nice perk for quick departures."
+    },
+    "terminalLot": {
+      "name": "Terminal Lot",
+      "rate": "$7 per hour",
+      "dailyMax": 32,
+      "capacity": 1852,
+      "location": "Directly across from the Terminal building",
+      "connection": "Underground pedestrian walkway to terminal — two access points",
+      "features": "Closest self-parking option at Dulles. No minimum or maximum stay. All major credit cards and cash accepted.",
+      "preBookingUrl": "https://reserve.flydulles.com"
+    },
+    "garage1": {
+      "name": "Parking Garage 1",
+      "rate": "$7 per hour",
+      "dailyMax": 21,
+      "capacity": 4508,
+      "connection": "Underground pedestrian walkway with moving sidewalks to Terminal. Same tunnel connects to Silver Line Metro station.",
+      "evCharging": "96 EV charging stations (2 on Level 1 at handicap spaces, 94 on Level 3, 120V). Free with parking — no additional fee.",
+      "features": "Automated space counting system displays available spaces per level. Call boxes on all levels (red columns/near elevators). 24/7 shuttle bus from Curb 2F also available.",
+      "preBookingUrl": "https://reserve.flydulles.com"
+    },
+    "garage2": {
+      "name": "Parking Garage 2",
+      "rate": "$7 per hour",
+      "dailyMax": 21,
+      "capacity": 3727,
+      "connection": "Covered pedestrian walkway to Terminal. Most convenient for international destinations.",
+      "evCharging": "66 EV charging stations (10 on Level 1 including 2 at handicap spaces, 56 on Level 3, 120V). Free with parking.",
+      "features": "Automated space counting system. Call boxes on all levels. 24/7 shuttle bus from Curb 2F also available. Best choice for international travelers.",
+      "preBookingUrl": "https://reserve.flydulles.com"
+    },
+    "economyLot": {
+      "name": "Economy Lot",
+      "rate": "$15/day",
+      "dailyMax": 15,
+      "capacity": 11431,
+      "connection": "Free 'ECONOMY' shuttle bus to/from Terminal, 24/7 from Curb 2F",
+      "features": "Budget-friendly long-term option. Largest lot at IAD with 11,431 spaces. No minimum or maximum stay. All major credit cards and cash accepted. Reserve in advance for lower rates.",
+      "preBookingUrl": "https://reserve.flydulles.com"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot",
+      "location": "Autopilot Drive (44910 Autopilot Dr, Dulles, VA)",
+      "cost": "Free",
+      "maxStay": "1 hour",
+      "directions": "From Dulles Access Highway/Toll Road heading to airport, stay right past first exit, take SERVICES exit. Bear right onto Aviation Drive, right at stoplight onto Autopilot Drive. Entrance on right.",
+      "rules": "Vehicles must not be left unattended. No restroom facilities. No curb waiting at terminal — risk tickets/towing.",
+      "flightStatus": "Call 703-572-6240 with flight number or use online flight search tool."
+    },
+    "totalCapacity": "~21,500 vehicles across all on-airport facilities (Terminal 1,852 + Garage 1 4,508 + Garage 2 3,727 + Economy 11,431)",
+    "preBookingUrl": "https://reserve.flydulles.com",
+    "paymentMethods": "All major credit cards and cash accepted. Pre-booking available at reserve.flydulles.com for guaranteed space and lowest rates.",
+    "parkingAssistance": "24-hour assistance at 703-572-4500 (lost vehicles, flat tires, jump starts, customer service)"
+  },
+  "parkingLots": [
+    {
+      "name": "Hyatt Regency Dulles Airport",
+      "slug": "hyatt-regency-dulles-airport-iad",
+      "dailyRate": 7.85,
+      "reservationRate": 5.95,
+      "parkingType": "Self-park (uncovered, hotel lot)",
+      "amenities": ["Free Shuttle", "24/7 Security", "Restaurant", "Fitness Center", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary 24/7 shuttle. Every 30 minutes 6 AM-11 PM, on-demand outside those hours.",
+      "overview": "Popular off-site parking option near IAD. No hotel stay required — check in at front desk. 24/7 security surveillance. Uncovered self-park lot.",
+      "address": "2300 Dulles Corner Blvd, Herndon, VA 20171",
+      "distanceFromAirport": "1.9 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "rating": "4.7/5 (50+ reviews)",
+      "knownCoupons": ["Book via book2park.com from $5.95/day", "Book via onestopparking.com from $5.75/day"],
+      "notes": "Highly rated. 24/7 shuttle is a major advantage over some competitors. No room booking required. Uncovered parking."
+    },
+    {
+      "name": "DoubleTree Washington Dulles Airport - Formerly Hilton",
+      "slug": "doubletree-washington-dulles-airport-iad",
+      "dailyRate": 9.50,
+      "reservationRate": 8.25,
+      "parkingType": "Self-park (uncovered, hotel lot)",
+      "amenities": ["Free Shuttle", "24/7 Security Surveillance", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary shuttle every 30 minutes, 4 AM - midnight.",
+      "overview": "Off-site parking with extended shuttle hours (4 AM - midnight). No hotel stay required. 24/7 security surveillance.",
+      "address": "13869 Park Center Rd, Herndon, VA 20171",
+      "distanceFromAirport": "2.1 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "rating": "4.9/5",
+      "knownCoupons": ["Book via book2park.com from $8.25/day"],
+      "notes": "Excellent shuttle hours (4 AM - midnight) cover most flight times. Good for early morning departures."
+    },
+    {
+      "name": "Dulles Airport Parking by Crowne Plaza",
+      "slug": "dulles-airport-parking-crowne-plaza-iad",
+      "dailyRate": 9.95,
+      "reservationRate": 9.95,
+      "parkingType": "75% covered parking deck",
+      "amenities": ["Free Shuttle", "24/7 Shuttle", "Covered Parking", "EV Charging", "Luggage Assistance", "Security"],
+      "shuttleInfo": "24/7 shuttle every 30 minutes on the hour and half-hour. ~6 minute ride to terminal.",
+      "overview": "One of the best IAD off-site options — 75% covered parking deck, 24/7 shuttle every 30 minutes, EV charging available. Only 3.2 miles from airport. Luggage assistance provided.",
+      "address": "2200 Centreville Rd, Herndon, VA 20170",
+      "distanceFromAirport": "3.2 mi",
+      "driveTime": "6 minutes",
+      "freeCancellation": true,
+      "rating": "4.7/5 (164 reviews)",
+      "knownCoupons": ["Book via book2park.com from $9.95/day"],
+      "notes": "Best covered option — 75% of lot is under a parking deck. 24/7 shuttle is reliable. Allow 1 hour before departure for transport. EV charging is a differentiator."
+    },
+    {
+      "name": "Spark By Hilton Sterling Dulles Airport",
+      "slug": "spark-by-hilton-sterling-dulles-iad",
+      "dailyRate": 6.50,
+      "reservationRate": 6.50,
+      "parkingType": "Self-park (uncovered)",
+      "amenities": ["Free Shuttle", "Handicapped Accessible", "Security"],
+      "shuttleInfo": "Shuttle every hour, 6 AM - 10 PM.",
+      "overview": "Budget-friendly option 3.7 miles from IAD. Uncovered self-park with hourly shuttle service.",
+      "address": "45520 Dulles Plaza, Sterling, VA 20166",
+      "distanceFromAirport": "3.7 mi",
+      "driveTime": "8 minutes",
+      "freeCancellation": true,
+      "rating": "4.6/5 (610 reviews)",
+      "knownCoupons": [],
+      "notes": "Good budget option but shuttle only runs hourly 6 AM-10 PM. Not suitable for late night/early morning flights. Popular — limited spots."
+    },
+    {
+      "name": "Hyatt House Dulles Airport",
+      "slug": "hyatt-house-dulles-airport-iad",
+      "dailyRate": 6.95,
+      "reservationRate": 6.95,
+      "parkingType": "Self-park (uncovered)",
+      "amenities": ["Free Shuttle", "Handicapped Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Shuttle every 30 minutes, 6 AM - 11 PM. First-come, first-served.",
+      "overview": "Extended-stay hotel parking near IAD. No hotel stay required. Shuttle every 30 minutes during operating hours.",
+      "address": "4670 Westone Plaza, Sterling, VA 20165",
+      "distanceFromAirport": "4.4 mi",
+      "driveTime": "10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "First-come, first-served shuttle — may need to wait. Good value at $6.95/day."
+    },
+    {
+      "name": "DoubleTree by Hilton Dulles Airport - Sterling",
+      "slug": "doubletree-hilton-dulles-sterling-iad",
+      "dailyRate": 6.95,
+      "reservationRate": 6.95,
+      "parkingType": "Self-park (uncovered)",
+      "amenities": ["Free Shuttle", "Handicapped Accessible", "On-Demand Shuttle", "Hotel Amenities"],
+      "shuttleInfo": "On-demand shuttle, 6 AM - 10 PM.",
+      "overview": "Off-site parking with on-demand shuttle service. Park in Lot A only. Highly rated with 1,100+ reviews.",
+      "address": "21611 Atlantic Blvd, Sterling, VA 20166",
+      "distanceFromAirport": "6.4 mi",
+      "driveTime": "12 minutes",
+      "freeCancellation": true,
+      "rating": "4.7/5 (1,168 reviews)",
+      "knownCoupons": [],
+      "notes": "On-demand shuttle (not scheduled). Park in Lot A only — oversized vehicles charged extra. Furthest off-site lot but good reviews and price."
+    },
+    {
+      "name": "Comfort Suites Chantilly - Dulles Airport",
+      "slug": "comfort-suites-chantilly-dulles-iad",
+      "dailyRate": 5.99,
+      "reservationRate": 5.99,
+      "parkingType": "Self-park (uncovered)",
+      "amenities": ["Free Shuttle", "24/7 Security", "Handicapped Accessible"],
+      "shuttleInfo": "On-demand shuttle, 6:15 AM - 9:30 PM.",
+      "overview": "Budget option in Chantilly. One of the cheapest off-site IAD parking options. 24/7 security. On-demand shuttle during operating hours.",
+      "address": "4380 Chantilly Shopping Center, Chantilly, VA 20151",
+      "distanceFromAirport": "6 mi",
+      "driveTime": "12 minutes",
+      "freeCancellation": true,
+      "rating": "4.7/5 (110 reviews)",
+      "knownCoupons": [],
+      "notes": "Cheapest option but limited shuttle hours (6:15 AM - 9:30 PM) and furthest distance. Often sells out — book early."
+    }
+  ],
+  "shuttleInfo": "On-airport: Free 24/7 shuttle service between all parking facilities and terminal from Curb 2F (look for 'ECONOMY' or 'GARAGES' buses). Off-site: Most hotel lots include free shuttle to IAD. Frequency varies: Crowne Plaza (24/7 every 30 min), Hyatt Regency (every 30 min 6 AM-11 PM, on-demand overnight), DoubleTree Formerly Hilton (every 30 min 4 AM-midnight). NOTE: Most hotel shuttles are NOT 24/7 — check hours for early/late flights.",
+  "distanceFromCity": "26 miles west of downtown Washington D.C. 35-75 minutes by car depending on traffic. ~53 minutes by Silver Line Metro. The Washington region's primary international airport, serving all long-haul international routes.",
+  "keyDistances": {
+    "toDowntownDC": "26 miles, 35-75 min by car (I-66 or Dulles Access Road to DC), 53 min by Metro (Silver Line), $55-80 rideshare",
+    "toCapitolHill": "28 miles, 40-80 min by car, ~60 min by Metro (Silver Line + Red Line transfer)",
+    "toGeorgetown": "25 miles, 35-65 min by car, ~55 min by Metro (Silver Line to Rosslyn + walk/bus)",
+    "toNationalMall": "27 miles, 35-75 min by car, ~55 min by Metro to L'Enfant Plaza (transfer at Metro Center)",
+    "toTysonsCorner": "8 miles, 15-25 min by car, ~15 min by Metro (Silver Line, 3 stops), $20-35 rideshare",
+    "toReston": "5 miles, 10-15 min by car, ~8 min by Metro (Silver Line, 2 stops), $15-25 rideshare",
+    "toArlington": "22 miles, 30-55 min by car",
+    "toAlexandria": "28 miles, 35-65 min by car, $45-55 taxi",
+    "toPentagon": "24 miles, 30-60 min by car",
+    "toReaganNationalAirport": "27 miles, 30-60 min by car, 50-55 min by Metro (Silver Line to Rosslyn, transfer Blue Line)",
+    "toBaltimore": "65 miles, 75-100 min by car (I-95/BW Parkway)",
+    "toBWIAirport": "60 miles, 70-90 min by car",
+    "toBethesda": "20 miles, 30-50 min by car",
+    "toHerndon": "3 miles, 5-10 min by car",
+    "toLeesburg": "15 miles, 20-30 min by car (via Dulles Greenway)",
+    "competitiveAdvantage": "IAD's strength is international access — it handles all long-haul international flights for the DC area and has no perimeter rule or slot controls. However, it is 26 miles from downtown DC (vs DCA's 5 miles), making ground transportation significantly more expensive and time-consuming. The Silver Line Metro connection (opened 2022) is a game-changer for budget travelers, but at 53 minutes to Metro Center it can't match DCA's 10-minute Yellow Line ride. IAD is the clear choice for international and West Coast flights, while DCA dominates for domestic East Coast travel."
+  },
+  "construction2026": {
+    "status": "Dulles Next Concourse E under construction. Major $7 billion capital improvement plan underway.",
+    "projects": [
+      "Concourse E ($500M+) — UNDER CONSTRUCTION. 435,000 sq ft, 14 gates (7 widebody or 14 narrowbody). New 40,000 sq ft United Club. Connected to AeroTrain. MWAA took possession of concessions facilities March 30, 2026. Restaurants and retail fitting out. Expected opening: fall 2026.",
+      "D2 Dulles Development Project — PLANNED. Will replace aging Concourse C and D (1983 temporary structures). Part of the $7 billion capital plan. Construction begins October 2026.",
+      "100 MW Solar Power Facility — IN PROGRESS (started 2023). Solar array with battery storage and electric bus charging equipment.",
+      "Capital One Lounge — OPENING SOON. Located in Main Terminal directly after TSA PreCheck."
+    ],
+    "travelImpact": "Concourse E opening in fall 2026 will add significant gate capacity. Current construction may cause minor terminal congestion. D2 project starting October 2026 will begin replacing Concourses C and D.",
+    "timeline": {
+      "concourseE": "Fall 2026 — 14 new gates, new United Club",
+      "d2ProjectStart": "October 2026 — construction begins on Concourse C/D replacement",
+      "capitalOneLounge": "2026 — new lounge in Main Terminal",
+      "solarFacility": "Ongoing — 100 MW solar with battery storage"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Main Terminal"],
+      "note": "TSA PreCheck available at main terminal security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Main Terminal"],
+      "note": "CLEAR available at main terminal"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available for international arrivals. Mobile Passport Control also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (Europe departures), 10:00 AM-1:00 PM, 3:00-6:00 PM",
+      "tips": "International departures cluster in evening hours (6-10 PM). Use MyTSA app for real-time wait times."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, summer peak"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "Virgin Atlantic Clubhouse",
+        "location": "Concourse A, across from Gate A32",
+        "access": "Virgin Atlantic Upper Class, Delta One (on Delta flights to/from London), eligible SkyTeam Elite Plus",
+        "amenities": "Custom-made dishes, specialized cocktails, complimentary drinks, shower suites, workspaces."
+      },
+      {
+        "name": "Air France-KLM Lounge",
+        "location": "Concourse A",
+        "access": "Air France/KLM Business/First Class, SkyTeam Elite Plus, Priority Pass",
+        "amenities": "Food, drinks, shower facilities, WiFi."
+      },
+      {
+        "name": "Interfaith Chapel",
+        "location": "Concourse A, across from Gate A32",
+        "access": "Open to all passengers, 24 hours",
+        "amenities": "Quiet reflection space."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "Turkish Airlines Lounge",
+        "location": "Concourse B, near Gate B43",
+        "access": "Turkish Airlines Business Class, Star Alliance Gold, Priority Pass. Shared access for Air Canada, Air China, Air India, ANA, Austrian, Avianca, Brussels Airlines, Royal Air Maroc, Copa, Egyptair, Ethiopian, Lufthansa, SAS, TAP Portugal, United, Qatar Airways.",
+        "amenities": "One of the best Priority Pass lounges in the U.S. Full buffet, shower facilities, WiFi."
+      },
+      {
+        "name": "British Airways Galleries Lounge",
+        "location": "Concourse B",
+        "access": "British Airways Club World/First, Oneworld Emerald/Sapphire, Priority Pass",
+        "amenities": "Food, drinks, shower suites, WiFi, workspaces."
+      },
+      {
+        "name": "Lufthansa Business Lounge",
+        "location": "Concourse B",
+        "access": "Lufthansa Business/First Class, Star Alliance Gold, Priority Pass",
+        "amenities": "German-style buffet, drinks, WiFi."
+      }
+    ],
+    "concourseC": [
+      {
+        "name": "United Polaris Lounge",
+        "location": "Concourse C, near Gate C17",
+        "hours": "5:30 AM - 10:00 PM daily",
+        "access": "United Polaris Business/First Class, Star Alliance Gold (international itinerary), United Global Services",
+        "amenities": "Full à la carte dining, elevated buffet, premium bar, shower suites, private workspaces, expansive apron views. One of the best airline lounges in the U.S."
+      },
+      {
+        "name": "United Club (Concourse C)",
+        "location": "Concourse C",
+        "access": "United Club membership, United Club Infinite card, Star Alliance Gold, United Polaris",
+        "amenities": "Complimentary food, drinks, WiFi, workspaces."
+      },
+      {
+        "name": "Chef Geoff's Restaurant",
+        "location": "Concourse C",
+        "access": "Priority Pass",
+        "amenities": "Full-service restaurant. Priority Pass provides credit toward food and beverages."
+      }
+    ],
+    "mainTerminal": [
+      {
+        "name": "USO Lounge",
+        "location": "Main Terminal, opposite Baggage Claim 12",
+        "access": "Active-duty, Guard, Reserve, retired military, and their dependents. Free.",
+        "amenities": "Seating, refreshments, WiFi, charging stations."
+      },
+      {
+        "name": "Capital One Lounge",
+        "location": "Main Terminal, directly after TSA PreCheck",
+        "status": "OPENING SOON (2026)",
+        "access": "Capital One Venture X cardholders",
+        "amenities": "Will include shower facilities, food, drinks, workspaces."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "Free WiFi (Dulles Airport)",
+    "cost": "Free — no registration required",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "garage1": {
+      "chargers": 96,
+      "location": "2 on Level 1 (handicap spaces), 94 on Level 3",
+      "type": "120V Level 1 charging stations",
+      "cost": "Free with parking — no additional fee"
+    },
+    "garage2": {
+      "chargers": 66,
+      "location": "10 on Level 1 (2 at handicap spaces), 56 on Level 3",
+      "type": "120V Level 1 charging stations",
+      "cost": "Free with parking — no additional fee"
+    },
+    "totalPorts": "162+ EV charging stations across Garage 1 and Garage 2",
+    "dcFastCharging": "Level 2 and DC Fast charging options also available",
+    "recommendation": "Garage 1 has the most EV chargers (96 stations). Spaces marked 'electric vehicle charging only.' Best for long-term parkers — Level 1 (120V) chargers are slow."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at Dulles Airport.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Locations in Herndon, Reston, downtown DC" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily. Locations near Metro stations." },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "locations": "Downtown DC, various Metro-accessible locations" }
+    ]
+  },
+  "petFacilities": {
+    "total": "4 designated pet relief areas",
+    "locations": [
+      "Inside concourse locations (post-security)",
+      "Outside main terminal building (pre-security)"
+    ],
+    "features": "Designated areas with signage. Check airport maps for exact locations."
+  },
+  "nursingRooms": {
+    "mainTerminal": "Dedicated nursing rooms available for nursing mothers requiring private spaces",
+    "features": "Private rooms — check airport maps for exact locations"
+  },
+  "kidsPlayArea": {
+    "available": true,
+    "note": "Kids' play area available in terminal for young travelers"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (transatlantic departures)", "10:00 AM-1:00 PM", "3:00-6:00 PM", "6:00-10:00 PM (international departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "internationalPattern": "IAD has unique evening departure clusters for Europe/Middle East flights (6-10 PM). Transatlantic arrivals peak in the morning (6-10 AM). Domestic patterns mirror typical airports.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas/New Year, spring break, summer peak"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate. Hot, humid summers. Cold winters with occasional snow/ice. Spring cherry blossom season (late March-early April).",
+    "commonDisruptions": "Summer thunderstorms (June-August), winter snow/ice storms (December-March), morning fog (spring/fall). IAD's 4 runways and lack of slot controls give it more weather recovery capacity than DCA.",
+    "bestMonths": "September through November — mild weather, lower tourist crowds, fewer thunderstorms",
+    "worstMonths": "January-February (winter storms, ice), July-August (afternoon thunderstorms)",
+    "summerThunderstorms": "June-August: late afternoon/evening thunderstorms common in Northern Virginia. Can cause 1-3 hour ground stops. Book morning flights for best reliability.",
+    "winterWeather": "December-March: snow and ice can cause significant delays. IAD typically recovers faster than DCA due to more runways and capacity."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near IAD in Herndon/Reston/Sterling/Chantilly. Many hotels offer up to 14 days of free parking with one-night hotel stay.",
+    "priceRange": "From ~$120/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hyatt Regency Dulles",
+        "distance": "1.9 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 (every 30 min daytime, on-demand overnight)",
+        "parkOnlyRate": "$5.95-$7.85/day",
+        "highlight": "Best shuttle service — 24/7 with on-demand overnight."
+      },
+      {
+        "name": "Crowne Plaza Dulles Airport",
+        "distance": "3.2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 every 30 minutes",
+        "parkOnlyRate": "$9.95/day",
+        "highlight": "75% covered parking deck. EV charging. 24/7 shuttle."
+      },
+      {
+        "name": "Washington Dulles Marriott Suites",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "highlight": "All-suite hotel. Park-Sleep-Fly packages available."
+      },
+      {
+        "name": "Hilton Washington Dulles Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "highlight": "Full-service Hilton with restaurant and fitness center."
+      },
+      {
+        "name": "DoubleTree Washington Dulles Airport",
+        "distance": "2.1 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Every 30 min, 4 AM - midnight",
+        "parkOnlyRate": "$8.25-$9.50/day",
+        "highlight": "Extended shuttle hours cover early/late flights."
+      },
+      {
+        "name": "Courtyard by Marriott Dulles Airport Herndon/Reston",
+        "distance": "3 miles",
+        "shuttleHours": "Free shuttle",
+        "highlight": "Modern rooms, Bistro restaurant."
+      },
+      {
+        "name": "Holiday Inn Express Dulles Airport",
+        "distance": "4 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "highlight": "Budget-friendly. Free breakfast."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "book2park.com", "parkingaccess.com", "onestopparking.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valetParking": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "8-day trip for 2 travelers",
+    "onAirport": {
+      "terminalLot": { "parkingCost": "$256 (8 x $32)", "totalEstimate": "$256" },
+      "garage1or2": { "parkingCost": "$168 (8 x $21)", "totalEstimate": "$168" },
+      "economyLot": { "parkingCost": "$120 (8 x $15)", "totalEstimate": "$120" },
+      "valet": { "parkingCost": "$312 (8 x $39)", "totalEstimate": "$312" }
+    },
+    "offSiteWithShuttle": {
+      "hyattRegency": { "parkingCost": "$47.60 (8 x $5.95 pre-booked)", "savingsVsGarage": "~$120 saved vs Garage 1/2", "caveat": "24/7 shuttle" },
+      "crownePlaza": { "parkingCost": "$79.60 (8 x $9.95)", "savingsVsGarage": "~$88 saved vs Garage 1/2", "caveat": "75% covered, 24/7 shuttle" },
+      "comfortSuites": { "parkingCost": "$47.92 (8 x $5.99)", "savingsVsGarage": "~$120 saved vs Garage 1/2", "caveat": "Shuttle 6:15 AM-9:30 PM only" },
+      "doubleTreeFormerlyHilton": { "parkingCost": "$66 (8 x $8.25 pre-booked)", "savingsVsGarage": "~$102 saved vs Garage 1/2", "caveat": "Shuttle 4 AM-midnight" }
+    },
+    "publicTransit": {
+      "metroRoundTrip": { "costPerPersonRoundTrip": "$4.50-$13.50", "travelTime": "53 min to Metro Center (downtown DC)", "note": "Silver Line. Cheapest option by far but longest travel time." },
+      "rideshareRoundTrip": { "costForCouple": "$110-$160 (UberX downtown round trip)", "note": "Most expensive option but fastest (35-45 min)" }
+    },
+    "keyDifference": "IAD parking is significantly cheaper than DCA ($15-21/day vs $25-35/day for comparable on-airport lots). Off-site options are also cheaper ($5.95/day vs $8.50/day). However, ground transportation to downtown DC is far more expensive from IAD ($55-80 rideshare vs $12-20 from DCA). For travelers headed to downtown DC, the total cost of IAD parking + transportation often exceeds DCA. IAD's parking advantage is strongest for travelers headed to Northern Virginia (Tysons, Reston, Herndon) where it's simply the closest airport."
+  },
+  "uniqueFeatures": {
+    "internationalGateway": "IAD handles virtually all long-haul international flights for the Washington, D.C. metro area. DCA is limited by its perimeter rule to short-haul domestic and Canada flights. BWI has limited international service. If you're flying to Europe, Asia, Middle East, or Africa from the DC area, you're almost certainly flying from Dulles.",
+    "noPerimeterRule": "Unlike DCA, IAD has no perimeter rule or slot controls. Airlines can fly anywhere in the world with no restrictions on distance or frequency. This is why United uses IAD as its East Coast hub for transcontinental and international routes.",
+    "unitedHub": "United Airlines operates IAD as a major hub, with Concourses C and D (and soon E) dedicated to United operations. United Polaris Lounge at IAD is one of the airline's flagship premium lounges.",
+    "saarinenArchitecture": "The main terminal was designed by Finnish-American architect Eero Saarinen in 1958 and opened in 1962. Its iconic suspended catenary roof — a dramatic curved concrete shell suggestive of flight — is a National Historic Landmark and one of the most celebrated airport designs worldwide.",
+    "aeroTrain": "Underground automated people mover connecting the main terminal to Concourses A, B, and C. Ride time is 2-4 minutes per stop.",
+    "mobileLounges": "IAD is one of the last airports to use mobile lounges ('plane mates') — large vehicles that transport passengers from the terminal to aircraft or remote concourses. Now only used for Concourse D and international arrivals. Named after U.S. state postal abbreviations.",
+    "silverLineMetro": "Silver Line Metrorail station opened November 2022, finally connecting Dulles to the DC Metro system after decades of planning. Indoor pedestrian tunnel with moving sidewalks links station to terminal.",
+    "largestAirportByArea": "At 13,000 acres (20.3 sq mi), Dulles is one of the largest commercial airports in the U.S. by land area. For comparison, DCA sits on just 861 acres.",
+    "a380Operations": "As of 2025, IAD ranks 3rd in the U.S. for Airbus A380 operations during summer season. British Airways and Lufthansa fly daily A380 routes, and Emirates operates year-round A380 service.",
+    "iadVsDcaVsBwi": "IAD is the international gateway (26 miles west of DC, 50+ airlines, no route restrictions). DCA is the domestic convenience airport (5 miles from DC, direct Metro, perimeter rule). BWI is the budget carrier hub (42 miles north, major Southwest Airlines presence). For parking: IAD is cheapest on-airport ($15-21/day), DCA is mid-range ($25-35/day), BWI varies."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(703) 572-2700",
+    "airportWebsite": "flydulles.com",
+    "parkingInfo": "reserve.flydulles.com",
+    "parkingAssistance": "(703) 572-4500",
+    "valetParking": "(703) 572-4544",
+    "tsa": "(866) 289-9673",
+    "metroInfo": "(202) 637-7000",
+    "wmataWebsite": "wmata.com",
+    "mwaa": "(703) 417-8600",
+    "washingtonFlyerTaxi": "(703) 572-8294",
+    "flightStatus": "(703) 572-6240",
+    "loudounCountySheriff": "911 or (703) 777-1021"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-06.",
+    "officialAirport": {
+      "home": "https://www.flydulles.com/",
+      "parking": "https://www.flydulles.com/parking-transportation/parking-information",
+      "parkingReservations": "https://reserve.flydulles.com",
+      "terminalParking": "https://www.flydulles.com/parking-transportation/parking-information/terminal-parking",
+      "garages": "https://www.flydulles.com/parking-transportation/parking-information/parking-garage-1-2",
+      "economyParking": "https://www.flydulles.com/parking-transportation/parking-information/economy-parking-lot",
+      "valetParking": "https://www.flydulles.com/parking-transportation/parking-information/valet-parking",
+      "evCharging": "https://www.flydulles.com/parking-transportation/parking-information/electric-vehicle-charging-stations",
+      "cellPhoneLot": "https://www.flydulles.com/cell-phone-lot",
+      "groundTransportation": "https://www.flydulles.com/parking-transportation/ground-transportation",
+      "taxi": "https://www.flydulles.com/parking-transportation/washington-flyer-taxi-service",
+      "taxiFares": "https://www.flydulles.com/parking-transportation/washington-flyer-taxi-service/estimated-taxi-fares",
+      "rentalCars": "https://www.flydulles.com/parking-transportation/rental-cars",
+      "metro": "https://www.flydulles.com/parking-transportation/dulles-airport-metrorail-station",
+      "silverLineFAQ": "https://www.flydulles.com/parking-transportation/silver-line-metrorail/silver-line-faqs",
+      "servicesAmenities": "https://www.flydulles.com/travel-information/services-amenities",
+      "lounges": "https://www.flydulles.com/travel-information/services-amenities/airport-lounges",
+      "airportMaps": "https://www.flydulles.com/travel-information/airport-and-terminal-maps",
+      "interactiveMap": "https://maps.flydulles.com",
+      "dullesNext": "https://www.flydulles.com/Next",
+      "airportOverview": "https://www.flydulles.com/airport-overview"
+    },
+    "transit": {
+      "wmataHome": "https://www.wmata.com/",
+      "wmataFares": "https://www.wmata.com/fares/basic.cfm",
+      "wmataStationIAD": "https://www.wmata.com/rider-guide/silver-line-extension/Washington-Dulles-International-Airport.cfm",
+      "wmataSchedules": "https://wmata.com/schedules/index.cfm",
+      "dcMetroMap": "https://dcmetromap.us/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/iad/",
+      "uberPickup": "https://www.uber.com/global/en/r/airports/iad/pickup/",
+      "lyft": "https://www.lyft.com/rider/airports/iad"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=IAD",
+      "airportParkingReservations": "https://airportparkingreservations.com/iad/airport-parking",
+      "way": "https://www.way.com/iad",
+      "spothero": "https://spothero.com/airport/washington-dc/iad-parking",
+      "book2park": "https://www.book2park.com/airport/iad-dulles-airport-parking",
+      "parkobility": "https://parkobility.com/airport/iad/",
+      "parkingAccess": "https://parkingaccess.com/airports/washington-dulles-international-airport",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/washington-dulles-international-airport-iad",
+      "onairParking": "https://www.onairparking.com/parking/Washington-International-Airport-IAD",
+      "onestopparking": "https://onestopparking.com/Washington-Dulles-airport-parking-IAD"
+    },
+    "rentalCars": {
+      "kayak": "https://www.kayak.com/Dulles-Airport-Car-Rentals.IAD.cap.ksp",
+      "enterprise": "https://www.enterprise.com/en/car-rental-locations/us/va/washington-dulles-international-airport.html",
+      "hertz": "https://www.hertz.com/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearIAD": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/washington-dulles-iad-airport-lounges/",
+      "unitedPolaris": "https://loungereview.com/lounges/united-polaris-lounge-iad/",
+      "loungePair": "https://www.loungepair.com/guides/washington-dulles-airport-lounge-guide/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KIAD",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/IAD",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=iad"
+    },
+    "evCharging": {
+      "plugshare": "https://www.plugshare.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/iad/airport-parking",
+      "parksleephotels": "https://www.parksleephotels.com/dulles-iad-promo-code-coupon.htm",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/iad"
+    },
+    "construction": {
+      "dullesNext": "https://www.flydulles.com/Next",
+      "mwaaDevelopment": "https://www.mwaa.com/business/dulles-development-projects"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/washington-dulles-international-iad-airport/",
+      "ifly": "https://www.ifly.com/airports/washington-dulles-international-airport",
+      "airportGuide": "https://www.airport.guide/kiad",
+      "wikipedia": "https://en.wikipedia.org/wiki/Dulles_International_Airport",
+      "going": "https://www.going.com/guides/dulles-international-airport-iad",
+      "thepointsanalyst": "https://www.thepointsanalyst.com/washington-dulles-international-airport-iad/"
+    },
+    "newsAndMedia": {
+      "ffxnow": "https://www.ffxnow.com/",
+      "dcist": "https://dcist.com/",
+      "wjla": "https://wjla.com/",
+      "nbcwashington": "https://www.nbcwashington.com/"
+    }
+  }
+}

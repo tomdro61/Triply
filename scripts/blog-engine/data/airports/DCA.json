@@ -1,0 +1,787 @@
+{
+  "code": "DCA",
+  "fullName": "Ronald Reagan Washington National Airport",
+  "lastVerified": "2026-04-03",
+  "overview": {
+    "location": "Arlington County, Virginia — directly across the Potomac River from Washington, D.C., 5 miles south of the White House",
+    "iataCode": "DCA",
+    "icaoCode": "KDCA",
+    "faaLid": "DCA",
+    "elevation": "15 feet above mean sea level",
+    "acreage": 861,
+    "coordinates": "38.8522N, 77.0378W",
+    "passengerVolume": "24.89 million passengers in 2025 (down 5.3% from 2024)",
+    "aircraftOperations": "297,737 annually (2025)",
+    "distinction": "Only major airport in the Washington D.C. area with a direct Metro rail connection. Located just 5 miles from the U.S. Capitol and 3 miles from the Pentagon. Subject to unique perimeter rule limiting most nonstop flights to 1,250 miles. River Visual Approach to Runway 19 is one of the most challenging and scenic commercial approaches in the United States — passengers can see the National Mall, Capitol, and Pentagon from the air.",
+    "operator": "Metropolitan Washington Airports Authority (MWAA)",
+    "owner": "United States federal government",
+    "activeTerminals": 2,
+    "totalGates": 59,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "01/19", "length": "7,169 ft (2,185 m)", "surface": "Asphalt", "note": "Primary runway — handles ~57% of arrivals" },
+      { "designation": "15/33", "length": "5,204 ft (1,586 m)", "surface": "Asphalt" },
+      { "designation": "04/22", "length": "5,000 ft (1,524 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "American Airlines (major hub — operates from Concourses C, D, and E)",
+    "totalAirlines": 10,
+    "nonstopDestinations": "111 destinations (as of July 2025)",
+    "founded": "June 16, 1941 (originally Washington National Airport)",
+    "renamed": "1998 — renamed to Ronald Reagan Washington National Airport (February 6, 1998)",
+    "hubCarrier": "American Airlines",
+    "slotControlled": true,
+    "maxHourlySlots": 67,
+    "perimeterRule": "1,250 statute miles — most nonstop flights restricted to destinations within this radius. Beyond-perimeter flights require congressional exemption slots. Originally 650 miles (1966), extended to 1,000 miles (1980s), then 1,250 miles (1986).",
+    "beyondPerimeterSlots": "50 daily beyond-perimeter slot exemptions (40 authorized in 2000/2003/2012, plus 10 added by FAA Reauthorization Act of 2024)",
+    "metroAccess": "Direct Yellow/Blue Line connection via Ronald Reagan Washington National Airport Metro station — covered walkway to Terminal 2",
+    "bikeAccess": "Mount Vernon Trail connects to airport. 48 bike parking spots. Capital Bikeshare dock-based station (first major U.S. airport with bikeshare).",
+    "securityRestriction": "Flight Restricted Zone 13-15 nautical miles around airport. General aviation limited to 48 operations/day. Only scheduled commercial and governmental flights permitted without FAA waiver.",
+    "environmentalNote": "Located on the Potomac River in the flight path of restricted airspace around the National Mall, U.S. Naval Observatory, and White House"
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 (Gates A1-A9)",
+      "status": "Active — 9 gates. Original 1941 terminal designed by Charles M. Goodman. Historic Art Deco architecture.",
+      "airlines": ["Air Canada Express", "Frontier Airlines", "Southwest Airlines"],
+      "gates": "Gates A1-A9",
+      "notes": "Original terminal opened 1941. Southwest Airlines is the predominant carrier. Terminals 1 and 2 are NOT connected post-security — passengers must exit and re-enter security to switch terminals. USO Lounge located pre-security, across from Lost and Found. Nursing rooms available pre-security."
+    },
+    {
+      "name": "Terminal 2 — Concourse B (Gates B10-B22)",
+      "status": "Active — 13 gates. Part of Terminal 2 complex opened July 27, 1997, designed by César Pelli.",
+      "airlines": ["Alaska Airlines", "Delta Air Lines", "United Airlines"],
+      "gates": "Gates B10-B22",
+      "notes": "Delta Sky Club above Gate 15. United Club across from Gate 11. Capital One Landing lounge. Metro station connects via covered walkway to Terminal 2."
+    },
+    {
+      "name": "Terminal 2 — Concourse C (Gates C23-C34)",
+      "status": "Active — 12 gates",
+      "airlines": ["American Airlines", "JetBlue Airways"],
+      "gates": "Gates C23-C34",
+      "notes": "American Airlines Admirals Club in Concourse C (hours: Sun-Fri 4:45 AM-10:15 PM, Sat 4:45 AM-9:15 PM). American Express Centurion Lounge past South Security Checkpoint. All post-security concourses B through E in Terminal 2 are connected via National Hall."
+    },
+    {
+      "name": "Terminal 2 — Concourse D (Gates D35-D45)",
+      "status": "Active — 11 gates",
+      "airlines": ["American Airlines"],
+      "gates": "Gates D35-D45",
+      "notes": "American Airlines Admirals Club in Concourse D. Exclusively American Airlines gates."
+    },
+    {
+      "name": "Terminal 2 — Concourse E (Gates E46-E59)",
+      "status": "Active — 14 gates. Newest concourse, opened April 2021 as part of Project Journey ($1B+). Replaced the notorious Gate 35X bus gates.",
+      "airlines": ["American Airlines", "American Eagle"],
+      "gates": "Gates E46-E59",
+      "notes": "Brand-new concourse with jetbridges (replacing old bus boarding). American Airlines Admirals Club. Mother's care rooms. Indoor pet relief area. Concessions. Amenities are newest in the airport. 14 regional jet gates with jetways."
+    }
+  ],
+  "roads": ["George Washington Memorial Parkway", "Interstate 395", "U.S. Route 1 (Jefferson Davis Highway / Richmond Highway)", "VA-233 (Airport Access Road)", "Crystal Drive"],
+  "transit": ["WMATA Metrorail Yellow Line (direct — 4 stops to L'Enfant Plaza)", "WMATA Metrorail Blue Line (direct — 12 stops to L'Enfant Plaza)", "Metrobus 13F (Arlington, Pentagon, downtown DC)", "Metrobus 13G (Arlington, Pentagon, downtown DC)", "Capital Bikeshare station (dock-based, first at a major U.S. airport)", "Mount Vernon Trail (bike/pedestrian path)"],
+  "neighborhoods": ["Crystal City", "Pentagon City", "Rosslyn", "Clarendon", "Ballston", "Arlington", "Alexandria (Old Town)", "National Landing", "Potomac Yard", "Columbia Pike"],
+  "authority": "Metropolitan Washington Airports Authority (MWAA)",
+  "groundTransportation": {
+    "metro": {
+      "stationName": "Ronald Reagan Washington National Airport",
+      "operator": "WMATA (Washington Metropolitan Area Transit Authority)",
+      "lines": ["Yellow Line", "Blue Line"],
+      "fare": "$2.25-$6.75 peak; $2.25-$2.50 off-peak (after 9:30 PM and weekends)",
+      "paymentMethod": "SmarTrip card — purchase at fare machines in station or use contactless payment (Apple Pay, Google Pay, contactless credit card)",
+      "hours": {
+        "mondayThursday": "5:00 AM - 12:00 AM",
+        "friday": "5:00 AM - 1:00 AM",
+        "saturday": "7:00 AM - 1:00 AM",
+        "sunday": "7:00 AM - 12:00 AM"
+      },
+      "frequency": "Every 6-12 minutes depending on time and day",
+      "stationLocation": "Adjacent to Terminal 2 — covered moving walkway connects to all airline terminals",
+      "travelTimes": {
+        "toLEnfantPlaza": "~10 minutes (Yellow Line, 4 stops) — near National Mall and Smithsonian museums",
+        "toMetroCenter": "~19 minutes (Blue Line) — downtown DC transfer hub",
+        "toPentagon": "~3 minutes (Yellow/Blue Line, 1 stop)",
+        "toGalleryPlace": "~14 minutes — Chinatown, Capital One Arena",
+        "toDupontCircle": "~20 minutes — via transfer at Metro Center",
+        "toUnionStation": "~18 minutes — via transfer at Gallery Place (Red Line)",
+        "toFoggyBottom": "~15 minutes (Blue Line) — Georgetown access, GWU",
+        "toTysonsCorner": "~40 minutes (Silver Line via transfer)",
+        "toDullesAirport": "~60 minutes (Silver Line via transfer at Rosslyn)"
+      },
+      "competitorNote": "At $2.25 off-peak, Metro is the cheapest and often fastest way to reach downtown DC. A round-trip Metro fare ($4.50-$13.50) is dramatically cheaper than even one day of airport parking ($25-$29). For trips of any length, Metro beats parking on cost. This is DCA's single biggest competitive advantage over IAD and BWI.",
+      "accessibility": "Elevator access, wheelchair-accessible platforms, priority seating"
+    },
+    "metrobus": {
+      "routes": ["13F", "13G"],
+      "coverage": "Crystal City, Pentagon, Arlington Cemetery, Federal Triangle, downtown Washington D.C.",
+      "note": "Metrobus routes 13F and 13G stop on the upper roadway next to Terminal B. Primarily used on weekend mornings when Metrorail service has not yet started.",
+      "fare": "$2.25 (SmarTrip card)"
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Designated taxi stands at arrivals level of both terminals. DCA Taxi Dispatcher available to assist.",
+      "meterRate": "First mile: $5.39. Each additional mile: $2.16. Airport surcharge: $3.00. Additional passenger: up to $1.00 each.",
+      "dcMaxFare": "Trips within District of Columbia have a maximum fare of $19.00",
+      "snowEmergency": "Fare increased 125% during declared Snow Emergency",
+      "estimatedFares": {
+        "toDowntownDC": "$15-$22",
+        "toCapitolHill": "$15-$20",
+        "toGeorgetown": "$18-$25",
+        "toPentagon": "$8-$12",
+        "toDupontCircle": "$18-$25",
+        "toUnionStation": "$18-$25",
+        "toAlexandriaOldTown": "$12-$18",
+        "toBethesda": "$30-$40",
+        "toTysonsCorner": "$35-$50"
+      },
+      "note": "All taxicabs must have and use meters. Cash and credit cards accepted."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocations": {
+        "terminal1": "Third (outer) curb outside Terminal 1 arrivals. Look for green flag markers.",
+        "terminal2": "Baggage Claim (Arrivals) Level, 1st Floor, outer curb. Zones 1-4."
+      },
+      "minimumFares": {
+        "uber": "$8.18",
+        "lyft": "$5.07"
+      },
+      "costPerMile": {
+        "uberX": "$0.87/mile",
+        "lyftStandard": "$0.80/mile"
+      },
+      "estimatedFares": {
+        "uberXToDowntownDC": "$12-$20",
+        "uberXToCapitolHill": "$12-$18",
+        "uberXToGeorgetown": "$15-$22",
+        "uberXToPentagon": "$8-$12",
+        "uberXToAlexandria": "$10-$16",
+        "uberXToCrystalCity": "$6-$10",
+        "uberXToTysonsCorner": "$25-$40",
+        "uberXToBaltimore": "$65-$100"
+      },
+      "surgePricing": "Standard surge pricing during peak hours, weather events, and holidays",
+      "pinVerification": "PIN or QR verification may be required",
+      "competitiveAdvantage": "DCA is only 5 miles from downtown DC — rideshare is very affordable. Round-trip Uber at $24-40 beats even 1 day of terminal parking ($29). For solo travelers, Metro at $2.25-$6.75 is even cheaper."
+    },
+    "rentalCars": {
+      "onAirport": {
+        "location": "On-airport rental car counters on first floor of Parking 1 (Terminal 1)",
+        "companies": ["Alamo", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+        "shuttle": "Airport shuttle to 'Rental Car/Parking' stop at Parking 1. Board at middle curb between Doors 1 and 2 at Terminal 1.",
+        "avgDailyRate": "From $27/day for economy vehicles"
+      },
+      "offAirport": {
+        "companies": ["Avis", "Budget"],
+        "location": "2600 Richmond Highway, Arlington, VA 22202",
+        "shuttle": "Dedicated branded shuttle buses between airport and off-site lot. Follow purple signs at Terminal 1 for off-airport rental car shuttles."
+      },
+      "totalBrands": 9,
+      "note": "On-airport companies (Alamo, Dollar, Enterprise, Hertz, National, Sixt, Thrifty) are inside Parking 1. Avis and Budget are off-airport with shuttle service."
+    },
+    "hotelShuttles": "Many Crystal City and Pentagon City hotels offer free courtesy shuttles to/from the airport, including Hyatt Regency Crystal City, Crystal Gateway Marriott, Hilton Crystal City, Westin Crystal City, and Sheraton Pentagon City."
+  },
+  "parkingRates": "On-airport: Parking 1 (Terminal 1 Garage) $35/day, Parking 2 (Terminal 2 Garage) $29/day, Economy Lot $25/day. First 60 minutes FREE in garages. Cell Phone Lot: Temporarily CLOSED (construction). Off-site: from ~$8.50/day (DoubleTree Crystal City, Sheraton Pentagon). Pre-booking strongly recommended — Economy Lot capacity reduced ~40% during new garage construction.",
+  "onAirportParking": {
+    "parking1": {
+      "name": "Parking 1 (Terminal 1 Garage)",
+      "rate": "$7 per hour after first 60 minutes free",
+      "dailyMax": 35,
+      "terminals": "Terminal 1 (Gates A1-A9)",
+      "heightClearance": "7 ft",
+      "evCharging": "EV charging stations on Level 1, complimentary for parking customers",
+      "features": "Closest garage to Terminal 1. First 60 minutes free for pickups/drop-offs. On-airport rental car counters on first floor.",
+      "preBookingUrl": "https://reserve.flyreagan.com"
+    },
+    "parking2": {
+      "name": "Parking 2 (Terminal 2 Garage)",
+      "rate": "$6 per hour after first 60 minutes free",
+      "dailyMax": 29,
+      "terminals": "Terminal 2 (Concourses B, C, D, E)",
+      "heightClearance": "8 ft 2 in",
+      "evCharging": "101 EV charging stations on Level 1, complimentary for parking customers",
+      "features": "Adjacent to Terminal 2 and Metro station. First 60 minutes free. Largest garage at DCA.",
+      "preBookingUrl": "https://reserve.flyreagan.com"
+    },
+    "economyParking": {
+      "name": "Economy Lot",
+      "rate": "$25/day (rate increase effective March 1, 2025)",
+      "connection": "Free shuttle to both terminals",
+      "capacity": "2,680 total spaces (currently reduced ~40% due to new parking deck construction)",
+      "construction": "New 3-story parking deck being built on top of Economy Lot. Phase 1: 939 spaces opening February 2026. Phase 2: additional 1,230 spaces opening May 2026. Contractor: Kiwi Newton. Cost: ~$40 million.",
+      "features": "Budget-friendly long-term option. Reserve in advance — capacity significantly reduced during construction.",
+      "preBookingUrl": "https://reserve.flyreagan.com"
+    },
+    "cellPhoneLot": {
+      "location": "2401 Smith Blvd, Arlington, VA 22202",
+      "cost": "Free",
+      "status": "TEMPORARILY CLOSED due to Project Journey construction",
+      "alternative": "Use Parking 1 or Parking 2 garages — first 60 minutes free for passenger pickup",
+      "rules": "When open: driver must remain with vehicle. For drivers waiting to pick up arriving passengers only."
+    },
+    "valetParking": {
+      "status": "NOT AVAILABLE — DCA does not offer on-site valet parking"
+    },
+    "totalCapacity": "8,500 vehicles across all DCA parking facilities",
+    "preBookingUrl": "https://reserve.flyreagan.com",
+    "paymentMethods": "Credit cards, debit cards accepted. Pre-booking available online at reserve.flyreagan.com.",
+    "freePickupDropoff": "First 60 minutes FREE in Parking 1 and Parking 2 garages — use for passenger pickup/drop-off instead of cell phone lot during construction."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot (Crystal Gateway Marriott)",
+      "slug": "the-parking-spot-crystal-gateway-marriott-dca",
+      "dailyRate": 9,
+      "reservationRate": 9,
+      "parkingType": "Garage (hotel parking structure)",
+      "amenities": ["Free Shuttle", "Garage Parking", "Security", "24/7 Operation"],
+      "shuttleInfo": "Shuttle runs every 30 minutes, 5:00 AM - 11:30 PM. May make additional stops en route to airport.",
+      "overview": "The Parking Spot partners with Crystal Gateway Marriott for secure garage parking at DCA. One of the most affordable off-site options at $9/day. Located 1.25 miles from Reagan National Airport.",
+      "address": "1700 Richmond Highway, Arlington, VA 22202 (Crystal Gateway Marriott)",
+      "website": "theparkingspot.com",
+      "distanceFromAirport": "1.25 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Online discounts available through theparkingspot.com"],
+      "notes": "Garage parking (covered). Shuttle NOT 24/7 (5 AM - 11:30 PM). Not suitable for very early/late flights."
+    },
+    {
+      "name": "Sheraton Pentagon City Hotel",
+      "slug": "sheraton-pentagon-city-hotel-dca",
+      "dailyRate": 12,
+      "reservationRate": 9,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities Available", "Security"],
+      "shuttleInfo": "Complimentary shuttle runs once per hour, 6:00 AM - 11:15 PM.",
+      "overview": "Budget-friendly hotel parking near Pentagon City Metro station. No hotel stay required. Pre-book to lock in $9/day rate vs $12 walk-up. Close to shops and restaurants at Pentagon City mall.",
+      "phone": "Check airportparkingreservations.com",
+      "address": "900 S Orme St, Arlington, VA 22204",
+      "distanceFromAirport": "2 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Pre-book via airportparkingreservations.com from $9/day"],
+      "notes": "Shuttle runs once per hour only. NOT 24/7 (6 AM - 11:15 PM). Allow extra time for shuttle wait."
+    },
+    {
+      "name": "Crystal Gateway Marriott",
+      "slug": "crystal-gateway-marriott-dca",
+      "dailyRate": 10,
+      "reservationRate": 10,
+      "parkingType": "Garage (hotel parking structure)",
+      "amenities": ["Free Shuttle", "Covered Parking", "Hotel Amenities", "Near Metro"],
+      "shuttleInfo": "Complimentary shuttle every 30 minutes, 5:30 AM - Midnight. Travels to and from Reagan National Airport.",
+      "overview": "Crystal Gateway Marriott is 1 mile from DCA with covered garage parking. No hotel stay required for parking. Located in Crystal City with restaurants, shops, and Crystal City Metro station nearby.",
+      "phone": "(703) 920-3230",
+      "address": "1700 Richmond Highway, Arlington, VA 22202",
+      "website": "marriott.com",
+      "distanceFromAirport": "1 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via cheapairportparking.org from $10/day", "Book via parkon.com for competitive rates"],
+      "notes": "Covered garage parking. Convenient Crystal City location near Metro. Shuttle every 30 min. One of the best value DCA off-site options."
+    },
+    {
+      "name": "Renaissance Arlington Capital View",
+      "slug": "renaissance-arlington-capital-view-dca",
+      "dailyRate": 12,
+      "reservationRate": 10,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant"],
+      "shuttleInfo": "Regular free shuttle service to and from DCA included with reservation.",
+      "overview": "Modern hotel in Crystal City area with parking available to non-guests. Good views and dining options on-site.",
+      "address": "2800 S Potomac Ave, Arlington, VA 22202",
+      "website": "marriott.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via parkon.com from $10/day"],
+      "notes": "Newer hotel with good amenities. Free shuttle included."
+    },
+    {
+      "name": "Hyatt Regency Crystal City",
+      "slug": "hyatt-regency-crystal-city-dca",
+      "dailyRate": 15,
+      "reservationRate": 12,
+      "parkingType": "Covered valet (hotel garage)",
+      "amenities": ["Free Shuttle", "Covered Parking", "Valet", "Hotel Amenities", "Near Metro"],
+      "shuttleInfo": "Free airport shuttle to Terminal 1 — pickup outside main doors. Estimated times posted at hotel.",
+      "overview": "Premium Crystal City hotel with covered valet parking. Walking distance to Crystal City Metro. Popular Park-Sleep-Fly option.",
+      "phone": "(703) 418-1234",
+      "address": "2799 Richmond Highway, Arlington, VA 22202",
+      "website": "hyatt.com",
+      "distanceFromAirport": "1 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Pre-book online for $12/day valet parking"],
+      "notes": "Covered valet parking — your car stays in a garage. Higher rate but premium service. Close to Metro if you prefer train to shuttle."
+    },
+    {
+      "name": "The Westin Crystal City (DCA)",
+      "slug": "westin-crystal-city-dca",
+      "dailyRate": 12.90,
+      "reservationRate": 12.90,
+      "totalFor8Days": 103.22,
+      "parkingType": "Self-park (covered, hotel garage)",
+      "amenities": ["Free Shuttle", "Covered Parking", "Security", "24/7 Access", "Hotel Amenities", "Restaurant", "Near Metro"],
+      "shuttleInfo": "Complimentary airport shuttle service to and from DCA. No hotel reservation required to park.",
+      "overview": "Closest off-site lot to DCA at just 0.8 miles. Covered garage parking in a full-service Westin hotel. Free shuttle included. No hotel stay required. Walking distance to Crystal City Metro.",
+      "address": "1800 Richmond Highway, Arlington, VA 22202",
+      "website": "marriott.com",
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "3 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-site option. Covered parking is a differentiator — most DCA off-site lots are uncovered. $12.90/day is competitive for covered."
+    },
+    {
+      "name": "Sheraton Suites Old Town Alexandria (DCA)",
+      "slug": "sheraton-suites-old-town-alexandria-dca",
+      "dailyRate": 8.50,
+      "reservationRate": 8.50,
+      "totalFor8Days": 68.00,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security", "24/7 Access", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "Complimentary shuttle to DCA. Limited availability — book early.",
+      "overview": "Budget option in Old Town Alexandria, 2.6 miles from DCA. One of the cheapest off-site DCA parking options at $8.50/day. Hotel amenities available. Wheelchair accessible.",
+      "address": "801 N Saint Asaph St, Alexandria, VA 22314",
+      "website": "marriott.com",
+      "distanceFromAirport": "2.6 mi",
+      "driveTime": "10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": [],
+      "notes": "Budget option but limited availability — often sells out. Furthest off-site lot at 2.6 mi but cheapest at $8.50/day."
+    },
+    {
+      "name": "DoubleTree by Hilton Crystal City",
+      "slug": "doubletree-crystal-city-dca",
+      "dailyRate": 10,
+      "reservationRate": 8.5,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary shuttle to DCA included.",
+      "overview": "Budget-friendly option in Crystal City. One of the cheapest off-site DCA parking options when pre-booked. No hotel stay required.",
+      "address": "300 Army Navy Dr, Arlington, VA 22202",
+      "website": "hilton.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via cheapairportparking.org from $8.50/day"],
+      "notes": "Best budget option for DCA off-site parking. Pre-book to secure lowest rate."
+    },
+    {
+      "name": "Hilton Crystal City at Washington Reagan National Airport",
+      "slug": "hilton-crystal-city-dca",
+      "dailyRate": 14,
+      "reservationRate": 12,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant", "Near Metro"],
+      "shuttleInfo": "Free roundtrip airport shuttle service included with parking.",
+      "overview": "Full-service Hilton in Crystal City with airport parking for non-guests. Popular Park-Sleep-Fly hotel. Walking distance to Crystal City Metro.",
+      "address": "2399 Richmond Highway, Arlington, VA 22202",
+      "website": "hilton.com",
+      "distanceFromAirport": "1 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages available via parksleepfly.com"],
+      "notes": "Good balance of price and amenities. Walking distance to Crystal City Metro for downtown DC access."
+    }
+  ],
+  "shuttleInfo": "Most off-site hotel lots include free shuttle to DCA. Frequency varies: Crystal Gateway Marriott (every 30 min, 5:30 AM-midnight), Sheraton Pentagon (hourly, 6 AM-11:15 PM), Hyatt Regency (on schedule), Westin (on demand). Economy Lot has its own shuttle. NOTE: Most hotel shuttles are NOT 24/7 — check hours for early morning/late night flights. Metro is the backup: Crystal City station is walking distance from most hotels, Yellow/Blue Line direct to airport.",
+  "distanceFromCity": "5 miles south of downtown Washington D.C. across the Potomac River. 10-20 minutes by car depending on traffic. 10 minutes by Metro Yellow Line. The closest major airport to the National Mall, White House, and Capitol.",
+  "keyDistances": {
+    "toDowntownDC": "5 miles, 10-20 min by car, 10 min by Metro (Yellow Line), $12-20 rideshare",
+    "toCapitolHill": "4.5 miles, 10-18 min by car, 15 min by Metro, $12-18 rideshare",
+    "toGeorgetown": "6 miles, 15-25 min by car (no direct Metro), $15-22 rideshare",
+    "toNationalMall": "5 miles, 10-20 min by car, 10 min by Metro to L'Enfant Plaza, $12-20 rideshare",
+    "toPentagon": "1.5 miles, 3-5 min by car, 3 min by Metro (1 stop), $8-12 rideshare",
+    "toCrystalCity": "1 mile, 3 min by car, 2 min by Metro, $6-10 rideshare",
+    "toArlington": "3 miles, 8-15 min by car",
+    "toAlexandriaOldTown": "5 miles, 10-15 min by car, $10-16 rideshare",
+    "toTysonsCorner": "13 miles, 20-40 min by car, ~40 min by Metro (Silver Line transfer), $25-40 rideshare",
+    "toDullesAirport": "27 miles, 30-50 min by car, ~60 min by Metro (Silver Line transfer)",
+    "toBaltimore": "42 miles, 50-75 min by car (I-95/BW Parkway)",
+    "toBWIAirport": "35 miles, 45-60 min by car",
+    "toBethesda": "10 miles, 20-35 min by car, $30-40 taxi",
+    "toAnnapolisNavalAcademy": "35 miles, 45-60 min by car",
+    "competitiveAdvantage": "DCA is the closest airport to downtown DC (5 miles). Metro Yellow Line reaches L'Enfant Plaza in 10 minutes for $2.25-$6.75. For solo travelers, a round-trip Metro fare ($4.50-$13.50) costs less than one hour of garage parking. DCA's direct Metro connection is unmatched — IAD (Dulles) requires a 60+ minute Metro ride, and BWI requires MARC Train or Amtrak."
+  },
+  "construction2026": {
+    "status": "Project Journey complete (April 2021). DCA Reimagined in progress. Economy Lot parking deck under construction.",
+    "projects": [
+      "Project Journey ($1B+) — COMPLETE (April 2021). New Concourse E (14 gates replacing Gate 35X bus boarding), two new 50,000 sq ft security checkpoint buildings, National Hall expansion for post-security dining/shopping.",
+      "DCA Reimagined — IN PROGRESS (multi-year). New concessions, restroom upgrades, new amenities throughout Terminal 2. Goal: modernize passenger experience.",
+      "Economy Lot Parking Deck ($40M) — UNDER CONSTRUCTION. New 3-story parking deck built on top of Economy Lot. Phase 1: 939 spaces (February 2026). Phase 2: 1,230 additional spaces (May 2026). Contractor: Kiwi Newton. Up to 1,100 of 2,680 Economy Lot spaces unavailable during peak construction.",
+      "Cell Phone Lot — TEMPORARILY CLOSED during construction. Use Parking 1/2 garages (first 60 min free) for pickups."
+    ],
+    "travelImpact": "Economy Lot capacity reduced ~40% during parking deck construction. Reserve parking in advance. Cell phone lot closed — use garage first-60-minutes-free option instead.",
+    "timeline": {
+      "projectJourney": "April 2021 (COMPLETE) — Concourse E, security checkpoints",
+      "economyDeckPhase1": "February 2026 — 939 new spaces",
+      "economyDeckPhase2": "May 2026 — 1,230 additional spaces (total ~2,169 new structured spaces)",
+      "dcaReimagined": "Multi-year — ongoing concession and amenity upgrades"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 2"],
+      "avgWaitTime": "About 10 minutes — roughly half the standard line"
+    },
+    "clear": {
+      "terminals": ["Terminal 2"],
+      "note": "CLEAR available at Terminal 2 security checkpoints"
+    },
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "5:00-8:00 AM, 11:00 AM-2:00 PM, 4:00-7:00 PM",
+      "peakWait": "30-45+ minutes during peak hours, especially Monday mornings and Friday afternoons (congressional travel patterns)",
+      "tips": "Use MyTSA app for real-time wait times. Monday mornings and Friday afternoons are busiest due to congressional and government commuter traffic."
+    },
+    "securityCheckpoints": {
+      "terminal1": "Security checkpoint at Terminal 1 (Gates A1-A9) — NOT connected post-security to Terminal 2",
+      "terminal2North": "North Security Checkpoint serving Gates B10-E59",
+      "terminal2South": "South Security Checkpoint serving Gates B10-E59 (Centurion Lounge past this checkpoint)"
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (DCA is exclusively domestic/short-haul — no customs/immigration)",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, inauguration events"
+    }
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "USO Lounge",
+        "location": "Terminal 1, pre-security, across from Lost and Found",
+        "hours": "Mon-Fri: 6:00 AM - 6:00 PM, Sat-Sun: 8:00 AM - 4:00 PM",
+        "access": "Active-duty, Guard, Reserve, retired military, and their dependents. Free.",
+        "amenities": "Air conditioning, coffee, tea, snack bar, TV, playing cards, charging stations, computers, printers, WiFi, library, desks/work areas."
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "American Airlines Admirals Club (Concourse C)",
+        "location": "Concourse C, Terminal 2",
+        "hours": "Sun-Fri: 4:45 AM - 10:15 PM, Sat: 4:45 AM - 9:15 PM",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card.",
+        "amenities": "Complimentary food, drinks, full-service bar, WiFi, workspaces, power outlets."
+      },
+      {
+        "name": "American Airlines Admirals Club (Concourse D)",
+        "location": "Concourse D, Terminal 2",
+        "hours": "Sun-Fri: 4:45 AM - 10:15 PM, Sat: 4:45 AM - 9:15 PM",
+        "access": "Same as Concourse C Admirals Club.",
+        "amenities": "Complimentary food, drinks, bar, WiFi."
+      },
+      {
+        "name": "American Airlines Admirals Club (Concourse E)",
+        "location": "Concourse E, Terminal 2 (newest location, opened 2021)",
+        "hours": "Sun-Fri: 4:45 AM - 10:15 PM, Sat: 4:45 AM - 9:15 PM",
+        "access": "Same as other Admirals Clubs.",
+        "amenities": "Newest Admirals Club at DCA. Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Terminal 2, past the South Security Checkpoint",
+        "hours": "Sun-Fri: 5:00 AM - 9:00 PM ET, Sat: 5:00 AM - 7:00 PM ET",
+        "access": "Amex Platinum, Centurion, and Business Platinum cardholders. 2 guests included.",
+        "amenities": "Complimentary food (often locally-inspired menu), premium cocktails, wine, beer, WiFi, shower suites, workspaces, phone booths."
+      },
+      {
+        "name": "Capital One Landing",
+        "location": "Terminal 2",
+        "hours": "Check current hours at airport",
+        "access": "Capital One Venture X Rewards or Venture X Business primary cardholders. Complimentary entry.",
+        "amenities": "Tapas bar, made-to-order food, full bar, restrooms, WiFi, charging stations, luggage nooks."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse B, above Gate 15, Terminal 2",
+        "hours": "Sun-Fri: 5:00 AM - 9:30 PM, Sat: 5:00 AM - 7:00 PM",
+        "access": "Delta Sky Club membership, Delta Reserve Amex, Delta One, SkyTeam Elite Plus.",
+        "amenities": "Complimentary food, premium spirits, beer, wine, WiFi, power outlets, shower suites."
+      },
+      {
+        "name": "United Club",
+        "location": "Across from Gate 11, Concourse B, Terminal 2",
+        "hours": "Daily: 5:30 AM - 7:00 PM",
+        "access": "United Club membership, United Polaris, Star Alliance Gold, United Club Infinite card.",
+        "amenities": "Complimentary snacks, drinks, WiFi, workspaces."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "DCA Free WiFi",
+    "cost": "Free — no registration required",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "parking1": {
+      "chargers": "Available on Level 1",
+      "type": "EV charging stations",
+      "cost": "Complimentary for parking customers"
+    },
+    "parking2": {
+      "chargers": 101,
+      "location": "Level 1",
+      "type": "EV charging stations",
+      "cost": "Complimentary for parking customers"
+    },
+    "totalPorts": "100+ EV charging stations across Parking 1 and Parking 2",
+    "recommendation": "Parking 2 has the most EV chargers (101 stations). Arrive early for charging spots."
+  },
+  "luggageStorage": {
+    "onSite": "Baggage storage is NOT available at Reagan National Airport.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Multiple locations in Crystal City, downtown DC, Union Station" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily. Locations near Metro stations." },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "locations": "Downtown DC, Capitol Hill, Georgetown" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "note": "Near Crystal City and downtown DC" }
+    ]
+  },
+  "petFacilities": {
+    "total": "6 pet relief areas across Terminal 1 and Terminal 2",
+    "preSecurity": [
+      "Terminal 1 — Outdoor pet relief areas at north and south ends of Terminal 1 roadway curb",
+      "Terminal 2 — Pre-security locations adjacent to North and South Metrorail Station Entrances"
+    ],
+    "postSecurity": [
+      "Terminal 1 (Gates A1-A9) — Post-security pet relief area at north end of National Hall",
+      "Terminal 2 (Concourse E) — Indoor pet relief area near Gates E46-E59"
+    ],
+    "features": "Waste bags, receptacles, and clearly marked signage at all locations."
+  },
+  "nursingRooms": {
+    "terminal1": "Nursing/lactation rooms available pre-security at Terminal 1",
+    "terminal2": "Lactation rooms located between Concourses B and C, post-security. Private rooms with seating, power outlets, and changing tables.",
+    "features": "Private rooms with seating, power outlets, changing tables. Look for 'Mother's Care Room' or 'Lactation Room' signage."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM", "11:00 AM-2:00 PM", "4:00-7:00 PM"],
+    "busiestDays": ["Monday (congressional arrivals)", "Friday (congressional departures)", "Sunday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "congressionalPattern": "DCA sees unique weekday traffic spikes from members of Congress, government officials, and lobbyists commuting between DC and their districts. Monday AM and Friday PM are notably busier than peer airports.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas/New Year, spring break, Cherry Blossom Festival (late March/early April), Inauguration Day"
+    }
+  },
+  "weatherPatterns": {
+    "onTimeRate": "Departures: ~77% on time, Arrivals: ~81% on time",
+    "climate": "Humid subtropical climate with four distinct seasons. Hot, humid summers. Cold winters with occasional snow/ice. Spring cherry blossom season (late March-early April).",
+    "commonDisruptions": "Summer thunderstorms (June-August), winter snow/ice storms (December-March), Potomac River fog (morning, spring/fall), wind shear from river valley",
+    "singleRunwayNote": "While DCA has 3 runways, Runway 01/19 handles ~57% of operations. Capacity hard-capped at 67 operations/hour by federal regulation — any weather disruption causes cascading delays with no recovery buffer.",
+    "riverVisualApproach": "River Visual Approach to Runway 19 is one of the most challenging in commercial aviation — pilots must follow the Potomac River, banking sharply near the National Mall. This approach can be suspended during low visibility/fog.",
+    "bestMonths": "September through November — mild weather, lower tourist crowds, fewer thunderstorms",
+    "worstMonths": "January-February (winter storms, ice), July-August (afternoon thunderstorms)",
+    "summerThunderstorms": "June-August: late afternoon/evening thunderstorms can cause 1-3 hour ground stops. Very common in DC area. Book morning flights for best reliability.",
+    "winterWeather": "December-March: snow and ice storms can shut down airport for hours. Taxi surcharge of 125% during declared Snow Emergency. Carry overnight bag in winter.",
+    "springFog": "March-May: morning fog from Potomac River can delay early departures. Usually clears by mid-morning."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near DCA in Crystal City/Pentagon City/Arlington. Many hotels offer up to 14 days of free parking with one-night hotel stay.",
+    "priceRange": "From ~$175/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hilton Crystal City at Reagan National Airport",
+        "distance": "1 mile",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free roundtrip shuttle",
+        "highlight": "Full-service Hilton. Walking distance to Crystal City Metro."
+      },
+      {
+        "name": "The Westin Crystal City",
+        "distance": "0.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Closest Park-Sleep-Fly hotel to DCA."
+      },
+      {
+        "name": "Crystal Gateway Marriott",
+        "distance": "1 mile",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Every 30 min, 5:30 AM - midnight",
+        "parkOnlyRate": "$10/day",
+        "highlight": "Covered garage. Also available as parking-only (no hotel stay)."
+      },
+      {
+        "name": "Hyatt Regency Crystal City",
+        "distance": "1 mile",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "parkOnlyRate": "$12/day",
+        "highlight": "Covered valet parking included."
+      },
+      {
+        "name": "Embassy Suites Crystal City",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle",
+        "highlight": "Free cooked breakfast, two-room suites."
+      },
+      {
+        "name": "Courtyard by Marriott Crystal City",
+        "distance": "1 mile",
+        "shuttleHours": "Free shuttle",
+        "highlight": "Modern rooms, Bistro restaurant."
+      },
+      {
+        "name": "Holiday Inn Express Crystal City",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle, 5 AM - 11 PM daily",
+        "highlight": "Budget-friendly. Free breakfast."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "stayparktravel.com", "parkingaccess.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "5-day trip for 2 travelers",
+    "onAirport": {
+      "parking1Terminal1": { "parkingCost": "$175 (5 x $35)", "totalEstimate": "$175" },
+      "parking2Terminal2": { "parkingCost": "$145 (5 x $29)", "totalEstimate": "$145" },
+      "economyLot": { "parkingCost": "$125 (5 x $25)", "totalEstimate": "$125" }
+    },
+    "offSiteWithShuttle": {
+      "doubleTreeCrystalCity": { "parkingCost": "$42.50 (5 x ~$8.50 pre-booked)", "savingsVsTerminal": "~$102 saved vs Parking 2", "caveat": "Shuttle — check hours" },
+      "sheratonPentagon": { "parkingCost": "$45 (5 x ~$9 pre-booked)", "savingsVsTerminal": "~$100 saved vs Parking 2", "caveat": "Shuttle hourly, 6 AM-11:15 PM" },
+      "crystalGatewayMarriott": { "parkingCost": "$50 (5 x $10)", "savingsVsTerminal": "~$95 saved vs Parking 2", "caveat": "Covered garage, shuttle every 30 min" },
+      "hyattRegency": { "parkingCost": "$60 (5 x $12 pre-booked)", "savingsVsTerminal": "~$85 saved vs Parking 2", "caveat": "Covered valet" }
+    },
+    "publicTransit": {
+      "metroRoundTrip": { "costPerPersonRoundTrip": "$4.50-$13.50", "travelTime": "10-19 min to downtown DC", "note": "Every 6-12 min, direct service. The cheapest option by far." },
+      "rideshareRoundTrip": { "costForCouple": "$24-$40 (UberX downtown)", "note": "Cheaper than ANY parking for trips under 2 days" }
+    },
+    "keyDifference": "DCA's Metro connection is a game-changer. A round-trip Metro fare for 2 people ($9-$27) costs less than ONE day of terminal parking ($29-$35). For travelers coming from anywhere on the Yellow/Blue Line, there is zero reason to pay for parking. Even off-site lots at $8.50/day can't compete with $2.25 Metro fare. The parking vs. transit calculus at DCA is uniquely tilted toward transit."
+  },
+  "uniqueFeatures": {
+    "perimeterRule": "Most nonstop flights limited to 1,250 statute miles. This means no direct flights to most West Coast cities (except via limited beyond-perimeter exemption slots). Travelers to LAX, SFO, SEA have limited flight options from DCA. Originally implemented in 1966 at 650 miles to protect Dulles Airport traffic.",
+    "slotControls": "DCA is one of only 3 slot-controlled airports in the U.S. (along with JFK and LGA). Maximum 67 operations per hour. Airlines must use 80% of slots or lose them. This caps growth and keeps the airport at capacity year-round.",
+    "metroConnection": "Only major airport in the DC area with direct Metro rail service. Yellow and Blue lines stop at the airport station with covered walkway to terminals. This is DCA's defining competitive advantage over IAD (Dulles) and BWI.",
+    "proximityToGovernment": "Closest airport to the White House (5 miles), U.S. Capitol (4.5 miles), Pentagon (1.5 miles), Supreme Court, and the National Mall. Makes it the airport of choice for government officials, lobbyists, and political travelers.",
+    "riverVisual": "The River Visual Approach to Runway 19 requires pilots to follow the Potomac River and bank steeply, offering passengers dramatic views of the National Mall, Washington Monument, Lincoln Memorial, and U.S. Capitol. One of the most famous approaches in commercial aviation.",
+    "capitalBikeshare": "First major U.S. airport with a dock-based bikeshare station. Mount Vernon Trail connects the airport to Alexandria, the Pentagon, and Arlington via a paved bike/pedestrian path.",
+    "dcaVsIadVsBwi": "DCA is closest to DC but has the perimeter rule and slot controls. IAD (Dulles) has unlimited long-haul/international flights but is 27 miles west with no direct Metro until Silver Line extension. BWI (Baltimore) has Southwest Airlines' largest DC-area operation but is 42 miles north. For downtown DC trips, DCA + Metro is unbeatable on time and cost.",
+    "noInternationalFlights": "Due to the perimeter rule, DCA has effectively no long-haul international service. All international traffic for the DC area goes through IAD (Dulles). DCA's 'international' flights are limited to short-haul Canada destinations (Air Canada Express to Toronto, Montreal).",
+    "federalPropertyOwnership": "Unlike most U.S. airports, DCA is owned by the federal government (not a city or county). It is operated by MWAA under a long-term lease from the federal government."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(703) 417-8000",
+    "airportWebsite": "flyreagan.com",
+    "parkingInfo": "reserve.flyreagan.com",
+    "tsa": "(866) 289-9673",
+    "metroInfo": "(202) 637-7000",
+    "wmataWebsite": "wmata.com",
+    "mwaa": "(703) 417-8600",
+    "arlingtonPolice": "911 or (703) 558-2222"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-03.",
+    "officialAirport": {
+      "home": "https://www.flyreagan.com/",
+      "parking": "https://www.flyreagan.com/parking-transportation/parking-information",
+      "parkingReservations": "https://reserve.flyreagan.com",
+      "parkingFAQ": "https://www.flyreagan.com/parking-transportation/parking-information/faq/parking-frequently-asked-questions",
+      "economyParking": "https://www.flyreagan.com/parking-transportation/parking-information/economy-parking",
+      "groundTransportation": "https://www.flyreagan.com/parking-transportation/ground-transportation",
+      "taxi": "https://www.flyreagan.com/parking-transportation/taxi-service",
+      "rentalCars": "https://www.flyreagan.com/parking-transportation/rental-cars",
+      "metro": "https://www.flyreagan.com/metro",
+      "directions": "https://www.flyreagan.com/directions-ronald-reagan-washington-national-airport-dca",
+      "servicesAmenities": "https://www.flyreagan.com/travel-information/services-amenities",
+      "lounges": "https://www.flyreagan.com/travel-information/services-amenities/airport-lounges",
+      "petRelief": "https://www.flyreagan.com/travel-information/services-amenities/pet-relief-areas",
+      "constructionAdvisories": "https://www.flyreagan.com/travel-information/construction-project/construction-advisories",
+      "projectJourney": "https://www.flyreagan.com/projectjourney",
+      "dcaReimagined": "https://www.flyreagan.com/dca-reimagined",
+      "slotPerimeterRules": "https://www.flyreagan.com/about-airport/aircraft-noise-information/dca-reagan-national-slot-perimeter-rules",
+      "constructionProjects": "https://www.flyreagan.com/construction-projects"
+    },
+    "transit": {
+      "wmataHome": "https://www.wmata.com/",
+      "wmataFares": "https://www.wmata.com/fares/basic.cfm",
+      "wmataTripPlanner": "https://www.wmata.com/rider-guide/airport-and-rail/index.cfm",
+      "wmataStationDCA": "https://www.wmata.com/rider-guide/stations/national-airport.cfm",
+      "wmataSchedules": "https://wmata.com/schedules/index.cfm",
+      "dcMetroMap": "https://dcmetromap.us/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/dca/",
+      "uberDriverInfo": "https://www.uber.com/global/en/r/airports/dca/driver-information/",
+      "lyft": "https://www.lyft.com/rider/airports/dca"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=DCA",
+      "airportParkingReservations": "https://airportparkingreservations.com/dca/airport-parking",
+      "way": "https://www.way.com/dca",
+      "spothero": "https://spothero.com/airport/washington-dc/dca-parking",
+      "parkon": "https://www.parkon.com/dca",
+      "cheapairportparking": "https://www.cheapairportparking.org/",
+      "parkobility": "https://parkobility.com/airport/dca/",
+      "parkingAccess": "https://parkingaccess.com/airports/washington-reagan-national-airport",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/washington-dc",
+      "book2park": "https://www.book2park.com/airport/dca-regan-national-airport-parking",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/ronald-reagan-washington-international-airport-dca",
+      "onairParking": "https://www.onairparking.com/parking/Ronald-Reagan-Washington-National-Airport-DCA"
+    },
+    "rentalCars": {
+      "kayak": "https://www.kayak.com/Washington-Reagan-National-Airport-Car-Rentals.DCA.cap.ksp",
+      "enterprise": "https://www.enterprise.com/en/car-rental-locations/us/va/washington-reagan-national-airport-16v7.html",
+      "avis": "https://www.avis.com/en/locations/us/dc/washington/dca",
+      "hertz": "https://www.hertz.com/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearDCA": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/washington-reagan-dca-airport-lounges/",
+      "nerdwallet": "https://www.nerdwallet.com/travel/learn/dca-lounges",
+      "centurionLounge": "https://www.flyreagan.com/travel-information/services-amenities/airport-lounges/american-express-centurion-lounge-dca",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/dca-club.jsp",
+      "deltaSkyClub": "https://www.delta.com/us/en/airports/united-states/washington-dc-sky-club-reagan-airport-map"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KDCA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/DCA",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=dca"
+    },
+    "evCharging": {
+      "plugshare": "https://www.plugshare.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/dca/airport-hotels-with-parking",
+      "parksleephotels": "https://www.parksleephotels.com/Ronald-Reagan-airport-hotels-with-parking-dca.htm",
+      "stayparktravel": "https://dca.stayparktravel.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/washington-reagan-national-airport"
+    },
+    "construction": {
+      "projectJourneyMWAA": "https://www.mwaa.com/business/project-journey",
+      "dcaReimagined": "https://www.flyreagan.com/dca-reimagined",
+      "economyLotConstruction": "https://www.flyreagan.com/parking-transportation/parking-information/economy-parking"
+    },
+    "perimeterAndSlots": {
+      "flyreaganRules": "https://www.flyreagan.com/about-airport/aircraft-noise-information/dca-reagan-national-slot-perimeter-rules",
+      "mwaaPerimeter": "https://www.mwaa.com/protecting-dca-perimeter",
+      "congressionalResearchService": "https://www.congress.gov/crs-product/IN12504",
+      "dotSlots": "https://www.transportation.gov/policy/aviation-policy/competition-data-analysis/slots-exemptions"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/ronald-reagan-washington-national-dca-airport/",
+      "ifly": "https://www.ifly.com/airports/ronald-reagan-washington-national-airport",
+      "airportGuide": "https://www.airport.guide/kdca",
+      "wikipedia": "https://en.wikipedia.org/wiki/Ronald_Reagan_Washington_National_Airport",
+      "chase": "https://www.chase.com/personal/credit-cards/education/basics/a-guide-to-ronald-reagan-airport",
+      "sleepingInAirports": "https://www.sleepinginairports.net/guides/washington-reagan-airport-guide.htm",
+      "triphacksDC": "https://www.triphacksdc.com/metro-from-dca-airport/",
+      "freeToursbyFoot": "https://freetoursbyfoot.com/metro-dca-reagan-national-airport/",
+      "thepointsanalyst": "https://www.thepointsanalyst.com/ronald-reagan-washington-national-airport-dca/"
+    },
+    "newsAndMedia": {
+      "dcist": "https://dcist.com/",
+      "dcnewsnow": "https://www.dcnewsnow.com/",
+      "nbcwashington": "https://www.nbcwashington.com/",
+      "wjla": "https://wjla.com/"
+    }
+  }
+}

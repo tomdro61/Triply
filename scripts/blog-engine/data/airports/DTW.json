@@ -1,0 +1,592 @@
+{
+  "code": "DTW",
+  "fullName": "Detroit Metropolitan Wayne County Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Romulus, Michigan — 21 miles southwest of downtown Detroit in Wayne County",
+    "iataCode": "DTW",
+    "icaoCode": "KDTW",
+    "faaLid": "DTW",
+    "elevation": "645 feet above mean sea level",
+    "acreage": 4850,
+    "coordinates": "42.2124N, 83.3534W",
+    "passengerVolume": "33.37 million passengers in 2025",
+    "aircraftOperations": "321,759 annually (2025)",
+    "cargoVolume": "Significant cargo operations supporting Detroit's automotive industry",
+    "distinction": "Delta Air Lines' second-largest hub worldwide. McNamara Terminal's Concourse A is one of the longest airport terminal buildings in the world at nearly one mile (4,850 feet). Originally opened in 1930 as Wayne County Airport. Over 1,100 daily flights to 140+ nonstop destinations across three continents. The airport features the iconic Tunnel of Light — a 744-foot underground walkway between Concourses A and B/C with a mesmerizing LED light and music show.",
+    "operator": "Wayne County Airport Authority",
+    "owner": "Wayne County, Michigan",
+    "activeTerminals": 2,
+    "totalConcourses": 4,
+    "totalGates": 129,
+    "runways": 6,
+    "runwayDetails": [
+      { "designation": "3L/21R", "length": "10,001 ft (3,049 m)", "surface": "Concrete" },
+      { "designation": "3R/21L", "length": "12,003 ft (3,659 m)", "surface": "Concrete", "note": "One of the longest commercial runways in the U.S." },
+      { "designation": "4L/22R", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "4R/22L", "length": "12,003 ft (3,659 m)", "surface": "Concrete" },
+      { "designation": "9L/27R", "length": "8,501 ft (2,591 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "9R/27L", "length": "8,500 ft (2,591 m)", "surface": "Asphalt/Concrete" }
+    ],
+    "dominantAirline": "Delta Air Lines (second-largest hub — operates from McNamara Terminal, ~74% of all DTW flights)",
+    "totalAirlines": "18+ scheduled passenger airlines",
+    "nonstopDestinations": "140+ nonstop destinations (1,100+ daily flights)",
+    "founded": "1930 (as Wayne County Airport)",
+    "hubCarriers": ["Delta Air Lines (primary hub)", "Spirit Airlines (operating base)"],
+    "slotControlled": false,
+    "metroAccess": "No rail transit. SMART bus Routes 125 and 280 serve both terminals. AirRide/Michigan Flyer bus to Ann Arbor ($15 one-way).",
+    "expressTram": "Free ExpressTram inside McNamara Terminal Concourse A — automated people mover spanning nearly one mile of concourse for quick gate-to-gate travel",
+    "tunnelOfLight": "744-foot underground pedestrian tunnel connecting Concourse A to Concourses B/C in McNamara Terminal — features a synchronized LED light and music installation that is one of DTW's most iconic features"
+  },
+  "terminals": [
+    {
+      "name": "Edward H. McNamara Terminal — Concourses A, B, C",
+      "status": "Active — 102 gates total. Delta Air Lines' second-largest global hub. Concourse A is nearly one mile long with 62 gates. Concourses B and C handle regional operations with 40 gates.",
+      "airlines": ["Delta Air Lines", "Delta Connection", "Aeromexico", "Air France", "KLM", "Korean Air", "WestJet"],
+      "gates": "A1-A78 (Concourse A), B1-B21 (Concourse B), C1-C27 (Concourse C)",
+      "notes": "Concourse A is one of the longest airport concourses in the world at 4,850 feet (nearly one mile). Features the ExpressTram automated people mover spanning the full length of Concourse A. The Tunnel of Light — a 744-foot underground walkway with synchronized LED light and music show — connects Concourse A to Concourses B/C. Home to 2 Delta Sky Clubs (Concourse A near gate A18, and Concourse C entrance). Westin Detroit Metropolitan Airport hotel is connected to the terminal. McNamara Garage and Valet parking serve this terminal."
+    },
+    {
+      "name": "Evans Terminal (formerly North Terminal) — Concourse D",
+      "status": "Active — 27 gates. Serves all non-SkyTeam airlines. Renamed from North Terminal to Evans Terminal on April 4, 2022.",
+      "airlines": ["Alaska Airlines", "American Airlines", "Frontier Airlines", "JetBlue Airways", "Lufthansa", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines", "United Airlines"],
+      "gates": "D1-D32",
+      "notes": "Compact, easy-to-navigate single concourse serving all non-Delta/SkyTeam carriers. Ticketing and departures on upper level, baggage claim and ground transportation on lower level. Big Blue Deck parking garage directly serves this terminal. No walkway connection to McNamara Terminal — free airport shuttle runs between terminals every 15-20 minutes."
+    }
+  ],
+  "roads": ["Interstate 94 (main east-west freeway)", "Interstate 275 (north-south bypass)", "Eureka Road", "Merriman Road", "Middlebelt Road", "Dingell Drive (airport access road)", "I-96 (via I-275)", "US-12 (Michigan Avenue)"],
+  "transit": ["SMART Bus Route 125 (McNamara Terminal & Evans Terminal to downtown Detroit)", "SMART Bus Route 280 (Evans Terminal service)", "AirRide / Michigan Flyer (DTW to Ann Arbor, $15 one-way, 14 daily roundtrips)", "Michigan Flyer (DTW to East Lansing / Lansing via Ann Arbor)", "Free Airport Shuttle (between McNamara Terminal, Evans Terminal, parking lots, and Westin Hotel)"],
+  "neighborhoods": ["Romulus", "Taylor", "Belleville", "Wayne", "Westland", "Dearborn", "Dearborn Heights", "Livonia", "Canton", "Ypsilanti", "Ann Arbor", "Downtown Detroit", "Corktown", "Midtown", "Royal Oak", "Birmingham"],
+  "authority": "Wayne County Airport Authority",
+  "groundTransportation": {
+    "expressTram": {
+      "description": "Free automated people mover inside McNamara Terminal Concourse A, spanning nearly one mile of concourse for quick gate-to-gate travel",
+      "fare": "FREE",
+      "frequency": "Continuous operation",
+      "hours": "During terminal operating hours",
+      "note": "Essential for navigating the massive Concourse A. Three stations along the concourse. Only serves McNamara Terminal — not a connection to Evans Terminal."
+    },
+    "airportShuttle": {
+      "description": "Free shuttle connecting McNamara Terminal, Evans Terminal, parking lots, and the Westin Hotel",
+      "fare": "FREE",
+      "frequency": "Every 15-20 minutes",
+      "hours": "24/7",
+      "note": "You CANNOT walk between McNamara and Evans terminals — they are separate buildings. This shuttle is the only free connection between terminals."
+    },
+    "smartBus": {
+      "operator": "Suburban Mobility Authority for Regional Transportation (SMART)",
+      "routes": ["Route 125 (serves both terminals)", "Route 280 (serves Evans Terminal)"],
+      "fare": "$2.00 single ride",
+      "accessFromTerminal": "Ground Transportation Center, Level 1 at both terminals",
+      "travelTimes": {
+        "toDowntownDetroit": "~60-75 minutes (Route 125)"
+      },
+      "note": "SMART bus is the only public transit option to/from DTW. No rail service exists. Infrequent service — not ideal for most travelers. Rideshare or taxi is far more practical."
+    },
+    "airRide": {
+      "description": "Express bus service between DTW and Ann Arbor (Blake Transit Center), operated by Michigan Flyer in partnership with TheRide",
+      "fare": "$15 one-way prepaid / $18 walk-on, $25 round-trip prepaid",
+      "frequency": "14 daily roundtrips",
+      "accessFromTerminal": "Ground Transportation Center at both McNamara and Evans terminals",
+      "travelTime": "45-50 minutes to Ann Arbor",
+      "bookingUrl": "michiganflyer.com",
+      "phone": "517-333-0400",
+      "note": "Best public transit option from DTW. Also continues to East Lansing. Book online in advance — walk-ons accepted with credit card. Reliable and affordable for University of Michigan travelers."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Ground Transportation Center, Level 4 (McNamara) or Ground Transportation Center (Evans)",
+      "providers": "Metro Cars, Metro Cab (official airport taxi providers)",
+      "estimatedMeteredFares": {
+        "toDowntownDetroit": "$45-$60",
+        "toDearborn": "$30-$40",
+        "toAnnArbor": "$55-$75",
+        "toRoyalOak": "$50-$65",
+        "toTroyHotelDistrict": "$55-$70",
+        "toDowntownRomulus": "$15-$20"
+      },
+      "note": "Metro Cars and Metro Cab are the authorized taxi providers at DTW. Available 24/7 from Ground Transportation Center. Cash and credit cards accepted."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "McNamara Terminal: McNamara Parking Garage, Level 4. Evans Terminal: Big Blue Deck, Level 1.",
+      "estimatedFares": {
+        "uberXToDowntownDetroit": "$30-$50",
+        "uberXToDearborn": "$20-$35",
+        "uberXToAnnArbor": "$40-$60",
+        "uberXToRoyalOak": "$35-$55",
+        "uberXToTroy": "$40-$55",
+        "uberXToRomulus": "$10-$15"
+      },
+      "surgePricing": "Standard surge pricing during Auto Show (January), major sporting events (Lions, Tigers, Red Wings), and holidays",
+      "note": "Rideshare pickup is NOT at the curb — you must go to the designated areas inside the parking structures. Follow signs to 'Rideshare' from baggage claim. Usually cheaper than taxi for most destinations."
+    },
+    "rentalCars": {
+      "location": "Rental car counters are located in the Ground Transportation Centers of both terminals — no separate rental car center or shuttle needed",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Thrifty"],
+      "totalBrands": 8,
+      "note": "All major rental car companies have counters inside both terminals. Cars are picked up at the Ground Transportation Center. No shuttle required — a major convenience advantage over many airports."
+    },
+    "hotelShuttles": "Many nearby hotels in Romulus, Taylor, and along Merriman Road offer complimentary shuttle service to DTW. The Westin Detroit Metropolitan Airport is the only on-airport hotel, connected directly to McNamara Terminal."
+  },
+  "parkingRates": "On-airport: Green Lots $14/day (economy), Big Blue Deck $16/day, McNamara Garage short-term $26/day, Valet $51/day. Off-site: from ~$6.00/day with shuttle. Reserve online at metroairport.com for guaranteed space.",
+  "onAirportParking": {
+    "mcNamaraGarage": {
+      "name": "McNamara Garage (Mac Deck)",
+      "shortTermRate": "$4 first 30 minutes, $2 each additional 30 minutes",
+      "dailyMax": 26,
+      "longTermDailyMax": 32,
+      "maxStay": "30 days",
+      "serves": "McNamara Terminal (Delta, Aeromexico, Air France, KLM, Korean Air, WestJet)",
+      "valetAvailable": true,
+      "valetRate": "$51/day",
+      "valetLocation": "Departures level, McNamara Terminal",
+      "features": "Direct covered walkway to McNamara Terminal. Short-term and long-term sections. EV charging stations available on select levels (free charging, standard parking rates apply).",
+      "preBookingUrl": "https://www.metroairport.com/parking"
+    },
+    "bigBlueDeck": {
+      "name": "Big Blue Deck",
+      "shortTermRate": "$4 first 30 minutes, $2 each additional 30 minutes",
+      "dailyMax": 16,
+      "longTermDailyMax": 23,
+      "maxStay": "30 days",
+      "serves": "Evans Terminal (American, Southwest, Spirit, United, JetBlue, Frontier, Lufthansa, Alaska)",
+      "features": "Multi-level parking structure directly connected to Evans Terminal. Short-term and long-term sections available. Rideshare pickup on Level 1. EV charging stations on select levels (free charging).",
+      "preBookingUrl": "https://www.metroairport.com/parking"
+    },
+    "greenLot1": {
+      "name": "Green Lot 1",
+      "rate": "$14/day flat rate",
+      "dailyMax": 14,
+      "serves": "Both terminals via free shuttle",
+      "connection": "FREE shuttle every 10 minutes to McNamara Terminal, Evans Terminal, and Westin Hotel",
+      "features": "Best budget option for on-airport parking. Outdoor surface lot. Free 24/7 shuttle service. No hourly or partial-day rates — flat daily rate only.",
+      "preBookingUrl": "https://www.metroairport.com/parking"
+    },
+    "greenLot2": {
+      "name": "Green Lot 2",
+      "rate": "$14/day flat rate",
+      "dailyMax": 14,
+      "serves": "Both terminals via free shuttle",
+      "connection": "FREE shuttle every 10 minutes to McNamara Terminal, Evans Terminal, and Westin Hotel",
+      "features": "Overflow economy lot. Same rates and shuttle service as Green Lot 1. Outdoor surface lot.",
+      "preBookingUrl": "https://www.metroairport.com/parking"
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$51/day",
+      "location": "Departures level, McNamara Terminal",
+      "features": "Premium drop-off at McNamara Terminal only. Vehicle stored in McNamara Garage."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Separate lots for McNamara Terminal and Evans Terminal",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 30-minute maximum."
+    },
+    "evCharging": {
+      "locations": [
+        "McNamara Garage (Mac Deck) — Level 6 long-term section",
+        "Big Blue Deck — long-term section"
+      ],
+      "totalPorts": "8 EV charging stations",
+      "cost": "FREE (standard parking rates apply)",
+      "note": "EV charging is free at DTW — you only pay standard parking rates. Stations are in the long-term parking sections only. Limited availability (8 total) — arrive early or have a backup plan."
+    },
+    "accessibleParking": "Accessible parking spaces available on ground levels of McNamara Garage and Big Blue Deck. Green Lots have designated accessible spaces near shuttle stops.",
+    "totalCapacity": "~12,000 vehicles across all on-airport parking facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
+    "garageServiceAreas": "McNamara Garage → McNamara Terminal (Delta/SkyTeam). Big Blue Deck → Evans Terminal (all other airlines). Green Lots → both terminals via shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "US Park (DTW)",
+      "slug": "us-park-dtw",
+      "dailyRate": 8.00,
+      "reservationRate": 6.00,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced & Gated Lot"],
+      "shuttleInfo": "30 shuttles running on-demand 24/7 — one of the largest shuttle fleets at DTW",
+      "overview": "Budget-friendly off-site parking with the lowest rates near DTW. Massive shuttle fleet ensures minimal wait times. Popular with frequent travelers.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Lowest off-site rate at $6.00/day pre-booked. 30-shuttle fleet means very short waits. Best overall value for budget-conscious travelers."
+    },
+    {
+      "name": "Airlines Parking (DTW)",
+      "slug": "airlines-parking-dtw",
+      "dailyRate": 8.50,
+      "reservationRate": 6.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "On-demand shuttle 24/7, approximately 5-minute ride to terminal",
+      "overview": "Affordable off-site parking just minutes from DTW with quick shuttle service. One of the closest off-site lots to the terminals.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "notes": "Very close to airport — only 5-minute shuttle ride. 24/7 on-demand shuttle. Good balance of price and convenience."
+    },
+    {
+      "name": "Qwik Park (DTW)",
+      "slug": "qwik-park-dtw",
+      "dailyRate": 15.00,
+      "reservationRate": 14.00,
+      "parkingType": "Covered and uncovered options, self-park and valet",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Available", "24/7 Security", "Surveillance Cameras", "Car Wash", "Oil Change", "Detailing Services"],
+      "shuttleInfo": "24/7 shuttle service to both terminals",
+      "overview": "Full-service off-site parking with covered options, car wash, oil change, and detailing services while you travel. Higher rate but premium amenities.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "notes": "Premium off-site option with car services (wash, oil change, detailing). Covered parking available. Park-stay-fly hotel packages available through partners. Closest major off-site lot."
+    },
+    {
+      "name": "Valet Connections (DTW)",
+      "slug": "valet-connections-dtw",
+      "dailyRate": 12.00,
+      "reservationRate": 11.00,
+      "parkingType": "Outdoor valet parking",
+      "amenities": ["Free 24/7 Shuttle", "Valet Service", "CCTV Security", "24/7 Surveillance", "Fully Insured Drivers"],
+      "shuttleInfo": "Shuttle every 5-10 minutes, 24/7",
+      "overview": "Valet parking service near DTW with frequent shuttle service. Located in Taylor, MI. Valet means you never search for a parking spot.",
+      "address": "27299 Wick Road, Taylor, MI 48180",
+      "distanceFromAirport": "3.0 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "phone": "(734) 992-4946",
+      "notes": "Valet service at off-site prices. Shuttle every 5-10 minutes is among the most frequent. Fully insured drivers handle your car."
+    },
+    {
+      "name": "Fast Lane Airport Parking (DTW)",
+      "slug": "fast-lane-airport-parking-dtw",
+      "dailyRate": 12.00,
+      "reservationRate": 10.00,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "Shuttle service to both terminals",
+      "overview": "Mid-range off-site parking option located 4 miles from DTW. Competitive rates with reliable shuttle service.",
+      "distanceFromAirport": "4.0 mi",
+      "driveTime": "8-12 minutes",
+      "freeCancellation": true,
+      "notes": "Good mid-range option. A bit further than US Park or Airlines Parking but still affordable. Weekly rate of ~$102 available."
+    },
+    {
+      "name": "Clarion Hotel Detroit Metro Airport (Park Sleep Fly)",
+      "slug": "clarion-hotel-detroit-metro-airport-dtw",
+      "dailyRate": 10.99,
+      "reservationRate": 10.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "Hotel Amenities", "Complimentary Breakfast", "Handicap Accessible"],
+      "shuttleInfo": "24/7 complimentary shuttle to both terminals",
+      "overview": "Hotel parking lot open to non-guests. Park-sleep-fly packages available with overnight stay, parking, and shuttle. Good option for early morning flights.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Park-sleep-fly option available. Higher daily rate but 24/7 shuttle and hotel amenities access. Good for travelers with early flights."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE shuttle every 10 minutes connects McNamara Terminal, Evans Terminal, Green Lots, and Westin Hotel — 24/7 operation. ExpressTram inside McNamara Concourse A for rapid gate-to-gate travel. Off-site: All major off-site lots include free shuttle service — US Park has 30 shuttles running on-demand 24/7, Valet Connections runs every 5-10 minutes, others typically every 10-20 minutes. IMPORTANT: You CANNOT walk between McNamara and Evans terminals — always use the free airport shuttle.",
+  "distanceFromCity": "21 miles southwest of downtown Detroit. 25-40 minutes by car. No rail transit — bus, taxi, or rideshare only. Located in Romulus, MI in Wayne County.",
+  "keyDistances": {
+    "toDowntownDetroit": "21 miles, 25-40 min by car, $30-50 rideshare, $45-60 taxi",
+    "toDearborn": "13 miles, 15-25 min by car, $20-35 rideshare (Henry Ford Museum, Ford HQ)",
+    "toAnnArbor": "25 miles, 30-45 min by car, $40-60 rideshare, $15 AirRide bus (45-50 min)",
+    "toRoyalOak": "30 miles, 30-45 min by car, $35-55 rideshare",
+    "toTroy": "35 miles, 35-50 min by car, $40-55 rideshare",
+    "toBirmingham": "32 miles, 35-45 min by car, $35-55 rideshare",
+    "toSouthfield": "25 miles, 25-35 min by car, $30-45 rideshare",
+    "toLivonia": "18 miles, 20-30 min by car, $25-35 rideshare",
+    "toCanton": "15 miles, 15-25 min by car, $20-30 rideshare",
+    "toEastLansing": "90 miles, 90-110 min by car, Michigan Flyer bus available",
+    "toToledoOH": "60 miles, 55-75 min by car",
+    "toWindsorON": "30 miles, 35-50 min by car (international border crossing via Ambassador Bridge or Detroit-Windsor Tunnel)",
+    "competitiveAdvantage": "DTW's location in Romulus means it's roughly equidistant from Detroit and Ann Arbor, making it convenient for both metro Detroit and University of Michigan travelers. The AirRide bus at $15 is the best deal for Ann Arbor-bound travelers. For downtown Detroit, rideshare ($30-50) is significantly cheaper than taxi ($45-60). DTW's proximity to the Canadian border means Windsor, Ontario is just 30 miles away."
+  },
+  "construction2026": {
+    "status": "Dingell Drive Tunnels and Roadway Rehabilitation program underway — $85.5 million federally funded project affecting airport access roads through 2027.",
+    "projects": [
+      "Dingell Drive Tunnels and Roadway Rehabilitation ($85.5M) — roadway surface, lighting, ventilation, fire protection, structural repairs, and stormwater improvements. Funded by Bipartisan Infrastructure Law. Construction year-round through 2027.",
+      "South and North Tunnel Rehabilitation — exterior drainage and waterproofing systems repair, started 2025.",
+      "Terminal signage and wayfinding upgrades — modernization of directional signage throughout both terminals.",
+      "Ongoing concession and retail refreshes in both terminals."
+    ],
+    "travelImpact": "Dingell Drive construction may cause temporary lane closures and detours on airport access roads. Allow extra time for driving to the airport, especially during peak travel periods. Both terminals remain fully operational. No parking facility closures expected.",
+    "timeline": {
+      "dingellDrivePhase2": "2025-2027 (year-round construction)",
+      "tunnelRehab": "2025-2027"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["McNamara Terminal", "Evans Terminal"],
+      "note": "TSA PreCheck lanes available at security checkpoints in both terminals"
+    },
+    "clear": {
+      "terminals": ["McNamara Terminal"],
+      "note": "CLEAR available at McNamara Terminal security checkpoint"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals area at McNamara Terminal. Mobile Passport Control also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "5:00-7:00 AM (morning departure banks), 11:00 AM-1:00 PM, 4:00-6:00 PM",
+      "tips": "McNamara Terminal can have longer security lines during Delta's morning and afternoon hub banks. Evans Terminal is generally faster due to lower volume."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, summer weekends"
+    }
+  },
+  "lounges": {
+    "mcNamaraTerminal": [
+      {
+        "name": "Delta Sky Club (Concourse A)",
+        "location": "McNamara Terminal, Concourse A, Level 2 at ExpressTram South Station, across from Gate A18",
+        "hours": "Sunday-Friday 6:00 AM - 9:00 PM, Saturday 6:30 AM - 12:30 PM",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, complimentary food, WiFi, workspaces, shower facilities, runway views."
+      },
+      {
+        "name": "Delta Sky Club (Concourse C)",
+        "location": "McNamara Terminal, Concourse C, gate level near entrance to Concourse C (between Gates C9 and B2)",
+        "hours": "Varies by day — typically 5:30 AM - 9:00 PM",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, complimentary food, WiFi, workspaces. Smaller than the Concourse A location. Services Delta Connection flights in Concourses B & C."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "McNamara Terminal, Concourse A",
+        "hours": "6:00 AM - 9:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. Must arrive within 3 hours of departing flight.",
+        "amenities": "Premium food, craft cocktails, full bar, WiFi, shower suites, workspaces, phone rooms. Effective July 8, 2026: layover arrivals must be within 5 hours of connecting flight."
+      }
+    ],
+    "evansTerminal": [
+      {
+        "name": "No airline lounge",
+        "location": "Evans Terminal (Concourse D)",
+        "notes": "Evans Terminal currently has no airline lounges or third-party lounges. Travelers needing lounge access should consider the Priority Pass restaurant credit at participating Evans Terminal restaurants, or plan lounge visits at their connecting airport."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "DTW Free WiFi",
+    "cost": "Free — unlimited",
+    "coverage": "All terminals and concourses (McNamara and Evans)"
+  },
+  "evCharging": {
+    "mcNamaraGarage": {
+      "chargers": 4,
+      "location": "Level 6, long-term parking section",
+      "type": "Level 2",
+      "cost": "FREE (standard parking rates apply)"
+    },
+    "bigBlueDeck": {
+      "chargers": 4,
+      "location": "Long-term parking section",
+      "type": "Level 2",
+      "cost": "FREE (standard parking rates apply)"
+    },
+    "totalPorts": "8 EV charging stations",
+    "note": "EV charging is free at DTW — a nice perk compared to airports that charge per kWh. However, only 8 stations total means availability is limited. Arrive early or have a backup charging plan. Stations are in long-term parking sections only."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at DTW. Smarte Carte luggage carts available for $7 each.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Detroit, Dearborn" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Detroit metro locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Detroit" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas available in both terminals — indoor service-animal relief areas within secure zones and outdoor curbside locations",
+    "locations": ["McNamara Terminal — indoor service-animal relief area post-security, outdoor curbside area pre-security", "Evans Terminal — indoor service-animal relief area post-security, outdoor curbside area pre-security"],
+    "note": "Check DTW airport maps or ask information desk for current pet relief area locations in each terminal."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM (Delta morning hub bank)", "11:00 AM-1:00 PM (midday departures)", "4:00-6:00 PM (afternoon hub bank)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August) is peak season for DTW — vacation travel and families. Holiday peaks at Thanksgiving, Christmas/New Year, and spring break (March-April). Detroit Auto Show (January) brings business travelers. Big Ten football weekends (September-November) spike Ann Arbor and East Lansing traffic.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak travel periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental climate with warm summers and cold, snowy winters. Lake-effect snow from the Great Lakes is a major factor from November through March.",
+    "commonDisruptions": "Winter storms and lake-effect snow (November-March) are the primary disruption risk. Heavy snowfall can cause delays, cancellations, and airport access road closures. Freezing rain and ice storms can ground flights for hours. Thunderstorms in summer (June-August) cause moderate delays. Fog in spring and fall can cause morning delays.",
+    "bestMonths": "May through September — warm weather, minimal snow risk, longest days",
+    "worstMonths": "January-February (heaviest snow, bitter cold, frequent winter storms, polar vortex events)",
+    "winterNote": "DTW is well-equipped for winter operations with extensive de-icing capabilities and snow removal equipment — the airport rarely closes entirely. However, individual flight cancellations and 1-4 hour delays are common during winter storms. Lake-effect snow bands can produce sudden, intense snowfall. Always check flight status during winter travel and build buffer time into connections.",
+    "lakeEffectSnow": "DTW receives significant lake-effect snow from Lakes Erie and Huron. Snow squalls can reduce visibility to near-zero rapidly. The airport averages 33+ inches of snow per year. Blizzard conditions are possible December-February.",
+    "polarVortex": "Detroit is vulnerable to polar vortex events bringing extreme cold (-10F to -20F wind chill). These can cause mechanical issues with aircraft and ground equipment, leading to delays even without heavy snow.",
+    "note": "DTW's winter operations are excellent — Delta maintains strong on-time performance at its hub even in tough conditions. But travelers should always have a backup plan during January-February. Morning flights tend to be more reliable than afternoon/evening flights during winter."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near DTW. Most hotels in Romulus, Taylor, and along Merriman Road offer park-sleep-fly packages with up to 16 days of parking included.",
+    "priceRange": "From ~$68/night (1-night stay + up to 16 days parking + free shuttle + breakfast)",
+    "popularHotels": [
+      {
+        "name": "Embassy Suites by Hilton Detroit Metro Airport",
+        "distance": "1.1 miles",
+        "parkingIncluded": "Up to 16 days",
+        "shuttleHours": "24/7 complimentary",
+        "highlight": "Full-service hotel with complimentary breakfast and evening reception."
+      },
+      {
+        "name": "Comfort Inn Detroit Metro Airport",
+        "distance": "1.6 miles",
+        "parkingIncluded": "Up to 16 days",
+        "shuttleHours": "24/7 complimentary",
+        "highlight": "Budget-friendly with complimentary breakfast."
+      },
+      {
+        "name": "Fairfield Inn & Suites Detroit Metro Airport Romulus",
+        "distance": "1.2 miles",
+        "parkingIncluded": "Up to 16 days",
+        "shuttleHours": "24/7 complimentary",
+        "highlight": "Marriott property with reliable shuttle service."
+      },
+      {
+        "name": "Baymont by Wyndham Detroit Airport Romulus",
+        "distance": "1.3 miles",
+        "parkingIncluded": "Up to 16 days",
+        "shuttleHours": "24/7 complimentary",
+        "highlight": "Budget option with complimentary breakfast and free parking."
+      },
+      {
+        "name": "Westin Detroit Metropolitan Airport",
+        "distance": "On-airport (connected to McNamara Terminal)",
+        "parkingIncluded": "McNamara Garage rates apply",
+        "shuttleHours": "N/A — direct walkway to McNamara Terminal",
+        "highlight": "Only on-airport hotel. Walk directly to McNamara Terminal. Premium option for early flights or long layovers."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "qwikpark.com", "parkflydetroit.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "mcNamaraGarage": { "parkingCost": "$224 (7 x $32 long-term)", "totalEstimate": "$224" },
+      "bigBlueDeck": { "parkingCost": "$161 (7 x $23 long-term)", "totalEstimate": "$161" },
+      "greenLots": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" },
+      "valetParking": { "parkingCost": "$357 (7 x $51)", "totalEstimate": "$357" }
+    },
+    "offSiteWithShuttle": {
+      "usPark": { "parkingCost": "$42 (7 x $6.00 pre-booked)", "savingsVsGreenLot": "~$56 saved", "caveat": "24/7 shuttle, 30-bus fleet" },
+      "airlinesParking": { "parkingCost": "$45.50 (7 x $6.50 pre-booked)", "savingsVsGreenLot": "~$53 saved", "caveat": "24/7 shuttle, 5-min ride" },
+      "valetConnections": { "parkingCost": "$77 (7 x $11.00 pre-booked)", "savingsVsGreenLot": "~$21 saved", "caveat": "Valet service, shuttle every 5-10 min" }
+    },
+    "publicTransit": {
+      "smartBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "60-75 min to downtown Detroit", "note": "$2.00 per ride. Cheapest option but very slow. Not practical for most travelers." },
+      "airRideRoundTrip": { "costPerPersonRoundTrip": "$25.00 (prepaid)", "travelTime": "45-50 min to Ann Arbor", "note": "Best transit option for Ann Arbor / University of Michigan travelers" },
+      "rideshareRoundTrip": { "costForCouple": "$60-$100 (UberX downtown round trip)", "note": "Cheaper than on-airport parking for trips under 4 days" }
+    },
+    "keyDifference": "DTW offers excellent off-site parking value — $6.00-6.50/day with 24/7 shuttle vs $14/day Green Lots (cheapest on-airport) or $23-32/day in garages. Off-site lots save 57-81% compared to on-airport garages. For Ann Arbor travelers, the $15 AirRide bus beats driving and parking entirely. Rideshare at $30-50 to downtown Detroit is competitive with parking for trips under 4-5 days."
+  },
+  "uniqueFeatures": {
+    "tunnelOfLight": "The 744-foot underground pedestrian tunnel connecting Concourse A to Concourses B/C in McNamara Terminal features a mesmerizing LED light and music show — one of the most Instagrammed spots in any U.S. airport. The installation cycles through synchronized color patterns and music as travelers walk between concourses.",
+    "longestConcourse": "McNamara Terminal's Concourse A stretches nearly one mile (4,850 feet), making it one of the longest airport concourses in the world. The free ExpressTram runs its full length with three stations.",
+    "deltaHub": "DTW is Delta Air Lines' second-largest hub (after Atlanta). Delta operates approximately 74% of all flights at DTW, offering extensive domestic and international connectivity including nonstop service to Europe, Asia, Latin America, and the Caribbean.",
+    "expresssTram": "The free ExpressTram inside McNamara Terminal Concourse A is an automated people mover that spans the full mile-long concourse — essential for making tight connections at the far ends of the massive terminal.",
+    "westinOnAirport": "The Westin Detroit Metropolitan Airport is directly connected to McNamara Terminal via an enclosed walkway — one of the few true on-airport hotels in the U.S. Ideal for early flights, late arrivals, or extended layovers.",
+    "automotiveCapital": "DTW serves as the primary airport for the global automotive industry headquartered in metro Detroit. Ford (Dearborn), General Motors (Detroit), and Stellantis (Auburn Hills) all rely on DTW for business travel. Auto industry events like the Detroit Auto Show drive significant traffic.",
+    "canadianBorderProximity": "DTW is just 30 miles from Windsor, Ontario, Canada via the Ambassador Bridge or Detroit-Windsor Tunnel. Many Canadian travelers use DTW for its greater flight options and often lower fares compared to Windsor Airport (YQG).",
+    "sixRunways": "DTW has 6 runways — tied for the most of any commercial airport in North America. Two runways exceed 12,000 feet, capable of handling the largest widebody aircraft. This runway capacity helps maintain operations during winter weather.",
+    "winterOperations": "DTW maintains some of the best winter operations of any northern U.S. airport. Despite averaging 33+ inches of snow annually, the airport's extensive de-icing fleet and 6-runway configuration keep delays manageable even during lake-effect snow events."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(734) 247-7678",
+    "airportWebsite": "metroairport.com",
+    "parkingInfo": "metroairport.com/parking",
+    "parkingPhone": "(877) 246-6468",
+    "tsa": "(866) 289-9673",
+    "smartBus": "(866) 962-5515",
+    "airRide": "(517) 333-0400",
+    "airportPolice": "(734) 942-3417",
+    "wcaaMainLine": "(734) 942-3550"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.metroairport.com/",
+      "parking": "https://www.metroairport.com/parking",
+      "longTermParking": "https://www.metroairport.com/parking/long-term-parking",
+      "evParking": "https://www.metroairport.com/parking/electric-vehicle-parking",
+      "groundTransportation": "https://www.metroairport.com/to-from-dtw",
+      "publicTransportation": "https://www.metroairport.com/dtw/other-ground-transportation/public-transportation",
+      "taxiAndRideshare": "https://www.metroairport.com/to-from-dtw/taxis-luxury-sedans",
+      "rideshare": "https://www.metroairport.com/to-from-dtw/rideshare",
+      "terminalMaps": "https://www.metroairport.com/at-dtw/maps",
+      "mcNamaraTerminal": "https://www.metroairport.com/terminals/maps/mcnamara-terminal",
+      "evansTerminal": "https://www.metroairport.com/terminals/maps/evans-terminal",
+      "construction": "https://www.metroairport.com/dtw/traffic-driving/airport-construction",
+      "capitalProjects": "https://metroairport.com/business/development/capital-projects",
+      "aviationStatistics": "https://metroairport.com/business/about-wcaa/facts-figures/aviation-statistics"
+    },
+    "transit": {
+      "smartBus": "https://www.smartbus.org/",
+      "airRide": "https://www.theride.org/services/airport-service",
+      "michiganFlyer": "https://www.michiganflyer.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/dtw/",
+      "lyft": "https://www.lyft.com/rider/airports/dtw"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=DTW",
+      "airportParkingReservations": "https://airportparkingreservations.com/dtw/airport-parking",
+      "way": "https://www.way.com/dtw",
+      "spothero": "https://spothero.com/airport/detroit/dtw-parking",
+      "qwikPark": "https://qwikpark.com/",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/detroit-metropolitan-wayne-county-airport-dtw",
+      "parkingAccess": "https://parkingaccess.com/airports/dtw"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearDTW": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/detroit-metropolitan-airport-dtw-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/DTW/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KDTW",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/DTW",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=dtw"
+    },
+    "evCharging": {
+      "chargeHub": "https://chargehub.com/en/stations/mi/detroit/dtw-airport.html"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/dtw/airport-parking",
+      "parkSleepHotels": "https://dtw.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/park-and-fly-detroit-metro-dtw-airport-hotels",
+      "qwikParkPSF": "https://qwikpark.com/detroit-park-stay-and-fly.shtml"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/detroit-dtw-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Detroit_Metropolitan_Airport",
+      "ifly": "https://www.ifly.com/airports/detroit-metropolitan-airport"
+    },
+    "newsAndMedia": {
+      "detroitFreePress": "https://www.freep.com/",
+      "detroitNews": "https://www.detroitnews.com/",
+      "fox2Detroit": "https://www.fox2detroit.com/",
+      "crainsDetroit": "https://www.crainsdetroit.com/"
+    }
+  }
+}

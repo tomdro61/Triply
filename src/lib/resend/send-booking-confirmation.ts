@@ -17,6 +17,7 @@ interface SendBookingConfirmationParams {
   vehicleInfo?: string;
   shuttleDetails?: string;
   specialConditions?: string;
+  subject?: string;
 }
 
 export async function sendBookingConfirmation({
@@ -34,6 +35,7 @@ export async function sendBookingConfirmation({
   vehicleInfo,
   shuttleDetails,
   specialConditions,
+  subject,
 }: SendBookingConfirmationParams) {
   try {
     // Render React component to HTML
@@ -58,7 +60,7 @@ export async function sendBookingConfirmation({
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: [to],
-      subject: `Booking Confirmed - ${confirmationNumber}`,
+      subject: subject ?? `Booking Confirmed - ${confirmationNumber}`,
       html: emailHtml,
     });
 

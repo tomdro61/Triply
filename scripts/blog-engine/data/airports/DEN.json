@@ -1,0 +1,656 @@
+{
+  "code": "DEN",
+  "fullName": "Denver International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Unincorporated Adams County, Colorado — 25 miles northeast of downtown Denver",
+    "iataCode": "DEN",
+    "icaoCode": "KDEN",
+    "faaLid": "DEN",
+    "elevation": "5,434 feet above mean sea level (Mile High City airport)",
+    "acreage": 33531,
+    "coordinates": "39.8561N, 104.6737W",
+    "passengerVolume": "82.4 million passengers in 2024 (record year — first time exceeding 80M)",
+    "aircraftOperations": "636,000+ annually (2024)",
+    "cargoVolume": "Over 600 million pounds annually",
+    "distinction": "The largest airport in North America by land area (33,531 acres / 52.4 square miles) — larger than Manhattan. Third-busiest airport in the U.S. and sixth-busiest in the world. Iconic white tent roof designed by Fentress Architects to evoke the snow-capped Rocky Mountains. Home to 'Blucifer,' the controversial 32-foot blue mustang sculpture with glowing red eyes. United Airlines' second-largest hub. Opened February 28, 1995, replacing Stapleton International Airport. Six runways including 16R/34L — the longest commercial runway in North America at 16,000 feet.",
+    "operator": "Denver Department of Aviation",
+    "owner": "City and County of Denver",
+    "activeTerminals": 1,
+    "totalConcourses": 3,
+    "totalGates": 169,
+    "runways": 6,
+    "runwayDetails": [
+      { "designation": "7/25", "length": "12,000 ft (3,658 m)", "surface": "Concrete" },
+      { "designation": "8/26", "length": "12,000 ft (3,658 m)", "surface": "Concrete" },
+      { "designation": "16L/34R", "length": "12,000 ft (3,658 m)", "surface": "Concrete" },
+      { "designation": "16R/34L", "length": "16,000 ft (4,877 m)", "surface": "Concrete", "note": "Longest commercial runway in North America and fifth-longest in the world. Extra length needed due to 5,434-ft elevation reducing air density." },
+      { "designation": "17L/35R", "length": "12,000 ft (3,658 m)", "surface": "Concrete" },
+      { "designation": "17R/35L", "length": "12,000 ft (3,658 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "United Airlines (second-largest hub — operates from Concourse B with 74 gates)",
+    "totalAirlines": "23 airlines",
+    "nonstopDestinations": "215+ destinations worldwide",
+    "founded": "February 28, 1995 (replaced Stapleton International Airport)",
+    "hubCarriers": ["United Airlines (major hub)", "Southwest Airlines (major focus city)", "Frontier Airlines (headquarters and primary hub)"],
+    "slotControlled": false,
+    "trainAccess": "RTD University of Colorado A Line commuter rail — 37 minutes to Denver Union Station, $10.50 one-way fare",
+    "highElevationNote": "DEN's 5,434-ft elevation means thinner air — aircraft need longer runways for takeoff (hence the 16,000-ft runway). Passengers may notice slight breathlessness upon arrival. Stay hydrated and limit alcohol consumption, especially if coming from sea level."
+  },
+  "terminals": [
+    {
+      "name": "Jeppesen Terminal",
+      "status": "Active — landside terminal with ticketing, baggage claim, and ground transportation. Connected to all 3 concourses via underground train (AGTS). Great Hall renovation ongoing through 2027.",
+      "airlines": "All airlines check in at the Jeppesen Terminal. No gates — passengers proceed to concourses via the underground Automated Guideway Transit System (AGTS) train.",
+      "gates": "None — terminal is landside only",
+      "notes": "Iconic white tent-roof structure designed by Fentress Architects to evoke the Rocky Mountains. Named after aviation pioneer Elrey Jeppesen. Level 5: Arrivals and ground transportation. Level 6: Departures, ticketing, and security checkpoints (East and West). Great Hall renovation ($2B) in final phase — new security checkpoints, international arrivals facility, and retail/dining. Westin Denver International Airport hotel connected to the terminal."
+    },
+    {
+      "name": "Concourse A",
+      "status": "Active — 39 gates. International arrivals + mixed domestic carriers.",
+      "airlines": ["Alaska Airlines", "Allegiant Air", "American Airlines (some flights)", "Bahamasair", "British Airways", "Cayman Airways", "Delta Air Lines", "Frontier Airlines", "Icelandair", "JetBlue Airways", "Lufthansa", "Norwegian", "Sun Country Airlines", "United Airlines (international arrivals)", "Volaris"],
+      "gates": "A14-A84 (39 gates)",
+      "notes": "All international arrivals process through Concourse A. United Club West (24,000 sq ft) opened 2025 — United's first-ever lounge in Concourse A, serving primarily international passengers. Connected to Jeppesen Terminal via AGTS train (2-minute ride). Bridge connects Concourse A to Concourse B (security-side)."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 74 gates. United Airlines exclusive hub concourse. Largest concourse at DEN.",
+      "airlines": ["United Airlines", "United Express"],
+      "gates": "B7-B92 (74 gates)",
+      "notes": "Exclusively United Airlines. Home to the world's largest United Club (35,000 sq ft, near gate B32) opened 2025 — features craft beer bar, relaxation rooms, buffet, fireplace, and robotic plate clearing. Two additional United Clubs also in Concourse B. Over 100,000 sq ft of total United lounge space at DEN. Bridge connects to Concourse A."
+    },
+    {
+      "name": "Concourse C",
+      "status": "Active — 47 gates (including 4 ground-level boarding gates). 11-gate expansion ($700M) underway, completion ~2027.",
+      "airlines": ["American Airlines", "Southwest Airlines", "Frontier Airlines", "Spirit Airlines"],
+      "gates": "C gates (47 gates)",
+      "notes": "Southwest Airlines' primary concourse. American Airlines also operates here. American Express Centurion Lounge (14,000 sq ft — Amex's second-largest Centurion location). 11-gate expansion project broke ground, ahead of schedule for 2027 completion. Four ground-level boarding gates for regional aircraft."
+    }
+  ],
+  "roads": ["Pena Boulevard (sole airport access road — 12 miles from I-70)", "Interstate 70 (east-west)", "Interstate 225 (connects to I-25 south)", "Interstate 25 (north-south, via I-70 or I-225)", "E-470 Toll Road (eastern bypass)", "Tower Road", "64th Avenue"],
+  "transit": ["RTD A Line commuter rail (Denver Union Station to DEN, 37 min, $10.50)", "RTD SkyRide Bus Route AF (Boulder ↔ DEN)", "RTD Regional Bus Routes (various Front Range connections)", "Bustang (Colorado statewide bus — Fort Collins, Colorado Springs, mountain routes)"],
+  "neighborhoods": ["Downtown Denver", "LoDo (Lower Downtown)", "RiNo (River North Art District)", "Capitol Hill", "Cherry Creek", "Highlands", "Park Hill", "Central Park (formerly Stapleton)", "Aurora", "Commerce City", "Brighton", "Boulder", "Golden", "Lakewood", "Arvada", "Westminster"],
+  "authority": "Denver Department of Aviation",
+  "groundTransportation": {
+    "rtdALine": {
+      "description": "RTD University of Colorado A Line commuter rail connecting Denver International Airport to Denver Union Station in downtown Denver with 6 intermediate stops",
+      "fare": "$10.50 one-way (airport fare). 3-hour transfer window included.",
+      "frequency": "Every 15 minutes during peak hours, every 30 minutes early morning/late evening",
+      "hours": "First train ~3:30 AM, last train ~1:15 AM daily (approximately 22 hours of service)",
+      "travelTime": "37 minutes to Denver Union Station",
+      "stations": ["Denver Union Station", "38th & Blake", "40th & Colorado", "Central Park", "Peoria", "40th Ave & Airport Blvd - Gateway Park", "61st & Pena", "Denver Airport Station"],
+      "stationLocation": "Transit Center on Level 1, beneath the Westin Hotel at the south end of the Jeppesen Terminal",
+      "competitorNote": "At $10.50, the A Line is significantly cheaper than the $56 flat-rate taxi or $35-55 rideshare to downtown. The 37-minute travel time is competitive with driving (which takes 30-45 minutes depending on I-70 traffic). Best option for budget-conscious travelers headed to downtown Denver."
+    },
+    "taxi": {
+      "fareType": "FLAT RATE to downtown Denver",
+      "pickup": "Level 5, Island 5 (East and West sides of terminal)",
+      "flatRate": "$56 flat rate to downtown Denver (within defined zone)",
+      "estimatedMeteredFares": {
+        "toDowntownDenver": "$56 flat rate",
+        "toBoulder": "$90-$110",
+        "toColoradoSprings": "$150-$180",
+        "toDenverTechCenter": "$65-$80",
+        "toGolden": "$75-$90"
+      },
+      "note": "Flat rate to downtown Denver zone is $56. Outside the flat rate zone, taxis run on meter. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Level 5, East or West side — walk past taxi lane to 5th lane, marked 'Rideshare Pickup'. Accessible pickup available at curbside doors 504-512 (West) or 505-513 (East).",
+      "estimatedFares": {
+        "uberXToDowntownDenver": "$35-$55",
+        "uberXToBoulder": "$55-$80",
+        "uberXToColoradoSprings": "$100-$140",
+        "uberXToDenverTechCenter": "$35-$50",
+        "uberXToGolden": "$45-$65",
+        "uberXToFortCollins": "$100-$140"
+      },
+      "surgePricing": "Surge pricing common during ski season weekends (Friday evening arrivals, Sunday returns), Broncos game days, major concerts at Red Rocks, and holiday travel periods",
+      "waitTime": "Average 3-8 minutes. 50+ drivers typically in queue at DEN.",
+      "note": "Download both Uber and Lyft — prices can differ by $15+ between platforms. Rideshare is usually cheaper than the $56 flat-rate taxi to downtown. Early morning (pre-surge) fares are lowest."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center — south of Jeppesen Terminal on Pena Blvd, accessible via free shuttle from Level 5, Island 4 (East doors 505-513, West doors 504-512)",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Fox", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 11,
+      "note": "All 11 rental car companies located together on East 78th Avenue on airport property. Free shuttle from Level 5, Island 4 — less than 10 minutes. All companies open 24 hours. During Great Hall construction (through 2027), rental car shuttle pickup may temporarily shift — check flydenver.com for current pickup location."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Most airport-area hotels along Tower Road and near Gateway Park provide shuttle service. Westin Denver International Airport is connected directly to the terminal (no shuttle needed)."
+  },
+  "parkingRates": "On-airport: East/West Garages $28/day, Economy Lots $17/day, Pikes Peak/Longs Peak Shuttle Lots $10/day, Premium Reserved $45/day. Off-site: from ~$8/day with shuttle. Pre-booking online for guaranteed space at flydenver.com.",
+  "onAirportParking": {
+    "eastGarage": {
+      "name": "East Garage (Short-Term & Garage Parking)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 28,
+      "maxStay": "30 days",
+      "serves": "Jeppesen Terminal — East side (close to East security checkpoint)",
+      "features": "Covered parking, directly connected to terminal via pedestrian bridge. Best for short stays and premium convenience. EV charging available on Level 1 (11 Level 1 stations, Rows E, F, R).",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "westGarage": {
+      "name": "West Garage (Short-Term & Garage Parking)",
+      "rate": "$5.00 per hour",
+      "dailyMax": 28,
+      "maxStay": "30 days",
+      "serves": "Jeppesen Terminal — West side (close to West security checkpoint)",
+      "features": "Covered parking, directly connected to terminal via pedestrian bridge. EV charging available on Level 1 (15 Level 1 stations + 10 Level 2 stations, Rows E, F, G). More EV chargers than East Garage.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "eastEconomyLot": {
+      "name": "East Economy Lot",
+      "rate": "$5.00 per hour",
+      "dailyMax": 17,
+      "serves": "Jeppesen Terminal via free 24/7 shuttle (every 7-10 minutes)",
+      "connection": "FREE 24/7 shuttle service, every 7-10 minutes, picks up at covered parking shelters",
+      "features": "Uncovered outdoor lot. Budget-friendly on-airport option. Free shuttle runs continuously. Good for trips of 3+ days.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "westEconomyLot": {
+      "name": "West Economy Lot",
+      "rate": "$5.00 per hour",
+      "dailyMax": 17,
+      "serves": "Jeppesen Terminal via free 24/7 shuttle (every 7-10 minutes)",
+      "connection": "FREE 24/7 shuttle service, every 7-10 minutes, picks up at covered parking shelters",
+      "features": "Uncovered outdoor lot. Same rates and shuttle service as East Economy. Choose based on which side of the terminal you prefer.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "pikesPeakShuttleLot": {
+      "name": "Pikes Peak Shuttle Lot",
+      "rate": "$10.00 per day",
+      "dailyMax": 10,
+      "serves": "Jeppesen Terminal via free 24/7 shuttle",
+      "connection": "FREE 24/7 shuttle service to terminal",
+      "features": "Most affordable on-airport option. Further from terminal but connected by free shuttle. Best for budget-conscious long-term parkers. Named after Colorado's famous 14er.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "longsPeakShuttleLot": {
+      "name": "Longs Peak Shuttle Lot",
+      "rate": "$10.00 per day",
+      "dailyMax": 10,
+      "serves": "Jeppesen Terminal via free 24/7 shuttle",
+      "connection": "FREE 24/7 shuttle service to terminal",
+      "features": "Same rate and service as Pikes Peak lot. Named after Longs Peak in Rocky Mountain National Park. Choose based on availability.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "premiumReserved": {
+      "name": "Premium Reserved Parking",
+      "rate": "$45.00 per day",
+      "dailyMax": 45,
+      "location": "Adjacent to Jeppesen Terminal, Arrivals Level 4 (East and West sides)",
+      "features": "Covered parking with guaranteed reserved spot. Book online up to 90 days in advance (or as late as 5 minutes before). Closest parking to terminal — walk directly to check-in. Premium convenience for business travelers.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "sixtyFirstAndPenaLot": {
+      "name": "61st & Pena Lot",
+      "rate": "$7.00 per day",
+      "dailyMax": 7,
+      "serves": "Jeppesen Terminal via free shuttle",
+      "connection": "FREE shuttle to terminal",
+      "features": "Located at 61st Ave and Pena Blvd. Cheapest on-airport parking option. Further from terminal but great value for long-term parking.",
+      "preBookingUrl": "https://www.flydenver.com/parking-and-transportation/parking-lots/"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot (Final Approach)",
+      "location": "7680 N. Wenatchee St — approximately 3 miles from Jeppesen Terminal",
+      "cost": "FREE",
+      "capacity": 253,
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight status and depart when passenger has baggage."
+    },
+    "evCharging": {
+      "locations": [
+        "East Garage Level 1 — Rows E, F, R (11 Level 1 stations)",
+        "West Garage Level 1 — Rows E, F, G (15 Level 1 + 10 Level 2 stations)"
+      ],
+      "totalPorts": "36 EV charging stations",
+      "cost": "FREE — standard garage parking rates apply",
+      "note": "EV charging at DEN is FREE (unlike MIA/SFO). Look for 'Electric Vehicle Station' signs on Level 1 of garages. West Garage has more chargers than East Garage."
+    },
+    "accessibleParking": "Accessible parking available in all garages and lots. Designated spaces on lower levels of East and West Garages.",
+    "totalCapacity": "~42,000 parking spaces across all airport lots and garages",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. ParkDEN app for mobile payment.",
+    "parkingPhone": "(303) 342-7275",
+    "garageServiceAreas": "East Garage → East side of Jeppesen Terminal. West Garage → West side of Jeppesen Terminal. All concourses accessible from both sides via AGTS train."
+  },
+  "parkingLots": [
+    {
+      "name": "Canopy Airport Parking",
+      "slug": "canopy-airport-parking-den",
+      "dailyRate": 15.00,
+      "reservationRate": 9.00,
+      "parkingType": "Outdoor self-park ($15/day), Covered ($26/day), Valet ($30/day)",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Option", "Valet Service", "EV Charging", "Free WiFi in Lobby", "Free Coffee & Snacks", "Luggage Assistance", "24/7 Security", "Surveillance Cameras", "Fenced & Gated"],
+      "shuttleInfo": "24/7 complimentary shuttle with luggage assistance. Every 15-25 minutes. ~10 minute ride to terminal.",
+      "overview": "Full-service off-site parking on Tower Road with outdoor, covered, and valet options. Known for excellent amenities including free WiFi, coffee, water, and snacks in the lobby. EV charging available. One of the most popular off-site lots at DEN.",
+      "address": "8100 Tower Rd, Commerce City, CO 80022",
+      "distanceFromAirport": "5 mi",
+      "driveTime": "10 minutes",
+      "freeCancellation": true,
+      "rating": "4.5/5",
+      "notes": "Best off-site lot for amenities. EV charging is a unique offering. Covered parking at $26/day is still cheaper than on-airport garages ($28/day). Pre-book online for best rates (~$9/day outdoor)."
+    },
+    {
+      "name": "The Parking Spot - South",
+      "slug": "the-parking-spot-south-den",
+      "dailyRate": 14.99,
+      "reservationRate": 8.00,
+      "parkingType": "Uncovered self-park (keep your keys)",
+      "amenities": ["Free 24/7 Shuttle", "Self-Park (Keep Keys)", "24/7 Security", "Surveillance Cameras", "Free Bottled Water on Return", "Loyalty Program"],
+      "shuttleInfo": "24/7 shuttle service in signature yellow-and-black spotted buses. Frequent departures.",
+      "overview": "National chain with strong reputation. Self-park model lets you keep your keys. Known for reliable shuttle service and loyalty rewards program.",
+      "address": "19901 E 56th Ave, Aurora, CO 80019",
+      "distanceFromAirport": "6 mi",
+      "driveTime": "10-12 minutes",
+      "freeCancellation": true,
+      "notes": "Great for travelers who prefer keeping their keys. Book online early for $8/day rates. Loyalty program earns free parking days. Free water bottle on return is a nice touch."
+    },
+    {
+      "name": "The Parking Spot - West",
+      "slug": "the-parking-spot-west-den",
+      "dailyRate": 14.99,
+      "reservationRate": 8.00,
+      "parkingType": "Uncovered self-park (keep your keys)",
+      "amenities": ["Free 24/7 Shuttle", "Self-Park (Keep Keys)", "24/7 Security", "Surveillance Cameras", "Free Bottled Water on Return", "Loyalty Program"],
+      "shuttleInfo": "24/7 shuttle service. Same frequency as South location.",
+      "overview": "Second Parking Spot location at DEN, on the west side near Tower Road. Same service and pricing as South location.",
+      "address": "18000 E 81st Ave, Commerce City, CO 80022",
+      "distanceFromAirport": "5 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Choose between South and West locations based on your approach route. Same rates and service quality at both."
+    },
+    {
+      "name": "Park2Jet Denver",
+      "slug": "park2jet-denver-den",
+      "dailyRate": 19.99,
+      "reservationRate": 9.99,
+      "parkingType": "Outdoor ($9.99 pre-booked) and Indoor/Covered ($12.99 pre-booked) self-park",
+      "amenities": ["Free 24/7 Shuttle", "Indoor Parking Option", "24/7 Surveillance", "Gated Access", "On-Site Security Personnel", "Fenced Lot"],
+      "shuttleInfo": "Free shuttle every 10-15 minutes, 24/7. Airport-to-lot shuttle runs 4 AM - midnight every 10-15 min; midnight-4 AM call (303) 558-9790 for pickup. ~7-minute ride.",
+      "overview": "Competitive off-site lot 5 miles from DEN with both outdoor and indoor parking. Strong security with gated access, fencing, and on-site personnel. Pre-book for best rates.",
+      "address": "18121 E 81st Ave, Commerce City, CO 80022",
+      "distanceFromAirport": "5 mi",
+      "driveTime": "7 minutes",
+      "freeCancellation": true,
+      "notes": "Indoor parking at $12.99/day pre-booked is excellent value vs. on-airport garages ($28/day). NOTE: After-hours pickup (midnight-4 AM) requires phone call — not ideal for very late arrivals without planning."
+    },
+    {
+      "name": "WallyPark Premier",
+      "slug": "wallypark-premier-den",
+      "dailyRate": 12.00,
+      "reservationRate": 7.95,
+      "parkingType": "Outdoor self-park and valet options",
+      "amenities": ["Free Shuttle (Every 5-10 min)", "Valet Available", "24/7 Security", "Surveillance Cameras", "Car Care Services"],
+      "shuttleInfo": "On-demand shuttle every 5-10 minutes. One of the fastest shuttle frequencies among off-site lots.",
+      "overview": "Located on airport property between Enterprise and Hertz rental car facilities — one of the closest off-airport options to DEN. Known for fast, frequent shuttle service.",
+      "address": "24200 E 78th Ave, Denver, CO 80249",
+      "distanceFromAirport": "3 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-site lot to DEN — located on airport property. 5-10 minute shuttle frequency is best-in-class. Pre-book for $7.95/day. Valet option available for premium service."
+    },
+    {
+      "name": "Fine Airport Parking",
+      "slug": "fine-airport-parking-den",
+      "dailyRate": 15.00,
+      "reservationRate": 7.49,
+      "parkingType": "Outdoor self-park ($12-15/day) and Indoor ($19/day)",
+      "amenities": ["Free 24/7 Shuttle (Every 5-10 min)", "Indoor Parking Option", "Complimentary EV Charging", "24/7 Security", "Surveillance Cameras", "Luggage Assistance"],
+      "shuttleInfo": "Continuous shuttle rotation every 5-10 minutes, 24/7. Fast and reliable service.",
+      "overview": "Off-site lot with both outdoor and indoor parking options. Standout feature: complimentary EV charging for parked vehicles. Competitive rates when pre-booked.",
+      "address": "5950 N Jackson Gap Way, Aurora, CO 80019",
+      "distanceFromAirport": "6 mi",
+      "driveTime": "10-12 minutes",
+      "freeCancellation": true,
+      "notes": "FREE EV charging is a major differentiator — charge your EV while you travel at no extra cost. Indoor parking at $19/day is cheaper than on-airport garages. Pre-book for $7.49/day outdoor."
+    },
+    {
+      "name": "ParkDIA",
+      "slug": "parkdia-den",
+      "dailyRate": 18.00,
+      "reservationRate": 12.00,
+      "parkingType": "Uncovered ($12/day pre-booked) and Covered ($18/day pre-booked)",
+      "amenities": ["Free Shuttle (Every 5-7 min)", "Covered Parking Option", "24/7 Surveillance", "Well-Lit Facility", "Text-to-Dispatch Shuttle"],
+      "shuttleInfo": "Free shuttle every 5-7 minutes, 24/7. Text or call (303) 288-7275 to dispatch. One of the most frequent shuttle services.",
+      "overview": "Convenient off-site lot just 2.6 miles from DEN with rapid shuttle service. Text-to-dispatch shuttle feature is popular with travelers. Both uncovered and covered options available.",
+      "address": "25200 E 68th Ave, Aurora, CO 80019",
+      "distanceFromAirport": "2.6 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Second-closest off-site lot to DEN at 2.6 miles. Text-to-dispatch shuttle is convenient. Shuttle frequency (every 5-7 min) is among the best. Covered parking at $18/day still saves $10/day vs. on-airport garages."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE 24/7 shuttles connect Economy Lots and Pikes Peak/Longs Peak Shuttle Lots to Jeppesen Terminal every 7-10 minutes. Off-site: All major off-site lots include free shuttle — frequency ranges from every 5 minutes (WallyPark, ParkDIA) to every 15-25 minutes (Canopy). Most shuttles run 24/7. CRITICAL: Park2Jet after-hours pickup (midnight-4 AM) requires a phone call — plan ahead for late arrivals.",
+  "distanceFromCity": "25 miles northeast of downtown Denver. 30-45 minutes by car via Pena Blvd/I-70. 37 minutes by RTD A Line train ($10.50). Denver's sole commercial airport — gateway to the Rocky Mountains, ski resorts, and the Colorado Front Range.",
+  "keyDistances": {
+    "toDowntownDenver": "25 miles, 30-45 min by car, 37 min by A Line ($10.50), $35-55 rideshare, $56 flat-rate taxi",
+    "toLoDo": "25 miles, 30-45 min by car, 37 min by A Line to Union Station, $35-55 rideshare",
+    "toDenverTechCenter": "28 miles, 30-40 min by car (via I-225/I-25), $35-50 rideshare",
+    "toBoulder": "52 miles, 50-70 min by car (via US-36), $55-80 rideshare, RTD SkyRide bus available",
+    "toColoradoSprings": "110 miles, 90-120 min by car (via I-25 South), $100-140 rideshare",
+    "toFortCollins": "90 miles, 80-100 min by car (via I-25 North), $100-140 rideshare",
+    "toGolden": "35 miles, 35-50 min by car, $45-65 rideshare",
+    "toRedRocks": "40 miles, 40-55 min by car, $50-70 rideshare",
+    "toVail": "100 miles, 100-130 min by car (via I-70 West through Eisenhower Tunnel)",
+    "toBreckenridge": "105 miles, 100-130 min by car (via I-70 West)",
+    "toAspen": "160 miles, 3-4 hours by car (via I-70 West to Glenwood Springs)",
+    "toSteamboatSprings": "160 miles, 3-3.5 hours by car (via I-70 West to US-40)",
+    "toEstes Park": "80 miles, 80-100 min by car (gateway to Rocky Mountain National Park)",
+    "competitiveAdvantage": "DEN is the sole major commercial airport for the Denver metro area and Colorado's Front Range. The RTD A Line provides reliable, cheap ($10.50) transit to downtown Denver in 37 minutes. For ski destinations, DEN is the primary gateway — I-70 West connects to Vail, Breckenridge, Keystone, and Copper Mountain in ~2 hours. DEN's remote location (25 miles from downtown) makes off-site parking and the A Line train especially valuable compared to expensive taxi/rideshare fares."
+  },
+  "construction2026": {
+    "status": "Multiple major projects underway — Great Hall renovation ($2B) in final phase, Concourse C expansion ($700M), and ongoing infrastructure upgrades.",
+    "projects": [
+      "Great Hall Program ($2B) — Final phase underway. East Security Checkpoint (17 new screening lanes) opened August 2025. West Security Checkpoint already open. New 'Global Gateway' international arrivals facility and 'Welcome Home Colorado' domestic arrivals area on Level 5. Completion by end of 2027 — currently under budget and ahead of schedule.",
+      "Concourse C Gate Expansion ($700M) — 11 new gates being added to Concourse C. Ahead of schedule, projected completion 2027. Will expand capacity for Southwest, American, and Frontier.",
+      "South Terminal Redevelopment — Level 6 West airline ticket counter area construction began May 2025, moving to east side. Temporary rerouting of passenger flows.",
+      "Rental Car Shuttle Temporary Relocation — March-April 2026: rental car shuttles on Level 5 Terminal East only (West side closed for construction). Check flydenver.com for current pickup location.",
+      "International Arrivals Facility — New dedicated international processing areas with 8 security checkpoints (4 East, 4 West) to alleviate traffic congestion. Part of Great Hall Program."
+    ],
+    "travelImpact": "Great Hall construction causes periodic changes to security checkpoint routing and ground transportation pickup locations. Allow extra time. East Security Checkpoint now open, easing congestion. Rental car shuttle pickup may temporarily shift between East and West sides — check flydenver.com before travel. No parking lot closures expected in 2026.",
+    "timeline": {
+      "eastSecurityCheckpoint": "Opened August 2025",
+      "concourseC11Gates": "~2027 completion",
+      "greatHallCompletion": "End of 2027",
+      "rentalCarShuttleDisruption": "March-April 2026 (Level 5 West closed)"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["West Security Checkpoint (Level 6)", "East Security Checkpoint (Level 6)"],
+      "hours": "4:00 AM - 8:45 PM",
+      "note": "TSA PreCheck available at both East and West security checkpoints"
+    },
+    "clear": {
+      "terminals": ["West Security Checkpoint", "East Security Checkpoint"],
+      "note": "CLEAR available at both checkpoints. Works alongside TSA PreCheck for fastest screening."
+    },
+    "denReserve": {
+      "description": "Free reservation system — book a specific time slot for screening at West Security 2 checkpoint. Appointments available up to 14 days before travel.",
+      "note": "DEN Reserve is unique to Denver airport. Eliminates standard queuing. Book at flydenver.com."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Concourse A international arrivals area. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-20 minutes",
+      "peakHours": "5:00-8:00 AM (busiest — allow 30+ minutes), 11:00 AM-2:00 PM, 4:00-7:00 PM",
+      "preCheck": "5-10 minutes typically",
+      "clear": "2-5 minutes typically",
+      "tips": "Use DEN Reserve (free time-slot booking) to skip the standard queue. New East Security Checkpoint (opened Aug 2025) has reduced wait times significantly. Morning flights (5-8 AM) have the longest waits."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (2.5 hours during holidays/ski season)",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, ski season weekends"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "United Club West",
+        "location": "Concourse A",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "United Club membership, United Polaris Business Class, Star Alliance Gold, United one-time pass ($59)",
+        "amenities": "24,000 sq ft. United's first-ever lounge in Concourse A. Primarily serves international passengers. Food, drinks, bar, WiFi, workspaces, shower suites. Opened 2025.",
+        "note": "Newest United lounge at DEN. Great for international travelers connecting through Concourse A."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "United Club East (World's Largest United Club)",
+        "location": "Concourse B, near Gate B32",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "United Club membership, United Polaris Business Class, Star Alliance Gold, United one-time pass ($59)",
+        "amenities": "35,000 sq ft — world's largest United Club. Craft beer bar, relaxation rooms, buffet, fireplace, robotic plate clearing, shower suites, workspaces. Opened 2025.",
+        "note": "Flagship United lounge. The robotic plate clearing and craft beer bar are standout features."
+      },
+      {
+        "name": "United Club (Concourse B — 2 additional locations)",
+        "location": "Concourse B (near gates B18 and B44)",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "United Club membership, Star Alliance Gold, United one-time pass ($59)",
+        "amenities": "Standard United Club amenities: food, drinks, WiFi, workspaces."
+      }
+    ],
+    "concourseC": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Concourse C",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included.",
+        "amenities": "14,000 sq ft — Amex's second-largest Centurion location. Premium food, cocktails, full bar, WiFi, shower suites, workspaces, phone rooms. Colorado-inspired design and locally sourced food.",
+        "note": "One of the best Centurion Lounges in the network. Located in Concourse C (Southwest/American territory) — accessible to all passengers regardless of airline."
+      },
+      {
+        "name": "USO Lounge",
+        "location": "Concourse C",
+        "access": "Active-duty military, National Guard, Reserves, and their families. FREE.",
+        "amenities": "Refreshments, snacks, WiFi, charging stations, comfortable seating, TV."
+      }
+    ],
+    "terminal": [
+      {
+        "name": "The Club DEN",
+        "location": "Concourse A, near Gate A37",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "Priority Pass, LoungeKey, day pass purchase ($45-$65)",
+        "amenities": "Food, drinks, WiFi, workspaces. Independent lounge accessible to Priority Pass members and day-pass purchasers."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "DEN Airport Free WiFi",
+    "cost": "Free",
+    "coverage": "All concourses, Jeppesen Terminal, and ground transportation areas",
+    "note": "Free unlimited WiFi throughout the airport. Charging stations available at gates and in concourses."
+  },
+  "evCharging": {
+    "onAirport": {
+      "chargers": 36,
+      "location": "Level 1 of East and West Garages",
+      "type": "Level 1 and Level 2 stations",
+      "cost": "FREE — standard garage parking rates apply ($28/day)"
+    },
+    "offSite": [
+      "Canopy Airport Parking — EV charging available",
+      "Fine Airport Parking — FREE EV charging included with parking"
+    ],
+    "totalPorts": "36+ EV charging ports (on-airport) plus off-site options",
+    "note": "DEN offers FREE EV charging in garages — just pay normal parking rate. Fine Airport Parking also offers free EV charging off-site. Look for 'Electric Vehicle Station' signs on Level 1."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at DEN.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Denver (accessible via A Line train)" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Denver locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Denver, Union Station area" }
+    ]
+  },
+  "petFacilities": {
+    "total": "4 pet relief areas",
+    "locations": [
+      "Concourse A — center of concourse (post-security)",
+      "Concourse B — center of concourse (post-security)",
+      "Concourse C — center of concourse (post-security)",
+      "Jeppesen Terminal — outdoor area near Gate 200, west side (pre-security)"
+    ],
+    "note": "All pet relief areas are ADA compliant. Post-security locations available in all three concourses. Pre-security outdoor area at Gate 200 on west side of terminal."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure rush)", "11:00 AM-2:00 PM (midday)", "4:00-7:00 PM (evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "Ski season (December-March) is peak — Friday evening arrivals and Sunday returns create massive surges. Summer (June-August) is also extremely busy with mountain tourism. Thanksgiving, Christmas, and spring break are the worst individual periods. Denver's status as a gateway to ski resorts makes winter weekends uniquely congested.",
+    "skiSeasonNote": "Friday evenings (arrivals) and Sunday afternoons (departures) during ski season are DEN's most extreme peak periods. I-70 traffic to ski resorts can also delay ground transportation. Allow extra time and consider the A Line train.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (2.5 hours during ski season/holidays)",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during Thanksgiving, Christmas, ski season weekends, spring break"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Semi-arid continental climate. 300 days of sunshine per year. Cold winters, warm summers. Extreme weather variability — Denver can see 60-degree temperature swings in 24 hours.",
+    "commonDisruptions": "Winter blizzards (November-April) are the primary disruption. Major snowstorms can dump 1-3 feet of snow, closing the airport for hours or even days. DEN has 6 runways (more than most airports) partly to maintain operations during snow events — they can plow 2 runways while keeping 4 open. Spring and summer thunderstorms with hail and microbursts can cause ground stops.",
+    "bestMonths": "September through November — mild weather, fewer crowds, minimal snow. May and June also good (but afternoon thunderstorms possible).",
+    "worstMonths": "December through March (blizzard risk) and July (afternoon thunderstorms and hail). Late March 'bomb cyclone' storms are particularly disruptive.",
+    "blizzardNote": "DEN is one of the most blizzard-prone major airports in the U.S. The airport's 6-runway design allows continued operations during moderate snow, but major blizzards (2-3+ feet) can shut down operations entirely. If traveling November-April, monitor weather forecasts closely and consider travel insurance. DEN recovers from blizzards faster than most airports due to its runway redundancy and experienced ground crews.",
+    "altitudeNote": "At 5,434 feet elevation, DEN is the highest major commercial airport in the U.S. Thinner air can cause mild altitude sickness symptoms (headache, fatigue, shortness of breath) for travelers from lower elevations. Drink extra water, limit alcohol, and take it easy on your first day.",
+    "note": "DEN averages 57 inches of snow per year. Morning flights are most reliable year-round. Afternoon thunderstorms (May-September) typically clear by evening. Winter travel should always include contingency plans for blizzard delays."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near DEN. Most hotels near Tower Road, Gateway Park, and along I-70 offer park-sleep-fly packages.",
+    "priceRange": "From ~$95/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Embassy Suites by Hilton Denver International Airport",
+        "distance": "6 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Full-service hotel with complimentary breakfast and evening reception. Popular park-sleep-fly choice."
+      },
+      {
+        "name": "Hyatt Place Denver Airport / Hyatt House Denver Airport",
+        "distance": "5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Two Hyatt properties adjacent to each other near Gateway Park. Free parking with stay."
+      },
+      {
+        "name": "Holiday Inn Express Denver Airport",
+        "distance": "6 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Budget-friendly with complimentary breakfast and free parking. Reliable shuttle service."
+      },
+      {
+        "name": "Westin Denver International Airport",
+        "distance": "Connected to terminal",
+        "parkingIncluded": "On-airport garage rates apply separately",
+        "shuttleHours": "No shuttle needed — direct terminal connection",
+        "highlight": "Only hotel connected directly to DEN. Walk to check-in. Premium option — no shuttle needed but parking is on-airport rates ($28/day garage)."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "eastWestGarage": { "parkingCost": "$196 (7 x $28)", "totalEstimate": "$196" },
+      "premiumReserved": { "parkingCost": "$315 (7 x $45)", "totalEstimate": "$315" },
+      "economyLot": { "parkingCost": "$119 (7 x $17)", "totalEstimate": "$119" },
+      "pikesPeakShuttleLot": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" },
+      "sixtyFirstAndPena": { "parkingCost": "$49 (7 x $7)", "totalEstimate": "$49" }
+    },
+    "offSiteWithShuttle": {
+      "canopyPreBooked": { "parkingCost": "$63 (7 x $9 pre-booked outdoor)", "savingsVsGarage": "~$133 saved", "caveat": "24/7 shuttle, EV charging, full amenities" },
+      "wallyParkPreBooked": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$140 saved", "caveat": "Closest off-site lot, 5-10 min shuttle" },
+      "parkingSpotPreBooked": { "parkingCost": "$56 (7 x $8 pre-booked)", "savingsVsGarage": "~$140 saved", "caveat": "Keep your keys, 24/7 shuttle, loyalty program" }
+    },
+    "publicTransit": {
+      "aLineRoundTrip": { "costPerPersonRoundTrip": "$21.00", "travelTime": "37 min to Union Station", "note": "$10.50 per ride. Cheapest option for downtown-bound travelers. 3-hour transfer window included." },
+      "rideshareRoundTrip": { "costForCouple": "$70-$110 (UberX downtown round trip)", "note": "More expensive than most airports due to DEN's 25-mile distance from downtown" }
+    },
+    "keyDifference": "DEN's remote location (25 miles from downtown) makes parking especially important — rideshare costs $35-55 each way to downtown. Off-site pre-booked parking ($8-10/day) saves dramatically vs. on-airport garages ($28/day). The 61st & Pena lot ($7/day) and Pikes Peak/Longs Peak shuttle lots ($10/day) are the cheapest on-airport options. The A Line train ($10.50) is unbeatable for downtown-bound travelers on a budget."
+  },
+  "uniqueFeatures": {
+    "largestAirportByArea": "DEN occupies 33,531 acres (52.4 square miles) — the largest commercial airport by land area in North America and second-largest in the world. It is larger than the island of Manhattan (22.8 square miles). The massive footprint was designed to allow future expansion and prevent noise complaints from residential neighbors.",
+    "blucifer": "'Blue Mustang' (nicknamed 'Blucifer') is a 32-foot, 9,000-pound blue fiberglass horse sculpture with glowing red LED eyes that greets visitors on Pena Boulevard. Created by artist Luis Jimenez, who was tragically killed in 2006 when a piece of the sculpture fell on him during construction, severing an artery. The sculpture was installed posthumously in 2008 and has become DEN's most iconic — and controversial — landmark.",
+    "conspiracyTheories": "DEN is the epicenter of airport conspiracy theories. The airport's underground tunnels (actually baggage systems), murals by artist Leo Tanguma depicting war and environmental destruction, Masonic dedication capstone, and Blucifer have fueled theories about secret underground bunkers, Illuminati headquarters, and lizard people. DEN leans into the conspiracy culture in its marketing, with tongue-in-cheek signs during construction reading 'What are we hiding?' and a talking gargoyle statue in baggage claim.",
+    "tenRoof": "The iconic white tent-roof of the Jeppesen Terminal, designed by Fentress Architects, features 34 peaks covered in Teflon-coated fiberglass fabric. The design evokes the snow-capped Rocky Mountains visible from the airport. The roof is one of the most recognizable airport structures in the world.",
+    "sixRunways": "DEN has 6 non-intersecting runways — more than almost any other U.S. airport. This allows continued operations during snow events (plowing 2 while keeping 4 open) and handles high traffic volume. Runway 16R/34L at 16,000 feet is the longest commercial runway in North America.",
+    "highElevation": "At 5,434 feet, DEN is the highest-elevation major commercial airport in the United States. The thin air requires longer runways (hence the 16,000-ft runway) and can affect passengers arriving from sea level.",
+    "skiGateway": "DEN is the primary commercial airport gateway to Colorado's world-class ski resorts — Vail, Breckenridge, Keystone, Aspen, Steamboat Springs, and more are all accessed via I-70 West from DEN. Ski season (December-March) drives massive weekend traffic spikes.",
+    "westinIntegration": "The Westin Denver International Airport is the only hotel directly connected to the terminal — built into the south end of the Jeppesen Terminal with direct walkway access. Unusual for a major U.S. airport.",
+    "aLineTrain": "DEN is one of the few major U.S. airports with direct rail service to downtown — the RTD A Line provides 37-minute service to Denver Union Station for $10.50."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(303) 342-2000",
+    "airportWebsite": "flydenver.com",
+    "parkingInfo": "flydenver.com/parking-and-transportation/parking-lots/",
+    "parkingPhone": "(303) 342-7275",
+    "tsa": "(866) 289-9673",
+    "rtdInfo": "(303) 299-6000",
+    "rtdWebsite": "rtd-denver.com",
+    "airportPolice": "(303) 342-4211"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.flydenver.com/",
+      "parking": "https://www.flydenver.com/parking-and-transportation/parking-lots/",
+      "groundTransportation": "https://www.flydenver.com/parking-and-transportation/to-and-from/",
+      "rideshare": "https://www.flydenver.com/parking-and-transportation/to-and-from/ride-share/",
+      "rentalCars": "https://www.flydenver.com/parking-and-transportation/to-and-from/rental-cars/",
+      "security": "https://www.flydenver.com/security/",
+      "greatHallProgram": "https://www.flydenver.com/about-den/projects-and-infrastructure/great-hall-program/",
+      "gateExpansion": "https://www.flydenver.com/about-den/projects-and-infrastructure/gate-expansion-program/",
+      "facilities": "https://www.flydenver.com/about-den/facilities/",
+      "wifiAndTechnology": "https://www.flydenver.com/at-the-airport/services-and-amenities/wifi-and-technology/"
+    },
+    "transit": {
+      "rtdALine": "https://www.rtd-denver.com/routes-services/airport",
+      "rtdALineSchedule": "https://app.rtd-denver.com/route/A/schedule",
+      "rtdFares": "https://www.rtd-denver.com/fares-passes/fares",
+      "bustang": "https://ridebustang.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/den/",
+      "lyft": "https://www.lyft.com/rider/airports/den"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=DEN",
+      "airportParkingReservations": "https://airportparkingreservations.com/den/airport-parking",
+      "way": "https://www.way.com/den",
+      "spothero": "https://spothero.com/airport/denver/den-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/den",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/denver-international-airport-dia",
+      "canopyParking": "https://canopyairportparking.com/",
+      "parkDIA": "https://www.parkdia.com/",
+      "park2Jet": "https://park2jetdenver.com/",
+      "wallyPark": "https://www.wallypark.com/denver-airport-parking/",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/denver",
+      "fineAirportParking": "https://fineairportparking.com/den/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearDEN": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/denver-den-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/DEN/",
+      "unitedClub": "https://www.united.com/en/us/fly/travel/airport/united-club-and-lounges.html"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KDEN",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/DEN",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=den"
+    },
+    "evCharging": {
+      "chargeHub": "https://chargehub.com/en/ev-charging-stations/united-states/colorado/denver/denver-international-airport/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/den/airport-hotels-with-parking",
+      "parkSleepHotels": "https://den.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/find-denver-airport-hotel-park-sleep-fly-offers"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/denver-international-den-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Denver_International_Airport",
+      "ifly": "https://www.ifly.com/airports/denver-international-airport"
+    },
+    "newsAndMedia": {
+      "denverPost": "https://www.denverpost.com/",
+      "nineNews": "https://www.9news.com/",
+      "denverite": "https://denverite.com/"
+    }
+  }
+}

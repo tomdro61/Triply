@@ -1,0 +1,654 @@
+{
+  "code": "SAN",
+  "fullName": "San Diego International Airport",
+  "lastVerified": "2026-04-03",
+  "overview": {
+    "location": "3225 N Harbor Drive, San Diego, California — 3 miles northwest of downtown San Diego, directly adjacent to the waterfront",
+    "iataCode": "SAN",
+    "icaoCode": "KSAN",
+    "faaLid": "SAN",
+    "elevation": "17 feet above mean sea level",
+    "acreage": 663,
+    "coordinates": "32.7336N, 117.1897W",
+    "passengerVolume": "25.32 million passengers in 2025 (record year, up 0.3% from 2024). Terminal 1: 9.68M, Terminal 2: 15.64M.",
+    "aircraftOperations": "233,275 annually",
+    "distinction": "Busiest single-runway commercial airport in the United States. One of the closest major airports to a city center in the U.S. (3 miles from downtown). Approach to Runway 27 passes directly over Balboa Park and downtown buildings — compared to Hong Kong's former Kai Tak Airport approach.",
+    "operator": "San Diego County Regional Airport Authority",
+    "activeTerminals": 2,
+    "totalGates": 50,
+    "futureGates": 61,
+    "runways": 1,
+    "runwayDesignation": "09/27",
+    "runwayLength": "9,401 ft (2,865 m) x 200 ft (61 m)",
+    "runwaySurface": "Asphalt concrete",
+    "displacedThresholds": "Runway 27: first 1,810 ft displaced. Runway 9: first 1,000 ft displaced.",
+    "arrestorSystem": "Engineered materials arrestor system (EMAS) installed 2006, expanded 2021",
+    "curfew": "Departures prohibited 11:30 PM - 6:30 AM. Arrivals permitted 24/7. Exemptions for emergency, government, and military aircraft.",
+    "curfewPenalties": "1st violation: $2,000. 2nd: $6,000. 3rd: $10,000. Airlines get clean slate every 6 months. Curfew Violation Review Panel oversees compliance.",
+    "dominantAirline": "Alaska Airlines (hub with most extensive SAN network)",
+    "totalAirlines": 17,
+    "nonstopDestinations": "85+ destinations worldwide, including 11 international in 7 countries",
+    "founded": "August 16, 1928 (originally San Diego Municipal Airport - Lindbergh Field)",
+    "renamed": "2003 — renamed from Lindbergh Field to San Diego International Airport",
+    "hubCarrier": "Alaska Airlines",
+    "signatureAviation": "Signature Aviation FBO at northeast airfield end",
+    "environmentalNote": "California least tern nesting site (endangered species protection area) on airport grounds"
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 (New Terminal 1)",
+      "status": "Active — Phase 1A opened September 22, 2025. 19 gates operational. 3 additional gates opening Spring 2026 (Phase 1B). 8 more gates in early 2028. Total: 30 gates at full build-out.",
+      "airlines": ["Breeze Airways", "Frontier Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines"],
+      "phase1bAirlines": ["Air Canada", "WestJet"],
+      "gates": "Gates 1-19 (Phase 1A). 3 more Spring 2026. 8 more early 2028.",
+      "notes": "Brand-new $3.8 billion terminal replacement. 5-story Terminal 1 Parking Plaza with 5,200 spaces. Dual-level roadway separating arrivals and departures. 90,000+ sq ft of concession space. 12 food and beverage outlets: Ambrogio 15, Better Buzz, Cutwater Restaurant and Bar, JT Bros Handcrafted Sandwiches, Lofty Coffee, Luna Grill, Market Hall, McDonalds, Novocientos Grados, Parfait Paris, SIP Wine and Beer, The Taco Stand. 5 specialty retail: Liberty Station Gifts, No Boundaries, The Arts District Market, SAN Supply Co., Univision Travel Store. Powered by 100% carbon-free electricity. 900,000-gallon stormwater capture/reuse system. Underground fuel delivery. Phase 1A contributed to 11%+ passenger increase Oct-Dec 2025 vs same period 2024."
+    },
+    {
+      "name": "Terminal 2 East",
+      "status": "Active — 12 gates (gates 20-32)",
+      "airlines": ["Alaska Airlines", "American Airlines"],
+      "gates": "Gates 20-32",
+      "notes": "Older concourse. Alaska Airlines hub operations and American Airlines. CLEAR+ available (4:00 AM - 7:30 PM daily). Aspire Lounge located between T2 East security and bridge to T2 West, post-security near gate 33."
+    },
+    {
+      "name": "Terminal 2 West",
+      "status": "Active — 19 gates (gates 33-51) with international arrivals facility",
+      "airlines": ["British Airways", "Delta Air Lines", "Hawaiian Airlines", "Japan Airlines", "KLM Royal Dutch Airlines", "Lufthansa", "United Airlines", "Volaris"],
+      "gates": "Gates 33-51",
+      "notes": "Newer concourse expanded in 2013 via $900M Green Build project adding 10 gates, new security checkpoint, dining, dual-level roadway. 55,000 sq ft International Arrivals Facility (opened June 2018) connecting gates 46-51 for international processing. Chase Sapphire Lounge between gates 46-47. Delta Sky Club on mezzanine. United Club. Indoor pet relief area between gates 46-47. Luggage lockers on Level 1 south of T2 West pet relief area. Stormwater captured from T2 parking plaza recycled for HVAC cooling towers."
+    }
+  ],
+  "runway": {
+    "designation": "09/27",
+    "length": "9,401 ft x 200 ft",
+    "surface": "Asphalt concrete",
+    "primaryDirection": "Runway 27 (most operations — prevailing westerly winds)",
+    "reverseOperations": "Runway 09 used during Santa Ana wind conditions",
+    "curfew": "Takeoff curfew 11:30 PM - 6:30 AM",
+    "approach": "Steep approach to Runway 27 over downtown San Diego — one of the most dramatic approaches in the U.S.",
+    "capacityNote": "Single runway limits capacity — busiest single-runway airport in the country with 233,275 annual operations (2025)"
+  },
+  "roads": ["Interstate 5 (Hawthorn Street exit northbound, Sassafras Street exit southbound)", "Interstate 8", "CA-163", "Harbor Drive", "North Harbor Drive", "Pacific Highway", "W Laurel Street"],
+  "transit": ["MTS Route 992 (downtown connector, $2.50)", "San Diego Flyer (FREE shuttle to Old Town Transit Center)", "San Diego Trolley (via Old Town Transit Center or Santa Fe Depot)", "COASTER commuter rail (via Old Town or Santa Fe Depot)", "Amtrak Pacific Surfliner (via Santa Fe Depot)"],
+  "neighborhoods": ["Point Loma", "Middletown", "Midway District", "Little Italy", "Bankers Hill", "Old Town", "Liberty Station", "Hillcrest", "Downtown San Diego", "Gaslamp Quarter", "Mission Valley", "Mission Beach", "Pacific Beach", "Ocean Beach", "La Jolla", "Coronado"],
+  "authority": "San Diego County Regional Airport Authority",
+  "groundTransportation": {
+    "mtsRoute992": {
+      "operator": "MTS (San Diego Metropolitan Transit System)",
+      "fare": "$2.50 one-way ($1.25 seniors/disabled/Medicare/youth)",
+      "paymentMethod": "PRONTO card — purchase at ticket machines near Information Centers, Santa Fe Depot, or America Plaza Trolley stations",
+      "hours": "5:00 AM - 12:30 AM daily",
+      "frequency": "Every 15 minutes",
+      "route": "Airport Terminal 1 elevated platform to Terminal 2 elevated platform to Santa Fe Depot downtown (15-minute ride)",
+      "connections": "Santa Fe Depot connects to all 3 Trolley lines (Blue, Orange, Green), 3 Rapid bus lines, COASTER commuter rail, Amtrak Pacific Surfliner",
+      "wheelchairAccessible": true,
+      "competitorNote": "At $2.50, this is the cheapest way to reach downtown San Diego from the airport — 15 minutes, no transfers needed."
+    },
+    "sanDiegoFlyer": {
+      "fare": "FREE",
+      "hours": "First pickup 4:45 AM, last pickup/drop-off 12:30 AM, 7 days a week",
+      "frequency": "Every 20-30 minutes, timed to meet first and last Trolley, COASTER, Amtrak, and MTS buses",
+      "route": "Airport Transportation Plaza (across from baggage claim) to Old Town Transit Center (east side near depot building)",
+      "vehicles": "Six electric Endera E-450 shuttles, powered by 100% sustainable energy with on-site EV charging",
+      "connections": "Old Town Transit Center connects to San Diego Trolley (Blue Line to border, Green Line to downtown/Mission Valley), COASTER, Amtrak, multiple bus routes",
+      "note": "Transit riders only. NO overnight parking at Old Town Transit Center."
+    },
+    "trolley": {
+      "system": "San Diego Trolley (operated by MTS)",
+      "nearestStation": "Old Town Transit Center (via free San Diego Flyer shuttle)",
+      "alternateStation": "Santa Fe Depot downtown (via Route 992 bus, $2.50)",
+      "lines": {
+        "blueLine": "Old Town to Downtown to San Ysidro/Mexico border",
+        "greenLine": "Old Town to Mission Valley to SDSU to Santee/12th and Imperial",
+        "orangeLine": "Courthouse to Downtown to El Cajon"
+      },
+      "fare": "$2.50 one-way (PRONTO card)",
+      "frequency": "Every 15 minutes (peak), every 30 minutes (off-peak)",
+      "hours": "Approximately 4:30 AM - 12:30 AM",
+      "travelTimeToDowntown": "~15 minutes from Old Town to downtown via trolley"
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Designated taxicab stands at arrivals level of both terminals",
+      "estimatedFares": {
+        "toDowntown": "$15-$20",
+        "toGaslampQuarter": "$15-$22",
+        "toLaJolla": "$35-$55",
+        "toMissionBeach": "$20-$30",
+        "toCoronado": "$25-$35",
+        "toDelMar": "$50-$65",
+        "toEncinitas": "$65-$85"
+      },
+      "note": "San Diego taxi fares are metered. Rates vary by company."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "Opoli", "Wingz"],
+      "pickupLocations": {
+        "terminal1": "Exit baggage claim via escalators, cross Sky Bridge toward Ground Transportation/parking lot, take escalators down toward parking lot, turn right to Transportation Plaza. Rideshare pickup in second lane.",
+        "terminal2": "Transportation Plaza, second lane on the right from Ground Transportation area."
+      },
+      "estimatedFares": {
+        "uberXToDowntown": "$10-$18",
+        "uberXToGaslamp": "$12-$20",
+        "uberXToLaJolla": "$25-$45",
+        "uberXToMissionBeach": "$15-$25",
+        "uberXToCoronado": "$18-$28",
+        "uberXToDelMar": "$35-$55"
+      },
+      "surgePricing": "Standard surge pricing applies during peak hours, events, and Comic-Con week",
+      "pinVerification": "PIN or QR verification may be required",
+      "competitiveAdvantage": "Airport is only 3 miles from downtown — rideshare is very affordable compared to most airports. Round-trip Uber at $20-36 beats 2+ days of any parking."
+    },
+    "rentalCars": {
+      "facilityName": "Rental Car Center (RCC)",
+      "address": "3355 Admiral Boland Way, San Diego, CA 92101",
+      "facilitySize": "2 million sq ft",
+      "cost": "$316 million",
+      "openedYear": 2016,
+      "shuttle": "Free 24/7 shuttle buses between both terminals and RCC, every 15-20 minutes",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Fox", "Hertz", "National", "Payless", "Sixt", "Thrifty", "Zipcar"],
+      "totalBrands": 14,
+      "avgDailyRate": "From $22/day for economy vehicles",
+      "note": "All rental car companies consolidated at RCC since 2016. No on-terminal rental counters."
+    },
+    "hotelShuttles": "Many nearby hotels offer free courtesy shuttles to/from the airport. Find hotel vans at the Ground Transportation/Courtesy Shuttles area at baggage claim."
+  },
+  "parkingRates": "On-airport: Terminal 1 Parking Plaza $32/day, Terminal 2 Lot $32/day, Terminal 2 Parking Plaza $32/day, Economy Lot $20/day, Valet $40/day. Cell Phone Lot: Free. Off-site: from ~$8.95/day (Four Points, Aladdin, Fox pre-booked). Pre-booking recommended for guaranteed rate and space.",
+  "onAirportParking": {
+    "terminal1ParkingPlaza": {
+      "rate": "$2.50 per 15 minutes ($10/hour)",
+      "dailyMax": 32,
+      "capacity": "5,200 spaces",
+      "levels": 5,
+      "heightClearance": "Level 1: 9 ft 6 in. Levels 2-5: 8 ft 4 in.",
+      "terminals": "Terminal 1 (direct pedestrian connection)",
+      "evCharging": "185 EV charging ports (Level 2 chargers)",
+      "features": "Brand-new 5-story structure. Stage 1 opened August 2024, Stage 2 added 2,400 spaces in late 2025. Direct connection to terminal.",
+      "preBookingUrl": "https://www.san.org/parking"
+    },
+    "terminal2Lot": {
+      "rate": "$2.50 per 15 minutes ($10/hour)",
+      "dailyMax": 32,
+      "terminals": "Terminal 2",
+      "features": "Surface lot adjacent to Terminal 2"
+    },
+    "terminal2ParkingPlaza": {
+      "rate": "$2.50 per 15 minutes ($10/hour)",
+      "dailyMax": 32,
+      "capacity": "2,700 spaces (some sources cite 2,907)",
+      "levels": 3,
+      "heightClearance": "Level 1: 9 ft 6 in. Levels 2-3: 8 ft 2 in.",
+      "size": "920,000 sq ft on 9-acre site",
+      "terminals": "Terminal 2",
+      "evCharging": "16 EV charging ports on 1st and 4th floors (included with parking). Additional 20 stalls at NTC Lot.",
+      "features": "Cast-in-place concrete structure. Glass-backed elevators, open stairwells, natural light via lightwells."
+    },
+    "economyLot": {
+      "rate": "$20/day",
+      "connection": "Free shuttle to both terminals, approximately 3-minute ride",
+      "features": "Budget-friendly option for long-term parking."
+    },
+    "valetParking": {
+      "rate": "$40/day",
+      "location": "Curbside at both Terminal 1 and Terminal 2",
+      "features": "Drive up curbside, hand off keys, walk directly into terminal. Vehicle returned curbside on arrival."
+    },
+    "cellPhoneLot": {
+      "location": "2311 McCain Road, San Diego, CA 92101",
+      "cost": "Free",
+      "hours": "5:00 AM - 12:30 AM daily",
+      "rules": "Driver must remain with vehicle. For drivers waiting to pick up arriving passengers only."
+    },
+    "preBookingUrl": "https://www.san.org/parking",
+    "paymentMethods": "Credit cards, debit cards accepted. Pre-booking available online.",
+    "oversizedVehicles": "Oversized vehicles or vehicles hauling trailers must pay for additional spaces. Motorcycles park at regular car rates."
+  },
+  "parkingLots": [
+    {
+      "name": "San Diego Airport Parking (SDAP)",
+      "slug": "san-diego-airport-parking-sdap",
+      "dailyRate": 18,
+      "reservationRate": 14,
+      "parkingType": "Valet (outdoor, fenced)",
+      "amenities": ["Free Valet", "Free Shuttle 24/7", "Security Cameras", "Fenced Lot", "On-site Security Personnel"],
+      "shuttleInfo": "Free shuttle and free valet service, 24/7 operation.",
+      "overview": "Established off-airport lot with complimentary valet and shuttle. Fenced area with surveillance cameras and security personnel. SUVs/extended trucks (16-17 ft max): $19/day. Extra large vehicles (max 22 ft): $20/day. Reservation saves $4/day (min 1-day, max 31-day stay).",
+      "phone": "(619) 574-1177",
+      "address": "2771 Kurtz Street, San Diego, CA 92110",
+      "website": "sdap.net",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "googleRating": "3.5/5 (430+ Yelp reviews)",
+      "knownCoupons": ["SimplyCodes: up to 17% off", "Online reservation: $4/day off walk-up rate"],
+      "vehicleRestrictions": "Standard vehicles max 15 ft at $18/day. SUVs/extended trucks max 17 ft at $19/day. Extra large max 22 ft at $20/day.",
+      "notes": "Most-reviewed SAN off-site lot on Yelp. Mixed reviews. Rates vary by vehicle size. Reservation strongly recommended."
+    },
+    {
+      "name": "Aladdin Airport Parking",
+      "slug": "aladdin-airport-parking-san",
+      "dailyRate": 20,
+      "reservationRate": 13,
+      "parkingType": "Valet (covered and uncovered options)",
+      "amenities": ["Free Shuttle", "24/7 Operation", "Luggage Assistance", "Security", "Covered Parking Option"],
+      "shuttleInfo": "Free shuttle every 5-10 minutes to airport. Also serves Cruise Ship Terminal (0.5 mi) and Amtrak Station. Call (619) 696-7434 for airport pickup.",
+      "overview": "Long-established parking provider, 1.3 miles east of airport. Open 24/7 with frequent shuttle. Partnered with WallyPark (SAN location closed). Covered parking available at higher rate (~$45/day).",
+      "phone": "(619) 696-7275 (office), (619) 696-7434 (airport pickup)",
+      "address": "2548 Kettner Boulevard, San Diego, CA 92101",
+      "website": "aladdinparking.com",
+      "distanceFromAirport": "1.3 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "googleRating": "3.5/5 (525+ Yelp reviews)",
+      "knownCoupons": ["Pre-book via airportparkingreservations.com from $13/day"],
+      "notes": "Most established SAN off-airport lot. Also handles cruise ship parking. WallyPark customers redirected here. Shuttle among most frequent (every 5-10 min)."
+    },
+    {
+      "name": "San Diego Park, Shuttle & Fly (Lot A)",
+      "slug": "san-diego-park-shuttle-fly-lot-a",
+      "dailyRate": 24.95,
+      "reservationRate": 18.95,
+      "parkingType": "Valet (outdoor)",
+      "amenities": ["Free Shuttle 24/7", "Free Valet", "Personal Service"],
+      "shuttleInfo": "FREE express shuttles 24/7. Call (619) 291-1234 for return pickup from Courtesy Shuttle area.",
+      "overview": "Less than 1.5 miles from SAN. Two lots: Lot A at 3405 Pacific Highway, Lot B at 3275 Pacific Highway. Online saves $6/day. Walk-up $24.95/24 hrs. Additional $4.75 Airport Access fee outside booked times.",
+      "phone": "(619) 291-1234",
+      "address": "3405 Pacific Highway, San Diego, CA 92101",
+      "website": "sdparkshuttlefly.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "googleRating": "3.5/5 (405+ Yelp reviews)",
+      "knownCoupons": ["Book online: $18.95/day vs $24.95 walk-up", "Check sdparkshuttlefly.com/coupons/ for seasonal deals"],
+      "notes": "Higher walk-up rates but 24/7 shuttle and personal valet. Additional $4.75 Airport Access fee outside booked times."
+    },
+    {
+      "name": "San Diego Park, Shuttle & Fly (Lot B)",
+      "slug": "san-diego-park-shuttle-fly-lot-b",
+      "dailyRate": 24.95,
+      "reservationRate": 18.95,
+      "parkingType": "Valet (outdoor)",
+      "amenities": ["Free Shuttle 24/7", "Free Valet"],
+      "shuttleInfo": "Same shuttle as Lot A. Call (619) 291-1234 for pickup.",
+      "phone": "(619) 291-1234",
+      "address": "3275 Pacific Highway, San Diego, CA 92101",
+      "website": "sdparkshuttlefly.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Same deals as Lot A"],
+      "notes": "Second lot from Park, Shuttle & Fly. Same rates and shuttle service as Lot A."
+    },
+    {
+      "name": "Fox Auto Parks (San Diego)",
+      "slug": "fox-auto-parks-san-diego",
+      "dailyRate": 19.95,
+      "reservationRate": 8,
+      "parkingType": "Valet (outdoor)",
+      "amenities": ["Free Shuttle", "Valet", "Luggage Assistance", "24/7 Operation"],
+      "shuttleInfo": "Free shuttles every 25 minutes or on demand, 24 hours daily. 5-10 minute ride to terminal.",
+      "overview": "Part of Fox Auto Parks chain (also at LAX). 20+ years of California airport parking. Compact cars/SUVs at one rate, larger vehicles higher. Complimentary valet and luggage assistance.",
+      "phone": "(619) 625-5253",
+      "address": "3630 California Street, San Diego, CA 92110",
+      "website": "foxautoparks.com",
+      "distanceFromAirport": "1.9 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Pre-book online from $8/day — huge savings vs walk-up"],
+      "vehicleRestrictions": "Compact cars/SUVs: $19.95/day walk-up. Minivans/trucks/large SUVs: $24.95/day walk-up.",
+      "notes": "Best value pre-booked ($8/day vs $19.95 walk-up). 1.9 mi from airport. Shuttle every 25 min. Established chain."
+    },
+    {
+      "name": "Four Points by Sheraton San Diego",
+      "slug": "four-points-sheraton-san-diego",
+      "dailyRate": 9.95,
+      "reservationRate": 8.95,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities Available"],
+      "shuttleInfo": "Free shuttle 6:00 AM - 12:30 AM, every 30 minutes on the hour.",
+      "overview": "Budget hotel parking near SAN. No hotel stay required. One of cheapest options near SAN. Shuttle NOT 24/7.",
+      "phone": "Check parkon.com or cheapairportparking.org",
+      "distanceFromAirport": "Close proximity",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via cheapairportparking.org from $8.95/day"],
+      "notes": "WARNING: Shuttle NOT 24/7 (6 AM - 12:30 AM only). Not suitable for very early/late flights. Under $10/day. May have limited spaces."
+    },
+    {
+      "name": "Sheraton San Diego Hotel and Marina",
+      "slug": "sheraton-san-diego-hotel-marina",
+      "dailyRate": 12,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant", "Marina Views"],
+      "shuttleInfo": "Free shuttle 5:00 AM to midnight, every 15-20 minutes.",
+      "overview": "Just 0.3 miles from airport on Harbor Island. Full-service hotel. No hotel stay required for parking-only. Also popular Park-Sleep-Fly option.",
+      "address": "1380 Harbor Island Drive, San Diego, CA 92101",
+      "website": "marriott.com",
+      "distanceFromAirport": "0.3 mi",
+      "driveTime": "2 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Book via cheapairportparking.org from $12/day"],
+      "notes": "Closest off-site option at 0.3 miles. Shuttle 5 AM - midnight. Good value at $12/day. Best Park-Sleep-Fly candidate."
+    }
+  ],
+  "shuttleInfo": "All off-site lots include free shuttle to both terminals. Frequency varies: Aladdin (every 5-10 min), SDAP (continuous), Park Shuttle & Fly (24/7 express), Fox (every 25 min), hotel lots (every 15-30 min). Hotel lots have limited hours (5-6 AM to midnight). Economy Lot has own shuttle (~3 min). San Diego Flyer provides FREE shuttle between terminals and Old Town Transit Center.",
+  "distanceFromCity": "3 miles northwest of downtown San Diego — one of the closest major airports to a city center in the United States. 7-12 minutes by car. 15 minutes by Route 992 bus.",
+  "keyDistances": {
+    "toDowntownSanDiego": "3 miles, 7-12 min by car, $10-18 rideshare",
+    "toGaslampQuarter": "3.5 miles, 8-15 min by car, $12-20 rideshare",
+    "toOldTown": "2 miles, 5-8 min by car",
+    "toLittleItaly": "2 miles, 5-10 min by car",
+    "toMissionBeach": "7 miles, 12-20 min by car, $15-25 rideshare",
+    "toPacificBeach": "8 miles, 15-20 min by car",
+    "toOceanBeach": "5 miles, 10-15 min by car",
+    "toLaJolla": "12 miles, 20-30 min by car, $25-45 rideshare",
+    "toCoronado": "8 miles via Coronado Bridge, 15-25 min by car, $18-28 rideshare",
+    "toMissionValley": "6 miles, 10-18 min by car",
+    "toDelMar": "20 miles, 25-40 min by car, $35-55 rideshare",
+    "toEncinitas": "27 miles, 30-45 min by car",
+    "toTijuanaBorder": "18 miles, 25-40 min by car (via I-5 South to San Ysidro)",
+    "competitiveAdvantage": "SAN is exceptionally close to downtown (3 miles). MTS Route 992 reaches Santa Fe Depot in 15 minutes for $2.50. Round-trip Uber at $20-36 beats 2+ days of parking."
+  },
+  "construction2026": {
+    "status": "New Terminal 1 Phase 1A opened September 2025. Phase 1B underway. Total: $3.8 billion.",
+    "projects": [
+      "New Terminal 1 Phase 1A ($3.8B total) — COMPLETE. 19-gate terminal opened September 22, 2025.",
+      "New Terminal 1 Phase 1B — IN PROGRESS. 3 gates Spring 2026 (Air Canada, WestJet). 8 more by early 2028 (30 total).",
+      "Terminal 1 Parking Plaza — COMPLETE. 5,200 spaces, 5 levels. 185 EV charging ports.",
+      "New roadways (4+ miles) — COMPLETE. 3-lane entrance, dual-level arrivals/departures.",
+      "Sustainability — COMPLETE. 100% carbon-free electricity, underground fuel, 900K-gallon stormwater capture.",
+      "Terminal 2 Green Build ($900M) — COMPLETE (2013). Added 10 gates to West Concourse.",
+      "Rental Car Center ($316M) — COMPLETE (2016). 2M sq ft, 14 brands.",
+      "International Arrivals Facility ($55M) — COMPLETE (June 2018). 55K sq ft at gates 46-51.",
+      "Airport Transit Connection — STUDY phase with SANDAG for direct transit link to downtown."
+    ],
+    "travelImpact": "Terminal 1 fully operational. Phase 1B may cause minor disruptions. Terminal 2 unaffected. Old Terminal 1 demolished.",
+    "timeline": {
+      "phase1A": "September 2025 (COMPLETE) — 19 gates",
+      "phase1B_partial": "Spring 2026 — 3 additional gates (22 total)",
+      "phase1B_full": "Early 2028 — 8 more gates (30 total)",
+      "totalGatesAtCompletion": 30
+    },
+    "constructionPartners": ["Turner Construction Company", "Flatiron Construction"]
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 2"],
+      "avgWaitTime": "About 11 minutes — roughly half the standard line"
+    },
+    "clear": {
+      "terminals": ["Terminal 2 East"],
+      "hours": "4:00 AM - 7:30 PM daily",
+      "note": "CLEAR+ lets you skip ID check and proceed directly to physical screening."
+    },
+    "standardWaitTimes": {
+      "average": "15-20 minutes",
+      "peakHours": "5:00-7:00 AM, 9:00 AM-1:00 PM, 7:00-9:00 PM",
+      "peakWait": "35-40+ minutes during peak hours",
+      "tips": "Use MyTSA app for real-time wait times."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "Extra time for Thanksgiving, Christmas, spring break, Comic-Con week"
+    }
+  },
+  "lounges": {
+    "terminal1": "No airline lounges in Terminal 1 as of early 2026. Cutwater Restaurant & Bar and SIP Wine & Beer for pre-flight drinks.",
+    "terminal2": [
+      {
+        "name": "Aspire Lounge (formerly Airspace Lounge)",
+        "location": "Between T2 East security and bridge to T2 West, post-security, near gate 33",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Free: Amex Platinum/Centurion (up to 2 guests). Priority Pass, Dragon Pass, LoungeKey. Day pass: ~$44 adult, ~$37 child.",
+        "amenities": "Free WiFi, showers, business areas, full food/beverage menu with bar."
+      },
+      {
+        "name": "Chase Sapphire Lounge",
+        "location": "Between gates 46 and 47, Terminal 2 West",
+        "hours": "Check current hours at airport",
+        "access": "Chase Sapphire Reserve and eligible Chase cards.",
+        "amenities": "Chef-driven menu (Oscar's Mexican Seafood), Groundwork Coffee, Parcelle wines."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Mezzanine level, Terminal 2 West",
+        "hours": "Check delta.com",
+        "access": "Delta Sky Club membership, Delta Reserve Amex, Delta One, SkyTeam Elite Plus.",
+        "amenities": "Complimentary food, premium spirits, WiFi, power outlets."
+      },
+      {
+        "name": "United Club",
+        "location": "Terminal 2 West",
+        "hours": "Check united.com",
+        "access": "United Club membership, United Polaris, Star Alliance Gold.",
+        "amenities": "Complimentary snacks, drinks, WiFi."
+      },
+      {
+        "name": "USO Center",
+        "location": "Outside Terminal 2, across Airport Terminal Road (sky bridge access)",
+        "hours": "Mon-Fri: 6:00 AM - 10:00 PM. Sat-Sun: 8:00 AM - 5:00 PM.",
+        "access": "Active duty, Guard, Reserve, dependents, retired military.",
+        "amenities": "Free snacks, WiFi, entertainment, travel assistance."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "#SANfreewifi",
+    "cost": "Free — no registration required",
+    "coverage": "All terminals"
+  },
+  "evCharging": {
+    "terminal1ParkingPlaza": {
+      "chargers": 185,
+      "type": "Level 2 chargers",
+      "cost": "Fees may apply depending on provider",
+      "note": "Largest EV charging installation at SAN"
+    },
+    "terminal2ParkingPlaza": {
+      "chargers": 16,
+      "location": "1st and 4th floors",
+      "cost": "Included with parking",
+      "additionalStalls": "20 stalls at Terminal 2 NTC Lot"
+    },
+    "totalPorts": "220+ EV charging ports across all airport parking",
+    "recommendation": "Arrive early for charging spots. Pre-book parking recommended."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage locker south of Terminal 2 West pet relief area on Level 1.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $3.95/day", "locations": "Multiple downtown San Diego locations" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily" },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "locations": "Downtown San Diego" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "note": "Near Old Town and downtown" }
+    ]
+  },
+  "petFacilities": {
+    "total": "7 pet relief areas — 6 outdoor (pre-security) and 1 indoor (post-security)",
+    "preSecurity": [
+      "Terminal 1 — Outdoor pet relief area near terminal entrance",
+      "Terminal 2 — Multiple outdoor areas near terminal entrances (East and West)"
+    ],
+    "postSecurity": [
+      "Terminal 2 West — Indoor pet relief station between Gates 46 and 47"
+    ],
+    "features": "All stations: artificial grass, red fire hydrant, waste bags, sink/handwashing."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM", "9:00 AM-1:00 PM", "7:00-9:00 PM"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "Extra time for Thanksgiving, Christmas/New Year, spring break, summer weekends, Comic-Con (mid-July)"
+    }
+  },
+  "weatherPatterns": {
+    "onTimeRate": "78.55% overall (2025) — 76.8% arrivals, 80.3% departures on time",
+    "totalFlightsTracked": 16592,
+    "climate": "Mediterranean climate, 266 sunny days/year. One of best U.S. airports for weather reliability.",
+    "commonDisruptions": "Marine layer/fog (May-June), Santa Ana winds (Oct-Mar), occasional winter storms (Nov-Feb)",
+    "singleRunwayImpact": "Busiest single-runway airport in U.S. Any disruption immediately affects all operations.",
+    "bestMonths": "July through October — virtually no weather delays",
+    "worstMonths": "May-June (marine layer/fog mornings), January-February (Pacific storms)",
+    "juneGloom": "May-June: low coastal clouds/fog delay morning departures until burning off by midday.",
+    "santaAnaWinds": "Hot dry offshore winds Oct-Mar. Can create turbulence and require Runway 09 instead of 27.",
+    "earlyMorningTip": "Flights before 8 AM most affected by marine layer May-June. Afternoon departures safest year-round."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near SAN.",
+    "priceRange": "From ~$205/night (1-night stay + up to 14-21 days parking + shuttle)",
+    "popularHotels": [
+      {
+        "name": "Sheraton San Diego Hotel and Marina",
+        "distance": "0.3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "5 AM - midnight, every 15-20 min",
+        "parkOnlyRate": "$12/day",
+        "highlight": "Closest hotel to SAN. Marina views."
+      },
+      {
+        "name": "TownePlace Suites by Marriott San Diego Airport/Liberty Station",
+        "parkingIncluded": "Up to 7 days (additional $25/day)",
+        "shuttle": "Free shuttle",
+        "highlight": "Extended-stay, kitchen in suite."
+      },
+      {
+        "name": "Four Points by Sheraton San Diego",
+        "shuttleHours": "6 AM - 12:30 AM, every 30 min",
+        "parkOnlyRate": "$8.95-$9.95/day",
+        "highlight": "Budget-friendly, cheapest parking."
+      },
+      {
+        "name": "Holiday Inn San Diego Airport",
+        "shuttle": "Free shuttle",
+        "highlight": "Standard airport hotel."
+      },
+      {
+        "name": "Hampton Inn San Diego Airport/Liberty Station",
+        "shuttle": "Free shuttle",
+        "highlight": "Free hot breakfast."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "valetParking": "$3-5 at drop-off, $3-5 at pickup",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "6-day trip for 2 travelers",
+    "onAirport": {
+      "terminalParkingPlaza": { "parkingCost": "$192 (6 x $32)", "totalEstimate": "$192" },
+      "economyLot": { "parkingCost": "$120 (6 x $20)", "totalEstimate": "$120" },
+      "valetParking": { "parkingCost": "$240 (6 x $40)", "totalEstimate": "$240" }
+    },
+    "offSiteWithShuttle": {
+      "foxAutoParks": { "parkingCost": "$48 (6 x ~$8 pre-booked)", "savingsVsTerminal": "~$144 saved", "caveat": "Shuttle every 25 min, 1.9 mi" },
+      "fourPointsSheraton": { "parkingCost": "$54 (6 x ~$9 pre-booked)", "savingsVsTerminal": "~$138 saved", "caveat": "Shuttle 6 AM-12:30 AM only" },
+      "sheratonMarina": { "parkingCost": "$72 (6 x $12)", "savingsVsTerminal": "~$120 saved", "caveat": "Shuttle 5 AM-midnight" },
+      "aladdinParking": { "parkingCost": "$78 (6 x ~$13 pre-booked)", "savingsVsTerminal": "~$114 saved" }
+    },
+    "publicTransit": {
+      "route992Bus": { "costPerPersonRoundTrip": 5.00, "travelTime": "15 min to downtown", "note": "Every 15 min, 5 AM-12:30 AM" },
+      "sanDiegoFlyer": { "costPerPerson": "FREE + $2.50 Trolley", "travelTime": "15-20 min to Old Town" },
+      "rideshareRoundTrip": { "costForCouple": "$20-$36 (UberX downtown)", "note": "Cheaper than parking for trips under 3 days" }
+    },
+    "keyDifference": "SAN has exceptional transit ($2.50 bus, FREE Flyer). Off-site from $8/day. On-airport $20-40/day. For trips under 3 days, rideshare ($18 round trip downtown) beats any parking."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(619) 400-2404",
+    "parkingInfo": "(619) 400-2400",
+    "tsa": "(866) 289-9673",
+    "lostAndFound": "(619) 400-2129",
+    "noiseComplaint": "https://www.san.org/aircraft-noise/",
+    "sanDiegoPolice": "911 or (619) 531-2000",
+    "mtsTransitInfo": "(619) 233-3004"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-03.",
+    "officialAirport": {
+      "home": "https://www.san.org/",
+      "parking": "https://www.san.org/before-you-go-travel-tips/parking-information/",
+      "parkingReservations": "https://www.san.org/parking",
+      "terminal1ParkingPlaza": "https://www.san.org/parking/Terminal-1-Parking-Plaza",
+      "terminal2Lot": "https://www.san.org/parking/T2-Lot",
+      "publicTransportation": "https://www.san.org/before-you-go-travel-tips/public-transportation/",
+      "rideServices": "https://www.san.org/before-you-go-travel-tips/ride-services/",
+      "rentalCarCenter": "https://www.san.org/before-you-go-travel-tips/rental-car-center/",
+      "airlines": "https://www.san.org/airlines/",
+      "security": "https://www.san.org/security-checkpoints-and-tsa-information/",
+      "shopDine": "https://www.san.org/shop-dine/",
+      "servicesAndFacilities": "https://www.san.org/services-and-facilities/",
+      "aircraftNoise": "https://www.san.org/aircraft-noise/",
+      "uso": "https://www.san.org/uso-facilities/",
+      "newTerminal1": "https://www.san.org/news-articles/its-official-new-terminal-1-opens-at-san/"
+    },
+    "transit": {
+      "mtsAirport": "https://www.sdmts.com/getting-around/airport",
+      "route992Schedule": "https://www.sdmts.com/getting-around/departures-and-schedules/schedules/992",
+      "trolley": "https://www.sdmts.com/transit-services/trolley",
+      "mapsAndSchedules": "https://www.sdmts.com/getting-around/maps-and-schedules"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/san/",
+      "lyft": "https://www.lyft.com/rider/airports/SAN"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SAN",
+      "airportParkingReservations": "https://airportparkingreservations.com/san/airport-parking",
+      "airportParkingCoupons": "https://airportparkingreservations.com/san/parking-coupons",
+      "way": "https://www.way.com/san",
+      "spothero": "https://spothero.com/airport/san-diego/san-parking",
+      "parkon": "https://www.parkon.com/san",
+      "cheapairportparking": "https://www.cheapairportparking.org/san",
+      "sdap": "https://www.sdap.net/",
+      "aladdin": "https://www.aladdinparking.com/",
+      "parkShuttleFly": "https://sdparkshuttlefly.com/",
+      "foxAutoParks": "https://www.foxautoparks.com/san-diego-cheap-airport-parking/"
+    },
+    "rentalCars": {
+      "sanRCC": "https://www.sanrcc.com/",
+      "kayak": "https://www.kayak.com/San-Diego-Airport-Car-Rentals.SAN.cap.ksp"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/SAN/San-Diego-International",
+      "clearSAN": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/san-diego-san-airport-lounges/",
+      "priorityPass": "https://www.prioritypass.com/en/lounges"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/resources/airport/KSAN/weather",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SAN",
+      "accuweather": "https://www.accuweather.com/en/us/san-diego-international-airport/92101/air-travel-weather/9835_poi"
+    },
+    "evCharging": {
+      "plugshareT1": "https://www.plugshare.com/location/14077",
+      "plugshareT2": "https://www.plugshare.com/location/13910"
+    },
+    "luggageStorage": {
+      "bounce": "https://usebounce.com/city/san-diego",
+      "luggageHero": "https://luggagehero.com/san-diego/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/san/airport-hotels-with-parking",
+      "parksleephotels": "https://www.parksleephotels.com/San-Diego-airport-hotels-with-parking-san.htm"
+    },
+    "construction": {
+      "newTerminal1": "https://www.san.org/news-articles/its-official-new-terminal-1-opens-at-san/",
+      "simpleFlying": "https://simpleflying.com/san-diego-airport-new-terminal-1-guide/",
+      "turnerConstruction": "https://www.turnerconstruction.com/projects/san-diego-international-airport-terminal-1-replacement"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/san-diego-international-san-airport/",
+      "ifly": "https://www.ifly.com/airports/san-diego-international-airport",
+      "airportGuide": "https://www.airport.guide/ksan",
+      "wikipedia": "https://en.wikipedia.org/wiki/San_Diego_International_Airport"
+    }
+  }
+}

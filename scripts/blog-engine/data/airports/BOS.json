@@ -1,0 +1,872 @@
+{
+  "code": "BOS",
+  "fullName": "Boston Logan International Airport",
+  "lastVerified": "2026-04-08",
+  "overview": {
+    "location": "East Boston and Winthrop, Massachusetts — 3 miles northeast of downtown Boston",
+    "iataCode": "BOS",
+    "icaoCode": "KBOS",
+    "faaLid": "BOS",
+    "elevation": "19 feet above mean sea level",
+    "acreage": 2384,
+    "coordinates": "42.3647N, 71.0052W",
+    "passengerVolume": "43.24 million passengers in 2025",
+    "aircraftOperations": "407,116 annually (2025)",
+    "cargoVolume": "543 million pounds (2025)",
+    "distinction": "New England's primary airport and the 16th busiest in the United States. Opened September 8, 1923 and named after Spanish-American War veteran General Edward Lawrence Logan. Famously home to the FIRST airport chapel in the United States (Our Lady of the Airways, opened 1951) and the FIRST U.S. airport with direct rapid transit connectivity (Blue Line, 1952). Terminal A was the FIRST LEED-certified airport terminal in the U.S. (2005). Major Delta Air Lines secondary transatlantic hub and JetBlue Airways' largest focus city.",
+    "operator": "Massachusetts Port Authority (Massport)",
+    "owner": "Massachusetts Port Authority",
+    "employment": "~16,000 people",
+    "activeTerminals": 4,
+    "totalGates": 107,
+    "runways": 6,
+    "runwayDetails": [
+      { "designation": "4L/22R", "length": "7,864 ft (2,397 m)", "surface": "Asphalt" },
+      { "designation": "4R/22L", "length": "10,006 ft (3,050 m)", "surface": "Asphalt", "note": "Primary runway" },
+      { "designation": "9/27", "length": "7,001 ft (2,134 m)", "surface": "Asphalt" },
+      { "designation": "14/32", "length": "5,000 ft (1,524 m)", "surface": "Asphalt" },
+      { "designation": "15L/33R", "length": "2,557 ft (779 m)", "surface": "Asphalt", "note": "Shortest runway" },
+      { "designation": "15R/33L", "length": "10,083 ft (3,073 m)", "surface": "Asphalt", "note": "Longest runway" }
+    ],
+    "dominantAirlines": ["JetBlue Airways (largest carrier / focus city)", "Delta Air Lines (secondary transatlantic hub)"],
+    "totalAirlines": 50,
+    "nonstopDestinations": "110+ domestic and international destinations",
+    "founded": "September 8, 1923",
+    "namedAfter": "General Edward Lawrence Logan, Spanish-American War officer",
+    "hubCarriers": ["Delta Air Lines (hub)", "JetBlue Airways (focus city)", "Cape Air (base)"],
+    "slotControlled": false,
+    "metroAccess": "Silver Line SL1 bus picks up at every terminal curb — FREE from airport to South Station in downtown Boston. Blue Line Airport Station accessible via free Massport shuttle.",
+    "firstsAndRecords": "First airport chapel in the U.S. (1951). First U.S. airport with rapid transit connection (1952). First LEED-certified airport terminal (Terminal A, 2005).",
+    "surroundingNote": "Located on a peninsula in Boston Harbor. Only major U.S. airport completely surrounded by water on three sides. Close proximity to downtown Boston (3 miles) is uncommon for a major international airport."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A",
+      "status": "Active — 21 gates. First LEED-certified airport terminal in the U.S. (2005).",
+      "airlines": ["Delta Air Lines", "WestJet"],
+      "gates": "A1-A22 (includes satellite building A13-A22)",
+      "notes": "Delta Air Lines hub terminal. Terminal A is connected to the satellite building via an underground pedestrian tunnel with moving walkways. Home to Delta Sky Club (near Gate A18) and the new Delta One Lounge. Delta check-in at desks A1-A5. Terminal A-B connector under construction (approved May 2024) will eventually link Terminal A to Terminal B post-security."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — 41 gates. Largest terminal at Logan by gate count. Currently undergoing multi-year renovation & expansion.",
+      "airlines": ["American Airlines", "United Airlines", "Southwest Airlines", "Alaska Airlines", "Spirit Airlines", "Air Canada", "Boutique Air"],
+      "gates": "B1-B40 (two piers — North and South)",
+      "notes": "Terminal B is split into two piers (North and South) which are not connected post-security. American Airlines operates from B201-B206 (west side). Southwest check-in at B17-B19, gates B20-B32. United check-in at B11-B15. Alaska/Spirit/Southwest/Boutique at gates B29-B40. Home to American Airlines Admirals Club (upper level near B4). Terminal B has its own dedicated parking garage separate from Central Parking."
+    },
+    {
+      "name": "Terminal C",
+      "status": "Active — 27 gates. JetBlue Airways' largest operating base nationwide. Currently being upgraded (2026) with larger Gate C10 hold room, modernized security checkpoint, and refreshed restrooms.",
+      "airlines": ["JetBlue Airways", "Aer Lingus", "Etihad Airways", "TAP Air Portugal", "Cape Air"],
+      "gates": "C8-C34",
+      "notes": "JetBlue's largest focus city globally. JetBlue check-in at desks C1-C10. JetBlue 'BlueHouse BOS' lounge opening 2026 near Gate C23 (11,000 sq ft — 40% larger than JetBlue's JFK lounge). United Club located in Terminal C. American Express Centurion Lounge announced for 2029 (two-story lounge with terrace). New Kidport opening early 2026."
+    },
+    {
+      "name": "Terminal E",
+      "status": "Active — 18 gates. Dedicated international terminal. Completed $680M expansion August 2023 (320,000 sq ft addition with 4 new gates and distinctive red roof).",
+      "airlines": ["British Airways", "Lufthansa", "Emirates", "Qatar Airways", "Air France", "KLM", "Cathay Pacific", "Japan Airlines", "Iberia", "Aeroméxico", "Virgin Atlantic", "Swiss International", "Aer Lingus", "Azores Airlines", "Hainan Airlines", "El Al", "Copa Airlines", "Turkish Airlines", "Icelandair", "TAP Air Portugal"],
+      "gates": "E1-E18",
+      "notes": "All international arrivals processed through Terminal E customs and immigration. Houses British Airways Galleries Lounge (4th floor opposite Gate E11), Emirates Lounge (opposite E11, daily 7:05 PM-10:05 PM), Lufthansa Lounge (across from E11, daily 12:15 PM-9:30 PM), Air France Lounge, and Delta Sky Club (new 21,000 sq ft lounge for international departures, seats 400+). Terminal E Lot parking currently closed. New 5,000-space Terminal E parking garage under construction (~2028 completion) with solar panels on facade and roof."
+    }
+  ],
+  "roads": ["Interstate 90 (Massachusetts Turnpike — via Ted Williams Tunnel)", "Interstate 93", "US Route 1 (Tobin Bridge)", "Route 1A", "Route 145 (Logan Airport access road)", "Sumner Tunnel", "Callahan Tunnel", "Ted Williams Tunnel"],
+  "transit": ["MBTA Silver Line SL1 (bus — FREE from airport, direct to South Station)", "MBTA Blue Line via Airport Station (accessible by free Massport shuttle)", "Logan Express (dedicated bus from 5 suburban stations)", "MBTA Commuter Rail (via South Station transfer)", "Massport On-Airport Shuttle (free, Routes 22/33/55/66/88)", "Water Taxi / Boston Harbor Bus", "MBTA Hingham/Hull Ferry"],
+  "neighborhoods": ["East Boston", "Winthrop", "Chelsea", "Revere", "Charlestown", "North End", "Downtown Boston", "Seaport District", "South Boston", "Cambridge", "Somerville", "Everett"],
+  "authority": "Massachusetts Port Authority (Massport)",
+  "groundTransportation": {
+    "silverLine": {
+      "routeName": "Silver Line SL1",
+      "operator": "MBTA (Massachusetts Bay Transportation Authority)",
+      "serviceType": "Bus Rapid Transit (BRT)",
+      "fare": "FREE from airport to downtown Boston. Return trips from South Station to airport: $2.40 with CharlieCard, $2.90 cash",
+      "pickupLocation": "Every terminal curbside — look for 'Silver Line' signs on the departures/arrivals level",
+      "hours": "Approximately 5:00 AM - 1:00 AM daily (check MBTA for exact times)",
+      "frequency": "Every 6-15 minutes depending on time of day",
+      "travelTimes": {
+        "toSouthStation": "~15-17 minutes (includes multiple stops)",
+        "toWorldTradeCenter": "~8 minutes",
+        "toCourthouseStation": "~10 minutes",
+        "toDowntownBoston": "~15-20 minutes",
+        "toBackBay": "~20-25 minutes (via South Station + Orange Line transfer)"
+      },
+      "connections": "Free transfer at South Station to Red Line (toward Cambridge/Harvard/MIT) and Commuter Rail. Free transfer at Silver Line Way.",
+      "competitorNote": "The Silver Line SL1 is one of the best airport-to-downtown transit deals in America. FREE from airport direct to South Station in 15-17 minutes. No other major U.S. airport offers free transit to downtown. For anyone headed to downtown Boston, Seaport, Cambridge (via Red Line transfer at South Station), or the Financial District, the Silver Line beats both parking and rideshare on cost — though it's not the fastest during peak traffic."
+    },
+    "blueLine": {
+      "stationName": "Airport Station",
+      "operator": "MBTA",
+      "fare": "$2.40 with CharlieCard, $2.90 cash (CharlieTicket)",
+      "accessFromTerminals": "Take FREE Massport On-Airport Shuttle (Routes 22, 33, 55, or 66) from any terminal to Airport Station — runs every ~15 minutes",
+      "hours": "Approximately 5:15 AM - 12:45 AM Sun-Thu, 5:15 AM - 1:15 AM Fri-Sat",
+      "frequency": "Every 6-10 minutes peak, 10-15 minutes off-peak",
+      "travelTimes": {
+        "toStateStreet": "~8 minutes (transfer to Orange Line)",
+        "toGovernmentCenter": "~10 minutes (transfer to Green Line)",
+        "toDowntownBoston": "~15-20 minutes (depending on destination)",
+        "toBackBay": "~20-25 minutes (via transfer to Orange Line at State)",
+        "toFenwayPark": "~25-30 minutes (via Green Line transfer at Government Center)"
+      },
+      "connections": "Orange Line at State Street, Green Line at Government Center, Commuter Rail at North Station (2 stops north)",
+      "note": "Blue Line is the slightly longer route vs Silver Line but provides direct subway access to Downtown Crossing, Government Center, North Station, and Wonderland (Revere Beach)."
+    },
+    "loganExpress": {
+      "description": "Dedicated bus service from 5 suburban stations directly to all Logan terminals (lower level)",
+      "stations": [
+        { "name": "Back Bay", "location": "Hynes Convention Center area, downtown Boston", "parking": "No parking (downtown location)" },
+        { "name": "Braintree", "location": "Braintree, MA (south of Boston)", "parking": "$7/day" },
+        { "name": "Danvers", "location": "Danvers, MA (north of Boston)", "parking": "$7/day" },
+        { "name": "Framingham", "location": "Framingham, MA (west of Boston)", "parking": "$7/day" },
+        { "name": "Woburn", "location": "Woburn, MA (north of Boston)", "parking": "$7/day" }
+      ],
+      "fare": "$9 each way online (limited-time promotional pricing). Back Bay: $3 to airport with FREE return. Kids ride free with a ticketed family member.",
+      "frequency": "Every 20-30 minutes at most stations during peak hours",
+      "travelTime": "30-60 minutes depending on station and traffic",
+      "note": "Logan Express combines free/cheap suburban parking with dedicated bus service — ideal for travelers from suburbs who want to avoid driving into the city or parking at the airport. At $7/day parking + $9/each way, a 5-day trip costs ~$53 total vs $185-230 for Central Parking."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Designated taxi stands at every terminal, arrivals level",
+      "loganAirportFee": "$2.75 airport fee added to all taxi trips originating at Logan",
+      "estimatedFares": {
+        "toDowntownBoston": "$25-$45 (depending on time/traffic, excluding tip and tolls)",
+        "toBackBay": "$30-$50",
+        "toCambridge": "$30-$45",
+        "toHarvardSquare": "$35-$50",
+        "toMITKendall": "$30-$45",
+        "toFenwayPark": "$35-$50",
+        "toSeaportDistrict": "$20-$35",
+        "toSouthStation": "$25-$40",
+        "toBrookline": "$35-$55",
+        "toNewton": "$45-$65",
+        "toQuincy": "$35-$55"
+      },
+      "tolls": "Ted Williams Tunnel or Sumner Tunnel tolls may apply for trips to/from downtown (~$2-$3)",
+      "note": "Boston taxis are metered and typically cost more than rideshare. All major credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Designated Ride App Pickup zones at each terminal — slightly farther from central taxi stand. Look for signage for Uber/Lyft pickup after getting baggage.",
+      "airportFee": "$5.50 per trip (increased from $3.25 effective July 2024) — passed through to rider via Massport agreement",
+      "estimatedFares": {
+        "uberXToDowntownBoston": "$20-$35",
+        "uberXToBackBay": "$25-$40",
+        "uberXToCambridge": "$25-$40",
+        "uberXToSeaportDistrict": "$15-$25",
+        "uberXToFenway": "$25-$40",
+        "uberXToBrookline": "$30-$45",
+        "uberXToNewton": "$35-$55",
+        "uberXToQuincy": "$30-$45"
+      },
+      "surgePricing": "Standard surge pricing during peak hours, weather events, holidays, and Red Sox/Bruins/Celtics game days",
+      "competitiveAdvantage": "Rideshare from BOS is one of the cheapest among major U.S. airports because downtown Boston is only 3 miles away. A $20-25 UberX to downtown is competitive with the $2.40 Blue Line if you have luggage and limited time. However, the FREE Silver Line SL1 to South Station beats rideshare on pure cost for budget travelers."
+    },
+    "rentalCars": {
+      "location": "Consolidated Rental Car Center (RCC) — 15 Transportation Way, East Boston, MA 02128",
+      "accessFromTerminals": "FREE Massport On-Airport Shuttle (Routes 22, 33, or 55) — runs every 5-6 minutes",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty", "Fox", "Payless"],
+      "facility": "Four-level consolidated facility housing all major rental agencies under one roof — opened to centralize rental operations and free up terminal curb space",
+      "note": "All rental car companies are located off-airport at the RCC. Return your rental to the RCC and take the free shuttle back to your terminal. Shuttles run approximately every 5-6 minutes, 24/7."
+    },
+    "waterTransportation": {
+      "location": "Water Transportation Dock, accessed via free Massport On-Airport Shuttle Route 66 (every ~15 minutes)",
+      "services": [
+        {
+          "name": "MBTA Hingham/Hull Ferry",
+          "route": "Logan Airport → Long Wharf (downtown Boston) → Hull → Hingham",
+          "fare": "$9.75 one-way to downtown",
+          "schedule": "Weekday high-speed service"
+        },
+        {
+          "name": "Boston Water Taxi",
+          "type": "On-demand",
+          "fare": "~$15-$20 per person",
+          "coverage": "Downtown Boston, Charlestown, East Boston, Seaport District",
+          "hours": "Year-round, on-demand"
+        },
+        {
+          "name": "Boston Harbor Bus",
+          "type": "Scheduled",
+          "route": "Logan Airport ↔ South Boston Waterfront",
+          "fare": "$10 one-way",
+          "hours": "7 days per week, year-round"
+        }
+      ],
+      "note": "Water transportation is a unique BOS feature — one of the only U.S. airports where you can leave by boat. Great for travelers heading to Seaport District hotels, downtown waterfront, or harbor-area destinations. The 7-minute water taxi from airport to downtown beats any ground transportation during rush hour."
+    },
+    "massportShuttle": {
+      "description": "FREE on-airport shuttle connecting all terminals to parking facilities, Rental Car Center, Airport Blue Line Station, and Water Transportation Dock",
+      "routes": {
+        "route11": "Terminals → Central Parking",
+        "route22": "Terminals → Airport Station (Blue Line) → RCC → Water Taxi Dock",
+        "route33": "Terminals → Airport Station → RCC → Water Taxi Dock",
+        "route55": "Terminals → Airport Station → RCC → Water Taxi Dock",
+        "route66": "Terminals → Airport Station → Water Transportation Dock",
+        "route88": "Terminals → Airport Station (direct)"
+      },
+      "frequency": "Every 5-15 minutes depending on route",
+      "hours": "24/7",
+      "cost": "FREE"
+    }
+  },
+  "parkingRates": "On-airport: Central Parking Garage $46/day (up to $42/day with advance reservation at $29/day), Terminal B Garage similar rates, Economy Parking Garage $37/day. Advance reservations limited at $29/day. Off-site alternatives from ~$12-20/day with free shuttle. Pre-booking recommended — Terminal E lots currently closed during construction.",
+  "onAirportParking": {
+    "centralParkingGarage": {
+      "name": "Central Parking Garage",
+      "rate": "Hourly: 0-1hr $10, 1-2hr $26, 2-3hr $31, 3-4hr $36, 4-7hr $40, 7-24hr $46. Additional day (0-6hrs) $23, (6-24hrs) $46.",
+      "dailyMax": 46,
+      "advanceReservationRate": 29,
+      "connection": "Direct connection to Terminals A, B, C, and E via pedestrian bridges on Level 4",
+      "heightClearance": "9 ft 6 in",
+      "evCharging": "38 EV charging ports (Level 6: 18 ports, Level 6 West: 20 ports)",
+      "alternativeFuelSpaces": "81 designated spaces across levels 3 and 6",
+      "features": "Closest parking to all terminals. Short-term and long-term parking available. 24/7 attendants. Complimentary jump starts, lockout assistance, tire service. FlyLogan app 'Mark My Car' feature.",
+      "preBookingUrl": "https://www.massport.com/logan-airport/getting-to-logan/parking"
+    },
+    "terminalBGarage": {
+      "name": "Terminal B Parking Garage",
+      "rate": "Same rate structure as Central Parking",
+      "dailyMax": 46,
+      "connection": "Dedicated to Terminal B passengers",
+      "heightClearance": "6 ft 6 in",
+      "evCharging": "10 EV charging ports on Level 3",
+      "alternativeFuelSpaces": "19 designated spaces on Level 3",
+      "features": "Convenient for American, United, Southwest, Alaska, Spirit passengers flying from Terminal B",
+      "note": "Lower height clearance (6'6\") — oversized vehicles should use Central Parking instead"
+    },
+    "economyParkingGarage": {
+      "name": "Economy Parking Garage",
+      "rate": "Hourly: 0-1hr $10, 1-2hr $26, 2-3hr $28, 3-4hr $31, 4-24hr $37. Additional day (0-6hrs) $19, (6-24hrs) $37.",
+      "dailyMax": 37,
+      "advanceReservationRate": 29,
+      "connection": "FREE shuttle bus to all terminals (A, B, C, E) — runs every 15-20 minutes",
+      "heightClearance": "8 ft 2 in",
+      "evCharging": "20 EV charging ports (Levels 2 and 3)",
+      "alternativeFuelSpaces": "21 designated spaces",
+      "features": "Budget-friendly option. 24/7 attendants. All major credit cards and cash accepted. Head-in parking encouraged.",
+      "preBookingUrl": "https://www.massport.com/logan-airport/getting-to-logan/parking"
+    },
+    "terminalELots": {
+      "name": "Terminal E Surface Lots",
+      "status": "CURRENTLY CLOSED",
+      "reason": "Under construction for new 5,000-space Terminal E parking garage (completion ~2028). Features solar panels on facade and roof.",
+      "alternative": "Use Central Parking Garage (connects to Terminal E via Level 4 pedestrian bridge) or Economy Parking (free shuttle)"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Intersection of Hotel Drive and Service Road, East Boston, MA 02128",
+      "cost": "FREE",
+      "maxStay": "30 minutes",
+      "directions": "Follow 'Cell Phone Lot' signs from the inbound roadway. Near Airport MBTA Station and Shell gas station.",
+      "rules": "Vehicles must not be left unattended. No restroom facilities. Max 30 minutes stay. Massport occasionally opens overflow lot near Terminal E during holidays/peak periods.",
+      "note": "Popular during holiday weekends, summer vacation, major Boston events (Red Sox home games, Marathon, Fourth of July). Arrive 10-15 minutes after passenger lands, not before."
+    },
+    "valetParking": {
+      "status": "NOT AVAILABLE — Logan Airport does not offer on-site valet parking"
+    },
+    "accessibleParking": {
+      "note": "Accessible parking is guaranteed in all open garages for vehicles with valid disability plates or placards, EVEN when the garage appears full. Ask any parking attendant for assistance."
+    },
+    "totalCapacity": "Approximately 18,000 vehicles across all Logan Airport parking facilities",
+    "totalEVSpaces": "173 hybrid, electric, and alternative-fuel-only parking spaces across all facilities",
+    "paymentMethods": "Cash, all major credit cards accepted. Advance reservations available online at massport.com.",
+    "parkingAssistance": "24/7 call boxes in all garages for jump starts, lockouts, tire service (complimentary)"
+  },
+  "parkingLots": [
+    {
+      "name": "Park Shuttle & Fly",
+      "slug": "park-shuttle-fly-bos",
+      "dailyRate": 20,
+      "reservationRate": 17,
+      "parkingType": "Self-park (uncovered, secure lot)",
+      "amenities": ["Free 24/7 Shuttle", "On-Demand Shuttle", "Security", "No-Move Policy", "Frequent Parker Rewards"],
+      "shuttleInfo": "FREE 24/7 on-demand shuttle — 5-10 minute ride to terminal. Family-owned and operated since 1975.",
+      "overview": "The closest off-site parking lot to Boston Logan Airport — the only off-site lot on this side of the drawbridge. Family-owned since 1975. First and longest-operating off-site parking facility at Logan. Save up to 40% vs airport garages.",
+      "address": "320 William F McClellan Hwy, Boston, MA 02128",
+      "website": "parkshuttlefly.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Frequent Parker Rewards Program: $2/day discount for members", "Waived reservation fees for members"],
+      "notes": "Closest off-site lot. On-demand shuttle means no waiting. Best for travelers who want savings without giving up convenience."
+    },
+    {
+      "name": "Park N Boston",
+      "slug": "park-n-boston-bos",
+      "dailyRate": 18,
+      "reservationRate": 17.99,
+      "parkingType": "Self-park (uncovered)",
+      "amenities": ["Free Shuttle", "Security", "Rewards Program", "Frequent Parker Discounts"],
+      "shuttleInfo": "Free shuttle runs every 30 minutes. ~8 minute ride to terminals.",
+      "overview": "Affordable off-site parking 6 minutes from Logan Airport. Rewards members receive one FREE day plus 10% off Standard & Oversized rates. Points redeemable toward free stays, car wash, and other perks.",
+      "website": "parknboston.com",
+      "distanceFromAirport": "3 mi",
+      "driveTime": "6-8 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Rewards members: 1 FREE day + 10% off", "Book via parksleepfly.com from $17.99/day"],
+      "notes": "Strong rewards program makes this cheapest for repeat travelers. Shuttle runs every 30 minutes, not on-demand."
+    },
+    {
+      "name": "Preflight Airport Parking Boston",
+      "slug": "preflight-airport-parking-bos",
+      "dailyRate": 22,
+      "reservationRate": 19,
+      "parkingType": "Self-park & valet options available",
+      "amenities": ["Free Shuttle", "Real-Time Shuttle Tracking", "Covered/Uncovered Options", "Loyalty Program", "Security"],
+      "shuttleInfo": "Free shuttle every 7-10 minutes with real-time tracking. Frequent service compared to hotel lots.",
+      "overview": "National parking brand with a Boston location serving Logan. Real-time shuttle tracking via their app. Loyalty program offers free parking days and ongoing discounts/promotions throughout the year.",
+      "website": "preflightparking.com",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Preflight Rewards: Earn free days", "Book direct for promo rates"],
+      "notes": "Reliable nationwide brand. Real-time shuttle tracking is a nice feature. Slightly more expensive than Park Shuttle & Fly but more amenities."
+    },
+    {
+      "name": "Hilton Boston Logan Airport",
+      "slug": "hilton-boston-logan-airport-bos",
+      "dailyRate": 28,
+      "reservationRate": 25,
+      "parkingType": "Self-park (hotel garage)",
+      "amenities": ["Airport Connected (sky bridge)", "Hotel Amenities", "Restaurant", "Fitness Center", "Pool"],
+      "shuttleInfo": "No shuttle needed — hotel is connected to Logan via Massport shuttle or walking distance to Terminal A",
+      "overview": "The only hotel directly on Logan Airport property. Connected via sky bridge to Terminal A and Terminal E. No shuttle required — walk or take the free Massport shuttle. Premium option for early morning or late night flights.",
+      "address": "1 Hotel Dr, Boston, MA 02128",
+      "website": "hilton.com",
+      "distanceFromAirport": "0.1 mi (on-airport)",
+      "driveTime": "Walking distance / 2 minute shuttle",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages available via parksleephotels.com"],
+      "notes": "The closest hotel to the airport. Higher rate but unmatched convenience. Popular Park-Sleep-Fly option for travelers with very early morning flights."
+    },
+    {
+      "name": "Hyatt Regency Boston Harbor",
+      "slug": "hyatt-regency-boston-harbor-bos",
+      "dailyRate": 25,
+      "reservationRate": 22,
+      "parkingType": "Self-park (hotel garage)",
+      "amenities": ["Free Shuttle", "Waterfront Location", "Hotel Amenities", "Restaurant", "Harbor Views"],
+      "shuttleInfo": "Complimentary shuttle to Logan terminals — runs every 20-30 minutes",
+      "overview": "Waterfront hotel with free airport shuttle. Located on Boston Harbor with panoramic views. Park-Sleep-Fly packages available. Good balance between airport access and quality stay.",
+      "address": "101 Harborside Dr, Boston, MA 02128",
+      "website": "hyatt.com",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages via parksleephotels.com"],
+      "notes": "Best for travelers who want a nice hotel stay + parking. Harbor views are a differentiator. Shuttle on schedule (not on-demand)."
+    },
+    {
+      "name": "Embassy Suites by Hilton Boston at Logan Airport",
+      "slug": "embassy-suites-boston-logan-bos",
+      "dailyRate": 24,
+      "reservationRate": 20,
+      "parkingType": "Self-park (hotel garage)",
+      "amenities": ["Free Shuttle", "All-Suite Hotel", "Free Cooked-to-Order Breakfast", "Evening Reception", "Fitness Center"],
+      "shuttleInfo": "Complimentary 24-hour shuttle to Logan terminals",
+      "overview": "All-suite hotel close to Logan with free breakfast and evening reception included. 24-hour airport shuttle. Good value for families needing separate living space plus parking.",
+      "address": "207 Porter St, Boston, MA 02128",
+      "website": "hilton.com",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages include up to 14 days parking"],
+      "notes": "24-hour shuttle is a major advantage over most competitors. Free breakfast + evening reception adds significant value. Best for families or longer stays."
+    },
+    {
+      "name": "Courtyard by Marriott Boston Logan Airport",
+      "slug": "courtyard-marriott-boston-logan-bos",
+      "dailyRate": 22,
+      "reservationRate": 19,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Restaurant", "Fitness Center"],
+      "shuttleInfo": "Complimentary airport shuttle — check schedule",
+      "overview": "Modern Marriott-brand hotel near Logan with airport shuttle. Good middle-tier park-sleep-fly option.",
+      "address": "225 William F McClellan Hwy, Boston, MA 02128",
+      "website": "marriott.com",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages via parksleepfly.com"],
+      "notes": "Marriott brand reliability. Shuttle runs on schedule (not 24/7 on-demand). Reasonable rates."
+    },
+    {
+      "name": "Holiday Inn Express Boston Logan Airport",
+      "slug": "holiday-inn-express-boston-logan-bos",
+      "dailyRate": 20,
+      "reservationRate": 17,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Free Breakfast", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary airport shuttle — limited hours, check schedule",
+      "overview": "Budget-friendly park-sleep-fly option. Free breakfast included. Good for early flights and simple packages.",
+      "address": "69 Boston St, Boston, MA 02128",
+      "website": "ihg.com",
+      "distanceFromAirport": "2 mi",
+      "driveTime": "6-10 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages via parksleephotels.com"],
+      "notes": "Budget option. Shuttle not 24/7 — verify hours for early/late flights. Free breakfast is a plus."
+    },
+    {
+      "name": "Homewood Suites by Hilton Boston Logan Airport Chelsea",
+      "slug": "homewood-suites-boston-logan-chelsea-bos",
+      "dailyRate": 22,
+      "reservationRate": 19,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "Free Hot Breakfast", "Kitchenette in Rooms", "Fitness Center"],
+      "shuttleInfo": "Complimentary 24-hour shuttle to Logan terminals",
+      "overview": "Extended-stay hotel 12 minutes from Logan with 24-hour shuttle service and free hot breakfast. Kitchenettes in all rooms. Good for longer trips.",
+      "address": "145 Beach St, Revere, MA 02151",
+      "website": "hilton.com",
+      "distanceFromAirport": "4 mi",
+      "driveTime": "10-12 minutes",
+      "freeCancellation": true,
+      "knownCoupons": ["Park-Sleep-Fly packages via parksleepfly.com"],
+      "notes": "24-hour shuttle is a major advantage. Kitchenettes + free breakfast + longer stays make this great for extended trips. Slightly farther drive but good value."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE 24/7 Massport shuttles connect all terminals to parking, Rental Car Center, Airport Blue Line Station, and Water Taxi Dock (Routes 11/22/33/55/66/88, every 5-15 min). Off-site: Most hotel and off-site lots provide free shuttle service — frequency varies from on-demand (Park Shuttle & Fly) to every 30 min. NOTE: Some hotel shuttles are NOT 24/7 — verify hours for early/late flights.",
+  "distanceFromCity": "3 miles northeast of downtown Boston. 10-25 minutes by car via Ted Williams Tunnel or Sumner Tunnel. 15-17 minutes to South Station by FREE Silver Line SL1. Logan is one of the closest major international airports to a downtown core in the U.S.",
+  "keyDistances": {
+    "toDowntownBoston": "3 miles, 10-25 min by car, 15 min by Silver Line (FREE), $20-35 rideshare",
+    "toBackBay": "4 miles, 15-30 min by car, 25 min by Silver Line + Orange Line transfer, $25-40 rideshare",
+    "toSouthStation": "3 miles, 10-25 min by car, 15 min by Silver Line (FREE), $25-35 rideshare",
+    "toCambridge": "5 miles, 15-30 min by car, 25-30 min by Silver Line + Red Line transfer, $25-40 rideshare",
+    "toHarvardSquare": "7 miles, 20-35 min by car, 30-35 min by public transit, $35-50 rideshare",
+    "toMITKendall": "5 miles, 15-30 min by car, 25 min by public transit, $25-40 rideshare",
+    "toFenwayPark": "5 miles, 20-35 min by car, 30 min by public transit, $25-40 rideshare",
+    "toSeaportDistrict": "2 miles, 8-15 min by car, 8 min by Silver Line, $15-25 rideshare",
+    "toQuincyMarket": "3 miles, 10-20 min by car, 20 min by transit, $20-35 rideshare",
+    "toBrooklineCoolidge": "8 miles, 20-40 min by car, $30-45 rideshare",
+    "toProvidence": "55 miles, 60-75 min by car (I-95)",
+    "toPortlandME": "110 miles, 2 hours by car",
+    "toHartfordCT": "100 miles, 1.75 hours by car",
+    "toNYC": "220 miles, 4 hours by car, 3.5 hours by Amtrak Acela from South Station",
+    "competitiveAdvantage": "BOS's proximity to downtown Boston (3 miles) is exceptional for a major international airport. Combined with the FREE Silver Line SL1 to South Station, Logan offers one of the best airport-to-downtown experiences in North America. Taxi/rideshare to downtown is also affordable ($20-35). Unlike airports like IAD (26 miles from DC) or LAX (17 miles from downtown LA), you can reach downtown Boston from Logan in under 20 minutes by any mode."
+  },
+  "construction2026": {
+    "status": "Multiple active projects across all terminals. Major capital improvement program underway.",
+    "projects": [
+      "Terminal A-B Connector — APPROVED May 2024. Will link Terminals A and B post-security, eliminating need to re-clear security when transferring. Part of Massport's goal to connect all terminals post-security.",
+      "Terminal E Parking Garage — UNDER CONSTRUCTION. New 5,000-space multi-level garage with solar panels on facade and roof. Completion ~2028. Will replace currently-closed Terminal E surface lots.",
+      "Terminal B Renovation & Expansion — IN PROGRESS. Multi-year project by Turner Construction to modernize Terminal B.",
+      "Terminal C 2026 Upgrades — IN PROGRESS. Larger Gate C10 hold room, modernized security checkpoint, refreshed restrooms. New Kidport opening early 2026.",
+      "JetBlue BlueHouse BOS Lounge — OPENING 2026. 11,000 sq ft lounge in Terminal C near Gate C23. 40% larger than JetBlue's JFK lounge.",
+      "Delta One Lounge Terminal E — COMPLETED 2024. 21,000 sq ft with seafood-centric menu and 400+ seats.",
+      "Runway 9/27 EMAS Pad — COMPLETED November 2025 ($110M). Enhanced safety at runway end.",
+      "Terminal E International Expansion — COMPLETED August 2023 ($680M, 320,000 sq ft). Four new gates, distinctive red roof.",
+      "Amex Centurion Lounge — ANNOUNCED for 2029 opening. Two-story lounge with terrace in Terminal C."
+    ],
+    "travelImpact": "Terminal E surface parking closed. Terminal B renovation may cause occasional construction noise/detours. Overall airport fully operational.",
+    "timeline": {
+      "terminalEExpansion": "Completed August 2023",
+      "runway927EMAS": "Completed November 2025",
+      "jetBlueLounge": "Opening 2026 (Terminal C)",
+      "terminalCUpgrades": "Throughout 2026",
+      "terminalABConnector": "Under construction (multi-year)",
+      "terminalEParkingGarage": "~2028 completion",
+      "amexCenturionLounge": "2029 opening"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal A", "Terminal B", "Terminal C", "Terminal E"],
+      "note": "TSA PreCheck available at all major security checkpoints. JetBlue has expedited PreCheck lanes in Terminal C."
+    },
+    "clear": {
+      "terminals": ["Terminal A", "Terminal B", "Terminal C", "Terminal E"],
+      "note": "CLEAR available at most security checkpoints. Particularly fast in Terminal A."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Terminal E for international arrivals. Mobile Passport Control also available for U.S. citizens."
+    },
+    "standardWaitTimes": {
+      "average": "10-25 minutes",
+      "peakHours": "5:00-8:00 AM (morning rush), 4:00-7:00 PM (evening departures)",
+      "peakWait": "30-45 minutes during peak hours and holidays",
+      "tips": "Use MyTSA app for real-time wait times. Terminal C (JetBlue) tends to have the longest waits during peak JetBlue departure banks."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure (Terminal E)",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break"
+    }
+  },
+  "lounges": {
+    "terminalA": [
+      {
+        "name": "Delta Sky Club (Terminal A)",
+        "location": "Terminal A, near Gate A18",
+        "hours": "4:30 AM - 8:30 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Complimentary food, premium bar, WiFi, workspaces, views of airfield."
+      },
+      {
+        "name": "Delta One Lounge",
+        "location": "Terminal A (new dedicated lounge)",
+        "access": "Delta One passengers on qualifying international flights",
+        "amenities": "Seating for 121 guests. Elevated seafood-centric menu with 3-course meals served in under an hour. Exclusive 'living room' area. Access to adjacent Delta Sky Club.",
+        "note": "One of Delta's flagship premium lounges"
+      }
+    ],
+    "terminalB": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal B, upper level near Gate B4",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, American Airlines first/business class on qualifying flights",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces, shower suites."
+      },
+      {
+        "name": "Chase Sapphire Lounge by The Club (Terminal B)",
+        "location": "Terminal B",
+        "access": "Chase Sapphire Reserve cardholders, Priority Pass (limited access)",
+        "amenities": "Premium food and beverage, full bar, WiFi, workspaces, shower suites."
+      },
+      {
+        "name": "The Lounge (Terminal B)",
+        "location": "Terminal B",
+        "access": "Day pass $50 (book 24 hours in advance, subject to availability)",
+        "amenities": "Seating, food, drinks, WiFi. Budget-friendly lounge option."
+      }
+    ],
+    "terminalC": [
+      {
+        "name": "JetBlue BlueHouse BOS",
+        "location": "Terminal C, near Gate C23",
+        "status": "OPENING 2026",
+        "access": "JetBlue Mosaic members, Mint class passengers",
+        "amenities": "11,000 sq ft (40% larger than JetBlue's JFK lounge). Premium food, full bar, workspaces, WiFi. First JetBlue lounge outside NYC."
+      },
+      {
+        "name": "United Club",
+        "location": "Terminal C",
+        "access": "United Club membership, United Club Infinite card, Star Alliance Gold, United Polaris",
+        "amenities": "Complimentary food, drinks, WiFi, workspaces."
+      },
+      {
+        "name": "American Express Centurion Lounge (planned)",
+        "location": "Terminal C, two-story lounge",
+        "status": "ANNOUNCED for 2029 opening",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders",
+        "amenities": "Two-story lounge with terrace, artwork by local artists, design reflecting Boston's green spaces, workstations, high-end food/beverage, high-speed WiFi."
+      }
+    ],
+    "terminalE": [
+      {
+        "name": "Delta Sky Club (Terminal E)",
+        "location": "Terminal E (new 21,000 sq ft lounge, opened 2024)",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Seating for 400+ guests. Dedicated to international departures. Premium food, full bar, showers, WiFi, workspaces."
+      },
+      {
+        "name": "British Airways Galleries Lounge",
+        "location": "Terminal E, 4th floor, opposite Gate E11",
+        "access": "BA First Class, Club World, Oneworld Emerald/Sapphire, Japan Airlines/Cathay Pacific premium passengers",
+        "amenities": "Complimentary food, full bar, WiFi, shower suites, workspaces."
+      },
+      {
+        "name": "Emirates Lounge",
+        "location": "Terminal E, opposite Gate E11",
+        "hours": "Daily 7:05 PM - 10:05 PM (aligned with Dubai flight departure)",
+        "access": "Emirates First/Business class, Emirates Skywards Gold/Platinum",
+        "amenities": "Champagne, gourmet buffet, prayer room, showers, premium bar."
+      },
+      {
+        "name": "Lufthansa Business Lounge",
+        "location": "Terminal E, across from Gate E11",
+        "hours": "Daily 12:15 PM - 9:30 PM",
+        "access": "Lufthansa Business/First, Star Alliance Gold, HON Circle members",
+        "amenities": "Self-serve buffet, à la carte dining for First Class/HON Circle, full-service bar, WiFi, newspapers, TVs, shower suites."
+      },
+      {
+        "name": "Air France Lounge",
+        "location": "Terminal E",
+        "access": "Air France/KLM Business class, SkyTeam Elite Plus, Priority Pass",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      }
+    ],
+    "preSecurity": [
+      {
+        "name": "USO Lounge",
+        "location": "Logan Airport (pre-security)",
+        "access": "Active-duty, Guard, Reserve, retired military, and their dependents. FREE.",
+        "amenities": "Seating, refreshments, WiFi, charging stations, TVs, family area."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "LoganWiFi",
+    "cost": "Free — no registration required",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "centralParking": {
+      "chargers": 38,
+      "location": "Level 6: 18 ports, Level 6 West: 20 ports",
+      "cost": "Normal parking rates apply; no additional fee for charging"
+    },
+    "terminalBGarage": {
+      "chargers": 10,
+      "location": "Level 3",
+      "cost": "Normal parking rates apply; no additional fee"
+    },
+    "economyParking": {
+      "chargers": 20,
+      "location": "Levels 2 and 3",
+      "cost": "Normal parking rates apply; no additional fee"
+    },
+    "totalPorts": "68 EV charging ports across all airport garages",
+    "totalAltFuelSpaces": "173 hybrid/electric/alternative fuel parking spaces total",
+    "availability": "Real-time availability via ChargePoint.com and FlyLogan app",
+    "note": "EV charging is free with standard parking — no separate electricity fee. Alternative fuel vehicles get dedicated parking spaces."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at Logan Airport.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Multiple locations in downtown Boston, Back Bay, Seaport District" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "note": "Flexible hourly or daily. Locations near Back Bay, Faneuil Hall." },
+      { "provider": "Radical Storage", "rate": "From $5.50/day", "locations": "Downtown Boston, Back Bay, North End" },
+      { "provider": "Stasher", "rate": "From $6/day", "locations": "Partner shops throughout Boston" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Multiple pet relief areas across all terminals",
+    "locations": [
+      "Terminal A — pre-security and post-security pet relief areas",
+      "Terminal B — pre-security pet relief areas at both piers",
+      "Terminal C — post-security pet relief area",
+      "Terminal E — pre-security and post-security pet relief areas"
+    ],
+    "features": "Indoor relief areas with waste bags, receptacles, and clear signage"
+  },
+  "nursingRooms": {
+    "available": true,
+    "note": "Nursing/lactation rooms available in all terminals. Look for 'Mother's Room' or 'Nursing Room' signage. Equipped with seating, power outlets, and changing stations."
+  },
+  "chapel": {
+    "name": "Our Lady of the Airways Chapel",
+    "significance": "The FIRST airport chapel in the United States (opened 1951)",
+    "location": "Logan Airport",
+    "note": "Historic. Open to travelers of all faiths."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departures)", "10:00 AM-1:00 PM", "4:00-7:00 PM (evening rush)"],
+    "busiestDays": ["Thursday", "Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August) is peak season due to New England tourism. Fall foliage season (late Sept-mid Oct) also busy. Marathon weekend (third Monday of April), Head of the Charles Regatta (October), and Red Sox home games create traffic spikes.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas/New Year, spring break, July 4th, Marathon Monday"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental climate with four distinct seasons. Cold snowy winters. Hot humid summers. Mild springs and falls.",
+    "commonDisruptions": "Winter Nor'easters (December-March) are the single biggest disruption source — can shut down airport for 12-24 hours. Summer thunderstorms (June-August). Coastal fog in spring and fall. Occasional hurricanes (August-October).",
+    "norEastersNote": "Logan is particularly vulnerable to Nor'easters — major winter storms that can dump 1-3 feet of snow and create 60+ mph winds. The airport has sophisticated snow removal but flight cancellations are common during these events. Build in 24-48 hour buffer for winter travel.",
+    "bestMonths": "September through early November — mild weather, fall foliage, lower tourist crowds. Also May-June for pleasant spring conditions.",
+    "worstMonths": "January-February (Nor'easters, ice storms). Late July-August (thunderstorms, humidity).",
+    "summerThunderstorms": "June-August: afternoon/evening thunderstorms can cause 1-2 hour ground stops. Less disruptive than winter storms but can cascade.",
+    "winterWeather": "December-March: Nor'easters are the major risk. Can shut down airport for 12-24 hours. Snow totals over 6 inches typically cause significant delays. Ice storms are particularly disruptive.",
+    "coastalFog": "Spring and fall mornings can see coastal fog rolling in from the Atlantic, occasionally delaying early departures. Usually clears by mid-morning."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near Logan in East Boston, Revere, Chelsea, and Boston. Many hotels offer 7-14 days of free parking with one-night stay.",
+    "priceRange": "From ~$125/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Hilton Boston Logan Airport",
+        "distance": "0.1 miles (on-airport)",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "N/A — connected via sky bridge to Terminal A and E",
+        "highlight": "The only hotel ON Logan Airport property. Connected via sky bridge."
+      },
+      {
+        "name": "Hyatt Regency Boston Harbor",
+        "distance": "1.2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle every 20-30 min",
+        "highlight": "Waterfront hotel with harbor views."
+      },
+      {
+        "name": "Embassy Suites Boston at Logan Airport",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24-hour free shuttle",
+        "highlight": "All-suite hotel with free cooked breakfast + evening reception."
+      },
+      {
+        "name": "Homewood Suites Boston Logan Chelsea",
+        "distance": "4 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24-hour free shuttle",
+        "highlight": "Extended-stay hotel with kitchenettes + free breakfast."
+      },
+      {
+        "name": "Courtyard Boston Logan Airport",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free shuttle (check hours)",
+        "highlight": "Modern Marriott-brand hotel."
+      },
+      {
+        "name": "Holiday Inn Express Boston Logan",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 7 days typical",
+        "shuttleHours": "Free shuttle (limited hours)",
+        "highlight": "Budget option with free breakfast."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "bos.parksleephotels.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "waterTaxi": "$2-5 per person"
+  },
+  "savingsComparison": {
+    "scenario": "5-day trip for 2 travelers",
+    "onAirport": {
+      "centralParking": { "parkingCost": "$230 (5 × $46)", "totalEstimate": "$230" },
+      "centralAdvanceReservation": { "parkingCost": "$145 (5 × $29)", "savings": "$85 vs walk-up", "totalEstimate": "$145" },
+      "economyParking": { "parkingCost": "$185 (5 × $37)", "totalEstimate": "$185" },
+      "economyAdvanceReservation": { "parkingCost": "$145 (5 × $29)", "savings": "$40 vs walk-up", "totalEstimate": "$145" }
+    },
+    "offSiteWithShuttle": {
+      "parkShuttleFly": { "parkingCost": "~$85 (5 × $17 pre-booked)", "savingsVsCentral": "~$145 saved", "caveat": "On-demand 24/7 shuttle — best option" },
+      "parkNBoston": { "parkingCost": "~$90 (5 × $18)", "savingsVsCentral": "~$140 saved", "caveat": "30-minute shuttle intervals" },
+      "preflightParking": { "parkingCost": "~$95 (5 × $19)", "savingsVsCentral": "~$135 saved", "caveat": "7-10 min shuttle tracking" }
+    },
+    "loganExpress": {
+      "fromSuburbanStation": { "parkingCost": "$35 (5 × $7)", "busFare": "$36 ($9 × 2 × 2)", "total": "$71", "savingsVsCentral": "~$160 saved", "caveat": "Travel time from suburbs, fewer bags convenient" }
+    },
+    "publicTransit": {
+      "silverLineRoundTrip": { "costPerPersonRoundTrip": "FREE (from airport) / $2.40-$2.90 (to airport)", "total": "$4.80-$5.80 for 2 people roundtrip", "travelTime": "15 min to South Station", "note": "Cheapest option by far. Silver Line is FREE from airport." },
+      "rideshareRoundTrip": { "costForCouple": "$40-$70 (UberX downtown round trip)", "note": "Cheaper than ANY airport parking for trips of any length" }
+    },
+    "keyDifference": "BOS offers the best price-to-convenience ratio of any major Northeast airport. The Silver Line SL1 is FREE from airport to downtown — an unbeatable deal. For travelers bringing a car, off-site lots at $17-20/day beat the $46/day Central Parking by 60-65%. Advance reservation at $29/day is a strong middle option for those who want airport-adjacent convenience. Logan Express adds a fourth option that saves suburbs travelers from driving in the city at all."
+  },
+  "uniqueFeatures": {
+    "closestMajorAirportToDowntown": "At just 3 miles from downtown Boston, Logan is one of the closest major international airports to any downtown in the United States. Only NYC's LaGuardia (8 miles) and DC's Reagan (5 miles) are comparable.",
+    "freeTransitToDowntown": "The Silver Line SL1 is FREE from Logan to South Station. This is extraordinarily rare — no other major U.S. airport offers free public transit to downtown. A complete competitive advantage for BOS over every other major airport.",
+    "firstAirportChapel": "Our Lady of the Airways (1951) was the first airport chapel in the United States and inspired similar chapels at airports worldwide.",
+    "firstRapidTransitAirport": "Logan was the first major U.S. airport connected directly to a rapid transit system (Blue Line, 1952).",
+    "firstLEEDTerminal": "Terminal A was the first LEED-certified airport terminal in the United States (2005), setting a sustainability benchmark.",
+    "peninsulaLocation": "Logan sits on a peninsula in Boston Harbor, surrounded by water on three sides. Views of the Boston skyline are visible during takeoff and landing.",
+    "jetBlueLargestFocusCity": "BOS is JetBlue Airways' largest focus city globally — larger than JFK for JetBlue operations. JetBlue's BlueHouse BOS lounge opening in 2026 reflects this commitment.",
+    "waterTransportation": "Unique among major U.S. airports — passengers can arrive/depart by water taxi or ferry from the Seaport District, downtown, or suburban coastal communities. The 7-minute water taxi ride can be faster than any ground transportation during rush hour.",
+    "bosVsJfkVsEwr": "BOS is the primary New England airport and only major airport serving Greater Boston. JFK is 220 miles south. BOS's proximity to downtown (3 miles) and free Silver Line to South Station make it superior to both JFK and EWR for downtown-bound travelers.",
+    "runwayLayout": "6 runways arranged in a near-triangle — unusual for a major airport. Allows simultaneous takeoffs/landings in multiple wind conditions. Runway 15L/33R is only 2,557 ft — used only by small aircraft.",
+    "nor'easterVulnerability": "Logan is notoriously vulnerable to winter Nor'easters. The airport's snow removal is sophisticated but the combination of coastal location, Atlantic moisture, and cold temperatures creates unpredictable conditions.",
+    "noPerimeterRule": "Unlike DCA, Logan has no perimeter rule or slot controls. Airlines can fly any distance. Major international gateway for New England."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(617) 561-1800",
+    "airportWebsite": "massport.com",
+    "parkingInfo": "https://www.massport.com/logan-airport/getting-to-logan/parking",
+    "lostAndFound": "(617) 561-1714",
+    "tsa": "(866) 289-9673",
+    "mbtaInfo": "(617) 222-3200",
+    "mbtaWebsite": "mbta.com",
+    "massport": "(617) 568-5000",
+    "airportPolice": "(617) 561-1700",
+    "flyLoganApp": "Download FlyLogan app for flight status, parking reservations, Mark My Car feature"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-08.",
+    "officialAirport": {
+      "home": "https://www.massport.com/logan-airport/",
+      "parking": "https://www.massport.com/logan-airport/getting-to-logan/parking",
+      "parkingReservations": "https://www.massport.com/logan-airport/getting-to-logan/parking",
+      "centralParking": "https://www.massport.com/logan-airport/getting-to-logan/parking/central-parking",
+      "terminalBParking": "https://www.massport.com/logan-airport/getting-to-logan/parking/terminal-b-parking",
+      "economyParking": "https://www.massport.com/logan-airport/getting-to-logan/parking/economy-parking",
+      "terminalParking": "https://www.massport.com/logan-airport/getting-to-logan/parking/terminal-parking",
+      "groundTransportation": "https://www.massport.com/logan-airport/getting-to-logan/ground-transportation",
+      "publicTransportation": "https://www.massport.com/logan-airport/getting-to-logan/public-transportation",
+      "loganExpress": "https://www.massport.com/logan-airport/getting-to-logan/logan-express",
+      "rentalCars": "https://www.massport.com/logan-airport/getting-to-logan/car-rentals",
+      "waterTransportation": "https://www.massport.com/logan-airport/getting-to-logan/water-transportation",
+      "airlines": "https://www.massport.com/logan-airport/flights/airlines",
+      "flyLoganApp": "https://www.massport.com/logan-airport/fly-logan-app",
+      "airportModernization": "https://www.massport.com/logan-airport/about-logan/airport-modernization",
+      "capitalProjects": "https://www.massport.com/business/capital-improvements/our-projects",
+      "pickupDropoff": "https://www.massport.com/logan-airport/getting-to-logan/pickup-and-drop-off"
+    },
+    "transit": {
+      "mbtaHome": "https://www.mbta.com/",
+      "mbtaLoganDestination": "https://www.mbta.com/destinations/logan-airport",
+      "mbtaSilverLineSL1": "https://www.mbta.com/schedules/741/line",
+      "mbtaBlueLine": "https://www.mbta.com/schedules/Blue/line",
+      "mbtaAirportStation": "https://www.mbta.com/stops/place-aport",
+      "mbtaHinghamFerry": "https://www.mbta.com/hinghamferry",
+      "mbtaLoganFerryTerminal": "https://www.mbta.com/stops/Boat-Logan"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/bos/",
+      "uberPickup": "https://www.uber.com/global/en/r/airports/bos/pickup/",
+      "lyft": "https://www.lyft.com/rider/airports/bos"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=BOS",
+      "airportParkingReservations": "https://airportparkingreservations.com/bos/airport-parking",
+      "way": "https://www.way.com/bos",
+      "spothero": "https://spothero.com/airport/boston/bos-parking",
+      "parkShuttleFly": "https://www.parkshuttlefly.com/",
+      "parkNBoston": "https://parknboston.com/",
+      "preflightParking": "https://www.preflightairportparking.com/location/BOS",
+      "parkingLoganAirport": "https://parkingloganairport.com/",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/boston-logan-international-airport-bos",
+      "airportParkingBoston": "https://airportparkingboston.com/"
+    },
+    "rentalCars": {
+      "massportRCC": "https://www.massport.com/logan-airport/getting-to-logan/car-rentals",
+      "enterprise": "https://www.enterprise.com/en/car-rental-locations/us/ma/boston-logan-international-airport-10y1.html",
+      "avis": "https://www.avis.com/en/locations/us/ma/boston/bos",
+      "hertz": "https://www.hertz.com/",
+      "kayak": "https://www.kayak.com/Boston-Car-Rentals.BOS.cap.ksp"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearBOS": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/boston-logan-bos-airport-lounges/",
+      "thePointsAnalyst": "https://www.thepointsanalyst.com/boston-logan-airport-lounges/",
+      "deltaSkyClubBOS": "https://www.delta.com/us/en/airports/united-states/boston-sky-club-airport-map",
+      "jetBlueLounge": "https://www.jetblue.com/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KBOS",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/BOS",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=bos"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugshare": "https://www.plugshare.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/bos/airport-parking",
+      "parkSleepHotels": "https://bos.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/boston-logan-bos-airport"
+    },
+    "waterTaxi": {
+      "bostonWaterTaxi": "https://www.bostonwatertaxi.com/",
+      "seaportTMA": "https://www.seaporttma.org/by-water-transportation"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/boston-logan-international-bos-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Logan_International_Airport",
+      "ifly": "https://www.ifly.com/airports/logan-international-airport",
+      "airportMapHQ": "https://airportmaphq.com/boston-logan-airport-map-terminal.html",
+      "thePointsAnalyst": "https://www.thepointsanalyst.com/boston-logan-international-airport-bos/"
+    },
+    "newsAndMedia": {
+      "bostonGlobe": "https://www.bostonglobe.com/",
+      "bostonCom": "https://www.boston.com/",
+      "wbur": "https://www.wbur.org/",
+      "cbsBoston": "https://www.cbsnews.com/boston/"
+    }
+  }
+}

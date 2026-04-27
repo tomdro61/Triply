@@ -1,0 +1,635 @@
+{
+  "code": "LAS",
+  "fullName": "Harry Reid International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Paradise, unincorporated Clark County, Nevada — 5 miles south of downtown Las Vegas",
+    "iataCode": "LAS",
+    "icaoCode": "KLAS",
+    "faaLid": "LAS",
+    "elevation": "2,181 feet above mean sea level",
+    "acreage": 2800,
+    "coordinates": "36.0800N, 115.1522W",
+    "passengerVolume": "58.4 million passengers in 2024 (record year)",
+    "aircraftOperations": "613,973 annually (2024)",
+    "cargoVolume": "252.9 million pounds (2024)",
+    "distinction": "Formerly McCarran International Airport (renamed in 2021 to honor Senator Harry Reid). One of the busiest airports in the United States and the primary gateway to the Las Vegas Strip, the world's most famous casino and entertainment corridor. Southwest Airlines' largest focus city. Spirit Airlines, Frontier Airlines, and Allegiant Air focus city. Famous for over 1,300 slot machines in the terminals — one of only two U.S. airports with gambling. Opened as McCarran Field in 1948. Over 900 daily flights to 170+ destinations.",
+    "operator": "Clark County Department of Aviation",
+    "owner": "Clark County, Nevada",
+    "activeTerminals": 2,
+    "totalConcourses": 5,
+    "totalGates": 110,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "1L/19R", "length": "8,988 ft (2,740 m)", "surface": "Asphalt" },
+      { "designation": "1R/19L", "length": "9,771 ft (2,978 m)", "surface": "Asphalt" },
+      { "designation": "8L/26R", "length": "14,515 ft (4,424 m)", "surface": "Asphalt", "note": "Third-longest civilian runway in North America — handles the heaviest widebody aircraft" },
+      { "designation": "8R/26L", "length": "10,525 ft (3,208 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "Southwest Airlines (largest focus city — operates primarily from Concourses B and C)",
+    "totalAirlines": "30+ airlines",
+    "nonstopDestinations": "170+ destinations (900+ daily flights)",
+    "founded": "1948 (as McCarran Field, renamed Harry Reid International Airport in 2021)",
+    "hubCarriers": ["Southwest Airlines (largest focus city)", "Spirit Airlines (focus city)", "Frontier Airlines (focus city)", "Allegiant Air (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "No rail transit to the airport. RTC bus routes 108, 109, and CX (Centennial Express) serve the airport. No monorail connection (Las Vegas Monorail does not extend to LAS).",
+    "internationalNote": "LAS handles primarily domestic traffic with growing international service to Canada, Mexico, the UK, and other destinations. The vast majority of passengers are leisure travelers visiting Las Vegas for entertainment, conventions, and events."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 — Concourses A, B, C, D",
+      "status": "Active — 96 gates across 4 concourses. Oldest terminal, major rebuild planned to expand from 39 to ~65 gates using former Terminal 2 footprint.",
+      "airlines": ["Allegiant Air (A/B Gates)", "American Airlines (D Gates)", "Avelo Airlines (B Gates)", "Breeze Airways (B Gates)", "Delta Air Lines (D Gates)", "Frontier Airlines (B Gates)", "Southwest Airlines (B/C Gates)", "Spirit Airlines (A/B Gates)", "Sun Country Airlines (B Gates)"],
+      "gates": "A3-A23 (16 gates), B1-B25 (17 gates), C1-C24 (24 gates), D1-D39 (39 gates)",
+      "notes": "Terminal 1 handles the majority of domestic traffic. Concourse D is the largest and is accessible from both Terminal 1 and Terminal 3 via the automated tram. Southwest Airlines dominates Concourses B and C. Low-cost carriers (Spirit, Allegiant, Frontier) use Concourses A and B. Over 1,000 slot machines throughout the terminal. Chase Sapphire Lounge by The Club opened December 2025 in Concourse C. American Express Centurion Lounge in Concourse D."
+    },
+    {
+      "name": "Terminal 3 — Concourse E",
+      "status": "Active — 14 gates. Handles full-service domestic and international flights. Ticketing reconfiguration planned to add ~30 check-in counters and self-bag-drop lanes.",
+      "airlines": ["Air Canada", "Alaska Airlines", "Aeromexico", "British Airways", "Copa Airlines", "Hawaiian Airlines", "JetBlue Airways", "United Airlines", "Volaris", "WestJet"],
+      "gates": "E1-E15 (14 gates)",
+      "notes": "Terminal 3 is the newer terminal (opened 2012). Serves full-service carriers and all international flights. U.S. Customs and Border Protection facility for international arrivals. The Club at LAS (Terminal 3) lounge available for Priority Pass members. Terminal 3 is NOT connected to Terminal 1 airside — passengers must exit security to transfer between terminals."
+    }
+  ],
+  "roads": ["Interstate 15 (primary north-south freeway)", "Interstate 215 (Airport Connector/Beltway)", "Las Vegas Boulevard (The Strip)", "Paradise Road", "Swenson Street", "Tropicana Avenue", "Russell Road", "Sunset Road"],
+  "transit": ["RTC Route 108 (Paradise Road — connects airport to Convention Center and Strip hotels)", "RTC Route 109 (Maryland Parkway — connects to UNLV and downtown)", "RTC CX Centennial Express (serves Terminal 1 and Terminal 3)", "Las Vegas Monorail (does NOT connect to airport — nearest station is MGM Grand, 2 miles away)", "No light rail or subway service to airport"],
+  "neighborhoods": ["The Strip (Las Vegas Boulevard)", "Downtown Las Vegas (Fremont Street)", "Paradise", "Winchester", "Spring Valley", "Henderson", "Summerlin", "North Las Vegas", "Enterprise", "Green Valley", "Boulder City"],
+  "authority": "Clark County Department of Aviation",
+  "groundTransportation": {
+    "noRailService": {
+      "description": "Las Vegas does NOT have rail, subway, or light rail service to the airport. The Las Vegas Monorail runs along the east side of the Strip but does NOT extend to LAS. A proposed rail extension has been discussed but not funded.",
+      "note": "This is a significant gap — most travelers rely on rideshare, taxi, or rental car to reach the Strip and downtown."
+    },
+    "rtcBus": {
+      "operator": "Regional Transportation Commission of Southern Nevada (RTC)",
+      "routes": ["Route 108 (Paradise Road)", "Route 109 (Maryland Parkway)", "CX Centennial Express"],
+      "fare": "$2.00 single ride (2-hour pass). $5.00 24-hour pass. Cash or app payment.",
+      "pickupTerminal1": "Level 0 (ground transportation level)",
+      "pickupTerminal3": "Outside door 44, Level 2 (CX route)",
+      "travelTimes": {
+        "toStrip": "30-45 minutes (Route 108 to Convention Center area, then transfer to Deuce/SDX)",
+        "toDowntown": "45-60 minutes (Route 109 to downtown transit center)",
+        "toConventionCenter": "25-35 minutes (Route 108)"
+      },
+      "note": "Cheapest option at $2 but slowest. Route 108 connects to the Convention Center and some Strip-area hotels. Not practical for most visitors with luggage heading to the Strip — rideshare is far more convenient."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Terminal 1: east side of baggage claim, outside door exits 1-4. Terminal 3: Level Zero outside baggage claim.",
+      "baseFare": "$3.50 drop rate",
+      "perMile": "$2.76 per mile",
+      "airportSurcharge": "$2.00 added to all trips originating from LAS",
+      "estimatedFares": {
+        "toMidStrip": "$20-$30 (Caesars Palace, Bellagio, Venetian area — 5-10 min)",
+        "toSouthStrip": "$15-$22 (Mandalay Bay, Luxor, MGM Grand — 3-7 min)",
+        "toNorthStrip": "$22-$35 (Wynn, Encore, Circus Circus — 10-15 min)",
+        "toDowntownFremont": "$25-$40 (15-20 min)",
+        "toConventionCenter": "$20-$30 (10-15 min)",
+        "toHenderson": "$35-$55 (20-30 min)",
+        "toSummerlin": "$50-$70 (30-40 min)"
+      },
+      "longHaulNote": "Nevada law prohibits taxi drivers from taking unnecessarily long routes ('long-hauling'). The most direct route from LAS to the Strip is via Swenson Street or Paradise Road — if a driver takes I-15 or the tunnel route without traffic justification, report to the Nevada Taxicab Authority.",
+      "note": "24/7 service. Regulated by Nevada Taxicab Authority. Credit cards accepted. Taxi stands have queue attendants during peak hours."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupTerminal1": "Level 2 exits (departures level)",
+      "pickupTerminal3": "Level 1",
+      "airportFee": "$4.50 surcharge on all rideshare pickups at LAS (automatically added to fare)",
+      "estimatedFares": {
+        "uberXToMidStrip": "$12-$25",
+        "uberXToSouthStrip": "$10-$20",
+        "uberXToNorthStrip": "$15-$30",
+        "uberXToDowntownFremont": "$18-$35",
+        "uberXToConventionCenter": "$15-$25",
+        "uberXToHenderson": "$25-$45"
+      },
+      "surgePricing": "EXTREME surge pricing during major events — CES, UFC fight nights, New Year's Eve, major concerts at Allegiant Stadium/T-Mobile Arena, Super Bowl weekend. Prices can 3-5x during these events. Pre-book or use taxi during major conventions.",
+      "note": "Generally cheaper than taxi for most routes. $4.50 airport surcharge applies. Surge pricing is a serious concern in Las Vegas — the city's event-driven economy creates frequent demand spikes. Late night (after midnight) also sees surge pricing on weekends."
+    },
+    "rentalCars": {
+      "location": "McCarran Rent-A-Car Center — 3 miles south of the airport at 7135 Gilespie Street. Accessible via free shuttle from both terminals.",
+      "shuttle": "Free 24/7 shuttle buses from Terminal 1 (Level 0, outside doors 10-11) and Terminal 3 (Level 0, outside doors 51-54). Buses depart every 5 minutes.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 10,
+      "note": "Rental Car Center is OFF-SITE — plan for 10-15 minutes shuttle ride each way. All major brands consolidated in one building. Return rental cars at the center and take shuttle back. Las Vegas has some of the cheapest rental car rates in the country due to high competition."
+    },
+    "hotelShuttles": "Some Strip hotels offer complimentary airport shuttle, but most have discontinued this service. Check with your specific hotel. Many off-Strip hotels near the airport (Best Western, DoubleTree, Red Roof Inn) offer free airport shuttle."
+  },
+  "parkingRates": "On-airport: Short-term garages $3/hr ($36/day max), Long-term garages $18/day, Economy lots $12/day, Valet $30/day. Reserved parking: T1 $28/day, T3 $21/day. Off-site: from ~$5-8/day with shuttle.",
+  "onAirportParking": {
+    "terminal1ShortTerm": {
+      "name": "Terminal 1 Short-Term Parking Garage",
+      "rate": "Free first 15 minutes. $3.00 first hour, $4.00 each additional hour",
+      "dailyMax": 36,
+      "serves": "Terminal 1 — Concourses A, B, C (direct walkway to terminal)",
+      "features": "Covered multi-level garage attached to Terminal 1. Best for pickups/drop-offs and short trips. Expensive for overnight parking.",
+      "note": "Use economy lot instead for trips longer than 1 day."
+    },
+    "terminal1LongTerm": {
+      "name": "Terminal 1 Long-Term Parking Garage",
+      "rate": "$2.00 per hour",
+      "dailyMax": 18,
+      "serves": "Terminal 1 — connected via covered walkway",
+      "features": "Covered garage parking at a more reasonable daily rate than short-term. Good for 1-3 day trips.",
+      "note": "Economy lot saves $6/day for trips longer than 2-3 days."
+    },
+    "terminal1Economy": {
+      "name": "Terminal 1 Economy Lot",
+      "rate": "$4.00 first 2 hours, $2.00 each additional hour",
+      "dailyMax": 12,
+      "serves": "Terminal 1 via free shuttle",
+      "connection": "FREE 24/7 shuttle to Terminal 1",
+      "features": "Uncovered surface lot. Best value for on-airport parking. Shuttle service runs continuously.",
+      "note": "Best budget on-airport option at $12/day. Fills up during holidays and major conventions — arrive early or pre-book."
+    },
+    "terminal3ShortTerm": {
+      "name": "Terminal 3 Short-Term Parking Garage",
+      "rate": "Free first 15 minutes. $3.00 first hour, $4.00 each additional hour",
+      "dailyMax": 36,
+      "serves": "Terminal 3 — Concourse E (direct walkway to terminal)",
+      "features": "Covered multi-level garage attached to Terminal 3. Direct access to check-in and baggage claim.",
+      "note": "Same rate structure as Terminal 1 short-term."
+    },
+    "terminal3LongTerm": {
+      "name": "Terminal 3 Long-Term Parking Garage",
+      "rate": "$2.00 per hour",
+      "dailyMax": 18,
+      "serves": "Terminal 3 — connected via covered walkway",
+      "features": "Covered garage parking. Walking distance to Terminal 3 check-in.",
+      "note": "Same rate as Terminal 1 long-term."
+    },
+    "terminal3Economy": {
+      "name": "Terminal 3 Economy Lot",
+      "rate": "$4.00 first 2 hours, $2.00 each additional hour",
+      "dailyMax": 12,
+      "serves": "Terminal 3 via free shuttle",
+      "connection": "FREE 24/7 shuttle to Terminal 3",
+      "features": "Uncovered surface lot. Budget-friendly for longer trips.",
+      "note": "Same rate as Terminal 1 economy."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$10.00 first hour, $2.00 each additional hour, $30/day max",
+      "maxStay": "30 days",
+      "locations": "Available at both Terminal 1 and Terminal 3",
+      "features": "Premium drop-off and pick-up. Car returned to you at curbside upon return."
+    },
+    "reservedParking": {
+      "name": "Reserved Parking",
+      "rateTerminal1": "$28/day",
+      "rateTerminal3": "$21/day",
+      "description": "Guaranteed parking spot in the garage. Book online at harryreidairport.com. Premium for peace of mind during peak travel.",
+      "note": "New program launched 2025. Useful during CES, major fights, and holiday weekends when lots can fill."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Terminal 1: east of Terminal 1 garage. Terminal 3: south of Terminal 3.",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 30-minute maximum wait."
+    },
+    "evCharging": {
+      "locations": [
+        "Terminal 1 Parking Garage — West section",
+        "Terminal 3 Parking Garage — North and South sections"
+      ],
+      "totalPorts": "24 EV charging stations",
+      "note": "EV charging available in both terminal garages. Check ChargePoint or EVGateway apps for real-time availability."
+    },
+    "accessibleParking": "Accessible parking available on ground levels of all garages. ADA-compliant spaces near terminal entrances.",
+    "totalCapacity": "~14,500 vehicles across all on-airport parking facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay",
+    "garageServiceAreas": "Terminal 1 garages/economy → Concourses A, B, C. Terminal 3 garages/economy → Concourse E. Concourse D accessible from both terminals via automated tram."
+  },
+  "parkingLots": [
+    {
+      "name": "Best Western McCarran Inn",
+      "slug": "best-western-mccarran-inn-las",
+      "dailyRate": 7.99,
+      "reservationRate": 5.99,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "24/7 Security", "Surveillance Cameras", "Gated Lot", "Hotel Amenities"],
+      "shuttleInfo": "Complimentary airport shuttle, runs on schedule throughout the day",
+      "overview": "Budget-friendly off-site parking at a hotel 1.5 miles from LAS. Park-sleep-fly packages available. No hotel stay required for parking-only.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available."
+    },
+    {
+      "name": "DoubleTree by Hilton Las Vegas Airport",
+      "slug": "doubletree-hilton-las-vegas-airport-las",
+      "dailyRate": 9.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "24/7 Security", "Gated Lot", "Pool Access", "Restaurant"],
+      "shuttleInfo": "Complimentary 24/7 airport shuttle",
+      "overview": "Full-service Hilton property 1.2 miles from LAS with 24/7 shuttle. Higher quality amenities than budget lots. Park-sleep-fly packages available.",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "4-6 minutes",
+      "freeCancellation": true,
+      "rating": "4.3/5",
+      "notes": "Best option for travelers wanting hotel-quality amenities (pool, restaurant, fitness center). 24/7 shuttle is reliable. Slightly pricier than budget lots but better service."
+    },
+    {
+      "name": "Red Roof Inn Las Vegas",
+      "slug": "red-roof-inn-las-vegas-las",
+      "dailyRate": 7.95,
+      "reservationRate": 5.49,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "Security Cameras", "Fenced Lot"],
+      "shuttleInfo": "Airport shuttle available during operating hours",
+      "overview": "Budget hotel parking near LAS airport. Among the cheapest off-site options when pre-booked. Park-sleep-fly packages available.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "One of the cheapest pre-book rates at $5.49/day. Verify shuttle hours before booking for early/late flights."
+    },
+    {
+      "name": "Fortune Hotel and Suites",
+      "slug": "fortune-hotel-suites-las",
+      "dailyRate": 8.95,
+      "reservationRate": 6.50,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "24/7 Front Desk", "Security Cameras", "Pool"],
+      "shuttleInfo": "Complimentary airport shuttle service",
+      "overview": "All-suite hotel 2 miles from LAS with affordable parking and shuttle. Good for families needing extra space before early flights.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "6-10 minutes",
+      "freeCancellation": true,
+      "notes": "All-suite hotel means extra space if doing park-sleep-fly. Pool is a nice perk for hot Las Vegas days. Verify shuttle schedule."
+    },
+    {
+      "name": "Fairfield Inn & Suites Las Vegas Convention Center",
+      "slug": "fairfield-inn-las-vegas-convention-center-las",
+      "dailyRate": 7.95,
+      "reservationRate": 5.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle", "24/7 Front Desk", "Security Cameras", "Breakfast Included with Stay"],
+      "shuttleInfo": "Airport shuttle available, check with hotel for schedule",
+      "overview": "Marriott property near the Convention Center, 1.8 miles from LAS. Convenient for convention attendees needing parking + shuttle.",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly."
+    },
+    {
+      "name": "Tahiti All-Suite Resort",
+      "slug": "tahiti-all-suite-resort-las",
+      "dailyRate": 8.50,
+      "reservationRate": 6.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Airport Shuttle", "Security Cameras", "Pool", "Kitchenette Suites"],
+      "shuttleInfo": "Airport shuttle service available",
+      "overview": "All-suite resort 2.5 miles from LAS with affordable parking. Suite-style rooms with kitchenettes — good for families.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Suites with kitchenettes are useful for early departures (make breakfast). Slightly farther from airport but competitive rates."
+    },
+    {
+      "name": "Super 8 by Wyndham Las Vegas Strip Area",
+      "slug": "super-8-las-vegas-strip-las",
+      "dailyRate": 7.00,
+      "reservationRate": 5.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle", "Security Cameras", "24/7 Front Desk"],
+      "shuttleInfo": "Airport shuttle available, check schedule",
+      "overview": "Budget hotel parking option near the Strip and airport. Among the cheapest rates available when pre-booked.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "6-10 minutes",
+      "freeCancellation": true,
+      "notes": "Cheapest pre-book rate in the market at ~$5/day. Basic amenities but gets the job done for budget-conscious travelers. Verify shuttle hours."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE shuttles connect economy lots to terminals (both T1 and T3). FREE rental car shuttle runs every 5 minutes to McCarran Rent-A-Car Center. Off-site: Most hotel-based lots include free airport shuttle — frequency varies. VERIFY shuttle hours before booking — some lots have limited shuttle windows and do not run 24/7. During major conventions (CES, SEMA) and events, allow extra time for shuttle and ground transportation congestion.",
+  "distanceFromCity": "5 miles south of downtown Las Vegas. The Las Vegas Strip begins approximately 1 mile west of the airport. 10-20 minutes to mid-Strip by car. The airport's proximity to the Strip is one of LAS's biggest advantages.",
+  "keyDistances": {
+    "toMidStrip": "3 miles, 8-15 min by car, $12-25 rideshare, $20-30 taxi",
+    "toSouthStrip": "1.5 miles, 5-10 min by car, $10-20 rideshare, $15-22 taxi (closest Strip hotels — Mandalay Bay, Luxor, MGM Grand)",
+    "toNorthStrip": "5 miles, 12-20 min by car, $15-30 rideshare, $22-35 taxi (Wynn, Encore, Circus Circus)",
+    "toDowntownFremont": "8 miles, 15-25 min by car, $18-35 rideshare, $25-40 taxi",
+    "toConventionCenter": "4 miles, 10-18 min by car, $15-25 rideshare, $20-30 taxi",
+    "toAllegiantStadium": "2 miles, 5-10 min by car, $10-18 rideshare (Raiders games, concerts, Super Bowl)",
+    "toTMobileArena": "3 miles, 8-15 min by car, $12-25 rideshare (Golden Knights, UFC, concerts)",
+    "toHenderson": "12 miles, 15-25 min by car, $25-45 rideshare",
+    "toSummerlin": "22 miles, 25-40 min by car, $40-65 rideshare",
+    "toRedRockCanyon": "25 miles, 30-45 min by car",
+    "toHooverDam": "35 miles, 40-55 min by car",
+    "toGrandCanyonWest": "125 miles, 2-2.5 hours by car (Skywalk)",
+    "toDeathValley": "130 miles, 2-2.5 hours by car",
+    "competitiveAdvantage": "LAS is remarkably close to the Strip — Mandalay Bay is literally 1.5 miles from the terminal. This proximity makes rideshare the dominant transport mode ($10-25 to most Strip hotels). The lack of rail transit is offset by the short distance. For budget travelers, the $2 RTC bus works but takes 30-45 minutes. During major events, taxis can be faster than rideshare due to surge pricing avoidance."
+  },
+  "construction2026": {
+    "status": "Multi-billion dollar capital improvement program underway to modernize Terminal 1 and expand capacity for 60+ million annual passengers.",
+    "projects": [
+      "Terminal 1 Rebuild — Converting oldest terminal into pier-style concourse, expanding from 39 to ~65 gates using former Terminal 2 footprint. Multi-year phased construction keeping existing gates open.",
+      "Terminal 3 Ticketing Reconfiguration — Adding ~30 check-in counters and curbside self-bag-drop lanes without expanding the building. Terminal 3 to be redesignated as Terminal 2.",
+      "Baggage Processing Expansion — Major upgrade to baggage handling systems, new carousels, expected completion 2026.",
+      "Paradise Road High-T Bypass Lane — New southbound dedicated lane improving airport access road traffic flow.",
+      "Concourse Improvements — New hold rooms, updated wayfinding, improved concessions throughout Terminal 1 concourses.",
+      "Escalator and Elevator Modernization — Ongoing upgrades to vertical transportation across both terminals."
+    ],
+    "travelImpact": "Construction is phased to minimize disruption. Airport remains fully operational. Some temporary detours in Terminal 1 concourses. Parking lots may have reduced capacity during major construction phases — pre-book during peak travel periods.",
+    "timeline": {
+      "terminal1Rebuild": "Design phase 2025, construction phased over ~4 years",
+      "terminal3Ticketing": "2025-2026 reconfiguration",
+      "baggageExpansion": "Completion ~2026",
+      "paradiseRoadBypass": "Construction started 2025"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1", "Terminal 3"],
+      "enrollmentCenter": "Terminal 1, Level 2, near the Aviation Museum. Open Monday-Sunday 6 AM - 8 PM. Walk-in enrollment available — no appointment needed, 10-minute process.",
+      "note": "TSA PreCheck available at all security checkpoints in both terminals"
+    },
+    "clear": {
+      "terminals": ["Terminal 1", "Terminal 3"],
+      "note": "CLEAR Plus available at select checkpoints in both terminals. Enrollment center at LAS."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Terminal 3 international arrivals area."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (early morning departures), 11:00 AM-2:00 PM, 4:00-7:00 PM (evening departures)",
+      "tips": "Sunday afternoon/evening is the worst time at LAS — everyone leaving Vegas after the weekend. Convention closing days (e.g., last day of CES) create massive security lines. TSA PreCheck or CLEAR is highly recommended."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "conventions": "2.5-3 hours during CES, SEMA, and other major conventions",
+      "holidays": "3+ hours for Thanksgiving Sunday, New Year's, and Super Bowl weekend"
+    }
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Concourse D, opposite Gate D1",
+        "hours": "5:30 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included with Platinum.",
+        "amenities": "Premium food buffet, full-service bar with craft cocktails, WiFi, workspaces, shower suites. Las Vegas-themed decor and specialty cocktails."
+      },
+      {
+        "name": "Chase Sapphire Lounge by The Club",
+        "location": "Concourse C, between Gates C47 and C48",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Chase Sapphire Reserve, J.P. Morgan Reserve cardholders. Priority Pass members.",
+        "amenities": "Two-story, 5,390 sq ft lounge. Premium food, cocktails, WiFi, workspaces. Opened December 2025 — newest lounge at LAS."
+      },
+      {
+        "name": "The Club at LAS (Terminal 1)",
+        "location": "Concourse D (Terminal 1 side)",
+        "hours": "5:00 AM - 11:00 PM daily",
+        "access": "Priority Pass, LoungeKey, Diners Club, or day pass purchase (~$45)",
+        "amenities": "Food, drinks, WiFi, workspaces. Independent lounge accessible to many credit card programs."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse D, near Gate D35",
+        "hours": "5:15 AM - 9:45 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, shower suites, WiFi, workspaces. Views of the runway and mountains."
+      }
+    ],
+    "terminal3": [
+      {
+        "name": "The Club at LAS (Terminal 3)",
+        "location": "Concourse E",
+        "hours": "5:00 AM - 11:00 PM daily",
+        "access": "Priority Pass, LoungeKey, Diners Club, or day pass purchase (~$45)",
+        "amenities": "Food, drinks, WiFi, workspaces. Sister lounge to the Terminal 1 location."
+      },
+      {
+        "name": "United Club",
+        "location": "Concourse E, near Gate E6",
+        "hours": "4:30 AM - 9:00 PM daily",
+        "access": "United Club membership, United Polaris Business Class, Star Alliance Gold, United Club one-time pass",
+        "amenities": "Complimentary food and beverages, premium spirits, WiFi, workspaces, showers."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Center",
+        "location": "Terminal 1",
+        "access": "Active-duty military, reservists, and their families. FREE.",
+        "amenities": "Refreshments, WiFi, charging stations, relaxation area. Las Vegas has a large military community (Nellis AFB, Creech AFB)."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "LAS-WIFI",
+    "cost": "Free",
+    "coverage": "All terminals, concourses, and gate areas"
+  },
+  "evCharging": {
+    "terminal1Garage": {
+      "chargers": 12,
+      "location": "Terminal 1 Parking Garage, West section",
+      "type": "Level 2 charging",
+      "cost": "Check EVGateway app for current pricing"
+    },
+    "terminal3Garage": {
+      "chargers": 12,
+      "location": "Terminal 3 Parking Garage, North and South sections",
+      "type": "Level 2 charging",
+      "cost": "Check EVGateway app for current pricing"
+    },
+    "totalPorts": "24 EV charging stations across both terminal garages",
+    "note": "EV charging is available but limited (24 ports for ~14,500 parking spaces). Arrive early to secure a charging spot, especially during peak travel. Check EVGateway or ChargePoint apps for real-time availability."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage lockers are NOT available inside the airport due to security regulations.",
+    "offSiteAlternatives": [
+      { "provider": "Bags To Go Las Vegas", "rate": "From $8.00/day", "locations": "Near LAS airport and Strip hotels" },
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Las Vegas Strip, Downtown Fremont, Convention Center area" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Strip and downtown locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Strip hotels and downtown Las Vegas" }
+    ]
+  },
+  "petFacilities": {
+    "preSecurity": [
+      { "location": "Terminal 1 — near Door 13 (outdoor)", "type": "Outdoor pet relief area" },
+      { "location": "Terminal 1 — near Door 30 (outdoor)", "type": "Outdoor pet relief area" },
+      { "location": "Terminal 3 — outside baggage claim near Door 51 (outdoor)", "type": "Outdoor pet relief area" },
+      { "location": "Terminal 3 — near customs exit, outside Door 58 (outdoor)", "type": "Outdoor pet relief area" }
+    ],
+    "postSecurity": [
+      { "location": "Terminal 1 — C Annex area (indoor)", "type": "Indoor pet relief room" },
+      { "location": "Terminal 1 — near D gates by children's play area (indoor)", "type": "Indoor pet relief room" }
+    ],
+    "note": "Multiple pet relief areas available both before and after security. Post-security indoor rooms are climate-controlled — important given Las Vegas extreme summer heat (115F+). Outdoor areas have shade structures but can be dangerously hot in summer."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (early departures)", "11:00 AM-2:00 PM (check-out time departures)", "4:00-7:00 PM (evening departures)", "Sunday 2:00-8:00 PM (weekend visitors departing)"],
+    "busiestDays": ["Sunday (massive departure surge — weekend visitors leaving)", "Friday (arrival surge)", "Thursday (convention arrivals)", "Monday (convention arrivals/business travel)"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "Las Vegas is busy year-round but peaks during: CES (January), Super Bowl weekend (February), March Madness/Spring Break (March), NFL Draft weekend, Memorial Day, Labor Day, UFC International Fight Week (July), NFL season (September-January at Allegiant Stadium), Halloween weekend, New Year's Eve (biggest single night — airport packed Dec 31 and Jan 1-2). Convention season runs September through June.",
+    "conventionSurges": "CES (January — 130,000+ attendees), SEMA Show (November — 160,000+ attendees), World of Concrete (January), CONEXPO (March, every 3 years), NAB Show (April), and dozens of mid-size conventions create predictable weekly surges. Airport parking fills up, rideshare prices surge, and security lines extend during convention move-in/move-out days.",
+    "fightNights": "UFC events at T-Mobile Arena and Allegiant Stadium create massive airport traffic 12-24 hours after fight cards. Boxing mega-fights (historically at MGM Grand) do the same. Plan for extended rideshare surge pricing and packed terminals the morning after major fights.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "conventions": "2.5-3 hours during CES, SEMA, and major events",
+      "sundayEvening": "2.5-3 hours — Sunday evening is the single busiest departure window at LAS"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Hot desert climate (BWh). Extremely hot summers, mild winters. Very low humidity year-round. Minimal rainfall (~4 inches annually).",
+    "commonDisruptions": "Extreme summer heat (June-September) is the primary weather concern — temperatures regularly exceed 110F (43C) and can hit 115-120F. Heat reduces aircraft lift capacity, forcing weight restrictions (bumped passengers, reduced cargo) and occasional ground stops. Monsoon season (July-September) brings sudden dust storms (haboobs) and thunderstorms with microbursts that cause temporary ground stops.",
+    "bestMonths": "March through May and September through November — comfortable temperatures (65-95F), lower hotel rates (except during conventions), pleasant weather for outdoor activities",
+    "worstMonths": "June through August (extreme heat 105-120F, dangerous for outdoor activities, flight delays from heat, higher energy costs). December-January can be cold at night (30-40F) but generally mild daytime.",
+    "extremeHeat": "Las Vegas summer heat is NOT just uncomfortable — it's operationally dangerous. At 115F+, airlines reduce passenger loads and cargo weight because thin hot air reduces lift. Smaller regional jets are most affected. Afternoon flights (2-5 PM) are most likely to face heat-related delays or weight restrictions. Morning flights are most reliable in summer.",
+    "dustStorms": "Monsoon season (July-September) produces sudden, intense dust storms that can reduce visibility to near-zero and force ground stops. These typically last 30-60 minutes but can cause cascading delays.",
+    "winterNote": "Winter in Las Vegas is mild (50-60F daytime) but nights can drop to 30-40F. Snow is extremely rare but nearby mountains (Mt. Charleston, 45 minutes away) get regular snowfall. Winter is generally the best time for airport operations — minimal weather delays.",
+    "note": "LAS benefits from desert weather — clear skies and low humidity mean most days are operationally smooth. The exceptions are extreme summer heat (plan morning flights June-September) and occasional monsoon storms (July-September). No hurricanes, no ice storms, no fog issues."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near LAS. Many airport-area hotels offer park-sleep-fly deals with included parking for the duration of your trip.",
+    "priceRange": "From ~$69/night (1-night stay + up to 7-14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Best Western McCarran Inn",
+        "distance": "1.5 miles",
+        "parkingIncluded": "Up to 7 days",
+        "shuttleHours": "Complimentary shuttle",
+        "parkOnlyRate": "$5.99/day",
+        "highlight": "Closest budget park-sleep-fly option. Complimentary breakfast."
+      },
+      {
+        "name": "DoubleTree by Hilton Las Vegas Airport",
+        "distance": "1.2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 shuttle",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "Best quality hotel with 24/7 shuttle. Pool, restaurant, Hilton Honors points."
+      },
+      {
+        "name": "Red Roof Inn Las Vegas",
+        "distance": "1.8 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Shuttle available during operating hours",
+        "parkOnlyRate": "$5.49/day",
+        "highlight": "Cheapest pre-book rate. No-frills but gets the job done."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com", "way.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person (Las Vegas is a tipping culture — tip generously)",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5 (Las Vegas is generous — $5 is standard for valet)",
+    "hotelBellman": "$2-5 per bag",
+    "note": "Las Vegas has a strong tipping culture driven by the hospitality industry. Service workers rely on tips more than in most cities. When in doubt, tip $5."
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "shortTermGarage": { "parkingCost": "$252 (7 x $36)", "totalEstimate": "$252" },
+      "longTermGarage": { "parkingCost": "$126 (7 x $18)", "totalEstimate": "$126" },
+      "economyLot": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" },
+      "valetParking": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" }
+    },
+    "offSiteWithShuttle": {
+      "redRoofInn": { "parkingCost": "$38.43 (7 x $5.49 pre-booked)", "savingsVsLongTerm": "~$88 saved", "caveat": "Check shuttle hours" },
+      "bestWestern": { "parkingCost": "$41.93 (7 x $5.99 pre-booked)", "savingsVsLongTerm": "~$84 saved", "caveat": "Shuttle included" },
+      "doubleTree": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsLongTerm": "~$70 saved", "caveat": "24/7 shuttle, best quality" }
+    },
+    "rideshareComparison": {
+      "roundTripUberXMidStrip": { "costForCouple": "$24-$50 round trip", "note": "Cheapest for short trips if NOT during surge. Watch for $4.50 airport surcharge each way." },
+      "roundTripDuringSurge": { "costForCouple": "$60-$150 round trip", "note": "During CES, NYE, or fight nights, surge pricing makes rideshare the most expensive option" }
+    },
+    "keyDifference": "LAS economy parking at $12/day is already cheap by major airport standards. Off-site lots save another $6-7/day ($38-56 for a week vs $84 on-airport economy). For Strip visitors on short trips (1-3 nights), rideshare ($10-25 each way) often beats parking entirely. The real savings differentiator at LAS is avoiding surge pricing during events — pre-booked parking eliminates that risk."
+  },
+  "uniqueFeatures": {
+    "slotMachines": "Over 1,300 slot machines and video poker terminals throughout both terminals — available to travelers 21 and over. LAS is one of only two U.S. airports with gambling (the other is Reno-Tahoe). Slot machines are in gate areas, near restaurants, and at baggage claim. Maximum payouts are typically lower than casino floors but jackpots do happen.",
+    "closestMajorAirportToStrip": "LAS is remarkably close to the Las Vegas Strip — Mandalay Bay is just 1.5 miles from the terminal. Most mid-Strip hotels are 8-15 minutes away. This proximity is a major competitive advantage, making Las Vegas one of the easiest major destinations to reach from the airport.",
+    "formerlyMcCarran": "Renamed from McCarran International Airport to Harry Reid International Airport on December 14, 2021, honoring former U.S. Senator Harry Reid of Nevada. Some maps, signage, and older references still use 'McCarran.' IATA code remains LAS.",
+    "entertainmentCapital": "LAS serves the Entertainment Capital of the World — passengers include casino visitors, convention attendees, concert-goers, sports fans (Raiders, Golden Knights, UFC), and destination wedding guests. The airport's traffic patterns are uniquely driven by events rather than traditional business travel.",
+    "aviationMuseum": "The Howard W. Cannon Aviation Museum is located on Level 2 of Terminal 1, featuring exhibits on Las Vegas aviation history. Free admission. Good way to pass time during layovers.",
+    "24HourCity": "Las Vegas never sleeps, and LAS reflects this — the airport processes flights at all hours. Late-night and early-morning departures are common. Restaurants and shops in the terminal operate extended hours compared to most airports.",
+    "conversionCapital": "LAS handles more convention-related traffic than any U.S. airport. The Las Vegas Convention Center (4 miles away), Sands Expo, Mandalay Bay Convention Center, and dozens of hotel convention spaces generate enormous periodic travel surges.",
+    "militaryProximity": "Nellis Air Force Base and Creech Air Force Base are nearby, generating significant military-related traffic. The USAF Thunderbirds are based at Nellis, and their training flights are visible from the airport."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(702) 261-5211",
+    "airportWebsite": "harryreidairport.com",
+    "parkingInfo": "harryreidairport.com/parking",
+    "parkingPhone": "(702) 261-5121",
+    "tsa": "(866) 289-9673",
+    "rtcTransit": "(702) 228-7433",
+    "rtcWebsite": "rtcsnv.com",
+    "nevadaTaxicabAuthority": "(702) 668-4005",
+    "airportPolice": "(702) 261-5573",
+    "clarkCountyAviation": "(702) 261-5100"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.harryreidairport.com/",
+      "parking": "https://www.harryreidairport.com/parking",
+      "groundTransportation": "https://www.harryreidairport.com/Transportation",
+      "taxiAndRideshare": "https://www.harryreidairport.com/taxi-and-ride-share",
+      "publicBus": "https://www.harryreidairport.com/busses-shuttles/public-bus",
+      "security": "https://www.harryreidairport.com/security-at-las",
+      "maps": "https://www.harryreidairport.com/map",
+      "faqs": "https://www.harryreidairport.com/FAQs"
+    },
+    "transit": {
+      "rtcSouthernNevada": "https://www.rtcsnv.com/",
+      "rtcAirportRoutes": "https://www.rtcsnv.com/ways-to-travel/transit-services/airport-transit-routes/",
+      "nevadaTaxicabAuthority": "https://taxi.nv.gov/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/las/",
+      "lyft": "https://www.lyft.com/rider/airports/las"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=LAS",
+      "airportParkingReservations": "https://airportparkingreservations.com/las/airport-parking",
+      "way": "https://www.way.com/las",
+      "spothero": "https://spothero.com/airport/las-vegas/las-parking",
+      "book2park": "https://www.book2park.com/airport/las-las-vegas-airport-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/las",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/las-vegas-mccarran-airport-parking",
+      "parkingAccess": "https://parkingaccess.com/airports/las-vegas-mccarran-las-airport",
+      "parkos": "https://parkos.com/las-vegas-airport-parking/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearLAS": "https://www.clearme.com/all-locations/harry-reid-international-airport"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/las-vegas-las-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/LAS/",
+      "priorityPass": "https://www.prioritypass.com/en-GB/lounges/united-states-of-america/harry-reid-international"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KLAS",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/LAS",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=las"
+    },
+    "evCharging": {
+      "chargeHub": "https://chargehub.com/en/countries/united-states/nevada/las-vegas.html"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/las/airport-hotels-with-parking",
+      "parkSleepHotels": "https://las.parksleepflyhotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/las-vegas-mccarran-las-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/harry-reid-international-las-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Harry_Reid_International_Airport",
+      "ifly": "https://www.ifly.com/airports/las-vegas-airport"
+    },
+    "newsAndMedia": {
+      "reviewJournal": "https://www.reviewjournal.com/",
+      "lasvegasSun": "https://lasvegassun.com/",
+      "ktnv": "https://www.ktnv.com/"
+    }
+  }
+}

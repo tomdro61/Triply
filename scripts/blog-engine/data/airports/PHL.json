@@ -1,0 +1,685 @@
+{
+  "code": "PHL",
+  "fullName": "Philadelphia International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Philadelphia, Pennsylvania — 7 miles southwest of downtown Philadelphia (Center City)",
+    "iataCode": "PHL",
+    "icaoCode": "KPHL",
+    "faaLid": "PHL",
+    "elevation": "36 feet above mean sea level",
+    "acreage": 2598,
+    "coordinates": "39.8722N, 75.2411W",
+    "passengerVolume": "30.1 million passengers in 2025",
+    "aircraftOperations": "323,122 annually (2025)",
+    "cargoVolume": "Significant cargo operations supporting pharmaceutical and e-commerce sectors",
+    "distinction": "The largest airport in Pennsylvania and the 21st-busiest in the United States. American Airlines' fifth-largest hub and primary Northeastern U.S. hub. Primary European and transatlantic gateway for American Airlines. Served over 30 million passengers in both 2024 and 2025. 22 airlines offering nearly 500 daily departures to 130+ destinations worldwide. Named after the city that hosted the signing of the Declaration of Independence in 1776.",
+    "operator": "City of Philadelphia Division of Aviation",
+    "owner": "City of Philadelphia",
+    "activeTerminals": 7,
+    "totalConcourses": 7,
+    "totalGates": 126,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "8/26", "length": "5,001 ft (1,524 m)", "surface": "Asphalt", "note": "Shortest runway — used primarily for smaller aircraft" },
+      { "designation": "9L/27R", "length": "9,500 ft (2,896 m)", "surface": "Asphalt" },
+      { "designation": "9R/27L", "length": "12,000 ft (3,658 m)", "surface": "Asphalt", "note": "Longest runway — handles widebody international flights. Resurfaced in 2024 ($23M project)." },
+      { "designation": "17/35", "length": "6,500 ft (1,981 m)", "surface": "Asphalt", "note": "Crosswind runway" }
+    ],
+    "dominantAirline": "American Airlines (fifth-largest hub — accounts for ~50% of all PHL flight operations)",
+    "totalAirlines": "22+ airlines",
+    "nonstopDestinations": "130+ destinations worldwide (nearly 500 daily departures)",
+    "founded": "1925 (originally Hog Island — renamed Philadelphia Municipal Airport in 1940, then Philadelphia International Airport in 1945)",
+    "hubCarriers": ["American Airlines (primary hub)", "Frontier Airlines (focus city)", "Southwest Airlines (focus city)", "Spirit Airlines (focus city)"],
+    "slotControlled": false,
+    "metroAccess": "SEPTA Airport Line regional rail with 4 stations on airport property — direct service to Center City Philadelphia (30th Street, Suburban, Jefferson stations) in ~25 minutes, $5.00 fare",
+    "internationalNote": "PHL served over 4.1 million international passengers in 2025 (7.5% increase year over year). American Airlines uses PHL as its primary European/transatlantic gateway with nonstop service to London, Dublin, Edinburgh, Madrid, Barcelona, Zurich, Athens, Rome, and more."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A-East",
+      "status": "Active — 12 gates. American Airlines domestic and pre-clearance international flights.",
+      "airlines": ["American Airlines"],
+      "gates": "A2-A4, A6, A6A, A7, A9-A13",
+      "notes": "Handles American Airlines domestic flights and international services from countries with US Customs pre-clearance (Canada, Ireland). Admirals Club lounge located in terminal. Connected to Terminal A-West post-security."
+    },
+    {
+      "name": "Terminal A-West",
+      "status": "Active — 13 gates. Primary international terminal.",
+      "airlines": ["Aer Lingus", "American Airlines", "British Airways", "Condor", "Icelandair", "Qatar Airways"],
+      "gates": "A14-A26",
+      "notes": "Main international terminal for transatlantic flights. Home to the new American Airlines Flagship Lounge and Admirals Club (opened May 2025, 13,750 sq ft combined, between gates A15-A16). British Airways Galleries Club Lounge also located here. Some domestic American Airlines flights operate from A-West."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active — 15 gates. American Airlines domestic operations.",
+      "airlines": ["American Airlines"],
+      "gates": "B1-B16 (except B12)",
+      "notes": "Dedicated to American Airlines mainline domestic flights. B/C connector houses an Admirals Club lounge. Connected to Terminal C post-security."
+    },
+    {
+      "name": "Terminal C",
+      "status": "Active — 14 gates. American Airlines domestic operations.",
+      "airlines": ["American Airlines"],
+      "gates": "C18-C31",
+      "notes": "American Airlines mainline domestic flights. Connected to both Terminal B and Terminal D post-security. Part of the core American Airlines hub complex."
+    },
+    {
+      "name": "Terminal D",
+      "status": "Active — 16 gates. Multi-carrier terminal.",
+      "airlines": ["Air Canada", "Alaska Airlines", "Delta Air Lines", "United Airlines"],
+      "gates": "D1-D16",
+      "notes": "Home to non-American carriers including Delta, United, Alaska, and Air Canada. Delta Sky Club lounge located here. New exterior facade with energy-efficient windows being installed as part of 2026 upgrades. New glass exit corridor lanes installed August 2025."
+    },
+    {
+      "name": "Terminal E",
+      "status": "Active — 17 gates. Low-cost and Southwest operations.",
+      "airlines": ["Frontier Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines"],
+      "gates": "E1-E17",
+      "notes": "Hub for low-cost carriers and Southwest Airlines. Spirit ticketing is in Terminal D but gates are in Terminal E. New 1,900 sq ft restroom set with adult changing tables, lactation suites, and service animal relief areas installed for 2026. Shared D/E security checkpoint."
+    },
+    {
+      "name": "Terminal F",
+      "status": "Active — 38 gates. Regional operations.",
+      "airlines": ["American Eagle (Envoy Air, PSA Airlines, Piedmont Airlines, Republic Airways)", "Contour Airlines"],
+      "gates": "F1-F39 (except F8)",
+      "notes": "Largest terminal by gate count. Dedicated to regional operations (American Eagle feeders). Three concourses: F1-F9, F10-F23, F24-F39. Admirals Club above food court. Food court, art exhibits, Mamava Pod, massage chairs, and passenger lounge area by gate F30."
+    }
+  ],
+  "roads": ["Interstate 95", "Interstate 76 (Schuylkill Expressway)", "PA Route 291 (Governor Printz Blvd/Penrose Ave)", "PA Route 420 (Wanamaker Ave)", "Industrial Highway", "Essington Avenue", "Island Avenue", "Bartram Avenue"],
+  "transit": ["SEPTA Airport Line regional rail (4 stations on airport property — direct to Center City in ~25 min)", "SEPTA Bus Route 37 (to Chester Transportation Center)", "SEPTA Bus Route 108 (to 69th Street Transportation Center)", "SEPTA Bus Route 115 (to Darby Transportation Center)", "Amtrak at 30th Street Station (via SEPTA Airport Line, ~20 min ride)"],
+  "neighborhoods": ["Center City Philadelphia", "University City", "South Philadelphia", "Old City", "Rittenhouse Square", "Northern Liberties", "Fishtown", "Manayunk", "Germantown", "West Philadelphia", "Media", "Chester", "Wilmington (DE)", "Cherry Hill (NJ)", "Camden (NJ)"],
+  "authority": "City of Philadelphia Division of Aviation",
+  "groundTransportation": {
+    "septaAirportLine": {
+      "description": "SEPTA Regional Rail Airport Line with 4 stations on airport property: Terminal B, Terminal C/D, Terminal E/F, and Eastwick. Direct service to Center City (30th Street, Suburban, Jefferson stations) and Temple University.",
+      "stationName": "Airport Terminal B, Airport Terminal C-D, Airport Terminal E-F, Eastwick",
+      "operator": "SEPTA (Southeastern Pennsylvania Transportation Authority)",
+      "fare": "$5.00 to Center City (SEPTA Key or contactless). $7.00 if paying on board. Zone-based pricing for further destinations ($8.75+ for outer zones).",
+      "hours": "Approximately 4:45 AM to 11:45 PM daily",
+      "frequency": "Every 30 minutes",
+      "accessFromTerminal": "Follow signs to 'Ground Transportation' then 'Regional Rail.' Stations are located directly below or adjacent to terminals — no shuttle required.",
+      "travelTimes": {
+        "to30thStreetStation": "~20-25 minutes (Amtrak, SEPTA connections)",
+        "toSuburbanStation": "~23-27 minutes (Center City west)",
+        "toJeffersonStation": "~25-30 minutes (Center City east, Convention Center)",
+        "toTempleUniversity": "~35-40 minutes"
+      },
+      "competitorNote": "At $5.00, the SEPTA Airport Line is the cheapest option from PHL to Center City — significantly cheaper than the $30-40 taxi/rideshare fare. 25-minute travel time is competitive with driving (which can take 20-45 min depending on I-95 traffic). Runs every 30 minutes, so plan accordingly."
+    },
+    "amtrak": {
+      "description": "Amtrak intercity rail at 30th Street Station, accessible via SEPTA Airport Line (~20-25 min ride)",
+      "destinations": "New York City (1h15m Acela), Washington D.C. (1h45m Acela), Boston, Harrisburg, Pittsburgh, Chicago",
+      "note": "30th Street Station is one of Amtrak's busiest stations in the country. Take SEPTA Airport Line to 30th Street ($5.00) and connect to Amtrak. Acela high-speed trains run frequently to NYC and DC."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Arrivals (ground) level, Commercial Transportation zones at each terminal",
+      "flagDrop": "$2.70 (first 1/10 mile)",
+      "perMile": "$0.30 per 1/10 mile ($3.00 per mile)",
+      "waitingTime": "$0.30 per 37.6 seconds",
+      "airportSurcharge": "$1.50 PHL Airport pick-up surcharge",
+      "estimatedMeteredFares": {
+        "toCenterCity": "$28-$38 (flat rate $28.50 available)",
+        "toUniversityCity": "$20-$28",
+        "toOldCity": "$30-$40",
+        "toSouthPhiladelphia": "$22-$30",
+        "toManayunk": "$35-$45",
+        "toKingOfPrussia": "$50-$65",
+        "toCherry Hill NJ": "$35-$45",
+        "toWilmington DE": "$65-$80"
+      },
+      "flatRateOption": "$28.50 flat rate to Center City Philadelphia (most taxis offer this)",
+      "note": "PHL taxis regulated by the Philadelphia Parking Authority (PPA). Cash and credit cards accepted. 24/7 service. $28.50 flat rate to Center City is the standard option."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Arrivals (ground) level, designated Rideshare/TNC pickup zones at each terminal",
+      "estimatedFares": {
+        "uberXToCenterCity": "$20-$35",
+        "uberXToUniversityCity": "$15-$25",
+        "uberXToOldCity": "$22-$38",
+        "uberXToSouthPhilly": "$15-$25",
+        "uberXToKingOfPrussia": "$40-$55",
+        "uberXToCherryHillNJ": "$25-$40",
+        "uberXToAtlanticCity": "$80-$110",
+        "uberXToWilmington": "$50-$70"
+      },
+      "airportSurcharge": "$3.00 for UberX/UberXL/Lyft from PHL; $1.50 for Uber Black",
+      "minimumFare": "Uber minimum: $7.87; Lyft minimum: $4.88",
+      "surgePricing": "Expect surge pricing during Eagles/Phillies/76ers/Flyers game days, major conventions, holidays, and 2026 FIFA World Cup matches",
+      "note": "Rideshare is often cheaper than metered taxi from PHL, especially to Center City. The $28.50 flat-rate taxi can beat rideshare during surge. Follow signs to 'Ground Transportation' then 'Rideshare/TNC.'"
+    },
+    "rentalCars": {
+      "location": "Rental Car Center — accessible via free shuttle from Ground Transportation zone (Zone 2 on Arrivals Road) at each terminal",
+      "address": "1 Arrivals Road, Philadelphia, PA 19153",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Thrifty"],
+      "totalBrands": 8,
+      "note": "All rental car companies are consolidated at the Rental Car Center off-airport. Take the free shuttle from Zone 2 on Arrivals Road at your terminal. Return car at RCC and shuttle back."
+    },
+    "hotelShuttles": "Many nearby hotels in Essington, Tinicum Township, and along I-95 offer complimentary airport shuttle service. Check with your hotel before booking."
+  },
+  "parkingRates": "On-airport: Garage upper levels $20/day, Short-term ground level $38/day, Economy Lot $15/day. Off-site: from ~$6.50/day with shuttle. Managed by the Philadelphia Parking Authority (PPA).",
+  "onAirportParking": {
+    "garageA": {
+      "name": "Garage A",
+      "rate": "$3.00 per 30 min (upper levels)",
+      "dailyMax": 20,
+      "shortTermRate": "$3.00 per 30 min (ground level)",
+      "shortTermDailyMax": 38,
+      "serves": "Terminals A-East and A-West (American Airlines international, Aer Lingus, British Airways, Icelandair, Qatar Airways)",
+      "features": "Direct covered walkway to Terminal A. Ground level is short-term ($38/day max). Upper levels are long-term ($20/day max).",
+      "note": "Best for international departures from Terminal A-West."
+    },
+    "garageB": {
+      "name": "Garage B",
+      "rate": "$3.00 per 30 min (upper levels)",
+      "dailyMax": 20,
+      "shortTermRate": "$3.00 per 30 min (ground level)",
+      "shortTermDailyMax": 38,
+      "serves": "Terminal B (American Airlines domestic)",
+      "features": "Direct covered walkway to Terminal B. Ground level is short-term ($38/day max). Upper levels are long-term ($20/day max)."
+    },
+    "garageC": {
+      "name": "Garage C",
+      "rate": "$3.00 per 30 min (upper levels)",
+      "dailyMax": 20,
+      "shortTermRate": "$3.00 per 30 min (ground level)",
+      "shortTermDailyMax": 38,
+      "serves": "Terminal C (American Airlines domestic)",
+      "features": "Direct covered walkway to Terminal C. EV charging stations on Level 1 (2 ChargePoint stations, 4 ports). Ground level short-term, upper levels long-term.",
+      "evCharging": "2 ChargePoint stations on Level 1 (FREE while parked — regular parking rates apply)"
+    },
+    "garageD": {
+      "name": "Garage D",
+      "rate": "$3.00 per 30 min (upper levels)",
+      "dailyMax": 20,
+      "shortTermRate": "$3.00 per 30 min (ground level)",
+      "shortTermDailyMax": 38,
+      "serves": "Terminal D (Delta, United, Alaska, Air Canada)",
+      "features": "Direct covered walkway to Terminal D. EV charging stations on Level 1 (2 ChargePoint stations, 4 ports). Ground level short-term, upper levels long-term.",
+      "evCharging": "2 ChargePoint stations on Level 1 (FREE while parked — regular parking rates apply)"
+    },
+    "garageEF": {
+      "name": "Garage E/F",
+      "rate": "$3.00 per 30 min (upper levels)",
+      "dailyMax": 20,
+      "shortTermRate": "$3.00 per 30 min (ground level)",
+      "shortTermDailyMax": 38,
+      "serves": "Terminals E and F (Southwest, Frontier, JetBlue, Spirit, American Eagle)",
+      "features": "Serves both Terminal E and Terminal F. Direct covered walkway. Ground level short-term, upper levels long-term."
+    },
+    "economyLot": {
+      "name": "Economy Parking Lot",
+      "rate": "$15.00 flat rate per 24 hours (includes all taxes and fees)",
+      "dailyMax": 15,
+      "connection": "FREE 24/7 shuttle service to all PHL terminals",
+      "shuttleFrequency": "Continuous loop — shuttles run frequently",
+      "features": "Best budget option for on-airport parking. Flat $15/day rate includes everything. Free shuttle to all terminals. EV charging available (3 stations, 6 ports — FREE).",
+      "evCharging": "3 ChargePoint stations near toll plaza (FREE while parked — regular parking rates apply)",
+      "note": "The Economy Lot is the best value for on-airport parking at PHL. $15/day flat rate vs $20/day in garages. Shuttle runs 24/7."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "8500 Essington Avenue, Philadelphia, PA 19113",
+      "cost": "FREE",
+      "capacity": 150,
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Less than 1 minute drive to baggage claim areas.",
+      "access": "Accessible from both I-95 and Route 291. Follow signs for 'Cell Phone Waiting Lot' from Arriving Flights roadway.",
+      "phone": "(215) 683-9842"
+    },
+    "evCharging": {
+      "locations": [
+        "Garage C, Level 1 (2 ChargePoint stations, 4 ports)",
+        "Garage D, Level 1 (2 ChargePoint stations, 4 ports)",
+        "Economy Lot near toll plaza (3 ChargePoint stations, 6 ports)"
+      ],
+      "totalPorts": "14 EV charging ports (7 stations)",
+      "cost": "FREE — EV charging is complimentary at PHL. Regular parking rates still apply.",
+      "note": "PHL offers FREE EV charging — a significant advantage over airports like MIA that charge $0.38/kWh. All stations are ChargePoint Level 2."
+    },
+    "accessibleParking": "Accessible parking available on ground level and designated areas in all garages. Contact PPA Airport Operations at (215) 683-9842 for assistance.",
+    "totalCapacity": "~12,000+ vehicles across all garages and the Economy Lot",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
+    "parkingOperator": "Philadelphia Parking Authority (PPA)",
+    "parkingPhone": "(215) 683-9842",
+    "aadvantageParking": "AAdvantage credit cardmembers can earn bonus miles on PHL parking purchases — see phl.org/aadvantage for details",
+    "garageServiceAreas": "Garage A → Terminal A. Garage B → Terminal B. Garage C → Terminal C. Garage D → Terminal D. Garage E/F → Terminals E & F. All garages have direct covered walkways to their terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "SmartPark (PHL)",
+      "slug": "smartpark-phl",
+      "dailyRate": 13.95,
+      "reservationRate": 13.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Fenced Lot", "Well-Lit", "Luggage Assistance", "Professional Drivers"],
+      "shuttleInfo": "FREE 24/7/365 on-demand shuttle. Courteous uniformed drivers in new shuttles. ~2-minute ride to terminal.",
+      "overview": "#1 rated PHL airport parking facility. Located just 2 minutes from the airport in a quiet residential area. Over 2,000 positive reviews. Professional, uniformed shuttle drivers assist with luggage.",
+      "address": "900 E. Second Street, Essington, PA 19029",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "rating": "4.8/5",
+      "notes": "#1 rated off-site PHL parking. 24/7 on-demand shuttle with professional drivers. Slightly pricier than competitors but consistently top-rated for service quality."
+    },
+    {
+      "name": "The Parking Spot North (PHL)",
+      "slug": "the-parking-spot-north-phl",
+      "dailyRate": 14.95,
+      "reservationRate": 12.95,
+      "parkingType": "Uncovered and covered options, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Option", "Premium Service Option", "Fenced Lot", "Well-Lit", "24/7 Staffed", "Luggage Assistance"],
+      "shuttleInfo": "24-hour shuttle service to and from PHL. Staff assists with luggage. Premium option provides priority pickup/dropoff.",
+      "overview": "National brand with excellent service standards. Covered parking available to protect vehicles from weather. Premium service option for priority shuttle. Ideal for guests arriving from downtown Philadelphia, eastern PA, or central NJ.",
+      "address": "7601 Essington Avenue, Philadelphia, PA 19153",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "National brand with consistent quality. Covered parking available (few off-site lots offer this). Premium tier gives priority pickup."
+    },
+    {
+      "name": "The Parking Spot South (PHL)",
+      "slug": "the-parking-spot-south-phl",
+      "dailyRate": 14.95,
+      "reservationRate": 12.95,
+      "parkingType": "Uncovered and premium options, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Premium Service Option", "Fenced Lot", "Well-Lit", "24/7 Staffed", "Luggage Assistance"],
+      "shuttleInfo": "24-hour shuttle service to and from PHL. Premium option available for priority service.",
+      "overview": "Second Parking Spot location near PHL. Ideal for guests arriving from Delaware, Maryland, or southern New Jersey via I-95 or Route 291.",
+      "address": "630 S. Governor Printz Blvd, Essington, PA 19029",
+      "distanceFromAirport": "1.8 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "Best for travelers coming from the south (Delaware, Maryland, South Jersey). Same national-brand quality as North location."
+    },
+    {
+      "name": "Expresspark South Lot (PHL)",
+      "slug": "expresspark-south-lot-phl",
+      "dailyRate": 12.95,
+      "reservationRate": 12.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Gated Lot", "Well-Lit", "24/7 Monitored", "Luggage Assistance"],
+      "shuttleInfo": "Free 24/7 shuttle. Professional drivers in comfortable modern shuttles. ~2 minute ride to terminals.",
+      "overview": "Highly rated off-site lot with 2,000+ positive reviews and a 98% 5-star rating on Google. Gated, well-lit, monitored facility. Shuttle ride is approximately 2 minutes to the terminal.",
+      "address": "55 Industrial Highway, Essington, PA 19029",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "rating": "4.9/5",
+      "notes": "98% 5-star Google rating — one of the highest-rated lots in the PHL market. Fast 2-minute shuttle. Competitive pricing."
+    },
+    {
+      "name": "Park N Jet (PHL)",
+      "slug": "park-n-jet-phl",
+      "dailyRate": 13.95,
+      "reservationRate": 13.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Fenced Lot", "Security Cameras", "Luggage Assistance"],
+      "shuttleInfo": "Complimentary 24/7 shuttle to curbside of all PHL terminals. Runs continuously.",
+      "overview": "Off-site parking on Industrial Highway in Essington. 24/7 complimentary shuttle to terminal curbside. Online reservation rate of $13.95/day plus tax and one-time $10.11 surcharge/access fee.",
+      "address": "76 Industrial Highway, Essington, PA 19029",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "phone": "610-521-6247",
+      "notes": "Note the one-time $10.11 surcharge and PHL Airport Access Fee on top of the daily rate. Factor this into total cost calculations for short stays."
+    },
+    {
+      "name": "Jet Stream Parking (PHL)",
+      "slug": "jet-stream-parking-phl",
+      "dailyRate": 10.00,
+      "reservationRate": 6.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Fenced Lot", "On-Demand Shuttle"],
+      "shuttleInfo": "Free on-demand shuttle service 24 hours a day, 365 days a year.",
+      "overview": "Budget-friendly off-site parking just minutes from PHL. Combines affordable rates with 24/7 security and on-demand shuttle. One of the cheapest options when pre-booked online.",
+      "address": "930 E. Second Street, Essington, PA 19029",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "2-3 minutes",
+      "freeCancellation": true,
+      "notes": "Best budget option when pre-booked at $6.50/day. Walk-up rate is higher. 24/7 on-demand shuttle is a strong advantage at this price point."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Economy Lot shuttle runs 24/7 to all terminals (continuous loop). Off-site: All major off-site lots (SmartPark, The Parking Spot, Expresspark, Park N Jet, Jet Stream) include free 24/7 on-demand shuttle service — most are ~2 minutes from terminals. SEPTA Airport Line regional rail provides direct rail service with 4 stations on airport property — no shuttle needed for rail.",
+  "distanceFromCity": "7 miles southwest of Center City Philadelphia. 20-45 minutes by car depending on I-95 traffic. ~25 minutes by SEPTA Airport Line ($5.00). Major U.S. Northeast corridor airport.",
+  "keyDistances": {
+    "toCenterCity": "7 miles, 20-40 min by car, ~25 min by SEPTA ($5.00), $20-35 rideshare, $28.50 flat-rate taxi",
+    "toUniversityCity": "5 miles, 15-30 min by car, ~20 min by SEPTA ($5.00), $15-25 rideshare",
+    "toOldCity": "9 miles, 25-45 min by car, ~28 min by SEPTA ($5.00), $22-38 rideshare",
+    "toSouthPhiladelphia": "6 miles, 15-25 min by car, $15-25 rideshare",
+    "toNorthernLiberties": "10 miles, 25-45 min by car, $25-40 rideshare",
+    "toManayunk": "14 miles, 25-40 min by car, $35-45 rideshare",
+    "toKingOfPrussia": "22 miles, 30-50 min by car, $40-55 rideshare",
+    "toWilmingtonDE": "28 miles, 30-45 min by car, $50-70 rideshare, Amtrak from 30th St Station",
+    "toAtlanticCityNJ": "60 miles, 60-75 min by car, $80-110 rideshare",
+    "toNewYorkCity": "95 miles, 1.75-2.5 hours by car, 1h15m by Amtrak Acela from 30th Street",
+    "toWashingtonDC": "140 miles, 2.5-3 hours by car, 1h45m by Amtrak Acela from 30th Street",
+    "toLancaster": "70 miles, 75-90 min by car",
+    "toValleyForge": "20 miles, 25-40 min by car",
+    "competitiveAdvantage": "PHL's SEPTA Airport Line provides affordable ($5.00) direct rail service to Center City in ~25 minutes — no shuttle or transfer needed. For longer trips, Amtrak at 30th Street Station (reachable via SEPTA in ~20 min) connects PHL to NYC in 1h15m and DC in 1h45m via Acela. PHL's position on the Northeast Corridor makes train travel competitive with flying for regional trips."
+  },
+  "construction2026": {
+    "status": "$500 million capital improvement program underway in preparation for 2026 FIFA World Cup, MLB All-Star Game, and America's 250th anniversary celebrations.",
+    "projects": [
+      "Restroom Renovation Program — 30 restroom sets reconstructed + 2 new sets built. New Terminal E restroom (1,900 sq ft) features adjustable adult changing tables, lactation suites, and service animal relief areas.",
+      "Terminal D/E Exterior Facade — New energy-efficient window system replacing old exterior. Modern appearance and improved insulation.",
+      "Glass Exit Corridor Lanes — First opened in Terminal D (August 2025). Being expanded to other terminals. Improves passenger flow and security.",
+      "Runway 9R-27L Resurfacing — $23 million project (70% FAA-funded). Completed 2024. Longest runway at 12,000 ft.",
+      "SEPTA Platform Rehabilitation — $13 million upgrade to airport rail stations.",
+      "Terminal Refresh — $16 million for new carpeting, tiles, signage, and cosmetic updates across all terminals.",
+      "FIFA World Cup Viewing Areas — Special terminal areas where passengers can watch World Cup matches live.",
+      "Art Installations — New art and cultural exhibits throughout terminals celebrating Philadelphia's history."
+    ],
+    "travelImpact": "Most construction is finishing by May 2026 ahead of the busy summer. Airport remains fully operational throughout. Some temporary detours may be in place. No major parking disruptions expected.",
+    "timeline": {
+      "restroomRenovation": "Rolling completion through Spring 2026",
+      "facadeReplacement": "2026 completion",
+      "glassExitCorridors": "Phased rollout (Terminal D complete Aug 2025)",
+      "allUpgrades": "Target completion May 2026 before FIFA World Cup"
+    },
+    "fifaWorldCup2026": "Philadelphia is hosting 6 FIFA World Cup matches at Lincoln Financial Field in June-July 2026. An estimated 450,000+ visitors expected. PHL is the primary airport — expect significantly higher traffic. Book parking in advance."
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Terminal A-East", "Terminal D/E (shared checkpoint)"],
+      "note": "TSA PreCheck available at open checkpoint locations. As of 2026, only Terminal A-East and the shared D/E checkpoint are open. Checkpoints at A-West, C, and F are currently closed — passengers use open checkpoints and walk to their gates post-security."
+    },
+    "clear": {
+      "terminals": ["Available at select checkpoints"],
+      "note": "CLEAR lanes available to expedite identity verification before TSA screening."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in international arrivals (Terminal A-West). Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-25 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure bank), 11:00 AM-1:00 PM, 3:00-6:00 PM (evening departure bank)",
+      "tips": "With only 2 checkpoint locations currently open, lines can build up. Allow extra time. All terminals are connected post-security, so you can enter at any open checkpoint and walk to your gate."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, and 2026 FIFA World Cup match days"
+    }
+  },
+  "lounges": {
+    "terminalAWest": [
+      {
+        "name": "American Airlines Flagship Lounge",
+        "location": "Terminal A-West, between gates A15 and A16",
+        "hours": "Based on flight schedules",
+        "access": "American Airlines First/Business Class on qualifying long-haul flights, AAdvantage Executive Platinum, Oneworld Emerald",
+        "amenities": "13,750 sq ft combined space (with adjacent Admirals Club). Complimentary champagne greeting, panoramic runway views, six spa-style showers, premium food and beverage, variety of seating options. Opened May 2025."
+      },
+      {
+        "name": "American Airlines Admirals Club (A-West)",
+        "location": "Terminal A-West, between gates A15 and A16 (adjacent to Flagship Lounge)",
+        "hours": "Based on flight schedules",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, beverages, bar, WiFi, workspaces. Part of the new 13,750 sq ft dual-lounge facility opened May 2025."
+      },
+      {
+        "name": "British Airways Galleries Club Lounge",
+        "location": "Terminal A-West",
+        "access": "British Airways Club World/First, Oneworld Emerald/Sapphire on BA flights",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      }
+    ],
+    "terminalAEast": [
+      {
+        "name": "American Airlines Admirals Club (A-East)",
+        "location": "Terminal A-East",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, qualifying AAdvantage status, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "terminalBC": [
+      {
+        "name": "American Airlines Admirals Club (B/C Connector)",
+        "location": "B/C Connector, between Terminals B and C",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, qualifying AAdvantage status, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "terminalD": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Terminal D",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, food, shower facilities, WiFi, workspaces."
+      }
+    ],
+    "terminalF": [
+      {
+        "name": "American Airlines Admirals Club (F)",
+        "location": "Terminal F, above food court",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, qualifying AAdvantage status, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces. Located above the Terminal F food court."
+      }
+    ],
+    "other": [
+      {
+        "name": "Chase Sapphire Lounge by The Club (coming)",
+        "location": "TBD",
+        "access": "Chase Sapphire Reserve cardholders, Priority Pass",
+        "amenities": "Premium food, cocktails, WiFi, workspaces. Part of Chase's airport lounge expansion program."
+      },
+      {
+        "name": "Minute Suites",
+        "location": "Terminal B/C Connector",
+        "access": "Paid walk-ins, hourly rates",
+        "amenities": "Private suites with daybed, workstation, TV. By-the-hour rest pods for napping or working between flights."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "PHL Free WiFi",
+    "cost": "Free",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "garageC": {
+      "chargers": 2,
+      "ports": 4,
+      "location": "Level 1",
+      "type": "ChargePoint Level 2",
+      "cost": "FREE (regular parking rates still apply)"
+    },
+    "garageD": {
+      "chargers": 2,
+      "ports": 4,
+      "location": "Level 1",
+      "type": "ChargePoint Level 2",
+      "cost": "FREE (regular parking rates still apply)"
+    },
+    "economyLot": {
+      "chargers": 3,
+      "ports": 6,
+      "location": "Near toll plaza",
+      "type": "ChargePoint Level 2",
+      "cost": "FREE (regular parking rates still apply)"
+    },
+    "totalPorts": "14 EV charging ports across 7 stations",
+    "note": "PHL offers FREE EV charging — a significant perk. Regular parking rates still apply ($15-20/day). Chargers are ChargePoint Level 2 stations. The Economy Lot has the most chargers (6 ports)."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT widely available on-site at PHL.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Center City Philadelphia, 30th Street Station area" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Philadelphia locations including Center City and Old City" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Center City, University City" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas available in multiple terminals",
+    "locations": ["Terminal E — new service animal relief area (part of 2026 restroom renovation)", "Outdoor pet relief areas accessible from terminals"],
+    "note": "PHL has indoor and outdoor pet relief areas. The new Terminal E facility (2026) includes a dedicated service animal relief area."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure bank)", "11:00 AM-1:00 PM", "3:00-6:00 PM (evening departure bank)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday (morning)"],
+    "seasonalPeak": "Summer (June-August) is the busiest season. 2026 will see extraordinary demand due to FIFA World Cup (6 matches in Philadelphia, June-July 2026), MLB All-Star Game, and America's 250th anniversary celebrations. Thanksgiving week and Christmas/New Year are also peak. Spring break (March-April) busy for family travel.",
+    "fifaWorldCup2026": "Philadelphia is hosting 6 FIFA World Cup matches at Lincoln Financial Field in June-July 2026. Estimated 450,000+ visitors. Book airport parking weeks in advance. Expect surge rideshare pricing on match days.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods and 2026 FIFA World Cup"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate with four distinct seasons. Hot, humid summers and cold winters with occasional snow.",
+    "commonDisruptions": "Winter snowstorms (December-March) are the primary disruption risk — nor'easters can shut down the airport for hours or cause widespread cancellations. Summer thunderstorms (June-August) can cause temporary ground stops. Fog in spring/fall occasionally delays morning flights.",
+    "bestMonths": "September through November — comfortable temperatures, lower humidity, fall foliage season, moderate airport traffic",
+    "worstMonths": "January-February (heaviest snow risk, coldest temperatures, nor'easter season)",
+    "winterNote": "PHL is in the I-95 snow corridor. Major nor'easters can dump 6-18 inches of snow and shut down air travel for 12-24 hours. PHL has robust de-icing operations but delays and cancellations are inevitable during major winter storms. Travel insurance recommended for winter travel.",
+    "summerThunderstorms": "June-August: afternoon thunderstorms are common, especially July-August. Usually 2-5 PM. Can cause 1-3 hour delays but rarely cancel flights. Morning flights are most reliable.",
+    "note": "PHL's four-season climate means weather disruptions are most likely in winter (snow) and summer (thunderstorms). Spring and fall are the most reliable travel seasons."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near PHL. Hotels in Essington, Tinicum, and along I-95 offer park-sleep-fly packages with up to 14-21 days of parking included.",
+    "priceRange": "From ~$110/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Courtyard by Marriott Philadelphia Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Marriott quality with reliable shuttle service."
+      },
+      {
+        "name": "Holiday Inn Express Philadelphia Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Includes breakfast. Good value park-sleep-fly option."
+      },
+      {
+        "name": "Hyatt Place Philadelphia Airport",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7",
+        "highlight": "Modern rooms, free breakfast, complimentary parking and shuttle."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "buyreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "garageParking": { "parkingCost": "$140 (7 × $20)", "totalEstimate": "$140" },
+      "shortTermGarage": { "parkingCost": "$266 (7 × $38)", "totalEstimate": "$266" },
+      "economyLot": { "parkingCost": "$105 (7 × $15)", "totalEstimate": "$105" }
+    },
+    "offSiteWithShuttle": {
+      "jetStreamParking": { "parkingCost": "$45.50 (7 × $6.50 pre-booked)", "savingsVsGarage": "~$95 saved", "caveat": "24/7 on-demand shuttle" },
+      "expressparkSouthLot": { "parkingCost": "$90.65 (7 × $12.95)", "savingsVsGarage": "~$49 saved", "caveat": "24/7 shuttle, 98% 5-star rating" },
+      "smartPark": { "parkingCost": "$97.65 (7 × $13.95)", "savingsVsGarage": "~$42 saved", "caveat": "24/7 shuttle, #1 rated, luggage assistance" }
+    },
+    "publicTransit": {
+      "septaRoundTrip": { "costPerPersonRoundTrip": "$10.00", "travelTime": "~25 min to Center City", "note": "$5.00 per ride. Cheapest option for Center City-based travelers. No parking cost at all." },
+      "rideshareRoundTrip": { "costForCouple": "$40-$70 (UberX Center City round trip)", "note": "Cheaper than 4+ days of garage parking if headed to Center City" }
+    },
+    "keyDifference": "PHL offers solid off-site parking value — $6.50-13.95/day with shuttle vs $20/day in garages. The Economy Lot at $15/day is only $5 more than the cheapest off-site and avoids the shuttle. SEPTA at $5.00 per ride is unbeatable for Center City travelers. For travelers near 30th Street Station, SEPTA is the clear winner on both cost and convenience."
+  },
+  "uniqueFeatures": {
+    "americanAirlinesNortheastHub": "PHL is American Airlines' primary hub in the Northeastern United States and its #1 European/transatlantic gateway. American accounts for approximately 50% of all PHL flight operations, with nonstop service to London, Dublin, Edinburgh, Madrid, Barcelona, Zurich, Athens, Rome, and more.",
+    "septaAirportLine": "One of the few U.S. airports with direct rail service right to the terminal — 4 SEPTA stations on airport property serve Terminals B, C/D, E/F, with direct 25-minute service to Center City Philadelphia at $5.00 per ride. No shuttle or transfer needed.",
+    "amtrakConnectivity": "PHL is uniquely positioned on Amtrak's Northeast Corridor. Via SEPTA Airport Line to 30th Street Station (~20 min), travelers can reach NYC in 1h15m or Washington D.C. in 1h45m by Acela high-speed rail. Few airports offer this level of intercity rail connectivity.",
+    "allTerminalsConnected": "All 7 terminals (A-East, A-West, B, C, D, E, F) are connected post-security via walkways — passengers can enter at any security checkpoint and walk to any gate. This is a significant advantage when checkpoint locations are limited.",
+    "historicCity": "PHL serves Philadelphia, the birthplace of American independence. The city is hosting major events in 2026 celebrating the 250th anniversary of the Declaration of Independence, alongside 6 FIFA World Cup matches and the MLB All-Star Game.",
+    "freeEVCharging": "PHL offers FREE EV charging at 14 ChargePoint ports across Garages C, D, and the Economy Lot — a notable perk compared to airports that charge $0.30-0.40/kWh.",
+    "fifaWorldCup2026Host": "Philadelphia is hosting 6 FIFA World Cup matches at Lincoln Financial Field in June-July 2026. PHL is the primary airport for ~450,000+ expected visitors. The airport has invested $500M in upgrades specifically for this event.",
+    "flatRateTaxi": "$28.50 flat-rate taxi to Center City Philadelphia eliminates meter anxiety and is competitive with rideshare pricing, especially during surge."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(215) 937-6937",
+    "airportWebsite": "phl.org",
+    "parkingInfo": "(215) 683-9842",
+    "parkingOperator": "Philadelphia Parking Authority (PPA)",
+    "tsa": "(866) 289-9673",
+    "septaInfo": "(215) 580-7800",
+    "septaWebsite": "septa.org",
+    "amtrak": "(800) 872-7245",
+    "airportPolice": "(215) 937-6867"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.phl.org/",
+      "parking": "https://www.phl.org/parking",
+      "garages": "https://www.phl.org/parking/garages",
+      "economyParking": "https://www.phl.org/parking/garages/economy-parking",
+      "groundTransportation": "https://www.phl.org/getting-around",
+      "publicTransportation": "https://www.phl.org/getting-around/public-transportation",
+      "rentalCars": "https://www.phl.org/getting-around/rental-car-information",
+      "airlines": "https://www.phl.org/about/airlines",
+      "lounges": "https://www.phl.org/at-phl/services-and-amenities/lounges-and-concierge-services",
+      "cellPhoneLot": "https://www.phl.org/to-and-from/meeting-passengers/cellphone-lot",
+      "chargingStations": "https://www.phl.org/at-phl/services-and-amenities/charging-stations",
+      "fastFacts": "https://www.phl.org/about/news/fast-facts",
+      "aadvantageParking": "https://www.phl.org/aadvantage"
+    },
+    "transit": {
+      "septa": "https://www.septa.org/",
+      "septaAirportLineSchedule": "https://schedules.septa.org/current/AIR.pdf",
+      "septaFares": "https://www.septa.org/fares/",
+      "amtrak": "https://www.amtrak.com/",
+      "amtrak30thStreet": "https://www.amtrak.com/stations/phl"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/phl/",
+      "lyft": "https://www.lyft.com/rider/airports/phl"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=PHL",
+      "airportParkingReservations": "https://airportparkingreservations.com/phl/airport-parking",
+      "way": "https://www.way.com/phl",
+      "spothero": "https://spothero.com/airport/philadelphia/phl-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/phl",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/philadelphia-international-airport-phl",
+      "smartPark": "https://smartpark.com/",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/philadelphia"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clear": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/philadelphia-phl-airport-lounges/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/phl-club.jsp"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KPHL",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/PHL",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=phl"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugShare": "https://www.plugshare.com/location/77239"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/phl/airport-parking",
+      "parkSleepHotels": "https://phl.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/phl"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/philadelphia-phl-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Philadelphia_International_Airport",
+      "ifly": "https://www.ifly.com/airports/philadelphia-international-airport"
+    },
+    "newsAndMedia": {
+      "philadelphiaInquirer": "https://www.inquirer.com/",
+      "nbcPhiladelphia": "https://www.nbcphiladelphia.com/",
+      "whyy": "https://whyy.org/"
+    }
+  }
+}

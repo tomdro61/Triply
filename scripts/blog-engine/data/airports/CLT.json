@@ -1,0 +1,647 @@
+{
+  "code": "CLT",
+  "fullName": "Charlotte Douglas International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Charlotte, North Carolina — 6 miles west of Uptown Charlotte",
+    "iataCode": "CLT",
+    "icaoCode": "KCLT",
+    "faaLid": "CLT",
+    "elevation": "748 feet above mean sea level",
+    "acreage": 5558,
+    "coordinates": "35.2144N, 80.9431W",
+    "passengerVolume": "53.6 million passengers in 2025 (second busiest year on record)",
+    "aircraftOperations": "553,000+ annually (2025)",
+    "cargoVolume": "Handles freight for major carriers including FedEx and UPS",
+    "distinction": "American Airlines' second-largest hub and the busiest connecting hub on the U.S. East Coast. Ranked 7th busiest airport in the United States by passenger traffic. Largest regional flight operation in the world (American Eagle at Concourse E). Nonstop service to 188+ destinations. Named after former Charlotte mayor Ben Elbert Douglas. Original airfield opened in 1936.",
+    "operator": "City of Charlotte Aviation Department",
+    "owner": "City of Charlotte",
+    "activeTerminals": 1,
+    "totalConcourses": 5,
+    "totalGates": 124,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "18C/36C", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "18L/36R", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "18R/36L", "length": "8,676 ft (2,644 m)", "surface": "Asphalt" },
+      { "designation": "5/23", "length": "7,502 ft (2,286 m)", "surface": "Asphalt", "note": "Crosswind runway" }
+    ],
+    "fourthRunway": "New 4th parallel runway (10,000 ft) under construction, scheduled opening fall 2027. Runway redesignation begins May 2026.",
+    "dominantAirline": "American Airlines (second-largest hub — operates from Concourses B, C, D, and E)",
+    "totalAirlines": "25+ airlines (7 major, 15 regional, 3 foreign flag)",
+    "nonstopDestinations": "188+ destinations worldwide",
+    "founded": "1936 (as Charlotte Municipal Airport)",
+    "hubCarriers": ["American Airlines (primary hub)", "American Eagle (largest regional operation in the world)"],
+    "focusCityCarriers": ["Delta Air Lines", "Frontier Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines"],
+    "slotControlled": false,
+    "transitAccess": "CATS Airport Sprinter bus connects terminal to Uptown Charlotte — $2.20 fare, 25-35 minutes",
+    "internationalNote": "CLT is primarily a domestic connecting hub with growing international service. About 96% of passengers are domestic. International service includes nonstop flights to London, Munich, Paris, Cancun, and several Caribbean destinations."
+  },
+  "terminals": [
+    {
+      "name": "Concourse A",
+      "status": "Active — 32 gates. Mixed airlines including all non-American carriers.",
+      "airlines": ["Air Canada", "American Airlines", "Breeze Airways", "Delta Air Lines", "Frontier Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines", "United Airlines", "Vacation Express", "Viva Aerobus", "Volaris"],
+      "gates": "A1-A32",
+      "notes": "Home to all non-American Airlines carriers plus some American flights. Delta Sky Club located on mezzanine near gate A32. Provisions by Admirals Club grab-and-go near gate A1."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 16 gates. Exclusively American Airlines mainline domestic flights.",
+      "airlines": ["American Airlines"],
+      "gates": "B1-B16",
+      "notes": "Admirals Club located near gate B3. Hours: 5:15 AM - 10:45 PM daily. All gates serve American Airlines mainline domestic operations."
+    },
+    {
+      "name": "Concourse C",
+      "status": "Active — 18 gates. Exclusively American Airlines mainline domestic flights.",
+      "airlines": ["American Airlines"],
+      "gates": "C1-C18",
+      "notes": "Admirals Club located at C/D connector. Hours: 5:15 AM - 10:45 PM daily. TSA PreCheck checkpoint (Checkpoint 2) located near Concourse C."
+    },
+    {
+      "name": "Concourse D",
+      "status": "Active — 13 gates. International arrivals processed here. Restroom renovations and electrical upgrades underway, completion late 2026.",
+      "airlines": ["American Airlines", "Lufthansa", "Volaris"],
+      "gates": "D1-D13",
+      "notes": "All international flights without customs preclearance are processed at Concourse D. Amex Centurion Lounge located between Concourses D and E. New art installations (murals + metal wall sculptures) being added 2026."
+    },
+    {
+      "name": "Concourse E",
+      "status": "Active — 45 gates. American Eagle regional operations — largest regional flight hub in the world. Renovations underway: new Terrazzo flooring, moving walkways, updated signage. Completion March 2027.",
+      "airlines": ["American Eagle (PSA Airlines, Piedmont Airlines, Envoy Air, Republic Airways, SkyWest Airlines, Mesa Airlines)"],
+      "gates": "E1-E45",
+      "notes": "Largest regional jet operation in the world. Gameway lounge opposite gate E36. Club CLT also located on Concourse E. Pet relief area near gate E36. Gate renumbering underway as part of renovations."
+    }
+  ],
+  "roads": ["Interstate 85", "Interstate 77", "Interstate 485 (Outer Loop)", "Billy Graham Parkway", "Josh Birmingham Parkway", "Wilkinson Boulevard (US-74)", "West Boulevard", "Old Dowd Road"],
+  "transit": ["CATS Airport Sprinter Bus (Uptown Charlotte, $2.20, every 20 min weekdays / 30 min evenings & weekends)", "CATS LYNX Blue Line Light Rail (accessible via Sprinter to CTC station)", "CATS Bus Route 5 (Airport/Shopton)", "Greyhound Bus Terminal (Uptown Charlotte, accessible via Sprinter)"],
+  "neighborhoods": ["Uptown Charlotte", "South End", "NoDa (North Davidson)", "Plaza Midwood", "Dilworth", "Myers Park", "Ballantyne", "Lake Norman", "Southpark", "University City", "Mint Hill", "Pineville", "Fort Mill (SC)", "Rock Hill (SC)"],
+  "authority": "City of Charlotte Aviation Department",
+  "groundTransportation": {
+    "catsAirportSprinter": {
+      "description": "CATS (Charlotte Area Transit System) Airport Sprinter bus connecting CLT to Uptown Charlotte via Charlotte Transportation Center (CTC)",
+      "fare": "$2.20 single trip",
+      "frequency": "Every 20 minutes weekdays, every 30 minutes evenings and weekends",
+      "hours": "Approximately 5:00 AM - 1:00 AM daily",
+      "pickupLocation": "Arrivals/Baggage Claim level, outside Zone D doors",
+      "travelTime": "25-35 minutes to Uptown Charlotte",
+      "note": "The Sprinter connects to the LYNX Blue Line light rail at CTC station for access to South End, Pineville, and UNC Charlotte. Best budget option to Uptown at $2.20."
+    },
+    "lynxBlueLineLightRail": {
+      "description": "CATS LYNX Blue Line light rail — not directly at airport but accessible via Airport Sprinter bus to CTC station",
+      "fare": "$2.20 single trip",
+      "coverage": "UNC Charlotte → Uptown Charlotte → South End → Pineville (26 stations, 19 miles)",
+      "frequency": "Every 10-15 minutes peak, 20 minutes off-peak",
+      "note": "Requires transfer from Airport Sprinter at CTC station. Blue Line is best for reaching South End (nightlife/restaurants) and University City areas."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Arrivals/Baggage Claim level, curbside taxi queue",
+      "baseFare": "$3.50",
+      "perMile": "$2.50",
+      "companies": ["City Cab", "Crown Cab", "Green Cab", "Yellow Cab"],
+      "estimatedMeteredFares": {
+        "toUptownCharlotte": "$25-$35",
+        "toSouthEnd": "$22-$30",
+        "toSouthpark": "$25-$35",
+        "toBallantyne": "$35-$50",
+        "toLakeNorman": "$55-$75",
+        "toConcoord": "$45-$60",
+        "toPineville": "$25-$35",
+        "toRockHillSC": "$40-$55",
+        "toGastonia": "$45-$60"
+      },
+      "note": "Four taxi companies available through the airport's taxi queue. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Arrivals/Baggage Claim Level (Lower Level), Zone 4",
+      "estimatedFares": {
+        "uberXToUptownCharlotte": "$18-$30",
+        "uberXToSouthEnd": "$16-$28",
+        "uberXToSouthpark": "$18-$30",
+        "uberXToBallantyne": "$25-$40",
+        "uberXToLakeNorman": "$40-$60",
+        "uberXToUniversityCity": "$25-$35",
+        "uberXToFortMillSC": "$30-$45"
+      },
+      "surgePricing": "Standard surge pricing during Panthers games, NASCAR races at Charlotte Motor Speedway, major conventions, and holiday weekends",
+      "note": "Rideshare is typically cheaper than metered taxi from CLT. UberX minimum fare $7.12, Lyft minimum fare $4.29. Airport pickup fee of ~$4-5 added to fares."
+    },
+    "rentalCars": {
+      "location": "Rental Car Facility on Level 2 of the Hourly Deck, directly in front of the terminal — walkable, no shuttle needed",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "note": "Unlike most major airports, CLT's rental car facility is integrated into the Hourly Deck parking garage — walk directly from the terminal to rental cars on Level 2. No shuttle required."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Most airport-area hotels along West Boulevard, Billy Graham Parkway, and I-85 provide shuttle service."
+  },
+  "parkingRates": "On-airport (effective March 1, 2026): Hourly Deck $35/day max, Daily Deck $28/day, Express Deck $24/day, Daily North $18/day, Long Term $14/day, Valet $50/day. First 15 min free (except valet). Off-site: from ~$5/day with shuttle. Pre-booking at parkCLT.com.",
+  "onAirportParking": {
+    "hourlyDeck": {
+      "name": "Hourly Deck",
+      "rate": "Free first 15 min, then $4/hour",
+      "dailyMax": 35,
+      "location": "Directly in front of terminal — closest parking to gates",
+      "rentalCarFacility": "Rental Car Facility located on Level 2",
+      "features": "Closest parking to terminal. Ideal for short-term parking and pickups/drop-offs. Free first 15 minutes for quick pickups.",
+      "evCharging": "18 ChargePoint Level 2 ports on Levels 4-6 of West Hourly Deck",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "dailyDeckEastWest": {
+      "name": "Daily Deck (East & West)",
+      "rate": "Free first 15 min, then hourly rate",
+      "dailyMax": 28,
+      "location": "Adjacent to terminal on east and west sides",
+      "features": "Covered garage parking close to terminal. Good option for trips of 2-5 days. Walking distance to terminal.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "expressDecks": {
+      "name": "Express Deck (Self-Park & Preferred)",
+      "rate": "Free first 15 min",
+      "dailyMax": 24,
+      "location": "Connected to terminal via covered walkway",
+      "features": "Express Deck Preferred and Express Deck Self-Park both at $24/day max. Good mid-tier option between daily deck and long term.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "dailyNorth": {
+      "name": "Daily North",
+      "rate": "Free first 15 min",
+      "dailyMax": 18,
+      "location": "North side of airport, short walk or shuttle to terminal",
+      "features": "Budget-friendly covered option at $18/day. Closer than Long Term lots. Free shuttle available.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "longTermLot1": {
+      "name": "Long Term Lot 1",
+      "rate": "Free first 15 min",
+      "dailyMax": 14,
+      "location": "Off Josh Birmingham Parkway, near Cell Phone Lot",
+      "connection": "FREE shuttle service to terminal",
+      "features": "Most affordable on-airport option at $14/day. Free shuttle to terminal. Best for trips of 5+ days.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "longTermLot2": {
+      "name": "Long Term Lot 2",
+      "rate": "Free first 15 min",
+      "dailyMax": 14,
+      "location": "Off Josh Birmingham Parkway",
+      "connection": "FREE shuttle service to terminal",
+      "features": "Same rate as Long Term 1 ($14/day). Free shuttle to terminal. Overflow option when LT1 fills up.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "valetParking": {
+      "name": "Curbside Valet Parking",
+      "rate": "$50/day",
+      "hours": "5:00 AM - 11:00 PM daily",
+      "location": "Departures level curbside",
+      "features": "Premium drop-off and pick-up at the curb. Valet attendant parks your car. Most convenient option for business travelers.",
+      "preBookingUrl": "https://parkCLT.com"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Josh Birmingham Parkway, near Long Term Lot 1",
+      "cost": "FREE",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. Monitor flight arrivals and proceed to Arrivals level when passenger is ready."
+    },
+    "evCharging": {
+      "locations": [
+        "West Hourly Deck Levels 4-6 (18 ChargePoint Level 2 ports, 3 per level near elevators)"
+      ],
+      "totalPorts": "18 EV charging ports",
+      "note": "All EV chargers are in the West Hourly Deck (Levels 4-6). ChargePoint card required. Parking rates still apply in addition to charging fees."
+    },
+    "accessibleParking": "Accessible parking available in all garages and lots. Close-in accessible spaces in Hourly Deck and Daily Decks.",
+    "totalCapacity": "~25,000 parking spaces across all lots and decks — 16,000 reservable online",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay, CLT Airport App",
+    "preBooking": "Book at parkCLT.com or through the CLT Airport App. 16,000 of 25,000 spaces are reservable online. Pre-booking recommended during holidays and peak travel periods.",
+    "garageServiceAreas": "Hourly Deck → closest to all concourses. Daily Decks (East/West) → walkable to terminal. Express Deck → covered walkway. Daily North / Long Term → shuttle to terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot CLT",
+      "slug": "the-parking-spot-clt",
+      "dailyRate": 11.75,
+      "reservationRate": 9.95,
+      "parkingType": "Covered and uncovered options, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Available", "EV Charging Stations", "24/7 Security", "Surveillance Cameras", "Loyalty Program"],
+      "shuttleInfo": "24/7/365 complimentary shuttle service to and from CLT terminal, approximately every 5-10 minutes",
+      "overview": "Major off-site parking brand less than 1 mile from CLT with 24/7 shuttle service. Both covered and uncovered options available. EV charging stations on-site. Loyalty program earns free parking days.",
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "rating": "4.4/5",
+      "notes": "Best-known off-site lot at CLT. 24/7 shuttle is reliable. Covered parking adds a few dollars more per day. Weekly rate approximately $49/week when pre-booked."
+    },
+    {
+      "name": "Red Lion Hotel Charlotte Airport",
+      "slug": "red-lion-hotel-charlotte-airport-clt",
+      "dailyRate": 5.00,
+      "reservationRate": 5.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities Available"],
+      "shuttleInfo": "Complimentary shuttle to CLT terminal during operating hours",
+      "overview": "Budget-friendly off-site parking at hotel lot less than 10 minutes from CLT. Cheapest off-site option available. No hotel stay required for parking.",
+      "distanceFromAirport": "3.5 mi",
+      "driveTime": "8-10 minutes",
+      "freeCancellation": true,
+      "notes": "Cheapest off-site parking option at CLT. Verify shuttle hours before booking — may not run 24/7. Good for budget-conscious travelers with standard departure times."
+    },
+    {
+      "name": "Microtel Inn & Suites Charlotte Airport",
+      "slug": "microtel-inn-charlotte-airport-clt",
+      "dailyRate": 8.00,
+      "reservationRate": 6.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "Security Cameras", "Complimentary Breakfast (hotel guests)"],
+      "shuttleInfo": "Complimentary airport shuttle service",
+      "overview": "Hotel parking 2 miles from CLT with free airport shuttle. No hotel stay required for parking. Competitive rates at $8/day walk-up or $6.95 pre-booked.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Good mid-range option. Close to airport with free shuttle. Pre-booking saves over $1/day."
+    },
+    {
+      "name": "Royal Inn CLT Airport Parking",
+      "slug": "royal-inn-clt-airport-parking",
+      "dailyRate": 4.99,
+      "reservationRate": 4.99,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Direct Room Access to Parking", "Security Cameras", "119 Rooms Available"],
+      "shuttleInfo": "NO airport shuttle — self-transport required",
+      "overview": "Ultra-budget parking 2.2 miles from CLT. Lowest daily rate in the market but NO shuttle service — you must arrange your own transportation to the terminal.",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "WARNING: No shuttle service included. You must rideshare or get dropped off at the terminal separately. Only suitable if you have someone to drive you to/from the airport. Cheapest raw rate but factor in rideshare costs."
+    },
+    {
+      "name": "Country Inn & Suites Charlotte Airport",
+      "slug": "country-inn-suites-charlotte-airport-clt",
+      "dailyRate": 7.95,
+      "reservationRate": 6.50,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24-Hour Shuttle", "Security Cameras", "Gated Lot", "Hotel Amenities"],
+      "shuttleInfo": "Free 24-hour hotel shuttle to and from CLT terminal",
+      "overview": "Hotel parking near CLT with 24-hour shuttle service. Gated lot with security cameras. No hotel stay required for parking.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "6-8 minutes",
+      "freeCancellation": true,
+      "notes": "24-hour shuttle is a strong advantage over competitors with limited hours. Gated lot provides extra security. Good value at $6.50/day when pre-booked."
+    },
+    {
+      "name": "DoubleTree by Hilton Charlotte Airport",
+      "slug": "doubletree-charlotte-airport-clt",
+      "dailyRate": 8.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Airport Shuttle", "Security Cameras", "Full-Service Hotel", "Restaurant On-Site"],
+      "shuttleInfo": "Complimentary airport shuttle service",
+      "overview": "Full-service Hilton hotel parking near CLT with complimentary airport shuttle. Higher-end hotel lot option with good security and amenities.",
+      "distanceFromAirport": "4.5 mi",
+      "driveTime": "10-12 minutes",
+      "freeCancellation": true,
+      "notes": "Hilton brand provides reliability. Further from airport than other options but shuttle is included. Good option for travelers who want a Park Sleep Fly package."
+    }
+  ],
+  "shuttleInfo": "On-airport: Free shuttle service from Long Term Lots 1 & 2 and Daily North to terminal. All other on-airport parking (Hourly Deck, Daily Decks, Express Decks) is walkable to terminal via covered walkways. Off-site: Most lots include free shuttle — The Parking Spot runs 24/7 every 5-10 minutes. CRITICAL: Royal Inn has NO shuttle — verify shuttle service before booking any off-site lot.",
+  "distanceFromCity": "6 miles west of Uptown Charlotte. 15-25 minutes by car. ~30 minutes by CATS Airport Sprinter bus ($2.20). American Airlines' second-largest hub and the busiest East Coast connecting hub.",
+  "keyDistances": {
+    "toUptownCharlotte": "6 miles, 15-25 min by car, 25-35 min by Sprinter bus ($2.20), $18-30 rideshare",
+    "toSouthEnd": "7 miles, 15-25 min by car, $16-28 rideshare (Sprinter + Blue Line available)",
+    "toSouthpark": "10 miles, 15-25 min by car, $18-30 rideshare",
+    "toNoDa": "10 miles, 20-30 min by car, $20-30 rideshare",
+    "toBallantyne": "16 miles, 20-30 min by car, $25-40 rideshare",
+    "toLakeNorman": "25 miles, 30-45 min by car, $40-60 rideshare",
+    "toUniversityCity": "14 miles, 20-30 min by car, $25-35 rideshare (Sprinter + Blue Line available)",
+    "toPineville": "12 miles, 15-25 min by car, $20-30 rideshare",
+    "toFortMillSC": "18 miles, 20-35 min by car, $30-45 rideshare",
+    "toRockHillSC": "25 miles, 30-40 min by car, $40-55 rideshare",
+    "toConcord": "22 miles, 25-35 min by car (Charlotte Motor Speedway area)",
+    "toGastonia": "25 miles, 25-35 min by car, $45-60 rideshare",
+    "toGreensboro": "90 miles, 80-100 min by car via I-85",
+    "toRaleigh": "170 miles, 2.5-3 hours by car via I-85/I-40",
+    "toMyrtleBeach": "180 miles, 3-3.5 hours by car via US-74/US-501",
+    "toAsheville": "130 miles, 2-2.5 hours by car via I-40",
+    "competitiveAdvantage": "CLT's main advantage is its compact single-terminal design — all concourses are walkable with no trams or people movers needed. The CATS Airport Sprinter bus provides the cheapest transit to Uptown at $2.20. For Uptown, the Sprinter is time-competitive with rideshare (25-35 min vs 15-25 min by car) at a fraction of the cost. CLT is also convenient for cross-border South Carolina travelers (Fort Mill, Rock Hill)."
+  },
+  "construction2026": {
+    "status": "Major construction ongoing with $600M+ Terminal Lobby Expansion completed September 2025. Multiple active projects across concourses, runways, and airfield.",
+    "projects": [
+      "Terminal Lobby Expansion (TLE) — $608M project COMPLETED September 2025. 370,000-sq-ft expansion with new 150,000-sq-ft curbside canopy, modernized check-in halls, and improved passenger flow.",
+      "Fourth Parallel Runway — New 10,000-ft runway under construction, approaching halfway point. Scheduled opening fall 2027. Runway redesignation begins May 2026.",
+      "Concourse E Renovations — New Terrazzo flooring, gate renumbering, updated wayfinding signage, improved flight information displays, new moving walkways. Completion March 2027.",
+      "Concourse D Improvements — Restroom renovations, electrical upgrades, ticket-level renovations, new carpeting. Completion late 2026.",
+      "Art Installations — 8-10 new murals in terminal plus new metal wall sculpture at two Concourse D locations throughout 2026.",
+      "Runway Redesignation — All runway designators being updated beginning May 2026 as part of fourth runway integration."
+    ],
+    "travelImpact": "Terminal Lobby Expansion is complete and operational. Concourse E renovations may cause temporary gate changes. Fourth runway construction is airfield-side and does not affect passengers. No parking closures expected in 2026.",
+    "timeline": {
+      "terminalLobbyExpansion": "COMPLETED September 2025",
+      "concourseD": "Late 2026 completion",
+      "runwayRedesignation": "May 2026 start",
+      "concourseE": "March 2027 completion",
+      "fourthRunway": "Fall 2027 opening"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "checkpoints": ["Checkpoint 2 (near Concourse C — primary TSA PreCheck location)"],
+      "note": "TSA PreCheck available at Checkpoint 2. All concourses accessible post-security without re-screening."
+    },
+    "clear": {
+      "note": "CLEAR is NOT currently available at CLT as of early 2026. Check cltairport.com for updates."
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Concourse D international arrivals area. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "10-30 minutes",
+      "peakHours": "5:00-8:00 AM (morning departure banks), 3:00-6:00 PM (afternoon/evening departures)",
+      "tips": "CLT is one of the busiest connecting hubs in the U.S. — allow extra time during peak hours. TSA PreCheck can reduce waits by 50% or more. All concourses are connected post-security, so you can clear at any checkpoint."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, and NASCAR weekends"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "Provisions by Admirals Club",
+        "location": "Concourse A, near gate A1",
+        "hours": "6:15 AM - 10:45 PM daily",
+        "access": "Admirals Club members, eligible AAdvantage elites, Oneworld Emerald/Sapphire. Day pass available ($79).",
+        "amenities": "American Airlines' first grab-and-go lounge concept. Packaged food/snacks, beverages, WiFi, seating. Smaller and more casual than traditional Admirals Clubs."
+      },
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse A, mezzanine level near gate A32",
+        "hours": "5:00 AM - 8:00 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus, Amex Platinum (when flying Delta)",
+        "amenities": "Food, drinks, full-service bar, WiFi, workspaces, shower facilities."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "American Airlines Admirals Club (B3)",
+        "location": "Concourse B, near gate B3",
+        "hours": "5:15 AM - 10:45 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card. Day pass $79.",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      }
+    ],
+    "concourseCDConnector": [
+      {
+        "name": "American Airlines Admirals Club (C/D Connector)",
+        "location": "Between Concourses C and D",
+        "hours": "5:15 AM - 10:45 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card. Day pass $79.",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces. Larger than the B3 location."
+      }
+    ],
+    "concourseDE": [
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "Between Concourses D and E",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included.",
+        "amenities": "Premium food, cocktails by local mixologist, full bar, WiFi, shower suites, workspaces, phone rooms."
+      }
+    ],
+    "concourseE": [
+      {
+        "name": "Gameway",
+        "location": "Concourse E, opposite gate E36",
+        "hours": "7:00 AM - 8:00 PM daily",
+        "access": "Priority Pass (1-hour visit included), paid walk-ins available",
+        "amenities": "Gaming consoles (Xbox, PlayStation), large screens, food, drinks, WiFi. Unique gaming-focused lounge concept."
+      },
+      {
+        "name": "Club CLT",
+        "location": "Concourse E",
+        "access": "Priority Pass, paid day passes available",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO Lounge",
+        "location": "Main terminal",
+        "access": "Active-duty military and families with valid military ID. FREE.",
+        "amenities": "Refreshments, snacks, charging stations, WiFi, rest area."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "CLT Free WiFi",
+    "cost": "Free",
+    "coverage": "All concourses and terminal areas"
+  },
+  "evCharging": {
+    "westHourlyDeck": {
+      "chargers": 9,
+      "ports": 18,
+      "location": "West Hourly Deck, Levels 4-6 (3 chargers per level, near elevators)",
+      "type": "ChargePoint Level 2 (J1772)",
+      "cost": "ChargePoint network rates apply (plus parking fees)"
+    },
+    "dcFastCharging": "None available on-airport",
+    "totalPorts": "18 Level 2 EV charging ports",
+    "note": "All EV chargers are in the West Hourly Deck only. ChargePoint card or app required. Hourly Deck parking rates ($35/day max) apply in addition to charging fees. No DC fast chargers available."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at CLT.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Uptown Charlotte, South End" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Charlotte locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Uptown Charlotte area" }
+    ]
+  },
+  "petFacilities": {
+    "total": "6 pet relief areas throughout airport",
+    "locations": [
+      "Concourse A Connector (post-security, indoor)",
+      "Concourse D/E restroom corridor (post-security, indoor)",
+      "Concourse E near gate E36 (post-security, indoor)",
+      "Baggage Claim between Zone D and Zone E (pre-security, indoor)",
+      "Arrivals/Baggage Claim level west end (pre-security, outdoor)",
+      "Arrivals/Baggage Claim level east end (pre-security, outdoor)"
+    ],
+    "note": "CLT has both indoor (post-security) and outdoor (pre-security) pet relief areas. Indoor facilities are available on the Concourse A Connector, near Concourses D/E, and on Concourse E."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (morning departure banks)", "11:00 AM-2:00 PM (midday connecting waves)", "3:00-6:00 PM (afternoon/evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Thanksgiving and Christmas/New Year are the busiest periods. Spring break (March-April), summer (June-August), and NASCAR race weekends at Charlotte Motor Speedway create significant spikes. Panthers game days (fall Sundays) and major conventions at Charlotte Convention Center also increase traffic.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate with four distinct seasons. Hot, humid summers and mild winters with occasional ice storms.",
+    "commonDisruptions": "Summer afternoon thunderstorms (June-September) are the most frequent cause of delays — convective storms can cause ground stops and arrival holds. Winter ice storms (January-February) are infrequent but can shut down operations for 1-2 days when they hit. Freezing rain is more dangerous than snow at CLT.",
+    "bestMonths": "October and April — mild temperatures, lower storm risk, manageable passenger volumes",
+    "worstMonths": "July-August (daily afternoon thunderstorms + peak heat) and January-February (ice storm risk)",
+    "summerThunderstorms": "June-September: afternoon thunderstorms are common, typically building between 2-5 PM. Usually localized and short-lived but can cause 1-2 hour delays. Morning flights are most reliable.",
+    "winterWeather": "Average snowfall 3.5 inches per year, mostly January-February. Ice storms and freezing rain are the bigger threat — even small amounts of ice can close the airport. Charlotte is poorly equipped for winter weather compared to northern cities.",
+    "hubEffect": "As a major East Coast connecting hub, delays at CLT cascade nationwide. When thunderstorms or ice degrade CLT operations, dozens of spoke airports experience knock-on delays and cancellations.",
+    "note": "Morning flights are the most reliable year-round at CLT. Summer thunderstorms are usually afternoon events. For winter travel, monitor forecasts closely — ice storms can develop quickly in the Piedmont region."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near CLT. Most hotels along Billy Graham Parkway, West Boulevard, and I-85 corridor offer park-sleep-fly packages.",
+    "priceRange": "From ~$65/night (1-night stay + up to 14-21 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Sheraton Charlotte Airport Hotel",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "24/7 complimentary",
+        "highlight": "Full-service hotel with 24-hour shuttle. Most popular park-sleep-fly option at CLT."
+      },
+      {
+        "name": "Courtyard by Marriott Charlotte Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "highlight": "Marriott brand reliability with free parking and shuttle."
+      },
+      {
+        "name": "Holiday Inn Express Charlotte Airport",
+        "distance": "3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "highlight": "Budget-friendly IHG option with free parking, breakfast, and shuttle."
+      },
+      {
+        "name": "Hyatt Place Charlotte Airport/Tyvola",
+        "distance": "3 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Complimentary shuttle",
+        "highlight": "Hyatt brand with complimentary breakfast and airport shuttle."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "hourlyDeck": { "parkingCost": "$245 (7 × $35)", "totalEstimate": "$245" },
+      "dailyDeck": { "parkingCost": "$196 (7 × $28)", "totalEstimate": "$196" },
+      "expressDeck": { "parkingCost": "$168 (7 × $24)", "totalEstimate": "$168" },
+      "dailyNorth": { "parkingCost": "$126 (7 × $18)", "totalEstimate": "$126" },
+      "longTerm": { "parkingCost": "$98 (7 × $14)", "totalEstimate": "$98" },
+      "valetParking": { "parkingCost": "$350 (7 × $50)", "totalEstimate": "$350" }
+    },
+    "offSiteWithShuttle": {
+      "theParkingSpot": { "parkingCost": "$69.65 (7 × $9.95 pre-booked)", "savingsVsLongTerm": "~$28 saved", "caveat": "24/7 shuttle, covered option available" },
+      "redLionHotel": { "parkingCost": "$35.00 (7 × $5.00)", "savingsVsLongTerm": "~$63 saved", "caveat": "Verify shuttle hours — may be limited" },
+      "countryInn": { "parkingCost": "$45.50 (7 × $6.50 pre-booked)", "savingsVsLongTerm": "~$53 saved", "caveat": "24-hour shuttle" }
+    },
+    "publicTransit": {
+      "sprinterBusRoundTrip": { "costPerPersonRoundTrip": "$4.40", "travelTime": "25-35 min to Uptown Charlotte", "note": "$2.20 per ride. Cheapest option for Uptown-bound travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$36-$60 (UberX Uptown round trip)", "note": "Cheaper than on-airport parking for trips under 3 days" }
+    },
+    "keyDifference": "CLT's on-airport Long Term lots at $14/day are already competitive, but off-site options like Red Lion ($5/day) and Country Inn ($6.50/day pre-booked) save $56-63 per week. The Parking Spot at $9.95/day pre-booked offers 24/7 shuttle reliability with covered parking options. For Uptown-bound travelers, the CATS Sprinter bus at $2.20 is unbeatable. Pre-booking on parkCLT.com is recommended — 16,000 of 25,000 spaces are reservable."
+  },
+  "uniqueFeatures": {
+    "americanAirlinesSecondHub": "CLT is American Airlines' second-largest hub (after DFW) and the busiest East Coast connecting hub. American and American Eagle operate the vast majority of flights, making CLT essentially an American Airlines airport.",
+    "largestRegionalOperation": "Concourse E hosts the largest regional jet operation in the world — American Eagle carriers (PSA Airlines, Piedmont Airlines, Envoy Air, Republic, SkyWest, Mesa) operate dozens of regional routes connecting small cities across the Southeast and Mid-Atlantic.",
+    "singleTerminalDesign": "CLT's single-terminal, 5-concourse design means all gates are walkable without trams or people movers. This is a major advantage for connecting passengers — you can walk between any two gates in under 15 minutes.",
+    "terminalLobbyExpansion": "The $608 million Terminal Lobby Expansion completed in September 2025 added 370,000 sq ft and a dramatic 150,000-sq-ft curbside canopy — one of the largest airport canopy structures in the U.S.",
+    "fourthRunway": "A new 10,000-ft fourth parallel runway is under construction (opening fall 2027), which will significantly increase CLT's capacity and reduce delays during peak operations.",
+    "rentalCarConvenience": "Unlike most major airports, CLT's rental car facility is integrated into the Hourly Deck parking garage on Level 2 — you walk directly from the terminal to rental cars with no shuttle needed.",
+    "nascarProximity": "Charlotte is the unofficial capital of NASCAR. Charlotte Motor Speedway is 22 miles from CLT, and race weekends (especially the Coca-Cola 600 in May) create significant airport traffic spikes.",
+    "crossStateHub": "CLT serves as a natural airport for both North Carolina's Piedmont region and upstate South Carolina (Fort Mill, Rock Hill, Spartanburg), making it a true cross-state hub.",
+    "cltVsGspVsRdu": "CLT is the dominant airport in the Carolinas (53.6M passengers). GSP (Greenville-Spartanburg, 75 miles) is the smaller alternative for upstate SC. RDU (Raleigh-Durham, 170 miles) serves the Triangle. For international and connecting flights, CLT has no substitute in the region."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(704) 359-4013",
+    "airportWebsite": "cltairport.com",
+    "parkingInfo": "parkCLT.com",
+    "parkingPhone": "(704) 359-4020",
+    "tsa": "(866) 289-9673",
+    "catsTransit": "(704) 336-7433",
+    "catsWebsite": "charlottenc.gov/CATS",
+    "airportPolice": "(704) 359-4012"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.cltairport.com/",
+      "parking": "https://www.cltairport.com/parking/",
+      "parkingOptions": "https://www.cltairport.com/parking/parking-options/",
+      "parkingReservations": "https://parkclt.com/",
+      "groundTransportation": "https://www.cltairport.com/to-and-from/",
+      "taxiRates": "https://www.cltairport.com/to-and-from/taxis-and-taxi-rates/",
+      "servicesAmenities": "https://www.cltairport.com/airport-info/services-and-amenities/",
+      "security": "https://www.cltairport.com/airport-info/security/",
+      "airportMaps": "https://www.cltairport.com/airport-info/website-maps/",
+      "constructionProjects": "https://www.cltairport.com/news/construction-projects/",
+      "aboutCLT": "https://www.cltairport.com/airport-info/about-clt/"
+    },
+    "transit": {
+      "catsAirportRoutes": "https://www.charlottenc.gov/CATS/Ride/Bus/Airport-Routes",
+      "catsMain": "https://www.charlottenc.gov/CATS",
+      "lynxBlueLine": "https://www.charlottenc.gov/CATS/Ride/Light-Rail"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/clt/",
+      "lyft": "https://www.lyft.com/rider/airports/clt"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=CLT",
+      "airportParkingReservations": "https://airportparkingreservations.com/clt/airport-parking",
+      "way": "https://www.way.com/clt",
+      "spothero": "https://spothero.com/airport/charlotte/clt-parking",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/charlotte",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/charlotte-douglas-international-airport-clt",
+      "oneStopParking": "https://onestopparking.com/clt-airport-parking-charlotte"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/security-wait-times/CLT/Charlotte-Douglas-International",
+      "flightQueue": "https://flightqueue.com/charlotte-douglas-international-airport-security-wait-times"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/charlotte-douglas-clt-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/CLT/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/clt-club.jsp"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KCLT",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/CLT",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=clt"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/",
+      "plugShare": "https://www.plugshare.com/location/60880"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/clt/airport-hotels-with-parking",
+      "parkSleepHotels": "https://clt.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/clt"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/charlotte-douglas-clt-international-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Charlotte_Douglas_International_Airport",
+      "ifly": "https://www.ifly.com/airports/charlotte-douglas-international-airport"
+    },
+    "newsAndMedia": {
+      "charlotteObserver": "https://www.charlotteobserver.com/",
+      "wcnc": "https://www.wcnc.com/",
+      "wsocTV": "https://www.wsoctv.com/"
+    }
+  }
+}

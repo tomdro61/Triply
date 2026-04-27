@@ -1,0 +1,624 @@
+{
+  "code": "BWI",
+  "fullName": "Baltimore/Washington International Thurgood Marshall Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Anne Arundel County, Maryland — 9 miles south of downtown Baltimore, 30 miles northeast of Washington, D.C.",
+    "iataCode": "BWI",
+    "icaoCode": "KBWI",
+    "faaLid": "BWI",
+    "elevation": "143 feet above mean sea level",
+    "acreage": 3160,
+    "coordinates": "39.1754N, 76.6684W",
+    "passengerVolume": "27.06 million passengers in 2024 (record year)",
+    "aircraftOperations": "275,000+ annually",
+    "distinction": "The busiest airport in the Baltimore-Washington metropolitan area. Named after Supreme Court Justice Thurgood Marshall in 2005. Southwest Airlines' largest East Coast focus city — Southwest operates ~70% of passenger traffic. Serves both the Baltimore and Washington, D.C. metro areas. One of three major airports in the region alongside IAD and DCA. Known for competitive fares driven by Southwest's dominant presence. Originally opened June 24, 1950 as Friendship International Airport.",
+    "operator": "Maryland Aviation Administration (MAA)",
+    "owner": "Maryland Department of Transportation (MDOT)",
+    "activeTerminals": 1,
+    "totalConcourses": 5,
+    "totalGates": 78,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "10/28", "length": "10,503 ft (3,201 m)", "surface": "Asphalt", "note": "Primary takeoff runway (Runway 28)" },
+      { "designation": "15R/33L", "length": "9,501 ft (2,896 m)", "surface": "Asphalt", "note": "Primary landing runway (Runway 33L)" },
+      { "designation": "15L/33R", "length": "5,000 ft (1,524 m)", "surface": "Asphalt", "note": "Shortest runway, used for smaller aircraft and general aviation" }
+    ],
+    "dominantAirline": "Southwest Airlines (~70% of passenger traffic — largest East Coast focus city)",
+    "totalAirlines": "15+ airlines",
+    "nonstopDestinations": "90+ nonstop destinations",
+    "founded": "June 24, 1950 (as Friendship International Airport)",
+    "hubCarriers": ["Southwest Airlines (focus city — dominant carrier)", "Spirit Airlines (focus city)", "Frontier Airlines (seasonal)"],
+    "slotControlled": false,
+    "railAccess": "BWI Rail Station served by MARC Penn Line commuter rail and Amtrak (Northeast Regional, Acela, Crescent, Palmetto, Vermonter). Free 24/7 shuttle between station and terminal. Light Rail also stops at terminal.",
+    "internationalNote": "BWI handles limited international service compared to IAD/DCA. International flights operate from Concourse E (11 gates). Primary international destinations include Canada, Caribbean, and select European/Central American routes via carriers like British Airways, Icelandair, and Air Canada."
+  },
+  "terminals": [
+    {
+      "name": "Concourse A",
+      "status": "Active — 15 gates. Southwest Airlines exclusive. Connected to Concourse B via new A/B Connector (opened January 9, 2026).",
+      "airlines": ["Southwest Airlines"],
+      "gates": "A1-A15",
+      "notes": "Southwest Airlines exclusive concourse. Part of the $520 million A/B Connector project completed in January 2026, which added 142,000 sq ft of new construction, 5 relocated/modernized gates, expanded holdrooms, new concessions, and upgraded restrooms."
+    },
+    {
+      "name": "Concourse B",
+      "status": "Active — 15 gates. Southwest Airlines exclusive. Connected to Concourse A via new A/B Connector.",
+      "airlines": ["Southwest Airlines"],
+      "gates": "B1-B15",
+      "notes": "Southwest Airlines exclusive concourse. The new A/B Connector provides a direct single-level route between Concourses A and B — previously passengers had to walk back through the main terminal and food court. New in-line baggage handling system processes 3,500 bags/hour (up from 2,100)."
+    },
+    {
+      "name": "Concourse C",
+      "status": "Active — 14 gates. Mixed carriers including Southwest overflow.",
+      "airlines": ["Southwest Airlines", "American Airlines", "Contour Airlines"],
+      "gates": "C1-C14",
+      "notes": "Mixed-use concourse with Southwest overflow gates plus American Airlines and regional carrier Contour Airlines."
+    },
+    {
+      "name": "Concourse D",
+      "status": "Active — 23 gates. Domestic carriers and Air Canada.",
+      "airlines": ["Delta Air Lines", "United Airlines", "JetBlue Airways", "Spirit Airlines", "Frontier Airlines", "Alaska Airlines", "Air Canada", "Allegiant Air", "Breeze Airways", "Sun Country Airlines"],
+      "gates": "D1-D23",
+      "notes": "Home to most non-Southwest domestic airlines plus Air Canada. The Club BWI lounge is located near Gate D10. Largest concourse by gate count."
+    },
+    {
+      "name": "Concourse E",
+      "status": "Active — 11 gates (including 4 arrival-only gates). International flights.",
+      "airlines": ["British Airways", "Icelandair", "Condor", "Southwest Airlines (select international)"],
+      "gates": "E1-E11",
+      "notes": "Dedicated international concourse with Federal Inspection Station (FIS) for customs and immigration. 4 gates are arrival-only for international flights. British Airways operates daily London Heathrow service from this concourse."
+    }
+  ],
+  "roads": ["Interstate 195 (primary airport access road)", "Interstate 95 (via I-195)", "Interstate 97 (from Annapolis)", "Baltimore-Washington Parkway (MD-295)", "MD Route 170 (Aviation Boulevard)", "MD Route 176 (Dorsey Road)", "US Route 1"],
+  "transit": ["MARC Penn Line commuter rail (BWI Rail Station — free shuttle to terminal)", "Amtrak Northeast Regional, Acela, Crescent, Palmetto, Vermonter (BWI Rail Station)", "MTA Light Rail (BWI Marshall Airport station at terminal)", "MTA Local Bus Route 17 (Cromwell/Glen Burnie Light Rail)", "Free BWI shuttle between terminal and MARC/Amtrak Rail Station (24/7)"],
+  "neighborhoods": ["Linthicum", "Glen Burnie", "Hanover", "Jessup", "Arundel Mills", "Elkridge", "Columbia", "Laurel", "Odenton", "Severn", "Downtown Baltimore", "Inner Harbor", "Federal Hill", "Fells Point", "Canton"],
+  "authority": "Maryland Aviation Administration (MAA), a unit of the Maryland Department of Transportation (MDOT)",
+  "groundTransportation": {
+    "marcTrain": {
+      "stationName": "BWI Marshall Airport Rail Station (BWI Rail Station)",
+      "operator": "Maryland Transit Administration (MTA)",
+      "line": "Penn Line",
+      "fare": "$8.00 one-way to Washington Union Station. $5.00 one-way to Baltimore Penn Station. CharmPass app or Quik-Trak machines. $5 surcharge if purchased on-board (cash only).",
+      "hours": "Weekdays: approximately 4:00 AM - 11:30 PM. Limited weekend service (Saturday only, no Sunday service).",
+      "frequency": "Every 30-60 minutes weekdays depending on time of day. Hourly on Saturdays.",
+      "accessFromTerminal": "Free BWI shuttle from terminal lower level (baggage claim) to BWI Rail Station. Shuttle runs every 10-15 minutes (every 25 minutes between 1-5 AM).",
+      "travelTimes": {
+        "toBaltimore": "~20 minutes to Baltimore Penn Station",
+        "toWashingtonDC": "~45 minutes to Washington Union Station",
+        "toOdenton": "~10 minutes",
+        "toBowieState": "~25 minutes"
+      },
+      "competitorNote": "MARC Penn Line is the cheapest option from BWI to Washington, D.C. at $8 — significantly cheaper than the $60-90 taxi/rideshare fare. For Baltimore, $5 beats the $25-40 rideshare. Weekend service is limited (Saturday only)."
+    },
+    "amtrak": {
+      "stationName": "BWI Marshall Airport (BWI)",
+      "services": ["Northeast Regional", "Acela", "Crescent", "Palmetto", "Vermonter"],
+      "fare": "Northeast Regional: ~$16-40 to Washington Union Station. Acela: ~$30-80 to Washington Union Station. Varies by booking time and demand.",
+      "accessFromTerminal": "Free BWI shuttle from terminal lower level to BWI Rail Station (same station as MARC). Every 10-15 minutes.",
+      "travelTimes": {
+        "toWashingtonDC": "~25-35 minutes (Northeast Regional)",
+        "toBaltimore": "~12-15 minutes (Northeast Regional)",
+        "toPhiladelphia": "~1 hour 20 minutes",
+        "toNewYorkPenn": "~2 hours 40 minutes",
+        "toWilmington": "~55 minutes"
+      },
+      "note": "BWI is the busiest Amtrak station without checked baggage service — carry-on bags only. Amtrak is faster than MARC but costs more. Northeast Regional runs frequently (20+ daily trips to D.C.). Good option for travelers connecting to the Northeast Corridor."
+    },
+    "lightRail": {
+      "stationName": "BWI Marshall Airport (Light Rail station at terminal)",
+      "operator": "Maryland Transit Administration (MTA)",
+      "fare": "$2.00 one-way",
+      "accessFromTerminal": "Light Rail station is at the airport terminal — no shuttle needed. Follow signs from baggage claim.",
+      "hours": {
+        "weekday": "First arrival 4:45 AM, final departure 12:40 AM",
+        "saturday": "First arrival 5:05 AM, final departure 12:45 AM",
+        "sundayHolidays": "First arrival 10:35 AM (limited service)"
+      },
+      "destinations": "BWI ↔ Linthicum ↔ Cromwell/Glen Burnie ↔ Ferndale ↔ North Linthicum ↔ Patapsco ↔ downtown Baltimore (Camden Yards, Inner Harbor, Convention Center, Penn Station) ↔ Timonium ↔ Hunt Valley",
+      "travelTimes": {
+        "toCamdenYards": "~25 minutes",
+        "toConventionCenter": "~30 minutes",
+        "toLexingtonMarket": "~32 minutes",
+        "toPennStation": "~40 minutes (transfer at Mt. Royal station)",
+        "toHuntValley": "~60 minutes (northern terminus)"
+      },
+      "competitorNote": "At $2.00, Light Rail is the cheapest transit to downtown Baltimore — beats the $25-40 rideshare fare. Takes ~30 minutes to Inner Harbor/Convention Center. No shuttle needed (station is at terminal). Sunday service starts late (10:35 AM)."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Lower level (arrivals/baggage claim), outside doors 5 and 13",
+      "estimatedFares": {
+        "toDowntownBaltimore": "$30-$45",
+        "toInnerHarbor": "$30-$40",
+        "toFellsPoint": "$35-$45",
+        "toWashingtonDC": "$80-$100",
+        "toAnnapolis": "$45-$60",
+        "toColumbia": "$35-$50",
+        "toAberdeen": "$65-$80"
+      },
+      "note": "Taxi stands at lower level doors 5 and 13. Metered rates. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Upper level (departures), outer curb between doors 5-12. Follow walkways to outer curbside near doors 5, 8, and 12.",
+      "airportFee": "$2.50 surcharge for all airport pickups and drop-offs",
+      "estimatedFares": {
+        "uberXToDowntownBaltimore": "$25-$40",
+        "uberXToInnerHarbor": "$25-$35",
+        "uberXToWashingtonDC": "$55-$85",
+        "uberXToAnnapolis": "$35-$50",
+        "uberXToColumbia": "$25-$40",
+        "uberXToLaurel": "$20-$30",
+        "uberXToArundelMills": "$10-$18"
+      },
+      "surgePricing": "Standard surge pricing during Ravens/Orioles games, holidays, and severe weather events",
+      "note": "Rideshare pickup is on the UPPER level (departures), not lower level like taxis. The $2.50 airport surcharge is added automatically. Generally cheaper than metered taxi, especially to D.C."
+    },
+    "rentalCars": {
+      "location": "BWI Rental Car Facility — Stoney Run Road and New Ridge Road. Free shuttle from terminal lower level (baggage claim).",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Thrifty"],
+      "totalBrands": 8,
+      "note": "All rental car companies consolidated at the off-terminal Rental Car Facility. Free shuttle from terminal lower level runs frequently. Return your car at the facility and take the shuttle back."
+    },
+    "hotelShuttles": "Many nearby hotels in Linthicum, Glen Burnie, and Hanover offer complimentary shuttle service. Hotel and off-airport parking shuttles pick up at designated zones on the lower level. Check with your hotel before booking."
+  },
+  "parkingRates": "On-airport: Hourly Garage $30/day max, Daily Garage $16/day, Express Parking $14/day, Long-Term Lots $11/day, BWI Rail Station Garage $12/day. Off-site: from ~$5.40/day with shuttle. Rates effective July 1, 2024 — first increase since 2009.",
+  "onAirportParking": {
+    "hourlyGarage": {
+      "name": "Hourly Garage",
+      "rate": "$4.00 per hour",
+      "dailyMax": 30,
+      "serves": "Terminal — direct covered walkway to check-in and baggage claim",
+      "features": "Closest parking to the terminal. Covered garage with direct walkway. Best for short trips, pickups, and drop-offs. Not recommended for multi-day parking due to high daily rate.",
+      "evCharging": "Free Level 2 EV charging stations on ground floor"
+    },
+    "dailyGarage": {
+      "name": "Daily Garage",
+      "rate": "$16 per day",
+      "dailyMax": 16,
+      "serves": "Terminal — connected via free shuttle or covered walkway (longer walk)",
+      "features": "Covered parking at a moderate rate. Good balance of convenience and cost for trips of 2-5 days. Free shuttle service to terminal.",
+      "evCharging": "Free Level 2 EV charging stations on ground floor"
+    },
+    "expressParking": {
+      "name": "Express Parking",
+      "rate": "$14 per day",
+      "dailyMax": 14,
+      "serves": "Terminal via free shuttle",
+      "features": "Open-air lot. Free shuttle to terminal. Good mid-range option between Daily Garage and Long-Term.",
+      "location": "Near Cell Phone Lot on Scott Road"
+    },
+    "longTermParking": {
+      "name": "Long-Term Parking (Lots A & B)",
+      "rate": "$11 per day",
+      "dailyMax": 11,
+      "serves": "Terminal via free shuttle",
+      "features": "Most affordable on-airport option. Open-air lots. Free 24/7 shuttle service to terminal. Best for trips of 5+ days. Can fill up during peak travel periods — arrive early or pre-book.",
+      "capacity": "~12,000 spaces across Lots A and B"
+    },
+    "bwiRailStationGarage": {
+      "name": "BWI Rail Station Garage",
+      "rate": "$12 per day",
+      "dailyMax": 12,
+      "serves": "BWI Rail Station (MARC/Amtrak) — free shuttle to terminal",
+      "features": "Covered garage at the MARC/Amtrak station. Good option for travelers using rail connections. Free shuttle to terminal every 10-15 minutes.",
+      "note": "Also serves Amtrak and MARC passengers who are not flying."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "Not currently offered at BWI",
+      "note": "BWI does not offer valet parking services as of 2026."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Scott Road, across from Express Parking (near I-195 and Aviation Blvd)",
+      "cost": "FREE (up to 1 hour)",
+      "rules": "For passenger pickup only. Driver must remain with vehicle. 1-hour maximum. BGE fast-charging EV stations available.",
+      "evCharging": "BGE EVsmart DC fast-charging stations available"
+    },
+    "evCharging": {
+      "locations": [
+        "Hourly Garage ground floor (free Level 2 charging)",
+        "Daily Garage ground floor (free Level 2 charging)",
+        "Cell Phone Lot (BGE EVsmart DC fast-charging)"
+      ],
+      "totalPorts": "20+ EV charging ports",
+      "note": "BWI offers FREE EV charging in the Hourly and Daily Garages — a significant advantage over airports like MIA that charge per kWh. Fast-charging available at Cell Phone Lot via BGE."
+    },
+    "accessibleParking": "Accessible parking available in all garages and lots. Closest accessible spaces are in the Hourly and Daily Garages.",
+    "totalCapacity": "~22,000 parking spaces across all on-airport facilities",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
+    "garageServiceAreas": "Hourly Garage → terminal (direct walk). Daily Garage → terminal (shuttle or walk). Express/Long-Term → terminal (shuttle). Rail Station Garage → rail station + shuttle to terminal."
+  },
+  "parkingLots": [
+    {
+      "name": "The Parking Spot (East)",
+      "slug": "the-parking-spot-east-bwi",
+      "dailyRate": 7.50,
+      "reservationRate": 7.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot", "Free Water Bottle"],
+      "shuttleInfo": "Free 24/7 on-demand shuttle, approximately every 5-10 minutes. Terminal to lot in ~5 minutes.",
+      "overview": "Established off-site parking provider on Camp Meade Road with frequent 24/7 shuttle service. One of two Parking Spot locations near BWI.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "24/7 shuttle is a strong advantage. Free bottle of water on departure. One of the most popular off-site lots at BWI."
+    },
+    {
+      "name": "The Parking Spot (West)",
+      "slug": "the-parking-spot-west-bwi",
+      "dailyRate": 7.50,
+      "reservationRate": 7.50,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot", "Free Water Bottle"],
+      "shuttleInfo": "Free 24/7 on-demand shuttle. Terminal to lot in ~5 minutes.",
+      "overview": "Second Parking Spot location west of the airport on Ridge Road (former Econopark facility). Same quality service as the East location.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Former Econopark location now operated by The Parking Spot. Same shuttle frequency and amenities as East location."
+    },
+    {
+      "name": "FastPark & Relax (BWI)",
+      "slug": "fastpark-relax-bwi",
+      "dailyRate": 8.00,
+      "reservationRate": 6.95,
+      "parkingType": "Covered and uncovered options available",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking Available", "24/7 Staffed", "Surveillance Cameras", "Luggage Assistance"],
+      "shuttleInfo": "Free 24/7 shuttle, approximately every 5-10 minutes. ~3 minutes to terminal.",
+      "overview": "Off-site parking with both covered and uncovered options. Just 3 minutes from BWI terminal with frequent shuttle service. Open 24/7 with staff on-site.",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "3 minutes",
+      "freeCancellation": true,
+      "notes": "Closest off-site lot with covered parking option. 3-minute shuttle ride is the fastest among off-site lots. Pre-booking online saves ~$1/day."
+    },
+    {
+      "name": "FastPark 2 (BWI)",
+      "slug": "fastpark-2-bwi",
+      "dailyRate": 7.50,
+      "reservationRate": 6.50,
+      "parkingType": "Covered, long-term parking",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "24/7 Staffed", "Surveillance Cameras", "Luggage Assistance"],
+      "shuttleInfo": "Free 24/7 shuttle service. ~2 minutes to terminal.",
+      "overview": "Second FastPark location with covered parking and the shortest shuttle ride to BWI terminal at ~2 minutes.",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "2 minutes",
+      "freeCancellation": true,
+      "notes": "Covered parking at a competitive rate. 2-minute shuttle is the fastest off-site option. Pre-booking recommended for best rates."
+    },
+    {
+      "name": "DoubleTree by Hilton BWI Airport",
+      "slug": "doubletree-bwi-airport",
+      "dailyRate": 7.95,
+      "reservationRate": 5.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Security Cameras", "Well-Lit Lot", "Handicap Accessible"],
+      "shuttleInfo": "Free shuttle to terminal. Runs on schedule — check with hotel for current times.",
+      "overview": "Hotel parking near BWI with competitive pre-book rates. No hotel stay required. Park-sleep-fly packages also available.",
+      "distanceFromAirport": "2.5 mi",
+      "driveTime": "7-10 minutes",
+      "freeCancellation": true,
+      "notes": "Best pre-book rate among off-site lots at $5.95/day. Hotel amenities available if combining with park-sleep-fly package."
+    },
+    {
+      "name": "Aloft BWI Baltimore Washington International Airport",
+      "slug": "aloft-bwi-airport",
+      "dailyRate": 10.00,
+      "reservationRate": 8.00,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Hotel Amenities", "Security Cameras", "Gated Lot"],
+      "shuttleInfo": "Free airport shuttle service. Check with hotel for current schedule.",
+      "overview": "Marriott-brand hotel parking near BWI. Park & Fly packages include overnight stay + 8 days parking + shuttle. Additional parking available at $10/day.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Park & Fly package is good value if you need a hotel night. Standalone parking rate is higher than competitors. Marriott Bonvoy points eligible for hotel stays."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE shuttle connects terminal to Long-Term Lots, Express Parking, Daily Garage, and BWI Rail Station (MARC/Amtrak). Runs every 10-15 minutes (every 25 minutes between 1-5 AM). Off-site: All major off-site lots (The Parking Spot, FastPark) include free 24/7 shuttle running every 5-10 minutes. Hotel shuttles pick up at designated zones on lower level.",
+  "distanceFromCity": "9 miles south of downtown Baltimore. 30 miles northeast of Washington, D.C. Uniquely positioned to serve both metro areas. MARC train to D.C. in ~45 min ($8), Light Rail to Baltimore in ~30 min ($2).",
+  "keyDistances": {
+    "toDowntownBaltimore": "9 miles, 15-25 min by car, 30 min by Light Rail ($2), 20 min by MARC ($5), $25-40 rideshare",
+    "toInnerHarbor": "10 miles, 15-25 min by car, 30 min by Light Rail ($2), $25-35 rideshare",
+    "toFellsPoint": "12 miles, 20-30 min by car, $30-45 rideshare",
+    "toCamdenYards": "10 miles, 15-25 min by car, 25 min by Light Rail ($2), $25-35 rideshare",
+    "toWashingtonDCUnionStation": "30 miles, 45-75 min by car, 45 min by MARC ($8), 25-35 min by Amtrak ($16-40), $55-85 rideshare",
+    "toAnnapolis": "22 miles, 25-40 min by car, $35-50 rideshare",
+    "toColumbia": "15 miles, 20-30 min by car, $25-40 rideshare",
+    "toArundelMills": "5 miles, 8-12 min by car, $10-18 rideshare",
+    "toLaurel": "15 miles, 20-30 min by car, $20-30 rideshare",
+    "toAberdeen": "45 miles, 45-60 min by car, $65-80 rideshare",
+    "toFrederickMD": "55 miles, 55-75 min by car",
+    "toIADDullesAirport": "55 miles, 60-90 min by car",
+    "toDCAReaganAirport": "35 miles, 40-60 min by car, accessible via MARC+Metro",
+    "toPhiladelphia": "100 miles, 1.5-2 hours by car, 1 hr 20 min by Amtrak",
+    "competitiveAdvantage": "BWI's unique advantage is serving both Baltimore AND Washington, D.C. at lower fares than DCA or IAD. MARC train at $8 to D.C. is far cheaper than DCA taxi fares. Light Rail at $2 to downtown Baltimore is unbeatable. Amtrak connectivity to the entire Northeast Corridor (Philly, NYC) from BWI Rail Station is a major differentiator. Southwest's dominant presence keeps airfares competitive across all routes."
+  },
+  "construction2026": {
+    "status": "Major $520 million Concourse A/B Connector project completed and opened January 9, 2026 — largest capital project in BWI history.",
+    "projects": [
+      "Concourse A/B Connector ($520M) — COMPLETED January 9, 2026. 142,000 sq ft of new construction + 78,000 sq ft of renovations. Direct single-level route between Concourses A and B. 5 relocated/modernized gates, expanded holdrooms, new concessions, upgraded restrooms.",
+      "New In-Line Baggage Handling System — Part of A/B Connector project. Processes 3,500 bags/hour (up from 2,100). State-of-the-art TSA screening.",
+      "Potential Southwest Airlines Lounge — Southwest 'actively pursuing' adding a lounge in the new A/B Connector space. Would be among Southwest's first dedicated lounges nationwide.",
+      "Ongoing Terminal Improvements — Continuous upgrades to concessions, restrooms, and passenger amenities across all concourses.",
+      "Parking Technology Upgrades — Smart parking guidance systems and enhanced payment options being rolled out."
+    ],
+    "travelImpact": "The A/B Connector is now fully open and operational. Passengers connecting between Concourses A and B no longer need to backtrack through the main terminal. Minor ongoing construction for finishing touches and concession buildouts.",
+    "timeline": {
+      "concourseABConnector": "COMPLETED January 9, 2026",
+      "baggageHandlingSystem": "COMPLETED January 2026",
+      "southwestLounge": "Under consideration, no announced date"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Main Terminal — all security checkpoints"],
+      "note": "TSA PreCheck available at all BWI security checkpoints"
+    },
+    "clear": {
+      "terminals": ["Main Terminal"],
+      "note": "CLEAR available at select security checkpoints"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in Concourse E international arrivals. Mobile Passport Control (MPC) also available."
+    },
+    "standardWaitTimes": {
+      "average": "10-20 minutes",
+      "peakHours": "5:00-7:00 AM (early morning Southwest departures), 3:00-6:00 PM (afternoon departures)",
+      "tips": "BWI security is generally efficient compared to larger airports. TSA PreCheck significantly reduces wait times. Morning departure banks (Southwest) can create brief surges."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas, spring break, and Ravens/Orioles game weekends"
+    }
+  },
+  "lounges": {
+    "concourseD": [
+      {
+        "name": "The Club BWI",
+        "location": "Concourse D, near Gate D10",
+        "hours": "5:00 AM - 9:00 PM daily",
+        "access": "Priority Pass, LoungeKey, Lounge Club, Diners Club International. Walk-in: $50 per person.",
+        "amenities": "Complimentary premium alcoholic and non-alcoholic beverages, snacks, WiFi, reading materials, workspaces, power outlets."
+      }
+    ],
+    "concourseAB": [
+      {
+        "name": "Potential Southwest Airlines Lounge (planned)",
+        "location": "Concourse A/B Connector area",
+        "status": "Under consideration — Southwest 'actively pursuing' adding a lounge in the new A/B Connector",
+        "note": "If built, this would be among Southwest's first dedicated airline lounges. No confirmed opening date as of April 2026."
+      }
+    ],
+    "other": [
+      {
+        "name": "USO BWI",
+        "location": "Near Concourse D",
+        "access": "Active-duty military, reservists, National Guard, and their families. FREE.",
+        "amenities": "Refreshments, snacks, charging stations, WiFi, comfortable seating, luggage storage."
+      }
+    ],
+    "note": "BWI has limited lounge options compared to major hub airports. Southwest Airlines — the dominant carrier — does not currently operate airline-specific lounges. The Club BWI (Priority Pass) is the primary option for most travelers."
+  },
+  "wifi": {
+    "networkName": "_BWI Free WiFi",
+    "cost": "Free",
+    "coverage": "All concourses and terminal areas"
+  },
+  "evCharging": {
+    "hourlyGarage": {
+      "chargers": 8,
+      "location": "Ground floor",
+      "type": "Level 2",
+      "cost": "FREE"
+    },
+    "dailyGarage": {
+      "chargers": 8,
+      "location": "Ground floor",
+      "type": "Level 2",
+      "cost": "FREE"
+    },
+    "cellPhoneLot": {
+      "chargers": 4,
+      "type": "DC Fast Charging (BGE EVsmart)",
+      "cost": "Paid (BGE EVsmart rates)"
+    },
+    "totalPorts": "20+ EV charging ports",
+    "note": "BWI offers FREE Level 2 EV charging in Hourly and Daily Garages — a significant perk for electric vehicle owners. DC fast-charging available at Cell Phone Lot via BGE EVsmart (paid)."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at BWI. All airport baggage storage has been suspended by TSA order. Contact your airline about early luggage check-in.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Baltimore, Inner Harbor" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Baltimore locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Baltimore, Washington D.C." }
+    ]
+  },
+  "petFacilities": {
+    "total": "4 Animal Relief Areas",
+    "locations": "2 pre-security (landside) and 2 post-security (airside)",
+    "note": "BWI has 4 designated pet relief areas — 2 before security and 2 after security. Check airport maps for exact locations."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM (early morning Southwest departure bank)", "11:00 AM-1:00 PM (midday departures)", "4:00-7:00 PM (evening departure bank)"],
+    "busiestDays": ["Thursday", "Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August) is peak season. Thanksgiving week, Christmas/New Year, and spring break (March-April) are the busiest periods. Ravens and Orioles game weekends create additional traffic. BWI's Southwest-dominant traffic means holiday periods are particularly busy as Southwest does not assign seats — early arrival is critical.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak travel periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical climate with four distinct seasons. Hot, humid summers and cold winters. Occasional nor'easters and ice storms in winter.",
+    "commonDisruptions": "Winter storms (December-March) are the primary disruption risk — ice, snow, and nor'easters can cause significant delays and cancellations. Summer thunderstorms (June-August) cause occasional afternoon delays. Fog is less common but can affect morning operations in spring/fall.",
+    "bestMonths": "April-May and September-October — mild temperatures, lower storm risk, moderate passenger volumes",
+    "worstMonths": "January-February (highest snowfall and ice risk, potential nor'easters), July-August (thunderstorm delays, highest heat/humidity)",
+    "winterNote": "BWI is in the Mid-Atlantic snow belt. 1-3 significant winter storms per season can cause 4-12 hour delays or full-day cancellations. The airport has robust snow removal but deicing operations can cause 1-2 hour delays. Travel insurance recommended for December-March flights.",
+    "summerThunderstorms": "June-August: afternoon thunderstorms are common, typically 2-6 PM. Usually brief but can cause 1-2 hour ground stops. Morning flights are most reliable.",
+    "note": "BWI's Mid-Atlantic location means weather disruptions are possible year-round but most severe in winter. Southwest's point-to-point network means one storm at BWI doesn't cascade as badly as hub-and-spoke delays."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near BWI. Hotels in Linthicum, Hanover, and Glen Burnie offer park-sleep-fly packages.",
+    "priceRange": "From ~$94/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "Country Inn & Suites by Radisson BWI Airport",
+        "distance": "1.7 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Close to airport with reliable shuttle service."
+      },
+      {
+        "name": "BWI Airport Marriott",
+        "distance": "1.7 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Full-service Marriott with Bonvoy points. Popular park-sleep-fly option."
+      },
+      {
+        "name": "Aloft BWI Baltimore Washington International Airport",
+        "distance": "2.0 miles",
+        "parkingIncluded": "Up to 8 days (additional days $10/day)",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Modern Marriott brand. Park & Fly package includes 8 days parking."
+      },
+      {
+        "name": "Hyatt Place Baltimore BWI Airport",
+        "distance": "2.5 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "World of Hyatt points eligible. Good value park-sleep-fly."
+      },
+      {
+        "name": "Sheraton Baltimore Washington Airport Hotel",
+        "distance": "2.1 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Free airport shuttle",
+        "highlight": "Full-service hotel with Marriott Bonvoy points."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "airportparkingreservations.com", "stayparktravel.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "N/A (no valet service at BWI)"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "hourlyGarage": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "dailyGarage": { "parkingCost": "$112 (7 x $16)", "totalEstimate": "$112" },
+      "expressParking": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" },
+      "longTermLot": { "parkingCost": "$77 (7 x $11)", "totalEstimate": "$77" }
+    },
+    "offSiteWithShuttle": {
+      "theParkingSpot": { "parkingCost": "$52.50 (7 x $7.50)", "savingsVsDaily": "~$60 saved vs Daily Garage", "caveat": "24/7 shuttle" },
+      "fastPark2": { "parkingCost": "$45.50 (7 x $6.50 pre-booked)", "savingsVsDaily": "~$67 saved vs Daily Garage", "caveat": "24/7 shuttle + covered parking" },
+      "doubletreePreBook": { "parkingCost": "$41.65 (7 x $5.95 pre-booked)", "savingsVsDaily": "~$70 saved vs Daily Garage", "caveat": "Hotel shuttle — check schedule" }
+    },
+    "publicTransit": {
+      "lightRailRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "30 min to downtown Baltimore", "note": "$2.00 per ride. Cheapest option for Baltimore-bound travelers." },
+      "marcTrainRoundTrip": { "costPerPersonRoundTrip": "$16.00 (to D.C.)", "travelTime": "45 min to Union Station", "note": "$8.00 per ride to D.C. Far cheaper than driving/parking in D.C." },
+      "rideshareRoundTrip": { "costForCouple": "$50-$80 (UberX downtown Baltimore round trip)", "note": "Cheaper than parking for short trips if headed to Baltimore" }
+    },
+    "keyDifference": "BWI offers strong on-airport parking value — Long-Term at $11/day is competitive with many airports' off-site lots. Off-site pre-booking at $5.95-7.50/day saves 30-50% vs on-airport. For Baltimore travelers, Light Rail at $2 is unbeatable. For D.C. travelers, MARC at $8 saves massively vs driving and parking. BWI's free EV charging in garages is a bonus for electric vehicle owners."
+  },
+  "uniqueFeatures": {
+    "southwestDominance": "Southwest Airlines operates ~70% of passenger traffic at BWI — making it the largest Southwest focus city on the East Coast. This dominance keeps airfares highly competitive across all carriers. BWI consistently ranks among the cheapest airports in the D.C./Baltimore region for domestic travel.",
+    "dualCityAccess": "BWI uniquely serves both Baltimore (9 miles) and Washington, D.C. (30 miles). MARC train to D.C. Union Station in 45 minutes for $8 makes BWI a viable — and often cheaper — alternative to DCA and IAD for D.C.-bound travelers.",
+    "thurgoodMarshallNaming": "Renamed in 2005 to honor Supreme Court Justice Thurgood Marshall, the first African American Supreme Court justice, who was a Baltimore native. Originally opened in 1950 as Friendship International Airport.",
+    "railConnectivity": "One of the best-connected airports in the U.S. by rail. BWI Rail Station serves MARC commuter rail (Baltimore/D.C.) AND Amtrak (Northeast Regional, Acela) on the Northeast Corridor. Free 24/7 shuttle between station and terminal. Travelers can reach Philadelphia in 1.5 hours or New York in 2.5 hours by Amtrak.",
+    "lightRailAtTerminal": "Light Rail station is directly at the terminal — no shuttle needed. $2 ride to downtown Baltimore (Camden Yards, Inner Harbor, Convention Center). One of few U.S. airports with a light rail stop at the terminal building.",
+    "freeEvCharging": "BWI offers FREE Level 2 EV charging in both Hourly and Daily Garages — a rare perk among U.S. airports. Many airports charge $0.30-0.50/kWh.",
+    "concourseABConnector": "The $520 million Concourse A/B Connector, completed January 2026, is BWI's largest-ever capital project. It created a direct single-level route between Concourses A and B, eliminating the need to backtrack through the main terminal. New baggage system handles 3,500 bags/hour (up from 2,100).",
+    "bwiVsDcaVsIad": "BWI is the budget-friendly option in the Baltimore/Washington market. DCA (Reagan National) is closest to D.C. but slot-controlled with higher fares. IAD (Dulles) handles most international traffic. BWI offers the best value for domestic travel thanks to Southwest's presence and lower airport fees."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(410) 859-7111",
+    "airportWebsite": "bwiairport.com",
+    "parkingInfo": "bwiairport.com/to-from-bwi/parking",
+    "tsa": "(866) 289-9673",
+    "marylandTransitInfo": "(410) 539-5000 / (866) 743-3682",
+    "mtaWebsite": "mta.maryland.gov",
+    "amtrak": "(800) 872-7245",
+    "airportPolice": "(410) 859-7040"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://bwiairport.com/",
+      "parking": "https://bwiairport.com/to-from-bwi/parking/",
+      "longTermParking": "https://bwiairport.com/to-from-bwi/parking/long-term-parking/",
+      "dailyGarage": "https://bwiairport.com/to-from-bwi/parking/daily-garage/",
+      "cellPhoneLot": "https://bwiairport.com/to-from-bwi/parking/cell-phone-lot/",
+      "groundTransportation": "https://bwiairport.com/to-from-bwi/",
+      "rentalCars": "https://bwiairport.com/to-from-bwi/transportation/rental-cars/",
+      "shuttles": "https://bwiairport.com/to-from-bwi/transportation/shuttles/",
+      "rideshare": "https://bwiairport.com/to-from-bwi/transportation/app-based-ride-services/",
+      "statistics": "https://bwiairport.com/flying-with-us/about-bwi/statistics/",
+      "factsAndFigures": "https://bwiairport.com/flying-with-us/about-bwi/facts-figures/",
+      "pressMedia": "https://bwiairport.com/flying-with-us/about-bwi/press-media/"
+    },
+    "transit": {
+      "marcTrain": "https://bwiairport.com/to-from-bwi/transportation/transit/mta-marc-train/",
+      "marcFares": "https://www.mta.maryland.gov/marc-fares",
+      "marcSchedule": "https://www.mta.maryland.gov/schedule/timetable/marc-penn",
+      "lightRail": "https://bwiairport.com/to-from-bwi/transportation/transit/mta-light-rail/",
+      "lightRailSchedule": "https://www.mta.maryland.gov/schedule?type=lightrail-link",
+      "amtrak": "https://bwiairport.com/to-from-bwi/transportation/transit/amtrak/",
+      "amtrakStation": "https://www.amtrak.com/stations/bwi"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/bwi/",
+      "lyft": "https://www.lyft.com/rider/airports/bwi"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=BWI",
+      "airportParkingReservations": "https://airportparkingreservations.com/bwi/airport-parking",
+      "spothero": "https://spothero.com/airport/baltimore/bwi-parking",
+      "parkingAccess": "https://parkingaccess.com/airports/bwi",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/baltimore-washington-international-thurgood-marshall-airport-bwi",
+      "theParkingSpot": "https://www.theparkingspot.com/locations/baltimore",
+      "fastPark": "https://www.thefastpark.com/airport-parking/baltimore-washington-bwi"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearBWI": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/baltimore-washington-bwi-airport-lounges/",
+      "theClubBWI": "https://theclubairportlounges.com/lounges/bwi-the-club-concourse-d"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KBWI",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/BWI",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=bwi"
+    },
+    "evCharging": {
+      "chargeHub": "https://chargehub.com/en/ev-charging-stations/united-states/maryland/baltimore/bwi-airport-hourly-ground-floor/electric-car-stations-near-me"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/bwi/airport-hotels-with-parking",
+      "parkSleepHotels": "https://bwi.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/blog/park-fly-bwi-airport-hotels"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/baltimore-washington-international-bwi-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Baltimore/Washington_International_Airport",
+      "ifly": "https://www.ifly.com/airports/baltimore-washington-international-airport"
+    },
+    "newsAndMedia": {
+      "baltimoreBanner": "https://www.thebanner.com/",
+      "baltimoreSun": "https://www.baltimoresun.com/",
+      "wtop": "https://wtop.com/"
+    }
+  }
+}

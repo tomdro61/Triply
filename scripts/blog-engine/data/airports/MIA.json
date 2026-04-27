@@ -1,0 +1,649 @@
+{
+  "code": "MIA",
+  "fullName": "Miami International Airport",
+  "lastVerified": "2026-04-09",
+  "overview": {
+    "location": "Unincorporated Miami-Dade County, Florida — 8 miles west of downtown Miami",
+    "iataCode": "MIA",
+    "icaoCode": "KMIA",
+    "faaLid": "MIA",
+    "elevation": "9 feet above mean sea level",
+    "acreage": 3300,
+    "coordinates": "25.7933N, 80.2906W",
+    "passengerVolume": "55.3 million passengers in 2025",
+    "aircraftOperations": "502,771 annually (2025)",
+    "cargoVolume": "3.45 million tons (2025) — busiest international cargo airport in the U.S.",
+    "distinction": "The largest U.S. gateway for international passengers and the busiest international cargo airport in the country. Primary connection point for Central America, South America, and the Caribbean. American Airlines' largest hub worldwide. Originally opened September 15, 1928 as Pan American Airways Airport — birthplace of international commercial aviation in the United States. Over 1,000 daily flights to 195 destinations.",
+    "operator": "Miami-Dade Aviation Department",
+    "owner": "Miami-Dade County",
+    "activeTerminals": 3,
+    "totalConcourses": 6,
+    "totalGates": 131,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "8L/26R", "length": "8,600 ft (2,621 m)", "surface": "Asphalt" },
+      { "designation": "8R/26L", "length": "10,506 ft (3,202 m)", "surface": "Asphalt" },
+      { "designation": "9/27", "length": "13,016 ft (3,967 m)", "surface": "Asphalt", "note": "One of the longest commercial runways in the U.S." },
+      { "designation": "12/30", "length": "9,360 ft (2,853 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "American Airlines (largest hub worldwide — operates from North Terminal Concourse D)",
+    "totalAirlines": "90+ airlines",
+    "nonstopDestinations": "195 destinations worldwide (1,000+ daily flights)",
+    "founded": "September 15, 1928 (as Pan American Airways Airport)",
+    "hubCarriers": ["American Airlines (primary hub)", "Avianca (focus city)", "Frontier Airlines (focus city)", "LATAM Airlines (focus city)", "Spirit Airlines (operating base)"],
+    "slotControlled": false,
+    "metroAccess": "Metrorail Orange Line station accessible via free MIA Mover people mover from terminal 3rd level — $2.25 fare to downtown Miami",
+    "miaMover": "Free automated people mover connecting terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) and Dolphin/Flamingo garages",
+    "internationalNote": "MIA is the primary U.S. gateway to Latin America and the Caribbean. More than 70% of passengers travel internationally. The airport serves as the financial and logistical hub connecting North and South America."
+  },
+  "terminals": [
+    {
+      "name": "North Terminal — Concourse D",
+      "status": "Active — 51 gates. American Airlines' global hub operations. $1B Concourse D60 expansion (17 new gates) breaking ground 2027.",
+      "airlines": ["American Airlines", "American Eagle", "British Airways", "Finnair", "Iberia", "JetBlue Airways", "Qatar Airways"],
+      "gates": "D1-D60",
+      "notes": "American Airlines' largest hub terminal worldwide. Home to 3 Admirals Club lounges (at D15 and D30), American Airlines Flagship Lounge + Flagship Dining, and American Express Centurion Lounge (near D12). Concourse D60 expansion will add 17 new full-size gates replacing regional jet gates. Dolphin Garage serves Concourse D."
+    },
+    {
+      "name": "Central Terminal — Concourses E, F, G",
+      "status": "Active — mixed international/domestic. Total redevelopment planned as part of $12B capital program.",
+      "airlines": ["Air Canada", "Air France", "Avianca", "Bahamasair", "Caribbean Airlines", "Copa Airlines", "Delta Air Lines", "Frontier Airlines", "KLM", "LATAM Airlines", "Lufthansa", "Spirit Airlines", "Swiss International", "Turkish Airlines", "United Airlines", "Virgin Atlantic"],
+      "gates": "E gates, F gates, G gates",
+      "notes": "Central Terminal handles most international carriers not on American Airlines. Turkish Airlines Lounges (2 locations). Corridor for international arrivals between Concourses F and H groundbreaking Fall 2026. Flamingo Garage serves Central Terminal."
+    },
+    {
+      "name": "South Terminal — Concourses H, J",
+      "status": "Active — international focus. New Concourse K (6 gates) under construction, completion ~2029.",
+      "airlines": ["Aeromexico", "Air Europa", "Azul", "El Al", "Emirates", "GOL", "ITA Airways", "Scandinavian Airlines", "TAP Air Portugal", "TAME"],
+      "gates": "H gates, J gates",
+      "notes": "South Terminal focuses on international carriers, especially Latin American and European airlines. Delta Sky Club located in H-J connector. New Concourse K broke ground 2025 — 6 domestic gates with future international capability. Ibis Garage serves South Terminal."
+    }
+  ],
+  "roads": ["SR-836 (Dolphin Expressway)", "SR-112 (Airport Expressway)", "Interstate 95 (via SR-836 or SR-112)", "US-27 (Okeechobee Road)", "LeJeune Road (NW 42nd Ave)", "NW 36th Street", "Palmetto Expressway (SR-826)"],
+  "transit": ["Metrorail Orange Line via MIA Mover (direct to downtown Miami)", "Tri-Rail Commuter Rail via MIA Mover (Miami ↔ Fort Lauderdale ↔ West Palm Beach)", "Brightline Airport Connector Shuttle ($12, connects to Brightline high-speed rail)", "Metrobus Routes 37, 42, 57, J, 150 (Miami Beach Express)", "MIA Mover (free automated people mover to Miami Intermodal Center)"],
+  "neighborhoods": ["Doral", "Miami Springs", "Hialeah", "Coral Gables", "Coconut Grove", "Brickell", "Downtown Miami", "Wynwood", "Miami Beach", "South Beach", "Key Biscayne", "Kendall", "Little Havana"],
+  "authority": "Miami-Dade Aviation Department",
+  "groundTransportation": {
+    "miaMover": {
+      "description": "Free automated people mover connecting the terminal (3rd level, between Dolphin and Flamingo garages) to Miami Intermodal Center (MIC), which houses Metrorail, Tri-Rail, rental cars, and bus connections",
+      "fare": "FREE",
+      "frequency": "Every 2-3 minutes",
+      "hours": "24/7",
+      "note": "The MIA Mover is the gateway to all public transit and rental cars. From the terminal, go to Level 3 and follow signs."
+    },
+    "metrorail": {
+      "stationName": "Miami Airport Station (Miami Intermodal Center)",
+      "operator": "Miami-Dade Transit",
+      "lines": ["Orange Line"],
+      "fare": "$2.25 single trip. Daily cap: $5.65 with contactless payment. Payment: EASY Card, EASY Ticket, contactless tap, GO Miami-Dade Transit app.",
+      "hours": "5:00 AM - midnight daily",
+      "frequency": "Every 15 minutes",
+      "accessFromTerminal": "Take free MIA Mover from terminal Level 3 to Miami Intermodal Center, then follow signs to Metrorail",
+      "travelTimes": {
+        "toCivicCenter": "~8 minutes (hospitals, government buildings)",
+        "toHistoricOvertown": "~10 minutes",
+        "toBrickell": "~15 minutes (financial district)",
+        "toDowntownMiami": "~12 minutes (Government Center station)",
+        "toCoconutGrove": "~20 minutes",
+        "toUniversityOfMiami": "~25 minutes",
+        "toDadelandSouth": "~34 minutes (southern terminus)"
+      },
+      "competitorNote": "At $2.25, Metrorail is the cheapest option from MIA to downtown Miami/Brickell — significantly cheaper than the $25-35 taxi fare. 15-minute travel to Brickell makes it competitive with rideshare on both time and cost."
+    },
+    "triRail": {
+      "description": "Commuter rail connecting Miami, Fort Lauderdale, and West Palm Beach",
+      "accessFromTerminal": "MIA Mover to Miami Intermodal Center → follow signs to Tri-Rail",
+      "fare": "$2.25 - $8.75 depending on zones",
+      "coverage": "18 stations from Miami Airport to Mangonia Park (West Palm Beach)",
+      "note": "Best for travelers headed to Fort Lauderdale area ($3.50) or West Palm Beach area ($6.90). Runs weekdays every 30-60 minutes."
+    },
+    "brightline": {
+      "description": "Inter-city express train at MiamiCentral Station (downtown Miami). Airport Connector Shuttle available.",
+      "shuttleFare": "$12 per guest with same-day Brightline ticket",
+      "shuttleFrequency": "Twice per hour from Brightline MiamiCentral and Fort Lauderdale stations",
+      "destinations": "Miami ↔ Fort Lauderdale ↔ West Palm Beach ↔ Orlando",
+      "note": "Brightline is the fastest ground option to Fort Lauderdale (~30 min) and Orlando (~3.5 hours). The $12 Airport Connector Shuttle links MIA to MiamiCentral station."
+    },
+    "taxi": {
+      "fareType": "METERED with flat rate zones",
+      "pickup": "Arrivals (ground) level, outside baggage claim areas",
+      "minimumFare": "$15.00 (for trips originating at MIA)",
+      "airportOriginationFee": "$2.00 added to all trips from MIA",
+      "suvSurcharge": "30% surcharge above meter rate for SUVs and vans",
+      "flatRates": {
+        "toSouthBeach": "$35 flat rate (28th St to 1st St)",
+        "toPortOfMiami": "$24 flat rate",
+        "toKeyBiscayne": "$35 flat rate"
+      },
+      "estimatedMeteredFares": {
+        "toDowntownMiami": "$25-$35",
+        "toBrickell": "$25-$35",
+        "toCoralGables": "$20-$30",
+        "toDoral": "$15-$25",
+        "toFortLauderdaleAirport": "$80-$95",
+        "toMiamiBeachMidBeach": "$35-$45",
+        "toWynwood": "$20-$30",
+        "toCoconutGrove": "$25-$35",
+        "toHomestead": "$55-$75"
+      },
+      "note": "Flat rate zones are posted at taxi stands. Cash and credit cards accepted. 24/7 service."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Arrivals (ground) level, same area as taxi stands, outside baggage claim areas",
+      "estimatedFares": {
+        "uberXToDowntownMiami": "$15-$25",
+        "uberXToSouthBeach": "$20-$35",
+        "uberXToBrickell": "$15-$25",
+        "uberXToCoralGables": "$15-$25",
+        "uberXToDoral": "$10-$20",
+        "uberXToWynwood": "$15-$25",
+        "uberXToFortLauderdale": "$45-$70"
+      },
+      "surgePricing": "Standard surge pricing during Art Basel, Ultra Music Festival, Super Bowl, spring break, cruise ship arrivals",
+      "note": "Rideshare is usually cheaper than metered taxi from MIA, especially to downtown and Brickell. Flat-rate taxi zones (South Beach $35) can be better than surge pricing during events."
+    },
+    "rentalCars": {
+      "location": "MIA Rental Car Center (RCC) — accessible via free MIA Mover from terminal Level 3",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "totalBrands": 9,
+      "note": "All rental car companies consolidated at the RCC. Take the MIA Mover from Level 3 (between Dolphin and Flamingo garages) — 2-3 minute ride. Return your car at RCC and take MIA Mover back."
+    },
+    "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Most airport-area hotels in Doral, Miami Springs, and along LeJeune Road provide shuttle service."
+  },
+  "parkingRates": "On-airport: Dolphin/Flamingo/Ibis Garages $25/day ($2 per 20 min), Valet $39/day, Economy Park & Ride $12/day. Off-site: from ~$6.95/day with shuttle. Pre-booking at booking.mia-parking.com for guaranteed space.",
+  "onAirportParking": {
+    "dolphinGarage": {
+      "name": "Dolphin Garage",
+      "rate": "$2.00 per 20 minutes",
+      "dailyMax": 25,
+      "maxStay": "45 days",
+      "serves": "Concourses D-E (American Airlines, British Airways, JetBlue, Qatar Airways)",
+      "valetAvailable": true,
+      "valetRate": "$25 (0-3 hrs), $39/day max",
+      "valetLocation": "Departures 2nd level",
+      "features": "Direct access to North Terminal. Motorcycle parking on first floor ($12/day).",
+      "preBookingUrl": "https://booking.mia-parking.com/"
+    },
+    "flamingoGarage": {
+      "name": "Flamingo Garage",
+      "rate": "$2.00 per 20 minutes",
+      "dailyMax": 25,
+      "maxStay": "45 days",
+      "serves": "Concourses E-J (Central Terminal and some South Terminal)",
+      "valetAvailable": true,
+      "valetRate": "$25 (0-3 hrs), $39/day max",
+      "valetLocation": "Departures 2nd level",
+      "features": "MIA Mover station located between Dolphin and Flamingo garages on Level 3. Motorcycle parking on first floor ($12/day).",
+      "preBookingUrl": "https://booking.mia-parking.com/"
+    },
+    "ibisGarage": {
+      "name": "Ibis Garage",
+      "rate": "$2.00 per 20 minutes",
+      "dailyMax": 25,
+      "maxStay": "45 days",
+      "serves": "Concourses J-H (South Terminal)",
+      "evCharging": "50 ChargePoint EV charging ports across Levels 1-5 ($0.38/kWh)",
+      "features": "Best option for EV charging with 50 ChargePoint ports. Serves South Terminal. Motorcycle parking on first floor ($12/day).",
+      "preBookingUrl": "https://booking.mia-parking.com/"
+    },
+    "economyParkAndRide": {
+      "name": "Economy Park & Ride",
+      "rate": "$2.00 per 20 minutes (max $12/day + $0.27 fee)",
+      "dailyMax": 12,
+      "capacity": 350,
+      "address": "1350 NW 45 Ave",
+      "connection": "FREE 24/7 shuttle service to terminals",
+      "payment": "PaybyPhone app/website",
+      "features": "Best budget option for on-airport parking. 350 spaces — book in advance. Shuttle runs 24/7.",
+      "note": "Limited capacity (350 spaces). Can fill up during peak travel periods. Consider off-site alternatives if Economy is full."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$25 (0-3 hours), $39/day max",
+      "maxStay": "20 days",
+      "locations": "Departures/2nd level of Dolphin and Flamingo Garages",
+      "phone": "305-876-0118",
+      "features": "Premium drop-off option. Available at both Dolphin and Flamingo garages."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "LeJeune Road & NW 31st Street",
+      "cost": "FREE",
+      "capacity": 60,
+      "rules": "For passenger pickup only. Driver must remain with vehicle."
+    },
+    "evCharging": {
+      "locations": [
+        "Arrivals 1st level (inner loop, Terminals E-G)",
+        "Departures 2nd level (valet areas)",
+        "Ibis Garage Levels 1-5 (50 ChargePoint ports, $0.38/kWh)"
+      ],
+      "totalPorts": "50+ EV charging ports",
+      "note": "Ibis Garage has the most EV chargers (50 ChargePoint ports). Pricing: $0.38/kWh — NOT free (unlike BOS/IAD)."
+    },
+    "accessibleParking": "Accessible and van-accessible parking available on ground level and 3rd floor of all garages. Disabled permit holders receive 2 hours complimentary parking. Disabled veterans with Florida plates park FREE.",
+    "totalCapacity": "~15,000 vehicles across all airport garages",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Samsung Pay, PaybyPhone app",
+    "rewardsProgram": "MIA Rewards at mia.thanksagain.com — earn points on parking spend",
+    "garageServiceAreas": "Dolphin → Concourses D-E. Flamingo → Concourses E-J. Ibis → Concourses J-H. Use MIA Mover to switch between areas."
+  },
+  "parkingLots": [
+    {
+      "name": "Deal Airport Parking (MIA)",
+      "slug": "deal-airport-parking-mia",
+      "dailyRate": 8.95,
+      "reservationRate": 6.95,
+      "parkingType": "Self-park and valet options (uncovered)",
+      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "shuttleInfo": "24-hour on-demand shuttle, approximately every 15 minutes",
+      "overview": "Budget-friendly off-site parking 2.1 miles from MIA with 24/7 on-demand shuttle service. Both self-park and valet available.",
+      "distanceFromAirport": "2.1 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market."
+    },
+    {
+      "name": "Green Airport Parking (MIA)",
+      "slug": "green-airport-parking-mia",
+      "dailyRate": 6.99,
+      "reservationRate": 6.99,
+      "parkingType": "Uncovered with valet service",
+      "amenities": ["Shuttle", "Security Cameras", "Car Wash ($20)", "Valet Service"],
+      "shuttleInfo": "On-demand shuttle 8 AM - 8 PM. NO SHUTTLE outside those hours.",
+      "overview": "Closest off-site lot to MIA at 1.1 miles. Competitive rates with valet service included. Note: shuttle only runs 8 AM - 8 PM.",
+      "distanceFromAirport": "1.1 mi",
+      "driveTime": "3-5 minutes",
+      "freeCancellation": true,
+      "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance."
+    },
+    {
+      "name": "EVEN Hotel Miami Airport (MIA)",
+      "slug": "even-hotel-miami-airport-mia",
+      "dailyRate": 7.99,
+      "reservationRate": 7.99,
+      "parkingType": "Covered parking (hotel garage), self-park",
+      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Bright Lighting", "Surveillance", "Handicap Accessible"],
+      "shuttleInfo": "24/7 on-demand shuttle to and from airport",
+      "overview": "Covered garage parking at a hotel 1.6 miles from MIA. 24/7 on-demand shuttle. No hotel stay required. One of the few covered off-site options.",
+      "distanceFromAirport": "1.6 mi",
+      "driveTime": "5-7 minutes",
+      "freeCancellation": true,
+      "notes": "Best covered off-site option. 24/7 shuttle + covered parking at $7.99/day is excellent value. Good for travelers worried about Florida sun/rain."
+    },
+    {
+      "name": "MIA Park Pro",
+      "slug": "mia-park-pro-mia",
+      "dailyRate": 7.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park",
+      "amenities": ["Free 24/7 Shuttle", "Security Cameras", "24/7 Surveillance"],
+      "shuttleInfo": "24/7 on-demand shuttle",
+      "overview": "Off-site parking 6.1 miles from MIA with 24/7 on-demand shuttle. Budget-friendly option for long-term parking.",
+      "distanceFromAirport": "6.1 mi",
+      "driveTime": "12-15 minutes",
+      "freeCancellation": true,
+      "rating": "4.5/5",
+      "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers."
+    },
+    {
+      "name": "La Quinta Inn & Suites Miami Airport East",
+      "slug": "la-quinta-miami-airport-east-mia",
+      "dailyRate": 7.95,
+      "reservationRate": 7.95,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle", "Gated Lot", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
+      "shuttleInfo": "Hourly shuttle 5 AM - 10 PM. No shuttle outside those hours.",
+      "overview": "Hotel parking 2 miles from MIA with hourly shuttle service. Gated lot with security cameras. No hotel stay required.",
+      "distanceFromAirport": "2.0 mi",
+      "driveTime": "5-8 minutes",
+      "freeCancellation": true,
+      "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times."
+    },
+    {
+      "name": "Hampton Inn Miami Airport West",
+      "slug": "hampton-inn-miami-airport-west-mia",
+      "dailyRate": 9.50,
+      "reservationRate": 9.50,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Shuttle", "Handicap Parking", "24/7 Operation", "Hotel Amenities"],
+      "shuttleInfo": "First departure 4:30 AM, then hourly. Airport pickups on-demand.",
+      "overview": "Hotel parking 5.4 miles from MIA. Early 4:30 AM first shuttle is good for early flights. On-demand airport pickup is convenient.",
+      "distanceFromAirport": "5.4 mi",
+      "driveTime": "10-15 minutes",
+      "freeCancellation": true,
+      "rating": "4.8/5",
+      "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces."
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE MIA Mover connects terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) every 2-3 minutes, 24/7. Economy Park & Ride has free 24/7 shuttle. Off-site: Most lots include free shuttle — frequency varies from on-demand (Deal Airport Parking, EVEN Hotel) to hourly (La Quinta, Hampton Inn). CRITICAL: Some off-site lots have NO shuttle outside limited hours — verify before booking for early/late flights.",
+  "distanceFromCity": "8 miles west of downtown Miami. 15-30 minutes by car. ~12 minutes by Metrorail ($2.25). Miami's international gateway for Latin America and the Caribbean.",
+  "keyDistances": {
+    "toDowntownMiami": "8 miles, 15-30 min by car, 12 min by Metrorail ($2.25), $15-25 rideshare",
+    "toBrickell": "9 miles, 15-30 min by car, 15 min by Metrorail, $15-25 rideshare",
+    "toSouthBeach": "14 miles, 25-45 min by car, $20-35 rideshare, $35 flat-rate taxi",
+    "toMiamiBeach": "12 miles, 20-40 min by car, $20-35 rideshare",
+    "toCoralGables": "6 miles, 10-20 min by car, $15-25 rideshare",
+    "toDoral": "4 miles, 10-15 min by car, $10-20 rideshare",
+    "toCoconutGrove": "10 miles, 15-30 min by car, 20 min by Metrorail, $20-30 rideshare",
+    "toWynwood": "8 miles, 15-25 min by car, $15-25 rideshare",
+    "toLittleHavana": "5 miles, 10-20 min by car",
+    "toKeyBiscayne": "16 miles, 25-40 min by car, $35 flat-rate taxi",
+    "toPortOfMiami": "10 miles, 15-25 min by car, $24 flat-rate taxi",
+    "toFortLauderdaleAirport": "30 miles, 30-50 min by car, Tri-Rail or Brightline available",
+    "toWestPalmBeach": "70 miles, 75-90 min by car, Tri-Rail or Brightline available",
+    "toOrlando": "235 miles, 3.5-4 hours by car, Brightline high-speed rail available",
+    "toKeyWest": "160 miles, 3.5-4 hours by car (Overseas Highway)",
+    "competitiveAdvantage": "MIA's Metrorail connection provides cheap ($2.25) direct transit to downtown Miami and Brickell in 12-15 minutes. For South Beach, the $35 flat-rate taxi is reliable and avoids surge pricing. MIA's unique advantage is Brightline high-speed rail connectivity — you can reach Fort Lauderdale in 30 min or Orlando in 3.5 hours by train from nearby MiamiCentral station."
+  },
+  "construction2026": {
+    "status": "Massive $12 billion capital improvement program underway — largest in airport's history.",
+    "projects": [
+      "Concourse D60 Expansion ($1B) — 17 new full-size gates replacing regional jet gates. Breaking ground 2027. Three-level extension for larger aircraft.",
+      "Concourse K (South Terminal, 6 gates) — Broke ground 2025. Completion ~2029. Domestic gates with future international capability.",
+      "Central Terminal Total Redevelopment — Complete rebuild of space between Concourses E and G. Part of $12B program.",
+      "Restroom Modernization Phase 2 — 50 restrooms across Concourses D, E, F, G, H, J. Completion Fall 2026.",
+      "International Arrivals Corridor (F-H) — Groundbreaking Fall 2026. Connecting corridor for international arrivals.",
+      "New Four-Star Hotel — Hotel with business center and conference space within airport complex. Part of $12B plan.",
+      "American Airlines Lounge Expansion — Nearly doubling lounge space at MIA. New Flagship Lounge + expanded Admirals Club.",
+      "Elevator/Escalator/Moving Walkway Upgrades — All vertical transportation being modernized across all terminals."
+    ],
+    "travelImpact": "Construction is ongoing but airport remains fully operational. Some concourse areas may have temporary detours. No parking closures expected in 2026.",
+    "timeline": {
+      "restroomPhase2": "Fall 2026 completion",
+      "internationalCorridor": "Fall 2026 groundbreaking",
+      "concourseD60": "2027 groundbreaking",
+      "concourseK": "~2029 completion",
+      "centralTerminal": "Multi-year phased redevelopment"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["North Terminal", "Central Terminal", "South Terminal"],
+      "note": "TSA PreCheck available at all terminal security checkpoints"
+    },
+    "clear": {
+      "terminals": ["North Terminal", "Central Terminal"],
+      "note": "CLEAR available at select checkpoints"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks available in arrivals for international passengers. MPC (Mobile Passport Control) also available."
+    },
+    "standardWaitTimes": {
+      "average": "15-30 minutes",
+      "peakHours": "5:00-8:00 AM (Latin America departures), 3:00-6:00 PM, 8:00-11:00 PM (Europe/South America departures)",
+      "tips": "MIA has high international passenger volume — allow extra time for security, especially during Latin American peak departure banks."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours for Thanksgiving, Christmas, spring break, cruise embarkation days"
+    }
+  },
+  "lounges": {
+    "northTerminal": [
+      {
+        "name": "American Airlines Admirals Club (D15)",
+        "location": "Concourse D, third floor above Gate D15",
+        "hours": "5:30 AM - 10:30 PM daily",
+        "access": "Admirals Club membership, Oneworld Emerald/Sapphire, AAdvantage Executive Platinum/Platinum Pro, Citi/AAdvantage Executive card",
+        "amenities": "Complimentary food, drinks, bar, WiFi, workspaces."
+      },
+      {
+        "name": "American Airlines Admirals Club + Flagship Lounge (D30)",
+        "location": "Concourse D, across from Gate D30",
+        "hours": "5:00 AM - 10:30 PM daily",
+        "access": "Admirals Club for general access; Flagship Lounge for First/Business Class on qualifying long-haul flights",
+        "amenities": "Flagship Lounge includes: à la carte Flagship Dining, premium bar, shower suites, day beds. Admirals Club: standard food, drinks, WiFi."
+      },
+      {
+        "name": "American Express Centurion Lounge",
+        "location": "North Terminal Concourse D, near Gate D12",
+        "hours": "5:00 AM - 10:00 PM daily",
+        "access": "Amex Platinum, Centurion, Business Platinum cardholders. 2 guests included.",
+        "amenities": "Premium food, cocktails by local mixologist, full bar, WiFi, shower suites, workspaces, phone rooms."
+      }
+    ],
+    "centralTerminal": [
+      {
+        "name": "Turkish Airlines Lounge (2 locations)",
+        "location": "Central Terminal",
+        "access": "Turkish Airlines Business Class, Star Alliance Gold, Priority Pass",
+        "amenities": "Full buffet, shower facilities, WiFi."
+      },
+      {
+        "name": "Avianca and TAP Portugal Lounge",
+        "location": "Central Terminal",
+        "access": "Avianca/TAP Business Class, Star Alliance Gold",
+        "amenities": "Food, drinks, WiFi."
+      },
+      {
+        "name": "LATAM VIP Lounge",
+        "location": "Central Terminal",
+        "access": "LATAM Business Class, Oneworld Emerald/Sapphire",
+        "amenities": "Food, drinks, WiFi, workspaces."
+      }
+    ],
+    "southTerminal": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse H-J connector",
+        "hours": "4:45 AM - 8:45 PM daily",
+        "access": "Delta Sky Club membership, Delta One, Delta Reserve Amex, SkyTeam Elite Plus",
+        "amenities": "Full-service bar, shower facilities, food, WiFi, workspaces."
+      }
+    ],
+    "other": [
+      {
+        "name": "Military Hospitality Lounge",
+        "location": "MIA terminal",
+        "access": "Active-duty military and families. FREE.",
+        "amenities": "Refreshments, charging stations, WiFi."
+      },
+      {
+        "name": "XpresSpa",
+        "location": "MIA terminal",
+        "access": "Priority Pass members + paid walk-ins",
+        "amenities": "Spa treatments, massage, manicure."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "MIA Free WiFi",
+    "cost": "Free",
+    "coverage": "All terminals and concourses"
+  },
+  "evCharging": {
+    "ibisGarage": {
+      "chargers": 50,
+      "location": "Levels 1-5",
+      "type": "ChargePoint Level 2",
+      "cost": "$0.38/kWh (NOT free)"
+    },
+    "otherLocations": [
+      "Arrivals 1st level (inner loop, Terminals E-G)",
+      "Departures 2nd level (valet areas)"
+    ],
+    "totalPorts": "50+ EV charging ports",
+    "note": "Unlike BOS and IAD, MIA charges for EV charging ($0.38/kWh via ChargePoint). Ibis Garage has the most ports."
+  },
+  "luggageStorage": {
+    "onSite": "Luggage storage is NOT available on-site at MIA.",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Miami, Brickell, South Beach" },
+      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Miami locations" },
+      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Brickell, Downtown Miami, Miami Beach" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas available in terminal",
+    "note": "Check MIA airport maps for current pet relief area locations."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-8:00 AM (Latin America morning departures)", "11:00 AM-2:00 PM", "8:00-11:00 PM (Europe/South America evening departures)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday"],
+    "seasonalPeak": "December-April is peak season (snowbird season + Latin American holidays + cruise season). Art Basel (December), Ultra Music Festival (March), spring break (March-April), and cruise ship turnaround days at Port of Miami create significant spikes.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "3+ hours during peak season"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Tropical monsoon climate. Hot and humid year-round. Wet season June-November. Hurricane season June-November.",
+    "commonDisruptions": "Hurricane season (June-November) is the primary disruption risk — tropical storms and hurricanes can close the airport entirely. Afternoon thunderstorms year-round but especially June-September. Heavy rain can cause temporary ground stops.",
+    "bestMonths": "November through April — dry season, comfortable temperatures, peak tourist season (but busier airport)",
+    "worstMonths": "August-October (peak hurricane risk + extreme humidity + afternoon thunderstorms daily)",
+    "hurricaneNote": "MIA is in a major hurricane zone. Tropical storms and hurricanes can shut down the airport for 1-3 days. Travel insurance strongly recommended for June-November travel. Airport has robust recovery procedures but cancellations are inevitable during named storms.",
+    "summerThunderstorms": "June-September: daily afternoon thunderstorms are nearly guaranteed. Typically 2-4 PM. Usually clear by evening. Can cause 1-2 hour delays but rarely last all day.",
+    "note": "MIA's tropical location means weather disruptions are common but usually brief (except hurricanes). Morning flights are most reliable year-round."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle packages near MIA. Most hotels in Doral, Miami Springs, and along LeJeune Road offer park-sleep-fly packages.",
+    "priceRange": "From ~$136/night (1-night stay + up to 15 days parking + free airport shuttle)",
+    "popularHotels": [
+      {
+        "name": "EVEN Hotel Miami Airport",
+        "distance": "1.6 miles",
+        "parkingIncluded": "Up to 15 days",
+        "shuttleHours": "24/7 on-demand",
+        "parkOnlyRate": "$7.99/day",
+        "highlight": "Covered parking. 24/7 shuttle. Best value park-and-fly."
+      },
+      {
+        "name": "La Quinta Inn & Suites Miami Airport East",
+        "distance": "2 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "Hourly 5 AM - 10 PM",
+        "parkOnlyRate": "$7.95/day",
+        "highlight": "Budget-friendly with gated lot."
+      },
+      {
+        "name": "Hampton Inn Miami Airport West",
+        "distance": "5.4 miles",
+        "parkingIncluded": "Up to 14 days",
+        "shuttleHours": "From 4:30 AM, then hourly",
+        "parkOnlyRate": "$9.50/day",
+        "highlight": "Highly rated (4.8/5). Early 4:30 AM shuttle."
+      }
+    ],
+    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip for 2 travelers",
+    "onAirport": {
+      "dolphinFlamingoGarage": { "parkingCost": "$175 (7 × $25)", "totalEstimate": "$175" },
+      "valetParking": { "parkingCost": "$273 (7 × $39)", "totalEstimate": "$273" },
+      "economyParkAndRide": { "parkingCost": "$84 (7 × $12)", "totalEstimate": "$84" }
+    },
+    "offSiteWithShuttle": {
+      "dealAirportParking": { "parkingCost": "$48.65 (7 × $6.95 pre-booked)", "savingsVsGarage": "~$126 saved", "caveat": "24/7 shuttle" },
+      "evenHotel": { "parkingCost": "$55.93 (7 × $7.99)", "savingsVsGarage": "~$119 saved", "caveat": "24/7 shuttle + covered parking" },
+      "greenAirportParking": { "parkingCost": "$48.93 (7 × $6.99)", "savingsVsGarage": "~$126 saved", "caveat": "Shuttle 8 AM-8 PM ONLY" }
+    },
+    "publicTransit": {
+      "metrorailRoundTrip": { "costPerPersonRoundTrip": "$4.50", "travelTime": "12-15 min to downtown/Brickell", "note": "$2.25 per ride. Cheapest option for downtown-bound travelers." },
+      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than parking for trips of any length if headed downtown" }
+    },
+    "keyDifference": "MIA offers excellent off-site parking value — $6.95-7.99/day with shuttle vs $25/day on-airport garages. The Economy Park & Ride at $12/day is the budget on-airport option but has only 350 spaces. Metrorail at $2.25 is unbeatable for downtown/Brickell travelers. For South Beach, the $35 flat-rate taxi is the best deal (avoids surge pricing)."
+  },
+  "uniqueFeatures": {
+    "largestUSInternationalGateway": "MIA is the #1 U.S. airport for international passenger traffic and the busiest international cargo airport in the country. More than 70% of passengers are international travelers.",
+    "latinAmericaHub": "MIA is the undisputed gateway between North and South America. More flights to Latin America and the Caribbean than any other U.S. airport. American Airlines operates its largest hub here specifically for this connectivity.",
+    "panAmHistory": "Originally opened in 1928 as Pan American Airways Airport — the birthplace of U.S. international commercial aviation. Pan Am's first international scheduled flight departed from MIA.",
+    "longestCommercialRunway": "Runway 9/27 at 13,016 feet is one of the longest commercial runways in the United States — designed to handle the heaviest widebody and cargo aircraft.",
+    "miaMoverSystem": "Free automated people mover connecting terminals to the Miami Intermodal Center — a hub for Metrorail, Tri-Rail, rental cars, and bus connections. Unique integrated multi-modal transit design.",
+    "brightlineConnection": "MIA is connected to Brightline high-speed rail via the Airport Connector Shuttle ($12) — reach Fort Lauderdale in 30 minutes or Orlando in 3.5 hours by train. First major U.S. airport with high-speed rail connectivity.",
+    "cruisePortProximity": "Port of Miami (world's busiest cruise port) is 10 miles from MIA — flat-rate taxi $24. MIA is the natural airport for cruise passengers.",
+    "flatRateTaxiZones": "MIA has flat-rate taxi zones to popular destinations — $35 to South Beach, $24 to Port of Miami, $35 to Key Biscayne. Avoids meter anxiety and surge pricing.",
+    "miaVsFllVsPbi": "MIA is the primary international airport (90+ airlines, 195 destinations). FLL (Fort Lauderdale, 30 miles north) is the budget carrier alternative (Spirit, JetBlue, Southwest). PBI (West Palm Beach) is the smallest. For international travel, MIA has no substitute in South Florida."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(305) 876-7000",
+    "airportWebsite": "miami-airport.com",
+    "parkingInfo": "booking.mia-parking.com",
+    "parkingPhone": "(305) 876-0118",
+    "tsa": "(866) 289-9673",
+    "metrorailInfo": "(305) 891-3131",
+    "miamiDadeTransit": "miamidade.gov/transit",
+    "brightline": "gobrightline.com",
+    "airportPolice": "(305) 876-7373"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-04-09.",
+    "officialAirport": {
+      "home": "https://www.miami-airport.com/",
+      "parking": "https://miami-airport.com/airport-parking.asp",
+      "parkingReservations": "https://booking.mia-parking.com/",
+      "groundTransportation": "https://www.miami-airport.com/ground-transportation.asp",
+      "publicTransportation": "https://www.miami-airport.com/public-transportation.asp",
+      "taxiAndRideApp": "http://miami-airport.com/taxicabs-shuttles.asp",
+      "rentalCars": "https://www.miami-airport.com/car-rentals.asp",
+      "clubsAndLounges": "https://www.miami-airport.com/clubs-and-lounges.asp",
+      "miaFutureReady": "https://miami-airport.com/MIAFutureReady.asp",
+      "capitalImprovement": "https://www.miami-airport.com/capital_improvement.asp",
+      "concourseK": "https://www.miami-airport.com/MIA_Concourse_K.asp"
+    },
+    "transit": {
+      "metrorail": "https://www.miamidade.gov/global/transportation/metrorail.page",
+      "metrorailSchedules": "https://www.miamidade.gov/transportation-publicworks/rail_schedules.asp",
+      "metrobus": "https://www.miamidade.gov/global/transportation/metrobus-routes-serving-mia.page",
+      "brightline": "https://www.gobrightline.com/",
+      "brightlineAirportShuttle": "https://www.gobrightline.com/offers/airport-connector-shuttles"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/mia/",
+      "lyft": "https://www.lyft.com/rider/airports/mia"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=MIA",
+      "airportParkingReservations": "https://airportparkingreservations.com/mia/airport-parking",
+      "way": "https://www.way.com/mia",
+      "spothero": "https://spothero.com/airport/miami/mia-parking",
+      "book2park": "https://www.book2park.com/airport/mia-miami-airport-parking",
+      "cheapAirportParking": "https://www.cheapairportparking.org/mia",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/miami-international-airport-mia",
+      "parkon": "https://www.parkon.com/info/airport-parking-guide-mia"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "clearMIA": "https://www.clearme.com"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/miami-mia-airport-lounges/",
+      "centurionLounge": "https://www.americanexpress.com/en-us/travel/lounges/the-platinum-card/MIA/",
+      "admiralsClub": "https://www.aa.com/i18n/travelInformation/airportAmenities/mia-club.jsp"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KMIA",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/MIA",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=mia"
+    },
+    "evCharging": {
+      "chargePoint": "https://www.chargepoint.com/"
+    },
+    "parkSleepFly": {
+      "parkSleepFly": "https://parksleepfly.com/mia/airport-parking",
+      "parkSleepHotels": "https://mia.parksleephotels.com/",
+      "parkingAccess": "https://parkingaccess.com/park-fly-hotels/miami-mia-airport"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/miami-international-mia-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Miami_International_Airport",
+      "ifly": "https://www.ifly.com/airports/miami-international-airport"
+    },
+    "newsAndMedia": {
+      "miamiHerald": "https://www.miamiherald.com/",
+      "localTenNews": "https://www.local10.com/",
+      "nbcMiami": "https://www.nbcmiami.com/"
+    }
+  }
+}
