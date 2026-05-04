@@ -269,12 +269,22 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     );
   }
 
-  if (!lot) {
-    const isAuthRequired = fetchStatus === "auth-required";
-    const headline = isAuthRequired ? "Open Your Confirmation Link" : "Booking Not Found";
-    const message = isAuthRequired
-      ? "To view this booking, please open the confirmation email we sent you and click the View Booking Details button. The link includes the verification we need to load your reservation."
-      : "We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.";
+  // Render an error screen for any non-OK fetch result, BEFORE the happy
+  // path. Otherwise stale sessionStorage lot data could render the
+  // confirmation page with placeholder customer info on a failed fetch.
+  if (fetchStatus && fetchStatus !== "ok") {
+    let headline: string;
+    let message: string;
+    if (fetchStatus === "auth-required") {
+      headline = "Open Your Confirmation Link";
+      message = "To view this booking, please open the confirmation email we sent you and click the View Booking Details button. The link includes the verification we need to load your reservation.";
+    } else if (fetchStatus === "error") {
+      headline = "Something Went Wrong";
+      message = "We had trouble loading your booking. Please try again in a moment, or use the link in your confirmation email.";
+    } else {
+      headline = "Booking Not Found";
+      message = "We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.";
+    }
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar forceSolid />
@@ -283,6 +293,34 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
             <h1 className="text-2xl font-bold text-gray-900 mb-4">{headline}</h1>
             <p className="text-gray-600 mb-8">{message}</p>
+            <Link
+              href="/"
+              className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              <Home size={18} className="mr-2" />
+              Return Home
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Fetch succeeded but we still have no lot data (e.g., reservation has no
+  // location, or sessionStorage was empty on a re-visit) — fall back to the
+  // generic not-found screen rather than rendering placeholders.
+  if (!lot) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar forceSolid />
+        <main className="pt-20">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+            <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Booking Not Found</h1>
+            <p className="text-gray-600 mb-8">
+              We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.
+            </p>
             <Link
               href="/"
               className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
