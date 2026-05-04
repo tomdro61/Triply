@@ -26,8 +26,8 @@ interface CheckoutFormProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
-  checkInTime?: string;
-  checkOutTime?: string;
+  checkInTime: string;
+  checkOutTime: string;
   costData?: CheckoutCostData | null;
   fromDate?: string;
   toDate?: string;
@@ -42,8 +42,8 @@ export function CheckoutForm({
   lot,
   checkIn,
   checkOut,
-  checkInTime = "10:00 AM",
-  checkOutTime = "2:00 PM",
+  checkInTime,
+  checkOutTime,
   costData,
   fromDate,
   toDate,

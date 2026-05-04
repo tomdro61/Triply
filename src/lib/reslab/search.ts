@@ -228,6 +228,8 @@ export async function searchParking(
     airport: airportCode,
     checkin,
     checkout,
+    // Search results show "from $X" estimates only — the customer must pick
+    // their actual times on the lot detail page before booking.
     checkinTime = "10:00 AM",
     checkoutTime = "2:00 PM",
     sort = "popularity",

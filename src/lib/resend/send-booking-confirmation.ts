@@ -10,8 +10,8 @@ interface SendBookingConfirmationParams {
   lotAddress: string;
   checkInDate: string;
   checkOutDate: string;
-  checkInTime?: string;
-  checkOutTime?: string;
+  checkInTime: string;
+  checkOutTime: string;
   totalAmount: number;
   dueAtLocation?: number;
   vehicleInfo?: string;
@@ -28,8 +28,8 @@ export async function sendBookingConfirmation({
   lotAddress,
   checkInDate,
   checkOutDate,
-  checkInTime = "10:00 AM",
-  checkOutTime = "2:00 PM",
+  checkInTime,
+  checkOutTime,
   totalAmount,
   dueAtLocation,
   vehicleInfo,
@@ -42,6 +42,7 @@ export async function sendBookingConfirmation({
     const emailHtml = await render(
       BookingConfirmationEmail({
         customerName,
+        customerEmail: to,
         confirmationNumber,
         lotName,
         lotAddress,

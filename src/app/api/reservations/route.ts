@@ -6,6 +6,7 @@ import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-no
 import { reservationSchema } from "@/lib/validation/schemas";
 import { stripe } from "@/lib/stripe/client";
 import { capturePaymentError } from "@/lib/sentry";
+import { convertTo12Hour } from "@/lib/utils/time";
 
 const DEV_SKIP_PAYMENT =
   process.env.NODE_ENV === "development" &&
@@ -238,14 +239,18 @@ export async function POST(request: NextRequest) {
     // Send confirmation email (don't fail if email fails)
     try {
       const vehicleInfo = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
+      const [checkInDate, checkInTime24] = fromDate.split(" ");
+      const [checkOutDate, checkOutTime24] = toDate.split(" ");
       await sendBookingConfirmation({
         to: customer.email,
         customerName: `${customer.firstName} ${customer.lastName}`,
         confirmationNumber: reservation.reservation_number,
         lotName: locationName || resLocation?.name || `Location ${locationId}`,
         lotAddress: locationAddress || resLocation?.address || "",
-        checkInDate: fromDate.split(" ")[0], // Extract date part
-        checkOutDate: toDate.split(" ")[0],
+        checkInDate,
+        checkOutDate,
+        checkInTime: convertTo12Hour(checkInTime24),
+        checkOutTime: convertTo12Hour(checkOutTime24),
         totalAmount: (resHistory?.grand_total || grandTotal || 0) + (triplyServiceFee || 0),
         dueAtLocation: resHistory?.due_at_location_total || 0,
         vehicleInfo,

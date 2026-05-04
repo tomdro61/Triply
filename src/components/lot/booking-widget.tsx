@@ -81,8 +81,8 @@ export function BookingWidget({
   lot,
   initialCheckIn,
   initialCheckOut,
-  initialCheckInTime = "10:00 AM",
-  initialCheckOutTime = "2:00 PM",
+  initialCheckInTime = "",
+  initialCheckOutTime = "",
 }: BookingWidgetProps) {
   const router = useRouter();
 
@@ -142,7 +142,17 @@ export function BookingWidget({
       : `${lot.cancellationPolicies[0].percentage}% refund if cancelled`
     : "Free cancellation up to 24h before";
 
+  const timesMissing = !checkInTime || !checkOutTime;
+  const belowMinDays = lot.minimumBookingDays ? days < lot.minimumBookingDays : false;
+  const reserveDisabled = timesMissing || belowMinDays;
+  const reserveDisabledReason = timesMissing
+    ? "Select check-in and check-out times"
+    : belowMinDays
+      ? `Minimum ${lot.minimumBookingDays} days required`
+      : undefined;
+
   const handleReserve = () => {
+    if (reserveDisabled) return;
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: checkIn,
@@ -210,7 +220,8 @@ export function BookingWidget({
         </div>
         <button
           onClick={handleReserve}
-          disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
+          disabled={reserveDisabled}
+          title={reserveDisabledReason}
           className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Reserve Now
@@ -289,8 +300,13 @@ export function BookingWidget({
                   <select
                     value={checkInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
-                    className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                    className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
+                      checkInTime
+                        ? "bg-gray-50 border-gray-200 text-gray-900"
+                        : "bg-orange-50 border-brand-orange text-gray-500"
+                    }`}
                   >
+                    <option value="" disabled>Select</option>
                     {timeOptions.map((time) => (
                       <option key={time} value={time}>{time}</option>
                     ))}
@@ -324,8 +340,13 @@ export function BookingWidget({
                   <select
                     value={checkOutTime}
                     onChange={(e) => setCheckOutTime(e.target.value)}
-                    className="w-full pl-7 pr-6 py-1 bg-gray-50 border border-gray-200 rounded text-xs font-medium appearance-none cursor-pointer"
+                    className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
+                      checkOutTime
+                        ? "bg-gray-50 border-gray-200 text-gray-900"
+                        : "bg-orange-50 border-brand-orange text-gray-500"
+                    }`}
                   >
+                    <option value="" disabled>Select</option>
                     {timeOptions.map((time) => (
                       <option key={time} value={time}>{time}</option>
                     ))}
@@ -334,6 +355,13 @@ export function BookingWidget({
                 </div>
               </div>
             </div>
+
+            {timesMissing && (
+              <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
+                <AlertCircle size={12} className="flex-shrink-0" />
+                Please select check-in and check-out times
+              </p>
+            )}
           </div>
         )}
       </DateRangePicker>
@@ -380,7 +408,8 @@ export function BookingWidget({
       <div className="hidden lg:block space-y-3">
         <button
           onClick={handleReserve}
-          disabled={lot.minimumBookingDays ? days < lot.minimumBookingDays : false}
+          disabled={reserveDisabled}
+          title={reserveDisabledReason}
           className="w-full bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
         >
           Reserve Now

@@ -17,6 +17,8 @@ import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
+import { convertTo12Hour } from "@/lib/utils/time";
+import { captureBookingError } from "@/lib/sentry";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -72,13 +74,12 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const lotId = searchParams.get("lot");
   const checkInParam = searchParams.get("checkin");
   const checkOutParam = searchParams.get("checkout");
-  const checkInTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkOutTime = searchParams.get("checkoutTime") || "2:00 PM";
   const serviceFeeParam = searchParams.get("serviceFee");
+  const emailParam = searchParams.get("email");
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<"ok" | "auth-required" | "not-found" | "error" | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
   const hasFiredPurchase = useRef(false);
@@ -107,26 +108,43 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     getUser();
   }, [supabase.auth]);
 
-  // Fetch reservation data from API
+  // Fetch reservation data from API. Forward ?email= so guests (not logged in)
+  // can authenticate via the email verification path in /api/reservations/[id].
   useEffect(() => {
     const fetchReservation = async () => {
       try {
-        const response = await fetch(`/api/reservations/${confirmationId}`);
+        const url = emailParam
+          ? `/api/reservations/${confirmationId}?email=${encodeURIComponent(emailParam)}`
+          : `/api/reservations/${confirmationId}`;
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           setReservation(data.reservation);
+          setFetchStatus("ok");
+        } else if (response.status === 403) {
+          setFetchStatus("auth-required");
+        } else if (response.status === 404) {
+          setFetchStatus("not-found");
         } else {
-          // If not found, continue with fallback data
+          setFetchStatus("error");
+          captureBookingError(
+            new Error(`Confirmation ${confirmationId} fetch failed with status ${response.status}`),
+            { step: "confirmation" }
+          );
         }
       } catch (err) {
-        console.error("Error fetching reservation:", err);
+        setFetchStatus("error");
+        const wrapped = err instanceof Error
+          ? new Error(`Confirmation ${confirmationId}: ${err.message}`)
+          : new Error(`Confirmation ${confirmationId}: ${String(err)}`);
+        captureBookingError(wrapped, { step: "confirmation" });
       } finally {
         setLoading(false);
       }
     };
 
     fetchReservation();
-  }, [confirmationId]);
+  }, [confirmationId, emailParam]);
 
   // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
@@ -189,9 +207,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     return null;
   }, [reservation, lotId]);
 
-  // Get booking details from reservation or URL params
-  const checkIn = reservation?.items[0]?.fromDate?.split(" ")[0] || checkInParam || new Date().toISOString().split("T")[0];
-  const checkOut = reservation?.items[0]?.toDate?.split(" ")[0] || checkOutParam || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Get booking details from reservation; fall back to URL date params only.
+  // Times come exclusively from the reservation record — never from URL — so
+  // a shared/bookmarked confirmation URL cannot misreport the booking time.
+  const reservationFrom = reservation?.items[0]?.fromDate || "";
+  const reservationTo = reservation?.items[0]?.toDate || "";
+  const [reservationCheckIn, reservationCheckInTime24] = reservationFrom.split(" ");
+  const [reservationCheckOut, reservationCheckOutTime24] = reservationTo.split(" ");
+
+  const checkIn = reservationCheckIn || checkInParam || new Date().toISOString().split("T")[0];
+  const checkOut = reservationCheckOut || checkOutParam || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const checkInTime = convertTo12Hour(reservationCheckInTime24 || "");
+  const checkOutTime = convertTo12Hour(reservationCheckOutTime24 || "");
 
   // Calculate days and total
   const { days, total } = useMemo(() => {
@@ -242,6 +269,47 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     );
   }
 
+  // Render an error screen for any non-OK fetch result, BEFORE the happy
+  // path. Otherwise stale sessionStorage lot data could render the
+  // confirmation page with placeholder customer info on a failed fetch.
+  if (fetchStatus && fetchStatus !== "ok") {
+    let headline: string;
+    let message: string;
+    if (fetchStatus === "auth-required") {
+      headline = "Open Your Confirmation Link";
+      message = "To view this booking, please open the confirmation email we sent you and click the View Booking Details button. The link includes the verification we need to load your reservation.";
+    } else if (fetchStatus === "error") {
+      headline = "Something Went Wrong";
+      message = "We had trouble loading your booking. Please try again in a moment, or use the link in your confirmation email.";
+    } else {
+      headline = "Booking Not Found";
+      message = "We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.";
+    }
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar forceSolid />
+        <main className="pt-20">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+            <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">{headline}</h1>
+            <p className="text-gray-600 mb-8">{message}</p>
+            <Link
+              href="/"
+              className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              <Home size={18} className="mr-2" />
+              Return Home
+            </Link>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Fetch succeeded but we still have no lot data (e.g., reservation has no
+  // location, or sessionStorage was empty on a re-visit) — fall back to the
+  // generic not-found screen rather than rendering placeholders.
   if (!lot) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -249,9 +317,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         <main className="pt-20">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Booking Not Found
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Booking Not Found</h1>
             <p className="text-gray-600 mb-8">
               We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.
             </p>

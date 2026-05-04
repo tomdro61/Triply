@@ -15,10 +15,10 @@ import { UnifiedLot } from "@/types/lot";
 interface WhatsNextProps {
   lot: UnifiedLot;
   checkIn: string;
-  checkInTime?: string;
+  checkInTime: string;
 }
 
-export function WhatsNext({ lot, checkIn, checkInTime = "10:00 AM" }: WhatsNextProps) {
+export function WhatsNext({ lot, checkIn, checkInTime }: WhatsNextProps) {
   const checkInDate = new Date(checkIn + "T00:00:00");
   const formattedDate = checkInDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -26,11 +26,15 @@ export function WhatsNext({ lot, checkIn, checkInTime = "10:00 AM" }: WhatsNextP
     day: "numeric",
   });
 
+  const arrivalDescription = checkInTime
+    ? `On ${formattedDate} at ${checkInTime}, drive to ${lot.name}. Follow signs for check-in parking.`
+    : `On ${formattedDate}, drive to ${lot.name}. Follow signs for check-in parking.`;
+
   const steps = [
     {
       icon: Car,
       title: "Arrive at the Facility",
-      description: `On ${formattedDate} at ${checkInTime}, drive to ${lot.name}. Follow signs for check-in parking.`,
+      description: arrivalDescription,
       color: "bg-blue-100 text-blue-600",
     },
     {
