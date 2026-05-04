@@ -70,15 +70,45 @@ export async function GET(
       }
     }
 
-    // Fetch vehicle info + service fee from Supabase (stored reliably at booking time)
+    // Fetch booking record from Supabase. We pull check_in/check_out here as a
+    // primary source for booking times — ResLab's getReservation API has been
+    // observed returning normalized midnight values for parking_rates.from_date
+    // even when the original booking had a real time (e.g., FVSPF765362 returns
+    // "00:00:00" via API while the ResLab dashboard shows the correct 08:00 AM).
+    // Supabase preserves what the customer originally picked, so it's authoritative.
     const adminClientForVehicle = await createAdminClient();
-    const { data: bookingData } = await adminClientForVehicle
+    const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info, triply_service_fee")
+      .select("vehicle_info, triply_service_fee, check_in, check_out")
       .eq("reslab_reservation_number", id)
       .single();
 
+    if (bookingErr) {
+      // The auth check above already proved a booking row exists for this id —
+      // a failure here is anomalous and would silently re-introduce the original
+      // midnight-time bug if we just fell through to ResLab. Surface it.
+      captureBookingError(
+        new Error(`Supabase booking lookup failed for ${id}: ${bookingErr.message}`),
+        { step: "confirmation" }
+      );
+    }
+
     const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
+
+    // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
+    // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
+    const normalizeBookingDate = (value: string | null | undefined): string | null => {
+      if (!value) return null;
+      // Strip optional trailing fractional seconds + Z, then optional offset,
+      // then convert T to space. Anchored to end-of-string to avoid eating
+      // any digit run earlier in the value.
+      const trimmed = value
+        .replace(/\.\d+Z?$/, "")
+        .replace(/Z$|[+-]\d{2}:?\d{2}$/, "");
+      return trimmed.replace("T", " ");
+    };
+    const supabaseFromDate = normalizeBookingDate(bookingData?.check_in);
+    const supabaseToDate = normalizeBookingDate(bookingData?.check_out);
 
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
@@ -118,8 +148,10 @@ export async function GET(
         },
         items: dates ? [{
           type: "parking",
-          fromDate: parkingRates?.from_date || dates.from_date,
-          toDate: parkingRates?.to_date || dates.to_date,
+          // Prefer Supabase values for times — ResLab's API can return midnight
+          // even when the dashboard shows the correct picked time.
+          fromDate: supabaseFromDate || parkingRates?.from_date || dates.from_date,
+          toDate: supabaseToDate || parkingRates?.to_date || dates.to_date,
           numberOfDays: parkingRates?.number_of_days || dates.number_of_days,
           numberOfSpots: parkingRates?.number_of_parkings || 1,
           parkingType: parkingRates?.rate?.location_parking_type?.name || dates.type?.name,
