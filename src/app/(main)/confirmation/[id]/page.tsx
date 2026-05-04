@@ -17,6 +17,7 @@ import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
+import { convertTo12Hour } from "@/lib/utils/time";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -72,8 +73,6 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const lotId = searchParams.get("lot");
   const checkInParam = searchParams.get("checkin");
   const checkOutParam = searchParams.get("checkout");
-  const checkInTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkOutTime = searchParams.get("checkoutTime") || "2:00 PM";
   const serviceFeeParam = searchParams.get("serviceFee");
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
@@ -189,9 +188,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     return null;
   }, [reservation, lotId]);
 
-  // Get booking details from reservation or URL params
-  const checkIn = reservation?.items[0]?.fromDate?.split(" ")[0] || checkInParam || new Date().toISOString().split("T")[0];
-  const checkOut = reservation?.items[0]?.toDate?.split(" ")[0] || checkOutParam || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // Get booking details from reservation; fall back to URL date params only.
+  // Times come exclusively from the reservation record — never from URL — so
+  // a shared/bookmarked confirmation URL cannot misreport the booking time.
+  const reservationFrom = reservation?.items[0]?.fromDate || "";
+  const reservationTo = reservation?.items[0]?.toDate || "";
+  const [reservationCheckIn, reservationCheckInTime24] = reservationFrom.split(" ");
+  const [reservationCheckOut, reservationCheckOutTime24] = reservationTo.split(" ");
+
+  const checkIn = reservationCheckIn || checkInParam || new Date().toISOString().split("T")[0];
+  const checkOut = reservationCheckOut || checkOutParam || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const checkInTime = convertTo12Hour(reservationCheckInTime24 || "");
+  const checkOutTime = convertTo12Hour(reservationCheckOutTime24 || "");
 
   // Calculate days and total
   const { days, total } = useMemo(() => {

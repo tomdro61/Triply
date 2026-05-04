@@ -12,8 +12,8 @@ const checkoutGetSchema = z.object({
   lotId: z.string().min(1),
   checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
-  checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
-  checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Invalid time format").optional(),
+  checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-in time is required"),
+  checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-out time is required"),
 });
 
 export async function GET(request: NextRequest) {
@@ -35,11 +35,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const lotId = searchParams.get("lotId")!;
-  const checkin = searchParams.get("checkin")!;
-  const checkout = searchParams.get("checkout")!;
-  const checkinTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkoutTime = searchParams.get("checkoutTime") || "2:00 PM";
+  const { lotId, checkin, checkout, checkinTime, checkoutTime } = validation.data;
 
   try {
     // Convert times to 24-hour format
@@ -156,8 +152,8 @@ const checkoutPostSchema = z.object({
   locationId: z.number().int().positive(),
   checkin: z.string().min(1),
   checkout: z.string().min(1),
-  checkinTime: z.string().default("10:00 AM"),
-  checkoutTime: z.string().default("2:00 PM"),
+  checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-in time is required"),
+  checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-out time is required"),
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),

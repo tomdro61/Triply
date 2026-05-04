@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ShieldCheck, AlertCircle } from "lucide-react";
 import { Navbar, Footer } from "@/components/shared";
@@ -18,6 +18,7 @@ interface CheckoutData {
 
 function CheckoutContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const lotId = searchParams.get("lot");
   // Default dates use tomorrow (ResLab requires advance booking)
@@ -27,8 +28,8 @@ function CheckoutContent() {
   const checkOut =
     searchParams.get("checkout") ||
     new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const checkInTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkOutTime = searchParams.get("checkoutTime") || "2:00 PM";
+  const checkInTime = searchParams.get("checkinTime") || "";
+  const checkOutTime = searchParams.get("checkoutTime") || "";
 
   const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -36,6 +37,11 @@ function CheckoutContent() {
 
   useEffect(() => {
     if (!lotId) {
+      setLoading(false);
+      return;
+    }
+    if (!checkInTime || !checkOutTime) {
+      setError("Please select check-in and check-out times before continuing.");
       setLoading(false);
       return;
     }
@@ -98,13 +104,19 @@ function CheckoutContent() {
                 Unable to Load Checkout
               </h1>
               <p className="text-gray-600 mb-8">{error}</p>
-              <Link
-                href="/search"
+              <button
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    router.back();
+                  } else {
+                    router.push("/search");
+                  }
+                }}
                 className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
               >
                 <ChevronLeft size={18} className="mr-2" />
-                Back to Search
-              </Link>
+                Go Back
+              </button>
             </div>
           </div>
         </main>
@@ -159,7 +171,7 @@ function CheckoutContent() {
                 Please search for another parking option.
               </p>
               <Link
-                href={`/search?checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`}
+                href={`/search?checkin=${checkIn}&checkout=${checkOut}`}
                 className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
               >
                 <ChevronLeft size={18} className="mr-2" />
@@ -183,7 +195,7 @@ function CheckoutContent() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
               <Link
-                href={`/search?checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}`}
+                href={`/search?checkin=${checkIn}&checkout=${checkOut}`}
                 className="flex items-center text-gray-600 hover:text-brand-orange transition-colors font-medium text-sm"
               >
                 <ChevronLeft size={18} className="mr-1" />

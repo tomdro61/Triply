@@ -8,8 +8,8 @@ interface AddToCalendarProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
-  checkInTime?: string;
-  checkOutTime?: string;
+  checkInTime: string;
+  checkOutTime: string;
   confirmationId: string;
 }
 
@@ -17,10 +17,12 @@ export function AddToCalendar({
   lot,
   checkIn,
   checkOut,
-  checkInTime = "10:00 AM",
-  checkOutTime = "2:00 PM",
+  checkInTime,
+  checkOutTime,
   confirmationId,
 }: AddToCalendarProps) {
+  const hasTimes = Boolean(checkInTime && checkOutTime);
+
   const formatTimePart = (time12h: string): string => {
     return convertTo24Hour(time12h).replace(":", "") + "00";
   };
@@ -37,8 +39,21 @@ export function AddToCalendar({
     return dateStr.replace(/-/g, "");
   };
 
+  // RFC 5545: DTEND for all-day events is exclusive — a single-day event
+  // ending May 1 needs DTEND of May 2.
+  const addOneDayForICS = (dateStr: string) => {
+    const d = new Date(dateStr + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}${month}${day}`;
+  };
+
   const eventTitle = `Parking at ${lot.name}`;
-  const eventDescription = `Confirmation: ${confirmationId}\\n\\nCheck-in: ${checkInTime}\\nCheck-out: ${checkOutTime}\\n\\nAddress: ${lot.address}, ${lot.city}, ${lot.state}\\n\\nRemember to:\\n- Arrive 15 minutes early\\n- Have your QR code ready\\n- Keep your parking ticket`;
+  const checkInLine = checkInTime ? `Check-in: ${checkInTime}\\n` : "";
+  const checkOutLine = checkOutTime ? `Check-out: ${checkOutTime}\\n` : "";
+  const eventDescription = `Confirmation: ${confirmationId}\\n\\n${checkInLine}${checkOutLine}\\nAddress: ${lot.address}, ${lot.city}, ${lot.state}\\n\\nRemember to:\\n- Arrive 15 minutes early\\n- Have your QR code ready\\n- Keep your parking ticket`;
   const eventLocation = `${lot.address}, ${lot.city}, ${lot.state} ${lot.zipCode || ""}`;
 
   const generateGoogleCalendarUrl = () => {
@@ -74,9 +89,13 @@ export function AddToCalendar({
   };
 
   const generateICSFile = () => {
-    const startDateTime = formatDateTimeForICS(checkIn, checkInTime);
-    const endDateTime = formatDateTimeForICS(checkOut, checkOutTime);
     const now = new Date().toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const dtStart = hasTimes
+      ? `DTSTART:${formatDateTimeForICS(checkIn, checkInTime)}`
+      : `DTSTART;VALUE=DATE:${formatDateForICS(checkIn)}`;
+    const dtEnd = hasTimes
+      ? `DTEND:${formatDateTimeForICS(checkOut, checkOutTime)}`
+      : `DTEND;VALUE=DATE:${addOneDayForICS(checkOut)}`;
 
     const icsContent = `BEGIN:VCALENDAR
 VERSION:2.0
@@ -84,8 +103,8 @@ PRODID:-//Triply//Parking Reservation//EN
 BEGIN:VEVENT
 UID:${confirmationId}@triplypro.com
 DTSTAMP:${now}
-DTSTART:${startDateTime}
-DTEND:${endDateTime}
+${dtStart}
+${dtEnd}
 SUMMARY:${eventTitle}
 DESCRIPTION:${eventDescription}
 LOCATION:${eventLocation}

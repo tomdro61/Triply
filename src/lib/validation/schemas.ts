@@ -19,8 +19,14 @@ export const paymentIntentSchema = z.object({
 export const reservationSchema = z.object({
   locationId: z.number().int().positive(),
   costsToken: z.string().min(1),
-  fromDate: z.string().min(1),
-  toDate: z.string().min(1),
+  fromDate: z.string().regex(
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+    "fromDate must be in 'YYYY-MM-DD HH:mm:ss' format with a time selected"
+  ),
+  toDate: z.string().regex(
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/,
+    "toDate must be in 'YYYY-MM-DD HH:mm:ss' format with a time selected"
+  ),
   parkingTypeId: z.number().int().positive(),
   customer: z.object({
     firstName: z.string().min(1).max(100),

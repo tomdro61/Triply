@@ -24,63 +24,8 @@ interface SearchHeaderProps {
   onDepartDateChange: (date: string) => void;
   returnDate: string;
   onReturnDateChange: (date: string) => void;
-  departTime: string;
-  onDepartTimeChange: (time: string) => void;
-  returnTime: string;
-  onReturnTimeChange: (time: string) => void;
   onSearch: () => void;
 }
-
-const timeOptions = [
-  "12:00 AM",
-  "12:30 AM",
-  "1:00 AM",
-  "1:30 AM",
-  "2:00 AM",
-  "2:30 AM",
-  "3:00 AM",
-  "3:30 AM",
-  "4:00 AM",
-  "4:30 AM",
-  "5:00 AM",
-  "5:30 AM",
-  "6:00 AM",
-  "6:30 AM",
-  "7:00 AM",
-  "7:30 AM",
-  "8:00 AM",
-  "8:30 AM",
-  "9:00 AM",
-  "9:30 AM",
-  "10:00 AM",
-  "10:30 AM",
-  "11:00 AM",
-  "11:30 AM",
-  "12:00 PM",
-  "12:30 PM",
-  "1:00 PM",
-  "1:30 PM",
-  "2:00 PM",
-  "2:30 PM",
-  "3:00 PM",
-  "3:30 PM",
-  "4:00 PM",
-  "4:30 PM",
-  "5:00 PM",
-  "5:30 PM",
-  "6:00 PM",
-  "6:30 PM",
-  "7:00 PM",
-  "7:30 PM",
-  "8:00 PM",
-  "8:30 PM",
-  "9:00 PM",
-  "9:30 PM",
-  "10:00 PM",
-  "10:30 PM",
-  "11:00 PM",
-  "11:30 PM",
-];
 
 function formatShortDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
@@ -96,10 +41,6 @@ export function SearchHeader({
   onDepartDateChange,
   returnDate,
   onReturnDateChange,
-  departTime,
-  onDepartTimeChange,
-  returnTime,
-  onReturnTimeChange,
   onSearch,
 }: SearchHeaderProps) {
   const [expanded, setExpanded] = useState(false);
@@ -158,60 +99,32 @@ export function SearchHeader({
             >
               {({ startTriggerProps, endTriggerProps }) => (
                 <>
-                  <div className="flex gap-2 mb-3">
-                    <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <button
-                        type="button"
-                        ref={startTriggerProps.ref}
-                        onClick={startTriggerProps.onClick}
-                        className="flex items-center w-full text-left cursor-pointer text-sm"
-                      >
-                        <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                        <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                          {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
-                        </span>
-                      </button>
-                    </div>
-                    <div className="relative w-32">
-                      <select
-                        value={departTime}
-                        onChange={(e) => onDepartTimeChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                      >
-                        {timeOptions.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                    </div>
+                  <div className="mb-3 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      ref={startTriggerProps.ref}
+                      onClick={startTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                      </span>
+                    </button>
                   </div>
 
-                  <div className="flex gap-2 mb-3">
-                    <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <button
-                        type="button"
-                        ref={endTriggerProps.ref}
-                        onClick={endTriggerProps.onClick}
-                        className="flex items-center w-full text-left cursor-pointer text-sm"
-                      >
-                        <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                        <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                          {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
-                        </span>
-                      </button>
-                    </div>
-                    <div className="relative w-32">
-                      <select
-                        value={returnTime}
-                        onChange={(e) => onReturnTimeChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                      >
-                        {timeOptions.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                    </div>
+                  <div className="mb-3 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      type="button"
+                      ref={endTriggerProps.ref}
+                      onClick={endTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                      </span>
+                    </button>
                   </div>
                 </>
               )}
@@ -231,7 +144,7 @@ export function SearchHeader({
         )}
       </div>
 
-      {/* Desktop: Full form (unchanged) */}
+      {/* Desktop: Full form */}
       <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
         {/* Search Inputs */}
         <div className="flex flex-col xl:flex-row gap-3">
@@ -245,7 +158,7 @@ export function SearchHeader({
             />
           </div>
 
-          {/* Date & Time Group */}
+          {/* Date Group */}
           <DateRangePicker
             startDate={departDate}
             endDate={returnDate}
@@ -256,61 +169,33 @@ export function SearchHeader({
             {({ startTriggerProps, endTriggerProps }) => (
               <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
                 {/* Depart */}
-                <div className="flex flex-1 gap-2">
-                  <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <button
-                      type="button"
-                      ref={startTriggerProps.ref}
-                      onClick={startTriggerProps.onClick}
-                      className="flex items-center w-full text-left cursor-pointer text-sm"
-                    >
-                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                      <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                        {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
-                      </span>
-                    </button>
-                  </div>
-                  <div className="relative w-32">
-                    <select
-                      value={departTime}
-                      onChange={(e) => onDepartTimeChange(e.target.value)}
-                      className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                    >
-                      {timeOptions.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                  </div>
+                <div className="flex-1 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <button
+                    type="button"
+                    ref={startTriggerProps.ref}
+                    onClick={startTriggerProps.onClick}
+                    className="flex items-center w-full text-left cursor-pointer text-sm"
+                  >
+                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                    <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                      {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                    </span>
+                  </button>
                 </div>
 
                 {/* Return */}
-                <div className="flex flex-1 gap-2">
-                  <div className="flex-grow py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <button
-                      type="button"
-                      ref={endTriggerProps.ref}
-                      onClick={endTriggerProps.onClick}
-                      className="flex items-center w-full text-left cursor-pointer text-sm"
-                    >
-                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                      <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                        {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
-                      </span>
-                    </button>
-                  </div>
-                  <div className="relative w-32">
-                    <select
-                      value={returnTime}
-                      onChange={(e) => onReturnTimeChange(e.target.value)}
-                      className="w-full pl-3 pr-8 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none appearance-none transition-all cursor-pointer"
-                    >
-                      {timeOptions.map((time) => (
-                        <option key={time} value={time}>{time}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" size={14} />
-                  </div>
+                <div className="flex-1 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                  <button
+                    type="button"
+                    ref={endTriggerProps.ref}
+                    onClick={endTriggerProps.onClick}
+                    className="flex items-center w-full text-left cursor-pointer text-sm"
+                  >
+                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                    <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                      {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                    </span>
+                  </button>
                 </div>
               </div>
             )}

@@ -33,23 +33,25 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const airport = searchParams.get("airport") || "JFK";
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
-  const checkin = searchParams.get("checkin") || tomorrow.toISOString().split("T")[0];
+  const airport = validation.data.airport;
+  const checkin = validation.data.checkin || tomorrow.toISOString().split("T")[0];
   const checkout =
-    searchParams.get("checkout") ||
+    validation.data.checkout ||
     new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const checkinTime = searchParams.get("checkinTime") || "10:00 AM";
-  const checkoutTime = searchParams.get("checkoutTime") || "2:00 PM";
-  const sort = (searchParams.get("sort") || "popularity") as SortOption;
+  // Pricing-only fallbacks: search results show "from $X" estimates. The actual
+  // booking time is captured on the lot detail page and validated server-side.
+  const pricingCheckinTime = validation.data.checkinTime || "10:00 AM";
+  const pricingCheckoutTime = validation.data.checkoutTime || "2:00 PM";
+  const sort = validation.data.sort || "popularity";
 
   try {
     const result = await searchParking({
       airport,
       checkin,
       checkout,
-      checkinTime,
-      checkoutTime,
+      checkinTime: pricingCheckinTime,
+      checkoutTime: pricingCheckoutTime,
       sort,
     });
 

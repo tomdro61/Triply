@@ -15,7 +15,6 @@ import { MobileMapCard } from "@/components/search/mobile-map-card";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
-import { getDefaultDepartTime } from "@/lib/utils/time";
 
 function SearchPageContent() {
   const router = useRouter();
@@ -29,16 +28,12 @@ function SearchPageContent() {
   const initialCheckout =
     searchParams.get("checkout") ||
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const initialCheckinTime = searchParams.get("checkinTime") || getDefaultDepartTime();
-  const initialCheckoutTime = searchParams.get("checkoutTime") || "2:00 PM";
 
   // State
   const [tab, setTab] = useState<SearchTab>("parking");
   const [airport, setAirport] = useState(initialAirport);
   const [departDate, setDepartDate] = useState(initialCheckin);
   const [returnDate, setReturnDate] = useState(initialCheckout);
-  const [departTime, setDepartTime] = useState(initialCheckinTime);
-  const [returnTime, setReturnTime] = useState(initialCheckoutTime);
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,8 +54,6 @@ function SearchPageContent() {
         airport,
         checkin: departDate,
         checkout: returnDate,
-        checkinTime: departTime,
-        checkoutTime: returnTime,
         sort: sortBy,
       });
       const response = await fetch(`/api/search?${params.toString()}`);
@@ -127,8 +120,6 @@ function SearchPageContent() {
       airport,
       checkin: departDate,
       checkout: returnDate,
-      checkinTime: departTime,
-      checkoutTime: returnTime,
     });
     router.push(`/search?${params.toString()}`);
     fetchResults();
@@ -165,10 +156,6 @@ function SearchPageContent() {
           onDepartDateChange={setDepartDate}
           returnDate={returnDate}
           onReturnDateChange={setReturnDate}
-          departTime={departTime}
-          onDepartTimeChange={setDepartTime}
-          returnTime={returnTime}
-          onReturnTimeChange={setReturnTime}
           onSearch={handleSearch}
         />
 
@@ -268,8 +255,8 @@ function SearchPageContent() {
           lot={selectedLot}
           checkIn={departDate}
           checkOut={returnDate}
-          checkInTime={departTime}
-          checkOutTime={returnTime}
+          checkInTime=""
+          checkOutTime=""
           airportCode={airport}
           onClose={() => setSelectedLot(null)}
         />

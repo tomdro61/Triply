@@ -57,12 +57,13 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   const defaultCheckout =
     checkout ||
     new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // tomorrow + 7 days
-  const defaultCheckinTime = checkinTime || "10:00 AM";
-  const defaultCheckoutTime = checkoutTime || "2:00 PM";
+  // For pricing lookup only — actual booking times are required to be picked by the user.
+  const pricingCheckinTime = checkinTime || "10:00 AM";
+  const pricingCheckoutTime = checkoutTime || "2:00 PM";
 
   // Format dates for API
-  const checkinTime24 = convertTo24Hour(defaultCheckinTime);
-  const checkoutTime24 = convertTo24Hour(defaultCheckoutTime);
+  const checkinTime24 = convertTo24Hour(pricingCheckinTime);
+  const checkoutTime24 = convertTo24Hour(pricingCheckoutTime);
   const fromDate = `${defaultCheckin} ${checkinTime24}:00`;
   const toDate = `${defaultCheckout} ${checkoutTime24}:00`;
 
@@ -78,7 +79,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   }
 
   // Build back URL
-  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}&checkinTime=${encodeURIComponent(defaultCheckinTime)}&checkoutTime=${encodeURIComponent(defaultCheckoutTime)}`;
+  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}`;
 
   // Structured data for parking facility
   const parkingSchema = {
@@ -171,8 +172,8 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
                 lot={lot}
                 initialCheckIn={defaultCheckin}
                 initialCheckOut={defaultCheckout}
-                initialCheckInTime={defaultCheckinTime}
-                initialCheckOutTime={defaultCheckoutTime}
+                initialCheckInTime={checkinTime || ""}
+                initialCheckOutTime={checkoutTime || ""}
               />
             </div>
           </div>

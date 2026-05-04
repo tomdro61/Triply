@@ -19,8 +19,8 @@ interface BookingDetailsProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
-  checkInTime?: string;
-  checkOutTime?: string;
+  checkInTime: string;
+  checkOutTime: string;
   days: number;
   total: number;
   customerName?: string;
@@ -34,8 +34,8 @@ export function BookingDetails({
   lot,
   checkIn,
   checkOut,
-  checkInTime = "10:00 AM",
-  checkOutTime = "2:00 PM",
+  checkInTime,
+  checkOutTime,
   days,
   total,
   customerName,
@@ -101,7 +101,9 @@ export function BookingDetails({
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkIn)}</p>
             <p className="text-sm text-gray-600">{formatLongDate(checkIn)}</p>
-            <p className="text-sm text-brand-orange font-medium mt-1">{checkInTime}</p>
+            {checkInTime && (
+              <p className="text-sm text-brand-orange font-medium mt-1">{checkInTime}</p>
+            )}
           </div>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex items-center text-gray-500 text-sm mb-1">
@@ -110,7 +112,9 @@ export function BookingDetails({
             </div>
             <p className="font-bold text-gray-900">{formatShortDate(checkOut)}</p>
             <p className="text-sm text-gray-600">{formatLongDate(checkOut)}</p>
-            <p className="text-sm text-brand-orange font-medium mt-1">{checkOutTime}</p>
+            {checkOutTime && (
+              <p className="text-sm text-brand-orange font-medium mt-1">{checkOutTime}</p>
+            )}
           </div>
         </div>
 
