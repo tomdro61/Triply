@@ -3,6 +3,7 @@ import { formatDate } from "@/lib/utils";
 
 interface BookingConfirmationEmailProps {
   customerName: string;
+  customerEmail: string;
   confirmationNumber: string;
   lotName: string;
   lotAddress: string;
@@ -20,6 +21,7 @@ interface BookingConfirmationEmailProps {
 
 export function BookingConfirmationEmail({
   customerName,
+  customerEmail,
   confirmationNumber,
   lotName,
   lotAddress,
@@ -194,10 +196,10 @@ export function BookingConfirmationEmail({
           </table>
         </div>
 
-        {/* CTA Button */}
+        {/* CTA Button — email param lets guest customers (not logged in) view their booking */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <a
-            href={`${appUrl}/confirmation/${confirmationNumber}`}
+            href={`${appUrl}/confirmation/${confirmationNumber}?email=${encodeURIComponent(customerEmail)}`}
             style={{
               display: "inline-block",
               backgroundColor: "#f87356",

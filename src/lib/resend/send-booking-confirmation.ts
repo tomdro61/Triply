@@ -42,6 +42,7 @@ export async function sendBookingConfirmation({
     const emailHtml = await render(
       BookingConfirmationEmail({
         customerName,
+        customerEmail: to,
         confirmationNumber,
         lotName,
         lotAddress,

@@ -99,6 +99,7 @@ async function main() {
 
   const emailProps = {
     customerName: `${customer.first_name} ${customer.last_name}`,
+    customerEmail: customer.email,
     confirmationNumber: booking.reslab_reservation_number,
     lotName: booking.location_name,
     lotAddress: booking.location_address,
