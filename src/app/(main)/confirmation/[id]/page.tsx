@@ -18,6 +18,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
 import { convertTo12Hour } from "@/lib/utils/time";
+import { captureBookingError } from "@/lib/sentry";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -74,10 +75,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkInParam = searchParams.get("checkin");
   const checkOutParam = searchParams.get("checkout");
   const serviceFeeParam = searchParams.get("serviceFee");
+  const emailParam = searchParams.get("email");
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchStatus, setFetchStatus] = useState<"ok" | "auth-required" | "not-found" | "error" | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
   const hasFiredPurchase = useRef(false);
@@ -106,26 +108,43 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     getUser();
   }, [supabase.auth]);
 
-  // Fetch reservation data from API
+  // Fetch reservation data from API. Forward ?email= so guests (not logged in)
+  // can authenticate via the email verification path in /api/reservations/[id].
   useEffect(() => {
     const fetchReservation = async () => {
       try {
-        const response = await fetch(`/api/reservations/${confirmationId}`);
+        const url = emailParam
+          ? `/api/reservations/${confirmationId}?email=${encodeURIComponent(emailParam)}`
+          : `/api/reservations/${confirmationId}`;
+        const response = await fetch(url);
         if (response.ok) {
           const data = await response.json();
           setReservation(data.reservation);
+          setFetchStatus("ok");
+        } else if (response.status === 403) {
+          setFetchStatus("auth-required");
+        } else if (response.status === 404) {
+          setFetchStatus("not-found");
         } else {
-          // If not found, continue with fallback data
+          setFetchStatus("error");
+          captureBookingError(
+            new Error(`Confirmation ${confirmationId} fetch failed with status ${response.status}`),
+            { step: "confirmation" }
+          );
         }
       } catch (err) {
-        console.error("Error fetching reservation:", err);
+        setFetchStatus("error");
+        const wrapped = err instanceof Error
+          ? new Error(`Confirmation ${confirmationId}: ${err.message}`)
+          : new Error(`Confirmation ${confirmationId}: ${String(err)}`);
+        captureBookingError(wrapped, { step: "confirmation" });
       } finally {
         setLoading(false);
       }
     };
 
     fetchReservation();
-  }, [confirmationId]);
+  }, [confirmationId, emailParam]);
 
   // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
@@ -251,18 +270,19 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   }
 
   if (!lot) {
+    const isAuthRequired = fetchStatus === "auth-required";
+    const headline = isAuthRequired ? "Open Your Confirmation Link" : "Booking Not Found";
+    const message = isAuthRequired
+      ? "To view this booking, please open the confirmation email we sent you and click the View Booking Details button. The link includes the verification we need to load your reservation."
+      : "We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.";
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar forceSolid />
         <main className="pt-20">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
             <AlertCircle size={48} className="mx-auto text-amber-500 mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Booking Not Found
-            </h1>
-            <p className="text-gray-600 mb-8">
-              We couldn't find details for this confirmation. The booking may have been cancelled or the confirmation number is incorrect.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">{headline}</h1>
+            <p className="text-gray-600 mb-8">{message}</p>
             <Link
               href="/"
               className="inline-flex items-center px-6 py-3 bg-brand-orange text-white font-bold rounded-lg hover:bg-orange-600 transition-colors"
