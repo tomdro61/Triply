@@ -18,14 +18,20 @@ dotenv.config({ path: ".env.local" });
 // evaluate the resend client before dotenv.config() loads RESEND_API_KEY.
 
 function formatTime(dbValue: string): string {
-  // Supabase returns e.g. "2026-04-26T11:00:00+00:00" or similar
-  const d = new Date(dbValue);
-  return d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    timeZone: "UTC",
-  });
+  // Supabase TIMESTAMP without tz returns "2026-05-10T08:00:00" (post-migration
+  // 007). Parsing through Date() would interpret the naive timestamp in the
+  // runner's local tz then formatting with timeZone: "UTC" would shift the hour.
+  // Extract the time portion directly to preserve the literal customer-picked time.
+  const timePart = dbValue.includes("T") ? dbValue.split("T")[1] : dbValue.split(" ")[1];
+  if (!timePart) return "";
+  const [h, m] = timePart.split(":");
+  const hours = parseInt(h, 10);
+  const minutes = parseInt(m, 10);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return "";
+  const modifier = hours >= 12 ? "PM" : "AM";
+  let displayHours = hours % 12;
+  if (displayHours === 0) displayHours = 12;
+  return `${displayHours}:${String(minutes).padStart(2, "0")} ${modifier}`;
 }
 
 function formatDateOnly(dbValue: string): string {

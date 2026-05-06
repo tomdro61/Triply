@@ -203,7 +203,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Date Filter */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-gray-400" />
             <select
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
           </div>
 
           {showCustomDatePicker && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 value={customStartDate}
@@ -364,7 +364,44 @@ export default function AdminDashboard() {
             No bookings yet
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {recentBookings.map((booking) => (
+                <div key={booking.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <span className="font-mono text-sm text-brand-orange truncate">
+                      {booking.reslab_reservation_number}
+                    </span>
+                    <StatusBadge status={booking.status} />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {booking.customers?.first_name} {booking.customers?.last_name}
+                  </p>
+                  <p className="text-sm text-gray-500 truncate">
+                    {booking.customers?.email}
+                  </p>
+                  <div className="flex items-center gap-1 text-sm text-gray-600 mt-2">
+                    <MapPin size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="truncate">{booking.location_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 gap-2">
+                    <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
+                      <Clock size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="truncate">
+                        {formatDate(booking.check_in, { month: "short", day: "numeric" })} – {formatDate(booking.check_out, { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-gray-900 flex-shrink-0">
+                      {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -430,7 +467,8 @@ export default function AdminDashboard() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -235,7 +235,7 @@ export default function AdminChatsPage() {
           </div>
 
           {showCustomDatePicker && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 value={customStartDate}
@@ -278,7 +278,42 @@ export default function AdminChatsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {sessions.map((session) => (
+                <button
+                  key={session.id}
+                  onClick={() => setSelectedSession(session)}
+                  className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <p className="text-sm text-gray-900">
+                      {formatDateTime(session.updated_at)}
+                    </p>
+                    <span className="inline-flex items-center gap-1 text-xs text-gray-600 flex-shrink-0">
+                      <MessageCircle size={14} className="text-gray-400" />
+                      {countMessages(session.messages || [])}
+                    </span>
+                  </div>
+                  {session.user_email ? (
+                    <div className="mb-2">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {session.user_email}
+                      </p>
+                      <p className="text-xs text-green-600">Authenticated</p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-400 mb-2">Anonymous · {session.ip_address}</p>
+                  )}
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {getFirstUserMessage(session.messages || [])}
+                  </p>
+                </button>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -341,7 +376,7 @@ export default function AdminChatsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-sm text-gray-600">
                 Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
                 {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
