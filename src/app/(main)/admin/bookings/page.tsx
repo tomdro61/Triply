@@ -295,7 +295,7 @@ export default function AdminBookingsPage() {
           </div>
 
           {showCustomDatePicker && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 type="date"
                 value={customStartDate}
@@ -346,7 +346,52 @@ export default function AdminBookingsPage() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {bookings.map((booking) => (
+                <button
+                  key={booking.id}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
+                  className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono text-sm text-brand-orange truncate">
+                        {booking.reslab_reservation_number}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {formatDateTime(booking.created_at)}
+                      </p>
+                    </div>
+                    <StatusBadge status={booking.status} />
+                  </div>
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {booking.customers?.first_name} {booking.customers?.last_name}
+                  </p>
+                  <p className="text-sm text-gray-500 truncate">
+                    {booking.customers?.email}
+                  </p>
+                  <div className="flex items-center gap-1 text-sm text-gray-600 mt-2">
+                    <MapPin size={14} className="text-gray-400 flex-shrink-0" />
+                    <span className="truncate">{booking.location_name}</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 gap-2">
+                    <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
+                      <Clock size={14} className="text-gray-400 flex-shrink-0" />
+                      <span className="truncate">
+                        {formatDate(booking.check_in, { month: "short", day: "numeric" })} – {formatDate(booking.check_out, { month: "short", day: "numeric" })}
+                      </span>
+                    </div>
+                    <span className="font-semibold text-gray-900 flex-shrink-0">
+                      {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -440,7 +485,7 @@ export default function AdminBookingsPage() {
             </div>
 
             {/* Pagination */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <p className="text-sm text-gray-600">
                 Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
                 {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}

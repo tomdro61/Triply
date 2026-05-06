@@ -137,7 +137,7 @@ export default function AdminPartnersPage() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Partners</h1>
           <p className="text-gray-600">
@@ -149,7 +149,7 @@ export default function AdminPartnersPage() {
             resetForm();
             setShowAddModal(true);
           }}
-          className="flex items-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-orange-600 transition-colors"
+          className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg hover:bg-orange-600 transition-colors"
         >
           <Plus size={18} />
           Add Partner
@@ -167,7 +167,72 @@ export default function AdminPartnersPage() {
             No partners yet. Click &quot;Add Partner&quot; to create one.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile card view */}
+            <div className="md:hidden divide-y divide-gray-200">
+              {partners.map((partner) => (
+                <div key={partner.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {partner.email}
+                      </p>
+                      {partner.company_name && (
+                        <p className="text-sm text-gray-600 truncate">
+                          {partner.company_name}
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium flex-shrink-0 ${
+                        partner.is_active
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {partner.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 truncate">
+                    {partner.location_name}
+                  </p>
+                  <p className="text-xs font-mono text-gray-500 mt-1">
+                    ResLab ID: {partner.reslab_location_id}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Created {formatDateTime(partner.created_at)}
+                  </p>
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleToggleActive(partner)}
+                      className="flex-1 flex items-center justify-center gap-2 p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                    >
+                      {partner.is_active ? (
+                        <>
+                          <ToggleRight size={20} className="text-green-600" />
+                          Deactivate
+                        </>
+                      ) : (
+                        <>
+                          <ToggleLeft size={20} />
+                          Activate
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(partner)}
+                      className="flex items-center justify-center gap-2 p-2 px-4 text-red-600 hover:bg-red-50 rounded-lg"
+                    >
+                      <Trash2 size={18} />
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
@@ -254,7 +319,8 @@ export default function AdminPartnersPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
