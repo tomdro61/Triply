@@ -112,15 +112,26 @@ const nextConfig = {
 
 // Wrap with PWA, then Sentry
 export default withSentryConfig(withPWA(nextConfig), {
-  // Only upload source maps when auth token is available
-  silent: !process.env.SENTRY_AUTH_TOKEN,
-
+  // Pull org/project from env so they're not hardcoded in the repo and
+  // can vary across CI environments if needed.
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
 
-  // Widen source map upload scope
+  // Only print upload logs in CI (where SENTRY_AUTH_TOKEN is set).
+  silent: !process.env.CI,
+
+  // Upload a larger set of source maps for cleaner stack traces.
   widenClientFileUpload: true,
 
-  // Hide source maps from clients
+  // Don't expose source maps to clients in production — they'd reveal our
+  // server-side logic.
   hideSourceMaps: true,
+
+  // Route browser requests to Sentry through a Next.js rewrite at /monitoring
+  // to bypass ad blockers. Increases Vercel function load slightly but ensures
+  // we capture errors from users with uBlock / Brave shields / corporate proxies.
+  tunnelRoute: "/monitoring",
+
+  // Auto-instrument Vercel Cron Monitors so cron failures surface in Sentry.
+  automaticVercelMonitors: true,
 });
