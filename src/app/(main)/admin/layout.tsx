@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import {
   LayoutDashboard,
@@ -57,6 +58,18 @@ export default function AdminLayout({
   useEffect(() => {
     setSidebarOpen(false);
   }, [pathname]);
+
+  // TEMP: Sentry connectivity probe — fires once per browser session on first
+  // admin page visit. Remove after confirming Sentry is receiving events.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("triply-sentry-probe-2026-05-05")) return;
+    Sentry.captureMessage(
+      `Sentry connectivity probe from admin layout @ ${new Date().toISOString()}`,
+      "info"
+    );
+    sessionStorage.setItem("triply-sentry-probe-2026-05-05", "true");
+  }, []);
 
   const handleSignOut = async () => {
     const supabase = createClient();
