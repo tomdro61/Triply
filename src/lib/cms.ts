@@ -31,6 +31,13 @@ export function resolvePostImages(post: any): any {
   return post
 }
 
+async function fetchCmsOnce(url: string, revalidate: number): Promise<Response> {
+  return fetch(url, {
+    next: { revalidate },
+    signal: AbortSignal.timeout(8000),
+  })
+}
+
 export async function fetchFromCms(
   path: string,
   params: Record<string, string> = {},
@@ -39,8 +46,23 @@ export async function fetchFromCms(
   const searchParams = new URLSearchParams(params)
   const url = `${CMS_URL}/api${path}?${searchParams.toString()}`
 
-  const res = await fetch(url, { next: { revalidate } })
+  let res: Response
+  try {
+    res = await fetchCmsOnce(url, revalidate)
+    if (res.status >= 500) throw new Error(`CMS ${res.status}`)
+  } catch (firstErr) {
+    await new Promise((r) => setTimeout(r, 500))
+    try {
+      res = await fetchCmsOnce(url, revalidate)
+    } catch (retryErr) {
+      throw new Error(`CMS unreachable: ${path}`, { cause: retryErr })
+    }
+    if (res.status >= 500) {
+      throw new Error(`CMS ${res.status} after retry: ${path}`)
+    }
+  }
 
+  // 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
   if (!res.ok) {
     console.error(`CMS fetch error ${res.status} on ${path}`)
     return null
