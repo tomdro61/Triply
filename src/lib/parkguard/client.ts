@@ -17,8 +17,24 @@
  * "settlement" in consumer-facing surfaces tied to this product.
  */
 
-const PARKGUARD_API_URL =
-  process.env.PARKGUARD_API_URL || "https://api.pgbacklot.com";
+// Park Guard's onboarding CSV documents the FULL endpoint URL
+// (e.g. https://api.pgbacklot.com/api/capture-reservation-data) in their
+// "Testing API Endpoint" / "Production API Endpoint" rows. If that value
+// gets pasted verbatim into PARKGUARD_API_URL, the client doubles the
+// path and every capture 404s. (Shipped May 9 2026 → fix-forward here.)
+function normalizePgApiBase(raw: string | undefined): string {
+  let url = (raw || "https://api.pgbacklot.com").trim().replace(/\/+$/, "");
+  const stripped = url.replace(/\/api\/capture-reservation-data$/, "");
+  if (stripped !== url) {
+    console.warn(
+      `[parkguard] PARKGUARD_API_URL contained the capture path; using base "${stripped}". Set the env var to the host only (e.g. https://api.pgbacklot.com) to silence this warning.`
+    );
+    url = stripped;
+  }
+  return url;
+}
+
+const PARKGUARD_API_URL = normalizePgApiBase(process.env.PARKGUARD_API_URL);
 const PARKGUARD_API_KEY = process.env.PARKGUARD_API_KEY || "";
 
 // =============================================================================
