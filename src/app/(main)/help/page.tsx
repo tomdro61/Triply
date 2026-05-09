@@ -171,7 +171,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What does parking protection include?",
         answer:
-          "The plan helps with physical damages from accidents or theft that happen at the parking lot — including door dings, fender benders, and stolen items inside or outside the vehicle — up to $1,000 per claim. For the full list of what's included and excluded, see Park Guard's full terms at parkguard.com/terms-of-use-TriplyPro.",
+          "The plan helps with physical damages from accidents or theft that happen at the parking lot — including door dings, fender benders, and stolen items inside or outside the vehicle — up to $1,000 per claim. For the full list of what's included and excluded, see Park Guard's full terms at parkguard.com/terms-of-use-triplypro.",
       },
       {
         question: "How do I file a claim?",

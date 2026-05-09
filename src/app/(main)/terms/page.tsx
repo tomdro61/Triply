@@ -156,12 +156,12 @@ export default function TermsPage() {
               to review the most current version of the Terms at the time of opting into a
               protection plan. The applicable Terms of Use can be reviewed in full at{" "}
               <a
-                href="https://www.parkguard.com/terms-of-use-TriplyPro"
+                href="https://www.parkguard.com/terms-of-use-triplypro"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-brand-orange hover:text-orange-600"
               >
-                parkguard.com/terms-of-use-TriplyPro
+                parkguard.com/terms-of-use-triplypro
               </a>
               .
             </p>
