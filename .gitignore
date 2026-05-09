@@ -57,3 +57,7 @@ next-env.d.ts
 
 # Sentry Config File
 .env.sentry-build-plugin
+
+# Park Guard credentials & partner docs (contains API keys and Coverage Hub passwords)
+# Anchored to repo root so it doesn't accidentally match src/lib/parkguard/.
+/parkguard/

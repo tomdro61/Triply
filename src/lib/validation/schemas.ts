@@ -52,6 +52,7 @@ export const reservationSchema = z.object({
   triplyServiceFee: z.number().optional(),
   userId: z.string().nullable().optional(),
   stripePaymentIntentId: z.string().optional(),
+  hasProtectionPlan: z.boolean().optional(),
 });
 
 export function escapeHtml(str: string): string {

@@ -37,6 +37,8 @@ export interface PriceBreakdown {
   taxes: number;
   fees: number;
   serviceFee: number;
+  /** Park Guard parking protection premium when opted in, 0 otherwise. */
+  protectionPlan: number;
   total: number;
   dueNow: number;
   dueAtLocation: number;

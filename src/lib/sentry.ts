@@ -59,3 +59,27 @@ export function captureAPIError(
     Sentry.captureException(error);
   });
 }
+
+export function captureParkGuardError(
+  error: Error,
+  context: {
+    bookingId?: string;
+    reslabReservationNumber?: string;
+    operation: "capture" | "update";
+    statusCode?: number;
+  }
+) {
+  Sentry.withScope((scope) => {
+    scope.setTag("parkguard.error", "true");
+    scope.setTag("parkguard.operation", context.operation);
+    if (context.bookingId) scope.setTag("parkguard.bookingId", context.bookingId);
+    if (context.reslabReservationNumber) {
+      scope.setTag("parkguard.reslabReservationNumber", context.reslabReservationNumber);
+    }
+    if (context.statusCode) {
+      scope.setTag("parkguard.statusCode", context.statusCode.toString());
+    }
+    scope.setLevel("error");
+    Sentry.captureException(error);
+  });
+}
