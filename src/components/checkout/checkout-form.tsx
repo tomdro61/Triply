@@ -21,6 +21,7 @@ import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
+import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -101,6 +102,7 @@ export function CheckoutForm({
   const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [hasProtectionPlan, setHasProtectionPlan] = useState(false);
 
   // Validation errors
   const [customerErrors, setCustomerErrors] = useState<
@@ -116,6 +118,8 @@ export function CheckoutForm({
     const end = new Date(checkOut);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    const protectionPlan = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
 
     // Use API data if available
     if (costData) {
@@ -137,8 +141,11 @@ export function CheckoutForm({
         taxes: costData.taxTotal,
         fees: 0,
         serviceFee,
-        total: costData.grandTotal + serviceFee - discount,
-        dueNow: costData.dueNow - discount,
+        protectionPlan,
+        total: costData.grandTotal + serviceFee + protectionPlan - discount,
+        // Server clamps with Math.max(0, ...) before charging Stripe; mirror
+        // it client-side so a large promo doesn't render a negative "Due Now".
+        dueNow: Math.max(0, costData.dueNow + protectionPlan - discount),
         dueAtLocation: costData.dueAtLocation,
       };
     }
@@ -152,7 +159,7 @@ export function CheckoutForm({
 
     const afterDiscount = subtotal - discount;
     const taxes = Math.round(afterDiscount * 0.08 * 100) / 100; // 8% tax
-    const total = afterDiscount + taxes;
+    const total = afterDiscount + taxes + protectionPlan;
 
     return {
       dailyRate,
@@ -162,11 +169,12 @@ export function CheckoutForm({
       taxes,
       fees: 0,
       serviceFee: 0,
+      protectionPlan,
       total,
       dueNow: total,
       dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData, hasProtectionPlan]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -252,6 +260,7 @@ export function CheckoutForm({
           parkingTypeId,
           customerEmail: customerDetails.email,
           ...(promoCode && { promoCode }),
+          ...(hasProtectionPlan && { hasProtectionPlan: true }),
         }),
       });
 
@@ -284,6 +293,11 @@ export function CheckoutForm({
   };
 
   const handlePaymentBack = () => {
+    // Clear the existing PaymentIntent state so re-entering the payment step
+    // creates a fresh PI. Otherwise a customer who toggles protection while
+    // back on the vehicle step could end up paying the old (stale) amount.
+    setClientSecret(null);
+    setPaymentIntentId(null);
     setCurrentStep("vehicle");
   };
 
@@ -349,6 +363,8 @@ export function CheckoutForm({
           triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
+          // Park Guard parking protection opt-in
+          ...(hasProtectionPlan && { hasProtectionPlan: true }),
           // Stripe payment reference
           stripePaymentIntentId,
         }),
@@ -445,6 +461,8 @@ export function CheckoutForm({
           triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
+          // Park Guard parking protection opt-in
+          ...(hasProtectionPlan && { hasProtectionPlan: true }),
         }),
       });
 
@@ -578,6 +596,9 @@ export function CheckoutForm({
           promoCode={promoCode}
           onApplyPromo={handleApplyPromo}
           onRemovePromo={handleRemovePromo}
+          hasProtectionPlan={hasProtectionPlan}
+          onProtectionPlanToggle={setHasProtectionPlan}
+          protectionPlanLocked={currentStep === "payment"}
         />
       </div>
     </div>

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { captureAPIError } from "@/lib/sentry";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
 const checkoutGetSchema = z.object({
   lotId: z.string().min(1),
@@ -84,7 +85,14 @@ export async function GET(request: NextRequest) {
         };
       } catch (costError) {
         console.error("Error getting costs_token:", costError);
-        // Fall back to pricing from lot data
+        // ResLab is degraded — capture so ops sees the upstream issue.
+        // The display-only fallback below uses lot.pricing for "from $X"
+        // estimates; costsToken stays null so the POST endpoint refuses
+        // to create a PaymentIntent (no silent route into a failed checkout).
+        captureAPIError(
+          costError instanceof Error ? costError : new Error(String(costError)),
+          { endpoint: "/api/checkout/lot", method: "GET", statusCode: 502 }
+        );
         const fallbackServiceFee = lot.pricing
           ? calculateServiceFee((lot.pricing.subtotal || 0) + (lot.pricing.feesTotal || 0))
           : 0;
@@ -157,6 +165,7 @@ const checkoutPostSchema = z.object({
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
+  hasProtectionPlan: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -180,6 +189,7 @@ export async function POST(request: NextRequest) {
       parkingTypeId,
       customerEmail,
       promoCode,
+      hasProtectionPlan,
     } = result.data;
 
     // Build dates for ResLab API
@@ -220,11 +230,21 @@ export async function POST(request: NextRequest) {
     // Validate and apply promo code server-side
     if (promoCode) {
       const supabase = await createAdminClient();
-      const { data: promo } = await supabase
+      const { data: promo, error: promoErr } = await supabase
         .from("promo_codes")
         .select("id, discount_percent, active, expires_at, max_uses, current_uses")
         .eq("code", promoCode.toUpperCase())
         .single();
+
+      // PGRST116 = no rows found (invalid code) — quiet ignore. Anything
+      // else is a real Supabase error that would silently charge the
+      // customer full price; surface it.
+      if (promoErr && promoErr.code !== "PGRST116") {
+        captureAPIError(
+          new Error(`Promo lookup failed for ${promoCode}: ${promoErr.message}`),
+          { endpoint: "/api/checkout/lot", method: "POST" }
+        );
+      }
 
       if (
         promo &&
@@ -237,6 +257,12 @@ export async function POST(request: NextRequest) {
         verifiedTotal = verifiedTotal - discount;
         verifiedDueNow = verifiedTotal - dueAtLocation;
       }
+    }
+
+    const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
+    if (protectionPremium > 0) {
+      verifiedTotal = verifiedTotal + protectionPremium;
+      verifiedDueNow = verifiedDueNow + protectionPremium;
     }
 
     // Amount to charge via Stripe (due now, not due at location)
@@ -260,6 +286,7 @@ export async function POST(request: NextRequest) {
       serviceFee: String(postServiceFee),
       ...(promoCode && { promoCode }),
       ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
+      ...(protectionPremium > 0 && { protectionPlanPrice: String(protectionPremium) }),
     });
 
     return NextResponse.json({

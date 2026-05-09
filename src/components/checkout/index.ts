@@ -4,3 +4,4 @@ export { VehicleDetailsStep } from "./vehicle-details-step";
 export { OrderSummary } from "./order-summary";
 export { PromoCode } from "./promo-code";
 export { CheckoutSteps } from "./checkout-steps";
+export { ProtectionPlan } from "./protection-plan";

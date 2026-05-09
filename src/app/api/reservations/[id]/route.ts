@@ -79,7 +79,7 @@ export async function GET(
     const adminClientForVehicle = await createAdminClient();
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info, triply_service_fee, check_in, check_out")
+      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier")
       .eq("reslab_reservation_number", id)
       .single();
 
@@ -94,6 +94,7 @@ export async function GET(
     }
 
     const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
+    const protectionPlanPrice = parseFloat(bookingData?.protection_plan_price ?? "0") || 0;
 
     // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
     // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
@@ -133,12 +134,15 @@ export async function GET(
         id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
         status: reservation.cancelled ? "cancelled" : "confirmed",
-        grandTotal: (history?.grand_total || 0) + triplyServiceFee,
+        grandTotal: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
         subtotal: history?.subtotal || 0,
         taxTotal: history?.total_tax || 0,
         feesTotal: history?.total_fees || 0,
         serviceFee: triplyServiceFee,
-        dueNow: (history?.grand_total || 0) + triplyServiceFee - (history?.due_at_location_total || 0),
+        protectionPlan: bookingData?.protection_plan || null,
+        protectionPlanPrice,
+        pgIdentifier: bookingData?.pg_identifier || null,
+        dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         customer: {
           firstName,
