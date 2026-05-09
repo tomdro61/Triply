@@ -81,25 +81,25 @@ export async function GET(request: NextRequest) {
         .gte("created_at", monthStart.toISOString()),
       // Total revenue (filtered)
       applyDateFilter(
-        supabase.from("bookings").select("grand_total, triply_service_fee").eq("status", "confirmed")
+        supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price").eq("status", "confirmed")
       ),
       // Today's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString()),
       // This week's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString()),
       // This month's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString()),
       // Confirmed bookings (filtered)
@@ -112,13 +112,18 @@ export async function GET(request: NextRequest) {
       ),
     ]);
 
-    type RevenueRow = { grand_total: string; triply_service_fee: string | null };
+    type RevenueRow = {
+      grand_total: string;
+      triply_service_fee: string | null;
+      protection_plan_price: string | null;
+    };
     const sumGross = (data: RevenueRow[] | null) =>
       data?.reduce(
         (sum, b) =>
           sum +
           (parseFloat(b.grand_total) || 0) +
-          (parseFloat(b.triply_service_fee || "0") || 0),
+          (parseFloat(b.triply_service_fee || "0") || 0) +
+          (parseFloat(b.protection_plan_price || "0") || 0),
         0
       ) || 0;
     const sumTriply = (data: RevenueRow[] | null) =>

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
+import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -33,21 +34,35 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      // Payment succeeded for paymentIntent.id
 
       // Look up booking by stripe_payment_intent_id and confirm status
-      const { data: booking } = await supabase
+      const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id, status")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .single();
 
+      if (lookupErr && lookupErr.code !== "PGRST116") {
+        // PGRST116 = no rows found; that's the race-condition path handled
+        // below. Anything else is a real Supabase error worth Sentry-ing.
+        capturePaymentError(
+          new Error(`Webhook payment_intent.succeeded: lookup failed: ${lookupErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+      }
+
       if (booking) {
         if (booking.status !== "confirmed") {
-          await supabase
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "confirmed" })
             .eq("id", booking.id);
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook payment_intent.succeeded: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+            );
+          }
         }
       } else {
         // Race condition: webhook arrived before reservation was created
@@ -73,17 +88,30 @@ export async function POST(request: NextRequest) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.error("Payment failed:", paymentIntent.id);
 
-      const { data: booking } = await supabase
+      const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .single();
 
+      if (lookupErr && lookupErr.code !== "PGRST116") {
+        capturePaymentError(
+          new Error(`Webhook payment_intent.payment_failed: lookup failed: ${lookupErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+      }
+
       if (booking) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from("bookings")
           .update({ status: "payment_failed" })
           .eq("id", booking.id);
+        if (updateErr) {
+          capturePaymentError(
+            new Error(`Webhook payment_intent.payment_failed: status update failed: ${updateErr.message}`),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+        }
       }
 
       capturePaymentError(
@@ -102,17 +130,30 @@ export async function POST(request: NextRequest) {
       console.error("Dispute created:", dispute.id, "for PI:", paymentIntentId);
 
       if (paymentIntentId) {
-        const { data: booking } = await supabase
+        const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
           .select("id")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
+        if (lookupErr && lookupErr.code !== "PGRST116") {
+          capturePaymentError(
+            new Error(`Webhook charge.dispute.created: lookup failed: ${lookupErr.message}`),
+            { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
+          );
+        }
+
         if (booking) {
-          await supabase
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "disputed" })
             .eq("id", booking.id);
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook charge.dispute.created: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
+            );
+          }
         }
       }
 
@@ -129,20 +170,67 @@ export async function POST(request: NextRequest) {
         ? charge.payment_intent
         : charge.payment_intent?.id;
 
-      // Charge refunded
+      // Partial refunds (dispute partial concessions, customer-service goodwill)
+      // fire the same charge.refunded event. Don't flip the booking to fully
+      // refunded or cancel Park Guard coverage in that case — surface to Sentry
+      // for ops to review.
+      const isFullRefund = charge.amount_refunded === charge.amount;
 
       if (paymentIntentId) {
-        const { data: booking } = await supabase
+        const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
-          .select("id")
+          .select("id, protection_plan, pg_identifier")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
+        if (lookupErr) {
+          capturePaymentError(
+            new Error(`Webhook charge.refunded: bookings lookup failed: ${lookupErr.message}`),
+            { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+          );
+        }
+
         if (booking) {
-          await supabase
+          if (!isFullRefund) {
+            // Partial refund — leave booking status alone, don't touch PG.
+            capturePaymentError(
+              new Error(
+                `Partial refund on booking ${booking.id}: $${(charge.amount_refunded / 100).toFixed(2)} of $${(charge.amount / 100).toFixed(2)}`
+              ),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+            break;
+          }
+
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "refunded" })
             .eq("id", booking.id);
+
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+          }
+
+          // Stripe-side refunds (dashboard, dispute resolution, partner refunds)
+          // bypass the admin cancel route. Notify Park Guard so they don't
+          // continue billing Triply for coverage on a refunded booking.
+          if (booking.protection_plan && !updateErr) {
+            try {
+              await parkGuard.updateReservation(booking.id, { status: "cancelled" });
+            } catch (pgError) {
+              captureParkGuardError(
+                pgError instanceof Error ? pgError : new Error(String(pgError)),
+                {
+                  bookingId: booking.id,
+                  operation: "update",
+                  ...(pgError instanceof ParkGuardError && { statusCode: pgError.statusCode }),
+                }
+              );
+            }
+          }
         }
       }
       break;

@@ -15,6 +15,7 @@ interface Booking {
   check_out: string;
   grand_total: number;
   triply_service_fee: number | string | null;
+  protection_plan_price: number | string | null;
   vehicle_info: {
     make: string;
     model: string;
@@ -135,7 +136,11 @@ export function ReservationCard({ booking }: ReservationCardProps) {
             </p>
           </div>
           <p className="font-bold text-brand-orange text-lg">
-            ${(Number(booking.grand_total) + Number(booking.triply_service_fee ?? 0)).toFixed(2)}
+            ${(
+              Number(booking.grand_total) +
+              Number(booking.triply_service_fee ?? 0) +
+              Number(booking.protection_plan_price ?? 0)
+            ).toFixed(2)}
           </p>
         </div>
       </div>

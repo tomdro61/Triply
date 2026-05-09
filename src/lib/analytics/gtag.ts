@@ -149,21 +149,34 @@ export function trackPurchase(booking: {
   lotName: string;
   grandTotal: number;
   serviceFee?: number;
+  /** Park Guard pass-through; Triply earns no commission on this. */
+  protectionPlanPrice?: number;
   airportCode?: string;
 }) {
   if (typeof window !== "undefined" && window.gtag) {
+    // Defensive: any of these arriving as NaN/undefined would emit "NaN"
+    // strings into GA4 and silently corrupt revenue analytics.
+    const grandTotal = Number.isFinite(booking.grandTotal) ? booking.grandTotal : 0;
+    const serviceFee = Number.isFinite(booking.serviceFee) ? (booking.serviceFee || 0) : 0;
+    const protectionPlanPrice = Number.isFinite(booking.protectionPlanPrice)
+      ? (booking.protectionPlanPrice || 0)
+      : 0;
+    // Commission base excludes the Park Guard premium (pass-through to a
+    // third party) AND the Triply service fee (already broken out below).
+    const commissionBase = Math.max(0, grandTotal - serviceFee - protectionPlanPrice);
     window.gtag("event", "purchase", {
       transaction_id: booking.confirmationNumber,
-      value: booking.grandTotal,
+      value: grandTotal,
       currency: "USD",
-      triply_commission: +(booking.grandTotal * 0.15).toFixed(2),
-      triply_service_fee: booking.serviceFee || 0,
+      triply_commission: +(commissionBase * 0.15).toFixed(2),
+      triply_service_fee: serviceFee,
+      protection_plan_price: protectionPlanPrice,
       airport_code: booking.airportCode,
       items: [
         {
           item_id: booking.lotId,
           item_name: booking.lotName,
-          price: booking.grandTotal,
+          price: grandTotal,
         },
       ],
     });

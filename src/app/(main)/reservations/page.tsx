@@ -21,6 +21,7 @@ interface Booking {
   check_out: string;
   grand_total: number;
   triply_service_fee: number | string | null;
+  protection_plan_price: number | string | null;
   vehicle_info: {
     make: string;
     model: string;

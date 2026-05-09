@@ -14,6 +14,7 @@ import {
   Eye,
   Calendar,
   X,
+  ShieldCheck,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
 
@@ -32,6 +33,10 @@ interface Booking {
   due_at_location: string | null;
   stripe_payment_intent_id: string | null;
   status: string;
+  protection_plan: string | null;
+  protection_plan_price: string | null;
+  pg_identifier: string | null;
+  pg_sync_status: "pending" | "synced" | "skipped_missing_data" | null;
   vehicle_info: {
     make: string;
     model: string;
@@ -92,7 +97,11 @@ export default function AdminBookingsPage() {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [cancelResult, setCancelResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [cancelResult, setCancelResult] = useState<{
+    success: boolean;
+    message: string;
+    parkGuardSyncFailed?: boolean;
+  } | null>(null);
 
   async function handleCancelBooking(booking: Booking) {
     if (!confirm(`Cancel reservation ${booking.reslab_reservation_number} and issue a full refund? This cannot be undone.`)) {
@@ -110,7 +119,11 @@ export default function AdminBookingsPage() {
         }),
       });
       const data = await response.json();
-      setCancelResult({ success: data.success, message: data.message });
+      setCancelResult({
+        success: data.success,
+        message: data.message,
+        parkGuardSyncFailed: data.results?.parkGuard === false,
+      });
       if (data.success || data.results?.supabase) {
         const newStatus = data.newStatus || "cancelled";
         setBookings((prev) =>
@@ -208,6 +221,9 @@ export default function AdminBookingsPage() {
       "Check Out",
       "Total",
       "Status",
+      "Protection Plan",
+      "Protection Premium",
+      "Park Guard ID",
       "Created",
     ];
 
@@ -219,12 +235,25 @@ export default function AdminBookingsPage() {
       b.location_name,
       formatDateTime(b.check_in),
       formatDateTime(b.check_out),
-      (parseFloat(b.grand_total) + parseFloat(b.triply_service_fee || "0")).toFixed(2),
+      (
+        parseFloat(b.grand_total) +
+        parseFloat(b.triply_service_fee || "0") +
+        parseFloat(b.protection_plan_price || "0")
+      ).toFixed(2),
       b.status,
+      b.protection_plan || "",
+      b.protection_plan_price ? parseFloat(b.protection_plan_price).toFixed(2) : "",
+      b.pg_identifier || "",
       formatDateTime(b.created_at),
     ]);
 
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
+    const escapeCsv = (v: unknown) => {
+      const s = v == null ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = [headers, ...rows]
+      .map((row) => row.map(escapeCsv).join(","))
+      .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -382,8 +411,15 @@ export default function AdminBookingsPage() {
                         {formatDate(booking.check_in, { month: "short", day: "numeric" })} – {formatDate(booking.check_out, { month: "short", day: "numeric" })}
                       </span>
                     </div>
-                    <span className="font-semibold text-gray-900 flex-shrink-0">
-                      {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
+                    <span className="font-semibold text-gray-900 flex-shrink-0 flex items-center gap-1">
+                      {formatPrice(
+                        parseFloat(booking.grand_total) +
+                          parseFloat(booking.triply_service_fee || "0") +
+                          parseFloat(booking.protection_plan_price || "0")
+                      )}
+                      {booking.protection_plan && (
+                        <ShieldCheck size={12} className="text-emerald-600" />
+                      )}
                     </span>
                   </div>
                 </button>
@@ -462,9 +498,20 @@ export default function AdminBookingsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-semibold text-gray-900">
-                          {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900">
+                            {formatPrice(
+                              parseFloat(booking.grand_total) +
+                                parseFloat(booking.triply_service_fee || "0") +
+                                parseFloat(booking.protection_plan_price || "0")
+                            )}
+                          </span>
+                          {booking.protection_plan && (
+                            <span title="Parking Protection opt-in">
+                              <ShieldCheck size={14} className="text-emerald-600" />
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={booking.status} />
@@ -587,9 +634,14 @@ export default function AdminBookingsPage() {
                 const fees = parseFloat(selectedBooking.fees_total || "0");
                 const taxes = parseFloat(selectedBooking.tax_total || "0");
                 const serviceFee = parseFloat(selectedBooking.triply_service_fee || "0");
+                const protectionPremium = parseFloat(
+                  selectedBooking.protection_plan_price || "0"
+                );
                 const dueAtLocation = parseFloat(selectedBooking.due_at_location || "0");
                 const bookingTotal =
-                  parseFloat(selectedBooking.grand_total) + serviceFee;
+                  parseFloat(selectedBooking.grand_total) +
+                  serviceFee +
+                  protectionPremium;
                 const paidOnline = Math.max(0, bookingTotal - dueAtLocation);
 
                 return (
@@ -616,6 +668,12 @@ export default function AdminBookingsPage() {
                           {formatPrice(serviceFee)}
                         </span>
                       </div>
+                      {protectionPremium > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Parking Protection premium</span>
+                          <span>{formatPrice(protectionPremium)}</span>
+                        </div>
+                      )}
                       <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-semibold">
                         <span>Booking total</span>
                         <span>{formatPrice(bookingTotal)}</span>
@@ -636,6 +694,43 @@ export default function AdminBookingsPage() {
                   </div>
                 );
               })()}
+
+              {/* Parking Protection */}
+              {selectedBooking.protection_plan && (
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-2">Parking Protection</h3>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-1">
+                    <p>
+                      <span className="text-gray-500">Plan:</span>{" "}
+                      {selectedBooking.protection_plan}
+                    </p>
+                    <p>
+                      <span className="text-gray-500">Premium:</span>{" "}
+                      {selectedBooking.protection_plan_price != null ? (
+                        formatPrice(parseFloat(selectedBooking.protection_plan_price))
+                      ) : (
+                        <span className="text-amber-700 text-sm font-medium">
+                          Price not recorded
+                        </span>
+                      )}
+                    </p>
+                    <p>
+                      <span className="text-gray-500">Park Guard ID:</span>{" "}
+                      {selectedBooking.pg_identifier ? (
+                        <span className="font-mono text-sm">{selectedBooking.pg_identifier}</span>
+                      ) : selectedBooking.pg_sync_status === "skipped_missing_data" ? (
+                        <span className="text-red-700 text-sm font-medium">
+                          Permanently skipped — required address fields were missing on the lot record at booking time. Fix the lot data in ResLab and manually add this booking to the Coverage Hub.
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 text-sm font-medium">
+                          Not confirmed with Park Guard. If more than a few minutes old, check Sentry — reconciliation retries transient failures.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Vehicle Info */}
               {selectedBooking.vehicle_info && (
@@ -660,9 +755,16 @@ export default function AdminBookingsPage() {
 
               {/* Cancel Result */}
               {cancelResult && (
-                <div className={`p-3 rounded-lg text-sm ${cancelResult.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
-                  {cancelResult.message}
-                </div>
+                <>
+                  <div className={`p-3 rounded-lg text-sm ${cancelResult.success ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+                    {cancelResult.message}
+                  </div>
+                  {cancelResult.parkGuardSyncFailed && (
+                    <div className="mt-2 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
+                      <strong>Park Guard sync pending —</strong> the cancellation refund went through, but Park Guard wasn&apos;t notified. Manually mark the reservation cancelled in the Coverage Hub or check Sentry for details.
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Actions */}

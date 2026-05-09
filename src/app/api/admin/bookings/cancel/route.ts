@@ -4,7 +4,8 @@ import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
 import { createRefund, getPaymentIntent } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
-import { captureAPIError } from "@/lib/sentry";
+import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
+import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +35,8 @@ export async function POST(request: NextRequest) {
     const { data: booking } = await supabase
       .from("bookings")
       .select(`
-        status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
+        id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
+        protection_plan, protection_plan_price, pg_identifier,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -58,12 +60,16 @@ export async function POST(request: NextRequest) {
       stripe: boolean;
       supabase: boolean;
       email: boolean;
+      parkGuard: boolean | null;
       errors: string[];
     } = {
       reslab: false,
       stripe: false,
       supabase: false,
       email: false,
+      // null when no protection plan was on the booking, so the all-succeeded
+      // check below doesn't penalize cancellations of unprotected bookings.
+      parkGuard: booking.protection_plan ? false : null,
       errors: [],
     };
 
@@ -131,6 +137,34 @@ export async function POST(request: NextRequest) {
       results.errors.push(`Supabase: ${msg || "Update failed"}`);
     }
 
+    // Step 3.5: Notify Park Guard of cancellation if booking had protection.
+    // The customer was refunded the premium via Stripe (refundAmount above
+    // includes it because we read amount_received from Stripe), so PG must
+    // mark the reservation cancelled — otherwise PG keeps the customer
+    // "covered" and bills Triply for coverage on a refunded booking.
+    //
+    // Gated on `results.supabase` because the inverse failure mode (Triply
+    // row stuck "confirmed" while PG says "cancelled") is worse: customer
+    // has stale data they could rebook against. If Supabase failed, ops
+    // already has a Sentry alert and will manually reconcile both sides.
+    if (booking.protection_plan && booking.id && results.supabase) {
+      try {
+        await parkGuard.updateReservation(booking.id, { status: "cancelled" });
+        results.parkGuard = true;
+      } catch (pgError) {
+        results.parkGuard = false;
+        const err = pgError instanceof Error ? pgError : new Error(String(pgError));
+        const msg = err.message;
+        captureParkGuardError(err, {
+          bookingId: booking.id,
+          reslabReservationNumber: reservationNumber,
+          operation: "update",
+          ...(pgError instanceof ParkGuardError && { statusCode: pgError.statusCode }),
+        });
+        results.errors.push(`ParkGuard: cancellation not synced (${msg}) — manual reconcile`);
+      }
+    }
+
     // Step 4: Send cancellation email to customer
     const customer = booking.customers as unknown as {
       email: string;
@@ -139,6 +173,9 @@ export async function POST(request: NextRequest) {
     } | null;
     if (customer?.email) {
       try {
+        const protectionPlanRefund = booking.protection_plan
+          ? parseFloat(booking.protection_plan_price ?? "0") || 0
+          : 0;
         const emailResult = await sendCancellationConfirmation({
           to: customer.email,
           customerName: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
@@ -149,6 +186,8 @@ export async function POST(request: NextRequest) {
           checkOutDate: booking.check_out,
           refundAmount,
           wasRefunded,
+          serviceFee: serviceFee > 0 ? serviceFee : undefined,
+          protectionPlanRefund: protectionPlanRefund > 0 ? protectionPlanRefund : undefined,
         });
         results.email = emailResult.success;
         if (!emailResult.success) {
@@ -162,7 +201,10 @@ export async function POST(request: NextRequest) {
     }
 
     const allSucceeded =
-      results.reslab && results.stripe && results.supabase;
+      results.reslab &&
+      results.stripe &&
+      results.supabase &&
+      results.parkGuard !== false;
 
     return NextResponse.json(
       {
