@@ -259,6 +259,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Snapshot the parking-only charge BEFORE applying protection premium.
+    // Stamped into PI metadata (in CENTS — integer-safe, no float drift) so
+    // the /update-pi endpoint can re-compute the amount safely when the
+    // customer toggles protection on the payment step without re-calling
+    // ResLab. Also kept as dollars for backwards compat with PIs already
+    // in flight before the cents-storage rollout.
+    const parkingOnlyChargeAmount = Math.max(0, verifiedDueNow);
+    const parkingOnlyChargeAmountCents = Math.round(parkingOnlyChargeAmount * 100);
+
     const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
     if (protectionPremium > 0) {
       verifiedTotal = verifiedTotal + protectionPremium;
@@ -284,6 +293,8 @@ export async function POST(request: NextRequest) {
       customerEmail,
       verifiedTotal: String(verifiedTotal),
       serviceFee: String(postServiceFee),
+      parkingOnlyChargeAmount: String(parkingOnlyChargeAmount),
+      parkingOnlyChargeAmountCents: String(parkingOnlyChargeAmountCents),
       ...(promoCode && { promoCode }),
       ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
       ...(protectionPremium > 0 && { protectionPlanPrice: String(protectionPremium) }),

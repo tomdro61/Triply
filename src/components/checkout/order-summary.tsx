@@ -4,8 +4,7 @@ import Image from "next/image";
 import { Calendar, MapPin, Star, Shield, Clock, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
-import { PromoCode } from "./promo-code";
-import { ProtectionPlan } from "./protection-plan";
+import { PromoCode, type ApplyPromoResult } from "./promo-code";
 import { formatDate } from "@/lib/utils";
 
 interface OrderSummaryProps {
@@ -14,11 +13,15 @@ interface OrderSummaryProps {
   checkOut: string;
   priceBreakdown: PriceBreakdown;
   promoCode: string | null;
-  onApplyPromo: (code: string) => Promise<boolean>;
+  onApplyPromo: (code: string) => Promise<ApplyPromoResult>;
   onRemovePromo: () => void;
-  hasProtectionPlan: boolean;
-  onProtectionPlanToggle: (selected: boolean) => void;
-  protectionPlanLocked?: boolean;
+  /**
+   * When true, the PromoCode widget is locked. Used on the payment step
+   * because the Stripe PaymentIntent amount is frozen at vehicle→payment
+   * transition; applying or removing a promo afterward would change the
+   * displayed total but NOT the amount Stripe charges.
+   */
+  promoLocked?: boolean;
 }
 
 export function OrderSummary({
@@ -29,9 +32,7 @@ export function OrderSummary({
   promoCode,
   onApplyPromo,
   onRemovePromo,
-  hasProtectionPlan,
-  onProtectionPlanToggle,
-  protectionPlanLocked,
+  promoLocked = false,
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -112,15 +113,6 @@ export function OrderSummary({
         </div>
       </div>
 
-      {/* Parking Protection */}
-      <div className="p-4 border-b border-gray-100">
-        <ProtectionPlan
-          isSelected={hasProtectionPlan}
-          onToggle={onProtectionPlanToggle}
-          disabled={protectionPlanLocked}
-        />
-      </div>
-
       {/* Promo Code */}
       <div className="p-4 border-b border-gray-100">
         <h4 className="font-semibold text-gray-900 mb-3">Promo Code</h4>
@@ -129,6 +121,7 @@ export function OrderSummary({
           discount={priceBreakdown.discount}
           onApply={onApplyPromo}
           onRemove={onRemovePromo}
+          locked={promoLocked}
         />
       </div>
 
