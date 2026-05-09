@@ -20,7 +20,6 @@ interface SendBookingConfirmationParams {
   subject?: string;
   protectionPlan?: string;
   protectionPlanPrice?: number;
-  pgIdentifier?: string | null;
 }
 
 export async function sendBookingConfirmation({
@@ -41,7 +40,6 @@ export async function sendBookingConfirmation({
   subject,
   protectionPlan,
   protectionPlanPrice,
-  pgIdentifier,
 }: SendBookingConfirmationParams) {
   try {
     // Render React component to HTML
@@ -63,7 +61,6 @@ export async function sendBookingConfirmation({
         specialConditions,
         protectionPlan,
         protectionPlanPrice,
-        pgIdentifier,
       })
     );
 

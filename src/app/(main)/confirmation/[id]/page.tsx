@@ -34,7 +34,6 @@ interface ReservationData {
   dueAtLocation: number;
   protectionPlan: string | null;
   protectionPlanPrice: number;
-  pgIdentifier: string | null;
   customer: {
     firstName: string;
     lastName: string;
@@ -375,7 +374,6 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 <ProtectionPlanStatus
                   planName={reservation.protectionPlan}
                   price={reservation.protectionPlanPrice}
-                  pgIdentifier={reservation.pgIdentifier}
                 />
               )}
 

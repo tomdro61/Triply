@@ -19,8 +19,6 @@ interface BookingConfirmationEmailProps {
   specialConditions?: string;
   protectionPlan?: string;
   protectionPlanPrice?: number;
-  /** Park Guard identifier — null means premium paid but PG hasn't acked. */
-  pgIdentifier?: string | null;
 }
 
 const PARKGUARD_CLAIM_URL = "https://www.parkguardcoveragehub.com/triplyproclaims";
@@ -44,7 +42,6 @@ export function BookingConfirmationEmail({
   specialConditions,
   protectionPlan,
   protectionPlanPrice,
-  pgIdentifier,
 }: BookingConfirmationEmailProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
@@ -59,10 +56,6 @@ export function BookingConfirmationEmail({
       ? protectionPlanPrice.toFixed(2)
       : null;
   const hasProtection = protectionPriceText !== null;
-  // Premium was paid but Park Guard hasn't acknowledged yet — show the
-  // line item, but don't show "Start a Claim" CTA pointing at PG (their
-  // system has no record, customer would get a confused reply).
-  const isProtectionActive = hasProtection && !!pgIdentifier;
 
   const labelStyle = {
     color: "#64748b",
@@ -189,8 +182,9 @@ export function BookingConfirmationEmail({
           )}
         </div>
 
-        {/* Parking Protection */}
-        {hasProtection && isProtectionActive && (
+        {/* Parking Protection — customer paid the premium, they're protected.
+            PG's pg_identifier is an internal sync state, not a customer state. */}
+        {hasProtection && (
           <div style={{ backgroundColor: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
             <p style={{ ...labelStyle, color: "#065f46", marginBottom: "8px" }}>&#128737; Parking Protection Active</p>
             <p style={{ color: "#065f46", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
@@ -198,19 +192,6 @@ export function BookingConfirmationEmail({
             </p>
             <p style={{ margin: "0" }}>
               <a href={PARKGUARD_CLAIM_URL} style={{ color: "#059669", fontSize: "13px", textDecoration: "none", fontWeight: "600", marginRight: "16px" }}>Start a Claim &rarr;</a>
-              <a href={PARKGUARD_TERMS_URL} style={{ color: "#475569", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>View Terms &rarr;</a>
-            </p>
-          </div>
-        )}
-        {hasProtection && !isProtectionActive && (
-          <div style={{ backgroundColor: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
-            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#128737; Parking Protection Pending</p>
-            <p style={{ color: "#78350f", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
-              Your booking includes the {protectionPlan} plan. We&apos;re finalizing your protection record with Park Guard. If you need to file a claim before your trip, please email{" "}
-              <a href="mailto:support@triplypro.com" style={{ color: "#92400e", fontWeight: "600" }}>support@triplypro.com</a>
-              {" "}so we can confirm your protection is active.
-            </p>
-            <p style={{ margin: "0" }}>
               <a href={PARKGUARD_TERMS_URL} style={{ color: "#475569", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>View Terms &rarr;</a>
             </p>
           </div>

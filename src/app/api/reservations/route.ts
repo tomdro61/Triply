@@ -57,10 +57,13 @@ export async function POST(request: NextRequest) {
     // Single source of truth for the Park Guard premium across the booking
     // insert, the customer email, the admin email, and the POST response.
     const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
-    // Park Guard identifier — assigned only when the PG capture call succeeds
-    // below. Threaded into the customer email so a "premium charged but
-    // not yet acknowledged by PG" booking shows a pending state instead of
-    // a claim CTA pointing at PG (who has no record).
+    // Park Guard identifier — assigned only when the synchronous PG capture
+    // below succeeds. Persisted on the booking row and returned in the POST
+    // response so admin/ops tooling can surface sync state. NOT forwarded
+    // to the customer email or confirmation page; the customer paid the
+    // premium and is protected regardless of PG sync state. Genuine orphans
+    // (capture failed, identifier null) are recovered via
+    // `scripts/resync-orphan-booking.ts`.
     let pgIdentifier: string | null = null;
 
     // Verify Stripe payment (unless dev mode)
@@ -483,7 +486,6 @@ export async function POST(request: NextRequest) {
         ...(hasProtectionPlan && {
           protectionPlan: PROTECTION_PLAN.name,
           protectionPlanPrice: PROTECTION_PLAN.price,
-          pgIdentifier,
         }),
       });
     } catch (emailError) {
