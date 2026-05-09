@@ -18,6 +18,9 @@ interface SendBookingConfirmationParams {
   shuttleDetails?: string;
   specialConditions?: string;
   subject?: string;
+  protectionPlan?: string;
+  protectionPlanPrice?: number;
+  pgIdentifier?: string | null;
 }
 
 export async function sendBookingConfirmation({
@@ -36,6 +39,9 @@ export async function sendBookingConfirmation({
   shuttleDetails,
   specialConditions,
   subject,
+  protectionPlan,
+  protectionPlanPrice,
+  pgIdentifier,
 }: SendBookingConfirmationParams) {
   try {
     // Render React component to HTML
@@ -55,6 +61,9 @@ export async function sendBookingConfirmation({
         vehicleInfo,
         shuttleDetails,
         specialConditions,
+        protectionPlan,
+        protectionPlanPrice,
+        pgIdentifier,
       })
     );
 

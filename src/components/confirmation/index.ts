@@ -4,3 +4,4 @@ export { QRCodeSection } from "./qr-code-section";
 export { AddToCalendar } from "./add-to-calendar";
 export { WhatsNext } from "./whats-next";
 export { CreateAccountPrompt } from "./create-account-prompt";
+export { ProtectionPlanStatus } from "./protection-plan-status";

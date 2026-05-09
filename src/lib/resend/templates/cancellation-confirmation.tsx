@@ -10,6 +10,10 @@ interface CancellationConfirmationEmailProps {
   checkOutDate: string;
   refundAmount: number;
   wasRefunded: boolean;
+  /** Park Guard premium that was returned to the customer (if any). */
+  protectionPlanRefund?: number;
+  /** Non-refundable Triply service fee (retained, shown separately). */
+  serviceFee?: number;
 }
 
 export function CancellationConfirmationEmail({
@@ -21,7 +25,16 @@ export function CancellationConfirmationEmail({
   checkOutDate,
   refundAmount,
   wasRefunded,
+  serviceFee,
+  protectionPlanRefund,
 }: CancellationConfirmationEmailProps) {
+  // Refund breakdown shows what's being returned ("Parking" + "Parking Protection")
+  // summing to the headline total. Service fee is shown separately as retained.
+  // Clamp protectionRefund to refundAmount so the breakdown sum always equals
+  // the headline (defensive: shouldn't trigger in practice, but a partial
+  // capture or negative parking refund would otherwise break the math).
+  const protectionRefund = Math.min(protectionPlanRefund ?? 0, refundAmount);
+  const parkingRefund = Math.max(0, refundAmount - protectionRefund);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
 
   const labelStyle = {
@@ -93,12 +106,34 @@ export function CancellationConfirmationEmail({
             <p style={{ ...labelStyle, color: "#166534", marginBottom: "10px" }}>Refund Details</p>
             <table style={{ width: "100%" }}>
               <tbody>
-                <tr>
-                  <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700" }}>Refund Amount</td>
-                  <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right" }}>${refundAmount.toFixed(2)}</td>
-                </tr>
+                {protectionRefund > 0 ? (
+                  <>
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px" }}>Parking</td>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>${parkingRefund.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px" }}>Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#475569", fontSize: "13px", textAlign: "right" }}>${protectionRefund.toFixed(2)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #bbf7d0" }}>Total refund</td>
+                      <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #bbf7d0" }}>${refundAmount.toFixed(2)}</td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700" }}>Refund Amount</td>
+                    <td style={{ color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right" }}>${refundAmount.toFixed(2)}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
+            {serviceFee != null && serviceFee > 0 && (
+              <p style={{ color: "#92400e", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
+                Service fee of ${serviceFee.toFixed(2)} is non-refundable and was retained.
+              </p>
+            )}
             <p style={{ color: "#166534", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
               Please allow 5-10 business days for the refund to appear on your statement, depending on your bank.
             </p>

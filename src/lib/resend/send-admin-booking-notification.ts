@@ -1,5 +1,6 @@
 import { resend, FROM_EMAIL } from "./client";
 import { ADMIN_EMAILS } from "@/config/admin";
+import { captureBookingError } from "@/lib/sentry";
 
 interface AdminBookingNotificationParams {
   confirmationNumber: string;
@@ -122,12 +123,26 @@ export async function sendAdminBookingNotification({
 
     if (error) {
       console.error("Failed to send admin booking notification:", error);
+      captureBookingError(
+        new Error(
+          `Admin notification email failed for ${confirmationNumber}: ${error.message}`
+        ),
+        { step: "checkout", airportCode }
+      );
       return { success: false, error };
     }
 
     return { success: true, emailId: data?.id };
   } catch (err) {
     console.error("Error sending admin booking notification:", err);
+    captureBookingError(
+      err instanceof Error
+        ? err
+        : new Error(
+            `Admin notification email render failed for ${confirmationNumber}: ${String(err)}`
+          ),
+      { step: "checkout", airportCode }
+    );
     return { success: false, error: err };
   }
 }

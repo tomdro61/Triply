@@ -17,7 +17,14 @@ interface BookingConfirmationEmailProps {
   shuttlePhone?: string;
   shuttleDetails?: string;
   specialConditions?: string;
+  protectionPlan?: string;
+  protectionPlanPrice?: number;
+  /** Park Guard identifier — null means premium paid but PG hasn't acked. */
+  pgIdentifier?: string | null;
 }
+
+const PARKGUARD_CLAIM_URL = "https://www.parkguardcoveragehub.com/triplyproclaims";
+const PARKGUARD_TERMS_URL = "https://www.parkguard.com/terms-of-use-triplypro";
 
 export function BookingConfirmationEmail({
   customerName,
@@ -35,11 +42,27 @@ export function BookingConfirmationEmail({
   shuttlePhone,
   shuttleDetails,
   specialConditions,
+  protectionPlan,
+  protectionPlanPrice,
+  pgIdentifier,
 }: BookingConfirmationEmailProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
   const paidOnline = dueAtLocation && dueAtLocation > 0 ? totalAmount - dueAtLocation : totalAmount;
+  // The callout block and the line item must gate together — partial info
+  // (block but no charge, or charge with no block) is the failure mode.
+  // Compute the formatted price once so neither render site needs a non-null
+  // assertion that would silently render "NaN" if the guard ever drifts.
+  const protectionPriceText =
+    !!protectionPlan && protectionPlanPrice != null && protectionPlanPrice > 0
+      ? protectionPlanPrice.toFixed(2)
+      : null;
+  const hasProtection = protectionPriceText !== null;
+  // Premium was paid but Park Guard hasn't acknowledged yet — show the
+  // line item, but don't show "Start a Claim" CTA pointing at PG (their
+  // system has no record, customer would get a confused reply).
+  const isProtectionActive = hasProtection && !!pgIdentifier;
 
   const labelStyle = {
     color: "#64748b",
@@ -166,6 +189,33 @@ export function BookingConfirmationEmail({
           )}
         </div>
 
+        {/* Parking Protection */}
+        {hasProtection && isProtectionActive && (
+          <div style={{ backgroundColor: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+            <p style={{ ...labelStyle, color: "#065f46", marginBottom: "8px" }}>&#128737; Parking Protection Active</p>
+            <p style={{ color: "#065f46", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
+              Your booking includes the {protectionPlan} plan. If your vehicle is damaged or something is stolen while parked at the lot, file a claim through the link below.
+            </p>
+            <p style={{ margin: "0" }}>
+              <a href={PARKGUARD_CLAIM_URL} style={{ color: "#059669", fontSize: "13px", textDecoration: "none", fontWeight: "600", marginRight: "16px" }}>Start a Claim &rarr;</a>
+              <a href={PARKGUARD_TERMS_URL} style={{ color: "#475569", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>View Terms &rarr;</a>
+            </p>
+          </div>
+        )}
+        {hasProtection && !isProtectionActive && (
+          <div style={{ backgroundColor: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#128737; Parking Protection Pending</p>
+            <p style={{ color: "#78350f", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
+              Your booking includes the {protectionPlan} plan. We&apos;re finalizing your protection record with Park Guard. If you need to file a claim before your trip, please email{" "}
+              <a href="mailto:support@triplypro.com" style={{ color: "#92400e", fontWeight: "600" }}>support@triplypro.com</a>
+              {" "}so we can confirm your protection is active.
+            </p>
+            <p style={{ margin: "0" }}>
+              <a href={PARKGUARD_TERMS_URL} style={{ color: "#475569", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>View Terms &rarr;</a>
+            </p>
+          </div>
+        )}
+
         {/* Payment */}
         <div style={{ backgroundColor: "#fef7f5", border: "1px solid #fed7ca", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
           <p style={{ ...labelStyle, color: "#c2410c", marginBottom: "10px" }}>Payment Summary</p>
@@ -177,6 +227,12 @@ export function BookingConfirmationEmail({
                     <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Paid online</td>
                     <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${paidOnline.toFixed(2)}</td>
                   </tr>
+                  {hasProtection && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", paddingLeft: "12px" }}>Includes Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right" }}>${protectionPriceText}</td>
+                    </tr>
+                  )}
                   <tr>
                     <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px" }}>Due at location</td>
                     <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
@@ -187,10 +243,18 @@ export function BookingConfirmationEmail({
                   </tr>
                 </>
               ) : (
-                <tr>
-                  <td style={{ padding: "0", color: "#1e293b", fontSize: "17px", fontWeight: "700" }}>Total Paid</td>
-                  <td style={{ padding: "0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700" }}>${totalAmount.toFixed(2)}</td>
-                </tr>
+                <>
+                  {hasProtection && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px" }}>Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right" }}>${protectionPriceText}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: hasProtection ? "1px solid #fed7ca" : "0" }}>Total Paid</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: hasProtection ? "1px solid #fed7ca" : "0" }}>${totalAmount.toFixed(2)}</td>
+                  </tr>
+                </>
               )}
             </tbody>
           </table>
