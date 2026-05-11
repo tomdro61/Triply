@@ -1,22 +1,22 @@
 /**
- * One-off: PATCH the existing Park Guard record for booking
- * 1fd4cb08-3915-4cfd-8af6-56e47022a892 (synced 2026-05-09 via the
- * reconciliation script with the wrong `protection_plan` value).
- *
- * Park Guard rejected "$1,000 Protection" as the protection_plan value
- * and asked for the code "Plan A" instead (2026-05-11). This script
- * sends `PATCH /api/update-reservation-data/<reservation_id>` with the
- * correct code.
+ * Cleanup tool: PATCH a Park Guard record so its `protection_plan`
+ * field reads the tier code ("Plan A") instead of the display name.
+ * Used to retroactively fix records captured before the May 11 2026
+ * pgPlanCode change. Only the PG record changes — no DB writes.
  *
  * Run from triply/ root:
- *   npx tsx --env-file=.env.local scripts/fix-pg-plan-name.ts
- *
- * No DB writes — only the PG record changes.
+ *   npx tsx --env-file=.env.local scripts/fix-pg-plan-name.ts <booking_uuid>
  */
 
 import { parkGuard, PROTECTION_PLAN } from "../src/lib/parkguard/client";
 
-const BOOKING_ID = "1fd4cb08-3915-4cfd-8af6-56e47022a892";
+const BOOKING_ID = process.argv[2];
+if (!BOOKING_ID) {
+  console.error(
+    "Usage: npx tsx --env-file=.env.local scripts/fix-pg-plan-name.ts <booking_uuid>"
+  );
+  process.exit(1);
+}
 
 async function main() {
   console.log(
