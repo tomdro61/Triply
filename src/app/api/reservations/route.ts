@@ -378,7 +378,10 @@ export async function POST(request: NextRequest) {
             parking_city: pgCity,
             parking_state: pgState,
             parking_zipcode: pgZip,
-            protection_plan: PROTECTION_PLAN.name,
+            // PG expects "Plan A"/"Plan B"/"Plan C" codes — not the display
+            // name. We store the display name in `bookings.protection_plan`
+            // for customer surfaces; translate at the API boundary here.
+            protection_plan: PROTECTION_PLAN.pgPlanCode,
             protection_plan_price: PROTECTION_PLAN.price,
             email: customer.email,
             first_name: customer.firstName,

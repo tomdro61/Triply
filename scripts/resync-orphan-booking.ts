@@ -150,7 +150,9 @@ async function main() {
     parking_city: city,
     parking_state: state,
     parking_zipcode: zip,
-    protection_plan: PROTECTION_PLAN.name,
+    // PG expects "Plan A"/"Plan B"/"Plan C" codes — not the display name
+    // stored in bookings.protection_plan. Translate at this boundary.
+    protection_plan: PROTECTION_PLAN.pgPlanCode,
     protection_plan_price: Number(booking.protection_plan_price),
     email: customer.email,
     first_name: customer.first_name,

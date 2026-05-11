@@ -42,8 +42,17 @@ const PARKGUARD_API_KEY = process.env.PARKGUARD_API_KEY || "";
 // =============================================================================
 
 export const PROTECTION_PLAN = {
-  /** Name sent to Park Guard in `protection_plan` field. */
+  /**
+   * Customer-facing display name. Stored in `bookings.protection_plan` and
+   * rendered on the confirmation page + email. NOT sent to Park Guard.
+   */
   name: "$1,000 Protection",
+  /**
+   * Code sent to Park Guard in the `protection_plan` field of the capture
+   * payload. PG expects "Plan A" | "Plan B" | "Plan C" mapping to their
+   * $1,000 / $500 / $250 tiers. Triply currently only offers Plan A.
+   */
+  pgPlanCode: "Plan A",
   /** Customer-facing premium charged at checkout. */
   price: 9.99,
   /** Damage/theft limit, used in marketing copy and internal records. */
@@ -221,6 +230,7 @@ export const parkGuard = {
         | "reservation_start_time"
         | "reservation_end_time"
         | "number_of_plans"
+        | "protection_plan"
         | "protection_plan_price"
       >
     >
