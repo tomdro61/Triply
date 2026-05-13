@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
-import { captureAPIError } from "@/lib/sentry";
+import { captureAPIError, captureBookingError } from "@/lib/sentry";
 
 export async function GET(request: NextRequest) {
   try {
@@ -81,25 +81,25 @@ export async function GET(request: NextRequest) {
         .gte("created_at", monthStart.toISOString()),
       // Total revenue (filtered)
       applyDateFilter(
-        supabase.from("bookings").select("grand_total, triply_service_fee").eq("status", "confirmed")
+        supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan").eq("status", "confirmed")
       ),
       // Today's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString()),
       // This week's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString()),
       // This month's revenue
       supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString()),
       // Confirmed bookings (filtered)
@@ -112,15 +112,46 @@ export async function GET(request: NextRequest) {
       ),
     ]);
 
-    type RevenueRow = { grand_total: string; triply_service_fee: string | null };
+    type RevenueRow = {
+      grand_total: string;
+      triply_service_fee: string | null;
+      protection_plan_price: string | null;
+      protection_plan?: string | null;
+    };
+    // Surface rows where protection_plan is set but the price is missing
+    // or non-positive — the customer was charged but our totals would
+    // silently render $0 for that line item. Migration 011 blocks new
+    // such rows; this catches legacy dirty data still in the DB.
+    const flagDirtyProtection = (data: RevenueRow[] | null) => {
+      if (!data) return;
+      const dirty = data.filter((b) => {
+        if (!b.protection_plan) return false;
+        const parsed = parseFloat(b.protection_plan_price ?? "");
+        return !Number.isFinite(parsed) || parsed <= 0;
+      });
+      if (dirty.length > 0) {
+        captureBookingError(
+          new Error(
+            `Admin stats: ${dirty.length} booking(s) with protection_plan set but invalid protection_plan_price — revenue under-counted`
+          ),
+          { step: "checkout" }
+        );
+      }
+    };
     const sumGross = (data: RevenueRow[] | null) =>
       data?.reduce(
         (sum, b) =>
           sum +
           (parseFloat(b.grand_total) || 0) +
-          (parseFloat(b.triply_service_fee || "0") || 0),
+          (parseFloat(b.triply_service_fee || "0") || 0) +
+          (parseFloat(b.protection_plan_price || "0") || 0),
         0
       ) || 0;
+
+    // Run the dirty-row scan ONCE per request against the broadest data set.
+    // Calling inside sumGross would fire up to 4 alerts per request for the
+    // same row (revenueResult / today / week / month all overlap).
+    flagDirtyProtection(revenueResult.data);
     const sumTriply = (data: RevenueRow[] | null) =>
       data?.reduce((sum, b) => sum + (parseFloat(b.triply_service_fee || "0") || 0), 0) || 0;
 

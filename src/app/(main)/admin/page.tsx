@@ -48,6 +48,7 @@ interface Booking {
   check_out: string;
   grand_total: string;
   triply_service_fee: string | null;
+  protection_plan_price: string | null;
   status: string;
   created_at: string;
   customers: {
@@ -393,7 +394,11 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <span className="font-semibold text-gray-900 flex-shrink-0">
-                      {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
+                      {formatPrice(
+                        parseFloat(booking.grand_total) +
+                          parseFloat(booking.triply_service_fee || "0") +
+                          parseFloat(booking.protection_plan_price || "0")
+                      )}
                     </span>
                   </div>
                 </div>
@@ -457,7 +462,11 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-gray-900">
-                        {formatPrice(parseFloat(booking.grand_total) + parseFloat(booking.triply_service_fee || "0"))}
+                        {formatPrice(
+                        parseFloat(booking.grand_total) +
+                          parseFloat(booking.triply_service_fee || "0") +
+                          parseFloat(booking.protection_plan_price || "0")
+                      )}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

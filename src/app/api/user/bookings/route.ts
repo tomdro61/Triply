@@ -46,6 +46,24 @@ export async function GET() {
       );
     }
 
+    // Surface rows where protection_plan is set but protection_plan_price
+    // is invalid — those would render "$0 Protection" in the reservation
+    // card total. Migration 011 blocks new such rows; this catches legacy
+    // dirty data.
+    const dirtyProtection = (bookings || []).filter((b) => {
+      if (!b.protection_plan) return false;
+      const parsed = parseFloat(b.protection_plan_price ?? "");
+      return !Number.isFinite(parsed) || parsed <= 0;
+    });
+    if (dirtyProtection.length > 0) {
+      captureBookingError(
+        new Error(
+          `/api/user/bookings: ${dirtyProtection.length} booking(s) for customer ${customer.id} with protection_plan set but invalid protection_plan_price`
+        ),
+        { step: "confirmation", userId: user.id }
+      );
+    }
+
     return NextResponse.json({ bookings: bookings || [] });
   } catch (error) {
     console.error("Error in user bookings route:", error);

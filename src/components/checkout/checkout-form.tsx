@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
@@ -21,6 +21,8 @@ import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
+import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -101,6 +103,26 @@ export function CheckoutForm({
   const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // null = customer has not yet decided (required-decision UX). Becomes true
+  // or false once they pick a radio on the payment step.
+  const [protectionPlanChoice, setProtectionPlanChoice] = useState<boolean | null>(null);
+  const [protectionPlanUpdating, setProtectionPlanUpdating] = useState(false);
+  // Toggle errors are kept SEPARATE from submitError so the StripePaymentForm
+  // doesn't render them under the "Payment Error" heading (which is reserved
+  // for actual Stripe / booking failures).
+  const [protectionToggleError, setProtectionToggleError] = useState<string | null>(null);
+  // Set when a network error makes the server-side PaymentIntent state
+  // unknown — the fetch rejected but Stripe may have already processed the
+  // update on the server. Submit must be blocked in this state because the
+  // customer's visible choice may diverge from what they'd actually be
+  // charged; the only way out is for them to re-toggle (which fires a
+  // fresh update-pi and reconciles state) or refresh the page.
+  const [protectionStateAmbiguous, setProtectionStateAmbiguous] = useState(false);
+  // Sequence ID for in-flight update-pi requests. Each click increments;
+  // responses that arrive after a newer click are discarded so they can't
+  // clobber the latest state. Prevents the rapid-toggle race condition.
+  const inflightToggleId = useRef(0);
+  const hasProtectionPlan = protectionPlanChoice === true;
 
   // Validation errors
   const [customerErrors, setCustomerErrors] = useState<
@@ -116,6 +138,8 @@ export function CheckoutForm({
     const end = new Date(checkOut);
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+    const protectionPlan = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
 
     // Use API data if available
     if (costData) {
@@ -137,8 +161,11 @@ export function CheckoutForm({
         taxes: costData.taxTotal,
         fees: 0,
         serviceFee,
-        total: costData.grandTotal + serviceFee - discount,
-        dueNow: costData.dueNow - discount,
+        protectionPlan,
+        total: costData.grandTotal + serviceFee + protectionPlan - discount,
+        // Server clamps with Math.max(0, ...) before charging Stripe; mirror
+        // it client-side so a large promo doesn't render a negative "Due Now".
+        dueNow: Math.max(0, costData.dueNow + protectionPlan - discount),
         dueAtLocation: costData.dueAtLocation,
       };
     }
@@ -152,7 +179,7 @@ export function CheckoutForm({
 
     const afterDiscount = subtotal - discount;
     const taxes = Math.round(afterDiscount * 0.08 * 100) / 100; // 8% tax
-    const total = afterDiscount + taxes;
+    const total = afterDiscount + taxes + protectionPlan;
 
     return {
       dailyRate,
@@ -162,11 +189,12 @@ export function CheckoutForm({
       taxes,
       fees: 0,
       serviceFee: 0,
+      protectionPlan,
       total,
       dueNow: total,
       dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData, hasProtectionPlan]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -239,6 +267,13 @@ export function CheckoutForm({
         throw new Error("Missing required lot data for payment");
       }
 
+      // Initial PaymentIntent is parking-only — protection decision is
+      // deferred to the payment step, where /api/checkout/lot/update-pi
+      // flexes the amount once the customer picks Yes/No.
+      // hasProtectionPlan is explicitly false here (not omitted): the
+      // schema is required at the API boundary, and explicit-false matches
+      // the server-side parking-only PI path. Avoiding undefined keeps the
+      // silent-default anti-pattern away from this money-handling POST.
       const response = await fetch("/api/checkout/lot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,6 +286,7 @@ export function CheckoutForm({
           checkoutTime: checkOutTime,
           parkingTypeId,
           customerEmail: customerDetails.email,
+          hasProtectionPlan: false,
           ...(promoCode && { promoCode }),
         }),
       });
@@ -284,26 +320,193 @@ export function CheckoutForm({
   };
 
   const handlePaymentBack = () => {
+    // Invalidate any in-flight update-pi toggle from the prior PI so its
+    // resolution can't clobber fresh state on the new PI created after
+    // navigation. The sequence-ID stale-discard guard inside
+    // doProtectionPlanUpdate will short-circuit when myId !== current.
+    inflightToggleId.current += 1;
+    setProtectionPlanUpdating(false);
+    // Clear the existing PaymentIntent state so re-entering the payment step
+    // creates a fresh PI. Otherwise a customer who toggles protection while
+    // back on the vehicle step could end up paying the old (stale) amount.
+    setClientSecret(null);
+    setPaymentIntentId(null);
+    setProtectionPlanChoice(null);
+    setProtectionToggleError(null);
+    setProtectionStateAmbiguous(false);
     setCurrentStep("vehicle");
   };
 
-  // Promo code handlers — validates server-side
-  const handleApplyPromo = async (code: string): Promise<boolean> => {
+  // Protection-plan choice handler — fires server-side PI update so Stripe
+  // charges the right amount on Pay Now. Optimistically updates the UI; rolls
+  // back on failure. Race-protected via sequence ID so rapid Yes/No clicks
+  // can't land out of order. Errors route to protectionToggleError (separate
+  // from submitError) so the wrong heading doesn't surface in the UI.
+  //
+  // The sync wrapper increments the sequence ID and captures `myId` BEFORE
+  // any await scheduling — guarantees serialization even under stress (e.g.,
+  // synthetic Playwright double-clicks) where two event handlers might race.
+  const handleProtectionPlanChange = (selected: boolean) => {
+    if (!paymentIntentId) {
+      // Dev-mode (no PI created) — local state only. Should never happen in
+      // production because StripePaymentForm only renders when clientSecret
+      // exists. Log if it does so we catch any future regression.
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "handleProtectionPlanChange called without paymentIntentId (DEV_SKIP_PAYMENT?)"
+        );
+      }
+      setProtectionPlanChoice(selected);
+      return;
+    }
+    inflightToggleId.current += 1;
+    const myId = inflightToggleId.current;
+    void doProtectionPlanUpdate(selected, myId, paymentIntentId);
+  };
+
+  const doProtectionPlanUpdate = async (
+    selected: boolean,
+    myId: number,
+    piId: string
+  ) => {
+    const previous = protectionPlanChoice;
+    setProtectionPlanChoice(selected);
+    setProtectionPlanUpdating(true);
+    setProtectionToggleError(null);
+    setProtectionStateAmbiguous(false);
+
+    let response: Response | null = null;
+    let errorMessage: string | null = null;
+    let networkAmbiguous = false;
+    let shouldCaptureSentry = false;
+
+    try {
+      response = await fetch("/api/checkout/lot/update-pi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId: piId, hasProtectionPlan: selected }),
+      });
+
+      if (!response.ok) {
+        let serverMsg = "";
+        try {
+          const data = await response.json();
+          serverMsg = data?.error || "";
+        } catch {
+          /* body wasn't JSON */
+        }
+        if (response.status === 422) {
+          errorMessage =
+            serverMsg ||
+            "Couldn't update protection — please go back and restart checkout";
+        } else if (response.status === 409) {
+          errorMessage =
+            "Payment is already in progress — refresh the page and try again";
+        } else {
+          errorMessage =
+            serverMsg || "Couldn't update protection — please try again";
+          // 400 (Zod validation) or 5xx — ops should know about regressions
+          // and outages even if the user-facing message is generic.
+          if (response.status === 400 || response.status >= 500) {
+            shouldCaptureSentry = true;
+          }
+        }
+      }
+    } catch (networkErr) {
+      capturePaymentError(
+        networkErr instanceof Error
+          ? networkErr
+          : new Error(String(networkErr)),
+        { stripePaymentIntentId: piId, amount: PROTECTION_PLAN.price }
+      );
+      // Network rejection means we don't know whether Stripe applied the
+      // update server-side. Rolling back the UI choice while Stripe holds
+      // the new amount would let the customer click Pay Now believing they're
+      // being charged one amount and then be charged another — the mismatch
+      // would only surface as a 400 from /api/reservations after the card
+      // was already charged. Mark the state ambiguous and block submit
+      // until the customer re-toggles (forces a fresh update-pi and
+      // resolves the state).
+      networkAmbiguous = true;
+      errorMessage =
+        "Couldn't confirm the protection update — please toggle Yes/No again to verify your total before paying";
+    }
+
+    if (shouldCaptureSentry && response) {
+      capturePaymentError(
+        new Error(
+          `update-pi returned ${response.status}: ${errorMessage || "unknown"}`
+        ),
+        { stripePaymentIntentId: piId, amount: PROTECTION_PLAN.price }
+      );
+    }
+
+    // Stale response? A newer click superseded this request; discard the
+    // result so it can't clobber fresh state. The newer call will set
+    // protectionPlanUpdating to false when it completes.
+    if (myId !== inflightToggleId.current) {
+      return;
+    }
+
+    if (errorMessage !== null) {
+      if (networkAmbiguous) {
+        // Keep the optimistic choice — server may have applied it. Block
+        // submit via the ambiguous flag until the next toggle resolves state.
+        setProtectionStateAmbiguous(true);
+      } else {
+        // HTTP error from the server is an explicit "didn't apply" — safe
+        // to roll back to the previous choice.
+        setProtectionPlanChoice(previous);
+      }
+      setProtectionToggleError(errorMessage);
+    }
+    setProtectionPlanUpdating(false);
+  };
+
+  // Promo code handlers — validates server-side. Returns a discriminated
+  // result so the PromoCode widget can show distinct messages for "invalid
+  // code" vs "couldn't reach server" — the latter is misleading if shown as
+  // "invalid promo code".
+  const handleApplyPromo = async (
+    code: string
+  ): Promise<{ ok: true } | { ok: false; reason: "invalid" | "network" }> => {
     try {
       const response = await fetch("/api/promo/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
+      if (!response.ok) {
+        // 4xx — server rejected the code (validation, rate limit, auth).
+        // Customer should see "invalid", not "retry".
+        // 5xx — server fault. Customer sees "retry"; ops sees Sentry alert.
+        if (response.status >= 500) {
+          captureAPIError(
+            new Error(`/api/promo/validate returned ${response.status}`),
+            {
+              endpoint: "/api/promo/validate",
+              method: "POST",
+              statusCode: response.status,
+            }
+          );
+          return { ok: false, reason: "network" };
+        }
+        return { ok: false, reason: "invalid" };
+      }
       const data = await response.json();
       if (data.valid) {
         setPromoCode(code);
         setPromoDiscountPercent(data.discountPercent);
-        return true;
+        return { ok: true };
       }
-      return false;
-    } catch {
-      return false;
+      return { ok: false, reason: "invalid" };
+    } catch (err) {
+      // True fetch rejection — network failure, offline, CORS, abort.
+      captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+        endpoint: "/api/promo/validate",
+        method: "POST",
+      });
+      return { ok: false, reason: "network" };
     }
   };
 
@@ -349,6 +552,10 @@ export function CheckoutForm({
           triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
+          // Park Guard parking protection opt-in. Sent explicitly (not
+          // conditionally omitted) so the API boundary sees an unambiguous
+          // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
+          hasProtectionPlan,
           // Stripe payment reference
           stripePaymentIntentId,
         }),
@@ -365,7 +572,7 @@ export function CheckoutForm({
 
       // Redirect to confirmation page
       router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
       );
     } catch (error) {
       console.error("Reservation error after payment:", error);
@@ -401,7 +608,7 @@ export function CheckoutForm({
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
 
           router.push(
-            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
+            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
           );
           return;
         }
@@ -445,6 +652,10 @@ export function CheckoutForm({
           triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
+          // Park Guard parking protection opt-in. Sent explicitly (not
+          // conditionally omitted) so the API boundary sees an unambiguous
+          // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
+          hasProtectionPlan,
         }),
       });
 
@@ -459,7 +670,7 @@ export function CheckoutForm({
 
       // Redirect to confirmation page with reservation number
       router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`
+        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
       );
     } catch (error) {
       console.error("Reservation error:", error);
@@ -556,6 +767,11 @@ export function CheckoutForm({
                   isSubmitting={isSubmitting}
                   submitError={submitError}
                   dueAtLocation={lot.dueAtLocation}
+                  protectionPlanChoice={protectionPlanChoice}
+                  onProtectionPlanChange={handleProtectionPlanChange}
+                  protectionPlanUpdating={protectionPlanUpdating}
+                  protectionToggleError={protectionToggleError}
+                  protectionStateAmbiguous={protectionStateAmbiguous}
                 />
               </StripeProvider>
             ) : (
@@ -578,6 +794,10 @@ export function CheckoutForm({
           promoCode={promoCode}
           onApplyPromo={handleApplyPromo}
           onRemovePromo={handleRemovePromo}
+          // Lock promo once the PaymentIntent exists. Promos applied on the
+          // payment step would update the displayed total but NOT the
+          // already-frozen PI amount, so Stripe would charge the wrong total.
+          promoLocked={clientSecret !== null}
         />
       </div>
     </div>

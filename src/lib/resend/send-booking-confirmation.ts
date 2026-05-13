@@ -1,6 +1,7 @@
 import { render } from "@react-email/render";
 import { resend, FROM_EMAIL } from "./client";
 import { BookingConfirmationEmail } from "./templates/booking-confirmation";
+import { captureBookingError } from "@/lib/sentry";
 
 interface SendBookingConfirmationParams {
   to: string;
@@ -18,6 +19,9 @@ interface SendBookingConfirmationParams {
   shuttleDetails?: string;
   specialConditions?: string;
   subject?: string;
+  protectionPlan?: string;
+  protectionPlanPrice?: number;
+  pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
 }
 
 export async function sendBookingConfirmation({
@@ -36,6 +40,9 @@ export async function sendBookingConfirmation({
   shuttleDetails,
   specialConditions,
   subject,
+  protectionPlan,
+  protectionPlanPrice,
+  pgSyncStatus,
 }: SendBookingConfirmationParams) {
   try {
     // Render React component to HTML
@@ -55,6 +62,9 @@ export async function sendBookingConfirmation({
         vehicleInfo,
         shuttleDetails,
         specialConditions,
+        protectionPlan,
+        protectionPlanPrice,
+        pgSyncStatus,
       })
     );
 
@@ -67,12 +77,25 @@ export async function sendBookingConfirmation({
 
     if (error) {
       console.error("Failed to send booking confirmation email:", error);
+      // Money-handling event — customer was charged and Park Guard may have
+      // been enrolled, but they don't know unless this email lands. Surface
+      // to Sentry so ops can manually resend.
+      captureBookingError(
+        new Error(`Booking confirmation email send failed: ${error.message}`),
+        { step: "confirmation", confirmationNumber }
+      );
       return { success: false, error };
     }
 
     return { success: true, emailId: data?.id };
   } catch (err) {
     console.error("Error sending booking confirmation email:", err);
+    captureBookingError(
+      err instanceof Error
+        ? err
+        : new Error(`Booking confirmation email render failed: ${String(err)}`),
+      { step: "confirmation", confirmationNumber }
+    );
     return { success: false, error: err };
   }
 }

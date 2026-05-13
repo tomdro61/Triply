@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { PriceBreakdown } from "@/types/checkout";
+import { ProtectionPlan } from "./protection-plan";
 
 interface StripePaymentFormProps {
   priceBreakdown: PriceBreakdown;
@@ -25,6 +26,22 @@ interface StripePaymentFormProps {
   isSubmitting?: boolean;
   submitError?: string | null;
   dueAtLocation?: boolean;
+  /** null = customer hasn't picked yet (Pay Now stays disabled). */
+  protectionPlanChoice: boolean | null;
+  onProtectionPlanChange: (selected: boolean) => void;
+  protectionPlanUpdating?: boolean;
+  /**
+   * Error from a failed protection-toggle update. Distinct from `submitError`
+   * (payment / booking errors) so the UI can render them under different
+   * headings — toggle failures are not "Payment Errors".
+   */
+  protectionToggleError?: string | null;
+  /**
+   * Set when a network error left the server-side PaymentIntent state
+   * unknown. Submit must stay disabled — the visible choice may not match
+   * what Stripe will charge. Re-toggling resolves it.
+   */
+  protectionStateAmbiguous?: boolean;
 }
 
 export function StripePaymentForm({
@@ -36,7 +53,13 @@ export function StripePaymentForm({
   isSubmitting = false,
   submitError,
   dueAtLocation = false,
+  protectionPlanChoice,
+  onProtectionPlanChange,
+  protectionPlanUpdating = false,
+  protectionToggleError = null,
+  protectionStateAmbiguous = false,
 }: StripePaymentFormProps) {
+  const protectionAnswered = protectionPlanChoice !== null;
   const stripe = useStripe();
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,7 +70,7 @@ export function StripePaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !acceptedTerms || processing) {
+    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || processing || protectionPlanUpdating || protectionStateAmbiguous) {
       return;
     }
 
@@ -103,6 +126,17 @@ export function StripePaymentForm({
           Your payment information is secure and encrypted
         </p>
       </div>
+
+      {/* Parking Protection — required Yes/No, gates Pay Now */}
+      <ProtectionPlan
+        value={protectionPlanChoice}
+        onChange={onProtectionPlanChange}
+        isUpdating={protectionPlanUpdating}
+        // Lock during Stripe confirmPayment so the customer can't toggle
+        // mid-charge (would 409 the update-pi endpoint).
+        disabled={processing}
+        toggleError={protectionToggleError}
+      />
 
       {/* Stripe Payment Element */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -184,7 +218,7 @@ export function StripePaymentForm({
         </button>
         <button
           type="submit"
-          disabled={processing || !acceptedTerms || !stripe || !elements}
+          disabled={processing || !acceptedTerms || !protectionAnswered || protectionPlanUpdating || protectionStateAmbiguous || !stripe || !elements}
           className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {processing ? (
@@ -192,6 +226,18 @@ export function StripePaymentForm({
               <Loader2 size={20} className="animate-spin" />
               Processing...
             </>
+          ) : protectionPlanUpdating ? (
+            <>
+              <Loader2 size={20} className="animate-spin" />
+              Updating total…
+            </>
+          ) : !protectionAnswered ? (
+            <>Select a protection option above</>
+          ) : protectionStateAmbiguous ? (
+            // Server state is unknown after a network failure. The button
+            // amount could be wrong; do not show a dollar value the
+            // customer might trust.
+            <>Toggle Yes/No again to confirm total</>
           ) : (
             <>
               <Check size={20} />

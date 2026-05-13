@@ -34,12 +34,29 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    // Build query — scoped to partner's location
+    // Build query — scoped to partner's location.
+    // Explicit allow-list (NOT `*`). Partners are external lot operators;
+    // they must NOT see Triply's internal economics:
+    //   - triply_service_fee (our margin)
+    //   - protection_plan / protection_plan_price (Park Guard pricing)
+    //   - pg_identifier / pg_sync_status (PG sync internals)
+    //   - stripe_payment_intent_id (payment internals)
     let query = supabase
       .from("bookings")
       .select(
         `
-        *,
+        id,
+        reslab_reservation_number,
+        reslab_location_id,
+        location_name,
+        location_address,
+        airport_code,
+        check_in,
+        check_out,
+        grand_total,
+        status,
+        vehicle_info,
+        created_at,
         customers (
           id,
           email,

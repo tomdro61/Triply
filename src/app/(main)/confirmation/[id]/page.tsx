@@ -12,6 +12,7 @@ import {
   AddToCalendar,
   WhatsNext,
   CreateAccountPrompt,
+  ProtectionPlanStatus,
 } from "@/components/confirmation";
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,10 @@ interface ReservationData {
   grandTotal: number;
   dueNow: number;
   dueAtLocation: number;
+  protectionPlan: string | null;
+  protectionPlanPrice: number;
+  pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
+  pgIdentifier: string | null;
   customer: {
     firstName: string;
     lastName: string;
@@ -94,6 +99,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         lotName: reservation.location.name,
         grandTotal: reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
+        protectionPlanPrice: reservation.protectionPlanPrice || undefined,
         airportCode: lotId?.split("-")[0]?.toUpperCase(),
       });
     }
@@ -365,6 +371,15 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 vehicleInfo={vehicleInfo}
                 dueAtLocation={reservation?.dueAtLocation}
               />
+
+              {reservation?.protectionPlan && (
+                <ProtectionPlanStatus
+                  planName={reservation.protectionPlan}
+                  price={reservation.protectionPlanPrice}
+                  pgSyncStatus={reservation.pgSyncStatus}
+                  pgIdentifier={reservation.pgIdentifier}
+                />
+              )}
 
               <AddToCalendar
                 lot={lot}

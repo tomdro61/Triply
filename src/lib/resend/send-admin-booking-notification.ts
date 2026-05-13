@@ -1,5 +1,6 @@
 import { resend, FROM_EMAIL } from "./client";
 import { ADMIN_EMAILS } from "@/config/admin";
+import { captureBookingError } from "@/lib/sentry";
 
 interface AdminBookingNotificationParams {
   confirmationNumber: string;
@@ -14,6 +15,10 @@ interface AdminBookingNotificationParams {
   dueAtLocation?: number;
   vehicleInfo?: string;
   airportCode?: string;
+  // Paired: both undefined for opted-out bookings, both set when opted in.
+  // The call site always passes them together via spread.
+  protectionPlan?: string;
+  protectionPlanPrice?: number;
 }
 
 export async function sendAdminBookingNotification({
@@ -29,9 +34,19 @@ export async function sendAdminBookingNotification({
   dueAtLocation,
   vehicleInfo,
   airportCode,
+  protectionPlan,
+  protectionPlanPrice,
 }: AdminBookingNotificationParams) {
   try {
     const paidOnline = dueAtLocation ? totalAmount - dueAtLocation : totalAmount;
+    // Pair the protection plan name and formatted price together so the
+    // gated render block can never half-render (block-without-price or
+    // price-without-block). Mirrors booking-confirmation.tsx.
+    const protectionPriceText =
+      !!protectionPlan && protectionPlanPrice != null && protectionPlanPrice > 0
+        ? protectionPlanPrice.toFixed(2)
+        : null;
+    const hasProtection = protectionPriceText !== null;
 
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -71,6 +86,12 @@ export async function sendAdminBookingNotification({
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Total</td>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #f87356; font-size: 16px; font-weight: 700;">$${totalAmount.toFixed(2)}</td>
               </tr>
+              ${hasProtection ? `
+              <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Parking Protection</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${protectionPlan} — $${protectionPriceText}</td>
+              </tr>
+              ` : ""}
               ${dueAtLocation && dueAtLocation > 0 ? `
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Paid Online</td>
@@ -122,12 +143,26 @@ export async function sendAdminBookingNotification({
 
     if (error) {
       console.error("Failed to send admin booking notification:", error);
+      captureBookingError(
+        new Error(
+          `Admin notification email failed for ${confirmationNumber}: ${error.message}`
+        ),
+        { step: "checkout", airportCode }
+      );
       return { success: false, error };
     }
 
     return { success: true, emailId: data?.id };
   } catch (err) {
     console.error("Error sending admin booking notification:", err);
+    captureBookingError(
+      err instanceof Error
+        ? err
+        : new Error(
+            `Admin notification email render failed for ${confirmationNumber}: ${String(err)}`
+          ),
+      { step: "checkout", airportCode }
+    );
     return { success: false, error: err };
   }
 }

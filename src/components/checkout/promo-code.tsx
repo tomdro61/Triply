@@ -3,11 +3,20 @@
 import { useState } from "react";
 import { Tag, X, Check, Loader2 } from "lucide-react";
 
+export type ApplyPromoResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid" | "network" };
+
 interface PromoCodeProps {
   appliedCode: string | null;
   discount: number;
-  onApply: (code: string) => Promise<boolean>;
+  onApply: (code: string) => Promise<ApplyPromoResult>;
   onRemove: () => void;
+  /**
+   * When true, both Apply and Remove are disabled (typically on the payment
+   * step, when the Stripe PaymentIntent amount is already locked in).
+   */
+  locked?: boolean;
 }
 
 export function PromoCode({
@@ -15,6 +24,7 @@ export function PromoCode({
   discount,
   onApply,
   onRemove,
+  locked = false,
 }: PromoCodeProps) {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -27,11 +37,13 @@ export function PromoCode({
     setError(null);
 
     try {
-      const success = await onApply(code.trim().toUpperCase());
-      if (!success) {
-        setError("Invalid or expired promo code");
-      } else {
+      const result = await onApply(code.trim().toUpperCase());
+      if (result.ok) {
         setCode("");
+      } else if (result.reason === "network") {
+        setError("Couldn't reach the server — please try again");
+      } else {
+        setError("Invalid or expired promo code");
       }
     } catch {
       setError("Failed to apply promo code");
@@ -55,14 +67,31 @@ export function PromoCode({
               </p>
             </div>
           </div>
-          <button
-            onClick={onRemove}
-            className="p-1 text-green-600 hover:text-green-800 transition-colors"
-          >
-            <X size={18} />
-          </button>
+          {!locked && (
+            <button
+              onClick={onRemove}
+              className="p-1 text-green-600 hover:text-green-800 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          )}
         </div>
+        {locked && (
+          <p className="text-xs text-green-700 mt-2">
+            Promo locked once payment is initialized. Click{" "}
+            <span className="font-semibold">Back</span> to edit.
+          </p>
+        )}
       </div>
+    );
+  }
+
+  if (locked) {
+    return (
+      <p className="text-xs text-gray-500 italic">
+        Promo codes can&apos;t be added once payment is initialized. Click{" "}
+        <span className="font-semibold not-italic">Back</span> to edit your booking.
+      </p>
     );
   }
 

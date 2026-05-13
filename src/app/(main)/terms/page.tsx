@@ -29,7 +29,7 @@ export default function TermsPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Terms of Service</h1>
-                <p className="text-gray-600">Last updated: January 31, 2026</p>
+                <p className="text-gray-600">Last updated: May 8, 2026</p>
               </div>
             </div>
           </div>
@@ -145,7 +145,38 @@ export default function TermsPage() {
               Any disputes arising from these Terms or your use of our Services shall first be attempted to be resolved through good-faith negotiation. If negotiation fails, disputes shall be resolved through binding arbitration in accordance with the rules of the American Arbitration Association.
             </p>
 
-            <h2>13. Contact Information</h2>
+            <h2 id="parking-protection">13. Parking Protection</h2>
+            <p>
+              All protection plans offered on IE Holdings, L.L.C., (TriplyPro) or through any
+              affiliates or subsidiaries, are offered exclusively by Park Guard Inc. The
+              administration of all protection plans and the processing of claims are managed
+              by a licensed third party. By opting in—or, in certain instances, by failing to
+              opt out—you expressly agree to Park Guard Inc.&apos;s Terms of Use governing these
+              plans. These Terms of Use may be updated at any time, and it is your responsibility
+              to review the most current version of the Terms at the time of opting into a
+              protection plan. The applicable Terms of Use can be reviewed in full at{" "}
+              <a
+                href="https://www.parkguard.com/terms-of-use-triplypro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-orange hover:text-orange-600"
+              >
+                parkguard.com/terms-of-use-triplypro
+              </a>
+              .
+            </p>
+            <p>
+              If you have the protection plan and you need to start a claim please visit{" "}
+              <a
+                href="/claims"
+                className="text-brand-orange hover:text-orange-600"
+              >
+                triplypro.com/claims
+              </a>
+              .
+            </p>
+
+            <h2>14. Contact Information</h2>
             <p>
               If you have any questions about these Terms, please contact us at:
             </p>

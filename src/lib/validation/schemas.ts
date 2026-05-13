@@ -52,6 +52,10 @@ export const reservationSchema = z.object({
   triplyServiceFee: z.number().optional(),
   userId: z.string().nullable().optional(),
   stripePaymentIntentId: z.string().optional(),
+  // Required. Undefined coerces to false silently and would let a client
+  // that's been opted into protection slip past the metadata cross-check
+  // without paying. Always pass an explicit boolean from the checkout form.
+  hasProtectionPlan: z.boolean(),
 });
 
 export function escapeHtml(str: string): string {

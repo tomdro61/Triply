@@ -12,6 +12,7 @@ import {
   CreditCard,
   Calendar,
   Shield,
+  ShieldCheck,
   HelpCircle,
   ArrowLeft,
 } from "lucide-react";
@@ -149,6 +150,38 @@ const faqCategories: FAQCategory[] = [
         question: "What items should I remove from my car?",
         answer:
           "We recommend removing all valuables, electronics, and important documents from your vehicle. While facilities have security measures, it's best practice to not leave tempting items visible in your car.",
+      },
+    ],
+  },
+  {
+    id: "protection",
+    title: "Parking Protection",
+    icon: <ShieldCheck className="h-5 w-5" />,
+    faqs: [
+      {
+        question: "What is parking protection?",
+        answer:
+          "Parking protection is an optional plan offered through Park Guard, a third-party administrator, that helps with the cost of certain damages or theft that occur while your vehicle is parked at the lot. You can opt in for a flat $9.99 fee at checkout.",
+      },
+      {
+        question: "Is parking protection required?",
+        answer:
+          "No, parking protection is completely optional. You can opt in or skip it during checkout. If you skip it, you'll be parking under the standard terms with the lot operator.",
+      },
+      {
+        question: "What does parking protection include?",
+        answer:
+          "The plan helps with physical damages from accidents or theft that happen at the parking lot — including door dings, fender benders, and stolen items inside or outside the vehicle — up to $1,000 per claim. For the full list of what's included and excluded, see Park Guard's full terms at parkguard.com/terms-of-use-triplypro.",
+      },
+      {
+        question: "How do I file a claim?",
+        answer:
+          "If your vehicle was damaged or something was stolen, visit triplypro.com/claims to start a claim. For theft, you'll also need to file a police report and include it with your claim. All claims must be submitted within 72 hours of leaving the parking facility.",
+      },
+      {
+        question: "How much does parking protection cost?",
+        answer:
+          "It's a flat $9.99 added to your booking at checkout. The price is shown clearly before you confirm — you'll only be charged if you opt in.",
       },
     ],
   },

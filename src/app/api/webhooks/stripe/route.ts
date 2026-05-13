@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
+import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
 import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -33,21 +34,35 @@ export async function POST(request: NextRequest) {
   switch (event.type) {
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      // Payment succeeded for paymentIntent.id
 
       // Look up booking by stripe_payment_intent_id and confirm status
-      const { data: booking } = await supabase
+      const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id, status")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .single();
 
+      if (lookupErr && lookupErr.code !== "PGRST116") {
+        // PGRST116 = no rows found; that's the race-condition path handled
+        // below. Anything else is a real Supabase error worth Sentry-ing.
+        capturePaymentError(
+          new Error(`Webhook payment_intent.succeeded: lookup failed: ${lookupErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+      }
+
       if (booking) {
         if (booking.status !== "confirmed") {
-          await supabase
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "confirmed" })
             .eq("id", booking.id);
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook payment_intent.succeeded: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+            );
+          }
         }
       } else {
         // Race condition: webhook arrived before reservation was created
@@ -73,17 +88,30 @@ export async function POST(request: NextRequest) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.error("Payment failed:", paymentIntent.id);
 
-      const { data: booking } = await supabase
+      const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .single();
 
+      if (lookupErr && lookupErr.code !== "PGRST116") {
+        capturePaymentError(
+          new Error(`Webhook payment_intent.payment_failed: lookup failed: ${lookupErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+      }
+
       if (booking) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from("bookings")
           .update({ status: "payment_failed" })
           .eq("id", booking.id);
+        if (updateErr) {
+          capturePaymentError(
+            new Error(`Webhook payment_intent.payment_failed: status update failed: ${updateErr.message}`),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+        }
       }
 
       capturePaymentError(
@@ -102,17 +130,30 @@ export async function POST(request: NextRequest) {
       console.error("Dispute created:", dispute.id, "for PI:", paymentIntentId);
 
       if (paymentIntentId) {
-        const { data: booking } = await supabase
+        const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
           .select("id")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
+        if (lookupErr && lookupErr.code !== "PGRST116") {
+          capturePaymentError(
+            new Error(`Webhook charge.dispute.created: lookup failed: ${lookupErr.message}`),
+            { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
+          );
+        }
+
         if (booking) {
-          await supabase
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "disputed" })
             .eq("id", booking.id);
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook charge.dispute.created: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: dispute.amount / 100 }
+            );
+          }
         }
       }
 
@@ -129,20 +170,142 @@ export async function POST(request: NextRequest) {
         ? charge.payment_intent
         : charge.payment_intent?.id;
 
-      // Charge refunded
+      const isFullRefund = charge.amount_refunded === charge.amount;
 
       if (paymentIntentId) {
-        const { data: booking } = await supabase
+        const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
-          .select("id")
+          .select("id, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
+        if (lookupErr && lookupErr.code !== "PGRST116") {
+          // PGRST116 = no rows found. Legitimate when a refund fires for a
+          // pre-Triply charge or a test-mode payment that never produced a
+          // booking row; suppressing keeps the Sentry signal actionable.
+          capturePaymentError(
+            new Error(`Webhook charge.refunded: bookings lookup failed: ${lookupErr.message}`),
+            { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+          );
+        }
+
         if (booking) {
-          await supabase
+          // Did the refunded amount cover the Park Guard premium? If so we
+          // must notify PG — they don't observe Stripe refunds and would
+          // keep billing Triply for coverage on a refunded premium.
+          //
+          // Threshold = the price THIS booking was charged (booking.protection_plan_price),
+          // not the current constant — so a future bump of PROTECTION_PLAN.price
+          // (e.g., 9.99 → 14.99) doesn't break PG-cancel on pre-bump bookings
+          // whose Stripe refunds will still come back at the old amount.
+          // Falls back to the constant only if the row is missing the price
+          // (a legacy state migration 011's CHECK will block for new inserts).
+          const rowPriceCents = booking.protection_plan_price
+            ? Math.round(parseFloat(booking.protection_plan_price) * 100)
+            : 0;
+          const premiumThresholdCents =
+            rowPriceCents > 0 ? rowPriceCents : Math.round(PROTECTION_PLAN.price * 100);
+          const refundCoversProtection =
+            !!booking.protection_plan &&
+            charge.amount_refunded >= premiumThresholdCents;
+
+          if (!isFullRefund) {
+            // Partial refund (dispute concession, customer-service goodwill,
+            // PG-premium-only refund). Don't flip booking status — parking
+            // spot still booked.
+            if (refundCoversProtection && booking.pg_identifier) {
+              try {
+                await parkGuard.updateReservation(booking.id, { status: "cancelled" });
+                // Clear pg_identifier so Stripe's at-least-once retry of this
+                // event, or further partial refunds, can't re-fire PG cancel.
+                // The identifier is preserved in PG's portal and in Sentry
+                // from the original capture; clearing it locally is purely
+                // for idempotency on subsequent webhook deliveries.
+                const { error: clearErr } = await supabase
+                  .from("bookings")
+                  .update({ pg_identifier: null })
+                  .eq("id", booking.id);
+                if (clearErr) {
+                  captureParkGuardError(
+                    new Error(
+                      `Webhook partial refund: PG cancelled but pg_identifier clear failed: ${clearErr.message}`
+                    ),
+                    { bookingId: booking.id, operation: "update" }
+                  );
+                }
+              } catch (pgError) {
+                captureParkGuardError(
+                  pgError instanceof Error ? pgError : new Error(String(pgError)),
+                  {
+                    bookingId: booking.id,
+                    operation: "update",
+                    ...(pgError instanceof ParkGuardError && { statusCode: pgError.statusCode }),
+                  }
+                );
+              }
+            }
+
+            capturePaymentError(
+              new Error(
+                `Partial refund on booking ${booking.id}: $${(charge.amount_refunded / 100).toFixed(2)} of $${(charge.amount / 100).toFixed(2)}${refundCoversProtection ? " — PG cancellation triggered" : ""}`
+              ),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+            break;
+          }
+
+          const { error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "refunded" })
             .eq("id", booking.id);
+
+          if (updateErr) {
+            capturePaymentError(
+              new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+          }
+
+          // Stripe-side refunds (dashboard, dispute resolution, partner refunds)
+          // bypass the admin cancel route. Notify Park Guard so they don't
+          // continue billing Triply for a refunded booking. Gated on
+          // pg_identifier to avoid re-firing if a prior partial-refund event
+          // already cleared it (idempotency).
+          if (booking.protection_plan && booking.pg_identifier && !updateErr) {
+            try {
+              await parkGuard.updateReservation(booking.id, { status: "cancelled" });
+            } catch (pgError) {
+              captureParkGuardError(
+                pgError instanceof Error ? pgError : new Error(String(pgError)),
+                {
+                  bookingId: booking.id,
+                  operation: "update",
+                  ...(pgError instanceof ParkGuardError && { statusCode: pgError.statusCode }),
+                }
+              );
+            }
+          } else if (
+            booking.protection_plan &&
+            !booking.pg_identifier &&
+            booking.pg_sync_status !== "synced" &&
+            !updateErr
+          ) {
+            // Orphan: customer paid for protection but PG capture never
+            // produced an identifier — capture failed or MISSING_DATA
+            // happened. Ops needs to verify PG side so the reconciliation
+            // script doesn't later re-enroll a refunded booking.
+            //
+            // Excludes the "captured then cleared by a prior partial-refund
+            // event" case, where pg_sync_status stays 'synced' even after
+            // pg_identifier is nulled. That state was already handled by
+            // the partial-refund branch's PG cancel call.
+            captureParkGuardError(
+              new Error(
+                `Full refund on protection-opted booking ${booking.id} with no pg_identifier — verify PG side has no active enrollment to avoid post-refund billing`
+              ),
+              { bookingId: booking.id, operation: "update" }
+            );
+          }
         }
       }
       break;

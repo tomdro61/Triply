@@ -21,6 +21,7 @@ interface Booking {
   check_out: string;
   grand_total: number;
   triply_service_fee: number | string | null;
+  protection_plan_price: number | string | null;
   vehicle_info: {
     make: string;
     model: string;
@@ -36,6 +37,7 @@ export default function ReservationsPage() {
   const supabase = createClient();
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
 
@@ -55,6 +57,11 @@ export default function ReservationsPage() {
         router.push("/auth/login?redirect=/reservations");
         return;
       }
+
+      // Forwarded to each card → confirmation URL → /api/reservations/[id]
+      // The API auth check prefers the session, but if it expired between
+      // page load and click, the email param keeps the deep-link working.
+      setUserEmail(user.email || null);
 
       // Fetch bookings from API
       const response = await fetch("/api/user/bookings");
@@ -206,7 +213,7 @@ export default function ReservationsPage() {
               ) : (
                 <div className="space-y-4">
                   {displayedBookings.map((booking) => (
-                    <ReservationCard key={booking.id} booking={booking} />
+                    <ReservationCard key={booking.id} booking={booking} customerEmail={userEmail} />
                   ))}
                 </div>
               )}

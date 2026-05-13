@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Calendar, MapPin, Star, Shield, Clock, Wallet } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { PriceBreakdown } from "@/types/checkout";
-import { PromoCode } from "./promo-code";
+import { PromoCode, type ApplyPromoResult } from "./promo-code";
 import { formatDate } from "@/lib/utils";
 
 interface OrderSummaryProps {
@@ -13,8 +13,15 @@ interface OrderSummaryProps {
   checkOut: string;
   priceBreakdown: PriceBreakdown;
   promoCode: string | null;
-  onApplyPromo: (code: string) => Promise<boolean>;
+  onApplyPromo: (code: string) => Promise<ApplyPromoResult>;
   onRemovePromo: () => void;
+  /**
+   * When true, the PromoCode widget is locked. Used on the payment step
+   * because the Stripe PaymentIntent amount is frozen at vehicle→payment
+   * transition; applying or removing a promo afterward would change the
+   * displayed total but NOT the amount Stripe charges.
+   */
+  promoLocked?: boolean;
 }
 
 export function OrderSummary({
@@ -25,6 +32,7 @@ export function OrderSummary({
   promoCode,
   onApplyPromo,
   onRemovePromo,
+  promoLocked = false,
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -113,6 +121,7 @@ export function OrderSummary({
           discount={priceBreakdown.discount}
           onApply={onApplyPromo}
           onRemove={onRemovePromo}
+          locked={promoLocked}
         />
       </div>
 
@@ -148,6 +157,14 @@ export function OrderSummary({
               <span className="text-gray-600">Service Fee</span>
               <span className="text-gray-900">
                 ${priceBreakdown.serviceFee.toFixed(2)}
+              </span>
+            </div>
+          )}
+          {priceBreakdown.protectionPlan > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Parking Protection</span>
+              <span className="text-gray-900">
+                ${priceBreakdown.protectionPlan.toFixed(2)}
               </span>
             </div>
           )}
