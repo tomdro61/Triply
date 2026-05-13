@@ -360,7 +360,11 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">Park Guard Conversions</h3>
           <p className="text-xs text-gray-500">
-            Margin per opt-in: $3.99 ($9.99 retail − $6.00 wholesale)
+            {/* Hardcoded label — keep in sync with PROTECTION_PLAN.price
+                and PROTECTION_PLAN.wholesalePrice in src/lib/parkguard/client.ts.
+                The Margin column below sums per-row prices so historical
+                bookings at a different price still report accurately. */}
+            Current opt-in: $12.99 retail − $6.00 wholesale = $6.99 margin
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

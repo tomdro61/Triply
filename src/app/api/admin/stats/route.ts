@@ -175,13 +175,22 @@ export async function GET(request: NextRequest) {
       data?.reduce((sum, b) => sum + (parseFloat(b.triply_service_fee || "0") || 0), 0) || 0;
 
     // Park Guard conversion metrics. A row counts as a PG opt-in when
-    // protection_plan is set on a confirmed booking. Revenue / cost / margin
-    // come from the canonical PROTECTION_PLAN constants — the per-row
-    // protection_plan_price is treated as informational; the count is what
-    // drives the dollar figures so a future price change doesn't retroactively
-    // misreport historical margin.
+    // protection_plan is set on a confirmed booking.
+    //
+    // Revenue: sum per-row protection_plan_price so historical bookings
+    // taken at an earlier price (e.g., $9.99) stay reported at what was
+    // actually charged when the price changes ($12.99 going forward).
+    // Cost: count × PROTECTION_PLAN.wholesalePrice — PG bills Triply a
+    // fixed amount per opt-in regardless of retail price.
+    // Margin: revenue - cost.
     const countProtected = (data: RevenueRow[] | null) =>
       data?.reduce((n, b) => n + (b.protection_plan ? 1 : 0), 0) || 0;
+    const sumProtectionRevenue = (data: RevenueRow[] | null) =>
+      data?.reduce((sum, b) => {
+        if (!b.protection_plan) return sum;
+        const parsed = parseFloat(b.protection_plan_price ?? "0");
+        return sum + (Number.isFinite(parsed) ? parsed : 0);
+      }, 0) || 0;
     const pgCount = {
       total: countProtected(revenueResult.data),
       today: countProtected(todayRevenueResult.data),
@@ -196,10 +205,11 @@ export async function GET(request: NextRequest) {
     };
     const conversionRate = (count: number, total: number) =>
       total === 0 ? 0 : count / total;
-    const pgRevenue = (n: number) => n * PROTECTION_PLAN.price;
+    const pgRevenueAll = sumProtectionRevenue(revenueResult.data);
+    const pgRevenueToday = sumProtectionRevenue(todayRevenueResult.data);
+    const pgRevenueWeek = sumProtectionRevenue(weekRevenueResult.data);
+    const pgRevenueMonth = sumProtectionRevenue(monthRevenueResult.data);
     const pgCost = (n: number) => n * PROTECTION_PLAN.wholesalePrice;
-    const pgMargin = (n: number) =>
-      n * (PROTECTION_PLAN.price - PROTECTION_PLAN.wholesalePrice);
 
     return NextResponse.json({
       bookings: {
@@ -234,10 +244,10 @@ export async function GET(request: NextRequest) {
           thisMonth: conversionRate(pgCount.thisMonth, confirmedTotals.thisMonth),
         },
         revenue: {
-          total: pgRevenue(pgCount.total),
-          today: pgRevenue(pgCount.today),
-          thisWeek: pgRevenue(pgCount.thisWeek),
-          thisMonth: pgRevenue(pgCount.thisMonth),
+          total: pgRevenueAll,
+          today: pgRevenueToday,
+          thisWeek: pgRevenueWeek,
+          thisMonth: pgRevenueMonth,
         },
         cost: {
           total: pgCost(pgCount.total),
@@ -246,10 +256,10 @@ export async function GET(request: NextRequest) {
           thisMonth: pgCost(pgCount.thisMonth),
         },
         margin: {
-          total: pgMargin(pgCount.total),
-          today: pgMargin(pgCount.today),
-          thisWeek: pgMargin(pgCount.thisWeek),
-          thisMonth: pgMargin(pgCount.thisMonth),
+          total: pgRevenueAll - pgCost(pgCount.total),
+          today: pgRevenueToday - pgCost(pgCount.today),
+          thisWeek: pgRevenueWeek - pgCost(pgCount.thisWeek),
+          thisMonth: pgRevenueMonth - pgCost(pgCount.thisMonth),
         },
       },
     });
