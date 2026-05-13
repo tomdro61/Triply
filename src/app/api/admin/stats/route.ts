@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
+import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -155,6 +156,33 @@ export async function GET(request: NextRequest) {
     const sumTriply = (data: RevenueRow[] | null) =>
       data?.reduce((sum, b) => sum + (parseFloat(b.triply_service_fee || "0") || 0), 0) || 0;
 
+    // Park Guard conversion metrics. A row counts as a PG opt-in when
+    // protection_plan is set on a confirmed booking. Revenue / cost / margin
+    // come from the canonical PROTECTION_PLAN constants — the per-row
+    // protection_plan_price is treated as informational; the count is what
+    // drives the dollar figures so a future price change doesn't retroactively
+    // misreport historical margin.
+    const countProtected = (data: RevenueRow[] | null) =>
+      data?.reduce((n, b) => n + (b.protection_plan ? 1 : 0), 0) || 0;
+    const pgCount = {
+      total: countProtected(revenueResult.data),
+      today: countProtected(todayRevenueResult.data),
+      thisWeek: countProtected(weekRevenueResult.data),
+      thisMonth: countProtected(monthRevenueResult.data),
+    };
+    const confirmedTotals = {
+      total: revenueResult.data?.length || 0,
+      today: todayRevenueResult.data?.length || 0,
+      thisWeek: weekRevenueResult.data?.length || 0,
+      thisMonth: monthRevenueResult.data?.length || 0,
+    };
+    const conversionRate = (count: number, total: number) =>
+      total === 0 ? 0 : count / total;
+    const pgRevenue = (n: number) => n * PROTECTION_PLAN.price;
+    const pgCost = (n: number) => n * PROTECTION_PLAN.wholesalePrice;
+    const pgMargin = (n: number) =>
+      n * (PROTECTION_PLAN.price - PROTECTION_PLAN.wholesalePrice);
+
     return NextResponse.json({
       bookings: {
         total: totalResult.count || 0,
@@ -176,6 +204,34 @@ export async function GET(request: NextRequest) {
           today: sumTriply(todayRevenueResult.data),
           thisWeek: sumTriply(weekRevenueResult.data),
           thisMonth: sumTriply(monthRevenueResult.data),
+        },
+      },
+      parkGuard: {
+        count: pgCount,
+        confirmedTotal: confirmedTotals,
+        conversionRate: {
+          total: conversionRate(pgCount.total, confirmedTotals.total),
+          today: conversionRate(pgCount.today, confirmedTotals.today),
+          thisWeek: conversionRate(pgCount.thisWeek, confirmedTotals.thisWeek),
+          thisMonth: conversionRate(pgCount.thisMonth, confirmedTotals.thisMonth),
+        },
+        revenue: {
+          total: pgRevenue(pgCount.total),
+          today: pgRevenue(pgCount.today),
+          thisWeek: pgRevenue(pgCount.thisWeek),
+          thisMonth: pgRevenue(pgCount.thisMonth),
+        },
+        cost: {
+          total: pgCost(pgCount.total),
+          today: pgCost(pgCount.today),
+          thisWeek: pgCost(pgCount.thisWeek),
+          thisMonth: pgCost(pgCount.thisMonth),
+        },
+        margin: {
+          total: pgMargin(pgCount.total),
+          today: pgMargin(pgCount.today),
+          thisWeek: pgMargin(pgCount.thisWeek),
+          thisMonth: pgMargin(pgCount.thisMonth),
         },
       },
     });

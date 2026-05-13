@@ -38,6 +38,14 @@ interface Stats {
       thisMonth: number;
     };
   };
+  parkGuard: {
+    count: { total: number; today: number; thisWeek: number; thisMonth: number };
+    confirmedTotal: { total: number; today: number; thisWeek: number; thisMonth: number };
+    conversionRate: { total: number; today: number; thisWeek: number; thisMonth: number };
+    revenue: { total: number; today: number; thisWeek: number; thisMonth: number };
+    cost: { total: number; today: number; thisWeek: number; thisMonth: number };
+    margin: { total: number; today: number; thisWeek: number; thisMonth: number };
+  };
 }
 
 interface Booking {
@@ -344,6 +352,45 @@ export default function AdminDashboard() {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Park Guard conversions */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-gray-900">Park Guard Conversions</h3>
+          <p className="text-xs text-gray-500">
+            Margin per opt-in: $3.99 ($9.99 retail − $6.00 wholesale)
+          </p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {(["total", "today", "thisWeek", "thisMonth"] as const).map((window) => {
+            const labels = {
+              total: "All Time",
+              today: "Today",
+              thisWeek: "This Week",
+              thisMonth: "This Month",
+            };
+            const count = stats?.parkGuard.count[window] ?? 0;
+            const confirmed = stats?.parkGuard.confirmedTotal[window] ?? 0;
+            const rate = stats?.parkGuard.conversionRate[window] ?? 0;
+            const margin = stats?.parkGuard.margin[window] ?? 0;
+            return (
+              <div key={window} className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-500 mb-1">{labels[window]}</p>
+                <p className="text-2xl font-bold text-gray-900">{count}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {(rate * 100).toFixed(1)}% of {confirmed} confirmed
+                </p>
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <p className="text-xs text-gray-500">Triply margin</p>
+                  <p className="text-lg font-semibold text-emerald-700">
+                    {formatPrice(margin)}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
