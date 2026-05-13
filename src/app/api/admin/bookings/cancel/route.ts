@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
@@ -6,6 +7,17 @@ import { createRefund, getPaymentIntent } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
+
+// Validate cancel-request body at the boundary. Both fields are user-supplied
+// from the admin UI; treating them as raw `any` would let a malformed pi_*
+// flow into Stripe refund calls and a non-Triply booking number into ResLab.
+const cancelSchema = z.object({
+  reservationNumber: z.string().min(1, "Reservation number is required"),
+  stripePaymentIntentId: z
+    .string()
+    .startsWith("pi_", "stripePaymentIntentId must be a Stripe PaymentIntent ID")
+    .optional(),
+});
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,21 +34,21 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = await createAdminClient();
-    const { reservationNumber, stripePaymentIntentId } = await request.json();
-
-    if (!reservationNumber) {
+    const parsed = cancelSchema.safeParse(await request.json());
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Reservation number is required" },
+        { error: parsed.error.issues[0].message },
         { status: 400 }
       );
     }
+    const { reservationNumber, stripePaymentIntentId } = parsed.data;
 
     // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
       .from("bookings")
       .select(`
         id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
-        protection_plan, protection_plan_price, pg_identifier,
+        protection_plan, protection_plan_price, pg_identifier, stripe_payment_intent_id,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -54,6 +66,33 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+
+    // Cross-check: if admin supplied a PI, the booking row MUST also have a
+    // stored PI AND they MUST match. Otherwise the route could refund an
+    // arbitrary admin-supplied pi_* against an unrelated booking's payment.
+    // Booking → PI is 1:1; a null stored PI on a booking that's being told
+    // to refund means the relationship is unreconcilable from this route.
+    if (stripePaymentIntentId) {
+      if (!booking.stripe_payment_intent_id) {
+        return NextResponse.json(
+          { error: "Booking has no stored PaymentIntent — refund cannot be reconciled" },
+          { status: 400 }
+        );
+      }
+      if (stripePaymentIntentId !== booking.stripe_payment_intent_id) {
+        return NextResponse.json(
+          { error: "PaymentIntent does not match this booking" },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Use the booking row as the source of truth for the refund target.
+    // The admin-supplied PI (if any) was only a cross-check above; sourcing
+    // the refund from `booking.stripe_payment_intent_id` ensures that an
+    // admin who cancels via a tool that omits the PI param doesn't silently
+    // skip the refund on a booking that was actually paid.
+    const refundPaymentIntentId = booking.stripe_payment_intent_id;
 
     const results: {
       reslab: boolean;
@@ -89,9 +128,9 @@ export async function POST(request: NextRequest) {
     // so partial captures / pricing changes / due-at-location splits can't desync us.
     const serviceFee = parseFloat(booking.triply_service_fee) || 0;
     let refundAmount = 0;
-    if (stripePaymentIntentId) {
+    if (refundPaymentIntentId) {
       try {
-        const pi = await getPaymentIntent(stripePaymentIntentId);
+        const pi = await getPaymentIntent(refundPaymentIntentId);
         const amountReceived = (pi.amount_received || 0) / 100;
         refundAmount = Math.max(0, Math.round((amountReceived - serviceFee) * 100) / 100);
       } catch (error) {
@@ -99,10 +138,10 @@ export async function POST(request: NextRequest) {
         results.errors.push(`Stripe: ${msg}`);
       }
     }
-    const wasRefunded = !!stripePaymentIntentId && refundAmount > 0;
+    const wasRefunded = !!refundPaymentIntentId && refundAmount > 0;
     const newStatus = wasRefunded ? "refunded" : "cancelled";
 
-    if (stripePaymentIntentId && refundAmount <= 0 && !results.errors.some(e => e.startsWith("Stripe:"))) {
+    if (refundPaymentIntentId && refundAmount <= 0 && !results.errors.some(e => e.startsWith("Stripe:"))) {
       results.errors.push(
         `Stripe: refund skipped — computed amount is $${refundAmount} (service_fee=${serviceFee})`
       );
@@ -110,7 +149,7 @@ export async function POST(request: NextRequest) {
 
     const [stripeResult, supabaseResult] = await Promise.allSettled([
       wasRefunded
-        ? createRefund(stripePaymentIntentId, refundAmount)
+        ? createRefund(refundPaymentIntentId, refundAmount)
         : Promise.resolve(null),
       supabase
         .from("bookings")

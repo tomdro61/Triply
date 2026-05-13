@@ -58,10 +58,8 @@ export async function sendCancellationConfirmation({
       // Money-handling event — refund was issued and the customer doesn't
       // know unless this email lands. Surface to Sentry.
       captureBookingError(
-        new Error(
-          `Cancellation email send failed for ${confirmationNumber}: ${error.message}`
-        ),
-        { step: "confirmation" }
+        new Error(`Cancellation email send failed: ${error.message}`),
+        { step: "confirmation", confirmationNumber }
       );
       return { success: false, error };
     }
@@ -72,10 +70,8 @@ export async function sendCancellationConfirmation({
     captureBookingError(
       err instanceof Error
         ? err
-        : new Error(
-            `Cancellation email render failed for ${confirmationNumber}: ${String(err)}`
-          ),
-      { step: "confirmation" }
+        : new Error(`Cancellation email render failed: ${String(err)}`),
+      { step: "confirmation", confirmationNumber }
     );
     return { success: false, error: err };
   }

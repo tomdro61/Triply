@@ -20,6 +20,18 @@ const DEV_SKIP_PAYMENT =
   process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
 
 export async function POST(request: NextRequest) {
+  // Hoisted so the outer catch can attach PG/payment Sentry context (the
+  // destructured Zod result lives inside the try and isn't in scope below).
+  // A throw past the Stripe verification means the customer was already
+  // charged — we need this metadata to surface a money-handling event,
+  // not just a generic booking error.
+  let outerCaptureContext: {
+    hasProtectionPlan?: boolean;
+    stripePaymentIntentId?: string;
+    airportCode?: string;
+    reslabReservationNumber?: string;
+  } = {};
+
   try {
     const body = await request.json();
 
@@ -54,17 +66,28 @@ export async function POST(request: NextRequest) {
       hasProtectionPlan,
     } = result.data;
 
+    outerCaptureContext = {
+      hasProtectionPlan,
+      stripePaymentIntentId,
+      airportCode: airportCode || undefined,
+    };
+
     // Single source of truth for the Park Guard premium across the booking
     // insert, the customer email, the admin email, and the POST response.
     const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
     // Park Guard identifier — assigned only when the synchronous PG capture
     // below succeeds. Persisted on the booking row and returned in the POST
-    // response so admin/ops tooling can surface sync state. NOT forwarded
-    // to the customer email or confirmation page; the customer paid the
-    // premium and is protected regardless of PG sync state. Genuine orphans
-    // (capture failed, identifier null) are recovered via
-    // `scripts/resync-orphan-booking.ts`.
+    // response so admin/ops tooling can surface sync state.
     let pgIdentifier: string | null = null;
+    // Final PG sync state at email composition time. Mirrors the value the
+    // PG block writes to bookings.pg_sync_status so the booking confirmation
+    // email can render the matching variant (Active vs. "Confirming") without
+    // a second DB read after the PG block completes.
+    let pgSyncStatusLocal:
+      | "pending"
+      | "synced"
+      | "skipped_missing_data"
+      | null = null;
 
     // Verify Stripe payment (unless dev mode)
     if (!DEV_SKIP_PAYMENT) {
@@ -173,6 +196,8 @@ export async function POST(request: NextRequest) {
       ],
       ...apiExtraFields,
     });
+
+    outerCaptureContext.reslabReservationNumber = reservation.reservation_number;
 
     // Get history data for use throughout the response handling
     const resHistory = reservation.history?.[0];
@@ -356,6 +381,7 @@ export async function POST(request: NextRequest) {
               .from("bookings")
               .update({ pg_sync_status: "skipped_missing_data" })
               .eq("id", bookingRow.id);
+            pgSyncStatusLocal = "skipped_missing_data";
             if (skipUpdateErr) {
               captureParkGuardError(
                 new Error(
@@ -409,10 +435,17 @@ export async function POST(request: NextRequest) {
             })
             .eq("id", bookingRow.id);
 
-          // Capture for email/POST-response threading. The local update
-          // failure above gets its own Sentry alert; for the customer-facing
-          // path we treat "PG returned an identifier" as the success signal.
+          // pgIdentifier is set off PG's response — useful for the POST
+          // response and admin tooling even if the local DB write below
+          // failed. pgSyncStatusLocal, in contrast, drives the customer
+          // email's protection callout copy; it must mirror what landed
+          // in the DB row so the email and the (DB-backed) confirmation
+          // page agree. If the local update failed, leave it null so both
+          // surfaces render "Confirming" until ops repairs the row.
           pgIdentifier = pgRes.pg_identifier;
+          if (!pgUpdateError) {
+            pgSyncStatusLocal = "synced";
+          }
 
           if (pgUpdateError) {
             // 23505 = Postgres unique_violation. Hits when migration 009's
@@ -423,7 +456,7 @@ export async function POST(request: NextRequest) {
               (pgUpdateError as { code?: string }).code === "23505";
             captureParkGuardError(
               new Error(
-                `Park Guard captured (${pgRes.pg_identifier}) but local pg_identifier update failed${
+                `Park Guard captured but local pg_identifier update failed${
                   isDuplicate ? " (duplicate — pg_identifier already on another row)" : ""
                 }: ${pgUpdateError.message}`
               ),
@@ -431,6 +464,9 @@ export async function POST(request: NextRequest) {
                 bookingId: bookingRow.id,
                 reslabReservationNumber: reservation.reservation_number,
                 operation: "update",
+                // Structured field so ops can recover the identifier
+                // programmatically rather than scraping the error message.
+                pgIdentifier: pgRes.pg_identifier,
               }
             );
           }
@@ -452,10 +488,27 @@ export async function POST(request: NextRequest) {
       // customer paid and we have no row. Surface to Sentry — same money-
       // handling rationale as the bookingError branch.
       console.error("Supabase save error:", supabaseError);
-      captureBookingError(
-        supabaseError instanceof Error ? supabaseError : new Error(String(supabaseError)),
-        { step: "checkout", airportCode }
-      );
+      const sbErr =
+        supabaseError instanceof Error ? supabaseError : new Error(String(supabaseError));
+      captureBookingError(sbErr, { step: "checkout", airportCode });
+      // If the customer paid for Park Guard, fire the additional money-event
+      // captures so finance/ops can reconcile: PG was never enrolled, and
+      // the protection-premium charge has no booking row.
+      if (hasProtectionPlan) {
+        const ctxErr = new Error(
+          `Supabase save failed for protection-opted reservation; customer charged for premium but Park Guard not enrolled: ${sbErr.message}`
+        );
+        captureParkGuardError(ctxErr, {
+          reslabReservationNumber: reservation.reservation_number,
+          operation: "capture",
+        });
+        if (stripePaymentIntentId) {
+          capturePaymentError(ctxErr, {
+            stripePaymentIntentId,
+            amount: PROTECTION_PLAN.price,
+          });
+        }
+      }
     }
 
     // Extract location data from reservation history
@@ -490,6 +543,13 @@ export async function POST(request: NextRequest) {
           protectionPlan: PROTECTION_PLAN.name,
           protectionPlanPrice: PROTECTION_PLAN.price,
         }),
+        // Forward sync state independent of hasProtectionPlan so a future
+        // caller that composes from a stored row (resend tool, etc.) can't
+        // accidentally drop the signal and have the email default to the
+        // wrong variant. The template's `isProtectionConfirmed` gate is
+        // already conjunctive on (protectionPlan + price + status === synced),
+        // so passing pgSyncStatus when no plan is set is harmless.
+        pgSyncStatus: pgSyncStatusLocal,
       });
     } catch (emailError) {
       // Log but don't fail - reservation was successful
@@ -515,6 +575,10 @@ export async function POST(request: NextRequest) {
         dueAtLocation: resHistory?.due_at_location_total || 0,
         vehicleInfo: vehicleInfoStr,
         airportCode: airportCode || undefined,
+        ...(hasProtectionPlan && {
+          protectionPlan: PROTECTION_PLAN.name,
+          protectionPlanPrice: PROTECTION_PLAN.price,
+        }),
       });
     } catch (adminEmailError) {
       console.error("Admin notification email error:", adminEmailError);
@@ -580,10 +644,28 @@ export async function POST(request: NextRequest) {
     // throwing here (ResLab failure, malformed input that slipped past Zod,
     // etc.) is a money-handling event with no booking row, no PG enrollment,
     // and a 500 to the client — must be Sentry-captured for ops triage.
-    captureBookingError(
-      error instanceof Error ? error : new Error(String(error)),
-      { step: "checkout" }
-    );
+    const wrapped = error instanceof Error ? error : new Error(String(error));
+    captureBookingError(wrapped, {
+      step: "checkout",
+      airportCode: outerCaptureContext.airportCode,
+    });
+    if (outerCaptureContext.hasProtectionPlan) {
+      const ctxErr = new Error(
+        `Reservation flow failed for protection-opted booking; customer charged for premium but Park Guard not enrolled: ${wrapped.message}`
+      );
+      captureParkGuardError(ctxErr, {
+        ...(outerCaptureContext.reslabReservationNumber && {
+          reslabReservationNumber: outerCaptureContext.reslabReservationNumber,
+        }),
+        operation: "capture",
+      });
+      if (outerCaptureContext.stripePaymentIntentId) {
+        capturePaymentError(ctxErr, {
+          stripePaymentIntentId: outerCaptureContext.stripePaymentIntentId,
+          amount: PROTECTION_PLAN.price,
+        });
+      }
+    }
 
     // Sanitize error messages — never expose raw API responses to users
     let userMessage = "Failed to create reservation. Please try again.";
