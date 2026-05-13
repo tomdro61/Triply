@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/config/admin";
+import { isAdminEmail, ADMIN_EMAILS } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
@@ -17,6 +17,24 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createAdminClient();
+
+    // Test-booking exclusion: bookings tied to a customer whose email is
+    // in ADMIN_EMAILS (vin/john/tom@triplypro.com) are treated as test
+    // traffic and excluded from every metric on this dashboard so the
+    // numbers reflect real customer activity. Empty list (no admin
+    // customers in the table yet) → no filter applied.
+    const { data: adminCustomersRow } = await supabase
+      .from("customers")
+      .select("id")
+      .in("email", ADMIN_EMAILS);
+    const adminCustomerIds = (adminCustomersRow ?? []).map((c) => c.id);
+    const notAdminFilter =
+      adminCustomerIds.length > 0
+        ? `(${adminCustomerIds.join(",")})`
+        : null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const excludeAdmins = (query: any) =>
+      notAdminFilter ? query.not("customer_id", "in", notAdminFilter) : query;
 
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");
@@ -61,56 +79,56 @@ export async function GET(request: NextRequest) {
       cancelledResult,
     ] = await Promise.all([
       // Total bookings (filtered)
-      applyDateFilter(
+      excludeAdmins(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true })
-      ),
+      )),
       // Today's bookings
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", today.toISOString())
-        .lt("created_at", tomorrow.toISOString()),
+        .lt("created_at", tomorrow.toISOString())),
       // This week's bookings
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", weekStart.toISOString()),
+        .gte("created_at", weekStart.toISOString())),
       // This month's bookings
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", monthStart.toISOString()),
+        .gte("created_at", monthStart.toISOString())),
       // Total revenue (filtered)
-      applyDateFilter(
+      excludeAdmins(applyDateFilter(
         supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan").eq("status", "confirmed")
-      ),
+      )),
       // Today's revenue
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
-        .lt("created_at", tomorrow.toISOString()),
+        .lt("created_at", tomorrow.toISOString())),
       // This week's revenue
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
-        .gte("created_at", weekStart.toISOString()),
+        .gte("created_at", weekStart.toISOString())),
       // This month's revenue
-      supabase
+      excludeAdmins(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
         .eq("status", "confirmed")
-        .gte("created_at", monthStart.toISOString()),
+        .gte("created_at", monthStart.toISOString())),
       // Confirmed bookings (filtered)
-      applyDateFilter(
+      excludeAdmins(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed")
-      ),
+      )),
       // Cancelled bookings (filtered)
-      applyDateFilter(
+      excludeAdmins(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "cancelled")
-      ),
+      )),
     ]);
 
     type RevenueRow = {
