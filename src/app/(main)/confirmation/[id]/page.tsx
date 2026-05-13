@@ -34,6 +34,8 @@ interface ReservationData {
   dueAtLocation: number;
   protectionPlan: string | null;
   protectionPlanPrice: number;
+  pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
+  pgIdentifier: string | null;
   customer: {
     firstName: string;
     lastName: string;
@@ -374,6 +376,8 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 <ProtectionPlanStatus
                   planName={reservation.protectionPlan}
                   price={reservation.protectionPlanPrice}
+                  pgSyncStatus={reservation.pgSyncStatus}
+                  pgIdentifier={reservation.pgIdentifier}
                 />
               )}
 

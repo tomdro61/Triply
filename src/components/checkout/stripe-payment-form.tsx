@@ -36,6 +36,12 @@ interface StripePaymentFormProps {
    * headings — toggle failures are not "Payment Errors".
    */
   protectionToggleError?: string | null;
+  /**
+   * Set when a network error left the server-side PaymentIntent state
+   * unknown. Submit must stay disabled — the visible choice may not match
+   * what Stripe will charge. Re-toggling resolves it.
+   */
+  protectionStateAmbiguous?: boolean;
 }
 
 export function StripePaymentForm({
@@ -51,6 +57,7 @@ export function StripePaymentForm({
   onProtectionPlanChange,
   protectionPlanUpdating = false,
   protectionToggleError = null,
+  protectionStateAmbiguous = false,
 }: StripePaymentFormProps) {
   const protectionAnswered = protectionPlanChoice !== null;
   const stripe = useStripe();
@@ -63,7 +70,7 @@ export function StripePaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || processing || protectionPlanUpdating) {
+    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || processing || protectionPlanUpdating || protectionStateAmbiguous) {
       return;
     }
 
@@ -211,7 +218,7 @@ export function StripePaymentForm({
         </button>
         <button
           type="submit"
-          disabled={processing || !acceptedTerms || !protectionAnswered || protectionPlanUpdating || !stripe || !elements}
+          disabled={processing || !acceptedTerms || !protectionAnswered || protectionPlanUpdating || protectionStateAmbiguous || !stripe || !elements}
           className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {processing ? (
@@ -226,6 +233,11 @@ export function StripePaymentForm({
             </>
           ) : !protectionAnswered ? (
             <>Select a protection option above</>
+          ) : protectionStateAmbiguous ? (
+            // Server state is unknown after a network failure. The button
+            // amount could be wrong; do not show a dollar value the
+            // customer might trust.
+            <>Toggle Yes/No again to confirm total</>
           ) : (
             <>
               <Check size={20} />

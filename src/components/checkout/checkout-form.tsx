@@ -111,6 +111,13 @@ export function CheckoutForm({
   // doesn't render them under the "Payment Error" heading (which is reserved
   // for actual Stripe / booking failures).
   const [protectionToggleError, setProtectionToggleError] = useState<string | null>(null);
+  // Set when a network error makes the server-side PaymentIntent state
+  // unknown — the fetch rejected but Stripe may have already processed the
+  // update on the server. Submit must be blocked in this state because the
+  // customer's visible choice may diverge from what they'd actually be
+  // charged; the only way out is for them to re-toggle (which fires a
+  // fresh update-pi and reconciles state) or refresh the page.
+  const [protectionStateAmbiguous, setProtectionStateAmbiguous] = useState(false);
   // Sequence ID for in-flight update-pi requests. Each click increments;
   // responses that arrive after a newer click are discarded so they can't
   // clobber the latest state. Prevents the rapid-toggle race condition.
@@ -263,6 +270,10 @@ export function CheckoutForm({
       // Initial PaymentIntent is parking-only — protection decision is
       // deferred to the payment step, where /api/checkout/lot/update-pi
       // flexes the amount once the customer picks Yes/No.
+      // hasProtectionPlan is explicitly false here (not omitted): the
+      // schema is required at the API boundary, and explicit-false matches
+      // the server-side parking-only PI path. Avoiding undefined keeps the
+      // silent-default anti-pattern away from this money-handling POST.
       const response = await fetch("/api/checkout/lot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -275,6 +286,7 @@ export function CheckoutForm({
           checkoutTime: checkOutTime,
           parkingTypeId,
           customerEmail: customerDetails.email,
+          hasProtectionPlan: false,
           ...(promoCode && { promoCode }),
         }),
       });
@@ -308,12 +320,20 @@ export function CheckoutForm({
   };
 
   const handlePaymentBack = () => {
+    // Invalidate any in-flight update-pi toggle from the prior PI so its
+    // resolution can't clobber fresh state on the new PI created after
+    // navigation. The sequence-ID stale-discard guard inside
+    // doProtectionPlanUpdate will short-circuit when myId !== current.
+    inflightToggleId.current += 1;
+    setProtectionPlanUpdating(false);
     // Clear the existing PaymentIntent state so re-entering the payment step
     // creates a fresh PI. Otherwise a customer who toggles protection while
     // back on the vehicle step could end up paying the old (stale) amount.
     setClientSecret(null);
     setPaymentIntentId(null);
     setProtectionPlanChoice(null);
+    setProtectionToggleError(null);
+    setProtectionStateAmbiguous(false);
     setCurrentStep("vehicle");
   };
 
@@ -353,9 +373,11 @@ export function CheckoutForm({
     setProtectionPlanChoice(selected);
     setProtectionPlanUpdating(true);
     setProtectionToggleError(null);
+    setProtectionStateAmbiguous(false);
 
     let response: Response | null = null;
     let errorMessage: string | null = null;
+    let networkAmbiguous = false;
     let shouldCaptureSentry = false;
 
     try {
@@ -397,7 +419,17 @@ export function CheckoutForm({
           : new Error(String(networkErr)),
         { stripePaymentIntentId: piId, amount: PROTECTION_PLAN.price }
       );
-      errorMessage = "Couldn't reach the server — check your connection and retry";
+      // Network rejection means we don't know whether Stripe applied the
+      // update server-side. Rolling back the UI choice while Stripe holds
+      // the new amount would let the customer click Pay Now believing they're
+      // being charged one amount and then be charged another — the mismatch
+      // would only surface as a 400 from /api/reservations after the card
+      // was already charged. Mark the state ambiguous and block submit
+      // until the customer re-toggles (forces a fresh update-pi and
+      // resolves the state).
+      networkAmbiguous = true;
+      errorMessage =
+        "Couldn't confirm the protection update — please toggle Yes/No again to verify your total before paying";
     }
 
     if (shouldCaptureSentry && response) {
@@ -417,7 +449,15 @@ export function CheckoutForm({
     }
 
     if (errorMessage !== null) {
-      setProtectionPlanChoice(previous);
+      if (networkAmbiguous) {
+        // Keep the optimistic choice — server may have applied it. Block
+        // submit via the ambiguous flag until the next toggle resolves state.
+        setProtectionStateAmbiguous(true);
+      } else {
+        // HTTP error from the server is an explicit "didn't apply" — safe
+        // to roll back to the previous choice.
+        setProtectionPlanChoice(previous);
+      }
       setProtectionToggleError(errorMessage);
     }
     setProtectionPlanUpdating(false);
@@ -731,6 +771,7 @@ export function CheckoutForm({
                   onProtectionPlanChange={handleProtectionPlanChange}
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionToggleError={protectionToggleError}
+                  protectionStateAmbiguous={protectionStateAmbiguous}
                 />
               </StripeProvider>
             ) : (

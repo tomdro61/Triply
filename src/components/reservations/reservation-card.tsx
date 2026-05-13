@@ -28,9 +28,16 @@ interface Booking {
 
 interface ReservationCardProps {
   booking: Booking;
+  /**
+   * Logged-in customer's email — passed in the confirmation URL as a
+   * fallback auth token for the `/api/reservations/[id]` GET. The API
+   * prefers the session, but if it expired between this page load and
+   * the click, the email keeps the deep-link working instead of 403-ing.
+   */
+  customerEmail: string | null;
 }
 
-export function ReservationCard({ booking }: ReservationCardProps) {
+export function ReservationCard({ booking, customerEmail }: ReservationCardProps) {
   const checkInDate = parseISO(booking.check_in);
   const checkOutDate = parseISO(booking.check_out);
   const isUpcoming = !isPast(checkInDate) || isToday(checkInDate);
@@ -65,8 +72,10 @@ export function ReservationCard({ booking }: ReservationCardProps) {
     );
   };
 
-  // Build confirmation URL with lot info
-  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=reslab-${booking.reslab_location_id}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}`;
+  // Build confirmation URL with lot info + (when known) the customer email
+  // as a fallback auth token for the API GET. See the prop comment above.
+  const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : "";
+  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=reslab-${booking.reslab_location_id}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
 
   return (
     <Link href={confirmationUrl}>

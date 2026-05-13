@@ -19,9 +19,19 @@ interface BookingConfirmationEmailProps {
   specialConditions?: string;
   protectionPlan?: string;
   protectionPlanPrice?: number;
+  // Final PG sync state at the moment the email is composed. Drives the
+  // protection callout copy — see ProtectionPlanStatus on the confirmation
+  // page for the matching customer-facing variant. Permanent skip
+  // (skipped_missing_data) MUST NOT render "Active" / "Start a Claim";
+  // PG has no record so the claim link would 404 on them.
+  pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
 }
 
-const PARKGUARD_CLAIM_URL = "https://www.parkguardcoveragehub.com/triplyproclaims";
+// Triply-controlled redirect (next.config.mjs /claims) → Park Guard claim
+// portal. Keeps the visible URL on triplypro.com in email clients (hover
+// preview, copied links) so the third-party domain containing "coverage"
+// never appears on customer-facing surfaces.
+const PARKGUARD_CLAIM_URL = `${process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com"}/claims`;
 const PARKGUARD_TERMS_URL = "https://www.parkguard.com/terms-of-use-triplypro";
 
 export function BookingConfirmationEmail({
@@ -42,6 +52,7 @@ export function BookingConfirmationEmail({
   specialConditions,
   protectionPlan,
   protectionPlanPrice,
+  pgSyncStatus,
 }: BookingConfirmationEmailProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
@@ -56,6 +67,15 @@ export function BookingConfirmationEmail({
       ? protectionPlanPrice.toFixed(2)
       : null;
   const hasProtection = protectionPriceText !== null;
+  // "Active" requires PG to have actually acknowledged the enrollment
+  // (pgSyncStatus === "synced"). Any other state — null (transient
+  // outage, booking-insert failure, PG capture threw), "pending"
+  // (in-flight reconciliation), or "skipped_missing_data" (permanent
+  // skip on lot missing address fields) — means the claim link would
+  // 404 on PG's side. Render the "Confirming" variant in all those
+  // cases. Mirrors ProtectionPlanStatus on the confirmation page.
+  const isProtectionConfirmed = hasProtection && pgSyncStatus === "synced";
+  const isProtectionUnconfirmed = hasProtection && !isProtectionConfirmed;
 
   const labelStyle = {
     color: "#64748b",
@@ -182,9 +202,9 @@ export function BookingConfirmationEmail({
           )}
         </div>
 
-        {/* Parking Protection — customer paid the premium, they're protected.
-            PG's pg_identifier is an internal sync state, not a customer state. */}
-        {hasProtection && (
+        {/* Parking Protection callout. Render variant depends on PG sync
+            state — see ProtectionPlanStatus for the matching page-side copy. */}
+        {isProtectionConfirmed && (
           <div style={{ backgroundColor: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
             <p style={{ ...labelStyle, color: "#065f46", marginBottom: "8px" }}>&#128737; Parking Protection Active</p>
             <p style={{ color: "#065f46", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
@@ -196,6 +216,17 @@ export function BookingConfirmationEmail({
             </p>
           </div>
         )}
+        {isProtectionUnconfirmed && (
+          <div style={{ backgroundColor: "#fef3c7", border: "1px solid #fcd34d", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
+            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#128737; Parking Protection &mdash; Confirming</p>
+            <p style={{ color: "#92400e", fontSize: "13px", margin: "0 0 12px", lineHeight: "1.6" }}>
+              You purchased the {protectionPlan} plan. We&rsquo;re still confirming it with our partner &mdash; if you need to file a claim, please contact our support team and we&rsquo;ll get it sorted.
+            </p>
+            <p style={{ margin: "0" }}>
+              <a href="mailto:support@triplypro.com" style={{ color: "#b45309", fontSize: "13px", textDecoration: "none", fontWeight: "600" }}>Contact Support &rarr;</a>
+            </p>
+          </div>
+        )}
 
         {/* Payment */}
         <div style={{ backgroundColor: "#fef7f5", border: "1px solid #fed7ca", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
@@ -204,19 +235,27 @@ export function BookingConfirmationEmail({
             <tbody>
               {dueAtLocation && dueAtLocation > 0 ? (
                 <>
+                  {/* Addition-style breakdown: every line is an addend that
+                      sums to Total. Subtraction-style ("Paid online incl.
+                      Protection" + "Due at location") read as three addends
+                      and don't reconcile against Total. */}
                   <tr>
-                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Paid online</td>
-                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${paidOnline.toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${(paidOnline - (protectionPriceText ? parseFloat(protectionPriceText) : 0)).toFixed(2)}</td>
                   </tr>
                   {hasProtection && (
                     <tr>
-                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", paddingLeft: "12px" }}>Includes Parking Protection</td>
-                      <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right" }}>${protectionPriceText}</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${protectionPriceText}</td>
                     </tr>
                   )}
                   <tr>
-                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px" }}>Due at location</td>
-                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
+                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", fontStyle: "italic" }}>(Paid online)</td>
+                    <td style={{ padding: "3px 0", color: "#64748b", fontSize: "13px", textAlign: "right", fontStyle: "italic" }}>${paidOnline.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Due at location</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${dueAtLocation.toFixed(2)}</td>
                   </tr>
                   <tr>
                     <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Total</td>

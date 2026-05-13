@@ -79,7 +79,7 @@ export async function GET(
     const adminClientForVehicle = await createAdminClient();
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier")
+      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
       .eq("reslab_reservation_number", id)
       .single();
 
@@ -88,13 +88,35 @@ export async function GET(
       // a failure here is anomalous and would silently re-introduce the original
       // midnight-time bug if we just fell through to ResLab. Surface it.
       captureBookingError(
-        new Error(`Supabase booking lookup failed for ${id}: ${bookingErr.message}`),
-        { step: "confirmation" }
+        new Error(`Supabase booking lookup failed: ${bookingErr.message}`),
+        { step: "confirmation", confirmationNumber: id }
       );
     }
 
     const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
-    const protectionPlanPrice = parseFloat(bookingData?.protection_plan_price ?? "0") || 0;
+
+    // Resolve protection state defensively. If protection_plan is set, the row
+    // MUST also have a positive protection_plan_price — anything else is a
+    // schema-level bug that would render "Protection Active … $0.00" to the
+    // customer. Suppress the protection block in that case and Sentry-flag so
+    // ops can manually repair.
+    let resolvedProtectionPlan: string | null = bookingData?.protection_plan || null;
+    let resolvedProtectionPlanPrice = 0;
+    if (resolvedProtectionPlan) {
+      const parsed = parseFloat(bookingData?.protection_plan_price ?? "");
+      if (Number.isFinite(parsed) && parsed > 0) {
+        resolvedProtectionPlanPrice = parsed;
+      } else {
+        captureBookingError(
+          new Error(
+            `Booking has protection_plan='${resolvedProtectionPlan}' but invalid protection_plan_price='${bookingData?.protection_plan_price}' — suppressing protection block in API response`
+          ),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        resolvedProtectionPlan = null;
+      }
+    }
+    const protectionPlanPrice = resolvedProtectionPlanPrice;
 
     // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
     // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
@@ -139,9 +161,10 @@ export async function GET(
         taxTotal: history?.total_tax || 0,
         feesTotal: history?.total_fees || 0,
         serviceFee: triplyServiceFee,
-        protectionPlan: bookingData?.protection_plan || null,
+        protectionPlan: resolvedProtectionPlan,
         protectionPlanPrice,
         pgIdentifier: bookingData?.pg_identifier || null,
+        pgSyncStatus: bookingData?.pg_sync_status || null,
         dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         customer: {

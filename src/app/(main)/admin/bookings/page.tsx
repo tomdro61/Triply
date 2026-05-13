@@ -722,6 +722,14 @@ export default function AdminBookingsPage() {
                         <span className="text-red-700 text-sm font-medium">
                           Permanently skipped — required address fields were missing on the lot record at booking time. Fix the lot data in ResLab and manually add this booking to the Coverage Hub.
                         </span>
+                      ) : selectedBooking.pg_sync_status === "synced" ? (
+                        // pg_identifier was cleared by the webhook partial-refund branch
+                        // after PG was successfully cancelled. Do NOT re-enroll via the
+                        // resync script — PG already has this as cancelled and a new
+                        // capture would create a duplicate they'd bill us for.
+                        <span className="text-gray-700 text-sm font-medium">
+                          Cancelled with Park Guard via Stripe refund webhook. Do not re-enroll.
+                        </span>
                       ) : (
                         <span className="text-amber-700 text-sm font-medium">
                           Not confirmed with Park Guard. If more than a few minutes old, check Sentry — reconciliation retries transient failures.

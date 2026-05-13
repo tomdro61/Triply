@@ -103,6 +103,21 @@ async function main() {
   if (!booking.protection_plan) {
     throw new Error("Booking has no protection_plan; nothing to capture.");
   }
+  if (booking.pg_sync_status === "synced") {
+    // pg_identifier=null + pg_sync_status='synced' is the "captured then
+    // cancelled via Stripe refund webhook" state. The webhook partial-refund
+    // branch cleared pg_identifier for idempotency but left pg_sync_status
+    // alone. PG has this booking on file as cancelled; re-enrolling would
+    // produce a duplicate Triply gets billed for.
+    throw new Error(
+      "Booking has pg_sync_status='synced' but pg_identifier is null — captured-then-cancelled state. PG already has this as cancelled; refusing to re-enroll."
+    );
+  }
+  if (booking.pg_sync_status === "skipped_missing_data") {
+    throw new Error(
+      "Booking has pg_sync_status='skipped_missing_data' — permanent skip. Fix the lot's address fields in ResLab and add manually via Coverage Hub instead of this script."
+    );
+  }
 
   const { data: customer, error: custErr } = await supabase
     .from("customers")
