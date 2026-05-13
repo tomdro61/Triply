@@ -165,7 +165,8 @@ const checkoutPostSchema = z.object({
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
-  hasProtectionPlan: z.boolean().optional(),
+  // Required. See validation/schemas.ts for rationale.
+  hasProtectionPlan: z.boolean(),
 });
 
 export async function POST(request: NextRequest) {
