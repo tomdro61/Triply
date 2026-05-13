@@ -161,7 +161,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is parking protection?",
         answer:
-          "Parking protection is an optional plan offered through Park Guard, a third-party administrator, that helps with the cost of certain damages or theft that occur while your vehicle is parked at the lot. You can opt in for a flat $9.99 fee at checkout.",
+          "Parking protection is an optional plan offered through Park Guard, a third-party administrator, that helps with the cost of certain damages or theft that occur while your vehicle is parked at the lot. You can opt in for a flat $12.99 fee at checkout.",
       },
       {
         question: "Is parking protection required?",
@@ -181,7 +181,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How much does parking protection cost?",
         answer:
-          "It's a flat $9.99 added to your booking at checkout. The price is shown clearly before you confirm — you'll only be charged if you opt in.",
+          "It's a flat $12.99 added to your booking at checkout. The price is shown clearly before you confirm — you'll only be charged if you opt in.",
       },
     ],
   },

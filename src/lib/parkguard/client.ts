@@ -54,7 +54,7 @@ export const PROTECTION_PLAN = {
    */
   pgPlanCode: "Plan A",
   /** Customer-facing premium charged at checkout. */
-  price: 9.99,
+  price: 12.99,
   /**
    * Wholesale cost — what Park Guard bills Triply per opt-in. Triply's
    * margin per opt-in = price - wholesalePrice = $3.99. Sourced from the
