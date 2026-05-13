@@ -4,6 +4,8 @@
  * These functions help track events and manage GA4 consent.
  */
 
+import { captureBookingError } from "@/lib/sentry";
+
 declare global {
   interface Window {
     gtag: (...args: unknown[]) => void;
@@ -158,6 +160,17 @@ export function trackPurchase(booking: {
     // strings into GA4 and silently corrupt revenue analytics.
     const grandTotal = Number.isFinite(booking.grandTotal) ? booking.grandTotal : 0;
     const serviceFee = Number.isFinite(booking.serviceFee) ? (booking.serviceFee || 0) : 0;
+    // If the price is supplied but non-finite (NaN, Infinity) we'd silently
+    // count $0 commission against a non-zero pass-through — under-report PG
+    // revenue across the whole funnel. Alert ops before coercing.
+    if (booking.protectionPlanPrice !== undefined && !Number.isFinite(booking.protectionPlanPrice)) {
+      captureBookingError(
+        new Error(
+          `trackPurchase received non-finite protectionPlanPrice (${booking.protectionPlanPrice}) — coercing to 0; GA4 revenue would otherwise be poisoned`
+        ),
+        { step: "confirmation", confirmationNumber: booking.confirmationNumber }
+      );
+    }
     const protectionPlanPrice = Number.isFinite(booking.protectionPlanPrice)
       ? (booking.protectionPlanPrice || 0)
       : 0;

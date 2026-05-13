@@ -168,12 +168,10 @@ export default function TermsPage() {
             <p>
               If you have the protection plan and you need to start a claim please visit{" "}
               <a
-                href="https://www.parkguardcoveragehub.com/triplyproclaims"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/claims"
                 className="text-brand-orange hover:text-orange-600"
               >
-                parkguardcoveragehub.com/triplyproclaims
+                triplypro.com/claims
               </a>
               .
             </p>

@@ -65,6 +65,21 @@ const nextConfig = {
     ];
   },
 
+  // Redirect /claims → Park Guard's claim portal. Keeps the customer-visible
+  // URL on triplypro.com (email links, confirmation page CTA, terms / help
+  // text) instead of exposing the third-party domain that contains
+  // "coverage" — which our Park Guard compliance memo forbids in
+  // consumer-facing copy.
+  async redirects() {
+    return [
+      {
+        source: "/claims",
+        destination: "https://www.parkguardcoveragehub.com/triplyproclaims",
+        permanent: false,
+      },
+    ];
+  },
+
   // Headers for security
   async headers() {
     return [

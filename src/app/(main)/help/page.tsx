@@ -176,7 +176,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How do I file a claim?",
         answer:
-          "If your vehicle was damaged or something was stolen, visit parkguardcoveragehub.com/triplyproclaims to start a claim. For theft, you'll also need to file a police report and include it with your claim. All claims must be submitted within 72 hours of leaving the parking facility.",
+          "If your vehicle was damaged or something was stolen, visit triplypro.com/claims to start a claim. For theft, you'll also need to file a police report and include it with your claim. All claims must be submitted within 72 hours of leaving the parking facility.",
       },
       {
         question: "How much does parking protection cost?",
