@@ -16,6 +16,11 @@ import { BlogPagination } from "@/components/blog/BlogPagination";
 import { BlogFilterBar } from "@/components/blog/BlogFilterBar";
 import { BlogFeaturedPost } from "@/components/blog/BlogFeaturedPost";
 
+// Cache airport blog pages for 1 hour. getDistinctAirportCodes() paginates
+// through every published post — keeping that out of every render is a
+// big part of the egress fix.
+export const revalidate = 3600;
+
 type Props = {
   params: Promise<{ code: string }>;
   searchParams: Promise<{ page?: string }>;
