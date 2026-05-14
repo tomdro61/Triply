@@ -10,10 +10,11 @@ import { BlogAirportGrid } from "@/components/blog/BlogAirportGrid";
 import { BlogSearchInput } from "@/components/blog/BlogSearchInput";
 import { BlogSortSelect } from "@/components/blog/BlogSortSelect";
 
-// Cache the blog index for 1 hour. Crawlers hit /blog constantly; without
-// this, every visit triggers fresh Payload → Supabase queries. See plan
-// at C:\Users\tomjd\.claude\plans\dazzling-humming-crayon.md
-export const revalidate = 3600;
+// No route-level `export const revalidate` — this page reads `searchParams`
+// (page, airport, q, sort) which forces Next.js dynamic rendering and makes
+// any route-segment revalidate directive a no-op. The egress fix lives at
+// the fetch layer: `fetchFromCms` in `src/lib/cms.ts` caches each unique
+// CMS query for 1h regardless of page rendering mode.
 
 export const metadata: Metadata = {
   title: "Blog | Triply - Airport Parking Tips & Travel Guides",

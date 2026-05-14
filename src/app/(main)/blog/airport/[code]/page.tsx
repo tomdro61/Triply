@@ -16,10 +16,11 @@ import { BlogPagination } from "@/components/blog/BlogPagination";
 import { BlogFilterBar } from "@/components/blog/BlogFilterBar";
 import { BlogFeaturedPost } from "@/components/blog/BlogFeaturedPost";
 
-// Cache airport blog pages for 1 hour. getDistinctAirportCodes() paginates
-// through every published post — keeping that out of every render is a
-// big part of the egress fix.
-export const revalidate = 3600;
+// No route-level `export const revalidate` — searchParams (page) forces
+// dynamic rendering, which makes route-segment revalidate a no-op. CMS
+// egress is bounded by the 1h fetch-level cache in `src/lib/cms.ts`,
+// which keeps `getDistinctAirportCodes()` from running a full post scan
+// on every render.
 
 type Props = {
   params: Promise<{ code: string }>;
