@@ -1,3 +1,5 @@
+import { cache } from 'react'
+
 const CMS_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
 
 export function resolveCmsImageUrl(url: string): string {
@@ -41,7 +43,10 @@ async function fetchCmsOnce(url: string, revalidate: number): Promise<Response> 
 export async function fetchFromCms(
   path: string,
   params: Record<string, string> = {},
-  revalidate = 60
+  // 1 hour. Posts publish almost daily and content rarely updates after
+  // publish; an hour matches the user's editorial cadence while cutting
+  // CMS-to-Postgres traffic ~60× vs the original 60-second window.
+  revalidate = 3600
 ) {
   const searchParams = new URLSearchParams(params)
   const url = `${CMS_URL}/api${path}?${searchParams.toString()}`
@@ -96,7 +101,13 @@ export async function getPublishedPosts(
   }
 }
 
-export async function getPostBySlug(slug: string) {
+// Wrapped in React's request-scoped cache because /blog/[slug]/page.tsx
+// calls this twice per request — once in generateMetadata, once in the
+// page body. Without dedup, every blog page render fires two identical
+// CMS requests (and two Payload→Postgres trips). React's cache() returns
+// the same Promise for both calls within a single render, so we hit the
+// CMS at most once per slug per request.
+export const getPostBySlug = cache(async function getPostBySlug(slug: string) {
   const data = await fetchFromCms('/posts', {
     'where[slug][equals]': slug,
     'where[status][equals]': 'published',
@@ -105,7 +116,7 @@ export async function getPostBySlug(slug: string) {
 
   const post = data?.docs?.[0] || null
   return post ? resolvePostImages(post) : null
-}
+})
 
 export async function getCategories() {
   const data = await fetchFromCms('/categories', {

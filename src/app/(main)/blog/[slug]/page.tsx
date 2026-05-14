@@ -13,6 +13,13 @@ import { HubLayout } from '@/components/blog/HubLayout'
 import { SubPillarLayout } from '@/components/blog/SubPillarLayout'
 import { SpokeLayout } from '@/components/blog/SpokeLayout'
 
+// Cache each post page for 1 hour. The biggest single source of Supabase
+// egress was crawlers walking every /blog/[slug] URL; with this directive
+// each slug is served from the Vercel cache and Payload only sees ~1 read
+// per slug per hour. getPostBySlug is also wrapped in React's cache() so
+// the metadata + body double-call within a single render hits the CMS once.
+export const revalidate = 3600
+
 type Props = {
   params: Promise<{ slug: string }>
 }

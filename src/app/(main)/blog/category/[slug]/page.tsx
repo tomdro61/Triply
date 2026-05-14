@@ -8,6 +8,11 @@ import { BlogPagination } from "@/components/blog/BlogPagination";
 import { BlogFilterBar } from "@/components/blog/BlogFilterBar";
 import { BlogSortSelect } from "@/components/blog/BlogSortSelect";
 
+// Cache category pages for 1 hour. The page reads searchParams (page,
+// sort), which makes it dynamic, but fetch-level revalidate in cms.ts
+// still keeps each unique CMS query cached for the same window.
+export const revalidate = 3600;
+
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string; sort?: string }>;
