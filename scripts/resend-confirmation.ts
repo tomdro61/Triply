@@ -68,7 +68,7 @@ async function main() {
   const { data: booking, error } = await supabase
     .from("bookings")
     .select(
-      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, due_at_location, vehicle_info, customer_id"
+      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status"
     )
     .eq("reslab_reservation_number", resNum)
     .single();
@@ -100,8 +100,11 @@ async function main() {
     ? `${vehicle.make ?? ""} ${vehicle.model ?? ""} (${vehicle.color ?? ""}) - ${vehicle.licensePlate ?? ""}`
     : undefined;
 
+  const protectionPlanPrice = Number(booking.protection_plan_price ?? 0);
   const totalAmount =
-    Number(booking.grand_total ?? 0) + Number(booking.triply_service_fee ?? 0);
+    Number(booking.grand_total ?? 0) +
+    Number(booking.triply_service_fee ?? 0) +
+    protectionPlanPrice;
 
   const emailProps = {
     customerName: `${customer.first_name} ${customer.last_name}`,
@@ -116,6 +119,14 @@ async function main() {
     totalAmount,
     dueAtLocation: Number(booking.due_at_location ?? 0),
     vehicleInfo,
+    protectionPlan: booking.protection_plan ?? undefined,
+    protectionPlanPrice: protectionPlanPrice > 0 ? protectionPlanPrice : undefined,
+    pgSyncStatus: (booking.pg_sync_status ?? undefined) as
+      | "synced"
+      | "pending"
+      | "failed"
+      | "skipped_missing_data"
+      | undefined,
   };
 
   console.log(`\n${dryRun ? "DRY-RUN " : ""}Subject: "${subject}"`);
@@ -124,6 +135,8 @@ async function main() {
   console.log(`  Lot:       ${emailProps.lotName}`);
   console.log(`  Check-in:  ${emailProps.checkInDate} ${emailProps.checkInTime}`);
   console.log(`  Check-out: ${emailProps.checkOutDate} ${emailProps.checkOutTime}`);
+  console.log(`  Protection: ${emailProps.protectionPlan ?? "(none)"}  ` +
+    `$${protectionPlanPrice.toFixed(2)}  (sync: ${emailProps.pgSyncStatus ?? "n/a"})`);
   console.log(`  Total:     $${totalAmount.toFixed(2)}`);
   console.log(`  Vehicle:   ${vehicleInfo ?? "(none)"}`);
 
