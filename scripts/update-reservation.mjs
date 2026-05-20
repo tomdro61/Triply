@@ -2,14 +2,23 @@
  * Manually update a ResLab reservation's dates.
  *
  * Usage:
- *   node scripts/update-reservation.mjs <RES_NUMBER> "<FROM>" "<TO>" [--apply]
+ *   node scripts/update-reservation.mjs <RES_NUMBER> "<FROM>" "<TO>" [--apply] [--sync-supabase]
  *
  *   FROM/TO format: "YYYY-MM-DD HH:MM:SS" (24h)
  *
  * Default is dry-run: fetches current reservation, previews the new price via
  * /cost, and prints the diff. Re-run with --apply to PUT the update.
  *
- * Does NOT touch Supabase or Stripe. Run from triply/ directory.
+ * --sync-supabase additionally writes the new subtotal / tax_total /
+ * grand_total / check_in / check_out to the matching bookings row. ResLab's
+ * PUT response only includes subtotal + grand_total, so tax_total is derived
+ * as (grand_total - subtotal - fees_total), keeping fees_total constant
+ * (typically a flat facility fee that doesn't scale with duration).
+ *
+ * Does NOT touch Stripe (handle the price delta via Stripe Dashboard or a
+ * payment link). Does NOT update Park Guard — see
+ * reference_park_guard_envs.md in memory: the prod PG env requires its own
+ * API key that local .env.local doesn't have by default.
  */
 
 import dotenv from 'dotenv';
@@ -166,6 +175,10 @@ async function main() {
     return;
   }
 
+  // ResLab history record we'll sync from. Set after --apply, or re-fetched
+  // in the syncSupabase block if running in backfill mode.
+  let newHistory;
+
   if (apply) {
     const updateBody = {
       location_id: history.location_id,
@@ -183,11 +196,12 @@ async function main() {
     });
 
     // ResLab returns history newest-first, so index 0 is the post-update state.
-    const newHistory = updated.history?.[0];
+    newHistory = updated.history?.[0];
     const newDate = newHistory?.dates?.[0];
     console.log('\n--- UPDATED ---');
     console.log(`From:         ${newDate?.from_date}`);
     console.log(`To:           ${newDate?.to_date}`);
+    console.log(`Subtotal:     ${fmtMoney(newHistory?.subtotal)}`);
     console.log(`Grand total:  ${fmtMoney(newHistory?.grand_total)}`);
   }
 
@@ -198,13 +212,63 @@ async function main() {
       console.error('\nMissing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
       process.exit(1);
     }
+
+    // Backfill mode: --sync-supabase without --apply means ResLab already
+    // has the target dates from a prior run. Re-fetch so we sync against
+    // the post-update state rather than the pre-update `history` variable.
+    if (!newHistory) {
+      const refetched = await api(token, `/reservations/${resNum}`);
+      newHistory = refetched.history?.[0];
+    }
+
+    if (!newHistory || newHistory.grand_total == null) {
+      console.error('\nERROR: ResLab history missing grand_total — cannot sync Supabase.');
+      process.exit(1);
+    }
+
     const supabase = createSupabaseClient(supabaseUrl, serviceKey);
+
+    // Read fees_total before update — ResLab's response doesn't break it
+    // out separately, so we treat it as constant and back-derive tax_total.
+    const { data: existing, error: readErr } = await supabase
+      .from('bookings')
+      .select('id, fees_total')
+      .eq('reslab_reservation_number', resNum)
+      .single();
+
+    if (readErr || !existing) {
+      console.error(`\nNo bookings row found with reslab_reservation_number=${resNum}`);
+      process.exit(1);
+    }
+
+    const newSubtotal = Number(newHistory.subtotal ?? 0);
+    const newGrandTotal = Number(newHistory.grand_total ?? 0);
+    const feesTotal = Number(existing.fees_total ?? 0);
+    const derivedTaxTotal = Math.max(
+      0,
+      Number((newGrandTotal - newSubtotal - feesTotal).toFixed(2))
+    );
+
     console.log('\nSyncing Supabase bookings row...');
+    console.log(`  check_in     -> ${newFrom}`);
+    console.log(`  check_out    -> ${newTo}`);
+    console.log(`  subtotal     -> ${fmtMoney(newSubtotal)}`);
+    console.log(`  tax_total    -> ${fmtMoney(derivedTaxTotal)}  (derived: grand_total - subtotal - fees_total)`);
+    console.log(`  grand_total  -> ${fmtMoney(newGrandTotal)}`);
+
     const { data, error } = await supabase
       .from('bookings')
-      .update({ check_in: newFrom, check_out: newTo })
+      .update({
+        check_in: newFrom,
+        check_out: newTo,
+        subtotal: newSubtotal,
+        tax_total: derivedTaxTotal,
+        grand_total: newGrandTotal,
+      })
       .eq('reslab_reservation_number', resNum)
-      .select('id, reslab_reservation_number, check_in, check_out');
+      .select(
+        'id, reslab_reservation_number, check_in, check_out, subtotal, tax_total, grand_total'
+      );
 
     if (error) {
       console.error('Supabase update failed:', error.message);
@@ -214,14 +278,15 @@ async function main() {
       console.error(`No bookings row found with reslab_reservation_number=${resNum}`);
       process.exit(1);
     }
-    console.log(`Updated ${data.length} booking row(s):`, data[0]);
+    console.log(`\nUpdated ${data.length} booking row(s):`, data[0]);
   }
 
   if (apply && !syncSupabase) {
     console.log('\n⚠️  Supabase bookings row NOT updated. Re-run with --sync-supabase if needed.\n');
   }
   if (apply) {
-    console.log('\n⚠️  Stripe charge NOT updated. Handle separately if the total changed.\n');
+    console.log('\n⚠️  Stripe charge NOT updated. Handle separately if the total changed (Stripe Dashboard or payment link).');
+    console.log('⚠️  Park Guard dates NOT updated. Local .env.local typically only has the PG STAGING key — see memory ref reference_park_guard_envs.md for prod-key setup, or contact PG support manually.\n');
   }
 }
 
