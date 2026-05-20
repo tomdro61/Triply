@@ -100,10 +100,25 @@ async function main() {
     ? `${vehicle.make ?? ""} ${vehicle.model ?? ""} (${vehicle.color ?? ""}) - ${vehicle.licensePlate ?? ""}`
     : undefined;
 
+  // Required money fields — if either is null/missing the row is corrupted
+  // or partially written. Refuse to send the customer an email with a
+  // potentially wrong total rather than silently defaulting to $0.
+  // (protection_plan_price and due_at_location may legitimately be null
+  // for bookings without Park Guard / pre-paid-only flows — those default
+  // to 0 below.)
+  if (booking.grand_total == null || booking.triply_service_fee == null) {
+    console.error(
+      `ERROR: bookings row for ${resNum} is missing grand_total or triply_service_fee — refusing to send.`
+    );
+    console.error(`  grand_total:        ${booking.grand_total}`);
+    console.error(`  triply_service_fee: ${booking.triply_service_fee}`);
+    process.exit(1);
+  }
+
   const protectionPlanPrice = Number(booking.protection_plan_price ?? 0);
   const totalAmount =
-    Number(booking.grand_total ?? 0) +
-    Number(booking.triply_service_fee ?? 0) +
+    Number(booking.grand_total) +
+    Number(booking.triply_service_fee) +
     protectionPlanPrice;
 
   // Template only accepts the three values below + null. Anything else

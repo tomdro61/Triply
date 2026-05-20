@@ -221,8 +221,10 @@ async function main() {
       newHistory = refetched.history?.[0];
     }
 
-    if (!newHistory || newHistory.grand_total == null) {
-      console.error('\nERROR: ResLab history missing grand_total — cannot sync Supabase.');
+    if (!newHistory || newHistory.grand_total == null || newHistory.subtotal == null) {
+      console.error('\nERROR: ResLab history missing subtotal or grand_total — refusing to write potentially wrong totals to Supabase.');
+      console.error(`  subtotal:    ${newHistory?.subtotal}`);
+      console.error(`  grand_total: ${newHistory?.grand_total}`);
       process.exit(1);
     }
 
@@ -241,13 +243,28 @@ async function main() {
       process.exit(1);
     }
 
-    const newSubtotal = Number(newHistory.subtotal ?? 0);
-    const newGrandTotal = Number(newHistory.grand_total ?? 0);
-    const feesTotal = Number(existing.fees_total ?? 0);
-    const derivedTaxTotal = Math.max(
-      0,
-      Number((newGrandTotal - newSubtotal - feesTotal).toFixed(2))
-    );
+    if (existing.fees_total == null) {
+      console.error(`\nERROR: bookings.fees_total is null for ${resNum} — cannot back-derive tax_total without it.`);
+      process.exit(1);
+    }
+
+    const newSubtotal = Number(newHistory.subtotal);
+    const newGrandTotal = Number(newHistory.grand_total);
+    const feesTotal = Number(existing.fees_total);
+
+    // Back-derive tax_total. A negative result means ResLab's
+    // grand_total < subtotal + fees_total, which is impossible if the inputs
+    // are right — fail loudly rather than clamp to zero and hide the bug.
+    const rawTaxDelta = newGrandTotal - newSubtotal - feesTotal;
+    if (rawTaxDelta < 0) {
+      console.error(
+        `\nERROR: Derived tax_total negative ` +
+          `(grand=${newGrandTotal} - subtotal=${newSubtotal} - fees=${feesTotal} = ${rawTaxDelta}). ` +
+          `Refusing to write nonsense to Supabase.`
+      );
+      process.exit(1);
+    }
+    const derivedTaxTotal = Number(rawTaxDelta.toFixed(2));
 
     console.log('\nSyncing Supabase bookings row...');
     console.log(`  check_in     -> ${newFrom}`);
