@@ -106,6 +106,18 @@ async function main() {
     Number(booking.triply_service_fee ?? 0) +
     protectionPlanPrice;
 
+  // Template only accepts the three values below + null. Anything else
+  // (e.g. "failed", legacy values) falls through to null, which renders
+  // the "Confirming" callout — safer than claiming "Active" coverage when
+  // PG might not actually have the record.
+  const rawPgStatus = booking.pg_sync_status as string | null | undefined;
+  const pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null =
+    rawPgStatus === "synced" ||
+    rawPgStatus === "pending" ||
+    rawPgStatus === "skipped_missing_data"
+      ? rawPgStatus
+      : null;
+
   const emailProps = {
     customerName: `${customer.first_name} ${customer.last_name}`,
     customerEmail: customer.email,
@@ -121,12 +133,7 @@ async function main() {
     vehicleInfo,
     protectionPlan: booking.protection_plan ?? undefined,
     protectionPlanPrice: protectionPlanPrice > 0 ? protectionPlanPrice : undefined,
-    pgSyncStatus: (booking.pg_sync_status ?? undefined) as
-      | "synced"
-      | "pending"
-      | "failed"
-      | "skipped_missing_data"
-      | undefined,
+    pgSyncStatus,
   };
 
   console.log(`\n${dryRun ? "DRY-RUN " : ""}Subject: "${subject}"`);
