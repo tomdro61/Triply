@@ -67,6 +67,15 @@ function fmtMoney(n) {
   return `$${Number(n).toFixed(2)}`;
 }
 
+function assertValidReslabHistory(history, label) {
+  if (!history || history.grand_total == null || history.subtotal == null) {
+    console.error(`\nERROR: ResLab ${label} missing subtotal or grand_total — refusing to continue.`);
+    console.error(`  subtotal:    ${history?.subtotal}`);
+    console.error(`  grand_total: ${history?.grand_total}`);
+    process.exit(1);
+  }
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const apply = args.includes('--apply');
@@ -197,12 +206,17 @@ async function main() {
 
     // ResLab returns history newest-first, so index 0 is the post-update state.
     newHistory = updated.history?.[0];
-    const newDate = newHistory?.dates?.[0];
+
+    // Validate the response shape BEFORE printing it. Avoids "$NaN" lines
+    // in the operator's terminal when ResLab returns a malformed body.
+    assertValidReslabHistory(newHistory, 'PUT response');
+
+    const newDate = newHistory.dates?.[0];
     console.log('\n--- UPDATED ---');
     console.log(`From:         ${newDate?.from_date}`);
     console.log(`To:           ${newDate?.to_date}`);
-    console.log(`Subtotal:     ${fmtMoney(newHistory?.subtotal)}`);
-    console.log(`Grand total:  ${fmtMoney(newHistory?.grand_total)}`);
+    console.log(`Subtotal:     ${fmtMoney(newHistory.subtotal)}`);
+    console.log(`Grand total:  ${fmtMoney(newHistory.grand_total)}`);
   }
 
   if (syncSupabase) {
@@ -219,13 +233,7 @@ async function main() {
     if (!newHistory) {
       const refetched = await api(token, `/reservations/${resNum}`);
       newHistory = refetched.history?.[0];
-    }
-
-    if (!newHistory || newHistory.grand_total == null || newHistory.subtotal == null) {
-      console.error('\nERROR: ResLab history missing subtotal or grand_total — refusing to write potentially wrong totals to Supabase.');
-      console.error(`  subtotal:    ${newHistory?.subtotal}`);
-      console.error(`  grand_total: ${newHistory?.grand_total}`);
-      process.exit(1);
+      assertValidReslabHistory(newHistory, 'GET response (backfill mode)');
     }
 
     const supabase = createSupabaseClient(supabaseUrl, serviceKey);
@@ -244,7 +252,11 @@ async function main() {
     }
 
     if (existing.fees_total == null) {
-      console.error(`\nERROR: bookings.fees_total is null for ${resNum} — cannot back-derive tax_total without it.`);
+      console.error(`\nERROR: bookings.fees_total is null for ${resNum} — cannot back-derive tax_total.`);
+      console.error('  Likely cause: historical row predating the booking-insert fallback that writes "feesTotal || 0".');
+      console.error('  Recovery: backfill via SQL, e.g.');
+      console.error(`    UPDATE bookings SET fees_total = <amount> WHERE reslab_reservation_number = '${resNum}';`);
+      console.error('  Then re-run this script.');
       process.exit(1);
     }
 
