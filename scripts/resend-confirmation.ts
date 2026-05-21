@@ -68,7 +68,7 @@ async function main() {
   const { data: booking, error } = await supabase
     .from("bookings")
     .select(
-      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, due_at_location, vehicle_info, customer_id"
+      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status"
     )
     .eq("reslab_reservation_number", resNum)
     .single();
@@ -100,8 +100,45 @@ async function main() {
     ? `${vehicle.make ?? ""} ${vehicle.model ?? ""} (${vehicle.color ?? ""}) - ${vehicle.licensePlate ?? ""}`
     : undefined;
 
+  // grand_total is required — a real $0 booking doesn't happen, so null
+  // means the row is corrupted or partially written. Refuse to send rather
+  // than blast the customer a confirmation with $0 in the parking line.
+  if (booking.grand_total == null) {
+    console.error(
+      `ERROR: bookings.grand_total is null for ${resNum} — refusing to send.`
+    );
+    process.exit(1);
+  }
+
+  // triply_service_fee is allowed to be null on legacy rows — production
+  // writes `triplyServiceFee || 0` (route.ts:285), so production-equivalent
+  // behavior on a null is to treat as 0. Warn so the operator knows the row
+  // is older than the column was added, but don't block the send.
+  if (booking.triply_service_fee == null) {
+    console.warn(
+      `WARN: bookings.triply_service_fee is null for ${resNum} — treating as 0 (matches production fallback).`
+    );
+  }
+
+  // protection_plan_price and due_at_location are legitimately null for
+  // bookings without Park Guard / pre-paid-only flows — both default to 0.
+  const protectionPlanPrice = Number(booking.protection_plan_price ?? 0);
   const totalAmount =
-    Number(booking.grand_total ?? 0) + Number(booking.triply_service_fee ?? 0);
+    Number(booking.grand_total) +
+    Number(booking.triply_service_fee ?? 0) +
+    protectionPlanPrice;
+
+  // Template only accepts the three values below + null. Anything else
+  // (e.g. "failed", legacy values) falls through to null, which renders
+  // the "Confirming" callout — safer than claiming "Active" coverage when
+  // PG might not actually have the record.
+  const rawPgStatus = booking.pg_sync_status as string | null | undefined;
+  const pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null =
+    rawPgStatus === "synced" ||
+    rawPgStatus === "pending" ||
+    rawPgStatus === "skipped_missing_data"
+      ? rawPgStatus
+      : null;
 
   const emailProps = {
     customerName: `${customer.first_name} ${customer.last_name}`,
@@ -116,6 +153,9 @@ async function main() {
     totalAmount,
     dueAtLocation: Number(booking.due_at_location ?? 0),
     vehicleInfo,
+    protectionPlan: booking.protection_plan ?? undefined,
+    protectionPlanPrice: protectionPlanPrice > 0 ? protectionPlanPrice : undefined,
+    pgSyncStatus,
   };
 
   console.log(`\n${dryRun ? "DRY-RUN " : ""}Subject: "${subject}"`);
@@ -124,6 +164,8 @@ async function main() {
   console.log(`  Lot:       ${emailProps.lotName}`);
   console.log(`  Check-in:  ${emailProps.checkInDate} ${emailProps.checkInTime}`);
   console.log(`  Check-out: ${emailProps.checkOutDate} ${emailProps.checkOutTime}`);
+  console.log(`  Protection: ${emailProps.protectionPlan ?? "(none)"}  ` +
+    `$${protectionPlanPrice.toFixed(2)}  (sync: ${emailProps.pgSyncStatus ?? "n/a"})`);
   console.log(`  Total:     $${totalAmount.toFixed(2)}`);
   console.log(`  Vehicle:   ${vehicleInfo ?? "(none)"}`);
 
