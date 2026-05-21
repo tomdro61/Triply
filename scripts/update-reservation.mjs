@@ -251,18 +251,20 @@ async function main() {
       process.exit(1);
     }
 
+    // fees_total may be null on legacy rows. Production writes
+    // `feesTotal || resHistory?.total_fees || 0` (route.ts:286), so the
+    // production-equivalent behavior on null is to treat as 0. Warn so the
+    // operator knows the back-derived tax may absorb what should have been
+    // a facility fee, but don't block the sync.
     if (existing.fees_total == null) {
-      console.error(`\nERROR: bookings.fees_total is null for ${resNum} — cannot back-derive tax_total.`);
-      console.error('  Likely cause: historical row predating the booking-insert fallback that writes "feesTotal || 0".');
-      console.error('  Recovery: backfill via SQL, e.g.');
-      console.error(`    UPDATE bookings SET fees_total = <amount> WHERE reslab_reservation_number = '${resNum}';`);
-      console.error('  Then re-run this script.');
-      process.exit(1);
+      console.warn(`\nWARN: bookings.fees_total is null for ${resNum} — treating as 0 (matches production fallback).`);
+      console.warn('  If this lot actually has a facility fee, backfill before the next sync:');
+      console.warn(`    UPDATE bookings SET fees_total = <amount> WHERE reslab_reservation_number = '${resNum}';`);
     }
 
     const newSubtotal = Number(newHistory.subtotal);
     const newGrandTotal = Number(newHistory.grand_total);
-    const feesTotal = Number(existing.fees_total);
+    const feesTotal = Number(existing.fees_total ?? 0);
 
     // Back-derive tax_total. A negative result means ResLab's
     // grand_total < subtotal + fees_total, which is impossible if the inputs

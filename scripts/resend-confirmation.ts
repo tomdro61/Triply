@@ -100,25 +100,32 @@ async function main() {
     ? `${vehicle.make ?? ""} ${vehicle.model ?? ""} (${vehicle.color ?? ""}) - ${vehicle.licensePlate ?? ""}`
     : undefined;
 
-  // Required money fields — if either is null/missing the row is corrupted
-  // or partially written. Refuse to send the customer an email with a
-  // potentially wrong total rather than silently defaulting to $0.
-  // (protection_plan_price and due_at_location may legitimately be null
-  // for bookings without Park Guard / pre-paid-only flows — those default
-  // to 0 below.)
-  if (booking.grand_total == null || booking.triply_service_fee == null) {
+  // grand_total is required — a real $0 booking doesn't happen, so null
+  // means the row is corrupted or partially written. Refuse to send rather
+  // than blast the customer a confirmation with $0 in the parking line.
+  if (booking.grand_total == null) {
     console.error(
-      `ERROR: bookings row for ${resNum} is missing grand_total or triply_service_fee — refusing to send.`
+      `ERROR: bookings.grand_total is null for ${resNum} — refusing to send.`
     );
-    console.error(`  grand_total:        ${booking.grand_total}`);
-    console.error(`  triply_service_fee: ${booking.triply_service_fee}`);
     process.exit(1);
   }
 
+  // triply_service_fee is allowed to be null on legacy rows — production
+  // writes `triplyServiceFee || 0` (route.ts:285), so production-equivalent
+  // behavior on a null is to treat as 0. Warn so the operator knows the row
+  // is older than the column was added, but don't block the send.
+  if (booking.triply_service_fee == null) {
+    console.warn(
+      `WARN: bookings.triply_service_fee is null for ${resNum} — treating as 0 (matches production fallback).`
+    );
+  }
+
+  // protection_plan_price and due_at_location are legitimately null for
+  // bookings without Park Guard / pre-paid-only flows — both default to 0.
   const protectionPlanPrice = Number(booking.protection_plan_price ?? 0);
   const totalAmount =
     Number(booking.grand_total) +
-    Number(booking.triply_service_fee) +
+    Number(booking.triply_service_fee ?? 0) +
     protectionPlanPrice;
 
   // Template only accepts the three values below + null. Anything else
