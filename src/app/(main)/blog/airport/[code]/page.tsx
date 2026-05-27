@@ -5,12 +5,12 @@ import { Navbar, Footer } from "@/components/shared";
 import {
   getPublishedPosts,
   getCategories,
-  getDistinctAirportCodes,
 } from "@/lib/cms";
 import {
   getAirportByCode,
   productionAirports,
 } from "@/config/airports";
+import { captureAPIError } from "@/lib/sentry";
 import { BlogPostCard } from "@/components/blog/BlogPostCard";
 import { BlogPagination } from "@/components/blog/BlogPagination";
 import { BlogFilterBar } from "@/components/blog/BlogFilterBar";
@@ -18,9 +18,9 @@ import { BlogFeaturedPost } from "@/components/blog/BlogFeaturedPost";
 
 // No route-level `export const revalidate` — searchParams (page) forces
 // dynamic rendering, which makes route-segment revalidate a no-op. CMS
-// egress is bounded by the 1h fetch-level cache in `src/lib/cms.ts`,
-// which keeps `getDistinctAirportCodes()` from running a full post scan
-// on every render.
+// egress is bounded by the 1h fetch-level cache in `src/lib/cms.ts`.
+// The "More Airport Guides" list is derived from the static airport config
+// (not a CMS scan), so a slow CMS can't time the page out building it.
 
 type Props = {
   params: Promise<{ code: string }>;
@@ -50,17 +50,32 @@ export default async function BlogAirportPage({ params, searchParams }: Props) {
 
   const page = parseInt(pageParam || "1", 10);
 
-  const [postsResult, categoriesResult] = await Promise.all([
+  // Posts are the page's essential content: a 5xx/network failure throws →
+  // 500 so crawlers retry (the SSR philosophy in cms.ts). A 4xx instead
+  // returns empty docs upstream → an empty "check back soon" hub at 200.
+  // Categories only power the filter bar, so a CMS hiccup there degrades to an
+  // empty bar instead of 500'ing the whole hub. This catch only fires on the
+  // 5xx/network throw path (reported to Sentry); a 4xx returns [] upstream in
+  // cms.ts without reaching here. Acceptable for a decorative bar — empty
+  // categories render as just the "All" chip. See follow-up below re: 4xx.
+  const [postsResult, categories] = await Promise.all([
     getPublishedPosts(
       { "where[airportCode][equals]": airport.code },
       page,
       12
     ),
-    getCategories(),
+    getCategories()
+      .then((r) => r.docs)
+      .catch((err: unknown) => {
+        captureAPIError(
+          err instanceof Error ? err : new Error(String(err)),
+          { endpoint: "/api/categories", method: "GET" }
+        );
+        return [];
+      }),
   ]);
 
   const { docs: posts, totalPages } = postsResult;
-  const categories = categoriesResult.docs;
 
   // Featured hub article for this airport
   const featuredPost =
@@ -71,16 +86,16 @@ export default async function BlogAirportPage({ params, searchParams }: Props) {
     ? posts.filter((p: any) => p.id !== featuredPost.id)
     : posts;
 
-  // Other airports that have blog content
-  const allCodes = await getDistinctAirportCodes();
-  const otherAirports = allCodes
-    .filter((c) => c !== airport.code)
+  // Other airport guides to cross-link. Derived from the static airport
+  // config rather than a CMS scan — this previously called
+  // getDistinctAirportCodes(), a paginated full scan of every published post
+  // that ran on each cold render and was the page's most timeout-prone CMS
+  // call (root cause of Sentry TRIPLY-G). Trade-off: a linked hub may have no
+  // posts yet, in which case it shows the existing "check back soon" state.
+  const otherAirports = productionAirports
+    .filter((a) => a.code !== airport.code)
     .slice(0, 10)
-    .map((c) => {
-      const a = getAirportByCode(c);
-      return a ? { code: a.code, city: a.city } : null;
-    })
-    .filter(Boolean) as Array<{ code: string; city: string }>;
+    .map((a) => ({ code: a.code, city: a.city }));
 
   return (
     <>
