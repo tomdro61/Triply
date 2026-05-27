@@ -39,6 +39,7 @@ Sentry.init({
 
   // Filter out noise that we don't act on.
   ignoreErrors: [
+    // Generic browser / runtime / chunk-loading noise.
     "ResizeObserver loop limit exceeded",
     "ResizeObserver loop completed with undelivered notifications",
     "Non-Error promise rejection captured",
@@ -46,6 +47,29 @@ Sentry.init({
     /ChunkLoadError/,
     "Network request failed",
     "Failed to fetch",
+    // Fetch/lock aborted because the user navigated away mid-request,
+    // including the Supabase auth-js lock timeout. Not actionable. (TRIPLY-7)
+    "signal is aborted without reason",
+    // Browser-extension / injected-script errors — not our code. (TRIPLY-J,
+    // TRIPLY-C, TRIPLY-9) Backed up by denyUrls below for stacks that carry
+    // an extension origin.
+    "Can't find variable: _G",
+    "runtime.sendMessage",
+    "_globalBindingName",
+    // Old / insecure-context browsers without Web Crypto. (TRIPLY-E)
+    "crypto.randomUUID is not a function",
+    // Cross-origin postMessage noise from bots/embeds on blog routes. (TRIPLY-F)
+    "invalid origin",
+  ],
+
+  // Drop errors whose top stack frame originates in a browser extension — a
+  // large, ever-growing class of noise that is never our code. Complements the
+  // extension-specific message matches in ignoreErrors above.
+  denyUrls: [
+    /^chrome-extension:\/\//i,
+    /^moz-extension:\/\//i,
+    /^safari-(web-)?extension:\/\//i,
+    /extensions\//i,
   ],
 });
 
