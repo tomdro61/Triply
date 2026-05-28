@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
-import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import Stripe from "stripe";
 
 export async function POST(request: NextRequest) {
@@ -194,20 +194,33 @@ export async function POST(request: NextRequest) {
           // must notify PG — they don't observe Stripe refunds and would
           // keep billing Triply for coverage on a refunded premium.
           //
-          // Threshold = the price THIS booking was charged (booking.protection_plan_price),
-          // not the current constant — so a future bump of PROTECTION_PLAN.price
-          // (e.g., 9.99 → 14.99) doesn't break PG-cancel on pre-bump bookings
-          // whose Stripe refunds will still come back at the old amount.
-          // Falls back to the constant only if the row is missing the price
-          // (a legacy state migration 011's CHECK will block for new inserts).
+          // Threshold = the price THIS booking was charged
+          // (booking.protection_plan_price), never the live constant. If
+          // retail has shifted since charge, the live constant would
+          // mis-classify partial refunds inside the price-change window
+          // (e.g., a $12.99 booking partially refunded $11.50 after a drop
+          // to $10.99 would be auto-PG-canceled when it shouldn't be). For
+          // legacy dirty rows missing the stored price (migration 011's
+          // CHECK blocks new inserts; pre-CHECK rows may still exist), we
+          // can't compute the threshold safely — alert ops and skip the
+          // auto-cancel branch. PG cancellation, if warranted, gets handled
+          // manually.
           const rowPriceCents = booking.protection_plan_price
             ? Math.round(parseFloat(booking.protection_plan_price) * 100)
             : 0;
-          const premiumThresholdCents =
-            rowPriceCents > 0 ? rowPriceCents : Math.round(PROTECTION_PLAN.price * 100);
+          const dirtyRow = !!booking.protection_plan && rowPriceCents <= 0;
+          if (dirtyRow) {
+            captureParkGuardError(
+              new Error(
+                "Webhook charge.refunded: booking has protection_plan set but no protection_plan_price; skipping auto-cancel (cannot compute refund threshold safely)."
+              ),
+              { bookingId: booking.id, operation: "update" }
+            );
+          }
           const refundCoversProtection =
             !!booking.protection_plan &&
-            charge.amount_refunded >= premiumThresholdCents;
+            !dirtyRow &&
+            charge.amount_refunded >= rowPriceCents;
 
           if (!isFullRefund) {
             // Partial refund (dispute concession, customer-service goodwill,

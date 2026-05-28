@@ -364,7 +364,7 @@ export default function AdminDashboard() {
                 and PROTECTION_PLAN.wholesalePrice in src/lib/parkguard/client.ts.
                 The Margin column below sums per-row prices so historical
                 bookings at a different price still report accurately. */}
-            Current opt-in: $12.99 retail − $6.00 wholesale = $6.99 margin
+            Current opt-in: $10.99 retail − $6.00 wholesale = $4.99 margin
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

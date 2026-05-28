@@ -53,12 +53,18 @@ export const PROTECTION_PLAN = {
    * $1,000 / $500 / $250 tiers. Triply currently only offers Plan A.
    */
   pgPlanCode: "Plan A",
-  /** Customer-facing premium charged at checkout. */
-  price: 12.99,
   /**
-   * Wholesale cost — what Park Guard bills Triply per opt-in. Triply's
-   * margin per opt-in = price - wholesalePrice = $3.99. Sourced from the
+   * Customer-facing premium charged at checkout.
+   * Last retail change: 2026-05-28 ($12.99 → $10.99) to lift conversion.
+   */
+  price: 10.99,
+  /**
+   * Wholesale cost — what Park Guard bills Triply per opt-in. Margin per
+   * opt-in = price - wholesalePrice. Wholesale is sourced from the
    * IE Holdings × Park Guard contract; verify before changing.
+   * When retail changes, prior bookings continue to roll up at the price
+   * they were actually charged — admin revenue reads per-row
+   * `bookings.protection_plan_price` rather than this constant.
    */
   wholesalePrice: 6.00,
   /** Damage/theft limit, used in marketing copy and internal records. */

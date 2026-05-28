@@ -178,8 +178,9 @@ export async function GET(request: NextRequest) {
     // protection_plan is set on a confirmed booking.
     //
     // Revenue: sum per-row protection_plan_price so historical bookings
-    // taken at an earlier price (e.g., $9.99) stay reported at what was
-    // actually charged when the price changes ($12.99 going forward).
+    // taken at a different retail price stay reported at what was actually
+    // charged. The current retail price lives in PROTECTION_PLAN.price
+    // (src/lib/parkguard/client.ts) — do NOT substitute it here.
     // Cost: count × PROTECTION_PLAN.wholesalePrice — PG bills Triply a
     // fixed amount per opt-in regardless of retail price.
     // Margin: revenue - cost.
