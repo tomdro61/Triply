@@ -60,6 +60,14 @@ Sentry.init({
     "crypto.randomUUID is not a function",
     // Cross-origin postMessage noise from bots/embeds on blog routes. (TRIPLY-F)
     "invalid origin",
+    // iOS WebKit-based browsers (Brave, Firefox) inject extension content
+    // scripts into the page context, so their stack frames carry the page
+    // URL — denyUrls below can't see them. Match by message instead.
+    // Triply never references window.ethereum or __firefox__ in app code,
+    // so substring matches are safe.
+    // (TRIPLY-M — Brave iOS wallet shim, TRIPLY-K — Firefox/Brave iOS bridge)
+    "window.ethereum",
+    "__firefox__",
   ],
 
   // Drop errors whose top stack frame originates in a browser extension — a
