@@ -68,6 +68,13 @@ Sentry.init({
     // (TRIPLY-M — Brave iOS wallet shim, TRIPLY-K — Firefox/Brave iOS bridge)
     "window.ethereum",
     "__firefox__",
+    // iOS WKWebView native-bridge timeout — emitted by Apple's WebKit when
+    // an injected script calls window.webkit.messageHandlers.*.postMessage()
+    // and the native side doesn't reply in time. Fires from in-app browsers
+    // (DuckDuckGo, Gmail, Instagram, etc.) that inject tracker-blocking or
+    // analytics shims. The string is produced by WebKit itself; nothing we
+    // ship can emit it. (TRIPLY-P)
+    "WKWebView API client did not respond to this postMessage",
   ],
 
   // Drop errors whose top stack frame originates in a browser extension — a
