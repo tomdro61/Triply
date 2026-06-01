@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isAdminEmail, ADMIN_EMAILS } from "@/config/admin";
+import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
@@ -18,23 +18,18 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createAdminClient();
 
-    // Test-booking exclusion: bookings tied to a customer whose email is
-    // in ADMIN_EMAILS (vin/john/tom@triplypro.com) are treated as test
-    // traffic and excluded from every metric on this dashboard so the
-    // numbers reflect real customer activity. Empty list (no admin
-    // customers in the table yet) → no filter applied.
-    const { data: adminCustomersRow } = await supabase
-      .from("customers")
-      .select("id")
-      .in("email", ADMIN_EMAILS);
-    const adminCustomerIds = (adminCustomersRow ?? []).map((c) => c.id);
-    const notAdminFilter =
-      adminCustomerIds.length > 0
-        ? `(${adminCustomerIds.join(",")})`
-        : null;
+    // Test-booking exclusion (aligned with /api/admin/accounting and
+    // src/config/admin.ts:isTestBooking semantics, 2026-06-01):
+    // A booking is "test" iff it's against a TEST ResLab lot id (194/195/
+    // 196/197). Admin-email bookings at REAL airport lots are NOT excluded
+    // — that conflation previously hid legitimate revenue.
+    // Empty TEST_RESLAB_LOCATION_IDS → no filter applied.
+    const testLotIds = [...TEST_RESLAB_LOCATION_IDS];
+    const notTestLotFilter =
+      testLotIds.length > 0 ? `(${testLotIds.join(",")})` : null;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const excludeAdmins = (query: any) =>
-      notAdminFilter ? query.not("customer_id", "in", notAdminFilter) : query;
+      notTestLotFilter ? query.not("reslab_location_id", "in", notTestLotFilter) : query;
 
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");

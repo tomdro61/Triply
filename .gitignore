@@ -61,3 +61,4 @@ next-env.d.ts
 # Park Guard credentials & partner docs (contains API keys and Coverage Hub passwords)
 # Anchored to repo root so it doesn't accidentally match src/lib/parkguard/.
 /parkguard/
+reconcile-revenue.csv

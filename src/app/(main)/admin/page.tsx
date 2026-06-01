@@ -12,6 +12,7 @@ import {
   MapPin,
   Clock,
   X,
+  Calculator,
 } from "lucide-react";
 import { formatDate, formatPrice } from "@/lib/utils";
 
@@ -213,6 +214,13 @@ export default function AdminDashboard() {
 
         {/* Date Filter */}
         <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/admin/accounting"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            <Calculator size={16} />
+            Accounting
+          </Link>
           <div className="flex items-center gap-2">
             <Calendar size={18} className="text-gray-400" />
             <select
