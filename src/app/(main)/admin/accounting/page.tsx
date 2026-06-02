@@ -591,20 +591,38 @@ export default function AccountingPage() {
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-3">ResLab breakdown</h3>
+              <h3 className="font-semibold text-gray-900 mb-1">Parking money flow</h3>
+              <p className="text-xs text-gray-500 mb-3">
+                The parking pool Triply collected via Stripe, and how it splits between ResLab
+                (for the lots) and Triply&apos;s channel commission. Does NOT include service fees
+                or Park Guard.
+              </p>
               <Row
-                label="Triply channel commission (channel_total)"
+                label="Parking collected via Stripe"
+                value={usd(result.confirmed.parkingOnline)}
+                sub="confirmed bookings, sum of (grand_total − due_at_lot)"
+                emphasis
+              />
+              <Row
+                label="     → Owed to ResLab (the lots)"
+                value={result.confirmed.locationTotalOwed !== null ? `−${usd(result.confirmed.locationTotalOwed)}` : "—"}
+                sub="sum of location_total"
+              />
+              <Row
+                label="     → Triply channel commission"
                 value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
-                sub="Triply's parking-side income"
+                sub="what Triply keeps from the parking side"
               />
-              {/* commissions_total IS the lot's share of subtotal —
-                  verified against ResLab dashboard "Location Commission"
-                  for RTL764193 ($52.75). Lot share + channel share = subtotal. */}
-              <Row
-                label="Lot commission (commissions_total)"
-                value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
-                sub="lot's share — included in 'Owed to ResLab'"
-              />
+              <div className="border-t border-gray-100 mt-3 pt-3">
+                {/* commissions_total IS the lot's share of subtotal —
+                    verified against ResLab dashboard "Location Commission"
+                    for RTL764193 ($52.75). Lot share + channel share = subtotal. */}
+                <Row
+                  label="Lot commission (commissions_total)"
+                  value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
+                  sub="lot's parking-revenue share — included in the 'Owed to ResLab' line above"
+                />
+              </div>
               {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
                 <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
                   <CheckCircle2 size={14} />
