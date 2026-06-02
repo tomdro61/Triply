@@ -67,7 +67,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
     "reslab_grand_total", "reslab_location_total_owed", "reslab_channel_total",
     "reslab_commissions_total", "reslab_refund_amount", "reslab_partial_refund",
     "reslab_cancelled", "reslab_error",
-    "triply_keeps", "note",
+    "triply_fee_svc_plus_pg", "triply_total_incl_channel", "note",
   ];
   const lines = [header.join(",")];
   for (const b of bookings) {
@@ -84,7 +84,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
       b.reslab_channel_total ?? "", b.reslab_commissions_total ?? "",
       b.reslab_refund_amount ?? "", b.reslab_partial_refund ?? "",
       b.reslab_cancelled ?? "", b.reslab_error ?? "",
-      b.triply_keeps, b.note,
+      b.triply_keeps, b.triply_total ?? "", b.note,
     ].map(csvEscape).join(","));
   }
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
@@ -669,8 +669,9 @@ export default function AccountingPage() {
                       <th className="px-4 py-2">Lot</th>
                       <th className="px-4 py-2 text-right">Grand total</th>
                       <th className="px-4 py-2 text-right">Owed (ResLab)</th>
-                      <th className="px-4 py-2 text-right">Triply ch.</th>
-                      <th className="px-4 py-2 text-right">Triply keeps</th>
+                      <th className="px-4 py-2 text-right" title="Channel commission — Triply's parking-side cut from the ResLab split">Triply ch.</th>
+                      <th className="px-4 py-2 text-right" title="Service fee + Park Guard margin — Triply's on-top charges">Triply fee</th>
+                      <th className="px-4 py-2 text-right" title="Channel commission + service fee + PG margin — the complete pile Triply kept on this booking">Triply total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -701,8 +702,11 @@ export default function AccountingPage() {
                         <td className="px-4 py-2 text-right font-mono text-gray-700">
                           {b.reslab_channel_total !== null ? usd(b.reslab_channel_total) : "—"}
                         </td>
-                        <td className={`px-4 py-2 text-right font-mono font-medium ${b.triply_keeps < 0 ? "text-red-600" : "text-gray-900"}`}>
+                        <td className={`px-4 py-2 text-right font-mono ${b.triply_keeps < 0 ? "text-red-600" : "text-gray-700"}`}>
                           {usd(b.triply_keeps)}
+                        </td>
+                        <td className={`px-4 py-2 text-right font-mono font-medium ${b.triply_total !== null && b.triply_total < 0 ? "text-red-600" : "text-gray-900"}`}>
+                          {b.triply_total !== null ? usd(b.triply_total) : "—"}
                         </td>
                       </tr>
                     ))}

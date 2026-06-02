@@ -393,7 +393,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       });
     }
 
-    let triplyKeeps = 0;
+    let triplyKeeps = 0; // service fee + PG margin (on-top charges)
+    let triplyTotal: number | null = 0; // channel + fee + PG margin (full keep)
     let note = "";
 
     if (b.status === "confirmed") {
@@ -421,6 +422,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         stripeGrossDerived += expectedStripe;
       }
       triplyKeeps = serviceFee + (hasPG ? pgPremium - PG_WHOLESALE : 0);
+      // Total keep = channel commission + on-top charges. Null when we
+      // can't compute channel (no ResLab data for this row) — the UI/CSV
+      // shows "—" in that case rather than an under-counted number.
+      triplyTotal =
+        rl.channelTotal !== null ? rl.channelTotal + triplyKeeps : null;
       if (hasPG && pgPremium < PG_WHOLESALE) {
         note =
           (note ? note + "; " : "") +
@@ -442,6 +448,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         stripeRefundedDerived += Math.max(0, expectedStripe - serviceFee);
       }
       triplyKeeps = serviceFee;
+      // Refunded: channel was refunded along with parking; PG was
+      // refunded along with the premium → no channel/PG kept.
+      triplyTotal = serviceFee;
       note = "service fee retained";
     } else if (b.status === "cancelled") {
       counts.cancelled++;
@@ -488,6 +497,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       reslab_cancelled: rl.cancelled,
       reslab_error: rl.error,
       triply_keeps: triplyKeeps,
+      triply_total: triplyTotal,
       note,
     });
   }

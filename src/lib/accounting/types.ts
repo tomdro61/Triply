@@ -62,7 +62,16 @@ export interface BookingDetail {
   reslab_partial_refund: number | null;
   reslab_cancelled: boolean | null;
   reslab_error: string | null;
+  // "Triply fee" = service fee + PG margin (the on-top charges).
+  // Excludes channel commission. Was misleadingly named "triply_keeps"
+  // before — the rename matches what's actually computed.
   triply_keeps: number;
+  // "Triply total" = channel commission + service fee + PG margin (the
+  // complete pile Triply kept per booking). Null for confirmed bookings
+  // when ResLab data is unavailable (we can't compute channel commission
+  // without it). For refunded bookings, equals service fee only (channel
+  // refunded along with parking). For cancelled bookings, 0.
+  triply_total: number | null;
   note: string;
 }
 
