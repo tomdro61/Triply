@@ -593,37 +593,101 @@ export default function AccountingPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">Parking money flow</h3>
               <p className="text-xs text-gray-500 mb-3">
-                Total parking customers paid — split into what goes to the lots (via ResLab)
-                and what Triply keeps as channel commission. Does NOT include service fees or
-                Park Guard. Math identity: <span className="font-mono">grand_total =
-                location_total + channel_total</span>, so this always balances.
+                The parking-side money flow — what customers paid, what hit Triply&apos;s
+                Stripe account, what flows to the lots, and what Triply keeps. Service fees
+                and Park Guard not included here.
               </p>
+
+              {/* === How customers paid === */}
+              <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-2 mb-1">How customers paid</p>
               <Row
                 label="Total parking customers paid"
                 value={usd(result.grossRevenue)}
-                sub="confirmed bookings, sum of grand_total (incl. due-at-lot portion)"
+                sub="confirmed bookings, sum of grand_total"
                 emphasis
               />
               <Row
-                label="     → To the lots (via ResLab)"
+                label="     of which → Triply collected via Stripe"
+                value={usd(result.confirmed.parkingOnline)}
+                sub="parking_online = grand_total − due-at-lot"
+              />
+              <Row
+                label="     of which → paid at the gate to lots"
+                value={result.confirmed.dueAtLot > 0 ? usd(result.confirmed.dueAtLot) : usd(0)}
+                sub="due_at_location (Due-at-Lot=Yes bookings only)"
+              />
+
+              {/* === Where the parking dollars go === */}
+              <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Where the parking dollars go</p>
+              <Row
+                label="To the lots (via ResLab)"
                 value={result.confirmed.locationTotalOwed !== null ? `−${usd(result.confirmed.locationTotalOwed)}` : "—"}
                 sub="sum of location_total"
               />
               <Row
-                label="     → Triply channel commission"
+                label="Triply channel commission"
                 value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
                 sub="what Triply keeps from the parking side"
               />
-              <div className="border-t border-gray-100 mt-3 pt-3">
-                {/* commissions_total IS the lot's share of subtotal —
-                    verified against ResLab dashboard "Location Commission"
-                    for RTL764193 ($52.75). Lot share + channel share = subtotal. */}
+
+              {/* === Triply's net cash from parking === */}
+              <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Triply's net cash from parking</p>
+              {(() => {
+                const stripeCollected = result.confirmed.parkingOnline;
+                const owedReslab = result.confirmed.locationTotalOwed;
+                if (owedReslab === null) {
+                  return (
+                    <Row
+                      label="Net parking cash"
+                      value="—"
+                      sub="ResLab data unavailable"
+                      emphasis
+                    />
+                  );
+                }
+                const netParking = stripeCollected - owedReslab;
+                const isNegative = netParking < 0;
+                return (
+                  <>
+                    <Row label="Stripe collected" value={usd(stripeCollected)} />
+                    <Row label="Owed to ResLab" value={`−${usd(owedReslab)}`} />
+                    <Row
+                      label="Net parking cash"
+                      value={isNegative ? `−${usd(Math.abs(netParking))}` : usd(netParking)}
+                      sub={isNegative
+                        ? "⚠ Triply pays ResLab MORE than Stripe collected for parking — covered by service fee + PG margin. See note below."
+                        : "Triply keeps this from the parking side (before Stripe fees)"}
+                      emphasis
+                    />
+                  </>
+                );
+              })()}
+
+              <div className="border-t border-gray-100 mt-4 pt-3">
                 <Row
                   label="Lot commission only (commissions_total)"
                   value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
-                  sub="lot's share of subtotal alone; the rest of 'To the lots' = location fees + taxes"
+                  sub="lot's share of subtotal only; the rest of 'To the lots' = location fees + taxes"
                 />
               </div>
+
+              {result.confirmed.locationTotalOwed !== null &&
+                result.confirmed.parkingOnline < result.confirmed.locationTotalOwed && (
+                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                    <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-amber-900">
+                      <strong>Why owed exceeds Stripe-collected:</strong> for &quot;Due-at-Lot=Yes&quot;
+                      bookings (like some Fox Auto, EWR Airport Parking, Motel 6 Newark) the
+                      customer paid the lot directly at the gate, but ResLab still tracks the full
+                      <code className="mx-1">location_total</code> per booking. The dashboard&apos;s
+                      &quot;Amount Owed&quot; column shows $0 for those bookings — but the May
+                      reconciliation matched the &quot;all included&quot; sum, suggesting Triply
+                      IS billed for those. <strong>Worth confirming with ResLab</strong> whether
+                      Due-at-Lot=Yes bookings should be excluded from the invoice (which would
+                      make the &quot;Owed&quot; figure here over-stated).
+                    </p>
+                  </div>
+                )}
               {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
                 <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
                   <CheckCircle2 size={14} />
