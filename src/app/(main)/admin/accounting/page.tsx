@@ -608,13 +608,21 @@ export default function AccountingPage() {
               />
               <Row
                 label="     of which → Triply collected via Stripe"
-                value={usd(result.confirmed.parkingOnline)}
-                sub="parking_online = grand_total − due-at-lot"
+                value={
+                  result.confirmed.stripeParkingIsDerived
+                    ? `≈ ${usd(result.confirmed.stripeParkingCollected)}`
+                    : usd(result.confirmed.stripeParkingCollected)
+                }
+                sub={
+                  result.confirmed.stripeParkingIsDerived
+                    ? "estimated — live Stripe unavailable (test keys); authoritative on production"
+                    : "actual Stripe amount_received − service fee − Park Guard"
+                }
               />
               <Row
                 label="     of which → paid at the gate to lots"
-                value={result.confirmed.dueAtLot > 0 ? usd(result.confirmed.dueAtLot) : usd(0)}
-                sub="due_at_location (Due-at-Lot=Yes bookings only)"
+                value={result.confirmed.reslabDueAtLot !== null ? usd(result.confirmed.reslabDueAtLot) : "—"}
+                sub="ResLab due_at_location_total (authoritative at-gate amount)"
               />
 
               {/* === Where the parking dollars go === */}
@@ -633,7 +641,8 @@ export default function AccountingPage() {
               {/* === Triply's net cash from parking === */}
               <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Triply's net cash from parking</p>
               {(() => {
-                const stripeCollected = result.confirmed.parkingOnline;
+                const stripeCollected = result.confirmed.stripeParkingCollected;
+                const isDerived = result.confirmed.stripeParkingIsDerived;
                 const owedReslab = result.confirmed.locationTotalOwed;
                 if (owedReslab === null) {
                   return (
@@ -649,7 +658,11 @@ export default function AccountingPage() {
                 const isNegative = netParking < 0;
                 return (
                   <>
-                    <Row label="Stripe collected" value={usd(stripeCollected)} />
+                    <Row
+                      label="Stripe collected"
+                      value={isDerived ? `≈ ${usd(stripeCollected)}` : usd(stripeCollected)}
+                      sub={isDerived ? "estimated — live Stripe unavailable" : "actual parking collected via Stripe"}
+                    />
                     <Row label="Owed to ResLab" value={`−${usd(owedReslab)}`} />
                     <Row
                       label="Net parking cash"
@@ -700,6 +713,117 @@ export default function AccountingPage() {
                   </div>
                 );
               })()}
+            </div>
+
+            {/* === DATA INTEGRITY === */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-1">Data integrity</h3>
+              <p className="text-xs text-gray-500 mb-3">
+                Cross-checks the three sources. A mismatch usually means a Supabase booking record
+                drifted from the actual Stripe charge or the ResLab settlement — a modified or
+                mis-stored reservation worth investigating.
+              </p>
+
+              {result.integrity.chargeMismatches.length === 0 &&
+              result.integrity.parkingFlowMismatches.length === 0 &&
+              !result.stripe.isDerived &&
+              !result.reslab.dataIncomplete &&
+              result.reslab.fetched > 0 ? (
+                <div className="text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle2 size={14} />
+                  All {result.reslab.fetched} cross-checked bookings reconcile across Stripe,
+                  ResLab, and the booking record.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {result.reslab.fetched === 0 && result.counts.confirmed > 0 && (
+                    <div className="text-xs text-amber-700 flex items-start gap-1">
+                      <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                      ResLab cross-check unavailable — integrity not verified for this range.
+                    </div>
+                  )}
+                  {result.stripe.isDerived && (
+                    <div className="text-xs text-amber-700 flex items-start gap-1">
+                      <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                      Live Stripe unavailable (test-mode keys) — the charge-drift and
+                      parking-identity checks are skipped here. Run on production for the full
+                      reconciliation.
+                    </div>
+                  )}
+                  {result.reslab.dataIncomplete && (
+                    <div className="text-xs text-amber-700 flex items-start gap-1">
+                      <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
+                      ResLab data unavailable for some confirmed bookings (
+                      {result.reslab.fetched} of {result.reslab.confirmedExpected} cross-checked) —
+                      reconciliation is incomplete for the rest.
+                    </div>
+                  )}
+
+                  {result.integrity.chargeMismatches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-2">
+                        ⚠ Charge drift — Supabase expected ≠ actual Stripe (
+                        {result.integrity.chargeMismatches.length})
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-gray-500">
+                            <tr>
+                              <th className="py-1 pr-4">Res #</th>
+                              <th className="py-1 pr-4 text-right">Expected (Supabase)</th>
+                              <th className="py-1 pr-4 text-right">Actual (Stripe)</th>
+                              <th className="py-1 text-right">Diff</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {result.integrity.chargeMismatches.map((m) => (
+                              <tr key={m.resNum}>
+                                <td className="py-1 pr-4 font-mono text-gray-700">{m.resNum}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.expectedSupabase)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.stripeActual)}</td>
+                                <td className="py-1 text-right font-mono text-red-600">{usd(m.diff)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {result.integrity.parkingFlowMismatches.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-amber-700 mb-2">
+                        ⚠ Parking identity — Stripe parking + ResLab at-gate ≠ grand_total (
+                        {result.integrity.parkingFlowMismatches.length})
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="text-left text-gray-500">
+                            <tr>
+                              <th className="py-1 pr-4">Res #</th>
+                              <th className="py-1 pr-4 text-right">Stripe parking</th>
+                              <th className="py-1 pr-4 text-right">ResLab at-gate</th>
+                              <th className="py-1 pr-4 text-right">Grand total</th>
+                              <th className="py-1 text-right">Diff</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {result.integrity.parkingFlowMismatches.map((m) => (
+                              <tr key={m.resNum}>
+                                <td className="py-1 pr-4 font-mono text-gray-700">{m.resNum}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.stripeParking)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.reslabAtGate)}</td>
+                                <td className="py-1 pr-4 text-right font-mono text-gray-700">{usd(m.grandTotal)}</td>
+                                <td className="py-1 text-right font-mono text-red-600">{usd(m.diff)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* === COUNTS + CSV ACTIONS === */}

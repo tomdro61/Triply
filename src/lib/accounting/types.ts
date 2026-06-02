@@ -129,9 +129,9 @@ export interface ReconcileResult {
     isDerived: boolean;
   };
   confirmed: {
-    parkingOnline: number;
-    parkingSubtotal: number; // SUM(subtotal), pre-tax-pre-fee — denominator for channel rate
-    dueAtLot: number;
+    parkingOnline: number; // Supabase grand_total − due_at_location (legacy; use stripeParkingCollected for cash)
+    parkingSubtotal: number; // SUM(Supabase subtotal), pre-tax-pre-fee
+    dueAtLot: number; // Supabase due_at_location (legacy; use reslabDueAtLot for the authoritative at-gate amount)
     serviceFee: number;
     pgPremium: number;
     pgOptIns: number;
@@ -140,6 +140,18 @@ export interface ReconcileResult {
     locationTotalOwed: number | null;
     channelTotal: number | null;
     commissionsTotal: number | null;
+    // Authoritative parking cash collected = SUM(Stripe amount_received −
+    // service_fee − pg_premium) over confirmed bookings. Falls back to the
+    // Supabase-derived parkingOnline per booking when live Stripe is
+    // unavailable; `stripeParkingIsDerived` is true if ANY booking fell back.
+    stripeParkingCollected: number;
+    stripeParkingIsDerived: boolean;
+    // Authoritative at-gate amount = SUM(ResLab due_at_location_total).
+    // null when ResLab cross-check is disabled.
+    reslabDueAtLot: number | null;
+    // Authoritative parking subtotal = SUM(ResLab subtotal) — denominator for
+    // the channel commission rate. null when ResLab cross-check is disabled.
+    reslabSubtotal: number | null;
   };
   refunded: {
     serviceFeeKept: number;
@@ -171,11 +183,43 @@ export interface ReconcileResult {
     grandTotalMismatches: Array<{ resNum: string; supabase: number; reslab: number; diff: number }>;
     fetchErrors: Array<{ resNum: string; err: string }>;
     fetched: number;
+    // Confirmed bookings that expected a ResLab fetch (have a reservation
+    // number). The denominator for "X of Y cross-checked" messaging.
+    confirmedExpected: number;
+    // True when one or more confirmed bookings expecting a ResLab fetch are
+    // missing data — so the integrity panel won't claim a clean reconciliation
+    // for rows it never cross-checked.
+    dataIncomplete: boolean;
   };
   stripeFetch: {
     fetched: number;
     errors: Array<{ resNum: string; err: string }>;
     derivedFallbacks: number;
+  };
+  // Cross-source reconciliation. Surfaces bookings where the three sources
+  // disagree — the automatic detector for drifted/mis-stored records like
+  // RTL753241 (Supabase due_at_location stored $0 vs ResLab's $98.24).
+  integrity: {
+    // Supabase's expected charge (parking_online + service_fee + pg_premium)
+    // vs the ACTUAL Stripe amount_received. Confirmed bookings only, and only
+    // when live Stripe was available for the row. A non-trivial diff means the
+    // Supabase booking record drifted from what the customer actually paid.
+    chargeMismatches: Array<{
+      resNum: string;
+      expectedSupabase: number;
+      stripeActual: number;
+      diff: number; // expected − actual
+    }>;
+    // The parking identity: Stripe parking collected + ResLab at-gate should
+    // equal the booking grand_total. A non-trivial diff means Stripe and ResLab
+    // don't reconcile against the booking value.
+    parkingFlowMismatches: Array<{
+      resNum: string;
+      stripeParking: number;
+      reslabAtGate: number;
+      grandTotal: number;
+      diff: number; // (stripeParking + reslabAtGate) − grandTotal
+    }>;
   };
   bookings: BookingDetail[];
 }

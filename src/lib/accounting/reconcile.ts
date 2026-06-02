@@ -55,6 +55,7 @@ interface ReslabHistoryEntry {
   channel_total?: number | string;
   commissions_total?: number | string;
   grand_total?: number | string;
+  subtotal?: number | string;
   refund_amount?: number | string;
   partial_refund?: number | string;
   due_at_location_total?: number | string;
@@ -204,6 +205,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     channelTotal: number | null;
     commissionsTotal: number | null;
     grandTotal: number | null;
+    subtotal: number | null;
     refundAmount: number | null;
     partialRefund: number | null;
     cancelled: boolean | null;
@@ -215,6 +217,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     channelTotal: null,
     commissionsTotal: null,
     grandTotal: null,
+    subtotal: null,
     refundAmount: null,
     partialRefund: null,
     cancelled: null,
@@ -263,6 +266,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           channelTotal: num(h.channel_total),
           commissionsTotal: num(h.commissions_total),
           grandTotal: num(h.grand_total),
+          subtotal: num(h.subtotal),
           refundAmount: num(h.refund_amount),
           partialRefund: num(h.partial_refund),
           cancelled: !!data.cancelled,
@@ -320,6 +324,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   const bookings: BookingDetail[] = [];
   const grandTotalMismatches: ReconcileResult["reslab"]["grandTotalMismatches"] = [];
+  const chargeMismatches: ReconcileResult["integrity"]["chargeMismatches"] = [];
+  const parkingFlowMismatches: ReconcileResult["integrity"]["parkingFlowMismatches"] = [];
+  // Threshold below which source disagreements are treated as rounding noise.
+  const INTEGRITY_TOLERANCE = 0.5;
 
   const counts = { confirmed: 0, refunded: 0, cancelled: 0, other: 0 };
   let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot)
@@ -333,7 +341,15 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let confLocTotal = 0;
   let confChannelTotal = 0;
   let confCommissionsTotal = 0;
+  let confReslabDueAtLot = 0;
+  let confReslabSubtotal = 0;
   let confReslabSeen = 0;
+  // Authoritative parking cash collected (Stripe amount_received − service fee
+  // − PG, per booking) with a per-booking Supabase fallback when live Stripe
+  // is unavailable. `stripeParkingDerivedUsed` flips true if ANY confirmed
+  // booking fell back, so the UI can flag the aggregate as an estimate.
+  let confStripeParking = 0;
+  let stripeParkingDerivedUsed = false;
   let refServiceFee = 0;
   let refParkingRefunded = 0;
   let refPGRefunded = 0;
@@ -412,16 +428,19 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         confPGOptIns += 1;
         confPGMarginPerRow += pgPremium - PG_WHOLESALE;
       }
+      const reslabAtGate = rl.dueAtLocationTotal ?? 0;
       if (opts.includeReslab && rl.locationTotal !== null) {
         // "Amount Owed" formula — matches the ResLab dashboard column.
         // Due-at-Lot=Yes bookings have location_total === due_at_location_total,
         // so this evaluates to $0 for those (customer paid lot at the gate).
         // Due-at-Lot=No bookings have due_at_location_total === 0, so this
         // equals location_total (Triply owes the lot's full share).
-        const amountOwed = Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0));
+        const amountOwed = Math.max(0, rl.locationTotal - reslabAtGate);
         confLocTotal += amountOwed;
         confChannelTotal += rl.channelTotal ?? 0;
         confCommissionsTotal += rl.commissionsTotal ?? 0;
+        confReslabDueAtLot += reslabAtGate;
+        confReslabSubtotal += rl.subtotal ?? 0;
         confReslabSeen++;
       }
       if (usedRealStripe) {
@@ -429,6 +448,60 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         stripeRefundedReal += stripeRefundedRow ?? 0;
       } else {
         stripeGrossDerived += expectedStripe;
+      }
+      // Authoritative parking cash (confirmed captures only) = the parking
+      // slice of the real Stripe charge. For a confirmed capture the identity
+      // amount_received = parking_online + service_fee + pg_premium holds, so
+      // back out service fee + PG. (This identity does NOT hold for refunded
+      // rows — see integrity check #1 below — which is why this lives in the
+      // confirmed branch.) Falls back to the Supabase-derived parkingOnline
+      // when live Stripe is unavailable (test-mode keys / fetch failure) —
+      // flagged so the UI shows "≈ estimated". Math.max guards a rounding/promo
+      // edge where backed-out fees momentarily exceed the captured amount.
+      let stripeParkingRow: number;
+      if (usedRealStripe && stripeReceivedReal !== null) {
+        stripeParkingRow = Math.max(0, stripeReceivedReal - serviceFee - pgPremium);
+      } else {
+        stripeParkingRow = parkingOnline;
+        stripeParkingDerivedUsed = true;
+      }
+      confStripeParking += stripeParkingRow;
+
+      // Integrity check #1 — Supabase's expected charge vs the ACTUAL Stripe
+      // capture. A gap means the Supabase booking record drifted from what the
+      // customer paid (the RTL753241 class of bug). Only meaningful with a
+      // live Stripe figure; refunded bookings are excluded (their amount_received
+      // legitimately diverges from the original expected charge).
+      if (
+        opts.includeStripe &&
+        usedRealStripe &&
+        stripeReceivedReal !== null &&
+        Math.abs(expectedStripe - stripeReceivedReal) > INTEGRITY_TOLERANCE
+      ) {
+        chargeMismatches.push({
+          resNum: b.reslab_reservation_number,
+          expectedSupabase: expectedStripe,
+          stripeActual: stripeReceivedReal,
+          diff: expectedStripe - stripeReceivedReal,
+        });
+      }
+      // Integrity check #2 — the parking identity: parking collected (Stripe)
+      // + at-gate (ResLab) should equal the booking grand_total. Gated on
+      // usedRealStripe so "stripeParking" is genuinely the Stripe figure (in
+      // derived mode it would be the Supabase fallback, turning this into a
+      // murkier Supabase-vs-ResLab comparison the user can't tell apart — and
+      // the UI flags the whole panel as skipped when Stripe is derived).
+      if (opts.includeReslab && usedRealStripe && rl.locationTotal !== null) {
+        const identityDiff = stripeParkingRow + reslabAtGate - grandTotal;
+        if (Math.abs(identityDiff) > INTEGRITY_TOLERANCE) {
+          parkingFlowMismatches.push({
+            resNum: b.reslab_reservation_number,
+            stripeParking: stripeParkingRow,
+            reslabAtGate,
+            grandTotal,
+            diff: identityDiff,
+          });
+        }
       }
       triplyKeeps = serviceFee + (hasPG ? pgPremium - PG_WHOLESALE : 0);
       // Total keep = channel commission + on-top charges. Null when we
@@ -580,15 +653,21 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // (cash margin) instead of triplyIncome.
   const triplyIncome =
     netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal : 0);
-  const totalMoved = stripeGross + confDueAtLot;
+  // At-gate share uses ResLab's authoritative due_at_location_total when the
+  // cross-check is on (Supabase due_at_location can drift — see RTL753241);
+  // falls back to the Supabase figure only when ResLab is disabled, in which
+  // case totalTakeRate is null anyway (gated on channelDataOk below).
+  const totalMoved = stripeGross + (opts.includeReslab ? confReslabDueAtLot : confDueAtLot);
   // Take rates whose numerator depends on channelTotal are also gated on
   // ResLab data being available (same reason as triplyTotal above).
   const channelDataOk = opts.includeReslab && !reslabDataIncomplete;
   const takeRates: TakeRates = {
     stripeTakeRate: channelDataOk && stripeGross > 0 ? triplyIncome / stripeGross : null,
     totalTakeRate: channelDataOk && totalMoved > 0 ? triplyIncome / totalMoved : null,
+    // Denominator is ResLab's authoritative subtotal (contract-level parking
+    // pre-tax/fee), not the Supabase snapshot.
     channelCommissionRate:
-      channelDataOk && confParkingSubtotal > 0 ? confChannelTotal / confParkingSubtotal : null,
+      channelDataOk && confReslabSubtotal > 0 ? confChannelTotal / confReslabSubtotal : null,
     netStripeTakeRate:
       channelDataOk && stripeProcessingFees !== null && stripeGross > 0
         ? (triplyIncome - stripeProcessingFees) / stripeGross
@@ -617,6 +696,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
       channelTotal: opts.includeReslab ? confChannelTotal : null,
       commissionsTotal: opts.includeReslab ? confCommissionsTotal : null,
+      stripeParkingCollected: confStripeParking,
+      stripeParkingIsDerived: stripeParkingDerivedUsed,
+      reslabDueAtLot: opts.includeReslab ? confReslabDueAtLot : null,
+      reslabSubtotal: opts.includeReslab ? confReslabSubtotal : null,
     },
     refunded: {
       serviceFeeKept: refServiceFee,
@@ -641,11 +724,23 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       grandTotalMismatches,
       fetchErrors: reslabFetchErrors,
       fetched: confReslabSeen,
+      // Confirmed bookings that EXPECTED a ResLab fetch (have a reservation
+      // number). The honest denominator for "X of Y cross-checked" — using
+      // counts.confirmed would wrongly include rows that never expected a fetch.
+      confirmedExpected: opts.includeReslab ? reslabConfirmedExpected : 0,
+      // True when ResLab data is missing for one or more confirmed bookings
+      // that expected a fetch — the integrity panel uses this so it can't show
+      // a green "all reconcile" when some rows were never cross-checked.
+      dataIncomplete: reslabDataIncomplete,
     },
     stripeFetch: {
       fetched: stripeFetched,
       errors: stripeFetchErrors,
       derivedFallbacks: stripeDerivedFallbacks,
+    },
+    integrity: {
+      chargeMismatches,
+      parkingFlowMismatches,
     },
     bookings,
   };
