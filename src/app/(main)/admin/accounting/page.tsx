@@ -176,16 +176,35 @@ function SectionCard({ title, subtitle, children, caveat }: {
   );
 }
 
-function RateRow({ label, formula, value }: {
-  label: string; formula: string; value: string;
+function RateRow({ label, question, numerator, denominator, useWhen, value }: {
+  label: string;
+  question: string;
+  numerator: string;
+  denominator: string;
+  useWhen: string;
+  value: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between py-2.5 border-b border-gray-100 last:border-b-0">
-      <div>
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        <p className="text-xs text-gray-500 mt-0.5 font-mono">{formula}</p>
+    <div className="py-4 border-b border-gray-100 last:border-b-0">
+      <div className="flex items-baseline justify-between gap-4 mb-2">
+        <p className="text-sm font-semibold text-gray-900">{label}</p>
+        <span className="text-2xl font-bold text-coral font-mono">{value}</span>
       </div>
-      <span className="text-xl font-bold text-coral font-mono">{value}</span>
+      <p className="text-sm text-gray-700 italic mb-3">&ldquo;{question}&rdquo;</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-2 text-xs">
+        <div>
+          <p className="text-gray-500 font-medium uppercase tracking-wider text-[10px] mb-0.5">Numerator</p>
+          <p className="text-gray-700">{numerator}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 font-medium uppercase tracking-wider text-[10px] mb-0.5">Denominator</p>
+          <p className="text-gray-700">{denominator}</p>
+        </div>
+        <div>
+          <p className="text-gray-500 font-medium uppercase tracking-wider text-[10px] mb-0.5">Use when</p>
+          <p className="text-gray-700">{useWhen}</p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -389,25 +408,38 @@ export default function AccountingPage() {
                 <Percent size={18} className="text-coral" />
                 <h3 className="font-semibold text-gray-900">Triply take rates</h3>
               </div>
+              <p className="text-xs text-gray-500 mb-2">
+                Three ways to answer &quot;what % does Triply earn?&quot; — each one slices the
+                business differently. The rate to quote depends on the conversation you&apos;re in.
+              </p>
               <p className="text-xs text-gray-500 mb-4">
-                Three views of &quot;what % is Triply earning&quot; — each uses the same Triply income
-                in the numerator but a different denominator. Pick the one that matches the
-                conversation you&apos;re in.
+                <strong>Triply income</strong> (the numerator on the first two) ={" "}
+                service fee + channel commission (parking-side) + Park Guard margin. See each row
+                for the exact components and when each rate matters.
               </p>
               <div className="space-y-1">
                 <RateRow
                   label="Effective Stripe take rate"
-                  formula="Triply income ÷ Stripe gross collected"
+                  question="Of every dollar customers paid Triply through Stripe, what % did Triply keep?"
+                  numerator="service fee + channel commission + Park Guard margin"
+                  denominator="Stripe gross collected (sum of amount_received across all bookings)"
+                  useWhen="Quoting effective margin on customer payments — investor/board pitch."
                   value={pct(result.takeRates.stripeTakeRate)}
                 />
                 <RateRow
                   label="Total take rate"
-                  formula="Triply income ÷ (Stripe gross + due-at-lot)"
+                  question="Of every dollar that moved through the booking (incl. due-at-lot), what % did Triply touch?"
+                  numerator="service fee + channel commission + Park Guard margin"
+                  denominator="Stripe gross + due-at-lot (the portion customers paid the lot directly at the gate)"
+                  useWhen="Conservative view — share of all transaction value, including money Triply never touched."
                   value={pct(result.takeRates.totalTakeRate)}
                 />
                 <RateRow
                   label="Channel commission rate"
-                  formula="ResLab channel_total ÷ subtotal (ResLab contract rate)"
+                  question="What % of parking subtotal does ResLab give Triply as the channel's cut?"
+                  numerator="ResLab channel_total ONLY — parking-side commission, no service fee, no PG"
+                  denominator="ResLab subtotal — parking pre-tax, pre-fee (no due-at-lot)"
+                  useWhen="ResLab contract conversations — negotiating per-lot splits. Weighted across all lots in the period."
                   value={pct(result.takeRates.channelCommissionRate)}
                 />
               </div>
