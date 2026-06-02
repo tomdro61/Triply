@@ -63,7 +63,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
     "grand_total", "subtotal", "due_at_location", "parking_online", "triply_service_fee",
     "protection_plan", "protection_plan_price", "pg_identifier",
     "expected_stripe_estimated", "stripe_amount_received", "stripe_amount_refunded",
-    "stripe_status", "stripe_error",
+    "stripe_fee", "stripe_status", "stripe_error",
     "reslab_grand_total", "reslab_location_total_owed", "reslab_channel_total",
     "reslab_commissions_total", "reslab_refund_amount", "reslab_partial_refund",
     "reslab_cancelled", "reslab_error",
@@ -79,7 +79,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
       b.protection_plan ?? "", b.protection_plan_price, b.pg_identifier ?? "",
       b.expected_stripe,
       b.stripe_amount_received ?? "", b.stripe_amount_refunded ?? "",
-      b.stripe_status ?? "", b.stripe_error ?? "",
+      b.stripe_fee ?? "", b.stripe_status ?? "", b.stripe_error ?? "",
       b.reslab_grand_total ?? "", b.reslab_location_total ?? "",
       b.reslab_channel_total ?? "", b.reslab_commissions_total ?? "",
       b.reslab_refund_amount ?? "", b.reslab_partial_refund ?? "",
@@ -390,12 +390,16 @@ export default function AccountingPage() {
                 accent="purple"
               />
               <HeadlineCard
-                title="Triply revenue"
+                title="Triply revenue (gross)"
                 value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
                 sub={
                   result.triplyNet.totalReason
                     ? `unavailable — ${result.triplyNet.totalReason}`
-                    : "service fee + channel commission + PG margin"
+                    : result.triplyNet.cashTotal !== null
+                    ? `net cash ≈ ${usd(result.triplyNet.cashTotal)} after Stripe fees`
+                    : // M3: gross is known, cash isn't — signal this in the headline
+                      // so admins don't over-quote the gross number to stakeholders.
+                      "service fee + channel commission + PG margin · net cash unavailable (Stripe data missing)"
                 }
                 icon={Calculator}
                 accent="coral"
@@ -442,6 +446,14 @@ export default function AccountingPage() {
                   useWhen="ResLab contract conversations — negotiating per-lot splits. Weighted across all lots in the period."
                   value={pct(result.takeRates.channelCommissionRate)}
                 />
+                <RateRow
+                  label="Net effective take rate (after Stripe fees)"
+                  question="Of every dollar customers paid via Stripe, what % does Triply ACTUALLY keep after Stripe's processing fees?"
+                  numerator="Triply income MINUS Stripe processing fees (the closest thing to actual cash margin)"
+                  denominator="Stripe gross collected"
+                  useWhen="Internal P&L / cash-on-hand conversations. The number that hits Triply's bank account."
+                  value={pct(result.takeRates.netStripeTakeRate)}
+                />
               </div>
             </div>
 
@@ -449,7 +461,7 @@ export default function AccountingPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <SectionCard
                 title="Triply revenue breakdown"
-                subtitle="Where the income comes from"
+                subtitle="Where the income comes from — and what Triply actually banks"
               >
                 <Row
                   label="Channel commission (parking)"
@@ -467,12 +479,41 @@ export default function AccountingPage() {
                   sub={result.triplyNet.pgMargin < 0 ? "⚠ NEGATIVE — see PG opt-ins" : `${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
                 />
                 <Row
-                  label="Total Triply revenue"
+                  label="Total Triply revenue (gross)"
                   value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
                   emphasis
                 />
+                <Row
+                  label="Stripe processing fees"
+                  value={
+                    // Suppress the deduction line when the gross total is "—"
+                    // (M2): showing a concrete fee against an unknown base
+                    // produces a visually misleading "we lost $60" reading.
+                    result.triplyNet.total === null
+                      ? "—"
+                      : result.triplyNet.stripeProcessingFees === null
+                      ? "—"
+                      : result.triplyNet.stripeProcessingFees > 0
+                      ? `−${usd(result.triplyNet.stripeProcessingFees)}`
+                      : usd(0) // M1: no leading minus when fees are zero
+                  }
+                  sub={
+                    result.triplyNet.total === null
+                      ? "n/a — Triply revenue unavailable"
+                      : result.triplyNet.stripeProcessingFees !== null
+                      ? "balance_transaction.fee on each charge (original capture fee)"
+                      : "Stripe data unavailable — enable live Stripe to deduct"
+                  }
+                />
+                <Row
+                  label="Net cash to Triply"
+                  value={result.triplyNet.cashTotal !== null ? usd(result.triplyNet.cashTotal) : "—"}
+                  emphasis
+                />
                 <p className="text-xs text-gray-400 mt-3">
-                  Stripe processing fees (~2.9% + $0.30/charge) not deducted here.
+                  Note: Stripe sometimes refunds the processing fee back on full refunds (varies
+                  by country/timing). This figure uses the original capture fee; for partial refunds
+                  the actual fee paid may be slightly lower.
                 </p>
               </SectionCard>
 

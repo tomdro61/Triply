@@ -222,12 +222,14 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   type StripeSlice = {
     amountReceived: number | null;
     amountRefunded: number | null;
+    fee: number | null; // balance_transaction.fee (original capture fee)
     status: string | null;
     error: string | null;
   };
   const emptyStripe: StripeSlice = {
     amountReceived: null,
     amountRefunded: null,
+    fee: null,
     status: null,
     error: null,
   };
@@ -280,13 +282,24 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       if (!b.stripe_payment_intent_id) return { ...emptyStripe };
       try {
         const pi = await stripe.paymentIntents.retrieve(b.stripe_payment_intent_id, {
-          expand: ["latest_charge"],
+          // Expand balance_transaction so we can read the original Stripe
+          // processing fee directly (no second API call). The fee value
+          // is the original capture fee — does NOT subtract fee refunds
+          // on cancelled charges (Stripe sometimes returns the fee for
+          // full refunds; capturing that requires summing the charge's
+          // full balance-transaction history, deferred for MVP).
+          expand: ["latest_charge.balance_transaction"],
         });
         const charge =
           pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+        const bt =
+          charge?.balance_transaction && typeof charge.balance_transaction === "object"
+            ? charge.balance_transaction
+            : null;
         return {
           amountReceived: (pi.amount_received || 0) / 100,
           amountRefunded: charge ? (charge.amount_refunded || 0) / 100 : 0,
+          fee: bt ? (bt.fee || 0) / 100 : null,
           status: pi.status,
           error: null,
         };
@@ -328,6 +341,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let stripeRefundedDerived = 0;
   let stripeFetched = 0;
   let stripeDerivedFallbacks = 0;
+  // Stripe processing fees absorbed by Triply (sum of balance_transaction.fee
+  // across real Stripe fetches). Tracks per-booking fee availability so the
+  // aggregate is null if any contributing booking is missing fee data.
+  let stripeFeesReal = 0;
+  let stripeFeesMissing = 0;
 
   for (let idx = 0; idx < real.length; idx++) {
     const b = real[idx];
@@ -345,10 +363,17 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
     const stripeReceivedReal = st.amountReceived;
     const stripeRefundedRow = st.amountRefunded;
+    const stripeFeeRow = st.fee;
     const usedRealStripe = opts.includeStripe && stripeReceivedReal !== null;
     if (opts.includeStripe) {
-      if (usedRealStripe) stripeFetched++;
-      else if (b.stripe_payment_intent_id) stripeDerivedFallbacks++;
+      if (usedRealStripe) {
+        stripeFetched++;
+        if (stripeFeeRow !== null) stripeFeesReal += stripeFeeRow;
+        // Missing fee on a real fetch happens when the PI has no
+        // latest_charge (abandoned/uncaptured) — fee genuinely is 0
+        // for those, so only count missing when amountReceived > 0.
+        else if (stripeReceivedReal > 0) stripeFeesMissing++;
+      } else if (b.stripe_payment_intent_id) stripeDerivedFallbacks++;
     }
 
     const bothAgreeCancelled =
@@ -451,6 +476,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       expected_stripe: expectedStripe,
       stripe_amount_received: stripeReceivedReal,
       stripe_amount_refunded: stripeRefundedRow,
+      stripe_fee: stripeFeeRow,
       stripe_status: st.status,
       stripe_error: st.error,
       reslab_location_total: rl.locationTotal,
@@ -497,6 +523,22 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     opts.includeReslab && !reslabDataIncomplete
       ? netServiceFee + pgMargin + confChannelTotal
       : null;
+
+  // Stripe processing fees aggregate: null when ANY contributing booking
+  // is missing fee data (so the UI doesn't show a confidently-incomplete
+  // number). When all real-Stripe rows had a balance_transaction, this
+  // is the authoritative total fee Triply absorbed in the period.
+  const stripeProcessingFees =
+    opts.includeStripe && !stripeIsDerived && stripeFeesMissing === 0
+      ? stripeFeesReal
+      : null;
+
+  // Net cash to Triply: triplyTotal minus Stripe processing fees.
+  // Null when either input is null.
+  const triplyCashTotal =
+    triplyTotal !== null && stripeProcessingFees !== null
+      ? triplyTotal - stripeProcessingFees
+      : null;
   // Reason string for the headline when total is null. Surfaced in the
   // UI so the admin sees a self-explaining "—" instead of an opaque one.
   const triplyTotalReason =
@@ -507,6 +549,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       : reslabDataIncomplete
       ? `missing ResLab data for ${reslabConfirmedExpected - confReslabSeen} of ${reslabConfirmedExpected} confirmed bookings`
       : null;
+
+  // Take rate denominators reuse stripeGross / totalMoved / parkingSubtotal
+  // from below; the net rate uses triplyCashTotal as a stand-in numerator
+  // (cash margin) instead of triplyIncome.
   const triplyIncome =
     netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal : 0);
   const totalMoved = stripeGross + confDueAtLot;
@@ -518,6 +564,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     totalTakeRate: channelDataOk && totalMoved > 0 ? triplyIncome / totalMoved : null,
     channelCommissionRate:
       channelDataOk && confParkingSubtotal > 0 ? confChannelTotal / confParkingSubtotal : null,
+    netStripeTakeRate:
+      channelDataOk && stripeProcessingFees !== null && stripeGross > 0
+        ? (triplyIncome - stripeProcessingFees) / stripeGross
+        : null,
   };
 
   return {
@@ -554,6 +604,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       pgMargin,
       parkingChannelCommission: opts.includeReslab ? confChannelTotal : null,
       total: triplyTotal,
+      cashTotal: triplyCashTotal,
+      stripeProcessingFees,
       totalReason: triplyTotalReason,
     },
     takeRates,

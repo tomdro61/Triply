@@ -47,6 +47,12 @@ export interface BookingDetail {
   stripe_amount_received: number | null;
   stripe_amount_refunded: number | null;
   stripe_status: string | null;
+  // Original capture fee from balance_transaction.fee. Does NOT reflect
+  // fee refunds on cancelled charges (Stripe sometimes returns the fee
+  // for full refunds; capturing that perfectly would require a second
+  // API call per booking — deferred). null when Stripe fetch failed or
+  // the charge has no balance_transaction.
+  stripe_fee: number | null;
   stripe_error: string | null;
   reslab_location_total: number | null;
   reslab_channel_total: number | null;
@@ -83,6 +89,10 @@ export interface TakeRates {
   stripeTakeRate: number | null;
   totalTakeRate: number | null;
   channelCommissionRate: number | null;
+  // Net of Stripe processing fees — closest to "actual cash margin."
+  // Null when Stripe fees couldn't be measured (test mode, fetch failure,
+  // or any per-booking balance_transaction missing — surfaced inline).
+  netStripeTakeRate: number | null;
 }
 
 export interface ReconcileResult {
@@ -133,9 +143,15 @@ export interface ReconcileResult {
     pgMargin: number;
     parkingChannelCommission: number | null;
     total: number | null;
-    // When `total` is null, this explains why so the UI can render an
-    // inline reason at the headline (otherwise the user sees "—" with
-    // no actionable signal).
+    // Net cash to Triply (= total - Stripe processing fees). Null when
+    // either `total` is null OR Stripe fees couldn't be measured.
+    cashTotal: number | null;
+    // Stripe processing fees absorbed by Triply across the period.
+    // Sum of balance_transaction.fee across all successfully-fetched
+    // Stripe charges. Null when Stripe data is derived/unavailable.
+    stripeProcessingFees: number | null;
+    // When `total` or `cashTotal` is null, explains why so the UI can
+    // render an inline reason at the headline.
     totalReason: string | null;
   };
   takeRates: TakeRates;
