@@ -1,9 +1,10 @@
 /**
- * Revenue reconciliation for ResLab invoice matching + Triply unit economics.
+ * Revenue reconciliation for Triply unit economics + ResLab invoice matching.
  *
- * Pulls bookings from Supabase, optionally cross-checks each against ResLab
- * for the authoritative settlement view (channel_total / location_total /
- * commissions_total), and returns a structured aggregation.
+ * Pulls bookings from Supabase, optionally cross-checks each against:
+ *   - ResLab (authoritative settlement view: channel_total / location_total
+ *     / commissions_total)
+ *   - Stripe (authoritative cash flow: amount_received / amount_refunded)
  *
  * Used by:
  *   - GET /api/admin/accounting (admin UI)
@@ -12,17 +13,21 @@
  * Money model (see src/app/api/admin/bookings/cancel/route.ts:126-135):
  *   - Service fee is non-refundable. Refunded bookings retain triply_service_fee.
  *   - PG auto-cancels on full refund — no wholesale owed for refunded opt-ins.
+ *   - PG wholesale is contractual: $6 × confirmed opt-ins (regardless of retail).
  *   - ResLab invoices by trip-completion month: sum location_total for
  *     bookings whose check_out falls within the invoice period.
  *
- * Known limitation (tracked as follow-up): `stripe.gross` and
- * `stripe.refunded` are computed from booking-row composition
- * (parking_online + service_fee + pg_premium), NOT from Stripe's actual
- * amount_received. They will OVERSTATE the figures for any booking with a
- * promo discount. The ResLab-side reconciliation (sum location_total) is
- * unaffected; it pulls directly from ResLab's authoritative totals.
+ * Stripe fetch:
+ *   Lib calls Stripe PaymentIntent (+ latest_charge) per booking in parallel
+ *   (concurrency 5). Production Vercel env has live keys; local dev test
+ *   keys will fail the lookups, in which case the lib falls back to the
+ *   derived expectedStripe (parking_online + service_fee + pg_premium) and
+ *   sets `stripe.isDerived = true` so the UI surfaces the caveat. With live
+ *   keys, Stripe figures are authoritative — promo discounts, partial
+ *   refunds, and dispute reversals all reflect correctly.
  */
 
+import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot } from "@/config/admin";
 import type {
@@ -30,12 +35,14 @@ import type {
   ReconcileOptions,
   BookingDetail,
   ReconcileResult,
+  TakeRates,
 } from "./types";
 
-export type { DateField, ReconcileOptions, BookingDetail, ReconcileResult };
+export type { DateField, ReconcileOptions, BookingDetail, ReconcileResult, TakeRates };
 
 const PG_WHOLESALE = 6.0;
 const RESLAB_CONCURRENCY = 5;
+const STRIPE_CONCURRENCY = 5;
 
 const DATE_COLUMN: Record<DateField, string> = {
   created: "created_at",
@@ -68,9 +75,7 @@ async function reslabAuth(): Promise<string> {
     }),
     cache: "no-store",
   });
-  if (!res.ok) {
-    throw new Error(`ResLab auth ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`ResLab auth ${res.status}`);
   const json = (await res.json()) as { token?: string };
   if (!json.token) throw new Error("ResLab auth missing token");
   return json.token;
@@ -82,26 +87,27 @@ async function reslabReservation(resNum: string, token: string): Promise<ReslabR
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  if (!res.ok) {
-    throw new Error(`ResLab ${res.status} on ${resNum}`);
-  }
+  if (!res.ok) throw new Error(`ResLab ${res.status} on ${resNum}`);
   return (await res.json()) as ReslabResponse;
 }
 
 /**
  * Run fetches with a concurrency cap. Preserves input order in output.
  *
- * Contract: `fn` MUST NOT throw — if a per-item failure is possible, the
- * caller catches inside `fn` and returns a structured error sentinel. We
- * intentionally do not catch here because a thrown error from `fn` would
- * indicate a bug (the workers race on `i++`, and a throw from one worker
- * aborts the whole `Promise.all(workers)`, losing in-flight results from
- * the other N-1 workers).
+ * Contract: `fn` MUST NOT throw. If a per-item failure is possible, the
+ * caller catches inside `fn` and returns a structured error sentinel.
+ * A throw here would abort `Promise.all(workers)` and lose in-flight
+ * results from the other N-1 workers.
  *
  * The `const idx = i++` increment is atomic w.r.t. the JS event loop — a
  * post-increment expression evaluates as one synchronous step, so each
  * worker claims a unique index even with N parallel workers. Do NOT split
  * it into `const idx = i; i++;` "for clarity" — that would race.
+ *
+ * Per-worker side effects (e.g., `arr.push(x)` to an outer collector) are
+ * safe under the same single-threaded model — `push` is one synchronous
+ * call. Do NOT replace with non-atomic compound operations like
+ * `arr = arr.concat(x)` — that would race.
  */
 async function withConcurrency<T, R>(
   items: T[],
@@ -137,6 +143,7 @@ interface SupabaseRow {
   check_in: string;
   check_out: string;
   grand_total: string | number | null;
+  subtotal: string | number | null;
   due_at_location: string | number | null;
   triply_service_fee: string | number | null;
   protection_plan: string | null;
@@ -156,16 +163,14 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const supabase = await createAdminClient();
   const dateCol = DATE_COLUMN[opts.by];
 
-  // Test-booking filter: same lot-id-based rule as /api/admin/stats
-  // (post-2026-06-01 alignment). A booking is excluded iff it's at a
-  // TEST ResLab lot id. Bookings missing a customer join are still
-  // correctly excluded — the filter never consults email.
+  // Test-booking filter: lot-id-based (aligned with /api/admin/stats post-
+  // 2026-06-01). A booking is excluded iff it's at a TEST ResLab lot id.
   const { data: rows, error } = await supabase
     .from("bookings")
     .select(
       `
       id, reslab_reservation_number, status, created_at, check_in, check_out,
-      grand_total, due_at_location, triply_service_fee,
+      grand_total, subtotal, due_at_location, triply_service_fee,
       protection_plan, protection_plan_price, pg_identifier,
       stripe_payment_intent_id,
       reslab_location_id, location_name, airport_code,
@@ -191,7 +196,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     real.push(b);
   }
 
-  // Fetch ResLab data in parallel (capped).
+  // ---- ResLab + Stripe fetches (concurrent batches, each gated by flag) ----
+
   type ReslabSlice = {
     locationTotal: number | null;
     channelTotal: number | null;
@@ -202,7 +208,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     cancelled: boolean | null;
     error: string | null;
   };
-  const empty: ReslabSlice = {
+  const emptyReslab: ReslabSlice = {
     locationTotal: null,
     channelTotal: null,
     commissionsTotal: null,
@@ -213,18 +219,39 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     error: null,
   };
 
-  const fetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
+  type StripeSlice = {
+    amountReceived: number | null;
+    amountRefunded: number | null;
+    status: string | null;
+    error: string | null;
+  };
+  const emptyStripe: StripeSlice = {
+    amountReceived: null,
+    amountRefunded: null,
+    status: null,
+    error: null,
+  };
 
-  let reslabSlices: ReslabSlice[] = real.map(() => ({ ...empty }));
-  if (opts.includeReslab && real.length > 0) {
+  const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
+  const stripeFetchErrors: ReconcileResult["stripeFetch"]["errors"] = [];
+
+  const reslabPromise = (async (): Promise<ReslabSlice[]> => {
+    if (!opts.includeReslab || real.length === 0) return real.map(() => ({ ...emptyReslab }));
     const token = await reslabAuth();
-    reslabSlices = await withConcurrency(real, RESLAB_CONCURRENCY, async (b) => {
-      if (!b.reslab_reservation_number) return { ...empty };
+    return withConcurrency(real, RESLAB_CONCURRENCY, async (b) => {
+      if (!b.reslab_reservation_number) return { ...emptyReslab };
       try {
         const data = await reslabReservation(b.reslab_reservation_number, token);
         const h = data.history?.[0];
         if (!h) {
-          return { ...empty, error: "no history[0] in response" };
+          // Also push to fetchErrors so the strict-mode guard's "—" headline
+          // has a visible diagnostic in the UI. Otherwise the user sees "—"
+          // with no warning anywhere.
+          reslabFetchErrors.push({
+            resNum: b.reslab_reservation_number,
+            err: "no history[0] in response",
+          });
+          return { ...emptyReslab, error: "no history[0] in response" };
         }
         return {
           locationTotal: num(h.location_total),
@@ -238,23 +265,55 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        fetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
-        return { ...empty, error: msg };
+        reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
+        return { ...emptyReslab, error: msg };
       }
     });
-  }
+  })();
 
-  // Per-booking detail + aggregation
+  const stripePromise = (async (): Promise<StripeSlice[]> => {
+    if (!opts.includeStripe || real.length === 0) return real.map(() => ({ ...emptyStripe }));
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return real.map(() => ({ ...emptyStripe, error: "STRIPE_SECRET_KEY missing" }));
+    }
+    return withConcurrency(real, STRIPE_CONCURRENCY, async (b) => {
+      if (!b.stripe_payment_intent_id) return { ...emptyStripe };
+      try {
+        const pi = await stripe.paymentIntents.retrieve(b.stripe_payment_intent_id, {
+          expand: ["latest_charge"],
+        });
+        const charge =
+          pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+        return {
+          amountReceived: (pi.amount_received || 0) / 100,
+          amountRefunded: charge ? (charge.amount_refunded || 0) / 100 : 0,
+          status: pi.status,
+          error: null,
+        };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        stripeFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
+        return { ...emptyStripe, error: msg };
+      }
+    });
+  })();
+
+  const [reslabSlices, stripeSlices] = await Promise.all([reslabPromise, stripePromise]);
+
+  // ---- Per-booking detail + aggregation ----
+
   const bookings: BookingDetail[] = [];
   const grandTotalMismatches: ReconcileResult["reslab"]["grandTotalMismatches"] = [];
 
   const counts = { confirmed: 0, refunded: 0, cancelled: 0, other: 0 };
+  let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot)
   let confParkingOnline = 0;
+  let confParkingSubtotal = 0;
   let confDueAtLot = 0;
   let confServiceFee = 0;
   let confPGPremium = 0;
   let confPGOptIns = 0;
-  let confPGMarginPerRow = 0; // sum per-row margin to keep aggregate == sum-of-rows
+  let confPGMarginPerRow = 0;
   let confLocTotal = 0;
   let confChannelTotal = 0;
   let confCommissionsTotal = 0;
@@ -263,28 +322,35 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let refParkingRefunded = 0;
   let refPGRefunded = 0;
   let refPGOptIns = 0;
-  let stripeGross = 0;
-  let stripeRefunded = 0;
+  let stripeGrossReal = 0;
+  let stripeRefundedReal = 0;
+  let stripeGrossDerived = 0;
+  let stripeRefundedDerived = 0;
+  let stripeFetched = 0;
+  let stripeDerivedFallbacks = 0;
 
   for (let idx = 0; idx < real.length; idx++) {
     const b = real[idx];
-    const rl = reslabSlices[idx] ?? empty;
+    const rl = reslabSlices[idx] ?? emptyReslab;
+    const st = stripeSlices[idx] ?? emptyStripe;
 
     const grandTotal = num(b.grand_total);
+    const subtotal = num(b.subtotal);
     const dueAtLot = num(b.due_at_location);
     const parkingOnline = Math.max(0, grandTotal - dueAtLot);
     const serviceFee = num(b.triply_service_fee);
     const pgPremium = num(b.protection_plan_price);
     const hasPG = !!b.protection_plan;
-    // Note: ignores promo discounts (see file-level limitation comment).
     const expectedStripe = parkingOnline + serviceFee + pgPremium;
 
-    // Skip the mismatch flag when ResLab correctly zeroed out a
-    // refunded/cancelled booking — both systems agree, just at different
-    // "levels" (Supabase preserves the original total for audit; ResLab
-    // clears it on cancellation). Also belt-and-suspenders: a Supabase
-    // non-confirmed status alongside ResLab grand_total=0 is a clear
-    // "both zeroed" case even if ResLab's `cancelled` flag is stale.
+    const stripeReceivedReal = st.amountReceived;
+    const stripeRefundedRow = st.amountRefunded;
+    const usedRealStripe = opts.includeStripe && stripeReceivedReal !== null;
+    if (opts.includeStripe) {
+      if (usedRealStripe) stripeFetched++;
+      else if (b.stripe_payment_intent_id) stripeDerivedFallbacks++;
+    }
+
     const bothAgreeCancelled =
       (b.status === "refunded" || b.status === "cancelled") &&
       (rl.cancelled === true || rl.grandTotal === 0);
@@ -304,19 +370,17 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
     let triplyKeeps = 0;
     let note = "";
+
     if (b.status === "confirmed") {
       counts.confirmed++;
+      grossRevenue += grandTotal;
       confParkingOnline += parkingOnline;
+      confParkingSubtotal += subtotal;
       confDueAtLot += dueAtLot;
       confServiceFee += serviceFee;
       if (hasPG) {
         confPGPremium += pgPremium;
         confPGOptIns += 1;
-        // Unclamped: PG charges Triply $6 wholesale regardless of retail.
-        // If retail drops below $6, margin is genuinely negative — that's
-        // the real economic picture and should be visible, not clamped to
-        // zero. CLAUDE.md memory project_park_guard_status confirms the
-        // contract: flat per-opt-in wholesale.
         confPGMarginPerRow += pgPremium - PG_WHOLESALE;
       }
       if (opts.includeReslab && rl.locationTotal !== null) {
@@ -325,13 +389,17 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         confCommissionsTotal += rl.commissionsTotal ?? 0;
         confReslabSeen++;
       }
-      stripeGross += expectedStripe;
-      // Unclamped — matches the aggregate. If a row goes underwater
-      // (premium < wholesale) the keep is genuinely reduced; flag it
-      // in the note so an admin notices.
+      if (usedRealStripe) {
+        stripeGrossReal += stripeReceivedReal;
+        stripeRefundedReal += stripeRefundedRow ?? 0;
+      } else {
+        stripeGrossDerived += expectedStripe;
+      }
       triplyKeeps = serviceFee + (hasPG ? pgPremium - PG_WHOLESALE : 0);
       if (hasPG && pgPremium < PG_WHOLESALE) {
-        note = (note ? note + "; " : "") + `PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${PG_WHOLESALE.toFixed(2)}`;
+        note =
+          (note ? note + "; " : "") +
+          `PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${PG_WHOLESALE.toFixed(2)}`;
       }
     } else if (b.status === "refunded") {
       counts.refunded++;
@@ -341,10 +409,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         refPGRefunded += pgPremium;
         refPGOptIns += 1;
       }
-      stripeGross += expectedStripe;
-      // Refund = amount_received − service_fee (per cancel route).
-      // Like stripeGross, this ignores promo discounts (overstated when present).
-      stripeRefunded += Math.max(0, expectedStripe - serviceFee);
+      if (usedRealStripe) {
+        stripeGrossReal += stripeReceivedReal;
+        stripeRefundedReal += stripeRefundedRow ?? 0;
+      } else {
+        stripeGrossDerived += expectedStripe;
+        stripeRefundedDerived += Math.max(0, expectedStripe - serviceFee);
+      }
       triplyKeeps = serviceFee;
       note = "service fee retained";
     } else if (b.status === "cancelled") {
@@ -354,6 +425,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       counts.other++;
     }
     if (rl.error) note = (note ? note + "; " : "") + `reslab error: ${rl.error}`;
+    if (st.error) note = (note ? note + "; " : "") + `stripe error: ${st.error}`;
 
     const customer = oneCustomer(b.customers);
     bookings.push({
@@ -368,6 +440,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       airport_code: b.airport_code ?? "",
       reslab_location_id: b.reslab_location_id,
       grand_total: grandTotal,
+      subtotal,
       due_at_location: dueAtLot,
       parking_online: parkingOnline,
       triply_service_fee: serviceFee,
@@ -376,6 +449,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       has_pg: hasPG,
       pg_identifier: b.pg_identifier,
       expected_stripe: expectedStripe,
+      stripe_amount_received: stripeReceivedReal,
+      stripe_amount_refunded: stripeRefundedRow,
+      stripe_status: st.status,
+      stripe_error: st.error,
       reslab_location_total: rl.locationTotal,
       reslab_channel_total: rl.channelTotal,
       reslab_commissions_total: rl.commissionsTotal,
@@ -389,30 +466,73 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     });
   }
 
-  // PG wholesale is the contractual truth: $6 × count of confirmed opt-ins
-  // (PG bills Triply flat per opt-in regardless of retail). Margin equals
-  // the per-row sum AND `confPGPremium − pgWholesale` by construction;
-  // it can be negative when retail drops below wholesale — that's true
-  // economics, not a defect to clamp away.
+  // PG wholesale is the contractual truth: $6 × confirmed opt-ins.
+  // Margin = per-row sum (can be negative when retail < wholesale).
   const pgWholesale = confPGOptIns * PG_WHOLESALE;
   const pgMargin = confPGMarginPerRow;
   const netServiceFee = confServiceFee + refServiceFee;
-  const netStripe = stripeGross - stripeRefunded;
+  const stripeGross = stripeGrossReal + stripeGrossDerived;
+  const stripeRefundedTotal = stripeRefundedReal + stripeRefundedDerived;
+  const stripeNet = stripeGross - stripeRefundedTotal;
+  // Aggregate is "derived" when ANY contribution used the expectedStripe
+  // fallback (so the UI keeps the caveat in that case).
+  const stripeIsDerived = stripeGrossDerived > 0 || !opts.includeStripe;
 
-  // triplyNet.total is null when ResLab is excluded — channel commission
-  // (the largest Triply parking-side revenue line) lives in ResLab, so a
-  // "total" without it would be misleadingly low. UI shows "—" instead
-  // of a wrong number.
-  const triplyTotal = opts.includeReslab
-    ? netServiceFee + pgMargin + confChannelTotal
-    : null;
+  // Guard against silent under-reporting when ResLab data is missing for
+  // any confirmed booking. `confReslabSeen` only counts the confirmed
+  // branch, so the predicate denominator must also be "confirmed bookings
+  // expecting a ResLab fetch" — otherwise an all-refunded month would
+  // false-positive (no confirmed → no fetches → guard fires) AND a
+  // partial-failure case would false-negative (some succeeded → guard
+  // satisfied even though half the channel commission is missing).
+  const reslabConfirmedExpected = real.filter(
+    (b) => b.status === "confirmed" && !!b.reslab_reservation_number
+  ).length;
+  const reslabDataIncomplete =
+    opts.includeReslab &&
+    reslabConfirmedExpected > 0 &&
+    confReslabSeen < reslabConfirmedExpected;
+
+  const triplyTotal =
+    opts.includeReslab && !reslabDataIncomplete
+      ? netServiceFee + pgMargin + confChannelTotal
+      : null;
+  // Reason string for the headline when total is null. Surfaced in the
+  // UI so the admin sees a self-explaining "—" instead of an opaque one.
+  const triplyTotalReason =
+    triplyTotal !== null
+      ? null
+      : !opts.includeReslab
+      ? "ResLab cross-check disabled"
+      : reslabDataIncomplete
+      ? `missing ResLab data for ${reslabConfirmedExpected - confReslabSeen} of ${reslabConfirmedExpected} confirmed bookings`
+      : null;
+  const triplyIncome =
+    netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal : 0);
+  const totalMoved = stripeGross + confDueAtLot;
+  // Take rates whose numerator depends on channelTotal are also gated on
+  // ResLab data being available (same reason as triplyTotal above).
+  const channelDataOk = opts.includeReslab && !reslabDataIncomplete;
+  const takeRates: TakeRates = {
+    stripeTakeRate: channelDataOk && stripeGross > 0 ? triplyIncome / stripeGross : null,
+    totalTakeRate: channelDataOk && totalMoved > 0 ? triplyIncome / totalMoved : null,
+    channelCommissionRate:
+      channelDataOk && confParkingSubtotal > 0 ? confChannelTotal / confParkingSubtotal : null,
+  };
 
   return {
     options: opts,
     counts: { ...counts, testExcluded, total: real.length },
-    stripe: { gross: stripeGross, refunded: stripeRefunded, net: netStripe, promoCaveat: true },
+    grossRevenue,
+    stripe: {
+      gross: stripeGross,
+      refunded: stripeRefundedTotal,
+      net: stripeNet,
+      isDerived: stripeIsDerived,
+    },
     confirmed: {
       parkingOnline: confParkingOnline,
+      parkingSubtotal: confParkingSubtotal,
       dueAtLot: confDueAtLot,
       serviceFee: confServiceFee,
       pgPremium: confPGPremium,
@@ -434,14 +554,21 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       pgMargin,
       parkingChannelCommission: opts.includeReslab ? confChannelTotal : null,
       total: triplyTotal,
+      totalReason: triplyTotalReason,
     },
+    takeRates,
     reslab: {
       invoiceAmount: opts.invoiceAmount,
       sumLocationTotal: opts.includeReslab ? confLocTotal : null,
       variance: opts.includeReslab ? confLocTotal - opts.invoiceAmount : null,
       grandTotalMismatches,
-      fetchErrors,
+      fetchErrors: reslabFetchErrors,
       fetched: confReslabSeen,
+    },
+    stripeFetch: {
+      fetched: stripeFetched,
+      errors: stripeFetchErrors,
+      derivedFallbacks: stripeDerivedFallbacks,
     },
     bookings,
   };

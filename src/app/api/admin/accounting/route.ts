@@ -6,7 +6,9 @@
  *
  * Defaults:
  *   - from / to: previous calendar month
- *   - by:        checkout  (matches ResLab's invoice model)
+ *   - by:        created   (matches /admin dashboard; pass ?by=checkout to
+ *                            reconcile against a ResLab invoice — invoices
+ *                            group by trip-completion month)
  *   - invoice:   0         (no comparison)
  *
  * Admin-gated. Runs ResLab API calls in parallel (concurrency 5). For a
@@ -58,6 +60,7 @@ const querySchema = z
       .transform((s) => parseFloat(s))
       .optional(),
     reslab: z.enum(["0", "1"]).optional(),
+    stripe: z.enum(["0", "1"]).optional(),
   })
   .refine((q) => q.from <= q.to, { message: "from must be ≤ to" });
 
@@ -69,9 +72,13 @@ export async function GET(request: NextRequest) {
   const parsed = querySchema.safeParse({
     from: params.get("from") ?? defaults.from,
     to: params.get("to") ?? defaults.to,
-    by: params.get("by") ?? "checkout",
+    // Default to `created` for general reporting (matches the /admin
+    // dashboard). Pass `by=checkout` when reconciling against a ResLab
+    // invoice — invoices group by trip-completion month.
+    by: params.get("by") ?? "created",
     invoice: params.get("invoice") ?? undefined,
     reslab: params.get("reslab") ?? undefined,
+    stripe: params.get("stripe") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -81,8 +88,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { from, to, by, invoice, reslab } = parsed.data;
+  const { from, to, by, invoice, reslab, stripe } = parsed.data;
   const includeReslab = reslab !== "0";
+  const includeStripe = stripe !== "0";
   const invoiceAmount = invoice ?? 0;
 
   try {
@@ -101,6 +109,7 @@ export async function GET(request: NextRequest) {
       by,
       invoiceAmount,
       includeReslab,
+      includeStripe,
     });
 
     return NextResponse.json(result);
@@ -108,7 +117,7 @@ export async function GET(request: NextRequest) {
     const e = err instanceof Error ? err : new Error(String(err));
     // Tag the query so Sentry triage doesn't require log spelunking.
     Sentry.withScope((scope) => {
-      scope.setContext("accounting_query", { from, to, by, invoiceAmount, includeReslab });
+      scope.setContext("accounting_query", { from, to, by, invoiceAmount, includeReslab, includeStripe });
       captureAPIError(e, { endpoint: "/api/admin/accounting", method: "GET" });
     });
     // Don't leak internal infra error messages to the client. Sentry has the detail.

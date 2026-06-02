@@ -11,10 +11,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Info,
+  TrendingUp,
+  Receipt,
+  Percent,
 } from "lucide-react";
-// `import type` is fully erased at compile time — does not pull the
-// server-only reconcile.ts (which imports createAdminClient) into the
-// client bundle. Single source of truth for these shapes.
 import type {
   DateField,
   BookingDetail,
@@ -23,8 +23,17 @@ import type {
 
 // ---- Helpers ----
 
-const usd = (n: number) =>
-  `$${(Math.round(n * 100) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const usd = (n: number) => {
+  const abs = Math.abs(n);
+  const formatted = (Math.round(abs * 100) / 100).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return n < 0 ? `−$${formatted}` : `$${formatted}`;
+};
+
+const pct = (r: number | null) =>
+  r === null ? "—" : `${(r * 100).toFixed(1)}%`;
 
 function previousMonthDefaults(): { from: string; to: string } {
   const now = new Date();
@@ -35,10 +44,8 @@ function previousMonthDefaults(): { from: string; to: string } {
   return { from: `${y}-${m}-01`, to: `${y}-${m}-${d}` };
 }
 
-// CSV formula injection: Excel/Sheets execute cells starting with `=`, `+`,
-// `-`, `@`, `\t`, `\r` as formulas. A customer email like
-// `=cmd|'/c calc'!A0@x.com` would run on the admin's machine. Prefix the
-// value with a single quote to neutralize. Also escape quotes/commas/newlines.
+// CSV formula injection: prefix any value starting with `=`, `+`, `-`, `@`,
+// `\t`, `\r` with a single quote to neutralize Excel/Sheets execution.
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
   let s = String(v);
@@ -53,9 +60,10 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
   const header = [
     "booking_id", "reslab_res_num", "status", "created_at", "check_in", "check_out",
     "customer_email", "airport_code", "reslab_location_id", "location_name",
-    "grand_total", "due_at_location", "parking_online", "triply_service_fee",
+    "grand_total", "subtotal", "due_at_location", "parking_online", "triply_service_fee",
     "protection_plan", "protection_plan_price", "pg_identifier",
-    "expected_stripe_estimated_no_promos",
+    "expected_stripe_estimated", "stripe_amount_received", "stripe_amount_refunded",
+    "stripe_status", "stripe_error",
     "reslab_grand_total", "reslab_location_total_owed", "reslab_channel_total",
     "reslab_commissions_total", "reslab_refund_amount", "reslab_partial_refund",
     "reslab_cancelled", "reslab_error",
@@ -67,9 +75,11 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
       b.id, b.reslab_reservation_number, b.status,
       b.created_at, b.check_in, b.check_out,
       b.customer_email, b.airport_code, b.reslab_location_id ?? "", b.location_name,
-      b.grand_total, b.due_at_location, b.parking_online, b.triply_service_fee,
+      b.grand_total, b.subtotal, b.due_at_location, b.parking_online, b.triply_service_fee,
       b.protection_plan ?? "", b.protection_plan_price, b.pg_identifier ?? "",
       b.expected_stripe,
+      b.stripe_amount_received ?? "", b.stripe_amount_refunded ?? "",
+      b.stripe_status ?? "", b.stripe_error ?? "",
       b.reslab_grand_total ?? "", b.reslab_location_total ?? "",
       b.reslab_channel_total ?? "", b.reslab_commissions_total ?? "",
       b.reslab_refund_amount ?? "", b.reslab_partial_refund ?? "",
@@ -86,30 +96,52 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
   URL.revokeObjectURL(url);
 }
 
-// ---- Components ----
+// ---- Small components ----
 
 function HeadlineCard({
-  title, value, sub, variant,
+  title, value, sub, icon: Icon, accent,
 }: {
   title: string; value: string; sub?: string;
-  variant: "neutral" | "good" | "warn" | "bad";
+  icon: React.ElementType;
+  accent: "coral" | "green" | "blue" | "purple";
 }) {
-  const styles = {
-    neutral: "bg-white border-gray-200",
-    good: "bg-green-50 border-green-200",
-    warn: "bg-amber-50 border-amber-200",
-    bad: "bg-red-50 border-red-200",
+  const accentCls = {
+    coral: "bg-orange-100 text-coral",
+    green: "bg-green-100 text-green-700",
+    blue: "bg-blue-100 text-blue-700",
+    purple: "bg-purple-100 text-purple-700",
+  }[accent];
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-6">
+      <div className="flex items-center justify-between mb-4">
+        <span className="text-sm font-medium text-gray-500">{title}</span>
+        <div className={`p-2 rounded-lg ${accentCls}`}><Icon size={20} /></div>
+      </div>
+      <p className="text-3xl font-bold text-gray-900">{value}</p>
+      {sub && <p className="text-sm text-gray-500 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+function VarianceCard({ value, sub, variant }: {
+  value: string; sub?: string; variant: "neutral" | "good" | "warn" | "bad";
+}) {
+  const ring = {
+    neutral: "border-gray-200",
+    good: "border-green-300 bg-green-50",
+    warn: "border-amber-300 bg-amber-50",
+    bad: "border-red-300 bg-red-50",
   }[variant];
-  const valueColor = {
+  const text = {
     neutral: "text-gray-900",
     good: "text-green-700",
     warn: "text-amber-700",
     bad: "text-red-700",
   }[variant];
   return (
-    <div className={`rounded-xl border p-6 ${styles}`}>
-      <span className="text-sm font-medium text-gray-600">{title}</span>
-      <p className={`text-3xl font-bold mt-2 ${valueColor}`}>{value}</p>
+    <div className={`rounded-xl border-2 p-6 ${ring}`}>
+      <span className="text-sm font-medium text-gray-600">Variance vs invoice</span>
+      <p className={`text-3xl font-bold mt-2 ${text}`}>{value}</p>
       {sub && <p className="text-sm text-gray-500 mt-1">{sub}</p>}
     </div>
   );
@@ -129,19 +161,31 @@ function Row({ label, value, sub, emphasis }: {
   );
 }
 
-function SectionCard({ title, children, caveat }: { title: string; children: React.ReactNode; caveat?: string }) {
+function SectionCard({ title, subtitle, children, caveat }: {
+  title: string; subtitle?: string; children: React.ReactNode; caveat?: React.ReactNode;
+}) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
-      <div className="flex items-start justify-between mb-3">
+      <div className="mb-3">
         <h3 className="font-semibold text-gray-900">{title}</h3>
-        {caveat && (
-          <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded">
-            <Info size={12} />
-            {caveat}
-          </span>
-        )}
+        {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
+      {caveat}
       {children}
+    </div>
+  );
+}
+
+function RateRow({ label, formula, value }: {
+  label: string; formula: string; value: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between py-2.5 border-b border-gray-100 last:border-b-0">
+      <div>
+        <p className="text-sm font-medium text-gray-900">{label}</p>
+        <p className="text-xs text-gray-500 mt-0.5 font-mono">{formula}</p>
+      </div>
+      <span className="text-xl font-bold text-coral font-mono">{value}</span>
     </div>
   );
 }
@@ -152,7 +196,9 @@ export default function AccountingPage() {
   const defaults = useMemo(() => previousMonthDefaults(), []);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
-  const [by, setBy] = useState<DateField>("checkout");
+  // Default to "created" for general reporting (matches /admin dashboard).
+  // Switch to "checkout" when reconciling against a ResLab invoice.
+  const [by, setBy] = useState<DateField>("created");
   const [invoiceInput, setInvoiceInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +218,7 @@ export default function AccountingPage() {
           const body = (await res.json()) as { error?: string };
           if (body?.error) msg = body.error;
         } catch {
-          // Non-JSON error body (e.g., Next.js HTML error page). Stick with status.
+          // Non-JSON error body — stick with status.
         }
         throw new Error(msg);
       }
@@ -188,15 +234,21 @@ export default function AccountingPage() {
   const varianceVariant = useMemo<"neutral" | "good" | "warn" | "bad">(() => {
     if (!result || result.reslab.variance === null) return "neutral";
     if (result.reslab.invoiceAmount === 0) return "neutral";
-    const pct = Math.abs(result.reslab.variance) / Math.max(1, result.reslab.invoiceAmount);
-    if (pct < 0.01) return "good";
-    if (pct < 0.05) return "warn";
+    const r = Math.abs(result.reslab.variance) / Math.max(1, result.reslab.invoiceAmount);
+    if (r < 0.01) return "good";
+    if (r < 0.05) return "warn";
     return "bad";
   }, [result]);
 
   const csvFilename = result
     ? `reconcile_${result.options.from}_${result.options.to}_${result.options.by}.csv`
     : "reconcile-revenue.csv";
+
+  const dateFieldHelp = {
+    created: "Filter by booking-creation date. Matches the /admin dashboard. Use this for general reporting (\"what did we sell in May\").",
+    checkout: "Filter by trip-completion (check-out) date. ResLab invoices use this model — pick a month and the totals will match a ResLab settlement statement.",
+    checkin: "Filter by trip start (check-in) date. Less common; useful for arrival-based reporting.",
+  }[by];
 
   return (
     <main className="min-h-screen bg-gray-50 pt-20">
@@ -208,11 +260,12 @@ export default function AccountingPage() {
           </Link>
           <div className="flex items-center gap-3">
             <Calculator size={28} className="text-coral" />
-            <h1 className="text-2xl font-bold text-gray-900">Accounting & ResLab Reconciliation</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Accounting & Reports</h1>
           </div>
           <p className="text-sm text-gray-600 mt-1">
-            Reconcile a ResLab settlement invoice against Triply&apos;s booking data. ResLab invoices by
-            trip-completion month — leave the default <strong>Trip checkout</strong> date field.
+            Pick a date range to see what was sold, what was collected, and what Triply made. Use
+            the date-field selector to switch between general reporting and ResLab invoice
+            reconciliation.
           </p>
         </div>
 
@@ -244,9 +297,9 @@ export default function AccountingPage() {
                 onChange={(e) => setBy(e.target.value as DateField)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-coral focus:border-transparent"
               >
-                <option value="checkout">Trip checkout (ResLab)</option>
+                <option value="created">Booking created (general reports)</option>
+                <option value="checkout">Trip checkout (ResLab invoice)</option>
                 <option value="checkin">Trip check-in</option>
-                <option value="created">Booking created</option>
               </select>
             </div>
             <div>
@@ -274,15 +327,16 @@ export default function AccountingPage() {
                 ) : (
                   <>
                     <Calendar size={16} />
-                    Run reconciliation
+                    Run
                   </>
                 )}
               </button>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-3">
-            ResLab data is fetched live (≈5–10s for a typical month).
-          </p>
+          <div className="flex items-start gap-2 mt-3 text-xs text-gray-500">
+            <Info size={14} className="mt-0.5 flex-shrink-0" />
+            <p>{dateFieldHelp}</p>
+          </div>
         </div>
 
         {/* Error */}
@@ -299,22 +353,197 @@ export default function AccountingPage() {
         {/* Results */}
         {result && (
           <>
-            {/* Headline cards */}
+            {/* === REPORTING HEADLINES === */}
+            <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">Reporting</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <HeadlineCard
+                title="Total bookings"
+                value={String(result.counts.total)}
+                sub={`${result.counts.confirmed} confirmed · ${result.counts.refunded} refunded · ${result.counts.cancelled} cancelled${result.counts.testExcluded > 0 ? ` · ${result.counts.testExcluded} test excl.` : ""}`}
+                icon={Receipt}
+                accent="blue"
+              />
+              <HeadlineCard
+                title="Gross revenue"
+                value={usd(result.grossRevenue)}
+                sub="sum of grand_total for confirmed bookings (incl. due-at-lot)"
+                icon={TrendingUp}
+                accent="purple"
+              />
+              <HeadlineCard
+                title="Triply revenue"
+                value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
+                sub={
+                  result.triplyNet.totalReason
+                    ? `unavailable — ${result.triplyNet.totalReason}`
+                    : "service fee + channel commission + PG margin"
+                }
+                icon={Calculator}
+                accent="coral"
+              />
+            </div>
+
+            {/* === TAKE RATES === */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-center gap-2 mb-1">
+                <Percent size={18} className="text-coral" />
+                <h3 className="font-semibold text-gray-900">Triply take rates</h3>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">
+                Three views of &quot;what % is Triply earning&quot; — each uses the same Triply income
+                in the numerator but a different denominator. Pick the one that matches the
+                conversation you&apos;re in.
+              </p>
+              <div className="space-y-1">
+                <RateRow
+                  label="Effective Stripe take rate"
+                  formula="Triply income ÷ Stripe gross collected"
+                  value={pct(result.takeRates.stripeTakeRate)}
+                />
+                <RateRow
+                  label="Total take rate"
+                  formula="Triply income ÷ (Stripe gross + due-at-lot)"
+                  value={pct(result.takeRates.totalTakeRate)}
+                />
+                <RateRow
+                  label="Channel commission rate"
+                  formula="ResLab channel_total ÷ subtotal (ResLab contract rate)"
+                  value={pct(result.takeRates.channelCommissionRate)}
+                />
+              </div>
+            </div>
+
+            {/* === TRIPLY REVENUE BREAKDOWN + CASH FLOW === */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <SectionCard
+                title="Triply revenue breakdown"
+                subtitle="Where the income comes from"
+              >
+                <Row
+                  label="Channel commission (parking)"
+                  value={result.triplyNet.parkingChannelCommission !== null ? usd(result.triplyNet.parkingChannelCommission) : "—"}
+                  sub="ResLab channel_total — varies by lot"
+                />
+                <Row
+                  label="Service fee"
+                  value={usd(result.triplyNet.serviceFee)}
+                  sub="incl. retained on refunds"
+                />
+                <Row
+                  label="Park Guard margin"
+                  value={usd(result.triplyNet.pgMargin)}
+                  sub={result.triplyNet.pgMargin < 0 ? "⚠ NEGATIVE — see PG opt-ins" : `${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
+                />
+                <Row
+                  label="Total Triply revenue"
+                  value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
+                  emphasis
+                />
+                <p className="text-xs text-gray-400 mt-3">
+                  Stripe processing fees (~2.9% + $0.30/charge) not deducted here.
+                </p>
+              </SectionCard>
+
+              <SectionCard
+                title="Cash flow"
+                subtitle={result.stripe.isDerived ? "Estimated (Stripe lookup unavailable)" : "Live from Stripe"}
+                caveat={result.stripe.isDerived ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-start gap-2">
+                    <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-amber-900">
+                      <strong>These are estimates, not Stripe-actual figures.</strong> Computed from
+                      booking-row composition because the live Stripe lookup is unavailable
+                      (test-mode keys, or {result.stripeFetch.derivedFallbacks} per-booking fetches failed).
+                      Promo-discounted bookings will be overstated. Production Vercel env uses live keys.
+                    </p>
+                  </div>
+                ) : undefined}
+              >
+                <Row
+                  label={result.stripe.isDerived ? "Gross collected (≈)" : "Gross collected"}
+                  value={usd(result.stripe.gross)}
+                />
+                <Row
+                  label={result.stripe.isDerived ? "Refunded to customers (≈)" : "Refunded to customers"}
+                  value={result.stripe.refunded > 0 ? `−${usd(result.stripe.refunded)}` : usd(0)}
+                />
+                <Row
+                  label={result.stripe.isDerived ? "Net Stripe receipts (≈)" : "Net Stripe receipts"}
+                  value={usd(result.stripe.net)}
+                  emphasis
+                />
+                {!result.stripe.isDerived && result.stripeFetch.fetched > 0 && (
+                  <p className="text-xs text-green-700 mt-3 flex items-center gap-1">
+                    <CheckCircle2 size={14} />
+                    {result.stripeFetch.fetched} bookings fetched from Stripe (live).
+                  </p>
+                )}
+              </SectionCard>
+            </div>
+
+            {/* === CONFIRMED BOOKING COMPOSITION === */}
+            <div className="mb-6">
+              <SectionCard
+                title="Confirmed bookings — money composition"
+                subtitle="Where every dollar of confirmed bookings went"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+                  <div>
+                    <Row label="Parking — collected online" value={usd(result.confirmed.parkingOnline)} />
+                    <Row label="Triply service fee" value={usd(result.confirmed.serviceFee)} />
+                    <Row
+                      label="Park Guard premium"
+                      value={usd(result.confirmed.pgPremium)}
+                      sub={`${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
+                    />
+                    <Row
+                      label="    of which PG wholesale owed"
+                      value={result.confirmed.pgWholesale > 0 ? `−${usd(result.confirmed.pgWholesale)}` : usd(0)}
+                    />
+                    <Row label="    of which Triply PG margin" value={usd(result.confirmed.pgMargin)} />
+                  </div>
+                  <div>
+                    <Row
+                      label="Due-at-location"
+                      value={usd(result.confirmed.dueAtLot)}
+                      sub="paid to lot directly; Triply never touched"
+                    />
+                    <Row
+                      label="Subtotal (pre-tax-pre-fee)"
+                      value={usd(result.confirmed.parkingSubtotal)}
+                      sub="ResLab subtotal — denominator for channel rate"
+                    />
+                  </div>
+                </div>
+              </SectionCard>
+            </div>
+
+            {/* === RESLAB SETTLEMENT (only relevant when reconciling an invoice) === */}
+            <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">
+              ResLab settlement
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              Use this section when you receive a settlement invoice from ResLab. Switch the date
+              filter to <strong>Trip checkout</strong> and the invoice month for the totals to
+              match.
+            </p>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <HeadlineCard
                 title="Owed to ResLab"
                 value={result.reslab.sumLocationTotal !== null ? usd(result.reslab.sumLocationTotal) : "—"}
-                sub={`${result.confirmed.commissionsTotal !== null ? `${result.counts.confirmed} confirmed trips` : ""}`}
-                variant="neutral"
+                sub={`sum location_total · ${result.reslab.fetched} fetched`}
+                icon={Receipt}
+                accent="blue"
               />
               <HeadlineCard
                 title="Invoice amount"
                 value={result.reslab.invoiceAmount > 0 ? usd(result.reslab.invoiceAmount) : "—"}
-                sub={result.reslab.invoiceAmount > 0 ? "you entered" : "enter an amount to compare"}
-                variant="neutral"
+                sub={result.reslab.invoiceAmount > 0 ? "you entered" : "enter to compare"}
+                icon={Receipt}
+                accent="purple"
               />
-              <HeadlineCard
-                title="Variance"
+              <VarianceCard
                 value={result.reslab.variance !== null && result.reslab.invoiceAmount > 0 ? usd(result.reslab.variance) : "—"}
                 sub={
                   result.reslab.variance !== null && result.reslab.invoiceAmount > 0
@@ -325,133 +554,59 @@ export default function AccountingPage() {
               />
             </div>
 
-            {/* Sections */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              <SectionCard title="Stripe cash flow" caveat="estimated">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-start gap-2">
-                  <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <p className="text-xs text-amber-900">
-                    <strong>Do not use these figures for tax, audit, or board reporting.</strong> Computed from
-                    booking-row composition (parking + service fee + PG), NOT from Stripe&apos;s
-                    actual <code>amount_received</code>. <strong>Promo-discounted bookings are overstated
-                    by the discount amount.</strong> Cross-check against the Stripe Dashboard for any
-                    figure that needs to be exact.
-                  </p>
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-3">ResLab breakdown</h3>
+              <Row
+                label="Triply channel commission (channel_total)"
+                value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
+                sub="Triply's parking-side income"
+              />
+              {/* commissions_total IS the lot's share of subtotal —
+                  verified against ResLab dashboard "Location Commission"
+                  for RTL764193 ($52.75). Lot share + channel share = subtotal. */}
+              <Row
+                label="Lot commission (commissions_total)"
+                value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
+                sub="lot's share — included in 'Owed to ResLab'"
+              />
+              {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
+                <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
+                  <CheckCircle2 size={14} />
+                  All {result.reslab.fetched} ResLab grand_totals match Supabase.
                 </div>
-                <Row label="Gross collected (≈)" value={usd(result.stripe.gross)} />
-                <Row label="Refunded to customers (≈)" value={`−${usd(result.stripe.refunded)}`} />
-                <Row label="Net Stripe receipts (≈)" value={usd(result.stripe.net)} emphasis />
-              </SectionCard>
-
-              <SectionCard title="Triply net revenue (after refunds)">
-                <Row
-                  label="Channel commission (parking)"
-                  value={result.triplyNet.parkingChannelCommission !== null ? usd(result.triplyNet.parkingChannelCommission) : "—"}
-                  sub="ResLab channel_total"
-                />
-                <Row
-                  label="Service fee"
-                  value={usd(result.triplyNet.serviceFee)}
-                  sub="incl. retained on refunds"
-                />
-                <Row label="Park Guard margin" value={usd(result.triplyNet.pgMargin)} />
-                <Row
-                  label="Total Triply gross"
-                  value={result.triplyNet.total !== null ? usd(result.triplyNet.total) : "—"}
-                  emphasis
-                />
-                <p className="text-xs text-gray-400 mt-2">
-                  Stripe processing fees (~2.9% + $0.30/charge) not deducted here.
-                  {result.triplyNet.total === null && (
-                    <> Enable ResLab cross-check for an authoritative total.</>
-                  )}
-                </p>
-              </SectionCard>
-
-              <SectionCard title="Confirmed bookings — composition">
-                <Row label="Parking — collected online" value={usd(result.confirmed.parkingOnline)} />
-                <Row label="Triply service fee" value={usd(result.confirmed.serviceFee)} />
-                <Row
-                  label="Park Guard premium"
-                  value={usd(result.confirmed.pgPremium)}
-                  sub={`${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
-                />
-                <Row label="     PG wholesale owed" value={`−${usd(result.confirmed.pgWholesale)}`} />
-                <Row label="     Triply PG margin" value={usd(result.confirmed.pgMargin)} />
-                <Row
-                  label="Due-at-location"
-                  value={usd(result.confirmed.dueAtLot)}
-                  sub="paid to lot directly; never touched Stripe"
-                />
-              </SectionCard>
-
-              <SectionCard title="ResLab settlement view">
-                <Row
-                  label="Owed to ResLab (sum location_total)"
-                  value={result.confirmed.locationTotalOwed !== null ? usd(result.confirmed.locationTotalOwed) : "—"}
-                />
-                <Row
-                  label="Triply channel commission (channel_total)"
-                  value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
-                />
-                {/* commissions_total IS the lot's share of subtotal — verified
-                    against ResLab dashboard "Location Commission" column for
-                    RTL764193 (probe-reslab-fields run, 2026-06-01): API
-                    returned commissions_total=$52.75 matching dashboard's
-                    $52.75. Lot share + channel share = subtotal ✓. */}
-                <Row
-                  label="Lot commission (commissions_total)"
-                  value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
-                  sub="lot's share — included in 'Owed to ResLab'"
-                />
-                {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
-                  <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
-                    <CheckCircle2 size={14} />
-                    All {result.reslab.fetched} ResLab grand_totals match Supabase.
+              ) : result.reslab.grandTotalMismatches.length > 0 ? (
+                <div className="mt-3 text-xs text-amber-700">
+                  ⚠ {result.reslab.grandTotalMismatches.length} grand_total mismatches (see CSV)
+                </div>
+              ) : null}
+              {result.reslab.fetchErrors.length > 0 && (
+                <div className="mt-2 text-xs text-red-700">
+                  ⚠ {result.reslab.fetchErrors.length} ResLab fetch errors (see CSV)
+                </div>
+              )}
+              {(() => {
+                const stragglers = result.bookings.filter(
+                  (b) => b.status === "refunded" && (b.reslab_location_total ?? 0) > 0
+                );
+                if (stragglers.length === 0) return null;
+                const sum = stragglers.reduce((s, b) => s + (b.reslab_location_total ?? 0), 0);
+                return (
+                  <div className="mt-2 text-xs text-amber-700">
+                    ⚠ {stragglers.length} refunded booking{stragglers.length === 1 ? "" : "s"} still
+                    show non-zero location_total in ResLab ({usd(sum)}). Verify the cancellation
+                    propagated before paying.
                   </div>
-                ) : result.reslab.grandTotalMismatches.length > 0 ? (
-                  <div className="mt-3 text-xs text-amber-700">
-                    ⚠ {result.reslab.grandTotalMismatches.length} grand_total mismatches (see CSV)
-                  </div>
-                ) : null}
-                {result.reslab.fetchErrors.length > 0 && (
-                  <div className="mt-2 text-xs text-red-700">
-                    ⚠ {result.reslab.fetchErrors.length} ResLab fetch errors (see CSV)
-                  </div>
-                )}
-                {/* M-P2-6: surface refunded bookings whose ResLab record
-                    still shows non-zero location_total — ResLab may invoice
-                    for these unless the cancellation propagated. */}
-                {(() => {
-                  const stragglers = result.bookings.filter(
-                    (b) => b.status === "refunded" && (b.reslab_location_total ?? 0) > 0
-                  );
-                  if (stragglers.length === 0) return null;
-                  const sum = stragglers.reduce((s, b) => s + (b.reslab_location_total ?? 0), 0);
-                  return (
-                    <div className="mt-2 text-xs text-amber-700">
-                      ⚠ {stragglers.length} refunded booking{stragglers.length === 1 ? "" : "s"} still
-                      show non-zero location_total in ResLab ({usd(sum)}). Verify the cancellation
-                      propagated before paying the invoice.
-                    </div>
-                  );
-                })()}
-              </SectionCard>
+                );
+              })()}
             </div>
 
-            {/* Counts + actions */}
+            {/* === COUNTS + CSV ACTIONS === */}
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="text-sm text-gray-600">
-                  <span className="font-semibold text-gray-900">{result.counts.total}</span> bookings:{" "}
-                  {result.counts.confirmed} confirmed, {result.counts.refunded} refunded,{" "}
-                  {result.counts.cancelled} cancelled
-                  {result.counts.other > 0 ? `, ${result.counts.other} other` : ""}
-                  {result.counts.testExcluded > 0 && (
-                    <span className="ml-2 text-gray-400">
-                      ({result.counts.testExcluded} test booking{result.counts.testExcluded === 1 ? "" : "s"} excluded)
-                    </span>
-                  )}
+                  Filtered by <span className="font-semibold text-gray-900">{by === "created" ? "booking-created" : by === "checkout" ? "trip-checkout" : "trip-checkin"}</span> date,{" "}
+                  <span className="font-semibold text-gray-900">{from}</span> to{" "}
+                  <span className="font-semibold text-gray-900">{to}</span>.
                 </div>
                 <button
                   onClick={() => downloadCsv(result.bookings, csvFilename)}
@@ -463,7 +618,7 @@ export default function AccountingPage() {
               </div>
             </div>
 
-            {/* Per-booking table */}
+            {/* === PER-BOOKING TABLE === */}
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="font-semibold text-gray-900">Per-booking detail</h3>
@@ -510,7 +665,9 @@ export default function AccountingPage() {
                         <td className="px-4 py-2 text-right font-mono text-gray-700">
                           {b.reslab_channel_total !== null ? usd(b.reslab_channel_total) : "—"}
                         </td>
-                        <td className="px-4 py-2 text-right font-mono text-gray-900 font-medium">{usd(b.triply_keeps)}</td>
+                        <td className={`px-4 py-2 text-right font-mono font-medium ${b.triply_keeps < 0 ? "text-red-600" : "text-gray-900"}`}>
+                          {usd(b.triply_keeps)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
