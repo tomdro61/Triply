@@ -622,7 +622,7 @@ export default function AccountingPage() {
               <Row
                 label="To the lots (via ResLab)"
                 value={result.confirmed.locationTotalOwed !== null ? `−${usd(result.confirmed.locationTotalOwed)}` : "—"}
-                sub="sum of location_total"
+                sub="dashboard 'Amount Owed' formula: location_total − due_at_location_total"
               />
               <Row
                 label="Triply channel commission"
@@ -667,27 +667,10 @@ export default function AccountingPage() {
                 <Row
                   label="Lot commission only (commissions_total)"
                   value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
-                  sub="lot's share of subtotal only; the rest of 'To the lots' = location fees + taxes"
+                  sub="lot's share of subtotal across all confirmed bookings (regardless of Due-at-Lot)"
                 />
               </div>
 
-              {result.confirmed.locationTotalOwed !== null &&
-                result.confirmed.parkingOnline < result.confirmed.locationTotalOwed && (
-                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
-                    <AlertCircle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-amber-900">
-                      <strong>Why owed exceeds Stripe-collected:</strong> for &quot;Due-at-Lot=Yes&quot;
-                      bookings (like some Fox Auto, EWR Airport Parking, Motel 6 Newark) the
-                      customer paid the lot directly at the gate, but ResLab still tracks the full
-                      <code className="mx-1">location_total</code> per booking. The dashboard&apos;s
-                      &quot;Amount Owed&quot; column shows $0 for those bookings — but the May
-                      reconciliation matched the &quot;all included&quot; sum, suggesting Triply
-                      IS billed for those. <strong>Worth confirming with ResLab</strong> whether
-                      Due-at-Lot=Yes bookings should be excluded from the invoice (which would
-                      make the &quot;Owed&quot; figure here over-stated).
-                    </p>
-                  </div>
-                )}
               {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
                 <div className="mt-3 text-xs text-green-700 flex items-center gap-1">
                   <CheckCircle2 size={14} />

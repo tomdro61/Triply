@@ -200,6 +200,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   type ReslabSlice = {
     locationTotal: number | null;
+    dueAtLocationTotal: number | null;
     channelTotal: number | null;
     commissionsTotal: number | null;
     grandTotal: number | null;
@@ -210,6 +211,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   };
   const emptyReslab: ReslabSlice = {
     locationTotal: null,
+    dueAtLocationTotal: null,
     channelTotal: null,
     commissionsTotal: null,
     grandTotal: null,
@@ -257,6 +259,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         }
         return {
           locationTotal: num(h.location_total),
+          dueAtLocationTotal: num(h.due_at_location_total),
           channelTotal: num(h.channel_total),
           commissionsTotal: num(h.commissions_total),
           grandTotal: num(h.grand_total),
@@ -410,7 +413,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         confPGMarginPerRow += pgPremium - PG_WHOLESALE;
       }
       if (opts.includeReslab && rl.locationTotal !== null) {
-        confLocTotal += rl.locationTotal;
+        // "Amount Owed" formula — matches the ResLab dashboard column.
+        // Due-at-Lot=Yes bookings have location_total === due_at_location_total,
+        // so this evaluates to $0 for those (customer paid lot at the gate).
+        // Due-at-Lot=No bookings have due_at_location_total === 0, so this
+        // equals location_total (Triply owes the lot's full share).
+        const amountOwed = Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0));
+        confLocTotal += amountOwed;
         confChannelTotal += rl.channelTotal ?? 0;
         confCommissionsTotal += rl.commissionsTotal ?? 0;
         confReslabSeen++;
@@ -488,7 +497,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       stripe_fee: stripeFeeRow,
       stripe_status: st.status,
       stripe_error: st.error,
-      reslab_location_total: rl.locationTotal,
+      // Per-booking "Amount Owed" — matches dashboard. For Due-at-Lot=Yes
+      // this is $0 (lot paid at gate); for Due-at-Lot=No it equals
+      // location_total.
+      reslab_location_total:
+        rl.locationTotal !== null
+          ? Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0))
+          : null,
       reslab_channel_total: rl.channelTotal,
       reslab_commissions_total: rl.commissionsTotal,
       reslab_grand_total: rl.grandTotal,
