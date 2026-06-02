@@ -593,18 +593,19 @@ export default function AccountingPage() {
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">Parking money flow</h3>
               <p className="text-xs text-gray-500 mb-3">
-                The parking pool Triply collected via Stripe, and how it splits between ResLab
-                (for the lots) and Triply&apos;s channel commission. Does NOT include service fees
-                or Park Guard.
+                Total parking customers paid — split into what goes to the lots (via ResLab)
+                and what Triply keeps as channel commission. Does NOT include service fees or
+                Park Guard. Math identity: <span className="font-mono">grand_total =
+                location_total + channel_total</span>, so this always balances.
               </p>
               <Row
-                label="Parking collected via Stripe"
-                value={usd(result.confirmed.parkingOnline)}
-                sub="confirmed bookings, sum of (grand_total − due_at_lot)"
+                label="Total parking customers paid"
+                value={usd(result.grossRevenue)}
+                sub="confirmed bookings, sum of grand_total (incl. due-at-lot portion)"
                 emphasis
               />
               <Row
-                label="     → Owed to ResLab (the lots)"
+                label="     → To the lots (via ResLab)"
                 value={result.confirmed.locationTotalOwed !== null ? `−${usd(result.confirmed.locationTotalOwed)}` : "—"}
                 sub="sum of location_total"
               />
@@ -618,9 +619,9 @@ export default function AccountingPage() {
                     verified against ResLab dashboard "Location Commission"
                     for RTL764193 ($52.75). Lot share + channel share = subtotal. */}
                 <Row
-                  label="Lot commission (commissions_total)"
+                  label="Lot commission only (commissions_total)"
                   value={result.confirmed.commissionsTotal !== null ? usd(result.confirmed.commissionsTotal) : "—"}
-                  sub="lot's parking-revenue share — included in the 'Owed to ResLab' line above"
+                  sub="lot's share of subtotal alone; the rest of 'To the lots' = location fees + taxes"
                 />
               </div>
               {result.reslab.grandTotalMismatches.length === 0 && result.reslab.fetched > 0 ? (
