@@ -554,43 +554,6 @@ export default function AccountingPage() {
               </SectionCard>
             </div>
 
-            {/* === CONFIRMED BOOKING COMPOSITION === */}
-            <div className="mb-6">
-              <SectionCard
-                title="Confirmed bookings — money composition"
-                subtitle="Where every dollar of confirmed bookings went"
-              >
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-                  <div>
-                    <Row label="Parking — collected online" value={usd(result.confirmed.parkingOnline)} />
-                    <Row label="Triply service fee" value={usd(result.confirmed.serviceFee)} />
-                    <Row
-                      label="Park Guard premium"
-                      value={usd(result.confirmed.pgPremium)}
-                      sub={`${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
-                    />
-                    <Row
-                      label="    of which PG wholesale owed"
-                      value={result.confirmed.pgWholesale > 0 ? `−${usd(result.confirmed.pgWholesale)}` : usd(0)}
-                    />
-                    <Row label="    of which Triply PG margin" value={usd(result.confirmed.pgMargin)} />
-                  </div>
-                  <div>
-                    <Row
-                      label="Due-at-location"
-                      value={usd(result.confirmed.dueAtLot)}
-                      sub="paid to lot directly; Triply never touched"
-                    />
-                    <Row
-                      label="Subtotal (pre-tax-pre-fee)"
-                      value={usd(result.confirmed.parkingSubtotal)}
-                      sub="ResLab subtotal — denominator for channel rate"
-                    />
-                  </div>
-                </div>
-              </SectionCard>
-            </div>
-
             {/* === RESLAB SETTLEMENT (only relevant when reconciling an invoice) === */}
             <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">
               ResLab settlement
