@@ -384,8 +384,8 @@ export default function AccountingPage() {
               />
               <HeadlineCard
                 title="Gross revenue"
-                value={usd(result.grossRevenue)}
-                sub="sum of grand_total for confirmed bookings (incl. due-at-lot)"
+                value={usd(result.grossCustomerSpend)}
+                sub="total customer spend — parking + service fee + Park Guard (incl. due-at-lot)"
                 icon={TrendingUp}
                 accent="purple"
               />

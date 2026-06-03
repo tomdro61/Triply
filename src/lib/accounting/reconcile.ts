@@ -330,7 +330,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const INTEGRITY_TOLERANCE = 0.5;
 
   const counts = { confirmed: 0, refunded: 0, cancelled: 0, other: 0 };
-  let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot)
+  let grossRevenue = 0; // SUM(grand_total) for confirmed (incl. due-at-lot) — parking only
+  let grossCustomerSpend = 0; // GMV: SUM(grand_total + service_fee + pg_premium)
   let confParkingOnline = 0;
   let confParkingSubtotal = 0;
   let confDueAtLot = 0;
@@ -419,6 +420,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     if (b.status === "confirmed") {
       counts.confirmed++;
       grossRevenue += grandTotal;
+      // GMV / total customer spend = parking + Triply's own line items.
+      // pgPremium is 0 when there's no Park Guard. Matches the /admin
+      // dashboard's gross (stats route sums these same three fields).
+      grossCustomerSpend += grandTotal + serviceFee + pgPremium;
       confParkingOnline += parkingOnline;
       confParkingSubtotal += subtotal;
       confDueAtLot += dueAtLot;
@@ -678,6 +683,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     options: opts,
     counts: { ...counts, testExcluded, total: real.length },
     grossRevenue,
+    grossCustomerSpend,
     stripe: {
       gross: stripeGross,
       refunded: stripeRefundedTotal,

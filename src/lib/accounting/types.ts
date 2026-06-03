@@ -114,10 +114,14 @@ export interface ReconcileResult {
     testExcluded: number;
     total: number;
   };
-  // Gross revenue = SUM(grand_total) for confirmed bookings. INCLUDES the
-  // due-at-location portion (the full value of every booking sold).
-  // Matches /admin dashboard's "gross revenue."
+  // Parking gross = SUM(grand_total) for confirmed bookings, INCLUDING the
+  // due-at-location portion. Parking-only (no service fee / Park Guard) —
+  // used for the "Total parking customers paid" line in the parking money flow.
   grossRevenue: number;
+  // Total customer spend (GMV) = SUM(grand_total + service_fee + pg_premium)
+  // for confirmed bookings. The true top-line "Gross revenue" headline. Matches
+  // the /admin dashboard's gross (stats route sums these same three fields).
+  grossCustomerSpend: number;
   // Stripe figures are REAL when includeStripe=true (live `amount_received`
   // from per-booking PaymentIntent fetch). When includeStripe=false OR a
   // per-booking fetch failed, falls back to the derived `expected_stripe`
