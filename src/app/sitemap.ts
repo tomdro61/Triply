@@ -6,6 +6,7 @@ import {
   getPublishedPosts,
   getDistinctAirportCodes,
   getCategories,
+  getContentUpdatedAt,
 } from "@/lib/cms";
 import {
   STATIC_ID,
@@ -143,6 +144,19 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
   }
 }
 
+// Returns the first candidate that parses to a valid Date. Next serializes
+// lastModified via toISOString() AFTER blogPostPages returns, so an Invalid
+// Date would throw outside our try/catch and take down the whole sitemap
+// segment — a bad date string must degrade to the next candidate instead.
+function toValidDate(...candidates: (string | null | undefined)[]): Date {
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const date = new Date(candidate);
+    if (!Number.isNaN(date.getTime())) return date;
+  }
+  return new Date(); // last resort — never Invalid
+}
+
 async function blogPostPages(id: number): Promise<MetadataRoute.Sitemap> {
   const cmsPage = id - BLOG_ID_START + 1;
 
@@ -162,9 +176,25 @@ async function blogPostPages(id: number): Promise<MetadataRoute.Sitemap> {
     };
 
     return posts.map(
-      (post: { slug: string; updatedAt: string; articleType?: string }) => ({
+      (post: {
+        slug: string;
+        updatedAt: string;
+        publishedAt?: string | null;
+        contentUpdatedAt?: string | null;
+        articleType?: string;
+      }) => ({
         url: `${baseUrl}/blog/${post.slug}`,
-        lastModified: new Date(post.updatedAt),
+        // Match JSON-LD dateModified and the visible "Updated" badge: only a
+        // genuine content refresh (contentUpdatedAt) counts as a
+        // modification. Payload's updatedAt bumps on every save (SEO
+        // scoring/link passes), which would mark the whole catalog
+        // "modified today" after each bulk pass and teach crawlers to
+        // distrust our lastmod entirely.
+        lastModified: toValidDate(
+          getContentUpdatedAt(post),
+          post.publishedAt,
+          post.updatedAt
+        ),
         changeFrequency: "monthly" as const,
         priority: priorityMap[post.articleType || ""] || 0.6,
       })

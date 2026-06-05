@@ -1,5 +1,6 @@
 import { ArticleBreadcrumbs } from './ArticleBreadcrumbs'
-import { getPostBySlug } from '@/lib/cms'
+import { RelatedArticles } from './RelatedArticles'
+import { getPostBySlug, getRelatedPosts, getSiblingPosts } from '@/lib/cms'
 import Link from 'next/link'
 
 interface SpokeLayoutProps {
@@ -7,9 +8,34 @@ interface SpokeLayoutProps {
   children: React.ReactNode
 }
 
+const RELATED_LIMIT = 6
+
 export async function SpokeLayout({ post, children }: SpokeLayoutProps) {
-  const parentPost = post.parentSlug ? await getPostBySlug(post.parentSlug) : null
-  const hubPost = post.hubSlug ? await getPostBySlug(post.hubSlug) : null
+  const [parentPost, hubPost, siblings] = await Promise.all([
+    post.parentSlug ? getPostBySlug(post.parentSlug) : null,
+    post.hubSlug ? getPostBySlug(post.hubSlug) : null,
+    post.parentSlug ? getSiblingPosts(post.parentSlug, post.slug, RELATED_LIMIT) : [],
+  ])
+
+  // True siblings (same parentSlug) first; fill remaining slots with other
+  // same-airport posts so spokes from sparse clusters still show a full
+  // grid. Over-fetch the fill by the sibling count since siblings are
+  // usually same-airport posts too and would dedupe away. A spoke with no
+  // airportCode and no siblings intentionally renders no grid rather than
+  // pulling unrelated content.
+  let relatedPosts = siblings
+  if (relatedPosts.length < RELATED_LIMIT && post.airportCode) {
+    const fill = await getRelatedPosts(
+      post.airportCode,
+      post.slug,
+      RELATED_LIMIT + relatedPosts.length
+    )
+    const seen = new Set(relatedPosts.map((p: any) => p.slug))
+    relatedPosts = [
+      ...relatedPosts,
+      ...fill.filter((p: any) => !seen.has(p.slug)),
+    ].slice(0, RELATED_LIMIT)
+  }
 
   const breadcrumbs = []
   if (hubPost) {
@@ -36,6 +62,17 @@ export async function SpokeLayout({ post, children }: SpokeLayoutProps) {
             {hubPost.title}
           </Link>
         </div>
+      )}
+
+      {relatedPosts.length > 0 && (
+        <RelatedArticles
+          posts={relatedPosts}
+          title={
+            post.airportCode
+              ? `More ${post.airportCode} Parking Guides`
+              : 'Related Articles'
+          }
+        />
       )}
     </>
   )

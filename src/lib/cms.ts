@@ -1,4 +1,5 @@
 import { cache } from 'react'
+import { captureAPIError } from '@/lib/sentry'
 
 const CMS_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
 
@@ -70,6 +71,13 @@ export async function fetchFromCms(
   // 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
   if (!res.ok) {
     console.error(`CMS fetch error ${res.status} on ${path}`)
+    // A systemic 4xx (e.g. a bad where-clause on a new query field) degrades
+    // silently in the UI — surface it to Sentry so it doesn't go unnoticed.
+    captureAPIError(new Error(`CMS fetch error ${res.status} on ${path}`), {
+      endpoint: path,
+      method: 'GET',
+      statusCode: res.status,
+    })
     return null
   }
 
@@ -186,4 +194,40 @@ export async function getRelatedPosts(airportCode: string, excludeSlug: string, 
   })
 
   return (data?.docs || []).map(resolvePostImages)
+}
+
+export async function getSiblingPosts(parentSlug: string, excludeSlug: string, limit = 3) {
+  const data = await fetchFromCms('/posts', {
+    'where[status][equals]': 'published',
+    'where[parentSlug][equals]': parentSlug,
+    'where[slug][not_equals]': excludeSlug,
+    'sort': '-publishedAt',
+    'depth': '1',
+    'limit': String(limit),
+  })
+
+  return (data?.docs || []).map(resolvePostImages)
+}
+
+// A post counts as "content updated" only when contentUpdatedAt has been
+// explicitly stamped — by an editor, or by the blog engine on a genuine
+// content regeneration. (The engine-side write is a pending follow-up; the
+// field is null until then, so posts simply show no badge.) We deliberately
+// do NOT use Payload's updatedAt: it bumps on every save — SEO scoring
+// passes, link updates, admin tweaks — which would flip a false freshness
+// signal onto the entire catalog at once. The date only counts when
+// contentUpdatedAt is >24h after publishedAt, so launch-day touch-ups don't
+// read as a content update. Returns null on missing or unparseable dates —
+// a bad timestamp should suppress the freshness signal, never break a page.
+// Drives the visible "Updated" badge, JSON-LD dateModified, and sitemap
+// lastModified — keep all three consistent by using this one helper.
+export function getContentUpdatedAt(post: {
+  contentUpdatedAt?: string | null
+  publishedAt?: string | null
+}): string | null {
+  if (!post?.contentUpdatedAt || !post?.publishedAt) return null
+  const updated = new Date(post.contentUpdatedAt).getTime()
+  const published = new Date(post.publishedAt).getTime()
+  if (Number.isNaN(updated) || Number.isNaN(published)) return null
+  return updated - published > 24 * 60 * 60 * 1000 ? post.contentUpdatedAt : null
 }

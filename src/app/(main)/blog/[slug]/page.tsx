@@ -6,7 +6,7 @@ import { format } from 'date-fns'
 import { RichText } from '@/components/blog/RichText'
 import { ArrowLeft } from 'lucide-react'
 import { Navbar, Footer } from '@/components/shared'
-import { getPostBySlug } from '@/lib/cms'
+import { getPostBySlug, getContentUpdatedAt } from '@/lib/cms'
 import { FaqAccordion } from '@/components/blog/FaqAccordion'
 import { TableOfContents } from '@/components/blog/TableOfContents'
 import { HubLayout } from '@/components/blog/HubLayout'
@@ -37,6 +37,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = post.seo?.metaTitle || post.title
   const description = post.seo?.metaDescription || post.excerpt
+  // Same gated value as the visible badge and JSON-LD dateModified —
+  // getPostBySlug is React.cache()d, so this shares the page's fetch.
+  const contentUpdatedAt = getContentUpdatedAt(post)
 
   return {
     title,
@@ -47,6 +50,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: 'article',
       publishedTime: post.publishedAt,
+      modifiedTime: contentUpdatedAt || undefined,
       authors: post.author?.name ? [post.author.name] : undefined,
       images: post.featuredImage?.url ? [post.featuredImage.url] : undefined,
     },
@@ -106,6 +110,8 @@ export default async function BlogPostPage({ params }: Props) {
     notFound()
   }
 
+  const contentUpdatedAt = getContentUpdatedAt(post)
+
   return (
     <>
     <Navbar forceSolid />
@@ -120,7 +126,11 @@ export default async function BlogPostPage({ params }: Props) {
           description: post.excerpt,
           image: post.featuredImage?.url,
           datePublished: post.publishedAt,
-          dateModified: post.updatedAt || post.publishedAt,
+          // Keep dateModified consistent with the visible "Updated" badge —
+          // Payload's updatedAt bumps on non-content saves (see
+          // getContentUpdatedAt in @/lib/cms), so it's not a real
+          // modification date.
+          dateModified: contentUpdatedAt || post.publishedAt,
           author: {
             '@type': post.author?.name ? 'Person' : 'Organization',
             name: post.author?.name || 'Triply Editorial Team',
@@ -180,6 +190,17 @@ export default async function BlogPostPage({ params }: Props) {
                   <time dateTime={post.publishedAt}>
                     {format(new Date(post.publishedAt), 'MMMM d, yyyy')}
                   </time>
+                </>
+              )}
+              {contentUpdatedAt && (
+                <>
+                  <span>•</span>
+                  <span>
+                    Updated{' '}
+                    <time dateTime={contentUpdatedAt}>
+                      {format(new Date(contentUpdatedAt), 'MMMM yyyy')}
+                    </time>
+                  </span>
                 </>
               )}
             </div>
