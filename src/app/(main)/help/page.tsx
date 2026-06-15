@@ -203,7 +203,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How can I contact customer support?",
         answer:
-          "You can reach us by email at support@triplypro.com or call us at 1-888-TRIPLY1. Our support team is available Monday-Friday, 9 AM - 6 PM EST. For urgent parking issues, contact the facility directly using the number on your confirmation.",
+          "You can reach us by email at support@triplypro.com. Our support team is available Monday-Friday, 9 AM - 6 PM EST. For urgent parking issues, contact the facility directly using the number on your confirmation.",
       },
       {
         question: "Where can I see my past reservations?",
