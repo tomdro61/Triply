@@ -50,14 +50,15 @@ export default async function BlogAirportPage({ params, searchParams }: Props) {
 
   const page = parseInt(pageParam || "1", 10);
 
-  // Posts are the page's essential content: a 5xx/network failure throws →
-  // 500 so crawlers retry (the SSR philosophy in cms.ts). A 4xx instead
-  // returns empty docs upstream → an empty "check back soon" hub at 200.
-  // Categories only power the filter bar, so a CMS hiccup there degrades to an
-  // empty bar instead of 500'ing the whole hub. This catch only fires on the
-  // 5xx/network throw path (reported to Sentry); a 4xx returns [] upstream in
-  // cms.ts without reaching here. Acceptable for a decorative bar — empty
-  // categories render as just the "All" chip. See follow-up below re: 4xx.
+  // Posts are the page's essential content: any transient/systemic CMS failure
+  // (5xx, network, 401/403 auth, 429/408) throws → 500 so crawlers retry (the
+  // SSR philosophy in cms.ts). A genuine 4xx (404/400) returns empty docs
+  // upstream → an empty "check back soon" hub at 200. Categories only power the
+  // filter bar, so its .catch degrades to an empty bar on ANY error — including
+  // the auth/transient throw, which now DOES reach here. That's acceptable:
+  // getPublishedPosts above is unwrapped, so the same failure still 500s the
+  // page via its own throw, and captureAPIError already fired inside
+  // fetchFromCms (this catch's capture is a harmless second signal).
   const [postsResult, categories] = await Promise.all([
     getPublishedPosts(
       { "where[airportCode][equals]": airport.code },

@@ -4,13 +4,27 @@ import { captureAPIError } from '@/lib/sentry'
 const CMS_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
 
 // Server-only API key (no NEXT_PUBLIC_ prefix) for authenticating main-app
-// reads against the CMS. Sent only when present, so this stays fully
-// backward-compatible while the CMS still allows public reads. Once the CMS
-// locks read access to authenticated requests (Pass 3 egress fix), this header
-// is what keeps the blog rendering server-side while anonymous bot traffic gets
-// a 403 with no Postgres hit. fetchFromCms runs only on the server, so the key
-// never reaches the client bundle.
+// reads against the CMS. The CMS now requires auth on Posts/Categories reads
+// (Pass 3 egress fix), so this header is what keeps the blog rendering
+// server-side while anonymous bot traffic gets a 403 with no Postgres hit.
+// fetchFromCms runs only on the server, so the key never reaches the client
+// bundle. The blog engine uses this same key (scripts/blog-engine).
 const CMS_API_KEY = process.env.PAYLOAD_API_KEY
+
+// The key is REQUIRED now that CMS reads are locked — without it every read
+// 403s and the blog would render empty/404 (de-indexable). Fail loud in prod
+// rather than silently. Captured (not thrown at module load) so a missing key
+// alerts without crashing non-blog pages; actual blog requests still 500 via
+// the 401/403 throw in fetchFromCms below. Dev/local CMS may allow public
+// reads, so only guard production.
+if (process.env.NODE_ENV === 'production' && !CMS_API_KEY) {
+  captureAPIError(
+    new Error(
+      'PAYLOAD_API_KEY is not set — all CMS reads will 403 and the blog will render empty'
+    ),
+    { endpoint: '(startup)', method: 'GET' }
+  )
+}
 
 export function resolveCmsImageUrl(url: string): string {
   if (!url) return ''
@@ -53,6 +67,14 @@ async function fetchCmsOnce(url: string, revalidate: number): Promise<Response> 
   })
 }
 
+// 5xx + 429 (rate-limited) + 408 (timeout) are transient/systemic failures —
+// retry once, then throw so SSR 500s (crawler-retryable, nothing cached) rather
+// than returning null and rendering an empty/de-indexable blog. 401/403 (auth)
+// is handled separately below: it throws WITHOUT retry, since a bad/missing key
+// won't recover on a second attempt. Genuine 4xx (404/400) still return null.
+const isRetryableStatus = (status: number) =>
+  status >= 500 || status === 429 || status === 408
+
 export async function fetchFromCms(
   path: string,
   params: Record<string, string> = {},
@@ -67,20 +89,42 @@ export async function fetchFromCms(
   let res: Response
   try {
     res = await fetchCmsOnce(url, revalidate)
-    if (res.status >= 500) throw new Error(`CMS ${res.status}`)
+    if (isRetryableStatus(res.status)) throw new Error(`CMS ${res.status}`)
   } catch (firstErr) {
     await new Promise((r) => setTimeout(r, 500))
     try {
       res = await fetchCmsOnce(url, revalidate)
     } catch (retryErr) {
+      captureAPIError(new Error(`CMS unreachable on ${path}`), {
+        endpoint: path,
+        method: 'GET',
+      })
       throw new Error(`CMS unreachable: ${path}`, { cause: retryErr })
     }
-    if (res.status >= 500) {
+    if (isRetryableStatus(res.status)) {
+      captureAPIError(new Error(`CMS ${res.status} after retry on ${path}`), {
+        endpoint: path,
+        method: 'GET',
+        statusCode: res.status,
+      })
       throw new Error(`CMS ${res.status} after retry: ${path}`)
     }
   }
 
-  // 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
+  // 401/403 = systemic auth failure (missing/invalid PAYLOAD_API_KEY, or a CMS
+  // access rule rejecting us), never a real "not found". Throw like 5xx so SSR
+  // 500s (crawlers retry, nothing cached/de-indexed) instead of serving an
+  // empty/404 page that search engines cache and drop. Distinct message so the
+  // Sentry alert is unambiguous vs a routine bad-query 4xx.
+  if (res.status === 401 || res.status === 403) {
+    captureAPIError(
+      new Error(`CMS auth failure ${res.status} on ${path} — check PAYLOAD_API_KEY`),
+      { endpoint: path, method: 'GET', statusCode: res.status }
+    )
+    throw new Error(`CMS auth failure ${res.status}: ${path}`)
+  }
+
+  // Other 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
   if (!res.ok) {
     console.error(`CMS fetch error ${res.status} on ${path}`)
     // A systemic 4xx (e.g. a bad where-clause on a new query field) degrades
