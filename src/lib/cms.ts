@@ -3,6 +3,15 @@ import { captureAPIError } from '@/lib/sentry'
 
 const CMS_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
 
+// Server-only API key (no NEXT_PUBLIC_ prefix) for authenticating main-app
+// reads against the CMS. Sent only when present, so this stays fully
+// backward-compatible while the CMS still allows public reads. Once the CMS
+// locks read access to authenticated requests (Pass 3 egress fix), this header
+// is what keeps the blog rendering server-side while anonymous bot traffic gets
+// a 403 with no Postgres hit. fetchFromCms runs only on the server, so the key
+// never reaches the client bundle.
+const CMS_API_KEY = process.env.PAYLOAD_API_KEY
+
 export function resolveCmsImageUrl(url: string): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
@@ -38,6 +47,9 @@ async function fetchCmsOnce(url: string, revalidate: number): Promise<Response> 
   return fetch(url, {
     next: { revalidate },
     signal: AbortSignal.timeout(8000),
+    ...(CMS_API_KEY
+      ? { headers: { Authorization: `users API-Key ${CMS_API_KEY}` } }
+      : {}),
   })
 }
 
