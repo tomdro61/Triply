@@ -226,6 +226,92 @@ export interface SearchParkingResult {
   degraded?: boolean;
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// ResLab geo-search workaround (2026-06-29)
+//
+// ResLab's lat/lng location search (`/locations/search?lat&lng`) is down — it
+// hangs and 504s — while every other endpoint (list, single, by-ID, pricing)
+// works. Until they fix it, find lots near an airport by fetching the full
+// channel location list (which works) and filtering by distance ourselves. The
+// list objects are complete (photos/amenities/etc.), so search cards render
+// identically.
+//
+// To revert once ResLab's geo-search recovers: flip this to false. The original
+// lat/lng path is preserved untouched in searchParking's `else` branch below.
+// ───────────────────────────────────────────────────────────────────────────
+const RESLAB_GEO_SEARCH_BROKEN = true;
+
+// Cache the full channel location list so the workaround doesn't re-page on
+// every search (the channel has ~533 locations across ~54 pages). Module-level
+// TTL cache — same pattern as the auth-token cache in the ResLab client.
+const LOCATION_LIST_TTL_MS = 60 * 60 * 1000;
+let cachedLocationList: { data: ReslabLocation[]; expiry: number } | null = null;
+
+async function getChannelLocationsCached(): Promise<ReslabLocation[]> {
+  if (cachedLocationList && Date.now() < cachedLocationList.expiry) {
+    return cachedLocationList.data;
+  }
+  // Page 1 must succeed (gives last_page + the first slice). If it throws, let
+  // it propagate — the route turns it into an uncacheable 503 + retry.
+  const first = await reslab.getAllLocations(1);
+  const all: ReslabLocation[] = [...first.data];
+  const remaining: number[] = [];
+  for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+
+  // Fetch remaining pages in small concurrent batches to keep load civil.
+  // Tolerate an individual page failing rather than zeroing out all search.
+  let failedPages = 0;
+  const BATCH = 8;
+  for (let i = 0; i < remaining.length; i += BATCH) {
+    const results = await Promise.allSettled(
+      remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled") all.push(...r.value.data);
+      else failedPages++;
+    }
+  }
+
+  // ResLab's paginated list returns the same location id on multiple pages —
+  // dedupe by id so search doesn't render duplicate lot cards.
+  const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
+
+  if (failedPages > 0) {
+    // Incomplete build (could be missing lots near an airport). Serve what we
+    // have so search isn't fully down, but surface it and DON'T cache a partial
+    // list — the next request rebuilds.
+    captureAPIError(
+      new Error(
+        `ResLab location-list build incomplete: ${failedPages}/${first.last_page} pages failed`
+      ),
+      { endpoint: "/api/search", method: "GET", statusCode: 502 }
+    );
+    return unique;
+  }
+
+  cachedLocationList = {
+    data: unique,
+    expiry: Date.now() + LOCATION_LIST_TTL_MS,
+  };
+  return unique;
+}
+
+// Replacement for ResLab's broken lat/lng geo-search: locations within
+// `radiusKm` of the airport. 15km matches ResLab's documented search radius.
+async function findLocationsNearAirport(
+  lat: number,
+  lng: number,
+  radiusKm = 15
+): Promise<ReslabLocation[]> {
+  const all = await getChannelLocationsCached();
+  return all.filter((loc) => {
+    const llat = parseFloat(loc.latitude);
+    const llng = parseFloat(loc.longitude);
+    if (Number.isNaN(llat) || Number.isNaN(llng)) return false;
+    return calculateDistance(lat, lng, llat, llng) <= radiusKm;
+  });
+}
+
 export async function searchParking(
   params: SearchParkingParams
 ): Promise<SearchParkingResult> {
@@ -263,11 +349,19 @@ export async function searchParking(
   // the route returns an uncacheable 5xx instead of poisoning the cache.
   let locations: ReslabLocation[];
   if (airportInfo.reslabLocationId) {
+    // Single mapped location — search-by-ID works even during the geo outage.
     locations =
       (await reslab.searchLocations({
         locations: [airportInfo.reslabLocationId],
       })) || [];
+  } else if (RESLAB_GEO_SEARCH_BROKEN) {
+    // Workaround for ResLab's broken lat/lng geo-search (see flag above).
+    locations = await findLocationsNearAirport(
+      airportInfo.latitude,
+      airportInfo.longitude
+    );
   } else {
+    // Original path — restore by flipping RESLAB_GEO_SEARCH_BROKEN to false.
     locations =
       (await reslab.searchLocations({
         lat: String(airportInfo.latitude),
