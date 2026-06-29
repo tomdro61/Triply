@@ -246,54 +246,75 @@ const RESLAB_GEO_SEARCH_BROKEN = true;
 // TTL cache — same pattern as the auth-token cache in the ResLab client.
 const LOCATION_LIST_TTL_MS = 60 * 60 * 1000;
 let cachedLocationList: { data: ReslabLocation[]; expiry: number } | null = null;
+// Single-flight: coalesce concurrent cold-cache builds so we don't fire N
+// simultaneous 54-page sweeps at the one ResLab endpoint that still works
+// (amplified during the outage, when partial builds don't cache and re-page).
+let inFlightLocationBuild: Promise<{
+  data: ReslabLocation[];
+  partial: boolean;
+}> | null = null;
 
-async function getChannelLocationsCached(): Promise<ReslabLocation[]> {
+// `partial: true` means some pages failed and the list is incomplete — the
+// caller marks the search result degraded so the route won't CDN-cache a thin
+// lot list.
+async function getChannelLocationsCached(): Promise<{
+  data: ReslabLocation[];
+  partial: boolean;
+}> {
   if (cachedLocationList && Date.now() < cachedLocationList.expiry) {
-    return cachedLocationList.data;
+    return { data: cachedLocationList.data, partial: false };
   }
-  // Page 1 must succeed (gives last_page + the first slice). If it throws, let
-  // it propagate — the route turns it into an uncacheable 503 + retry.
-  const first = await reslab.getAllLocations(1);
-  const all: ReslabLocation[] = [...first.data];
-  const remaining: number[] = [];
-  for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+  if (inFlightLocationBuild) return inFlightLocationBuild;
 
-  // Fetch remaining pages in small concurrent batches to keep load civil.
-  // Tolerate an individual page failing rather than zeroing out all search.
-  let failedPages = 0;
-  const BATCH = 8;
-  for (let i = 0; i < remaining.length; i += BATCH) {
-    const results = await Promise.allSettled(
-      remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled") all.push(...r.value.data);
-      else failedPages++;
+  inFlightLocationBuild = (async () => {
+    // Page 1 must succeed (gives last_page + the first slice). If it throws, let
+    // it propagate — the route turns it into an uncacheable 503 + retry.
+    const first = await reslab.getAllLocations(1);
+    const all: ReslabLocation[] = [...first.data];
+    const remaining: number[] = [];
+    for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+
+    // Fetch remaining pages in small concurrent batches to keep load civil.
+    // Tolerate an individual page failing rather than zeroing out all search.
+    let failedPages = 0;
+    const BATCH = 8;
+    for (let i = 0; i < remaining.length; i += BATCH) {
+      const results = await Promise.allSettled(
+        remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
+      );
+      for (const r of results) {
+        if (r.status === "fulfilled") all.push(...r.value.data);
+        else failedPages++;
+      }
     }
-  }
 
-  // ResLab's paginated list returns the same location id on multiple pages —
-  // dedupe by id so search doesn't render duplicate lot cards.
-  const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
+    // ResLab's paginated list returns the same location id on multiple pages —
+    // dedupe by id so search doesn't render duplicate lot cards.
+    const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
 
-  if (failedPages > 0) {
-    // Incomplete build (could be missing lots near an airport). Serve what we
-    // have so search isn't fully down, but surface it and DON'T cache a partial
-    // list — the next request rebuilds.
-    captureAPIError(
-      new Error(
-        `ResLab location-list build incomplete: ${failedPages}/${first.last_page} pages failed`
-      ),
-      { endpoint: "/api/search", method: "GET", statusCode: 502 }
-    );
-    return unique;
-  }
+    if (failedPages > 0) {
+      // Incomplete build — surface it and DON'T cache. The caller flags the
+      // result degraded so the route serves it no-store (can't cache a thin
+      // list); the next request rebuilds.
+      captureAPIError(
+        new Error(
+          `ResLab location-list build incomplete: ${failedPages}/${first.last_page} pages failed`
+        ),
+        { endpoint: "/api/search", method: "GET", statusCode: 502 }
+      );
+      return { data: unique, partial: true };
+    }
 
-  cachedLocationList = {
-    data: unique,
-    expiry: Date.now() + LOCATION_LIST_TTL_MS,
-  };
-  return unique;
+    cachedLocationList = {
+      data: unique,
+      expiry: Date.now() + LOCATION_LIST_TTL_MS,
+    };
+    return { data: unique, partial: false };
+  })().finally(() => {
+    inFlightLocationBuild = null;
+  });
+
+  return inFlightLocationBuild;
 }
 
 // Replacement for ResLab's broken lat/lng geo-search: locations within
@@ -302,14 +323,18 @@ async function findLocationsNearAirport(
   lat: number,
   lng: number,
   radiusKm = 15
-): Promise<ReslabLocation[]> {
-  const all = await getChannelLocationsCached();
-  return all.filter((loc) => {
+): Promise<{ locations: ReslabLocation[]; partial: boolean }> {
+  // calculateDistance() returns MILES (geo.ts uses R=3959), so convert the km
+  // radius before comparing — otherwise the filter is ~2.6x too wide.
+  const radiusMi = radiusKm * 0.621371;
+  const { data, partial } = await getChannelLocationsCached();
+  const locations = data.filter((loc) => {
     const llat = parseFloat(loc.latitude);
     const llng = parseFloat(loc.longitude);
     if (Number.isNaN(llat) || Number.isNaN(llng)) return false;
-    return calculateDistance(lat, lng, llat, llng) <= radiusKm;
+    return calculateDistance(lat, lng, llat, llng) <= radiusMi;
   });
+  return { locations, partial };
 }
 
 export async function searchParking(
@@ -348,6 +373,9 @@ export async function searchParking(
   // full TTL — the live incident on 2026-06-29. Let ResLab errors propagate so
   // the route returns an uncacheable 5xx instead of poisoning the cache.
   let locations: ReslabLocation[];
+  // True when the workaround served an incomplete location list (some pages
+  // failed) — folded into `degraded` so the route won't CDN-cache a thin list.
+  let listBuildPartial = false;
   if (airportInfo.reslabLocationId) {
     // Single mapped location — search-by-ID works even during the geo outage.
     locations =
@@ -356,10 +384,12 @@ export async function searchParking(
       })) || [];
   } else if (RESLAB_GEO_SEARCH_BROKEN) {
     // Workaround for ResLab's broken lat/lng geo-search (see flag above).
-    locations = await findLocationsNearAirport(
+    const near = await findLocationsNearAirport(
       airportInfo.latitude,
       airportInfo.longitude
     );
+    locations = near.locations;
+    listBuildPartial = near.partial;
   } else {
     // Original path — restore by flipping RESLAB_GEO_SEARCH_BROKEN to false.
     locations =
@@ -382,6 +412,9 @@ export async function searchParking(
       results: [],
       total: 0,
       message: "No parking locations found near this airport",
+      // An outage-induced empty (partial build dropped this airport's lots) is
+      // already no-store via total:0; flag it so it's distinguishable.
+      degraded: listBuildPartial,
     };
   }
 
@@ -460,6 +493,8 @@ export async function searchParking(
     checkoutTime,
     results: sortedLots,
     total: sortedLots.length,
-    degraded: pricingErrors > 0,
+    // Degraded if pricing was partial OR the location list was built from fewer
+    // pages than exist — either way the route must not CDN-cache a thin result.
+    degraded: pricingErrors > 0 || listBuildPartial,
   };
 }
