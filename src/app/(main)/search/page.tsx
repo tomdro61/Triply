@@ -37,6 +37,7 @@ function SearchPageContent() {
   const [sortBy, setSortBy] = useState<SortOption>("popularity");
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedLot, setSelectedLot] = useState<UnifiedLot | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
@@ -49,6 +50,7 @@ function SearchPageContent() {
   // Fetch search results
   const fetchResults = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const params = new URLSearchParams({
         airport,
@@ -58,15 +60,20 @@ function SearchPageContent() {
       });
       const response = await fetch(`/api/search?${params.toString()}`);
       const data = await response.json();
-      if (data.error) {
-        console.error("Search API error:", data.error);
+      // Treat an HTTP failure (e.g. ResLab degraded → 503) as an error, not as
+      // "no lots". Showing an empty results page on an upstream failure is the
+      // misleading silent-failure that hid the 2026-06-29 incident.
+      if (!response.ok || data.error) {
+        console.error("Search API error:", data.error || `HTTP ${response.status}`);
+        setLoadError(true);
         setLots([]);
       } else {
         setLots(data.results || []);
         trackSearch({ airportCode: airport, checkin: departDate, checkout: returnDate });
       }
-    } catch (error) {
-      console.error("Error fetching search results:", error);
+    } catch (err) {
+      console.error("Error fetching search results:", err);
+      setLoadError(true);
       setLots([]);
     } finally {
       setLoading(false);
@@ -169,6 +176,23 @@ function SearchPageContent() {
                 <p className="text-gray-500">Searching for parking...</p>
               </div>
             </div>
+          ) : loadError ? (
+            <div className={`w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50 ${mobileView === "map" ? "hidden lg:flex" : ""}`}>
+              <div className="text-center px-6 max-w-sm">
+                <p className="text-gray-900 font-semibold mb-2">
+                  We couldn&apos;t load parking right now
+                </p>
+                <p className="text-gray-500 text-sm mb-4">
+                  This is usually temporary. Please try again in a moment.
+                </p>
+                <button
+                  onClick={fetchResults}
+                  className="bg-brand-orange text-white font-semibold text-sm px-5 py-2.5 rounded-full active:scale-95 transition-transform"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
           ) : (
             <SearchResultsList
               lots={sortedLots}
@@ -184,7 +208,7 @@ function SearchPageContent() {
           )}
 
           {/* Mobile: Map View */}
-          {mobileView === "map" && !loading && (
+          {mobileView === "map" && !loading && !loadError && (
             <div className="lg:hidden w-full h-full relative">
               <SearchMap
                 lots={sortedLots}

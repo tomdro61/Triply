@@ -1,6 +1,7 @@
 import { Airport } from "@/config/airports";
 import { searchParking } from "@/lib/reslab/search";
 import { UnifiedLot } from "@/types/lot";
+import { captureAPIError } from "@/lib/sentry";
 
 export interface AirportPageData {
   lots: UnifiedLot[];
@@ -40,8 +41,20 @@ export async function fetchAirportPageData(
       sort: "price_asc",
     });
     lots = result.results;
-  } catch {
-    // API failure — page still renders with empty state
+  } catch (err) {
+    // searchParking now throws only on a real ResLab failure (a genuine "no
+    // lots" returns an empty result without throwing), so surface it. This page
+    // is ISR-cached for 1h, so a swallowed failure here is otherwise invisible.
+    //
+    // FOLLOW-UP: the render still falls through to the empty state, and ISR
+    // caches that for up to 1h — the same cached-empty-on-blip class as the
+    // /api/search fix. Rethrowing here would make Next keep serving the
+    // last-good page, but must NOT throw during `next build` (it would fail the
+    // deploy on a transient ResLab blip). Needs a build-robustness decision.
+    captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+      endpoint: "/[slug]/airport-parking",
+      method: "GET",
+    });
   }
 
   if (lots.length === 0) {
