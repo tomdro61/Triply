@@ -8,6 +8,7 @@
 import { getAirportByCode, Airport } from "@/config/airports";
 import {
   reslab,
+  ReslabError,
   ReslabLocation,
   ReslabMinPriceResponse,
   stripHtml,
@@ -17,6 +18,7 @@ import { UnifiedLot, SortOption } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { generateSlug } from "@/lib/utils/slug";
+import { captureAPIError } from "@/lib/sentry";
 
 export { generateSlug };
 
@@ -219,6 +221,9 @@ export interface SearchParkingResult {
   results: UnifiedLot[];
   total: number;
   message?: string;
+  // True when some/all ResLab pricing calls failed, so the list is incomplete.
+  // The route refuses to CDN-cache a degraded result.
+  degraded?: boolean;
 }
 
 export async function searchParking(
@@ -249,28 +254,31 @@ export async function searchParking(
   const fromDate = `${checkin} ${checkinTime24}:00`;
   const toDate = `${checkout} ${checkoutTime24}:00`;
 
-  // Search for locations near the airport
-  let locations: ReslabLocation[] = [];
-
-  try {
-    if (airportInfo.reslabLocationId) {
-      const result = await reslab.searchLocations({
+  // Search for locations near the airport.
+  //
+  // safety-removed: the previous `catch { locations = [] }` swallowed ResLab
+  // outages into a "0 lots" success. /api/search caches 200s at the CDN, so a
+  // transient ResLab 502 got cached as "No parking found" and stuck for the
+  // full TTL — the live incident on 2026-06-29. Let ResLab errors propagate so
+  // the route returns an uncacheable 5xx instead of poisoning the cache.
+  let locations: ReslabLocation[];
+  if (airportInfo.reslabLocationId) {
+    locations =
+      (await reslab.searchLocations({
         locations: [airportInfo.reslabLocationId],
-      });
-      locations = result || [];
-    } else {
-      const result = await reslab.searchLocations({
+      })) || [];
+  } else {
+    locations =
+      (await reslab.searchLocations({
         lat: String(airportInfo.latitude),
         lng: String(airportInfo.longitude),
-      });
-      locations = result || [];
-    }
-  } catch {
-    locations = [];
+      })) || [];
   }
 
-  // If no locations found, return empty results
-  if (!locations || locations.length === 0) {
+  // Genuine "no lots near this airport" — distinct from a ResLab failure, which
+  // now throws above. Returned as a 200, but the route serves every empty
+  // result no-store (we never cache an empty search).
+  if (locations.length === 0) {
     return {
       airport: airportInfo,
       checkin,
@@ -283,7 +291,10 @@ export async function searchParking(
     };
   }
 
-  // Get minimum price for each location
+  // Get minimum price for each location. A per-location pricing failure is
+  // non-fatal — we still show the others — but count them so we can tell a
+  // genuine "everything is sold out" empty from a ResLab degradation (below).
+  let pricingErrors = 0;
   const lotsWithPricing = await Promise.all(
     locations.map(async (location) => {
       let minPriceData: ReslabMinPriceResponse | null = null;
@@ -297,7 +308,10 @@ export async function searchParking(
           number_of_spots: 1,
         });
       } catch {
-        // Price unavailable for this location
+        // Price unavailable for this location (transient ResLab error or
+        // genuinely no price). Counted so an all-error result doesn't get
+        // served as a cacheable empty success.
+        pricingErrors++;
       }
 
       return transformLocation(
@@ -317,6 +331,30 @@ export async function searchParking(
       lot.pricing.grandTotal > 0
   );
 
+  // Found locations but priced none of them while pricing calls were erroring:
+  // ResLab is degraded, not genuinely empty. Throw so the route returns an
+  // uncacheable 5xx rather than caching a misleading "no parking" result.
+  if (availableLots.length === 0 && pricingErrors > 0) {
+    throw new ReslabError(
+      502,
+      `ResLab pricing unavailable for all ${locations.length} ${airportCode} location(s)`
+    );
+  }
+
+  // Partial degradation: at least one lot priced but some pricing calls failed,
+  // so the list is incomplete. The per-location catch above is otherwise silent
+  // — surface it to Sentry, and flag it so the route won't CDN-cache a thin
+  // result that would stick for the TTL (the 2026-06-29 failure mode, at
+  // partial scale).
+  if (pricingErrors > 0) {
+    captureAPIError(
+      new Error(
+        `ResLab pricing degraded: ${pricingErrors}/${locations.length} ${airportCode} location(s) failed to price`
+      ),
+      { endpoint: "/api/search", method: "GET", statusCode: 502 }
+    );
+  }
+
   // Sort lots
   const sortedLots = sortLots(availableLots, sort);
 
@@ -328,5 +366,6 @@ export async function searchParking(
     checkoutTime,
     results: sortedLots,
     total: sortedLots.length,
+    degraded: pricingErrors > 0,
   };
 }

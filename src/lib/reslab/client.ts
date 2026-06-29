@@ -309,6 +309,34 @@ interface PaginatedResponse<T> {
 }
 
 // =============================================================================
+// Fetch with timeout
+// =============================================================================
+
+// Abort ResLab requests that hang so a degraded upstream can't tie up the
+// serverless function — the 2026-06-29 incident saw 50s hangs that the empty
+// fallback then cached. On timeout the fetch rejects (AbortError), which
+// propagates like any other ResLab failure.
+const RESLAB_TIMEOUT_MS = 10_000;
+
+async function reslabFetch(
+  url: string,
+  init: RequestInit = {}
+): Promise<{ response: Response; clear: () => void }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RESLAB_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    // fetch() resolves at the response headers (TTFB), so keep the timer armed
+    // until the caller has read the body — otherwise a stall mid-body would be
+    // unbounded. The caller invokes clear() in a finally after parsing.
+    return { response, clear: () => clearTimeout(timer) };
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+// =============================================================================
 // Authentication
 // =============================================================================
 
@@ -318,7 +346,7 @@ async function getToken(): Promise<string> {
     return cachedToken.token;
   }
 
-  const response = await fetch(`${RESLAB_API_URL}/authenticate`, {
+  const { response, clear } = await reslabFetch(`${RESLAB_API_URL}/authenticate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -327,18 +355,22 @@ async function getToken(): Promise<string> {
     }),
   });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new ReslabError(response.status, `Authentication failed: ${error}`);
+  try {
+    if (!response.ok) {
+      const error = await response.text();
+      throw new ReslabError(response.status, `Authentication failed: ${error}`);
+    }
+
+    const data = await response.json();
+    cachedToken = {
+      token: data.token,
+      expiry: Date.now() + 60 * 60 * 1000, // 60 minutes
+    };
+
+    return cachedToken.token;
+  } finally {
+    clear();
   }
-
-  const data = await response.json();
-  cachedToken = {
-    token: data.token,
-    expiry: Date.now() + 60 * 60 * 1000, // 60 minutes
-  };
-
-  return cachedToken.token;
 }
 
 // =============================================================================
@@ -376,40 +408,53 @@ async function request<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${RESLAB_API_URL}${endpoint}`, {
+  const { response, clear } = await reslabFetch(`${RESLAB_API_URL}${endpoint}`, {
     ...options,
     headers,
   });
 
-  if (response.status === 401) {
-    // Token expired, clear cache and retry once
-    cachedToken = null;
-    const newToken = await getToken();
-    const retryHeaders: Record<string, string> = {
-      ...(options.headers as Record<string, string>),
-      Authorization: `Bearer ${newToken}`,
-    };
-    if (options.body) {
-      retryHeaders["Content-Type"] = "application/json";
+  try {
+    if (response.status === 401) {
+      // Token expired, clear cache and retry once
+      cachedToken = null;
+      const newToken = await getToken();
+      const retryHeaders: Record<string, string> = {
+        ...(options.headers as Record<string, string>),
+        Authorization: `Bearer ${newToken}`,
+      };
+      if (options.body) {
+        retryHeaders["Content-Type"] = "application/json";
+      }
+      const { response: retryResponse, clear: clearRetry } = await reslabFetch(
+        `${RESLAB_API_URL}${endpoint}`,
+        {
+          ...options,
+          headers: retryHeaders,
+        }
+      );
+
+      try {
+        if (!retryResponse.ok) {
+          const error = await retryResponse.text();
+          throw new ReslabError(retryResponse.status, `API request failed: ${error}`);
+        }
+        // `return await` so the finally clears the timer only after the body is
+        // read (clearing earlier would leave a mid-body stall unbounded).
+        return await retryResponse.json();
+      } finally {
+        clearRetry();
+      }
     }
-    const retryResponse = await fetch(`${RESLAB_API_URL}${endpoint}`, {
-      ...options,
-      headers: retryHeaders,
-    });
 
-    if (!retryResponse.ok) {
-      const error = await retryResponse.text();
-      throw new ReslabError(retryResponse.status, `API request failed: ${error}`);
+    if (!response.ok) {
+      const error = await response.text();
+      throw new ReslabError(response.status, `API request failed: ${error}`);
     }
-    return retryResponse.json();
-  }
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new ReslabError(response.status, `API request failed: ${error}`);
+    return await response.json();
+  } finally {
+    clear();
   }
-
-  return response.json();
 }
 
 // =============================================================================

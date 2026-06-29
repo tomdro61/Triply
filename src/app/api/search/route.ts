@@ -55,10 +55,17 @@ export async function GET(request: NextRequest) {
       sort,
     });
 
+    // Cache only a clean, non-empty result. An empty result OR a degraded one
+    // (some/all ResLab pricing calls failed) is served no-store, so a transient
+    // upstream blip can never be cached — as "No parking found" or as a thin
+    // partial list — and stick for the TTL (the 2026-06-29 incident).
+    const cacheControl =
+      result.total > 0 && !result.degraded
+        ? "public, s-maxage=300, stale-while-revalidate=600"
+        : "no-store";
+
     return NextResponse.json(result, {
-      headers: {
-        "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
-      },
+      headers: { "Cache-Control": cacheControl },
     });
   } catch (error) {
     console.error("Search API error:", error);
@@ -70,13 +77,15 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message.startsWith("Invalid airport code")) {
       return NextResponse.json(
         { error: "Invalid airport code" },
-        { status: 400 }
+        { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }
 
+    // Upstream (ResLab) failure — never cache an error so it can't poison the
+    // CDN. 503 signals "transient, retry" to the client.
     return NextResponse.json(
       { error: "Failed to search for parking" },
-      { status: 500 }
+      { status: 503, headers: { "Cache-Control": "no-store" } }
     );
   }
 }
