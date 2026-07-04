@@ -67,7 +67,13 @@ export function CancellationConfirmationEmail({
           <p style={{ color: "#dc2626", fontSize: "16px", fontWeight: "700", margin: "0 0 4px" }}>Reservation Cancelled</p>
           <p style={{ color: "#991b1b", fontSize: "13px", margin: "0", lineHeight: "1.4" }}>
             Hi {customerName}, your parking reservation has been cancelled.
-            {wasRefunded && " A full refund has been issued to your original payment method."}
+            {/* "Full refund" only when nothing was retained. When the service
+                fee was kept (serviceFee prop present), say just "a refund" so
+                the banner doesn't contradict the retained-fee note below. */}
+            {wasRefunded &&
+              (serviceFee != null && serviceFee > 0
+                ? " A refund has been issued to your original payment method."
+                : " A full refund has been issued to your original payment method.")}
           </p>
         </div>
 

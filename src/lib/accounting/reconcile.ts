@@ -147,6 +147,7 @@ interface SupabaseRow {
   subtotal: string | number | null;
   due_at_location: string | number | null;
   triply_service_fee: string | number | null;
+  service_fee_refunded: boolean | null;
   protection_plan: string | null;
   protection_plan_price: string | number | null;
   pg_identifier: string | null;
@@ -171,7 +172,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     .select(
       `
       id, reslab_reservation_number, status, created_at, check_in, check_out,
-      grand_total, subtotal, due_at_location, triply_service_fee,
+      grand_total, subtotal, due_at_location, triply_service_fee, service_fee_refunded,
       protection_plan, protection_plan_price, pg_identifier,
       stripe_payment_intent_id,
       reslab_location_id, location_name, airport_code,
@@ -521,7 +522,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       }
     } else if (b.status === "refunded") {
       counts.refunded++;
-      refServiceFee += serviceFee;
+      // Full refunds (service_fee_refunded, migration 013) returned the fee to
+      // the customer, so Triply keeps nothing from those rows; standard refunds
+      // retain it. This is the one exception to the "refunded bookings retain
+      // triply_service_fee" invariant — everything below flows from feeKept.
+      const feeKept = b.service_fee_refunded ? 0 : serviceFee;
+      refServiceFee += feeKept;
       refParkingRefunded += parkingOnline;
       if (hasPG) {
         refPGRefunded += pgPremium;
@@ -532,13 +538,18 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         stripeRefundedReal += stripeRefundedRow ?? 0;
       } else {
         stripeGrossDerived += expectedStripe;
-        stripeRefundedDerived += Math.max(0, expectedStripe - serviceFee);
+        // Standard refund returned everything except the retained fee; a full
+        // refund returned the fee too (feeKept = 0).
+        stripeRefundedDerived += Math.max(0, expectedStripe - feeKept);
       }
-      triplyKeeps = serviceFee;
+      triplyKeeps = feeKept;
       // Refunded: channel was refunded along with parking; PG was
-      // refunded along with the premium → no channel/PG kept.
-      triplyTotal = serviceFee;
-      note = "service fee retained";
+      // refunded along with the premium → no channel/PG kept. On a full
+      // refund the fee is gone too, so the keep is $0.
+      triplyTotal = feeKept;
+      note = b.service_fee_refunded
+        ? "full refund — service fee returned"
+        : "service fee retained";
     } else if (b.status === "cancelled") {
       counts.cancelled++;
       note = "no payment captured";

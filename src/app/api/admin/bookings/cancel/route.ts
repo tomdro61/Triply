@@ -17,6 +17,10 @@ const cancelSchema = z.object({
     .string()
     .startsWith("pi_", "stripePaymentIntentId must be a Stripe PaymentIntent ID")
     .optional(),
+  // When true, the Triply service fee is refunded too (a full refund). Used
+  // when a lot turns the customer away — Triply returns its own fee as goodwill.
+  // Defaults false: the standard path retains the non-refundable service fee.
+  refundServiceFee: z.boolean().optional().default(false),
 });
 
 export async function POST(request: NextRequest) {
@@ -41,7 +45,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { reservationNumber, stripePaymentIntentId } = parsed.data;
+    const { reservationNumber, stripePaymentIntentId, refundServiceFee } = parsed.data;
 
     // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
@@ -123,57 +127,84 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
-    // Service fee is non-refundable. Refund = actual amount charged − service fee.
-    // We read the charge from Stripe rather than reconstructing it from stored fields,
-    // so partial captures / pricing changes / due-at-location splits can't desync us.
+    // Standard cancel RETAINS the Triply service fee (refund = amount charged −
+    // service fee). The full-refund path (refundServiceFee) returns the fee too,
+    // for cases where the lot turned the customer away and Triply eats its fee.
+    // We read the charge from Stripe rather than reconstructing it from stored
+    // fields, so partial captures / pricing changes / due-at-location splits
+    // can't desync us.
     const serviceFee = parseFloat(booking.triply_service_fee) || 0;
+    const feeWithheld = refundServiceFee ? 0 : serviceFee;
     let refundAmount = 0;
+    let piLookupFailed = false;
     if (refundPaymentIntentId) {
       try {
         const pi = await getPaymentIntent(refundPaymentIntentId);
         const amountReceived = (pi.amount_received || 0) / 100;
-        refundAmount = Math.max(0, Math.round((amountReceived - serviceFee) * 100) / 100);
+        refundAmount = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
       } catch (error) {
+        piLookupFailed = true;
         const msg = error instanceof Error ? error.message : "PaymentIntent lookup failed";
         results.errors.push(`Stripe: ${msg}`);
       }
     }
-    const wasRefunded = !!refundPaymentIntentId && refundAmount > 0;
-    const newStatus = wasRefunded ? "refunded" : "cancelled";
 
-    if (refundPaymentIntentId && refundAmount <= 0 && !results.errors.some(e => e.startsWith("Stripe:"))) {
-      results.errors.push(
-        `Stripe: refund skipped — computed amount is $${refundAmount} (service_fee=${serviceFee})`
-      );
-    }
-
-    const [stripeResult, supabaseResult] = await Promise.allSettled([
-      wasRefunded
-        ? createRefund(refundPaymentIntentId, refundAmount)
-        : Promise.resolve(null),
-      supabase
-        .from("bookings")
-        .update({ status: newStatus })
-        .eq("reslab_reservation_number", reservationNumber),
-    ]);
-
-    if (stripeResult.status === "fulfilled") {
+    // Issue the refund and learn the ACTUAL outcome BEFORE persisting anything
+    // that claims money moved. The old code wrote status + service_fee_refunded
+    // from INTENT inside a parallel Promise.allSettled, so a rejected refund
+    // left the row "refunded" / service_fee_refunded=true while the customer got
+    // nothing — silently corrupting kept-revenue accounting (migration 013),
+    // with no retry path (the 409 "already refunded" guard blocks re-runs) and
+    // even emailing the customer that a refund was issued.
+    const intendToRefund = !!refundPaymentIntentId && refundAmount > 0;
+    if (intendToRefund) {
+      try {
+        await createRefund(refundPaymentIntentId, refundAmount);
+        results.stripe = true;
+      } catch (error) {
+        results.errors.push(
+          `Stripe: ${error instanceof Error ? error.message : "Refund failed"}`
+        );
+      }
+    } else if (!piLookupFailed) {
+      // Nothing to refund (no PaymentIntent, or a $0 computed amount because
+      // parking was fully due-at-location and the fee is retained). Not a Stripe
+      // failure, but surface the surprising $0 case so it isn't read as success.
       results.stripe = true;
-    } else {
-      results.errors.push(`Stripe: ${stripeResult.reason?.message || "Refund failed"}`);
+      if (refundPaymentIntentId && refundAmount <= 0) {
+        results.errors.push(
+          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee})`
+        );
+      }
     }
 
-    if (
-      supabaseResult.status === "fulfilled" &&
-      !supabaseResult.value?.error
-    ) {
-      results.supabase = true;
+    // Persist booking state from the ACTUAL refund outcome.
+    const wasRefunded = intendToRefund && results.stripe;
+    const newStatus = wasRefunded ? "refunded" : "cancelled";
+    // The fee was returned only if a full-refund refund actually fulfilled on a
+    // booking that had a fee. This is what the accounting reconciler reads to
+    // exclude the fee from kept revenue (migration 013).
+    const serviceFeeRefunded = refundServiceFee && wasRefunded && serviceFee > 0;
+
+    const { error: bookingUpdateError } = await supabase
+      .from("bookings")
+      .update({ status: newStatus, service_fee_refunded: serviceFeeRefunded })
+      .eq("reslab_reservation_number", reservationNumber);
+    if (bookingUpdateError) {
+      results.errors.push(`Supabase: ${bookingUpdateError.message || "Update failed"}`);
+      // Money may already have moved (wasRefunded) but the status/flag write
+      // didn't persist — so Step 3.5's PG cancel is skipped and the row stays
+      // "confirmed". PostgREST returns this as an error object (not a throw, so
+      // the outer catch never sees it). Capture it explicitly: the PG gating
+      // below assumes a Sentry alert exists whenever the Supabase write fails.
+      captureAPIError(
+        new Error(
+          `Admin cancel: booking status update failed after refund=${wasRefunded}: ${bookingUpdateError.message}`
+        ),
+        { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+      );
     } else {
-      const msg =
-        supabaseResult.status === "rejected"
-          ? supabaseResult.reason?.message
-          : supabaseResult.value?.error?.message;
-      results.errors.push(`Supabase: ${msg || "Update failed"}`);
+      results.supabase = true;
     }
 
     // Step 3.5: Notify Park Guard of cancellation if booking had protection.
@@ -190,6 +221,24 @@ export async function POST(request: NextRequest) {
       try {
         await parkGuard.updateReservation(booking.id, { status: "cancelled" });
         results.parkGuard = true;
+        // Clear pg_identifier now that PG is cancelled so Stripe's
+        // charge.refunded webhook doesn't re-fire the PG cancel. A FULL refund
+        // returns the entire charge, so amount_refunded === amount and the
+        // webhook reaches its full-refund branch (previously unreachable for
+        // admin cancels, which always retained the fee); that branch keys off
+        // pg_identifier being set. This mirrors the webhook partial-refund
+        // branch's own idempotency clear. Best-effort: a failure here only
+        // risks one duplicate (idempotent, try/caught) PG cancel from the
+        // webhook — so it's a soft error, not a cancellation failure.
+        const { error: pgClearError } = await supabase
+          .from("bookings")
+          .update({ pg_identifier: null })
+          .eq("reslab_reservation_number", reservationNumber);
+        if (pgClearError) {
+          results.errors.push(
+            `Supabase: pg_identifier not cleared (${pgClearError.message}) — webhook may re-fire PG cancel`
+          );
+        }
       } catch (pgError) {
         results.parkGuard = false;
         const err = pgError instanceof Error ? pgError : new Error(String(pgError));
@@ -225,7 +274,9 @@ export async function POST(request: NextRequest) {
           checkOutDate: booking.check_out,
           refundAmount,
           wasRefunded,
-          serviceFee: serviceFee > 0 ? serviceFee : undefined,
+          // Only surface the fee as "retained" when it actually was. On a full
+          // refund the fee is folded into refundAmount and no retained note shows.
+          serviceFee: !serviceFeeRefunded && serviceFee > 0 ? serviceFee : undefined,
           protectionPlanRefund: protectionPlanRefund > 0 ? protectionPlanRefund : undefined,
         });
         results.email = emailResult.success;

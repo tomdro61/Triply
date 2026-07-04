@@ -97,17 +97,25 @@ export default function AdminBookingsPage() {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  // Which cancel path is in flight, so only the clicked button shows its
+  // spinner label while both are disabled.
+  const [cancellingMode, setCancellingMode] = useState<"standard" | "full" | null>(null);
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
     parkGuardSyncFailed?: boolean;
   } | null>(null);
 
-  async function handleCancelBooking(booking: Booking) {
-    if (!confirm(`Cancel reservation ${booking.reslab_reservation_number} and issue a full refund? This cannot be undone.`)) {
+  async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
+    const fee = parseFloat(booking.triply_service_fee) || 0;
+    const confirmMsg = refundServiceFee
+      ? `FULL refund for ${booking.reslab_reservation_number} — refunds everything the customer paid Triply online, INCLUDING the $${fee.toFixed(2)} service fee. Use this when the lot turned the customer away. This cannot be undone.`
+      : `Cancel ${booking.reslab_reservation_number} and refund the customer, RETAINING the $${fee.toFixed(2)} Triply service fee (standard cancellation). This cannot be undone.`;
+    if (!confirm(confirmMsg)) {
       return;
     }
     setCancelling(true);
+    setCancellingMode(refundServiceFee ? "full" : "standard");
     setCancelResult(null);
     try {
       const response = await fetch("/api/admin/bookings/cancel", {
@@ -116,6 +124,7 @@ export default function AdminBookingsPage() {
         body: JSON.stringify({
           reservationNumber: booking.reslab_reservation_number,
           stripePaymentIntentId: booking.stripe_payment_intent_id,
+          refundServiceFee,
         }),
       });
       const data = await response.json();
@@ -139,6 +148,7 @@ export default function AdminBookingsPage() {
       setCancelResult({ success: false, message: "Network error — could not reach cancel API" });
     } finally {
       setCancelling(false);
+      setCancellingMode(null);
     }
   }
 
@@ -776,7 +786,7 @@ export default function AdminBookingsPage() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                 <Link
                   href={`/confirmation/${selectedBooking.reslab_reservation_number}`}
                   target="_blank"
@@ -785,13 +795,28 @@ export default function AdminBookingsPage() {
                   View Confirmation Page
                 </Link>
                 {selectedBooking.status === "confirmed" && (
-                  <button
-                    onClick={() => handleCancelBooking(selectedBooking)}
-                    disabled={cancelling}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    {cancelling ? "Cancelling..." : "Cancel & Refund"}
-                  </button>
+                  <>
+                    {/* Standard cancel: refunds the customer but RETAINS the
+                        Triply service fee. */}
+                    <button
+                      onClick={() => handleCancelBooking(selectedBooking, false)}
+                      disabled={cancelling}
+                      title="Refunds parking + protection, but keeps the Triply service fee"
+                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                      {cancelling && cancellingMode === "standard" ? "Cancelling..." : "Cancel & Refund"}
+                    </button>
+                    {/* Full refund: also returns the Triply service fee. Use when
+                        the lot turned the customer away and Triply eats its fee. */}
+                    <button
+                      onClick={() => handleCancelBooking(selectedBooking, true)}
+                      disabled={cancelling}
+                      title="Also refunds the Triply service fee — use when the lot turned the customer away"
+                      className="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors disabled:opacity-50"
+                    >
+                      {cancelling && cancellingMode === "full" ? "Refunding..." : "Cancel & Full Refund"}
+                    </button>
+                  </>
                 )}
                 <button
                   onClick={() => { setSelectedBooking(null); setCancelResult(null); }}
