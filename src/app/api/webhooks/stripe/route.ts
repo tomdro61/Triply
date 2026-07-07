@@ -52,17 +52,22 @@ export async function POST(request: NextRequest) {
       }
 
       if (booking) {
+        // Bookings are CREATED with status "confirmed", so an EXISTING booking
+        // that is NOT confirmed here was deliberately moved afterward to
+        // cancelled / refunded / disputed / completed / payment_failed. A late
+        // succeeded event — async capture settling AFTER a status change, now
+        // routine because Phase 1 creates bookings from "processing" PIs — must
+        // NOT revert that. The old blind `!== confirmed → confirmed` would
+        // silently un-cancel a released, possibly-refunded booking, charging the
+        // customer in full for nothing. "confirmed" is the no-op happy path;
+        // anything else is alerted for manual review, never overwritten.
         if (booking.status !== "confirmed") {
-          const { error: updateErr } = await supabase
-            .from("bookings")
-            .update({ status: "confirmed" })
-            .eq("id", booking.id);
-          if (updateErr) {
-            capturePaymentError(
-              new Error(`Webhook payment_intent.succeeded: status update failed: ${updateErr.message}`),
-              { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
-            );
-          }
+          capturePaymentError(
+            new Error(
+              `Webhook payment_intent.succeeded fired for booking already in status '${booking.status}' — NOT overwriting to confirmed. Async capture settled after a status change; if cancelled/refunded, verify the customer's refund.`
+            ),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
         }
       } else {
         // Race condition: webhook arrived before reservation was created
@@ -112,6 +117,12 @@ export async function POST(request: NextRequest) {
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
         }
+        // TODO(phase-2): a booking may exist here because Phase 1 now creates it
+        // from a `processing` PaymentIntent that later fails capture. Today this
+        // only flips status + alerts — it does NOT release the held ResLab spot
+        // or cancel Park Guard, so ops must clean up manually. Phase 2 must add
+        // reslab.cancelReservation + parkGuard.updateReservation(...cancelled)
+        // here (mirroring the charge.refunded branch) to auto-release inventory.
       }
 
       capturePaymentError(

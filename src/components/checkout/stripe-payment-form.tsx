@@ -94,8 +94,24 @@ export function StripePaymentForm({
         return;
       }
 
-      if (paymentIntent && paymentIntent.status === "succeeded") {
-        // Payment successful - create the reservation
+      if (
+        paymentIntent &&
+        (paymentIntent.status === "succeeded" || paymentIntent.status === "processing")
+      ) {
+        // Payment successful — create the reservation.
+        //
+        // safety-removed: "processing" previously fell into the else branch and
+        // was shown as "Payment could not be processed. Please try again." But
+        // we use Stripe async capture (automatic_async), so some cards/wallets
+        // resolve confirmPayment with status "processing" — the money IS
+        // authorized/being captured. Telling the customer it failed made them
+        // retry, producing a second charge (double-charge) or, if they gave up,
+        // a paid-but-no-booking orphan. Treating "processing" as success creates
+        // the booking now; the webhook confirms final capture. The rare
+        // processing→payment_failed case is NOT yet auto-released: the webhook
+        // flips status to payment_failed and alerts Sentry, but automated
+        // ResLab/Park Guard release is a pending Phase 2 enhancement
+        // (TODO(phase-2) in /api/webhooks/stripe).
         await onPaymentSuccess(paymentIntent.id);
       } else if (paymentIntent && paymentIntent.status === "requires_action") {
         // 3D Secure or other authentication required

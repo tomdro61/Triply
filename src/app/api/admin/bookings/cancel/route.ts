@@ -98,6 +98,32 @@ export async function POST(request: NextRequest) {
     // skip the refund on a booking that was actually paid.
     const refundPaymentIntentId = booking.stripe_payment_intent_id;
 
+    // Guard: a booking created from a still-`processing` PaymentIntent (async
+    // capture in flight) has amount_received=0, so the refund math below would
+    // compute $0 and cancel the ResLab spot WITHOUT refunding the customer —
+    // who is then charged in full once the capture settles. Refuse to cancel
+    // until the payment reaches a terminal state; the admin can retry shortly.
+    // A lookup failure here is intentionally NOT fatal — the existing Step-2
+    // handling (piLookupFailed) deals with that; this pre-check only blocks the
+    // specific "still settling" case before any side effect runs.
+    if (refundPaymentIntentId) {
+      try {
+        const preCheckPi = await getPaymentIntent(refundPaymentIntentId);
+        if (preCheckPi.status === "processing") {
+          return NextResponse.json(
+            {
+              error:
+                "This payment is still settling. Wait a few minutes until it completes, then cancel — otherwise the refund can't be issued.",
+            },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // Couldn't read the PI in the pre-check; fall through to the existing
+        // Step-2 refund flow, which handles a lookup failure (piLookupFailed).
+      }
+    }
+
     const results: {
       reslab: boolean;
       stripe: boolean;
@@ -140,8 +166,29 @@ export async function POST(request: NextRequest) {
     if (refundPaymentIntentId) {
       try {
         const pi = await getPaymentIntent(refundPaymentIntentId);
-        const amountReceived = (pi.amount_received || 0) / 100;
-        refundAmount = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+        if (pi.status === "processing") {
+          // Belt-and-suspenders: the pre-check above returns 409 for a
+          // processing PI, but if its read failed transiently we fall through
+          // to here (ResLab is already released by Step 1). amount_received is
+          // 0 while processing, so the math below would compute a $0 refund and
+          // report a clean "refunded successfully" 200 — a misleading success
+          // on a customer who WILL be charged once capture settles. Force a
+          // loud Sentry alert + non-success (207) and issue no false claim; the
+          // succeeded webhook + this alert drive the manual refund.
+          captureAPIError(
+            new Error(
+              `Admin cancel: PI ${refundPaymentIntentId} still 'processing' at refund step; ResLab already released, refund NOT issued — manual refund required once it settles`
+            ),
+            { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+          );
+          results.errors.push(
+            "Stripe: payment still settling — refund NOT issued, manual follow-up required once it settles"
+          );
+          piLookupFailed = true; // keeps results.stripe=false → allSucceeded=false → 207, not a false 200
+        } else {
+          const amountReceived = (pi.amount_received || 0) / 100;
+          refundAmount = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+        }
       } catch (error) {
         piLookupFailed = true;
         const msg = error instanceof Error ? error.message : "PaymentIntent lookup failed";

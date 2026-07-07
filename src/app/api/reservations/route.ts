@@ -117,9 +117,20 @@ export async function POST(request: NextRequest) {
       try {
         const paymentIntent = await stripe.paymentIntents.retrieve(stripePaymentIntentId);
 
-        if (paymentIntent.status !== "succeeded") {
+        // safety-removed: previously required status === "succeeded". We use
+        // Stripe async capture (automatic_async), so a genuinely-paying customer
+        // can reach here with status "processing" (money authorized, capture in
+        // flight). Rejecting it with 402 was the server half of the
+        // double-charge/orphan bug: the client (stripe-payment-form) now creates
+        // the reservation on "processing" too, and this guard must accept it or
+        // the booking still fails. Still rejects genuinely-unpaid states
+        // (requires_payment_method, requires_action, canceled). The rare
+        // processing→payment_failed case is NOT yet auto-released — the webhook
+        // flips status to payment_failed and alerts Sentry; automated
+        // ResLab/Park Guard release is a pending Phase 2 enhancement.
+        if (paymentIntent.status !== "succeeded" && paymentIntent.status !== "processing") {
           capturePaymentError(
-            new Error(`PaymentIntent status is ${paymentIntent.status}, expected succeeded`),
+            new Error(`PaymentIntent status is ${paymentIntent.status}, expected succeeded or processing`),
             { stripePaymentIntentId, amount: paymentIntent.amount / 100 }
           );
           return NextResponse.json(
