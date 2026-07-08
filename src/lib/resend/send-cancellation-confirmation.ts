@@ -15,6 +15,7 @@ interface SendCancellationConfirmationParams {
   wasRefunded: boolean;
   serviceFee?: number;
   protectionPlanRefund?: number;
+  protectionPlanRetained?: number;
 }
 
 export async function sendCancellationConfirmation({
@@ -29,6 +30,7 @@ export async function sendCancellationConfirmation({
   wasRefunded,
   serviceFee,
   protectionPlanRefund,
+  protectionPlanRetained,
 }: SendCancellationConfirmationParams) {
   try {
     const emailHtml = await render(
@@ -43,6 +45,7 @@ export async function sendCancellationConfirmation({
         wasRefunded,
         serviceFee,
         protectionPlanRefund,
+        protectionPlanRetained,
       })
     );
 

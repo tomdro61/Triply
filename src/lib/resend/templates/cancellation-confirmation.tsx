@@ -12,6 +12,9 @@ interface CancellationConfirmationEmailProps {
   wasRefunded: boolean;
   /** Park Guard premium that was returned to the customer (if any). */
   protectionPlanRefund?: number;
+  /** Non-refundable portion of the Parking Protection retained on a standard
+   *  cancel (the Park Guard wholesale), shown separately like the service fee. */
+  protectionPlanRetained?: number;
   /** Non-refundable Triply service fee (retained, shown separately). */
   serviceFee?: number;
 }
@@ -27,6 +30,7 @@ export function CancellationConfirmationEmail({
   wasRefunded,
   serviceFee,
   protectionPlanRefund,
+  protectionPlanRetained,
 }: CancellationConfirmationEmailProps) {
   // Refund breakdown shows what's being returned ("Parking" + "Parking Protection")
   // summing to the headline total. Service fee is shown separately as retained.
@@ -67,11 +71,14 @@ export function CancellationConfirmationEmail({
           <p style={{ color: "#dc2626", fontSize: "16px", fontWeight: "700", margin: "0 0 4px" }}>Reservation Cancelled</p>
           <p style={{ color: "#991b1b", fontSize: "13px", margin: "0", lineHeight: "1.4" }}>
             Hi {customerName}, your parking reservation has been cancelled.
-            {/* "Full refund" only when nothing was retained. When the service
-                fee was kept (serviceFee prop present), say just "a refund" so
-                the banner doesn't contradict the retained-fee note below. */}
+            {/* "Full refund" only when NOTHING was retained. If the service fee
+                OR the Park Guard wholesale was kept, say just "a refund" so the
+                banner doesn't contradict the retained-amount notes below (a $0
+                service fee alongside a $6 PG retention would otherwise wrongly
+                claim "full refund" while $6 was withheld). */}
             {wasRefunded &&
-              (serviceFee != null && serviceFee > 0
+              ((serviceFee != null && serviceFee > 0) ||
+              (protectionPlanRetained != null && protectionPlanRetained > 0)
                 ? " A refund has been issued to your original payment method."
                 : " A full refund has been issued to your original payment method.")}
           </p>
@@ -138,6 +145,11 @@ export function CancellationConfirmationEmail({
             {serviceFee != null && serviceFee > 0 && (
               <p style={{ color: "#92400e", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
                 Service fee of ${serviceFee.toFixed(2)} is non-refundable and was retained.
+              </p>
+            )}
+            {protectionPlanRetained != null && protectionPlanRetained > 0 && (
+              <p style={{ color: "#92400e", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>
+                ${protectionPlanRetained.toFixed(2)} of the Parking Protection is non-refundable and was retained.
               </p>
             )}
             <p style={{ color: "#166534", fontSize: "12px", margin: "10px 0 0", lineHeight: "1.5" }}>

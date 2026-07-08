@@ -6,7 +6,7 @@ import { reslab } from "@/lib/reslab/client";
 import { createRefund, getPaymentIntent } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
-import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
+import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
 
 // Validate cancel-request body at the boundary. Both fields are user-supplied
 // from the admin UI; treating them as raw `any` would let a malformed pi_*
@@ -160,7 +160,22 @@ export async function POST(request: NextRequest) {
     // fields, so partial captures / pricing changes / due-at-location splits
     // can't desync us.
     const serviceFee = parseFloat(booking.triply_service_fee) || 0;
-    const feeWithheld = refundServiceFee ? 0 : serviceFee;
+    // Park Guard never refunds Triply the wholesale ($6) for any booking. On a
+    // STANDARD cancel we therefore withhold that wholesale from the customer's
+    // refund, so the PG line breaks even ($6 retained covers the $6 owed to PG)
+    // instead of Triply eating $6 — the customer still gets their PG margin back
+    // as goodwill. Clamped to the stored premium so a dirty/low row can't
+    // withhold more than was paid for protection.
+    //
+    // The "Cancel & Full Refund" path (refundServiceFee=true) intentionally
+    // refunds EVERYTHING, including the full PG premium — Triply eats the $6
+    // there by design (it's the goodwill / lot-turned-them-away path).
+    const pgPremium = parseFloat(booking.protection_plan_price ?? "0") || 0;
+    const pgWholesaleWithheld =
+      !refundServiceFee && booking.protection_plan
+        ? Math.min(PROTECTION_PLAN.wholesalePrice, pgPremium)
+        : 0;
+    const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheld;
     let refundAmount = 0;
     let piLookupFailed = false;
     if (refundPaymentIntentId) {
@@ -220,7 +235,7 @@ export async function POST(request: NextRequest) {
       results.stripe = true;
       if (refundPaymentIntentId && refundAmount <= 0) {
         results.errors.push(
-          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee})`
+          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheld})`
         );
       }
     }
@@ -308,9 +323,27 @@ export async function POST(request: NextRequest) {
     } | null;
     if (customer?.email) {
       try {
+        // What the customer actually got back OF the PG premium = premium minus
+        // the withheld wholesale (0 on a full refund → full premium). Must match
+        // what Stripe refunded so the email breakdown reconciles.
         const protectionPlanRefund = booking.protection_plan
-          ? parseFloat(booking.protection_plan_price ?? "0") || 0
+          ? Math.max(0, pgPremium - pgWholesaleWithheld)
           : 0;
+        // Invariant: the protection refund can never exceed the total refund
+        // (would mean premium + serviceFee > amount_received — a dirty/partial-
+        // capture row). The email template clamps this so the breakdown still
+        // reconciles, but that clamp is render-only and can't alert. Surface it
+        // here (where Sentry is available) so a broken withholding math isn't
+        // silently masked while the refund still reports success.
+        if (protectionPlanRefund > refundAmount) {
+          captureAPIError(
+            new Error(
+              `Admin cancel: protection refund $${protectionPlanRefund} exceeds total refund $${refundAmount} ` +
+                `(premium=${pgPremium}, withheld=${pgWholesaleWithheld}, serviceFee=${serviceFee}) — withholding math inconsistent`
+            ),
+            { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+          );
+        }
         const emailResult = await sendCancellationConfirmation({
           to: customer.email,
           customerName: `${customer.first_name || ""} ${customer.last_name || ""}`.trim() || "Customer",
@@ -325,6 +358,9 @@ export async function POST(request: NextRequest) {
           // refund the fee is folded into refundAmount and no retained note shows.
           serviceFee: !serviceFeeRefunded && serviceFee > 0 ? serviceFee : undefined,
           protectionPlanRefund: protectionPlanRefund > 0 ? protectionPlanRefund : undefined,
+          // Non-refundable PG wholesale retained on a standard cancel, so the
+          // email can disclose why the full premium wasn't returned.
+          protectionPlanRetained: pgWholesaleWithheld > 0 ? pgWholesaleWithheld : undefined,
         });
         results.email = emailResult.success;
         if (!emailResult.success) {
