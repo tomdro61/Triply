@@ -12,8 +12,13 @@
  *
  * Money model (see src/app/api/admin/bookings/cancel/route.ts:126-135):
  *   - Service fee is non-refundable. Refunded bookings retain triply_service_fee.
- *   - PG auto-cancels on full refund — no wholesale owed for refunded opt-ins.
- *   - PG wholesale is contractual: $6 × confirmed opt-ins (regardless of retail).
+ *   - Park Guard bills the $6 wholesale on EVERY conversion and never credits it
+ *     back, so refunded opt-ins owe it too — not just confirmed. A STANDARD
+ *     cancel withholds the $6 from the customer refund to cover it; a full
+ *     refund returns the whole premium and Triply eats the $6.
+ *   - PG wholesale owed = $6 × every opt-in ever captured (confirmed + refunded),
+ *     regardless of retail. PG margin nets the RETAINED premium against the
+ *     wholesale per row (≈$0 on a standard cancel, −$6 on a full refund).
  *   - ResLab invoices by trip-completion month: sum location_total for
  *     bookings whose check_out falls within the invoice period.
  *
@@ -356,6 +361,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let refParkingRefunded = 0;
   let refPGRefunded = 0;
   let refPGOptIns = 0;
+  let refPGMarginPerRow = 0;
   let stripeGrossReal = 0;
   let stripeRefundedReal = 0;
   let stripeGrossDerived = 0;
@@ -529,27 +535,69 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       const feeKept = b.service_fee_refunded ? 0 : serviceFee;
       refServiceFee += feeKept;
       refParkingRefunded += parkingOnline;
+
+      // Actual cash Triply retained on this refund. Parking is fully refunded on
+      // a cancel, so what stays is the fee + any retained PG wholesale. Ground
+      // truth from Stripe; null when live Stripe is unavailable.
+      const stripeKept =
+        usedRealStripe && stripeReceivedReal !== null
+          ? Math.max(0, stripeReceivedReal - (stripeRefundedRow ?? 0))
+          : null;
+      // How much of the PG premium Triply RETAINED. Park Guard bills $6 per
+      // conversion and never credits it back, so a refunded opt-in still owes
+      // $6: a standard cancel withholds it from the customer (cancel/route.ts,
+      // 2026-07-08), a full refund returns the whole premium and Triply eats the
+      // $6. Derive from ACTUAL Stripe (total kept − fee kept = PG kept) so it
+      // matches what was really refunded across standard / full / pre-change
+      // historical rows; fall back to the withholding rule only when live Stripe
+      // is unavailable (test-mode keys / fetch failure).
+      let pgRetained = 0;
       if (hasPG) {
-        refPGRefunded += pgPremium;
+        pgRetained =
+          stripeKept !== null
+            ? Math.min(pgPremium, Math.max(0, stripeKept - feeKept))
+            : b.service_fee_refunded
+            ? 0
+            : Math.min(PG_WHOLESALE, pgPremium);
         refPGOptIns += 1;
+        // Actually returned to the customer (label: "PG premium refunded").
+        refPGRefunded += Math.max(0, pgPremium - pgRetained);
+        // Net PG for this row = retained − wholesale owed (≈$0 standard, −$6 full).
+        refPGMarginPerRow += pgRetained - PG_WHOLESALE;
       }
+
       if (usedRealStripe) {
         stripeGrossReal += stripeReceivedReal;
         stripeRefundedReal += stripeRefundedRow ?? 0;
       } else {
         stripeGrossDerived += expectedStripe;
-        // Standard refund returned everything except the retained fee; a full
-        // refund returned the fee too (feeKept = 0).
-        stripeRefundedDerived += Math.max(0, expectedStripe - feeKept);
+        // Derived refund = charge minus everything Triply retained (fee + PG kept).
+        stripeRefundedDerived += Math.max(0, expectedStripe - feeKept - pgRetained);
       }
-      triplyKeeps = feeKept;
-      // Refunded: channel was refunded along with parking; PG was
-      // refunded along with the premium → no channel/PG kept. On a full
-      // refund the fee is gone too, so the keep is $0.
-      triplyTotal = feeKept;
+      // Parallel to the confirmed branch: on-top keep = fee kept + PG net
+      // (retained premium − wholesale). Channel/parking were fully refunded.
+      triplyKeeps = feeKept + (hasPG ? pgRetained - PG_WHOLESALE : 0);
+      triplyTotal = triplyKeeps;
       note = b.service_fee_refunded
         ? "full refund — service fee returned"
         : "service fee retained";
+      if (hasPG) {
+        note += `; PG kept $${pgRetained.toFixed(2)}/$${pgPremium.toFixed(2)}, owe $${PG_WHOLESALE.toFixed(2)}`;
+        // Dirty-data guard, mirroring the confirmed branch: a premium below the
+        // wholesale books a spurious loss — flag it rather than swallow it.
+        if (pgPremium < PG_WHOLESALE) {
+          note += `; PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${PG_WHOLESALE.toFixed(2)}`;
+        }
+      }
+      // Integrity: the ONLY cash Triply should retain on a refunded row is the
+      // fee + PG wholesale (parking is fully refunded). If Stripe shows MORE
+      // retained than fee+premium, the refund was partial/incomplete (e.g. a
+      // manual dashboard refund short of the formula) — the pgRetained clamp
+      // would otherwise silently absorb the leftover as PG margin. Surface it
+      // as a per-row warning instead of masking it (cf. parkingFlowMismatches).
+      if (stripeKept !== null && stripeKept - feeKept - pgPremium > INTEGRITY_TOLERANCE) {
+        note += `; ⚠ over-retained $${(stripeKept - feeKept - pgPremium).toFixed(2)} beyond fee+premium — refund may be incomplete`;
+      }
     } else if (b.status === "cancelled") {
       counts.cancelled++;
       note = "no payment captured";
@@ -606,10 +654,14 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     });
   }
 
-  // PG wholesale is the contractual truth: $6 × confirmed opt-ins.
-  // Margin = per-row sum (can be negative when retail < wholesale).
-  const pgWholesale = confPGOptIns * PG_WHOLESALE;
-  const pgMargin = confPGMarginPerRow;
+  // Park Guard bills the $6 wholesale on EVERY conversion and never credits it
+  // back on a refund. Expose the confirmed and refunded slices SEPARATELY (each
+  // lives in its own result object below); the P&L (triplyNet / triplyTotal)
+  // uses the COMBINED margin. Margin can be negative — retail < wholesale, or a
+  // full refund where the whole premium was returned but the $6 is still owed.
+  const confPgWholesale = confPGOptIns * PG_WHOLESALE;
+  const refPgWholesale = refPGOptIns * PG_WHOLESALE;
+  const pgMargin = confPGMarginPerRow + refPGMarginPerRow;
   const netServiceFee = confServiceFee + refServiceFee;
   const stripeGross = stripeGrossReal + stripeGrossDerived;
   const stripeRefundedTotal = stripeRefundedReal + stripeRefundedDerived;
@@ -708,8 +760,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       serviceFee: confServiceFee,
       pgPremium: confPGPremium,
       pgOptIns: confPGOptIns,
-      pgWholesale,
-      pgMargin,
+      pgWholesale: confPgWholesale,
+      pgMargin: confPGMarginPerRow,
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
       channelTotal: opts.includeReslab ? confChannelTotal : null,
       commissionsTotal: opts.includeReslab ? confCommissionsTotal : null,
@@ -723,6 +775,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       parkingRefunded: refParkingRefunded,
       pgRefunded: refPGRefunded,
       pgOptIns: refPGOptIns,
+      // PG economics on refunded opt-ins (PG bills $6 on every conversion and
+      // never credits it back): wholesale still owed + net margin (retained
+      // premium − wholesale; ≈$0 per standard cancel, −$6 per full refund).
+      pgWholesale: refPgWholesale,
+      pgMargin: refPGMarginPerRow,
     },
     triplyNet: {
       serviceFee: netServiceFee,

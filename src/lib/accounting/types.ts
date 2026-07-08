@@ -162,6 +162,10 @@ export interface ReconcileResult {
     parkingRefunded: number;
     pgRefunded: number;
     pgOptIns: number;
+    // PG wholesale still owed on refunded opt-ins ($6 × pgOptIns) and the net
+    // PG margin on them (retained premium − wholesale; ≈$0 standard, −$6 full).
+    pgWholesale: number;
+    pgMargin: number;
   };
   triplyNet: {
     serviceFee: number;

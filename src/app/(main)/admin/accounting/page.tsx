@@ -476,7 +476,7 @@ export default function AccountingPage() {
                 <Row
                   label="Park Guard margin"
                   value={usd(result.triplyNet.pgMargin)}
-                  sub={result.triplyNet.pgMargin < 0 ? "⚠ NEGATIVE — see PG opt-ins" : `${result.confirmed.pgOptIns} opt-in${result.confirmed.pgOptIns === 1 ? "" : "s"}`}
+                  sub={result.triplyNet.pgMargin < 0 ? "⚠ NEGATIVE — full refunds eat the $6 wholesale" : `${result.confirmed.pgOptIns + result.refunded.pgOptIns} opt-in${result.confirmed.pgOptIns + result.refunded.pgOptIns === 1 ? "" : "s"}${result.refunded.pgOptIns ? ` (${result.refunded.pgOptIns} refunded)` : ""}`}
                 />
                 <Row
                   label="Total Triply revenue (gross)"
