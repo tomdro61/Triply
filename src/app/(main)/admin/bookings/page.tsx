@@ -108,9 +108,17 @@ export default function AdminBookingsPage() {
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
     const fee = parseFloat(booking.triply_service_fee) || 0;
+    // Park Guard's $6 wholesale is non-refundable to Triply, so a STANDARD cancel
+    // withholds it too (mirrors PROTECTION_PLAN.wholesalePrice + the refund math
+    // in api/admin/bookings/cancel/route.ts). A FULL refund returns the whole
+    // premium and Triply eats the $6. Clamped to the premium actually paid.
+    const PG_WHOLESALE = 6;
+    const hasPG = !!booking.protection_plan;
+    const pgPremium = parseFloat(booking.protection_plan_price || "0") || 0;
+    const pgWithheld = hasPG ? Math.min(PG_WHOLESALE, pgPremium) : 0;
     const confirmMsg = refundServiceFee
-      ? `FULL refund for ${booking.reslab_reservation_number} — refunds everything the customer paid Triply online, INCLUDING the $${fee.toFixed(2)} service fee. Use this when the lot turned the customer away. This cannot be undone.`
-      : `Cancel ${booking.reslab_reservation_number} and refund the customer, RETAINING the $${fee.toFixed(2)} Triply service fee (standard cancellation). This cannot be undone.`;
+      ? `FULL refund for ${booking.reslab_reservation_number} — refunds everything the customer paid Triply online, INCLUDING the $${fee.toFixed(2)} service fee${hasPG ? ` and the full $${pgPremium.toFixed(2)} Park Guard premium` : ""}. Use this when the lot turned the customer away. This cannot be undone.`
+      : `Cancel ${booking.reslab_reservation_number} and refund the customer, RETAINING the $${fee.toFixed(2)} Triply service fee${hasPG ? ` and $${pgWithheld.toFixed(2)} of the $${pgPremium.toFixed(2)} Park Guard premium (its non-refundable wholesale — customer gets $${(pgPremium - pgWithheld).toFixed(2)} back)` : ""} (standard cancellation). This cannot be undone.`;
     if (!confirm(confirmMsg)) {
       return;
     }
@@ -797,21 +805,23 @@ export default function AdminBookingsPage() {
                 {selectedBooking.status === "confirmed" && (
                   <>
                     {/* Standard cancel: refunds the customer but RETAINS the
-                        Triply service fee. */}
+                        Triply service fee + the $6 Park Guard wholesale (a
+                        partial protection refund on PG bookings). */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, false)}
                       disabled={cancelling}
-                      title="Refunds parking + protection, but keeps the Triply service fee"
+                      title="Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its $6 non-refundable wholesale"
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
                       {cancelling && cancellingMode === "standard" ? "Cancelling..." : "Cancel & Refund"}
                     </button>
-                    {/* Full refund: also returns the Triply service fee. Use when
-                        the lot turned the customer away and Triply eats its fee. */}
+                    {/* Full refund: also returns the Triply service fee AND the
+                        full Park Guard premium. Use when the lot turned the
+                        customer away and Triply eats its fee + the $6 wholesale. */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, true)}
                       disabled={cancelling}
-                      title="Also refunds the Triply service fee — use when the lot turned the customer away"
+                      title="Refunds everything incl. the Triply service fee and the full Park Guard premium — use when the lot turned the customer away"
                       className="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors disabled:opacity-50"
                     >
                       {cancelling && cancellingMode === "full" ? "Refunding..." : "Cancel & Full Refund"}
