@@ -19,6 +19,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
+import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
@@ -231,6 +232,7 @@ export function ProductDetailSlider({
             onStartChange={setLocalCheckIn}
             onEndChange={setLocalCheckOut}
             minDate={new Date()}
+            maxDate={maxAdvanceBookingDate()}
           >
             {({ startTriggerProps, endTriggerProps }) => (
               <div className="space-y-3">

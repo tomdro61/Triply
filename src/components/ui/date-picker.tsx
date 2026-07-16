@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { format, parse, startOfDay, isAfter, isBefore } from "date-fns";
+import { format, parse, startOfDay, isAfter, isBefore, differenceInCalendarDays } from "date-fns";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,7 @@ interface DateRangePickerProps {
   onStartChange: (value: string) => void;
   onEndChange: (value: string) => void;
   minDate?: Date;
+  maxDate?: Date;
   children: (props: {
     startTriggerProps: TriggerProps;
     endTriggerProps: TriggerProps;
@@ -29,6 +30,7 @@ export function DateRangePicker({
   onStartChange,
   onEndChange,
   minDate,
+  maxDate,
   children,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
@@ -153,7 +155,15 @@ export function DateRangePicker({
           <Calendar
             numberOfMonths={isMobile ? 1 : 2}
             pagedNavigation
-            disabled={minDate ? { before: minDate } : undefined}
+            disabled={
+              minDate && maxDate
+                ? [{ before: minDate }, { after: maxDate }]
+                : minDate
+                ? { before: minDate }
+                : maxDate
+                ? { after: maxDate }
+                : undefined
+            }
             defaultMonth={internalStart || new Date()}
             showOutsideDays
             animate
@@ -161,6 +171,13 @@ export function DateRangePicker({
             modifiers={modifiers}
             modifiersClassNames={modifiersClassNames}
           />
+          {maxDate && (
+            <p className="px-3 pb-3 pt-1 text-center text-xs text-gray-500">
+              Reservations open up to{" "}
+              {differenceInCalendarDays(maxDate, startOfDay(new Date()))} days in
+              advance.
+            </p>
+          )}
         </PopoverPrimitive.Content>
       </PopoverPrimitive.Portal>
     </PopoverPrimitive.Root>

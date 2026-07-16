@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
 import { DateRangePicker } from "@/components/ui/date-picker";
+import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { HeroChatInput } from "@/components/chat";
@@ -117,6 +118,7 @@ export function Hero() {
                 onStartChange={setDepartDate}
                 onEndChange={setReturnDate}
                 minDate={new Date()}
+                maxDate={maxAdvanceBookingDate()}
               >
                 {({ startTriggerProps, endTriggerProps }) => (
                   <>

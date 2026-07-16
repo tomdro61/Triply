@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
 import { DateRangePicker } from "@/components/ui/date-picker";
+import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 
@@ -52,6 +53,7 @@ export function SearchWidget({ airportCode }: SearchWidgetProps) {
           onStartChange={setDepartDate}
           onEndChange={setReturnDate}
           minDate={new Date()}
+          maxDate={maxAdvanceBookingDate()}
         >
           {({ startTriggerProps, endTriggerProps }) => (
             <>

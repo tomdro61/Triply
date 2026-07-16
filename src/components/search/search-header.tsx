@@ -11,6 +11,7 @@ import {
 import { format, parse } from "date-fns";
 import { getAirportByCode } from "@/config/airports";
 import { DateRangePicker } from "@/components/ui/date-picker";
+import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 
 export type SearchTab = "parking";
@@ -96,6 +97,7 @@ export function SearchHeader({
               onStartChange={onDepartDateChange}
               onEndChange={onReturnDateChange}
               minDate={new Date()}
+              maxDate={maxAdvanceBookingDate()}
             >
               {({ startTriggerProps, endTriggerProps }) => (
                 <>
@@ -165,6 +167,7 @@ export function SearchHeader({
             onStartChange={onDepartDateChange}
             onEndChange={onReturnDateChange}
             minDate={new Date()}
+            maxDate={maxAdvanceBookingDate()}
           >
             {({ startTriggerProps, endTriggerProps }) => (
               <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
