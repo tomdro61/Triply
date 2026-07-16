@@ -23,17 +23,50 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
-      // Logged-in user: verify they own this booking via Supabase
+      // Logged-in user: verify they own this booking. Ownership is either the
+      // user_id link OR — because that link is unreliably populated — a match
+      // between the booking's customer email and the user's VERIFIED account
+      // email (same trust model as the guest branch below). Without this
+      // fallthrough a signed-in customer 403s on their own booking whenever the
+      // user_id link was never set (guest checkout, later signup, etc.).
       const adminClient = await createAdminClient();
-      const { data: booking } = await adminClient
+      const { data: booking, error: bookingLookupErr } = await adminClient
         .from("bookings")
-        .select("customer_id, customers(user_id)")
+        .select("customer_id, customers(user_id, email)")
         .eq("reslab_reservation_number", id)
-        .single();
+        .maybeSingle();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const customerUserId = (booking?.customers as any)?.user_id;
-      if (!booking || customerUserId !== user.id) {
+      // A DB error must not become a 403 — that would tell the legitimate owner
+      // "not your booking" on a transient failure.
+      if (bookingLookupErr) {
+        captureBookingError(
+          new Error(`booking ownership lookup failed: ${bookingLookupErr.message}`),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        return NextResponse.json(
+          { error: "Unable to verify reservation. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      const customer = (booking?.customers ?? null) as
+        | { user_id?: string | null; email?: string | null }
+        | null;
+      const ownsByUserId = !!customer?.user_id && customer.user_id === user.id;
+      // Email-based ownership is gated on the same kill-switch as the other
+      // email-fallback surfaces (/api/user/bookings, /api/user/link-bookings)
+      // so ENABLE_EMAIL_BOOKING_FALLBACK=false halts ALL email-based booking
+      // access — including this highest-PII detail surface — in one env flip.
+      const fallbackEnabled =
+        process.env.ENABLE_EMAIL_BOOKING_FALLBACK !== "false";
+      const ownsByEmail =
+        fallbackEnabled &&
+        !!user.email_confirmed_at &&
+        !!user.email &&
+        !!customer?.email &&
+        customer.email.toLowerCase() === user.email.toLowerCase();
+
+      if (!booking || (!ownsByUserId && !ownsByEmail)) {
         // Check if user is admin
         if (!isAdminEmail(user.email)) {
           return NextResponse.json(
@@ -54,14 +87,26 @@ export async function GET(
 
       // Look up booking in Supabase to verify email matches
       const adminClient = await createAdminClient();
-      const { data: booking } = await adminClient
+      const { data: booking, error: bookingLookupErr } = await adminClient
         .from("bookings")
         .select("customer_id, customers(email)")
         .eq("reslab_reservation_number", id)
-        .single();
+        .maybeSingle();
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const customerEmail = (booking?.customers as any)?.email;
+      if (bookingLookupErr) {
+        captureBookingError(
+          new Error(`booking email lookup failed: ${bookingLookupErr.message}`),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        return NextResponse.json(
+          { error: "Unable to verify reservation. Please try again." },
+          { status: 500 }
+        );
+      }
+
+      const customerEmail = (
+        (booking?.customers ?? null) as { email?: string | null } | null
+      )?.email;
       if (!booking || customerEmail?.toLowerCase() !== email.toLowerCase()) {
         return NextResponse.json(
           { error: "Not authorized to view this reservation" },

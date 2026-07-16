@@ -40,6 +40,12 @@ export default function ReservationsPage() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  // Count of bookings made with this account's verified email that aren't
+  // linked yet. Surfaced as a one-click "add them" prompt — we never link
+  // silently (recycled/changed-email safety).
+  const [claimableCount, setClaimableCount] = useState(0);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuthAndFetchBookings();
@@ -75,11 +81,45 @@ export default function ReservationsPage() {
 
       const data = await response.json();
       setBookings(data.bookings || []);
+      setClaimableCount(data.claimableCount || 0);
     } catch (err) {
       console.error("Error fetching bookings:", err);
       setError("Failed to load your reservations. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Claim bookings made under this account's verified email (POST writes the
+  // user_id link + an audit row server-side). On success we re-fetch, which
+  // moves the claimed bookings into the list and clears the prompt.
+  const handleClaim = async () => {
+    setClaiming(true);
+    setClaimError(null);
+    try {
+      const response = await fetch("/api/user/link-bookings", { method: "POST" });
+      if (!response.ok) {
+        if (response.status === 401) {
+          router.push("/auth/login?redirect=/reservations");
+          return;
+        }
+        throw new Error("Failed to add bookings");
+      }
+      const result = await response.json().catch(() => ({}));
+      if (result?.disabled) {
+        // Kill-switch flipped between page load and click — keep the prompt and
+        // tell the user instead of silently clearing it on the refetch.
+        setClaimError(
+          "Adding bookings is temporarily unavailable. Please try again later."
+        );
+        return;
+      }
+      await checkAuthAndFetchBookings();
+    } catch (err) {
+      console.error("Error claiming bookings:", err);
+      setClaimError("We couldn't add those bookings. Please try again.");
+    } finally {
+      setClaiming(false);
     }
   };
 
@@ -141,11 +181,56 @@ export default function ReservationsPage() {
 
         {/* Main Content */}
         <div className="max-w-4xl mx-auto px-4 py-6">
+          {/* Claim prompt — bookings under this verified email that aren't
+              linked yet. One-click, never silent (recycled/changed-email safety). */}
+          {claimableCount > 0 && (
+            <div className="mb-6 rounded-xl border border-brand-orange/30 bg-brand-orange/5 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-start gap-3 flex-1">
+                  <div className="p-2 bg-brand-orange/10 rounded-lg shrink-0">
+                    <Ticket className="h-5 w-5 text-brand-orange" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      We found {claimableCount} reservation
+                      {claimableCount === 1 ? "" : "s"} under your email
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {userEmail
+                        ? `Bookings made with ${userEmail} aren't linked to your account yet.`
+                        : "Some bookings made with your email aren't linked to your account yet."}{" "}
+                      Add them to view and manage them here.
+                    </p>
+                    {claimError && (
+                      <p className="text-sm text-red-600 mt-2">{claimError}</p>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={handleClaim}
+                  disabled={claiming}
+                  className="shrink-0 inline-flex items-center justify-center gap-2 bg-brand-orange text-white font-semibold px-5 py-2.5 rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {claiming ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Adding…
+                    </>
+                  ) : (
+                    "Add to my account"
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
           {error ? (
             <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
               {error}
             </div>
           ) : bookings.length === 0 ? (
+            // No linked bookings. If there are claimable ones, the prompt above
+            // is the whole content; otherwise show the empty state.
+            claimableCount > 0 ? null : (
             /* Empty State */
             <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -166,6 +251,7 @@ export default function ReservationsPage() {
                 Find Parking
               </Link>
             </div>
+            )
           ) : (
             <>
               {/* Tabs */}

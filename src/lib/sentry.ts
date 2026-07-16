@@ -2,7 +2,7 @@ import * as Sentry from "@sentry/nextjs";
 
 type BookingErrorContext = {
   lotId?: string;
-  step?: "search" | "details" | "checkout" | "confirmation";
+  step?: "search" | "details" | "checkout" | "confirmation" | "account";
   userId?: string;
   airportCode?: string;
   confirmationNumber?: string;

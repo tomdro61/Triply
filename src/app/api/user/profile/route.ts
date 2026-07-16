@@ -23,12 +23,29 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get customer record if exists
-    const { data: customer } = await supabase
+    // Get customer record if exists. Tolerate-multiple (a user can currently
+    // have >1 customer row until Phase 5 dedup) via order+limit+maybeSingle so
+    // this never throws on duplicates. A real DB error must surface as 500 —
+    // returning customer:null on an error would render a blank profile as if
+    // the customer simply had no record.
+    const { data: customer, error: customerError } = await supabase
       .from("customers")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (customerError) {
+      captureAPIError(
+        new Error(`profile customer lookup failed: ${customerError.message}`),
+        { endpoint: "/api/user/profile", method: "GET" }
+      );
+      return NextResponse.json(
+        { error: "Internal server error" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       user: {
@@ -85,12 +102,29 @@ export async function PUT(request: NextRequest) {
     }
     const { firstName, lastName, phone } = validation.data;
 
-    // Update or create customer record
-    const { data: existingCustomer } = await adminSupabase
+    // Update or create customer record. Tolerate-multiple (a user can have >1
+    // customer row until Phase 5 dedup) via order+limit+maybeSingle — .single()
+    // errors on duplicate rows, which would silently fall through to the INSERT
+    // branch and mint a THIRD duplicate (or hit a unique violation). Surface a
+    // real DB error as 500 instead of ignoring it.
+    const { data: existingCustomer, error: lookupError } = await adminSupabase
       .from("customers")
       .select("id")
       .eq("user_id", user.id)
-      .single();
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (lookupError) {
+      captureAPIError(
+        new Error(`profile customer lookup (PUT) failed: ${lookupError.message}`),
+        { endpoint: "/api/user/profile", method: "PUT" }
+      );
+      return NextResponse.json(
+        { error: "Failed to update profile" },
+        { status: 500 }
+      );
+    }
 
     if (existingCustomer) {
       // Update existing customer
