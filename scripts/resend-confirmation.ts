@@ -14,6 +14,11 @@ import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 dotenv.config({ path: ".env.local" });
 
+// Render all dates/times in UTC to match production (Vercel runs UTC). Belt-and-
+// suspenders on top of the timezone-safe formatDate fix: running this script from
+// a non-UTC machine must never shift a customer's booking dates.
+process.env.TZ = "UTC";
+
 // Dynamic imports below for @/lib/resend/* — ES module hoisting would otherwise
 // evaluate the resend client before dotenv.config() loads RESEND_API_KEY.
 

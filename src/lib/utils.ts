@@ -28,14 +28,31 @@ export function formatDate(
     day: "numeric",
     year: "numeric",
   };
-  return new Date(date).toLocaleDateString("en-US", options || defaultOptions);
+  return parseDateSafe(date).toLocaleDateString("en-US", options || defaultOptions);
+}
+
+/**
+ * Parse a date value without the date-only UTC-shift footgun.
+ *
+ * A bare "YYYY-MM-DD" string is parsed by JS as UTC midnight, which then renders
+ * as the PREVIOUS calendar day when formatted in a timezone behind UTC (e.g. a
+ * confirmation email resent from a US-Eastern laptop showed Jul 18 for a Jul 19
+ * booking — production on Vercel/UTC was unaffected). Anchoring date-only strings
+ * to LOCAL midnight preserves the calendar day in every timezone. Date objects
+ * and full datetime strings (which JS already parses as local) are untouched.
+ */
+function parseDateSafe(date: string | Date): Date {
+  if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return new Date(`${date}T00:00:00`);
+  }
+  return new Date(date);
 }
 
 /**
  * Format a date and time for display
  */
 export function formatDateTime(date: string | Date): string {
-  return new Date(date).toLocaleString("en-US", {
+  return parseDateSafe(date).toLocaleString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
