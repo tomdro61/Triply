@@ -48,6 +48,18 @@ export interface AnomalyReport {
   possibleManualCharges: OrphanCharge[];
   /** same card/email, more retained charges than bookings — unresolved double-charge. */
   doubleCharges: DoubleCharge[];
+  /**
+   * Same cart (email + lot + dates) booked twice under DIFFERENT PaymentIntents.
+   * Invisible to `doubleCharges`, whose `charges > bookings` test is false when
+   * both charges produced a booking row.
+   */
+  duplicateBookings: DuplicateCartBooking[];
+}
+
+export interface DuplicateCartBooking {
+  email: string;
+  reservationNumbers: string[];
+  paymentIntentIds: string[];
 }
 
 function methodOf(ch: Stripe.Charge | null): string {
@@ -88,6 +100,56 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     if (error) throw new Error(`Supabase bookings lookup failed: ${error.message}`);
     for (const b of bookings ?? []) {
       if (b.stripe_payment_intent_id) bookedPI.add(b.stripe_payment_intent_id);
+    }
+  }
+
+  // 2b) Same-cart double BOOKINGS.
+  //
+  // The `charges > bookings` rule below cannot see these: when a customer is
+  // charged twice and BOTH charges produce a booking row, the group is balanced
+  // (2 > 2 is false) and the whole thing is invisible. That is exactly the shape
+  // an async payment settling after its cart lock expired produces — two real
+  // ResLab reservations, two captures, one customer.
+  const duplicateBookings: DuplicateCartBooking[] = [];
+  {
+    const supabase = await createAdminClient();
+    const sinceISO = new Date(sinceUnix * 1000).toISOString();
+    const { data: recent, error } = await supabase
+      .from("bookings")
+      .select(
+        "reslab_reservation_number, stripe_payment_intent_id, reslab_location_id, check_in, check_out, created_at, customers!inner(email)"
+      )
+      .eq("status", "confirmed")
+      .gte("created_at", sinceISO);
+    if (error) {
+      throw new Error(`Supabase duplicate-cart lookup failed: ${error.message}`);
+    }
+
+    const byCart = new Map<string, typeof recent>();
+    for (const b of recent ?? []) {
+      const email = (b.customers as unknown as { email: string })?.email ?? "";
+      const key = [
+        email.toLowerCase(),
+        b.reslab_location_id,
+        b.check_in,
+        b.check_out,
+      ].join("|");
+      const g = byCart.get(key);
+      if (g) g.push(b);
+      else byCart.set(key, [b]);
+    }
+
+    for (const [key, group] of byCart) {
+      const distinctPIs = new Set(
+        group.map((b) => b.stripe_payment_intent_id).filter(Boolean)
+      );
+      if (group.length >= 2 && distinctPIs.size >= 2) {
+        duplicateBookings.push({
+          email: key.split("|")[0],
+          reservationNumbers: group.map((b) => b.reslab_reservation_number),
+          paymentIntentIds: [...distinctPIs] as string[],
+        });
+      }
     }
   }
 
@@ -181,11 +243,17 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
 
   return {
     windowDays,
-    stripeLivemode: pis[0]?.livemode ?? false,
+    // Derived from the KEY, not from the results. Reading `pis[0].livemode` made
+    // this false whenever the list came back empty — which is precisely the case
+    // the route's zero-scan escalation exists to catch, so that guard
+    // (`stripeLivemode && scannedPaymentIntents === 0`) could never fire. A
+    // rotated or broken Stripe key reported a clean run.
+    stripeLivemode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_"),
     scannedPaymentIntents: pis.length,
     succeededRetained: retained.length,
     orphans: orphans.sort((a, b) => a.createdISO.localeCompare(b.createdISO)),
     possibleManualCharges,
     doubleCharges,
+    duplicateBookings,
   };
 }

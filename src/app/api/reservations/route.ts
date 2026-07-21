@@ -134,6 +134,16 @@ export async function POST(request: NextRequest) {
           { error: outcome.userMessage },
           { status: 409 }
         );
+
+      default: {
+        // Exhaustiveness guard. Without it, adding a variant to
+        // CreateBookingResult silently falls through and returns undefined —
+        // a 500 with no body on a path where the customer has already paid.
+        const unhandled: never = outcome;
+        throw new Error(
+          `Unhandled createBooking outcome: ${JSON.stringify(unhandled)}`
+        );
+      }
     }
   } catch (error) {
     if (error instanceof PaymentNotConfirmedError) {

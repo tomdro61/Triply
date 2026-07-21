@@ -97,7 +97,16 @@ export async function POST(request: NextRequest) {
         stripePaymentIntentId: paymentIntent.id,
       });
 
-      if (outcome.kind === "in_progress" || outcome.kind === "deferred") {
+      // A needs_reconciliation caused by a DATABASE fault is retryable — we
+      // couldn't read our own state, which says nothing about the booking. The
+      // genuinely terminal ambiguities (ResLab may-or-may-not-have-created, an
+      // unknown capture result) set retryable=false and must NOT be redelivered,
+      // because retrying those double-books.
+      if (
+        outcome.kind === "in_progress" ||
+        outcome.kind === "deferred" ||
+        (outcome.kind === "needs_reconciliation" && outcome.retryable)
+      ) {
         // Another caller holds a fresh claim, or the payment is still settling.
         // Returning non-2xx makes Stripe redeliver — and by then the claim will
         // have gone stale and this handler can steal it. That redelivery is what
@@ -177,13 +186,57 @@ export async function POST(request: NextRequest) {
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
         }
-        // TODO(phase-2): a booking may exist here because Phase 1 now creates it
-        // from a `processing` PaymentIntent that later fails capture. Today this
-        // only flips status + alerts — it does NOT release the held ResLab spot
-        // or cancel Park Guard, so ops must clean up manually. Phase 2 must add
-        // reslab.cancelReservation + parkGuard.updateReservation(...cancelled)
-        // here (mirroring the charge.refunded branch) to auto-release inventory.
+        // TODO: a booking can exist here if capture failed AFTER the reservation
+        // was created (see the capture_ambiguous status). This only flips status
+        // + alerts — it does NOT release the held ResLab spot or cancel Park
+        // Guard, so ops must clean up manually. Mirror the charge.refunded branch
+        // (reslab.cancelReservation + parkGuard.updateReservation) to automate it.
       }
+
+      // An async payment that failed while deferred has NO booking row — the
+      // engine returns `deferred` before creating anything. What it does leave is
+      // a pending row and a cart claim, and the claim would otherwise block this
+      // customer from re-booking the same lot and dates for 30 minutes right after
+      // their payment failed. Release both.
+      const { data: failedPending } = await supabase
+        .from("pending_bookings")
+        .select("status, reslab_reservation_number")
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .maybeSingle();
+
+      if (
+        failedPending &&
+        (failedPending.status === "pending" || failedPending.status === "processing")
+      ) {
+        await supabase
+          .from("pending_bookings")
+          .update({
+            status: "failed",
+            last_error: `PaymentIntent failed: ${
+              paymentIntent.last_payment_error?.message || "unknown error"
+            }`,
+          })
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .in("status", ["pending", "processing"]);
+
+        // A reservation with a failed payment is inventory we hold and can never
+        // bill for. Should be rare — the deferral runs before ResLab — but if it
+        // happens, ops must release the spot.
+        if (failedPending.reslab_reservation_number) {
+          capturePaymentError(
+            new Error(
+              `PaymentIntent ${paymentIntent.id} failed but ResLab reservation ${failedPending.reslab_reservation_number} exists — release the spot manually.`
+            ),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+        }
+      }
+
+      await supabase
+        .from("cart_claims")
+        .update({ released_at: new Date().toISOString() })
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .is("released_at", null);
 
       capturePaymentError(
         new Error(`Payment failed: ${paymentIntent.last_payment_error?.message || "unknown error"}`),

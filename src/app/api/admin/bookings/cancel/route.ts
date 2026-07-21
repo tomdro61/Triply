@@ -3,7 +3,11 @@ import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
-import { createRefund, getPaymentIntent } from "@/lib/stripe/client";
+import {
+  createRefund,
+  getPaymentIntent,
+  cancelPaymentIntent,
+} from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
@@ -178,10 +182,47 @@ export async function POST(request: NextRequest) {
     const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheld;
     let refundAmount = 0;
     let piLookupFailed = false;
+    // Set when the payment was an uncaptured AUTHORIZATION that we released
+    // rather than refunded. Keeps the $0-refund branch below from also firing and
+    // reporting a confusing "refund skipped" alongside a successful release.
+    let holdReleased = false;
     if (refundPaymentIntentId) {
       try {
         const pi = await getPaymentIntent(refundPaymentIntentId);
-        if (pi.status === "processing") {
+        if (pi.status === "requires_capture") {
+          // Authorized but NEVER captured — under the manual-capture model this
+          // is a normal state, and there is nothing to refund because no money
+          // moved. `amount_received` is 0 here, so the refund math below computed
+          // $0, skipped the refund, set results.stripe = true, and returned a
+          // 200 "cancelled and refunded successfully" — while a live hold sat on
+          // the customer's card until Stripe expired it up to 7 days later.
+          // Release the hold explicitly.
+          try {
+            await cancelPaymentIntent(refundPaymentIntentId);
+            results.stripe = true;
+            holdReleased = true;
+            results.errors.push(
+              "Stripe: authorization released — the customer was never charged, so no refund was needed"
+            );
+          } catch (cancelError) {
+            piLookupFailed = true; // keeps allSucceeded=false → 207, never a false 200
+            const msg =
+              cancelError instanceof Error
+                ? cancelError.message
+                : "authorization release failed";
+            results.errors.push(`Stripe: ${msg}`);
+            captureAPIError(
+              new Error(
+                `Admin cancel: failed to release authorization on ${refundPaymentIntentId}; ResLab already released and a live hold remains on the customer's card — cancel it manually in Stripe. ${msg}`
+              ),
+              {
+                endpoint: "/api/admin/bookings/cancel",
+                method: "POST",
+                statusCode: 207,
+              }
+            );
+          }
+        } else if (pi.status === "processing") {
           // Belt-and-suspenders: the pre-check above returns 409 for a
           // processing PI, but if its read failed transiently we fall through
           // to here (ResLab is already released by Step 1). amount_received is
@@ -218,7 +259,8 @@ export async function POST(request: NextRequest) {
     // nothing — silently corrupting kept-revenue accounting (migration 013),
     // with no retry path (the 409 "already refunded" guard blocks re-runs) and
     // even emailing the customer that a refund was issued.
-    const intendToRefund = !!refundPaymentIntentId && refundAmount > 0;
+    const intendToRefund =
+      !!refundPaymentIntentId && refundAmount > 0 && !holdReleased;
     if (intendToRefund) {
       try {
         await createRefund(refundPaymentIntentId, refundAmount);
@@ -228,7 +270,7 @@ export async function POST(request: NextRequest) {
           `Stripe: ${error instanceof Error ? error.message : "Refund failed"}`
         );
       }
-    } else if (!piLookupFailed) {
+    } else if (!piLookupFailed && !holdReleased) {
       // Nothing to refund (no PaymentIntent, or a $0 computed amount because
       // parking was fully due-at-location and the fee is retained). Not a Stripe
       // failure, but surface the surprising $0 case so it isn't read as success.
@@ -326,16 +368,22 @@ export async function POST(request: NextRequest) {
         // What the customer actually got back OF the PG premium = premium minus
         // the withheld wholesale (0 on a full refund → full premium). Must match
         // what Stripe refunded so the email breakdown reconciles.
-        const protectionPlanRefund = booking.protection_plan
-          ? Math.max(0, pgPremium - pgWholesaleWithheld)
-          : 0;
+        // Zero unless money was ACTUALLY refunded. On the manual-capture
+        // `requires_capture` path we release an authorization instead — nothing
+        // was ever charged, so nothing is returned, and reporting a $6.99
+        // protection refund here would both misstate the email and trip the
+        // invariant check below on every single Park Guard cancellation.
+        const protectionPlanRefund =
+          wasRefunded && booking.protection_plan
+            ? Math.max(0, pgPremium - pgWholesaleWithheld)
+            : 0;
         // Invariant: the protection refund can never exceed the total refund
         // (would mean premium + serviceFee > amount_received — a dirty/partial-
         // capture row). The email template clamps this so the breakdown still
         // reconciles, but that clamp is render-only and can't alert. Surface it
         // here (where Sentry is available) so a broken withholding math isn't
         // silently masked while the refund still reports success.
-        if (protectionPlanRefund > refundAmount) {
+        if (wasRefunded && protectionPlanRefund > refundAmount) {
           captureAPIError(
             new Error(
               `Admin cancel: protection refund $${protectionPlanRefund} exceeds total refund $${refundAmount} ` +
@@ -385,7 +433,13 @@ export async function POST(request: NextRequest) {
         results,
         newStatus,
         message: allSucceeded
-          ? `Reservation cancelled and refunded successfully${results.email ? " — confirmation email sent" : ""}`
+          ? `${
+              wasRefunded
+                ? "Reservation cancelled and refunded successfully"
+                : holdReleased
+                ? "Reservation cancelled and the card authorization released — the customer was never charged"
+                : "Reservation cancelled — no refund was due"
+            }${results.email ? " — confirmation email sent" : ""}`
           : `Partial cancellation — ${results.errors.join("; ")}`,
       },
       { status: allSucceeded ? 200 : 207 }

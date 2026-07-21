@@ -145,7 +145,15 @@ export function StripePaymentForm({
       }
     } catch (err) {
       console.error("Payment error:", err);
-      setPaymentError("An unexpected error occurred. Please try again.");
+      // Surface the thrown message. onBeforeConfirm deliberately throws
+      // "…you have not been charged" — the whole point of failing closed before
+      // the charge is telling the customer that, and a generic string erased it,
+      // conflating a pre-charge abort with a post-charge failure.
+      setPaymentError(
+        err instanceof Error
+          ? err.message
+          : "An unexpected error occurred. Please try again."
+      );
       setIsProcessing(false);
     }
   };

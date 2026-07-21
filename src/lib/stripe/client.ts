@@ -124,8 +124,39 @@ export async function cancelPaymentIntent(paymentIntentId: string) {
  * customer who has already been refunded — charged, refunded, then given an
  * unpaid reservation. ANY refund means the PI is permanently un-bookable.
  */
-export function paymentIntentHasRefund(pi: Stripe.PaymentIntent): boolean {
-  const charge = pi.latest_charge;
-  if (!charge || typeof charge === "string") return false;
-  return (charge.amount_refunded ?? 0) > 0;
+export type RefundState =
+  /** A charge exists and carries a refund. Certain. */
+  | "refunded"
+  /** No money has been returned. Certain. */
+  | "none"
+  /** We cannot tell. Callers must refuse to fulfil, but must NOT record a
+   *  terminal status asserting money moved — that turns a transient unknown into
+   *  a permanent lie about the customer's card. */
+  | "unknown";
+
+export function paymentIntentRefundState(pi: Stripe.PaymentIntent): RefundState {
+  // safety-removed: the original `if (!charge || typeof charge === "string") return false`
+  // WAS the defect. It made this gate fail OPEN — "cannot determine" was reported as
+  // "no refund", so a refunded customer could be re-fulfilled, which is precisely
+  // what gate G1 exists to prevent. Replaced by an explicit tri-state so callers
+  // can refuse on "unknown" without asserting anything false about the money.
+  if (!pi.latest_charge) {
+    // A PaymentIntent that has not yet produced a charge cannot carry a refund.
+    // This is the only case where "no refund" is knowable rather than assumed.
+    if (pi.status === "requires_capture" || pi.status === "processing") {
+      return "none";
+    }
+    return "unknown";
+  }
+
+  // Unexpanded. Reporting "none" here would silently open the gate, so callers
+  // MUST retrieve with expand: ["latest_charge"] — enforce it loudly rather than
+  // guess.
+  if (typeof pi.latest_charge === "string") {
+    throw new Error(
+      `paymentIntentRefundState requires a PaymentIntent retrieved with expand:["latest_charge"] (got an unexpanded charge id on ${pi.id})`
+    );
+  }
+
+  return (pi.latest_charge.amount_refunded ?? 0) > 0 ? "refunded" : "none";
 }

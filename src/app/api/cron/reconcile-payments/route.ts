@@ -77,12 +77,16 @@ export async function GET(request: NextRequest) {
   const freshUnmatched = report.possibleManualCharges.filter(
     (c) => now - Date.parse(c.createdISO) < RECENT_UNMATCHED_MS
   ).length;
-  const alertCount = report.orphans.length + report.doubleCharges.length + freshUnmatched;
+  const alertCount =
+    report.orphans.length +
+    report.doubleCharges.length +
+    report.duplicateBookings.length +
+    freshUnmatched;
 
   if (alertCount > 0) {
     captureAPIError(
       new Error(
-        `Payment reconciliation: ${report.orphans.length} orphan(s) + ${report.doubleCharges.length} double-charge(s) + ${freshUnmatched} new unmatched charge(s) in ${WINDOW_DAYS}d`
+        `Payment reconciliation: ${report.orphans.length} orphan(s) + ${report.doubleCharges.length} double-charge(s) + ${report.duplicateBookings.length} duplicate-cart booking(s) + ${freshUnmatched} new unmatched charge(s) in ${WINDOW_DAYS}d`
       ),
       CTX
     );
@@ -118,6 +122,7 @@ export async function GET(request: NextRequest) {
     anomalies: alertCount,
     orphans: report.orphans.length,
     doubleCharges: report.doubleCharges.length,
+    duplicateBookings: report.duplicateBookings.length,
     freshUnmatched,
     possibleManualCharges: report.possibleManualCharges.length,
     scanned: report.scannedPaymentIntents,

@@ -614,7 +614,16 @@ export function CheckoutForm({
       // until the reservation exists rather than showing a false failure.
       if (response.status === 202) {
         sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-        router.push(`/checkout/complete?payment_intent=${encodeURIComponent(stripePaymentIntentId)}`);
+        // BOTH params are required. /checkout/complete authenticates against the
+        // client secret — Stripe supplies it on its own redirects, and this
+        // in-app hand-off must too. Sending only payment_intent made the page
+        // fail its first check and show "we couldn't identify this payment" to a
+        // customer whose card had just been authorized successfully.
+        router.push(
+          `/checkout/complete?payment_intent=${encodeURIComponent(
+            stripePaymentIntentId
+          )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+        );
         return;
       }
 

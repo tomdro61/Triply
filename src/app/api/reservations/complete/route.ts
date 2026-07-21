@@ -120,10 +120,7 @@ export async function POST(request: NextRequest) {
     switch (outcome.kind) {
       case "created":
       case "already_exists": {
-        const reservationNumber =
-          outcome.kind === "created"
-            ? outcome.reservationNumber
-            : outcome.reservationNumber;
+        const reservationNumber = outcome.reservationNumber;
         return NextResponse.json({
           state: "booked",
           reservationNumber,
@@ -173,6 +170,14 @@ export async function POST(request: NextRequest) {
           state: "failed",
           message: outcome.userMessage,
         });
+
+      default: {
+        // Exhaustiveness guard — see the matching one in /api/reservations.
+        const unhandled: never = outcome;
+        throw new Error(
+          `Unhandled createBooking outcome: ${JSON.stringify(unhandled)}`
+        );
+      }
     }
   } catch (error) {
     if (error instanceof PaymentNotConfirmedError) {
