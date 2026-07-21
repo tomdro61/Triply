@@ -318,12 +318,23 @@ interface PaginatedResponse<T> {
 // propagates like any other ResLab failure.
 const RESLAB_TIMEOUT_MS = 10_000;
 
+// createReservation gets its OWN, longer budget. Aborting that call does not
+// cancel it — ResLab may commit the reservation after we stop listening, and
+// with no idempotency key we can never safely retry or verify. Every premature
+// abort therefore manufactures a charged-but-unknown booking requiring manual
+// recovery (the yb3246 case). A slow definitive answer beats a fast ambiguous
+// one, so we wait considerably longer here than for a search, where a timeout
+// costs nothing but a retry. Bounded well under the route's maxDuration of 60s
+// so the surrounding work (capture, Supabase, Park Guard, emails) still fits.
+const RESLAB_CREATE_TIMEOUT_MS = 30_000;
+
 async function reslabFetch(
   url: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  timeoutMs: number = RESLAB_TIMEOUT_MS
 ): Promise<{ response: Response; clear: () => void }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), RESLAB_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, { ...init, signal: controller.signal });
     // fetch() resolves at the response headers (TTFB), so keep the timer armed
@@ -394,7 +405,8 @@ export class ReslabError extends Error {
 
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs: number = RESLAB_TIMEOUT_MS
 ): Promise<T> {
   const token = await getToken();
 
@@ -408,10 +420,14 @@ async function request<T>(
     headers["Content-Type"] = "application/json";
   }
 
-  const { response, clear } = await reslabFetch(`${RESLAB_API_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const { response, clear } = await reslabFetch(
+    `${RESLAB_API_URL}${endpoint}`,
+    {
+      ...options,
+      headers,
+    },
+    timeoutMs
+  );
 
   try {
     if (response.status === 401) {
@@ -430,7 +446,8 @@ async function request<T>(
         {
           ...options,
           headers: retryHeaders,
-        }
+        },
+        timeoutMs
       );
 
       try {
@@ -565,10 +582,17 @@ export const reslab = {
   async createReservation(
     data: CreateReservationRequest
   ): Promise<ReslabReservation> {
-    return request("/reservations", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    // Longer timeout than every other call — see RESLAB_CREATE_TIMEOUT_MS. An
+    // abort here is genuinely ambiguous and costs manual ops work, so we give
+    // ResLab every chance to answer definitively.
+    return request(
+      "/reservations",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      },
+      RESLAB_CREATE_TIMEOUT_MS
+    );
   },
 
   /**

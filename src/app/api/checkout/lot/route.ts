@@ -291,6 +291,15 @@ export async function POST(request: NextRequest) {
       locationId: String(locationId),
       checkin,
       checkout,
+      // Times and parking type are stamped so the server can reconstruct WHAT
+      // the customer paid for without trusting a client payload. The dead-browser
+      // fulfilment paths (/checkout/complete and the Stripe webhook) have no
+      // client to ask, and date-only checkin/checkout can't distinguish a 10 AM
+      // pickup from a 10 PM one — a full extra billed day. Stored as the literal
+      // 12-hour strings the customer picked; never parsed as a Date.
+      checkinTime,
+      checkoutTime,
+      parkingTypeId: String(parkingTypeId),
       customerEmail,
       verifiedTotal: String(verifiedTotal),
       serviceFee: String(postServiceFee),

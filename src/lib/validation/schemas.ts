@@ -58,6 +58,25 @@ export const reservationSchema = z.object({
   hasProtectionPlan: z.boolean(),
 });
 
+/**
+ * Payload staged to `pending_bookings` immediately BEFORE the customer confirms
+ * payment, so the booking can be completed server-side even if the browser never
+ * comes back (a 3-D Secure redirect, a BNPL redirect, a crash, a closed tab).
+ *
+ * Identical to reservationSchema except `stripePaymentIntentId` is REQUIRED —
+ * the PaymentIntent id is the row's primary key and the mutex every fulfilment
+ * path claims. A pending row without one is unreachable and therefore useless.
+ */
+export const pendingBookingSchema = reservationSchema.extend({
+  stripePaymentIntentId: z.string().min(1, "stripePaymentIntentId is required"),
+  /** Query params needed to rebuild the customer's /confirmation URL on the
+   *  redirect-return path, where the original client state is long gone. */
+  confirmationParams: z.record(z.string(), z.string()).optional(),
+});
+
+export type ReservationInput = z.infer<typeof reservationSchema>;
+export type PendingBookingInput = z.infer<typeof pendingBookingSchema>;
+
 export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")

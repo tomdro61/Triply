@@ -515,53 +515,108 @@ export function CheckoutForm({
     setPromoDiscountPercent(0);
   };
 
+  /**
+   * The booking payload. Built once and used for BOTH the pre-payment staging
+   * call and the post-payment fulfilment call, so the durable row and the live
+   * request can never describe different bookings.
+   */
+  const buildReservationBody = (stripePaymentIntentId: string) => {
+    const parkingTypeId =
+      costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
+    const extraFields: Record<string, string> = { ...extraFieldValues };
+
+    return {
+      locationId: lot.reslabLocationId,
+      costsToken: serverCostsToken || costData?.costsToken,
+      fromDate: fromDate,
+      toDate: toDate,
+      parkingTypeId: parkingTypeId,
+      customer: customerDetails,
+      vehicle: vehicleDetails,
+      extraFields,
+      // Location info for Supabase
+      locationName: lot.name,
+      locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
+      airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+      // Pricing info
+      subtotal: costData?.subtotal || priceBreakdown.subtotal,
+      taxTotal: costData?.taxTotal || priceBreakdown.taxes,
+      feesTotal: costData?.feesTotal || priceBreakdown.fees,
+      grandTotal: costData?.grandTotal || priceBreakdown.total,
+      triplyServiceFee: priceBreakdown.serviceFee,
+      // User ID for linking to account (if logged in)
+      userId: user?.id || null,
+      // Park Guard parking protection opt-in. Sent explicitly (not
+      // conditionally omitted) so the API boundary sees an unambiguous
+      // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
+      hasProtectionPlan,
+      // Stripe payment reference
+      stripePaymentIntentId,
+    };
+  };
+
+  /** Query params needed to rebuild this customer's confirmation URL on the
+   *  redirect-return path, where none of the above client state still exists. */
+  const confirmationParams = () => ({
+    lot: lot.id,
+    checkin: checkIn,
+    checkout: checkOut,
+    checkinTime: checkInTime,
+    checkoutTime: checkOutTime,
+    serviceFee: String(priceBreakdown.serviceFee),
+  });
+
+  /**
+   * Persist the booking payload BEFORE the card is confirmed.
+   *
+   * THROWS on any failure, which aborts the payment. That is deliberate: a
+   * customer redirected to their bank for 3-D Secure never returns to this tab,
+   * so without a durable row the webhook has nothing to fulfil from and the
+   * charge becomes an orphan. Blocking checkout is the strictly better failure.
+   */
+  const stagePendingBooking = async (stripePaymentIntentId: string) => {
+    // fetch() does NOT reject on 4xx/5xx — the status must be checked explicitly
+    // or a failed stage would silently let the charge proceed.
+    const response = await fetch("/api/reservations/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...buildReservationBody(stripePaymentIntentId),
+        confirmationParams: confirmationParams(),
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.json().catch(() => null);
+      throw new Error(
+        detail?.error ||
+          "We couldn't prepare your booking. Please try again — you have not been charged."
+      );
+    }
+  };
+
   // Handle successful Stripe payment - then create ResLab reservation
   const handlePaymentSuccess = async (stripePaymentIntentId: string) => {
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
-      // Get parking type ID from costData or lot pricing
-      const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
-
-      // Build extra fields for API
-      const extraFields: Record<string, string> = { ...extraFieldValues };
-
-      // Create reservation via API
       const response = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          locationId: lot.reslabLocationId,
-          costsToken: serverCostsToken || costData?.costsToken,
-          fromDate: fromDate,
-          toDate: toDate,
-          parkingTypeId: parkingTypeId,
-          customer: customerDetails,
-          vehicle: vehicleDetails,
-          extraFields,
-          // Location info for Supabase
-          locationName: lot.name,
-          locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
-          airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
-          // Pricing info
-          subtotal: costData?.subtotal || priceBreakdown.subtotal,
-          taxTotal: costData?.taxTotal || priceBreakdown.taxes,
-          feesTotal: costData?.feesTotal || priceBreakdown.fees,
-          grandTotal: costData?.grandTotal || priceBreakdown.total,
-          triplyServiceFee: priceBreakdown.serviceFee,
-          // User ID for linking to account (if logged in)
-          userId: user?.id || null,
-          // Park Guard parking protection opt-in. Sent explicitly (not
-          // conditionally omitted) so the API boundary sees an unambiguous
-          // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
-          hasProtectionPlan,
-          // Stripe payment reference
-          stripePaymentIntentId,
-        }),
+        body: JSON.stringify(buildReservationBody(stripePaymentIntentId)),
       });
 
       const result = await response.json();
+
+      // 202 = another path (the webhook) is completing this booking, or the
+      // payment is still settling. Hand off to /checkout/complete, which polls
+      // until the reservation exists rather than showing a false failure.
+      if (response.status === 202) {
+        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+        router.push(`/checkout/complete?payment_intent=${encodeURIComponent(stripePaymentIntentId)}`);
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(result.error || "Failed to create reservation");
@@ -764,6 +819,11 @@ export function CheckoutForm({
                   onTermsChange={setAcceptedTerms}
                   onBack={handlePaymentBack}
                   onPaymentSuccess={handlePaymentSuccess}
+                  onBeforeConfirm={
+                    paymentIntentId
+                      ? () => stagePendingBooking(paymentIntentId)
+                      : undefined
+                  }
                   isSubmitting={isSubmitting}
                   submitError={submitError}
                   dueAtLocation={lot.dueAtLocation}

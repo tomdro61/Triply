@@ -23,6 +23,16 @@ interface StripePaymentFormProps {
   onTermsChange: (accepted: boolean) => void;
   onBack: () => void;
   onPaymentSuccess: (paymentIntentId: string) => Promise<void>;
+  /**
+   * Persists the booking payload server-side BEFORE the charge is confirmed.
+   *
+   * Must THROW to abort the payment. A durable pending row is a hard
+   * precondition for taking money: PaymentIntent metadata cannot reconstruct a
+   * ResLab reservation (no vehicle, no name, no phone), so without the row a
+   * customer whose browser dies mid-redirect cannot be fulfilled by the webhook
+   * — which is precisely the orphan this rehaul exists to eliminate.
+   */
+  onBeforeConfirm?: () => Promise<void>;
   isSubmitting?: boolean;
   submitError?: string | null;
   dueAtLocation?: boolean;
@@ -50,6 +60,7 @@ export function StripePaymentForm({
   onTermsChange,
   onBack,
   onPaymentSuccess,
+  onBeforeConfirm,
   isSubmitting = false,
   submitError,
   dueAtLocation = false,
@@ -78,6 +89,14 @@ export function StripePaymentForm({
     setPaymentError(null);
 
     try {
+      // Stage the booking payload BEFORE confirming. Deliberately inside the
+      // try and immediately before confirmPayment: if staging fails we throw and
+      // never charge the card. A checkout the customer can retry is recoverable;
+      // a charge with no durable record of what they bought is not.
+      if (onBeforeConfirm) {
+        await onBeforeConfirm();
+      }
+
       // Confirm the payment
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
@@ -96,22 +115,25 @@ export function StripePaymentForm({
 
       if (
         paymentIntent &&
-        (paymentIntent.status === "succeeded" || paymentIntent.status === "processing")
+        (paymentIntent.status === "succeeded" ||
+          paymentIntent.status === "processing" ||
+          paymentIntent.status === "requires_capture")
       ) {
-        // Payment successful — create the reservation.
+        // Payment authorized — create the reservation.
         //
-        // safety-removed: "processing" previously fell into the else branch and
-        // was shown as "Payment could not be processed. Please try again." But
-        // we use Stripe async capture (automatic_async), so some cards/wallets
-        // resolve confirmPayment with status "processing" — the money IS
-        // authorized/being captured. Telling the customer it failed made them
-        // retry, producing a second charge (double-charge) or, if they gave up,
-        // a paid-but-no-booking orphan. Treating "processing" as success creates
-        // the booking now; the webhook confirms final capture. The rare
-        // processing→payment_failed case is NOT yet auto-released: the webhook
-        // flips status to payment_failed and alerts Sentry, but automated
-        // ResLab/Park Guard release is a pending Phase 2 enhancement
-        // (TODO(phase-2) in /api/webhooks/stripe).
+        // "requires_capture" is the NORMAL success state under manual capture:
+        // the customer's card is authorized but NOT charged. Money moves only
+        // after ResLab confirms a reservation exists (see
+        // @/lib/booking/create-booking). Omitting it here would show a working
+        // authorization as a failure and drive the retry-into-double-charge
+        // spiral this rehaul exists to end.
+        //
+        // "processing" is kept for async settlement (some wallets and
+        // bank-backed methods): the money is authorized or settling. Telling the
+        // customer it failed made them retry, producing a second charge or, if
+        // they gave up, a paid-but-no-booking orphan. On this path all side
+        // effects are deferred to the webhook, which drives the whole sequence
+        // once the PaymentIntent becomes capturable.
         await onPaymentSuccess(paymentIntent.id);
       } else if (paymentIntent && paymentIntent.status === "requires_action") {
         // 3D Secure or other authentication required

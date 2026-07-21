@@ -3,7 +3,12 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
+import { createBooking } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
+
+// This handler now CREATES bookings, so it inherits the full fulfilment budget:
+// ResLab, capture, Supabase, Park Guard, and two emails.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -31,61 +36,116 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createAdminClient();
 
+  // Stripe redelivers on any non-2xx. That retry IS the recovery mechanism for a
+  // booking whose first fulfilment attempt died mid-flight, so a transient
+  // outcome MUST NOT return 2xx. Terminal outcomes must, or Stripe redelivers a
+  // settled event for days.
+  let retryable = false;
+
   switch (event.type) {
-    case "payment_intent.succeeded": {
+    // `amount_capturable_updated` fires when a manual-capture PaymentIntent is
+    // authorized — BEFORE any money moves. It is the primary trigger under the
+    // new capture model. `succeeded` still fires for wallet methods that
+    // auto-capture and for any PaymentIntent created before the cutover, so both
+    // drive the same idempotent engine.
+    case "payment_intent.succeeded":
+    case "payment_intent.amount_capturable_updated": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-      // Look up booking by stripe_payment_intent_id and confirm status
       const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id, status")
         .eq("stripe_payment_intent_id", paymentIntent.id)
-        .single();
+        .maybeSingle();
 
-      if (lookupErr && lookupErr.code !== "PGRST116") {
-        // PGRST116 = no rows found; that's the race-condition path handled
-        // below. Anything else is a real Supabase error worth Sentry-ing.
+      if (lookupErr) {
         capturePaymentError(
-          new Error(`Webhook payment_intent.succeeded: lookup failed: ${lookupErr.message}`),
+          new Error(`Webhook ${event.type}: lookup failed: ${lookupErr.message}`),
           { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
         );
+        // Can't tell whether a booking exists. Retry rather than risk creating
+        // a second one.
+        retryable = true;
+        break;
       }
 
       if (booking) {
         // Bookings are CREATED with status "confirmed", so an EXISTING booking
         // that is NOT confirmed here was deliberately moved afterward to
         // cancelled / refunded / disputed / completed / payment_failed. A late
-        // succeeded event — async capture settling AFTER a status change, now
-        // routine because Phase 1 creates bookings from "processing" PIs — must
-        // NOT revert that. The old blind `!== confirmed → confirmed` would
-        // silently un-cancel a released, possibly-refunded booking, charging the
-        // customer in full for nothing. "confirmed" is the no-op happy path;
-        // anything else is alerted for manual review, never overwritten.
+        // succeeded event must NOT revert that — the old blind
+        // `!== confirmed → confirmed` would silently un-cancel a released,
+        // possibly-refunded booking. Alerted for manual review, never overwritten.
         if (booking.status !== "confirmed") {
           capturePaymentError(
             new Error(
-              `Webhook payment_intent.succeeded fired for booking already in status '${booking.status}' — NOT overwriting to confirmed. Async capture settled after a status change; if cancelled/refunded, verify the customer's refund.`
+              `Webhook ${event.type} fired for booking already in status '${booking.status}' — NOT overwriting to confirmed. If cancelled/refunded, verify the customer's refund.`
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
         }
-      } else {
-        // Race condition: webhook arrived before reservation was created
-        // Wait and retry once
-        await new Promise((resolve) => setTimeout(resolve, 10000));
-        const { data: retryBooking } = await supabase
-          .from("bookings")
-          .select("id, status")
-          .eq("stripe_payment_intent_id", paymentIntent.id)
-          .single();
+        break;
+      }
 
-        if (!retryBooking) {
+      // No booking exists. THIS is the guarantee: create it server-side, from
+      // the durable pending row, regardless of what happened to the customer's
+      // browser. Replaces the old setTimeout(10s)-then-alert stub, which only
+      // ever produced a Sentry event while the customer kept their money gone
+      // and their booking non-existent.
+      const outcome = await createBooking({
+        source: "webhook",
+        stripePaymentIntentId: paymentIntent.id,
+      });
+
+      if (outcome.kind === "in_progress" || outcome.kind === "deferred") {
+        // Another caller holds a fresh claim, or the payment is still settling.
+        // Returning non-2xx makes Stripe redeliver — and by then the claim will
+        // have gone stale and this handler can steal it. That redelivery is what
+        // finishes a booking whose browser died holding the mutex.
+        retryable = true;
+      }
+      break;
+    }
+
+    // A manual-capture authorization that was cancelled — by us on a teardown
+    // path, by Stripe when the hold expired, or from the dashboard. Make sure
+    // the pending row doesn't sit in a non-terminal state forever.
+    case "payment_intent.canceled": {
+      const paymentIntent = event.data.object as Stripe.PaymentIntent;
+
+      const { data: pending } = await supabase
+        .from("pending_bookings")
+        .select("status, reslab_reservation_number")
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .maybeSingle();
+
+      if (pending && (pending.status === "pending" || pending.status === "processing")) {
+        await supabase
+          .from("pending_bookings")
+          .update({
+            status: "failed",
+            last_error: "PaymentIntent canceled before fulfilment completed",
+          })
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .in("status", ["pending", "processing"]);
+
+        // A cancelled authorization with a live ResLab reservation means we hold
+        // inventory we can never charge for. Ops must release it.
+        if (pending.reslab_reservation_number) {
           capturePaymentError(
-            new Error("Webhook: payment_intent.succeeded but no booking found after retry"),
+            new Error(
+              `PaymentIntent ${paymentIntent.id} was canceled but ResLab reservation ${pending.reslab_reservation_number} exists — release the spot manually.`
+            ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
         }
       }
+
+      await supabase
+        .from("cart_claims")
+        .update({ released_at: new Date().toISOString() })
+        .eq("stripe_payment_intent_id", paymentIntent.id)
+        .is("released_at", null);
       break;
     }
 
@@ -337,6 +397,17 @@ export async function POST(request: NextRequest) {
 
     default:
       break;
+  }
+
+  if (retryable) {
+    // NOT an error — a deliberate request for redelivery. Stripe backs off and
+    // retries for ~3 days, which is the durable queue that finishes bookings
+    // abandoned mid-flight. Every terminal outcome above falls through to the
+    // 2xx below so Stripe stops redelivering settled events.
+    return NextResponse.json(
+      { received: true, retry: true },
+      { status: 503 }
+    );
   }
 
   return NextResponse.json({ received: true });
