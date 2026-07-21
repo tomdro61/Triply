@@ -42,6 +42,11 @@ export interface PersistResult {
   /** True when the booking row itself failed to insert. Money is already
    *  committed at this point, so the caller must escalate rather than refund. */
   bookingInsertFailed: boolean;
+  /** True when that failure will recur identically on every retry — a Postgres
+   *  integrity violation (23xxx other than 23505). Retrying those burns Stripe's
+   *  entire ~3-day redelivery budget on an insert that can never succeed, and
+   *  leaves the pending row parked with nothing left to re-drive it. */
+  bookingInsertPermanent: boolean;
   /** Set when the insert lost a race on UNIQUE(stripe_payment_intent_id). */
   duplicatePaymentIntent: boolean;
 }
@@ -128,6 +133,7 @@ export async function persistBooking(
     pgIdentifier: null,
     pgSyncStatus: null,
     bookingInsertFailed: false,
+    bookingInsertPermanent: false,
     duplicatePaymentIntent: false,
   };
 
@@ -226,9 +232,14 @@ export async function persistBooking(
       // inserted this booking. That is a SUCCESS for idempotency purposes, not
       // a failure — the customer has their reservation. Distinguish it so the
       // caller doesn't fire a money alert for a race we handled correctly.
-      const isDuplicate = (bookingError as { code?: string }).code === "23505";
+      const code = (bookingError as { code?: string }).code;
+      const isDuplicate = code === "23505";
       result.duplicatePaymentIntent = isDuplicate;
       result.bookingInsertFailed = !isDuplicate;
+      // Postgres class 23 = integrity constraint violation (NOT NULL, FK, CHECK).
+      // Deterministic: the same row will be rejected identically every time.
+      result.bookingInsertPermanent =
+        !isDuplicate && !!code && /^23\d{3}$/.test(code);
 
       if (!isDuplicate) {
         captureBookingError(

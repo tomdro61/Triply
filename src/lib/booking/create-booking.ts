@@ -61,6 +61,17 @@ const STALE_CLAIM_MS = 90_000;
  *  re-booking the same lot and dates later in the day isn't blocked. */
 const CART_CLAIM_WINDOW_MS = 30 * 60_000;
 
+/** How far back the timing-independent duplicate-cart backstop looks. Long
+ *  enough to cover the slowest async settlement (ACH, days) with margin; short
+ *  enough that a genuine later re-book of the same lot and dates — a second
+ *  vehicle, a repeat trip — is not mistaken for a duplicate and refunded. */
+const DUPLICATE_CART_LOOKBACK_MS = 7 * 24 * 60 * 60_000;
+
+/** A claim older than this is released regardless of what its owning
+ *  PaymentIntent's row says. Absolute backstop against a cart being locked
+ *  forever by a row that nothing will ever move to a terminal status. */
+const CART_CLAIM_HARD_EXPIRY_MS = 7 * 24 * 60 * 60_000;
+
 // =============================================================================
 // Result types
 // =============================================================================
@@ -434,8 +445,13 @@ async function readPendingRow(pi: string): Promise<PendingRow | null> {
  *
  * Claimable when the row is fresh (`pending`) or when a previous claim has gone
  * stale (the caller died mid-fulfilment). Stealing a stale claim is what lets
- * Stripe's webhook retry finish a job the browser abandoned — it is the reason
- * this design needs no sweep cron.
+ * Stripe's webhook retry finish a job the browser abandoned.
+ *
+ * That covers the common case but NOT all of it, so it does not remove the need
+ * for a sweep — an earlier version of this comment claimed it did, wrongly.
+ * Stripe's retry budget is finite (~3 days), the client `deferred` path has no
+ * webhook at all if the tab closes, and nothing else ever retires an abandoned
+ * `pending` row. /api/cron/sweep-pending-bookings covers those.
  */
 async function claimPendingRow(pi: string): Promise<PendingRow | null> {
   const supabase = await createAdminClient();
@@ -577,7 +593,7 @@ async function claimCart(
   const expiredBefore = new Date(Date.now() - CART_CLAIM_WINDOW_MS).toISOString();
   const { data: staleClaims, error: staleError } = await supabase
     .from("cart_claims")
-    .select("id, stripe_payment_intent_id")
+    .select("id, stripe_payment_intent_id, claimed_at")
     .eq("cart_key", key)
     .is("released_at", null)
     .lt("claimed_at", expiredBefore);
@@ -605,9 +621,13 @@ async function claimCart(
 
     // No pending row, or a terminal one, means that PaymentIntent will never
     // fulfil this cart. Anything still `pending`/`processing` keeps its claim
-    // however long it takes to settle.
+    // however long it takes to settle — EXCEPT past the hard expiry, so a row
+    // that nothing ever moves to a terminal status cannot lock a cart forever
+    // and refund every subsequent booking of it as a duplicate.
+    const hardExpired =
+      Date.parse(claim.claimed_at) < Date.now() - CART_CLAIM_HARD_EXPIRY_MS;
     const ownerFinished = !owner || TERMINAL_STATUSES.has(owner.status);
-    if (!ownerFinished) continue;
+    if (!ownerFinished && !hardExpired) continue;
 
     const { error: releaseError } = await supabase
       .from("cart_claims")
@@ -671,8 +691,9 @@ async function claimCart(
  * released. This check depends on no timing at all: it asks the one question
  * that actually matters before we create anything at ResLab.
  *
- * Matches the plan's original duplicate-cart rule (§3 step 5): same email, lot,
- * dates and parking type, different PaymentIntent, booking still confirmed.
+ * Matches on email, lot and dates — NOT parking type, because `bookings` has no
+ * parking-type column. That makes this strictly broader than cartKey(), which is
+ * why the time bound below is load-bearing rather than cosmetic.
  */
 async function findExistingCartBooking(
   payload: BookingPayload,
@@ -684,11 +705,26 @@ async function findExistingCartBooking(
     .select(
       "reslab_reservation_number, stripe_payment_intent_id, customers!inner(email)"
     )
-    .eq("customers.email", payload.customer.email.trim().toLowerCase())
+    // ilike, not eq. `customers.email` is plain TEXT and is stored VERBATIM as
+    // the customer typed it, so a mobile keyboard's auto-capitalised
+    // "John.Smith@Gmail.com" never equals a lowercased needle — which silently
+    // disabled this entire backstop for anyone whose email isn't all-lowercase.
+    // With no wildcards, ilike is case-insensitive equality.
+    .ilike("customers.email", payload.customer.email.trim())
     .eq("reslab_location_id", payload.locationId)
     .eq("check_in", payload.fromDate)
     .eq("check_out", payload.toDate)
-    .eq("status", "confirmed");
+    .eq("status", "confirmed")
+    // Bounded to the settlement horizon this backstop exists for. UNBOUNDED, it
+    // permanently refused a customer legitimately booking a SECOND VEHICLE at the
+    // same lot and dates — every reservation here is number_of_spots: 1, so
+    // checking out twice is the only way to park two cars, and the second attempt
+    // was being cancelled and refunded with "this booking was already submitted".
+    // That is precisely the case CART_CLAIM_WINDOW_MS was sized to allow.
+    .gte(
+      "created_at",
+      new Date(Date.now() - DUPLICATE_CART_LOOKBACK_MS).toISOString()
+    );
 
   if (error) {
     throw new DurableStateError("duplicate-cart booking lookup", error.message);
@@ -1393,14 +1429,32 @@ async function fulfilClaimed(
       { stripePaymentIntentId: piId, amount: pi.amount / 100 }
     );
 
-    // RETRYABLE. persistBooking reports its Supabase failures as a flag rather
-    // than throwing, so the purest database-fault class in the flow never becomes
-    // a DurableStateError and used to be written terminal — leaving a charged
-    // customer with a real parking spot, no confirmation email, and no admin
-    // visibility, repairable only by hand. The architecture already recovers this
-    // on a re-drive: step 7 resumes onto the recorded reservation, step 9
-    // re-fetches over a GET, step 10 skips capture because the PI is already
-    // succeeded, and step 11 retries the insert. Just don't poison the row first.
+    // A constraint violation will be rejected identically on every redelivery.
+    // Retrying it burns Stripe's whole ~3-day budget and then parks the row at
+    // `pending` with nothing left to re-drive it — and its cart claim stays live,
+    // so the customer's next attempt at that lot and those dates gets refunded as
+    // a duplicate. Go terminal so the reconciliation queue picks it up instead.
+    if (persisted.bookingInsertPermanent) {
+      await markTerminal(
+        piId,
+        "needs_reconciliation",
+        "booking row insert rejected permanently (constraint violation) after capture"
+      );
+      await releaseCart(piId);
+      return {
+        kind: "needs_reconciliation",
+        reason: "booking insert rejected permanently after capture",
+      };
+    }
+
+    // Otherwise RETRYABLE. persistBooking reports Supabase failures as a flag
+    // rather than throwing, so the purest database-fault class in the flow never
+    // becomes a DurableStateError and used to be written terminal — leaving a
+    // charged customer with a real parking spot, no confirmation email, and no
+    // admin visibility, repairable only by hand. The architecture already
+    // recovers this on a re-drive: step 7 resumes onto the recorded reservation,
+    // step 9 re-fetches over a GET, step 10 skips capture because the PI is
+    // already succeeded, and step 11 retries the insert.
     return releaseForRetry(piId, "booking row insert failed after capture");
   }
 

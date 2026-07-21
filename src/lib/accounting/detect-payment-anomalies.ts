@@ -127,6 +127,14 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
 
     const byCart = new Map<string, typeof recent>();
     for (const b of recent ?? []) {
+      // Triply-prod is shared by staging and production, and `bookings` has no
+      // livemode column. Testers exercising this very feature book the same cart
+      // repeatedly under different test PaymentIntents, which would otherwise
+      // become "duplicate bookings" on the production cron run. Same test-lot
+      // exclusion the charge rows above already use.
+      if (b.reslab_location_id != null && isAtTestLot(b.reslab_location_id)) {
+        continue;
+      }
       const email = (b.customers as unknown as { email: string })?.email ?? "";
       const key = [
         email.toLowerCase(),
