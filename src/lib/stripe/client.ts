@@ -141,12 +141,18 @@ export function paymentIntentRefundState(pi: Stripe.PaymentIntent): RefundState 
   // what gate G1 exists to prevent. Replaced by an explicit tri-state so callers
   // can refuse on "unknown" without asserting anything false about the money.
   if (!pi.latest_charge) {
-    // A PaymentIntent that has not yet produced a charge cannot carry a refund.
-    // This is the only case where "no refund" is knowable rather than assumed.
-    if (pi.status === "requires_capture" || pi.status === "processing") {
-      return "none";
-    }
-    return "unknown";
+    // A PaymentIntent that has not yet produced a charge cannot carry a refund,
+    // and that covers every state except one. `requires_payment_method`,
+    // `requires_confirmation`, `requires_action`, `requires_capture`,
+    // `processing` and `canceled` are all pre-capture — no money has moved, so
+    // "none" is a fact, not an assumption. (An earlier version treated the
+    // pre-payment states as undeterminable and escalated a customer who was
+    // simply mid-3-D-Secure.)
+    //
+    // `succeeded` with no charge is the genuine anomaly: money moved but we
+    // cannot see where. Fail CLOSED — blocking a fulfilment is recoverable,
+    // booking a customer whose money was already returned is not.
+    return pi.status === "succeeded" ? "unknown" : "none";
   }
 
   // Unexpanded. Reporting "none" here would silently open the gate, so callers

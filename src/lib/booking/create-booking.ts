@@ -76,7 +76,7 @@ const CART_CLAIM_HARD_EXPIRY_MS = 7 * 24 * 60 * 60_000;
 // Result types
 // =============================================================================
 
-export type BookingSource = "client" | "complete" | "webhook" | "dev";
+export type BookingSource = "client" | "complete" | "webhook" | "sweep" | "dev";
 
 export type CreateBookingResult =
   /** A reservation was created on this call. Emails were sent. */
@@ -705,12 +705,15 @@ async function findExistingCartBooking(
     .select(
       "reslab_reservation_number, stripe_payment_intent_id, customers!inner(email)"
     )
-    // ilike, not eq. `customers.email` is plain TEXT and is stored VERBATIM as
-    // the customer typed it, so a mobile keyboard's auto-capitalised
-    // "John.Smith@Gmail.com" never equals a lowercased needle — which silently
-    // disabled this entire backstop for anyone whose email isn't all-lowercase.
-    // With no wildcards, ilike is case-insensitive equality.
-    .ilike("customers.email", payload.customer.email.trim())
+    // Email is deliberately NOT filtered in SQL, and compared in JS below.
+    //
+    // `eq` is case-sensitive and the column stores the address verbatim as typed
+    // (mobile keyboards auto-capitalise), so exact matching silently disabled
+    // this backstop. But `ilike` is worse: `_` is a legal, common email character
+    // AND a single-character LIKE wildcard, so `john_smith@x.com` would also
+    // match `johnXsmith@x.com` — and the consequence of a false match here is
+    // cancelling and refunding a real customer's booking as a duplicate.
+    // Pattern matching has no place in an equality test on a money path.
     .eq("reslab_location_id", payload.locationId)
     .eq("check_in", payload.fromDate)
     .eq("check_out", payload.toDate)
@@ -730,9 +733,14 @@ async function findExistingCartBooking(
     throw new DurableStateError("duplicate-cart booking lookup", error.message);
   }
 
-  const other = (data ?? []).find(
-    (b) => b.stripe_payment_intent_id && b.stripe_payment_intent_id !== piId
-  );
+  const needle = payload.customer.email.trim().toLowerCase();
+  const other = (data ?? []).find((b) => {
+    if (!b.stripe_payment_intent_id || b.stripe_payment_intent_id === piId) {
+      return false;
+    }
+    const email = (b.customers as unknown as { email?: string } | null)?.email;
+    return !!email && email.trim().toLowerCase() === needle;
+  });
   if (!other) return null;
 
   return {
@@ -1012,6 +1020,35 @@ async function createBookingInner(
         return {
           kind: "needs_reconciliation",
           reason: "completed row has no reservation number",
+        };
+      }
+      case "expired": {
+        // `expired` means "no money was ever taken". If that is false — the
+        // PaymentIntent has since succeeded or is holding an authorization — then
+        // whatever retired this row was WRONG, and a customer has paid. Never let
+        // that pass as a quiet `failed`, which returns 200 and stops Stripe
+        // redelivering, leaving a charged customer with no booking and no alert.
+        //
+        // Defence in depth: the sweep now only expires PaymentIntents that
+        // genuinely cannot succeed. This catches the case where that is ever
+        // wrong again.
+        if (pi.status === "succeeded" || pi.status === "requires_capture") {
+          capturePaymentError(
+            new Error(
+              `PaymentIntent ${stripePaymentIntentId} is ${pi.status} but its pending row was retired as 'expired' — the customer HAS paid and has no booking. Recover manually.`
+            ),
+            { stripePaymentIntentId, amount: pi.amount / 100 }
+          );
+          return {
+            kind: "needs_reconciliation",
+            reason: "expired row for a PaymentIntent that carries money",
+          };
+        }
+        return {
+          kind: "failed",
+          reason: "checkout expired",
+          userMessage:
+            "This checkout expired and was not completed. You have not been charged — please search again.",
         };
       }
       case "suspected_duplicate":
@@ -1622,10 +1659,12 @@ function captureBookingSuccessBreadcrumb(
   // Which entry point actually completed the booking is the key soak metric for
   // this rehaul: a rising share of `webhook` completions means browsers are
   // dying and the guarantee is doing its job.
-  if (source === "webhook" || source === "complete") {
+  if (source === "webhook" || source === "complete" || source === "sweep") {
     captureBookingError(
       new Error(
-        `Booking ${reservationNumber} completed via ${source} path (browser did not finish it)`
+        source === "sweep"
+          ? `Booking ${reservationNumber} completed by the SWEEP — neither the browser nor the webhook finished it. Investigate why.`
+          : `Booking ${reservationNumber} completed via ${source} path (browser did not finish it)`
       ),
       { step: "checkout" }
     );
