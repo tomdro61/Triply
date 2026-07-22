@@ -1487,6 +1487,9 @@ async function fulfilClaimed(
       rawDiscountPercent <= 100
         ? rawDiscountPercent
         : 0,
+    // The real charge, in cents — the source of truth for what the customer
+    // paid, so the stored discount reconciles to Stripe exactly.
+    chargedCents: pi.amount,
   };
   const persisted = await persistBooking(payload, reservation, promo);
 

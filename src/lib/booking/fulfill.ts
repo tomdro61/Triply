@@ -106,10 +106,13 @@ export async function createReslabReservation(
  */
 /** The promo the customer redeemed, derived from PI metadata by the caller.
  *  `code` is the redeemed code (uppercased); `discountPercent` is the applied
- *  percent (0 when none). Absent on the DEV_SKIP_PAYMENT path (no PaymentIntent). */
+ *  percent (0 when none); `chargedCents` is `pi.amount` — the REAL amount Stripe
+ *  charged, used to derive the discount exactly. Absent on the DEV_SKIP_PAYMENT
+ *  path (no PaymentIntent). */
 export interface AppliedPromo {
   code: string | null;
   discountPercent: number;
+  chargedCents: number;
 }
 
 export async function persistBooking(
@@ -201,16 +204,26 @@ export async function persistBooking(
 
     const storedSubtotal = subtotal || resHistory?.subtotal || 0;
 
-    // Discount actually taken off the parking subtotal by the promo. Computed
-    // from the SAME subtotal we store, so the admin math (subtotal − discount)
-    // is self-consistent — and it lands exactly on the Stripe charge because
-    // /api/checkout/lot applied `sub_total × percent/100` before creating the PI.
-    // Rounded to cents.
+    // Discount taken off the online charge by the promo, derived from the ACTUAL
+    // Stripe charge (`chargedCents`) rather than re-computing percent × subtotal.
+    // Re-rounding the discount by itself drifted 1¢ vs Stripe on ~19% of promos
+    // (half-cent-boundary subtotals like ".95" at 10%): Stripe subtracts an
+    // UNROUNDED discount and rounds the whole total once. Deriving from what was
+    // actually charged makes admin "Paid online" (= booking total − due −
+    // discount) reconcile to Stripe EXACTLY, by construction.
     const discountPercent = promo?.discountPercent ?? 0;
-    const discountAmount =
-      discountPercent > 0
-        ? Math.round(storedSubtotal * discountPercent) / 100
-        : 0;
+    let discountAmount = 0;
+    if (discountPercent > 0 && promo) {
+      const preDiscountOnlineCents = Math.round(
+        ((resHistory?.grand_total ?? grandTotal ?? 0) +
+          (triplyServiceFee || 0) +
+          (hasProtectionPlan ? PROTECTION_PLAN.price : 0) -
+          (resHistory?.due_at_location_total || 0)) *
+          100
+      );
+      discountAmount =
+        Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
+    }
     // Only record the code when a discount was actually applied (an invalid code
     // that was typed but not honored leaves no discount and isn't "used").
     const promoCode = discountAmount > 0 ? promo?.code ?? null : null;

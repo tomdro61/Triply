@@ -535,7 +535,8 @@ describe("price integrity", () => {
     db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(
       paymentIntent({
-        amount: 8600, // 94.00 less a 10% discount on the 80.00 subtotal
+        // online = grand_total 88 + serviceFee 6 − due 20 − discount 8 = 66
+        amount: 6600,
         metadata: { customerEmail: "a@b.com", discountPercent: "10" },
       })
     );
@@ -545,14 +546,15 @@ describe("price integrity", () => {
     expect(out.kind).toBe("created");
   });
 
-  it("records the promo code + discount on the booking (migration 016)", async () => {
+  it("records the promo code + discount, derived from the real Stripe charge (migration 016)", async () => {
     // The discount was charged by Stripe but not stored, so admin overstated
-    // "Paid online". discount_amount must = percent × stored subtotal (80.00),
-    // and land exactly on the Stripe charge; promo_code stored uppercased.
+    // "Paid online". discount_amount is derived from pi.amount so it reconciles
+    // to Stripe EXACTLY: pre-discount online (88+6−20 = 74) − charged (66) = 8.00.
+    // promo_code stored uppercased.
     db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(
       paymentIntent({
-        amount: 8600,
+        amount: 6600,
         metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" },
       })
     );
@@ -561,8 +563,26 @@ describe("price integrity", () => {
 
     expect(out.kind).toBe("created");
     const booking = db.tables.bookings[0];
-    expect(booking.discount_amount).toBe(8); // 10% of 80.00
+    expect(booking.discount_amount).toBe(8); // 74 − 66, matches Stripe exactly
     expect(booking.promo_code).toBe("SAVE10");
+  });
+
+  it("derives the discount from the charge to the CENT (not re-rounded percent×subtotal)", async () => {
+    // Regression lock for the reviewed 1¢ drift. pre-discount online = 74.00;
+    // Stripe actually charged 66.01, so the true discount is 7.99. A percent×
+    // subtotal re-round (round(80×10)/100) would wrongly store 8.00 and understate
+    // "Paid online" by a cent. Deriving from pi.amount stores exactly 7.99.
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({
+        amount: 6601,
+        metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" },
+      })
+    );
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.bookings[0].discount_amount).toBe(7.99);
   });
 
   it("stores no promo when none was applied (discount_amount defaults to 0)", async () => {
