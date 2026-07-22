@@ -42,7 +42,8 @@ export async function POST(request: NextRequest) {
   // settled event for days.
   let retryable = false;
 
-  switch (event.type) {
+  try {
+    switch (event.type) {
     // `amount_capturable_updated` fires when a manual-capture PaymentIntent is
     // authorized — BEFORE any money moves. It is the primary trigger under the
     // new capture model. `succeeded` still fires for wallet methods that
@@ -448,8 +449,27 @@ export async function POST(request: NextRequest) {
       break;
     }
 
-    default:
-      break;
+      default:
+        break;
+    }
+  } catch (handlerError) {
+    // An unhandled throw from a handler (most likely createBooking, or a
+    // transient Stripe/Supabase error) used to escape as an opaque 500 with no
+    // body and no Sentry capture. Capture it, and ask Stripe to redeliver — a
+    // throw here is by definition an unresolved state, and createBooking never
+    // throws for a business outcome (those are returned), so a retry either
+    // recovers from a transient fault or keeps a genuine bug loud.
+    capturePaymentError(
+      handlerError instanceof Error ? handlerError : new Error(String(handlerError)),
+      {
+        stripePaymentIntentId:
+          "id" in event.data.object ? (event.data.object.id as string) : undefined,
+      }
+    );
+    return NextResponse.json(
+      { received: true, retry: true, error: "handler error" },
+      { status: 503 }
+    );
   }
 
   if (retryable) {

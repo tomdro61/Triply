@@ -62,3 +62,7 @@ next-env.d.ts
 # Anchored to repo root so it doesn't accidentally match src/lib/parkguard/.
 /parkguard/
 reconcile-revenue.csv
+
+# Local staging test helpers — contain bypass/signing secrets, never commit
+scripts/send-test-event.mjs
+scripts/wire-staging-webhook.mjs
