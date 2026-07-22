@@ -31,6 +31,8 @@ interface Booking {
   grand_total: string;
   triply_service_fee: string;
   due_at_location: string | null;
+  discount_amount: string | null;
+  promo_code: string | null;
   stripe_payment_intent_id: string | null;
   status: string;
   protection_plan: string | null;
@@ -237,7 +239,10 @@ export default function AdminBookingsPage() {
       "Location",
       "Check In",
       "Check Out",
-      "Total",
+      "Booking Total",
+      "Promo Code",
+      "Discount",
+      "Paid Online",
       "Status",
       "Protection Plan",
       "Protection Premium",
@@ -245,25 +250,33 @@ export default function AdminBookingsPage() {
       "Created",
     ];
 
-    const rows = bookings.map((b) => [
-      b.reslab_reservation_number,
-      `${b.customers?.first_name} ${b.customers?.last_name}`,
-      b.customers?.email,
-      b.customers?.phone,
-      b.location_name,
-      formatDateTime(b.check_in),
-      formatDateTime(b.check_out),
-      (
+    const rows = bookings.map((b) => {
+      const bookingTotal =
         parseFloat(b.grand_total) +
         parseFloat(b.triply_service_fee || "0") +
-        parseFloat(b.protection_plan_price || "0")
-      ).toFixed(2),
-      b.status,
-      b.protection_plan || "",
-      b.protection_plan_price ? parseFloat(b.protection_plan_price).toFixed(2) : "",
-      b.pg_identifier || "",
-      formatDateTime(b.created_at),
-    ]);
+        parseFloat(b.protection_plan_price || "0");
+      const discount = parseFloat(b.discount_amount || "0");
+      const dueAtLocation = parseFloat(b.due_at_location || "0");
+      const paidOnline = Math.max(0, bookingTotal - dueAtLocation - discount);
+      return [
+        b.reslab_reservation_number,
+        `${b.customers?.first_name} ${b.customers?.last_name}`,
+        b.customers?.email,
+        b.customers?.phone,
+        b.location_name,
+        formatDateTime(b.check_in),
+        formatDateTime(b.check_out),
+        bookingTotal.toFixed(2),
+        b.promo_code || "",
+        discount > 0 ? discount.toFixed(2) : "",
+        paidOnline.toFixed(2),
+        b.status,
+        b.protection_plan || "",
+        b.protection_plan_price ? parseFloat(b.protection_plan_price).toFixed(2) : "",
+        b.pg_identifier || "",
+        formatDateTime(b.created_at),
+      ];
+    });
 
     const escapeCsv = (v: unknown) => {
       const s = v == null ? "" : String(v);
@@ -656,11 +669,20 @@ export default function AdminBookingsPage() {
                   selectedBooking.protection_plan_price || "0"
                 );
                 const dueAtLocation = parseFloat(selectedBooking.due_at_location || "0");
+                // Promo (migration 016). discount_amount is the dollars taken off
+                // the subtotal, already reflected in the Stripe charge.
+                const discountAmount = parseFloat(selectedBooking.discount_amount || "0");
+                const promoCode = selectedBooking.promo_code || null;
                 const bookingTotal =
                   parseFloat(selectedBooking.grand_total) +
                   serviceFee +
                   protectionPremium;
-                const paidOnline = Math.max(0, bookingTotal - dueAtLocation);
+                // Subtract the discount so "Paid online" matches the actual Stripe
+                // charge — grand_total is the pre-discount ResLab parking total.
+                const paidOnline = Math.max(
+                  0,
+                  bookingTotal - dueAtLocation - discountAmount
+                );
 
                 return (
                   <div>
@@ -696,6 +718,21 @@ export default function AdminBookingsPage() {
                         <span>Booking total</span>
                         <span>{formatPrice(bookingTotal)}</span>
                       </div>
+                      {discountAmount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">
+                            Promo discount
+                            {promoCode && (
+                              <span className="ml-1.5 inline-block rounded bg-purple-100 px-1.5 py-0.5 text-xs font-semibold text-purple-700 align-middle">
+                                {promoCode}
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-purple-700 font-medium">
+                            −{formatPrice(discountAmount)}
+                          </span>
+                        </div>
+                      )}
                       <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm">
                         <span className="text-gray-500">Paid online</span>
                         <span className="font-medium">{formatPrice(paidOnline)}</span>

@@ -104,9 +104,18 @@ export async function createReslabReservation(
  * the payment state machine can decide what to do with money that has already
  * moved. Throwing here would strand the caller mid-transition.
  */
+/** The promo the customer redeemed, derived from PI metadata by the caller.
+ *  `code` is the redeemed code (uppercased); `discountPercent` is the applied
+ *  percent (0 when none). Absent on the DEV_SKIP_PAYMENT path (no PaymentIntent). */
+export interface AppliedPromo {
+  code: string | null;
+  discountPercent: number;
+}
+
 export async function persistBooking(
   payload: BookingPayload,
-  reservation: ReslabReservation
+  reservation: ReslabReservation,
+  promo?: AppliedPromo
 ): Promise<PersistResult> {
   const {
     locationId,
@@ -190,6 +199,22 @@ export async function persistBooking(
       customerId = newCustomer.id;
     }
 
+    const storedSubtotal = subtotal || resHistory?.subtotal || 0;
+
+    // Discount actually taken off the parking subtotal by the promo. Computed
+    // from the SAME subtotal we store, so the admin math (subtotal − discount)
+    // is self-consistent — and it lands exactly on the Stripe charge because
+    // /api/checkout/lot applied `sub_total × percent/100` before creating the PI.
+    // Rounded to cents.
+    const discountPercent = promo?.discountPercent ?? 0;
+    const discountAmount =
+      discountPercent > 0
+        ? Math.round(storedSubtotal * discountPercent) / 100
+        : 0;
+    // Only record the code when a discount was actually applied (an invalid code
+    // that was typed but not honored leaves no discount and isn't "used").
+    const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
+
     // --- Booking row ---------------------------------------------------------
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
@@ -205,7 +230,7 @@ export async function persistBooking(
         // (migration 007), NOT TIMESTAMPTZ — no conversion, no Date math.
         check_in: fromDate,
         check_out: toDate,
-        subtotal: subtotal || resHistory?.subtotal || 0,
+        subtotal: storedSubtotal,
         tax_total: taxTotal || resHistory?.total_tax || 0,
         fees_total: feesTotal || resHistory?.total_fees || 0,
         // ResLab is source of truth for parking revenue; the client value is
@@ -214,6 +239,10 @@ export async function persistBooking(
         grand_total: resHistory?.grand_total ?? grandTotal ?? 0,
         triply_service_fee: triplyServiceFee || 0,
         due_at_location: resHistory?.due_at_location_total || 0,
+        // Promo (migration 016). discount_amount is always written (0 = none) so
+        // reporting never sees NULL; promo_code only when a discount applied.
+        discount_amount: discountAmount,
+        ...(promoCode && { promo_code: promoCode }),
         vehicle_info: vehicle,
         status: "confirmed",
         ...(stripePaymentIntentId && {

@@ -1472,7 +1472,23 @@ async function fulfilClaimed(
   // anything irreversible happens.
 
   // --- Step 11: persist -------------------------------------------------------
-  const persisted = await persistBooking(payload, reservation);
+  // Carry the promo through from PI metadata so the booking records the discount
+  // that was actually charged (migration 016). `promoCode` is stamped as typed;
+  // uppercase it to match promo_codes.code. `discountPercent` is present only for
+  // a valid, applied promo — clamp defensively.
+  const rawDiscountPercent = parseFloat(pi.metadata?.discountPercent ?? "0");
+  const promo = {
+    code: pi.metadata?.promoCode
+      ? pi.metadata.promoCode.trim().toUpperCase()
+      : null,
+    discountPercent:
+      Number.isFinite(rawDiscountPercent) &&
+      rawDiscountPercent > 0 &&
+      rawDiscountPercent <= 100
+        ? rawDiscountPercent
+        : 0,
+  };
+  const persisted = await persistBooking(payload, reservation, promo);
 
   if (persisted.duplicatePaymentIntent) {
     await markTerminal(piId, "completed");

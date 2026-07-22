@@ -545,6 +545,37 @@ describe("price integrity", () => {
     expect(out.kind).toBe("created");
   });
 
+  it("records the promo code + discount on the booking (migration 016)", async () => {
+    // The discount was charged by Stripe but not stored, so admin overstated
+    // "Paid online". discount_amount must = percent × stored subtotal (80.00),
+    // and land exactly on the Stripe charge; promo_code stored uppercased.
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({
+        amount: 8600,
+        metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" },
+      })
+    );
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const booking = db.tables.bookings[0];
+    expect(booking.discount_amount).toBe(8); // 10% of 80.00
+    expect(booking.promo_code).toBe("SAVE10");
+  });
+
+  it("stores no promo when none was applied (discount_amount defaults to 0)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    const booking = db.tables.bookings[0];
+    expect(booking.discount_amount).toBe(0);
+    expect(booking.promo_code ?? null).toBeNull();
+  });
+
   it("releases the payment when the lot sold out during checkout", async () => {
     db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
