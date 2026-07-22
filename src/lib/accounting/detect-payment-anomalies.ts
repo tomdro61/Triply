@@ -117,13 +117,18 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     const { data: recent, error } = await supabase
       .from("bookings")
       .select(
-        "reslab_reservation_number, stripe_payment_intent_id, reslab_location_id, check_in, check_out, created_at, customers!inner(email)"
+        "reslab_reservation_number, stripe_payment_intent_id, reslab_location_id, check_in, check_out, created_at, vehicle_info, customers!inner(email)"
       )
       .eq("status", "confirmed")
       .gte("created_at", sinceISO);
     if (error) {
       throw new Error(`Supabase duplicate-cart lookup failed: ${error.message}`);
     }
+
+    const plateOf = (b: { vehicle_info?: unknown }): string => {
+      const v = b.vehicle_info as { licensePlate?: string } | null;
+      return (v?.licensePlate ?? "").trim().toLowerCase();
+    };
 
     const byCart = new Map<string, typeof recent>();
     for (const b of recent ?? []) {
@@ -136,11 +141,17 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
         continue;
       }
       const email = (b.customers as unknown as { email: string })?.email ?? "";
+      // Group by LICENSE PLATE too. A family parking two cars checks out twice
+      // with the same email+lot+dates but DIFFERENT plates — that is legitimate,
+      // not a duplicate, and this monitor is the only thing catching the real
+      // async-double-book now that the auto-refund backstop was removed. Grouping
+      // without the plate would page ops on every two-vehicle booking.
       const key = [
         email.toLowerCase(),
         b.reslab_location_id,
         b.check_in,
         b.check_out,
+        plateOf(b),
       ].join("|");
       const g = byCart.get(key);
       if (g) g.push(b);

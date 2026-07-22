@@ -135,6 +135,14 @@ export function StripePaymentForm({
         // effects are deferred to the webhook, which drives the whole sequence
         // once the PaymentIntent becomes capturable.
         await onPaymentSuccess(paymentIntent.id);
+        // Reset processing once the handler resolves. handlePaymentSuccess
+        // NAVIGATES AWAY on success or on a 202 hand-off (this component then
+        // unmounts, so the reset is a harmless no-op) — but on a terminal
+        // booking failure (sold-out race, suspected_duplicate, needs_recon, 402,
+        // 500) it catches internally, sets submitError, and RESOLVES normally.
+        // Without this reset, isProcessing stayed true forever, leaving both Pay
+        // Now and Back disabled under a live error message with no recovery.
+        setIsProcessing(false);
       } else if (paymentIntent && paymentIntent.status === "requires_action") {
         // 3D Secure or other authentication required
         setPaymentError("Additional authentication required. Please try again.");

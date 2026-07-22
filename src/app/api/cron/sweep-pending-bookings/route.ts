@@ -54,6 +54,10 @@ const MAX_PER_RUN = 25;
  *  finish inside maxDuration=60. */
 const RUN_BUDGET_MS = 45_000;
 
+/** Opposite-mode (staging) rows older than this are retired without a Stripe
+ *  call. Well past any real checkout, so an abandoned test row is unambiguous. */
+const CROSS_MODE_CLEANUP_MS = 60 * 60_000;
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -71,6 +75,39 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createAdminClient();
     const staleBefore = new Date(Date.now() - STALE_AFTER_MS).toISOString();
+
+    // --- Cross-mode cleanup of the OTHER environment's abandoned rows ---------
+    // Vercel crons run only on Production, so this executes with the LIVE key and
+    // its `livemode`-matched scan below never touches the staging (livemode:false)
+    // rows QA creates while exercising this very system. Left alone they
+    // accumulate forever in the shared Triply-prod DB (see the CMS-egress
+    // history). Retire opposite-mode rows that have been stuck well past any real
+    // checkout — WITHOUT calling Stripe (we hold the wrong-mode key and cannot
+    // retrieve those PaymentIntents). An hour-old pending/processing test row is
+    // unambiguously abandoned.
+    const otherModeCutoff = new Date(Date.now() - CROSS_MODE_CLEANUP_MS).toISOString();
+    const { data: otherMode, error: otherErr } = await supabase
+      .from("pending_bookings")
+      .update({ status: "expired", last_error: "swept: opposite-mode abandoned row cleanup" })
+      .eq("livemode", !livemode)
+      .in("status", ["pending", "processing"])
+      .lt("created_at", otherModeCutoff)
+      .select("stripe_payment_intent_id");
+    if (otherErr) {
+      // Non-fatal to the primary sweep — record and continue.
+      capturePaymentError(
+        new Error(`pending_bookings opposite-mode cleanup failed: ${otherErr.message}`),
+        {}
+      );
+    } else {
+      for (const r of otherMode ?? []) {
+        await supabase
+          .from("cart_claims")
+          .update({ released_at: new Date().toISOString() })
+          .eq("stripe_payment_intent_id", r.stripe_payment_intent_id)
+          .is("released_at", null);
+      }
+    }
 
     // Uses idx_pending_bookings_stuck. livemode filtering is mandatory —
     // Triply-prod is shared by staging and production.

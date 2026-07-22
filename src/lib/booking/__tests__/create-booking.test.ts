@@ -83,9 +83,8 @@ vi.mock("@/lib/sentry", () => ({
   captureAPIError: vi.fn(),
 }));
 
-const { createBooking, PaymentNotConfirmedError } = await import(
-  "../create-booking"
-);
+const { createBooking, PaymentNotConfirmedError, shouldStripeRedeliver } =
+  await import("../create-booking");
 const { ReslabError } = await import("@/lib/reslab/client");
 
 // ---------------------------------------------------------------------------
@@ -570,47 +569,49 @@ describe("price integrity", () => {
 });
 
 describe("duplicate carts", () => {
-  it("refuses a second PaymentIntent for a cart already booked, whatever the email casing", async () => {
-    // The case-sensitive comparison silently disabled this for anyone whose
-    // email wasn't all-lowercase — which mobile keyboards routinely cause.
-    db.seed("customers", [{ id: "c1", email: "Ada.Lovelace@Example.com" }]);
-    db.seed("bookings", [
+  it("refuses a concurrent PaymentIntent while another live cart_claim holds the cart", async () => {
+    // Prevention lives in the cart_claims lock, NOT in a bookings-table heuristic.
+    // A different PI holds a LIVE claim on this exact cart → the new PI must lose
+    // and be released, never fulfilled.
+    db.seed("pending_bookings", [pendingRow()]);
+    db.seed("cart_claims", [
       {
-        customer_id: "c1",
-        stripe_payment_intent_id: "pi_other",
-        reslab_reservation_number: "RTL555",
-        reslab_location_id: 42,
-        check_in: FROM,
-        check_out: TO,
-        status: "confirmed",
-        created_at: new Date().toISOString(),
+        id: "cc1",
+        cart_key: ["test", "ada.lovelace@example.com", 42, FROM, TO, 7].join("|"),
+        stripe_payment_intent_id: "pi_concurrent_other",
+        claimed_at: new Date().toISOString(),
+        released_at: null,
+        livemode: false,
       },
     ]);
-    db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
 
-    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
 
     expect(out.kind).toBe("suspected_duplicate");
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(cancelPaymentIntent).toHaveBeenCalledWith(PI);
   });
 
-  it("allows a second vehicle at the same lot and dates once the window has passed", async () => {
-    // Every reservation is number_of_spots: 1, so booking two cars MEANS
-    // checking out twice. An unbounded duplicate check refunded the second one.
-    const longAgo = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString();
+  it("ALLOWS a second vehicle at the same lot and dates (there is no bookings-table auto-refund)", async () => {
+    // Every reservation is number_of_spots: 1, so a family parking two cars MUST
+    // check out twice with the identical email+lot+dates. A prior revision matched
+    // that tuple in the bookings table and auto-refunded the second booking as a
+    // duplicate — refunding real customers (and, with no livemode filter, live
+    // customers from staging tests). That heuristic was removed; only a live
+    // cart_claims collision blocks, and a completed prior booking released its
+    // claim, so the second vehicle proceeds. Even booked the SAME instant.
     db.seed("customers", [{ id: "c1", email: "Ada.Lovelace@Example.com" }]);
     db.seed("bookings", [
       {
         customer_id: "c1",
-        stripe_payment_intent_id: "pi_other",
+        stripe_payment_intent_id: "pi_first_vehicle",
         reslab_reservation_number: "RTL555",
         reslab_location_id: 42,
         check_in: FROM,
         check_out: TO,
         status: "confirmed",
-        created_at: longAgo,
+        created_at: new Date().toISOString(), // same day — the case that used to fail
       },
     ]);
     db.seed("pending_bookings", [pendingRow()]);
@@ -672,5 +673,101 @@ describe("emails", () => {
 
     expect(out.kind).toBe("created");
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+});
+
+describe("capture failure — reservation live, must never roll back", () => {
+  it("escalates (not roll back) when re-retrieve shows the capture did NOT happen", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve
+      .mockResolvedValueOnce(paymentIntent()) // step 1
+      .mockResolvedValueOnce(paymentIntent()); // re-retrieve after capture throw → still requires_capture
+    capturePaymentIntent.mockRejectedValue(new Error("capture network error"));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    // The reservation exists and is unpaid — never cancel/refund it blindly.
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(createRefund).not.toHaveBeenCalled();
+    expect(db.tables.pending_bookings[0].status).toBe("capture_ambiguous");
+  });
+
+  it("escalates when the capture result is entirely unknown (re-retrieve fails)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve
+      .mockResolvedValueOnce(paymentIntent())
+      .mockRejectedValueOnce(new Error("stripe unreachable")); // re-retrieve throws
+    capturePaymentIntent.mockRejectedValue(new Error("capture network error"));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(createRefund).not.toHaveBeenCalled();
+  });
+});
+
+describe("wallet auto-capture path (PI already succeeded)", () => {
+  it("REFUNDS (not cancels) when ResLab definitively rejects an already-captured PI", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ status: "succeeded", latest_charge: { amount_refunded: 0 } })
+    );
+    reslabMock.createReservation.mockRejectedValue(
+      new ReslabError(409, 'API request failed: {"message":"Sold out"}')
+    );
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("sold_out");
+    // Money already moved on a wallet auto-capture → refund, never a hold-cancel.
+    expect(createRefund).toHaveBeenCalledWith(PI, undefined, `refund:${PI}`);
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(db.tables.pending_bookings[0].status).toBe("refunded_sold_out");
+  });
+});
+
+describe("booking insert failure classification", () => {
+  it("is RETRYABLE for a transient DB error after capture (self-heals on re-drive)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    db.failOnce("bookings", "insert", "connection reset");
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: true });
+  });
+
+  it("is NON-retryable for a Postgres constraint violation (would fail identically forever)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    // 23514 = CHECK violation — deterministic; retrying burns Stripe's budget.
+    db.failOnce("bookings", "insert", "check constraint violated", "23514");
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+  });
+});
+
+describe("shouldStripeRedeliver — the 503-vs-2xx contract", () => {
+  it("asks for redelivery only where a later attempt can help", () => {
+    expect(shouldStripeRedeliver({ kind: "in_progress" })).toBe(true);
+    expect(shouldStripeRedeliver({ kind: "deferred" })).toBe(true);
+    expect(
+      shouldStripeRedeliver({ kind: "needs_reconciliation", reason: "db", retryable: true })
+    ).toBe(true);
+  });
+
+  it("does NOT redeliver terminal outcomes (retrying would double-book or is pointless)", () => {
+    expect(
+      shouldStripeRedeliver({ kind: "needs_reconciliation", reason: "reslab", retryable: false })
+    ).toBe(false);
+    expect(shouldStripeRedeliver({ kind: "already_exists", reservationNumber: "R" })).toBe(false);
+    expect(shouldStripeRedeliver({ kind: "already_refunded" })).toBe(false);
+    expect(shouldStripeRedeliver({ kind: "sold_out" })).toBe(false);
+    expect(shouldStripeRedeliver({ kind: "suspected_duplicate" })).toBe(false);
+    expect(shouldStripeRedeliver({ kind: "failed", reason: "x", userMessage: "y" })).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
-import { createBooking } from "@/lib/booking/create-booking";
+import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
 
 // This handler now CREATES bookings, so it inherits the full fulfilment budget:
@@ -98,20 +98,11 @@ export async function POST(request: NextRequest) {
         stripePaymentIntentId: paymentIntent.id,
       });
 
-      // A needs_reconciliation caused by a DATABASE fault is retryable — we
-      // couldn't read our own state, which says nothing about the booking. The
-      // genuinely terminal ambiguities (ResLab may-or-may-not-have-created, an
-      // unknown capture result) set retryable=false and must NOT be redelivered,
-      // because retrying those double-books.
-      if (
-        outcome.kind === "in_progress" ||
-        outcome.kind === "deferred" ||
-        (outcome.kind === "needs_reconciliation" && outcome.retryable)
-      ) {
-        // Another caller holds a fresh claim, or the payment is still settling.
-        // Returning non-2xx makes Stripe redeliver — and by then the claim will
-        // have gone stale and this handler can steal it. That redelivery is what
-        // finishes a booking whose browser died holding the mutex.
+      // Single source of truth for the redelivery contract (exhaustive; a new
+      // outcome variant is a compile error there, not a silent fall-through).
+      // A DB-fault needs_reconciliation is retryable; a genuine terminal
+      // ambiguity is not — retrying those double-books.
+      if (shouldStripeRedeliver(outcome)) {
         retryable = true;
       }
       break;
@@ -123,11 +114,24 @@ export async function POST(request: NextRequest) {
     case "payment_intent.canceled": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-      const { data: pending } = await supabase
+      const { data: pending, error: pendingErr } = await supabase
         .from("pending_bookings")
         .select("status, reslab_reservation_number")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .maybeSingle();
+
+      // A DB fault here is not "no pending row" — mirror the bookings reads in
+      // this same file and let Stripe redeliver rather than silently skipping
+      // the terminal write, the cart release, and the "reservation exists —
+      // release manually" alert.
+      if (pendingErr) {
+        capturePaymentError(
+          new Error(`Webhook ${event.type}: pending_bookings lookup failed: ${pendingErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        retryable = true;
+        break;
+      }
 
       if (pending && (pending.status === "pending" || pending.status === "processing")) {
         await supabase
@@ -199,11 +203,20 @@ export async function POST(request: NextRequest) {
       // a pending row and a cart claim, and the claim would otherwise block this
       // customer from re-booking the same lot and dates for 30 minutes right after
       // their payment failed. Release both.
-      const { data: failedPending } = await supabase
+      const { data: failedPending, error: failedPendingErr } = await supabase
         .from("pending_bookings")
         .select("status, reslab_reservation_number")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .maybeSingle();
+
+      if (failedPendingErr) {
+        capturePaymentError(
+          new Error(`Webhook payment_failed: pending_bookings lookup failed: ${failedPendingErr.message}`),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        retryable = true;
+        break;
+      }
 
       if (
         failedPending &&

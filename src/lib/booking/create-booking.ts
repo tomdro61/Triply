@@ -37,6 +37,7 @@ import {
   paymentIntentRefundState,
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
+import { reservationSchema } from "@/lib/validation/schemas";
 import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 import {
   createReslabReservation,
@@ -60,12 +61,6 @@ const STALE_CLAIM_MS = 90_000;
  *  to cover a 3-D Secure retry loop, short enough that a customer legitimately
  *  re-booking the same lot and dates later in the day isn't blocked. */
 const CART_CLAIM_WINDOW_MS = 30 * 60_000;
-
-/** How far back the timing-independent duplicate-cart backstop looks. Long
- *  enough to cover the slowest async settlement (ACH, days) with margin; short
- *  enough that a genuine later re-book of the same lot and dates — a second
- *  vehicle, a repeat trip — is not mistaken for a duplicate and refunded. */
-const DUPLICATE_CART_LOOKBACK_MS = 7 * 24 * 60 * 60_000;
 
 /** A claim older than this is released regardless of what its owning
  *  PaymentIntent's row says. Absolute backstop against a cart being locked
@@ -112,9 +107,45 @@ export type CreateBookingResult =
    * blip during the webhook's only delivery would end the retry chain and leave
    * a charged customer with no booking.
    */
-  | { kind: "needs_reconciliation"; reason: string; retryable?: boolean }
+  | { kind: "needs_reconciliation"; reason: string; retryable: boolean }
   /** Definitive failure. Payment released; customer not charged. */
   | { kind: "failed"; reason: string; userMessage: string };
+
+/**
+ * Should Stripe redeliver the webhook that produced this outcome?
+ *
+ * The SINGLE source of truth for the 503-vs-2xx contract, shared by the webhook
+ * and the sweep so the wire behaviour can never drift from the `retryable` field.
+ * The `never` guard makes adding a new CreateBookingResult variant a compile
+ * error here — previously the webhook re-derived this rule inline with no such
+ * guard, so a new variant would silently fall through to "don't redeliver" and
+ * could strand a charged customer.
+ */
+export function shouldStripeRedeliver(outcome: CreateBookingResult): boolean {
+  switch (outcome.kind) {
+    // Someone else holds the claim, or the PI is still settling — a later
+    // delivery finishes the job.
+    case "in_progress":
+    case "deferred":
+      return true;
+    // Only a DB-fault ambiguity is worth retrying; a genuine terminal ambiguity
+    // (ResLab may-or-may-not-exist, unknown capture) must NOT be redelivered —
+    // retrying those double-books.
+    case "needs_reconciliation":
+      return outcome.retryable;
+    case "created":
+    case "already_exists":
+    case "already_refunded":
+    case "sold_out":
+    case "suspected_duplicate":
+    case "failed":
+      return false;
+    default: {
+      const _exhaustive: never = outcome;
+      return false;
+    }
+  }
+}
 
 /** The PaymentIntent is not in a state that permits fulfilment. */
 export class PaymentNotConfirmedError extends Error {
@@ -226,8 +257,16 @@ async function releasePayment(
     case "succeeded": {
       // Money already moved — a wallet method that auto-captures, or a PI created
       // before the manual-capture cutover. Refund is the only teardown available.
-      if (paymentIntentRefundState(pi) === "refunded") {
+      const refundState = paymentIntentRefundState(pi);
+      if (refundState === "refunded") {
         return { released: "refunded" };
+      }
+      if (refundState === "unknown") {
+        // Undeterminable refund state (unreachable today: a succeeded PI
+        // retrieved with expand:["latest_charge"] yields refunded|none). Defer
+        // rather than issue a refund on a read we can't trust — a spurious refund
+        // is not recoverable.
+        return { released: "deferred" };
       }
       // Key on the PaymentIntent ALONE (gate G2). Keying on the reason would let
       // two callers detecting different reasons issue two refunds; the second
@@ -368,9 +407,21 @@ function num(
   return n;
 }
 
+/** A pending row's JSONB/TEXT columns can't be reconstructed into a booking
+ *  payload the schema accepts — corrupt customer/vehicle JSONB, a drifted date
+ *  format. On the dead-browser paths (webhook/sweep/complete) there is no client
+ *  to have caught it, and this row is the SOLE fulfilment source, so it must be
+ *  validated, not trusted verbatim. */
+class InvalidPendingRowError extends Error {
+  constructor(pi: string, detail: string) {
+    super(`pending_bookings row for ${pi} is not a valid booking payload: ${detail}`);
+    this.name = "InvalidPendingRowError";
+  }
+}
+
 function payloadFromPendingRow(row: PendingRow): BookingPayload {
   const pi = row.stripe_payment_intent_id;
-  return {
+  const candidate = {
     locationId: row.location_id,
     costsToken: row.costs_token ?? "",
     fromDate: row.from_date,
@@ -391,6 +442,15 @@ function payloadFromPendingRow(row: PendingRow): BookingPayload {
     stripePaymentIntentId: pi,
     hasProtectionPlan: row.has_protection_plan,
   };
+
+  // Validate at this boundary (CLAUDE.md: Zod at boundaries). The DB read-back on
+  // a browserless path is exactly such a boundary — a malformed row would flow
+  // straight into createReslabReservation.
+  const parsed = reservationSchema.safeParse(candidate);
+  if (!parsed.success) {
+    throw new InvalidPendingRowError(pi, parsed.error.issues[0]?.message ?? "unknown");
+  }
+  return parsed.data;
 }
 
 /**
@@ -710,73 +770,6 @@ async function claimCart(
   return true;
 }
 
-/**
- * Has this exact cart already been booked, under a DIFFERENT PaymentIntent?
- *
- * The durable backstop to `cart_claims`. The claims table is a lock, and every
- * lock has a lifetime — 30 minutes here — whereas an async payment can settle
- * days later, long after its claim was expired and the cart re-taken and
- * released. This check depends on no timing at all: it asks the one question
- * that actually matters before we create anything at ResLab.
- *
- * Matches on email, lot and dates — NOT parking type, because `bookings` has no
- * parking-type column. That makes this strictly broader than cartKey(), which is
- * why the time bound below is load-bearing rather than cosmetic.
- */
-async function findExistingCartBooking(
-  payload: BookingPayload,
-  piId: string
-): Promise<{ reservationNumber: string; paymentIntentId: string } | null> {
-  const supabase = await createAdminClient();
-  const { data, error } = await supabase
-    .from("bookings")
-    .select(
-      "reslab_reservation_number, stripe_payment_intent_id, customers!inner(email)"
-    )
-    // Email is deliberately NOT filtered in SQL, and compared in JS below.
-    //
-    // `eq` is case-sensitive and the column stores the address verbatim as typed
-    // (mobile keyboards auto-capitalise), so exact matching silently disabled
-    // this backstop. But `ilike` is worse: `_` is a legal, common email character
-    // AND a single-character LIKE wildcard, so `john_smith@x.com` would also
-    // match `johnXsmith@x.com` — and the consequence of a false match here is
-    // cancelling and refunding a real customer's booking as a duplicate.
-    // Pattern matching has no place in an equality test on a money path.
-    .eq("reslab_location_id", payload.locationId)
-    .eq("check_in", payload.fromDate)
-    .eq("check_out", payload.toDate)
-    .eq("status", "confirmed")
-    // Bounded to the settlement horizon this backstop exists for. UNBOUNDED, it
-    // permanently refused a customer legitimately booking a SECOND VEHICLE at the
-    // same lot and dates — every reservation here is number_of_spots: 1, so
-    // checking out twice is the only way to park two cars, and the second attempt
-    // was being cancelled and refunded with "this booking was already submitted".
-    // That is precisely the case CART_CLAIM_WINDOW_MS was sized to allow.
-    .gte(
-      "created_at",
-      new Date(Date.now() - DUPLICATE_CART_LOOKBACK_MS).toISOString()
-    );
-
-  if (error) {
-    throw new DurableStateError("duplicate-cart booking lookup", error.message);
-  }
-
-  const needle = payload.customer.email.trim().toLowerCase();
-  const other = (data ?? []).find((b) => {
-    if (!b.stripe_payment_intent_id || b.stripe_payment_intent_id === piId) {
-      return false;
-    }
-    const email = (b.customers as unknown as { email?: string } | null)?.email;
-    return !!email && email.trim().toLowerCase() === needle;
-  });
-  if (!other) return null;
-
-  return {
-    reservationNumber: other.reslab_reservation_number,
-    paymentIntentId: other.stripe_payment_intent_id!,
-  };
-}
-
 async function releaseCart(pi: string) {
   const supabase = await createAdminClient();
   const { error } = await supabase
@@ -960,6 +953,7 @@ async function createBookingInner(
       return {
         kind: "needs_reconciliation",
         reason: "no pending row and no payload",
+        retryable: false,
       };
     }
     // Client path with an older bundle that never staged the row. Self-create so
@@ -998,6 +992,7 @@ async function createBookingInner(
       return {
         kind: "needs_reconciliation",
         reason: "pending row self-create failed",
+        retryable: false,
       };
     }
   }
@@ -1048,6 +1043,7 @@ async function createBookingInner(
         return {
           kind: "needs_reconciliation",
           reason: "completed row has no reservation number",
+          retryable: false,
         };
       }
       case "expired": {
@@ -1070,6 +1066,7 @@ async function createBookingInner(
           return {
             kind: "needs_reconciliation",
             reason: "expired row for a PaymentIntent that carries money",
+            retryable: false,
           };
         }
         return {
@@ -1091,6 +1088,7 @@ async function createBookingInner(
         return {
           kind: "needs_reconciliation",
           reason: `pending row already terminal: ${row.status}`,
+          retryable: false,
         };
       default:
         return {
@@ -1107,13 +1105,19 @@ async function createBookingInner(
   if (!claimed) {
     // Someone else is mid-fulfilment. The webhook caller MUST surface this as a
     // retryable failure so Stripe redelivers — that redelivery is what finishes
-    // the job if the current holder dies, and is why no sweep cron is needed.
+    // the job if the current holder dies. (It covers the common case; the sweep
+    // cron covers the rest — abandoned rows and post-retry-budget stragglers.)
     return { kind: "in_progress" };
   }
 
-  const payload = input.payload ?? payloadFromPendingRow(claimed);
-
   try {
+    // Inside the try: a client payload is already Zod-validated, but a payload
+    // reconstructed from the pending row may be invalid (corrupt JSONB, drifted
+    // dates). A throw here lands in the catch below and, being neither a
+    // DurableStateError nor otherwise self-healing, is marked terminal
+    // needs_reconciliation (non-retryable) — the correct outcome for a row that
+    // will never parse.
+    const payload = input.payload ?? payloadFromPendingRow(claimed);
     return await fulfilClaimed(pi, claimed, payload, source);
   } catch (unexpected) {
     // Any escape from the fulfilment path leaves money in an unknown state.
@@ -1156,7 +1160,7 @@ async function createBookingInner(
       );
     }
 
-    return { kind: "needs_reconciliation", reason: err.message };
+    return { kind: "needs_reconciliation", reason: err.message, retryable: false };
   }
 }
 
@@ -1256,33 +1260,24 @@ async function fulfilClaimed(
     return { kind: "deferred" };
   }
 
-  // --- Step 7.9: has this cart ALREADY been booked by another PaymentIntent? ---
-  // Timing-independent backstop to the cart_claims lock. A claim expires after 30
-  // minutes; an async payment can settle days later, by which point its claim was
-  // released and another PaymentIntent may have booked and released the same
-  // cart. Without this, that late settlement creates a second real reservation
-  // and a second charge — the Nadia/Jordan pattern displaced past the lock's
-  // horizon rather than eliminated.
-  if (!resuming) {
-    const alreadyBooked = await findExistingCartBooking(payload, piId);
-    if (alreadyBooked) {
-      const release = await releasePayment(pi);
-      if (release.released === "deferred") return { kind: "deferred" };
-      await markTerminal(
-        piId,
-        "suspected_duplicate",
-        `cart already booked as ${alreadyBooked.reservationNumber} under ${alreadyBooked.paymentIntentId}`
-      );
-      await releaseCart(piId);
-      capturePaymentError(
-        new Error(
-          `Duplicate cart caught at fulfilment — ${piId} ${release.released}; this cart is already booked as ${alreadyBooked.reservationNumber} under ${alreadyBooked.paymentIntentId} (customer: ${payload.customer.email})`
-        ),
-        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
-      );
-      return { kind: "suspected_duplicate" };
-    }
-  }
+  // NOTE — no timing-independent "already booked this cart?" auto-refund here.
+  //
+  // A previous revision matched any confirmed booking with the same
+  // email + lot + dates within a 7-day window and auto-cancelled/refunded the
+  // new PaymentIntent as a duplicate. But email + lot + dates CANNOT tell "the
+  // same cart settling twice" from "a genuine second purchase" — every
+  // reservation is number_of_spots: 1, so a family parking two cars MUST check
+  // out twice with that identical tuple. It refunded those real customers, and
+  // had no livemode filter (bookings carries no environment column), so a
+  // staging test booking could refund a live customer.
+  //
+  // Prevention stays where it belongs: the cart_claims lock (CART_CLAIM_WINDOW_MS)
+  // stops the realistic rapid double-submit. The only case it misses — an async
+  // payment settling AFTER its claim expired and re-booking — is NOT reachable
+  // today (no async/BNPL methods are enabled; cards resolve to requires_capture,
+  // not a multi-day `processing`). If it ever becomes reachable, the
+  // duplicateBookings monitor (detect-payment-anomalies, plate-aware) surfaces it
+  // for MANUAL review — an alert, never an automatic refund on a heuristic match.
 
   // --- Step 8: price + inventory refresh --------------------------------------
   if (!resuming) {
@@ -1386,6 +1381,7 @@ async function fulfilClaimed(
         return {
           kind: "needs_reconciliation",
           reason: "ResLab ambiguous failure",
+          retryable: false,
         };
       }
 
@@ -1446,6 +1442,7 @@ async function fulfilClaimed(
         return {
           kind: "needs_reconciliation",
           reason: "capture failed after reservation created",
+          retryable: false,
         };
       } else {
         await markTerminal(
@@ -1462,6 +1459,7 @@ async function fulfilClaimed(
         return {
           kind: "needs_reconciliation",
           reason: "capture result unknown",
+          retryable: false,
         };
       }
     }
@@ -1509,6 +1507,7 @@ async function fulfilClaimed(
       return {
         kind: "needs_reconciliation",
         reason: "booking insert rejected permanently after capture",
+        retryable: false,
       };
     }
 

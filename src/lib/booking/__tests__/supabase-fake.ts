@@ -83,8 +83,8 @@ export class FakeSupabase {
     customers: [],
   };
 
-  /** `${table}:${op}` -> error message. Consumed on first use. */
-  private injected = new Map<string, string>();
+  /** `${table}:${op}` -> injected error. Consumed on first use. */
+  private injected = new Map<string, { message: string; code: string }>();
 
   /** Every query executed, for assertions like "createReservation was skipped". */
   log: Array<{ table: string; op: string }> = [];
@@ -94,9 +94,16 @@ export class FakeSupabase {
     return this;
   }
 
-  /** Make the next `op` on `table` fail, once. */
-  failOnce(table: string, op: "select" | "insert" | "update", message: string) {
-    this.injected.set(`${table}:${op}`, message);
+  /** Make the next `op` on `table` fail, once. `code` lets a test exercise
+   *  error-class-dependent branches (e.g. a Postgres 23514 CHECK violation as a
+   *  PERMANENT booking-insert failure vs a transient connection reset). */
+  failOnce(
+    table: string,
+    op: "select" | "insert" | "update",
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.injected.set(`${table}:${op}`, { message, code });
     return this;
   }
 
@@ -104,12 +111,12 @@ export class FakeSupabase {
     return new FakeQuery(this, table);
   }
 
-  _take(table: string, op: string): string | null {
+  _take(table: string, op: string): { message: string; code: string } | null {
     const key = `${table}:${op}`;
-    const msg = this.injected.get(key);
-    if (msg) {
+    const err = this.injected.get(key);
+    if (err) {
       this.injected.delete(key);
-      return msg;
+      return err;
     }
     return null;
   }
@@ -266,7 +273,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
     const injected = this.db._take(this.table, this.op);
     if (injected) {
-      return { data: null, error: { message: injected, code: "XXFAKE" } };
+      return { data: null, error: injected };
     }
 
     const rows = (this.db.tables[this.table] ??= []);
@@ -316,8 +323,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
     const limited = this.limitN == null ? hit : hit.slice(0, this.limitN);
     const out = limited.map((r) => this.embeddedCustomer({ ...r }));
-    if (this.requireOne && out.length === 0) {
-      // What real PostgREST returns for .single() with no match.
+    // Real PostgREST returns a PGRST116 error for .single() on EITHER zero OR
+    // multiple matches — the multiple case matters because customers.email is
+    // not UNIQUE in prod, so a duplicate-email lookup errors rather than
+    // silently returning the first row.
+    if (this.requireOne && out.length !== 1) {
       return {
         data: null,
         error: { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned" },

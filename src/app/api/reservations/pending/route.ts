@@ -29,8 +29,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const result = pendingBookingSchema.safeParse(body);
     if (!result.success) {
+      // This endpoint runs BEFORE confirmPayment — the customer genuinely has
+      // not been charged on any failure here. Say so, on every message: the
+      // client shows these verbatim, and the reassurance is the whole point of
+      // failing closed before the charge.
       return NextResponse.json(
-        { error: result.error.issues[0].message },
+        { error: `${result.error.issues[0].message} — you have not been charged.` },
         { status: 400 }
       );
     }
@@ -80,7 +84,7 @@ export async function POST(request: NextRequest) {
         { stripePaymentIntentId: piId, amount: pi.amount / 100 }
       );
       return NextResponse.json(
-        { error: "Booking details do not match this payment" },
+        { error: "Booking details do not match this payment — you have not been charged." },
         { status: 400 }
       );
     }
@@ -152,7 +156,7 @@ export async function POST(request: NextRequest) {
     // the intended trade: a customer who cannot check out is recoverable, a
     // customer charged with no durable record of what they bought is not.
     return NextResponse.json(
-      { error: "Could not prepare your booking. Please try again." },
+      { error: "Could not prepare your booking. Please try again — you have not been charged." },
       { status: 500 }
     );
   }

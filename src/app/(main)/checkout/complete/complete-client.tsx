@@ -24,6 +24,10 @@ export default function CheckoutCompleteClient() {
   // Guards against React 18 StrictMode double-invocation and any re-render
   // restarting the poll loop mid-flight.
   const startedRef = useRef(false);
+  // Set false on unmount. Checked before every state write / navigation so a
+  // poll that resolves after the customer navigated away (Back button) can't
+  // yank them back with router.replace or setState on an unmounted component.
+  const mountedRef = useRef(true);
 
   // Stripe appends BOTH of these to return_url. The client secret is the
   // credential the completion endpoint authenticates against.
@@ -41,12 +45,15 @@ export default function CheckoutCompleteClient() {
     }
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      if (!mountedRef.current) return; // customer navigated away — stop.
       try {
         const res = await fetch("/api/reservations/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ paymentIntentId, clientSecret }),
         });
+
+        if (!mountedRef.current) return;
 
         if (res.status === 404) {
           setView({
@@ -58,6 +65,7 @@ export default function CheckoutCompleteClient() {
         }
 
         const data = await res.json();
+        if (!mountedRef.current) return;
 
         switch (data.state) {
           case "booked":
@@ -85,7 +93,7 @@ export default function CheckoutCompleteClient() {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    setView({ kind: "timeout" });
+    if (mountedRef.current) setView({ kind: "timeout" });
   }, [paymentIntentId, clientSecret, router]);
 
   useEffect(() => {
@@ -99,6 +107,9 @@ export default function CheckoutCompleteClient() {
     }
 
     void poll();
+    return () => {
+      mountedRef.current = false;
+    };
   }, [poll]);
 
   if (view.kind === "working") {
