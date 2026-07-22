@@ -97,6 +97,10 @@ export default function CheckoutCompleteClient() {
   }, [paymentIntentId, clientSecret, router]);
 
   useEffect(() => {
+    // Re-arm on every mount so React 18 StrictMode's mount→unmount→remount in
+    // dev doesn't leave mountedRef stuck false (the cleanup from the first mount
+    // sets it false; without this the remount's poll would see false and stop).
+    mountedRef.current = true;
     if (startedRef.current) return;
     startedRef.current = true;
 

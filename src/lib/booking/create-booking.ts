@@ -114,12 +114,13 @@ export type CreateBookingResult =
 /**
  * Should Stripe redeliver the webhook that produced this outcome?
  *
- * The SINGLE source of truth for the 503-vs-2xx contract, shared by the webhook
- * and the sweep so the wire behaviour can never drift from the `retryable` field.
- * The `never` guard makes adding a new CreateBookingResult variant a compile
- * error here — previously the webhook re-derived this rule inline with no such
- * guard, so a new variant would silently fall through to "don't redeliver" and
- * could strand a charged customer.
+ * The SINGLE source of truth for the webhook's 503-vs-2xx contract, so the wire
+ * behaviour can never drift from the `retryable` field. The `never` guard makes
+ * adding a new CreateBookingResult variant a compile error here — previously the
+ * webhook re-derived this rule inline with no such guard, so a new variant would
+ * silently fall through to "don't redeliver" and could strand a charged customer.
+ * (The sweep is a cron, not a Stripe-delivered webhook, so it doesn't use this —
+ * it keeps its own outcome tally.)
  */
 export function shouldStripeRedeliver(outcome: CreateBookingResult): boolean {
   switch (outcome.kind) {
