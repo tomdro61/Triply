@@ -122,6 +122,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private selectStr = "";
   private singleRow = false;
   private requireOne = false;
+  private orOnMutation = false;
   private limitN: number | null = null;
 
   constructor(private db: FakeSupabase, private table: string) {}
@@ -165,6 +166,12 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
     return this;
   }
   or(expr: string) {
+    // Mirror a real-PostgREST constraint the hard way, on purpose: `.or()` works
+    // on a SELECT but FAILS on an UPDATE/DELETE with "column ... does not exist".
+    // An earlier fake silently accepted `.or()` on updates, so 31 tests passed
+    // while the production mutex matched zero rows and every booking stalled on
+    // staging. The fake must never be more permissive than the database again.
+    this.orOnMutation = this.op !== "select";
     this.filters.push({ op: "or", col: "", val: expr });
     return this;
   }
@@ -243,6 +250,19 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
   private run(): { data: unknown; error: unknown } {
     this.db.log.push({ table: this.table, op: this.op });
+
+    // Real PostgREST rejects `.or()` on a mutating request. Reproduce it so a
+    // regression to `.update(...).or(...)` fails a test instead of silently
+    // matching nothing in production.
+    if (this.orOnMutation) {
+      return {
+        data: null,
+        error: {
+          message: `column ${this.table}.status does not exist`,
+          code: "42703",
+        },
+      };
+    }
 
     const injected = this.db._take(this.table, this.op);
     if (injected) {

@@ -456,21 +456,49 @@ async function readPendingRow(pi: string): Promise<PendingRow | null> {
 async function claimPendingRow(pi: string): Promise<PendingRow | null> {
   const supabase = await createAdminClient();
   const staleBefore = new Date(Date.now() - STALE_CLAIM_MS).toISOString();
-  const [fresh, stale] = NON_TERMINAL;
 
-  const { data, error } = await supabase
+  // TWO atomic single-condition UPDATEs, deliberately NOT one `.or()` UPDATE.
+  //
+  // Real PostgREST rejects `.or()` on an UPDATE with "column ... does not exist"
+  // (it parses fine on a SELECT). The original single-statement claim therefore
+  // matched ZERO rows on every call — the mutex never fired, createBooking
+  // always returned `in_progress`, and every booking stalled until the client
+  // gave up. This was invisible to the unit tests because the in-memory fake
+  // implemented `.or()`-on-update, so it was more permissive than the database.
+  //
+  // The claim is still atomic and race-safe. Each UPDATE re-evaluates its WHERE
+  // under a row lock, and the two target DISJOINT statuses:
+  //   1. a FRESH pending row, or
+  //   2. a stale `processing` row whose owner died.
+  // Two callers racing (1) — Postgres serializes; only one matches `pending`.
+  // Two callers racing (2) — the first sets claimed_at=now, so the second's
+  // `claimed_at < staleBefore` no longer holds and it matches nothing.
+
+  const claimNow = { status: "processing", claimed_at: new Date().toISOString() };
+
+  // 1. Claim a fresh row.
+  const fresh = await supabase
     .from("pending_bookings")
-    .update({ status: "processing", claimed_at: new Date().toISOString() })
+    .update(claimNow)
     .eq("stripe_payment_intent_id", pi)
-    .or(`status.eq.${fresh},and(status.eq.${stale},claimed_at.lt.${staleBefore})`)
+    .eq("status", "pending")
     .select("*")
     .maybeSingle();
+  if (fresh.error) throw new DurableStateError("claim(pending)", fresh.error.message);
+  if (fresh.data) return fresh.data as PendingRow;
 
-  // Without this, a DB fault returns null and reads as "someone else holds the
-  // claim" — benign to every caller — while the customer's money is gone.
-  if (error) throw new DurableStateError("claim", error.message);
+  // 2. Steal a stale claim.
+  const stolen = await supabase
+    .from("pending_bookings")
+    .update(claimNow)
+    .eq("stripe_payment_intent_id", pi)
+    .eq("status", "processing")
+    .lt("claimed_at", staleBefore)
+    .select("*")
+    .maybeSingle();
+  if (stolen.error) throw new DurableStateError("claim(stale)", stolen.error.message);
 
-  return (data as PendingRow | null) ?? null;
+  return (stolen.data as PendingRow | null) ?? null;
 }
 
 /**
