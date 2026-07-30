@@ -13,6 +13,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.41",
     "@ai-sdk/react": "^3.0.80",
+    "@date-fns/tz": "^1.5.0",
     "@ducanh2912/next-pwa": "^10.2.9",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-avatar": "^1.1.11",

@@ -92,6 +92,31 @@ export async function createRefund(
 }
 
 /**
+ * Create a refund from an amount already expressed in CENTS.
+ *
+ * The sibling `createRefund` takes DOLLARS and ×100s internally — passing a
+ * cents value to it refunds 100× (a $103.07 refund becomes $10,307). This
+ * variant passes `amountCents` straight to Stripe with NO conversion, so callers
+ * that compute in cents (e.g. self-cancel `refund-math`) cannot hit that trap.
+ *
+ * `idempotencyKey` MUST be reason-independent (key on the PaymentIntent alone) —
+ * see `createRefund` above for why.
+ */
+export async function createRefundCents(
+  paymentIntentId: string,
+  amountCents: number,
+  idempotencyKey?: string
+) {
+  return stripe.refunds.create(
+    {
+      payment_intent: paymentIntentId,
+      amount: amountCents, // already cents — NO * 100
+    },
+    idempotencyKey ? { idempotencyKey } : undefined
+  );
+}
+
+/**
  * Capture a previously authorized PaymentIntent.
  *
  * Valid ONLY from status `requires_capture`. This is the moment the customer's

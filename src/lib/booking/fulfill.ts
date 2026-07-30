@@ -228,6 +228,43 @@ export async function persistBooking(
     // that was typed but not honored leaves no discount and isn't "used").
     const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
 
+    // The lot's IANA timezone for the self-cancel 24h gate. Primary source is
+    // the ResLab reservation's embedded location; airport_code is NOT usable
+    // (it is "RESLAB" on ~all bookings). Fall back to getLocation ONLY when the
+    // reservation omits it, in its OWN try/catch so a ResLab hiccup here can
+    // never fail the money-committed insert (persistBooking's outer catch would
+    // otherwise mark the whole booking failed). A remaining null fail-closes the
+    // cancel gate for this booking (routes the customer to support) and is
+    // Sentry-flagged so a feature-wide "nobody can cancel" regression is visible.
+    let locationTimezone: string | null =
+      resHistory?.location?.timezone?.code ?? null;
+    if (!locationTimezone && locationId != null) {
+      try {
+        locationTimezone =
+          (await reslab.getLocation(locationId))?.timezone?.code ?? null;
+      } catch (locErr) {
+        locationTimezone = null;
+        // Surface WHY the fallback failed (404 vs 5xx vs timeout vs auth) so a
+        // systematic "nobody can self-cancel" regression is diagnosable rather
+        // than an opaque null. Non-fatal — the null case is still handled below.
+        captureBookingError(
+          locErr instanceof Error ? locErr : new Error(String(locErr)),
+          {
+            step: "checkout",
+            confirmationNumber: reservation.reservation_number,
+          }
+        );
+      }
+    }
+    if (!locationTimezone) {
+      captureBookingError(
+        new Error(
+          `Booking persisted with null location_timezone (reslab_location_id=${locationId}); self-cancel gate will fail-closed for it`
+        ),
+        { step: "checkout", confirmationNumber: reservation.reservation_number }
+      );
+    }
+
     // --- Booking row ---------------------------------------------------------
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
@@ -239,6 +276,9 @@ export async function persistBooking(
           locationName || resHistory?.location?.name || `Location ${locationId}`,
         location_address: locationAddress || resHistory?.location?.address || "",
         airport_code: airportCode || "",
+        // IANA tz for the self-cancel 24h gate (resolved above). NULL fail-closes
+        // the gate for this booking — never guessed.
+        location_timezone: locationTimezone,
         // Literal wall-clock strings. bookings.check_in/check_out are TIMESTAMP
         // (migration 007), NOT TIMESTAMPTZ — no conversion, no Date math.
         check_in: fromDate,
