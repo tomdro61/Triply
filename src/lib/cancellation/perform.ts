@@ -205,7 +205,7 @@ export async function performSelfCancel(
 
   // How much was ALREADY refunded on this PI. Drives the net refund AND — on a
   // stale-reclaim of an already-refunded booking — the persisted 'refunded' vs
-  // 'cancelled' status (step 7). Read from the expanded charge, never the
+  // 'cancelled' status (step 8). Read from the expanded charge, never the
   // non-existent `pi.amount_refunded`.
   const priorRefundedCents =
     pi.latest_charge && typeof pi.latest_charge !== "string"
@@ -251,7 +251,7 @@ export async function performSelfCancel(
   }
   // else canceled / pre-payment — no money moved, teardown stays "none".
 
-  // 4. Atomic claim. From here we hold it: every pre-money abort releases it.
+  // 5. Atomic claim. From here we hold it: every pre-money abort releases it.
   let claim;
   try {
     claim = await claimForCancel(reservationNumber, now);
@@ -279,7 +279,7 @@ export async function performSelfCancel(
   }
   const ownedAt = claim.ownedAt;
 
-  // 5. ResLab cancel + classify (the first side effect).
+  // 6. ResLab cancel + classify (the first side effect).
   let cancelResult:
     | { ok: true; reservation: Awaited<ReturnType<typeof reslab.cancelReservation>> }
     | { ok: false; error: unknown };
@@ -327,7 +327,7 @@ export async function performSelfCancel(
 
   // outcome === "proceed": the ResLab spot IS released. Now the money teardown.
 
-  // 6. Stripe teardown.
+  // 7. Stripe teardown.
   let refundIssuedThisCall = false;
   if (teardown.kind === "refund") {
     try {
@@ -365,7 +365,7 @@ export async function performSelfCancel(
     }
   }
 
-  // 7. The TRUE money outcome. `refunded` is NOT "did I just call Stripe" — it's
+  // 8. The TRUE money outcome. `refunded` is NOT "did I just call Stripe" — it's
   //    "does the customer's money sit refunded". On a stale-reclaim the prior
   //    attempt may have already refunded (refundCents then computed to 0 and we
   //    correctly skipped Stripe), so derive from the PI's actual refunded amount
@@ -374,7 +374,7 @@ export async function performSelfCancel(
   const wasRefunded = refundIssuedThisCall || priorRefundedCents > 0;
   const newStatus = wasRefunded ? "refunded" : "cancelled";
 
-  // 8. Persist terminal status (admin client — session UPDATE is RLS-blocked by
+  // 9. Persist terminal status (admin client — session UPDATE is RLS-blocked by
   //    migration 012). PINNED to ownedAt like every other claim-holding write, so
   //    a request whose claim was stale-stolen mid-teardown can't clobber the new
   //    owner. `service_fee_refunded: true` because self-cancel ALWAYS returns the
@@ -394,6 +394,11 @@ export async function performSelfCancel(
     .select("id")
     .maybeSingle();
   const persistedByUs = !updateError && !!persisted;
+  // Distinguish the two "not persisted by us" cases. A genuine DB fault
+  // (updateError) has NO new owner — WE must still notify the customer, since the
+  // refund already landed. A stale-stolen claim (!persisted) DOES have a new owner
+  // that re-drives and notifies — so only THAT case suppresses our email.
+  const staleStolenNoOp = !updateError && !persisted;
   if (updateError) {
     // Money already moved / hold released + ResLab cancelled, but the terminal
     // write failed. Alert loudly; the row stays confirmed+claimed and the cron
@@ -417,7 +422,7 @@ export async function performSelfCancel(
     );
   }
 
-  // 9. Park Guard cancel + clear pg_identifier (best-effort; mirrors admin
+  // 10. Park Guard cancel + clear pg_identifier (best-effort; mirrors admin
   //    route). Gated on OUR successful persist so we never desync PG ahead of our
   //    own row, nor act on a row a new owner now holds. The clear is also pinned.
   if (booking.protection_plan && booking.id && persistedByUs) {
@@ -447,7 +452,7 @@ export async function performSelfCancel(
     }
   }
 
-  // 10. Cancellation email (best-effort — a send failure never fails the cancel).
+  // 11. Cancellation email (best-effort — a send failure never fails the cancel).
   //     The refund figure is the TOTAL returned on the PI (prior refund + this
   //     call), so an already-refunded replay still shows the real amount.
   const totalRefundedCents =
@@ -476,9 +481,11 @@ export async function performSelfCancel(
     );
   }
   const customer = booking.customers;
-  // Only email when WE cleanly finalized — a stale-stolen resumer's new owner
-  // (or the cron on a failed persist) owns the customer notification instead.
-  if (persistedByUs && customer?.email) {
+  // Email UNLESS a NEW OWNER will send it (the stale-stolen case). On a genuine
+  // updateError there is no new owner and the refund DID land, so the customer
+  // must still get their confirmation — suppressing it there would silently rely
+  // on the not-yet-built Phase-2 cron.
+  if (!staleStolenNoOp && customer?.email) {
     try {
       await sendCancellationConfirmation({
         to: customer.email,

@@ -390,7 +390,7 @@ describe("performSelfCancel — money-safety branches (review pass-1 fixes)", ()
     expect(sentry.capturePaymentError).toHaveBeenCalled();
   });
 
-  it("H3 — refund succeeds but terminal write fails → 200 refunded, PG NOT called, alerted", async () => {
+  it("H3 — refund succeeds but terminal write fails → 200 refunded, PG NOT called, but STILL emails, alerted", async () => {
     seedDb();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
     // Fail ONLY the terminal write (the one carrying cancel_state:'refund_issued'),
@@ -408,6 +408,8 @@ describe("performSelfCancel — money-safety branches (review pass-1 fixes)", ()
     expect(r.body).toMatchObject({ refunded: true });
     expect(createRefundCents).toHaveBeenCalled(); // refund DID happen
     expect(parkGuardMock.updateReservation).not.toHaveBeenCalled(); // gated on persistedByUs
+    // updateError has NO new owner → the customer must still be notified.
+    expect(sendCancellationConfirmation).toHaveBeenCalled();
     expect(sentry.captureAPIError).toHaveBeenCalled();
   });
 
