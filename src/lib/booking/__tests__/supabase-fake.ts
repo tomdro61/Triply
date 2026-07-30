@@ -86,6 +86,18 @@ export class FakeSupabase {
   /** `${table}:${op}` -> injected error. Consumed on first use. */
   private injected = new Map<string, { message: string; code: string }>();
 
+  /** Payload-conditional injected errors, consumed on first MATCH. Lets a test
+   *  fail a SPECIFIC write among several same-`table:op` writes (e.g. the terminal
+   *  status write vs the earlier claim UPDATE — both `bookings:update`) by
+   *  matching on the update payload. */
+  private conditional: Array<{
+    table: string;
+    op: string;
+    predicate: (payload: Row | null) => boolean;
+    message: string;
+    code: string;
+  }> = [];
+
   /** Every query executed, for assertions like "createReservation was skipped". */
   log: Array<{ table: string; op: string }> = [];
 
@@ -107,8 +119,36 @@ export class FakeSupabase {
     return this;
   }
 
+  /** Fail the first `op` on `table` whose payload matches `predicate`, once.
+   *  Use to target one write among several same-table:op writes. */
+  failWhen(
+    table: string,
+    op: "select" | "insert" | "update",
+    predicate: (payload: Row | null) => boolean,
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.conditional.push({ table, op, predicate, message, code });
+    return this;
+  }
+
   from(table: string) {
     return new FakeQuery(this, table);
+  }
+
+  _takeConditional(
+    table: string,
+    op: string,
+    payload: Row | null
+  ): { message: string; code: string } | null {
+    const idx = this.conditional.findIndex(
+      (c) => c.table === table && c.op === op && c.predicate(payload)
+    );
+    if (idx >= 0) {
+      const [c] = this.conditional.splice(idx, 1);
+      return { message: c.message, code: c.code };
+    }
+    return null;
   }
 
   _take(table: string, op: string): { message: string; code: string } | null {
@@ -269,6 +309,15 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
           code: "42703",
         },
       };
+    }
+
+    const conditional = this.db._takeConditional(
+      this.table,
+      this.op,
+      this.payload
+    );
+    if (conditional) {
+      return { data: null, error: conditional };
     }
 
     const injected = this.db._take(this.table, this.op);
