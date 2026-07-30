@@ -119,8 +119,22 @@ Before opening a PR:
 
 - `npm run build` + `npm test` (app) — must pass.
 - Self-review the diff against the anti-patterns below.
-- Customer-facing or money/booking code → get a second set of eyes. (Tom runs a
-  multi-agent `/scoped-review` skill; ask if you want it wired into this repo.)
+- Customer-facing or money/booking code → get a second set of eyes: run
+  `/scoped-review` (committed to this repo — see **Skills** below).
+
+## Skills (in `.claude/skills/`)
+
+Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:** some dispatch sub-agents or MCP tools that come from **plugins** (`pr-review-toolkit:*`, `feature-dev:*`, Playwright) — you need those installed for the skill to fully run. The skill *instructions* travel via git; the plugin/MCP dependencies don't.
+
+| Skill | Use it for |
+|---|---|
+| `/scoped-review` | Multi-agent code review scoped to what changed. Before declaring a feature done / before a PR. |
+| `/sketch-flow` | Required state-machine sketch **before** writing any new async handler touching Stripe / ResLab / Supabase / Park Guard from a UI handler. |
+| `/verify-flow <flow>` | End-to-end verification of a customer flow (checkout, confirmation) via local dev + Playwright — after a customer-facing change. |
+| `/post-deploy-check` | Verify a prod deploy actually landed (Vercel Ready, URL 200, Sentry quiet, migrations applied) — after merging to `main`. |
+| `/end-session` | Session-wrap ritual: update docs/notes + post a team digest to Discord. |
+| `/harden-plan` | **Heavy, opt-in.** Adversarial multi-agent review of a *plan / RFC / migration doc* before writing code — spawns 60+ agents, spends millions of tokens. For real designs, not small changes; catches money/concurrency/timezone bugs pre-code. |
+| `/triply-frontend` | Triply frontend conventions + guidance. |
 
 ## Anti-patterns (hard rules — from bugs actually shipped here)
 
