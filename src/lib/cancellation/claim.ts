@@ -20,6 +20,22 @@ import { createAdminClient } from "@/lib/supabase/server";
  */
 export const CANCEL_STALE_CLAIM_MS = 90_000;
 
+/**
+ * The finite set of `cancel_state` values — the single source of truth, mirroring
+ * migration 017's CHECK constraint. Every write of `cancel_state` (here and in
+ * perform.ts) is typed against this, so a typo is a COMPILE error rather than a
+ * runtime CHECK rejection on the money path — a rejected write only gets logged
+ * while the customer still receives a 202, and the reconciliation cron (which
+ * filters on `cancel_state`) would never see the stranded row. Keep in sync with
+ * `supabase/migrations/017_booking_cancel_claim.sql`.
+ */
+export type CancelState =
+  | "claimed"
+  | "held_reslab_ambiguous"
+  | "reslab_cancelled_refund_pending"
+  | "refund_issued"
+  | "admin_claimed";
+
 export class CancelClaimError extends Error {
   constructor(where: string, detail: string) {
     super(`cancel claim ${where}: ${detail}`);
@@ -49,7 +65,10 @@ export async function claimForCancel(
   const supabase = await createAdminClient();
   const nowIso = new Date(now).toISOString();
   const staleBefore = new Date(now - CANCEL_STALE_CLAIM_MS).toISOString();
-  const claim = { cancel_claimed_at: nowIso, cancel_state: "claimed" };
+  const claim: { cancel_claimed_at: string; cancel_state: CancelState } = {
+    cancel_claimed_at: nowIso,
+    cancel_state: "claimed",
+  };
 
   // 1. Fresh claim (unclaimed confirmed row). Disjoint from (2): Postgres
   //    serializes concurrent claimers under a row lock; only one matches

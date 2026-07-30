@@ -4,6 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { performSelfCancel, type CancelBookingRow } from "@/lib/cancellation/perform";
 
+// Match every sibling money-path route (reservations, webhooks/stripe, the
+// crons). This handler chains Stripe retrieve → claim → ResLab cancel (+ a
+// possible getReservation probe, each up to RESLAB_TIMEOUT_MS) → Stripe
+// refund/cancel → Supabase → Park Guard → email, all sequentially. The 60s
+// ceiling is load-bearing, not cosmetic: claim.ts's stale-claim window
+// (CANCEL_STALE_CLAIM_MS = 90s) is only safe while a healthy in-flight request
+// finishes in under 90s, i.e. maxDuration MUST stay < 90s. Do not raise it past
+// 90 without also raising CANCEL_STALE_CLAIM_MS.
+export const maxDuration = 60;
+
 const ENDPOINT = "/api/user/bookings/[reservationNumber]/cancel";
 
 // The reslab_reservation_number is the client-facing key (returned by GET

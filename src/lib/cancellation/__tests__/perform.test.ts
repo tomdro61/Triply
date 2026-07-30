@@ -157,6 +157,12 @@ describe("performSelfCancel — happy refund path", () => {
     // Park Guard cancelled + pg_identifier cleared.
     expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
     expect(db.tables.bookings[0].pg_identifier).toBeNull();
+    // Self-cancel always returns the service fee — reconcile.ts reads this flag.
+    expect(db.tables.bookings[0].service_fee_refunded).toBe(true);
+    // PI retrieved WITH the charge expanded (else the refund-state gate throws).
+    expect(stripeMock.paymentIntents.retrieve).toHaveBeenCalledWith("pi_1", {
+      expand: ["latest_charge"],
+    });
     // Email reflects the refund + the $6 retained / $4.99 returned breakdown.
     expect(sendCancellationConfirmation).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -194,7 +200,7 @@ describe("performSelfCancel — no refund but still cancels", () => {
     expect(db.tables.bookings[0].status).toBe("cancelled");
   });
 
-  it("succeeded but net refund ≤ 0 (already fully refunded): cancels, no new refund", async () => {
+  it("succeeded, already fully refunded by a prior attempt: records REFUNDED not cancelled, no new refund", async () => {
     seedDb();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(
       mkPi("succeeded", { amount_received: 10_000, latest_charge: { amount_refunded: 10_000 } }),
@@ -203,8 +209,11 @@ describe("performSelfCancel — no refund but still cancels", () => {
     const r = await performSelfCancel(mkBooking(), NOW_OK);
 
     expect(r.status).toBe(200);
-    expect(r.body).toMatchObject({ status: "cancelled", refunded: false });
+    // priorRefunded>0 → the customer WAS refunded; status MUST reflect that even
+    // though this invocation issued no new refund (the stale-reclaim misrecord bug).
+    expect(r.body).toMatchObject({ status: "refunded", refunded: true });
     expect(createRefundCents).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].status).toBe("refunded");
   });
 });
 
@@ -321,5 +330,101 @@ describe("performSelfCancel — gates BEFORE any side effect", () => {
     expect(r.body).toMatchObject({ error: "in_progress" });
     expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
     expect(createRefundCents).not.toHaveBeenCalled();
+  });
+});
+
+describe("performSelfCancel — money-safety branches (review pass-1 fixes)", () => {
+  it("confirmed booking with NULL PaymentIntent → 409 refuse, no claim, no ResLab, no PI read", async () => {
+    seedDb({ stripe_payment_intent_id: null });
+
+    const r = await performSelfCancel(mkBooking({ stripe_payment_intent_id: null }), NOW_OK);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: "unavailable" });
+    expect(stripeMock.paymentIntents.retrieve).not.toHaveBeenCalled();
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+    expect(sentry.captureAPIError).toHaveBeenCalled();
+  });
+
+  it("C1 — succeeded PI with no readable charge (unknown state) → 409, never claims/cancels/refunds", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded", { latest_charge: null }));
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK);
+
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: "unavailable" });
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+  });
+
+  it("H1 — Stripe PI retrieve fails → 503, never claims/cancels", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockImplementationOnce(async () => {
+      throw new Error("stripe unreachable");
+    });
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK);
+
+    expect(r.status).toBe(503);
+    expect(r.body).toMatchObject({ error: "payment_lookup_failed" });
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+    expect(sentry.capturePaymentError).toHaveBeenCalled();
+  });
+
+  it("H2 — requires_capture + hold-release throws → still 200 cancelled (soft-fail, alerted)", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("requires_capture"));
+    cancelPaymentIntent.mockImplementationOnce(async () => {
+      throw new Error("release failed");
+    });
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ status: "cancelled", refunded: false });
+    expect(db.tables.bookings[0].status).toBe("cancelled");
+    expect(sentry.capturePaymentError).toHaveBeenCalled();
+  });
+
+  it("H3 — refund succeeds but terminal write fails → 200 refunded, PG NOT called, alerted", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    // Fail ONLY the terminal write (the one carrying cancel_state:'refund_issued'),
+    // not the earlier claim UPDATE.
+    db.failWhen(
+      "bookings",
+      "update",
+      (p) => p?.cancel_state === "refund_issued",
+      "terminal write conn reset",
+    );
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK);
+
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ refunded: true });
+    expect(createRefundCents).toHaveBeenCalled(); // refund DID happen
+    expect(parkGuardMock.updateReservation).not.toHaveBeenCalled(); // gated on persistedByUs
+    expect(sentry.captureAPIError).toHaveBeenCalled();
+  });
+
+  it("M5 — partial prior refund nets the NEW refund to a concrete cents value", async () => {
+    seedDb({ pg_identifier: null });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      mkPi("succeeded", { amount_received: 10_000, latest_charge: { amount_refunded: 3_000 } }),
+    );
+
+    const r = await performSelfCancel(
+      mkBooking({ protection_plan: null, pg_identifier: null }),
+      NOW_OK,
+    );
+
+    expect(r.status).toBe(200);
+    // 10000 − 0 wholesale − 3000 prior = 7000 cents refunded now.
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 7000, "selfcancel:pi_1");
+    expect(r.body).toMatchObject({ status: "refunded", refunded: true });
   });
 });

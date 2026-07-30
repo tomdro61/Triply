@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase/server";
 import { reslab } from "@/lib/reslab/client";
 import {
@@ -15,7 +16,7 @@ import {
 } from "@/lib/sentry";
 import { isCancellable } from "./eligibility";
 import { computeCancellationRefund } from "./refund-math";
-import { claimForCancel, releaseClaim } from "./claim";
+import { claimForCancel, releaseClaim, type CancelState } from "./claim";
 import { classifyCancelOutcome } from "./reslab-cancel";
 
 /**
@@ -122,109 +123,133 @@ export async function performSelfCancel(
     };
   }
 
-  // 3. PRE-CLAIM live-PI guard + refund plan. NO side effects here — this only
-  //    reads Stripe and decides what the teardown will be, so a still-settling
-  //    payment or a dirty-data refund throw aborts BEFORE we claim or touch
-  //    ResLab. Retrieve with `latest_charge` expanded so the refund-state gate
-  //    and prior-refund math can read the charge.
-  let teardown: Teardown = { kind: "none" };
-  if (piId) {
-    let pi;
-    try {
-      pi = await stripe.paymentIntents.retrieve(piId, {
-        expand: ["latest_charge"],
-      });
-    } catch (error) {
-      capturePaymentError(
-        error instanceof Error ? error : new Error(String(error)),
-        { stripePaymentIntentId: piId },
-      );
-      return {
-        status: 503,
-        body: {
-          error: "payment_lookup_failed",
-          message:
-            "We couldn't reach the payment processor. Please try again in a moment.",
-        },
-      };
-    }
-
-    // Still settling: amount_received is 0, so the refund math would compute $0
-    // and we'd release the ResLab spot WITHOUT refunding a customer who WILL be
-    // charged once capture settles. Refuse until it's terminal.
-    if (pi.status === "processing") {
-      return {
-        status: 409,
-        body: {
-          error: "payment_settling",
-          message:
-            "Your payment is still processing. Please try again in a few minutes.",
-        },
-      };
-    }
-
-    // Refund-state gate (G1). "unknown" = a succeeded PI whose charge we can't
-    // read — never guess; route to support.
-    const refundState = paymentIntentRefundState(pi);
-    if (refundState === "unknown") {
-      capturePaymentError(
-        new Error(
-          `self-cancel: refund state undeterminable for ${piId} (status=${pi.status})`,
-        ),
-        { stripePaymentIntentId: piId },
-      );
-      return {
-        status: 409,
-        body: {
-          error: "unavailable",
-          message:
-            "We couldn't verify this reservation's payment. Please contact support.",
-        },
-      };
-    }
-
-    if (pi.status === "succeeded") {
-      const priorRefundedCents =
-        pi.latest_charge && typeof pi.latest_charge !== "string"
-          ? pi.latest_charge.amount_refunded ?? 0
-          : 0;
-      let refundCents: number;
-      let pgWholesaleCents: number;
-      try {
-        ({ refundCents, pgWholesaleCents } = computeCancellationRefund({
-          amountReceivedCents: pi.amount_received ?? 0,
-          priorRefundedCents,
-          protectionPlan: booking.protection_plan,
-          protectionPlanPriceDollars: booking.protection_plan_price,
-        }));
-      } catch (error) {
-        // Non-finite refund from dirty data. MUST NOT surface as a bare 500 or
-        // reach Stripe (amount: NaN). Nothing has happened yet — safe to abort.
-        captureAPIError(
-          error instanceof Error ? error : new Error(String(error)),
-          { endpoint: ENDPOINT, method: "POST", statusCode: 500 },
-        );
-        return {
-          status: 500,
-          body: {
-            error: "refund_calc_failed",
-            message:
-              "We couldn't calculate your refund, so we did NOT cancel your reservation. Please contact support.",
-          },
-        };
-      }
-      teardown =
-        refundCents > 0
-          ? { kind: "refund", refundCents, pgWholesaleCents }
-          : { kind: "none" };
-    } else if (pi.status === "requires_capture") {
-      // Authorized but never captured — nothing was charged; release the hold.
-      teardown = { kind: "release" };
-    } else {
-      // canceled / pre-payment states — no money moved.
-      teardown = { kind: "none" };
-    }
+  // 3. A confirmed booking with no PaymentIntent has no amount source. Under the
+  //    atomicity model this shouldn't happen, so treat it as the anomaly it is:
+  //    refuse + alert rather than cancel-without-refund (spec §5.6). This also
+  //    narrows `piId` to a non-null string for the rest of the function.
+  if (!piId) {
+    captureAPIError(
+      new Error(
+        `self-cancel: confirmed booking ${reservationNumber} has no stripe_payment_intent_id — no amount source, refusing`,
+      ),
+      { endpoint: ENDPOINT, method: "POST", statusCode: 409 },
+    );
+    return {
+      status: 409,
+      body: {
+        error: "unavailable",
+        message:
+          "We couldn't verify this reservation's payment. Please contact support.",
+      },
+    };
   }
+
+  // 4. PRE-CLAIM live-PI guard + refund plan. NO side effects here — this only
+  //    reads Stripe and decides the teardown, so a still-settling payment or a
+  //    dirty-data refund throw aborts BEFORE we claim or touch ResLab. Retrieve
+  //    with `latest_charge` expanded so the refund-state gate and prior-refund
+  //    math can read the charge.
+  let pi: Stripe.PaymentIntent;
+  try {
+    pi = await stripe.paymentIntents.retrieve(piId, {
+      expand: ["latest_charge"],
+    });
+  } catch (error) {
+    capturePaymentError(
+      error instanceof Error ? error : new Error(String(error)),
+      { stripePaymentIntentId: piId },
+    );
+    return {
+      status: 503,
+      body: {
+        error: "payment_lookup_failed",
+        message:
+          "We couldn't reach the payment processor. Please try again in a moment.",
+      },
+    };
+  }
+
+  // Still settling: amount_received is 0, so the refund math would compute $0 and
+  // we'd release the ResLab spot WITHOUT refunding a customer who WILL be charged
+  // once capture settles. Refuse until it's terminal.
+  if (pi.status === "processing") {
+    return {
+      status: 409,
+      body: {
+        error: "payment_settling",
+        message:
+          "Your payment is still processing. Please try again in a few minutes.",
+      },
+    };
+  }
+
+  // Refund-state gate (G1). "unknown" = a succeeded PI whose charge we can't read
+  // — never guess; route to support.
+  const refundState = paymentIntentRefundState(pi);
+  if (refundState === "unknown") {
+    capturePaymentError(
+      new Error(
+        `self-cancel: refund state undeterminable for ${piId} (status=${pi.status})`,
+      ),
+      { stripePaymentIntentId: piId },
+    );
+    return {
+      status: 409,
+      body: {
+        error: "unavailable",
+        message:
+          "We couldn't verify this reservation's payment. Please contact support.",
+      },
+    };
+  }
+
+  // How much was ALREADY refunded on this PI. Drives the net refund AND — on a
+  // stale-reclaim of an already-refunded booking — the persisted 'refunded' vs
+  // 'cancelled' status (step 7). Read from the expanded charge, never the
+  // non-existent `pi.amount_refunded`.
+  const priorRefundedCents =
+    pi.latest_charge && typeof pi.latest_charge !== "string"
+      ? pi.latest_charge.amount_refunded ?? 0
+      : 0;
+
+  let teardown: Teardown = { kind: "none" };
+  // Hoisted so the email breakdown can disclose the $6 retained even on the
+  // already-refunded replay path (teardown "none", but a refund did happen).
+  let pgWholesaleCents = 0;
+  if (pi.status === "succeeded") {
+    let refundCents: number;
+    try {
+      ({ refundCents, pgWholesaleCents } = computeCancellationRefund({
+        amountReceivedCents: pi.amount_received ?? 0,
+        priorRefundedCents,
+        protectionPlan: booking.protection_plan,
+        protectionPlanPriceDollars: booking.protection_plan_price,
+      }));
+    } catch (error) {
+      // Non-finite refund from dirty data. MUST NOT surface as a bare 500 or
+      // reach Stripe (amount: NaN). Nothing has happened yet — safe to abort.
+      captureAPIError(
+        error instanceof Error ? error : new Error(String(error)),
+        { endpoint: ENDPOINT, method: "POST", statusCode: 500 },
+      );
+      return {
+        status: 500,
+        body: {
+          error: "refund_calc_failed",
+          message:
+            "We couldn't calculate your refund, so we did NOT cancel your reservation. Please contact support.",
+        },
+      };
+    }
+    teardown =
+      refundCents > 0
+        ? { kind: "refund", refundCents, pgWholesaleCents }
+        : { kind: "none" };
+  } else if (pi.status === "requires_capture") {
+    // Authorized but never captured — nothing was charged; release the hold.
+    teardown = { kind: "release" };
+  }
+  // else canceled / pre-payment — no money moved, teardown stays "none".
 
   // 4. Atomic claim. From here we hold it: every pre-money abort releases it.
   let claim;
@@ -303,13 +328,13 @@ export async function performSelfCancel(
   // outcome === "proceed": the ResLab spot IS released. Now the money teardown.
 
   // 6. Stripe teardown.
-  let wasRefunded = false;
-  if (teardown.kind === "refund" && piId) {
+  let refundIssuedThisCall = false;
+  if (teardown.kind === "refund") {
     try {
       // Reason-independent idempotency key (on the PI alone): a stale-stolen
       // re-drive that re-cancels + re-refunds hits the SAME key → no double refund.
       await createRefundCents(piId, teardown.refundCents, `selfcancel:${piId}`);
-      wasRefunded = true;
+      refundIssuedThisCall = true;
     } catch (error) {
       // ResLab is already cancelled but the refund didn't go through. Do NOT
       // report success. Keep the claim + mark refund-pending for the cron/admin.
@@ -327,7 +352,7 @@ export async function performSelfCancel(
         },
       };
     }
-  } else if (teardown.kind === "release" && piId) {
+  } else if (teardown.kind === "release") {
     try {
       await cancelPaymentIntent(piId);
     } catch (error) {
@@ -340,37 +365,69 @@ export async function performSelfCancel(
     }
   }
 
-  // 7. Persist terminal status (admin client — session UPDATE is RLS-blocked by
-  //    migration 012). `cancel_state: "refund_issued"` is the terminal FSM
-  //    marker; the money outcome lives in `status` (refunded vs cancelled).
+  // 7. The TRUE money outcome. `refunded` is NOT "did I just call Stripe" — it's
+  //    "does the customer's money sit refunded". On a stale-reclaim the prior
+  //    attempt may have already refunded (refundCents then computed to 0 and we
+  //    correctly skipped Stripe), so derive from the PI's actual refunded amount
+  //    too — otherwise we'd persist 'cancelled' on a genuinely refunded booking
+  //    and corrupt accounting (which trusts status='refunded' to mean money moved).
+  const wasRefunded = refundIssuedThisCall || priorRefundedCents > 0;
   const newStatus = wasRefunded ? "refunded" : "cancelled";
+
+  // 8. Persist terminal status (admin client — session UPDATE is RLS-blocked by
+  //    migration 012). PINNED to ownedAt like every other claim-holding write, so
+  //    a request whose claim was stale-stolen mid-teardown can't clobber the new
+  //    owner. `service_fee_refunded: true` because self-cancel ALWAYS returns the
+  //    service fee — reconcile.ts reads this to exclude the fee from kept revenue.
+  //    `cancel_state: "refund_issued"` is the terminal FSM marker; the money
+  //    outcome lives in `status`.
   const admin = await createAdminClient();
-  const { error: updateError } = await admin
+  const { data: persisted, error: updateError } = await admin
     .from("bookings")
-    .update({ status: newStatus, cancel_state: "refund_issued" })
-    .eq("reslab_reservation_number", reservationNumber);
+    .update({
+      status: newStatus,
+      cancel_state: "refund_issued" satisfies CancelState,
+      service_fee_refunded: true,
+    })
+    .eq("reslab_reservation_number", reservationNumber)
+    .eq("cancel_claimed_at", ownedAt)
+    .select("id")
+    .maybeSingle();
+  const persistedByUs = !updateError && !!persisted;
   if (updateError) {
     // Money already moved / hold released + ResLab cancelled, but the terminal
-    // write didn't land. Alert loudly; the row stays confirmed+claimed and the
-    // cron reconciles. The cancel DID happen, so we still report success.
+    // write failed. Alert loudly; the row stays confirmed+claimed and the cron
+    // reconciles. The cancel DID happen, so we still report success.
     captureAPIError(
       new Error(
         `self-cancel: terminal status write failed for ${reservationNumber} after teardown (refunded=${wasRefunded}): ${updateError.message}`,
       ),
       { endpoint: ENDPOINT, method: "POST", statusCode: 500 },
     );
+  } else if (!persisted) {
+    // Pinned write matched nothing → our claim was stale-stolen mid-teardown. The
+    // new owner finalizes (idempotently, via the selfcancel:<pi> key). Don't run
+    // PG/email on a row we no longer own; still report success (our money outcome
+    // is truthful).
+    captureAPIError(
+      new Error(
+        `self-cancel: terminal write no-op for ${reservationNumber} (claim stale-stolen mid-teardown; new owner finalizes)`,
+      ),
+      { endpoint: ENDPOINT, method: "POST", statusCode: 200 },
+    );
   }
 
-  // 8. Park Guard cancel + clear pg_identifier (best-effort; mirrors admin
-  //    route). Gated on a successful status write so we never desync PG ahead of
-  //    our own row.
-  if (booking.protection_plan && booking.id && !updateError) {
+  // 9. Park Guard cancel + clear pg_identifier (best-effort; mirrors admin
+  //    route). Gated on OUR successful persist so we never desync PG ahead of our
+  //    own row, nor act on a row a new owner now holds. The clear is also pinned.
+  if (booking.protection_plan && booking.id && persistedByUs) {
     try {
       await parkGuard.updateReservation(booking.id, { status: "cancelled" });
       const { error: pgClearError } = await admin
         .from("bookings")
         .update({ pg_identifier: null })
-        .eq("reslab_reservation_number", reservationNumber);
+        .eq("reslab_reservation_number", reservationNumber)
+        .eq("cancel_claimed_at", ownedAt);
       if (pgClearError) {
         captureParkGuardError(
           new Error(
@@ -390,16 +447,38 @@ export async function performSelfCancel(
     }
   }
 
-  // 9. Cancellation email (best-effort — a send failure never fails the cancel).
-  const refundDollars =
-    wasRefunded && teardown.kind === "refund" ? teardown.refundCents / 100 : 0;
-  const pgWholesaleDollars =
-    teardown.kind === "refund" ? teardown.pgWholesaleCents / 100 : 0;
+  // 10. Cancellation email (best-effort — a send failure never fails the cancel).
+  //     The refund figure is the TOTAL returned on the PI (prior refund + this
+  //     call), so an already-refunded replay still shows the real amount.
+  const totalRefundedCents =
+    priorRefundedCents +
+    (refundIssuedThisCall && teardown.kind === "refund" ? teardown.refundCents : 0);
+  const refundDollars = wasRefunded ? totalRefundedCents / 100 : 0;
+  const pgWholesaleDollars = pgWholesaleCents / 100; // hoisted; 0 when no PG / no charge
   const pgPremiumDollars = booking.protection_plan
     ? parseFloat(String(booking.protection_plan_price ?? "0")) || 0
     : 0;
+  const protectionPlanRefundDollars =
+    wasRefunded && booking.protection_plan
+      ? Math.max(0, pgPremiumDollars - pgWholesaleDollars)
+      : 0;
+  // Invariant (mirrors the admin route): the protection refund can't exceed the
+  // total refund — if it does, the withholding math is inconsistent. The email
+  // template clamps this render-side and can't alert, so surface it here where
+  // Sentry is available, rather than let a broken breakdown ship silently.
+  if (wasRefunded && protectionPlanRefundDollars > refundDollars) {
+    captureAPIError(
+      new Error(
+        `self-cancel: protection refund $${protectionPlanRefundDollars} exceeds total refund $${refundDollars} ` +
+          `(premium=${pgPremiumDollars}, withheld=${pgWholesaleDollars}) for ${reservationNumber} — withholding math inconsistent`,
+      ),
+      { endpoint: ENDPOINT, method: "POST", statusCode: 200 },
+    );
+  }
   const customer = booking.customers;
-  if (customer?.email) {
+  // Only email when WE cleanly finalized — a stale-stolen resumer's new owner
+  // (or the cron on a failed persist) owns the customer notification instead.
+  if (persistedByUs && customer?.email) {
     try {
       await sendCancellationConfirmation({
         to: customer.email,
@@ -415,9 +494,7 @@ export async function performSelfCancel(
         // What the customer got back OF the PG premium (premium minus the $6
         // wholesale withheld) and the $6 retained, so the breakdown reconciles.
         protectionPlanRefund:
-          wasRefunded && booking.protection_plan
-            ? Math.max(0, pgPremiumDollars - pgWholesaleDollars)
-            : undefined,
+          protectionPlanRefundDollars > 0 ? protectionPlanRefundDollars : undefined,
         protectionPlanRetained: pgWholesaleDollars > 0 ? pgWholesaleDollars : undefined,
       });
     } catch (error) {
