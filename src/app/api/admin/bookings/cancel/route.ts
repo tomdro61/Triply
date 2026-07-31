@@ -11,6 +11,12 @@ import {
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { adminClaim } from "@/lib/cancellation/claim";
+
+// Sequential ResLab + Stripe + Supabase + Park Guard + email. Pinned so a healthy
+// request stays well under adminClaim's 90s stale window — otherwise a slow
+// in-flight admin cancel could be re-claimed by a concurrent one.
+export const maxDuration = 60;
 
 // Validate cancel-request body at the boundary. Both fields are user-supplied
 // from the admin UI; treating them as raw `any` would let a malformed pi_*
@@ -126,6 +132,38 @@ export async function POST(request: NextRequest) {
         // Couldn't read the PI in the pre-check; fall through to the existing
         // Step-2 refund flow, which handles a lookup failure (piLookupFailed).
       }
+    }
+
+    // Coordinate with self-service cancellation BEFORE any ResLab/Stripe side
+    // effect: claim this booking as `admin_claimed` (a state the reconciliation
+    // cron excludes). This blocks — and is blocked by — a customer self-cancel
+    // claim/HOLD, so the admin path and the self-cancel path can never both refund
+    // the same booking. The admin keeps its own refund policy; this is purely the
+    // mutual-exclusion lock. (No customer cancels exist until the flag flips, so
+    // today this is a no-op guard; it's the prerequisite that makes the flip safe.)
+    let claimResult;
+    try {
+      claimResult = await adminClaim(reservationNumber);
+    } catch (claimErr) {
+      captureAPIError(
+        claimErr instanceof Error ? claimErr : new Error(String(claimErr)),
+        { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 500 }
+      );
+      return NextResponse.json(
+        { error: "Couldn't lock the reservation for cancellation. Please try again." },
+        { status: 500 }
+      );
+    }
+    if (!claimResult.claimed) {
+      return NextResponse.json(
+        {
+          error:
+            claimResult.reason === "not_confirmed"
+              ? "This reservation is no longer confirmed — refresh and check its status."
+              : "This reservation is currently being cancelled (a recent attempt, a customer self-cancel, or automated recovery). Please try again in a moment.",
+        },
+        { status: 409 }
+      );
     }
 
     const results: {
@@ -263,11 +301,27 @@ export async function POST(request: NextRequest) {
       !!refundPaymentIntentId && refundAmount > 0 && !holdReleased;
     if (intendToRefund) {
       try {
-        await createRefund(refundPaymentIntentId, refundAmount);
+        // Reason-independent idempotency key: a retry (or a concurrent admin
+        // request that computed the same amount) hits the SAME key → Stripe
+        // returns the cached refund rather than issuing a second one. Distinct
+        // from the self-cancel `selfcancel:<pi>` key, which is safe because the
+        // claim guarantees admin and customer never refund the same PI.
+        await createRefund(
+          refundPaymentIntentId,
+          refundAmount,
+          `admin-cancel:${refundPaymentIntentId}`
+        );
         results.stripe = true;
       } catch (error) {
         results.errors.push(
           `Stripe: ${error instanceof Error ? error.message : "Refund failed"}`
+        );
+        // Loud alert, matching the sibling Stripe-failure branches: a refund that
+        // failed (ResLab already released) needs on-call attention, not just a 207
+        // body. Money-safe (idempotency key prevents a double refund on retry).
+        captureAPIError(
+          error instanceof Error ? error : new Error(String(error)),
+          { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
         );
       }
     } else if (!piLookupFailed && !holdReleased) {

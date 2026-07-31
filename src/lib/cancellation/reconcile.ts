@@ -24,13 +24,14 @@ import {
  * never the bare claim predicate — and the scan excludes `admin_claimed`
  * (reserved in migration 017).
  *
- * ⚠️ PHASE-5 PREREQUISITE, NOT YET TRUE: the admin cancel route does NOT yet
- * write `admin_claimed` or join the claim, so today it can still cancel a booking
- * that is mid self-cancel using its OWN refund policy + no idempotency key. That
- * is only safe because ENABLE_SELF_SERVE_CANCEL is OFF (no customer cancels → no
- * race). Before the flag is flipped, the admin route MUST participate in the
- * claim (or route through this shared core), or a concurrent admin+customer cancel
- * of the same booking can double-refund. See the launch gate in the plan §9.A.
+ * The admin cancel route DOES join the claim: it writes `admin_claimed` (a state
+ * this cron's recovery scan excludes) before any side effect and refunds with the
+ * `admin-cancel:<pi>` idempotency key, so a concurrent admin + customer/cron cancel
+ * of the same booking can never both refund it. (This was the Phase-5 prerequisite;
+ * it is now implemented — see `adminClaim` in claim.ts + admin/bookings/cancel/route.ts.)
+ * A stuck `admin_claimed` row (admin terminal-write-failed) is surfaced by the
+ * leaked-claim scan below (alert-only) and re-drivable by an admin retry after the
+ * stale window.
  */
 
 const CRON_ENDPOINT = "/api/cron/reconcile-cancellations";
@@ -114,15 +115,18 @@ export async function reconcileStuckCancellations(
   }
   const rows: ScanBookingRow[] = data ?? [];
 
-  // Leaked-claim scan — stale bare 'claimed' (e.g. a request that died before
-  // reaching a HOLD, or a terminal-write-failed row). Alert only; the customer
-  // stale-steal or a human resolves these, never the cron's auto-refund. A scan
-  // error must NOT masquerade as "0 leaked" — throw so the cron alerts.
+  // Leaked/stuck-claim scan — a stale bare 'claimed' (a customer request that died
+  // before reaching a HOLD, or a terminal-write-failed row) OR a stale
+  // 'admin_claimed' (an admin cancel whose terminal write failed — status stuck
+  // 'confirmed' with money possibly already moved). Alert ONLY; the cron never
+  // auto-refunds these (a customer 'claimed' self-heals via stale-steal or a
+  // human; an admin row must use the admin's own refund policy). A scan error must
+  // NOT masquerade as "0 leaked" — throw so the cron alerts.
   const { data: leaked, error: leakedErr } = await admin
     .from("bookings")
     .select("id")
     .eq("status", "confirmed")
-    .eq("cancel_state", "claimed")
+    .in("cancel_state", ["claimed", "admin_claimed"])
     .lt("cancel_claimed_at", graceBefore)
     .limit(MAX_RECOVER_PER_RUN);
   if (leakedErr) {

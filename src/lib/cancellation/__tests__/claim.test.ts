@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 import {
   claimForCancel,
   releaseClaim,
+  adminClaim,
   CANCEL_STALE_CLAIM_MS,
   CancelClaimError,
 } from "../claim";
@@ -132,5 +133,74 @@ describe("releaseClaim (pinned to ownedAt)", () => {
     seedBooking({ cancel_claimed_at: iso(NOW), cancel_state: "claimed" });
     db.failOnce("bookings", "update", "conn reset");
     await expect(releaseClaim("RTL1", iso(NOW))).rejects.toBeInstanceOf(CancelClaimError);
+  });
+});
+
+describe("adminClaim", () => {
+  it("claims a fresh confirmed booking as admin_claimed", async () => {
+    seedBooking();
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: true });
+    expect(db.tables.bookings[0].cancel_state).toBe("admin_claimed");
+    expect(db.tables.bookings[0].cancel_claimed_at).toBe(iso(NOW));
+  });
+
+  it("is BLOCKED by a customer 'claimed' claim → in_progress (no double-refund)", async () => {
+    seedBooking({ cancel_claimed_at: iso(NOW - 1000), cancel_state: "claimed" });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: false, reason: "in_progress" });
+    expect(db.tables.bookings[0].cancel_state).toBe("claimed"); // untouched
+  });
+
+  it("is BLOCKED by a customer HOLD → in_progress", async () => {
+    seedBooking({ cancel_claimed_at: iso(NOW - 1000), cancel_state: "held_reslab_ambiguous" });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: false, reason: "in_progress" });
+    expect(db.tables.bookings[0].cancel_state).toBe("held_reslab_ambiguous");
+  });
+
+  it("re-claims a STALE prior admin_claimed (retry after a dead attempt)", async () => {
+    seedBooking({
+      cancel_claimed_at: iso(NOW - CANCEL_STALE_CLAIM_MS - 1000),
+      cancel_state: "admin_claimed",
+    });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: true });
+    expect(db.tables.bookings[0].cancel_claimed_at).toBe(iso(NOW)); // refreshed
+  });
+
+  it("does NOT re-claim a FRESH admin_claimed → in_progress (blocks a concurrent admin)", async () => {
+    seedBooking({ cancel_claimed_at: iso(NOW - 1000), cancel_state: "admin_claimed" });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: false, reason: "in_progress" });
+    expect(db.tables.bookings[0].cancel_claimed_at).toBe(iso(NOW - 1000)); // untouched
+  });
+
+  it("two concurrent admin claimers: exactly ONE wins", async () => {
+    seedBooking();
+    const [a, b] = await Promise.all([
+      adminClaim("RTL1", NOW),
+      adminClaim("RTL1", NOW),
+    ]);
+    expect([a, b].filter((x) => x.claimed).length).toBe(1);
+    expect([a, b].filter((x) => !x.claimed).length).toBe(1);
+  });
+
+  it("refuses a non-confirmed booking → not_confirmed", async () => {
+    seedBooking({ status: "refunded", cancel_state: "refund_issued", cancel_claimed_at: iso(NOW - 5000) });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: false, reason: "not_confirmed" });
+  });
+
+  it("throws CancelClaimError on a DB fault", async () => {
+    seedBooking();
+    db.failOnce("bookings", "update", "conn reset");
+    await expect(adminClaim("RTL1", NOW)).rejects.toBeInstanceOf(CancelClaimError);
+  });
+});
+
+describe("cross-path exclusion (admin ⇄ customer)", () => {
+  it("a customer claimForCancel CANNOT steal an admin_claimed row → in_progress", async () => {
+    // Even stale by time — stale-steal only takes cancel_state='claimed'.
+    seedBooking({
+      cancel_claimed_at: iso(NOW - CANCEL_STALE_CLAIM_MS - 1000),
+      cancel_state: "admin_claimed",
+    });
+    expect(await claimForCancel("RTL1", NOW)).toEqual({ claimed: false, reason: "in_progress" });
+    expect(db.tables.bookings[0].cancel_state).toBe("admin_claimed"); // untouched
   });
 });
