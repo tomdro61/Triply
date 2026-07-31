@@ -6,6 +6,7 @@ import {
   sendMonitorFailureAlert,
 } from "@/lib/resend/send-reconciliation-alert";
 import { captureAPIError } from "@/lib/sentry";
+import { reconcileStuckCancellations } from "@/lib/cancellation/reconcile";
 
 // Daily payment→booking reconciliation (Vercel Cron — see vercel.json).
 // Read-only: scans recent Stripe charges vs bookings and EMAILS the admins if
@@ -51,6 +52,38 @@ export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Phase 2: cancel-reconciliation — recover self-service cancellations that got
+  // interrupted mid-teardown (stuck refund / ambiguous ResLab). Runs FIRST and in
+  // its OWN try/catch so it never blocks the payment monitor below, and a monitor
+  // failure never skips it. Mutating but idempotent (shared finalize + the
+  // selfcancel:<pi> key + per-row atomic re-claim). Alerts loudly on anything it
+  // couldn't finish.
+  let cancelRecon: Awaited<
+    ReturnType<typeof reconcileStuckCancellations>
+  > | null = null;
+  try {
+    cancelRecon = await reconcileStuckCancellations();
+    if (cancelRecon.stalled.length > 0 || cancelRecon.leakedClaims > 0) {
+      captureAPIError(
+        new Error(
+          `Cancel reconciliation: ${cancelRecon.stalled.length} stalled + ${cancelRecon.leakedClaims} leaked claim(s) (recovered ${cancelRecon.recovered}). ` +
+            `Stalled: ${cancelRecon.stalled
+              .map((s) => `${s.reservationNumber}[${s.cancelState}]=${s.reason}`)
+              .join(", ")}`,
+        ),
+        CTX,
+      );
+      await Sentry.flush(2000);
+    }
+  } catch (error) {
+    // A recovery fault is loud but non-fatal to the payment monitor.
+    captureAPIError(
+      error instanceof Error ? error : new Error(String(error)),
+      CTX,
+    );
+    await Sentry.flush(2000);
   }
 
   let report;
@@ -128,5 +161,6 @@ export async function GET(request: NextRequest) {
     scanned: report.scannedPaymentIntents,
     windowDays: WINDOW_DAYS,
     stripeLivemode: report.stripeLivemode,
+    cancelReconciliation: cancelRecon,
   });
 }
