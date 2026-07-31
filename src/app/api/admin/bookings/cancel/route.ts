@@ -160,7 +160,7 @@ export async function POST(request: NextRequest) {
           error:
             claimResult.reason === "not_confirmed"
               ? "This reservation is no longer confirmed — refresh and check its status."
-              : "This reservation is currently being cancelled (customer self-cancel or automated recovery). Try again in a moment.",
+              : "This reservation is currently being cancelled (a recent attempt, a customer self-cancel, or automated recovery). Please try again in a moment.",
         },
         { status: 409 }
       );
@@ -315,6 +315,13 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         results.errors.push(
           `Stripe: ${error instanceof Error ? error.message : "Refund failed"}`
+        );
+        // Loud alert, matching the sibling Stripe-failure branches: a refund that
+        // failed (ResLab already released) needs on-call attention, not just a 207
+        // body. Money-safe (idempotency key prevents a double refund on retry).
+        captureAPIError(
+          error instanceof Error ? error : new Error(String(error)),
+          { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
         );
       }
     } else if (!piLookupFailed && !holdReleased) {
