@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Calendar, MapPin, Car, Clock, ChevronRight } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
+import { CancelReservationButton } from "./cancel-reservation-button";
 
 interface Booking {
   id: string;
@@ -24,6 +25,8 @@ interface Booking {
   } | null;
   status: "confirmed" | "cancelled" | "completed";
   created_at: string;
+  /** Server-computed airport-local 24h self-cancel eligibility. */
+  cancellable: boolean;
 }
 
 interface ReservationCardProps {
@@ -35,9 +38,18 @@ interface ReservationCardProps {
    * the click, the email keeps the deep-link working instead of 403-ing.
    */
   customerEmail: string | null;
+  /** Server flag: is self-service cancellation enabled? Gates the Cancel button. */
+  selfCancelEnabled: boolean;
+  /** Called after a successful cancel so the page flips this card to Cancelled. */
+  onCancelled: (reservationNumber: string) => void;
 }
 
-export function ReservationCard({ booking, customerEmail }: ReservationCardProps) {
+export function ReservationCard({
+  booking,
+  customerEmail,
+  selfCancelEnabled,
+  onCancelled,
+}: ReservationCardProps) {
   const checkInDate = parseISO(booking.check_in);
   const checkOutDate = parseISO(booking.check_out);
   const isUpcoming = !isPast(checkInDate) || isToday(checkInDate);
@@ -152,6 +164,14 @@ export function ReservationCard({ booking, customerEmail }: ReservationCardProps
             ).toFixed(2)}
           </p>
         </div>
+
+        {selfCancelEnabled && booking.status === "confirmed" && isUpcoming && (
+          <CancelReservationButton
+            reservationNumber={booking.reslab_reservation_number}
+            cancellable={booking.cancellable}
+            onCancelled={onCancelled}
+          />
+        )}
       </div>
     </Link>
   );
