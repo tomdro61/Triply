@@ -173,3 +173,67 @@ export async function markCancelState(
     );
   }
 }
+
+export type AdminClaimResult =
+  | { claimed: true }
+  | { claimed: false; reason: "in_progress" | "not_confirmed" };
+
+/**
+ * Claim a confirmed booking for an ADMIN cancel using the distinct `admin_claimed`
+ * state — which the reconciliation cron's scan EXCLUDES, so the cron never
+ * auto-refunds a booking an admin is mid-cancel on. It blocks (and is blocked by)
+ * a customer self-cancel claim/HOLD, so the admin and customer paths can never
+ * both refund the same booking — they use different refund policies + keys, so a
+ * race would genuinely double-refund.
+ *
+ * Re-entrant for a retry of a partially-failed admin cancel (re-claims an existing
+ * `admin_claimed`), but refuses when a CUSTOMER claim/HOLD is in progress. Two
+ * atomic single-condition UPDATEs, never `.or()` (see claimForCancel).
+ */
+export async function adminClaim(
+  reservationNumber: string,
+  now: number = Date.now(),
+): Promise<AdminClaimResult> {
+  const supabase = await createAdminClient();
+  const claim = {
+    cancel_claimed_at: new Date(now).toISOString(),
+    cancel_state: "admin_claimed" satisfies CancelState,
+  };
+
+  // 1. Fresh: no cancel in progress on this row.
+  const fresh = await supabase
+    .from("bookings")
+    .update(claim)
+    .eq("reslab_reservation_number", reservationNumber)
+    .eq("status", "confirmed")
+    .is("cancel_claimed_at", null)
+    .select("id")
+    .maybeSingle();
+  if (fresh.error) throw new CancelClaimError("admin-fresh", fresh.error.message);
+  if (fresh.data) return { claimed: true };
+
+  // 2. Re-claim our OWN prior admin attempt (retry after a partial failure). Only
+  //    matches `admin_claimed` — never a customer 'claimed'/HOLD.
+  const own = await supabase
+    .from("bookings")
+    .update(claim)
+    .eq("reslab_reservation_number", reservationNumber)
+    .eq("status", "confirmed")
+    .eq("cancel_state", "admin_claimed")
+    .select("id")
+    .maybeSingle();
+  if (own.error) throw new CancelClaimError("admin-reclaim", own.error.message);
+  if (own.data) return { claimed: true };
+
+  // 3. Couldn't claim — classify why for the caller's HTTP response.
+  const { data: row, error } = await supabase
+    .from("bookings")
+    .select("status")
+    .eq("reslab_reservation_number", reservationNumber)
+    .maybeSingle();
+  if (error) throw new CancelClaimError("admin-reread", error.message);
+  const status = (row as { status?: string } | null)?.status;
+  if (status !== "confirmed") return { claimed: false, reason: "not_confirmed" };
+  // Confirmed, but a customer self-cancel claim / HOLD is in progress.
+  return { claimed: false, reason: "in_progress" };
+}

@@ -11,6 +11,7 @@ import {
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { adminClaim } from "@/lib/cancellation/claim";
 
 // Validate cancel-request body at the boundary. Both fields are user-supplied
 // from the admin UI; treating them as raw `any` would let a malformed pi_*
@@ -126,6 +127,38 @@ export async function POST(request: NextRequest) {
         // Couldn't read the PI in the pre-check; fall through to the existing
         // Step-2 refund flow, which handles a lookup failure (piLookupFailed).
       }
+    }
+
+    // Coordinate with self-service cancellation BEFORE any ResLab/Stripe side
+    // effect: claim this booking as `admin_claimed` (a state the reconciliation
+    // cron excludes). This blocks — and is blocked by — a customer self-cancel
+    // claim/HOLD, so the admin path and the self-cancel path can never both refund
+    // the same booking. The admin keeps its own refund policy; this is purely the
+    // mutual-exclusion lock. (No customer cancels exist until the flag flips, so
+    // today this is a no-op guard; it's the prerequisite that makes the flip safe.)
+    let claimResult;
+    try {
+      claimResult = await adminClaim(reservationNumber);
+    } catch (claimErr) {
+      captureAPIError(
+        claimErr instanceof Error ? claimErr : new Error(String(claimErr)),
+        { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 500 }
+      );
+      return NextResponse.json(
+        { error: "Couldn't lock the reservation for cancellation. Please try again." },
+        { status: 500 }
+      );
+    }
+    if (!claimResult.claimed) {
+      return NextResponse.json(
+        {
+          error:
+            claimResult.reason === "not_confirmed"
+              ? "This reservation is no longer confirmed — refresh and check its status."
+              : "This reservation is currently being cancelled (customer self-cancel or automated recovery). Try again in a moment.",
+        },
+        { status: 409 }
+      );
     }
 
     const results: {
