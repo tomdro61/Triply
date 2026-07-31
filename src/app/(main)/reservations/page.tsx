@@ -28,7 +28,8 @@ interface Booking {
     color: string;
     licensePlate: string;
   } | null;
-  status: "confirmed" | "cancelled" | "completed";
+  // 'refunded' = cancelled AND money returned (the common self-cancel outcome).
+  status: "confirmed" | "cancelled" | "refunded" | "completed";
   created_at: string;
   /** Server-computed airport-local 24h self-cancel eligibility. */
   cancellable: boolean;

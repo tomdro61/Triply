@@ -17,6 +17,8 @@ interface CancelReservationButtonProps {
   onCancelled: (reservationNumber: string) => void;
 }
 
+// Rendered OUTSIDE the card's <Link>, so nothing here needs to stopPropagation
+// or preventDefault — clicks don't reach the card navigation.
 type Phase = "idle" | "confirming" | "submitting" | "processing" | "error";
 
 export function CancelReservationButton({
@@ -28,23 +30,13 @@ export function CancelReservationButton({
   const [phase, setPhase] = useState<Phase>("idle");
   const [message, setMessage] = useState<string | null>(null);
 
-  // The parent card is a <Link> — every interaction here must NOT navigate.
-  const stop = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
-
   // Inside 24h (or otherwise ineligible): no online cancel — route to support.
   if (!cancellable) {
     return (
-      <div className="mt-3 pt-3 border-t border-gray-100" onClick={stop}>
+      <div className="mt-3 pt-3 border-t border-gray-100">
         <p className="text-xs text-gray-500">
           Cancellations are only available more than 24 hours before check-in.{" "}
-          <a
-            href="/help"
-            onClick={stop}
-            className="text-brand-orange font-medium hover:underline"
-          >
+          <a href="/help" className="text-brand-orange font-medium hover:underline">
             Contact support
           </a>{" "}
           for help.
@@ -55,7 +47,7 @@ export function CancelReservationButton({
 
   if (phase === "processing") {
     return (
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-2" onClick={stop}>
+      <div className="mt-3 pt-3 border-t border-gray-100 flex items-start gap-2">
         <Loader2 className="h-4 w-4 text-brand-orange mt-0.5 shrink-0" />
         <p className="text-sm text-gray-700">{message}</p>
       </div>
@@ -70,21 +62,17 @@ export function CancelReservationButton({
         `/api/user/bookings/${encodeURIComponent(reservationNumber)}/cancel`,
         { method: "POST" },
       );
-      const data: Record<string, unknown> = await res
-        .json()
-        .catch(() => ({}));
+      const data: Record<string, unknown> = await res.json().catch(() => ({}));
 
       if (res.status === 401) {
         // Session expired between page load and click — send them to log back in.
         router.push("/auth/login?redirect=/reservations");
         return;
       }
-      if (res.ok) {
-        // 200: cancelled / refunded / already-cancelled. The badge flip + the
-        // cancellation email (with the refund breakdown) are the confirmation.
-        onCancelled(reservationNumber);
-        return;
-      }
+      // 202 MUST be checked before the 200 case: res.ok is true for the whole
+      // 2xx range. A 202 is NON-terminal — an ambiguous ResLab hold OR a refund
+      // still pending — so the reservation is NOT confirmed-cancelled yet. Show
+      // "processing" and do NOT flip the card (the cron finishes it + emails).
       if (res.status === 202) {
         setPhase("processing");
         setMessage(
@@ -92,6 +80,12 @@ export function CancelReservationButton({
             ? data.message
             : "We're processing your cancellation and will confirm by email shortly.",
         );
+        return;
+      }
+      if (res.status === 200) {
+        // Terminal: cancelled / refunded / already-cancelled. The badge flip + the
+        // cancellation email (with the refund breakdown) are the confirmation.
+        onCancelled(reservationNumber);
         return;
       }
       setPhase("error");
@@ -107,7 +101,7 @@ export function CancelReservationButton({
   const confirming = phase === "confirming" || phase === "submitting";
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100" onClick={stop}>
+    <div className="mt-3 pt-3 border-t border-gray-100">
       {phase === "error" && message && (
         <p className="mb-2 flex items-start gap-2 text-sm text-red-600">
           <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -118,10 +112,8 @@ export function CancelReservationButton({
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-700">Cancel this reservation?</span>
           <button
-            onClick={(e) => {
-              stop(e);
-              void submit();
-            }}
+            type="button"
+            onClick={() => void submit()}
             disabled={phase === "submitting"}
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-red-600 hover:text-red-700 disabled:opacity-60 disabled:cursor-not-allowed"
           >
@@ -129,8 +121,8 @@ export function CancelReservationButton({
             {phase === "submitting" ? "Cancelling…" : "Yes, cancel"}
           </button>
           <button
-            onClick={(e) => {
-              stop(e);
+            type="button"
+            onClick={() => {
               if (phase !== "submitting") {
                 setPhase("idle");
                 setMessage(null);
@@ -144,10 +136,8 @@ export function CancelReservationButton({
         </div>
       ) : (
         <button
-          onClick={(e) => {
-            stop(e);
-            setPhase("confirming");
-          }}
+          type="button"
+          onClick={() => setPhase("confirming")}
           className="text-sm font-medium text-gray-500 hover:text-red-600 transition-colors"
         >
           Cancel reservation
@@ -158,6 +148,11 @@ export function CancelReservationButton({
 }
 
 function errorMessageFor(status: number, data: Record<string, unknown>): string {
+  // The server writes customer-safe, precise messages (e.g. a dirty-data 500's
+  // "we did NOT cancel your reservation, contact support" — which must NOT become
+  // a misleading "try again"). Prefer it; the status fallbacks below cover the
+  // case where the body didn't parse (data is the {}-default).
+  if (typeof data.message === "string" && data.message) return data.message;
   const error = typeof data.error === "string" ? data.error : "";
   if (status === 409 && error === "in_progress") {
     return "This cancellation is already being processed. Please refresh in a moment.";
