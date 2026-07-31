@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Calendar, MapPin, Car, Clock, ChevronRight } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
+import { CancelReservationButton } from "./cancel-reservation-button";
 
 interface Booking {
   id: string;
@@ -22,8 +23,12 @@ interface Booking {
     color: string;
     licensePlate: string;
   } | null;
-  status: "confirmed" | "cancelled" | "completed";
+  // 'refunded' = cancelled AND money returned (the common self-cancel outcome,
+  // written by finalize.ts) — display it the same as 'cancelled'.
+  status: "confirmed" | "cancelled" | "refunded" | "completed";
   created_at: string;
+  /** Server-computed airport-local 24h self-cancel eligibility. */
+  cancellable: boolean;
 }
 
 interface ReservationCardProps {
@@ -35,16 +40,25 @@ interface ReservationCardProps {
    * the click, the email keeps the deep-link working instead of 403-ing.
    */
   customerEmail: string | null;
+  /** Server flag: is self-service cancellation enabled? Gates the Cancel button. */
+  selfCancelEnabled: boolean;
+  /** Called after a successful cancel so the page flips this card to Cancelled. */
+  onCancelled: (reservationNumber: string) => void;
 }
 
-export function ReservationCard({ booking, customerEmail }: ReservationCardProps) {
+export function ReservationCard({
+  booking,
+  customerEmail,
+  selfCancelEnabled,
+  onCancelled,
+}: ReservationCardProps) {
   const checkInDate = parseISO(booking.check_in);
   const checkOutDate = parseISO(booking.check_out);
   const isUpcoming = !isPast(checkInDate) || isToday(checkInDate);
   const isActive = isPast(checkInDate) && !isPast(checkOutDate);
 
   const getStatusBadge = () => {
-    if (booking.status === "cancelled") {
+    if (booking.status === "cancelled" || booking.status === "refunded") {
       return (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
           Cancelled
@@ -78,8 +92,8 @@ export function ReservationCard({ booking, customerEmail }: ReservationCardProps
   const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=reslab-${booking.reslab_location_id}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
 
   return (
-    <Link href={confirmationUrl}>
-      <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-orange/30 transition-all duration-200 cursor-pointer">
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-orange/30 transition-all duration-200">
+      <Link href={confirmationUrl} className="block cursor-pointer">
         <div className="flex items-start justify-between mb-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -152,7 +166,15 @@ export function ReservationCard({ booking, customerEmail }: ReservationCardProps
             ).toFixed(2)}
           </p>
         </div>
-      </div>
-    </Link>
+      </Link>
+
+      {selfCancelEnabled && booking.status === "confirmed" && isUpcoming && (
+        <CancelReservationButton
+          reservationNumber={booking.reslab_reservation_number}
+          cancellable={booking.cancellable}
+          onCancelled={onCancelled}
+        />
+      )}
+    </div>
   );
 }

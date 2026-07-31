@@ -2,13 +2,15 @@ import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
 import { getClaimableCustomerIds } from "@/lib/bookings/claimable";
+import { isCancellable } from "@/lib/cancellation/eligibility";
 
 // Column allowlist for the browser response. Excludes internal/sensitive
 // fields (stripe_payment_intent_id, pg_identifier, pg_sync_status) but KEEPS
 // protection_plan + protection_plan_price — both are consumed downstream (the
-// reservation-card total and the dirty-data check below).
+// reservation-card total and the dirty-data check below). location_timezone is
+// used only to compute the `cancellable` flag server-side (never the client).
 const BOOKING_COLUMNS =
-  "id, reslab_reservation_number, reslab_location_id, location_name, location_address, airport_code, check_in, check_out, grand_total, triply_service_fee, protection_plan, protection_plan_price, vehicle_info, status, created_at";
+  "id, reslab_reservation_number, reslab_location_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, triply_service_fee, protection_plan, protection_plan_price, vehicle_info, status, created_at";
 
 export async function GET() {
   try {
@@ -106,7 +108,20 @@ export async function GET() {
       );
     }
 
-    return NextResponse.json({ bookings: linked ?? [], claimableCount });
+    // Self-service cancellation gating. `selfCancelEnabled` keeps the flag
+    // server-side (no NEXT_PUBLIC leak). `cancellable` is the airport-local 24h
+    // eligibility computed SERVER-SIDE (isCancellable is server-only by design —
+    // the browser renders this boolean, never the untrusted client clock). It's a
+    // snapshot at fetch time; the cancel API re-validates on the actual action.
+    const selfCancelEnabled = process.env.ENABLE_SELF_SERVE_CANCEL === "true";
+    const bookings = (linked ?? []).map((b) => ({
+      ...b,
+      cancellable:
+        selfCancelEnabled && b.status === "confirmed"
+          ? isCancellable(b.check_in, b.location_timezone).cancellable
+          : false,
+    }));
+    return NextResponse.json({ bookings, claimableCount, selfCancelEnabled });
   } catch (error) {
     console.error("Error in user bookings route:", error);
     captureBookingError(error instanceof Error ? error : new Error(String(error)), {

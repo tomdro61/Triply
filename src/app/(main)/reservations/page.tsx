@@ -28,8 +28,11 @@ interface Booking {
     color: string;
     licensePlate: string;
   } | null;
-  status: "confirmed" | "cancelled" | "completed";
+  // 'refunded' = cancelled AND money returned (the common self-cancel outcome).
+  status: "confirmed" | "cancelled" | "refunded" | "completed";
   created_at: string;
+  /** Server-computed airport-local 24h self-cancel eligibility. */
+  cancellable: boolean;
 }
 
 export default function ReservationsPage() {
@@ -46,6 +49,9 @@ export default function ReservationsPage() {
   const [claimableCount, setClaimableCount] = useState(0);
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
+  // Server-gated: only when ENABLE_SELF_SERVE_CANCEL is on does the Cancel button
+  // render at all (the flag stays server-side; the API returns this boolean).
+  const [selfCancelEnabled, setSelfCancelEnabled] = useState(false);
 
   useEffect(() => {
     checkAuthAndFetchBookings();
@@ -82,6 +88,7 @@ export default function ReservationsPage() {
       const data = await response.json();
       setBookings(data.bookings || []);
       setClaimableCount(data.claimableCount || 0);
+      setSelfCancelEnabled(data.selfCancelEnabled === true);
     } catch (err) {
       console.error("Error fetching bookings:", err);
       setError("Failed to load your reservations. Please try again.");
@@ -121,6 +128,19 @@ export default function ReservationsPage() {
     } finally {
       setClaiming(false);
     }
+  };
+
+  // A card cancelled successfully → flip it to 'cancelled' locally so the badge
+  // updates immediately without a full refetch. The cancellation email carries
+  // the refund detail; the server remains the source of truth on refresh.
+  const handleCancelled = (reservationNumber: string) => {
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.reslab_reservation_number === reservationNumber
+          ? { ...b, status: "cancelled", cancellable: false }
+          : b,
+      ),
+    );
   };
 
   // Split bookings into upcoming and past
@@ -299,7 +319,13 @@ export default function ReservationsPage() {
               ) : (
                 <div className="space-y-4">
                   {displayedBookings.map((booking) => (
-                    <ReservationCard key={booking.id} booking={booking} customerEmail={userEmail} />
+                    <ReservationCard
+                      key={booking.id}
+                      booking={booking}
+                      customerEmail={userEmail}
+                      selfCancelEnabled={selfCancelEnabled}
+                      onCancelled={handleCancelled}
+                    />
                   ))}
                 </div>
               )}
