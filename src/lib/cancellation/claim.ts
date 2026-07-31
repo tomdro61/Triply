@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/server";
+import { captureAPIError } from "@/lib/sentry";
 
 /**
  * Idempotency claim for the self-cancel path — the concurrency core.
@@ -134,4 +135,41 @@ export async function releaseClaim(
     .eq("status", "confirmed")
     .eq("cancel_claimed_at", ownedAt);
   if (error) throw new CancelClaimError("release", error.message);
+}
+
+/** The two HOLD states a cancel can be parked in for the reconciliation cron. */
+export type HoldState = Extract<
+  CancelState,
+  "held_reslab_ambiguous" | "reslab_cancelled_refund_pending"
+>;
+
+/**
+ * Move a claimed row into a HOLD `cancel_state`, PINNED to `ownedAt` so a request
+ * whose claim was stale-stolen can't overwrite the new owner's state. Keeps
+ * `cancel_claimed_at` as-is so the reconciliation cron still finds the row.
+ * Shared by the customer handler (ambiguous-ResLab HOLD) and the finalize core
+ * (refund-failed-after-cancel). `endpoint` scopes the Sentry context to the
+ * caller (route vs cron). A write failure is logged, not thrown — the row simply
+ * stays in its prior state for the next cron pass.
+ */
+export async function markCancelState(
+  reservationNumber: string,
+  ownedAt: string,
+  state: HoldState,
+  endpoint: string,
+): Promise<void> {
+  const supabase = await createAdminClient();
+  const { error } = await supabase
+    .from("bookings")
+    .update({ cancel_state: state })
+    .eq("reslab_reservation_number", reservationNumber)
+    .eq("cancel_claimed_at", ownedAt);
+  if (error) {
+    captureAPIError(
+      new Error(
+        `cancel: failed to mark ${state} for ${reservationNumber}: ${error.message}`,
+      ),
+      { endpoint, method: "POST", statusCode: 500 },
+    );
+  }
 }
