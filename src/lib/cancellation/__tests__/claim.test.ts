@@ -156,10 +156,29 @@ describe("adminClaim", () => {
     expect(db.tables.bookings[0].cancel_state).toBe("held_reslab_ambiguous");
   });
 
-  it("re-claims its OWN prior admin_claimed (retry after a partial failure)", async () => {
-    seedBooking({ cancel_claimed_at: iso(NOW - 5000), cancel_state: "admin_claimed" });
+  it("re-claims a STALE prior admin_claimed (retry after a dead attempt)", async () => {
+    seedBooking({
+      cancel_claimed_at: iso(NOW - CANCEL_STALE_CLAIM_MS - 1000),
+      cancel_state: "admin_claimed",
+    });
     expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: true });
     expect(db.tables.bookings[0].cancel_claimed_at).toBe(iso(NOW)); // refreshed
+  });
+
+  it("does NOT re-claim a FRESH admin_claimed → in_progress (blocks a concurrent admin)", async () => {
+    seedBooking({ cancel_claimed_at: iso(NOW - 1000), cancel_state: "admin_claimed" });
+    expect(await adminClaim("RTL1", NOW)).toEqual({ claimed: false, reason: "in_progress" });
+    expect(db.tables.bookings[0].cancel_claimed_at).toBe(iso(NOW - 1000)); // untouched
+  });
+
+  it("two concurrent admin claimers: exactly ONE wins", async () => {
+    seedBooking();
+    const [a, b] = await Promise.all([
+      adminClaim("RTL1", NOW),
+      adminClaim("RTL1", NOW),
+    ]);
+    expect([a, b].filter((x) => x.claimed).length).toBe(1);
+    expect([a, b].filter((x) => !x.claimed).length).toBe(1);
   });
 
   it("refuses a non-confirmed booking → not_confirmed", async () => {

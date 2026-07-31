@@ -195,8 +195,10 @@ export async function adminClaim(
   now: number = Date.now(),
 ): Promise<AdminClaimResult> {
   const supabase = await createAdminClient();
+  const nowIso = new Date(now).toISOString();
+  const staleBefore = new Date(now - CANCEL_STALE_CLAIM_MS).toISOString();
   const claim = {
-    cancel_claimed_at: new Date(now).toISOString(),
+    cancel_claimed_at: nowIso,
     cancel_state: "admin_claimed" satisfies CancelState,
   };
 
@@ -212,14 +214,18 @@ export async function adminClaim(
   if (fresh.error) throw new CancelClaimError("admin-fresh", fresh.error.message);
   if (fresh.data) return { claimed: true };
 
-  // 2. Re-claim our OWN prior admin attempt (retry after a partial failure). Only
-  //    matches `admin_claimed` — never a customer 'claimed'/HOLD.
+  // 2. Re-claim only a STALE prior admin attempt (owner died). The staleness gate
+  //    is what serializes admin-vs-admin: a SECOND concurrent admin request whose
+  //    fresh-claim just failed must NOT re-claim the FIRST request's still-in-
+  //    flight (fresh) `admin_claimed` — only one that's aged past the window.
+  //    Matches `admin_claimed` only, never a customer 'claimed'/HOLD.
   const own = await supabase
     .from("bookings")
     .update(claim)
     .eq("reslab_reservation_number", reservationNumber)
     .eq("status", "confirmed")
     .eq("cancel_state", "admin_claimed")
+    .lt("cancel_claimed_at", staleBefore)
     .select("id")
     .maybeSingle();
   if (own.error) throw new CancelClaimError("admin-reclaim", own.error.message);

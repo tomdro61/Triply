@@ -269,13 +269,14 @@ describe("reconcileStuckCancellations", () => {
     expect(createRefundCents).not.toHaveBeenCalled();
   });
 
-  it("admin_claimed rows are never scanned (cron gates on customer HOLD states only)", async () => {
+  it("admin_claimed is never auto-recovered, but IS flagged as a leaked/stuck claim (alert-only)", async () => {
     seed({ cancel_state: "admin_claimed", cancel_claimed_at: STALE });
 
     const r = await reconcileStuckCancellations(NOW);
 
-    expect(r.scanned).toBe(0);
-    expect(r.leakedClaims).toBe(0);
+    expect(r.scanned).toBe(0); // not a recovery HOLD state — never auto-refunded
+    expect(r.recovered).toBe(0);
+    expect(r.leakedClaims).toBe(1); // but surfaced for a human (admin terminal-write-failed)
     expect(createRefundCents).not.toHaveBeenCalled();
   });
 });

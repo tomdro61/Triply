@@ -13,6 +13,11 @@ import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
 import { adminClaim } from "@/lib/cancellation/claim";
 
+// Sequential ResLab + Stripe + Supabase + Park Guard + email. Pinned so a healthy
+// request stays well under adminClaim's 90s stale window — otherwise a slow
+// in-flight admin cancel could be re-claimed by a concurrent one.
+export const maxDuration = 60;
+
 // Validate cancel-request body at the boundary. Both fields are user-supplied
 // from the admin UI; treating them as raw `any` would let a malformed pi_*
 // flow into Stripe refund calls and a non-Triply booking number into ResLab.
@@ -296,7 +301,16 @@ export async function POST(request: NextRequest) {
       !!refundPaymentIntentId && refundAmount > 0 && !holdReleased;
     if (intendToRefund) {
       try {
-        await createRefund(refundPaymentIntentId, refundAmount);
+        // Reason-independent idempotency key: a retry (or a concurrent admin
+        // request that computed the same amount) hits the SAME key → Stripe
+        // returns the cached refund rather than issuing a second one. Distinct
+        // from the self-cancel `selfcancel:<pi>` key, which is safe because the
+        // claim guarantees admin and customer never refund the same PI.
+        await createRefund(
+          refundPaymentIntentId,
+          refundAmount,
+          `admin-cancel:${refundPaymentIntentId}`
+        );
         results.stripe = true;
       } catch (error) {
         results.errors.push(

@@ -114,15 +114,18 @@ export async function reconcileStuckCancellations(
   }
   const rows: ScanBookingRow[] = data ?? [];
 
-  // Leaked-claim scan — stale bare 'claimed' (e.g. a request that died before
-  // reaching a HOLD, or a terminal-write-failed row). Alert only; the customer
-  // stale-steal or a human resolves these, never the cron's auto-refund. A scan
-  // error must NOT masquerade as "0 leaked" — throw so the cron alerts.
+  // Leaked/stuck-claim scan — a stale bare 'claimed' (a customer request that died
+  // before reaching a HOLD, or a terminal-write-failed row) OR a stale
+  // 'admin_claimed' (an admin cancel whose terminal write failed — status stuck
+  // 'confirmed' with money possibly already moved). Alert ONLY; the cron never
+  // auto-refunds these (a customer 'claimed' self-heals via stale-steal or a
+  // human; an admin row must use the admin's own refund policy). A scan error must
+  // NOT masquerade as "0 leaked" — throw so the cron alerts.
   const { data: leaked, error: leakedErr } = await admin
     .from("bookings")
     .select("id")
     .eq("status", "confirmed")
-    .eq("cancel_state", "claimed")
+    .in("cancel_state", ["claimed", "admin_claimed"])
     .lt("cancel_claimed_at", graceBefore)
     .limit(MAX_RECOVER_PER_RUN);
   if (leakedErr) {
