@@ -57,7 +57,8 @@ vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
 
 vi.mock("@/lib/sentry", () => sentry);
 
-const { reconcileStuckCancellations } = await import("../reconcile");
+const { reconcileStuckCancellations, recoverOne } = await import("../reconcile");
+const { createAdminClient } = await import("@/lib/supabase/server");
 const { ReslabError } = await import("@/lib/reslab/client");
 
 // ---------------------------------------------------------------------------
@@ -99,6 +100,27 @@ function mkPi(status: string, over: Record<string, unknown> = {}) {
     status,
     amount_received: 10_000,
     latest_charge: status === "succeeded" ? { amount_refunded: 0 } : null,
+    ...over,
+  };
+}
+
+function mkRow(reservationNumber: string, over: Record<string, unknown> = {}) {
+  return {
+    id: `b-${reservationNumber}`,
+    reslab_reservation_number: reservationNumber,
+    status: "confirmed",
+    customer_id: "c1",
+    location_name: "Lot",
+    location_address: "1 Way",
+    check_in: "2030-06-15 10:00:00",
+    check_out: "2030-06-20 10:00:00",
+    location_timezone: "America/New_York",
+    protection_plan: null,
+    protection_plan_price: null,
+    pg_identifier: null,
+    stripe_payment_intent_id: "pi_1",
+    cancel_state: "reslab_cancelled_refund_pending",
+    cancel_claimed_at: STALE,
     ...over,
   };
 }
@@ -255,5 +277,123 @@ describe("reconcileStuckCancellations", () => {
     expect(r.scanned).toBe(0);
     expect(r.leakedClaims).toBe(0);
     expect(createRefundCents).not.toHaveBeenCalled();
+  });
+});
+
+describe("reconcile — review-fix coverage", () => {
+  it("recoverOne SKIPS when the claim was advanced under it (concurrency guard)", async () => {
+    // DB row's claim is now at NOW; the scan snapshot still has STALE.
+    seed({ cancel_state: "reslab_cancelled_refund_pending", cancel_claimed_at: iso(NOW) });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const admin = await createAdminClient();
+    const snapshot = { ...mkRow("RTL1"), cancel_claimed_at: STALE };
+
+    const outcome = await recoverOne(admin, snapshot, NOW);
+
+    // Re-claim pins cancel_claimed_at=STALE but the DB has NOW → zero rows → skip.
+    expect(outcome).toBe("skipped");
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("recovers a Park Guard booking: refund = amount − $6, PG cancelled + pg_identifier cleared", async () => {
+    seed({
+      cancel_state: "reslab_cancelled_refund_pending",
+      cancel_claimed_at: STALE,
+      protection_plan: "parkguard",
+      protection_plan_price: 10.99,
+      pg_identifier: "pg_1",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9400, "selfcancel:pi_1"); // 10000 − 600
+    expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
+    expect(db.tables.bookings[0].pg_identifier).toBeNull();
+    expect(db.tables.bookings[0].status).toBe("refunded");
+  });
+
+  it("refund_pending with an unreadable charge → stalled 'unknown', NO refund", async () => {
+    seed({ cancel_state: "reslab_cancelled_refund_pending", cancel_claimed_at: STALE });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded", { latest_charge: null }));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.stalled).toEqual([
+      { reservationNumber: "RTL1", cancelState: "reslab_cancelled_refund_pending", reason: "unknown" },
+    ]);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("refund_pending with a NaN amount → stalled 'dirty_refund_math', NO refund", async () => {
+    seed({ cancel_state: "reslab_cancelled_refund_pending", cancel_claimed_at: STALE });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded", { amount_received: NaN }));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.stalled).toEqual([
+      { reservationNumber: "RTL1", cancelState: "reslab_cancelled_refund_pending", reason: "dirty_refund_math" },
+    ]);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("recovery scan DB error → THROWS (so the cron alerts, not a false clean run)", async () => {
+    seed({ cancel_state: "reslab_cancelled_refund_pending", cancel_claimed_at: STALE });
+    db.failOnce("bookings", "select", "connection reset");
+
+    await expect(reconcileStuckCancellations(NOW)).rejects.toThrow(/scan failed/);
+  });
+
+  it("aggregates multiple rows: recovered + stalled counted correctly", async () => {
+    db.tables.customers = [{ id: "c1", email: "c@example.com", first_name: "A", last_name: "B" }];
+    db.tables.bookings = [
+      mkRow("RTL1", { stripe_payment_intent_id: "pi_1" }), // recovers
+      mkRow("RTL2", { stripe_payment_intent_id: "pi_2" }), // refund throws → stalled
+      mkRow("RTL3", { cancel_state: "held_reslab_ambiguous", stripe_payment_intent_id: "pi_3" }), // timeout → stalled
+    ];
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    createRefundCents.mockImplementation(async (pi: string) => {
+      if (pi === "pi_2") throw new Error("declined");
+      return { id: "re" };
+    });
+    reslabMock.cancelReservation.mockImplementation(async () => {
+      throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    });
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1); // RTL1
+    expect(r.stalled.map((s) => s.reservationNumber).sort()).toEqual(["RTL2", "RTL3"]);
+  });
+
+  it("capped: true when the wall-clock deadline is already past (backlog deferred)", async () => {
+    db.tables.customers = [{ id: "c1", email: "c@example.com", first_name: "A", last_name: "B" }];
+    db.tables.bookings = [mkRow("RTL1"), mkRow("RTL2", { stripe_payment_intent_id: "pi_2" })];
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    // deadline epoch 1ms → real Date.now() is already past it → bail before row 1.
+    const r = await reconcileStuckCancellations(NOW, 1);
+
+    expect(r.capped).toBe(true);
+    expect(r.recovered).toBe(0);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("recovers even when the customer row is missing: refund + terminal write, NO email, no throw", async () => {
+    seed({
+      cancel_state: "reslab_cancelled_refund_pending",
+      cancel_claimed_at: STALE,
+      customer_id: "missing", // no matching customers row
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1);
+    expect(createRefundCents).toHaveBeenCalled();
+    expect(db.tables.bookings[0].status).toBe("refunded");
+    expect(sendCancellationConfirmation).not.toHaveBeenCalled(); // customers null → no email
   });
 });

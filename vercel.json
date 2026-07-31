@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/sweep-pending-bookings",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-cancellations",
+      "schedule": "*/10 * * * *"
     }
   ]
 }

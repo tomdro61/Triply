@@ -21,8 +21,16 @@ import {
  * (`planTeardown` + `finalizeCancelledReservation`, incl. the `selfcancel:<pi>`
  * idempotency key), plus an atomic per-row re-claim so overlapping cron runs
  * can't both process a row. It gates STRICTLY on the customer-set HOLD states —
- * never the bare claim predicate — so it can never collide with an admin cancel
- * (which uses a distinct `admin_claimed` state the scan excludes).
+ * never the bare claim predicate — and the scan excludes `admin_claimed`
+ * (reserved in migration 017).
+ *
+ * ⚠️ PHASE-5 PREREQUISITE, NOT YET TRUE: the admin cancel route does NOT yet
+ * write `admin_claimed` or join the claim, so today it can still cancel a booking
+ * that is mid self-cancel using its OWN refund policy + no idempotency key. That
+ * is only safe because ENABLE_SELF_SERVE_CANCEL is OFF (no customer cancels → no
+ * race). Before the flag is flipped, the admin route MUST participate in the
+ * claim (or route through this shared core), or a concurrent admin+customer cancel
+ * of the same booking can double-refund. See the launch gate in the plan §9.A.
  */
 
 const CRON_ENDPOINT = "/api/cron/reconcile-payments#cancel";
@@ -82,6 +90,11 @@ export interface CancelReconcileReport {
 
 export async function reconcileStuckCancellations(
   now: number = Date.now(),
+  /** Absolute epoch-ms wall-clock deadline. The row loop bails out before this so
+   *  a backlog can't run the function past its maxDuration and get killed
+   *  mid-recovery; the unprocessed rows are reported via `capped`. Omitted in
+   *  tests (no deadline). */
+  deadlineMs?: number,
 ): Promise<CancelReconcileReport> {
   const admin = await createAdminClient();
   const graceBefore = new Date(now - CRON_CANCEL_GRACE_MS).toISOString();
@@ -103,19 +116,30 @@ export async function reconcileStuckCancellations(
 
   // Leaked-claim scan — stale bare 'claimed' (e.g. a request that died before
   // reaching a HOLD, or a terminal-write-failed row). Alert only; the customer
-  // stale-steal or a human resolves these, never the cron's auto-refund.
-  const { data: leaked } = await admin
+  // stale-steal or a human resolves these, never the cron's auto-refund. A scan
+  // error must NOT masquerade as "0 leaked" — throw so the cron alerts.
+  const { data: leaked, error: leakedErr } = await admin
     .from("bookings")
     .select("id")
     .eq("status", "confirmed")
     .eq("cancel_state", "claimed")
     .lt("cancel_claimed_at", graceBefore)
     .limit(MAX_RECOVER_PER_RUN);
+  if (leakedErr) {
+    throw new Error(`cancel reconcile leaked-claim scan failed: ${leakedErr.message}`);
+  }
   const leakedClaims: number = (leaked ?? []).length;
 
   const stalled: StalledCancel[] = [];
   let recovered = 0;
+  let deadlineHit = false;
   for (const row of rows) {
+    // Bail before the wall-clock deadline so the function isn't killed mid-row;
+    // the rest is reported via `capped` and picked up next run.
+    if (deadlineMs !== undefined && Date.now() >= deadlineMs) {
+      deadlineHit = true;
+      break;
+    }
     const outcome = await recoverOne(admin, row, now);
     if (outcome === "recovered") {
       recovered++;
@@ -133,7 +157,9 @@ export async function reconcileStuckCancellations(
     recovered,
     stalled,
     leakedClaims,
-    capped: rows.length >= MAX_RECOVER_PER_RUN,
+    // Either the scan filled to the cap, or we stopped early on the deadline —
+    // both mean more stuck rows remain for the next run.
+    capped: deadlineHit || rows.length >= MAX_RECOVER_PER_RUN,
   };
 }
 
@@ -144,7 +170,10 @@ type AdminClient = Awaited<ReturnType<typeof createAdminClient>>;
  * it), or a stall reason. Re-claims atomically first so only one runner ever
  * finalizes a given row.
  */
-async function recoverOne(
+// Exported for direct testing of the atomic re-claim skip (there's no seam to
+// mutate cancel_claimed_at between the scan and the re-claim through the top-level
+// function).
+export async function recoverOne(
   admin: AdminClient,
   row: ScanBookingRow,
   now: number,
@@ -232,11 +261,22 @@ async function toCancelBookingRow(
   admin: AdminClient,
   row: ScanBookingRow,
 ): Promise<CancelBookingRow> {
-  const { data: cust } = await admin
+  const { data: cust, error: custErr } = await admin
     .from("customers")
     .select("email, first_name, last_name")
     .eq("id", row.customer_id)
     .maybeSingle();
+  if (custErr) {
+    // Don't fail the money recovery over a customer lookup — but surface that the
+    // confirmation email will be skipped, so it isn't a silent gap. (The refund +
+    // terminal write still happen; the customer just isn't emailed this run.)
+    captureAPIError(
+      new Error(
+        `cancel reconcile: customer lookup failed for ${row.reslab_reservation_number} (customer ${row.customer_id}): ${custErr.message}`,
+      ),
+      { endpoint: CRON_ENDPOINT, method: "POST", statusCode: 200 },
+    );
+  }
   const c = cust as
     | { email: string | null; first_name: string | null; last_name: string | null }
     | null;
