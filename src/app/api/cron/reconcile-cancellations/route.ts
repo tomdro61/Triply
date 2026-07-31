@@ -19,8 +19,13 @@ import { reconcileStuckCancellations } from "@/lib/cancellation/reconcile";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-// Stop the row loop this far into the 60s budget, leaving headroom for the
-// in-flight row to finish + the Sentry flush + the response.
+// Elapsed-time budget for the row loop (mirrors sweep-pending-bookings' 45s/60s).
+// NOT a hard duration guarantee: the deadline is checked BETWEEN rows, so a single
+// slow ambiguous row (ResLab cancel + probe + Park Guard, ~20-30s) that starts
+// near the budget can still overrun maxDuration and be killed. That's safe — the
+// row was atomically re-claimed before any money moved, the refund is keyed
+// `selfcancel:<pi>` (idempotent), and `capped`/the next 10-min tick pick up the
+// rest. The between-rows guard is what keeps a run bounded in the common case.
 const RECOVERY_BUDGET_MS = 45_000;
 
 const CTX = {

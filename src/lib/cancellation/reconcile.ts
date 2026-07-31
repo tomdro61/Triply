@@ -33,7 +33,7 @@ import {
  * of the same booking can double-refund. See the launch gate in the plan §9.A.
  */
 
-const CRON_ENDPOINT = "/api/cron/reconcile-payments#cancel";
+const CRON_ENDPOINT = "/api/cron/reconcile-cancellations";
 
 /**
  * A row is safe to recover only after it has sat this long — comfortably beyond
