@@ -88,6 +88,9 @@ export function CancelReservationButton({
         onCancelled(reservationNumber);
         return;
       }
+      // The cancel API emits ONLY 200 and 202 in the 2xx range. If a no-body 2xx
+      // (204/205) is ever added, revisit this — an empty body would parse to {} and
+      // fall through here, showing a spurious error on a real success.
       setPhase("error");
       setMessage(errorMessageFor(res.status, data));
     } catch {
