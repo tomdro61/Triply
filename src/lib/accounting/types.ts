@@ -118,6 +118,10 @@ export interface ReconcileResult {
     stagingExcluded: number;
     total: number;
   };
+  // Reservation numbers of the rows counted in `counts.stagingExcluded` — the
+  // audit trail for the exclusion (which specific bookings were dropped as
+  // staging junk), so a misclassified row is traceable rather than invisible.
+  stagingExcludedReservations: string[];
   // Parking gross = SUM(grand_total) for confirmed bookings, INCLUDING the
   // due-at-location portion. Parking-only (no service fee / Park Guard) —
   // used for the "Total parking customers paid" line in the parking money flow.

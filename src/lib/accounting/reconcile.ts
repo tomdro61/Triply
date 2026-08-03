@@ -93,7 +93,15 @@ async function reslabReservation(resNum: string, token: string): Promise<ReslabR
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store",
   });
-  if (!res.ok) throw new Error(`ResLab ${res.status} on ${resNum}`);
+  if (!res.ok) {
+    // Attach the HTTP status so callers can distinguish a definitive 404
+    // (reservation truly absent) from a transient 5xx/timeout. The staging
+    // exclusion corroborates on 404 ONLY — a transient error must never be
+    // read as "reservation absent" (that would silently drop a real booking).
+    const err = new Error(`ResLab ${res.status} on ${resNum}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
   return (await res.json()) as ReslabResponse;
 }
 
@@ -216,6 +224,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     partialRefund: number | null;
     cancelled: boolean | null;
     error: string | null;
+    // True ONLY on a definitive prod-ResLab 404 (reservation genuinely absent).
+    // NOT set for 5xx/timeout/network errors or a 200 with empty history — those
+    // don't prove the reservation is missing. The staging exclusion keys on this
+    // (not on `error`) so a transient blip can't be misread as "staging junk".
+    reslabNotFound: boolean;
   };
   const emptyReslab: ReslabSlice = {
     locationTotal: null,
@@ -227,6 +240,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     refundAmount: null,
     partialRefund: null,
     cancelled: null,
+    reslabNotFound: false,
     error: null,
   };
 
@@ -282,11 +296,15 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           partialRefund: num(h.partial_refund),
           cancelled: !!data.cancelled,
           error: null,
+          reslabNotFound: false,
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        const status = (e as { status?: number })?.status;
         reslabFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
-        return { ...emptyReslab, error: msg };
+        // reslabNotFound only on a definitive 404. A 5xx / timeout / network error
+        // is transient and must NOT corroborate exclusion (see slice comment).
+        return { ...emptyReslab, error: msg, reslabNotFound: status === 404 };
       }
     });
   })();
@@ -340,23 +358,80 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   // Staging/test bookings pollute the SHARED prod DB (a staging soak writes a real
   // `confirmed` row to prod bookings, but its payment is test-mode Stripe and its
-  // reservation lives only in staging ResLab → 404 in prod ResLab). The existing
-  // filter (isAtTestLot) misses them because they use REAL lots. The live Stripe
-  // key can't read their test-mode PIs (`resource_missing`), which uniquely marks
-  // them — exclude them from the aggregates AND the ResLab-completeness gate, so
-  // their staging-only ResLab 404 no longer nulls the whole Triply-revenue total.
-  // ONLY with a LIVE key: `resource_missing` means "this key can't read the PI",
-  // which is a TEST booking under a LIVE key (prod — correct) but a LIVE booking
-  // under a TEST key (local/staging — the opposite). So we only trust it to mark
-  // staging junk when the reconcile is actually running live; on a test key we
-  // skip the exclusion (that accounting is already estimate-mode anyway).
-  const stripeIsLive = (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
+  // reservation lives only in staging ResLab). The existing filter (isAtTestLot)
+  // misses them because they use REAL lots. We detect + drop them so their
+  // staging-only ResLab 404 no longer nulls the whole Triply-revenue total.
+  //
+  // Detection requires TWO corroborating signals, not one:
+  //   1. The live Stripe key can't read the PI (`resource_missing`) — meaning it's
+  //      a TEST-mode PI. Necessary but NOT sufficient: a REAL prod booking whose
+  //      stored PI id is wrong/foreign (mis-keyed during a manual recovery, or
+  //      belonging to the other Stripe account) ALSO returns `resource_missing`.
+  //   2. prod ResLab also can't find the reservation (its fetch errored) — a
+  //      genuine staging reservation lives only in staging ResLab, whereas a real
+  //      booking still resolves against prod ResLab.
+  // Requiring BOTH prevents silently dropping a real booking from every total on
+  // the strength of a single unverified signal. A row that trips (1) but NOT (2)
+  // is a real booking with a bad PI — we KEEP it in the aggregates and surface it
+  // loudly as a Stripe fetch error instead of masking it.
+  //
+  // `resource_missing` is only trustworthy under a LIVE key: it means "this key
+  // can't read the PI", i.e. a TEST booking under a LIVE key (prod — correct) but
+  // a LIVE booking under a TEST key (local/staging — the opposite). So the whole
+  // exclusion is gated on running live; on a test key we skip it (that accounting
+  // is estimate-mode anyway). Restricted live keys (`rk_live_`) count as live too.
+  const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
+  const stripeIsLive = secretKey.startsWith("sk_live_") || secretKey.startsWith("rk_live_");
   const stagingIdx = new Set<number>();
   if (opts.includeStripe && stripeIsLive) {
     for (let i = 0; i < stripeSlices.length; i++) {
-      if (stripeSlices[i]?.notFound) stagingIdx.add(i);
+      if (!stripeSlices[i]?.notFound) continue;
+      // Corroborate on a DEFINITIVE 404 (reservation absent from prod ResLab), not
+      // on "any ResLab error". A transient 5xx / timeout / empty-history response
+      // does NOT prove the reservation is missing, so it must not be read as
+      // staging junk — otherwise a real booking with a foreign PI gets silently
+      // dropped from every total during ResLab flakiness (which this system has).
+      const reslabConfirmsMissing =
+        opts.includeReslab && reslabSlices[i]?.reslabNotFound === true;
+      if (reslabConfirmsMissing) {
+        stagingIdx.add(i);
+      } else {
+        // `resource_missing` (test-mode PI) but NOT corroborated as staging junk —
+        // either the reservation resolves in prod ResLab (a real booking with a
+        // mis-stored/foreign PI), or ResLab couldn't confirm it absent (cross-check
+        // off, or a transient/empty-history error we refuse to treat as "absent").
+        // Keep it in the totals (derived Stripe fallback) and surface it, rather
+        // than silently dropping a possibly-real booking. Word the diagnostic to
+        // the ACTUAL corroboration state — never assert "resolves" when ResLab
+        // wasn't (or couldn't be) consulted.
+        const pi = real[i].stripe_payment_intent_id ?? "(none)";
+        const reason = !opts.includeReslab
+          ? "ResLab cross-check disabled, cannot classify"
+          : !real[i].reslab_reservation_number
+            ? "no ResLab reservation number on booking, cannot classify"
+            : reslabSlices[i]?.error != null
+              ? "ResLab lookup errored (transient/empty), cannot confirm staging"
+              : "ResLab reservation resolves — mis-stored or foreign PI";
+        stripeFetchErrors.push({
+          resNum: real[i].reslab_reservation_number,
+          err: `Stripe PI ${pi} unreadable by live key (resource_missing); ${reason} — kept in totals`,
+        });
+      }
     }
   }
+  // Reservation numbers of the excluded staging rows — used to (a) scrub their
+  // expected ResLab 404s out of the integrity warning (they're not real failures,
+  // and the row was never written to the CSV that warning points at), and (b) make
+  // the exclusion auditable in the result instead of a bare count.
+  // Assumes ResLab reservation numbers are unique within a reconciled window; if a
+  // staging-ResLab number ever collided with a real prod-ResLab number in the same
+  // month, the scrub below could drop the real row's genuine error too. Not
+  // observed (numbers appear globally sequenced); revisit if the ID spaces overlap.
+  const stagingResNums = new Set<string>(
+    [...stagingIdx]
+      .map((i) => real[i].reslab_reservation_number)
+      .filter((rn): rn is string => !!rn)
+  );
   let stagingExcluded = 0;
 
   // ---- Per-booking detail + aggregation ----
@@ -787,6 +862,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   return {
     options: opts,
     counts: { ...counts, testExcluded, stagingExcluded, total: real.length - stagingExcluded },
+    // The reservation numbers behind `counts.stagingExcluded`, so a misclassified
+    // exclusion is auditable instead of a bare count with no per-row trace.
+    stagingExcludedReservations: [...stagingResNums],
     grossRevenue,
     grossCustomerSpend,
     stripe: {
@@ -838,7 +916,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       sumLocationTotal: opts.includeReslab ? confLocTotal : null,
       variance: opts.includeReslab ? confLocTotal - opts.invoiceAmount : null,
       grandTotalMismatches,
-      fetchErrors: reslabFetchErrors,
+      // Scrub the excluded staging rows' expected prod-ResLab 404s — they're not
+      // real fetch failures, and the "(see CSV)" pointer would dangle since the
+      // row was never written to bookings[]/the CSV.
+      fetchErrors: reslabFetchErrors.filter((e) => !stagingResNums.has(e.resNum)),
       fetched: confReslabSeen,
       // Confirmed bookings that EXPECTED a ResLab fetch (have a reservation
       // number). The honest denominator for "X of Y cross-checked" — using
@@ -851,7 +932,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     },
     stripeFetch: {
       fetched: stripeFetched,
-      errors: stripeFetchErrors,
+      // Symmetric scrub: staging rows are never pushed here today (their
+      // `resource_missing` is swallowed at fetch time), but filter defensively so
+      // a future change can't leak an excluded row's expected 404 into this list.
+      errors: stripeFetchErrors.filter((e) => !stagingResNums.has(e.resNum)),
       derivedFallbacks: stripeDerivedFallbacks,
     },
     integrity: {
