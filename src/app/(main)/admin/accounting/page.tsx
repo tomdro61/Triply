@@ -378,7 +378,7 @@ export default function AccountingPage() {
               <HeadlineCard
                 title="Total bookings"
                 value={String(result.counts.total)}
-                sub={`${result.counts.confirmed} confirmed · ${result.counts.refunded} refunded · ${result.counts.cancelled} cancelled${result.counts.testExcluded > 0 ? ` · ${result.counts.testExcluded} test excl.` : ""}`}
+                sub={`${result.counts.confirmed} confirmed · ${result.counts.refunded} refunded · ${result.counts.cancelled} cancelled${result.counts.testExcluded > 0 ? ` · ${result.counts.testExcluded} test excl.` : ""}${result.counts.stagingExcluded > 0 ? ` · ${result.counts.stagingExcluded} staging excl. (${result.stagingExcludedReservations.join(", ")})` : ""}`}
                 icon={Receipt}
                 accent="blue"
               />
