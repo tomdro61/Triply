@@ -236,6 +236,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     fee: number | null; // balance_transaction.fee (original capture fee)
     status: string | null;
     error: string | null;
+    // Stripe `resource_missing` (404): a LIVE key cannot read a TEST-mode PI, so
+    // this uniquely marks a staging/test booking in the shared prod DB — NOT a
+    // transient failure. Used to exclude it from the totals + completeness gate.
+    notFound: boolean;
   };
   const emptyStripe: StripeSlice = {
     amountReceived: null,
@@ -243,6 +247,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     fee: null,
     status: null,
     error: null,
+    notFound: false,
   };
 
   const reslabFetchErrors: ReconcileResult["reslab"]["fetchErrors"] = [];
@@ -315,16 +320,44 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           fee: bt ? (bt.fee || 0) / 100 : null,
           status: pi.status,
           error: null,
+          notFound: false,
         };
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        stripeFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
-        return { ...emptyStripe, error: msg };
+        // `resource_missing` from a LIVE key = a TEST-mode PI = a staging/test
+        // booking, NOT a real fetch failure. Don't count it as an error (that's
+        // what over-reported "N per-booking fetches failed"); flag it for exclusion.
+        const notFound = (e as { code?: string })?.code === "resource_missing";
+        if (!notFound) {
+          stripeFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
+        }
+        return { ...emptyStripe, error: msg, notFound };
       }
     });
   })();
 
   const [reslabSlices, stripeSlices] = await Promise.all([reslabPromise, stripePromise]);
+
+  // Staging/test bookings pollute the SHARED prod DB (a staging soak writes a real
+  // `confirmed` row to prod bookings, but its payment is test-mode Stripe and its
+  // reservation lives only in staging ResLab → 404 in prod ResLab). The existing
+  // filter (isAtTestLot) misses them because they use REAL lots. The live Stripe
+  // key can't read their test-mode PIs (`resource_missing`), which uniquely marks
+  // them — exclude them from the aggregates AND the ResLab-completeness gate, so
+  // their staging-only ResLab 404 no longer nulls the whole Triply-revenue total.
+  // ONLY with a LIVE key: `resource_missing` means "this key can't read the PI",
+  // which is a TEST booking under a LIVE key (prod — correct) but a LIVE booking
+  // under a TEST key (local/staging — the opposite). So we only trust it to mark
+  // staging junk when the reconcile is actually running live; on a test key we
+  // skip the exclusion (that accounting is already estimate-mode anyway).
+  const stripeIsLive = (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_live_");
+  const stagingIdx = new Set<number>();
+  if (opts.includeStripe && stripeIsLive) {
+    for (let i = 0; i < stripeSlices.length; i++) {
+      if (stripeSlices[i]?.notFound) stagingIdx.add(i);
+    }
+  }
+  let stagingExcluded = 0;
 
   // ---- Per-booking detail + aggregation ----
 
@@ -375,6 +408,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let stripeFeesMissing = 0;
 
   for (let idx = 0; idx < real.length; idx++) {
+    // Skip staging/test bookings (test-mode PI unreadable by the live key) — they
+    // don't count toward any total, the completeness gate, or the per-booking rows.
+    if (stagingIdx.has(idx)) {
+      stagingExcluded++;
+      continue;
+    }
     const b = real[idx];
     const rl = reslabSlices[idx] ?? emptyReslab;
     const st = stripeSlices[idx] ?? emptyStripe;
@@ -678,7 +717,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // partial-failure case would false-negative (some succeeded → guard
   // satisfied even though half the channel commission is missing).
   const reslabConfirmedExpected = real.filter(
-    (b) => b.status === "confirmed" && !!b.reslab_reservation_number
+    (b, i) =>
+      b.status === "confirmed" &&
+      !!b.reslab_reservation_number &&
+      !stagingIdx.has(i)
   ).length;
   const reslabDataIncomplete =
     opts.includeReslab &&
@@ -744,7 +786,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   return {
     options: opts,
-    counts: { ...counts, testExcluded, total: real.length },
+    counts: { ...counts, testExcluded, stagingExcluded, total: real.length - stagingExcluded },
     grossRevenue,
     grossCustomerSpend,
     stripe: {

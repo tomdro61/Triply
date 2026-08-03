@@ -112,6 +112,10 @@ export interface ReconcileResult {
     cancelled: number;
     other: number;
     testExcluded: number;
+    // Staging/test bookings excluded because their test-mode PI is unreadable by
+    // the live Stripe key (resource_missing) — junk from staging soaks in the
+    // shared prod DB. Distinct from testExcluded (test LOTS).
+    stagingExcluded: number;
     total: number;
   };
   // Parking gross = SUM(grand_total) for confirmed bookings, INCLUDING the
