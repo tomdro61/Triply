@@ -80,16 +80,43 @@ export default function TermsPage() {
             </p>
 
             <h2>5. Cancellation and Refund Policy</h2>
+
+            <h3>5.1 Cancelling a reservation</h3>
             <p>
-              Our cancellation policy is as follows:
+              You may cancel an eligible reservation online through your Triply account, in <strong>My Reservations</strong>, provided that:
             </p>
             <ul>
-              <li><strong>More than 24 hours before check-in:</strong> Full refund</li>
-              <li><strong>Within 24 hours of check-in:</strong> May be subject to cancellation fee</li>
-              <li><strong>No-shows:</strong> No refund</li>
+              <li>You are signed in to the Triply account the reservation is associated with, and</li>
+              <li>It is <strong>more than 24 hours before your scheduled check-in time</strong> (evaluated in the local time zone of the parking facility).</li>
             </ul>
+
+            <h3>5.2 Refunds for cancellations made more than 24 hours before check-in</h3>
             <p>
-              Refunds are processed to your original payment method within 5-7 business days. Some parking facilities may have different cancellation policies, which will be displayed at the time of booking.
+              When you cancel an eligible reservation more than 24 hours before check-in, Triply will refund the full amount you paid online for that reservation — including parking charges, taxes, and the Triply service fee — to your original payment method.
+            </p>
+            <p>
+              If your reservation included the <strong>Park Guard protection plan</strong>, <strong>$6 of the protection plan price is non-refundable</strong>; the remainder of the plan price is included in your refund. All other amounts you paid online are refunded in full.
+            </p>
+            <p>
+              Amounts designated as payable at the parking facility (&quot;due at location&quot;) are not charged by Triply and are therefore not part of any refund.
+            </p>
+
+            <h3>5.3 Cancellations within 24 hours of check-in</h3>
+            <p>
+              Reservations cannot be cancelled online within 24 hours of the scheduled check-in time. If you need to cancel within this window, please contact Triply support and we will assist you where possible; refunds for late cancellations are handled on a case-by-case basis. No-shows are not refunded.
+            </p>
+
+            <h3>5.4 Refund timing</h3>
+            <p>
+              Approved refunds are issued to your original payment method. Depending on your bank or card issuer, refunds typically appear within <strong>5-10 business days</strong>.
+            </p>
+            <p>
+              Some parking facilities may have different cancellation policies, which will be displayed at the time of booking.
+            </p>
+
+            <h3>5.5 Changes to this policy</h3>
+            <p>
+              Triply may update this cancellation and refund policy from time to time. The policy in effect at the time you make a reservation applies to that reservation.
             </p>
 
             <h2>6. User Responsibilities</h2>

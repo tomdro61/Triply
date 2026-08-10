@@ -67,7 +67,7 @@ Q: How do promo codes work?
 A: Enter your promo code during checkout in the designated field. Valid codes will automatically apply the discount to your total. Promo codes cannot be combined and have specific terms and expiration dates.
 
 Q: What is your refund policy?
-A: Cancellations made more than 24 hours before your check-in time receive a full refund. Cancellations within 24 hours may incur a fee. Refunds are processed within 5-7 business days to your original payment method.
+A: If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added the Park Guard protection plan, $6 of the plan price is non-refundable and the rest is returned. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go to your original payment method and usually appear within 5-10 business days.
 
 == FAQ: PARKING & CHECK-IN ==
 Q: How do I find the parking facility?
@@ -118,10 +118,13 @@ A: Log into your account and go to My Reservations. You'll see all your upcoming
 - Contact page: triplypro.com/contact
 
 == CANCELLATION & REFUND POLICY ==
-- Cancel more than 24 hours before check-in → full refund
-- Cancel within 24 hours → may incur a cancellation fee (varies by facility)
-- Refunds processed within 5-7 business days to original payment method
+- Cancel more than 24 hours before check-in → refund of everything paid online (parking + taxes + Triply service fee)
+- Park Guard protection plan: $6 of the plan price is non-refundable; the remainder is refunded
+- "Due at location" amounts were never charged by Triply, so they are not part of any refund
+- Cancel within 24 hours → cannot be done online; contact support (handled case-by-case)
+- Refunds processed within 5-10 business days to original payment method
 - To cancel: Log in → My Reservations → select booking → Cancel Reservation
+- Self-cancellation requires being signed in to the account the reservation belongs to
 
 == PRIVACY SUMMARY ==
 - Data collected: name, email, phone, payment info (processed by Stripe), booking details
