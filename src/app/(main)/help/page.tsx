@@ -48,7 +48,12 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How do I cancel my reservation?",
         answer:
-          "To cancel, log into your account and go to My Reservations. Select the booking you want to cancel and click 'Cancel Reservation'. Cancellations made more than 24 hours before check-in receive a full refund. Cancellations within 24 hours may be subject to a cancellation fee.",
+          "If your check-in is more than 24 hours away, you can cancel it yourself in a few seconds: sign in to your Triply account, go to My Reservations, find the reservation and tap 'Cancel reservation', then confirm. You'll see it update right away, and we'll email you a confirmation. Cancellations within 24 hours of check-in can't be done online — please contact support and we'll do what we can.",
+      },
+      {
+        question: "I don't see a Cancel button on my reservation. Why?",
+        answer:
+          "A few reasons this can happen: your check-in is within 24 hours (contact support and we'll help); the reservation isn't linked to the account you're signed in to — if you booked as a guest, sign in with the same email and add it to your account from My Reservations; or the reservation is already cancelled or completed. Still stuck? Contact support and we'll sort it out.",
       },
       {
         question: "What if I need to extend my parking?",
@@ -90,7 +95,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is your refund policy?",
         answer:
-          "Cancellations made more than 24 hours before your check-in time receive a full refund. Cancellations within 24 hours may incur a fee. Refunds are processed within 5-7 business days to your original payment method.",
+          "If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added the Park Guard protection plan, $6 of the plan price is non-refundable, and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.",
       },
     ],
   },
