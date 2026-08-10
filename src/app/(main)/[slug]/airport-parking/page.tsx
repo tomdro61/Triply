@@ -18,6 +18,14 @@ import { OtherAirports } from "@/components/airport/other-airports";
 
 export const revalidate = 3600; // ISR: 1 hour
 
+// ISR revalidation reaches the same ~54-page ResLab location sweep as
+// /api/search (fetchAirportPageData → searchParking → getChannelLocationsCached,
+// budgeted at 40s). The invocation ceiling must sit above that budget so the
+// build settles and arms its circuit breaker; killed mid-sweep it leaves the
+// breaker un-armed, which re-opens the per-request sweep loop behind the
+// 2026-08-10 outage.
+export const maxDuration = 60;
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }

@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchParking } from "@/lib/reslab/search";
+import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { SortOption } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 import { z } from "zod";
+
+// A cold location-list build sweeps ~54 pages and is budgeted at 40s
+// (LOCATION_BUILD_BUDGET_MS). Pin the invocation ceiling above it so the build
+// always settles — and therefore always arms its circuit breaker — instead of
+// being killed mid-sweep, which would leave the breaker un-armed and re-open
+// the per-request sweep loop that caused the 2026-08-10 outage.
+export const maxDuration = 60;
 
 const searchQuerySchema = z.object({
   airport: z.string().min(2).max(10),
@@ -56,12 +63,23 @@ export async function GET(request: NextRequest) {
     });
 
     // Cache only a clean, non-empty result. An empty result OR a degraded one
-    // (some/all ResLab pricing calls failed) is served no-store, so a transient
-    // upstream blip can never be cached — as "No parking found" or as a thin
-    // partial list — and stick for the TTL (the 2026-06-29 incident).
+    // (thin location list, or some/all ResLab pricing calls failed) is served
+    // no-store, so a transient upstream blip can never be cached — as "No
+    // parking found" or as a thin partial list — and stick for the TTL (the
+    // 2026-06-29 incident).
+    //
+    // A `stale` result is a different animal and must NOT be lumped in with
+    // degraded: the lot list is COMPLETE, just past its TTL because ResLab is
+    // failing. Refusing to cache it would push 100% of search traffic to origin
+    // for as long as the outage lasts, and every origin request fans out into
+    // one min-price call per nearby lot — i.e. it would move the amplification
+    // loop onto a different ResLab endpoint at the worst possible moment. Cache
+    // it, but briefly, so a repaired list is picked up within a minute.
     const cacheControl =
       result.total > 0 && !result.degraded
-        ? "public, s-maxage=300, stale-while-revalidate=600"
+        ? result.stale
+          ? "public, s-maxage=60, stale-while-revalidate=300"
+          : "public, s-maxage=300, stale-while-revalidate=600"
         : "no-store";
 
     return NextResponse.json(result, {
@@ -69,10 +87,21 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Search API error:", error);
-    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
-      endpoint: "/api/search",
-      method: "GET",
-    });
+    // The location-list circuit breaker fires on every search while it's open
+    // and already reports itself once per backoff window with a more useful
+    // message (see isLocationBackoffError). Capturing it here too would bury
+    // the root-cause ResLab error under hundreds of derived events — the
+    // opposite of what we need during an incident. Every other error is still
+    // captured unconditionally.
+    if (!isLocationBackoffError(error)) {
+      captureAPIError(
+        error instanceof Error ? error : new Error(String(error)),
+        {
+          endpoint: "/api/search",
+          method: "GET",
+        }
+      );
+    }
 
     if (error instanceof Error && error.message.startsWith("Invalid airport code")) {
       return NextResponse.json(
