@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { getSystemPrompt, AI_MODEL } from "@/lib/ai/config";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
 import { checkUsageAnomaly } from "@/lib/ai/usage-alert";
-import { searchParking } from "@/lib/reslab/search";
+import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
@@ -48,6 +48,13 @@ function lexicalToPlainText(content: unknown): string {
 
   return "";
 }
+
+// This route reaches the same ~54-page ResLab location sweep as /api/search
+// (searchParking → getChannelLocationsCached, budgeted at 40s). The invocation
+// ceiling must sit above that budget so the build settles and arms its circuit
+// breaker; killed mid-sweep it leaves the breaker un-armed, which re-opens the
+// per-request sweep loop behind the 2026-08-10 outage.
+export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
   try {
@@ -198,7 +205,21 @@ export async function POST(request: NextRequest) {
                 totalResults: result.total,
                 lots,
               };
-            } catch {
+            } catch (err) {
+              // Report before falling back. The location-list circuit breaker
+              // throws on every search for 10-minute windows, so this bare
+              // catch would otherwise silently absorb a novel, high-volume
+              // error class — chat would tell customers to use regular search
+              // (which is also 503-ing) while ops saw nothing from this path.
+              // The breaker itself is excluded for the same reason /api/search
+              // excludes it: it self-reports once per window with a far more
+              // diagnostic message.
+              if (!isLocationBackoffError(err)) {
+                captureAPIError(
+                  err instanceof Error ? err : new Error(String(err)),
+                  { endpoint: "/api/chat", method: "POST" }
+                );
+              }
               return {
                 success: false as const,
                 error:

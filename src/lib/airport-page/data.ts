@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { Airport } from "@/config/airports";
 import { searchParking } from "@/lib/reslab/search";
+import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 
@@ -44,11 +45,28 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
       checkout: checkoutStr,
       sort: "price_asc",
     });
+    // A DEGRADED result does not throw — it returns successfully with a thin
+    // (or empty) lot list because the ResLab location-list build was rejected.
+    // /api/search protects itself by serving those no-store; this page has no
+    // such guard, so without this check Next would commit a 2-lot (or zero-lot)
+    // render into the ISR cache and serve it — to users and to Googlebot, with
+    // a truncated JSON-LD ItemList and a wrong lot count in the metadata — for
+    // the full hour. Treat it exactly like a throw so the last-good page stands.
+    if (result.degraded) {
+      throw new ReslabError(
+        502,
+        `Degraded ResLab result for ${airport.code} ` +
+          `(${result.results.length} lots) — refusing to bake it into ISR`
+      );
+    }
     lots = result.results;
   } catch (err) {
-    // searchParking throws only on a real ResLab failure (a genuine "no lots"
-    // returns an empty result without throwing), so always surface it — this
-    // page is ISR-cached for 1h, so a swallowed failure is otherwise invisible.
+    // searchParking throws on a real ResLab failure, and also when our own
+    // location-list circuit breaker is open (a cold instance backing off after
+    // a failed build — see getChannelLocationsCached). A genuine "no lots"
+    // still returns an empty result without throwing. Both throw cases mean
+    // "we don't know the inventory", so always surface it — this page is
+    // ISR-cached for 1h, so a swallowed failure is otherwise invisible.
     captureAPIError(err instanceof Error ? err : new Error(String(err)), {
       endpoint: "/[slug]/airport-parking",
       method: "GET",

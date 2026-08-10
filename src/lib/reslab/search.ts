@@ -222,8 +222,14 @@ export interface SearchParkingResult {
   total: number;
   message?: string;
   // True when some/all ResLab pricing calls failed, so the list is incomplete.
-  // The route refuses to CDN-cache a degraded result.
+  // The route refuses to CDN-cache a degraded result — the lot list under-
+  // reports (thin location build, or some lots failed to price).
   degraded?: boolean;
+  // The location list was COMPLETE but past its TTL (ResLab is failing and we're
+  // serving the last good list). The result itself is full, so it stays
+  // cacheable — the route just shortens the CDN TTL so a repaired list is picked
+  // up quickly. Distinct from `degraded`, which means "this result is thin".
+  stale?: boolean;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -242,74 +248,427 @@ export interface SearchParkingResult {
 const RESLAB_GEO_SEARCH_BROKEN = true;
 
 // Cache the full channel location list so the workaround doesn't re-page on
-// every search (the channel has ~533 locations across ~54 pages). Module-level
-// TTL cache — same pattern as the auth-token cache in the ResLab client.
-const LOCATION_LIST_TTL_MS = 60 * 60 * 1000;
-let cachedLocationList: { data: ReslabLocation[]; expiry: number } | null = null;
-// Single-flight: coalesce concurrent cold-cache builds so we don't fire N
-// simultaneous 54-page sweeps at the one ResLab endpoint that still works
-// (amplified during the outage, when partial builds don't cache and re-page).
-let inFlightLocationBuild: Promise<{
-  data: ReslabLocation[];
-  partial: boolean;
-}> | null = null;
+// every search (the channel has ~533 locations across ~54 pages).
+//
+// ─── 2026-08-10 incident ────────────────────────────────────────────────────
+// ResLab rate-limited this endpoint and search went to 503 site-wide (no
+// inventory shown to customers). They had warned us: on 2026-07-28 we called
+// /locations?page=N **18,044 times** (page 1 alone, 597 times) against their
+// guidance of "a handful of times per day" — roughly 334 full sweeps a day.
+//
+// Three things drove that volume:
+//   1. a 1-hour TTL on a list that changes rarely;
+//   2. this cache being MODULE-SCOPED, i.e. per serverless instance — every
+//      cold start does its own 54-page sweep (still true; see PHASE 2 below);
+//   3. failed builds never caching anything, so while ResLab was failing every
+//      incoming search kicked off another full sweep, which kept the rate limit
+//      engaged. That feedback loop is what turned a blip into an outage.
+//
+// (1) and (3) are fixed here. (2) needs a cache shared across instances
+// (PHASE 2 — persistent store + scheduled refresh, targeting ResLab's ~54
+// calls/day). Until then this is per-instance-per-day, not per-day.
+//
+// Rule of thumb for anyone editing this: a stale-but-complete lot list is
+// enormously better for customers than no lots at all, and re-sweeping a
+// rate-limited endpoint is worse than not sweeping at all.
 
-// `partial: true` means some pages failed and the list is incomplete — the
-// caller marks the search result degraded so the route won't CDN-cache a thin
-// lot list.
-async function getChannelLocationsCached(): Promise<{
+// ResLab's own guidance: this data "only needs to be pulled about once per day".
+const LOCATION_LIST_TTL_MS = 24 * 60 * 60 * 1000;
+
+// After a failed or partial build, don't attempt another sweep for this long.
+// Serve the last good list instead. This is the circuit breaker that stops a
+// rate-limited window from being self-sustaining.
+const LOCATION_BUILD_BACKOFF_MS = 10 * 60 * 1000;
+
+// Hard ceiling on how old a served list may be. Past this we stop serving
+// stale data and surface the failure — better to show a retry state than to
+// sell parking off a list that may no longer reflect the channel.
+const LOCATION_LIST_MAX_AGE_MS = 72 * 60 * 60 * 1000;
+
+// Wall-clock budget for one sweep. Two jobs: (a) a fully-refused sweep gives up
+// instead of spending all ~54 requests proving it, and (b) the build always
+// settles — and therefore always arms the backoff — before the serverless
+// invocation can be killed underneath it. A killed invocation leaves
+// lastBuildFailureAt unset, which resurrects the per-request sweep loop this
+// whole fix exists to kill. Must stay comfortably under the route's maxDuration.
+const LOCATION_BUILD_BUDGET_MS = 40 * 1000;
+
+// A sweep that ran out of wall-clock WITHOUT any page being refused means
+// ResLab is slow, not refusing. Measured: at ~3.6s per batch of 8 a perfectly
+// healthy 54-page sweep trips the budget, and the full backoff would then keep
+// search degraded indefinitely because every retry is equally slow. Back off
+// briefly instead so we recover as soon as latency does.
+const LOCATION_SLOW_BACKOFF_MS = 60 * 1000;
+
+// How many times a single `next build` worker may bypass the backoff. See the
+// bypass rationale in getChannelLocationsCached.
+const BUILD_PHASE_MAX_SWEEPS = 3;
+
+/**
+ * `incomplete` — the list is known-thin (pages failed, or the sweep looked
+ * implausible). A search built on it may show fewer lots than really exist, so
+ * it must never be CDN-cached.
+ *
+ * `stale` — the list is COMPLETE but past its TTL. Safe to serve and safe to
+ * cache briefly; pricing is fetched live per request, so a lot that has left
+ * the channel drops out on its own (see the grandTotal filter in searchParking).
+ *
+ * Keeping these separate matters: collapsing both into one "degraded" boolean
+ * would make every response uncacheable for the whole 24h→72h stale window,
+ * pushing 100% of search traffic to origin and multiplying our min-price calls
+ * against ResLab at precisely the moment they're throttling us.
+ */
+export type LocationListResult = {
   data: ReslabLocation[];
-  partial: boolean;
-}> {
-  if (cachedLocationList && Date.now() < cachedLocationList.expiry) {
-    return { data: cachedLocationList.data, partial: false };
+  incomplete: boolean;
+  stale: boolean;
+};
+
+// `complete: false` marks a list assembled from a sweep that didn't fully
+// succeed. We keep it — serving slightly-thin inventory beats serving a 503 —
+// but it can never satisfy the fresh path, so we keep retrying for a good one.
+let cachedLocationList: {
+  data: ReslabLocation[];
+  builtAt: number;
+  complete: boolean;
+} | null = null;
+// When the last build attempt failed (partial, implausible, or thrown). Drives
+// the backoff. Cleared on any successful complete build.
+let lastBuildFailureAt: number | null = null;
+// True when the last failure was purely a wall-clock timeout with zero refused
+// pages (slow ResLab, not refusing). Selects the shorter backoff window.
+let lastFailureWasTimeoutOnly = false;
+// When we last reported an open-breaker 503 to Sentry. Rate-limits that report
+// to one per backoff window so an outage stays visible without flooding.
+let lastBackoffReportAt: number | null = null;
+// Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
+let buildPhaseSweeps = 0;
+// Single-flight: coalesce concurrent cold-cache builds so we don't fire N
+// simultaneous 54-page sweeps at the one ResLab endpoint that still works.
+let inFlightLocationBuild: Promise<LocationListResult> | null = null;
+
+/** Test seam — reset module cache state between cases. */
+export function __resetLocationListCacheForTests(): void {
+  cachedLocationList = null;
+  lastBuildFailureAt = null;
+  lastFailureWasTimeoutOnly = false;
+  lastBackoffReportAt = null;
+  buildPhaseSweeps = 0;
+  inFlightLocationBuild = null;
+}
+
+/**
+ * True for the open-circuit-breaker error thrown above. /api/search uses this
+ * to skip its generic per-request Sentry capture: this condition is already
+ * reported once per backoff window with a far more diagnostic message, and the
+ * root-cause ResLab error was reported when the build actually failed.
+ */
+export function isLocationBackoffError(error: unknown): boolean {
+  return (
+    error instanceof ReslabError &&
+    typeof error.details === "object" &&
+    error.details !== null &&
+    "locationListBackoff" in error.details
+  );
+}
+
+export async function getChannelLocationsCached(): Promise<LocationListResult> {
+  const now = Date.now();
+  // Capture the VALUE, not a predicate about it. The build below reads this
+  // across awaits; holding the object (a) lets TypeScript narrow without
+  // non-null assertions, and (b) lets us re-check the age at the moment of use
+  // — a slow build can push a list past the 72h ceiling mid-flight, and an
+  // entry-time snapshot would serve it anyway.
+  const fallback = cachedLocationList;
+  const usableFallback = () =>
+    fallback !== null &&
+    Date.now() - fallback.builtAt < LOCATION_LIST_MAX_AGE_MS
+      ? fallback
+      : null;
+
+  // Fresh AND complete — the overwhelmingly common path.
+  if (
+    fallback &&
+    fallback.complete &&
+    now - fallback.builtAt < LOCATION_LIST_TTL_MS
+  ) {
+    return { data: fallback.data, incomplete: false, stale: false };
   }
+
+  const backoffWindow = lastFailureWasTimeoutOnly
+    ? LOCATION_SLOW_BACKOFF_MS
+    : LOCATION_BUILD_BACKOFF_MS;
+  const backingOff =
+    lastBuildFailureAt !== null && now - lastBuildFailureAt < backoffWindow;
+
+  // `next build` prerenders ~85 airport landing pages, and airport-page/data.ts
+  // deliberately swallows build-phase failures so a blip can't fail the deploy.
+  // Honouring the backoff there would fast-fail every remaining page and ship
+  // ~85 empty, indexable SEO pages that then serve from ISR for up to an hour.
+  //
+  // But the bypass must be BOUNDED. A rejected build caches `complete: false`,
+  // which by design never satisfies the fresh path — so an unbounded bypass
+  // means each of the 85 pages runs its own full sweep. Measured worst cases:
+  // ~3,000 calls per deploy at a 2%/page failure rate, ~4,590 if every sweep is
+  // rejected, against ResLab's ~54/day guidance. That trades a runtime
+  // amplification for a deploy-time one — and the likeliest moment to deploy is
+  // during an incident. A few retries get us past a blip; unlimited retries are
+  // the bug we're fixing, wearing a different hat.
+  //
+  // NB static generation runs in multiple worker processes, so this counter
+  // (like the cache itself) is per-worker — the real bound is
+  // BUILD_PHASE_MAX_SWEEPS × workers, not × 1.
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+  const buildBypassAllowed =
+    isBuildPhase && buildPhaseSweeps < BUILD_PHASE_MAX_SWEEPS;
+  if (backingOff && buildBypassAllowed) buildPhaseSweeps++;
+
+  if (backingOff && !buildBypassAllowed) {
+    // Serve whatever we still hold rather than sweeping into a rate limit —
+    // even a thin list beats a 503. This is the difference between "customers
+    // see lots" and "customers see nothing" while ResLab is refusing us.
+    const usable = usableFallback();
+    if (usable) {
+      return {
+        data: usable.data,
+        incomplete: !usable.complete,
+        stale: usable.complete,
+      };
+    }
+
+    // Nothing to serve. Fail fast WITHOUT touching ResLab — sweeping here is
+    // exactly what keeps the rate-limit window from ever expiring.
+    //
+    // Reporting: this fires on EVERY search while the breaker is open, and
+    // /api/search's catch calls captureAPIError unconditionally, so left alone
+    // it buries the root-cause 429 under a flood of derived breaker errors.
+    // Instead we emit one diagnostic event per backoff window and mark the
+    // error so the route skips its generic capture (isLocationBackoffError).
+    // That keeps "customers are seeing 503s" visible — 1,311 Sentry events went
+    // unnoticed for ~4 weeks here — without the per-request noise.
+    if (
+      lastBackoffReportAt === null ||
+      now - lastBackoffReportAt >= LOCATION_BUILD_BACKOFF_MS
+    ) {
+      lastBackoffReportAt = now;
+      captureAPIError(
+        new Error(
+          `ResLab location list unavailable — no usable cached list, backing ` +
+            `off ${Math.round((now - (lastBuildFailureAt ?? now)) / 1000)}s ` +
+            `after a failed build. Search is returning 503 to customers.`
+        ),
+        { endpoint: "/api/search", method: "GET", statusCode: 503 }
+      );
+    }
+    throw new ReslabError(
+      503,
+      "ResLab location list unavailable (backing off after a recent failed build)",
+      { locationListBackoff: true }
+    );
+  }
+
   if (inFlightLocationBuild) return inFlightLocationBuild;
 
   inFlightLocationBuild = (async () => {
-    // Page 1 must succeed (gives last_page + the first slice). If it throws, let
-    // it propagate — the route turns it into an uncacheable 503 + retry.
-    const first = await reslab.getAllLocations(1);
-    const all: ReslabLocation[] = [...first.data];
-    const remaining: number[] = [];
-    for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+    try {
+      const buildStart = Date.now();
+      // Page 1 gives last_page + the first slice. A throw here lands in the
+      // catch below, which prefers stale data over a 503.
+      const first = await reslab.getAllLocations(1);
 
-    // Fetch remaining pages in small concurrent batches to keep load civil.
-    // Tolerate an individual page failing rather than zeroing out all search.
-    let failedPages = 0;
-    const BATCH = 8;
-    for (let i = 0; i < remaining.length; i += BATCH) {
-      const results = await Promise.allSettled(
-        remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
-      );
-      for (const r of results) {
-        if (r.status === "fulfilled") all.push(...r.value.data);
-        else failedPages++;
+      // Trust nothing about the paginator. `request()` asserts the response
+      // shape rather than validating it, so a degraded body, an error object
+      // returned with HTTP 200, or a proxy interstitial all land here.
+      //
+      // BOTH fields must be validated, not just last_page. A missing last_page
+      // makes `2 <= undefined` false so we'd sweep exactly one page; a missing
+      // `total` disables the plausibility check below (which is guarded on
+      // `expectedRows > 0`). Either one alone lets ~10 of ~533 locations be
+      // cached as authoritative for 24h and CDN-cached — indistinguishable from
+      // success, with no Sentry event. Also cross-check that last_page can
+      // actually cover total/per_page, which catches a truncated paginator that
+      // is individually well-formed but internally inconsistent.
+      const pagerUnusable =
+        !Number.isInteger(first.last_page) ||
+        first.last_page < 1 ||
+        !Number.isInteger(first.total) ||
+        first.total < 1;
+      const pagerInconsistent =
+        !pagerUnusable &&
+        Number.isInteger(first.per_page) &&
+        first.per_page > 0 &&
+        first.last_page < Math.ceil(first.total / first.per_page);
+
+      if (pagerUnusable || pagerInconsistent) {
+        throw new ReslabError(
+          502,
+          `ResLab location list returned an unusable paginator ` +
+            `(last_page=${JSON.stringify(first.last_page)}, ` +
+            `total=${JSON.stringify(first.total)}, ` +
+            `per_page=${JSON.stringify(first.per_page)})`
+        );
       }
+
+      const all: ReslabLocation[] = [...first.data];
+      const remaining: number[] = [];
+      for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+
+      // Fetch remaining pages in small concurrent batches to keep load civil.
+      // Tolerate an individual page failing rather than zeroing out all search.
+      // Tracked separately because they mean different things: `refusedPages`
+      // is ResLab saying no (back off hard), `skippedPages` is us running out
+      // of wall-clock (ResLab is just slow — back off briefly). Both make the
+      // build incomplete; only the mix decides how long we wait.
+      let refusedPages = 0;
+      let skippedPages = 0;
+      let consecutiveDeadBatches = 0;
+      const BATCH = 8;
+      for (let i = 0; i < remaining.length; i += BATCH) {
+        // Give up early rather than spending the remaining ~45 requests proving
+        // we're being refused. Counting the abandoned pages is what arms the
+        // backoff below — abandoning the sweep silently would leave the breaker
+        // un-armed and re-open the per-request sweep loop.
+        const outOfTime = Date.now() - buildStart > LOCATION_BUILD_BUDGET_MS;
+        if (outOfTime || consecutiveDeadBatches >= 1) {
+          skippedPages += remaining.length - i;
+          break;
+        }
+
+        const results = await Promise.allSettled(
+          remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
+        );
+        const rejected = results.filter((r) => r.status === "rejected").length;
+        consecutiveDeadBatches =
+          rejected === results.length ? consecutiveDeadBatches + 1 : 0;
+        for (const r of results) {
+          if (r.status === "fulfilled") all.push(...r.value.data);
+          else refusedPages++;
+        }
+      }
+      const failedPages = refusedPages + skippedPages;
+
+      // ResLab's paginated list returns the same location id on multiple pages —
+      // dedupe by id so search doesn't render duplicate lot cards.
+      const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
+
+      // ⚠️ Compare `all.length` (rows fetched, PRE-dedupe) against `total`.
+      // Comparing `unique.length` would reject every healthy build and take
+      // search down permanently. Measured against live ResLab on 2026-08-10:
+      //   last_page 54 · total 533 · rows fetched 533 · UNIQUE 381
+      // 381 is only 71% of 533 — well under the 0.9 threshold — because ResLab
+      // repeats ~152 rows across pages. Rows match `total` exactly; unique does
+      // not and never will. Do not "simplify" this to unique.length.
+      //
+      // A build is only "good" if no page failed AND the result looks plausible.
+      // Counting rejections alone cannot distinguish a healthy sweep from ResLab
+      // answering HTTP 200 with an empty or truncated paginator — and that
+      // mistake would then be cached as authoritative. At a 24h TTL the blast
+      // radius is a full day: an empty list makes this instance answer "no
+      // parking" for every airport until the TTL expires, and a truncated one is
+      // complete-looking enough to be CDN-cached and to bake thin ISR airport
+      // pages. Compare against the paginator's own `total` (rows, pre-dedupe —
+      // ResLab repeats ids across pages, so `unique.length` is legitimately
+      // lower and must NOT be compared to `total` directly) and against the
+      // size of the list we already trust.
+      const expectedRows = first.total;
+      const implausible =
+        unique.length === 0 ||
+        (expectedRows > 0 && all.length < expectedRows * 0.9) ||
+        (fallback !== null &&
+          fallback.complete &&
+          unique.length < fallback.data.length * 0.5);
+
+      if (failedPages > 0 || implausible) {
+        // Rejected build. Arm the backoff so we stop hammering. Never clears
+        // lastBuildFailureAt — a suspect build must not look like recovery.
+        lastBuildFailureAt = Date.now();
+        // Slow-only (nothing refused) gets the short window: ResLab is
+        // answering, so recovery should track latency, not a fixed 10 minutes.
+        lastFailureWasTimeoutOnly = refusedPages === 0 && skippedPages > 0;
+        captureAPIError(
+          new Error(
+            `ResLab location-list build rejected: ` +
+              `${refusedPages} refused + ${skippedPages} skipped of ` +
+              `${first.last_page} pages, ` +
+              `assembled ${unique.length} unique from ${all.length} rows ` +
+              `(paginator total ${expectedRows})` +
+              (fallback
+                ? `, cached list has ${fallback.data.length} (complete=${fallback.complete})`
+                : ", no cached list to fall back on")
+          ),
+          { endpoint: "/api/search", method: "GET", statusCode: 502 }
+        );
+
+        // NEVER downgrade what customers can see. Prefer a COMPLETE list
+        // outright; otherwise prefer whichever list has MORE lots. Two failures
+        // this prevents, both reachable without exotic input:
+        //   (a) fallback is thin (say 400 lots) and this rebuild assembled
+        //       nothing — without the size comparison we'd return [] and tell
+        //       the customer "No parking locations found near this airport"
+        //       while holding 400 usable lots one branch away;
+        //   (b) successive rejected rebuilds each assemble less than the last,
+        //       ratcheting inventory down toward zero over an outage
+        //       (400 → 90 → 0) with no path back until a fully clean sweep.
+        // Note we do NOT re-stamp builtAt when preferring the fallback: a stale
+        // list must not be laundered into a fresh one.
+        const usable = usableFallback();
+        if (usable && (usable.complete || usable.data.length >= unique.length)) {
+          return {
+            data: usable.data,
+            incomplete: !usable.complete,
+            stale: usable.complete,
+          };
+        }
+
+        // This build is the best we have. Keep it so the backoff window serves
+        // lots instead of 503s. `complete: false` means it can never satisfy
+        // the fresh path, so we keep retrying for a good one.
+        if (unique.length > 0) {
+          cachedLocationList = {
+            data: unique,
+            // thin → thin must NOT reset the clock. Re-stamping on every
+            // rejected rebuild makes LOCATION_LIST_MAX_AGE_MS unreachable for
+            // the least trustworthy list we hold, so the 72h "stop serving
+            // stale inventory" ceiling would never fire during a long outage.
+            builtAt:
+              fallback && !fallback.complete ? fallback.builtAt : Date.now(),
+            complete: false,
+          };
+        }
+        return { data: unique, incomplete: true, stale: false };
+      }
+
+      lastBuildFailureAt = null;
+      lastFailureWasTimeoutOnly = false;
+      cachedLocationList = { data: unique, builtAt: Date.now(), complete: true };
+      return { data: unique, incomplete: false, stale: false };
+    } catch (err) {
+      // Total build failure (page 1 threw / unusable paginator — typically a
+      // 429 or timeout). Arm the backoff, then serve what we have rather than
+      // blanking search.
+      lastBuildFailureAt = Date.now();
+      lastFailureWasTimeoutOnly = false;
+      const usable = usableFallback();
+      if (usable) {
+        captureAPIError(
+          new Error(
+            `ResLab location-list rebuild failed; serving cached list ` +
+              `(age ${Math.round((Date.now() - usable.builtAt) / 60000)}m, ` +
+              `complete=${usable.complete}): ` +
+              `${err instanceof Error ? err.message : String(err)}`
+          ),
+          { endpoint: "/api/search", method: "GET", statusCode: 502 }
+        );
+        return {
+          data: usable.data,
+          incomplete: !usable.complete,
+          stale: usable.complete,
+        };
+      }
+      // Nothing to fall back on — propagate so the route returns an
+      // uncacheable 503 + retry state, as before.
+      throw err;
     }
-
-    // ResLab's paginated list returns the same location id on multiple pages —
-    // dedupe by id so search doesn't render duplicate lot cards.
-    const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
-
-    if (failedPages > 0) {
-      // Incomplete build — surface it and DON'T cache. The caller flags the
-      // result degraded so the route serves it no-store (can't cache a thin
-      // list); the next request rebuilds.
-      captureAPIError(
-        new Error(
-          `ResLab location-list build incomplete: ${failedPages}/${first.last_page} pages failed`
-        ),
-        { endpoint: "/api/search", method: "GET", statusCode: 502 }
-      );
-      return { data: unique, partial: true };
-    }
-
-    cachedLocationList = {
-      data: unique,
-      expiry: Date.now() + LOCATION_LIST_TTL_MS,
-    };
-    return { data: unique, partial: false };
   })().finally(() => {
     inFlightLocationBuild = null;
   });
@@ -323,18 +682,22 @@ async function findLocationsNearAirport(
   lat: number,
   lng: number,
   radiusKm = 15
-): Promise<{ locations: ReslabLocation[]; partial: boolean }> {
+): Promise<{
+  locations: ReslabLocation[];
+  incomplete: boolean;
+  stale: boolean;
+}> {
   // calculateDistance() returns MILES (geo.ts uses R=3959), so convert the km
   // radius before comparing — otherwise the filter is ~2.6x too wide.
   const radiusMi = radiusKm * 0.621371;
-  const { data, partial } = await getChannelLocationsCached();
+  const { data, incomplete, stale } = await getChannelLocationsCached();
   const locations = data.filter((loc) => {
     const llat = parseFloat(loc.latitude);
     const llng = parseFloat(loc.longitude);
     if (Number.isNaN(llat) || Number.isNaN(llng)) return false;
     return calculateDistance(lat, lng, llat, llng) <= radiusMi;
   });
-  return { locations, partial };
+  return { locations, incomplete, stale };
 }
 
 export async function searchParking(
@@ -373,9 +736,14 @@ export async function searchParking(
   // full TTL — the live incident on 2026-06-29. Let ResLab errors propagate so
   // the route returns an uncacheable 5xx instead of poisoning the cache.
   let locations: ReslabLocation[];
-  // True when the workaround served an incomplete location list (some pages
-  // failed) — folded into `degraded` so the route won't CDN-cache a thin list.
-  let listBuildPartial = false;
+  // True when the workaround served a THIN location list (pages failed, or the
+  // sweep looked implausible) — folded into `degraded` so the route won't
+  // CDN-cache a list that under-reports the lots near this airport.
+  let listBuildIncomplete = false;
+  // True when the list was COMPLETE but past its TTL. Not degraded — the result
+  // is a full one — but the route shortens its CDN TTL so we pick up a repaired
+  // list quickly once ResLab recovers.
+  let listBuildStale = false;
   if (airportInfo.reslabLocationId) {
     // Single mapped location — search-by-ID works even during the geo outage.
     locations =
@@ -389,7 +757,8 @@ export async function searchParking(
       airportInfo.longitude
     );
     locations = near.locations;
-    listBuildPartial = near.partial;
+    listBuildIncomplete = near.incomplete;
+    listBuildStale = near.stale;
   } else {
     // Original path — restore by flipping RESLAB_GEO_SEARCH_BROKEN to false.
     locations =
@@ -412,9 +781,10 @@ export async function searchParking(
       results: [],
       total: 0,
       message: "No parking locations found near this airport",
-      // An outage-induced empty (partial build dropped this airport's lots) is
+      // An outage-induced empty (a thin build dropped this airport's lots) is
       // already no-store via total:0; flag it so it's distinguishable.
-      degraded: listBuildPartial,
+      degraded: listBuildIncomplete,
+      stale: listBuildStale,
     };
   }
 
@@ -493,8 +863,11 @@ export async function searchParking(
     checkoutTime,
     results: sortedLots,
     total: sortedLots.length,
-    // Degraded if pricing was partial OR the location list was built from fewer
-    // pages than exist — either way the route must not CDN-cache a thin result.
-    degraded: pricingErrors > 0 || listBuildPartial,
+    // Degraded if pricing was partial OR the location list was THIN — either
+    // way the result under-reports and must not be CDN-cached. A merely stale
+    // (complete, past-TTL) list is NOT degraded: the result is full, so it's
+    // cacheable, just on a shorter TTL. See `stale` below.
+    degraded: pricingErrors > 0 || listBuildIncomplete,
+    stale: listBuildStale,
   };
 }
