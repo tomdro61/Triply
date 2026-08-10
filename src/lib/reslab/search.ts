@@ -365,6 +365,7 @@ export function __resetLocationListCacheForTests(): void {
   cachedLocationList = null;
   lastBuildFailureAt = null;
   lastFailureWasTimeoutOnly = false;
+  consecutiveTimeoutOnlyFailures = 0;
   lastBackoffReportAt = null;
   buildPhaseSweeps = 0;
   inFlightLocationBuild = null;
@@ -431,18 +432,19 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
   // NB static generation runs in multiple worker processes, so this counter
   // (like the cache itself) is per-worker — the real bound is
   // BUILD_PHASE_MAX_SWEEPS × workers, not × 1.
-  // Count every build-phase sweep, not just the ones that bypassed a backoff.
-  // Once the bypasses are spent, pages fall back to the thin list and still fan
-  // out ~15 min-price calls each, so ~85 pages take minutes of wall-clock — and
-  // every expiry of the (short) backoff window would otherwise buy another
-  // uncounted full sweep. Bounding bypasses instead of sweeps gives a real
-  // ceiling of 3 + buildDuration/backoffWindow, not 3.
+  // Count every build-phase sweep, and enforce the cap INDEPENDENTLY of whether
+  // a backoff happens to be active. A build runs for minutes (~85 pages, each
+  // fanning out ~15 min-price calls), so backoff windows expire during it — and
+  // a check that only fires while `backingOff` is true lets every expiry buy
+  // another uncapped sweep. Measured that way: 8 sweeps across a 60-minute
+  // build phase, not 3. Consulting the cap unconditionally makes
+  // BUILD_PHASE_MAX_SWEEPS the actual ceiling it claims to be.
   const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
   const buildSweepsExhausted =
     isBuildPhase && buildPhaseSweeps >= BUILD_PHASE_MAX_SWEEPS;
   const buildBypassAllowed = isBuildPhase && !buildSweepsExhausted;
 
-  if (backingOff && !buildBypassAllowed) {
+  if (buildSweepsExhausted || (backingOff && !buildBypassAllowed)) {
     // Serve whatever we still hold rather than sweeping into a rate limit —
     // even a thin list beats a 503. This is the difference between "customers
     // see lots" and "customers see nothing" while ResLab is refusing us.

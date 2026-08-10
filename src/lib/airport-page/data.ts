@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { Airport } from "@/config/airports";
-import { searchParking } from "@/lib/reslab/search";
+import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
@@ -89,8 +89,16 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     // over-reporting is how the signal gets lost. One per window, either way.
     // (Next's onRequestError also captures the rethrow, so runtime failures
     // remain visible in Sentry even when this one is throttled.)
+    // Throttle ONLY the high-volume, self-reporting circuit-breaker error.
+    // Anything else — a TypeError in searchParking, an unexpected ResLab shape —
+    // is reported every time. During `next build` the error is swallowed below
+    // and never rethrown, so Next's onRequestError never sees it and this is the
+    // only capture: a blanket time-based throttle would discard a novel failure
+    // with no trace while the build reported success.
     const nowMs = Date.now();
+    const isSelfReporting = isLocationBackoffError(err);
     if (
+      !isSelfReporting ||
       lastAirportPageReportAt === null ||
       nowMs - lastAirportPageReportAt >= AIRPORT_PAGE_REPORT_INTERVAL_MS
     ) {

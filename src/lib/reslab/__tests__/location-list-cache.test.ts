@@ -36,6 +36,10 @@ const PAGES = 4;
 const PER_PAGE = 2;
 const TOTAL_ROWS = PAGES * PER_PAGE;
 
+// Mirrors BUILD_PHASE_MAX_SWEEPS in search.ts (not exported — it's an internal
+// tuning constant). If that value changes, this must change with it.
+const BUILD_PHASE_MAX_SWEEPS_EXPECTED = 3;
+
 function loc(id: number) {
   return { id, latitude: "42.0", longitude: "-71.0" };
 }
@@ -701,6 +705,27 @@ describe("location list cache — build phase is bounded", () => {
 
     // Bounded by BUILD_PHASE_MAX_SWEEPS (3) + the initial build, not 20.
     expect(attempts).toBeLessThanOrEqual(4);
+  });
+
+  it("the cap holds even as backoff windows expire mid-build", async () => {
+    // A real build runs for minutes, so backoff windows expire during it. If
+    // the cap is only consulted while `backingOff` is true, every expiry buys
+    // another uncapped sweep — measured at 8 sweeps across a 60-minute build
+    // rather than the advertised 3. Advancing the clock is what distinguishes
+    // "cap the bypasses" from "cap the sweeps"; without it both pass.
+    process.env.NEXT_PHASE = "phase-production-build";
+    allFail();
+
+    let sweeps = 0;
+    for (let i = 0; i < 12; i++) {
+      reslabMock.getAllLocations.mockClear();
+      await getChannelLocationsCached().catch(() => {});
+      if (reslabMock.getAllLocations.mock.calls.length > 0) sweeps++;
+      // Push past BOTH backoff windows before the next page renders.
+      vi.setSystemTime(Date.now() + 11 * MINUTE);
+    }
+
+    expect(sweeps).toBeLessThanOrEqual(BUILD_PHASE_MAX_SWEEPS_EXPECTED);
   });
 });
 
