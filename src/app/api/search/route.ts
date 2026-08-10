@@ -4,7 +4,7 @@ import { SortOption } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 import { z } from "zod";
 
-// A cold location-list build sweeps ~54 pages and is budgeted at 25s
+// A cold location-list build sweeps ~54 pages and is budgeted at 40s
 // (LOCATION_BUILD_BUDGET_MS). Pin the invocation ceiling above it so the build
 // always settles — and therefore always arms its circuit breaker — instead of
 // being killed mid-sweep, which would leave the breaker un-armed and re-open

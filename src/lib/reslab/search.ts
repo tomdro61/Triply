@@ -230,6 +230,11 @@ export interface SearchParkingResult {
   // cacheable — the route just shortens the CDN TTL so a repaired list is picked
   // up quickly. Distinct from `degraded`, which means "this result is thin".
   stale?: boolean;
+  // Specifically "the LOCATION LIST was thin" — a subset of `degraded`, which is
+  // also set by per-lot pricing failures. Consumers that must distinguish
+  // "we're missing whole lots" from "one lot failed to price" read this; the
+  // airport ISR pages use it to decide whether a render is safe to bake.
+  listIncomplete?: boolean;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -338,6 +343,14 @@ let lastBuildFailureAt: number | null = null;
 // True when the last failure was purely a wall-clock timeout with zero refused
 // pages (slow ResLab, not refusing). Selects the shorter backoff window.
 let lastFailureWasTimeoutOnly = false;
+// Consecutive slow-only failures. The short window is for a BLIP, not a REGIME:
+// a slow-only abort is never `complete`, so it can never satisfy the fresh path
+// — meaning at 60s the retry loop is permanent. Measured, a sustained ~6s/batch
+// regime cycles every ~102s ≈ 41k calls/day/instance, six times the call volume
+// that got us rate-limited in the first place. Two fast retries absorb a blip;
+// after that we fall back to the full window.
+let consecutiveTimeoutOnlyFailures = 0;
+const MAX_FAST_TIMEOUT_RETRIES = 2;
 // When we last reported an open-breaker 503 to Sentry. Rate-limits that report
 // to one per backoff window so an outage stays visible without flooding.
 let lastBackoffReportAt: number | null = null;
@@ -418,10 +431,16 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
   // NB static generation runs in multiple worker processes, so this counter
   // (like the cache itself) is per-worker — the real bound is
   // BUILD_PHASE_MAX_SWEEPS × workers, not × 1.
+  // Count every build-phase sweep, not just the ones that bypassed a backoff.
+  // Once the bypasses are spent, pages fall back to the thin list and still fan
+  // out ~15 min-price calls each, so ~85 pages take minutes of wall-clock — and
+  // every expiry of the (short) backoff window would otherwise buy another
+  // uncounted full sweep. Bounding bypasses instead of sweeps gives a real
+  // ceiling of 3 + buildDuration/backoffWindow, not 3.
   const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
-  const buildBypassAllowed =
-    isBuildPhase && buildPhaseSweeps < BUILD_PHASE_MAX_SWEEPS;
-  if (backingOff && buildBypassAllowed) buildPhaseSweeps++;
+  const buildSweepsExhausted =
+    isBuildPhase && buildPhaseSweeps >= BUILD_PHASE_MAX_SWEEPS;
+  const buildBypassAllowed = isBuildPhase && !buildSweepsExhausted;
 
   if (backingOff && !buildBypassAllowed) {
     // Serve whatever we still hold rather than sweeping into a rate limit —
@@ -469,6 +488,9 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
 
   if (inFlightLocationBuild) return inFlightLocationBuild;
 
+  // Every build-phase sweep counts against the cap (see buildSweepsExhausted).
+  if (isBuildPhase) buildPhaseSweeps++;
+
   inFlightLocationBuild = (async () => {
     try {
       const buildStart = Date.now();
@@ -488,16 +510,27 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
       // success, with no Sentry event. Also cross-check that last_page can
       // actually cover total/per_page, which catches a truncated paginator that
       // is individually well-formed but internally inconsistent.
+      // Coerce before validating. This API demonstrably serializes numbers as
+      // strings elsewhere (ReslabLocation.latitude/longitude are typed string;
+      // `featured` is boolean | number), so if `total` ever arrives as "533" a
+      // bare Number.isInteger would reject EVERY build — a permanent, site-wide
+      // search outage of our own making, unfixable without a deploy. Coercing
+      // costs nothing: Number("abc"), Number(null), Number(undefined) all still
+      // fail the checks below.
+      const lastPage = Number(first.last_page);
+      const totalRows = Number(first.total);
+      const perPage = Number(first.per_page);
+
       const pagerUnusable =
-        !Number.isInteger(first.last_page) ||
-        first.last_page < 1 ||
-        !Number.isInteger(first.total) ||
-        first.total < 1;
+        !Number.isInteger(lastPage) ||
+        lastPage < 1 ||
+        !Number.isInteger(totalRows) ||
+        totalRows < 1;
       const pagerInconsistent =
         !pagerUnusable &&
-        Number.isInteger(first.per_page) &&
-        first.per_page > 0 &&
-        first.last_page < Math.ceil(first.total / first.per_page);
+        Number.isInteger(perPage) &&
+        perPage > 0 &&
+        lastPage < Math.ceil(totalRows / perPage);
 
       if (pagerUnusable || pagerInconsistent) {
         throw new ReslabError(
@@ -511,7 +544,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
 
       const all: ReslabLocation[] = [...first.data];
       const remaining: number[] = [];
-      for (let p = 2; p <= first.last_page; p++) remaining.push(p);
+      for (let p = 2; p <= lastPage; p++) remaining.push(p);
 
       // Fetch remaining pages in small concurrent batches to keep load civil.
       // Tolerate an individual page failing rather than zeroing out all search.
@@ -570,7 +603,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
       // ResLab repeats ids across pages, so `unique.length` is legitimately
       // lower and must NOT be compared to `total` directly) and against the
       // size of the list we already trust.
-      const expectedRows = first.total;
+      const expectedRows = totalRows;
       const implausible =
         unique.length === 0 ||
         (expectedRows > 0 && all.length < expectedRows * 0.9) ||
@@ -584,12 +617,20 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
         lastBuildFailureAt = Date.now();
         // Slow-only (nothing refused) gets the short window: ResLab is
         // answering, so recovery should track latency, not a fixed 10 minutes.
-        lastFailureWasTimeoutOnly = refusedPages === 0 && skippedPages > 0;
+        // But only for the first couple of attempts — see
+        // MAX_FAST_TIMEOUT_RETRIES. Sustained slowness is a regime, and fast
+        // retries against a regime are re-amplification.
+        const slowOnly = refusedPages === 0 && skippedPages > 0;
+        consecutiveTimeoutOnlyFailures = slowOnly
+          ? consecutiveTimeoutOnlyFailures + 1
+          : 0;
+        lastFailureWasTimeoutOnly =
+          slowOnly && consecutiveTimeoutOnlyFailures <= MAX_FAST_TIMEOUT_RETRIES;
         captureAPIError(
           new Error(
             `ResLab location-list build rejected: ` +
               `${refusedPages} refused + ${skippedPages} skipped of ` +
-              `${first.last_page} pages, ` +
+              `${lastPage} pages, ` +
               `assembled ${unique.length} unique from ${all.length} rows ` +
               `(paginator total ${expectedRows})` +
               (fallback
@@ -624,14 +665,26 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
         // lots instead of 503s. `complete: false` means it can never satisfy
         // the fresh path, so we keep retrying for a good one.
         if (unique.length > 0) {
+          // thin → thin must NOT reset the clock. Re-stamping on every rejected
+          // rebuild makes LOCATION_LIST_MAX_AGE_MS unreachable for the least
+          // trustworthy list we hold, so the 72h ceiling would never fire.
+          //
+          // But inheritance must itself be bounded, or the opposite failure
+          // appears: past the ceiling, a brand-new build (rows fetched seconds
+          // ago) keeps inheriting a dead timestamp, so it's returned once and
+          // then every subsequent request 503s while we hold fresh inventory.
+          // The ceiling should measure DATA age, not lineage age. Largely
+          // unreachable while the cache is per-instance (lambdas recycle well
+          // inside 72h) — but it becomes a site-wide 503 the moment the shared
+          // cache in PHASE 2 lands, so bound it now.
+          const inherited =
+            fallback && !fallback.complete ? fallback.builtAt : null;
+          const canInherit =
+            inherited !== null &&
+            Date.now() - inherited < LOCATION_LIST_MAX_AGE_MS;
           cachedLocationList = {
             data: unique,
-            // thin → thin must NOT reset the clock. Re-stamping on every
-            // rejected rebuild makes LOCATION_LIST_MAX_AGE_MS unreachable for
-            // the least trustworthy list we hold, so the 72h "stop serving
-            // stale inventory" ceiling would never fire during a long outage.
-            builtAt:
-              fallback && !fallback.complete ? fallback.builtAt : Date.now(),
+            builtAt: canInherit ? inherited : Date.now(),
             complete: false,
           };
         }
@@ -640,6 +693,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
 
       lastBuildFailureAt = null;
       lastFailureWasTimeoutOnly = false;
+      consecutiveTimeoutOnlyFailures = 0;
       cachedLocationList = { data: unique, builtAt: Date.now(), complete: true };
       return { data: unique, incomplete: false, stale: false };
     } catch (err) {
@@ -648,6 +702,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
       // blanking search.
       lastBuildFailureAt = Date.now();
       lastFailureWasTimeoutOnly = false;
+      consecutiveTimeoutOnlyFailures = 0;
       const usable = usableFallback();
       if (usable) {
         captureAPIError(
@@ -785,6 +840,7 @@ export async function searchParking(
       // already no-store via total:0; flag it so it's distinguishable.
       degraded: listBuildIncomplete,
       stale: listBuildStale,
+      listIncomplete: listBuildIncomplete,
     };
   }
 
@@ -869,5 +925,6 @@ export async function searchParking(
     // cacheable, just on a shorter TTL. See `stale` below.
     degraded: pricingErrors > 0 || listBuildIncomplete,
     stale: listBuildStale,
+    listIncomplete: listBuildIncomplete,
   };
 }

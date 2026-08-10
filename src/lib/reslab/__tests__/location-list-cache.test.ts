@@ -574,14 +574,60 @@ describe("location list cache — never downgrade what customers see", () => {
   });
 
   it("a thin list still ages out at the 72h ceiling", async () => {
-    // Re-stamping builtAt on every thin→thin replacement would make the
-    // ceiling unreachable for the least trustworthy list we hold.
     await seedThinList(20);
 
     vi.setSystemTime(Date.now() + 80 * HOUR);
     allFail();
 
     await expect(getChannelLocationsCached()).rejects.toThrow(/Too Many/);
+  });
+
+  it("thin→thin replacement inherits the ORIGINAL age (no laundering)", async () => {
+    // Without builtAt preservation, each rejected rebuild resets the clock and
+    // the 72h ceiling becomes unreachable for the least trustworthy list we
+    // hold. Deleting the preservation must fail THIS test.
+    await seedThinList(20); // t = 0
+
+    vi.setSystemTime(Date.now() + 40 * HOUR);
+    await seedThinList(30); // t = 40h, but must inherit builtAt = 0
+
+    vi.setSystemTime(Date.now() + 33 * HOUR); // t = 73h from the ORIGINAL
+    allFail();
+
+    // Inherited age ⇒ past the ceiling ⇒ refuse. If builtAt had been
+    // re-stamped at 40h the list would read as 33h old and still be served.
+    await expect(getChannelLocationsCached()).rejects.toThrow(/Too Many/);
+  });
+
+  it("inheritance is bounded — a fresh build past the ceiling is not stamped dead", async () => {
+    // The opposite failure: inheriting an already-expired timestamp forever
+    // means brand-new rows are served once and then 503 on every later request.
+    await seedThinList(20); // t = 0
+    vi.setSystemTime(Date.now() + 80 * HOUR); // ancestor now past the ceiling
+
+    await seedThinList(25); // fresh rows — must NOT inherit the dead stamp
+    reslabMock.getAllLocations.mockClear();
+
+    vi.setSystemTime(Date.now() + MINUTE);
+    const r = await getChannelLocationsCached();
+
+    expect(r.data).toHaveLength(25); // still served, not refused
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+  });
+
+  it("a COMPLETE fallback wins even when the thin rebuild is larger", async () => {
+    // Pins the `usable.complete ||` short-circuit specifically. With only the
+    // size comparison, a bigger-but-thin list would beat a complete one.
+    healthy(); // complete list of TOTAL_ROWS (8)
+    await getChannelLocationsCached();
+
+    vi.setSystemTime(Date.now() + 25 * HOUR);
+    await seedThinList(50).catch(() => {}); // thin, but much larger
+    const r = await getChannelLocationsCached();
+
+    expect(r.data).toHaveLength(TOTAL_ROWS); // complete wins on completeness
+    expect(r.stale).toBe(true);
+    expect(r.incomplete).toBe(false);
   });
 });
 
@@ -607,6 +653,37 @@ describe("location list cache — slow ResLab is not refusing ResLab", () => {
 
     expect(reslabMock.getAllLocations).toHaveBeenCalled();
     expect(recovered.incomplete).toBe(false);
+  });
+
+  it("escalates to the full window once slowness is a REGIME, not a blip", async () => {
+    // The short window is only safe for a transient blip. A slow-only build is
+    // never `complete`, so it can never satisfy the fresh path — at 60s forever
+    // the retry loop is permanent (~41k calls/day/instance, six times the
+    // volume that got us rate-limited). After MAX_FAST_TIMEOUT_RETRIES it must
+    // fall back to the 10-minute window.
+    const LAST = 40;
+    const slow = () =>
+      reslabMock.getAllLocations.mockImplementation(async (p: number) => {
+        vi.setSystemTime(Date.now() + 6 * 1000);
+        return page(p, { lastPage: LAST, total: LAST * PER_PAGE });
+      });
+
+    slow();
+    await getChannelLocationsCached(); // slow failure 1
+    vi.setSystemTime(Date.now() + 90 * 1000);
+    slow();
+    await getChannelLocationsCached(); // 2
+    vi.setSystemTime(Date.now() + 90 * 1000);
+    slow();
+    await getChannelLocationsCached(); // 3 — past the fast-retry allowance
+
+    reslabMock.getAllLocations.mockClear();
+    // 90s later the SHORT window would have expired; the full one must not have.
+    vi.setSystemTime(Date.now() + 90 * 1000);
+    const r = await getChannelLocationsCached();
+
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled(); // still backing off
+    expect(r.incomplete).toBe(true); // served the thin list, no new sweep
   });
 });
 

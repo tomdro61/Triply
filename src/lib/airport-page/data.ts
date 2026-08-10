@@ -5,6 +5,10 @@ import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 
+// Throttles the failure report below to one event per window per instance.
+const AIRPORT_PAGE_REPORT_INTERVAL_MS = 10 * 60 * 1000;
+let lastAirportPageReportAt: number | null = null;
+
 export interface AirportPageData {
   lots: UnifiedLot[];
   topLots: UnifiedLot[];
@@ -45,21 +49,32 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
       checkout: checkoutStr,
       sort: "price_asc",
     });
-    // A DEGRADED result does not throw — it returns successfully with a thin
-    // (or empty) lot list because the ResLab location-list build was rejected.
-    // /api/search protects itself by serving those no-store; this page has no
-    // such guard, so without this check Next would commit a 2-lot (or zero-lot)
-    // render into the ISR cache and serve it — to users and to Googlebot, with
-    // a truncated JSON-LD ItemList and a wrong lot count in the metadata — for
-    // the full hour. Treat it exactly like a throw so the last-good page stands.
-    if (result.degraded) {
+    // ⚠️ Assign BEFORE the throw below. The catch swallows during `next build`,
+    // so throwing first would leave `lots` empty and bake the zero-lot render —
+    // ~85 empty, indexable airport pages, which is strictly worse than the thin
+    // page we actually have and is the exact outcome the build-phase bypass in
+    // getChannelLocationsCached spends ResLab calls to avoid.
+    lots = result.results;
+
+    // A THIN location list does not throw — searchParking returns successfully
+    // with fewer lots than really exist. /api/search protects itself by serving
+    // those no-store; this page has no such guard, so without this check Next
+    // would commit a 2-lot render into the ISR cache and serve it — to users and
+    // to Googlebot, with a truncated JSON-LD ItemList and a wrong lot count in
+    // the metadata — for the full hour. Treat it like a throw so the last-good
+    // page stands (at runtime; the build phase keeps the thin lots above).
+    //
+    // Gated on listIncomplete, NOT the broader `degraded`: `degraded` is also
+    // set by a single failed min-price call, and ResLab has a documented
+    // "pricing unavailable" degradation. Refusing a whole page because one lot
+    // of fifteen failed to price would bake empty pages on healthy deploys.
+    if (result.listIncomplete) {
       throw new ReslabError(
         502,
-        `Degraded ResLab result for ${airport.code} ` +
+        `Thin ResLab location list for ${airport.code} ` +
           `(${result.results.length} lots) — refusing to bake it into ISR`
       );
     }
-    lots = result.results;
   } catch (err) {
     // searchParking throws on a real ResLab failure, and also when our own
     // location-list circuit breaker is open (a cold instance backing off after
@@ -67,10 +82,24 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     // still returns an empty result without throwing. Both throw cases mean
     // "we don't know the inventory", so always surface it — this page is
     // ISR-cached for 1h, so a swallowed failure is otherwise invisible.
-    captureAPIError(err instanceof Error ? err : new Error(String(err)), {
-      endpoint: "/[slug]/airport-parking",
-      method: "GET",
-    });
+    // Rate-limited: this fires per page per revalidation, and across ~85
+    // airport pages during a degradation that's ~170 events/hour — which would
+    // drown the single diagnostic event the circuit breaker deliberately emits
+    // once per window. Under-reporting is how this incident hid for 4 weeks;
+    // over-reporting is how the signal gets lost. One per window, either way.
+    // (Next's onRequestError also captures the rethrow, so runtime failures
+    // remain visible in Sentry even when this one is throttled.)
+    const nowMs = Date.now();
+    if (
+      lastAirportPageReportAt === null ||
+      nowMs - lastAirportPageReportAt >= AIRPORT_PAGE_REPORT_INTERVAL_MS
+    ) {
+      lastAirportPageReportAt = nowMs;
+      captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+        endpoint: "/[slug]/airport-parking",
+        method: "GET",
+      });
+    }
 
     // At runtime (ISR revalidation), rethrow so Next.js keeps serving the
     // last-good cached page instead of overwriting it with an empty render —
