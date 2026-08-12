@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Calendar, MapPin, Car, Clock, ChevronRight } from "lucide-react";
+import { Calendar, MapPin, Car, Clock, ChevronRight, CheckCircle2 } from "lucide-react";
 import { format, parseISO, isPast, isToday } from "date-fns";
 import { CancelReservationButton } from "./cancel-reservation-button";
 
@@ -43,7 +43,14 @@ interface ReservationCardProps {
   /** Server flag: is self-service cancellation enabled? Gates the Cancel button. */
   selfCancelEnabled: boolean;
   /** Called after a successful cancel so the page flips this card to Cancelled. */
-  onCancelled: (reservationNumber: string) => void;
+  onCancelled: (reservationNumber: string, refundAmount: number | null) => void;
+  /**
+   * Set only for a card cancelled in THIS session: the dollars refunded, or
+   * null when it was cancelled without a refund (e.g. already cancelled, or an
+   * uncaptured authorization released). `undefined` means "not just cancelled"
+   * — the distinction matters, since null is a meaningful value here.
+   */
+  justCancelledRefund?: number | null;
 }
 
 export function ReservationCard({
@@ -51,6 +58,7 @@ export function ReservationCard({
   customerEmail,
   selfCancelEnabled,
   onCancelled,
+  justCancelledRefund,
 }: ReservationCardProps) {
   const checkInDate = parseISO(booking.check_in);
   const checkOutDate = parseISO(booking.check_out);
@@ -167,6 +175,28 @@ export function ReservationCard({
           </p>
         </div>
       </Link>
+
+      {/* Post-cancel confirmation. Lives HERE, not in CancelReservationButton:
+          the moment status flips to 'cancelled' the button below unmounts, so a
+          success panel owned by it could never paint — the customer would watch
+          the badge change and never learn what they got back. */}
+      {justCancelledRefund !== undefined && (
+        <div className="mt-4 rounded-lg bg-green-50 border border-green-200 p-4">
+          <div className="flex items-start gap-2.5">
+            <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-900">
+                Reservation cancelled
+              </p>
+              <p className="mt-0.5 text-sm text-green-800">
+                {justCancelledRefund !== null
+                  ? `$${justCancelledRefund.toFixed(2)} has been refunded to your original payment method. It should appear within 5–10 business days.`
+                  : "This reservation is cancelled. Check your email for the details."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selfCancelEnabled && booking.status === "confirmed" && isUpcoming && (
         <CancelReservationButton
