@@ -48,6 +48,11 @@ export default function ReservationsPage() {
   // silently (recycled/changed-email safety).
   const [claimableCount, setClaimableCount] = useState(0);
   const [claiming, setClaiming] = useState(false);
+  // reservationNumber -> refunded dollars (null when cancelled without a refund).
+  // Drives the post-cancel confirmation panel; see handleCancelled.
+  const [justCancelled, setJustCancelled] = useState<
+    Record<string, number | null>
+  >({});
   const [claimError, setClaimError] = useState<string | null>(null);
   // Server-gated: only when ENABLE_SELF_SERVE_CANCEL is on does the Cancel button
   // render at all (the flag stays server-side; the API returns this boolean).
@@ -131,9 +136,18 @@ export default function ReservationsPage() {
   };
 
   // A card cancelled successfully → flip it to 'cancelled' locally so the badge
-  // updates immediately without a full refetch. The cancellation email carries
-  // the refund detail; the server remains the source of truth on refresh.
-  const handleCancelled = (reservationNumber: string) => {
+  // updates immediately without a full refetch. The server remains the source of
+  // truth on refresh.
+  //
+  // The refund amount is lifted HERE rather than shown by the cancel button:
+  // flipping status unmounts that button (the card only renders it while
+  // 'confirmed'), so a success panel owned by the button could never paint —
+  // the customer would see the badge change and never learn what they got back.
+  // Held in page state so it survives the card re-sorting into "Past".
+  const handleCancelled = (
+    reservationNumber: string,
+    refundAmount: number | null,
+  ) => {
     setBookings((prev) =>
       prev.map((b) =>
         b.reslab_reservation_number === reservationNumber
@@ -141,6 +155,7 @@ export default function ReservationsPage() {
           : b,
       ),
     );
+    setJustCancelled((prev) => ({ ...prev, [reservationNumber]: refundAmount }));
   };
 
   // Split bookings into upcoming and past
@@ -325,6 +340,11 @@ export default function ReservationsPage() {
                       customerEmail={userEmail}
                       selfCancelEnabled={selfCancelEnabled}
                       onCancelled={handleCancelled}
+                      justCancelledRefund={
+                        booking.reslab_reservation_number in justCancelled
+                          ? justCancelled[booking.reslab_reservation_number]
+                          : undefined
+                      }
                     />
                   ))}
                 </div>
