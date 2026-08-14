@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLotById } from "@/lib/reslab/get-lot";
-import { reslab } from "@/lib/reslab/client";
+import { isLocationBackoffError } from "@/lib/reslab/search";
+import { reslab, ReslabError } from "@/lib/reslab/client";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
@@ -8,6 +9,11 @@ import { convertTo24Hour } from "@/lib/utils/time";
 import { captureAPIError } from "@/lib/sentry";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
 import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+
+// A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
+// (40s budget). The ceiling must sit above it so the sweep settles and arms its
+// circuit breaker rather than being killed mid-flight — see the sibling routes.
+export const maxDuration = 60;
 
 const checkoutGetSchema = z.object({
   lotId: z.string().min(1),
@@ -140,13 +146,26 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Checkout lot API error:", error);
-    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
-      endpoint: "/api/checkout/lot",
-      method: "GET",
-    });
+    // The location-list circuit breaker fires on EVERY request while it's open
+    // and already self-reports once per backoff window with a far more
+    // diagnostic message. Capturing it here too buries the root-cause 429 under
+    // derived events — the failure mode that let 1,311 Sentry events go
+    // unnoticed for ~4 weeks. Matches /api/search. Every other error is still
+    // captured unconditionally.
+    if (!isLocationBackoffError(error)) {
+      captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+        endpoint: "/api/checkout/lot",
+        method: "GET",
+      });
+    }
+    // 503 (not 500) when the upstream is transiently unavailable: it's the
+    // honest status, and uptime monitors page on 500s.
+    const transient =
+      isLocationBackoffError(error) ||
+      (error instanceof ReslabError && error.statusCode >= 500);
     return NextResponse.json(
-      { error: "Failed to fetch lot data" },
-      { status: 500 }
+      { error: transient ? "Parking data is temporarily unavailable" : "Failed to fetch lot data" },
+      { status: transient ? 503 : 500, headers: { "Cache-Control": "no-store" } }
     );
   }
 }

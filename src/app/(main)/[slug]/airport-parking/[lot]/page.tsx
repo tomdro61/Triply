@@ -16,6 +16,15 @@ import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
 import { convertTo24Hour } from "@/lib/utils/time";
 
+// A cold-start slug lookup now reaches the ~54-page ResLab sweep through
+// getChannelLocationsCached (40s budget, LOCATION_BUILD_BUDGET_MS). The
+// invocation ceiling MUST sit above that budget so the build settles and arms
+// its circuit breaker — killed mid-sweep it leaves lastBuildFailureAt unset,
+// which re-opens the per-request sweep loop behind the 2026-08-10 outage.
+// Mirrors the sibling airport page; do not remove because "it works today"
+// (it works only while the platform default happens to exceed 40s).
+export const maxDuration = 60;
+
 interface LotPageProps {
   params: Promise<{
     slug: string;
