@@ -1,5 +1,6 @@
 import {
   reslab,
+  ReslabError,
   ReslabLocation,
   ReslabMinPriceResponse,
   stripHtml,
@@ -8,6 +9,8 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
+// One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
+import { getChannelLocationsCached } from "./search";
 
 /**
  * Airport coordinates for distance calculation
@@ -192,14 +195,45 @@ export async function getLotFromReslab(
 
     return transformLocationToLot(location, minPriceData, airportCoords);
   } catch (error) {
-    console.error("Error fetching lot from ResLab:", error);
-    return null;
+    // `null` from this function means "this lot does not exist" — the page turns
+    // it into notFound() and /api/checkout/lot into a 404. ONLY a genuine 404
+    // from ResLab earns that. Flattening a 429/502/timeout into null produces a
+    // false 404 on a confirmed-real lot (we got here because the id or slug
+    // MATCHED), with nothing in Sentry — and 429/5xx is exactly what we see
+    // during the rate-limit windows this work exists to harden against.
+    if (error instanceof ReslabError && error.statusCode === 404) {
+      return null;
+    }
+    throw error;
   }
 }
 
 /**
- * Find a lot by slug from ResLab
- * This searches all locations and matches by generated slug
+ * Find a lot by slug.
+ *
+ * ⚠️ This used to walk `/locations?page=N` itself — uncached, no TTL, no
+ * circuit breaker, sequentially to `last_page` (54 pages) — ON THE REQUEST
+ * PATH. ResLab limits that endpoint to 500 requests/day, so a single lookup
+ * for a slug that matched nothing cost ~11% of the daily budget, and the lot
+ * detail page calls this TWICE per render (page body + generateMetadata).
+ *
+ * Both entry points take unauthenticated attacker-controlled input:
+ *   GET /api/checkout/lot?lotId=<junk>     (no auth, Zod accepts any string)
+ *   GET /[slug]/airport-parking/<junk>     (fully dynamic, no revalidate)
+ *
+ * So roughly ten requests to a nonexistent slug exhausted the entire day's
+ * budget and reproduced the 2026-08-10 site-wide search outage — reachable by
+ * any third party, or by a bot crawling stale lot URLs. Found by /harden-plan
+ * on 2026-08-14; five reviewers flagged it independently.
+ *
+ * Now reads the SHARED channel list via getChannelLocationsCached(), which
+ * carries the 24h TTL, single-flight coalescing, circuit breaker, and
+ * plausibility validation added in PR #15. A slug lookup costs ZERO extra
+ * ResLab calls on a warm cache.
+ *
+ * Do NOT reintroduce a page walk here. If this needs to work when the shared
+ * cache is unavailable, the answer is to fix the cache, not to sweep per
+ * request.
  */
 export async function findLotBySlug(
   slug: string,
@@ -207,30 +241,45 @@ export async function findLotBySlug(
   toDate: string,
   airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
-  try {
-    // Iterate through all pages of locations to find matching slug
-    let page = 1;
-    while (true) {
-      const locationsData = await reslab.getAllLocations(page);
-      const matchingLocation = locationsData.data.find(
-        (loc) => generateSlug(loc.name) === slug
+  // Deliberately NOT wrapped in try/catch. A ResLab failure (or an open
+  // circuit breaker) must NOT be flattened into `null`, because null means
+  // "this lot does not exist" — which the page turns into a 404 and Google
+  // indexes as a dead URL. Distinguishing a real 404 from an upstream outage
+  // is the project's hard rule; the previous `catch { return null }` was the
+  // exact anti-pattern that produced the 2026-06-29 cached-empty incident.
+  // Callers propagate; the page renders an error state rather than a false 404.
+  const { data: locations, incomplete } = await getChannelLocationsCached();
+
+  const match = locations.find((loc) => generateSlug(loc.name) === slug);
+  if (!match) {
+    if (incomplete) {
+      // The list is KNOWN thin — the cache deliberately retains a partial sweep
+      // (any failed page → complete:false) and serves it so search degrades
+      // instead of 503ing, held for the 10-minute backoff per rebuild and up to
+      // the 72h max-age under sustained degradation. Rows only have to clear a
+      // 0.9 plausibility floor, so ~10% of the channel can be legitimately
+      // absent and still served.
+      //
+      // "Absent from THIS list" is therefore not evidence the lot doesn't
+      // exist. Returning null here 404s a live lot whose URL our own sitemap
+      // publishes (sitemap.ts builds these slugs) — and Google treats 404 as
+      // permanent and deindexes, while it treats 5xx as transient and retries.
+      // Surface the degradation instead.
+      throw new ReslabError(
+        503,
+        `Lot slug "${slug}" not found, but the ResLab location list is ` +
+          `incomplete (${locations.length} lots) — cannot distinguish a missing ` +
+          `lot from a thin list`,
       );
-
-      if (matchingLocation) {
-        return getLotFromReslab(matchingLocation.id, fromDate, toDate, airportCoords);
-      }
-
-      if (page >= locationsData.last_page) {
-        break;
-      }
-      page++;
     }
-
-    return null;
-  } catch (error) {
-    console.error("Error finding lot by slug:", error);
+    // Genuine not-found: the list is COMPLETE and no lot has this slug.
+    // NB `stale` is deliberately NOT treated this way — a stale list is
+    // complete, so a miss on it is a real miss. Throwing on stale would 500 the
+    // site for the entire 24-72h window.
     return null;
   }
+
+  return getLotFromReslab(match.id, fromDate, toDate, airportCoords);
 }
 
 /**
