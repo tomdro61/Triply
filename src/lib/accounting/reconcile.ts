@@ -64,6 +64,10 @@ interface ReslabHistoryEntry {
   refund_amount?: number | string;
   partial_refund?: number | string;
   due_at_location_total?: number | string;
+  // Per-reservation fee lines. Includes LOCATION fees (the lot's own add-ons)
+  // and the CHANNEL fee ResLab bills us — invoiced as the "RL Fee" column.
+  // Only `channel_fee` entries are ours; see channelFeeOf().
+  fees?: Array<{ fee_type?: string; dollar_amount?: number | string }>;
 }
 interface ReslabResponse {
   cancelled?: number | boolean;
@@ -148,6 +152,27 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * ResLab's "RL Fee" for one reservation — the channel fee ResLab bills Triply
+ * on top of the lot settlement. Started appearing on reservations created
+ * 2026-07-30 and later; ~5% of subtotal at most lots (3.5% at some), which is
+ * roughly 25% of Triply's channel commission.
+ *
+ * Sums the `channel_fee` entries in `history[0].fees[]`. Do NOT substitute
+ * `history[0].total_fees` — that mixes in the LOT's own fees (verified on
+ * RTL828143: total_fees $19.40 = $14.00 location + $5.40 channel, and the
+ * invoice billed $5.40). Multiple channel_fee lines aren't observed today, but
+ * summing costs nothing and stays correct if ResLab ever splits them.
+ *
+ * Verified against the August 2026 settlement invoice: summed across
+ * non-cancelled reservations this reproduces the invoice's "RL Fee" column
+ * exactly ($116.49 over 68 rows).
+ */
+const channelFeeOf = (h: ReslabHistoryEntry): number =>
+  Array.isArray(h.fees)
+    ? h.fees.reduce((sum, f) => (f?.fee_type === "channel_fee" ? sum + num(f.dollar_amount) : sum), 0)
+    : 0;
+
 type CustomersJoin = { email?: string | null } | null;
 interface SupabaseRow {
   id: string;
@@ -216,6 +241,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   type ReslabSlice = {
     locationTotal: number | null;
     dueAtLocationTotal: number | null;
+    // ResLab's "RL Fee" (channel_fee) for this reservation. Billed ON TOP of
+    // the lot settlement — and billed even when the lot is Due-at-Lot and the
+    // parking owed is $0. null when no ResLab data for the row.
+    channelFee: number | null;
     channelTotal: number | null;
     commissionsTotal: number | null;
     grandTotal: number | null;
@@ -233,6 +262,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const emptyReslab: ReslabSlice = {
     locationTotal: null,
     dueAtLocationTotal: null,
+    channelFee: null,
     channelTotal: null,
     commissionsTotal: null,
     grandTotal: null,
@@ -288,6 +318,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         return {
           locationTotal: num(h.location_total),
           dueAtLocationTotal: num(h.due_at_location_total),
+          channelFee: channelFeeOf(h),
           channelTotal: num(h.channel_total),
           commissionsTotal: num(h.commissions_total),
           grandTotal: num(h.grand_total),
@@ -454,11 +485,30 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let confPGOptIns = 0;
   let confPGMarginPerRow = 0;
   let confLocTotal = 0;
+  // ResLab's channel fee ("RL Fee") on CONFIRMED bookings — the slice that
+  // belongs in the parking money flow and Triply's P&L, which are both scoped
+  // to confirmed bookings. The invoice-matching slice is settleChannelFee
+  // below, which follows ResLab's own billing rule instead.
+  let confChannelFee = 0;
   let confChannelTotal = 0;
   let confCommissionsTotal = 0;
   let confReslabDueAtLot = 0;
   let confReslabSubtotal = 0;
   let confReslabSeen = 0;
+  // ---- Settlement accumulators: what ResLab's invoice actually bills ----
+  // These deliberately do NOT gate on the Supabase `status === "confirmed"`
+  // branch, because ResLab's invoice doesn't. Verified against the Aug 2026
+  // invoice, their rule is: every reservation ResLab has NOT cancelled is
+  // billed for (location_total − due_at_location_total) + channel_fee.
+  //   - A row we mark `disputed` IS billed (RTL828863: $8.08 of pure RL Fee) —
+  //     a confirmed-only gate silently under-states the invoice by that much.
+  //   - A ResLab-cancelled row is NOT billed, even though its history still
+  //     carries a channel_fee (RTL829990: $4.61 present in the API, $0 on the
+  //     invoice) — so the cancelled check must gate the FEE, not just rely on
+  //     ResLab having zeroed location_total.
+  let settleParkingOwed = 0;
+  let settleChannelFee = 0;
+  let settleRows = 0;
   // Authoritative parking cash collected (Stripe amount_received − service fee
   // − PG, per booking) with a per-booking Supabase fallback when live Stripe
   // is unavailable. `stripeParkingDerivedUsed` flips true if ANY confirmed
@@ -534,6 +584,16 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       });
     }
 
+    // Settlement accrual — mirrors ResLab's invoicing rule, NOT our booking
+    // status (see the accumulator declarations above). Runs for every row with
+    // ResLab data that ResLab has not cancelled, so the total can be compared
+    // against the invoice directly.
+    if (opts.includeReslab && rl.locationTotal !== null && !rl.cancelled) {
+      settleParkingOwed += Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0));
+      settleChannelFee += rl.channelFee ?? 0;
+      settleRows++;
+    }
+
     let triplyKeeps = 0; // service fee + PG margin (on-top charges)
     let triplyTotal: number | null = 0; // channel + fee + PG margin (full keep)
     let note = "";
@@ -563,6 +623,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         // equals location_total (Triply owes the lot's full share).
         const amountOwed = Math.max(0, rl.locationTotal - reslabAtGate);
         confLocTotal += amountOwed;
+        // ResLab does not bill the channel fee on a reservation it cancelled,
+        // even though the fee line survives in the history — so gate on
+        // `cancelled` rather than trusting the zeroed location_total.
+        if (!rl.cancelled) confChannelFee += rl.channelFee ?? 0;
         confChannelTotal += rl.channelTotal ?? 0;
         confCommissionsTotal += rl.commissionsTotal ?? 0;
         confReslabDueAtLot += reslabAtGate;
@@ -755,6 +819,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         rl.locationTotal !== null
           ? Math.max(0, rl.locationTotal - (rl.dueAtLocationTotal ?? 0))
           : null,
+      // ResLab's "RL Fee" for this row. Reported as ResLab reports it (the raw
+      // fee line); the ROW is excluded from the settlement totals when ResLab
+      // cancelled it, so a non-zero fee here on a cancelled row is expected and
+      // is not what gets billed.
+      reslab_channel_fee: rl.channelFee,
       reslab_channel_total: rl.channelTotal,
       reslab_commissions_total: rl.commissionsTotal,
       reslab_grand_total: rl.grandTotal,
@@ -802,9 +871,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     reslabConfirmedExpected > 0 &&
     confReslabSeen < reslabConfirmedExpected;
 
+  // ResLab's channel fee is a real cost against the parking side, so it is
+  // deducted from Triply's income here and in `triplyIncome` below. Leaving it
+  // out would overstate the margin (and every take rate) by the fee — ~25% of
+  // the channel commission at the Aug 2026 rate.
   const triplyTotal =
     opts.includeReslab && !reslabDataIncomplete
-      ? netServiceFee + pgMargin + confChannelTotal
+      ? netServiceFee + pgMargin + confChannelTotal - confChannelFee
       : null;
 
   // Stripe processing fees aggregate: null when ANY contributing booking
@@ -837,7 +910,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // from below; the net rate uses triplyCashTotal as a stand-in numerator
   // (cash margin) instead of triplyIncome.
   const triplyIncome =
-    netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal : 0);
+    netServiceFee + pgMargin + (opts.includeReslab ? confChannelTotal - confChannelFee : 0);
   // At-gate share uses ResLab's authoritative due_at_location_total when the
   // cross-check is on (Supabase due_at_location can drift — see RTL753241);
   // falls back to the Supabase figure only when ResLab is disabled, in which
@@ -883,6 +956,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       pgWholesale: confPgWholesale,
       pgMargin: confPGMarginPerRow,
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
+      channelFee: opts.includeReslab ? confChannelFee : null,
       channelTotal: opts.includeReslab ? confChannelTotal : null,
       commissionsTotal: opts.includeReslab ? confCommissionsTotal : null,
       stripeParkingCollected: confStripeParking,
@@ -905,6 +979,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       serviceFee: netServiceFee,
       pgMargin,
       parkingChannelCommission: opts.includeReslab ? confChannelTotal : null,
+      // Deducted from `total` above — shown as its own line so the channel
+      // commission stays reported gross (that's the contract figure) while the
+      // net reflects what ResLab actually leaves us.
+      reslabChannelFee: opts.includeReslab ? confChannelFee : null,
       total: triplyTotal,
       cashTotal: triplyCashTotal,
       stripeProcessingFees,
@@ -913,8 +991,16 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     takeRates,
     reslab: {
       invoiceAmount: opts.invoiceAmount,
-      sumLocationTotal: opts.includeReslab ? confLocTotal : null,
-      variance: opts.includeReslab ? confLocTotal - opts.invoiceAmount : null,
+      // What ResLab's invoice bills: lot settlement + their channel fee, over
+      // every reservation they haven't cancelled. Compare against the invoice
+      // total directly — on Aug 2026 this reproduces $4,194.62 exactly.
+      sumAmountOwed: opts.includeReslab ? settleParkingOwed + settleChannelFee : null,
+      // The two components, so a variance can be attributed to one side.
+      sumLocationTotal: opts.includeReslab ? settleParkingOwed : null,
+      sumChannelFee: opts.includeReslab ? settleChannelFee : null,
+      settlementRows: opts.includeReslab ? settleRows : 0,
+      variance:
+        opts.includeReslab ? settleParkingOwed + settleChannelFee - opts.invoiceAmount : null,
       grandTotalMismatches,
       // Scrub the excluded staging rows' expected prod-ResLab 404s — they're not
       // real fetch failures, and the "(see CSV)" pointer would dangle since the

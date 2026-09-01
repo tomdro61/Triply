@@ -55,6 +55,12 @@ export interface BookingDetail {
   stripe_fee: number | null;
   stripe_error: string | null;
   reslab_location_total: number | null;
+  // ResLab's "RL Fee" for this booking — the `channel_fee` line in
+  // history[0].fees[], billed on top of the lot settlement (and billed even on
+  // Due-at-Lot bookings, where reslab_location_total is $0). Reported raw: a
+  // ResLab-cancelled row can carry a fee here that is NOT billed, and is
+  // excluded from the settlement totals accordingly.
+  reslab_channel_fee: number | null;
   reslab_channel_total: number | null;
   reslab_commissions_total: number | null;
   reslab_grand_total: number | null;
@@ -150,6 +156,9 @@ export interface ReconcileResult {
     pgWholesale: number;
     pgMargin: number;
     locationTotalOwed: number | null;
+    // ResLab's channel fee ("RL Fee") across confirmed, non-cancelled
+    // bookings. A cost to Triply, deducted in triplyNet.total.
+    channelFee: number | null;
     channelTotal: number | null;
     commissionsTotal: number | null;
     // Authoritative parking cash collected = SUM(Stripe amount_received −
@@ -178,7 +187,11 @@ export interface ReconcileResult {
   triplyNet: {
     serviceFee: number;
     pgMargin: number;
+    // Gross channel commission (the contract figure), BEFORE ResLab's fee.
     parkingChannelCommission: number | null;
+    // ResLab's channel fee ("RL Fee") on confirmed bookings — already deducted
+    // from `total`. Surfaced separately so the commission above stays gross.
+    reslabChannelFee: number | null;
     total: number | null;
     // Net cash to Triply (= total - Stripe processing fees). Null when
     // either `total` is null OR Stripe fees couldn't be measured.
@@ -194,7 +207,23 @@ export interface ReconcileResult {
   takeRates: TakeRates;
   reslab: {
     invoiceAmount: number;
+    // What ResLab's settlement invoice bills = sumLocationTotal + sumChannelFee.
+    // Compare this against the invoice total; `variance` is measured off it.
+    //
+    // Scope note: the settlement figures below follow ResLab's OWN billing rule,
+    // which is NOT the same as our booking status. They cover every reservation
+    // ResLab has not cancelled — so a `disputed` booking counts (ResLab bills
+    // it) and a ResLab-cancelled one does not (they bill neither the parking
+    // nor the fee, even though the fee line survives in the history).
+    sumAmountOwed: number | null;
+    // Lot settlement only: Σ (location_total − due_at_location_total).
     sumLocationTotal: number | null;
+    // ResLab's "RL Fee" column: Σ channel_fee. Charged even on Due-at-Lot
+    // bookings, where the lot settlement itself is $0.
+    sumChannelFee: number | null;
+    // Reservations behind the settlement figures (non-cancelled, ResLab data
+    // present). Differs from `fetched`, which is confirmed-only.
+    settlementRows: number;
     variance: number | null;
     grandTotalMismatches: Array<{ resNum: string; supabase: number; reslab: number; diff: number }>;
     fetchErrors: Array<{ resNum: string; err: string }>;

@@ -287,3 +287,221 @@ describe("reconcileRevenue — staging exclusion", () => {
     expect(note?.err ?? "").not.toMatch(/resolves/);
   });
 });
+
+/**
+ * ResLab's "RL Fee" — the `channel_fee` line in history[0].fees[].
+ *
+ * ResLab began billing this on reservations created 2026-07-30 and later. It is
+ * charged ON TOP of the lot settlement, so omitting it made "Owed to ResLab"
+ * under-state the invoice by the full fee (Aug 2026: $4,078.13 shown vs
+ * $4,194.62 invoiced — the $116.49 gap was exactly this column).
+ *
+ * These pin the three rules that actually reproduce the invoice, each verified
+ * against the August 2026 settlement report:
+ *   1. the fee is ADDED to the amount owed — including on Due-at-Lot bookings,
+ *      where the lot settlement is $0 and the fee is all that's billed;
+ *   2. a ResLab-CANCELLED reservation is not billed, even though its history
+ *      still carries the fee line (RTL829990: $4.61 present, $0 invoiced);
+ *   3. the settlement follows ResLab's billing rule, not our booking status —
+ *      a `disputed` row IS billed (RTL828863: $8.08).
+ * Plus the parsing trap: `total_fees` mixes in the LOT's fees and must not be
+ * substituted for the channel_fee line (RTL828143: $19.40 vs the $5.40 billed).
+ */
+describe("reconcileRevenue — ResLab channel fee (RL Fee)", () => {
+  /** Register a reservation with explicit money + fee lines. */
+  function registerWithFees(
+    resNum: string,
+    opts: {
+      locationTotal: number;
+      dueAtLocationTotal?: number;
+      channelTotal?: number;
+      cancelled?: number;
+      fees?: Array<{ fee_type: string; dollar_amount: number }>;
+    }
+  ) {
+    h.reservations.set(resNum, {
+      cancelled: opts.cancelled ?? 0,
+      history: [
+        {
+          location_total: opts.locationTotal,
+          due_at_location_total: opts.dueAtLocationTotal ?? 0,
+          channel_total: opts.channelTotal ?? 12,
+          commissions_total: 0,
+          grand_total: 100,
+          subtotal: 80,
+          refund_amount: 0,
+          partial_refund: 0,
+          fees: opts.fees ?? [],
+        },
+      ],
+    });
+  }
+
+  /** A booking row with a caller-chosen status. */
+  function pushRowWithStatus(resNum: string, pi: string, status: string) {
+    pushRow(resNum, pi);
+    (h.rows[h.rows.length - 1] as { status: string }).status = status;
+  }
+
+  it("adds the channel fee to the amount owed and reports both components", async () => {
+    registerLivePI("pi_1");
+    registerWithFees("RTL_FEE", {
+      locationTotal: 80,
+      dueAtLocationTotal: 20,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 3 }],
+    });
+    pushRow("RTL_FEE", "pi_1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.reslab.sumLocationTotal).toBe(60); // 80 − 20
+    expect(r.reslab.sumChannelFee).toBe(3);
+    expect(r.reslab.sumAmountOwed).toBe(63);
+    expect(r.reslab.settlementRows).toBe(1);
+    expect(r.bookings[0]?.reslab_channel_fee).toBe(3);
+  });
+
+  it("measures variance against the fee-inclusive total", async () => {
+    registerLivePI("pi_1");
+    registerWithFees("RTL_FEE", {
+      locationTotal: 80,
+      dueAtLocationTotal: 20,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 3 }],
+    });
+    pushRow("RTL_FEE", "pi_1");
+
+    // An invoice for exactly lots + fee reconciles to zero. Before the fee was
+    // included, this same invoice showed a −$3 variance.
+    const r = await reconcileRevenue({ ...OPTS, invoiceAmount: 63 });
+    expect(r.reslab.variance).toBe(0);
+  });
+
+  it("bills the fee on a Due-at-Lot booking, where the lot settlement is $0", async () => {
+    registerLivePI("pi_1");
+    // Due-at-Lot: location_total === due_at_location_total, so nothing is owed
+    // to the lot — but ResLab still bills their fee (12 such rows in Aug 2026).
+    registerWithFees("RTL_DAL", {
+      locationTotal: 146,
+      dueAtLocationTotal: 146,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 8.08 }],
+    });
+    pushRow("RTL_DAL", "pi_1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.reslab.sumLocationTotal).toBe(0);
+    expect(r.reslab.sumAmountOwed).toBe(8.08);
+  });
+
+  it("does NOT bill the fee on a ResLab-cancelled reservation that still carries the fee line", async () => {
+    registerLivePI("pi_1");
+    registerLivePI("pi_2");
+    registerWithFees("RTL_LIVE", {
+      locationTotal: 50,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 2.5 }],
+    });
+    // ResLab zeroes the money on cancel but leaves the fee line in place.
+    registerWithFees("RTL_CXL", {
+      locationTotal: 0,
+      cancelled: 1,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 4.61 }],
+    });
+    pushRow("RTL_LIVE", "pi_1");
+    pushRowWithStatus("RTL_CXL", "pi_2", "refunded");
+
+    const r = await reconcileRevenue(OPTS);
+
+    // The cancelled row's $4.61 must not reach the invoice comparison.
+    expect(r.reslab.sumChannelFee).toBe(2.5);
+    expect(r.reslab.sumAmountOwed).toBe(52.5);
+    expect(r.reslab.settlementRows).toBe(1);
+    // Still reported per-row, so the CSV shows what ResLab actually holds.
+    expect(
+      r.bookings.find((b) => b.reslab_reservation_number === "RTL_CXL")?.reslab_channel_fee
+    ).toBe(4.61);
+  });
+
+  it("bills a non-confirmed (disputed) row that ResLab has not cancelled", async () => {
+    registerLivePI("pi_1");
+    registerWithFees("RTL_DISPUTED", {
+      locationTotal: 146,
+      dueAtLocationTotal: 146,
+      cancelled: 0,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 8.08 }],
+    });
+    pushRowWithStatus("RTL_DISPUTED", "pi_1", "disputed");
+
+    const r = await reconcileRevenue(OPTS);
+
+    // Gating the settlement on `status === "confirmed"` would drop this and
+    // under-state the invoice — ResLab bills it regardless of our status.
+    expect(r.reslab.sumAmountOwed).toBe(8.08);
+    expect(r.reslab.settlementRows).toBe(1);
+    // But it stays OUT of the confirmed-scoped money-flow / P&L figures.
+    expect(r.confirmed.channelFee).toBe(0);
+  });
+
+  it("ignores location fees — only the channel_fee line is ours", async () => {
+    registerLivePI("pi_1");
+    // RTL828143's shape: total_fees $19.40 = $14 location + $5.40 channel.
+    // Using total_fees here would over-bill by the lot's own $14.
+    registerWithFees("RTL_MIXED", {
+      locationTotal: 80,
+      fees: [
+        { fee_type: "location_fee", dollar_amount: 4 },
+        { fee_type: "location_fee", dollar_amount: 10 },
+        { fee_type: "channel_fee", dollar_amount: 5.4 },
+      ],
+    });
+    pushRow("RTL_MIXED", "pi_1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.reslab.sumChannelFee).toBe(5.4);
+    expect(r.reslab.sumAmountOwed).toBe(85.4);
+  });
+
+  it("treats a reservation with no fees[] as a zero fee (pre-2026-07-30 bookings)", async () => {
+    registerLivePI("pi_1");
+    registerReservation("RTL_OLD"); // no fees[] key at all
+    pushRow("RTL_OLD", "pi_1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.reslab.sumChannelFee).toBe(0);
+    expect(r.reslab.sumAmountOwed).toBe(60); // 80 − 20, unchanged
+    expect(r.bookings[0]?.reslab_channel_fee).toBe(0);
+  });
+
+  it("deducts the fee from Triply's revenue so the margin isn't overstated", async () => {
+    registerLivePI("pi_1");
+    registerWithFees("RTL_FEE", {
+      locationTotal: 80,
+      dueAtLocationTotal: 20,
+      channelTotal: 12,
+      fees: [{ fee_type: "channel_fee", dollar_amount: 3 }],
+    });
+    pushRow("RTL_FEE", "pi_1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    // Channel commission stays GROSS (it's the contract figure)...
+    expect(r.triplyNet.parkingChannelCommission).toBe(12);
+    // ...with the fee broken out and already deducted from the total:
+    // service fee 10 + PG 0 + channel 12 − fee 3 = 19.
+    expect(r.triplyNet.reslabChannelFee).toBe(3);
+    expect(r.triplyNet.total).toBe(19);
+  });
+
+  it("reports null fee figures when the ResLab cross-check is disabled", async () => {
+    registerLivePI("pi_1");
+    pushRow("RTL_FEE", "pi_1");
+
+    const r = await reconcileRevenue({ ...OPTS, includeReslab: false });
+
+    expect(r.reslab.sumChannelFee).toBeNull();
+    expect(r.reslab.sumAmountOwed).toBeNull();
+    expect(r.confirmed.channelFee).toBeNull();
+    expect(r.triplyNet.reslabChannelFee).toBeNull();
+  });
+});

@@ -64,7 +64,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
     "protection_plan", "protection_plan_price", "pg_identifier",
     "expected_stripe_estimated", "stripe_amount_received", "stripe_amount_refunded",
     "stripe_fee", "stripe_status", "stripe_error",
-    "reslab_grand_total", "reslab_location_total_owed", "reslab_channel_total",
+    "reslab_grand_total", "reslab_location_total_owed", "reslab_channel_fee", "reslab_channel_total",
     "reslab_commissions_total", "reslab_refund_amount", "reslab_partial_refund",
     "reslab_cancelled", "reslab_error",
     "triply_fee_svc_plus_pg", "triply_total_incl_channel", "note",
@@ -81,6 +81,7 @@ function downloadCsv(bookings: BookingDetail[], filename: string) {
       b.stripe_amount_received ?? "", b.stripe_amount_refunded ?? "",
       b.stripe_fee ?? "", b.stripe_status ?? "", b.stripe_error ?? "",
       b.reslab_grand_total ?? "", b.reslab_location_total ?? "",
+      b.reslab_channel_fee ?? "",
       b.reslab_channel_total ?? "", b.reslab_commissions_total ?? "",
       b.reslab_refund_amount ?? "", b.reslab_partial_refund ?? "",
       b.reslab_cancelled ?? "", b.reslab_error ?? "",
@@ -469,6 +470,21 @@ export default function AccountingPage() {
                   sub="ResLab channel_total — varies by lot"
                 />
                 <Row
+                  label="ResLab channel fee (RL Fee)"
+                  value={
+                    result.triplyNet.reslabChannelFee === null
+                      ? "—"
+                      : result.triplyNet.reslabChannelFee > 0
+                      ? `−${usd(result.triplyNet.reslabChannelFee)}`
+                      : usd(0)
+                  }
+                  sub={
+                    result.triplyNet.reslabChannelFee === null
+                      ? "ResLab cross-check disabled"
+                      : "ResLab's cut of the channel commission — billed on the settlement invoice"
+                  }
+                />
+                <Row
                   label="Service fee"
                   value={usd(result.triplyNet.serviceFee)}
                   sub="incl. retained on refunds"
@@ -567,8 +583,12 @@ export default function AccountingPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <HeadlineCard
                 title="Owed to ResLab"
-                value={result.reslab.sumLocationTotal !== null ? usd(result.reslab.sumLocationTotal) : "—"}
-                sub={`sum location_total · ${result.reslab.fetched} fetched`}
+                value={result.reslab.sumAmountOwed !== null ? usd(result.reslab.sumAmountOwed) : "—"}
+                sub={
+                  result.reslab.sumLocationTotal !== null && result.reslab.sumChannelFee !== null
+                    ? `${usd(result.reslab.sumLocationTotal)} lots + ${usd(result.reslab.sumChannelFee)} RL Fee · ${result.reslab.settlementRows} reservations`
+                    : `${result.reslab.settlementRows} reservations`
+                }
                 icon={Receipt}
                 accent="blue"
               />
@@ -589,6 +609,21 @@ export default function AccountingPage() {
                 variant={varianceVariant}
               />
             </div>
+
+            {/*
+              A reservation whose ResLab fetch failed contributes $0 to the
+              settlement total — so a variance would look like an invoice
+              discrepancy when it's actually our own missing data. Say so at the
+              point the variance is read, not only in the money-flow card below.
+            */}
+            {result.reslab.fetchErrors.length > 0 && result.options.includeReslab && (
+              <div className="-mt-2 mb-6 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                ⚠ {result.reslab.fetchErrors.length} reservation
+                {result.reslab.fetchErrors.length === 1 ? "" : "s"} could not be fetched from
+                ResLab and count as $0 here — treat &ldquo;Owed to ResLab&rdquo; as a floor and
+                the variance as unexplained until they resolve (see CSV).
+              </div>
+            )}
 
             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
               <h3 className="font-semibold text-gray-900 mb-1">Parking money flow</h3>
@@ -633,9 +668,14 @@ export default function AccountingPage() {
                 sub="dashboard 'Amount Owed' formula: location_total − due_at_location_total"
               />
               <Row
+                label="ResLab channel fee (RL Fee)"
+                value={result.confirmed.channelFee !== null ? `−${usd(result.confirmed.channelFee)}` : "—"}
+                sub="ResLab's cut, billed on top of the lot settlement — charged even on Due-at-Lot bookings"
+              />
+              <Row
                 label="Triply channel commission"
                 value={result.confirmed.channelTotal !== null ? usd(result.confirmed.channelTotal) : "—"}
-                sub="what Triply keeps from the parking side"
+                sub="what Triply keeps from the parking side (before the RL Fee above)"
               />
 
               {/* === Triply's net cash from parking === */}
@@ -643,7 +683,12 @@ export default function AccountingPage() {
               {(() => {
                 const stripeCollected = result.confirmed.stripeParkingCollected;
                 const isDerived = result.confirmed.stripeParkingIsDerived;
-                const owedReslab = result.confirmed.locationTotalOwed;
+                const owedLots = result.confirmed.locationTotalOwed;
+                const rlFee = result.confirmed.channelFee;
+                // Total owed to ResLab = the lots' settlement + ResLab's own
+                // channel fee. Both come from the same ResLab fetch, so they
+                // are available (or unavailable) together.
+                const owedReslab = owedLots !== null && rlFee !== null ? owedLots + rlFee : null;
                 if (owedReslab === null) {
                   return (
                     <Row
@@ -663,7 +708,11 @@ export default function AccountingPage() {
                       value={isDerived ? `≈ ${usd(stripeCollected)}` : usd(stripeCollected)}
                       sub={isDerived ? "estimated — live Stripe unavailable" : "actual parking collected via Stripe"}
                     />
-                    <Row label="Owed to ResLab" value={`−${usd(owedReslab)}`} />
+                    <Row
+                      label="Owed to ResLab"
+                      value={`−${usd(owedReslab)}`}
+                      sub={`${usd(owedLots ?? 0)} to the lots + ${usd(rlFee ?? 0)} RL Fee`}
+                    />
                     <Row
                       label="Net parking cash"
                       value={isNegative ? `−${usd(Math.abs(netParking))}` : usd(netParking)}
