@@ -8,6 +8,11 @@
  */
 
 import { enabledAirports } from "@/config/airports";
+import {
+  PG_TIER_SUMMARY,
+  PG_LIMIT_SUMMARY,
+  PG_NONREFUNDABLE_SUMMARY,
+} from "@/lib/parkguard/plans";
 
 export function getKnowledgeBase(): string {
   const airportList = enabledAirports
@@ -66,8 +71,11 @@ A: No, the price you see is the price you pay. All taxes, fees, and charges are 
 Q: How do promo codes work?
 A: Enter your promo code during checkout in the designated field. Valid codes will automatically apply the discount to your total. Promo codes cannot be combined and have specific terms and expiration dates.
 
+Q: What parking protection plans are offered?
+A: Parking Protection is an optional plan administered by Park Guard, a third-party administrator, that helps with the cost of certain damages or theft while your vehicle is parked at the lot. At checkout you can choose ${PG_TIER_SUMMARY}, or skip it and park at your own risk. The plan helps with door dings, fender benders, and stolen items up to the limit you chose (${PG_LIMIT_SUMMARY}) per claim. To start a claim, visit triplypro.com/claims within 72 hours of leaving the lot (theft needs a police report). Full terms: parkguard.com/terms-of-use-triplypro.
+
 Q: What is your refund policy?
-A: If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added the Park Guard protection plan, $6 of the plan price is non-refundable and the rest is returned. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go to your original payment method and usually appear within 5-10 business days.
+A: If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}) and the rest is returned. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go to your original payment method and usually appear within 5-10 business days.
 
 == FAQ: PARKING & CHECK-IN ==
 Q: How do I find the parking facility?
@@ -119,7 +127,7 @@ A: Log into your account and go to My Reservations. You'll see all your upcoming
 
 == CANCELLATION & REFUND POLICY ==
 - Cancel more than 24 hours before check-in → refund of everything paid online (parking + taxes + Triply service fee)
-- Park Guard protection plan: $6 of the plan price is non-refundable; the remainder is refunded
+- Park Guard protection plan: a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}); the remainder is refunded
 - "Due at location" amounts were never charged by Triply, so they are not part of any refund
 - Cancel within 24 hours → cannot be done online; contact support (handled case-by-case)
 - Refunds processed within 5-10 business days to original payment method

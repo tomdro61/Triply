@@ -5,6 +5,11 @@ import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
 import { JsonLd } from "@/components/seo/JsonLd";
 import {
+  PG_TIER_SUMMARY,
+  PG_LIMIT_SUMMARY,
+  PG_NONREFUNDABLE_SUMMARY,
+} from "@/lib/parkguard/plans";
+import {
   Search,
   ChevronDown,
   Mail,
@@ -95,7 +100,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is your refund policy?",
         answer:
-          "If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added the Park Guard protection plan, $6 of the plan price is non-refundable, and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.",
+          `If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}), and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.`,
       },
     ],
   },
@@ -166,7 +171,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is parking protection?",
         answer:
-          "Parking protection is an optional plan offered through Park Guard, a third-party administrator, that helps with the cost of certain damages or theft that occur while your vehicle is parked at the lot. You can opt in for a flat $10.99 fee at checkout.",
+          `Parking protection is an optional plan offered through Park Guard, a third-party administrator, that helps with the cost of certain damages or theft that occur while your vehicle is parked at the lot. At checkout you choose the level that suits your trip: ${PG_TIER_SUMMARY}.`,
       },
       {
         question: "Is parking protection required?",
@@ -176,7 +181,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What does parking protection include?",
         answer:
-          "The plan helps with physical damages from accidents or theft that happen at the parking lot — including door dings, fender benders, and stolen items inside or outside the vehicle — up to $1,000 per claim. For the full list of what's included and excluded, see Park Guard's full terms at parkguard.com/terms-of-use-triplypro.",
+          `The plan helps with physical damages from accidents or theft that happen at the parking lot — including door dings, fender benders, and stolen items inside or outside the vehicle — up to the limit of the plan you chose (${PG_LIMIT_SUMMARY}) per claim. For the full list of what's included and excluded, see Park Guard's full terms at parkguard.com/terms-of-use-triplypro.`,
       },
       {
         question: "How do I file a claim?",
@@ -186,7 +191,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How much does parking protection cost?",
         answer:
-          "It's a flat $10.99 added to your booking at checkout. The price is shown clearly before you confirm — you'll only be charged if you opt in.",
+          `It depends on the level you choose: ${PG_TIER_SUMMARY}, added to your booking at checkout. The price is shown clearly before you confirm — you'll only be charged if you opt in.`,
       },
     ],
   },

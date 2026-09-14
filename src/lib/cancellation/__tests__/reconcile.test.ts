@@ -85,6 +85,7 @@ function seed(over: Record<string, unknown> = {}) {
       location_timezone: "America/New_York",
       protection_plan: null,
       protection_plan_price: null,
+      protection_plan_wholesale: null,
       pg_identifier: null,
       stripe_payment_intent_id: "pi_1",
       cancel_state: "reslab_cancelled_refund_pending",
@@ -117,6 +118,7 @@ function mkRow(reservationNumber: string, over: Record<string, unknown> = {}) {
     location_timezone: "America/New_York",
     protection_plan: null,
     protection_plan_price: null,
+    protection_plan_wholesale: null,
     pg_identifier: null,
     stripe_payment_intent_id: "pi_1",
     cancel_state: "reslab_cancelled_refund_pending",
@@ -303,6 +305,7 @@ describe("reconcile — review-fix coverage", () => {
       cancel_claimed_at: STALE,
       protection_plan: "parkguard",
       protection_plan_price: 10.99,
+      protection_plan_wholesale: 6,
       pg_identifier: "pg_1",
     });
     stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
@@ -396,5 +399,45 @@ describe("reconcile — review-fix coverage", () => {
     expect(createRefundCents).toHaveBeenCalled();
     expect(db.tables.bookings[0].status).toBe("refunded");
     expect(sendCancellationConfirmation).not.toHaveBeenCalled(); // customers null → no email
+  });
+});
+
+describe("reconcile — Park Guard tiers (per-row wholesale)", () => {
+  it("recovers a plan row with no wholesale: refunds everything and flags it with the booking id", async () => {
+    seed({
+      cancel_state: "reslab_cancelled_refund_pending",
+      cancel_claimed_at: STALE,
+      protection_plan: "$1,000 Protection",
+      protection_plan_price: 12.99,
+      protection_plan_wholesale: null,
+      pg_identifier: "pg_1",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 10000, "selfcancel:pi_1");
+    expect(sentry.captureParkGuardError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/no protection_plan_wholesale/) }),
+      expect.objectContaining({ bookingId: "b1" }),
+    );
+  });
+
+  it("recovers a Plan C row: refund = amount − the row's $2", async () => {
+    seed({
+      cancel_state: "reslab_cancelled_refund_pending",
+      cancel_claimed_at: STALE,
+      protection_plan: "$250 Protection",
+      protection_plan_price: 4.95,
+      protection_plan_wholesale: 2,
+      pg_identifier: "pg_1",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9800, "selfcancel:pi_1");
   });
 });

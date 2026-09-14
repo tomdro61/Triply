@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { reslab } from "@/lib/reslab/client";
 import { stripe } from "@/lib/stripe/client";
-import { captureAPIError } from "@/lib/sentry";
+import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { releaseClaim, type HoldState } from "./claim";
 import { classifyCancelOutcome } from "./reslab-cancel";
 import {
@@ -52,7 +52,7 @@ const HOLD_STATES: HoldState[] = [
 ];
 
 const SCAN_COLUMNS =
-  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at";
+  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at";
 
 interface ScanBookingRow {
   id: string;
@@ -66,6 +66,7 @@ interface ScanBookingRow {
   location_timezone: string | null;
   protection_plan: string | null;
   protection_plan_price: string | number | null;
+  protection_plan_wholesale: string | number | null;
   pg_identifier: string | null;
   stripe_payment_intent_id: string | null;
   cancel_state: string;
@@ -248,6 +249,18 @@ export async function recoverOne(
   }
   const plan = planTeardown(pi, booking);
   if (!plan.ok) return plan.reason;
+  if (plan.pgWholesaleMissing && plan.teardown.kind === "refund") {
+    captureParkGuardError(
+      new Error(
+        "cancel reconcile: booking has protection_plan set but no protection_plan_wholesale — withheld $0 of the premium (repair per migration 022)",
+      ),
+      {
+        bookingId: booking.id,
+        reslabReservationNumber: booking.reslab_reservation_number,
+        operation: "update",
+      },
+    );
+  }
 
   const result = await finalizeCancelledReservation({
     booking,
@@ -295,6 +308,7 @@ async function toCancelBookingRow(
     location_timezone: row.location_timezone,
     protection_plan: row.protection_plan,
     protection_plan_price: row.protection_plan_price,
+    protection_plan_wholesale: row.protection_plan_wholesale,
     pg_identifier: row.pg_identifier,
     stripe_payment_intent_id: row.stripe_payment_intent_id,
     customers: c

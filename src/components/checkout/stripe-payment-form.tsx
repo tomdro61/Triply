@@ -15,6 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { PriceBreakdown } from "@/types/checkout";
+import type { ProtectionChoice } from "@/lib/parkguard/plans";
 import { ProtectionPlan } from "./protection-plan";
 
 interface StripePaymentFormProps {
@@ -36,20 +37,21 @@ interface StripePaymentFormProps {
   isSubmitting?: boolean;
   submitError?: string | null;
   dueAtLocation?: boolean;
-  /** null = customer hasn't picked yet (Pay Now stays disabled). */
-  protectionPlanChoice: boolean | null;
-  onProtectionPlanChange: (selected: boolean) => void;
+  /** null = customer hasn't picked yet (Pay Now stays disabled). A tier code
+   *  or "none" once they have. */
+  protectionPlanChoice: ProtectionChoice | null;
+  onProtectionPlanChange: (choice: ProtectionChoice) => void;
   protectionPlanUpdating?: boolean;
   /**
-   * Error from a failed protection-toggle update. Distinct from `submitError`
+   * Error from a failed protection-choice update. Distinct from `submitError`
    * (payment / booking errors) so the UI can render them under different
-   * headings — toggle failures are not "Payment Errors".
+   * headings — choice failures are not "Payment Errors".
    */
-  protectionToggleError?: string | null;
+  protectionChoiceError?: string | null;
   /**
    * Set when a network error left the server-side PaymentIntent state
    * unknown. Submit must stay disabled — the visible choice may not match
-   * what Stripe will charge. Re-toggling resolves it.
+   * what Stripe will charge. Re-selecting a card resolves it.
    */
   protectionStateAmbiguous?: boolean;
 }
@@ -67,7 +69,7 @@ export function StripePaymentForm({
   protectionPlanChoice,
   onProtectionPlanChange,
   protectionPlanUpdating = false,
-  protectionToggleError = null,
+  protectionChoiceError = null,
   protectionStateAmbiguous = false,
 }: StripePaymentFormProps) {
   const protectionAnswered = protectionPlanChoice !== null;
@@ -181,15 +183,15 @@ export function StripePaymentForm({
         </p>
       </div>
 
-      {/* Parking Protection — required Yes/No, gates Pay Now */}
+      {/* Parking Protection — required tier / no-protection pick, gates Pay Now */}
       <ProtectionPlan
         value={protectionPlanChoice}
         onChange={onProtectionPlanChange}
         isUpdating={protectionPlanUpdating}
-        // Lock during Stripe confirmPayment so the customer can't toggle
-        // mid-charge (would 409 the update-pi endpoint).
+        // Lock during Stripe confirmPayment so the customer can't change the
+        // pick mid-charge (would 409 the update-pi endpoint).
         disabled={processing}
-        toggleError={protectionToggleError}
+        choiceError={protectionChoiceError}
       />
 
       {/* Stripe Payment Element */}
@@ -285,13 +287,14 @@ export function StripePaymentForm({
               <Loader2 size={20} className="animate-spin" />
               Updating total…
             </>
+          ) : protectionStateAmbiguous ? (
+            // Server state is unknown after a network failure (the selection
+            // is cleared on entering this state, so this must be checked
+            // BEFORE "unanswered"). The button amount could be wrong; do not
+            // show a dollar value the customer might trust.
+            <>Re-select your protection option to confirm total</>
           ) : !protectionAnswered ? (
             <>Select a protection option above</>
-          ) : protectionStateAmbiguous ? (
-            // Server state is unknown after a network failure. The button
-            // amount could be wrong; do not show a dollar value the
-            // customer might trust.
-            <>Toggle Yes/No again to confirm total</>
           ) : (
             <>
               <Check size={20} />

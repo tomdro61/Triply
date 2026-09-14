@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
 import { ArrowLeft, FileText } from "lucide-react";
+import { PG_NONREFUNDABLE_SUMMARY } from "@/lib/parkguard/plans";
 
 export const metadata = {
   title: "Terms of Service | Triply",
@@ -95,7 +96,7 @@ export default function TermsPage() {
               When you cancel an eligible reservation more than 24 hours before check-in, Triply will refund the full amount you paid online for that reservation — including parking charges, taxes, and the Triply service fee — to your original payment method.
             </p>
             <p>
-              If your reservation included the <strong>Park Guard protection plan</strong>, <strong>$6 of the protection plan price is non-refundable</strong>; the remainder of the plan price is included in your refund. All other amounts you paid online are refunded in full.
+              If your reservation included a <strong>Park Guard protection plan</strong>, <strong>a portion of the protection plan price is non-refundable</strong> — {PG_NONREFUNDABLE_SUMMARY}; the remainder of the plan price is included in your refund. All other amounts you paid online are refunded in full.
             </p>
             <p>
               Amounts designated as payable at the parking facility (&quot;due at location&quot;) are not charged by Triply and are therefore not part of any refund.

@@ -25,13 +25,25 @@ import {
 import { convertTo12Hour } from "@/lib/utils/time";
 import {
   parkGuard,
-  PROTECTION_PLAN,
+  type ProtectionPlanTier,
   ParkGuardError,
   PARKGUARD_STATUS,
   formatPgDate,
 } from "@/lib/parkguard/client";
 
 export type BookingPayload = z.infer<typeof reservationSchema>;
+
+/**
+ * The Park Guard tier the customer actually paid for, with the premium the
+ * PaymentIntent was charged (NOT the live retail). Resolved by the booking
+ * engine from PI metadata and threaded through the row snapshot, the PG
+ * capture and the emails so all of them describe the same purchase.
+ */
+export interface ChargedProtection {
+  plan: ProtectionPlanTier;
+  /** Dollars, as charged. */
+  premium: number;
+}
 
 export type PgSyncStatus = "pending" | "synced" | "skipped_missing_data" | null;
 
@@ -118,6 +130,7 @@ export interface AppliedPromo {
 export async function persistBooking(
   payload: BookingPayload,
   reservation: ReslabReservation,
+  charged: ChargedProtection | null,
   promo?: AppliedPromo
 ): Promise<PersistResult> {
   const {
@@ -136,8 +149,9 @@ export async function persistBooking(
     triplyServiceFee,
     userId,
     stripePaymentIntentId,
-    hasProtectionPlan,
   } = payload;
+  const protectionPlan = charged?.plan ?? null;
+  const protectionPremium = charged?.premium ?? 0;
 
   const resHistory = reservation.history?.[0];
   const result: PersistResult = {
@@ -217,7 +231,7 @@ export async function persistBooking(
       const preDiscountOnlineCents = Math.round(
         ((resHistory?.grand_total ?? grandTotal ?? 0) +
           (triplyServiceFee || 0) +
-          (hasProtectionPlan ? PROTECTION_PLAN.price : 0) -
+          protectionPremium -
           (resHistory?.due_at_location_total || 0)) *
           100
       );
@@ -301,9 +315,15 @@ export async function persistBooking(
         ...(stripePaymentIntentId && {
           stripe_payment_intent_id: stripePaymentIntentId,
         }),
-        ...(hasProtectionPlan && {
-          protection_plan: PROTECTION_PLAN.name,
-          protection_plan_price: PROTECTION_PLAN.price,
+        // Tier snapshot (migration 021): display name + code + the premium the
+        // PaymentIntent was actually charged + the wholesale that applied at
+        // fulfilment. Refunds and accounting read the row, so a later price or
+        // contract change never rewrites history.
+        ...(charged && {
+          protection_plan: charged.plan.name,
+          protection_plan_code: charged.plan.code,
+          protection_plan_price: charged.premium,
+          protection_plan_wholesale: charged.plan.wholesalePrice,
         }),
       })
       .select("id")
@@ -328,7 +348,7 @@ export async function persistBooking(
           new Error(`Booking insert failed: ${bookingError.message}`),
           { step: "checkout", airportCode }
         );
-        if (hasProtectionPlan) {
+        if (protectionPlan) {
           const ctxErr = new Error(
             `Booking insert failed for protection-opted reservation; customer charged for premium but Park Guard not enrolled: ${bookingError.message}`
           );
@@ -339,7 +359,7 @@ export async function persistBooking(
           if (stripePaymentIntentId) {
             capturePaymentError(ctxErr, {
               stripePaymentIntentId,
-              amount: PROTECTION_PLAN.price,
+              amount: protectionPremium,
             });
           }
         }
@@ -350,12 +370,13 @@ export async function persistBooking(
     result.bookingId = bookingRow.id;
 
     // --- Park Guard (non-blocking) ------------------------------------------
-    if (hasProtectionPlan && bookingRow?.id) {
+    if (charged && bookingRow?.id) {
       const pg = await enrolParkGuard(
         payload,
         reservation,
         bookingRow.id,
-        supabase
+        supabase,
+        charged
       );
       result.pgIdentifier = pg.pgIdentifier;
       result.pgSyncStatus = pg.pgSyncStatus;
@@ -369,7 +390,7 @@ export async function persistBooking(
         : new Error(String(supabaseError));
     result.bookingInsertFailed = true;
     captureBookingError(sbErr, { step: "checkout", airportCode });
-    if (hasProtectionPlan) {
+    if (protectionPlan) {
       const ctxErr = new Error(
         `Supabase save failed for protection-opted reservation; customer charged for premium but Park Guard not enrolled: ${sbErr.message}`
       );
@@ -380,7 +401,7 @@ export async function persistBooking(
       if (stripePaymentIntentId) {
         capturePaymentError(ctxErr, {
           stripePaymentIntentId,
-          amount: PROTECTION_PLAN.price,
+          amount: protectionPremium,
         });
       }
     }
@@ -396,7 +417,8 @@ async function enrolParkGuard(
   payload: BookingPayload,
   reservation: ReslabReservation,
   bookingId: string,
-  supabase: Awaited<ReturnType<typeof createAdminClient>>
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  charged: ChargedProtection
 ): Promise<{ pgIdentifier: string | null; pgSyncStatus: PgSyncStatus }> {
   const { fromDate, toDate, customer, vehicle, locationAddress } = payload;
   const resHistory = reservation.history?.[0];
@@ -458,8 +480,8 @@ async function enrolParkGuard(
       parking_state: pgState,
       parking_zipcode: pgZip,
       // PG expects "Plan A"/"Plan B"/"Plan C" codes, not the display name.
-      protection_plan: PROTECTION_PLAN.pgPlanCode,
-      protection_plan_price: PROTECTION_PLAN.price,
+      protection_plan: charged.plan.pgPlanCode,
+      protection_plan_price: charged.premium,
       email: customer.email,
       first_name: customer.firstName,
       last_name: customer.lastName,
@@ -533,7 +555,8 @@ async function enrolParkGuard(
 export async function sendBookingEmails(
   payload: BookingPayload,
   reservation: ReslabReservation,
-  pgSyncStatus: PgSyncStatus
+  pgSyncStatus: PgSyncStatus,
+  charged: ChargedProtection | null
 ): Promise<{ customerEmailSent: boolean }> {
   const {
     locationId,
@@ -546,7 +569,6 @@ export async function sendBookingEmails(
     grandTotal,
     triplyServiceFee,
     airportCode,
-    hasProtectionPlan,
     stripePaymentIntentId,
   } = payload;
 
@@ -557,7 +579,7 @@ export async function sendBookingEmails(
   const specialConditions =
     stripHtml(resLocation?.special_conditions ?? null) || undefined;
 
-  const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
+  const protectionPremium = charged?.premium ?? 0;
   const totalAmount =
     (resHistory?.grand_total ?? grandTotal ?? 0) +
     (triplyServiceFee || 0) +
@@ -586,9 +608,9 @@ export async function sendBookingEmails(
       vehicleInfo,
       shuttleDetails,
       specialConditions,
-      ...(hasProtectionPlan && {
-        protectionPlan: PROTECTION_PLAN.name,
-        protectionPlanPrice: PROTECTION_PLAN.price,
+      ...(charged && {
+        protectionPlan: charged.plan.name,
+        protectionPlanPrice: charged.premium,
       }),
       pgSyncStatus,
     });
@@ -626,9 +648,9 @@ export async function sendBookingEmails(
       dueAtLocation: resHistory?.due_at_location_total || 0,
       vehicleInfo,
       airportCode: airportCode || undefined,
-      ...(hasProtectionPlan && {
-        protectionPlan: PROTECTION_PLAN.name,
-        protectionPlanPrice: PROTECTION_PLAN.price,
+      ...(charged && {
+        protectionPlan: charged.plan.name,
+        protectionPlanPrice: charged.premium,
       }),
     });
   } catch (adminEmailError) {
@@ -654,13 +676,12 @@ export async function sendBookingEmails(
 export function buildReservationResponse(
   payload: BookingPayload,
   reservation: ReslabReservation,
-  pgIdentifier: string | null
+  pgIdentifier: string | null,
+  charged: ChargedProtection | null
 ) {
   const resHistory = reservation.history?.[0];
   const resLocation = resHistory?.location;
-  const protectionPremium = payload.hasProtectionPlan
-    ? PROTECTION_PLAN.price
-    : 0;
+  const protectionPremium = charged?.premium ?? 0;
   const shuttleDetails =
     stripHtml(resLocation?.shuttle_info_details ?? null) || undefined;
   const specialConditions =
@@ -675,7 +696,7 @@ export function buildReservationResponse(
       (payload.triplyServiceFee || 0) +
       protectionPremium,
     serviceFee: payload.triplyServiceFee || 0,
-    protectionPlan: payload.hasProtectionPlan ? PROTECTION_PLAN.name : null,
+    protectionPlan: charged?.plan.name ?? null,
     protectionPlanPrice: protectionPremium,
     pgIdentifier,
     dueNow:

@@ -74,8 +74,8 @@ export function CancellationConfirmationEmail({
             {/* "Full refund" only when NOTHING was retained. If the service fee
                 OR the Park Guard wholesale was kept, say just "a refund" so the
                 banner doesn't contradict the retained-amount notes below (a $0
-                service fee alongside a $6 PG retention would otherwise wrongly
-                claim "full refund" while $6 was withheld). */}
+                service fee alongside a PG wholesale retention would otherwise
+                wrongly claim "full refund" while the wholesale was withheld). */}
             {wasRefunded &&
               ((serviceFee != null && serviceFee > 0) ||
               (protectionPlanRetained != null && protectionPlanRetained > 0)

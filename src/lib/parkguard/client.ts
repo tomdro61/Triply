@@ -37,39 +37,11 @@ function normalizePgApiBase(raw: string | undefined): string {
 const PARKGUARD_API_URL = normalizePgApiBase(process.env.PARKGUARD_API_URL);
 const PARKGUARD_API_KEY = process.env.PARKGUARD_API_KEY || "";
 
-// =============================================================================
-// Plan configuration — single tier at launch
-// =============================================================================
-
-export const PROTECTION_PLAN = {
-  /**
-   * Customer-facing display name. Stored in `bookings.protection_plan` and
-   * rendered on the confirmation page + email. NOT sent to Park Guard.
-   */
-  name: "$1,000 Protection",
-  /**
-   * Code sent to Park Guard in the `protection_plan` field of the capture
-   * payload. PG expects "Plan A" | "Plan B" | "Plan C" mapping to their
-   * $1,000 / $500 / $250 tiers. Triply currently only offers Plan A.
-   */
-  pgPlanCode: "Plan A",
-  /**
-   * Customer-facing premium charged at checkout.
-   * Last retail change: 2026-05-28 ($12.99 → $10.99) to lift conversion.
-   */
-  price: 10.99,
-  /**
-   * Wholesale cost — what Park Guard bills Triply per opt-in. Margin per
-   * opt-in = price - wholesalePrice. Wholesale is sourced from the
-   * IE Holdings × Park Guard contract; verify before changing.
-   * When retail changes, prior bookings continue to roll up at the price
-   * they were actually charged — admin revenue reads per-row
-   * `bookings.protection_plan_price` rather than this constant.
-   */
-  wholesalePrice: 6.00,
-  /** Damage/theft limit, used in marketing copy and internal records. */
-  limitDollars: 1000,
-} as const;
+// Plan tiers, wire helpers and customer-facing copy live in ./plans.ts (pure,
+// no env reads) so "use client" components and the Zod schemas can import
+// them without dragging this HTTP client into the browser bundle. Re-exported
+// here so server code keeps a single import.
+export * from "./plans";
 
 // =============================================================================
 // Types — matches Park Guard partner API spec

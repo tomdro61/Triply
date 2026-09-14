@@ -17,6 +17,7 @@ import {
   PaymentNotConfirmedError,
 } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 
 // ResLab's own call is allowed up to 30s, and Park Guard, Supabase, and two
 // emails run after it. The Vercel default (15s on Pro) could kill this
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
+
+    // A checkout page loaded before the plan-tier deploy still posts the old
+    // boolean. Say so plainly (the webhook completes the booking from the
+    // staged row regardless, so the customer is not stranded).
+    if (body && typeof body === "object" && "hasProtectionPlan" in body) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
+    }
 
     const result = reservationSchema.safeParse(body);
     if (!result.success) {

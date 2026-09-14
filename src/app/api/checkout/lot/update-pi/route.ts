@@ -3,12 +3,18 @@ import { z } from "zod";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { capturePaymentError } from "@/lib/sentry";
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import {
+  getProtectionPlan,
+  protectionMetadataPatch,
+  protectionPremiumCents,
+  STALE_CHECKOUT_MESSAGE,
+} from "@/lib/parkguard/client";
+import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 
-// Updates an existing PaymentIntent's amount when the customer toggles the
-// Parking Protection Yes/No on the payment step. Reads the parking-only
-// baseline (in cents) from PI metadata (stamped at creation by
-// /api/checkout/lot POST), recomputes the charge, and calls
+// Updates an existing PaymentIntent's amount when the customer picks a Parking
+// Protection tier (Plan A / B / C) or "no protection" on the payment step.
+// Reads the parking-only baseline (in cents) from PI metadata (stamped at
+// creation by /api/checkout/lot POST), recomputes the charge, and calls
 // stripe.paymentIntents.update.
 //
 // Refuses to update if the PI is no longer in `requires_payment_method` or
@@ -16,16 +22,24 @@ import { PROTECTION_PLAN } from "@/lib/parkguard/client";
 
 const updatePiSchema = z.object({
   paymentIntentId: z.string().startsWith("pi_"),
-  hasProtectionPlan: z.boolean(),
+  // "A" | "B" | "C" = tier, null = no protection. Required key (see
+  // validation/schemas.ts) — an omitted key is a client bug, not a decline.
+  protectionPlanCode: protectionPlanCodeSchema,
 });
 
 export async function POST(request: NextRequest) {
-  // Hoist outside the try so the catch-all has the ID to attach to Sentry.
+  // Hoisted outside the try so the catch-all has them to attach to Sentry.
   let paymentIntentId: string | undefined;
-  let hasProtectionPlan: boolean | undefined;
+  let premiumForSentry = 0;
 
   try {
     const body = await request.json();
+    // A checkout page loaded before the plan-tier deploy still posts the old
+    // boolean. Refuse with an actionable message instead of a Zod issue the
+    // customer can't act on (the selector would otherwise stay locked).
+    if (body && typeof body === "object" && "hasProtectionPlan" in body) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
+    }
     const result = updatePiSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -35,7 +49,8 @@ export async function POST(request: NextRequest) {
     }
 
     paymentIntentId = result.data.paymentIntentId;
-    hasProtectionPlan = result.data.hasProtectionPlan;
+    const protectionPlan = getProtectionPlan(result.data.protectionPlanCode);
+    premiumForSentry = protectionPlan?.price ?? 0;
 
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
 
@@ -79,28 +94,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const protectionPremiumCents = hasProtectionPlan
-      ? Math.round(PROTECTION_PLAN.price * 100)
-      : 0;
-    const newAmountCents = parkingOnlyCents + protectionPremiumCents;
+    const newAmountCents = parkingOnlyCents + protectionPremiumCents(protectionPlan);
 
-    // Replace metadata explicitly. Setting protectionPlanPrice to null tells
-    // Stripe to delete the key — cleaner than the empty-string sentinel
-    // convention which makes downstream "key present" checks ambiguous.
+    // Replace metadata explicitly. The tier code and its price are written as
+    // a PAIR and deleted as a pair — a null value tells Stripe to drop the key
+    // (cleaner than an empty-string sentinel, which makes downstream "key
+    // present" checks ambiguous). /api/reservations/pending stages the tier
+    // from this pair and fulfilment books exactly what it says; both treat a
+    // half-present pair as an integrity error, never as "no protection".
     const updatedMetadata: Stripe.MetadataParam = {
       ...(pi.metadata || {}),
-      protectionPlanPrice: protectionPremiumCents > 0
-        ? (protectionPremiumCents / 100).toFixed(2)
-        : null,
+      ...protectionMetadataPatch(protectionPlan),
     };
 
-    // No idempotency key here. Naively keying on `yes`/`no` collapses
-    // the third call in a Yes→No→Yes sequence (same key as first Yes),
-    // returning the cached response without re-applying the amount —
-    // PI ends up at the No amount while the client thinks Yes succeeded.
-    // Stripe's own update is naturally idempotent for final state: the
-    // last call wins, same-amount duplicates are no-ops, and the client
-    // sequence-ID guard discards stale responses.
+    // No idempotency key here. Naively keying on the tier collapses the third
+    // call in an A→none→A sequence (same key as the first A), returning the
+    // cached response without re-applying the amount — the PI ends up at the
+    // "none" amount while the client thinks A succeeded. Stripe's own update is
+    // naturally idempotent for final state: the last call wins, same-amount
+    // duplicates are no-ops, and the client's sequence-ID guard discards stale
+    // responses (the selector is also disabled while a request is in flight).
     const updated = await stripe.paymentIntents.update(
       paymentIntentId,
       { amount: newAmountCents, metadata: updatedMetadata }
@@ -109,7 +122,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       paymentIntentId: updated.id,
       amount: updated.amount / 100,
-      hasProtectionPlan,
+      protectionPlanCode: protectionPlan?.code ?? null,
     });
   } catch (error) {
     console.error("update-pi error:", error);
@@ -127,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     capturePaymentError(
       error instanceof Error ? error : new Error(String(error)),
-      { stripePaymentIntentId: paymentIntentId, amount: PROTECTION_PLAN.price }
+      { stripePaymentIntentId: paymentIntentId, amount: premiumForSentry }
     );
     return NextResponse.json(
       { error: "Failed to update payment amount" },

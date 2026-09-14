@@ -10,15 +10,19 @@
  *   - GET /api/admin/accounting (admin UI)
  *   - scripts/reconcile-revenue.mjs (CLI; will migrate to import this)
  *
- * Money model (see src/app/api/admin/bookings/cancel/route.ts:126-135):
+ * Money model (see the withholding block in src/app/api/admin/bookings/cancel/route.ts):
  *   - Service fee is non-refundable. Refunded bookings retain triply_service_fee.
- *   - Park Guard bills the $6 wholesale on EVERY conversion and never credits it
+ *   - Park Guard bills its wholesale on EVERY conversion and never credits it
  *     back, so refunded opt-ins owe it too — not just confirmed. A STANDARD
- *     cancel withholds the $6 from the customer refund to cover it; a full
- *     refund returns the whole premium and Triply eats the $6.
- *   - PG wholesale owed = $6 × every opt-in ever captured (confirmed + refunded),
- *     regardless of retail. PG margin nets the RETAINED premium against the
- *     wholesale per row (≈$0 on a standard cancel, −$6 on a full refund).
+ *     cancel withholds the wholesale from the customer refund to cover it; a
+ *     full refund returns the whole premium and Triply eats the wholesale.
+ *   - The wholesale is PER ROW (`bookings.protection_plan_wholesale`, migration
+ *     021): $6 / $4 / $2 for Plan A / B / C, snapshotted at fulfilment. PG
+ *     wholesale owed = Σ row wholesale over every opt-in ever captured
+ *     (confirmed + refunded), regardless of retail. PG margin nets the RETAINED
+ *     premium against the row's wholesale (≈$0 on a standard cancel, −wholesale
+ *     on a full refund). A PG row with no wholesale (deploy-window row, see
+ *     migration 022) counts $0 owed and is called out in its note.
  *   - ResLab invoices by trip-completion month: sum location_total for
  *     bookings whose check_out falls within the invoice period.
  *
@@ -45,7 +49,6 @@ import type {
 
 export type { DateField, ReconcileOptions, BookingDetail, ReconcileResult, TakeRates };
 
-const PG_WHOLESALE = 6.0;
 const RESLAB_CONCURRENCY = 5;
 const STRIPE_CONCURRENCY = 5;
 
@@ -188,6 +191,7 @@ interface SupabaseRow {
   service_fee_refunded: boolean | null;
   protection_plan: string | null;
   protection_plan_price: string | number | null;
+  protection_plan_wholesale: string | number | null;
   pg_identifier: string | null;
   stripe_payment_intent_id: string | null;
   reslab_location_id: number | null;
@@ -211,7 +215,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       `
       id, reslab_reservation_number, status, created_at, check_in, check_out,
       grand_total, subtotal, due_at_location, triply_service_fee, service_fee_refunded,
-      protection_plan, protection_plan_price, pg_identifier,
+      protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier,
       stripe_payment_intent_id,
       reslab_location_id, location_name, airport_code,
       customers ( email )
@@ -483,6 +487,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let confServiceFee = 0;
   let confPGPremium = 0;
   let confPGOptIns = 0;
+  let confPGWholesale = 0;
   let confPGMarginPerRow = 0;
   let confLocTotal = 0;
   // ResLab's channel fee ("RL Fee") on CONFIRMED bookings — the slice that
@@ -519,7 +524,11 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   let refParkingRefunded = 0;
   let refPGRefunded = 0;
   let refPGOptIns = 0;
+  let refPGWholesale = 0;
   let refPGMarginPerRow = 0;
+  // Plan rows with no wholesale on the row (deploy-window rows written before
+  // migration 022's repair) — surfaced as a headline caveat, not just a note.
+  const pgWholesaleMissingResNums: string[] = [];
   let stripeGrossReal = 0;
   let stripeRefundedReal = 0;
   let stripeGrossDerived = 0;
@@ -550,6 +559,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     const serviceFee = num(b.triply_service_fee);
     const pgPremium = num(b.protection_plan_price);
     const hasPG = !!b.protection_plan;
+    // Per-row wholesale (migration 021). A PG row with none is a deploy-window
+    // row the old code wrote — $0 owed here, flagged in the note (repair per 022).
+    const pgWholesale = hasPG ? num(b.protection_plan_wholesale) : 0;
+    const pgWholesaleMissing = hasPG && !(pgWholesale > 0);
+    if (pgWholesaleMissing) {
+      pgWholesaleMissingResNums.push(b.reslab_reservation_number ?? b.id);
+    }
     const expectedStripe = parkingOnline + serviceFee + pgPremium;
 
     const stripeReceivedReal = st.amountReceived;
@@ -612,7 +628,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       if (hasPG) {
         confPGPremium += pgPremium;
         confPGOptIns += 1;
-        confPGMarginPerRow += pgPremium - PG_WHOLESALE;
+        confPGWholesale += pgWholesale;
+        confPGMarginPerRow += pgPremium - pgWholesale;
       }
       const reslabAtGate = rl.dueAtLocationTotal ?? 0;
       if (opts.includeReslab && rl.locationTotal !== null) {
@@ -693,16 +710,20 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
           });
         }
       }
-      triplyKeeps = serviceFee + (hasPG ? pgPremium - PG_WHOLESALE : 0);
+      triplyKeeps = serviceFee + (hasPG ? pgPremium - pgWholesale : 0);
       // Total keep = channel commission + on-top charges. Null when we
       // can't compute channel (no ResLab data for this row) — the UI/CSV
       // shows "—" in that case rather than an under-counted number.
       triplyTotal =
         rl.channelTotal !== null ? rl.channelTotal + triplyKeeps : null;
-      if (hasPG && pgPremium < PG_WHOLESALE) {
+      if (pgWholesaleMissing) {
         note =
           (note ? note + "; " : "") +
-          `PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${PG_WHOLESALE.toFixed(2)}`;
+          "PG wholesale missing on row — $0 owed counted (repair per migration 022)";
+      } else if (hasPG && pgPremium < pgWholesale) {
+        note =
+          (note ? note + "; " : "") +
+          `PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${pgWholesale.toFixed(2)}`;
       }
     } else if (b.status === "refunded") {
       counts.refunded++;
@@ -721,11 +742,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         usedRealStripe && stripeReceivedReal !== null
           ? Math.max(0, stripeReceivedReal - (stripeRefundedRow ?? 0))
           : null;
-      // How much of the PG premium Triply RETAINED. Park Guard bills $6 per
-      // conversion and never credits it back, so a refunded opt-in still owes
-      // $6: a standard cancel withholds it from the customer (cancel/route.ts,
-      // 2026-07-08), a full refund returns the whole premium and Triply eats the
-      // $6. Derive from ACTUAL Stripe (total kept − fee kept = PG kept) so it
+      // How much of the PG premium Triply RETAINED. Park Guard bills its
+      // wholesale on every conversion and never credits it back, so a refunded
+      // opt-in still owes the row's wholesale: a standard cancel withholds it
+      // from the customer (cancel/route.ts, 2026-07-08), a full refund returns
+      // the whole premium and Triply eats that wholesale. Derive from ACTUAL
+      // Stripe (total kept − fee kept = PG kept) so it
       // matches what was really refunded across standard / full / pre-change
       // historical rows; fall back to the withholding rule only when live Stripe
       // is unavailable (test-mode keys / fetch failure).
@@ -736,12 +758,13 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
             ? Math.min(pgPremium, Math.max(0, stripeKept - feeKept))
             : b.service_fee_refunded
             ? 0
-            : Math.min(PG_WHOLESALE, pgPremium);
+            : Math.min(pgWholesale, pgPremium);
         refPGOptIns += 1;
+        refPGWholesale += pgWholesale;
         // Actually returned to the customer (label: "PG premium refunded").
         refPGRefunded += Math.max(0, pgPremium - pgRetained);
-        // Net PG for this row = retained − wholesale owed (≈$0 standard, −$6 full).
-        refPGMarginPerRow += pgRetained - PG_WHOLESALE;
+        // Net PG for this row = retained − wholesale owed (≈$0 standard, −wholesale full).
+        refPGMarginPerRow += pgRetained - pgWholesale;
       }
 
       if (usedRealStripe) {
@@ -754,17 +777,20 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       }
       // Parallel to the confirmed branch: on-top keep = fee kept + PG net
       // (retained premium − wholesale). Channel/parking were fully refunded.
-      triplyKeeps = feeKept + (hasPG ? pgRetained - PG_WHOLESALE : 0);
+      triplyKeeps = feeKept + (hasPG ? pgRetained - pgWholesale : 0);
       triplyTotal = triplyKeeps;
       note = b.service_fee_refunded
         ? "full refund — service fee returned"
         : "service fee retained";
       if (hasPG) {
-        note += `; PG kept $${pgRetained.toFixed(2)}/$${pgPremium.toFixed(2)}, owe $${PG_WHOLESALE.toFixed(2)}`;
+        note += `; PG kept $${pgRetained.toFixed(2)}/$${pgPremium.toFixed(2)}, owe $${pgWholesale.toFixed(2)}`;
+        if (pgWholesaleMissing) {
+          note += "; PG wholesale missing on row — $0 owed counted (repair per migration 022)";
+        }
         // Dirty-data guard, mirroring the confirmed branch: a premium below the
         // wholesale books a spurious loss — flag it rather than swallow it.
-        if (pgPremium < PG_WHOLESALE) {
-          note += `; PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${PG_WHOLESALE.toFixed(2)}`;
+        if (!pgWholesaleMissing && pgPremium < pgWholesale) {
+          note += `; PG underwater: premium $${pgPremium.toFixed(2)} < wholesale $${pgWholesale.toFixed(2)}`;
         }
       }
       // Integrity: the ONLY cash Triply should retain on a refunded row is the
@@ -837,13 +863,12 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     });
   }
 
-  // Park Guard bills the $6 wholesale on EVERY conversion and never credits it
-  // back on a refund. Expose the confirmed and refunded slices SEPARATELY (each
-  // lives in its own result object below); the P&L (triplyNet / triplyTotal)
-  // uses the COMBINED margin. Margin can be negative — retail < wholesale, or a
-  // full refund where the whole premium was returned but the $6 is still owed.
-  const confPgWholesale = confPGOptIns * PG_WHOLESALE;
-  const refPgWholesale = refPGOptIns * PG_WHOLESALE;
+  // Park Guard bills its wholesale on EVERY conversion and never credits it
+  // back on a refund. The confirmed and refunded slices (confPGWholesale /
+  // refPGWholesale, Σ per-row wholesale from the loop above) are exposed
+  // SEPARATELY below; the P&L (triplyNet / triplyTotal) uses the COMBINED
+  // margin. Margin can be negative — retail < wholesale, or a full refund where
+  // the whole premium was returned but the wholesale is still owed.
   const pgMargin = confPGMarginPerRow + refPGMarginPerRow;
   const netServiceFee = confServiceFee + refServiceFee;
   const stripeGross = stripeGrossReal + stripeGrossDerived;
@@ -938,6 +963,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     // The reservation numbers behind `counts.stagingExcluded`, so a misclassified
     // exclusion is auditable instead of a bare count with no per-row trace.
     stagingExcludedReservations: [...stagingResNums],
+    pgWholesaleMissingReservations: pgWholesaleMissingResNums,
     grossRevenue,
     grossCustomerSpend,
     stripe: {
@@ -953,7 +979,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       serviceFee: confServiceFee,
       pgPremium: confPGPremium,
       pgOptIns: confPGOptIns,
-      pgWholesale: confPgWholesale,
+      pgWholesale: confPGWholesale,
       pgMargin: confPGMarginPerRow,
       locationTotalOwed: opts.includeReslab ? confLocTotal : null,
       channelFee: opts.includeReslab ? confChannelFee : null,
@@ -969,10 +995,10 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       parkingRefunded: refParkingRefunded,
       pgRefunded: refPGRefunded,
       pgOptIns: refPGOptIns,
-      // PG economics on refunded opt-ins (PG bills $6 on every conversion and
+      // PG economics on refunded opt-ins (PG bills its wholesale on every conversion and
       // never credits it back): wholesale still owed + net margin (retained
-      // premium − wholesale; ≈$0 per standard cancel, −$6 per full refund).
-      pgWholesale: refPgWholesale,
+      // premium − wholesale; ≈$0 per standard cancel, −wholesale per full refund).
+      pgWholesale: refPGWholesale,
       pgMargin: refPGMarginPerRow,
     },
     triplyNet: {

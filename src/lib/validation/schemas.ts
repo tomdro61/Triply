@@ -1,4 +1,14 @@
 import { z } from "zod";
+import { PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
+
+/**
+ * Park Guard tier on the wire: "A" | "B" | "C", or an explicit null when the
+ * customer declined. Used by the checkout PI create/update routes and the
+ * reservation + pending-booking payloads. Built from the same tuple that
+ * defines `ProtectionPlanCode` (plans.ts is env-free), so the schema and the
+ * type cannot drift in either direction.
+ */
+export const protectionPlanCodeSchema = z.enum(PROTECTION_PLAN_CODES).nullable();
 
 export const contactFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
@@ -52,10 +62,13 @@ export const reservationSchema = z.object({
   triplyServiceFee: z.number().optional(),
   userId: z.string().nullable().optional(),
   stripePaymentIntentId: z.string().optional(),
-  // Required. Undefined coerces to false silently and would let a client
-  // that's been opted into protection slip past the metadata cross-check
-  // without paying. Always pass an explicit boolean from the checkout form.
-  hasProtectionPlan: z.boolean(),
+  // Required KEY, nullable VALUE: "A" | "B" | "C" is the Park Guard tier the
+  // customer picked, null means they explicitly declined. Deliberately not
+  // `.optional()` — an omitted key must fail validation, otherwise a client
+  // that's been opted in could slip past the PaymentIntent-metadata cross-check
+  // without paying. The pending route re-derives the tier from PI metadata and
+  // rejects a mismatch; it never trusts this value for money.
+  protectionPlanCode: protectionPlanCodeSchema,
 });
 
 /**

@@ -86,6 +86,9 @@ vi.mock("@/lib/sentry", () => ({
 const { createBooking, PaymentNotConfirmedError, shouldStripeRedeliver } =
   await import("../create-booking");
 const { ReslabError } = await import("@/lib/reslab/client");
+const { parkGuard } = await import("@/lib/parkguard/client");
+const { captureBookingError, capturePaymentError } = await import("@/lib/sentry");
+const { sendBookingConfirmation } = await import("@/lib/resend/send-booking-confirmation");
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -132,6 +135,7 @@ function pendingRow(over: Record<string, unknown> = {}) {
     triply_service_fee: "6.00",
     user_id: null,
     has_protection_plan: false,
+    protection_plan_code: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...over,
@@ -820,5 +824,203 @@ describe("shouldStripeRedeliver — the 503-vs-2xx contract", () => {
     expect(shouldStripeRedeliver({ kind: "sold_out" })).toBe(false);
     expect(shouldStripeRedeliver({ kind: "suspected_duplicate" })).toBe(false);
     expect(shouldStripeRedeliver({ kind: "failed", reason: "x", userMessage: "y" })).toBe(false);
+  });
+});
+
+describe("Park Guard tiers (migration 021)", () => {
+  // The PaymentIntent's metadata pair is what fulfilment books; the staged
+  // row's tier is advisory. Fixtures carry both so each test says which wins.
+  const meta = (extra: Record<string, string> = {}) => ({
+    customerEmail: "Ada.Lovelace@Example.com",
+    ...extra,
+  });
+
+  it("persists the tier snapshot, enrols Park Guard on the charged tier, and tells the customer the same thing (Plan B)", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "B" })]);
+    // 88 + 6 − 20 parking-only = 74, plus the $7.99 premium = 81.99 < the $94 hold.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 9400, metadata: meta({ protectionPlanCode: "B", protectionPlanPrice: "7.99" }) })
+    );
+    vi.mocked(parkGuard.captureReservation).mockResolvedValue({ pg_identifier: "PG-B-1", message: "ok" });
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const booking = db.tables.bookings[0];
+    // Display name for emails/pages, code for PG, charged premium + wholesale for money.
+    expect(booking.protection_plan).toBe("$500 Protection");
+    expect(booking.protection_plan_code).toBe("B");
+    expect(booking.protection_plan_price).toBe(7.99);
+    expect(booking.protection_plan_wholesale).toBe(4);
+    // Park Guard gets the contractual code for THIS tier, never the display name
+    // and never Plan A by default.
+    expect(parkGuard.captureReservation).toHaveBeenCalledWith(
+      expect.objectContaining({ protection_plan: "Plan B", protection_plan_price: 7.99 })
+    );
+    // The email of record and the API response say the same tier at the same price.
+    expect(sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ protectionPlan: "$500 Protection", protectionPlanPrice: 7.99 })
+    );
+    expect(out.kind === "created" && out.reservation).toMatchObject({
+      protectionPlan: "$500 Protection",
+      protectionPlanPrice: 7.99,
+    });
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("writes no tier columns at all on a no-protection booking", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    const booking = db.tables.bookings[0];
+    expect(booking.protection_plan ?? null).toBeNull();
+    expect(booking.protection_plan_code ?? null).toBeNull();
+    expect(booking.protection_plan_wholesale ?? null).toBeNull();
+    expect(parkGuard.captureReservation).not.toHaveBeenCalled();
+  });
+
+  it("books what the PaymentIntent was charged for, not the stale row: row says C, Stripe holds A", async () => {
+    // Declined card → the customer switches Plan C → Plan A → retries. The row
+    // from the first attempt still says C; the hold and its metadata say A.
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "C" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 8699, metadata: meta({ protectionPlanCode: "A", protectionPlanPrice: "12.99" }) })
+    );
+    vi.mocked(parkGuard.captureReservation).mockResolvedValue({ pg_identifier: "PG-A-2", message: "ok" });
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0]).toMatchObject({
+      protection_plan: "$1,000 Protection",
+      protection_plan_code: "A",
+      protection_plan_price: 12.99,
+      protection_plan_wholesale: 6,
+    });
+    expect(parkGuard.captureReservation).toHaveBeenCalledWith(
+      expect.objectContaining({ protection_plan: "Plan A", protection_plan_price: 12.99 })
+    );
+    // …and the disagreement is loud, because it means a bug or a tampered request.
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/tier mismatch/) }),
+      expect.anything()
+    );
+  });
+
+  it("does not record or enrol protection the PaymentIntent never carried, even if the row claims it", async () => {
+    // Reverse direction: row says B, Stripe holds parking-only (the customer
+    // dropped protection before retrying). Nothing was charged → nothing booked.
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "B" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ amount: 7400 }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].protection_plan ?? null).toBeNull();
+    expect(parkGuard.captureReservation).not.toHaveBeenCalled();
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/tier mismatch/) }),
+      expect.anything()
+    );
+  });
+
+  it("records the CHARGED premium, not the live retail: a pre-tier $10.99 PaymentIntent fulfils as Plan A at $10.99", async () => {
+    // Staged by the pre-tier code (no tier column) on a PaymentIntent the old
+    // update-pi stamped with a price only. The live Plan A retail is $12.99;
+    // using it would trip the drift guard (84.99 hold < 74 + 12.99) and, on
+    // the ResLab-wobble branch, record a price Stripe never took.
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: null })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 8499, metadata: meta({ protectionPlanPrice: "10.99" }) })
+    );
+    vi.mocked(parkGuard.captureReservation).mockResolvedValue({ pg_identifier: "PG-A-1", message: "ok" });
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0]).toMatchObject({
+      protection_plan_code: "A",
+      protection_plan_price: 10.99,
+      protection_plan_wholesale: 6,
+    });
+    expect(parkGuard.captureReservation).toHaveBeenCalledWith(
+      expect.objectContaining({ protection_plan: "Plan A", protection_plan_price: 10.99 })
+    );
+    expect(sendBookingConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ protectionPlan: "$1,000 Protection", protectionPlanPrice: 10.99 })
+    );
+    // Both the row rule and the PI rule announce themselves so ops can count the window.
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/pre-tier/) }),
+      expect.anything()
+    );
+    // Row and PI agree (both Plan A) — no mismatch alert.
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("refuses to fulfil a contradictory row (a tier code on a row that says no protection)", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: false, protection_plan_code: "B" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ amount: 9400 }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    // An unparseable staged row is terminal (needs_reconciliation): money is
+    // held, nothing was booked, and a retry would fail identically.
+    expect(out.kind).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(0);
+  });
+
+  it("treats a MISSING protection_plan_code column (migration 021 not applied yet) as retryable, never terminal", async () => {
+    // A dead-browser fulfilment that lands minutes before the migration must
+    // be re-driven once the column exists — not retired to needs_reconciliation.
+    const row: Record<string, unknown> = { ...pendingRow({ has_protection_plan: false }) };
+    delete row.protection_plan_code;
+    db.seed("pending_bookings", [row]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("needs_reconciliation");
+    expect(out).toMatchObject({ retryable: true });
+    expect(out.kind === "needs_reconciliation" && out.reason).toContain("migration 021");
+    expect(shouldStripeRedeliver(out)).toBe(true);
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(0);
+  });
+
+  it("refuses an inconsistent PaymentIntent protection pair and releases the hold", async () => {
+    // A code with no price: nothing downstream may guess what was sold.
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "A" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 8699, metadata: meta({ protectionPlanCode: "A" }) })
+    );
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(0);
+  });
+
+  it("counts the charged premium in the price-drift guard (a parking price rise still blocks a tier booking)", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "A" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 8699, metadata: meta({ protectionPlanCode: "A", protectionPlanPrice: "12.99" }) })
+    );
+    // Parking rose from 88 to 140 since authorization: fresh = 140 + 6 − 20 + 12.99 > 86.99.
+    reslabMock.getCost.mockResolvedValue({
+      costs_token: "tok_2",
+      reservation: { sold_out: false, sub_total: 120, fees_total: 3, tax_total: 5, grand_total: 140, due_at_location: 20 },
+    });
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).toHaveBeenCalled();
   });
 });

@@ -8,7 +8,12 @@ import { z } from "zod";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { captureAPIError } from "@/lib/sentry";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import {
+  getProtectionPlan,
+  protectionMetadataPatch,
+  STALE_CHECKOUT_MESSAGE,
+} from "@/lib/parkguard/client";
+import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 
 // A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
 // (40s budget). The ceiling must sit above it so the sweep settles and arms its
@@ -184,13 +189,20 @@ const checkoutPostSchema = z.object({
   parkingTypeId: z.number().int().positive(),
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
-  // Required. See validation/schemas.ts for rationale.
-  hasProtectionPlan: z.boolean(),
+  // Required key, nullable value — see validation/schemas.ts for rationale.
+  // The checkout form always sends null here: the tier is chosen on the
+  // payment step and applied by /api/checkout/lot/update-pi.
+  protectionPlanCode: protectionPlanCodeSchema,
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // A checkout page loaded before the plan-tier deploy still posts the old
+    // boolean. Refuse with an actionable message instead of a Zod issue.
+    if (body && typeof body === "object" && "hasProtectionPlan" in body) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
+    }
     const result = checkoutPostSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -209,7 +221,7 @@ export async function POST(request: NextRequest) {
       parkingTypeId,
       customerEmail,
       promoCode,
-      hasProtectionPlan,
+      protectionPlanCode,
     } = result.data;
 
     // Build dates for ResLab API
@@ -288,7 +300,8 @@ export async function POST(request: NextRequest) {
     const parkingOnlyChargeAmount = Math.max(0, verifiedDueNow);
     const parkingOnlyChargeAmountCents = Math.round(parkingOnlyChargeAmount * 100);
 
-    const protectionPremium = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
+    const protectionPlan = getProtectionPlan(protectionPlanCode);
+    const protectionPremium = protectionPlan?.price ?? 0;
     if (protectionPremium > 0) {
       verifiedTotal = verifiedTotal + protectionPremium;
       verifiedDueNow = verifiedDueNow + protectionPremium;
@@ -326,7 +339,12 @@ export async function POST(request: NextRequest) {
       parkingOnlyChargeAmountCents: String(parkingOnlyChargeAmountCents),
       ...(promoCode && { promoCode }),
       ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
-      ...(protectionPremium > 0 && { protectionPlanPrice: String(protectionPremium) }),
+      // Tier code + its price are written as a PAIR (see
+      // readProtectionMetadata): /api/reservations/pending stages the tier from
+      // it, and fulfilment books, prices, and enrols exactly what it says — a
+      // half-present pair is an integrity error there, never "no protection".
+      // Deleted as a pair by /update-pi when the customer picks "no protection".
+      ...(protectionPlan && protectionMetadataPatch(protectionPlan)),
     });
 
     return NextResponse.json({

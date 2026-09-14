@@ -20,7 +20,12 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { parkGuard, formatPgDate, PROTECTION_PLAN } from "../src/lib/parkguard/client";
+import {
+  parkGuard,
+  formatPgDate,
+  PROTECTION_PLANS,
+  isProtectionPlanCode,
+} from "../src/lib/parkguard/client";
 
 interface AddressOverrides {
   street?: string;
@@ -87,7 +92,7 @@ async function main() {
   const { data: booking, error: fetchErr } = await supabase
     .from("bookings")
     .select(
-      "id, customer_id, reslab_location_id, reslab_reservation_number, check_in, check_out, vehicle_info, protection_plan, protection_plan_price, pg_identifier, pg_sync_status, created_at"
+      "id, customer_id, reslab_location_id, reslab_reservation_number, check_in, check_out, vehicle_info, protection_plan, protection_plan_code, protection_plan_price, pg_identifier, pg_sync_status, created_at"
     )
     .eq("id", bookingId)
     .single();
@@ -103,6 +108,17 @@ async function main() {
   if (!booking.protection_plan) {
     throw new Error("Booking has no protection_plan; nothing to capture.");
   }
+  // The tier decides what Park Guard will pay out on a claim — never guess it
+  // from the display name or the price. Every opt-in row carries a code since
+  // migration 021 (backfilled 'A' for the single-tier era).
+  if (!isProtectionPlanCode(booking.protection_plan_code)) {
+    throw new Error(
+      `Booking has protection_plan='${booking.protection_plan}' but no valid protection_plan_code (${String(
+        booking.protection_plan_code
+      )}). Repair the row per migration 022 before re-enrolling.`
+    );
+  }
+  const plan = PROTECTION_PLANS[booking.protection_plan_code];
   if (booking.pg_sync_status === "synced") {
     // pg_identifier=null + pg_sync_status='synced' is the "captured then
     // cancelled via Stripe refund webhook" state. The webhook partial-refund
@@ -167,7 +183,7 @@ async function main() {
     parking_zipcode: zip,
     // PG expects "Plan A"/"Plan B"/"Plan C" codes — not the display name
     // stored in bookings.protection_plan. Translate at this boundary.
-    protection_plan: PROTECTION_PLAN.pgPlanCode,
+    protection_plan: plan.pgPlanCode,
     protection_plan_price: Number(booking.protection_plan_price),
     email: customer.email,
     first_name: customer.first_name,

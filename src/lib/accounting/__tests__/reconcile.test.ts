@@ -71,7 +71,11 @@ const OPTS: ReconcileOptions = {
 };
 
 /** A confirmed booking row shaped like the Supabase select in reconcile.ts. */
-function pushRow(resNum: string | null, pi: string | null) {
+function pushRow(
+  resNum: string | null,
+  pi: string | null,
+  over: Record<string, unknown> = {}
+) {
   h.rows.push({
     id: resNum ?? "orphan",
     reslab_reservation_number: resNum,
@@ -86,20 +90,22 @@ function pushRow(resNum: string | null, pi: string | null) {
     service_fee_refunded: false,
     protection_plan: null,
     protection_plan_price: 0,
+    protection_plan_wholesale: null,
     pg_identifier: null,
     stripe_payment_intent_id: pi,
     reslab_location_id: 100, // a real (non-test) lot
     location_name: "Lot A",
     airport_code: "JFK",
     customers: { email: "a@b.com" },
+    ...over,
   });
 }
 
 /** Register a readable live PI for `pi` (a real prod charge). */
-function registerLivePI(pi: string) {
+function registerLivePI(pi: string, amountReceived = 9000, amountRefunded = 0) {
   h.pis.set(pi, {
-    amount_received: 9000,
-    latest_charge: { amount_refunded: 0, balance_transaction: { fee: 300 } },
+    amount_received: amountReceived,
+    latest_charge: { amount_refunded: amountRefunded, balance_transaction: { fee: 300 } },
     status: "succeeded",
   });
 }
@@ -503,5 +509,100 @@ describe("reconcileRevenue — ResLab channel fee (RL Fee)", () => {
     expect(r.reslab.sumAmountOwed).toBeNull();
     expect(r.confirmed.channelFee).toBeNull();
     expect(r.triplyNet.reslabChannelFee).toBeNull();
+  });
+});
+
+describe("reconcileRevenue — Park Guard tiers (per-row wholesale, migration 021)", () => {
+  it("owes the ROW's wholesale, not a $6 constant: Plan B owes $4, margin $3.99", async () => {
+    registerLivePI("pi_b", 9799); // $90.00 + the $7.99 premium
+    registerReservation("RTL_B");
+    pushRow("RTL_B", "pi_b", {
+      protection_plan: "$500 Protection",
+      protection_plan_price: 7.99,
+      protection_plan_wholesale: 4,
+    });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.confirmed.pgOptIns).toBe(1);
+    expect(r.confirmed.pgPremium).toBeCloseTo(7.99, 2);
+    expect(r.confirmed.pgWholesale).toBe(4);
+    expect(r.confirmed.pgMargin).toBeCloseTo(3.99, 2);
+  });
+
+  it("accumulates each row's own wholesale across mixed tiers", async () => {
+    registerLivePI("pi_a", 10299); // + $12.99
+    registerReservation("RTL_A");
+    pushRow("RTL_A", "pi_a", {
+      protection_plan: "$1,000 Protection",
+      protection_plan_price: 12.99,
+      protection_plan_wholesale: 6,
+    });
+    registerLivePI("pi_c", 9495); // + $4.95
+    registerReservation("RTL_C");
+    pushRow("RTL_C", "pi_c", {
+      protection_plan: "$250 Protection",
+      protection_plan_price: 4.95,
+      protection_plan_wholesale: 2,
+    });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.confirmed.pgOptIns).toBe(2);
+    expect(r.confirmed.pgWholesale).toBe(8);
+    expect(r.confirmed.pgMargin).toBeCloseTo(12.99 - 6 + (4.95 - 2), 2);
+  });
+
+  it("a PG row with no wholesale (pre-022 deploy-window row) counts $0 owed and says so in its note", async () => {
+    registerLivePI("pi_x", 10299);
+    registerReservation("RTL_X");
+    pushRow("RTL_X", "pi_x", {
+      protection_plan: "$1,000 Protection",
+      protection_plan_price: 12.99,
+      protection_plan_wholesale: null,
+    });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.confirmed.pgWholesale).toBe(0);
+    expect(r.bookings[0].note).toMatch(/wholesale missing/);
+    // …and it is a headline caveat, not just a per-row note.
+    expect(r.pgWholesaleMissingReservations).toEqual(["RTL_X"]);
+  });
+
+  it("a standard-cancelled Plan B row still owes its $4 wholesale (retained premium − wholesale ≈ $0)", async () => {
+    // Received $97.99; refunded all but the $10 fee and the $4 wholesale.
+    registerLivePI("pi_rb", 9799, 8399);
+    registerReservation("RTL_RB");
+    pushRow("RTL_RB", "pi_rb", {
+      status: "refunded",
+      protection_plan: "$500 Protection",
+      protection_plan_price: 7.99,
+      protection_plan_wholesale: 4,
+    });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.refunded.pgOptIns).toBe(1);
+    expect(r.refunded.pgWholesale).toBe(4);
+    expect(r.refunded.pgMargin).toBeCloseTo(0, 2);
+  });
+
+  it("a fully refunded Plan C row is a real −$2 (the wholesale is still owed)", async () => {
+    registerLivePI("pi_rc", 9495, 9495);
+    registerReservation("RTL_RC");
+    pushRow("RTL_RC", "pi_rc", {
+      status: "refunded",
+      service_fee_refunded: true,
+      protection_plan: "$250 Protection",
+      protection_plan_price: 4.95,
+      protection_plan_wholesale: 2,
+    });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.refunded.pgWholesale).toBe(2);
+    expect(r.refunded.pgMargin).toBeCloseTo(-2, 2);
+    expect(r.pgWholesaleMissingReservations).toEqual([]);
   });
 });

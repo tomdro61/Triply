@@ -38,13 +38,20 @@ import {
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { reservationSchema } from "@/lib/validation/schemas";
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import {
+  getProtectionPlan,
+  isProtectionPlanCode,
+  readProtectionMetadata,
+  PROTECTION_PLANS,
+  type ProtectionPlanCode,
+} from "@/lib/parkguard/client";
 import {
   createReslabReservation,
   persistBooking,
   sendBookingEmails,
   buildReservationResponse,
   type BookingPayload,
+  type ChargedProtection,
 } from "./fulfill";
 
 // =============================================================================
@@ -377,6 +384,11 @@ interface PendingRow {
   triply_service_fee: string | number | null;
   user_id: string | null;
   has_protection_plan: boolean;
+  /** Park Guard tier ('A' | 'B' | 'C') or null. NULL with has_protection_plan
+   *  = true on rows staged by the pre-tier code — see resolvePendingTier.
+   *  Optional so a read that predates migration 021 is detectable (undefined)
+   *  rather than mistaken for a contradiction. */
+  protection_plan_code?: string | null;
 }
 
 /**
@@ -420,6 +432,131 @@ class InvalidPendingRowError extends Error {
   }
 }
 
+/**
+ * Which Park Guard tier a staged row says it is for. Advisory: the PaymentIntent
+ * (resolveChargedProtection) is what fulfilment books; this is what the row and
+ * the client claimed, and a disagreement is alerted on.
+ *
+ * `protection_plan_code` wins when present. A row with `has_protection_plan =
+ * true` and no code was staged by the pre-tier code (migration 021's backfill
+ * only covered rows that existed when it ran; the old bundle kept staging such
+ * rows until the tier deploy). Plan A was the only tier, so "A" is a data fact
+ * about that row, not a default; it is still flagged so ops can count the
+ * deploy-window rows. The reverse (a code on a row that says no protection)
+ * and an unknown code are contradictions we refuse to fulfil from.
+ */
+function resolvePendingTier(row: PendingRow): ProtectionPlanCode | null {
+  const pi = row.stripe_payment_intent_id;
+  const code = row.protection_plan_code;
+  if (code === undefined) {
+    // The column is missing from the read: migration 021 has not been applied
+    // yet, or PostgREST's schema cache hasn't caught up with it. That is
+    // TRANSIENT — it resolves itself once the migration lands — so it must be
+    // RETRYABLE (DurableStateError → releaseForRetry → Stripe redelivers, the
+    // sweep re-drives), never a terminal needs_reconciliation that would retire
+    // every dead-browser booking in the window for good.
+    throw new DurableStateError(
+      "pending row read",
+      "pending_bookings.protection_plan_code is missing from the row — has migration 021 been applied?"
+    );
+  }
+  if (code !== null) {
+    if (!isProtectionPlanCode(code)) {
+      throw new InvalidPendingRowError(
+        pi,
+        `protection_plan_code=${JSON.stringify(code)} is not a known tier`
+      );
+    }
+    if (!row.has_protection_plan) {
+      throw new InvalidPendingRowError(
+        pi,
+        `protection_plan_code=${code} but has_protection_plan=false`
+      );
+    }
+    return code;
+  }
+  if (row.has_protection_plan) {
+    captureBookingError(
+      new Error(
+        `pending_bookings row for ${pi} was staged by the pre-tier code (has_protection_plan=true, no protection_plan_code) — Plan A was the only tier; the PaymentIntent decides the charged premium`
+      ),
+      { step: "checkout" }
+    );
+    return "A";
+  }
+  return null;
+}
+
+/**
+ * The protection the customer actually PAID for — from the PaymentIntent's
+ * metadata pair, never from the client payload or the staged row.
+ *
+ * Why not the row: it is staged on the FIRST Pay Now attempt. If the card is
+ * declined and the customer changes their tier before retrying, the row's tier
+ * is stale while Stripe holds the new amount; booking the row would enrol the
+ * wrong tier or charge for protection never recorded. Why not the live
+ * constant for the price: retail changes (Plan A has moved four times); the
+ * price the customer agreed to is the one stamped when the amount was set, and
+ * recording it is what keeps the booking row reconciling to Stripe.
+ *
+ * `null` = no protection. A pre-tier PaymentIntent (price only, no code) is
+ * Plan A at the charged premium — the only tier that could have been sold —
+ * and is flagged so the deploy-window volume is visible. An inconsistent pair
+ * is refused: nothing downstream may guess on a money path.
+ */
+function resolveChargedProtection(
+  pi: Stripe.PaymentIntent,
+  payload: BookingPayload
+): { ok: true; charged: ChargedProtection | null } | { ok: false; detail: string } {
+  const meta = readProtectionMetadata(pi.metadata);
+  let charged: ChargedProtection | null;
+  switch (meta.kind) {
+    case "none":
+      charged = null;
+      break;
+    case "tier":
+      charged = { plan: PROTECTION_PLANS[meta.code], premium: meta.premium };
+      break;
+    case "legacy_plan_a":
+      captureBookingError(
+        new Error(
+          `${pi.id} is a pre-tier PaymentIntent (protectionPlanPrice only) — fulfilling as Plan A at the charged $${meta.premium.toFixed(2)}`
+        ),
+        { step: "checkout" }
+      );
+      charged = { plan: PROTECTION_PLANS.A, premium: meta.premium };
+      break;
+    case "invalid":
+      return { ok: false, detail: meta.detail };
+  }
+
+  // The staged/client tier is advisory. The pending route refreshes the row on
+  // every Pay Now attempt, so a disagreement here means a bug or a tampered
+  // request — alert, and book what was charged.
+  const chargedCode = charged?.plan.code ?? null;
+  if (payload.protectionPlanCode !== chargedCode) {
+    capturePaymentError(
+      new Error(
+        `Protection tier mismatch on ${pi.id}: staged/client payload says ${
+          payload.protectionPlanCode ?? "none"
+        }, PaymentIntent metadata says ${chargedCode ?? "none"} — fulfilling what was charged`
+      ),
+      { stripePaymentIntentId: pi.id, amount: pi.amount / 100 }
+    );
+  }
+  // Retail moved between checkout and fulfilment (or a deploy-window PI).
+  // Informational: the charged premium is what gets recorded.
+  if (charged && charged.premium !== charged.plan.price) {
+    captureBookingError(
+      new Error(
+        `${pi.id} was charged $${charged.premium.toFixed(2)} for ${charged.plan.pgPlanCode}; current retail is $${charged.plan.price.toFixed(2)} — recording the charged premium`
+      ),
+      { step: "checkout" }
+    );
+  }
+  return { ok: true, charged };
+}
+
 function payloadFromPendingRow(row: PendingRow): BookingPayload {
   const pi = row.stripe_payment_intent_id;
   const candidate = {
@@ -441,7 +578,7 @@ function payloadFromPendingRow(row: PendingRow): BookingPayload {
     triplyServiceFee: num(row.triply_service_fee, "triply_service_fee", pi),
     userId: row.user_id,
     stripePaymentIntentId: pi,
-    hasProtectionPlan: row.has_protection_plan,
+    protectionPlanCode: resolvePendingTier(row),
   };
 
   // Validate at this boundary (CLAUDE.md: Zod at boundaries). The DB read-back on
@@ -978,7 +1115,8 @@ async function createBookingInner(
       grand_total: input.payload.grandTotal ?? null,
       triply_service_fee: input.payload.triplyServiceFee ?? null,
       user_id: input.payload.userId ?? null,
-      has_protection_plan: input.payload.hasProtectionPlan,
+      has_protection_plan: input.payload.protectionPlanCode !== null,
+      protection_plan_code: input.payload.protectionPlanCode,
       livemode: pi.livemode,
       status: "pending",
     });
@@ -1280,9 +1418,46 @@ async function fulfilClaimed(
   // duplicateBookings monitor (detect-payment-anomalies, plate-aware) surfaces it
   // for MANUAL review — an alert, never an automatic refund on a heuristic match.
 
+  // --- Step 7.7: what the customer actually paid for -------------------------
+  // Decided from the PaymentIntent before anything irreversible, and threaded
+  // through the price refresh, the booking row, the PG capture and the emails
+  // so all four describe the same tier at the same premium. Sits AFTER the
+  // settlement deferral above so a still-settling PI never reaches
+  // releasePayment from here (that path would hold the row mutex).
+  const chargedResolution = resolveChargedProtection(pi, payload);
+  if (!chargedResolution.ok) {
+    const detail = `PaymentIntent protection metadata is inconsistent: ${chargedResolution.detail}`;
+    if (resuming) {
+      // A reservation already exists; releasing the money now would strand it.
+      // Escalate (outer catch → needs_reconciliation) rather than guess.
+      throw new Error(`${detail} (on resume)`);
+    }
+    const release = await releasePayment(pi);
+    // Unreachable in practice (Step 7.5 already deferred a processing PI), kept
+    // so the exhaustive release result stays type-checked.
+    if (release.released === "deferred") return { kind: "deferred" };
+    await markTerminal(
+      piId,
+      release.released === "refunded" ? "refunded_failed" : "released_failed",
+      detail
+    );
+    await releaseCart(piId);
+    capturePaymentError(new Error(`Fulfilment blocked before booking: ${detail}`), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
+    return {
+      kind: "failed",
+      reason: detail,
+      userMessage:
+        "We couldn't verify your protection selection. You have not been charged — please start your booking again.",
+    };
+  }
+  const charged = chargedResolution.charged;
+
   // --- Step 8: price + inventory refresh --------------------------------------
   if (!resuming) {
-    const check = await refreshCost(pi, payload);
+    const check = await refreshCost(pi, payload, charged);
     if (check.blocked) {
       const release = await releasePayment(pi);
       if (release.released === "deferred") return { kind: "deferred" };
@@ -1491,7 +1666,7 @@ async function fulfilClaimed(
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
   };
-  const persisted = await persistBooking(payload, reservation, promo);
+  const persisted = await persistBooking(payload, reservation, charged, promo);
 
   if (persisted.duplicatePaymentIntent) {
     await markTerminal(piId, "completed");
@@ -1547,7 +1722,8 @@ async function fulfilClaimed(
     const { customerEmailSent } = await sendBookingEmails(
       payload,
       reservation,
-      persisted.pgSyncStatus
+      persisted.pgSyncStatus,
+      charged
     );
     if (customerEmailSent) await markEmailSent(piId);
   }
@@ -1563,7 +1739,8 @@ async function fulfilClaimed(
     reservation: buildReservationResponse(
       payload,
       reservation,
-      persisted.pgIdentifier
+      persisted.pgIdentifier,
+      charged
     ),
   };
 }
@@ -1579,7 +1756,8 @@ async function fulfilClaimed(
  */
 async function refreshCost(
   pi: Stripe.PaymentIntent,
-  payload: BookingPayload
+  payload: BookingPayload,
+  charged: ChargedProtection | null
 ): Promise<
   | { blocked: false; freshToken?: string }
   | { blocked: true; soldOut: boolean; reason: string; userMessage: string }
@@ -1607,9 +1785,11 @@ async function refreshCost(
     }
 
     // What we would charge now, in the same shape /api/checkout/lot computed it.
-    const protectionPremium = payload.hasProtectionPlan
-      ? PROTECTION_PLAN.price
-      : 0;
+    // The premium is the one the PaymentIntent was CHARGED (from its metadata),
+    // not the live retail: a retail change after authorization is not price
+    // drift, and using the constant here blocked every in-flight booking
+    // across a Plan A price change with a bogus "the price changed".
+    const protectionPremium = charged?.premium ?? 0;
     // The promo discount MUST be reapplied here. /api/checkout/lot validates a
     // promo code server-side and subtracts `sub_total * pct/100` BEFORE creating
     // the PaymentIntent, so a recomputation without it always comes out higher
@@ -1685,16 +1865,21 @@ async function refreshCost(
 async function fulfilOnly(
   payload: BookingPayload
 ): Promise<CreateBookingResult> {
+  // No PaymentIntent to read the charged premium from — the live retail is the
+  // only price there is on this dev-only path.
+  const plan = getProtectionPlan(payload.protectionPlanCode);
+  const charged: ChargedProtection | null = plan ? { plan, premium: plan.price } : null;
   const reservation = await createReslabReservation(payload);
-  const persisted = await persistBooking(payload, reservation);
-  await sendBookingEmails(payload, reservation, persisted.pgSyncStatus);
+  const persisted = await persistBooking(payload, reservation, charged);
+  await sendBookingEmails(payload, reservation, persisted.pgSyncStatus, charged);
   return {
     kind: "created",
     reservationNumber: reservation.reservation_number,
     reservation: buildReservationResponse(
       payload,
       reservation,
-      persisted.pgIdentifier
+      persisted.pgIdentifier,
+      charged
     ),
   };
 }

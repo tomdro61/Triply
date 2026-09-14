@@ -10,8 +10,10 @@ import {
 } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
-import { parkGuard, ParkGuardError, PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { adminClaim } from "@/lib/cancellation/claim";
+import { pgWholesaleForRow } from "@/lib/cancellation/refund-math";
+import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 
 // Sequential ResLab + Stripe + Supabase + Park Guard + email. Pinned so a healthy
 // request stays well under adminClaim's 90s stale window — otherwise a slow
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
       .from("bookings")
       .select(`
         id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
-        protection_plan, protection_plan_price, pg_identifier, stripe_payment_intent_id,
+        protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -202,22 +204,36 @@ export async function POST(request: NextRequest) {
     // fields, so partial captures / pricing changes / due-at-location splits
     // can't desync us.
     const serviceFee = parseFloat(booking.triply_service_fee) || 0;
-    // Park Guard never refunds Triply the wholesale ($6) for any booking. On a
-    // STANDARD cancel we therefore withhold that wholesale from the customer's
-    // refund, so the PG line breaks even ($6 retained covers the $6 owed to PG)
-    // instead of Triply eating $6 — the customer still gets their PG margin back
-    // as goodwill. Clamped to the stored premium so a dirty/low row can't
-    // withhold more than was paid for protection.
+    // Park Guard never refunds Triply the wholesale for any booking. On a
+    // STANDARD cancel we therefore withhold the row's wholesale
+    // (`protection_plan_wholesale`, snapshotted at fulfilment — migration 021)
+    // from the customer's refund, so the PG line breaks even (the withheld
+    // wholesale covers what is owed to PG) instead of Triply eating it — the
+    // customer still gets their PG margin back as goodwill. Never more than
+    // the premium actually paid, via the same helper the self-cancel uses.
     //
     // The "Cancel & Full Refund" path (refundServiceFee=true) intentionally
-    // refunds EVERYTHING, including the full PG premium — Triply eats the $6
-    // there by design (it's the goodwill / lot-turned-them-away path).
-    const pgPremium = parseFloat(booking.protection_plan_price ?? "0") || 0;
-    const pgWholesaleWithheld =
+    // refunds EVERYTHING, including the full PG premium — Triply eats the
+    // wholesale there by design (it's the goodwill / lot-turned-them-away path).
+    const pgPremium = parseMoneyColumn(booking.protection_plan_price);
+    const pgRow = pgWholesaleForRow(booking);
+    // A plan row with no wholesale is a deploy-window row written before
+    // migration 022's repair: withhold nothing (Triply eats it) and flag — only
+    // where it changes the money, i.e. the standard path; never guess a tier
+    // from the price.
+    if (pgRow.missing && !refundServiceFee) {
+      captureParkGuardError(
+        new Error(
+          `Admin cancel: booking has protection_plan set but no protection_plan_wholesale — withheld $0 of the premium (repair per migration 022)`
+        ),
+        { bookingId: booking.id, reslabReservationNumber: reservationNumber, operation: "update" }
+      );
+    }
+    const pgWholesaleWithheldDollars =
       !refundServiceFee && booking.protection_plan
-        ? Math.min(PROTECTION_PLAN.wholesalePrice, pgPremium)
+        ? pgWholesaleWithheld(pgPremium, pgRow.wholesaleDollars)
         : 0;
-    const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheld;
+    const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheldDollars;
     let refundAmount = 0;
     let piLookupFailed = false;
     // Set when the payment was an uncaptured AUTHORIZATION that we released
@@ -331,7 +347,7 @@ export async function POST(request: NextRequest) {
       results.stripe = true;
       if (refundPaymentIntentId && refundAmount <= 0) {
         results.errors.push(
-          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheld})`
+          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheldDollars})`
         );
       }
     }
@@ -429,7 +445,7 @@ export async function POST(request: NextRequest) {
         // invariant check below on every single Park Guard cancellation.
         const protectionPlanRefund =
           wasRefunded && booking.protection_plan
-            ? Math.max(0, pgPremium - pgWholesaleWithheld)
+            ? Math.max(0, pgPremium - pgWholesaleWithheldDollars)
             : 0;
         // Invariant: the protection refund can never exceed the total refund
         // (would mean premium + serviceFee > amount_received — a dirty/partial-
@@ -441,7 +457,7 @@ export async function POST(request: NextRequest) {
           captureAPIError(
             new Error(
               `Admin cancel: protection refund $${protectionPlanRefund} exceeds total refund $${refundAmount} ` +
-                `(premium=${pgPremium}, withheld=${pgWholesaleWithheld}, serviceFee=${serviceFee}) — withholding math inconsistent`
+                `(premium=${pgPremium}, withheld=${pgWholesaleWithheldDollars}, serviceFee=${serviceFee}) — withholding math inconsistent`
             ),
             { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
           );
@@ -462,7 +478,7 @@ export async function POST(request: NextRequest) {
           protectionPlanRefund: protectionPlanRefund > 0 ? protectionPlanRefund : undefined,
           // Non-refundable PG wholesale retained on a standard cancel, so the
           // email can disclose why the full premium wasn't returned.
-          protectionPlanRetained: pgWholesaleWithheld > 0 ? pgWholesaleWithheld : undefined,
+          protectionPlanRetained: pgWholesaleWithheldDollars > 0 ? pgWholesaleWithheldDollars : undefined,
         });
         results.email = emailResult.success;
         if (!emailResult.success) {
