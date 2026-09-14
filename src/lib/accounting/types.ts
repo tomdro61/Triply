@@ -128,6 +128,11 @@ export interface ReconcileResult {
   // audit trail for the exclusion (which specific bookings were dropped as
   // staging junk), so a misclassified row is traceable rather than invisible.
   stagingExcludedReservations: string[];
+  // Reservation numbers of Park Guard opt-ins whose row carries NO wholesale
+  // (deploy-window rows written before migration 022's repair). They count $0
+  // PG cost, so pgWholesale is under-stated and pgMargin / triplyNet are
+  // OVER-stated by their real wholesale until the rows are repaired.
+  pgWholesaleMissingReservations: string[];
   // Parking gross = SUM(grand_total) for confirmed bookings, INCLUDING the
   // due-at-location portion. Parking-only (no service fee / Park Guard) —
   // used for the "Total parking customers paid" line in the parking money flow.
@@ -179,8 +184,9 @@ export interface ReconcileResult {
     parkingRefunded: number;
     pgRefunded: number;
     pgOptIns: number;
-    // PG wholesale still owed on refunded opt-ins ($6 × pgOptIns) and the net
-    // PG margin on them (retained premium − wholesale; ≈$0 standard, −$6 full).
+    // PG wholesale still owed on refunded opt-ins (Σ per-row wholesale — $6 /
+    // $4 / $2 by tier, migration 021) and the net PG margin on them (retained
+    // premium − wholesale; ≈$0 standard, −wholesale full).
     pgWholesale: number;
     pgMargin: number;
   };

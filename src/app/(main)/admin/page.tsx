@@ -15,6 +15,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { formatDate, formatPrice } from "@/lib/utils";
+import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 
 interface Stats {
   bookings: {
@@ -368,11 +369,19 @@ export default function AdminDashboard() {
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900">Park Guard Conversions</h3>
           <p className="text-xs text-gray-500">
-            {/* Hardcoded label — keep in sync with PROTECTION_PLAN.price
-                and PROTECTION_PLAN.wholesalePrice in src/lib/parkguard/client.ts.
-                The Margin column below sums per-row prices so historical
-                bookings at a different price still report accurately. */}
-            Current opt-in: $10.99 retail − $6.00 wholesale = $4.99 margin
+            {/* Rendered from PROTECTION_PLANS so it can't drift from checkout.
+                The Margin column below sums per-row price − wholesale, so
+                historical bookings at a different price still report accurately. */}
+            Current tiers:{" "}
+            {PROTECTION_PLAN_CODES.map((code, i) => {
+              const plan = PROTECTION_PLANS[code];
+              return (
+                <span key={code}>
+                  {i > 0 ? " · " : ""}
+                  {`Plan ${code} $${plan.price.toFixed(2)} − $${plan.wholesalePrice.toFixed(2)} = $${(plan.price - plan.wholesalePrice).toFixed(2)}`}
+                </span>
+              );
+            })}
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

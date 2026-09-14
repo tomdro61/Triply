@@ -32,7 +32,7 @@ const paramSchema = z.object({
 const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name, location_address,
   check_in, check_out, location_timezone, protection_plan, protection_plan_price,
-  pg_identifier, stripe_payment_intent_id,
+  protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
   customers ( email, first_name, last_name )
 `;
 
@@ -106,6 +106,7 @@ export async function POST(
       location_timezone: booking.location_timezone,
       protection_plan: booking.protection_plan,
       protection_plan_price: booking.protection_plan_price,
+      protection_plan_wholesale: booking.protection_plan_wholesale,
       pg_identifier: booking.pg_identifier,
       stripe_payment_intent_id: booking.stripe_payment_intent_id,
       customers: rawCustomer

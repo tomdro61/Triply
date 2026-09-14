@@ -9,7 +9,7 @@ const url = env.NEXT_PUBLIC_SUPABASE_URL;
 const svc = createClient(url, env.SUPABASE_SERVICE_ROLE_KEY, { auth:{persistSession:false} });
 const anon = createClient(url, env.NEXT_PUBLIC_SUPABASE_ANON_KEY, { auth:{persistSession:false} });
 
-const PENDING_COLS = "stripe_payment_intent_id,location_id,costs_token,from_date,to_date,parking_type_id,customer,vehicle,extra_fields,confirmation_params,location_name,location_address,airport_code,subtotal,tax_total,fees_total,grand_total,triply_service_fee,user_id,has_protection_plan,status,reslab_reservation_number,reslab_attempt_started_at,claimed_at,last_error,email_sent,livemode,created_at,updated_at";
+const PENDING_COLS = "stripe_payment_intent_id,location_id,costs_token,from_date,to_date,parking_type_id,customer,vehicle,extra_fields,confirmation_params,location_name,location_address,airport_code,subtotal,tax_total,fees_total,grand_total,triply_service_fee,user_id,has_protection_plan,protection_plan_code,status,reslab_reservation_number,reslab_attempt_started_at,claimed_at,last_error,email_sent,livemode,created_at,updated_at";
 const CART_COLS = "id,cart_key,stripe_payment_intent_id,claimed_at,released_at,livemode";
 
 async function colCheck(table, cols) {

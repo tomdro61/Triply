@@ -1,22 +1,24 @@
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
-
 /**
  * Self-service cancellation refund math — computed in integer CENTS.
  *
  * Locked policy: on a >24h self-cancel the customer is refunded EVERYTHING they
  * paid online (parking + tax + Triply service fee + Park Guard premium) MINUS
- * only the $6 Park Guard wholesale, which PG never returns to Triply. A booking
+ * only the Park Guard wholesale, which PG never returns to Triply. A booking
  * without Park Guard gets 100% back; the Triply service fee is NOT withheld.
  *
- * Mirrors the admin cancel route's proven wholesale formula
- * (`min(PROTECTION_PLAN.wholesalePrice, pgPremium)`) so the two cancel paths
- * withhold the identical amount, and sources the $6 from the shared
- * `PROTECTION_PLAN` constant — never a literal.
+ * The wholesale is PER ROW (`bookings.protection_plan_wholesale`, migration
+ * 021): $6 / $4 / $2 for Plan A / B / C, snapshotted at fulfilment. Mirrors the
+ * admin cancel route's formula (`min(rowWholesale, pgPremium)`) so the two
+ * cancel paths withhold the identical amount — and never a literal or the live
+ * `PROTECTION_PLANS` constant, which would misprice a booking sold under an
+ * earlier contract.
  *
  * ⚠️ CENTS in, CENTS out. Do NOT pass the result to the dollars-based
  * `createRefund` (it ×100s internally → a 100× over-refund). Use
  * `createRefundCents`.
  */
+
+import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 
 export interface RefundComputationInput {
   /** Stripe PaymentIntent `amount_received`, integer CENTS. */
@@ -31,6 +33,13 @@ export interface RefundComputationInput {
    * columns as strings, `float8`/`int` as numbers, and null for a no-PG booking.
    */
   protectionPlanPriceDollars: string | number | null | undefined;
+  /**
+   * `bookings.protection_plan_wholesale` — the PG wholesale that applied to
+   * THIS booking, in DOLLARS (same loose typing). null/garbage on a PG row →
+   * withhold NOTHING: Triply eats the wholesale rather than over-withhold on
+   * bad data. Callers Sentry-flag that case (see planTeardown / admin cancel).
+   */
+  protectionPlanWholesaleDollars: string | number | null | undefined;
 }
 
 export interface RefundComputation {
@@ -40,27 +49,38 @@ export interface RefundComputation {
   pgWholesaleCents: number;
 }
 
+/**
+ * The Park Guard wholesale a booking row carries, and whether it is MISSING on
+ * a row that has a plan (a deploy-window row written before migration 022's
+ * repair). Callers on money paths Sentry-flag `missing` with the booking id;
+ * read-only callers (the cancel preview) do not.
+ */
+export function pgWholesaleForRow(row: {
+  protection_plan: string | null | undefined;
+  protection_plan_wholesale: string | number | null | undefined;
+}): { wholesaleDollars: number; missing: boolean } {
+  const wholesaleDollars = parseMoneyColumn(row.protection_plan_wholesale);
+  return {
+    wholesaleDollars,
+    missing: !!row.protection_plan && !(wholesaleDollars > 0),
+  };
+}
+
 export function computeCancellationRefund(
   input: RefundComputationInput,
 ): RefundComputation {
-  const { amountReceivedCents, protectionPlan, protectionPlanPriceDollars } =
-    input;
+  const { amountReceivedCents, protectionPlan } = input;
   const priorRefundedCents = input.priorRefundedCents ?? 0;
 
-  // `typeof NaN === "number"`, so a NaN number would bypass the `|| 0` guard and
-  // poison the math — require the number branch to be FINITE, else coerce via
-  // the string path (parseFloat("NaN") || 0 === 0).
-  const pgPremium =
-    typeof protectionPlanPriceDollars === "number" &&
-    Number.isFinite(protectionPlanPriceDollars)
-      ? protectionPlanPriceDollars
-      : parseFloat(String(protectionPlanPriceDollars ?? "0")) || 0;
+  const pgPremium = parseMoneyColumn(input.protectionPlanPriceDollars);
+  const pgWholesale = parseMoneyColumn(input.protectionPlanWholesaleDollars);
 
-  // `min` guards against withholding more than the customer paid for PG (dirty
-  // row / sub-$6 premium). A null/garbage price → 0 → withhold nothing (Triply
-  // eats the wholesale rather than over-withhold on bad data) — identical to admin.
+  // Never more than the customer paid for PG (dirty row / sub-wholesale
+  // premium), never negative. A null/garbage price OR wholesale → 0 →
+  // withhold nothing (Triply eats the wholesale rather than over-withhold on
+  // bad data) — the same helper the admin cancel uses.
   const pgWholesaleCents = protectionPlan
-    ? Math.round(Math.min(PROTECTION_PLAN.wholesalePrice, pgPremium) * 100)
+    ? Math.round(pgWholesaleWithheld(pgPremium, pgWholesale) * 100)
     : 0;
 
   const refundCents = Math.max(

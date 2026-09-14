@@ -144,7 +144,13 @@ async function main() {
   }
 
   const pgPremium = Number(b.protection_plan_price ?? 0);
-  const pgWholesale = b.protection_plan ? Math.min(6, pgPremium) : 0;
+  // Per-row wholesale (migration 021: $6 / $4 / $2 by tier), never a constant —
+  // mirrors pgWholesaleWithheld in src/lib/utils/money.ts.
+  const pgWholesaleOnRow = Number(b.protection_plan_wholesale ?? 0) || 0;
+  const pgWholesale = b.protection_plan ? Math.max(0, Math.min(pgWholesaleOnRow, pgPremium)) : 0;
+  if (b.protection_plan && !(pgWholesaleOnRow > 0)) {
+    line(`  ! protection_plan set but no protection_plan_wholesale on the row — expected withhold is $0 (repair per migration 022)`);
+  }
   if (paidCents !== null) {
     const expected = paidCents - Math.round(pgWholesale * 100);
     line(`  charged        : ${money(paidCents / 100)}`);

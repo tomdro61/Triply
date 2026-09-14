@@ -99,6 +99,7 @@ function mkBooking(over: Partial<Record<string, unknown>> = {}) {
     location_timezone: TZ,
     protection_plan: "parkguard",
     protection_plan_price: 10.99,
+    protection_plan_wholesale: 6,
     pg_identifier: "pg_1",
     stripe_payment_intent_id: "pi_1",
     customers: { email: "c@example.com", first_name: "Case", last_name: "Test" },
@@ -428,5 +429,46 @@ describe("performSelfCancel — money-safety branches (review pass-1 fixes)", ()
     // 10000 − 0 wholesale − 3000 prior = 7000 cents refunded now.
     expect(createRefundCents).toHaveBeenCalledWith("pi_1", 7000, "selfcancel:pi_1");
     expect(r.body).toMatchObject({ status: "refunded", refunded: true });
+  });
+});
+
+describe("performSelfCancel — Park Guard tiers (per-row wholesale, migration 021)", () => {
+  it("Plan B row: withholds the row's $4 (not Plan A's $6), emails $4 retained / $3.99 returned", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await performSelfCancel(
+      mkBooking({ protection_plan: "$500 Protection", protection_plan_price: 7.99, protection_plan_wholesale: "4.00" }),
+      NOW_OK,
+    );
+
+    expect(r.status).toBe(200);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9600, "selfcancel:pi_1");
+    expect(sendCancellationConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ refundAmount: 96, protectionPlanRetained: 4, protectionPlanRefund: 3.99 }),
+    );
+    expect(sentry.captureParkGuardError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/no protection_plan_wholesale/) }),
+      expect.anything(),
+    );
+  });
+
+  it("plan row with no wholesale (pre-022 deploy-window row): refunds everything, flags once with the booking id", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await performSelfCancel(mkBooking({ protection_plan_wholesale: null }), NOW_OK);
+
+    expect(r.status).toBe(200);
+    // Triply eats the wholesale rather than guess a tier from the price.
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 10_000, "selfcancel:pi_1");
+    const flags = vi
+      .mocked(sentry.captureParkGuardError)
+      .mock.calls.filter(([err]) => /no protection_plan_wholesale/.test((err as Error).message));
+    expect(flags).toHaveLength(1);
+    expect(flags[0][1]).toMatchObject({ bookingId: "b1" });
+    expect(sendCancellationConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ refundAmount: 100, protectionPlanRefund: 10.99 }),
+    );
   });
 });

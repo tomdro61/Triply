@@ -12,7 +12,7 @@
  * could stage a row for someone else's PaymentIntent and redirect the
  * confirmation email — and the fulfilment paths trust this row for the ResLab
  * reservation (vehicle, name, phone are not in PI metadata). Every field the
- * PaymentIntent can corroborate is checked; `hasProtectionPlan` is DERIVED from
+ * PaymentIntent can corroborate is checked; `protectionPlanCode` is DERIVED from
  * PI metadata rather than trusted, because it determines what the customer paid.
  */
 
@@ -21,12 +21,18 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { pendingBookingSchema } from "@/lib/validation/schemas";
 import { capturePaymentError } from "@/lib/sentry";
+import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 
 export const maxDuration = 15;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    // A checkout page loaded before the plan-tier deploy still posts the old
+    // boolean. Refuse with an actionable message instead of a Zod issue.
+    if (body && typeof body === "object" && "hasProtectionPlan" in body) {
+      return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
+    }
     const result = pendingBookingSchema.safeParse(body);
     if (!result.success) {
       // This endpoint runs BEFORE confirmPayment — the customer genuinely has
@@ -90,9 +96,55 @@ export async function POST(request: NextRequest) {
     }
 
     // Authoritative, not client-supplied: this determines what Stripe charged.
-    const protectionPriceStr = meta.protectionPlanPrice;
-    const hasProtectionPlan =
-      !!protectionPriceStr && parseFloat(protectionPriceStr) > 0;
+    // The tier code and its price are stamped as a PAIR by /api/checkout/lot
+    // and /update-pi (see readProtectionMetadata). Both present → that tier;
+    // both absent → no protection. A half pair, an unknown code, or a
+    // price-only pair (which only the pre-tier bundle could stamp) is refused:
+    // we are still before the charge, and guessing either way would stage a
+    // tier other than the one Stripe holds.
+    const metaProtection = readProtectionMetadata(meta);
+    if (metaProtection.kind === "invalid" || metaProtection.kind === "legacy_plan_a") {
+      capturePaymentError(
+        new Error(
+          `Pending-booking staging rejected — PaymentIntent protection metadata ${
+            metaProtection.kind === "invalid"
+              ? `is inconsistent: ${metaProtection.detail}`
+              : "carries a price but no tier code (pre-tier bundle)"
+          }`
+        ),
+        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Your protection selection couldn't be verified — please choose it again. You have not been charged.",
+        },
+        { status: 400 }
+      );
+    }
+    const protectionPlanCode =
+      metaProtection.kind === "tier" ? metaProtection.code : null;
+
+    // The client's own value must agree with what Stripe holds. It can only
+    // differ through a bug or a tampered request: the selector is locked while
+    // an /update-pi call is in flight and Pay Now stays disabled until it lands.
+    if (payload.protectionPlanCode !== protectionPlanCode) {
+      capturePaymentError(
+        new Error(
+          `Pending-booking staging rejected — client protectionPlanCode ${JSON.stringify(
+            payload.protectionPlanCode
+          )} does not match PaymentIntent metadata ${JSON.stringify(protectionPlanCode)}`
+        ),
+        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+      );
+      return NextResponse.json(
+        {
+          error:
+            "Your protection selection doesn't match this payment — please choose it again. You have not been charged.",
+        },
+        { status: 400 }
+      );
+    }
 
     // --- Refuse to overwrite work already in progress ------------------------
     const supabase = await createAdminClient();
@@ -134,15 +186,42 @@ export async function POST(request: NextRequest) {
         grand_total: payload.grandTotal ?? null,
         triply_service_fee: payload.triplyServiceFee ?? null,
         user_id: payload.userId ?? null,
-        has_protection_plan: hasProtectionPlan,
+        // Written in lockstep: the boolean predates the tier column and is
+        // still read by the legacy-row rule in create-booking.ts.
+        has_protection_plan: protectionPlanCode !== null,
+        protection_plan_code: protectionPlanCode,
         livemode: pi.livemode,
         status: "pending",
       });
 
     if (insertError) {
-      // 23505 = the row already exists. Benign: a retry, or the customer
-      // re-submitted. The stored payload stands.
+      // 23505 = the row already exists: an EARLIER Pay Now attempt on this
+      // PaymentIntent (e.g. a declined card). The stored payload stands —
+      // except the tier, which the customer may have changed in between; the
+      // tier derived above is what Stripe holds NOW. Refresh only those two
+      // columns, only while the row is still `pending` (never clobber a row a
+      // fulfilment path has claimed). Fulfilment re-derives the tier from the
+      // PaymentIntent regardless; this keeps the durable row honest for ops
+      // and reconciliation, and keeps the fulfilment-side mismatch alert quiet
+      // on this legitimate flow.
       if ((insertError as { code?: string }).code === "23505") {
+        const { error: refreshError } = await supabase
+          .from("pending_bookings")
+          .update({
+            protection_plan_code: protectionPlanCode,
+            has_protection_plan: protectionPlanCode !== null,
+          })
+          .eq("stripe_payment_intent_id", piId)
+          .eq("status", "pending");
+        if (refreshError) {
+          // Not fatal: fulfilment trusts the PaymentIntent, not this column.
+          capturePaymentError(
+            new Error(
+              `Pending-booking tier refresh failed on already_staged row: ${refreshError.message}`
+            ),
+            { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+          );
+        }
         return NextResponse.json({ staged: true, reason: "already_staged" });
       }
       throw new Error(insertError.message);

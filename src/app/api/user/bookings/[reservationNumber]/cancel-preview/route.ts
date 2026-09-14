@@ -47,7 +47,7 @@ const paramSchema = z.object({
 const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name,
   check_in, check_out, location_timezone,
-  protection_plan, protection_plan_price, stripe_payment_intent_id
+  protection_plan, protection_plan_price, protection_plan_wholesale, stripe_payment_intent_id
 `;
 
 export async function GET(

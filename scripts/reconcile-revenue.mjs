@@ -42,7 +42,9 @@ dotenv.config({ path: '.env.local' });
 
 const DEFAULT_FROM = '2026-02-19'; // Triply launch
 const DEFAULT_TO = '2026-05-31';   // through May (ResLab invoice period)
-const PG_WHOLESALE = 6.0;
+// PG wholesale is PER ROW since migration 021 ($6 / $4 / $2 for Plan A / B / C,
+// bookings.protection_plan_wholesale) — never a constant here. A PG row with no
+// wholesale (deploy-window row, see migration 022) counts $0 owed.
 const CSV_PATH = 'reconcile-revenue.csv';
 const DEFAULT_INVOICE_AMOUNT = 1608.88; // May 2026 invoice; override with --invoice=N
 
@@ -153,6 +155,7 @@ const { data: bookings, error } = await supabase
     service_fee_refunded,
     protection_plan,
     protection_plan_price,
+    protection_plan_wholesale,
     pg_identifier,
     stripe_payment_intent_id,
     reslab_location_id,
@@ -230,6 +233,10 @@ for (let i = 0; i < real.length; i++) {
   const serviceFee = parseFloat(b.triply_service_fee ?? 0) || 0;
   const pgPremium = parseFloat(b.protection_plan_price ?? 0) || 0;
   const hasPG = !!b.protection_plan;
+  const pgWholesale = hasPG ? (parseFloat(b.protection_plan_wholesale ?? 0) || 0) : 0;
+  // A plan row with no wholesale (deploy-window row, pre-migration-022 repair)
+  // counts $0 owed — the summary warns, because PG margin is then overstated.
+  const pgWholesaleMissing = hasPG && !(pgWholesale > 0);
   const expectedStripe = parkingOnline + serviceFee + pgPremium;
 
   if (stripeReceived !== null) {
@@ -293,7 +300,7 @@ for (let i = 0; i < real.length; i++) {
 
   enriched.push({
     ...b,
-    grandTotal, dueAtLot, parkingOnline, serviceFee, pgPremium, hasPG, expectedStripe,
+    grandTotal, dueAtLot, parkingOnline, serviceFee, pgPremium, pgWholesale, pgWholesaleMissing, hasPG, expectedStripe,
     stripeReceived, stripeRefunded, stripeStatus, stripeError,
     reslabLocationTotal, reslabChannelTotal, reslabCommissionsTotal,
     reslabGrandTotal, reslabRefundAmount, reslabPartialRefund, reslabDueAtLot,
@@ -316,15 +323,15 @@ const otherStatus = enriched.filter(
 );
 
 // Supabase-side
-let confParkingOnline = 0, confDueAtLot = 0, confServiceFee = 0, confPGPremium = 0, confPGOptIns = 0;
+let confParkingOnline = 0, confDueAtLot = 0, confServiceFee = 0, confPGPremium = 0, confPGOptIns = 0, confPGWholesale = 0;
 for (const b of confirmed) {
   confParkingOnline += b.parkingOnline;
   confDueAtLot += b.dueAtLot;
   confServiceFee += b.serviceFee;
-  if (b.hasPG) { confPGPremium += b.pgPremium; confPGOptIns += 1; }
+  if (b.hasPG) { confPGPremium += b.pgPremium; confPGOptIns += 1; confPGWholesale += b.pgWholesale; }
 }
 
-let refServiceFeeKept = 0, refParkingRefunded = 0, refPGRefunded = 0, refPGOptIns = 0, refPGMargin = 0;
+let refServiceFeeKept = 0, refParkingRefunded = 0, refPGRefunded = 0, refPGOptIns = 0, refPGMargin = 0, refPGWholesale = 0;
 let refStripeReceived = 0, refStripeRefunded = 0;
 for (const b of refunded) {
   // Full refunds (service_fee_refunded) returned the fee too — keep $0 then,
@@ -333,8 +340,9 @@ for (const b of refunded) {
   refParkingRefunded += b.parkingOnline;
   const recv = b.stripeReceived ?? b.expectedStripe;
   // PG retained on a refund = total kept − fee kept (parking is fully refunded).
-  // Park Guard bills $6 per conversion and never credits it back, so a refunded
-  // opt-in still owes $6: a standard cancel withholds it, a full refund eats it.
+  // Park Guard bills its wholesale on every conversion and never credits it
+  // back, so a refunded opt-in still owes the row's wholesale: a standard
+  // cancel withholds it, a full refund eats it.
   // Prefer ACTUAL Stripe (matches what was really refunded); else assume the
   // standard-cancel withholding rule.
   let pgRetained = 0;
@@ -343,15 +351,16 @@ for (const b of refunded) {
       ? Math.max(0, b.stripeReceived - b.stripeRefunded)
       : null;
     // Prefer actual Stripe; else the withholding rule, gated on
-    // service_fee_refunded so a full refund books $0 retained (not $6).
+    // service_fee_refunded so a full refund books $0 retained (not the wholesale).
     pgRetained = kept != null
       ? Math.min(b.pgPremium, Math.max(0, kept - b.serviceFee))
       : b.service_fee_refunded
       ? 0
-      : Math.min(PG_WHOLESALE, b.pgPremium);
+      : Math.min(b.pgWholesale, b.pgPremium);
     refPGRefunded += Math.max(0, b.pgPremium - pgRetained); // actually returned to customer
-    refPGMargin += pgRetained - PG_WHOLESALE;               // net PG (retained − owed)
+    refPGMargin += pgRetained - b.pgWholesale;              // net PG (retained − owed)
     refPGOptIns += 1;
+    refPGWholesale += b.pgWholesale;
   }
   b.pgRetained = pgRetained; // reused by the CSV builder so its rows reconcile to this total
   refStripeReceived += recv;
@@ -364,11 +373,18 @@ const netStripe = grossStripe - totalRefunded;
 
 const netServiceFee = confServiceFee + refServiceFeeKept;
 // PG margin nets retained premium − wholesale across confirmed AND refunded
-// (no floor — a full refund is a real −$6 loss). Wholesale is owed on every
+// (no floor — a full refund is a real −wholesale loss). Wholesale is owed on every
 // conversion, refunded opt-ins included (PG never credits it back).
-const netPGMargin = (confPGPremium - confPGOptIns * PG_WHOLESALE) + refPGMargin;
+const netPGMargin = (confPGPremium - confPGWholesale) + refPGMargin;
 const netTriplyRevenue = netServiceFee + netPGMargin;
-const pgWholesaleOwed = (confPGOptIns + refPGOptIns) * PG_WHOLESALE;
+const pgWholesaleOwed = confPGWholesale + refPGWholesale;
+const pgWholesaleMissingRows = enriched.filter((b) => b.pgWholesaleMissing);
+if (pgWholesaleMissingRows.length) {
+  console.log(
+    `\n⚠️  ${pgWholesaleMissingRows.length} Park Guard row(s) with no protection_plan_wholesale — $0 owed counted, PG margin OVERSTATED (repair per migration 022): ` +
+      pgWholesaleMissingRows.map((b) => b.reslab_reservation_number ?? b.id).join(", ")
+  );
+}
 
 // ResLab-side (only meaningful when USE_RESLAB)
 let confLocTotalOwed = 0, confChannelTotal = 0, confLocCommissions = 0;
@@ -416,8 +432,8 @@ console.log('\n  CONFIRMED bookings (full revenue path)');
 row('Parking — collected online', confParkingOnline);
 row('Triply service fee (→ Triply)', confServiceFee);
 row('Park Guard premium (→ passthrough)', confPGPremium, `(${confPGOptIns} opt-ins)`);
-row('    of which PG wholesale owed ($6 × n)', confPGOptIns * PG_WHOLESALE);
-row('    of which Triply PG margin', confPGPremium - confPGOptIns * PG_WHOLESALE);
+row('    of which PG wholesale owed (Σ per-row)', confPGWholesale);
+row('    of which Triply PG margin', confPGPremium - confPGWholesale);
 divider();
 row('Subtotal (confirmed contribution)', confParkingOnline + confServiceFee + confPGPremium);
 
@@ -425,7 +441,7 @@ console.log('\n  REFUNDED bookings (only service fee retained)');
 row('Service fee retained (→ Triply)', refServiceFeeKept);
 row('Parking refunded to customer', refParkingRefunded, '(net 0 — refunded)');
 row('PG premium refunded to customer', refPGRefunded, `(${refPGOptIns} opt-ins)`);
-row('PG wholesale still owed on refunds', refPGOptIns * PG_WHOLESALE, '(PG never credits back)');
+row('PG wholesale still owed on refunds', refPGWholesale, '(PG never credits back)');
 divider();
 row('Subtotal (refunded contribution)', refServiceFeeKept + refPGMargin);
 
@@ -441,7 +457,7 @@ console.log('\n' + '═'.repeat(72));
 console.log(' INFORMATIONAL (not in cash flow above)');
 console.log('═'.repeat(72));
 row('Due-at-location (paid directly to lot)', confDueAtLot, '(Triply never touched)');
-row('PG wholesale owed to Park Guard', pgWholesaleOwed, `(${confPGOptIns + refPGOptIns} opt-ins × $${PG_WHOLESALE})`);
+row('PG wholesale owed to Park Guard', pgWholesaleOwed, `(${confPGOptIns + refPGOptIns} opt-ins, per-row $6/$4/$2)`);
 
 // ResLab-anchored breakdown — the authoritative one for the invoice
 if (USE_RESLAB) {
@@ -562,14 +578,14 @@ for (const b of enriched) {
   let triplyKeeps = 0;
   let note = '';
   if (b.status === 'confirmed') {
-    triplyKeeps = b.serviceFee + (b.hasPG ? Math.max(0, b.pgPremium - PG_WHOLESALE) : 0);
+    triplyKeeps = b.serviceFee + (b.hasPG ? Math.max(0, b.pgPremium - b.pgWholesale) : 0);
   } else if (b.status === 'refunded') {
     // Mirror the aggregate loop: fee kept + PG net (retained − wholesale).
     // pgRetained was computed once there and stored on the row so this audit
     // trail reconciles to the console's refunded total.
-    triplyKeeps = (b.service_fee_refunded ? 0 : b.serviceFee) + (b.hasPG ? (b.pgRetained ?? 0) - PG_WHOLESALE : 0);
+    triplyKeeps = (b.service_fee_refunded ? 0 : b.serviceFee) + (b.hasPG ? (b.pgRetained ?? 0) - b.pgWholesale : 0);
     note = b.service_fee_refunded ? 'full refund — service fee returned' : 'service fee retained';
-    if (b.hasPG) note += `; PG kept $${(b.pgRetained ?? 0).toFixed(2)}/$${b.pgPremium.toFixed(2)}, owe $${PG_WHOLESALE.toFixed(2)}`;
+    if (b.hasPG) note += `; PG kept $${(b.pgRetained ?? 0).toFixed(2)}/$${b.pgPremium.toFixed(2)}, owe $${b.pgWholesale.toFixed(2)}`;
   } else if (b.status === 'cancelled') {
     note = 'no payment captured';
   }

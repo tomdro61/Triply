@@ -21,7 +21,11 @@ import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
 import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import {
+  PROTECTION_PLANS,
+  protectionChoiceToCode,
+  type ProtectionChoice,
+} from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 
 interface CheckoutFormProps {
@@ -103,26 +107,32 @@ export function CheckoutForm({
   const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  // null = customer has not yet decided (required-decision UX). Becomes true
-  // or false once they pick a radio on the payment step.
-  const [protectionPlanChoice, setProtectionPlanChoice] = useState<boolean | null>(null);
+  // null = customer has not yet decided (required-decision UX). Becomes a
+  // tier code ("A" | "B" | "C") or "none" once they pick a card on the
+  // payment step.
+  const [protectionPlanChoice, setProtectionPlanChoice] = useState<ProtectionChoice | null>(null);
   const [protectionPlanUpdating, setProtectionPlanUpdating] = useState(false);
   // Toggle errors are kept SEPARATE from submitError so the StripePaymentForm
   // doesn't render them under the "Payment Error" heading (which is reserved
   // for actual Stripe / booking failures).
-  const [protectionToggleError, setProtectionToggleError] = useState<string | null>(null);
+  const [protectionChoiceError, setProtectionChoiceError] = useState<string | null>(null);
   // Set when a network error makes the server-side PaymentIntent state
   // unknown — the fetch rejected but Stripe may have already processed the
   // update on the server. Submit must be blocked in this state because the
   // customer's visible choice may diverge from what they'd actually be
-  // charged; the only way out is for them to re-toggle (which fires a
+  // charged; the only way out is for them to re-select (which fires a
   // fresh update-pi and reconciles state) or refresh the page.
   const [protectionStateAmbiguous, setProtectionStateAmbiguous] = useState(false);
   // Sequence ID for in-flight update-pi requests. Each click increments;
   // responses that arrive after a newer click are discarded so they can't
-  // clobber the latest state. Prevents the rapid-toggle race condition.
-  const inflightToggleId = useRef(0);
-  const hasProtectionPlan = protectionPlanChoice === true;
+  // clobber the latest state. Prevents the rapid-click race condition.
+  const inflightChoiceId = useRef(0);
+  // Wire value for the current choice: a tier code, or null for BOTH "none"
+  // and undecided. Undecided never reaches the API — Pay Now stays disabled
+  // until the customer picks, so a null here at submit time means "declined".
+  const selectedPlanCode =
+    protectionPlanChoice === null ? null : protectionChoiceToCode(protectionPlanChoice);
+  const selectedPlan = selectedPlanCode ? PROTECTION_PLANS[selectedPlanCode] : null;
 
   // Validation errors
   const [customerErrors, setCustomerErrors] = useState<
@@ -139,7 +149,7 @@ export function CheckoutForm({
     const diffTime = Math.abs(end.getTime() - start.getTime());
     const calculatedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
 
-    const protectionPlan = hasProtectionPlan ? PROTECTION_PLAN.price : 0;
+    const protectionPlan = selectedPlan?.price ?? 0;
 
     // Use API data if available
     if (costData) {
@@ -194,7 +204,7 @@ export function CheckoutForm({
       dueNow: total,
       dueAtLocation: 0,
     };
-  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData, hasProtectionPlan]);
+  }, [checkIn, checkOut, lot.pricing?.minPrice, promoDiscountPercent, costData, selectedPlan]);
 
   // Validation functions
   const validateCustomerDetails = (): boolean => {
@@ -267,12 +277,12 @@ export function CheckoutForm({
         throw new Error("Missing required lot data for payment");
       }
 
-      // Initial PaymentIntent is parking-only — protection decision is
+      // Initial PaymentIntent is parking-only — the protection decision is
       // deferred to the payment step, where /api/checkout/lot/update-pi
-      // flexes the amount once the customer picks Yes/No.
-      // hasProtectionPlan is explicitly false here (not omitted): the
-      // schema is required at the API boundary, and explicit-false matches
-      // the server-side parking-only PI path. Avoiding undefined keeps the
+      // flexes the amount once the customer picks a tier or "no protection".
+      // protectionPlanCode is an explicit null here (not omitted): the key is
+      // required at the API boundary, and explicit-null matches the
+      // server-side parking-only PI path. Avoiding undefined keeps the
       // silent-default anti-pattern away from this money-handling POST.
       const response = await fetch("/api/checkout/lot", {
         method: "POST",
@@ -286,7 +296,7 @@ export function CheckoutForm({
           checkoutTime: checkOutTime,
           parkingTypeId,
           customerEmail: customerDetails.email,
-          hasProtectionPlan: false,
+          protectionPlanCode: null,
           ...(promoCode && { promoCode }),
         }),
       });
@@ -324,7 +334,7 @@ export function CheckoutForm({
     // resolution can't clobber fresh state on the new PI created after
     // navigation. The sequence-ID stale-discard guard inside
     // doProtectionPlanUpdate will short-circuit when myId !== current.
-    inflightToggleId.current += 1;
+    inflightChoiceId.current += 1;
     setProtectionPlanUpdating(false);
     // Clear the existing PaymentIntent state so re-entering the payment step
     // creates a fresh PI. Otherwise a customer who toggles protection while
@@ -332,21 +342,22 @@ export function CheckoutForm({
     setClientSecret(null);
     setPaymentIntentId(null);
     setProtectionPlanChoice(null);
-    setProtectionToggleError(null);
+    setProtectionChoiceError(null);
     setProtectionStateAmbiguous(false);
     setCurrentStep("vehicle");
   };
 
   // Protection-plan choice handler — fires server-side PI update so Stripe
   // charges the right amount on Pay Now. Optimistically updates the UI; rolls
-  // back on failure. Race-protected via sequence ID so rapid Yes/No clicks
-  // can't land out of order. Errors route to protectionToggleError (separate
+  // back on failure. Race-protected via sequence ID so rapid clicks between
+  // tiers can't land out of order (the selector is also disabled while a
+  // request is in flight). Errors route to protectionChoiceError (separate
   // from submitError) so the wrong heading doesn't surface in the UI.
   //
   // The sync wrapper increments the sequence ID and captures `myId` BEFORE
   // any await scheduling — guarantees serialization even under stress (e.g.,
   // synthetic Playwright double-clicks) where two event handlers might race.
-  const handleProtectionPlanChange = (selected: boolean) => {
+  const handleProtectionPlanChange = (choice: ProtectionChoice) => {
     if (!paymentIntentId) {
       // Dev-mode (no PI created) — local state only. Should never happen in
       // production because StripePaymentForm only renders when clientSecret
@@ -356,23 +367,26 @@ export function CheckoutForm({
           "handleProtectionPlanChange called without paymentIntentId (DEV_SKIP_PAYMENT?)"
         );
       }
-      setProtectionPlanChoice(selected);
+      setProtectionPlanChoice(choice);
       return;
     }
-    inflightToggleId.current += 1;
-    const myId = inflightToggleId.current;
-    void doProtectionPlanUpdate(selected, myId, paymentIntentId);
+    inflightChoiceId.current += 1;
+    const myId = inflightChoiceId.current;
+    void doProtectionPlanUpdate(choice, myId, paymentIntentId);
   };
 
   const doProtectionPlanUpdate = async (
-    selected: boolean,
+    choice: ProtectionChoice,
     myId: number,
     piId: string
   ) => {
     const previous = protectionPlanChoice;
-    setProtectionPlanChoice(selected);
+    const requestedCode = protectionChoiceToCode(choice);
+    // Premium the customer is asking for — Sentry context only.
+    const requestedPremium = requestedCode ? PROTECTION_PLANS[requestedCode].price : 0;
+    setProtectionPlanChoice(choice);
     setProtectionPlanUpdating(true);
-    setProtectionToggleError(null);
+    setProtectionChoiceError(null);
     setProtectionStateAmbiguous(false);
 
     let response: Response | null = null;
@@ -384,7 +398,7 @@ export function CheckoutForm({
       response = await fetch("/api/checkout/lot/update-pi", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ paymentIntentId: piId, hasProtectionPlan: selected }),
+        body: JSON.stringify({ paymentIntentId: piId, protectionPlanCode: requestedCode }),
       });
 
       if (!response.ok) {
@@ -417,7 +431,7 @@ export function CheckoutForm({
         networkErr instanceof Error
           ? networkErr
           : new Error(String(networkErr)),
-        { stripePaymentIntentId: piId, amount: PROTECTION_PLAN.price }
+        { stripePaymentIntentId: piId, amount: requestedPremium }
       );
       // Network rejection means we don't know whether Stripe applied the
       // update server-side. Rolling back the UI choice while Stripe holds
@@ -429,7 +443,7 @@ export function CheckoutForm({
       // resolves the state).
       networkAmbiguous = true;
       errorMessage =
-        "Couldn't confirm the protection update — please toggle Yes/No again to verify your total before paying";
+        "Couldn't confirm the protection update — please select your protection option again to verify your total before paying";
     }
 
     if (shouldCaptureSentry && response) {
@@ -437,28 +451,34 @@ export function CheckoutForm({
         new Error(
           `update-pi returned ${response.status}: ${errorMessage || "unknown"}`
         ),
-        { stripePaymentIntentId: piId, amount: PROTECTION_PLAN.price }
+        { stripePaymentIntentId: piId, amount: requestedPremium }
       );
     }
 
     // Stale response? A newer click superseded this request; discard the
     // result so it can't clobber fresh state. The newer call will set
     // protectionPlanUpdating to false when it completes.
-    if (myId !== inflightToggleId.current) {
+    if (myId !== inflightChoiceId.current) {
       return;
     }
 
     if (errorMessage !== null) {
       if (networkAmbiguous) {
-        // Keep the optimistic choice — server may have applied it. Block
-        // submit via the ambiguous flag until the next toggle resolves state.
+        // The server may or may not have applied the update, so the visible
+        // choice can't be trusted. CLEAR it rather than keep the optimistic
+        // value: a native radio that is already checked does not fire onChange
+        // when clicked again, so a still-selected card would make "select your
+        // option again" a dead end for the exact option the customer wants.
+        // With no card checked, any click — including that one — fires a fresh
+        // update-pi and resolves the state. Submit stays blocked meanwhile.
+        setProtectionPlanChoice(null);
         setProtectionStateAmbiguous(true);
       } else {
         // HTTP error from the server is an explicit "didn't apply" — safe
         // to roll back to the previous choice.
         setProtectionPlanChoice(previous);
       }
-      setProtectionToggleError(errorMessage);
+      setProtectionChoiceError(errorMessage);
     }
     setProtectionPlanUpdating(false);
   };
@@ -516,11 +536,37 @@ export function CheckoutForm({
   };
 
   /**
+   * The customer's protection decision, or throw. Every fulfilment call runs
+   * after Pay Now, which is disabled until a card is picked, so `null` here is
+   * a state bug — refuse loudly rather than quietly send "declined". (The
+   * server books whatever the PaymentIntent was charged for regardless; this
+   * keeps the client's own claim honest.)
+   */
+  const requireProtectionChoice = (stripePaymentIntentId?: string): ProtectionChoice => {
+    if (protectionPlanChoice === null) {
+      // Should be unreachable (Pay Now gates on a pick and the selector is
+      // locked while processing). If it fires post-charge the webhook still
+      // completes the booking from the staged row — but ops must hear about it.
+      capturePaymentError(
+        new Error("Checkout submitted with no protection choice in state"),
+        { stripePaymentIntentId, amount: priceBreakdown.dueNow }
+      );
+      throw new Error("Please choose a protection option before paying.");
+    }
+    return protectionPlanChoice;
+  };
+
+  /**
    * The booking payload. Built once and used for BOTH the pre-payment staging
    * call and the post-payment fulfilment call, so the durable row and the live
-   * request can never describe different bookings.
+   * request can never describe different bookings. The protection choice is a
+   * parameter (not read from state) so the caller has to discharge "undecided"
+   * explicitly — see requireProtectionChoice.
    */
-  const buildReservationBody = (stripePaymentIntentId: string) => {
+  const buildReservationBody = (
+    stripePaymentIntentId: string,
+    choice: ProtectionChoice
+  ) => {
     const parkingTypeId =
       costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
     const extraFields: Record<string, string> = { ...extraFieldValues };
@@ -546,10 +592,10 @@ export function CheckoutForm({
       triplyServiceFee: priceBreakdown.serviceFee,
       // User ID for linking to account (if logged in)
       userId: user?.id || null,
-      // Park Guard parking protection opt-in. Sent explicitly (not
-      // conditionally omitted) so the API boundary sees an unambiguous
-      // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
-      hasProtectionPlan,
+      // Park Guard tier ("A" | "B" | "C") or null. Sent explicitly (never
+      // omitted) so the API boundary sees an unambiguous value — avoids the
+      // "silent default" anti-pattern from CLAUDE.md.
+      protectionPlanCode: protectionChoiceToCode(choice),
       // Stripe payment reference
       stripePaymentIntentId,
     };
@@ -581,7 +627,10 @@ export function CheckoutForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...buildReservationBody(stripePaymentIntentId),
+        ...buildReservationBody(
+          stripePaymentIntentId,
+          requireProtectionChoice(stripePaymentIntentId)
+        ),
         confirmationParams: confirmationParams(),
       }),
     });
@@ -604,7 +653,12 @@ export function CheckoutForm({
       const response = await fetch("/api/reservations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildReservationBody(stripePaymentIntentId)),
+        body: JSON.stringify(
+          buildReservationBody(
+            stripePaymentIntentId,
+            requireProtectionChoice(stripePaymentIntentId)
+          )
+        ),
       });
 
       const result = await response.json();
@@ -716,10 +770,10 @@ export function CheckoutForm({
           triplyServiceFee: priceBreakdown.serviceFee,
           // User ID for linking to account (if logged in)
           userId: user?.id || null,
-          // Park Guard parking protection opt-in. Sent explicitly (not
-          // conditionally omitted) so the API boundary sees an unambiguous
-          // boolean — avoids the "silent default" anti-pattern from CLAUDE.md.
-          hasProtectionPlan,
+          // Park Guard tier ("A" | "B" | "C") or null. Sent explicitly (never
+          // omitted) so the API boundary sees an unambiguous value — avoids
+          // the "silent default" anti-pattern from CLAUDE.md.
+          protectionPlanCode: protectionChoiceToCode(requireProtectionChoice()),
         }),
       });
 
@@ -839,7 +893,7 @@ export function CheckoutForm({
                   protectionPlanChoice={protectionPlanChoice}
                   onProtectionPlanChange={handleProtectionPlanChange}
                   protectionPlanUpdating={protectionPlanUpdating}
-                  protectionToggleError={protectionToggleError}
+                  protectionChoiceError={protectionChoiceError}
                   protectionStateAmbiguous={protectionStateAmbiguous}
                 />
               </StripeProvider>

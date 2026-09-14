@@ -1,6 +1,6 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
-import { captureAPIError, capturePaymentError } from "@/lib/sentry";
+import { captureAPIError, capturePaymentError, captureParkGuardError } from "@/lib/sentry";
 import { reslab } from "@/lib/reslab/client";
 import { isCancellable } from "./eligibility";
 import { claimForCancel, releaseClaim, markCancelState } from "./claim";
@@ -177,6 +177,19 @@ export async function performSelfCancel(
           "We couldn't calculate your refund, so we did NOT cancel your reservation. Please contact support.",
       },
     };
+  }
+
+  // A plan row with no wholesale (deploy-window row, pre-migration-022 repair):
+  // $0 withheld, Triply ate the wholesale. Flag it here — on the money path,
+  // with the id — not inside planTeardown, which the read-only preview and the
+  // cron also call.
+  if (plan.pgWholesaleMissing && plan.teardown.kind === "refund") {
+    captureParkGuardError(
+      new Error(
+        "self-cancel: booking has protection_plan set but no protection_plan_wholesale — withheld $0 of the premium (repair per migration 022)",
+      ),
+      { bookingId: booking.id, reslabReservationNumber: reservationNumber, operation: "update" },
+    );
   }
 
   // 5. Atomic claim. From here we hold it: every pre-money abort releases it.

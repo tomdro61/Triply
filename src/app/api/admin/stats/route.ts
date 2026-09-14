@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
-import { PROTECTION_PLAN } from "@/lib/parkguard/client";
+import { parseMoneyColumn } from "@/lib/utils/money";
 
 export async function GET(request: NextRequest) {
   try {
@@ -95,25 +95,25 @@ export async function GET(request: NextRequest) {
         .gte("created_at", monthStart.toISOString())),
       // Total revenue (filtered)
       excludeAdmins(applyDateFilter(
-        supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan").eq("status", "confirmed")
+        supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale").eq("status", "confirmed")
       )),
       // Today's revenue
       excludeAdmins(supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())),
       // This week's revenue
       excludeAdmins(supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString())),
       // This month's revenue
       excludeAdmins(supabase
         .from("bookings")
-        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan")
+        .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString())),
       // Confirmed bookings (filtered)
@@ -131,6 +131,8 @@ export async function GET(request: NextRequest) {
       triply_service_fee: string | null;
       protection_plan_price: string | null;
       protection_plan?: string | null;
+      /** Per-row PG wholesale snapshotted at fulfilment (migration 021). */
+      protection_plan_wholesale: string | null;
     };
     // Surface rows where protection_plan is set but the price is missing
     // or non-positive — the customer was charged but our totals would
@@ -138,15 +140,28 @@ export async function GET(request: NextRequest) {
     // such rows; this catches legacy dirty data still in the DB.
     const flagDirtyProtection = (data: RevenueRow[] | null) => {
       if (!data) return;
-      const dirty = data.filter((b) => {
-        if (!b.protection_plan) return false;
-        const parsed = parseFloat(b.protection_plan_price ?? "");
-        return !Number.isFinite(parsed) || parsed <= 0;
-      });
-      if (dirty.length > 0) {
+      let dirtyPrice = 0;
+      // Same class for the wholesale column: a plan row with no wholesale is a
+      // deploy-window row written before migration 022's repair; it counts $0
+      // cost below, so margin is OVER-stated until repaired.
+      let dirtyWholesale = 0;
+      for (const b of data) {
+        if (!b.protection_plan) continue;
+        if (!(parseMoneyColumn(b.protection_plan_price) > 0)) dirtyPrice++;
+        if (!(parseMoneyColumn(b.protection_plan_wholesale) > 0)) dirtyWholesale++;
+      }
+      if (dirtyPrice > 0) {
         captureBookingError(
           new Error(
-            `Admin stats: ${dirty.length} booking(s) with protection_plan set but invalid protection_plan_price — revenue under-counted`
+            `Admin stats: ${dirtyPrice} booking(s) with protection_plan set but invalid protection_plan_price — revenue under-counted`
+          ),
+          { step: "checkout" }
+        );
+      }
+      if (dirtyWholesale > 0) {
+        captureBookingError(
+          new Error(
+            `Admin stats: ${dirtyWholesale} booking(s) with protection_plan set but no protection_plan_wholesale — PG cost under-counted (repair per migration 022)`
           ),
           { step: "checkout" }
         );
@@ -174,19 +189,24 @@ export async function GET(request: NextRequest) {
     //
     // Revenue: sum per-row protection_plan_price so historical bookings
     // taken at a different retail price stay reported at what was actually
-    // charged. The current retail price lives in PROTECTION_PLAN.price
+    // charged. The current retail prices live in PROTECTION_PLANS[code].price
     // (src/lib/parkguard/client.ts) — do NOT substitute it here.
-    // Cost: count × PROTECTION_PLAN.wholesalePrice — PG bills Triply a
-    // fixed amount per opt-in regardless of retail price.
+    // Cost: sum per-row protection_plan_wholesale (migration 021 — $6 / $4 /
+    // $2 by tier, snapshotted at fulfilment) so a mixed-tier month and any
+    // historical contract change both report what PG actually bills.
     // Margin: revenue - cost.
     const countProtected = (data: RevenueRow[] | null) =>
       data?.reduce((n, b) => n + (b.protection_plan ? 1 : 0), 0) || 0;
-    const sumProtectionRevenue = (data: RevenueRow[] | null) =>
-      data?.reduce((sum, b) => {
-        if (!b.protection_plan) return sum;
-        const parsed = parseFloat(b.protection_plan_price ?? "0");
-        return sum + (Number.isFinite(parsed) ? parsed : 0);
-      }, 0) || 0;
+    // Σ of a per-row PG money column over opt-ins (price → revenue, wholesale →
+    // cost). Garbage/null counts 0 and is surfaced by flagDirtyProtection.
+    const sumProtectionColumn = (
+      data: RevenueRow[] | null,
+      key: "protection_plan_price" | "protection_plan_wholesale"
+    ) =>
+      data?.reduce(
+        (sum, b) => (b.protection_plan ? sum + parseMoneyColumn(b[key]) : sum),
+        0
+      ) || 0;
     const pgCount = {
       total: countProtected(revenueResult.data),
       today: countProtected(todayRevenueResult.data),
@@ -201,11 +221,14 @@ export async function GET(request: NextRequest) {
     };
     const conversionRate = (count: number, total: number) =>
       total === 0 ? 0 : count / total;
-    const pgRevenueAll = sumProtectionRevenue(revenueResult.data);
-    const pgRevenueToday = sumProtectionRevenue(todayRevenueResult.data);
-    const pgRevenueWeek = sumProtectionRevenue(weekRevenueResult.data);
-    const pgRevenueMonth = sumProtectionRevenue(monthRevenueResult.data);
-    const pgCost = (n: number) => n * PROTECTION_PLAN.wholesalePrice;
+    const pgRevenueAll = sumProtectionColumn(revenueResult.data, "protection_plan_price");
+    const pgRevenueToday = sumProtectionColumn(todayRevenueResult.data, "protection_plan_price");
+    const pgRevenueWeek = sumProtectionColumn(weekRevenueResult.data, "protection_plan_price");
+    const pgRevenueMonth = sumProtectionColumn(monthRevenueResult.data, "protection_plan_price");
+    const pgCostAll = sumProtectionColumn(revenueResult.data, "protection_plan_wholesale");
+    const pgCostToday = sumProtectionColumn(todayRevenueResult.data, "protection_plan_wholesale");
+    const pgCostWeek = sumProtectionColumn(weekRevenueResult.data, "protection_plan_wholesale");
+    const pgCostMonth = sumProtectionColumn(monthRevenueResult.data, "protection_plan_wholesale");
 
     return NextResponse.json({
       bookings: {
@@ -246,16 +269,16 @@ export async function GET(request: NextRequest) {
           thisMonth: pgRevenueMonth,
         },
         cost: {
-          total: pgCost(pgCount.total),
-          today: pgCost(pgCount.today),
-          thisWeek: pgCost(pgCount.thisWeek),
-          thisMonth: pgCost(pgCount.thisMonth),
+          total: pgCostAll,
+          today: pgCostToday,
+          thisWeek: pgCostWeek,
+          thisMonth: pgCostMonth,
         },
         margin: {
-          total: pgRevenueAll - pgCost(pgCount.total),
-          today: pgRevenueToday - pgCost(pgCount.today),
-          thisWeek: pgRevenueWeek - pgCost(pgCount.thisWeek),
-          thisMonth: pgRevenueMonth - pgCost(pgCount.thisMonth),
+          total: pgRevenueAll - pgCostAll,
+          today: pgRevenueToday - pgCostToday,
+          thisWeek: pgRevenueWeek - pgCostWeek,
+          thisMonth: pgRevenueMonth - pgCostMonth,
         },
       },
     });

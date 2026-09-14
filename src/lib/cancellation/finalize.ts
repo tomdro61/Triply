@@ -12,7 +12,7 @@ import {
   capturePaymentError,
   captureParkGuardError,
 } from "@/lib/sentry";
-import { computeCancellationRefund } from "./refund-math";
+import { computeCancellationRefund, pgWholesaleForRow } from "./refund-math";
 import { markCancelState, type CancelState } from "./claim";
 
 /**
@@ -43,6 +43,8 @@ export interface CancelBookingRow {
   location_timezone: string | null;
   protection_plan: string | null;
   protection_plan_price: string | number | null;
+  /** PG wholesale snapshotted per row (migration 021): $6 / $4 / $2 by tier. */
+  protection_plan_wholesale: string | number | null;
   pg_identifier: string | null;
   stripe_payment_intent_id: string | null;
   customers: {
@@ -65,9 +67,17 @@ export type TeardownPlan =
       /** Already-refunded cents on the PI — drives the net refund AND the
        *  persisted 'refunded' vs 'cancelled' status on a re-drive. */
       priorRefundedCents: number;
-      /** $6 PG wholesale withheld; hoisted so the email breakdown can disclose it
-       *  even on the already-refunded path (teardown "none"). */
+      /** PG wholesale withheld (the row's `protection_plan_wholesale`); hoisted so
+       *  the email breakdown can disclose it even on the already-refunded path
+       *  (teardown "none"). */
       pgWholesaleCents: number;
+      /**
+       * True when the row has a plan but no wholesale (a deploy-window row
+       * written before migration 022's repair): $0 was withheld and Triply ate
+       * the wholesale. Money-path callers Sentry-flag this with the booking id;
+       * the read-only cancel preview does not.
+       */
+      pgWholesaleMissing: boolean;
     }
   | { ok: false; reason: "processing" | "unknown" | "dirty_refund_math" };
 
@@ -79,8 +89,12 @@ export type TeardownPlan =
  */
 export function planTeardown(
   pi: Stripe.PaymentIntent,
-  booking: Pick<CancelBookingRow, "protection_plan" | "protection_plan_price">,
+  booking: Pick<
+    CancelBookingRow,
+    "protection_plan" | "protection_plan_price" | "protection_plan_wholesale"
+  >,
 ): TeardownPlan {
+  const pgWholesaleMissing = pgWholesaleForRow(booking).missing;
   // Still settling → amount_received is 0; refunding/releasing now would drop the
   // spot without refunding a customer who WILL be charged once capture settles.
   if (pi.status === "processing") {
@@ -106,6 +120,7 @@ export function planTeardown(
         priorRefundedCents,
         protectionPlan: booking.protection_plan,
         protectionPlanPriceDollars: booking.protection_plan_price,
+        protectionPlanWholesaleDollars: booking.protection_plan_wholesale,
       }));
     } catch {
       // Non-finite refund from dirty data — MUST NOT reach Stripe (amount: NaN).
@@ -115,6 +130,7 @@ export function planTeardown(
       ok: true,
       priorRefundedCents,
       pgWholesaleCents,
+      pgWholesaleMissing,
       teardown:
         refundCents > 0
           ? { kind: "refund", refundCents, pgWholesaleCents }
@@ -124,11 +140,11 @@ export function planTeardown(
 
   if (pi.status === "requires_capture") {
     // Authorized but never captured — nothing charged; release the hold.
-    return { ok: true, priorRefundedCents, pgWholesaleCents: 0, teardown: { kind: "release" } };
+    return { ok: true, priorRefundedCents, pgWholesaleCents: 0, pgWholesaleMissing, teardown: { kind: "release" } };
   }
 
   // canceled / pre-payment — no money moved.
-  return { ok: true, priorRefundedCents, pgWholesaleCents: 0, teardown: { kind: "none" } };
+  return { ok: true, priorRefundedCents, pgWholesaleCents: 0, pgWholesaleMissing, teardown: { kind: "none" } };
 }
 
 export interface FinalizeInput {

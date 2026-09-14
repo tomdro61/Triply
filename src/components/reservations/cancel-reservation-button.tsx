@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Loader2, AlertCircle, CalendarX, X } from "lucide-react";
+import { PG_NONREFUNDABLE_SUMMARY } from "@/lib/parkguard/plans";
 
 interface CancelReservationButtonProps {
   reservationNumber: string;
@@ -326,9 +327,10 @@ export function CancelReservationButton({
                     // "confirming blind" into "informed by policy, exact figure
                     // to follow" — true under the locked refund rules.
                     <p className="mt-2 text-sm text-gray-600">
-                      You&apos;ll be refunded everything you paid online, minus
-                      the $6 Park Guard fee if you added protection. We&apos;ll
-                      email your exact refund amount.
+                      You&apos;ll be refunded everything you paid online. If you
+                      added a Park Guard protection plan, the non-refundable part
+                      of the plan price is retained ({PG_NONREFUNDABLE_SUMMARY}).
+                      We&apos;ll email your exact refund amount.
                     </p>
                   )}
                 </>
