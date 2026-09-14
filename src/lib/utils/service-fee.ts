@@ -1,16 +1,18 @@
 /**
  * Triply platform service fee calculation.
  *
- * Fee = max($4.95, 6% of parking base cost).
+ * Fee = max($5.95, 6% of parking base cost).
+ * Minimum raised $4.95 → $5.95 on 2026-09-14 (Tom). The floor applies to any
+ * parking base under $99.17 (6% × 99.17 = 5.95); larger bookings pay 6%.
  * "Parking base cost" = ResLab sub_total + fees_total (before taxes).
  *
  * Configurable via env vars:
  *   TRIPLY_SERVICE_FEE_PERCENT  – default 6
- *   TRIPLY_SERVICE_FEE_MIN      – default 4.95
+ *   TRIPLY_SERVICE_FEE_MIN      – default 5.95
  */
 
 const FEE_PERCENT = parseFloat(process.env.TRIPLY_SERVICE_FEE_PERCENT || "6");
-const FEE_MIN = parseFloat(process.env.TRIPLY_SERVICE_FEE_MIN || "4.95");
+const FEE_MIN = parseFloat(process.env.TRIPLY_SERVICE_FEE_MIN || "5.95");
 
 /**
  * Calculate the Triply service fee for a booking.
