@@ -10,7 +10,10 @@ import { UnifiedLot } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
-import { getChannelLocationsCached } from "./search";
+import {
+  getChannelLocationsCached,
+  BLOCKED_RESLAB_LOCATION_IDS,
+} from "./search";
 
 /**
  * Airport coordinates for distance calculation
@@ -174,6 +177,10 @@ export async function getLotFromReslab(
   toDate: string,
   airportCoords?: AirportCoords
 ): Promise<UnifiedLot | null> {
+  // Deliberately hidden lot — treated as not found on every path (slug and
+  // numeric id) so it can't be reached via the detail page or /api/checkout/lot.
+  if (BLOCKED_RESLAB_LOCATION_IDS.has(locationId)) return null;
+
   try {
     // Get location details
     const location = await reslab.getLocation(locationId);
