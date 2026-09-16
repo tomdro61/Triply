@@ -48,6 +48,7 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
       checkin: checkinStr,
       checkout: checkoutStr,
       sort: "price_asc",
+      source: "airport-page",
     });
     // ⚠️ Assign BEFORE the throw below. The catch swallows during `next build`,
     // so throwing first would leave `lots` empty and bake the zero-lot render —
