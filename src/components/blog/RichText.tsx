@@ -462,16 +462,47 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
 interface RichTextProps {
   content: LexicalContent | null | undefined
   className?: string
+  /**
+   * Index of the top-level block to render `insertContent` after. Splitting the
+   * block array (rather than the rendered HTML) guarantees the insert lands
+   * between blocks and never inside a paragraph, list or table.
+   * See getMidArticleInsertIndex in @/lib/blog/article-split.
+   */
+  insertAfterIndex?: number | null
+  insertContent?: React.ReactNode
 }
 
-export function RichText({ content, className = '' }: RichTextProps) {
+export function RichText({
+  content,
+  className = '',
+  insertAfterIndex = null,
+  insertContent = null,
+}: RichTextProps) {
   if (!content?.root?.children) {
     return null
   }
 
+  const blocks = content.root.children
+  const insertAt =
+    insertContent != null &&
+    insertAfterIndex != null &&
+    insertAfterIndex >= 0 &&
+    insertAfterIndex < blocks.length
+      ? insertAfterIndex
+      : null
+
   return (
     <div className={`prose prose-slate max-w-none ${className}`}>
-      {content.root.children.map((node, index) => renderNode(node, index))}
+      {blocks.map((node, index) =>
+        index === insertAt ? (
+          <React.Fragment key={`block-${index}`}>
+            {renderNode(node, index)}
+            {insertContent}
+          </React.Fragment>
+        ) : (
+          renderNode(node, index)
+        )
+      )}
     </div>
   )
 }
