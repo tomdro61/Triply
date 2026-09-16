@@ -7,6 +7,19 @@ import { captureAPIError } from "@/lib/sentry";
 
 const newsletterSchema = z.object({
   email: z.string().email("Invalid email address").max(254),
+  // Optional attribution. Sent by the end-of-article capture on the blog;
+  // the homepage form sends none of it and behaves exactly as before.
+  source: z
+    .string()
+    .max(32)
+    .regex(/^[a-z0-9_-]+$/, "Invalid source")
+    .optional(),
+  airportCode: z
+    .string()
+    .max(4)
+    .transform((v) => v.toUpperCase())
+    .optional(),
+  slug: z.string().max(200).optional(),
 });
 
 function generatePromoCode(): string {
@@ -25,7 +38,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email } = result.data;
+    const { email, source, airportCode, slug } = result.data;
     const supabase = await createAdminClient();
 
     // Check if already subscribed
@@ -93,6 +106,25 @@ export async function POST(request: NextRequest) {
           { error: "Failed to process subscription" },
           { status: 500 }
         );
+      }
+    }
+
+    // Record where the signup came from. Deliberately a separate, best-effort
+    // write AFTER the subscriber row exists: these columns arrive in migration
+    // 021 and the API must keep working whether or not it has been applied, in
+    // either deploy order. A failure here is logged and nothing more.
+    if (source) {
+      try {
+        const { error: sourceError } = await supabase
+          .from("newsletter_subscribers")
+          .update({ source, airport_code: airportCode ?? null, page: slug ?? null })
+          .eq("email", email.toLowerCase());
+
+        if (sourceError) {
+          console.warn("Newsletter source attribution skipped:", sourceError.message);
+        }
+      } catch (sourceError) {
+        console.warn("Newsletter source attribution skipped:", sourceError);
       }
     }
 

@@ -216,12 +216,24 @@ export function trackLogin(method: "email" | "google") {
 
 /**
  * Track newsletter signup
+ *
+ * Optional opts let a caller say WHERE the signup came from (e.g. the
+ * end-of-article capture on the blog) and which airport the page was about,
+ * so leads can be attributed in GA4. Called with no arguments the event is
+ * byte-for-byte what it was before.
  */
-export function trackNewsletterSignup() {
+export function trackNewsletterSignup(opts?: {
+  source?: string;
+  airportCode?: string | null;
+}) {
   if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "generate_lead", {
+    const params: Record<string, string> = {
       lead_type: "newsletter",
-    });
+    };
+    if (opts?.source) params.lead_source = opts.source;
+    if (opts?.airportCode) params.airport_code = opts.airportCode;
+
+    window.gtag("event", "generate_lead", params);
   }
 }
 
