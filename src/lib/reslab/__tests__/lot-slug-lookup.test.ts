@@ -24,7 +24,7 @@ vi.mock("../search", async () => {
   return { ...actual, ...searchMock };
 });
 
-import { findLotBySlug } from "../get-lot";
+import { findLotBySlug, getLotFromReslab } from "../get-lot";
 
 const FROM = "2026-09-01 10:00:00";
 const TO = "2026-09-05 14:00:00";
@@ -141,5 +141,22 @@ describe("findLotBySlug — must not sweep /locations on the request path", () =
     await expect(findLotBySlug("park-for-u", FROM, TO)).rejects.toThrow(
       /backing off/i,
     );
+  });
+});
+
+describe("blocked lots (BLOCKED_RESLAB_LOCATION_IDS)", () => {
+  it("a blocked lot is not-found by slug AND by numeric id, with no detail fetch", async () => {
+    // 416 = Parking 4 Airport (JFK), hidden 2026-09-15. Both the detail page
+    // (slug) and /api/checkout/lot (numeric id) must treat it as missing.
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [loc(1, "Broadway Motor Service"), loc(416, "Parking 4 Airport (JFK)")],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockResolvedValue(loc(416, "Parking 4 Airport (JFK)"));
+
+    expect(await findLotBySlug("parking-4-airport-jfk", FROM, TO)).toBeNull();
+    expect(await getLotFromReslab(416, FROM, TO)).toBeNull();
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
 });

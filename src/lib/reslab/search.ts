@@ -22,6 +22,12 @@ import { captureAPIError } from "@/lib/sentry";
 
 export { generateSlug };
 
+// ResLab location IDs deliberately hidden from the site. Search filters them
+// out and the lot detail page 404s them. Remove the ID to restore the lot.
+//   416 — Parking 4 Airport (JFK): repeatedly refused Triply customers on
+//         arrival (2026-09-15). Ask ResLab to unlink it from our channel too.
+export const BLOCKED_RESLAB_LOCATION_IDS: ReadonlySet<number> = new Set([416]);
+
 /**
  * Transform ResLab location to UnifiedLot format
  */
@@ -824,6 +830,11 @@ export async function searchParking(
         lng: String(airportInfo.longitude),
       })) || [];
   }
+
+  // Drop lots we've deliberately hidden (see BLOCKED_RESLAB_LOCATION_IDS).
+  locations = locations.filter(
+    (loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id)
+  );
 
   // Genuine "no lots near this airport" — distinct from a ResLab failure, which
   // now throws above. Returned as a 200, but the route serves every empty
