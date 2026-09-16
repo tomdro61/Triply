@@ -12,6 +12,9 @@ import { TableOfContents } from '@/components/blog/TableOfContents'
 import { HubLayout } from '@/components/blog/HubLayout'
 import { SubPillarLayout } from '@/components/blog/SubPillarLayout'
 import { SpokeLayout } from '@/components/blog/SpokeLayout'
+import { ArticleBookingPrompt } from '@/components/blog/ArticleBookingPrompt'
+import { ArticleCta, ArticleCtaInline } from '@/components/blog/ArticleCta'
+import { getMidArticleInsertIndex } from '@/lib/blog/article-split'
 
 // Cache each post page for 1 hour. The biggest single source of Supabase
 // egress was crawlers walking every /blog/[slug] URL; with this directive
@@ -63,11 +66,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-async function ArticleContent({ post }: { post: any }) {
+async function ArticleContent({
+  post,
+  midCtaIndex,
+}: {
+  post: any
+  midCtaIndex: number | null
+}) {
   const content = (
     <>
       <TableOfContents content={post.content} />
-      <RichText content={post.content} className="text-gray-700" />
+      <RichText
+        content={post.content}
+        className="text-gray-700"
+        insertAfterIndex={midCtaIndex}
+        insertContent={
+          midCtaIndex === null ? null : <ArticleCta airportCode={post.airportCode} />
+        }
+      />
 
       {/* Tags */}
       {post.tags && post.tags.length > 0 && (
@@ -111,6 +127,9 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   const contentUpdatedAt = getContentUpdatedAt(post)
+  // Where the "Ready to Book…" block goes inside the body (~30% down). null =
+  // the article is too short to split, so the full block stays at the end.
+  const midCtaIndex = getMidArticleInsertIndex(post.content)
 
   return (
     <>
@@ -220,30 +239,32 @@ export default async function BlogPostPage({ params }: Props) {
           </div>
         )}
 
-        {/* Article Content with Layout */}
+        {/* Booking prompt — airport preselected, reader just picks dates */}
+        <ArticleBookingPrompt airportCode={post.airportCode} />
+
+        {/* Article Content with Layout (holds the mid-article CTA) */}
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-3xl mx-auto">
-            <ArticleContent post={post} />
+            <ArticleContent post={post} midCtaIndex={midCtaIndex} />
           </div>
         </div>
 
-        {/* CTA Section */}
-        <section className="bg-coral/5 py-12">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-2xl font-heading font-bold text-navy mb-4">
-              Ready to Book Your {post.airportCode ? `${post.airportCode} ` : ''}Airport Parking?
-            </h2>
-            <p className="text-gray-600 mb-6 max-w-xl mx-auto">
-              Compare prices from top-rated parking lots and save up to 70% on your next trip.
-            </p>
-            <Link
-              href={post.airportCode ? `/search?airport=${post.airportCode}` : '/'}
-              className="inline-block bg-coral text-white px-8 py-3 rounded-lg font-semibold hover:bg-coral/90 transition-colors"
-            >
-              Find Parking Now
-            </Link>
+        {/* End-of-page CTA — compact once the full block already ran
+            mid-article; the full block only lands here on articles too short
+            to split. */}
+        {midCtaIndex === null ? (
+          <div className="container mx-auto px-4 pb-12">
+            <div className="max-w-3xl mx-auto">
+              <ArticleCta airportCode={post.airportCode} />
+            </div>
           </div>
-        </section>
+        ) : (
+          <section className="bg-coral/5 py-6">
+            <div className="container mx-auto px-4 text-center">
+              <ArticleCtaInline airportCode={post.airportCode} />
+            </div>
+          </section>
+        )}
       </article>
     </main>
     <Footer />
