@@ -14,6 +14,7 @@ import { SubPillarLayout } from '@/components/blog/SubPillarLayout'
 import { SpokeLayout } from '@/components/blog/SpokeLayout'
 import { ArticleBookingPrompt } from '@/components/blog/ArticleBookingPrompt'
 import { ArticleCta, ArticleCtaInline } from '@/components/blog/ArticleCta'
+import { ArticleEmailCapture } from '@/components/blog/ArticleEmailCapture'
 import { getMidArticleInsertIndex } from '@/lib/blog/article-split'
 
 // Cache each post page for 1 hour. The biggest single source of Supabase
@@ -246,6 +247,11 @@ export default async function BlogPostPage({ params }: Props) {
         <div className="container mx-auto px-4 py-12">
           <div className="max-w-3xl mx-auto">
             <ArticleContent post={post} midCtaIndex={midCtaIndex} />
+
+            {/* Email capture — where a reader who finished the article but
+                did not book lands. One per article, after the body/FAQ and
+                before the end-of-page booking CTA. */}
+            <ArticleEmailCapture airportCode={post.airportCode} slug={slug} />
           </div>
         </div>
 
