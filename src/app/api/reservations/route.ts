@@ -18,6 +18,7 @@ import {
 } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
+import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 
 // ResLab's own call is allowed up to 30s, and Park Guard, Supabase, and two
 // emails run after it. The Vercel default (15s on Pro) could kill this
@@ -61,12 +62,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Attribution comes from the cookie, never the client body (reservationSchema
+    // strips unknown keys, so a body field could not reach the engine anyway).
+    // Only used when the pending row was staged without it (older bundle).
+    const attribution = readAttributionFromRequest(request, { stripePaymentIntentId });
+
     const outcome = await createBooking({
       source: DEV_SKIP_PAYMENT ? "dev" : "client",
       stripePaymentIntentId: DEV_SKIP_PAYMENT
         ? null
         : stripePaymentIntentId ?? null,
       payload,
+      attribution,
     });
 
     switch (outcome.kind) {

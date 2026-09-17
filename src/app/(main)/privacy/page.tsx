@@ -134,6 +134,15 @@ export default function PrivacyPage() {
               <li><strong>Functional Cookies:</strong> Remember your preferences</li>
               <li><strong>Analytics Cookies:</strong> Help us understand usage patterns (Google Analytics)</li>
               <li><strong>Marketing Cookies:</strong> Used for advertising (only with consent)</li>
+              <li>
+                <strong>Attribution Cookies (<code>triply_attr</code>, <code>triply_attr_state</code>):</strong>{" "}
+                First-party cookies, kept for 30 days, that record how you arrived at our site
+                (campaign parameters such as utm_source, the referring website&apos;s domain, the page you
+                landed on, advertising click identifiers such as gclid or fbclid, and the airport you last
+                searched). If you make a booking, this information is stored with your booking so we can
+                understand which channels bring customers. It is never shared with third parties. If you
+                opt out of analytics, advertising click identifiers are not recorded.
+              </li>
             </ul>
             <p>
               You can manage your cookie preferences below or through your browser settings.

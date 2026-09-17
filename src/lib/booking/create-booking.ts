@@ -38,6 +38,7 @@ import {
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { reservationSchema } from "@/lib/validation/schemas";
+import type { Attribution } from "@/lib/attribution/schema";
 import {
   getProtectionPlan,
   isProtectionPlanCode,
@@ -169,6 +170,13 @@ export interface CreateBookingInput {
   /** Present for the client path. Omitted by the webhook and return page, which
    *  load the payload from the durable pending row instead. */
   payload?: BookingPayload;
+  /** Marketing attribution read from the first-party cookie by the route
+   *  handler. Threaded as its OWN field, never inside `payload`:
+   *  payloadFromPendingRow re-validates through reservationSchema, which strips
+   *  unknown keys, so anything riding in the payload would be lost on every
+   *  webhook / return-page / sweep fulfilment. The pending row is the primary
+   *  source; this is the fallback for a row staged by an older bundle. */
+  attribution?: Attribution | null;
 }
 
 // =============================================================================
@@ -389,6 +397,9 @@ interface PendingRow {
    *  Optional so a read that predates migration 021 is detectable (undefined)
    *  rather than mistaken for a contradiction. */
   protection_plan_code?: string | null;
+  /** Parsed triply_attr cookie captured at stage time (migration 023). Optional
+   *  so a pre-migration read is `undefined`, not a type lie. */
+  attribution?: Attribution | null;
 }
 
 /**
@@ -1117,6 +1128,7 @@ async function createBookingInner(
       user_id: input.payload.userId ?? null,
       has_protection_plan: input.payload.protectionPlanCode !== null,
       protection_plan_code: input.payload.protectionPlanCode,
+      attribution: input.attribution ?? null,
       livemode: pi.livemode,
       status: "pending",
     });
@@ -1257,7 +1269,7 @@ async function createBookingInner(
     // needs_reconciliation (non-retryable) — the correct outcome for a row that
     // will never parse.
     const payload = input.payload ?? payloadFromPendingRow(claimed);
-    return await fulfilClaimed(pi, claimed, payload, source);
+    return await fulfilClaimed(pi, claimed, payload, source, input.attribution ?? null);
   } catch (unexpected) {
     // Any escape from the fulfilment path leaves money in an unknown state.
     // Do NOT release blindly — a reservation may exist.
@@ -1311,9 +1323,17 @@ async function fulfilClaimed(
   pi: Stripe.PaymentIntent,
   row: PendingRow,
   payload: BookingPayload,
-  source: BookingSource
+  source: BookingSource,
+  /** Cookie attribution from the CLIENT route. The row is the durable source;
+   *  this is the fallback when the row carries none — `undefined` (read before
+   *  migration 023) OR `null` (staged with no cookie, e.g. by a bundle that
+   *  predates capture, or before the fire-and-forget capture POST landed).
+   *  Both fall through deliberately: the client cookie was set by the same
+   *  browser moments later, so it can only add what the row lacks. */
+  clientAttribution: Attribution | null = null
 ): Promise<CreateBookingResult> {
   const piId = pi.id;
+  const attribution: Attribution | null = row.attribution ?? clientAttribution;
 
   // --- Step 7: resume, or claim the cart --------------------------------------
   //
@@ -1666,7 +1686,7 @@ async function fulfilClaimed(
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
   };
-  const persisted = await persistBooking(payload, reservation, charged, promo);
+  const persisted = await persistBooking(payload, reservation, charged, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {
     await markTerminal(piId, "completed");
@@ -1720,7 +1740,9 @@ async function fulfilClaimed(
   // --- Step 12: emails — only on a genuinely new booking ----------------------
   if (!row.email_sent) {
     const { customerEmailSent } = await sendBookingEmails(
-      payload,
+      // The admin notification prints the airport; the client's value is
+      // "RESLAB" (lot-id prefix), so report the code the row actually got.
+      persisted.airportCode ? { ...payload, airportCode: persisted.airportCode } : payload,
       reservation,
       persisted.pgSyncStatus,
       charged

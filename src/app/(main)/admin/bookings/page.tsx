@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
+import { csvEscape } from "@/lib/utils/csv";
+import { attributionSourceLabel as sourceLabel, type AttributionRow } from "@/lib/attribution/display";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
 
 interface Booking {
@@ -43,6 +45,12 @@ interface Booking {
   protection_plan_wholesale: string | null;
   pg_identifier: string | null;
   pg_sync_status: "pending" | "synced" | "skipped_missing_data" | null;
+  /** Marketing attribution (migration 023). channel is the derived first-touch
+   *  channel; attribution.first.cmp is the utm_campaign. Visitor-controlled
+   *  strings — render as text only, never as an href. */
+  channel: AttributionRow["channel"];
+  airport_code: string | null;
+  attribution: AttributionRow["attribution"];
   vehicle_info: {
     make: string;
     model: string;
@@ -254,6 +262,11 @@ export default function AdminBookingsPage() {
       "Protection Premium",
       "Park Guard ID",
       "Created",
+      "Source",
+      "Airport",
+      "UTM Source",
+      "UTM Medium",
+      "UTM Campaign",
     ];
 
     const rows = bookings.map((b) => {
@@ -281,15 +294,18 @@ export default function AdminBookingsPage() {
         b.protection_plan_price ? parseFloat(b.protection_plan_price).toFixed(2) : "",
         b.pg_identifier || "",
         formatDateTime(b.created_at),
+        sourceLabel(b),
+        b.airport_code || "",
+        b.attribution?.first?.src || "",
+        b.attribution?.first?.med || "",
+        b.attribution?.first?.cmp || "",
       ];
     });
 
-    const escapeCsv = (v: unknown) => {
-      const s = v == null ? "" : String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
+    // csvEscape neutralises formula injection — utm_* values are typed by the
+    // visitor and would otherwise execute in an admin's spreadsheet.
     const csv = [headers, ...rows]
-      .map((row) => row.map(escapeCsv).join(","))
+      .map((row) => row.map(csvEscape).join(","))
       .join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -487,6 +503,9 @@ export default function AdminBookingsPage() {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Source
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
@@ -552,6 +571,19 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={booking.status} />
+                      </td>
+                      <td
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
+                        title={
+                          booking.attribution?.first?.cmp
+                            ? `Campaign: ${booking.attribution.first.cmp}`
+                            : undefined
+                        }
+                      >
+                        {sourceLabel(booking)}
+                        {booking.airport_code && booking.airport_code !== "RESLAB" && (
+                          <span className="ml-1 text-xs text-gray-400">· {booking.airport_code}</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button

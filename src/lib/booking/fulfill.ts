@@ -23,6 +23,17 @@ import {
   captureBookingError,
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
+// Attribution helpers are pure and import nothing from @/lib/reslab/search or
+// @/lib/reslab/get-lot — the shared location-list cache is per-lambda and cold
+// here, and a sweep after capture is the Aug-16 outage class. A static test
+// (src/lib/attribution/__tests__/no-reslab-list-in-booking.test.ts) pins this.
+import {
+  normalizeStoredAttribution,
+  type Attribution,
+  type Channel,
+} from "@/lib/attribution/schema";
+import { classifyChannel, PARTNER_SOURCE_RE } from "@/lib/attribution/classify";
+import { resolveAirportCode, validCoords } from "@/lib/attribution/airport";
 import {
   parkGuard,
   type ProtectionPlanTier,
@@ -49,6 +60,9 @@ export type PgSyncStatus = "pending" | "synced" | "skipped_missing_data" | null;
 
 export interface PersistResult {
   bookingId: string | null;
+  /** The airport written to the row (derived server-side, migration 023 era).
+   *  Threaded to the admin email so it never reports the client's "RESLAB". */
+  airportCode: string | null;
   pgIdentifier: string | null;
   pgSyncStatus: PgSyncStatus;
   /** True when the booking row itself failed to insert. Money is already
@@ -131,7 +145,11 @@ export async function persistBooking(
   payload: BookingPayload,
   reservation: ReslabReservation,
   charged: ChargedProtection | null,
-  promo?: AppliedPromo
+  promo?: AppliedPromo,
+  /** Marketing attribution captured at stage time (migration 023). Optional:
+   *  the dev-only fulfilOnly path has none. Threaded separately from `payload`
+   *  because reservationSchema would strip it — see CreateBookingInput. */
+  attribution?: Attribution | null
 ): Promise<PersistResult> {
   const {
     locationId,
@@ -156,6 +174,7 @@ export async function persistBooking(
   const resHistory = reservation.history?.[0];
   const result: PersistResult = {
     bookingId: null,
+    airportCode: null,
     pgIdentifier: null,
     pgSyncStatus: null,
     bookingInsertFailed: false,
@@ -244,20 +263,31 @@ export async function persistBooking(
 
     // The lot's IANA timezone for the self-cancel 24h gate. Primary source is
     // the ResLab reservation's embedded location; airport_code is NOT usable
-    // (it is "RESLAB" on ~all bookings). Fall back to getLocation ONLY when the
-    // reservation omits it, in its OWN try/catch so a ResLab hiccup here can
+    // (it is "RESLAB" on ~all bookings). Fall back to ONE getLocation call when
+    // the reservation omits the timezone OR the lot coordinates (the airport
+    // derivation below shares the fetch), in its OWN try/catch so a ResLab hiccup here can
     // never fail the money-committed insert (persistBooking's outer catch would
     // otherwise mark the whole booking failed). A remaining null fail-closes the
     // cancel gate for this booking (routes the customer to support) and is
     // Sentry-flagged so a feature-wide "nobody can cancel" regression is visible.
     let locationTimezone: string | null =
       resHistory?.location?.timezone?.code ?? null;
-    if (!locationTimezone && locationId != null) {
+    // The lot's coordinates drive the airport derivation below. Same source,
+    // same single fallback fetch — never the shared location-list cache.
+    let lotCoords = validCoords(
+      resHistory?.location?.latitude,
+      resHistory?.location?.longitude
+    );
+    if ((!locationTimezone || !lotCoords) && locationId != null) {
       try {
-        locationTimezone =
-          (await reslab.getLocation(locationId))?.timezone?.code ?? null;
+        const fetched = await reslab.getLocation(locationId);
+        if (!locationTimezone) locationTimezone = fetched?.timezone?.code ?? null;
+        if (!lotCoords) lotCoords = validCoords(fetched?.latitude, fetched?.longitude);
       } catch (locErr) {
-        locationTimezone = null;
+        // Leave locationTimezone AS-IS: the reservation may already have
+        // supplied it and this fetch may have run only for the coordinates. A
+        // marketing-field fetch failing must never null a known timezone and
+        // fail-close the customer's self-cancel gate.
         // Surface WHY the fallback failed (404 vs 5xx vs timeout vs auth) so a
         // systematic "nobody can self-cancel" regression is diagnosable rather
         // than an opaque null. Non-fatal — the null case is still handled below.
@@ -279,6 +309,74 @@ export async function persistBooking(
       );
     }
 
+    // --- Attribution channel + airport (non-blocking) -----------------------
+    // Each in its OWN try/catch, like the timezone fallback above: a throw
+    // anywhere inside this outer try marks bookingInsertFailed for a booking
+    // whose money is already captured. A null here is a reporting gap, not a
+    // customer problem — captured to Sentry, never allowed to block the insert.
+    // The pending row's JSONB is a boundary too: re-validate before trusting
+    // its shape, so a corrupt row becomes the invalid marker, never a throw.
+    // Inside the guard: safeParse cannot throw today, but a future refine on
+    // the schema must not be able to fail a paid booking either.
+    let storedAttribution: Attribution | null = null;
+    let channel: Channel | null = null;
+    try {
+      storedAttribution = normalizeStoredAttribution(attribution);
+      const validAttribution =
+        storedAttribution && storedAttribution.v === 1 ? storedAttribution : null;
+      if (validAttribution) {
+        // `utm_source=partner-<reslab_location_id>` is visitor input; only an
+        // ACTIVE partner row earns the partner channel, else it is a referral.
+        // Lower-cased to match the classifier's own matching.
+        let activePartnerLocationIds: Set<number> | undefined;
+        const partnerTag = (validAttribution.first.src ?? "").toLowerCase().match(PARTNER_SOURCE_RE);
+        if (partnerTag) {
+          const { data: partner, error: partnerError } = await supabase
+            .from("partners")
+            .select("reslab_location_id")
+            .eq("reslab_location_id", Number(partnerTag[1]))
+            .eq("is_active", true)
+            .maybeSingle();
+          if (partnerError) {
+            // A DB fault is not "no such partner". Asserting `referral` here
+            // would permanently mislabel a partner booking with no trace, so
+            // leave the channel unknown and say why.
+            throw new Error(`partners lookup failed: ${partnerError.message}`);
+          }
+          activePartnerLocationIds = new Set(
+            partner ? [Number((partner as { reslab_location_id: number }).reslab_location_id)] : []
+          );
+        }
+        channel = classifyChannel(validAttribution, { activePartnerLocationIds });
+      }
+    } catch (chErr) {
+      channel = null;
+      captureBookingError(
+        chErr instanceof Error ? chErr : new Error(String(chErr)),
+        { step: "checkout", confirmationNumber: reservation.reservation_number }
+      );
+    }
+
+    // The client-supplied airportCode is "RESLAB" on ~all bookings (it is the
+    // lot-id prefix) and is deliberately NOT written here. Derived instead from
+    // the lot's coordinates, preferring the airport the visitor actually
+    // searched when the lot is within range of it. Null when unresolvable.
+    let derivedAirportCode: string | null = null;
+    try {
+      derivedAirportCode = resolveAirportCode({
+        contextAirport:
+          storedAttribution && storedAttribution.v === 1 ? (storedAttribution.apt ?? null) : null,
+        lat: lotCoords?.lat,
+        lng: lotCoords?.lng,
+      });
+    } catch (apErr) {
+      derivedAirportCode = null;
+      captureBookingError(
+        apErr instanceof Error ? apErr : new Error(String(apErr)),
+        { step: "checkout", confirmationNumber: reservation.reservation_number }
+      );
+    }
+
     // --- Booking row ---------------------------------------------------------
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
@@ -289,7 +387,12 @@ export async function persistBooking(
         location_name:
           locationName || resHistory?.location?.name || `Location ${locationId}`,
         location_address: locationAddress || resHistory?.location?.address || "",
-        airport_code: airportCode || "",
+        // Derived server-side (see above). NULL = unknown; never the client's
+        // "RESLAB". airport_code is nullable (001) so this cannot 23502.
+        airport_code: derivedAirportCode,
+        // Migration 023. NULL attribution = cookie absent (pre-deploy, no JS).
+        attribution: storedAttribution,
+        channel,
         // IANA tz for the self-cancel 24h gate (resolved above). NULL fail-closes
         // the gate for this booking — never guessed.
         location_timezone: locationTimezone,
@@ -368,6 +471,7 @@ export async function persistBooking(
     }
 
     result.bookingId = bookingRow.id;
+    result.airportCode = derivedAirportCode;
 
     // --- Park Guard (non-blocking) ------------------------------------------
     if (charged && bookingRow?.id) {

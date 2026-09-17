@@ -29,7 +29,9 @@ export interface BookingDetail {
   check_out: string;
   customer_email: string;
   location_name: string;
-  airport_code: string;
+  /** Derived at fulfilment from the lot's coordinates (migration 023 era);
+   *  "RESLAB" on legacy rows until the backfill runs; null when unresolvable. */
+  airport_code: string | null;
   reslab_location_id: number | null;
   grand_total: number;
   subtotal: number;

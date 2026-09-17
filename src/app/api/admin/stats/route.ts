@@ -3,6 +3,14 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
+import {
+  buildPromoReport,
+  byAirport,
+  byChannel,
+  presentRate,
+  type PromoMeta,
+  type ReportRow,
+} from "@/lib/attribution/report";
 
 export async function GET(request: NextRequest) {
   try {
@@ -230,7 +238,82 @@ export async function GET(request: NextRequest) {
     const pgCostWeek = sumProtectionColumn(weekRevenueResult.data, "protection_plan_wholesale");
     const pgCostMonth = sumProtectionColumn(monthRevenueResult.data, "protection_plan_wholesale");
 
+    // --- Attribution / airport / promo breakdowns (migration 023) -----------
+    // Reporting only: a failure here must NEVER take the dashboard's booking
+    // counts and revenue down with it. Each query captures its error and the
+    // response carries `warnings` the page renders as "unavailable" — never a
+    // silent empty state that reads like "no bookings".
+    const warnings: string[] = [];
+    const warn = (what: string, err: { message: string }) => {
+      warnings.push(what);
+      captureAPIError(new Error(`Admin stats attribution: ${what}: ${err.message}`), {
+        endpoint: "/api/admin/stats",
+        method: "GET",
+      });
+    };
+
+    // PostgREST silently caps a select at 1000 rows, so page with .range()
+    // until a short page. `id` breaks created_at ties so page boundaries are
+    // stable across separate OFFSET queries.
+    const PAGE = 1000;
+    const attrRows: ReportRow[] = [];
+    let attrRowsComplete = true;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error: pageError } = await excludeAdmins(
+        applyDateFilter(
+          supabase
+            .from("bookings")
+            .select(
+              "channel, attribution, airport_code, promo_code, discount_amount, grand_total, triply_service_fee, protection_plan, protection_plan_price, status, created_at"
+            )
+        )
+      )
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (pageError) {
+        warn("bookings breakdown fetch failed", pageError);
+        attrRowsComplete = false;
+        break;
+      }
+      const page = (data ?? []) as ReportRow[];
+      attrRows.push(...page);
+      if (page.length < PAGE) break;
+    }
+
+    const { data: promoRows, error: promoError } = await supabase
+      .from("promo_codes")
+      .select("code, discount_percent, active, current_uses, max_uses, expires_at");
+    if (promoError) warn("promo_codes fetch failed", promoError);
+
+    // Capture health over the last 7 days, independent of the date filter on
+    // purpose (it is a regression alarm, not a report). Only a VALID cookie
+    // counts as present; the invalid marker is reported separately.
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recent, error: recentError } = await excludeAdmins(
+      supabase.from("bookings").select("attribution").gte("created_at", sevenDaysAgo).limit(1000)
+    );
+    if (recentError) warn("7-day capture-rate fetch failed", recentError);
+    const health = presentRate(
+      (recent ?? []) as Array<{ attribution: ReportRow["attribution"] }>
+    );
+
+    const airports = byAirport(attrRows);
+
     return NextResponse.json({
+      attribution: attrRowsComplete
+        ? {
+            byChannel: byChannel(attrRows),
+            byAirport: airports.rows,
+            byAirportTotal: airports.total,
+            byPromo: promoError ? null : buildPromoReport(attrRows, (promoRows ?? []) as PromoMeta[]),
+            presentRate7d: recentError ? null : health.presentRate,
+            invalidRate7d: recentError ? null : health.invalidRate,
+            recentBookings7d: recentError ? null : health.total,
+            warnings,
+          }
+        : null,
+      attributionWarnings: warnings,
       bookings: {
         total: totalResult.count || 0,
         today: todayResult.count || 0,
