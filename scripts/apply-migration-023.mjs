@@ -10,7 +10,9 @@ const SERVICE_KEY = appEnv.match(/^SUPABASE_SERVICE_ROLE_KEY=(.+)$/m)[1].trim();
 const MODE = process.argv[2] ?? "apply";
 
 const sql = fs.readFileSync("C:/Projects/Triply_claude/triply/supabase/migrations/023_booking_attribution.sql", "utf8");
-const client = new Client({ connectionString: DATABASE_URI, ssl: true });
+// TLS is governed by the connection string's own sslmode, exactly as the CMS
+// itself connects in production — this script neither loosens nor tightens it.
+const client = new Client({ connectionString: DATABASE_URI });
 await client.connect();
 const q = async (text, params) => (await client.query(text, params)).rows;
 
@@ -46,7 +48,8 @@ try {
   const n0 = await uses("SAVE10");
   await client.query("create temp table t on commit drop as select * from bookings order by created_at desc limit 1");
   const mk = async (tag, promo, disc) => {
-    await client.query("update t set id=gen_random_uuid(), reslab_reservation_number=$1, stripe_payment_intent_id=$2, promo_code=$3, discount_amount=$4", [`TEST-TRIG-${tag}`, `pi_test_trigger_${tag}`, promo, disc]);
+    // Clear every UNIQUE column the copied row may carry (pg_identifier is unique per booking).
+    await client.query("update t set id=gen_random_uuid(), reslab_reservation_number=$1, stripe_payment_intent_id=$2, promo_code=$3, discount_amount=$4, pg_identifier=NULL", [`TEST-TRIG-${tag}`, `pi_test_trigger_${tag}`, promo, disc]);
     await client.query("insert into bookings select * from t");
     return (await q("select id from bookings where reslab_reservation_number=$1", [`TEST-TRIG-${tag}`]))[0].id;
   };
@@ -60,16 +63,20 @@ try {
   await client.query("update bookings set airport_code='JFK' where id=$1", [idA]);
   console.log(`4. UPDATE on a promo row: uses ${await uses("SAVE10")} ${(await uses("SAVE10")) === n1 ? "OK (no fire)" : "FAIL"}`);
   // 5. The guard: make the counter UPDATE fail (as service_role, with UPDATE revoked) — the INSERT must still succeed.
+  await client.query("savepoint guard");
+  await client.query("grant select, update on t to service_role"); // the temp copy is owned by postgres
   await client.query("revoke update on public.promo_codes from service_role");
   await client.query("set local role service_role");
   let guardOk = false;
   try {
     await mk("d", "SAVE10", 5);
     guardOk = true;
+    await client.query("reset role");
   } catch (e) {
     console.log("5. GUARD FAILED — insert aborted:", e.message);
+    await client.query("rollback to savepoint guard");
+    await client.query("reset role");
   }
-  await client.query("reset role");
   console.log(`5. counter UPDATE forbidden → INSERT still succeeds: ${guardOk ? "OK" : "FAIL"}; uses ${await uses("SAVE10")} (unchanged expected ${n1})`);
 } finally {
   await client.query("ROLLBACK");
