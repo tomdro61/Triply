@@ -19,6 +19,13 @@ import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { generateSlug } from "@/lib/utils/slug";
 import { captureAPIError } from "@/lib/sentry";
+import {
+  logAvailability,
+  dayDiff,
+  utcToday,
+  type AvailabilityRow,
+  type AvailabilitySource,
+} from "@/lib/availability/log";
 
 export { generateSlug };
 
@@ -216,6 +223,12 @@ export interface SearchParkingParams {
   checkinTime?: string; // "10:00 AM" format
   checkoutTime?: string; // "2:00 PM" format
   sort?: SortOption;
+  /**
+   * Which surface asked. Recorded with the sold-out signal so an airport-page
+   * render (a fixed +1d/+8d window, hit on every ISR revalidation) can be told
+   * apart from a real customer search. Defaults to "search".
+   */
+  source?: AvailabilitySource;
 }
 
 export interface SearchParkingResult {
@@ -775,6 +788,7 @@ export async function searchParking(
     checkinTime = "10:00 AM",
     checkoutTime = "2:00 PM",
     sort = "popularity",
+    source = "search",
   } = params;
 
   // Validate airport
@@ -861,7 +875,11 @@ export async function searchParking(
   // non-fatal — we still show the others — but count them so we can tell a
   // genuine "everything is sold out" empty from a ResLab degradation (below).
   let pricingErrors = 0;
-  const lotsWithPricing = await Promise.all(
+  // Keep the raw minPriceData alongside each transformed lot: transformLocation
+  // collapses sold_out/available_spots into one `availability` string and the
+  // filter below then drops the sold-out lots entirely, so this is the only
+  // point where the signal still exists in full.
+  const pricedLots = await Promise.all(
     locations.map(async (location) => {
       let minPriceData: ReslabMinPriceResponse | null = null;
 
@@ -880,14 +898,54 @@ export async function searchParking(
         pricingErrors++;
       }
 
-      return transformLocation(
+      return {
+        lot: transformLocation(
+          location,
+          minPriceData,
+          airportInfo.latitude,
+          airportInfo.longitude
+        ),
         location,
         minPriceData,
-        airportInfo.latitude,
-        airportInfo.longitude
-      );
+      };
     })
   );
+
+  const lotsWithPricing = pricedLots.map((p) => p.lot);
+
+  // Record which lots were sold out, BEFORE the filter below throws that away.
+  // ResLab has no history endpoint, so an unrecorded day is unrecoverable.
+  // Fire-and-forget and error-swallowing by contract — see
+  // src/lib/availability/log.ts and supabase/migrations/024_availability_log.sql.
+  const searchedOn = utcToday();
+  const availabilityRows: AvailabilityRow[] = pricedLots.flatMap(
+    ({ location, minPriceData }) => {
+      // Skip the lots whose pricing call failed: we know nothing about them,
+      // and a missing row is honest where a `sold_out: false` row would be a
+      // fabricated observation.
+      if (!minPriceData) return [];
+      const { sold_out, available_spots, grand_total } = minPriceData.reservation;
+      return [
+        {
+          airport_code: airportInfo.code,
+          check_in: checkin,
+          check_out: checkout,
+          lead_days: dayDiff(searchedOn, checkin),
+          stay_days: dayDiff(checkin, checkout),
+          reslab_location_id: location.id,
+          sold_out: Boolean(sold_out),
+          available_spots:
+            typeof available_spots === "number" ? available_spots : null,
+          min_price_cents:
+            typeof grand_total === "number" && grand_total > 0
+              ? Math.round(grand_total * 100)
+              : null,
+          source,
+        },
+      ];
+    }
+  );
+  logAvailability(availabilityRows);
 
   // Filter out unavailable lots and lots with no valid pricing
   const availableLots = lotsWithPricing.filter(
