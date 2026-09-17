@@ -24,6 +24,7 @@ const DateRangeFieldCompact = dynamic(() => import("@/components/airport/date-ra
 const DateRangeFieldDefault = dynamic(() => import("@/components/airport/date-range-field"), {
   loading: () => <DateRangeFieldSkeleton />,
 });
+import { WaitlistPrompt } from "@/components/airport/WaitlistPrompt";
 
 interface SearchWidgetProps {
   airportCode: string;
@@ -104,6 +105,11 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
           />
         </DateRangeFieldErrorBoundary>
       </div>
+
+      {/* The date pickers stop at the 60-day supplier wall with no explanation.
+          This says why and takes an email instead. Needs an airport to promise
+          anything specific, so it only renders once one is chosen. */}
+      {location && <WaitlistPrompt airportCode={location} />}
 
       <Button
         onClick={handleSearch}
