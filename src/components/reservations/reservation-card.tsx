@@ -11,7 +11,7 @@ interface Booking {
   reslab_location_id: number;
   location_name: string;
   location_address: string;
-  airport_code: string;
+  airport_code: string | null;
   check_in: string;
   check_out: string;
   grand_total: number;

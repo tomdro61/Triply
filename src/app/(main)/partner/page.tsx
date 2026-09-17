@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
+import { csvEscape } from "@/lib/utils/csv";
 
 interface Booking {
   id: string;
@@ -181,18 +182,19 @@ export default function PartnerReservationsPage() {
 
     const rows = bookings.map((b) => [
       b.reslab_reservation_number,
-      `"${b.customers?.first_name} ${b.customers?.last_name}"`,
+      `${b.customers?.first_name ?? ""} ${b.customers?.last_name ?? ""}`.trim(),
       b.customers?.email,
       formatDateTime(b.check_in),
       formatDateTime(b.check_out),
-      b.vehicle_info
-        ? `"${b.vehicle_info.make} ${b.vehicle_info.model}"`
-        : "",
+      b.vehicle_info ? `${b.vehicle_info.make} ${b.vehicle_info.model}` : "",
       b.grand_total,
       b.status,
     ]);
 
-    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n");
+    // csvEscape quotes embedded commas/quotes AND neutralises formula
+    // injection — customer names and vehicle fields are typed by the customer
+    // and open in a lot operator's spreadsheet.
+    const csv = [headers, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

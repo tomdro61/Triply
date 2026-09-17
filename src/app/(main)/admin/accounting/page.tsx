@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { csvEscape } from "@/lib/utils/csv";
 import {
   Calculator,
   Calendar,
@@ -44,17 +45,8 @@ function previousMonthDefaults(): { from: string; to: string } {
   return { from: `${y}-${m}-01`, to: `${y}-${m}-${d}` };
 }
 
-// CSV formula injection: prefix any value starting with `=`, `+`, `-`, `@`,
-// `\t`, `\r` with a single quote to neutralize Excel/Sheets execution.
-function csvEscape(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  let s = String(v);
-  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
-  if (s.includes(",") || s.includes('"') || s.includes("\n")) {
-    return `"${s.replace(/"/g, '""')}"`;
-  }
-  return s;
-}
+// csvEscape (formula-injection safe) now lives in @/lib/utils/csv, shared with
+// the bookings and partner exporters.
 
 function downloadCsv(bookings: BookingDetail[], filename: string) {
   const header = [
@@ -938,7 +930,7 @@ export default function AccountingPage() {
                         </td>
                         <td className="px-4 py-2 text-gray-600">{b.check_out?.slice(0, 10)}</td>
                         <td className="px-4 py-2 text-gray-700 max-w-xs truncate" title={b.location_name}>
-                          {b.airport_code}{" — "}{b.location_name}
+                          {b.airport_code ? `${b.airport_code} — ` : ""}{b.location_name}
                         </td>
                         <td className="px-4 py-2 text-right font-mono text-gray-700">{usd(b.grand_total)}</td>
                         <td className="px-4 py-2 text-right font-mono text-gray-700">

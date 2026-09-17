@@ -22,6 +22,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { pendingBookingSchema } from "@/lib/validation/schemas";
 import { capturePaymentError } from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
+import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 
 export const maxDuration = 15;
 
@@ -146,6 +147,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Marketing attribution from the first-party cookie — read AFTER the body
+    // and PaymentIntent checks above, never from the client body. Absent/
+    // invalid resolve to null / an "invalid" marker; it never blocks staging.
+    const attribution = readAttributionFromRequest(request, { stripePaymentIntentId: piId });
+
     // --- Refuse to overwrite work already in progress ------------------------
     const supabase = await createAdminClient();
 
@@ -190,6 +196,7 @@ export async function POST(request: NextRequest) {
         // still read by the legacy-row rule in create-booking.ts.
         has_protection_plan: protectionPlanCode !== null,
         protection_plan_code: protectionPlanCode,
+        attribution,
         livemode: pi.livemode,
         status: "pending",
       });

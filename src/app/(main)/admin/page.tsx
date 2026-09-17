@@ -48,6 +48,28 @@ interface Stats {
     cost: { total: number; today: number; thisWeek: number; thisMonth: number };
     margin: { total: number; today: number; thisWeek: number; thisMonth: number };
   };
+  attribution?: {
+    byChannel: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
+    byAirport: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
+    byAirportTotal: number;
+    byPromo: Array<{
+      code: string;
+      bookings: number;
+      discount: number;
+      gross: number;
+      triply: number;
+      currentUses: number | null;
+      maxUses: number | null;
+      active: boolean | null;
+      discountPercent: number | null;
+      expired: boolean;
+    }> | null;
+    presentRate7d: number | null;
+    invalidRate7d: number | null;
+    recentBookings7d: number | null;
+    warnings: string[];
+  } | null;
+  attributionWarnings?: string[];
 }
 
 interface Booking {
@@ -108,6 +130,48 @@ function StatCard({
         <p className="text-sm text-gray-500 mt-1">{subValue}</p>
       )}
     </div>
+  );
+}
+
+function BreakdownTable({
+  rows,
+  moneyHeader,
+  emptyText,
+  total: totalProp,
+}: {
+  rows: Array<{ label: string; bookings: number; money: number }>;
+  moneyHeader: string;
+  emptyText: string;
+  /** Denominator for Share. Pass it when rows are truncated server-side so the
+   *  column is a share of ALL bookings, not of the displayed rows. */
+  total?: number;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-gray-500">{emptyText}</p>;
+  const total = totalProp ?? rows.reduce((n, r) => n + r.bookings, 0);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-left text-xs text-gray-500 uppercase">
+          <th className="pb-2">&nbsp;</th>
+          <th className="pb-2 text-right">Bookings</th>
+          <th className="pb-2 text-right">Share</th>
+          <th className="pb-2 text-right">{moneyHeader}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.label} className="border-t border-gray-100">
+            {/* Text only — labels can originate from visitor-typed values. */}
+            <td className="py-1.5 text-gray-700">{r.label}</td>
+            <td className="py-1.5 text-right">{r.bookings}</td>
+            <td className="py-1.5 text-right text-gray-500">
+              {total === 0 ? "—" : `${Math.round((r.bookings / total) * 100)}%`}
+            </td>
+            <td className="py-1.5 text-right">{formatPrice(r.money)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -309,6 +373,127 @@ export default function AdminDashboard() {
           color="purple"
         />
       </div>
+
+      {/* Attribution — where bookings come from (migration 023) */}
+      {stats && !stats.attribution && (
+        <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          Attribution breakdowns unavailable
+          {stats.attributionWarnings?.length ? ` (${stats.attributionWarnings.join("; ")})` : ""} — the
+          booking counts above are unaffected. Check Sentry.
+        </div>
+      )}
+      {stats?.attribution && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex items-baseline justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Bookings by channel</h3>
+              <span
+                className={`text-xs ${
+                  (stats.attribution.invalidRate7d ?? 0) > 0 ? "text-red-600 font-medium" : "text-gray-500"
+                }`}
+                title="Last 7 days, independent of the date filter. Captured = bookings whose attribution cookie parsed. Invalid = cookie present but unreadable — a bug. A drop in captured or any invalid means capture broke."
+              >
+                captured (7d):{" "}
+                {stats.attribution.presentRate7d === null
+                  ? "unavailable"
+                  : `${Math.round(stats.attribution.presentRate7d * 100)}%`}
+                {(stats.attribution.invalidRate7d ?? 0) > 0 &&
+                  ` · invalid ${Math.round((stats.attribution.invalidRate7d ?? 0) * 100)}%`}
+              </span>
+            </div>
+            <BreakdownTable
+              rows={stats.attribution.byChannel.map((r) => ({
+                label: r.key.replace(/_/g, " "),
+                bookings: r.bookings,
+                money: r.gross,
+              }))}
+              moneyHeader="Gross"
+              emptyText="No bookings in range"
+            />
+            <p className="mt-3 text-xs text-gray-400">
+              &ldquo;unknown&rdquo; = booked before capture existed or with no cookie; &ldquo;invalid&rdquo; = cookie
+              present but unreadable (a bug — check Sentry).
+            </p>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Top airports</h3>
+            <BreakdownTable
+              rows={stats.attribution.byAirport.map((r) => ({
+                label: r.key,
+                bookings: r.bookings,
+                money: r.gross,
+              }))}
+              total={stats.attribution.byAirportTotal}
+              moneyHeader="Gross"
+              emptyText="No bookings in range"
+            />
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Promo codes</h3>
+            {stats.attribution.byPromo === null ? (
+              <p className="text-sm text-amber-700">Promo data unavailable — check Sentry.</p>
+            ) : stats.attribution.byPromo.length === 0 ? (
+              <p className="text-sm text-gray-500">No promo activity in range</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-gray-500 uppercase">
+                    <th className="pb-2">Code</th>
+                    <th className="pb-2 text-right">Bookings</th>
+                    <th className="pb-2 text-right">Discount</th>
+                    <th className="pb-2 text-right" title="promo_codes.current_uses (DB counter) — should track Bookings from the deploy of the trigger onward">
+                      Uses
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.attribution.byPromo.map((p) => (
+                    <tr key={p.code} className="border-t border-gray-100">
+                      <td className="py-1.5 font-mono">
+                        {p.code}
+                        {p.discountPercent !== null && (
+                          <span className="ml-1 text-xs text-gray-400">{p.discountPercent}%</span>
+                        )}
+                        {p.active === false && (
+                          <span className="ml-1 text-xs text-red-500">inactive</span>
+                        )}
+                        {p.expired && p.active && (
+                          <span className="ml-1 text-xs text-amber-600">expired</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-right">{p.bookings}</td>
+                      <td className="py-1.5 text-right">{formatPrice(p.discount)}</td>
+                      <td
+                        className={`py-1.5 text-right ${
+                          // The DB counter only increments from the trigger's deploy
+                          // onward, so a lag behind the derived count is expected
+                          // for older bookings — but a counter that is LOWER than the
+                          // bookings made since then means the trigger's UPDATE is
+                          // matching 0 rows (casing mismatch / deleted code).
+                          p.currentUses !== null && p.currentUses < p.bookings ? "text-amber-600" : "text-gray-500"
+                        }`}
+                        title={
+                          p.currentUses !== null && p.currentUses < p.bookings
+                            ? "DB counter is behind the derived booking count — expected for bookings before the counter trigger shipped; otherwise the trigger's UPDATE may be matching 0 rows."
+                            : undefined
+                        }
+                      >
+                        {p.currentUses ?? "—"}
+                        {p.maxUses !== null && <span className="text-gray-400">/{p.maxUses}</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <p className="mt-3 text-xs text-gray-400">
+              Margin per code lives on the Accounting page (this view does not model ResLab settlement).
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Booking Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">

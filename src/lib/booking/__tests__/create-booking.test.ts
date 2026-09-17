@@ -37,6 +37,10 @@ const reslabMock = {
   createReservation: vi.fn(),
   getReservation: vi.fn(),
   getCost: vi.fn(),
+  // persistBooking's single fallback fetch for timezone + coordinates. Absent
+  // from the mock it threw "not a function" (swallowed) and every airport test
+  // would have passed with NULL, proving nothing.
+  getLocation: vi.fn(),
 };
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -196,6 +200,7 @@ beforeEach(() => {
     },
   });
   reslabMock.createReservation.mockResolvedValue(reslabReservation());
+  reslabMock.getLocation.mockResolvedValue(undefined);
   // Echo the requested number, as the real GET does — otherwise the resume
   // test would pass even if the engine looked up the wrong reservation.
   reslabMock.getReservation.mockImplementation(async (num: string) =>
@@ -1022,5 +1027,285 @@ describe("Park Guard tiers (migration 021)", () => {
     expect(out.kind).toBe("failed");
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(cancelPaymentIntent).toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Attribution + derived airport (migration 023)
+// ---------------------------------------------------------------------------
+
+describe("attribution (migration 023)", () => {
+  const ATTR = {
+    v: 1 as const,
+    first: { src: "google", med: "cpc", click: "gclid:x", land: "/new-york-jfk/airport-parking", at: 1 },
+    apt: "JFK",
+  };
+  // PARK AC JFK — ~2 mi from JFK. Strings, as ResLab returns them.
+  const LOT_JFK = { id: 42, latitude: "40.6675", longitude: "-73.7845", timezone: { code: "America/New_York" } };
+
+  function clientPayload() {
+    const r = pendingRow();
+    return {
+      locationId: r.location_id,
+      costsToken: r.costs_token,
+      fromDate: r.from_date,
+      toDate: r.to_date,
+      parkingTypeId: r.parking_type_id,
+      customer: r.customer,
+      vehicle: r.vehicle,
+      locationName: r.location_name,
+      locationAddress: r.location_address,
+      airportCode: "RESLAB",
+      subtotal: 80,
+      taxTotal: 5,
+      feesTotal: 3,
+      grandTotal: 88,
+      triplyServiceFee: 6,
+      userId: null,
+      stripePaymentIntentId: PI,
+      protectionPlanCode: null,
+    };
+  }
+
+  it("a webhook fulfilment from a staged row carries attribution, channel and a derived airport", async () => {
+    // THE regression this pins: attribution rides OUTSIDE BookingPayload. Inside
+    // it, reservationSchema would strip it on every dead-browser path.
+    db.seed("pending_bookings", [pendingRow({ attribution: ATTR })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LOT_JFK);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const b = db.tables.bookings[0];
+    expect(b.attribution).toEqual(ATTR);
+    expect(b.channel).toBe("paid_search");
+    // Derived from the lot's coordinates — never the client's "RESLAB".
+    expect(b.airport_code).toBe("JFK");
+    // ONE fetch serves timezone AND coordinates (the fixture's embedded
+    // location carries neither) — never the shared location-list sweep.
+    expect(reslabMock.getLocation).toHaveBeenCalledTimes(1);
+    expect(b.location_timezone).toBe("America/New_York");
+  });
+
+  it("no cookie: NULL attribution and channel; airport still derived; booking succeeds", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LOT_JFK);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const b = db.tables.bookings[0];
+    expect(b.attribution).toBeNull();
+    expect(b.channel).toBeNull();
+    expect(b.airport_code).toBe("JFK");
+  });
+
+  it("the client route cookie is the fallback for a row staged without attribution", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LOT_JFK);
+
+    const out = await createBooking({
+      source: "client",
+      stripePaymentIntentId: PI,
+      payload: clientPayload(),
+      attribution: ATTR,
+    });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].attribution).toEqual(ATTR);
+    expect(db.tables.bookings[0].channel).toBe("paid_search");
+  });
+
+  it("the ROW wins over the client cookie when both exist", async () => {
+    const rowAttr = { ...ATTR, first: { src: "newsletter", med: "email", land: "/", at: 1 } };
+    db.seed("pending_bookings", [pendingRow({ attribution: rowAttr })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({
+      source: "client",
+      stripePaymentIntentId: PI,
+      payload: clientPayload(),
+      attribution: ATTR,
+    });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].channel).toBe("email");
+  });
+
+  it("the embedded reservation location coordinates are used with NO extra fetch", async () => {
+    db.seed("pending_bookings", [pendingRow({ attribution: ATTR })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const res = reslabReservation();
+    res.history[0].location = { ...res.history[0].location, ...LOT_JFK } as unknown as typeof res.history[0]["location"];
+    reslabMock.createReservation.mockResolvedValue(res);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].airport_code).toBe("JFK");
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+  });
+
+  it("the searched airport wins in a multi-airport metro; a stale one falls through to nearest", async () => {
+    // A Long-Island-City hotel lot: nearer LGA, but the customer searched JFK.
+    const LIC = { id: 42, latitude: "40.75", longitude: "-73.95", timezone: { code: "America/New_York" } };
+    db.seed("pending_bookings", [pendingRow({ attribution: { ...ATTR, apt: "JFK" } })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LIC);
+    let out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].airport_code).toBe("JFK");
+
+    db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [] };
+    db.seed("pending_bookings", [pendingRow({ attribution: { ...ATTR, apt: "BOS" } })]);
+    out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].airport_code).toBe("LGA");
+  });
+
+  it("an invalid-cookie marker is stored as-is with a NULL channel", async () => {
+    db.seed("pending_bookings", [pendingRow({ attribution: { v: null, invalid: true } })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].attribution).toEqual({ v: null, invalid: true });
+    expect(db.tables.bookings[0].channel).toBeNull();
+  });
+
+  it("corrupt attribution JSON never fails the money-committed insert", async () => {
+    // {v:1} with no `first` fails the persisted-shape parser at the row
+    // boundary and is stored as the invalid marker — it never reaches the
+    // classifier, and the booking is unaffected. (The classifier's own
+    // try/catch is exercised by the partners-read-error test below.)
+    db.seed("pending_bookings", [pendingRow({ attribution: { v: 1 } })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LOT_JFK);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings).toHaveLength(1);
+    expect(db.tables.bookings[0].attribution).toEqual({ v: null, invalid: true });
+    expect(db.tables.bookings[0].channel).toBeNull();
+    expect(db.tables.bookings[0].airport_code).toBe("JFK");
+  });
+
+  it("unresolvable coordinates: NULL airport, never a guess, booking succeeds", async () => {
+    db.seed("pending_bookings", [pendingRow({ attribution: ATTR })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockRejectedValue(new Error("ResLab 502"));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    // apt is known (JFK) but unverifiable — still NULL.
+    expect(db.tables.bookings[0].airport_code).toBeNull();
+    expect(db.tables.bookings[0].channel).toBe("paid_search");
+  });
+
+  it("a partner tag earns the partner channel only for an ACTIVE partner", async () => {
+    const tagged = { ...ATTR, first: { src: "partner-416", med: "referral", land: "/", at: 1 } };
+    db.seed("partners", [{ reslab_location_id: 416, is_active: true }]);
+    db.seed("pending_bookings", [pendingRow({ attribution: tagged })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    let out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].channel).toBe("partner");
+
+    db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [], partners: [] };
+    db.seed("pending_bookings", [pendingRow({ attribution: tagged })]);
+    out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].channel).toBe("referral");
+  });
+});
+
+describe("attribution (migration 023) — review pass 1 additions", () => {
+  const ATTR = {
+    v: 1 as const,
+    first: { src: "google", med: "cpc", click: "gclid:x", land: "/new-york-jfk/airport-parking", at: 1 },
+    apt: "JFK",
+  };
+  const LOT_JFK = { id: 42, latitude: "40.6675", longitude: "-73.7845", timezone: { code: "America/New_York" } };
+
+  it("an INACTIVE partner does not earn partner credit (the is_active filter is load-bearing)", async () => {
+    const tagged = { ...ATTR, first: { src: "partner-416", med: "referral", land: "/", at: 1 } };
+    db.seed("partners", [{ reslab_location_id: 416, is_active: false }]);
+    db.seed("pending_bookings", [pendingRow({ attribution: tagged })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].channel).toBe("referral");
+  });
+
+  it("a partners-table read error leaves the channel UNKNOWN (null) and is captured — never a silent 'referral'", async () => {
+    const tagged = { ...ATTR, first: { src: "partner-416", med: "referral", land: "/", at: 1 } };
+    db.seed("partners", [{ reslab_location_id: 416, is_active: true }]);
+    db.seed("pending_bookings", [pendingRow({ attribution: tagged })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    db.failOnce("partners", "select", "connection reset");
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].channel).toBeNull();
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("partners lookup failed") }),
+      expect.objectContaining({ confirmationNumber: "RTL999" })
+    );
+  });
+
+  it("the browser path with NO staged row writes attribution onto the pending row it self-creates", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.getLocation.mockResolvedValue(LOT_JFK);
+    const r = pendingRow();
+    const payload = {
+      locationId: r.location_id, costsToken: r.costs_token, fromDate: r.from_date, toDate: r.to_date,
+      parkingTypeId: r.parking_type_id, customer: r.customer, vehicle: r.vehicle,
+      locationName: r.location_name, locationAddress: r.location_address, airportCode: "RESLAB",
+      subtotal: 80, taxTotal: 5, feesTotal: 3, grandTotal: 88, triplyServiceFee: 6,
+      userId: null, stripePaymentIntentId: PI, protectionPlanCode: null,
+    };
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI, payload, attribution: ATTR });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.pending_bookings[0].attribution).toEqual(ATTR);
+    expect(db.tables.bookings[0].channel).toBe("paid_search");
+  });
+
+  it("a coordinate-only fetch failure never wipes a timezone the reservation already supplied", async () => {
+    // Reservation carries tz but no coords → one getLocation for coords → it
+    // fails → tz must survive (the self-cancel gate depends on it).
+    db.seed("pending_bookings", [pendingRow({ attribution: ATTR })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const res = reslabReservation();
+    res.history[0].location = { ...res.history[0].location, timezone: { code: "America/New_York" } } as unknown as typeof res.history[0]["location"];
+    reslabMock.createReservation.mockResolvedValue(res);
+    reslabMock.getLocation.mockRejectedValue(new Error("ResLab 502"));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].location_timezone).toBe("America/New_York");
+    expect(db.tables.bookings[0].airport_code).toBeNull();
+  });
+
+  it("a row whose attribution JSONB does not match the persisted schema is stored as the invalid marker", async () => {
+    db.seed("pending_bookings", [pendingRow({ attribution: { v: 1, first: { at: "not-a-number" } } })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].attribution).toEqual({ v: null, invalid: true });
+    expect(db.tables.bookings[0].channel).toBeNull();
   });
 });
