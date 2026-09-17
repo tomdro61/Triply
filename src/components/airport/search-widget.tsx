@@ -8,6 +8,7 @@ import { DateRangePicker } from "@/components/ui/date-picker";
 import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
+import { WaitlistPrompt } from "@/components/airport/WaitlistPrompt";
 
 interface SearchWidgetProps {
   airportCode: string;
@@ -112,6 +113,11 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
           )}
         </DateRangePicker>
       </div>
+
+      {/* The date pickers stop at the 60-day supplier wall with no explanation.
+          This says why and takes an email instead. Needs an airport to promise
+          anything specific, so it only renders once one is chosen. */}
+      {location && <WaitlistPrompt airportCode={location} />}
 
       <Button
         onClick={handleSearch}
