@@ -16,6 +16,7 @@
  * See supabase/migrations/024_availability_log.sql.
  */
 
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export type AvailabilitySource = "search" | "chat" | "airport-page";
@@ -82,7 +83,7 @@ export function logAvailability(rows: AvailabilityRow[]): void {
   // /api/search is CDN-cached 300s so origin search volume is modest, and a
   // sampled log answers "was it sold out?" much less crisply than a full one.
 
-  void (async () => {
+  const insert = async () => {
     try {
       const supabase = await createAdminClient();
       const { error } = await supabase.from("availability_log").insert(rows);
@@ -94,5 +95,15 @@ export function logAvailability(rows: AvailabilityRow[]): void {
       // is never worth an exception on the customer's path.
       warnOnce(err);
     }
-  })();
+  };
+
+  // On Vercel a dangling promise can be cut off the moment the response is
+  // sent. `after()` keeps the function alive until the insert settles, without
+  // delaying the response. It throws when called outside a request scope (unit
+  // tests, scripts) — fall back to plain fire-and-forget there.
+  try {
+    after(insert);
+  } catch {
+    void insert();
+  }
 }
