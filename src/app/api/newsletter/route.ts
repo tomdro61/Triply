@@ -6,7 +6,9 @@ import crypto from "crypto";
 import { captureAPIError } from "@/lib/sentry";
 
 const newsletterSchema = z.object({
-  email: z.string().email("Invalid email address").max(254),
+  // .trim() FIRST: zod runs .email() before any transform, so a pasted address
+  // with a trailing space was rejected outright.
+  email: z.string().trim().email("Invalid email address").max(254),
   // Optional attribution. Sent by the end-of-article capture on the blog;
   // the homepage form sends none of it and behaves exactly as before.
   source: z
