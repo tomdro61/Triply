@@ -190,8 +190,10 @@ const checkoutPostSchema = z.object({
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
   // Required key, nullable value — see validation/schemas.ts for rationale.
-  // The checkout form always sends null here: the tier is chosen on the
-  // payment step and applied by /api/checkout/lot/update-pi.
+  // Since 2026-09-17 the checkout form sends the pre-selected tier ("A" on
+  // first entry to the payment step, or the customer's kept choice after
+  // Back); null means "no protection". Later changes on the payment step go
+  // through /api/checkout/lot/update-pi.
   protectionPlanCode: protectionPlanCodeSchema,
 });
 
@@ -299,6 +301,19 @@ export async function POST(request: NextRequest) {
     // in flight before the cents-storage rollout.
     const parkingOnlyChargeAmount = Math.max(0, verifiedDueNow);
     const parkingOnlyChargeAmountCents = Math.round(parkingOnlyChargeAmount * 100);
+
+    // Refuse a non-positive PARKING baseline before any premium is added. Since
+    // the form pre-selects Plan A at creation, a heavy promo on a due-at-lot
+    // booking could otherwise mint a $12.99-only PaymentIntent whose baseline
+    // is 0 — /update-pi then rejects every change (422), so the customer could
+    // not decline protection, and the Pay button would read $0.00 against a
+    // live hold. Previously unreachable (the POST was always parking-only).
+    if (parkingOnlyChargeAmountCents <= 0) {
+      return NextResponse.json(
+        { error: "Invalid payment amount" },
+        { status: 400 }
+      );
+    }
 
     const protectionPlan = getProtectionPlan(protectionPlanCode);
     const protectionPremium = protectionPlan?.price ?? 0;
