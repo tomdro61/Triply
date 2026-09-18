@@ -56,7 +56,7 @@ const OPTIONS: readonly PlanOption[] = [
       title: plan.label,
       price: plan.price,
       blurb: `Covers up to ${formatLimit(plan.limitDollars)} of theft and damages while parked at the lot.`,
-      badge: code === "A" ? "Most Popular" : undefined,
+      badge: code === "A" ? "Recommended" : undefined,
       ...TIER_STYLE,
     };
   }),
@@ -90,9 +90,7 @@ export function ProtectionPlan({
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">Parking Protection</span>
-            <span className="bg-emerald-600 text-white text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded">
-              Recommended
-            </span>
+            {/* "Recommended" lives on the Plan A card (the pre-selected default). */}
             {isUpdating && (
               <span className="flex items-center gap-1 text-xs text-emerald-700">
                 <Loader2 size={14} className="animate-spin" />

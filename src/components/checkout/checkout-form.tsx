@@ -25,6 +25,7 @@ import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
   type ProtectionChoice,
+  type ProtectionPlanCode,
 } from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 
@@ -107,9 +108,13 @@ export function CheckoutForm({
   const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  // null = customer has not yet decided (required-decision UX). Becomes a
-  // tier code ("A" | "B" | "C") or "none" once they pick a card on the
-  // payment step.
+  // null = no decision yet (details / vehicle steps). On entering the payment
+  // step Plan A is PRE-SELECTED (Tom, 2026-09-17): the PaymentIntent is created
+  // with the Plan A premium included, so the selected radio, the summary and
+  // the charged amount agree from the first render. The customer can switch
+  // tiers or pick "none" via the existing update-pi flow. Never reset back to
+  // null once decided — that would silently re-default a "none" customer to
+  // Plan A when they come back to the payment step.
   const [protectionPlanChoice, setProtectionPlanChoice] = useState<ProtectionChoice | null>(null);
   const [protectionPlanUpdating, setProtectionPlanUpdating] = useState(false);
   // Toggle errors are kept SEPARATE from submitError so the StripePaymentForm
@@ -263,8 +268,11 @@ export function CheckoutForm({
   const handleVehicleNext = async () => {
     if (!validateVehicleDetails()) return;
 
-    // In dev mode, skip payment intent creation
+    // In dev mode, skip payment intent creation. Mirror the production
+    // pre-selection so the dev payment step arrives with a decision in state
+    // (requireProtectionChoice would otherwise throw on "Complete Booking (Dev)").
     if (DEV_SKIP_PAYMENT) {
+      setProtectionPlanChoice((prev) => prev ?? "A");
       setCurrentStep("payment");
       return;
     }
@@ -277,13 +285,15 @@ export function CheckoutForm({
         throw new Error("Missing required lot data for payment");
       }
 
-      // Initial PaymentIntent is parking-only — the protection decision is
-      // deferred to the payment step, where /api/checkout/lot/update-pi
-      // flexes the amount once the customer picks a tier or "no protection".
-      // protectionPlanCode is an explicit null here (not omitted): the key is
-      // required at the API boundary, and explicit-null matches the
-      // server-side parking-only PI path. Avoiding undefined keeps the
-      // silent-default anti-pattern away from this money-handling POST.
+      // The PaymentIntent is created WITH the protection choice so the amount
+      // Stripe holds matches what the payment step shows. First visit: Plan A
+      // (the pre-selected default). Re-entry after Back: whatever the customer
+      // last chose (a tier, or null for "none" → parking-only). The server
+      // applies the premium and stamps the tier metadata pair at creation;
+      // later changes go through /api/checkout/lot/update-pi. The key is always
+      // present (explicit null for "none") — required at the API boundary.
+      const protectionPlanCodeForPI: ProtectionPlanCode | null =
+        protectionPlanChoice === null ? "A" : selectedPlanCode;
       const response = await fetch("/api/checkout/lot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -296,7 +306,7 @@ export function CheckoutForm({
           checkoutTime: checkOutTime,
           parkingTypeId,
           customerEmail: customerDetails.email,
-          protectionPlanCode: null,
+          protectionPlanCode: protectionPlanCodeForPI,
           ...(promoCode && { promoCode }),
         }),
       });
@@ -312,9 +322,21 @@ export function CheckoutForm({
       if (data.costsToken) {
         setServerCostsToken(data.costsToken);
       }
+      // Reflect the pre-selection in state only now that the PI carrying its
+      // premium exists — the radio, the summary line and the charge flip
+      // together. Writes ONLY when undecided, so it can never overwrite a
+      // choice the update-pi flow already made.
+      if (protectionPlanChoice === null) {
+        setProtectionPlanChoice("A");
+      }
       setCurrentStep("payment");
-      trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
-      trackAddPaymentInfo({ lotId: lot.id, lotName: lot.name, total: priceBreakdown.total });
+      // Report the SERVER-verified total (it includes the pre-selected premium);
+      // this render's priceBreakdown predates the state update above and would
+      // under-report first-entry sessions by $12.99 relative to re-entries.
+      const trackedTotal =
+        typeof data.verifiedTotal === "number" ? data.verifiedTotal : priceBreakdown.total;
+      trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: trackedTotal });
+      trackAddPaymentInfo({ lotId: lot.id, lotName: lot.name, total: trackedTotal });
     } catch (error) {
       console.error("PaymentIntent creation error:", error);
       setSubmitError(
@@ -341,7 +363,11 @@ export function CheckoutForm({
     // back on the vehicle step could end up paying the old (stale) amount.
     setClientSecret(null);
     setPaymentIntentId(null);
-    setProtectionPlanChoice(null);
+    // The choice is deliberately KEPT: re-entering the payment step creates a
+    // fresh PI from it, so a customer who picked "none" is not re-defaulted to
+    // Plan A. Stale-toggle protection is the sequence-ID bump above, not a
+    // reset. (protectionStateAmbiguous already nulls the choice itself when a
+    // network failure made the server state unknown — that stays.)
     setProtectionChoiceError(null);
     setProtectionStateAmbiguous(false);
     setCurrentStep("vehicle");
