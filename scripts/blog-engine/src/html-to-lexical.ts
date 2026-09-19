@@ -281,45 +281,60 @@ function convertInlineChildren(node: HTMLElement | Node, inheritFormat = 0): Lex
   if (!('childNodes' in node)) return result
 
   for (const child of (node as HTMLElement).childNodes) {
-    if (child.nodeType === NodeType.TEXT_NODE) {
-      const text = (child as TextNode).rawText
-      if (text) {
-        result.push(makeTextNode(text, inheritFormat))
-      }
-      continue
+    result.push(...convertInlineNode(child, inheritFormat))
+  }
+
+  return result
+}
+
+/**
+ * Convert ONE inline node (text, <strong>, <a>, …) — the element itself, not
+ * just its children. Used by convertInlineChildren and by the <li> loop, which
+ * previously called convertInlineChildren on each li child and so dropped the
+ * <a>/<strong> wrapper of any link that was a direct child of the <li>
+ * (2026-09-18: update-links reported links "Saved" that never persisted).
+ */
+function convertInlineNode(child: Node, inheritFormat = 0): LexicalNode[] {
+  const result: LexicalNode[] = []
+
+  if (child.nodeType === NodeType.TEXT_NODE) {
+    const text = (child as TextNode).rawText
+    if (text) {
+      result.push(makeTextNode(text, inheritFormat))
     }
+    return result
+  }
 
-    if (child.nodeType !== NodeType.ELEMENT_NODE) continue
+  if (child.nodeType !== NodeType.ELEMENT_NODE) return result
 
-    const el = child as HTMLElement
-    const tag = el.tagName?.toLowerCase()
+  const el = child as HTMLElement
+  const tag = el.tagName?.toLowerCase()
 
-    switch (tag) {
-      case 'strong':
-      case 'b':
-        result.push(...convertInlineChildren(el, inheritFormat | FORMAT_BOLD))
-        break
-      case 'em':
-      case 'i':
-        result.push(...convertInlineChildren(el, inheritFormat | FORMAT_ITALIC))
-        break
-      case 'a': {
-        const href = el.getAttribute('href') || ''
-        const rel = el.getAttribute('rel') || undefined
-        const linkChildren = convertInlineChildren(el, inheritFormat)
-        if (linkChildren.length > 0) {
-          result.push(makeLinkNode(href, linkChildren, rel))
-        }
-        break
+  switch (tag) {
+    case 'strong':
+    case 'b':
+      result.push(...convertInlineChildren(el, inheritFormat | FORMAT_BOLD))
+      break
+    case 'em':
+    case 'i':
+      result.push(...convertInlineChildren(el, inheritFormat | FORMAT_ITALIC))
+      break
+    case 'a': {
+      const href = el.getAttribute('href') || ''
+      const rel = el.getAttribute('rel') || undefined
+      const linkChildren = convertInlineChildren(el, inheritFormat)
+      if (linkChildren.length > 0) {
+        result.push(makeLinkNode(href, linkChildren, rel))
       }
-      case 'br':
-        result.push(makeLinebreakNode())
-        break
-      default:
-        // Unsupported inline tag — extract text content preserving formatting
-        result.push(...convertInlineChildren(el, inheritFormat))
-        break
+      break
     }
+    case 'br':
+      result.push(makeLinebreakNode())
+      break
+    default:
+      // Unsupported inline tag — extract text content preserving formatting
+      result.push(...convertInlineChildren(el, inheritFormat))
+      break
   }
 
   return result
@@ -371,11 +386,10 @@ function convertBlockElement(el: HTMLElement): LexicalNode[] {
               if (liChildTag === 'ul' || liChildTag === 'ol') {
                 nestedLists.push(...convertBlockElement(liChildEl))
               } else {
-                inlineContent.push(...convertInlineChildren(liChildEl))
+                inlineContent.push(...convertInlineNode(liChild))
               }
             } else if (liChild.nodeType === NodeType.TEXT_NODE) {
-              const text = (liChild as TextNode).rawText
-              if (text) inlineContent.push(makeTextNode(text))
+              inlineContent.push(...convertInlineNode(liChild))
             }
           }
 
