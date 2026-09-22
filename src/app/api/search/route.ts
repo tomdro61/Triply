@@ -3,6 +3,31 @@ import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { SortOption } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
 import { z } from "zod";
+import { readAttributionFromRequest } from "@/lib/attribution/read-request";
+import type { Attribution } from "@/lib/attribution/schema";
+import { deriveSearchEventDates } from "@/lib/search-events/derive";
+import { logSearchEvent } from "@/lib/search-events/log";
+
+/** First-touch source/medium/campaign + GA client id off the same
+ *  `triply_attr` cookie bookings already read (migration 023), so a
+ *  search_events row can later be joined to a booking. Absent/invalid
+ *  attribution logs as all-null, same as bookings.attribution NULL. */
+function attributionFields(attribution: Attribution | null): {
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  gaClientId: string | null;
+} {
+  if (!attribution || attribution.v === null) {
+    return { source: null, medium: null, campaign: null, gaClientId: null };
+  }
+  return {
+    source: attribution.first.src ?? null,
+    medium: attribution.first.med ?? null,
+    campaign: attribution.first.cmp ?? null,
+    gaClientId: attribution.ga_client_id ?? null,
+  };
+}
 
 // A cold location-list build sweeps ~54 pages and is budgeted at 40s
 // (LOCATION_BUILD_BUDGET_MS). Pin the invocation ceiling above it so the build
@@ -81,6 +106,36 @@ export async function GET(request: NextRequest) {
           ? "public, s-maxage=60, stale-while-revalidate=300"
           : "public, s-maxage=300, stale-while-revalidate=600"
         : "no-store";
+
+    // Fire-and-forget demand logging — never awaited, never allowed to delay
+    // or fail this response (see src/lib/search-events/log.ts). Skipped
+    // entirely for a date range deriveSearchEventDates rejects (unparseable,
+    // or checkout before checkin) rather than writing a row the table's
+    // CHECK/NOT NULL constraints would bounce anyway.
+    const dates = deriveSearchEventDates(checkin, checkout);
+    if (dates) {
+      const pricedTotals = result.results
+        .map((lot) => lot.pricing?.grandTotal)
+        .filter((v): v is number => typeof v === "number" && v > 0);
+      const { source, medium, campaign, gaClientId } = attributionFields(
+        readAttributionFromRequest(request, {})
+      );
+      logSearchEvent({
+        airport_code: airport,
+        check_in: checkin,
+        check_out: checkout,
+        stay_days: dates.stayDays,
+        lead_days: dates.leadDays,
+        results_count: result.total,
+        cheapest_price_cents:
+          pricedTotals.length > 0 ? Math.round(Math.min(...pricedTotals) * 100) : null,
+        sold_out_count: null,
+        source,
+        medium,
+        campaign,
+        ga_client_id: gaClientId,
+      });
+    }
 
     return NextResponse.json(result, {
       headers: { "Cache-Control": cacheControl },
