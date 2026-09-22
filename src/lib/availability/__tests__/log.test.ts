@@ -24,6 +24,8 @@ import {
   localToday,
   resolveEnv,
   rowIsInsertable,
+  uninsertableReasons,
+  sanitizeRow,
   isRealDate,
   __resetAvailabilityLogWarnStateForTests,
   type AvailabilityRow,
@@ -143,7 +145,7 @@ describe("rowIsInsertable — mirrors the 025 CHECK constraints and column types
     expect(rowIsInsertable(row({ available_spots: null, grand_total_cents: null }))).toBe(true);
   });
 
-  it("rejects rows Postgres would reject, so one bad row cannot sink the batch", () => {
+  it("rejects rows Postgres would reject, so one bad row cannot sink the batch — and says why", () => {
     expect(rowIsInsertable(row({ lead_days: -2 }))).toBe(false);
     expect(rowIsInsertable(row({ stay_days: -1 }))).toBe(false);
     expect(rowIsInsertable(row({ lead_days: Number.NaN }))).toBe(false);
@@ -151,8 +153,22 @@ describe("rowIsInsertable — mirrors the 025 CHECK constraints and column types
     expect(rowIsInsertable(row({ check_in: "2026-02-30" }))).toBe(false);
     expect(rowIsInsertable(row({ check_out: "" }))).toBe(false);
     expect(rowIsInsertable(row({ reslab_location_id: 1.5 }))).toBe(false);
-    expect(rowIsInsertable(row({ available_spots: 2.5 }))).toBe(false);
-    expect(rowIsInsertable(row({ grand_total_cents: 2 ** 31 }))).toBe(false);
+    expect(uninsertableReasons(row({ lead_days: -2, check_in: "2026-02-30" }))).toEqual([
+      "lead_days=-2",
+      "check_in=2026-02-30",
+    ]);
+    // Reasons never echo an unbounded caller string.
+    const long = "x".repeat(500);
+    expect(uninsertableReasons(row({ check_out: long }))[0].length).toBeLessThan(50);
+  });
+
+  it("does NOT drop a row for a bad per-lot int — sanitizeRow nulls it so the sold_out observation survives", () => {
+    expect(rowIsInsertable(row({ available_spots: 2.5 }))).toBe(true);
+    expect(sanitizeRow(row({ available_spots: 2.5 }))).toMatchObject({ available_spots: null, sold_out: false });
+    expect(sanitizeRow(row({ grand_total_cents: 2 ** 31 }))).toMatchObject({ grand_total_cents: null });
+    expect(sanitizeRow(row({ grand_total_cents: -(2 ** 31) }))).toMatchObject({ grand_total_cents: -(2 ** 31) });
+    const fine = row();
+    expect(sanitizeRow(fine)).toBe(fine); // untouched when nothing to fix
   });
 });
 
@@ -186,9 +202,13 @@ describe("logAvailability — happy path", () => {
     const rows = inserted[0] as AvailabilityRow[];
     expect(rows.map((r) => r.reslab_location_id)).toEqual([1]);
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
-    const [err, ctx] = sentry.captureAPIError.mock.calls[0] as [Error, { endpoint: string }];
+    const [err, ctx] = sentry.captureAPIError.mock.calls[0] as [
+      Error,
+      { endpoint: string; extra?: { sample?: AvailabilityRow } },
+    ];
     expect(ctx.endpoint).toBe("availability_log.guard");
-    expect(err.message).toMatch(/dropped 1\/2 .*lead_days=-30/);
+    expect(err.message).toMatch(/dropped 1\/2 .*JFK search: lead_days=-30/);
+    expect(ctx.extra?.sample?.reslab_location_id).toBe(2);
   });
 
   it("does not insert when every row is uninsertable — but never silently", async () => {
@@ -273,11 +293,15 @@ describe("logAvailability — never-throw contract", () => {
     expect(() => logAvailability([row()])).not.toThrow();
     await flush();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
-    const [err] = sentry.captureAPIError.mock.calls[0] as [Error];
+    const [err, ctx] = sentry.captureAPIError.mock.calls[0] as [
+      Error,
+      { extra?: { postgrest?: string } },
+    ];
     expect(err.message).toMatch(/^23514: new row for relation/);
-    // Details are unique per event (they carry the row id) and would give
-    // every failed batch its own Sentry issue.
+    // Details are unique per event (they carry the row id): they ride as
+    // context, never in the message.
     expect(err.message).not.toMatch(/Failing row/);
+    expect(ctx.extra?.postgrest).toMatch(/Failing row contains/);
   });
 
   it("reports to Sentry at most once per process-hour even across repeated failures", async () => {

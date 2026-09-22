@@ -79,8 +79,8 @@ interface WriterHealthRow {
   rows_7d: number;
 }
 
-/** What the rollup should look like given what the writer wrote. */
-function writerNotes(
+/** What the rollup should look like given what the writer wrote. Exported for tests. */
+export function writerNotes(
   writer: WriterHealthRow[],
   rollupRowCount: number,
   requestedSources: readonly string[] | null
@@ -189,6 +189,25 @@ export async function GET(request: NextRequest) {
       notes.push(`unknown source "${sourceParam}" ignored; showing search + chat`);
     }
 
+    // Writer health first: it is most diagnostic precisely when the rollup
+    // itself is unavailable, so it must be computed before any early return.
+    const rows = rollup.error ? [] : (rollup.data ?? []);
+    let writer: WriterHealthRow[] | null = null;
+    if (health.error) {
+      notes.push(`writer health unavailable: ${health.error.message}`);
+      if (!isMissingRelationError(health.error)) {
+        captureAPIError(new Error(`availability_writer_health: ${health.error.message}`), {
+          endpoint: "/api/admin/availability",
+          method: "GET",
+        });
+      }
+    } else {
+      writer = (health.data ?? []) as WriterHealthRow[];
+      const requested =
+        source === "all" ? null : source === "default" ? ORGANIC_SOURCES : [source];
+      notes.push(...writerNotes(writer, rows.length, requested));
+    }
+
     if (rollup.error) {
       // The view doesn't exist until migration 025 is applied — report it as
       // an empty rollup with a note rather than a 500, so the dashboard
@@ -201,7 +220,7 @@ export async function GET(request: NextRequest) {
           days: [],
           lookbackDays: LOOKBACK_DAYS,
           truncated: false,
-          writer: null,
+          writer,
           note: [`availability_daily unavailable: ${rollup.error.message}`, ...notes].join("; "),
         });
       }
@@ -215,26 +234,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let writer: WriterHealthRow[] | null = null;
-    if (health.error) {
-      notes.push(`writer health unavailable: ${health.error.message}`);
-      if (!isMissingRelationError(health.error)) {
-        captureAPIError(new Error(`availability_writer_health: ${health.error.message}`), {
-          endpoint: "/api/admin/availability",
-          method: "GET",
-        });
-      }
-    }
-
-    const rows = rollup.data ?? [];
     const truncated = rows.length > ROW_LIMIT;
-
-    if (!health.error) {
-      writer = (health.data ?? []) as WriterHealthRow[];
-      const requested =
-        source === "all" ? null : source === "default" ? ORGANIC_SOURCES : [source];
-      notes.push(...writerNotes(writer, rows.length, requested));
-    }
 
     return NextResponse.json({
       days: truncated ? rows.slice(0, ROW_LIMIT) : rows,

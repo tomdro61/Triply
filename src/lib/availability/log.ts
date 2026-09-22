@@ -124,31 +124,51 @@ export function isRealDate(s: string): boolean {
   return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s;
 }
 
+const INT4_MIN = -2147483648;
 const INT4_MAX = 2147483647;
-function isNullableInt4(v: number | null): boolean {
-  return v === null || (Number.isInteger(v) && Math.abs(v) <= INT4_MAX);
+function isInt4(v: number): boolean {
+  return Number.isInteger(v) && v >= INT4_MIN && v <= INT4_MAX;
 }
 
 /**
- * Whether a row can satisfy every constraint on availability_log. Postgres
- * rejects a multi-row INSERT as a whole on one bad row, and the insert is
+ * Why a row cannot be inserted (empty = insertable). Postgres rejects a
+ * multi-row INSERT as a whole on one bad row, and the insert is
  * error-swallowing by contract — so one out-of-window date (a replayed stale
  * URL, an LLM-supplied past date on the chat path) would otherwise silently
- * discard the entire search's observations. Mirrors 025's CHECKs and column
- * types. Dropped rows are REPORTED (see logAvailability), never silent.
+ * discard the entire search's observations. Mirrors 025's CHECKs and the
+ * NOT NULL column types. Dropped rows are REPORTED with these reasons.
+ *
+ * The nullable per-lot ints (available_spots, grand_total_cents) are NOT
+ * checked here — they are coerced to null in sanitizeRow instead, so a bad
+ * value from ResLab for one lot costs a number, not the sold_out observation
+ * (dropping the row would silently shrink lots_seen and bias pct_sold_out).
  */
+export function uninsertableReasons(row: AvailabilityRow): string[] {
+  const reasons: string[] = [];
+  if (!isInt4(row.lead_days) || row.lead_days < -1) reasons.push(`lead_days=${row.lead_days}`);
+  if (!isInt4(row.stay_days) || row.stay_days < 0) reasons.push(`stay_days=${row.stay_days}`);
+  if (!isRealDate(row.check_in)) reasons.push(`check_in=${String(row.check_in).slice(0, 32)}`);
+  if (!isRealDate(row.check_out)) reasons.push(`check_out=${String(row.check_out).slice(0, 32)}`);
+  if (!isInt4(row.reslab_location_id)) reasons.push(`reslab_location_id=${row.reslab_location_id}`);
+  return reasons;
+}
+
 export function rowIsInsertable(row: AvailabilityRow): boolean {
-  return (
-    Number.isInteger(row.lead_days) &&
-    row.lead_days >= -1 &&
-    Number.isInteger(row.stay_days) &&
-    row.stay_days >= 0 &&
-    isRealDate(row.check_in) &&
-    isRealDate(row.check_out) &&
-    Number.isInteger(row.reslab_location_id) &&
-    isNullableInt4(row.available_spots) &&
-    isNullableInt4(row.grand_total_cents)
-  );
+  return uninsertableReasons(row).length === 0;
+}
+
+/** Coerce the nullable per-lot ints to null when they could not be stored as int4. */
+export function sanitizeRow(row: AvailabilityRow): AvailabilityRow {
+  const spots = row.available_spots;
+  const cents = row.grand_total_cents;
+  const okSpots = spots === null || isInt4(spots);
+  const okCents = cents === null || isInt4(cents);
+  if (okSpots && okCents) return row;
+  return {
+    ...row,
+    available_spots: okSpots ? spots : null,
+    grand_total_cents: okCents ? cents : null,
+  };
 }
 
 function killSwitchOn(): boolean {
@@ -213,7 +233,14 @@ function warnOnce(detail: unknown): void {
   const now = Date.now();
   if (lastReportedAt === null || now - lastReportedAt >= REPORT_INTERVAL_MS) {
     lastReportedAt = now;
-    captureAPIError(err, { endpoint: "availability_log.insert", method: "INSERT" });
+    // details/hint ride as context, not in the message: they name the failing
+    // row (the only pointer to which column/value violated) without changing
+    // the event's grouping.
+    captureAPIError(err, {
+      endpoint: "availability_log.insert",
+      method: "INSERT",
+      ...(extra ? { extra: { postgrest: extra } } : {}),
+    });
   }
 }
 
@@ -228,10 +255,14 @@ function reportDropped(dropped: number, total: number, sample: AvailabilityRow):
   lastDropReportedAt = now;
   captureAPIError(
     new Error(
-      `availability_log: dropped ${dropped}/${total} uninsertable rows (sample: source=${sample.source} ` +
-        `check_in=${sample.check_in} check_out=${sample.check_out} lead_days=${sample.lead_days} stay_days=${sample.stay_days})`
+      `availability_log: dropped ${dropped}/${total} uninsertable rows (${sample.airport_code} ${sample.source}: ` +
+        `${uninsertableReasons(sample).join(", ")})`
     ),
-    { endpoint: "availability_log.guard", method: "INSERT" }
+    {
+      endpoint: "availability_log.guard",
+      method: "INSERT",
+      extra: { sample },
+    }
   );
 }
 
@@ -262,12 +293,13 @@ export function logAvailability(rows: AvailabilityRow[]): void {
     // /api/search is CDN-cached 300s so origin search volume is modest, and a
     // sampled log answers "was it sold out?" much less crisply than a full one.
 
-    const insertable = rows.filter(rowIsInsertable);
+    const insertable = rows.filter(rowIsInsertable).map(sanitizeRow);
     const dropped = rows.length - insertable.length;
     if (dropped > 0) {
-      // Every row of one search shares its dates, so a drop is usually the
-      // whole search — the one failure this table cannot afford to have go
-      // unnoticed (an unrecorded day cannot be backfilled).
+      // Every field rowIsInsertable checks is shared by all rows of one
+      // search, so a drop is the whole search — the one failure this table
+      // cannot afford to have go unnoticed (an unrecorded day cannot be
+      // backfilled).
       const sample = rows.find((r) => !rowIsInsertable(r)) ?? rows[0];
       reportDropped(dropped, rows.length, sample);
     }

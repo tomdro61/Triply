@@ -376,6 +376,9 @@ let lastBackoffReportAt: number | null = null;
 // When we last reported an availability-row-builder throw (see the
 // logAvailability block in searchParking). Same reasoning as above.
 let lastAvailabilityReportAt: number | null = null;
+// Separate clock for the expected "unparseable dates" skip (chat path), so it
+// cannot starve the report of a genuine row-builder defect above.
+let lastAvailabilityDateSkipReportAt: number | null = null;
 const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 // Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
 let buildPhaseSweeps = 0;
@@ -390,6 +393,8 @@ export function __resetLocationListCacheForTests(): void {
   lastFailureWasTimeoutOnly = false;
   consecutiveTimeoutOnlyFailures = 0;
   lastBackoffReportAt = null;
+  lastAvailabilityReportAt = null;
+  lastAvailabilityDateSkipReportAt = null;
   buildPhaseSweeps = 0;
   inFlightLocationBuild = null;
 }
@@ -933,15 +938,33 @@ export async function searchParking(
     const stayDays = dayDiff(checkin, checkout);
     if (leadDays === null || stayDays === null) {
       // Unparseable dates: skip the whole search rather than store a
-      // fabricated lead_days — but say so, throttled: a silent skip on the
-      // chat path (bare-string dates) could erase 100% of chat observations.
+      // fabricated lead_days — but say so, throttled on its own clock (this
+      // is an expected, recurring signal on the chat path, whose dates are
+      // model-supplied; it must not re-arm the clock that reports genuine
+      // row-builder defects below). A silent skip here could erase 100% of
+      // chat observations. Values are truncated: they are raw caller input.
       // (A past check-in beyond the -1 CHECK is dropped per row, and
       // reported, by rowIsInsertable inside logAvailability.)
-      throw new Error(
-        `availability: unparseable dates skipped (source=${source} checkin=${checkin} checkout=${checkout} searchedOn=${searchedOn})`
-      );
-    }
-    {
+      const now = Date.now();
+      if (
+        lastAvailabilityDateSkipReportAt === null ||
+        now - lastAvailabilityDateSkipReportAt >= AVAILABILITY_REPORT_INTERVAL_MS
+      ) {
+        lastAvailabilityDateSkipReportAt = now;
+        captureAPIError(
+          new Error(`availability: search skipped, unparseable dates (source=${source})`),
+          {
+            endpoint: "searchParking.logAvailability",
+            method: "GET",
+            extra: {
+              checkin: String(checkin).slice(0, 32),
+              checkout: String(checkout).slice(0, 32),
+              searchedOn,
+            },
+          }
+        );
+      }
+    } else {
       const availabilityRows: AvailabilityRow[] = pricedLots.map(
         ({ location, minPriceData }) => {
           // A lot whose pricing call failed is still an observation — "we
