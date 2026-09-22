@@ -22,7 +22,7 @@ import { captureAPIError } from "@/lib/sentry";
 import {
   logAvailability,
   dayDiff,
-  utcToday,
+  localToday,
   type AvailabilityRow,
   type AvailabilitySource,
 } from "@/lib/availability/log";
@@ -916,36 +916,50 @@ export async function searchParking(
   // Record which lots were sold out, BEFORE the filter below throws that away.
   // ResLab has no history endpoint, so an unrecorded day is unrecoverable.
   // Fire-and-forget and error-swallowing by contract — see
-  // src/lib/availability/log.ts and supabase/migrations/024_availability_log.sql.
-  const searchedOn = utcToday();
-  const availabilityRows: AvailabilityRow[] = pricedLots.flatMap(
-    ({ location, minPriceData }) => {
-      // Skip the lots whose pricing call failed: we know nothing about them,
-      // and a missing row is honest where a `sold_out: false` row would be a
-      // fabricated observation.
-      if (!minPriceData) return [];
-      const { sold_out, available_spots, grand_total } = minPriceData.reservation;
-      return [
-        {
-          airport_code: airportInfo.code,
-          check_in: checkin,
-          check_out: checkout,
-          lead_days: dayDiff(searchedOn, checkin),
-          stay_days: dayDiff(checkin, checkout),
-          reslab_location_id: location.id,
-          sold_out: Boolean(sold_out),
-          available_spots:
-            typeof available_spots === "number" ? available_spots : null,
-          min_price_cents:
-            typeof grand_total === "number" && grand_total > 0
-              ? Math.round(grand_total * 100)
-              : null,
-          source,
-        },
-      ];
-    }
-  );
-  logAvailability(availabilityRows);
+  // src/lib/availability/log.ts and supabase/migrations/025_availability_log.sql.
+  //
+  // Wrapped in its own try/catch: this reads minPriceData.reservation, which a
+  // 200-with-no-`reservation` response would throw on destructuring, and that
+  // must never take down a real search result just to log telemetry about it.
+  try {
+    // lead_days is measured against "today" in the airport's own timezone, not
+    // UTC — a US evening search is already "tomorrow" in UTC and would
+    // otherwise log a systematic -1 lead day.
+    const searchedOn = localToday(airportInfo.timezone);
+    const availabilityRows: AvailabilityRow[] = pricedLots.flatMap(
+      ({ location, minPriceData }) => {
+        // Skip the lots whose pricing call failed: we know nothing about them,
+        // and a missing row is honest where a `sold_out: false` row would be a
+        // fabricated observation.
+        if (!minPriceData) return [];
+        const { sold_out, available_spots, grand_total } = minPriceData.reservation;
+        return [
+          {
+            airport_code: airportInfo.code,
+            check_in: checkin,
+            check_out: checkout,
+            lead_days: dayDiff(searchedOn, checkin),
+            stay_days: dayDiff(checkin, checkout),
+            reslab_location_id: location.id,
+            sold_out: typeof sold_out === "boolean" ? sold_out : null,
+            available_spots:
+              typeof available_spots === "number" ? available_spots : null,
+            grand_total_cents:
+              typeof grand_total === "number" && grand_total > 0
+                ? Math.round(grand_total * 100)
+                : null,
+            source,
+          },
+        ];
+      }
+    );
+    logAvailability(availabilityRows);
+  } catch (err) {
+    captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+      endpoint: "searchParking.logAvailability",
+      method: "GET",
+    });
+  }
 
   // Filter out unavailable lots and lots with no valid pricing
   const availableLots = lotsWithPricing.filter(
