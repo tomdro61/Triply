@@ -11,10 +11,13 @@ export function Newsletter() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submittedMessage, setSubmittedMessage] = useState(
+    "Check your email for your 10% off code!"
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
+    if (!email || isLoading) return;
 
     setIsLoading(true);
     setError(null);
@@ -23,17 +26,49 @@ export function Newsletter() {
       const response = await fetch("/api/newsletter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, source: "homepage" }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to subscribe");
+      // Same rule as the blog capture form: a 502/504 or WAF page returns
+      // HTML, not JSON — check ok + content-type before parsing, so that
+      // never surfaces as "Unexpected token '<'".
+      const contentType = response.headers.get("content-type") ?? "";
+      let data: { message?: string; error?: string; alreadySubscribed?: boolean } | null = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
       }
 
+      if (!response.ok) {
+        const fallback =
+          response.status === 429
+            ? "Too many requests — please try again in a minute."
+            : response.status === 413
+              ? "That request was too large."
+              : response.status === 403
+                ? "We couldn't process that request. Please refresh and try again."
+                : response.status >= 500
+                  ? "Something went wrong. Please try again."
+                  : "Failed to subscribe";
+        throw new Error(data?.error || fallback);
+      }
+
+      // A 2xx with no parseable body is not evidence anything happened —
+      // don't assert success on it.
+      if (!data) {
+        throw new Error("We couldn't confirm your signup. Please try again.");
+      }
+
+      setSubmittedMessage(data.message || "Check your email for your 10% off code!");
       setIsSubmitted(true);
-      trackNewsletterSignup();
+      // Already-subscribed responses didn't mint a code or send a new email
+      // for a genuinely new lead.
+      if (!data.alreadySubscribed) {
+        trackNewsletterSignup();
+      }
       setEmail("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -88,7 +123,7 @@ export function Newsletter() {
           {isSubmitted ? (
             <div className="flex items-center justify-center space-x-2 text-green-400 bg-green-500/10 border border-green-500/20 rounded-full py-4 px-6 animate-fade-in max-w-md mx-auto">
               <Check className="w-6 h-6" />
-              <span className="font-medium">Check your email for your 10% off code!</span>
+              <span className="font-medium">{submittedMessage}</span>
             </div>
           ) : (
             <form

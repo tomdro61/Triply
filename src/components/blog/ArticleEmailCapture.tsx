@@ -73,17 +73,25 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
 
       if (!response.ok) {
         const message =
-          response.status >= 500
-            ? "Something went wrong. Please try again."
-            : data?.error;
+          response.status === 429
+            ? "Too many requests — please try again in a minute."
+            : response.status >= 500
+              ? "Something went wrong. Please try again."
+              : data?.error;
         throw new Error(message || "Failed to send your code");
       }
 
-      setSubmittedMessage(data?.message || "Check your inbox — your 10% code is on its way.");
+      // A 2xx with no parseable body is not evidence anything happened —
+      // don't assert success on it.
+      if (!data) {
+        throw new Error("We couldn't confirm your signup. Please try again.");
+      }
+
+      setSubmittedMessage(data.message || "Check your inbox — your 10% code is on its way.");
       setIsSubmitted(true);
       // Already-subscribed responses didn't send a new email or mint a code
       // for a genuinely new lead — don't inflate generate_lead with them.
-      if (!data?.alreadySubscribed) {
+      if (!data.alreadySubscribed) {
         trackNewsletterSignup({ source: "blog", airportCode: code || null });
       }
       setEmail("");

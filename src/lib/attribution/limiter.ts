@@ -64,8 +64,17 @@ export function __attributionRateLimitSizeForTests(): number {
 }
 
 // Newsletter signup is a heavier action (mints a live promo code + sends an
-// email) than an attribution touch, so it gets a tighter budget: ~5/min/IP.
-const newsletterLimiter = createBoundedRateLimiter({ limit: 5, windowMs: 60_000, maxKeys: 5000 });
+// email) than an attribution touch, so it's tighter than the attribution
+// limiter above — but 5/min/IP (the original budget) punished shared IPs
+// (airport WiFi, CGNAT) after a handful of readers signed up back to back.
+// Widened to ~15/min/IP; the route only charges this limiter on the mint
+// path now (after validation), not on every request, so the two changes
+// together still bound the actual cost (a code + an email) per IP per
+// minute while leaving read-only responses ("you're already subscribed")
+// unlimited.
+const newsletterLimiter = createBoundedRateLimiter({ limit: 15, windowMs: 60_000, maxKeys: 5000 });
+
+export const NEWSLETTER_RATE_LIMIT_WINDOW_SECONDS = 60;
 
 export function checkNewsletterRateLimit(key: string, now = Date.now()): boolean {
   return newsletterLimiter.check(key, now);

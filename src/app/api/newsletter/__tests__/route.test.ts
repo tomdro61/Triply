@@ -81,14 +81,39 @@ describe("POST /api/newsletter — limits", () => {
     expect(res.status).toBe(413);
   });
 
-  it("6th request from the same IP inside a minute → 429; a different IP is unaffected", async () => {
-    for (let i = 0; i < 5; i++) {
+  it("16th request from the same IP inside a minute → 429 with Retry-After; a different IP is unaffected", async () => {
+    for (let i = 0; i < 15; i++) {
       expect((await POST(post({ email: `a${i}@example.com` }))).status).toBe(200);
     }
-    expect((await POST(post({ email: "a6@example.com" }))).status).toBe(429);
+    const limited = await POST(post({ email: "a16@example.com" }));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
     expect(
       (await POST(post({ email: "b@example.com" }, { headers: { "x-forwarded-for": "198.51.100.9" } }))).status
     ).toBe(200);
+  });
+
+  it("the rate limit is only charged on the mint path — repeated already-subscribed lookups don't burn quota", async () => {
+    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
+    db.tables.promo_codes.push({
+      id: "promo_quota",
+      active: true,
+      current_uses: 0,
+      max_uses: 1,
+      expires_at: future,
+    });
+    db.tables.newsletter_subscribers.push({
+      id: "sub_quota",
+      email: "quota@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_quota",
+      source: null,
+    });
+
+    for (let i = 0; i < 20; i++) {
+      const res = await POST(post({ email: "quota@example.com" }));
+      expect(res.status).toBe(200);
+    }
   });
 });
 
@@ -172,12 +197,232 @@ describe("POST /api/newsletter — already subscribed", () => {
       source: "homepage",
     });
 
-    const res = await POST(post({ email: "stale@example.com" }));
+    const res = await POST(post({ email: "stale@example.com", source: "blog" }));
     const json = await res.json();
     expect(json.alreadySubscribed).toBe(true);
     expect(db.tables.promo_codes).toHaveLength(2);
     expect(resendSend).toHaveBeenCalledTimes(1);
-    // First-touch: an already-set source is never overwritten.
+    // First-touch: an already-set source is never overwritten, even though
+    // this request sent a different one.
     expect(db.tables.newsletter_subscribers[0].source).toBe("homepage");
+  });
+
+  it("a redeemed code (current_uses > 0) is never re-minted, even if it has also expired", async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    db.tables.promo_codes.push({
+      id: "promo_used",
+      active: true,
+      current_uses: 1,
+      max_uses: 1,
+      expires_at: past,
+    });
+    db.tables.newsletter_subscribers.push({
+      id: "sub_used",
+      email: "redeemed@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_used",
+      source: null,
+    });
+
+    const res = await POST(post({ email: "redeemed@example.com" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.alreadySubscribed).toBe(true);
+    expect(json.message).not.toMatch(/code/i);
+
+    // No fresh code minted, no mail sent — the one-time discount stays used.
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("welcome_sent_at within 7 days blocks a re-mint even for a never-used, expired code", async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    const recentlySent = new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString();
+    db.tables.promo_codes.push({
+      id: "promo_cooldown",
+      active: true,
+      current_uses: 0,
+      max_uses: 1,
+      expires_at: past,
+    });
+    db.tables.newsletter_subscribers.push({
+      id: "sub_cooldown",
+      email: "cooldown@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_cooldown",
+      source: null,
+      welcome_sent_at: recentlySent,
+    });
+
+    const res = await POST(post({ email: "cooldown@example.com" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.alreadySubscribed).toBe(true);
+
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("welcome_sent_at outside the 7-day cooldown allows a re-mint of a never-used, expired code", async () => {
+    const past = new Date(Date.now() - 1000).toISOString();
+    const longAgo = new Date(Date.now() - 1000 * 60 * 60 * 24 * 8).toISOString();
+    db.tables.promo_codes.push({
+      id: "promo_stale_cooldown",
+      active: true,
+      current_uses: 0,
+      max_uses: 1,
+      expires_at: past,
+    });
+    db.tables.newsletter_subscribers.push({
+      id: "sub_stale_cooldown",
+      email: "stalecooldown@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_stale_cooldown",
+      source: null,
+      welcome_sent_at: longAgo,
+    });
+
+    const res = await POST(post({ email: "stalecooldown@example.com" }));
+    expect(res.status).toBe(200);
+    expect(db.tables.promo_codes).toHaveLength(2);
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.newsletter_subscribers[0].welcome_sent_at).not.toBe(longAgo);
+  });
+});
+
+describe("POST /api/newsletter — resubscribe", () => {
+  it("a previously-unsubscribed address re-subscribing clears unsubscribed_at, mints a new code, and sends mail", async () => {
+    db.tables.newsletter_subscribers.push({
+      id: "sub_resub",
+      email: "backagain@example.com",
+      unsubscribed_at: new Date().toISOString(),
+      promo_code_id: null,
+      source: null,
+    });
+
+    const res = await POST(post({ email: "backagain@example.com" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.alreadySubscribed).toBeUndefined();
+
+    const sub = db.tables.newsletter_subscribers[0];
+    expect(sub.unsubscribed_at).toBeNull();
+    expect(sub.promo_code_id).toBeTruthy();
+    expect(sub.welcome_sent_at).toBeTruthy();
+    expect(resendSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed resubscribe UPDATE returns 503 and is reported to Sentry, not a false success", async () => {
+    db.tables.newsletter_subscribers.push({
+      id: "sub_resub_fail",
+      email: "failresub@example.com",
+      unsubscribed_at: new Date().toISOString(),
+      promo_code_id: null,
+      source: null,
+    });
+    db.failOnce("newsletter_subscribers", "update", "connection reset", "08006");
+
+    const res = await POST(post({ email: "failresub@example.com" }));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toBeTruthy();
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/newsletter — mint failure is honest", () => {
+  it("a promo-code insert failure returns 503 (not a false 200 'check your email'), and is reported to Sentry", async () => {
+    db.failOnce("promo_codes", "insert", "RLS violation", "42501");
+
+    const res = await POST(post({ email: "mintfail@example.com" }));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.error).toBeTruthy();
+    expect(json.success).toBeUndefined();
+    expect(sentry.captureException).toHaveBeenCalled();
+    expect(db.tables.newsletter_subscribers).toHaveLength(0);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("a subscriber-insert failure (e.g. race on the email UNIQUE constraint) is reported to Sentry", async () => {
+    db.failOnce("newsletter_subscribers", "insert", "duplicate key value", "23505");
+
+    const res = await POST(post({ email: "raced@example.com" }));
+    expect(res.status).toBe(500);
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/newsletter — Resend errors are never a silent success", () => {
+  it("resend.emails.send() returning { data: null, error } downgrades the message and reports to Sentry, but keeps the subscriber", async () => {
+    resendSend.mockResolvedValueOnce({
+      data: null,
+      error: { name: "application_error", message: "Unverified domain" },
+    });
+
+    const res = await POST(post({ email: "bademail@example.com" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(json.message).not.toMatch(/check your email/i);
+    expect(sentry.captureException).toHaveBeenCalled();
+
+    // The subscriber + promo code still exist — a mail outage shouldn't
+    // discard a genuine signup.
+    expect(db.tables.newsletter_subscribers).toHaveLength(1);
+    expect(db.tables.promo_codes).toHaveLength(1);
+  });
+
+  it("resend.emails.send() throwing (transport failure) is also caught and reported, not silently swallowed", async () => {
+    resendSend.mockRejectedValueOnce(new Error("fetch failed"));
+
+    const res = await POST(post({ email: "throwsemail@example.com" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.message).not.toMatch(/check your email/i);
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/newsletter — subscriber lookup errors", () => {
+  it("a non-PGRST116 error on the subscriber lookup returns 503, not a route to new-signup", async () => {
+    db.failOnce("newsletter_subscribers", "select", "connection reset", "08006");
+
+    const res = await POST(post({ email: "lookupfail@example.com" }));
+    expect(res.status).toBe(503);
+    expect(sentry.captureException).toHaveBeenCalled();
+    expect(db.tables.promo_codes).toHaveLength(0);
+  });
+});
+
+describe("POST /api/newsletter — promo lookup errors", () => {
+  it("a non-PGRST116 error on the promo lookup returns 503 and does not mint a duplicate code", async () => {
+    db.tables.newsletter_subscribers.push({
+      id: "sub_promo_err",
+      email: "promoerr@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_missing_row",
+      source: null,
+    });
+    db.failOnce("promo_codes", "select", "connection reset", "08006");
+
+    const res = await POST(post({ email: "promoerr@example.com" }));
+    expect(res.status).toBe(503);
+    expect(sentry.captureException).toHaveBeenCalled();
+    expect(db.tables.promo_codes).toHaveLength(0);
+  });
+});
+
+describe("POST /api/newsletter — deploy-window schema-cache errors", () => {
+  it("PGRST204 on the attribution UPDATE (024 not yet applied) is swallowed, not reported, and the signup still succeeds", async () => {
+    db.failOnce("newsletter_subscribers", "update", "column not found in schema cache", "PGRST204");
+
+    const res = await POST(post({ email: "deploywindow@example.com", source: "blog" }));
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    expect(db.tables.newsletter_subscribers).toHaveLength(1);
   });
 });

@@ -6,6 +6,19 @@
  * same-origin only, a bounded per-IP limiter, a measured body cap, and one
  * Sentry event per rejection class. See src/lib/http/origin.ts and
  * src/lib/attribution/limiter.ts.
+ *
+ * Pass-2 review (PR #23, 2026-09-22) hardened three things that all trace
+ * back to "never tell the visitor something happened that didn't":
+ *   - Minting or sending can fail. The response must say so (503), not the
+ *     generic "check your email" success copy — and every failure must
+ *     reach Sentry, not just console.error.
+ *   - A promo code that has already been redeemed (current_uses > 0) is not
+ *     renewable. Only an unused code (current_uses === 0) that's merely
+ *     expired/inactive is eligible for a fresh mint, and even that is gated
+ *     by a 7-day welcome_sent_at cooldown so the mail path can't be pumped.
+ *   - resend.emails.send() RETURNS errors, it never throws for an API-level
+ *     failure (unverified domain, 429, bad recipient) — every sender in
+ *     src/lib/resend/ destructures { data, error }; this route now does too.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,17 +29,31 @@ import { z } from "zod";
 import crypto from "crypto";
 import { captureAPIError } from "@/lib/sentry";
 import { isSameOrigin, clientKey } from "@/lib/http/origin";
-import { checkNewsletterRateLimit } from "@/lib/attribution/limiter";
+import {
+  checkNewsletterRateLimit,
+  NEWSLETTER_RATE_LIMIT_WINDOW_SECONDS,
+} from "@/lib/attribution/limiter";
 import { getAirportByCode } from "@/config/airports";
+import { isPromoCodeUsable } from "@/lib/promo/usable";
 
 const MAX_BODY_BYTES = 2048;
+
+// Cooldown on re-minting/re-sending a welcome code to an already-subscribed
+// address, independent of the code's own state. Without this, an address
+// whose code merely expired (current_uses still 0) could be resubmitted
+// endlessly to keep pumping fresh mail.
+const WELCOME_EMAIL_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+
+const UNAVAILABLE_MESSAGE =
+  "We couldn't process your subscription right now. Please try again in a few minutes.";
 
 const newsletterSchema = z.object({
   // .trim() FIRST: zod runs .email() before any transform, so a pasted address
   // with a trailing space was rejected outright.
   email: z.string().trim().email("Invalid email address").max(254),
-  // Optional attribution. Sent by the end-of-article capture on the blog;
-  // the homepage form sends none of it and behaves exactly as before.
+  // Optional attribution. Sent by the end-of-article capture on the blog and
+  // (as of this pass) the homepage form; older cached clients may still send
+  // none, and that keeps working exactly as before.
   source: z
     .string()
     .max(32)
@@ -50,11 +77,23 @@ function generatePromoCode(): string {
   return `WELCOME-${suffix}`;
 }
 
+function withinWelcomeCooldown(welcomeSentAt: string | null | undefined): boolean {
+  if (!welcomeSentAt) return false;
+  const sentAtMs = new Date(welcomeSentAt).getTime();
+  if (Number.isNaN(sentAtMs)) return false;
+  return Date.now() - sentAtMs < WELCOME_EMAIL_COOLDOWN_MS;
+}
+
 // Once-per-instance telemetry for each rejection class, same pattern as
-// /api/attribution — sampling, not suppression.
+// /api/attribution — sampling, not suppression. `originRejectionCount` is a
+// simple always-on counter alongside it: reportOnce only ever surfaces ONE
+// Sentry event per class per warm instance, which would make an entire
+// segment 403ing (e.g. a proxy stripping Origin) invisible otherwise.
 const reported = new Set<string>();
+let originRejectionCount = 0;
 export function __resetNewsletterRouteTelemetryForTests(): void {
   reported.clear();
+  originRejectionCount = 0;
 }
 function reportOnce(kind: string, context: Record<string, unknown>) {
   if (reported.has(kind)) return;
@@ -94,14 +133,30 @@ async function mintPromoCode(
 
   if (error || !data) {
     console.error("Error creating promo code:", error);
+    captureAPIError(
+      new Error(`Failed to mint newsletter promo code: ${error?.message ?? "insert returned no row"}`),
+      {
+        endpoint: "/api/newsletter",
+        method: "POST",
+        stage: "mint",
+        code: error?.code,
+      }
+    );
     return null;
   }
   return { id: data.id, code };
 }
 
-async function sendWelcomeEmail(email: string, code: string): Promise<void> {
+/**
+ * Resend's SDK RETURNS API-level errors (unverified domain, 429, bad
+ * recipient) as `{ data: null, error }` — it does not throw for them. Only a
+ * transport failure (network down, DNS) throws. Both must be treated as
+ * "the email did not go out": neither may be swallowed into a silent
+ * success, matching every sender in src/lib/resend/.
+ */
+async function sendWelcomeEmail(email: string, code: string): Promise<boolean> {
   try {
-    await resend.emails.send({
+    const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: [email],
       subject: "Welcome to Triply! Here's your 10% off code",
@@ -137,9 +192,25 @@ async function sendWelcomeEmail(email: string, code: string): Promise<void> {
         </div>
       `,
     });
-  } catch (emailError) {
-    // Don't fail the subscription if email fails.
-    console.error("Newsletter welcome email failed:", emailError);
+
+    if (error) {
+      console.error("Newsletter welcome email failed:", error);
+      captureAPIError(new Error(`Newsletter welcome email failed: ${error.message}`), {
+        endpoint: "/api/newsletter",
+        method: "POST",
+        stage: "send_email",
+      });
+      return false;
+    }
+
+    return Boolean(data);
+  } catch (err) {
+    console.error("Newsletter welcome email failed:", err);
+    captureAPIError(
+      err instanceof Error ? err : new Error(`Newsletter welcome email failed: ${String(err)}`),
+      { endpoint: "/api/newsletter", method: "POST", stage: "send_email" }
+    );
+    return false;
   }
 }
 
@@ -166,8 +237,12 @@ async function recordSourceAttribution(
       .is("source", null);
 
     if (error) {
-      if (error.code === "42703") {
-        // Expected transient: migration 024 not applied yet.
+      // PostgREST rejects a write of an unknown column with PGRST204, not the
+      // Postgres SQLSTATE 42703 — 42703 only ever gets to us via a fake/direct
+      // Postgres error path. Match both so a signup during the deploy window
+      // (code shipped, migration 024 not yet applied) doesn't fire Sentry on
+      // every request.
+      if (error.code === "42703" || error.code === "PGRST204") {
         console.warn("Newsletter source attribution skipped (migration pending):", error.message);
       } else {
         console.warn("Newsletter source attribution skipped:", error.message);
@@ -181,21 +256,24 @@ async function recordSourceAttribution(
     }
   } catch (error) {
     console.warn("Newsletter source attribution skipped:", error);
+    captureAPIError(
+      error instanceof Error ? error : new Error(`Newsletter source attribution failed: ${String(error)}`),
+      { endpoint: "/api/newsletter", method: "POST", stage: "attribution" }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
+    originRejectionCount += 1;
+    console.warn(`Newsletter origin check rejected request #${originRejectionCount} this instance`);
     reportOnce("403_origin", {
       secFetchSite: request.headers.get("sec-fetch-site"),
       origin: request.headers.get("origin"),
       host: request.headers.get("host"),
+      rejectionsThisInstance: originRejectionCount,
     });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-  if (!checkNewsletterRateLimit(clientKey(request))) {
-    reportOnce("429_rate_limited", {});
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }
 
   // Measure the body that actually arrived: Content-Length is absent on a
@@ -226,11 +304,45 @@ export async function POST(request: NextRequest) {
     const emailLower = email.toLowerCase();
     const supabase = await createAdminClient();
 
-    const { data: existing } = await supabase
+    const { data: existing, error: lookupError } = await supabase
       .from("newsletter_subscribers")
-      .select("id, unsubscribed_at, promo_code_id")
+      .select("id, unsubscribed_at, promo_code_id, welcome_sent_at")
       .eq("email", emailLower)
       .single();
+
+    // PGRST116 = no row = a genuinely new address. Anything else is a real
+    // DB fault — silently treating it as "not found" would route a known
+    // address into the insert branch below, hit the email UNIQUE constraint
+    // (23505), and surface as an opaque 500 with an orphaned live promo code
+    // already minted.
+    if (lookupError && lookupError.code !== "PGRST116") {
+      captureAPIError(
+        new Error(`Newsletter subscriber lookup failed: ${lookupError.message}`),
+        {
+          endpoint: "/api/newsletter",
+          method: "POST",
+          stage: "lookup",
+          code: lookupError.code,
+        }
+      );
+      return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
+    }
+
+    // The rate limit is charged only on the mint path (below), after
+    // validation and the read-only lookups — a read-only "you're already
+    // subscribed" response costs nothing and shouldn't burn an IP's budget.
+    // Shared IPs (airport WiFi, CGNAT) can serve many distinct readers.
+    function requireMintQuota(): NextResponse | null {
+      if (checkNewsletterRateLimit(clientKey(request))) return null;
+      reportOnce("429_rate_limited", {});
+      return NextResponse.json(
+        { error: "Too many requests" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(NEWSLETTER_RATE_LIMIT_WINDOW_SECONDS) },
+        }
+      );
+    }
 
     // First-touch attribution, whatever branch below this takes.
     if (existing && source) {
@@ -238,23 +350,45 @@ export async function POST(request: NextRequest) {
     }
 
     if (existing && !existing.unsubscribed_at) {
-      let hasUsableCode = false;
+      let usableCode: { current_uses: number } | null = null;
+      let redeemedCode = false;
+
       if (existing.promo_code_id) {
-        const { data: promo } = await supabase
+        const { data: promo, error: promoError } = await supabase
           .from("promo_codes")
           .select("active, current_uses, max_uses, expires_at")
           .eq("id", existing.promo_code_id)
           .single();
-        if (
-          promo?.active &&
-          promo.current_uses < promo.max_uses &&
-          new Date(promo.expires_at) > new Date()
-        ) {
-          hasUsableCode = true;
+
+        // Same rule as checkout: only PGRST116 (no row) is "no usable code".
+        // A DB blip surfaced as any other error must never be read as
+        // "unusable" — that would mint a duplicate live code + email.
+        if (promoError && promoError.code !== "PGRST116") {
+          captureAPIError(
+            new Error(`Promo lookup failed for subscriber ${existing.id}: ${promoError.message}`),
+            {
+              endpoint: "/api/newsletter",
+              method: "POST",
+              stage: "promo_lookup",
+              code: promoError.code,
+            }
+          );
+          return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
+        }
+
+        if (promo) {
+          if (isPromoCodeUsable(promo)) {
+            usableCode = promo;
+          } else if (promo.current_uses > 0) {
+            // Already redeemed at least once — the one-time 10% code is not
+            // renewable. Do NOT mint a replacement no matter how it's
+            // otherwise unusable (expired, deactivated).
+            redeemedCode = true;
+          }
         }
       }
 
-      if (hasUsableCode) {
+      if (usableCode) {
         return NextResponse.json({
           success: true,
           alreadySubscribed: true,
@@ -262,53 +396,106 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // No unexpired, unused code on file — mint and send a fresh one. Safe
-      // to do per-request because this path is behind the per-IP limiter
-      // above (checkNewsletterRateLimit, ~5/min).
-      const minted = await mintPromoCode(supabase);
-      if (minted) {
-        await supabase
-          .from("newsletter_subscribers")
-          .update({ promo_code_id: minted.id })
-          .eq("id", existing.id);
-        await sendWelcomeEmail(emailLower, minted.code);
+      if (redeemedCode || withinWelcomeCooldown(existing.welcome_sent_at)) {
+        // Either the code on file has already been used (a fresh one would
+        // make the discount infinitely renewable), or we emailed this
+        // address within the last 7 days and won't mint/send again just
+        // because they resubmitted the form.
         return NextResponse.json({
           success: true,
           alreadySubscribed: true,
-          message: "You're already on the list — we've sent a fresh 10% code to your inbox.",
+          message: "You're already subscribed to Triply.",
         });
       }
 
+      // Never redeemed, but expired/inactive/absent — mint and send a fresh
+      // one. Gated by the per-IP mint quota above and the cooldown check
+      // just above, so this can't be pumped.
+      const limited = requireMintQuota();
+      if (limited) return limited;
+
+      const minted = await mintPromoCode(supabase);
+      if (!minted) {
+        return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
+      }
+
+      const { error: updateError } = await supabase
+        .from("newsletter_subscribers")
+        .update({ promo_code_id: minted.id, welcome_sent_at: new Date().toISOString() })
+        .eq("id", existing.id);
+
+      if (updateError) {
+        captureAPIError(
+          new Error(`Failed to attach new promo code to subscriber ${existing.id}: ${updateError.message}`),
+          {
+            endpoint: "/api/newsletter",
+            method: "POST",
+            stage: "update_promo_code",
+            code: updateError.code,
+          }
+        );
+        return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
+      }
+
+      const sent = await sendWelcomeEmail(emailLower, minted.code);
       return NextResponse.json({
         success: true,
         alreadySubscribed: true,
-        message: "You're already subscribed — check your email for your promo code.",
+        message: sent
+          ? "You're already on the list — we've sent a fresh 10% code to your inbox."
+          : "You're already subscribed, and we minted a fresh 10% code, but hit a snag emailing it. Please try again shortly.",
       });
     }
 
     // New subscriber, or a previously-unsubscribed address coming back.
+    const limited = requireMintQuota();
+    if (limited) return limited;
+
     const minted = await mintPromoCode(supabase);
     if (!minted) {
-      return NextResponse.json(
-        { error: "Failed to process subscription" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
     }
 
+    const nowIso = new Date().toISOString();
+
     if (existing) {
-      await supabase
+      const { error: resubError } = await supabase
         .from("newsletter_subscribers")
-        .update({ unsubscribed_at: null, promo_code_id: minted.id })
+        .update({ unsubscribed_at: null, promo_code_id: minted.id, welcome_sent_at: nowIso })
         .eq("id", existing.id);
+
+      if (resubError) {
+        captureAPIError(
+          new Error(`Failed to resubscribe ${existing.id}: ${resubError.message}`),
+          {
+            endpoint: "/api/newsletter",
+            method: "POST",
+            stage: "resubscribe",
+            code: resubError.code,
+          }
+        );
+        // Don't tell them they're resubscribed when unsubscribed_at is still
+        // set on the row.
+        return NextResponse.json({ error: UNAVAILABLE_MESSAGE }, { status: 503 });
+      }
     } else {
       const { data: inserted, error: subError } = await supabase
         .from("newsletter_subscribers")
-        .insert({ email: emailLower, promo_code_id: minted.id })
+        .insert({ email: emailLower, promo_code_id: minted.id, welcome_sent_at: nowIso })
         .select("id")
         .single();
 
       if (subError) {
         console.error("Error creating subscriber:", subError);
+        captureAPIError(
+          new Error(`Failed to create newsletter subscriber: ${subError.message}`),
+          {
+            endpoint: "/api/newsletter",
+            method: "POST",
+            stage: "insert_subscriber",
+            code: subError.code,
+          }
+        );
         return NextResponse.json(
           { error: "Failed to process subscription" },
           { status: 500 }
@@ -320,11 +507,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await sendWelcomeEmail(emailLower, minted.code);
+    const sent = await sendWelcomeEmail(emailLower, minted.code);
 
     return NextResponse.json({
       success: true,
-      message: "Check your email for your 10% off code!",
+      message: sent
+        ? "Check your email for your 10% off code!"
+        : "You're subscribed! We hit a snag sending your code by email — please try signing up again in a few minutes to get it resent.",
     });
   } catch (error) {
     console.error("Newsletter signup error:", error);

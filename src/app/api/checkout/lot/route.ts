@@ -14,6 +14,7 @@ import {
   STALE_CHECKOUT_MESSAGE,
 } from "@/lib/parkguard/client";
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
+import { isPromoCodeUsable } from "@/lib/promo/usable";
 
 // A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
 // (40s budget). The ceiling must sit above it so the sweep settles and arms its
@@ -280,12 +281,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (
-        promo &&
-        promo.active &&
-        (!promo.expires_at || new Date(promo.expires_at) >= new Date()) &&
-        (promo.max_uses === null || promo.current_uses < promo.max_uses)
-      ) {
+      if (promo && isPromoCodeUsable(promo)) {
         discountPercent = promo.discount_percent;
         const discount = costResponse.reservation.sub_total * (discountPercent / 100);
         verifiedTotal = verifiedTotal - discount;
