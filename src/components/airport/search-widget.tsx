@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { trackBlogCtaClick } from "@/lib/analytics/gtag";
-import { DateRangeFieldSkeleton } from "@/components/airport/date-range-field";
+import { DateRangeFieldSkeleton } from "@/components/airport/date-range-field-skeleton";
 
 // react-day-picker + the Radix Popover it opens in are ~50 KB gzipped and
 // only needed once someone actually opens the calendar — keep them out of

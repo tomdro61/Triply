@@ -16,7 +16,10 @@ interface DateRangeFieldProps {
  * The actual date-range picker (react-day-picker + Radix Popover). Split out
  * of SearchWidget so it can be `next/dynamic(..., { ssr: false })`-loaded —
  * this is the ~50 KB chunk we don't want in the initial /blog/[slug] bundle.
- * See DateRangeFieldSkeleton for the static placeholder shown while it loads.
+ * See date-range-field-skeleton.tsx for the static placeholder shown while it
+ * loads — kept in its own file on purpose: anything this file imports rides
+ * along in the lazy chunk, and anything that imports THIS file statically
+ * would pull react-day-picker back into the initial bundle.
  */
 export default function DateRangeField({
   departDate,
@@ -70,42 +73,5 @@ export default function DateRangeField({
         </>
       )}
     </DateRangePicker>
-  );
-}
-
-/**
- * Static stand-in shown while the DateRangeField chunk loads. Same markup as
- * the real trigger buttons (minus the click handlers) so there's no layout
- * shift when the real thing mounts a moment later.
- */
-export function DateRangeFieldSkeleton({
-  departDate,
-  returnDate,
-}: Pick<DateRangeFieldProps, "departDate" | "returnDate">) {
-  return (
-    <>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">Depart</label>
-        <button
-          type="button"
-          disabled
-          className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left text-gray-400"
-        >
-          <CalendarIcon className="w-4 h-4 text-gray-400" />
-          <span>{departDate || "Select date"}</span>
-        </button>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1.5">Return</label>
-        <button
-          type="button"
-          disabled
-          className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left text-gray-400"
-        >
-          <CalendarIcon className="w-4 h-4 text-gray-400" />
-          <span>{returnDate || "Select date"}</span>
-        </button>
-      </div>
-    </>
   );
 }
