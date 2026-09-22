@@ -483,13 +483,16 @@ export function RichText({
   }
 
   const blocks = content.root.children
-  const insertAt =
-    insertContent != null &&
-    insertAfterIndex != null &&
-    insertAfterIndex >= 0 &&
-    insertAfterIndex < blocks.length
-      ? insertAfterIndex
-      : null
+  const insertRequested = insertContent != null && insertAfterIndex != null
+  const insertInRange =
+    insertAfterIndex != null && insertAfterIndex >= 0 && insertAfterIndex < blocks.length
+  const insertAt = insertRequested && insertInRange ? insertAfterIndex : null
+
+  if (insertRequested && !insertInRange && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      `RichText: insertAfterIndex (${insertAfterIndex}) is out of range for ${blocks.length} block(s) — dropping the mid-article CTA.`
+    )
+  }
 
   return (
     <div className={`prose prose-slate max-w-none ${className}`}>

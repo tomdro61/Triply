@@ -1060,3 +1060,14 @@ export function getAirportByReslabLocationId(
 ): Airport | undefined {
   return visibleAirports.find((a) => a.reslabLocationId === locationId);
 }
+
+/**
+ * Blog CTAs and booking prompts only ever want to preselect/link to an
+ * airport we can actually sell. Shared by ArticleBookingPrompt and
+ * ArticleCta.sellableCode so the gate can't drift between the two.
+ */
+export function getSellableAirportCode(code?: string | null): string {
+  if (!code) return "";
+  const airport = getAirportByCode(code);
+  return airport?.enabled ? airport.code : "";
+}

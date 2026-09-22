@@ -244,7 +244,7 @@ export function trackContactFormSubmit() {
 export function trackBlogCtaClick(params: {
   /** Empty string when the article/reader hasn't picked an airport we sell. */
   airportCode: string;
-  placement: "top-widget" | "mid-article" | "end-of-article";
+  placement: "top-widget" | "mid-article" | "end-of-article" | "end-of-article-inline";
 }) {
   if (typeof window !== "undefined" && window.gtag) {
     window.gtag("event", "blog_cta_click", {

@@ -8,13 +8,21 @@ import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { trackBlogCtaClick } from "@/lib/analytics/gtag";
 import { DateRangeFieldSkeleton } from "@/components/airport/date-range-field-skeleton";
+import { DateRangeFieldErrorBoundary } from "@/components/airport/date-range-field-error-boundary";
 
 // react-day-picker + the Radix Popover it opens in are ~50 KB gzipped and
 // only needed once someone actually opens the calendar — keep them out of
-// every /blog/[slug] page's initial bundle.
-const DateRangeField = dynamic(() => import("@/components/airport/date-range-field"), {
+// every /blog/[slug] page's initial bundle. The "compact" (article) variant
+// is the one this actually helps, so it's the only one that skips SSR: for
+// the "default" (airport hero) variant, `ssr:false` bought nothing but an
+// inert, disabled-looking date field above the fold until a second chunk
+// landed — SSR it instead so the real fields are there on first paint.
+const DateRangeFieldCompact = dynamic(() => import("@/components/airport/date-range-field"), {
   ssr: false,
-  loading: () => <DateRangeFieldSkeleton departDate="" returnDate="" />,
+  loading: () => <DateRangeFieldSkeleton />,
+});
+const DateRangeFieldDefault = dynamic(() => import("@/components/airport/date-range-field"), {
+  loading: () => <DateRangeFieldSkeleton />,
 });
 
 interface SearchWidgetProps {
@@ -29,6 +37,7 @@ interface SearchWidgetProps {
 
 export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetProps) {
   const compact = variant === "compact";
+  const DateRangeField = compact ? DateRangeFieldCompact : DateRangeFieldDefault;
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState(airportCode);
@@ -36,7 +45,7 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
   const [returnDate, setReturnDate] = useState("");
 
   const handleSearch = () => {
-    if (!location) return;
+    if (!location || !departDate || !returnDate) return;
     setIsLoading(true);
 
     // "compact" is only used by the blog article booking widget today — the
@@ -81,17 +90,24 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
         </div>
 
         {/* Dates */}
-        <DateRangeField
+        <DateRangeFieldErrorBoundary
           departDate={departDate}
           returnDate={returnDate}
           onDepartChange={setDepartDate}
           onReturnChange={setReturnDate}
-        />
+        >
+          <DateRangeField
+            departDate={departDate}
+            returnDate={returnDate}
+            onDepartChange={setDepartDate}
+            onReturnChange={setReturnDate}
+          />
+        </DateRangeFieldErrorBoundary>
       </div>
 
       <Button
         onClick={handleSearch}
-        disabled={!location || isLoading}
+        disabled={!location || !departDate || !returnDate || isLoading}
         className={`w-full bg-brand-orange hover:bg-brand-orange/90 text-white font-bold ${
           compact ? "mt-3 h-11 text-sm" : "mt-4 h-12 text-base"
         }`}
@@ -102,6 +118,9 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
           "Search Parking"
         )}
       </Button>
+      {location && (!departDate || !returnDate) && (
+        <p className="mt-2 text-xs text-gray-500 text-center">Pick your dates to search</p>
+      )}
     </div>
   );
 }

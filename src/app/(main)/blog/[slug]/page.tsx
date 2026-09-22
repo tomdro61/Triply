@@ -262,7 +262,7 @@ export default async function BlogPostPage({ params }: Props) {
         ) : (
           <section className="bg-coral/5 py-6">
             <div className="container mx-auto px-4 text-center">
-              <ArticleCtaInline airportCode={post.airportCode} placement="end-of-article" />
+              <ArticleCtaInline airportCode={post.airportCode} placement="end-of-article-inline" />
             </div>
           </section>
         )}

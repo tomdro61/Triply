@@ -23,7 +23,10 @@ type LexicalDoc = {
  * *after*, or null when the article is too short to place one mid-body.
  *
  * - 3+ H2s  → after the 2nd H2 section, i.e. immediately before the 3rd H2.
- * - fewer   → after the 3rd paragraph.
+ * - fewer   → after the 3rd paragraph, but only when that still lands in the
+ *             first half of the article — a "3rd paragraph" fallback that
+ *             lands past the midpoint (e.g. the rest of the body is a single
+ *             list/table) is not a mid-article placement, so null instead.
  * - neither → null (caller keeps the full CTA at the end of the page).
  */
 export function getMidArticleInsertIndex(content: LexicalDoc): number | null {
@@ -41,7 +44,10 @@ export function getMidArticleInsertIndex(content: LexicalDoc): number | null {
   // Before the 3rd H2 == after the last block of the 2nd H2 section.
   if (h2Indexes.length >= 3) return h2Indexes[2] - 1
 
-  if (paragraphIndexes.length >= 3) return paragraphIndexes[2]
+  if (paragraphIndexes.length >= 3) {
+    const i = paragraphIndexes[2]
+    return i < Math.floor(blocks.length / 2) ? i : null
+  }
 
   return null
 }

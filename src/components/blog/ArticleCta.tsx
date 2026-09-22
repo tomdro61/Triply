@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { getAirportByCode } from '@/config/airports'
+import { getSellableAirportCode } from '@/config/airports'
 import { trackBlogCtaClick } from '@/lib/analytics/gtag'
 
 interface ArticleCtaProps {
@@ -15,11 +15,7 @@ interface ArticleCtaProps {
  * actually sell. For an airport we don't sell (or none at all), both the
  * heading and the link fall back to the generic "/" search entry point.
  */
-function sellableCode(airportCode?: string | null) {
-  if (!airportCode) return ''
-  const airport = getAirportByCode(airportCode)
-  return airport?.enabled ? airport.code : ''
-}
+const sellableCode = getSellableAirportCode
 
 function ctaHref(code: string) {
   return code ? `/search?airport=${code}` : '/'

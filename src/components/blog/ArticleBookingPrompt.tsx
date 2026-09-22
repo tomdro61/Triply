@@ -1,4 +1,4 @@
-import { getAirportByCode } from '@/config/airports'
+import { getSellableAirportCode } from '@/config/airports'
 import { SearchWidget } from '@/components/airport/search-widget'
 
 interface ArticleBookingPromptProps {
@@ -16,8 +16,7 @@ interface ArticleBookingPromptProps {
  * until they do).
  */
 export function ArticleBookingPrompt({ airportCode }: ArticleBookingPromptProps) {
-  const airport = airportCode ? getAirportByCode(airportCode) : undefined
-  const preselected = airport?.enabled ? airport.code : ''
+  const preselected = getSellableAirportCode(airportCode)
 
   return (
     <section className="bg-gray-50 border-b">
