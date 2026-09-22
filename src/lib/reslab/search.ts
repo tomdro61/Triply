@@ -922,9 +922,8 @@ export async function searchParking(
   // Fire-and-forget and error-swallowing by contract — see
   // src/lib/availability/log.ts and supabase/migrations/025_availability_log.sql.
   //
-  // Wrapped in its own try/catch: this reads minPriceData.reservation, which a
-  // 200-with-no-`reservation` response would throw on destructuring, and that
-  // must never take down a real search result just to log telemetry about it.
+  // Wrapped in its own try/catch so that no defect in the row builder can
+  // ever take down a real search result just to log telemetry about it.
   try {
     // lead_days is measured against "today" in the airport's own timezone, not
     // UTC — a US evening search is already "tomorrow" in UTC and would
@@ -932,10 +931,17 @@ export async function searchParking(
     const searchedOn = localToday(airportInfo.timezone);
     const leadDays = dayDiff(searchedOn, checkin);
     const stayDays = dayDiff(checkin, checkout);
-    // Unparseable dates: skip the whole search rather than store a fabricated
-    // lead_days. (A past check-in beyond the -1 CHECK is dropped per row by
-    // rowIsInsertable inside logAvailability.)
-    if (leadDays !== null && stayDays !== null) {
+    if (leadDays === null || stayDays === null) {
+      // Unparseable dates: skip the whole search rather than store a
+      // fabricated lead_days — but say so, throttled: a silent skip on the
+      // chat path (bare-string dates) could erase 100% of chat observations.
+      // (A past check-in beyond the -1 CHECK is dropped per row, and
+      // reported, by rowIsInsertable inside logAvailability.)
+      throw new Error(
+        `availability: unparseable dates skipped (source=${source} checkin=${checkin} checkout=${checkout} searchedOn=${searchedOn})`
+      );
+    }
+    {
       const availabilityRows: AvailabilityRow[] = pricedLots.map(
         ({ location, minPriceData }) => {
           // A lot whose pricing call failed is still an observation — "we

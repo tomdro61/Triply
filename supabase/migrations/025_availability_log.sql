@@ -98,6 +98,21 @@ CREATE TABLE IF NOT EXISTS availability_log (
   CHECK (stay_days >= 0)
 );
 
+-- CREATE TABLE IF NOT EXISTS is a no-op on a table that already exists (an
+-- earlier revision of this migration applied to a dev DB during review), which
+-- would silently skip the stay_days CHECK above. Add it idempotently.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conrelid = 'availability_log'::regclass
+       AND conname = 'availability_log_stay_days_check'
+  ) THEN
+    ALTER TABLE availability_log
+      ADD CONSTRAINT availability_log_stay_days_check CHECK (stay_days >= 0);
+  END IF;
+END $$;
+
 -- "what did <airport> look like over the last N days" — the time-series read.
 CREATE INDEX IF NOT EXISTS availability_log_airport_searched_idx
   ON availability_log (airport_code, searched_at);
@@ -183,7 +198,10 @@ END $$;
 -- security_invoker so the view inherits availability_log's RLS instead of
 -- running as its definer (a definer view would hand anon a read-around of the
 -- service-role-only policy above, and is what Supabase's advisor flags).
-CREATE OR REPLACE VIEW availability_daily
+-- DROP first: CREATE OR REPLACE VIEW cannot rename or reorder columns, and an
+-- earlier revision of this view (column `searches`) may exist on a dev DB.
+DROP VIEW IF EXISTS availability_daily;
+CREATE VIEW availability_daily
 WITH (security_invoker = true) AS
 SELECT
   airport_code,
@@ -206,22 +224,31 @@ FROM availability_log
 WHERE env = 'production'
 GROUP BY airport_code, check_in, date_trunc('day', searched_at AT TIME ZONE 'UTC'), source;
 
--- Writer health: is anything being written at all, and under which env tag?
--- Deliberately NOT filtered by env — this is how an empty availability_daily
--- is distinguished from a logger that stopped, or one writing every row as
--- 'unknown'/'preview' because the production deployment lost its env var. It
--- is also the only read that shows anything on staging. Cheap: bounded by
--- availability_log_searched_at_idx to the last 24h plus one max() per env.
-CREATE OR REPLACE VIEW availability_writer_health
+-- Writer health: is anything being written at all, under which env tag, and
+-- from which call site? Deliberately NOT filtered by env — this is how an
+-- empty availability_daily is distinguished from a logger that stopped, or one
+-- writing every row as 'unknown'/'preview' because the production deployment
+-- lost its env var. Grouped by source too: "only airport-page rows" means
+-- /api/search is not reaching the logger, and an env-only view would call that
+-- healthy. It is also the only read that shows anything on staging.
+--
+-- Window is 7 days (bounded by availability_log_searched_at_idx), so a writer
+-- that died three days ago still reports its last_row_at instead of vanishing;
+-- rows_24h / searches_24h are the recent-activity counts within that window.
+DROP VIEW IF EXISTS availability_writer_health;
+CREATE VIEW availability_writer_health
 WITH (security_invoker = true) AS
 SELECT
   env,
+  source,
   max(searched_at)                                                        AS last_row_at,
-  count(*)                                                                AS rows_24h,
-  count(DISTINCT search_id)                                               AS searches_24h
+  count(*) FILTER (WHERE searched_at > now() - interval '24 hours')       AS rows_24h,
+  count(DISTINCT search_id)
+    FILTER (WHERE searched_at > now() - interval '24 hours')              AS searches_24h,
+  count(*)                                                                AS rows_7d
 FROM availability_log
-WHERE searched_at > now() - interval '24 hours'
-GROUP BY env;
+WHERE searched_at > now() - interval '7 days'
+GROUP BY env, source;
 
 -- PostgREST caches the schema. Without this, every logger insert and every
 -- admin read fails with PGRST205 ("Could not find the table … in the schema
@@ -232,7 +259,10 @@ NOTIFY pgrst, 'reload schema';
 -- Post-apply checklist (Triply-prod, SQL editor):
 --   SELECT jobname, schedule FROM cron.job;                      -- retention present?
 --   SELECT * FROM availability_writer_health;                    -- within 1h of deploy
---   SELECT source, env, count(*) FROM availability_log GROUP BY 1, 2;
--- Expect search/production and airport-page/production. Only 'unknown' or
--- 'preview' → the production deployment's env var is wrong. Only airport-page
--- → /api/search is not reaching the logger.
+-- Expect (production, search) and (production, airport-page) rows. Only
+-- 'unknown' or 'preview' → the production deployment's env var is wrong. Only
+-- airport-page → /api/search is not reaching the logger. Nothing at all →
+-- kill switch, insert failures (Sentry availability_log.insert), or rows
+-- being dropped by the insertability guard (Sentry availability_log.guard).
+-- Deploy order: apply this migration BEFORE the code that reads the new view
+-- columns ships — the admin route 500s (correctly) on an old-shape view.

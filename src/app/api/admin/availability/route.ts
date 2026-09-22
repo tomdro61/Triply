@@ -6,12 +6,13 @@
  * how many we actually know the status of, and how many were sold out. Last
  * 30 days of observations, newest and most-sold-out first.
  *
- * Also returns `writer`: the unfiltered health of the logger, per env, for the
- * last 24 h. The rollup only aggregates env = 'production', so on its own an
- * empty rollup cannot say whether nothing sold out, nothing was written, or
- * everything was written under the wrong env tag. `writer` makes that
- * attributable — and it is the only read that works on staging, where the
- * rollup is empty by design.
+ * Also returns `writer`: the unfiltered health of the logger per env × source
+ * over the last 7 days (with 24 h activity counts), plus `note`s derived from
+ * it. The rollup only aggregates env = 'production', so on its own an empty
+ * rollup cannot say whether nothing sold out, nothing was written, everything
+ * was written under the wrong env tag, or only the airport-page ISR path is
+ * writing. `writer` makes that attributable — and it is the only read that
+ * works on staging, where the rollup is empty by design.
  *
  * Query:
  *   ?airport=LAS      scope to one airport
@@ -71,9 +72,55 @@ function parseSource(raw: string | null): "all" | Source | "default" {
 
 interface WriterHealthRow {
   env: string;
+  source: string;
   last_row_at: string | null;
   rows_24h: number;
   searches_24h: number;
+  rows_7d: number;
+}
+
+/** What the rollup should look like given what the writer wrote. */
+function writerNotes(
+  writer: WriterHealthRow[],
+  rollupRowCount: number,
+  requestedSources: readonly string[] | null
+): string[] {
+  const notes: string[] = [];
+  const recent = writer.filter((w) => w.rows_24h > 0);
+  const prodRecent = recent.filter((w) => w.env === "production");
+  if (recent.length === 0) {
+    const stale = writer.filter((w) => w.rows_7d > 0);
+    notes.push(
+      stale.length > 0
+        ? `no rows written by any env in the last 24h (last row ${stale
+            .map((w) => `${w.env}/${w.source} ${w.last_row_at}`)
+            .join(", ")}) — the logger may be disabled (AVAILABILITY_LOG_DISABLED), failing (Sentry availability_log.insert), or dropping rows (Sentry availability_log.guard)`
+        : "no rows written by any env in the last 7 days — the logger may be disabled (AVAILABILITY_LOG_DISABLED), failing (Sentry availability_log.insert), dropping rows (Sentry availability_log.guard), or the table is empty"
+    );
+    return notes;
+  }
+  if (prodRecent.length === 0) {
+    notes.push(
+      `no production rows in the last 24h but ${recent.map((w) => `${w.env}/${w.source}`).join(", ")} are writing — check NEXT_PUBLIC_APP_ENV / VERCEL_ENV on the production deployment`
+    );
+    return notes;
+  }
+  const prodSources = new Set(prodRecent.map((w) => w.source));
+  if (!prodSources.has("search")) {
+    notes.push(
+      `production rows exist only from ${[...prodSources].join(", ")} — /api/search is not reaching the logger`
+    );
+  }
+  if (
+    rollupRowCount === 0 &&
+    requestedSources !== null &&
+    !requestedSources.some((s) => prodSources.has(s))
+  ) {
+    notes.push(
+      `rollup is empty for source=${requestedSources.join("+")} while production rows exist for ${[...prodSources].join(", ")}`
+    );
+  }
+  return notes;
 }
 
 export async function GET(request: NextRequest) {
@@ -118,13 +165,23 @@ export async function GET(request: NextRequest) {
     else if (source !== "all") query = query.eq("source", source);
 
     // Writer health is read regardless of env so an empty rollup is
-    // attributable. Its own failure is reported but never fails the rollup.
+    // attributable. Its own failure is reported but never fails the rollup —
+    // a rejection (not just an { error }) from it is caught here so it cannot
+    // reach the outer catch and 500 a perfectly good rollup.
     const [rollup, health] = await Promise.all([
       query,
       supabase
         .from("availability_writer_health")
-        .select("env, last_row_at, rows_24h, searches_24h")
-        .order("env"),
+        .select("env, source, last_row_at, rows_24h, searches_24h, rows_7d")
+        .order("env")
+        .order("source")
+        .then(
+          (r) => r,
+          (e: unknown) => ({
+            data: null,
+            error: { message: e instanceof Error ? e.message : String(e), code: undefined as string | undefined },
+          })
+        ),
     ]);
 
     const notes: string[] = [];
@@ -167,23 +224,17 @@ export async function GET(request: NextRequest) {
           method: "GET",
         });
       }
-    } else {
-      writer = (health.data ?? []) as WriterHealthRow[];
-      const production = writer.find((w) => w.env === "production");
-      const anyRows = writer.some((w) => w.rows_24h > 0);
-      if (!production?.rows_24h && anyRows) {
-        notes.push(
-          "no production rows in the last 24h but other envs are writing — check NEXT_PUBLIC_APP_ENV / VERCEL_ENV on the production deployment"
-        );
-      } else if (!anyRows) {
-        notes.push(
-          "no rows written by any env in the last 24h — the logger may be disabled (AVAILABILITY_LOG_DISABLED), failing (see Sentry availability_log.insert), or the table is empty"
-        );
-      }
     }
 
     const rows = rollup.data ?? [];
     const truncated = rows.length > ROW_LIMIT;
+
+    if (!health.error) {
+      writer = (health.data ?? []) as WriterHealthRow[];
+      const requested =
+        source === "all" ? null : source === "default" ? ORGANIC_SOURCES : [source];
+      notes.push(...writerNotes(writer, rows.length, requested));
+    }
 
     return NextResponse.json({
       days: truncated ? rows.slice(0, ROW_LIMIT) : rows,

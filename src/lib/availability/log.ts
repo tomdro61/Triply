@@ -113,11 +113,29 @@ export function resolveEnv(): string {
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * A real calendar date in YYYY-MM-DD. The shape check alone is not enough:
+ * "2026-02-30" matches the regex, Date.parse rolls it to March 2, and
+ * Postgres rejects it (22008) — which would sink the whole batch. /api/search
+ * validates shape only, so this is reachable from a URL.
+ */
+export function isRealDate(s: string): boolean {
+  if (!DATE_RE.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
+
+const INT4_MAX = 2147483647;
+function isNullableInt4(v: number | null): boolean {
+  return v === null || (Number.isInteger(v) && Math.abs(v) <= INT4_MAX);
+}
+
+/**
  * Whether a row can satisfy every constraint on availability_log. Postgres
  * rejects a multi-row INSERT as a whole on one bad row, and the insert is
  * error-swallowing by contract — so one out-of-window date (a replayed stale
  * URL, an LLM-supplied past date on the chat path) would otherwise silently
- * discard the entire search's observations. Mirrors 025's CHECKs.
+ * discard the entire search's observations. Mirrors 025's CHECKs and column
+ * types. Dropped rows are REPORTED (see logAvailability), never silent.
  */
 export function rowIsInsertable(row: AvailabilityRow): boolean {
   return (
@@ -125,9 +143,11 @@ export function rowIsInsertable(row: AvailabilityRow): boolean {
     row.lead_days >= -1 &&
     Number.isInteger(row.stay_days) &&
     row.stay_days >= 0 &&
-    DATE_RE.test(row.check_in) &&
-    DATE_RE.test(row.check_out) &&
-    Number.isInteger(row.reslab_location_id)
+    isRealDate(row.check_in) &&
+    isRealDate(row.check_out) &&
+    Number.isInteger(row.reslab_location_id) &&
+    isNullableInt4(row.available_spots) &&
+    isNullableInt4(row.grand_total_cents)
   );
 }
 
@@ -154,26 +174,41 @@ interface PostgrestLikeError {
   hint?: string;
 }
 
-function toError(detail: unknown): Error {
-  if (detail instanceof Error) return detail;
+function toError(detail: unknown): { err: Error; extra: string } {
+  if (detail instanceof Error) return { err: detail, extra: "" };
   if (detail && typeof detail === "object") {
     // Keep the PostgREST code in the message: it is what distinguishes
     // "schema cache is stale" (PGRST205) from "a CHECK rejected the batch"
     // (23514) from "grant revoked" (42501) in the one Sentry event per hour.
+    // `details` is deliberately NOT in the message — for a CHECK violation it
+    // is "Failing row contains (<id>, <search_id>, …)", unique per event, and
+    // Sentry groups a stackless Error by message: every failed batch would
+    // become its own issue (= its own alert email). It goes to the console.
     const e = detail as PostgrestLikeError;
-    const parts = [e.code, e.message, e.details].filter(
+    const head = [e.code, e.message].filter(
       (p): p is string => typeof p === "string" && p.length > 0
     );
-    return new Error(parts.length > 0 ? parts.join(": ") : "unknown insert error");
+    const extra = [e.details, e.hint].filter(
+      (p): p is string => typeof p === "string" && p.length > 0
+    );
+    return {
+      err: new Error(head.length > 0 ? head.join(": ") : "unknown insert error"),
+      extra: extra.join(" | "),
+    };
   }
-  return new Error(String(detail));
+  return { err: new Error(String(detail)), extra: "" };
 }
 
 function warnOnce(detail: unknown): void {
-  const err = toError(detail);
+  const { err, extra } = toError(detail);
   if (!warned) {
     warned = true;
-    console.warn("[availability] logging disabled for this process — insert failed:", err.message);
+    // Later inserts still run; only the console line is one-per-process.
+    console.warn(
+      "[availability] insert failed (further failures reported to Sentry hourly):",
+      err.message,
+      extra
+    );
   }
   const now = Date.now();
   if (lastReportedAt === null || now - lastReportedAt >= REPORT_INTERVAL_MS) {
@@ -182,10 +217,29 @@ function warnOnce(detail: unknown): void {
   }
 }
 
+// Rows dropped by rowIsInsertable are a distinct signal from a failed insert
+// (nothing hit the DB) and are throttled on their own clock, so a burst of
+// replayed stale URLs cannot mask a real insert failure or vice versa.
+let lastDropReportedAt: number | null = null;
+
+function reportDropped(dropped: number, total: number, sample: AvailabilityRow): void {
+  const now = Date.now();
+  if (lastDropReportedAt !== null && now - lastDropReportedAt < REPORT_INTERVAL_MS) return;
+  lastDropReportedAt = now;
+  captureAPIError(
+    new Error(
+      `availability_log: dropped ${dropped}/${total} uninsertable rows (sample: source=${sample.source} ` +
+        `check_in=${sample.check_in} check_out=${sample.check_out} lead_days=${sample.lead_days} stay_days=${sample.stay_days})`
+    ),
+    { endpoint: "availability_log.guard", method: "INSERT" }
+  );
+}
+
 /** Test seam — reset module-level warn/report state between cases. */
 export function __resetAvailabilityLogWarnStateForTests(): void {
   warned = false;
   lastReportedAt = null;
+  lastDropReportedAt = null;
 }
 
 /**
@@ -209,6 +263,14 @@ export function logAvailability(rows: AvailabilityRow[]): void {
     // sampled log answers "was it sold out?" much less crisply than a full one.
 
     const insertable = rows.filter(rowIsInsertable);
+    const dropped = rows.length - insertable.length;
+    if (dropped > 0) {
+      // Every row of one search shares its dates, so a drop is usually the
+      // whole search — the one failure this table cannot afford to have go
+      // unnoticed (an unrecorded day cannot be backfilled).
+      const sample = rows.find((r) => !rowIsInsertable(r)) ?? rows[0];
+      reportDropped(dropped, rows.length, sample);
+    }
     if (insertable.length === 0) return;
 
     const env = resolveEnv();

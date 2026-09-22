@@ -24,6 +24,7 @@ import {
   localToday,
   resolveEnv,
   rowIsInsertable,
+  isRealDate,
   __resetAvailabilityLogWarnStateForTests,
   type AvailabilityRow,
 } from "../log";
@@ -121,10 +122,25 @@ describe("resolveEnv", () => {
   });
 });
 
-describe("rowIsInsertable — mirrors the 025 CHECK constraints", () => {
-  it("accepts a normal row and the -1 boundary", () => {
+describe("isRealDate", () => {
+  it("accepts real calendar dates only", () => {
+    expect(isRealDate("2026-02-28")).toBe(true);
+    expect(isRealDate("2028-02-29")).toBe(true); // leap year
+    // Shape-valid but calendar-invalid: Date.parse rolls these forward,
+    // Postgres rejects them (22008) and would sink the whole batch.
+    expect(isRealDate("2026-02-30")).toBe(false);
+    expect(isRealDate("2026-04-31")).toBe(false);
+    expect(isRealDate("2027-02-29")).toBe(false);
+    expect(isRealDate("2026-10-1")).toBe(false);
+    expect(isRealDate("")).toBe(false);
+  });
+});
+
+describe("rowIsInsertable — mirrors the 025 CHECK constraints and column types", () => {
+  it("accepts a normal row, the -1 boundary, and null ints", () => {
     expect(rowIsInsertable(row())).toBe(true);
     expect(rowIsInsertable(row({ lead_days: -1, stay_days: 0 }))).toBe(true);
+    expect(rowIsInsertable(row({ available_spots: null, grand_total_cents: null }))).toBe(true);
   });
 
   it("rejects rows Postgres would reject, so one bad row cannot sink the batch", () => {
@@ -132,8 +148,11 @@ describe("rowIsInsertable — mirrors the 025 CHECK constraints", () => {
     expect(rowIsInsertable(row({ stay_days: -1 }))).toBe(false);
     expect(rowIsInsertable(row({ lead_days: Number.NaN }))).toBe(false);
     expect(rowIsInsertable(row({ check_in: "2026-10-1" }))).toBe(false);
+    expect(rowIsInsertable(row({ check_in: "2026-02-30" }))).toBe(false);
     expect(rowIsInsertable(row({ check_out: "" }))).toBe(false);
     expect(rowIsInsertable(row({ reslab_location_id: 1.5 }))).toBe(false);
+    expect(rowIsInsertable(row({ available_spots: 2.5 }))).toBe(false);
+    expect(rowIsInsertable(row({ grand_total_cents: 2 ** 31 }))).toBe(false);
   });
 });
 
@@ -158,7 +177,7 @@ describe("logAvailability — happy path", () => {
     expect(sentry.captureAPIError).not.toHaveBeenCalled();
   });
 
-  it("drops only the rows that would violate a CHECK and inserts the rest", async () => {
+  it("drops only the rows that would violate a CHECK, inserts the rest, and REPORTS the drop", async () => {
     const { inserted } = okInsert();
 
     logAvailability([row({ reslab_location_id: 1 }), row({ reslab_location_id: 2, lead_days: -30 })]);
@@ -166,13 +185,34 @@ describe("logAvailability — happy path", () => {
 
     const rows = inserted[0] as AvailabilityRow[];
     expect(rows.map((r) => r.reslab_location_id)).toEqual([1]);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    const [err, ctx] = sentry.captureAPIError.mock.calls[0] as [Error, { endpoint: string }];
+    expect(ctx.endpoint).toBe("availability_log.guard");
+    expect(err.message).toMatch(/dropped 1\/2 .*lead_days=-30/);
   });
 
-  it("does not insert at all when every row is uninsertable", async () => {
+  it("does not insert when every row is uninsertable — but never silently", async () => {
     okInsert();
     logAvailability([row({ lead_days: -30 })]);
     await flush();
     expect(supabase.from).not.toHaveBeenCalled();
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+
+  it("throttles drop reports to once per process-hour, independently of insert-failure reports", async () => {
+    okInsert();
+    logAvailability([row({ lead_days: -30 })]);
+    await flush();
+    logAvailability([row({ lead_days: -30 })]);
+    await flush();
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+
+    // An insert failure in the same hour is still reported on its own clock.
+    const abortSignal = vi.fn(() => Promise.resolve({ error: { code: "42501", message: "denied" } }));
+    supabase.from.mockReturnValue({ insert: () => ({ abortSignal }) });
+    logAvailability([row()]);
+    await flush();
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -218,12 +258,13 @@ describe("logAvailability — never-throw contract", () => {
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps the PostgREST code in the Sentry event when supabase reports an error object", async () => {
+  it("keeps the PostgREST code in the Sentry message but NOT the per-row details", async () => {
     const abortSignal = vi.fn(() =>
       Promise.resolve({
         error: {
-          code: "PGRST205",
-          message: "Could not find the table 'public.availability_log' in the schema cache",
+          code: "23514",
+          message: 'new row for relation "availability_log" violates check constraint',
+          details: "Failing row contains (12345, 2026-09-22, 9f2c-unique-uuid, …)",
         },
       })
     );
@@ -233,7 +274,10 @@ describe("logAvailability — never-throw contract", () => {
     await flush();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
     const [err] = sentry.captureAPIError.mock.calls[0] as [Error];
-    expect(err.message).toMatch(/^PGRST205: Could not find the table/);
+    expect(err.message).toMatch(/^23514: new row for relation/);
+    // Details are unique per event (they carry the row id) and would give
+    // every failed batch its own Sentry issue.
+    expect(err.message).not.toMatch(/Failing row/);
   });
 
   it("reports to Sentry at most once per process-hour even across repeated failures", async () => {
@@ -248,13 +292,28 @@ describe("logAvailability — never-throw contract", () => {
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
   });
 
-  it("does not throw when its own prelude throws (from() itself throwing)", async () => {
+  it("does not throw when from() itself throws synchronously inside the insert", async () => {
     supabase.from.mockImplementation(() => {
       throw new Error("client exploded synchronously");
     });
     expect(() => logAvailability([row()])).not.toThrow();
     await flush();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when the prelude itself throws (before the insert closure exists)", async () => {
+    const spy = vi.spyOn(crypto, "randomUUID").mockImplementation(() => {
+      throw new Error("no entropy");
+    });
+    try {
+      okInsert();
+      expect(() => logAvailability([row()])).not.toThrow();
+      await flush();
+      expect(supabase.from).not.toHaveBeenCalled();
+      expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("does nothing for an empty batch", async () => {
