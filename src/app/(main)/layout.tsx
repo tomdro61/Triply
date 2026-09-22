@@ -1,6 +1,6 @@
 import "../globals.css";
 import { Suspense } from "react";
-import { CookieBanner } from "@/components/shared";
+import { CookieBanner } from "@/components/shared/cookie-banner";
 import { ChatProvider, ChatBubble } from "@/components/chat";
 import { AnalyticsProvider } from "@/components/analytics/analytics-provider";
 import { AttributionCapture } from "@/components/analytics/attribution-capture";
