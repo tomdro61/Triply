@@ -85,11 +85,15 @@ CREATE INDEX IF NOT EXISTS availability_log_airport_searched_idx
 CREATE INDEX IF NOT EXISTS availability_log_airport_checkin_idx
   ON availability_log (airport_code, check_in);
 
--- Matches the availability_daily view's `date_trunc('day', searched_at)` +
--- airport_code filter/group so the read path (route filters `.gte("day", …)`)
--- can actually use an index instead of scanning every row every request.
+-- Matches the availability_daily view's day expression + airport_code so the
+-- read path (route filters `.gte("day", …)`) can use an index instead of
+-- scanning every row every request. `searched_at AT TIME ZONE 'UTC'` is
+-- deliberate: date_trunc on a timestamptz depends on the session timezone and
+-- is therefore STABLE, not IMMUTABLE, and Postgres refuses it in an index
+-- expression. Converting to a UTC-naive timestamp first makes it immutable;
+-- the view below uses the identical expression so the planner can match it.
 CREATE INDEX IF NOT EXISTS availability_log_day_airport_idx
-  ON availability_log (date_trunc('day', searched_at), airport_code);
+  ON availability_log (date_trunc('day', searched_at AT TIME ZONE 'UTC'), airport_code);
 
 -- RLS: service-role only, following 019/020. This table is pure internal
 -- telemetry — nothing in the browser reads or writes it, and the logger and the
@@ -140,7 +144,8 @@ WITH (security_invoker = true) AS
 SELECT
   airport_code,
   check_in,
-  date_trunc('day', searched_at)                       AS day,
+  -- Same expression as availability_log_day_airport_idx (UTC day, naive).
+  date_trunc('day', searched_at AT TIME ZONE 'UTC')    AS day,
   source,
   count(DISTINCT search_id)                            AS searches,
   count(*)                                              AS lots_seen,
@@ -151,4 +156,4 @@ SELECT
   )                                                     AS pct_sold_out
 FROM availability_log
 WHERE env = 'production'
-GROUP BY airport_code, check_in, date_trunc('day', searched_at), source;
+GROUP BY airport_code, check_in, date_trunc('day', searched_at AT TIME ZONE 'UTC'), source;
