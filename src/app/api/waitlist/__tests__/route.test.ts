@@ -174,6 +174,94 @@ describe("POST /api/waitlist — duplicate trip", () => {
   });
 });
 
+describe("POST /api/waitlist — Resend errors (resend never throws, resolves {error})", () => {
+  it("a { data: null, error } send result is surfaced: row still written, email not claimed sent, Sentry captured", async () => {
+    resendSend.mockResolvedValueOnce({ data: null, error: { statusCode: 429, message: "rate limited", name: "rate_limit_exceeded" } });
+    const res = await POST(post(tripAt(addDays(MAX_DATE, 10))));
+    // The row is the asset — a Resend failure must never fail the request.
+    expect(res.status).toBe(200);
+    expect(db.tables.booking_waitlist).toHaveLength(1);
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/waitlist — List-Unsubscribe-Post", () => {
+  it("carries List-Unsubscribe-Post: List-Unsubscribe=One-Click alongside List-Unsubscribe", async () => {
+    await POST(post(tripAt(addDays(MAX_DATE, 10))));
+    const sendArgs = resendSend.mock.calls[0][0];
+    expect(sendArgs.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  });
+});
+
+describe("POST /api/waitlist — wantedCheckout", () => {
+  it("a valid checkout after checkin, within 30 days, is written to the row", async () => {
+    const checkin = addDays(MAX_DATE, 10);
+    const checkout = addDays(checkin, 5);
+    const res = await POST(
+      post({
+        email: "checkout@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(checkin),
+        wantedCheckout: fmt(checkout),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(db.tables.booking_waitlist[0].wanted_checkout).toBe(fmt(checkout));
+  });
+
+  it("checkout before/equal to checkin → 400", async () => {
+    const checkin = addDays(MAX_DATE, 10);
+    const res = await POST(
+      post({
+        email: "b@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(checkin),
+        wantedCheckout: fmt(checkin),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it("checkout more than 30 days after checkin → 400", async () => {
+    const checkin = addDays(MAX_DATE, 10);
+    const res = await POST(
+      post({
+        email: "c@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(checkin),
+        wantedCheckout: fmt(addDays(checkin, 31)),
+      })
+    );
+    expect(res.status).toBe(400);
+  });
+});
+
+describe("POST /api/waitlist — unsubscribed address", () => {
+  it("refuses a new row/send for an email with ANY unsubscribed row on file", async () => {
+    db.tables.booking_waitlist = [
+      {
+        id: "existing",
+        email: "opted-out@example.com",
+        airport_code: "JFK",
+        wanted_checkin: "2027-01-01",
+        created_at: new Date().toISOString(),
+        unsubscribed_at: new Date().toISOString(),
+      },
+    ];
+    const res = await POST(
+      post({
+        email: "opted-out@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(addDays(MAX_DATE, 10)),
+      })
+    );
+    expect(res.status).toBe(403);
+    expect(db.tables.booking_waitlist).toHaveLength(1);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+});
+
 describe("POST /api/waitlist — per-email send cap", () => {
   it("4th distinct trip from the same address in 24h is written but not sent", async () => {
     for (let i = 0; i < 3; i++) {

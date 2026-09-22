@@ -3,20 +3,32 @@ import crypto from "crypto";
 /**
  * HMAC-SHA256(row id) so an unsubscribe link needs no session/lookup table —
  * only the sender (who has the signing secret) can produce a valid token for
- * a given row. Keyed on PAYLOAD_SECRET: an existing, already-provisioned
- * server secret, so this doesn't need its own env var. Not a JWT — there's
- * nothing to decode, only a fixed id to match against.
+ * a given row. Not a JWT — there's nothing to decode, only a fixed id to
+ * match against.
+ *
+ * Deliberately its OWN env var, not PAYLOAD_SECRET: PAYLOAD_SECRET is a
+ * Payload CMS variable (that app's own secret, see triply-cms) that this
+ * (main) app has never had configured. Coupling to it would mean a CMS
+ * secret rotation silently invalidates every unsubscribe link already
+ * sitting in customers' inboxes, and would 500 this route in any env where
+ * the CMS secret isn't set. Read once, fail fast: a missing
+ * WAITLIST_SIGNING_SECRET must break deploy/boot, not silently no-op every
+ * unsubscribe (and, upstream, every send that builds a link with it) at
+ * request time.
  */
-function secret(): string {
-  const s = process.env.PAYLOAD_SECRET;
-  if (!s) {
-    throw new Error("PAYLOAD_SECRET is not configured");
+const WAITLIST_SIGNING_SECRET = (() => {
+  const value = process.env.WAITLIST_SIGNING_SECRET;
+  if (!value) {
+    throw new Error(
+      "WAITLIST_SIGNING_SECRET is not configured. Set it in all three Vercel " +
+        "envs (Production/Preview/Development) and in your local .env.local."
+    );
   }
-  return s;
-}
+  return value;
+})();
 
 export function signWaitlistId(id: string): string {
-  return crypto.createHmac("sha256", secret()).update(id).digest("hex");
+  return crypto.createHmac("sha256", WAITLIST_SIGNING_SECRET).update(id).digest("hex");
 }
 
 export function verifyWaitlistToken(id: string, token: string): boolean {

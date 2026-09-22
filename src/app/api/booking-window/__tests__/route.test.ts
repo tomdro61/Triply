@@ -13,4 +13,9 @@ describe("GET /api/booking-window", () => {
       format(addDays(startOfDay(new Date()), MAX_ADVANCE_BOOKING_DAYS), "yyyy-MM-dd")
     );
   });
+
+  it("is never cached — a stale response would recreate the client/server date mismatch", async () => {
+    const res = await GET();
+    expect(res.headers.get("cache-control")).toMatch(/no-store/);
+  });
 });

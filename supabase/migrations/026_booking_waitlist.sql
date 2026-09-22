@@ -40,15 +40,23 @@ CREATE TABLE IF NOT EXISTS booking_waitlist (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_waitlist_unique_request
   ON booking_waitlist (lower(email), airport_code, wanted_checkin);
 
--- The send query: "which waitlisted trips open today, at which airport?"
-CREATE INDEX IF NOT EXISTS idx_booking_waitlist_airport_opens_on
-  ON booking_waitlist (airport_code, opens_on);
+-- The cron's actual select is `opens_on <= today AND notified_at IS NULL AND
+-- unsubscribed_at IS NULL` with no airport_code predicate, so a plain
+-- (airport_code, opens_on) index can't serve it (airport_code isn't a
+-- selective leading column for that query). A partial index scoped to the
+-- rows the cron ever looks at — still-pending, not-opted-out — stays small
+-- forever even as notified/unsubscribed rows accumulate.
+DROP INDEX IF EXISTS idx_booking_waitlist_airport_opens_on;
+CREATE INDEX IF NOT EXISTS idx_booking_waitlist_pending_opens_on
+  ON booking_waitlist (opens_on)
+  WHERE notified_at IS NULL AND unsubscribed_at IS NULL;
 
--- The per-email send cap in /api/waitlist ("how many confirmations has this
--- address triggered in the last 24h?") — without this it's a sequential scan
--- of the whole table on every submission.
+-- The per-email send cap and unsubscribe-suppression checks in /api/waitlist
+-- both do `.eq("email", email)` (email is already lowercased at insert, see
+-- the zod transform in the route), not `.eq("lower(email)", ...)` — so the
+-- index has to be on the plain column to be usable, not lower(email).
 CREATE INDEX IF NOT EXISTS idx_booking_waitlist_email_created_at
-  ON booking_waitlist (lower(email), created_at);
+  ON booking_waitlist (email, created_at);
 
 -- =============================================
 -- RLS — service role only (pattern from migrations 019/020)
@@ -66,3 +74,8 @@ CREATE POLICY "Service role can manage booking waitlist"
   ON booking_waitlist FOR ALL TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- PostgREST caches the schema; without this, inserts/selects against this new
+-- table 404 as PGRST205 ("table not found in schema cache") until the cache
+-- reloads on its own (pattern from 023).
+NOTIFY pgrst, 'reload schema';

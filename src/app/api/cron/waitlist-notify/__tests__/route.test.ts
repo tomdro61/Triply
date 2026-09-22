@@ -23,6 +23,7 @@ vi.mock("@sentry/nextjs", () => ({
     sentry.withScope();
     fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() });
   },
+  flush: vi.fn().mockResolvedValue(true),
 }));
 
 import { GET } from "../route";
@@ -73,7 +74,7 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     expect(db.tables.booking_waitlist.find((r) => r.id === "opted_out")?.notified_at).toBeNull();
   });
 
-  it("one send failure does not stop the rest of the batch, and is captured", async () => {
+  it("one send failure (thrown) does not stop the rest of the batch, and is captured", async () => {
     db.tables.booking_waitlist = [
       { id: "fails", email: "bad@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: null, opens_on: today, notified_at: null, unsubscribed_at: null },
       { id: "ok", email: "good@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: null, opens_on: today, notified_at: null, unsubscribed_at: null },
@@ -87,5 +88,51 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     expect(sentry.captureException).toHaveBeenCalled();
     expect(db.tables.booking_waitlist.find((r) => r.id === "ok")?.notified_at).not.toBeNull();
     expect(db.tables.booking_waitlist.find((r) => r.id === "fails")?.notified_at).toBeNull();
+  });
+
+  it("resend@6.9.1 never throws — a { data: null, error } result must be treated as a failure, not a success", async () => {
+    db.tables.booking_waitlist = [
+      { id: "rejected", email: "bad@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: null, opens_on: today, notified_at: null, unsubscribed_at: null },
+    ];
+    resendSend.mockResolvedValueOnce({ data: null, error: { statusCode: 429, message: "rate limited", name: "rate_limit_exceeded" } });
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(json.sent).toBe(0);
+    expect(json.failed).toBe(1);
+    // The row must stay retryable: notified_at IS NULL is the only retry
+    // predicate, and it must NOT be written when the send itself failed.
+    expect(db.tables.booking_waitlist.find((r) => r.id === "rejected")?.notified_at).toBeNull();
+    expect(sentry.captureException).toHaveBeenCalled();
+    // All rows in this run failed — loud alarm, not a quiet 200.
+    expect(res.status).toBe(500);
+    expect(sentry.captureMessage).toHaveBeenCalled();
+  });
+
+  it("the notification link always includes a checkout date, even with no wanted_checkout on file", async () => {
+    db.tables.booking_waitlist = [
+      { id: "no_checkout", email: "a@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: null, opens_on: today, notified_at: null, unsubscribed_at: null },
+    ];
+    await GET(req());
+    const sendArgs = resendSend.mock.calls[0][0];
+    expect(sendArgs.html).toMatch(/checkout=2027-01-17/);
+  });
+
+  it("uses wanted_checkout when the traveller gave one", async () => {
+    db.tables.booking_waitlist = [
+      { id: "with_checkout", email: "a@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: "2027-01-14", opens_on: today, notified_at: null, unsubscribed_at: null },
+    ];
+    await GET(req());
+    const sendArgs = resendSend.mock.calls[0][0];
+    expect(sendArgs.html).toMatch(/checkout=2027-01-14/);
+  });
+
+  it("carries List-Unsubscribe-Post: List-Unsubscribe=One-Click alongside List-Unsubscribe", async () => {
+    db.tables.booking_waitlist = [
+      { id: "row_1", email: "a@example.com", airport_code: "ABE", wanted_checkin: "2027-01-10", wanted_checkout: null, opens_on: today, notified_at: null, unsubscribed_at: null },
+    ];
+    await GET(req());
+    const sendArgs = resendSend.mock.calls[0][0];
+    expect(sendArgs.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
   });
 });

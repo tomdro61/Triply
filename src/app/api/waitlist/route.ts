@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { addDays, format, isValid, parse, startOfDay, subDays } from "date-fns";
@@ -49,31 +50,55 @@ const dateOnly = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD")
   .refine((v) => parseDateOnly(v) !== null, "Not a real date");
 
-const waitlistSchema = z.object({
-  // .trim() FIRST: zod runs .email() before any downstream transform, so a
-  // pasted address with stray whitespace would otherwise be rejected outright.
-  email: z
-    .string()
-    .trim()
-    .email("Invalid email address")
-    .max(254)
-    .transform((v) => v.toLowerCase()),
-  airportCode: z
-    .string()
-    .regex(/^[A-Za-z]{3}$/, "Invalid airport code")
-    .transform((v) => v.toUpperCase())
-    .refine((v) => getAirportByCode(v)?.enabled === true, "Unknown airport"),
-  wantedCheckin: dateOnly.refine(
-    (v) => parseDateOnly(v)! <= addDays(startOfDay(new Date()), 730),
-    "Travel date is too far out"
-  ),
-  source: z
-    .string()
-    .max(32)
-    .regex(/^[a-z0-9_-]+$/, "Invalid source")
-    .optional(),
-  page: z.string().max(200).optional(),
-});
+const waitlistSchema = z
+  .object({
+    // .trim() FIRST: zod runs .email() before any downstream transform, so a
+    // pasted address with stray whitespace would otherwise be rejected outright.
+    email: z
+      .string()
+      .trim()
+      .email("Invalid email address")
+      .max(254)
+      .transform((v) => v.toLowerCase()),
+    airportCode: z
+      .string()
+      .regex(/^[A-Za-z]{3}$/, "Invalid airport code")
+      .transform((v) => v.toUpperCase())
+      .refine((v) => getAirportByCode(v)?.enabled === true, "Unknown airport"),
+    wantedCheckin: dateOnly.refine(
+      (v) => parseDateOnly(v)! <= addDays(startOfDay(new Date()), 730),
+      "Travel date is too far out"
+    ),
+    // Optional: the confirmation email doesn't need it, but the opens-on
+    // notification links to /search, which needs BOTH dates to price a lot
+    // (see the cron's checkout fallback comment). Bounded to 30 days so a
+    // garbage/typo'd far-future checkout can't produce a nonsense search link.
+    wantedCheckout: dateOnly.optional(),
+    source: z
+      .string()
+      .max(32)
+      .regex(/^[a-z0-9_-]+$/, "Invalid source")
+      .optional(),
+    page: z.string().max(200).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.wantedCheckout) return;
+    const checkin = parseDateOnly(data.wantedCheckin)!;
+    const checkout = parseDateOnly(data.wantedCheckout)!;
+    if (checkout <= checkin) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Checkout must be after check-in",
+        path: ["wantedCheckout"],
+      });
+    } else if (checkout > addDays(checkin, 30)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Checkout must be within 30 days of check-in",
+        path: ["wantedCheckout"],
+      });
+    }
+  });
 
 // Once-per-instance telemetry for each rejection class, same pattern as
 // /api/newsletter and /api/attribution — sampling, not suppression.
@@ -133,7 +158,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { email, airportCode, wantedCheckin, source, page } = result.data;
+    const { email, airportCode, wantedCheckin, wantedCheckout, source, page } = result.data;
 
     // Non-null: the schema already refused anything parseDateOnly rejects.
     const checkin = parseDateOnly(wantedCheckin)!;
@@ -168,17 +193,59 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createAdminClient();
 
+    // One query answers both the per-email send cap AND the unsubscribe
+    // suppression check below — this address's own row history. Small set
+    // (one email, no time bound) so a full scan of it is cheap; the
+    // (email, created_at) index (026) still makes the `.eq("email")` itself
+    // an index lookup rather than a table scan.
+    const { data: emailRows, error: emailRowsError } = await supabase
+      .from("booking_waitlist")
+      .select("id, created_at, unsubscribed_at")
+      .eq("email", email);
+
+    // Fail CLOSED: the cap and the unsubscribe suppression both exist to stop
+    // us from emailing someone we shouldn't. If we can't see this address's
+    // history, we don't know whether either guard should fire — refuse the
+    // send rather than silently open both gates. The row is not written
+    // either (it, and the email, are both blocked on knowing this state).
+    if (emailRowsError) {
+      captureAPIError(new Error(emailRowsError.message), {
+        endpoint: "/api/waitlist",
+        method: "POST",
+        stage: "email_history_check",
+        code: emailRowsError.code,
+      });
+      return NextResponse.json(
+        { error: "Failed to join the waitlist" },
+        { status: 503 }
+      );
+    }
+
+    const history = emailRows ?? [];
+
+    // Unsubscribe is address-level (item 4): any row for this email that was
+    // ever unsubscribed suppresses ALL future sends to it, not just the row
+    // that carried the unsubscribe link. Refuse to create a new row too —
+    // resurrecting a suppressed address via a fresh trip would defeat the
+    // point of the opt-out.
+    if (history.some((r) => r.unsubscribed_at != null)) {
+      return NextResponse.json(
+        {
+          error:
+            "This email has unsubscribed from waitlist notifications. Contact support if this was a mistake.",
+        },
+        { status: 403 }
+      );
+    }
+
     // Per-email send cap: count confirmations already triggered by this
     // address in the last 24h. The row below may still be written even when
     // we refuse to send — it's still a real demand signal, and a duplicate
     // trip is already deduped by the unique index regardless.
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentSends } = await supabase
-      .from("booking_waitlist")
-      .select("id")
-      .eq("email", email)
-      .gte("created_at", since);
-    const overSendCap = (recentSends?.length ?? 0) >= MAX_SENDS_PER_EMAIL_PER_DAY;
+    const since = Date.now() - 24 * 60 * 60 * 1000;
+    const overSendCap =
+      history.filter((r) => new Date(r.created_at as string).getTime() >= since).length >=
+      MAX_SENDS_PER_EMAIL_PER_DAY;
 
     const { data: inserted, error: insertError } = await supabase
       .from("booking_waitlist")
@@ -186,7 +253,7 @@ export async function POST(request: NextRequest) {
         email,
         airport_code: airportCode,
         wanted_checkin: wantedCheckin,
-        wanted_checkout: null,
+        wanted_checkout: wantedCheckout ?? null,
         opens_on: opensOnISO,
         source: source ?? "search",
         page: page ?? null,
@@ -212,8 +279,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!isDuplicate && !overSendCap && inserted) {
+    if (isDuplicate) {
+      // Same trip already on file — the row was already written the first
+      // time; don't send a second confirmation.
+    } else if (overSendCap) {
+      // Never put the customer's email into Sentry/telemetry for a routine,
+      // expected-volume event — a short, non-reversible hash is enough to
+      // dedupe/rate-limit the telemetry itself without shipping PII.
+      reportOnce("send_cap_exceeded", {
+        emailHash: crypto.createHash("sha256").update(email).digest("hex").slice(0, 16),
+      });
+      // Row is still written (see the insert above) — it's still a real
+      // demand signal — but honestly report that no email is going out,
+      // rather than the generic success message that implies one did.
+      return NextResponse.json({
+        success: true,
+        opensOn: opensOnISO,
+        message:
+          "We already have your request on file; we won't send another email today.",
+      });
+    } else if (inserted) {
       // Email failure must never fail the request — the row is the asset.
+      // sendWaitlistConfirmation throws on a Resend API error (never a silent
+      // {error} return), so this catch is the only place that failure surfaces.
       try {
         await sendWaitlistConfirmation({
           id: inserted.id as string,
@@ -228,8 +316,6 @@ export async function POST(request: NextRequest) {
           { endpoint: "/api/waitlist", method: "POST", stage: "confirmation_email" }
         );
       }
-    } else if (overSendCap) {
-      reportOnce("send_cap_exceeded", { email });
     }
 
     return NextResponse.json({ success: true, opensOn: opensOnISO });
@@ -264,15 +350,21 @@ async function sendWaitlistConfirmation({
   const opensDate = format(opensOn, "MMMM d, yyyy");
   const unsubscribeUrl = waitlistUnsubscribeUrl(id);
 
-  // Promises exactly one thing — an email on opens_on. No discount, no list.
-  await resend.emails.send({
+  // resend@6.9.1 never throws for an API-level failure — it resolves
+  // { data: null, error }. Destructure and throw ourselves so the caller's
+  // catch (which reports to Sentry and never claims the email sent) is
+  // actually reachable; see src/lib/resend/*.ts for the reference pattern.
+  const { error } = await resend.emails.send({
     from: FROM_EMAIL,
     to: [email],
     subject: `We'll tell you the day ${airportCode} opens for ${format(
       checkin,
       "MMM d"
     )}`,
-    headers: { "List-Unsubscribe": `<${unsubscribeUrl}>` },
+    headers: {
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="background-color: #1A1A2E; padding: 32px 40px; text-align: center;">
@@ -302,4 +394,8 @@ async function sendWaitlistConfirmation({
       </div>
     `,
   });
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`);
+  }
 }

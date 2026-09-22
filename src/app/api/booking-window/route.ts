@@ -14,11 +14,21 @@ import { MAX_ADVANCE_BOOKING_DAYS, maxAdvanceBookingDate } from "@/lib/booking-w
  *
  * Public, read-only, no user input — no origin/rate-limit guard needed (see
  * src/lib/http/origin.ts for routes that do need one).
+ *
+ * force-dynamic + no-store: this recomputes off `new Date()`, so a cached
+ * response would serve yesterday's (or an hour-old) maxDate — the exact
+ * client/server disagreement this route exists to prevent, just moved from
+ * "browser vs. server timezone" to "browser vs. a stale edge/CDN cache".
  */
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   const maxDate = maxAdvanceBookingDate();
-  return NextResponse.json({
-    maxDate: format(maxDate, "yyyy-MM-dd"),
-    days: MAX_ADVANCE_BOOKING_DAYS,
-  });
+  return NextResponse.json(
+    {
+      maxDate: format(maxDate, "yyyy-MM-dd"),
+      days: MAX_ADVANCE_BOOKING_DAYS,
+    },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }
