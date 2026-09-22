@@ -246,9 +246,12 @@ const program = new Command()
         const lexicalContent = htmlToLexical(updatedHtml)
         const persisted = verifyLinksInjected(lexicalToHtml(lexicalContent), missingChildren)
         if (persisted.found.length === 0) {
-          const dump = path.join(ENGINE_ROOT, 'reports', `link-loss-${parent.slug}.html`)
-          fs.writeFileSync(dump, updatedHtml)
-          console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save (dumped ${dump})`)
+          const dir = path.join(ENGINE_ROOT, 'reports')
+          try {
+            fs.mkdirSync(dir, { recursive: true })
+            fs.writeFileSync(path.join(dir, `link-loss-${parent.slug}.html`), updatedHtml)
+          } catch (e) { console.log(`     ⚠ could not write dump: ${e}`) }
+          console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save`)
           skipped++
           continue
         }

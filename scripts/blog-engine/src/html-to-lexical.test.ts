@@ -25,9 +25,11 @@ test('link inside <p> still survives (unchanged path)', () => {
   assert.match(roundTrip(html), /href="https:\/\/www\.triplypro\.com\/blog\/y"/)
 })
 
-test('nested list inside <li> is still preserved', () => {
+test('nested list inside <li> text survives but nesting is flattened', () => {
   const html = '<ul><li>Outer <a href="https://www.triplypro.com/blog/z">z</a><ul><li>Inner</li></ul></li></ul>'
   const out = roundTrip(html)
   assert.match(out, /href="https:\/\/www\.triplypro\.com\/blog\/z"/)
   assert.match(out, /Inner/)
+  // Nesting is flattened: nested <ul> becomes a sibling <li>
+  assert.doesNotMatch(out, /<ul>[\s\S]*?<ul>/)
 })
