@@ -44,6 +44,9 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
   const [location, setLocation] = useState(airportCode);
   const [departDate, setDepartDate] = useState("");
   const [returnDate, setReturnDate] = useState("");
+  // Not shown to 100% of traffic that picks an airport — only once someone
+  // says their trip is further out than the picker allows.
+  const [waitlistRequested, setWaitlistRequested] = useState(false);
 
   const handleSearch = () => {
     if (!location || !departDate || !returnDate) return;
@@ -107,9 +110,20 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
       </div>
 
       {/* The date pickers stop at the 60-day supplier wall with no explanation.
-          This says why and takes an email instead. Needs an airport to promise
-          anything specific, so it only renders once one is chosen. */}
-      {location && <WaitlistPrompt airportCode={location} />}
+          Needs an airport to promise anything specific, so it only renders
+          once one is chosen — and stays a single quiet link until the
+          traveller says their trip is further out, rather than showing the
+          full prompt to every visitor who picks an airport. */}
+      {location && !waitlistRequested && (
+        <button
+          type="button"
+          onClick={() => setWaitlistRequested(true)}
+          className="mt-3 text-xs text-gray-500 underline underline-offset-2 hover:text-navy"
+        >
+          Traveling further out?
+        </button>
+      )}
+      {location && waitlistRequested && <WaitlistPrompt airportCode={location} />}
 
       <Button
         onClick={handleSearch}

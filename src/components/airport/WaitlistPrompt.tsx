@@ -39,6 +39,29 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // The server is the single source of truth for the booking window (see
+  // GET /api/booking-window) — fetch it on mount so the picker's minimum
+  // matches what /api/waitlist will actually accept. Fall back to the local
+  // computation while that request is in flight (or if it fails) so the
+  // field still works, just with the same drift the fetch exists to fix.
+  const [serverMaxDate, setServerMaxDate] = useState<Date | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/booking-window")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { maxDate?: string } | null) => {
+        if (cancelled || !data?.maxDate) return;
+        const parsed = parse(data.maxDate, "yyyy-MM-dd", new Date());
+        setServerMaxDate(parsed);
+      })
+      .catch(() => {
+        /* keep the local fallback */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // A date handed down from the widget means the customer already tried to pick
   // it — open straight onto the form.
   useEffect(() => {
@@ -50,7 +73,7 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
 
   if (!mounted) return null;
 
-  const maxDate = maxAdvanceBookingDate();
+  const maxDate = serverMaxDate ?? maxAdvanceBookingDate();
   const firstUnbookable = addDays(maxDate, 1);
   const minDateValue = format(firstUnbookable, "yyyy-MM-dd");
 
@@ -74,13 +97,27 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to join the waitlist");
+      // A 502/504 or WAF page returns HTML, not JSON — check ok + content-type
+      // before parsing, so that never surfaces as "Unexpected token '<'".
+      const contentType = response.headers.get("content-type") ?? "";
+      let data: { error?: string; opensOn?: string } | null = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
       }
 
-      setOpensOn(data.opensOn as string);
+      if (!response.ok) {
+        const message =
+          response.status >= 500
+            ? "Something went wrong. Please try again."
+            : data?.error;
+        throw new Error(message || "Failed to join the waitlist");
+      }
+
+      setOpensOn(data?.opensOn ?? null);
       setEmail("");
     } catch (err) {
       setError(

@@ -13,8 +13,9 @@
 -- ResLab's window, i.e. the day we can email them and they can actually book.
 -- Indexed with airport_code so a future job can ask "who opens today?".
 --
--- notified_at is reserved for that send and is NOT written by anything yet.
--- No sender is built here; this migration and /api/waitlist only capture.
+-- notified_at is written by GET /api/cron/waitlist-notify once the "opens
+-- today" email actually sends (see that route). unsubscribed_at is set by
+-- GET /api/waitlist/unsubscribe and excludes a row from that send.
 --
 -- The unique key is (lower(email), airport_code, wanted_checkin) so a traveller
 -- who submits the same trip twice does not create a second row — repeat
@@ -30,6 +31,7 @@ CREATE TABLE IF NOT EXISTS booking_waitlist (
   opens_on DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   notified_at TIMESTAMPTZ,
+  unsubscribed_at TIMESTAMPTZ,
   source TEXT NOT NULL DEFAULT 'search',
   page TEXT
 );
@@ -41,6 +43,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_waitlist_unique_request
 -- The send query: "which waitlisted trips open today, at which airport?"
 CREATE INDEX IF NOT EXISTS idx_booking_waitlist_airport_opens_on
   ON booking_waitlist (airport_code, opens_on);
+
+-- The per-email send cap in /api/waitlist ("how many confirmations has this
+-- address triggered in the last 24h?") — without this it's a sequential scan
+-- of the whole table on every submission.
+CREATE INDEX IF NOT EXISTS idx_booking_waitlist_email_created_at
+  ON booking_waitlist (lower(email), created_at);
 
 -- =============================================
 -- RLS — service role only (pattern from migrations 019/020)

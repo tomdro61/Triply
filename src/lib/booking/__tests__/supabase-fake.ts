@@ -17,7 +17,7 @@
 export type Row = Record<string, unknown>;
 
 interface Filter {
-  op: "eq" | "in" | "is" | "lt" | "gte" | "ilike" | "or";
+  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "ilike" | "or";
   col: string;
   val: unknown;
 }
@@ -208,6 +208,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
     this.filters.push({ op: "lt", col, val });
     return this;
   }
+  lte(col: string, val: unknown) {
+    this.filters.push({ op: "lte", col, val });
+    return this;
+  }
   gte(col: string, val: unknown) {
     this.filters.push({ op: "gte", col, val });
     return this;
@@ -277,6 +281,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
           return f.val === null ? actual == null : actual === f.val;
         case "lt":
           return actual != null && String(actual) < String(f.val);
+        case "lte":
+          return actual != null && String(actual) <= String(f.val);
         case "gte":
           return actual != null && String(actual) >= String(f.val);
         case "ilike":

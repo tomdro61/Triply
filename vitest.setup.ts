@@ -28,3 +28,6 @@ process.env.NEXT_PUBLIC_APP_URL ||= "https://www.triplypro.com";
 
 process.env.PARKGUARD_API_URL ||= "https://parkguard.invalid";
 process.env.PARKGUARD_API_KEY ||= "dummy";
+
+process.env.PAYLOAD_SECRET ||= "test-secret-at-least-32-characters-long";
+process.env.CRON_SECRET ||= "dummy_cron_secret";

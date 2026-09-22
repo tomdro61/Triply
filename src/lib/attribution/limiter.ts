@@ -112,3 +112,19 @@ export function __resetNewsletterRequestRateLimitForTests(): void {
 export function __newsletterRequestRateLimitSizeForTests(): number {
   return newsletterRequestLimiter.size();
 }
+
+// Same budget as newsletter: also mints a send (a confirmation email) per
+// request, so it gets the same tighter ~5/min/IP rather than attribution's 30.
+const waitlistLimiter = createBoundedRateLimiter({ limit: 5, windowMs: 60_000, maxKeys: 5000 });
+
+export function checkWaitlistRateLimit(key: string, now = Date.now()): boolean {
+  return waitlistLimiter.check(key, now);
+}
+
+export function __resetWaitlistRateLimitForTests(): void {
+  waitlistLimiter.reset();
+}
+
+export function __waitlistRateLimitSizeForTests(): number {
+  return waitlistLimiter.size();
+}
