@@ -22,6 +22,8 @@ import {
   logAvailability,
   dayDiff,
   localToday,
+  resolveEnv,
+  rowIsInsertable,
   __resetAvailabilityLogWarnStateForTests,
   type AvailabilityRow,
 } from "../log";
@@ -45,6 +47,19 @@ function row(overrides: Partial<AvailabilityRow> = {}): AvailabilityRow {
   };
 }
 
+/** A happy-path insert chain that records what was inserted. */
+function okInsert() {
+  const inserted: unknown[][] = [];
+  const abortSignal = vi.fn(() => Promise.resolve({ error: null }));
+  supabase.from.mockReturnValue({
+    insert: (rows: unknown[]) => {
+      inserted.push(rows);
+      return { abortSignal };
+    },
+  });
+  return { inserted, abortSignal };
+}
+
 beforeEach(() => {
   __resetAvailabilityLogWarnStateForTests();
   supabase.from.mockReset();
@@ -52,6 +67,8 @@ beforeEach(() => {
   vi.mocked(createAdminClient).mockClear();
   delete process.env.NEXT_PHASE;
   delete process.env.AVAILABILITY_LOG_DISABLED;
+  delete process.env.NEXT_PUBLIC_APP_ENV;
+  delete process.env.VERCEL_ENV;
 });
 
 describe("dayDiff", () => {
@@ -63,9 +80,12 @@ describe("dayDiff", () => {
     expect(dayDiff("2026-01-10", "2026-01-01")).toBe(-9);
   });
 
-  it("returns 0 rather than NaN on an unparseable input", () => {
-    expect(dayDiff("not-a-date", "2026-01-01")).toBe(0);
-    expect(dayDiff("2026-01-01", "also-not-a-date")).toBe(0);
+  it("returns null rather than a fabricated 0 on an unparseable input", () => {
+    expect(dayDiff("not-a-date", "2026-01-01")).toBeNull();
+    expect(dayDiff("2026-01-01", "also-not-a-date")).toBeNull();
+    // Non-zero-padded dates are accepted by Postgres but not by Date.parse —
+    // the caller must skip the row, never store lead_days = 0.
+    expect(dayDiff("2026-10-1", "2026-10-05")).toBeNull();
   });
 });
 
@@ -80,6 +100,82 @@ describe("localToday", () => {
   });
 });
 
+describe("resolveEnv", () => {
+  it("prefers NEXT_PUBLIC_APP_ENV", () => {
+    process.env.NEXT_PUBLIC_APP_ENV = "staging";
+    process.env.VERCEL_ENV = "production";
+    expect(resolveEnv()).toBe("staging");
+  });
+
+  it("falls back to VERCEL_ENV so a missing project var cannot tag production rows 'unknown'", () => {
+    process.env.VERCEL_ENV = "production";
+    expect(resolveEnv()).toBe("production");
+    process.env.VERCEL_ENV = "preview";
+    expect(resolveEnv()).toBe("preview");
+  });
+
+  it("is 'unknown' when neither is set or VERCEL_ENV is unrecognised", () => {
+    expect(resolveEnv()).toBe("unknown");
+    process.env.VERCEL_ENV = "something-else";
+    expect(resolveEnv()).toBe("unknown");
+  });
+});
+
+describe("rowIsInsertable — mirrors the 025 CHECK constraints", () => {
+  it("accepts a normal row and the -1 boundary", () => {
+    expect(rowIsInsertable(row())).toBe(true);
+    expect(rowIsInsertable(row({ lead_days: -1, stay_days: 0 }))).toBe(true);
+  });
+
+  it("rejects rows Postgres would reject, so one bad row cannot sink the batch", () => {
+    expect(rowIsInsertable(row({ lead_days: -2 }))).toBe(false);
+    expect(rowIsInsertable(row({ stay_days: -1 }))).toBe(false);
+    expect(rowIsInsertable(row({ lead_days: Number.NaN }))).toBe(false);
+    expect(rowIsInsertable(row({ check_in: "2026-10-1" }))).toBe(false);
+    expect(rowIsInsertable(row({ check_out: "" }))).toBe(false);
+    expect(rowIsInsertable(row({ reslab_location_id: 1.5 }))).toBe(false);
+  });
+});
+
+describe("logAvailability — happy path", () => {
+  it("inserts every row with the env tag and one shared search_id", async () => {
+    process.env.NEXT_PUBLIC_APP_ENV = "production";
+    const { inserted, abortSignal } = okInsert();
+
+    logAvailability([row({ reslab_location_id: 1 }), row({ reslab_location_id: 2, sold_out: null })]);
+    await flush();
+
+    expect(supabase.from).toHaveBeenCalledWith("availability_log");
+    expect(abortSignal).toHaveBeenCalledTimes(1);
+    expect(inserted).toHaveLength(1);
+    const rows = inserted[0] as Array<AvailabilityRow & { env: string; search_id: string }>;
+    expect(rows).toHaveLength(2);
+    expect(rows.every((r) => r.env === "production")).toBe(true);
+    expect(rows[0].search_id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(rows[1].search_id).toBe(rows[0].search_id);
+    // A null sold_out (unpriced lot) is an observation, not dropped.
+    expect(rows[1].sold_out).toBeNull();
+    expect(sentry.captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("drops only the rows that would violate a CHECK and inserts the rest", async () => {
+    const { inserted } = okInsert();
+
+    logAvailability([row({ reslab_location_id: 1 }), row({ reslab_location_id: 2, lead_days: -30 })]);
+    await flush();
+
+    const rows = inserted[0] as AvailabilityRow[];
+    expect(rows.map((r) => r.reslab_location_id)).toEqual([1]);
+  });
+
+  it("does not insert at all when every row is uninsertable", async () => {
+    okInsert();
+    logAvailability([row({ lead_days: -30 })]);
+    await flush();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+});
+
 describe("logAvailability — never-throw contract", () => {
   it("is a no-op during `next build`", async () => {
     process.env.NEXT_PHASE = "phase-production-build";
@@ -88,11 +184,19 @@ describe("logAvailability — never-throw contract", () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
-  it("is a no-op when the kill switch is set", async () => {
-    process.env.AVAILABILITY_LOG_DISABLED = "1";
+  it.each(["1", "true", "TRUE", "yes"])("is a no-op when the kill switch is %s", async (v) => {
+    process.env.AVAILABILITY_LOG_DISABLED = v;
     expect(() => logAvailability([row()])).not.toThrow();
     await flush();
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("still logs when the kill switch is set to something that is not a yes", async () => {
+    process.env.AVAILABILITY_LOG_DISABLED = "0";
+    okInsert();
+    logAvailability([row()]);
+    await flush();
+    expect(supabase.from).toHaveBeenCalled();
   });
 
   it("resolves without throwing when the supabase client itself throws", async () => {
@@ -114,15 +218,22 @@ describe("logAvailability — never-throw contract", () => {
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
   });
 
-  it("resolves without throwing when supabase reports an error object (e.g. missing table)", async () => {
+  it("keeps the PostgREST code in the Sentry event when supabase reports an error object", async () => {
     const abortSignal = vi.fn(() =>
-      Promise.resolve({ error: { message: 'relation "availability_log" does not exist' } })
+      Promise.resolve({
+        error: {
+          code: "PGRST205",
+          message: "Could not find the table 'public.availability_log' in the schema cache",
+        },
+      })
     );
     supabase.from.mockReturnValue({ insert: () => ({ abortSignal }) });
 
     expect(() => logAvailability([row()])).not.toThrow();
     await flush();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    const [err] = sentry.captureAPIError.mock.calls[0] as [Error];
+    expect(err.message).toMatch(/^PGRST205: Could not find the table/);
   });
 
   it("reports to Sentry at most once per process-hour even across repeated failures", async () => {
@@ -134,6 +245,15 @@ describe("logAvailability — never-throw contract", () => {
     logAvailability([row()]);
     await flush();
 
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when its own prelude throws (from() itself throwing)", async () => {
+    supabase.from.mockImplementation(() => {
+      throw new Error("client exploded synchronously");
+    });
+    expect(() => logAvailability([row()])).not.toThrow();
+    await flush();
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
   });
 

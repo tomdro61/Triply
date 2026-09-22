@@ -13,7 +13,9 @@
  *     the table or its columns don't exist;
  *   - a no-op during `next build` — see the NEXT_PHASE check below;
  *   - warns at most once per process, and reports to Sentry at most once per
- *     process-hour, so a missing table doesn't flood logs or the alert inbox.
+ *     process-hour, so a missing table doesn't flood logs or the alert inbox;
+ *   - drops individual rows that would violate a table CHECK rather than
+ *     letting Postgres reject the whole batch (rowIsInsertable).
  *
  * See supabase/migrations/025_availability_log.sql.
  */
@@ -35,7 +37,12 @@ export interface AvailabilityRow {
   lead_days: number;
   stay_days: number;
   reslab_location_id: number;
-  /** ResLab omits this on some responses — null rather than a fabricated false. */
+  /**
+   * ResLab reservation.sold_out. null when ResLab omitted it OR when the
+   * pricing call for this lot failed — "we looked and don't know" is a real
+   * observation the rollup needs (it is what keeps a 1-of-12 sample from
+   * reading like a census), and a fabricated false would bias the metric.
+   */
   sold_out: boolean | null;
   available_spots: number | null;
   /** reservation.grand_total in cents; null when the lot didn't price. */
@@ -46,14 +53,16 @@ export interface AvailabilityRow {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Whole days between two YYYY-MM-DD dates, UTC. Returns 0 on an unparseable
- * input rather than NaN — the columns are NOT NULL int and a NaN would fail the
- * insert (silently, since we swallow errors), losing the whole batch.
+ * Whole days between two YYYY-MM-DD dates, UTC. Returns null on an unparseable
+ * input. Callers must skip the row: for a dataset that can never be backfilled
+ * a missing row is strictly better than an invented `lead_days = 0`, which
+ * would read as "searched on the day of travel" — the single most consequential
+ * bucket for the book-by calendar.
  */
-export function dayDiff(fromDate: string, toDate: string): number {
+export function dayDiff(fromDate: string, toDate: string): number | null {
   const from = Date.parse(`${fromDate}T00:00:00Z`);
   const to = Date.parse(`${toDate}T00:00:00Z`);
-  if (Number.isNaN(from) || Number.isNaN(to)) return 0;
+  if (Number.isNaN(from) || Number.isNaN(to)) return null;
   return Math.round((to - from) / DAY_MS);
 }
 
@@ -83,6 +92,50 @@ export function localToday(timeZone: string): string {
   }
 }
 
+/**
+ * The environment tag every row carries; availability_daily aggregates
+ * 'production' only. NEXT_PUBLIC_APP_ENV is the project's own setting; when
+ * it is absent fall back to VERCEL_ENV, which Vercel sets on every deployment
+ * (production | preview | development) — so a missing project var can no
+ * longer make production rows land as 'unknown' and leave the rollup empty
+ * forever with nothing to say why.
+ */
+export function resolveEnv(): string {
+  const configured = process.env.NEXT_PUBLIC_APP_ENV;
+  if (configured) return configured;
+  const vercel = process.env.VERCEL_ENV;
+  if (vercel === "production" || vercel === "preview" || vercel === "development") {
+    return vercel;
+  }
+  return "unknown";
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Whether a row can satisfy every constraint on availability_log. Postgres
+ * rejects a multi-row INSERT as a whole on one bad row, and the insert is
+ * error-swallowing by contract — so one out-of-window date (a replayed stale
+ * URL, an LLM-supplied past date on the chat path) would otherwise silently
+ * discard the entire search's observations. Mirrors 025's CHECKs.
+ */
+export function rowIsInsertable(row: AvailabilityRow): boolean {
+  return (
+    Number.isInteger(row.lead_days) &&
+    row.lead_days >= -1 &&
+    Number.isInteger(row.stay_days) &&
+    row.stay_days >= 0 &&
+    DATE_RE.test(row.check_in) &&
+    DATE_RE.test(row.check_out) &&
+    Number.isInteger(row.reslab_location_id)
+  );
+}
+
+function killSwitchOn(): boolean {
+  const v = (process.env.AVAILABILITY_LOG_DISABLED ?? "").trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 // One console warning per process — the expected failure is "table doesn't
 // exist yet", which would otherwise warn on every single search until 025 is
 // applied. Sentry is separate: warnOnce alone means a permanently broken
@@ -93,8 +146,31 @@ let warned = false;
 let lastReportedAt: number | null = null;
 const REPORT_INTERVAL_MS = 60 * 60 * 1000;
 
+/** supabase-js / PostgREST error shape (a plain object, not an Error). */
+interface PostgrestLikeError {
+  message?: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
+function toError(detail: unknown): Error {
+  if (detail instanceof Error) return detail;
+  if (detail && typeof detail === "object") {
+    // Keep the PostgREST code in the message: it is what distinguishes
+    // "schema cache is stale" (PGRST205) from "a CHECK rejected the batch"
+    // (23514) from "grant revoked" (42501) in the one Sentry event per hour.
+    const e = detail as PostgrestLikeError;
+    const parts = [e.code, e.message, e.details].filter(
+      (p): p is string => typeof p === "string" && p.length > 0
+    );
+    return new Error(parts.length > 0 ? parts.join(": ") : "unknown insert error");
+  }
+  return new Error(String(detail));
+}
+
 function warnOnce(detail: unknown): void {
-  const err = detail instanceof Error ? detail : new Error(String(detail));
+  const err = toError(detail);
   if (!warned) {
     warned = true;
     console.warn("[availability] logging disabled for this process — insert failed:", err.message);
@@ -114,56 +190,65 @@ export function __resetAvailabilityLogWarnStateForTests(): void {
 
 /**
  * Fire-and-forget insert of one search's worth of rows. Returns immediately;
- * the caller must not await it.
+ * the caller must not await it. Never throws.
  */
 export function logAvailability(rows: AvailabilityRow[]): void {
-  if (rows.length === 0) return;
-  // Every Vercel build of every branch runs generateStaticParams → after() at
-  // build time, with the service-role key injected — without this guard every
-  // build of every branch would write into the (real, production) table.
-  if (process.env.NEXT_PHASE === "phase-production-build") return;
-  // Kill switch for an incident or a load test. Vercel env var changes don't
-  // reach already-running deployments, so this needs a redeploy, not just a
-  // flip in the dashboard.
-  if (process.env.AVAILABILITY_LOG_DISABLED === "1") return;
-  // Sampling, if volume ever demands it, goes HERE — drop a share of rows (or
-  // of whole searches) before the insert. Deliberately not sampling today:
-  // /api/search is CDN-cached 300s so origin search volume is modest, and a
-  // sampled log answers "was it sold out?" much less crisply than a full one.
-
-  const env = process.env.NEXT_PUBLIC_APP_ENV || "unknown";
-  // One id per call (i.e. per search), shared by every row it writes — lets
-  // the view count DISTINCT search_id instead of DISTINCT searched_at, which
-  // is exact even if a future retry writes two transactions for one search.
-  const searchId = crypto.randomUUID();
-  const insertRows = rows.map((row) => ({ ...row, env, search_id: searchId }));
-
-  const insert = async () => {
-    try {
-      const supabase = await createAdminClient();
-      const { error } = await supabase
-        .from("availability_log")
-        .insert(insertRows)
-        // ISR/build-time callers must not hang on a slow or wedged insert.
-        .abortSignal(AbortSignal.timeout(3000));
-      // supabase-js reports failures in `error` rather than throwing, so the
-      // missing-table / missing-column case lands here, not in the catch.
-      if (error) warnOnce(error.message || error);
-    } catch (err) {
-      // Anything else: no service-role key, network, a thrown client, the
-      // abort timeout firing. Telemetry is never worth an exception on the
-      // customer's path.
-      warnOnce(err);
-    }
-  };
-
-  // On Vercel a dangling promise can be cut off the moment the response is
-  // sent. `after()` keeps the function alive until the insert settles, without
-  // delaying the response. It throws when called outside a request scope (unit
-  // tests, scripts) — fall back to plain fire-and-forget there.
   try {
-    after(insert);
-  } catch {
-    void insert();
+    if (rows.length === 0) return;
+    // Every Vercel build of every branch runs generateStaticParams → after() at
+    // build time, with the service-role key injected — without this guard every
+    // build of every branch would write into the (real, production) table.
+    if (process.env.NEXT_PHASE === "phase-production-build") return;
+    // Kill switch for an incident or a load test. Vercel env var changes don't
+    // reach already-running deployments, so this needs a redeploy, not just a
+    // flip in the dashboard.
+    if (killSwitchOn()) return;
+    // Sampling, if volume ever demands it, goes HERE — drop a share of rows (or
+    // of whole searches) before the insert. Deliberately not sampling today:
+    // /api/search is CDN-cached 300s so origin search volume is modest, and a
+    // sampled log answers "was it sold out?" much less crisply than a full one.
+
+    const insertable = rows.filter(rowIsInsertable);
+    if (insertable.length === 0) return;
+
+    const env = resolveEnv();
+    // One id per call (i.e. per search), shared by every row it writes — lets
+    // the view count DISTINCT search_id instead of DISTINCT searched_at, which
+    // is exact even if a future retry writes two transactions for one search.
+    const searchId = crypto.randomUUID();
+    const insertRows = insertable.map((row) => ({ ...row, env, search_id: searchId }));
+
+    const insert = async () => {
+      try {
+        const supabase = await createAdminClient();
+        const { error } = await supabase
+          .from("availability_log")
+          .insert(insertRows)
+          // ISR/build-time callers must not hang on a slow or wedged insert.
+          .abortSignal(AbortSignal.timeout(3000));
+        // supabase-js reports failures in `error` rather than throwing, so the
+        // missing-table / missing-column case lands here, not in the catch.
+        if (error) warnOnce(error);
+      } catch (err) {
+        // Anything else: no service-role key, network, a thrown client, the
+        // abort timeout firing. Telemetry is never worth an exception on the
+        // customer's path.
+        warnOnce(err);
+      }
+    };
+
+    // On Vercel a dangling promise can be cut off the moment the response is
+    // sent. `after()` keeps the function alive until the insert settles, without
+    // delaying the response. It throws when called outside a request scope (unit
+    // tests, scripts) — fall back to plain fire-and-forget there.
+    try {
+      after(insert);
+    } catch {
+      void insert();
+    }
+  } catch (err) {
+    // The contract is "never throws", enforced here rather than by trusting
+    // every caller to wrap us.
+    warnOnce(err);
   }
 }

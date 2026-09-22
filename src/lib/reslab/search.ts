@@ -373,6 +373,10 @@ const MAX_FAST_TIMEOUT_RETRIES = 2;
 // When we last reported an open-breaker 503 to Sentry. Rate-limits that report
 // to one per backoff window so an outage stays visible without flooding.
 let lastBackoffReportAt: number | null = null;
+// When we last reported an availability-row-builder throw (see the
+// logAvailability block in searchParking). Same reasoning as above.
+let lastAvailabilityReportAt: number | null = null;
+const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 // Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
 let buildPhaseSweeps = 0;
 // Single-flight: coalesce concurrent cold-cache builds so we don't fire N
@@ -926,20 +930,30 @@ export async function searchParking(
     // UTC — a US evening search is already "tomorrow" in UTC and would
     // otherwise log a systematic -1 lead day.
     const searchedOn = localToday(airportInfo.timezone);
-    const availabilityRows: AvailabilityRow[] = pricedLots.flatMap(
-      ({ location, minPriceData }) => {
-        // Skip the lots whose pricing call failed: we know nothing about them,
-        // and a missing row is honest where a `sold_out: false` row would be a
-        // fabricated observation.
-        if (!minPriceData) return [];
-        const { sold_out, available_spots, grand_total } = minPriceData.reservation;
-        return [
-          {
+    const leadDays = dayDiff(searchedOn, checkin);
+    const stayDays = dayDiff(checkin, checkout);
+    // Unparseable dates: skip the whole search rather than store a fabricated
+    // lead_days. (A past check-in beyond the -1 CHECK is dropped per row by
+    // rowIsInsertable inside logAvailability.)
+    if (leadDays !== null && stayDays !== null) {
+      const availabilityRows: AvailabilityRow[] = pricedLots.map(
+        ({ location, minPriceData }) => {
+          // A lot whose pricing call failed is still an observation — "we
+          // looked and don't know". Logged with sold_out NULL so the rollup can
+          // tell a 1-of-12 sample from a census; never a fabricated `false`.
+          // safety-removed: the `if (!minPriceData) return []` skip is replaced
+          // by optional chaining — a null minPriceData now yields a null-valued
+          // row instead of being dropped, and nothing here can throw on it.
+          const reservation = minPriceData?.reservation;
+          const sold_out = reservation?.sold_out;
+          const available_spots = reservation?.available_spots;
+          const grand_total = reservation?.grand_total;
+          return {
             airport_code: airportInfo.code,
             check_in: checkin,
             check_out: checkout,
-            lead_days: dayDiff(searchedOn, checkin),
-            stay_days: dayDiff(checkin, checkout),
+            lead_days: leadDays,
+            stay_days: stayDays,
             reslab_location_id: location.id,
             sold_out: typeof sold_out === "boolean" ? sold_out : null,
             available_spots:
@@ -949,16 +963,26 @@ export async function searchParking(
                 ? Math.round(grand_total * 100)
                 : null,
             source,
-          },
-        ];
-      }
-    );
-    logAvailability(availabilityRows);
+          };
+        }
+      );
+      logAvailability(availabilityRows);
+    }
   } catch (err) {
-    captureAPIError(err instanceof Error ? err : new Error(String(err)), {
-      endpoint: "searchParking.logAvailability",
-      method: "GET",
-    });
+    // Throttled like every other capture in this file: this sits on the
+    // highest-volume path and one bad response shape would otherwise emit one
+    // Sentry event per search.
+    const now = Date.now();
+    if (
+      lastAvailabilityReportAt === null ||
+      now - lastAvailabilityReportAt >= AVAILABILITY_REPORT_INTERVAL_MS
+    ) {
+      lastAvailabilityReportAt = now;
+      captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+        endpoint: "searchParking.logAvailability",
+        method: "GET",
+      });
+    }
   }
 
   // Filter out unavailable lots and lots with no valid pricing
