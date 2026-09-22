@@ -31,6 +31,9 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submittedMessage, setSubmittedMessage] = useState(
+    "Check your inbox — your 10% code is on its way."
+  );
 
   // Only name the airport when it is one we can actually sell — post.airportCode
   // may be null, lowercase, or a code that is catalogued but not enabled.
@@ -56,14 +59,33 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to send your code");
+      // A 502/504 or WAF page returns HTML, not JSON — check ok + content-type
+      // before parsing, so that never surfaces as "Unexpected token '<'".
+      const contentType = response.headers.get("content-type") ?? "";
+      let data: { message?: string; error?: string; alreadySubscribed?: boolean } | null = null;
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch {
+          data = null;
+        }
       }
 
+      if (!response.ok) {
+        const message =
+          response.status >= 500
+            ? "Something went wrong. Please try again."
+            : data?.error;
+        throw new Error(message || "Failed to send your code");
+      }
+
+      setSubmittedMessage(data?.message || "Check your inbox — your 10% code is on its way.");
       setIsSubmitted(true);
-      trackNewsletterSignup({ source: "blog", airportCode: code || null });
+      // Already-subscribed responses didn't send a new email or mint a code
+      // for a genuinely new lead — don't inflate generate_lead with them.
+      if (!data?.alreadySubscribed) {
+        trackNewsletterSignup({ source: "blog", airportCode: code || null });
+      }
       setEmail("");
     } catch (err) {
       setError(
@@ -105,7 +127,7 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
               className="mt-4 flex items-center gap-2 text-green-700 font-medium"
             >
               <Check className="w-5 h-5 shrink-0" aria-hidden="true" />
-              Check your inbox — your 10% code is on its way.
+              {submittedMessage}
             </p>
           ) : (
             <form

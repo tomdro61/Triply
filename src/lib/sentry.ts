@@ -58,6 +58,10 @@ export function captureAPIError(
     endpoint: string;
     method: string;
     statusCode?: number;
+    /** A sub-step within the endpoint (e.g. a best-effort side write). */
+    stage?: string;
+    /** An upstream error code (e.g. Postgres SQLSTATE). */
+    code?: string;
   }
 ) {
   Sentry.withScope((scope) => {
@@ -66,6 +70,8 @@ export function captureAPIError(
     if (context.statusCode) {
       scope.setTag("api.statusCode", context.statusCode.toString());
     }
+    if (context.stage) scope.setTag("api.stage", context.stage);
+    if (context.code) scope.setContext("api", { code: context.code });
     Sentry.captureException(error);
   });
 }
