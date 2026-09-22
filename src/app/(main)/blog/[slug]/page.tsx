@@ -81,7 +81,7 @@ async function ArticleContent({
         className="text-gray-700"
         insertAfterIndex={midCtaIndex}
         insertContent={
-          midCtaIndex === null ? null : <ArticleCta airportCode={post.airportCode} />
+          midCtaIndex === null ? null : <ArticleCta airportCode={post.airportCode} placement="mid-article" />
         }
       />
 
@@ -255,13 +255,13 @@ export default async function BlogPostPage({ params }: Props) {
         {midCtaIndex === null ? (
           <div className="container mx-auto px-4 pb-12">
             <div className="max-w-3xl mx-auto">
-              <ArticleCta airportCode={post.airportCode} />
+              <ArticleCta airportCode={post.airportCode} placement="end-of-article" />
             </div>
           </div>
         ) : (
           <section className="bg-coral/5 py-6">
             <div className="container mx-auto px-4 text-center">
-              <ArticleCtaInline airportCode={post.airportCode} />
+              <ArticleCtaInline airportCode={post.airportCode} placement="end-of-article" />
             </div>
           </section>
         )}

@@ -2,12 +2,20 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Calendar as CalendarIcon } from "lucide-react";
-import { format, parse } from "date-fns";
-import { DateRangePicker } from "@/components/ui/date-picker";
-import { maxAdvanceBookingDate } from "@/lib/booking-window";
+import dynamic from "next/dynamic";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
+import { trackBlogCtaClick } from "@/lib/analytics/gtag";
+import { DateRangeFieldSkeleton } from "@/components/airport/date-range-field";
+
+// react-day-picker + the Radix Popover it opens in are ~50 KB gzipped and
+// only needed once someone actually opens the calendar — keep them out of
+// every /blog/[slug] page's initial bundle.
+const DateRangeField = dynamic(() => import("@/components/airport/date-range-field"), {
+  ssr: false,
+  loading: () => <DateRangeFieldSkeleton departDate="" returnDate="" />,
+});
 
 interface SearchWidgetProps {
   airportCode: string;
@@ -30,6 +38,13 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
   const handleSearch = () => {
     if (!location) return;
     setIsLoading(true);
+
+    // "compact" is only used by the blog article booking widget today — the
+    // homepage/airport-page variant isn't part of the blog CTA funnel this
+    // event tracks.
+    if (compact) {
+      trackBlogCtaClick({ airportCode: location, placement: "top-widget" });
+    }
 
     const params = new URLSearchParams({
       airport: location,
@@ -66,51 +81,12 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
         </div>
 
         {/* Dates */}
-        <DateRangePicker
-          startDate={departDate}
-          endDate={returnDate}
-          onStartChange={setDepartDate}
-          onEndChange={setReturnDate}
-          minDate={new Date()}
-          maxDate={maxAdvanceBookingDate()}
-        >
-          {({ startTriggerProps, endTriggerProps }) => (
-            <>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Depart</label>
-                <button
-                  type="button"
-                  ref={startTriggerProps.ref}
-                  onClick={startTriggerProps.onClick}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left hover:border-brand-orange transition-colors"
-                >
-                  <CalendarIcon className="w-4 h-4 text-gray-400" />
-                  <span className={departDate ? "text-gray-900" : "text-gray-400"}>
-                    {departDate
-                      ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy")
-                      : "Select date"}
-                  </span>
-                </button>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1.5">Return</label>
-                <button
-                  type="button"
-                  ref={endTriggerProps.ref}
-                  onClick={endTriggerProps.onClick}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left hover:border-brand-orange transition-colors"
-                >
-                  <CalendarIcon className="w-4 h-4 text-gray-400" />
-                  <span className={returnDate ? "text-gray-900" : "text-gray-400"}>
-                    {returnDate
-                      ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy")
-                      : "Select date"}
-                  </span>
-                </button>
-              </div>
-            </>
-          )}
-        </DateRangePicker>
+        <DateRangeField
+          departDate={departDate}
+          returnDate={returnDate}
+          onDepartChange={setDepartDate}
+          onReturnChange={setReturnDate}
+        />
       </div>
 
       <Button
