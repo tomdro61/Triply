@@ -11,6 +11,9 @@
  *   npm run update-links -- -a JFK --hub-only
  */
 
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import Anthropic from '@anthropic-ai/sdk'
 import { Command } from 'commander'
 import { env, CLAUDE_MODEL, BLOG_BASE_URL } from './config.js'
@@ -19,6 +22,7 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { htmlToLexical } from './html-to-lexical.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 interface PublishedPostFull {
   id: string
@@ -235,11 +239,28 @@ const program = new Command()
           console.log(`     ⚠ ${verification.missing.length} link(s) not injected: ${verification.missing.join(', ')}`)
         }
 
-        // Convert back to Lexical and save
+        // Convert back to Lexical, then verify AGAIN on the round-tripped
+        // HTML — verification above only proves the links are in Claude's
+        // HTML, not that they survive HTML→Lexical (2026-09-18: "Saved — 10
+        // links" with 0 persisted, because <li>-level anchors were dropped).
         const lexicalContent = htmlToLexical(updatedHtml)
+        const persisted = verifyLinksInjected(lexicalToHtml(lexicalContent), missingChildren)
+        if (persisted.found.length === 0) {
+          const dir = path.join(ENGINE_ROOT, 'reports')
+          try {
+            fs.mkdirSync(dir, { recursive: true })
+            fs.writeFileSync(path.join(dir, `link-loss-${parent.slug}.html`), updatedHtml)
+          } catch (e) { console.log(`     ⚠ could not write dump: ${e}`) }
+          console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save`)
+          skipped++
+          continue
+        }
+        if (persisted.found.length < verification.found.length) {
+          console.log(`     ⚠ ${verification.found.length - persisted.found.length} link(s) lost in HTML→Lexical: ${persisted.missing.join(', ')}`)
+        }
         await updatePost(parent.id, { content: lexicalContent })
 
-        console.log(`     ✓ Saved — ${verification.found.length} link(s) added\n`)
+        console.log(`     ✓ Saved — ${persisted.found.length} link(s) added\n`)
         updated++
       }
 
