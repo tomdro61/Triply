@@ -22,7 +22,7 @@
  *
  * Pass-4/5 review (PR #23, 2026-09-23): every 200 response carries the SAME
  * body shape and copy whether the address was new or already subscribed (see
- * the SUCCESS_MESSAGE / SEND_TROUBLE_MESSAGE comment below), and the
+ * the SUCCESS_MESSAGE comment below), and the
  * read-only branches now return the SAME 429 as a mint once the per-IP mint
  * quota is spent — otherwise the status answered what the body withheld
  * ("already subscribed" was the only way to get a 200 from an IP with no mint
@@ -77,25 +77,23 @@ const FORBIDDEN_MESSAGE =
 const TOO_LARGE_MESSAGE = "That request was too large.";
 const UNEXPECTED_MESSAGE = "Something went wrong. Please try again.";
 
-// Pass-4 review: every 200 response — new signup, already-subscribed with a
-// live code, redeemed/cooldown, freshly re-minted — must say the SAME thing
-// and carry the SAME shape to an unauthenticated caller. The route used to
-// return an `alreadySubscribed` flag and branch-specific copy ("You're
-// already subscribed — check your email", "You're already subscribed to
-// Triply", etc.); that was an enumeration oracle letting anyone probe whether
-// an address was already on the list. There are now exactly two possible
-// 200 bodies: SUCCESS_MESSAGE (a code is on file and was/will be emailed —
-// covers a fresh signup, a resend, and "already sent, nothing to do") and
-// SEND_TROUBLE_MESSAGE (this specific attempt's send failed). Which one a
-// given request hits still depends on internal state (new vs. existing,
-// sent vs. not), but the response itself can no longer be used to infer that
-// state.
-// Exported so tests assert against these directly rather than duplicating
+// Pass-4/5 review: every 200 response — new signup, already-subscribed with
+// a live code, redeemed/cooldown, freshly re-minted, AND a signup whose
+// welcome email failed to send — says the SAME thing and carries the SAME
+// shape to an unauthenticated caller. Branch-specific copy ("You're already
+// subscribed", an `alreadySubscribed` flag) was an enumeration oracle; so was
+// a distinct "we had trouble emailing you" body, because only the branches
+// that actually attempt a send can produce it — during any Resend
+// degradation that would have told a caller, quota-free at the request tier,
+// exactly which addresses are NOT on the list. A failed send is still
+// captured in Sentry (sendWelcomeEmail, stage "send_email"), and the copy
+// already tells a subscriber who received nothing what to do. Residual,
+// documented above: the mint-tier 429 can still leak state under quota
+// pressure; the response BODY cannot.
+// Exported so tests assert against this directly rather than duplicating
 // (and risking drifting from) the literal copy.
 export const SUCCESS_MESSAGE =
-  "Check your inbox — if this address is new to us, your 10% code is on its way. If it doesn't arrive, contact support@triplypro.com.";
-export const SEND_TROUBLE_MESSAGE =
-  "We hit a snag getting your code to your inbox. If it doesn't arrive, contact support@triplypro.com.";
+  "Thanks! If this address is new to us, your 10% code is on its way — check your inbox. If it doesn't arrive within a few minutes, contact support@triplypro.com.";
 
 const newsletterSchema = z.object({
   // .trim() FIRST: zod runs .email() before any transform, so a pasted address
@@ -149,12 +147,14 @@ let requestRateLimitCount = 0;
 let mintRateLimitCount = 0;
 let subscriberLookupFaultCount = 0;
 let promoLookupFaultCount = 0;
+let stampFaultCount = 0;
 export function __resetNewsletterRouteTelemetryForTests(): void {
   reported.clear();
   originRejectionCount = 0;
   requestRateLimitCount = 0;
   mintRateLimitCount = 0;
   subscriberLookupFaultCount = 0;
+  stampFaultCount = 0;
   promoLookupFaultCount = 0;
 }
 function reportOnce(kind: string, context: Record<string, unknown>) {
@@ -315,11 +315,26 @@ async function stampWelcomeSentAt(supabase: AdminClient, subscriberId: string): 
     return;
   }
 
-  console.warn(`Failed to stamp welcome_sent_at for ${subscriberId}:`, error.message);
+  // Counted + logged on EVERY occurrence (the Sentry capture below is deduped
+  // to one per warm instance): while this fails the cooldown can never arm,
+  // so every resubmission of a known address becomes a metered resend —
+  // real duplicate mail, indefinitely. That volume has to be sizable from
+  // the logs, exactly like the two lookup-fault sites.
+  stampFaultCount += 1;
+  console.error(
+    `Failed to stamp welcome_sent_at for ${subscriberId} (#${stampFaultCount} this instance):`,
+    error.message
+  );
   reportOnceError(
     "stamp_welcome_sent_at",
     new Error(`Failed to stamp welcome_sent_at for subscriber ${subscriberId}: ${error.message}`),
-    { endpoint: "/api/newsletter", method: "POST", stage: "stamp_welcome_sent_at", code: error.code }
+    {
+      endpoint: "/api/newsletter",
+      method: "POST",
+      stage: "stamp_welcome_sent_at",
+      code: error.code,
+      extra: { faultsThisInstance: stampFaultCount },
+    }
   );
 }
 
@@ -706,7 +721,7 @@ export async function POST(request: NextRequest) {
         if (sent) await stampWelcomeSentAt(supabase, existing.id);
         return NextResponse.json({
           success: true,
-          message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
+          message: SUCCESS_MESSAGE,
         });
       }
 
@@ -765,7 +780,7 @@ export async function POST(request: NextRequest) {
       if (sent) await stampWelcomeSentAt(supabase, existing.id);
       return NextResponse.json({
         success: true,
-        message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
+        message: SUCCESS_MESSAGE,
       });
     }
 
@@ -847,7 +862,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
+      message: SUCCESS_MESSAGE,
     });
   } catch (error) {
     console.error("Newsletter signup error:", error);

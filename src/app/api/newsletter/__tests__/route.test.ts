@@ -34,7 +34,6 @@ import {
   POST,
   __resetNewsletterRouteTelemetryForTests,
   SUCCESS_MESSAGE,
-  SEND_TROUBLE_MESSAGE,
 } from "../route";
 import {
   __resetNewsletterRateLimitForTests,
@@ -412,7 +411,7 @@ describe("POST /api/newsletter — Resend errors are never a silent success", ()
     const res = await POST(post({ email: "bademail@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
     expect(sentry.captureException).toHaveBeenCalled();
 
     // The subscriber + promo code still exist — a mail outage shouldn't
@@ -427,7 +426,7 @@ describe("POST /api/newsletter — Resend errors are never a silent success", ()
     const res = await POST(post({ email: "throwsemail@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
     expect(sentry.captureException).toHaveBeenCalled();
   });
 });
@@ -442,7 +441,7 @@ describe("POST /api/newsletter — a failed welcome email never locks the subscr
     const first = await POST(post({ email: "retryme@example.com" }));
     expect(first.status).toBe(200);
     const firstJson = await first.json();
-    expect(firstJson).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
+    expect(firstJson).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     expect(db.tables.promo_codes).toHaveLength(1);
     const mintedCode = db.tables.promo_codes[0].code as string;
