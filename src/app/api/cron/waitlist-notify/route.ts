@@ -5,7 +5,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { getAirportByCode } from "@/config/airports";
 import { captureAPIError } from "@/lib/sentry";
-import { waitlistUnsubscribeUrl } from "@/lib/waitlist/unsubscribe-token";
+import {
+  assertWaitlistSigningSecret,
+  isWaitlistConfigError,
+  waitlistUnsubscribeUrl,
+} from "@/lib/waitlist/unsubscribe-token";
 
 /**
  * GET /api/cron/waitlist-notify
@@ -78,8 +82,14 @@ async function recordNotifyFailure(
   errorMessage: string
 ) {
   const attempts = (row.notify_attempts ?? 0) + 1;
+  // Only a counter that actually REACHED the database can justify the
+  // give-up alarm below (pass 4, item 6): firing it off the in-memory value
+  // told Sentry "row X will no longer be retried" while the row still held
+  // 4 and tomorrow's run picked it straight back up — an alarm that is wrong
+  // in the direction of "stop looking into it".
+  let persisted = false;
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("booking_waitlist")
       .update({
         notify_attempts: attempts,
@@ -87,13 +97,24 @@ async function recordNotifyFailure(
         // pathological error string grow the row unboundedly.
         last_notify_error: errorMessage.slice(0, 500),
       })
-      .eq("id", row.id);
+      .eq("id", row.id)
+      // `.select("id")`: an UPDATE whose WHERE matches nothing returns no
+      // error, just an empty result — without this, a vanished or re-keyed row
+      // would look like a successful counter write.
+      .select("id");
     if (error) {
       captureAPIError(new Error(error.message), {
         ...CTX,
         stage: "record_notify_failure",
         code: error.code,
       });
+    } else if (!data || data.length === 0) {
+      captureAPIError(
+        new Error(`waitlist-notify: notify_attempts update matched no rows for id ${row.id}`),
+        { ...CTX, stage: "record_notify_failure_no_match" }
+      );
+    } else {
+      persisted = true;
     }
   } catch (e) {
     captureAPIError(e instanceof Error ? e : new Error(String(e)), {
@@ -102,7 +123,7 @@ async function recordNotifyFailure(
     });
   }
 
-  if (attempts >= MAX_NOTIFY_ATTEMPTS) {
+  if (persisted && attempts >= MAX_NOTIFY_ATTEMPTS) {
     alarm(
       "waitlist_notify_giveup",
       `waitlist-notify: row ${row.id} (${row.email}) has failed ${attempts} times and will no longer be retried — last error: ${errorMessage}`,
@@ -112,10 +133,69 @@ async function recordNotifyFailure(
   }
 }
 
+/**
+ * Writes notified_at, with ONE inline retry.
+ *
+ * By the time this runs the email has already left, so failing to record it
+ * costs the traveller a duplicate email tomorrow — and the compensating
+ * write (recordNotifyFailure) is an UPDATE on the SAME row, so whatever made
+ * this fail usually makes that fail too, leaving the counter untouched and
+ * the duplicate re-sending daily (pass 4, item 5). One retry costs one round
+ * trip and covers the transient case; a sustained write outage still falls
+ * through to the loud path.
+ *
+ * Returns the error to report, or null on success.
+ */
+async function markNotified(
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  rowId: string
+): Promise<{ message: string; code?: string } | null> {
+  // supabase-js normally RESOLVES `{ error }`, but the underlying fetch can
+  // still reject (DNS, socket reset). Caught here rather than left to the
+  // caller's try, which would file it under `stage: "send"` — i.e. report a
+  // delivered email as undelivered, and leave the row to be re-sent tomorrow
+  // as if the traveller had never been emailed at all.
+  const attempt = async (): Promise<{ message: string; code?: string } | null> => {
+    try {
+      const { error } = await supabase
+        .from("booking_waitlist")
+        .update({ notified_at: new Date().toISOString() })
+        .eq("id", rowId);
+      return error ? { message: error.message, code: error.code } : null;
+    } catch (e) {
+      return { message: e instanceof Error ? e.message : String(e) };
+    }
+  };
+
+  const first = await attempt();
+  if (!first) return null;
+  return await attempt();
+}
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Assert the signing secret ONCE, before the loop and before any counter
+  // can move (pass 4, item 2). Every email this route sends needs an
+  // unsubscribe link, so a missing WAITLIST_SIGNING_SECRET fails 100% of
+  // rows — and charging that to each row's notify_attempts retired the ENTIRE
+  // backlog after five daily runs, after which the cron returns a clean
+  // `200 {sent: 0, sendFailed: 0}` forever. 503 is the honest answer: nothing
+  // attempted, nothing counted, and a status a monitor can page on.
+  try {
+    assertWaitlistSigningSecret();
+  } catch (error) {
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      ...CTX,
+      stage: "config",
+    });
+    return NextResponse.json(
+      { ok: false, error: "waitlist signing secret is not configured" },
+      { status: 503 }
+    );
   }
 
   const todayISO = format(new Date(), "yyyy-MM-dd");
@@ -157,6 +237,14 @@ export async function GET(request: NextRequest) {
   let deadlineHit = false;
   const startedAt = Date.now();
 
+  // Send failures are recorded AFTER the loop, not inline: a run in which
+  // EVERY send failed is an outage (Resend down, key rotated), not N bad
+  // addresses, and charging notify_attempts for it would retire the whole
+  // backlog after five such days — permanently, silently (pass 4, item 2).
+  // That verdict only exists once the loop has finished, so the evidence is
+  // parked here until then.
+  const sendFailures: Array<{ row: WaitlistRow; message: string }> = [];
+
   for (const row of pending) {
     if (Date.now() - startedAt > NOTIFY_BUDGET_MS) {
       deadlineHit = true;
@@ -164,24 +252,23 @@ export async function GET(request: NextRequest) {
     }
     try {
       await sendOpensOnEmail(row);
-      const { error: updateError } = await supabase
-        .from("booking_waitlist")
-        .update({ notified_at: new Date().toISOString() })
-        .eq("id", row.id);
-      if (updateError) {
+      const markError = await markNotified(supabase, row.id);
+      if (markError) {
         // The email already went out; failing to record that here means
         // tomorrow's run still sees notified_at IS NULL and sends it AGAIN
         // — this is a duplicate-email risk, not a lost-notification one.
         // Loud so it can be caught and marked by hand. notify_attempts still
-        // counts this: after enough of these, re-sending duplicates forever
-        // is worse than giving up and paging someone once.
-        captureAPIError(new Error(updateError.message), {
+        // counts this (inline, unlike a send failure: the counter write is
+        // the same kind of write that just failed twice, so deferring it
+        // would buy nothing): after enough of these, re-sending duplicates
+        // forever is worse than giving up and paging someone once.
+        captureAPIError(new Error(markError.message), {
           ...CTX,
           stage: "mark_notified",
-          code: updateError.code,
+          code: markError.code,
         });
         markFailed++;
-        await recordNotifyFailure(supabase, row, updateError.message);
+        await recordNotifyFailure(supabase, row, markError.message);
         continue;
       }
       sent++;
@@ -191,8 +278,46 @@ export async function GET(request: NextRequest) {
         ...CTX,
         stage: "send",
       });
+      if (isWaitlistConfigError(error)) {
+        // Not this row's fault and guaranteed to fail every remaining row
+        // identically — never charge it to notify_attempts, and don't burn
+        // the rest of the batch proving it. The assert at the top of this
+        // handler normally makes this unreachable; getting here means the
+        // env changed under a running instance.
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "waitlist signing secret is not configured",
+            scanned: pending.length,
+            sent,
+          },
+          { status: 503 }
+        );
+      }
       sendFailed++;
-      await recordNotifyFailure(supabase, row, message);
+      sendFailures.push({ row, message });
+    }
+  }
+
+  // A whole-batch send failure is an outage, not a bad address (see
+  // sendFailures above). `pending.length > 1` because a single-row batch is
+  // no evidence at all — and this table's normal state is a handful of rows
+  // a day, where the counter is the only thing that ever retires a genuinely
+  // dead address.
+  const allSendsFailed = pending.length > 0 && sendFailed === pending.length;
+  const outage = allSendsFailed && pending.length > 1;
+  if (outage) {
+    alarm(
+      "waitlist_notify_outage",
+      `waitlist-notify: all ${pending.length} sends failed this run — treating as an outage, notify_attempts NOT charged. Last error: ${
+        sendFailures[sendFailures.length - 1]?.message ?? "unknown"
+      }`,
+      "error"
+    );
+    await Sentry.flush(2000);
+  } else {
+    for (const failure of sendFailures) {
+      await recordNotifyFailure(supabase, failure.row, failure.message);
     }
   }
 
@@ -200,8 +325,9 @@ export async function GET(request: NextRequest) {
   // no different from one that never ran (pattern from
   // reconcile-cancellations). >0 alone is loud-but-200 (per-row failures are
   // expected at some background rate and the rest of the batch still went
-  // out); sendFailed===scanned (see below) means NOTHING was actually
-  // delivered this run, which is the caller's signal to page someone.
+  // out); sendFailed===scanned (allSendsFailed, computed above) means NOTHING
+  // was actually delivered this run, which is the caller's signal to page
+  // someone — that one 500s.
   const totalFailed = sendFailed + markFailed;
   if (totalFailed > 0) {
     alarm(
@@ -236,25 +362,38 @@ export async function GET(request: NextRequest) {
   // a week is invisible to `capped` once the backlog is bigger than one
   // run's cap — this is the check that catches that case even when this
   // run's own batch looks clean.
+  //
+  // Filtered to rows this cron will ACTUALLY still try (pass 4, item 3):
+  // - `unsubscribed_at IS NULL`, or the first traveller who unsubscribes
+  //   after their opens_on passed makes this fire at error level on every
+  //   run, forever, for a row nobody should ever email;
+  // - `notify_attempts < MAX`, because a given-up row already got its own
+  //   give-up alarm — counting it here would re-page daily for the same
+  //   known-dead row.
+  // The two IS NULL predicates are also exactly the partial index's WHERE
+  // clause (026), so this becomes an index scan on opens_on with
+  // notify_attempts as a cheap residual filter, instead of the sequential
+  // scan the unfiltered version forced. `head: true` — this only ever needed
+  // the number, never the rows.
   const twoDaysAgoISO = format(subDays(new Date(), 2), "yyyy-MM-dd");
-  const { data: overdueRows, error: overdueError } = await supabase
+  const { count: overdueCount, error: overdueError } = await supabase
     .from("booking_waitlist")
-    .select("id")
+    .select("id", { count: "exact", head: true })
     .lt("opens_on", twoDaysAgoISO)
-    .is("notified_at", null);
+    .is("notified_at", null)
+    .is("unsubscribed_at", null)
+    .lt("notify_attempts", MAX_NOTIFY_ATTEMPTS);
 
   if (overdueError) {
     captureAPIError(new Error(overdueError.message), { ...CTX, stage: "overdue_check" });
-  } else if ((overdueRows?.length ?? 0) > 0) {
+  } else if ((overdueCount ?? 0) > 0) {
     alarm(
       "waitlist_notify_backlog",
-      `waitlist-notify: ${overdueRows!.length} row(s) are more than 2 days overdue and still unnotified`,
+      `waitlist-notify: ${overdueCount} row(s) are more than 2 days overdue and still unnotified`,
       "error"
     );
     await Sentry.flush(2000);
   }
-
-  const allSendsFailed = pending.length > 0 && sendFailed === pending.length;
 
   return NextResponse.json(
     {

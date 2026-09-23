@@ -39,6 +39,9 @@ interface BookingWaitlistRow {
   unsubscribed_at: string | null;
 }
 
+const INVALID_LINK = "This unsubscribe link is invalid or has expired.";
+const GENERIC_ERROR = "Something went wrong. Please try again.";
+
 function htmlPage(message: string, status: number, bodyExtra = "") {
   return new NextResponse(
     `<!doctype html>
@@ -70,20 +73,68 @@ function parseParams(request: NextRequest): { id: string | null; token: string |
   };
 }
 
+/**
+ * Either the row id the caller may act on, or the response to send instead —
+ * a discriminated result rather than a nullable one, so the handlers can only
+ * reach the query WITH a non-null id (TypeScript enforces it; the previous
+ * shape left `id` as `string | null` at the `.eq("id", id)` below and rested
+ * on a reader noticing that the guard had already excluded null).
+ *
+ *
+ * verifyWaitlistToken THROWS (a WaitlistConfigError) rather than returning
+ * false when WAITLIST_SIGNING_SECRET is missing — deliberately, so a config
+ * fault is never mistaken for a forged token. Both handlers call this before
+ * their own try block, so without this wrapper that throw became Next's raw
+ * 500: an unstyled error page for a human, and — on the one-click
+ * List-Unsubscribe-Post that Gmail/Yahoo send on the recipient's behalf — a
+ * failed unsubscribe, which is exactly the signal that downgrades a sender's
+ * domain reputation (pass 4, item 8). Kept DISTINCT from the 400: "this link
+ * is invalid" tells a traveller holding a perfectly good link to stop trying,
+ * when the truth is "our side is broken, try again".
+ */
+type LinkCheck =
+  | { ok: true; id: string }
+  | { ok: false; response: NextResponse };
+
+function checkLink(
+  id: string | null,
+  token: string | null,
+  method: "GET" | "POST"
+): LinkCheck {
+  if (!id || !token) {
+    return { ok: false, response: htmlPage(INVALID_LINK, 400) };
+  }
+
+  let valid: boolean;
+  try {
+    valid = verifyWaitlistToken(id, token);
+  } catch (error) {
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/waitlist/unsubscribe",
+      method,
+      stage: "verify_token",
+    });
+    return { ok: false, response: htmlPage(GENERIC_ERROR, 500) };
+  }
+
+  return valid
+    ? { ok: true, id }
+    : { ok: false, response: htmlPage(INVALID_LINK, 400) };
+}
+
 /** GET: show a confirm button. Does NOT unsubscribe — see file header. */
 export async function GET(request: NextRequest) {
   const { id, token } = parseParams(request);
 
-  if (!id || !token || !verifyWaitlistToken(id, token)) {
-    return htmlPage("This unsubscribe link is invalid or has expired.", 400);
-  }
+  const link = checkLink(id, token, "GET");
+  if (!link.ok) return link.response;
 
   try {
     const supabase = await createAdminClient();
     const { data: row, error } = await supabase
       .from("booking_waitlist")
       .select("id")
-      .eq("id", id)
+      .eq("id", link.id)
       .maybeSingle();
 
     if (error) {
@@ -92,7 +143,7 @@ export async function GET(request: NextRequest) {
         method: "GET",
         code: error.code,
       });
-      return htmlPage("Something went wrong. Please try again.", 500);
+      return htmlPage(GENERIC_ERROR, 500);
     }
 
     if (!row) {
@@ -103,7 +154,7 @@ export async function GET(request: NextRequest) {
       endpoint: "/api/waitlist/unsubscribe",
       method: "GET",
     });
-    return htmlPage("Something went wrong. Please try again.", 500);
+    return htmlPage(GENERIC_ERROR, 500);
   }
 
   return confirmPage(request.nextUrl.toString());
@@ -113,9 +164,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const { id, token } = parseParams(request);
 
-  if (!id || !token || !verifyWaitlistToken(id, token)) {
-    return htmlPage("This unsubscribe link is invalid or has expired.", 400);
-  }
+  const link = checkLink(id, token, "POST");
+  if (!link.ok) return link.response;
 
   try {
     const supabase = await createAdminClient();
@@ -123,7 +173,7 @@ export async function POST(request: NextRequest) {
     const { data: row, error: lookupError } = (await supabase
       .from("booking_waitlist")
       .select("id, email, unsubscribed_at")
-      .eq("id", id)
+      .eq("id", link.id)
       .maybeSingle()) as { data: BookingWaitlistRow | null; error: { message: string; code?: string } | null };
 
     if (lookupError) {
@@ -133,7 +183,7 @@ export async function POST(request: NextRequest) {
         stage: "lookup",
         code: lookupError.code,
       });
-      return htmlPage("Something went wrong. Please try again.", 500);
+      return htmlPage(GENERIC_ERROR, 500);
     }
 
     // Unknown/deleted id must be an honest 404, not a false "you're
@@ -146,17 +196,23 @@ export async function POST(request: NextRequest) {
     const email = row.email.toLowerCase();
 
     // Address-level suppression: every row for this email, not just this id.
-    // `.ilike` (not `.eq`) because the unique index (026) and every other
-    // suppression check in this codebase treat the address as
-    // case-insensitive via lower(email) — a plain `.eq("email", email)`
-    // against a differently-cased stored value would match zero rows and
-    // still report success below. `.select("id")` so a zero-row match is
-    // visible: an update with no matching WHERE clause returns no error,
-    // only an empty result, so without it this always "succeeded".
+    //
+    // `.eq`, NEVER `.ilike` (pass 4, item 1): PostgREST's ilike takes a LIKE
+    // PATTERN, so `first_last@gmail.com` unsubscribing would also suppress
+    // `first.last@`, `first-last@`, `firstXlast@` — real strangers, silently,
+    // because those rows DO match and the empty-result guard below never
+    // fires. Equality against the lowercased address is sound because every
+    // row is written lowercased (the zod transform in /api/waitlist) and the
+    // DB enforces it (the booking_waitlist_email_lowercase CHECK, migration
+    // 026), so there is no case-folding left for ilike to do.
+    //
+    // `.select("id")` so a zero-row match is visible: an update with no
+    // matching WHERE clause returns no error, only an empty result, so
+    // without it this always "succeeded".
     const { data: updatedRows, error: updateError } = await supabase
       .from("booking_waitlist")
       .update({ unsubscribed_at: new Date().toISOString() })
-      .ilike("email", email)
+      .eq("email", email)
       .select("id");
 
     if (updateError) {
@@ -166,28 +222,29 @@ export async function POST(request: NextRequest) {
         stage: "update",
         code: updateError.code,
       });
-      return htmlPage("Something went wrong. Please try again.", 500);
+      return htmlPage(GENERIC_ERROR, 500);
     }
 
     if (!updatedRows || updatedRows.length === 0) {
       // The lookup above found this id by its own id (not by email), so
       // getting here means the update's email filter matched nothing for a
-      // row we just confirmed exists — a real bug (e.g. a casing mismatch
-      // this filter didn't actually cover), not an expected empty state.
-      // Must not report success: the traveller would believe they're
-      // unsubscribed while every row for their address is still live.
+      // row we just confirmed exists — i.e. a stored address that is not
+      // lowercase, which the 026 CHECK is meant to make impossible. A real
+      // bug, not an expected empty state. Must not report success: the
+      // traveller would believe they're unsubscribed while every row for
+      // their address is still live.
       captureAPIError(
         new Error("waitlist unsubscribe: update matched no rows for a looked-up id"),
         { endpoint: "/api/waitlist/unsubscribe", method: "POST", stage: "update_no_match" }
       );
-      return htmlPage("Something went wrong. Please try again.", 500);
+      return htmlPage(GENERIC_ERROR, 500);
     }
   } catch (error) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), {
       endpoint: "/api/waitlist/unsubscribe",
       method: "POST",
     });
-    return htmlPage("Something went wrong. Please try again.", 500);
+    return htmlPage(GENERIC_ERROR, 500);
   }
 
   return htmlPage("You're unsubscribed. You won't get any more emails about this waitlist.", 200);

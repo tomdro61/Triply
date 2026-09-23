@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { format, subDays } from "date-fns";
 
@@ -61,6 +61,8 @@ beforeEach(() => {
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   db.tables = { booking_waitlist: [] };
   db.log = [];
+  // A failAlways left set by one test would silently fail the next.
+  db.clearFailures();
 });
 
 describe("GET /api/cron/waitlist-notify — auth", () => {
@@ -163,9 +165,30 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     expect(sentry.captureMessage).toHaveBeenCalled();
   });
 
-  it("a mark_notified failure is NOT counted as a send failure and does not 500 the run", async () => {
-    db.tables.booking_waitlist = [row({ id: "marked_wrong", email: "a@example.com" })];
+  it("a SINGLE transient notified_at write failure is retried inline and the row is marked", async () => {
+    db.tables.booking_waitlist = [row({ id: "blip", email: "a@example.com" })];
+    // One-shot: the retry inside markNotified sees a healthy DB.
     db.failOnce("booking_waitlist", "update", "connection reset", "08006");
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    // Recorded on the retry — no duplicate email tomorrow, nothing charged
+    // to notify_attempts.
+    expect(json.sent).toBe(1);
+    expect(json.markFailed).toBe(0);
+    expect(res.status).toBe(200);
+    const marked = db.tables.booking_waitlist.find((r) => r.id === "blip");
+    expect(marked?.notified_at).not.toBeNull();
+    expect(marked?.notify_attempts).toBe(0);
+  });
+
+  it("a SUSTAINED write outage: both the notified_at write and its retry fail, and so does the counter — reported, never silently 'sent'", async () => {
+    db.tables.booking_waitlist = [row({ id: "marked_wrong", email: "a@example.com" })];
+    // failOnce would only ever prove the optimistic path: the retry, and
+    // then recordNotifyFailure's own UPDATE, would both succeed against a DB
+    // that is in fact down. This is the case that actually happens.
+    db.failAlways("booking_waitlist", "update", "connection reset", "08006");
 
     const res = await GET(req());
     const json = await res.json();
@@ -178,6 +201,13 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     // SEND, even though bookkeeping failed, so this must stay a 200.
     expect(res.status).toBe(200);
     expect(json.ok).toBe(true);
+    expect(sentry.captureException).toHaveBeenCalled();
+    const stuck = db.tables.booking_waitlist.find((r) => r.id === "marked_wrong");
+    // Nothing was written, and nothing PRETENDS to have been: notified_at is
+    // still null (the row will be re-sent tomorrow, loudly) and the counter
+    // is still 0 because its own write failed too.
+    expect(stuck?.notified_at).toBeNull();
+    expect(stuck?.notify_attempts).toBe(0);
   });
 
   it("a row crossing MAX_NOTIFY_ATTEMPTS fires one give-up alarm", async () => {
@@ -212,12 +242,52 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
   });
 
   it("alarms when rows are more than 2 days overdue and still unnotified, even when this run's own batch is clean", async () => {
+    // 51 rows, all three days overdue: this run sends the 50 it is allowed to
+    // and the 51st is left behind. That is the case `capped` alone cannot
+    // describe — every row this run touched succeeded, while a traveller
+    // keeps waiting. The overdue check is a SEPARATE query precisely so a row
+    // stuck outside the cap still gets caught.
+    db.tables.booking_waitlist = Array.from({ length: 51 }, (_, i) =>
+      row({ id: `overdue_${i}`, email: `overdue${i}@example.com`, opens_on: threeDaysAgo })
+    );
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(json.scanned).toBe(50);
+    expect(json.sendFailed).toBe(0);
+    expect(res.status).toBe(200);
+
+    const backlogCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("overdue and still unnotified")
+    );
+    expect(backlogCall).toBeDefined();
+    expect(String(backlogCall?.[0])).toMatch(/^waitlist-notify: 1 row/);
+  });
+
+  it("does NOT alarm for an overdue row whose address has unsubscribed", async () => {
+    // The pass-4 headline: the first traveller to unsubscribe after their
+    // opens_on passed used to make this fire at error level on every run,
+    // forever, for a row nobody should ever email — pre-saturating the one
+    // backlog signal with false positives.
     db.tables.booking_waitlist = [
-      // Already given up on (notify_attempts at the cap) — invisible to the
-      // main select's `.lt("notify_attempts", MAX_NOTIFY_ATTEMPTS)`, so this
-      // run's own batch below sends 0/0/0 cleanly. The overdue check is a
-      // SEPARATE, unfiltered query precisely so a permanently-stuck row like
-      // this still gets caught instead of going quiet forever.
+      row({
+        id: "opted_out_overdue",
+        email: "gone@example.com",
+        opens_on: threeDaysAgo,
+        unsubscribed_at: new Date().toISOString(),
+      }),
+    ];
+
+    const res = await GET(req());
+    expect((await res.json()).scanned).toBe(0);
+    const backlogCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("overdue and still unnotified")
+    );
+    expect(backlogCall).toBeUndefined();
+  });
+
+  it("does NOT alarm for an overdue row that has already been given up on (it got its own give-up alarm)", async () => {
+    db.tables.booking_waitlist = [
       row({ id: "stale", email: "stale@example.com", opens_on: threeDaysAgo, notify_attempts: 5 }),
     ];
 
@@ -229,7 +299,7 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     const backlogCall = sentry.captureMessage.mock.calls.find((call) =>
       String(call[0]).includes("overdue and still unnotified")
     );
-    expect(backlogCall).toBeDefined();
+    expect(backlogCall).toBeUndefined();
   });
 
   it("the notification link always includes a checkout date, even with no wanted_checkout on file", async () => {
@@ -251,5 +321,76 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     await GET(req());
     const sendArgs = resendSend.mock.calls[0][0];
     expect(sendArgs.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+  });
+});
+
+describe("GET /api/cron/waitlist-notify — a config fault is never a per-row failure", () => {
+  const ORIGINAL_SECRET = process.env.WAITLIST_SIGNING_SECRET;
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) {
+      delete process.env.WAITLIST_SIGNING_SECRET;
+    } else {
+      process.env.WAITLIST_SIGNING_SECRET = ORIGINAL_SECRET;
+    }
+  });
+
+  it("a missing WAITLIST_SIGNING_SECRET → 503 with nothing attempted and no counter touched", async () => {
+    // Ship without the var and every row fails identically (each email needs
+    // an unsubscribe link). Charged to notify_attempts, five daily runs
+    // retire the ENTIRE backlog and the cron then reports a clean
+    // `200 {sent: 0, sendFailed: 0}` forever.
+    db.tables.booking_waitlist = [
+      row({ id: "a", email: "a@example.com" }),
+      row({ id: "b", email: "b@example.com" }),
+    ];
+    delete process.env.WAITLIST_SIGNING_SECRET;
+
+    const res = await GET(req());
+    expect(res.status).toBe(503);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(sentry.captureException).toHaveBeenCalled();
+    for (const r of db.tables.booking_waitlist) {
+      expect(r.notify_attempts).toBe(0);
+      expect(r.notified_at).toBeNull();
+      expect(r.last_notify_error).toBeNull();
+    }
+  });
+});
+
+describe("GET /api/cron/waitlist-notify — whole-batch send failure", () => {
+  it("charges no notify_attempts when EVERY send failed (an outage, not N bad addresses)", async () => {
+    db.tables.booking_waitlist = [
+      row({ id: "a", email: "a@example.com" }),
+      row({ id: "b", email: "b@example.com" }),
+      row({ id: "c", email: "c@example.com" }),
+    ];
+    // A rotated RESEND_API_KEY / a Resend outage: not one row's fault, and
+    // five such days would otherwise give up on the whole backlog.
+    resendSend.mockRejectedValue(new Error("resend down"));
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(json.sendFailed).toBe(3);
+    expect(json.sent).toBe(0);
+    expect(res.status).toBe(500);
+    for (const r of db.tables.booking_waitlist) {
+      expect(r.notify_attempts).toBe(0);
+      expect(r.last_notify_error).toBeNull();
+    }
+    const outageCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("treating as an outage")
+    );
+    expect(outageCall).toBeDefined();
+  });
+
+  it("still charges a lone failing row — a one-row batch is no evidence of an outage, and the counter is what retires a dead address", async () => {
+    db.tables.booking_waitlist = [row({ id: "solo", email: "bad@example.com" })];
+    resendSend.mockRejectedValue(new Error("hard bounce"));
+
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    const failed = db.tables.booking_waitlist.find((r) => r.id === "solo");
+    expect(failed?.notify_attempts).toBe(1);
+    expect(failed?.last_notify_error).toMatch(/hard bounce/);
   });
 });

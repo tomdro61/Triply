@@ -4,21 +4,35 @@
  * origin/limiter/body-cap/Sentry guards (src/lib/http/origin.ts,
  * src/lib/attribution/limiter.ts) plus a per-email send cap of its own.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { addDays, format, startOfDay, subDays } from "date-fns";
 import { MAX_ADVANCE_BOOKING_DAYS } from "@/lib/booking-window";
 
-const { db, sentry, resendSend } = await vi.hoisted(async () => {
+const { db, sentry, resendSend, hmacThrows } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     sentry: { captureMessage: vi.fn(), withScope: vi.fn(), captureException: vi.fn() },
     resendSend: vi.fn().mockResolvedValue({ data: { id: "email_1" }, error: null }),
+    hmacThrows: { value: false },
   };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
+// Only hmacHex is replaced (and only while `hmacThrows` is set) — everything
+// else, including the real waitlistUnsubscribeUrl the confirmation email
+// needs, stays genuine.
+vi.mock("@/lib/waitlist/unsubscribe-token", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/waitlist/unsubscribe-token")>();
+  return {
+    ...actual,
+    hmacHex: (value: string) => {
+      if (hmacThrows.value) throw new Error("hmac unavailable");
+      return actual.hmacHex(value);
+    },
+  };
+});
 vi.mock("@/lib/resend/client", () => ({
   resend: { emails: { send: resendSend } },
   FROM_EMAIL: "Triply <bookings@triplypro.com>",
@@ -68,6 +82,8 @@ beforeEach(() => {
   __resetWaitlistRouteTelemetryForTests();
   db.tables = { booking_waitlist: [] };
   db.log = [];
+  db.clearFailures();
+  hmacThrows.value = false;
 });
 
 describe("POST /api/waitlist — origin gate", () => {
@@ -315,6 +331,73 @@ describe("POST /api/waitlist — per-email send cap", () => {
       db.tables.booking_waitlist.filter((r) => r.email === "capped@example.com")
     ).toHaveLength(4);
     // But the 4th send never went out.
+    expect(resendSend).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("POST /api/waitlist — missing signing secret", () => {
+  const ORIGINAL_SECRET = process.env.WAITLIST_SIGNING_SECRET;
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) {
+      delete process.env.WAITLIST_SIGNING_SECRET;
+    } else {
+      process.env.WAITLIST_SIGNING_SECRET = ORIGINAL_SECRET;
+    }
+  });
+
+  it("→ 503 BEFORE the row is inserted, never 200 {success:true}", async () => {
+    // Every confirmation email carries an unsubscribe link, so without the
+    // secret the send throws — and that throw used to land in the "an email
+    // failure must never fail the request" catch, leaving the route to answer
+    // 200 and the UI to tell the traveller "Done — we'll email you on <date>"
+    // when nothing had been sent. Sentry saw it; the customer did not.
+    delete process.env.WAITLIST_SIGNING_SECRET;
+
+    const res = await POST(post(tripAt(addDays(MAX_DATE, 10), "noconfig@example.com")));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.success).toBeUndefined();
+    expect(json.error).toMatch(/temporarily unavailable/i);
+    expect(db.tables.booking_waitlist).toHaveLength(0);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/waitlist — telemetry can never change the response", () => {
+  it("a throwing hmacHex on the over-cap path still returns 200 with the row written", async () => {
+    // The hash is built INSIDE reportOnce's try, not as its argument: it
+    // needs the signing secret, and a throw there 500'd a request whose row
+    // had already been inserted — a customer-visible failure caused purely by
+    // pseudonymizing a Sentry field.
+    for (let i = 0; i < 3; i++) {
+      const res = await POST(
+        post({
+          email: "telemetry@example.com",
+          airportCode: "abe",
+          wantedCheckin: fmt(addDays(MAX_DATE, 30 + i)),
+        })
+      );
+      expect(res.status).toBe(200);
+    }
+    expect(resendSend).toHaveBeenCalledTimes(3);
+
+    hmacThrows.value = true;
+    const res = await POST(
+      post({
+        email: "telemetry@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(addDays(MAX_DATE, 40)),
+      })
+    );
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.success).toBe(true);
+    // Honest about the email, and the row — the demand signal — is kept.
+    expect(json.message).toMatch(/won't send another email today/i);
+    expect(
+      db.tables.booking_waitlist.filter((r) => r.email === "telemetry@example.com")
+    ).toHaveLength(4);
     expect(resendSend).toHaveBeenCalledTimes(3);
   });
 });

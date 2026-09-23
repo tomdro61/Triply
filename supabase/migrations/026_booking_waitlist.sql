@@ -60,6 +60,29 @@ ALTER TABLE booking_waitlist ADD COLUMN IF NOT EXISTS last_notify_error TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_waitlist_unique_request
   ON booking_waitlist (lower(email), airport_code, wanted_checkin);
 
+-- Every address is stored lowercased (the zod transform in /api/waitlist is
+-- the only writer), and three separate reads DEPEND on that: the per-email
+-- send cap, the unsubscribe-suppression check (both `.eq("email", email)` in
+-- /api/waitlist) and the address-level suppression UPDATE in
+-- /api/waitlist/unsubscribe. Equality is what those have to use — `.ilike`
+-- reads its argument as a LIKE PATTERN, so an address containing `_` or `%`
+-- would silently match, and suppress, OTHER people's rows (review pass 4,
+-- item 1). This CHECK is what makes equality provably complete rather than
+-- merely true today: without it, one row inserted by hand in the SQL editor
+-- with a capital letter becomes an address that can never be unsubscribed.
+--
+-- Repair BEFORE adding the constraint, in this order: a CHECK is validated
+-- against existing rows at ADD time, so a single pre-existing mixed-case row
+-- would abort this migration (and, per migration 022's lesson, a NOT VALID
+-- constraint would still be enforced on every later UPDATE of that row).
+-- Lowercasing cannot collide with the unique index above — that index is
+-- already on lower(email), so this UPDATE does not change any row's key.
+UPDATE booking_waitlist SET email = lower(email) WHERE email <> lower(email);
+
+ALTER TABLE booking_waitlist DROP CONSTRAINT IF EXISTS booking_waitlist_email_lowercase;
+ALTER TABLE booking_waitlist ADD CONSTRAINT booking_waitlist_email_lowercase
+  CHECK (email = lower(email));
+
 -- The cron's actual select is `opens_on <= today AND notified_at IS NULL AND
 -- unsubscribed_at IS NULL` with no airport_code predicate, so a plain
 -- (airport_code, opens_on) index can't serve it (airport_code isn't a
@@ -72,9 +95,10 @@ CREATE INDEX IF NOT EXISTS idx_booking_waitlist_pending_opens_on
   WHERE notified_at IS NULL AND unsubscribed_at IS NULL;
 
 -- The per-email send cap and unsubscribe-suppression checks in /api/waitlist
--- both do `.eq("email", email)` (email is already lowercased at insert, see
--- the zod transform in the route), not `.eq("lower(email)", ...)` — so the
--- index has to be on the plain column to be usable, not lower(email).
+-- both do `.eq("email", email)` (email is lowercased at insert by the route's
+-- zod transform, and by the CHECK above in every other case), not
+-- `.eq("lower(email)", ...)` — so the index has to be on the plain column to
+-- be usable, not lower(email).
 --
 -- Same NAME as the pass-2 index, but a DIFFERENT definition (that one was
 -- `(lower(email), created_at)`) — `CREATE INDEX IF NOT EXISTS` is a no-op

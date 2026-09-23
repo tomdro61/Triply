@@ -46,6 +46,28 @@ function leaf(expr: string): (row: Row) => boolean {
   };
 }
 
+/**
+ * PostgREST's `ilike` takes a LIKE PATTERN, not a literal: `%` matches any
+ * run of characters and `_` matches exactly one, both case-insensitively.
+ *
+ * Modelling it as case-insensitive EQUALITY (what this fake used to do) is
+ * the `.or()` incident in reverse — a fake LESS permissive than the database.
+ * It let `.ilike("email", "first_last@gmail.com")` look watertight in tests
+ * while production also matched `first.last@`, `first-last@` and `firstXlast@`
+ * and silently unsubscribed strangers (review pass 4, item 1). Any caller
+ * that must match one exact address has to use `.eq`, and this is what makes
+ * a test prove it.
+ */
+function likeRegex(pattern: string): RegExp {
+  let out = "";
+  for (const ch of pattern) {
+    if (ch === "%") out += "[\\s\\S]*";
+    else if (ch === "_") out += "[\\s\\S]";
+    else out += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  return new RegExp(`^${out}$`, "i");
+}
+
 /** Split on commas that are NOT inside parentheses. */
 function splitTop(expr: string): string[] {
   const out: string[] = [];
@@ -86,6 +108,9 @@ export class FakeSupabase {
   /** `${table}:${op}` -> injected error. Consumed on first use. */
   private injected = new Map<string, { message: string; code: string }>();
 
+  /** `${table}:${op}` -> error returned on EVERY call until cleared. */
+  private persistent = new Map<string, { message: string; code: string }>();
+
   /** Payload-conditional injected errors, consumed on first MATCH. Lets a test
    *  fail a SPECIFIC write among several same-`table:op` writes (e.g. the terminal
    *  status write vs the earlier claim UPDATE — both `bookings:update`) by
@@ -116,6 +141,31 @@ export class FakeSupabase {
     code = "XXFAKE"
   ) {
     this.injected.set(`${table}:${op}`, { message, code });
+    return this;
+  }
+
+  /** Make EVERY `op` on `table` fail until `clearFailures()`. `failOnce` only
+   *  ever exercises the optimistic path — a retry, or a second write on the
+   *  same row, silently succeeds under it. A SUSTAINED fault (write
+   *  unavailability, a rotated key) is the case where a retry and its own
+   *  bookkeeping write both fail, and it needs its own injector to be
+   *  testable at all. */
+  failAlways(
+    table: string,
+    op: "select" | "insert" | "update" | "delete",
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.persistent.set(`${table}:${op}`, { message, code });
+    return this;
+  }
+
+  /** Drops every injected failure (one-shot, conditional and persistent).
+   *  Call between tests — a `failAlways` left set would leak into the next. */
+  clearFailures() {
+    this.injected.clear();
+    this.persistent.clear();
+    this.conditional = [];
     return this;
   }
 
@@ -158,11 +208,11 @@ export class FakeSupabase {
       this.injected.delete(key);
       return err;
     }
-    return null;
+    return this.persistent.get(key) ?? null;
   }
 }
 
-class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
+class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: number }> {
   private filters: Filter[] = [];
   private op: "select" | "insert" | "update" | "delete" = "select";
   private payload: Row | null = null;
@@ -171,13 +221,21 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private requireOne = false;
   private orOnMutation = false;
   private limitN: number | null = null;
+  private countMode = false;
+  private headOnly = false;
   private orderCol: string | null = null;
   private orderAsc = true;
 
   constructor(private db: FakeSupabase, private table: string) {}
 
-  select(str = "") {
+  select(str = "", opts?: { count?: "exact" | "planned" | "estimated"; head?: boolean }) {
     if (this.op === "select") this.selectStr = str;
+    // `{ count: "exact", head: true }` is how a caller asks "how many rows
+    // match?" without transferring them. Modelled for real (count computed
+    // BEFORE any limit, no rows in `data`) so a route that reads `count`
+    // can't pass a test purely because the fake handed back `data` anyway.
+    if (opts?.count) this.countMode = true;
+    if (opts?.head) this.headOnly = true;
     return this;
   }
   insert(payload: Row) {
@@ -295,26 +353,24 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
         case "gte":
           return actual != null && String(actual) >= String(f.val);
         case "ilike":
-          return (
-            actual != null &&
-            String(actual).toLowerCase() === String(f.val).toLowerCase()
-          );
+          // A real LIKE pattern match — see likeRegex. Never equality.
+          return actual != null && likeRegex(String(f.val)).test(String(actual));
         default:
           return true;
       }
     });
   }
 
-  then<R1 = { data: unknown; error: unknown }, R2 = never>(
+  then<R1 = { data: unknown; error: unknown; count?: number }, R2 = never>(
     onfulfilled?:
-      | ((value: { data: unknown; error: unknown }) => R1 | PromiseLike<R1>)
+      | ((value: { data: unknown; error: unknown; count?: number }) => R1 | PromiseLike<R1>)
       | null,
     onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null
   ): PromiseLike<R1 | R2> {
     return Promise.resolve(this.run()).then(onfulfilled, onrejected);
   }
 
-  private run(): { data: unknown; error: unknown } {
+  private run(): { data: unknown; error: unknown; count?: number } {
     this.db.log.push({ table: this.table, op: this.op });
 
     // Real PostgREST rejects `.or()` on a mutating request. Reproduce it so a
@@ -408,6 +464,16 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
           return 0;
         })
       : hit;
+    // The count is over EVERY match, before `.limit()` — that is what
+    // PostgREST returns, and a backlog check that counted only the limited
+    // page would under-report exactly when the backlog is worst.
+    if (this.countMode || this.headOnly) {
+      return {
+        data: this.headOnly ? null : hit.map((r) => this.embeddedCustomer({ ...r })),
+        count: hit.length,
+        error: null,
+      };
+    }
     const limited = this.limitN == null ? ordered : ordered.slice(0, this.limitN);
     const out = limited.map((r) => this.embeddedCustomer({ ...r }));
     // Real PostgREST returns a PGRST116 error for .single() on EITHER zero OR

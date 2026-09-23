@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   MAX_ADVANCE_BOOKING_DAYS,
+  MAX_WAITLIST_STAY_DAYS,
   maxAdvanceBookingDate,
 } from "@/lib/booking-window";
 
@@ -36,7 +37,14 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
   const [checkoutDate, setCheckoutDate] = useState("");
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [opensOn, setOpensOn] = useState<string | null>(null);
+  // Both halves of the answer, set together. `message` is the API's own words
+  // for the cases where "we'll email you on <date>" would be a lie — today
+  // that's the per-email send cap ("we won't send another email today"), which
+  // the route returns alongside a perfectly good opensOn. Reading only
+  // opensOn dropped it and promised an email that was never going out.
+  const [result, setResult] = useState<
+    { opensOn: string | null; message: string | null } | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
 
   // maxAdvanceBookingDate() is relative to "today" in the LOCAL timezone, so a
@@ -109,7 +117,7 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
       // A 502/504 or WAF page returns HTML, not JSON — check ok + content-type
       // before parsing, so that never surfaces as "Unexpected token '<'".
       const contentType = response.headers.get("content-type") ?? "";
-      let data: { error?: string; opensOn?: string } | null = null;
+      let data: { error?: string; opensOn?: string; message?: string } | null = null;
       if (contentType.includes("application/json")) {
         try {
           data = await response.json();
@@ -126,7 +134,10 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
         throw new Error(message || "Failed to join the waitlist");
       }
 
-      setOpensOn(data?.opensOn ?? null);
+      setResult({
+        opensOn: data?.opensOn ?? null,
+        message: data?.message ?? null,
+      });
       setEmail("");
       setCheckoutDate("");
     } catch (err) {
@@ -138,15 +149,28 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
     }
   };
 
-  if (opensOn) {
+  if (result) {
+    // The API's own message wins when it sent one: it is the honest account
+    // of what happened (e.g. the send cap — row saved, no email today), and
+    // the default line below would contradict it.
+    const confirmation = result.message
+      ? result.message
+      : result.opensOn
+        ? `Done — we'll email you on ${format(
+            parse(result.opensOn, "yyyy-MM-dd", new Date()),
+            "MMMM d, yyyy"
+          )}.`
+        : // A 200 with neither field shouldn't happen, but claiming a date we
+          // were never given would be worse than staying vague.
+          "Done — you're on the list.";
+
     return (
       <p
         role="status"
         className="mt-3 flex items-center gap-1.5 text-xs text-green-700"
       >
         <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-        Done — we&apos;ll email you on{" "}
-        {format(parse(opensOn, "yyyy-MM-dd", new Date()), "MMMM d, yyyy")}.
+        {confirmation}
       </p>
     );
   }
@@ -212,6 +236,20 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
                 date
                   ? format(addDays(parse(date, "yyyy-MM-dd", new Date()), 1), "yyyy-MM-dd")
                   : minDateValue
+              }
+              // …and the other end of that same rule: the API rejects a
+              // checkout more than MAX_WAITLIST_STAY_DAYS after check-in, so
+              // the picker must not offer one. Without it the field happily
+              // collected a mistyped year and the traveller got a 400 on a
+              // value the UI had just accepted. Omitted (not left open-ended)
+              // until a check-in exists to measure from.
+              max={
+                date
+                  ? format(
+                      addDays(parse(date, "yyyy-MM-dd", new Date()), MAX_WAITLIST_STAY_DAYS),
+                      "yyyy-MM-dd"
+                    )
+                  : undefined
               }
               value={checkoutDate}
               onChange={(e) => {

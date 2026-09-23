@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const { db, sentry } = await vi.hoisted(async () => {
@@ -97,17 +97,48 @@ describe("POST /api/waitlist/unsubscribe — performs the unsubscribe", () => {
     expect(db.tables.booking_waitlist[0].unsubscribed_at).toBeNull();
   });
 
-  it("suppresses a row whose stored email is a different case than the token's row (unique index is on lower(email))", async () => {
+  it("an address containing an underscore suppresses ONLY that address, never the lookalikes a LIKE pattern would match", async () => {
+    // The pass-4 bug this pins: `.ilike("email", "first_last@gmail.com")`
+    // reads `_` as "any one character", so unsubscribing this traveller also
+    // opted out `first.last@`, `first-last@` and `firstXlast@` — strangers,
+    // silently, because those rows DO match and the empty-result guard never
+    // fires. The fake models ilike as a real LIKE pattern, so this test fails
+    // against `.ilike` and only passes against `.eq`.
+    db.tables.booking_waitlist = [
+      { id: "underscore", email: "first_last@gmail.com", unsubscribed_at: null },
+      { id: "dot", email: "first.last@gmail.com", unsubscribed_at: null },
+      { id: "dash", email: "first-last@gmail.com", unsubscribed_at: null },
+      { id: "letter", email: "firstxlast@gmail.com", unsubscribed_at: null },
+    ];
+    const token = signWaitlistId("underscore");
+    const res = await POST(req({ id: "underscore", token }));
+    expect(res.status).toBe(200);
+
+    const byId = (id: string) => db.tables.booking_waitlist.find((r) => r.id === id);
+    expect(byId("underscore")?.unsubscribed_at).not.toBeNull();
+    expect(byId("dot")?.unsubscribed_at).toBeNull();
+    expect(byId("dash")?.unsubscribed_at).toBeNull();
+    expect(byId("letter")?.unsubscribed_at).toBeNull();
+  });
+
+  it("a stored address that is not lowercase fails LOUDLY rather than reporting a false success", async () => {
+    // Every row is written lowercased (the zod transform in /api/waitlist)
+    // and migration 026 adds a CHECK enforcing it, so this row can only exist
+    // if someone inserted it by hand. The suppression UPDATE is `.eq` on the
+    // lowercased address — matching it case-insensitively would mean `.ilike`
+    // and its wildcard hazard (see the test above). What must NOT happen is
+    // the traveller being told they are unsubscribed while their rows stay
+    // live, so the zero-match guard turns it into a 500 plus a Sentry event.
     db.tables.booking_waitlist = [
       { id: "row_mixed", email: "Mixed@Example.com", unsubscribed_at: null },
-      { id: "row_mixed_2", email: "mixed@example.com", unsubscribed_at: null },
     ];
     const token = signWaitlistId("row_mixed");
     const res = await POST(req({ id: "row_mixed", token }));
-    expect(res.status).toBe(200);
-    const [row1, row2] = db.tables.booking_waitlist;
-    expect(row1.unsubscribed_at).not.toBeNull();
-    expect(row2.unsubscribed_at).not.toBeNull();
+    expect(res.status).toBe(500);
+    const body = await res.text();
+    expect(body).not.toMatch(/you're unsubscribed/i);
+    expect(db.tables.booking_waitlist[0].unsubscribed_at).toBeNull();
+    expect(sentry.captureException).toHaveBeenCalled();
   });
 
   it("an update() error on the suppression write → 500, not a false 200", async () => {
@@ -149,5 +180,45 @@ describe("POST /api/waitlist/unsubscribe — performs the unsubscribe", () => {
     const res = await POST(new NextRequest(url, { method: "POST" }));
     expect(res.status).toBe(200);
     expect(db.tables.booking_waitlist[2].unsubscribed_at).not.toBeNull();
+  });
+});
+
+describe("/api/waitlist/unsubscribe — a missing signing secret", () => {
+  const ORIGINAL_SECRET = process.env.WAITLIST_SIGNING_SECRET;
+  afterEach(() => {
+    if (ORIGINAL_SECRET === undefined) {
+      delete process.env.WAITLIST_SIGNING_SECRET;
+    } else {
+      process.env.WAITLIST_SIGNING_SECRET = ORIGINAL_SECRET;
+    }
+  });
+
+  it("GET → the branded 500 page and a Sentry capture, NOT a 400 'invalid link' and NOT Next's raw 500", async () => {
+    const token = signWaitlistId("row_1");
+    delete process.env.WAITLIST_SIGNING_SECRET;
+
+    const res = await GET(req({ id: "row_1", token }));
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body).toMatch(/Triply/);
+    // "This link is invalid" would tell a traveller holding a perfectly good
+    // link to stop trying.
+    expect(body).not.toMatch(/invalid or has expired/i);
+    expect(sentry.captureException).toHaveBeenCalled();
+  });
+
+  it("POST (the one-click List-Unsubscribe-Post target) → the branded 500 page, nothing written", async () => {
+    const token = signWaitlistId("row_1");
+    delete process.env.WAITLIST_SIGNING_SECRET;
+
+    const res = await POST(req({ id: "row_1", token }));
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-type")).toMatch(/text\/html/);
+    const body = await res.text();
+    expect(body).not.toMatch(/invalid or has expired/i);
+    expect(body).not.toMatch(/you're unsubscribed/i);
+    expect(db.tables.booking_waitlist[0].unsubscribed_at).toBeNull();
+    expect(sentry.captureException).toHaveBeenCalled();
   });
 });

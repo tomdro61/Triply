@@ -5,11 +5,19 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { getAirportByCode } from "@/config/airports";
-import { MAX_ADVANCE_BOOKING_DAYS, maxAdvanceBookingDate } from "@/lib/booking-window";
+import {
+  MAX_ADVANCE_BOOKING_DAYS,
+  MAX_WAITLIST_STAY_DAYS,
+  maxAdvanceBookingDate,
+} from "@/lib/booking-window";
 import { captureAPIError } from "@/lib/sentry";
 import { isSameOrigin, clientKey } from "@/lib/http/origin";
 import { checkWaitlistRateLimit } from "@/lib/attribution/limiter";
-import { waitlistUnsubscribeUrl, hmacHex } from "@/lib/waitlist/unsubscribe-token";
+import {
+  assertWaitlistSigningSecret,
+  waitlistUnsubscribeUrl,
+  hmacHex,
+} from "@/lib/waitlist/unsubscribe-token";
 
 /**
  * Waitlist for trips beyond the supplier's 60-day booking wall.
@@ -38,14 +46,10 @@ const DATE_FORMAT = "yyyy-MM-dd";
 // who wants to hammer one inbox gets throttled even from many IPs.
 const MAX_SENDS_PER_EMAIL_PER_DAY = 3;
 
-// How far past check-in a traveller's return date can be. Was 30 — too tight
-// once the prompt actually started sending a real return date (pass 3, item
-// 7): a traveller booking a 45-day trip (not rare for the long-lead-time
-// waitlist audience — these are the furthest-out, often highest-value stays)
-// would 400 on a value the UI itself collected. Long enough to cover a real
-// long-stay trip, still short enough that a garbage/typo'd far-future
-// checkout can't produce a nonsense search link.
-const MAX_WANTED_STAY_DAYS = 60;
+// The return-date bound (MAX_WAITLIST_STAY_DAYS) lives in booking-window.ts
+// with the rest of the date rules: WaitlistPrompt's `max` attribute and this
+// schema's refine both read it, so the picker can't offer a date this route
+// then 400s.
 
 /** Parses a YYYY-MM-DD string to a local start-of-day Date, or null. */
 function parseDateOnly(value: string): Date | null {
@@ -80,7 +84,7 @@ const waitlistSchema = z
     // Optional: the confirmation email doesn't need it, but the opens-on
     // notification links to /search, which needs BOTH dates to price a lot
     // (see the cron's checkout fallback comment). Bounded by
-    // MAX_WANTED_STAY_DAYS so a garbage/typo'd far-future checkout can't
+    // MAX_WAITLIST_STAY_DAYS so a garbage/typo'd far-future checkout can't
     // produce a nonsense search link.
     wantedCheckout: dateOnly.optional(),
     source: z
@@ -100,10 +104,10 @@ const waitlistSchema = z
         message: "Checkout must be after check-in",
         path: ["wantedCheckout"],
       });
-    } else if (checkout > addDays(checkin, MAX_WANTED_STAY_DAYS)) {
+    } else if (checkout > addDays(checkin, MAX_WAITLIST_STAY_DAYS)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Checkout must be within ${MAX_WANTED_STAY_DAYS} days of check-in`,
+        message: `Checkout must be within ${MAX_WAITLIST_STAY_DAYS} days of check-in`,
         path: ["wantedCheckout"],
       });
     }
@@ -115,13 +119,24 @@ const reported = new Set<string>();
 export function __resetWaitlistRouteTelemetryForTests(): void {
   reported.clear();
 }
-function reportOnce(kind: string, context: Record<string, unknown>) {
+/**
+ * `context` may be a THUNK so that building it — which for the send-cap
+ * report means an HMAC, i.e. a call that throws without the signing secret —
+ * happens inside this try, not while evaluating the caller's argument. As an
+ * argument it 500'd the over-cap path AFTER the row was already inserted
+ * (pass 4, item 7): telemetry must never be able to change the response.
+ */
+function reportOnce(
+  kind: string,
+  context: Record<string, unknown> | (() => Record<string, unknown>)
+) {
   if (reported.has(kind)) return;
   reported.add(kind);
   try {
+    const resolved = typeof context === "function" ? context() : context;
     Sentry.withScope((scope) => {
       scope.setFingerprint([`waitlist_post_${kind}`]);
-      scope.setContext("waitlist", context);
+      scope.setContext("waitlist", resolved);
       Sentry.captureMessage(`POST /api/waitlist rejected: ${kind}`, "warning");
     });
   } catch {
@@ -141,6 +156,29 @@ export async function POST(request: NextRequest) {
   if (!checkWaitlistRateLimit(clientKey(request))) {
     reportOnce("429_rate_limited", {});
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  }
+
+  // A guard, alongside the two above, BEFORE any row is written (pass 4,
+  // item 4). Every confirmation email carries an unsubscribe link, so
+  // without WAITLIST_SIGNING_SECRET the send throws — and that throw landed
+  // in the "an email failure must never fail the request" catch below, which
+  // let the route fall through to `200 {success: true}` and the UI tell the
+  // traveller "Done — we'll email you on <date>". Sentry saw it; the
+  // customer and the HTTP contract did not. 503 (not 500) because it is
+  // transient-by-configuration: set the var and the exact same request
+  // works.
+  try {
+    assertWaitlistSigningSecret();
+  } catch (error) {
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/waitlist",
+      method: "POST",
+      stage: "config",
+    });
+    return NextResponse.json(
+      { error: "Waitlist signups are temporarily unavailable. Please try again later." },
+      { status: 503 }
+    );
   }
 
   // Measure the body that actually arrived: Content-Length is absent on a
@@ -297,9 +335,12 @@ export async function POST(request: NextRequest) {
       // token) rather than a plain sha256: an email is a guessable input, so
       // an unkeyed hash of it is a pseudonym recoverable via a rainbow table
       // over common addresses, not the "non-reversible" this used to claim.
-      reportOnce("send_cap_exceeded", {
+      // A thunk, not a value: hmacHex needs the signing secret, and building
+      // this eagerly as an argument put that throw OUTSIDE reportOnce's try
+      // (pass 4, item 7).
+      reportOnce("send_cap_exceeded", () => ({
         emailHash: hmacHex(email).slice(0, 16),
-      });
+      }));
       // Row is still written (see the insert above) — it's still a real
       // demand signal — but honestly report that no email is going out,
       // rather than the generic success message that implies one did.
@@ -312,7 +353,11 @@ export async function POST(request: NextRequest) {
     } else if (inserted) {
       // Email failure must never fail the request — the row is the asset.
       // sendWaitlistConfirmation throws on a Resend API error (never a silent
-      // {error} return), so this catch is the only place that failure surfaces.
+      // {error} return), so this catch is the only place that failure
+      // surfaces. Scope: a RESEND outage, deliberately. A missing signing
+      // secret would also land here (the unsubscribe link needs it) and be
+      // reported to the customer as success — which is why it is asserted at
+      // request entry above instead of being left to this catch.
       try {
         await sendWaitlistConfirmation({
           id: inserted.id as string,
