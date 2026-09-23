@@ -8,8 +8,10 @@ import { Calendar as CalendarIcon } from "lucide-react";
  * shift when the real thing mounts a moment later.
  *
  * Not `disabled` — a disabled control next to an enabled Search button reads
- * as broken, not loading. `cursor-wait` + `aria-busy` communicate "still
- * loading" without looking dead.
+ * as broken, not loading. `cursor-wait` + `aria-busy` + `aria-disabled`
+ * communicate "still loading, not yet interactive" without looking dead, and
+ * the visible "Loading…" label carries that to sighted users too (the
+ * buttons do nothing while this is showing).
  */
 export function DateRangeFieldSkeleton() {
   return (
@@ -19,11 +21,12 @@ export function DateRangeFieldSkeleton() {
         <button
           type="button"
           aria-busy="true"
+          aria-disabled="true"
           aria-label="Depart date (loading)"
           className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left text-gray-400 cursor-wait"
         >
           <CalendarIcon className="w-4 h-4 text-gray-400" />
-          <span>Select date</span>
+          <span>Loading…</span>
         </button>
       </div>
       <div>
@@ -31,11 +34,12 @@ export function DateRangeFieldSkeleton() {
         <button
           type="button"
           aria-busy="true"
+          aria-disabled="true"
           aria-label="Return date (loading)"
           className="w-full flex items-center gap-2 px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-left text-gray-400 cursor-wait"
         >
           <CalendarIcon className="w-4 h-4 text-gray-400" />
-          <span>Select date</span>
+          <span>Loading…</span>
         </button>
       </div>
     </>

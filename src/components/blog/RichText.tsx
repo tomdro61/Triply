@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { ComparisonTable } from './ComparisonTable'
 
 // Lexical node types that Payload uses
@@ -470,6 +471,9 @@ interface RichTextProps {
    */
   insertAfterIndex?: number | null
   insertContent?: React.ReactNode
+  /** The post's slug, for the out-of-range Sentry report below. Optional —
+   * omitting it just means that report has no slug context. */
+  articleSlug?: string
 }
 
 export function RichText({
@@ -477,6 +481,7 @@ export function RichText({
   className = '',
   insertAfterIndex = null,
   insertContent = null,
+  articleSlug,
 }: RichTextProps) {
   if (!content?.root?.children) {
     return null
@@ -488,10 +493,25 @@ export function RichText({
     insertAfterIndex != null && insertAfterIndex >= 0 && insertAfterIndex < blocks.length
   const insertAt = insertRequested && insertInRange ? insertAfterIndex : null
 
-  if (insertRequested && !insertInRange && process.env.NODE_ENV !== 'production') {
-    console.warn(
-      `RichText: insertAfterIndex (${insertAfterIndex}) is out of range for ${blocks.length} block(s) — dropping the mid-article CTA.`
-    )
+  // Was silently a dev-only `console.warn` — never fired in preview/staging
+  // (both run with NODE_ENV=production), and RichText renders client-side
+  // anyway, so even in dev it only ever reached the browser console. This is
+  // the caller (getMidArticleInsertIndex + this component) disagreeing about
+  // the block count, which should only happen if content changed between the
+  // two reads — worth knowing about either way.
+  if (insertRequested && !insertInRange) {
+    Sentry.withScope((scope) => {
+      scope.setTag('component', 'RichText')
+      scope.setContext('richTextInsert', {
+        slug: articleSlug ?? null,
+        insertAfterIndex,
+        blockCount: blocks.length,
+      })
+      Sentry.captureMessage(
+        'RichText: insertAfterIndex out of range — dropping the mid-article CTA',
+        'warning'
+      )
+    })
   }
 
   return (

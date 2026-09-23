@@ -80,6 +80,7 @@ async function ArticleContent({
       <RichText
         content={post.content}
         className="text-gray-700"
+        articleSlug={post.slug}
         insertAfterIndex={midCtaIndex}
         insertContent={
           midCtaIndex === null ? null : <ArticleCta airportCode={post.airportCode} placement="mid-article" />

@@ -41,12 +41,21 @@ export function getMidArticleInsertIndex(content: LexicalDoc): number | null {
     else if (block?.type === 'paragraph') paragraphIndexes.push(i)
   })
 
-  // Before the 3rd H2 == after the last block of the 2nd H2 section.
-  if (h2Indexes.length >= 3) return h2Indexes[2] - 1
+  const halfway = Math.floor(blocks.length / 2)
+
+  // Before the 3rd H2 == after the last block of the 2nd H2 section. Same
+  // first-half bound as the paragraph fallback below — a long intro before
+  // the H2s can push this past the midpoint just as easily as it can the
+  // 3rd-paragraph case, and a CTA that lands there is a bottom-of-page CTA
+  // wearing a "mid-article" label.
+  if (h2Indexes.length >= 3) {
+    const i = h2Indexes[2] - 1
+    return i < halfway ? i : null
+  }
 
   if (paragraphIndexes.length >= 3) {
     const i = paragraphIndexes[2]
-    return i < Math.floor(blocks.length / 2) ? i : null
+    return i < halfway ? i : null
   }
 
   return null

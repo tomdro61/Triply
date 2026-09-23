@@ -8,10 +8,32 @@ const p = (id: string): Block => ({ type: "paragraph", id });
 const doc = (children: Block[]) => ({ root: { children } });
 
 describe("getMidArticleInsertIndex", () => {
-  it("returns the index before the 3rd H2 when there are >= 3 H2s", () => {
-    // 0:p 1:h2 2:p 3:h2 4:p 5:h2 6:p
-    const content = doc([p("a"), h2("1"), p("b"), h2("2"), p("c"), h2("3"), p("d")]);
+  it("returns the index before the 3rd H2 when there are >= 3 H2s and that index is in the first half", () => {
+    // 0:p 1:h2 2:p 3:h2 4:p 5:h2 6:p 7:p 8:p 9:p — index 4 of 10 blocks is in the first half
+    const content = doc([
+      p("a"),
+      h2("1"),
+      p("b"),
+      h2("2"),
+      p("c"),
+      h2("3"),
+      p("d"),
+      p("e"),
+      p("f"),
+      p("g"),
+    ]);
     expect(getMidArticleInsertIndex(content)).toBe(4);
+  });
+
+  it("returns null for a late 3rd H2 even with >= 3 H2s (a long intro must not push the CTA to the bottom half)", () => {
+    // 20 intro paragraphs, then h2,p,h2,p,h2,p — 26 blocks total. The 3rd H2
+    // is at index 24, so the candidate index is 23 of 26: past the midpoint.
+    // Regression test for the pass-3 review finding: this bound was applied
+    // to the paragraph fallback only, so this exact shape used to place a
+    // second CTA at the bottom of the page.
+    const intro = Array.from({ length: 20 }, (_, i) => p(`intro-${i}`));
+    const content = doc([...intro, h2("1"), p("x"), h2("2"), p("y"), h2("3"), p("z")]);
+    expect(getMidArticleInsertIndex(content)).toBeNull();
   });
 
   it("falls back to after the 3rd paragraph with 2 H2s + >= 3 paragraphs, when that index is in the first half", () => {

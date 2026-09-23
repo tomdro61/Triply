@@ -118,8 +118,10 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
           "Search Parking"
         )}
       </Button>
-      {location && (!departDate || !returnDate) && (
-        <p className="mt-2 text-xs text-gray-500 text-center">Pick your dates to search</p>
+      {(!location || !departDate || !returnDate) && (
+        <p className="mt-2 text-xs text-gray-500 text-center">
+          {!location ? "Pick an airport to search" : "Pick your dates to search"}
+        </p>
       )}
     </div>
   );
