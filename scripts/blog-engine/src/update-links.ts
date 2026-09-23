@@ -18,11 +18,22 @@ import Anthropic from '@anthropic-ai/sdk'
 import { Command } from 'commander'
 import { env, CLAUDE_MODEL, BLOG_BASE_URL } from './config.js'
 import { getAllPublishedSlugs, updatePost } from './payload.js'
-import { lexicalToHtml } from './lexical-to-html.js'
+import { lexicalToHtml, countNodesOfType } from './lexical-to-html.js'
 import { htmlToLexical } from './html-to-lexical.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+
+/** Write Claude's HTML to reports/ for a skipped save; a failed dump is a warning, never an abort. */
+function dumpForDiagnosis(slug: string, kind: 'link-loss' | 'image-loss', html: string): void {
+  const dir = path.join(ENGINE_ROOT, 'reports')
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(path.join(dir, `${kind}-${slug}.html`), html)
+  } catch (e) {
+    console.log(`     ⚠ could not write dump: ${e}`)
+  }
+}
 
 interface PublishedPostFull {
   id: string
@@ -246,17 +257,29 @@ const program = new Command()
         const lexicalContent = htmlToLexical(updatedHtml)
         const persisted = verifyLinksInjected(lexicalToHtml(lexicalContent), missingChildren)
         if (persisted.found.length === 0) {
-          const dir = path.join(ENGINE_ROOT, 'reports')
-          try {
-            fs.mkdirSync(dir, { recursive: true })
-            fs.writeFileSync(path.join(dir, `link-loss-${parent.slug}.html`), updatedHtml)
-          } catch (e) { console.log(`     ⚠ could not write dump: ${e}`) }
+          dumpForDiagnosis(parent.slug, 'link-loss', updatedHtml)
           console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save`)
           skipped++
           continue
         }
-        if (persisted.found.length < verification.found.length) {
-          console.log(`     ⚠ ${verification.found.length - persisted.found.length} link(s) lost in HTML→Lexical: ${persisted.missing.join(', ')}`)
+        // Only the links Claude DID inject that then vanished — not the ones
+        // it never wrote (those were reported two lines up).
+        const lost = verification.found.filter((slug) => persisted.missing.includes(slug))
+        if (lost.length > 0) {
+          console.log(`     ⚠ ${lost.length} link(s) lost in HTML→Lexical: ${lost.join(', ')}`)
+        }
+
+        // Images are the other thing a round trip can silently eat. Every
+        // inline infographic is an `upload` node; if the round-tripped doc has
+        // fewer than the original, saving would delete images from a live post
+        // while reporting success. Never save a lossy round trip.
+        const uploadsBefore = countNodesOfType(parent.content as Parameters<typeof lexicalToHtml>[0], 'upload')
+        const uploadsAfter = countNodesOfType(lexicalContent as Parameters<typeof lexicalToHtml>[0], 'upload')
+        if (uploadsAfter < uploadsBefore) {
+          dumpForDiagnosis(parent.slug, 'image-loss', updatedHtml)
+          console.log(`     ⚠ ${uploadsBefore - uploadsAfter} of ${uploadsBefore} image(s) would be lost in HTML→Lexical — skipping save`)
+          skipped++
+          continue
         }
         await updatePost(parent.id, { content: lexicalContent })
 
