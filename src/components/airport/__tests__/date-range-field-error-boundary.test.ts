@@ -74,6 +74,24 @@ describe("nextRangeAfterReturnChange — the mirror of the depart guard", () => 
     });
   });
 
+  it("never lets a half-typed year (a value below today) overwrite the depart date", () => {
+    // Chrome commits "0002-12-05" on the first keystroke of the year.
+    expect(nextRangeAfterReturnChange("2026-10-20", "0002-12-05", "2026-09-23")).toEqual({
+      depart: "2026-10-20",
+      return: "0002-12-05",
+    });
+    // A genuinely past date is likewise left for validateSearchDates to reject.
+    expect(nextRangeAfterReturnChange("2026-10-20", "2026-09-01", "2026-09-23")).toEqual({
+      depart: "2026-10-20",
+      return: "2026-09-01",
+    });
+    // A real in-window earlier date still swaps.
+    expect(nextRangeAfterReturnChange("2026-10-20", "2026-10-05", "2026-09-23")).toEqual({
+      depart: "2026-10-05",
+      return: "2026-10-20",
+    });
+  });
+
   it("does nothing special when either side is empty", () => {
     expect(nextRangeAfterReturnChange("", "2026-10-05")).toEqual({ depart: "", return: "2026-10-05" });
     expect(nextRangeAfterReturnChange("2026-10-05", "")).toEqual({ depart: "2026-10-05", return: "" });

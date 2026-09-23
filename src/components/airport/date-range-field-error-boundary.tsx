@@ -54,9 +54,22 @@ export function nextReturnDateAfterDepartChange(
  */
 export function nextRangeAfterReturnChange(
   currentDepartDate: string,
-  newReturnDate: string
+  newReturnDate: string,
+  minDate: string = toLocalISODate(new Date())
 ): { depart: string; return: string } {
-  if (newReturnDate && currentDepartDate && newReturnDate < currentDepartDate) {
+  // Chrome/Edge commit a native date input's value on EVERY keystroke once
+  // all three segments hold something, so typing the year of a return date
+  // emits "0002-12-05", "0020-12-05", … before "2026-12-05". A value below
+  // today can only be such a half-typed year (or a genuinely past date, which
+  // validateSearchDates rejects at submit) — never let it rewrite the depart
+  // field the reader is not editing. Only a real, in-window earlier date is a
+  // "picked before departure" swap.
+  if (
+    newReturnDate &&
+    currentDepartDate &&
+    newReturnDate >= minDate &&
+    newReturnDate < currentDepartDate
+  ) {
     return { depart: newReturnDate, return: currentDepartDate };
   }
   return { depart: currentDepartDate, return: newReturnDate };
