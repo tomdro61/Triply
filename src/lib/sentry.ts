@@ -63,10 +63,12 @@ export function captureAPIError(
     /** An upstream error code (e.g. Postgres SQLSTATE). */
     code?: string;
     /**
-     * Anything else worth attaching to the event, e.g. how many times this
-     * fault has already occurred on a warm instance when the capture itself
-     * is deduped to one event per class (see /api/newsletter). Merged into
-     * the same "api" context as `code`.
+     * Free-form diagnostic context attached to the event WITHOUT affecting
+     * grouping (unlike the message). Use for per-event detail such as a
+     * PostgREST `details`/`hint`, a failing row, or how many times a deduped
+     * fault has already occurred on a warm instance (see /api/newsletter).
+     * Lands in the "detail" context. (Same shape as PR #31's addition — keep
+     * these identical so the two branches merge cleanly.)
      */
     extra?: Record<string, unknown>;
   }
@@ -78,11 +80,9 @@ export function captureAPIError(
       scope.setTag("api.statusCode", context.statusCode.toString());
     }
     if (context.stage) scope.setTag("api.stage", context.stage);
-    if (context.code || context.extra) {
-      scope.setContext("api", {
-        ...context.extra,
-        ...(context.code ? { code: context.code } : {}),
-      });
+    if (context.code) scope.setContext("api", { code: context.code });
+    if (context.extra) {
+      scope.setContext("detail", context.extra);
     }
     Sentry.captureException(error);
   });
