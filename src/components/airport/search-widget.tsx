@@ -9,6 +9,7 @@ import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { trackBlogCtaClick } from "@/lib/analytics/gtag";
 import { DateRangeFieldSkeleton } from "@/components/airport/date-range-field-skeleton";
 import { DateRangeFieldErrorBoundary } from "@/components/airport/date-range-field-error-boundary";
+import { validateSearchDates } from "@/lib/booking-window";
 
 // react-day-picker + the Radix Popover it opens in are ~50 KB gzipped and
 // only needed once someone actually opens the calendar — keep them out of
@@ -41,11 +42,32 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [location, setLocation] = useState(airportCode);
-  const [departDate, setDepartDate] = useState("");
-  const [returnDate, setReturnDate] = useState("");
+  const [departDate, setDepartDateState] = useState("");
+  const [returnDate, setReturnDateState] = useState("");
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  // Any date edit clears a previous validation message so it never goes stale.
+  const setDepartDate = (v: string) => {
+    setDateError(null);
+    setDepartDateState(v);
+  };
+  const setReturnDate = (v: string) => {
+    setDateError(null);
+    setReturnDateState(v);
+  };
 
   const handleSearch = () => {
     if (!location || !departDate || !returnDate) return;
+    // Enforce the ResLab booking window and ordering HERE, at the single
+    // submit point — the calendar picker already prevents these, but the
+    // native-input fallback (error boundary) only hints via min/max, and a
+    // typed out-of-window date would otherwise 422 on every lot and read as
+    // "search is broken" to the customer (and as a ResLab outage in Sentry).
+    const error = validateSearchDates(departDate, returnDate);
+    if (error) {
+      setDateError(error);
+      return;
+    }
     setIsLoading(true);
 
     // "compact" is only used by the blog article booking widget today — the
@@ -118,10 +140,16 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
           "Search Parking"
         )}
       </Button>
-      {(!location || !departDate || !returnDate) && (
-        <p className="mt-2 text-xs text-gray-500 text-center">
-          {!location ? "Pick an airport to search" : "Pick your dates to search"}
+      {dateError ? (
+        <p role="alert" className="mt-2 text-xs text-red-600 text-center">
+          {dateError}
         </p>
+      ) : (
+        (!location || !departDate || !returnDate) && (
+          <p className="mt-2 text-xs text-gray-500 text-center">
+            {!location ? "Pick an airport to search" : "Pick your dates to search"}
+          </p>
+        )
       )}
     </div>
   );
