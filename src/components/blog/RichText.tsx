@@ -502,6 +502,9 @@ export function RichText({
   if (insertRequested && !insertInRange) {
     Sentry.withScope((scope) => {
       scope.setTag('component', 'RichText')
+      // Tag, not just context: tags are searchable in Sentry, so "which
+      // article lost its CTA" is one query rather than an event-by-event read.
+      if (articleSlug) scope.setTag('article.slug', articleSlug)
       scope.setContext('richTextInsert', {
         slug: articleSlug ?? null,
         insertAfterIndex,

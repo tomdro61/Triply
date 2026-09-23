@@ -17,3 +17,49 @@ export const MAX_ADVANCE_BOOKING_DAYS = 60;
 export function maxAdvanceBookingDate(): Date {
   return addDays(startOfDay(new Date()), MAX_ADVANCE_BOOKING_DAYS);
 }
+
+/**
+ * yyyy-MM-dd in the browser's LOCAL calendar (never `toISOString()`, which is
+ * UTC and turns a US evening into "tomorrow"). Cheap on purpose: date-fns
+ * `format` drags the formatter/locale chain into any initial bundle that
+ * imports it, and the blog article chunk was just trimmed by 86 KB.
+ */
+export function toLocalISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The one place a search's dates are validated before they leave the widget.
+ * Native `<input type="date">` `min`/`max` are constraint-validation HINTS —
+ * a typed out-of-range value is still committed — and /api/search validates
+ * shape only, so without this a reader can send a check-in ResLab will 422
+ * on every lot and be told "search is broken". Returns a customer-facing
+ * message, or null when the range is usable. Lexicographic comparison is
+ * exact for yyyy-MM-dd.
+ */
+export function validateSearchDates(
+  departDate: string,
+  returnDate: string,
+  now: Date = new Date()
+): string | null {
+  if (!ISO_DATE_RE.test(departDate) || !ISO_DATE_RE.test(returnDate)) {
+    return "Please enter both dates.";
+  }
+  const min = toLocalISODate(now);
+  const max = toLocalISODate(addDays(startOfDay(now), MAX_ADVANCE_BOOKING_DAYS));
+  if (departDate < min) {
+    return "Check-in can't be in the past.";
+  }
+  if (departDate > max) {
+    return `Reservations open ${MAX_ADVANCE_BOOKING_DAYS} days in advance — the latest check-in is ${max}.`;
+  }
+  if (returnDate < departDate) {
+    return "Return date must be on or after your check-in date.";
+  }
+  return null;
+}

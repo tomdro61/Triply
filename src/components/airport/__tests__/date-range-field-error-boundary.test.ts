@@ -3,6 +3,7 @@ import { differenceInCalendarDays, parseISO } from "date-fns";
 import {
   getFallbackDateBounds,
   nextReturnDateAfterDepartChange,
+  nextRangeAfterReturnChange,
 } from "../date-range-field-error-boundary";
 import { MAX_ADVANCE_BOOKING_DAYS } from "@/lib/booking-window";
 
@@ -51,5 +52,30 @@ describe("nextReturnDateAfterDepartChange", () => {
     expect(nextReturnDateAfterDepartChange("2026-10-10", "2026-10-10")).toBe(
       "2026-10-10"
     );
+  });
+});
+
+describe("nextRangeAfterReturnChange — the mirror of the depart guard", () => {
+  it("swaps the pair when the new return date precedes the depart date (as the real picker does)", () => {
+    expect(nextRangeAfterReturnChange("2026-10-20", "2026-10-05")).toEqual({
+      depart: "2026-10-05",
+      return: "2026-10-20",
+    });
+  });
+
+  it("keeps the pair when the return date is on or after the depart date", () => {
+    expect(nextRangeAfterReturnChange("2026-10-05", "2026-10-20")).toEqual({
+      depart: "2026-10-05",
+      return: "2026-10-20",
+    });
+    expect(nextRangeAfterReturnChange("2026-10-05", "2026-10-05")).toEqual({
+      depart: "2026-10-05",
+      return: "2026-10-05",
+    });
+  });
+
+  it("does nothing special when either side is empty", () => {
+    expect(nextRangeAfterReturnChange("", "2026-10-05")).toEqual({ depart: "", return: "2026-10-05" });
+    expect(nextRangeAfterReturnChange("2026-10-05", "")).toEqual({ depart: "2026-10-05", return: "" });
   });
 });
