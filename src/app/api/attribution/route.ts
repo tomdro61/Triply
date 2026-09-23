@@ -36,6 +36,7 @@ import { checkAttributionRateLimit } from "@/lib/attribution/limiter";
 import { normalizeHost } from "@/lib/attribution/classify";
 import { CONSENT_COOKIE, hasAnalyticsOptOutFromCookie } from "@/lib/cookies/consent-server";
 import { getAirportByCode } from "@/config/airports";
+import { isSameOrigin, clientKey } from "@/lib/http/origin";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 10;
@@ -48,29 +49,6 @@ const bodySchema = z
     apt: z.string().regex(/^[A-Za-z]{3}$/).optional(),
   })
   .strict();
-
-function isSameOrigin(request: NextRequest): boolean {
-  const site = request.headers.get("sec-fetch-site");
-  if (site === "same-origin") return true;
-  if (site && site !== "same-origin") return false;
-  // Older browsers: no Sec-Fetch-Site. Fall back to Origin vs Host.
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
-
-/** Vercel overwrites x-forwarded-for with the real client IP (it is not
- *  client-spoofable behind Vercel), but this limiter is a brake, not the
- *  security boundary — the origin check is. */
-function clientKey(request: NextRequest): string {
-  const fwd = request.headers.get("x-forwarded-for");
-  return fwd?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-}
 
 // Once-per-instance telemetry for each rejection class. Sampling, not
 // suppression: instances recycle, and the durable signal is presentRate7d on

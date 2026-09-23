@@ -216,12 +216,102 @@ export function trackLogin(method: "email" | "google") {
 
 /**
  * Track newsletter signup
+ *
+ * Optional opts let a caller say WHERE the signup came from (e.g. the
+ * end-of-article capture on the blog) and which airport the page was about,
+ * so leads can be attributed in GA4. Called with no arguments the event is
+ * byte-for-byte what it was before.
  */
-export function trackNewsletterSignup() {
+export function trackNewsletterSignup(opts?: {
+  source?: string;
+  airportCode?: string | null;
+}) {
   if (typeof window !== "undefined" && window.gtag) {
-    window.gtag("event", "generate_lead", {
+    const params: Record<string, string> = {
       lead_type: "newsletter",
-    });
+    };
+    if (opts?.source) params.lead_source = opts.source;
+    if (opts?.airportCode) params.airport_code = opts.airportCode;
+
+    window.gtag("event", "generate_lead", params);
+  }
+}
+
+// v2: the key used to embed the raw lowercased email. It is now a digest —
+// see markAndShouldTrackNewsletterSignup. The version bump means a browser
+// carrying a v1 key simply fires once more, rather than reading a key format
+// that no longer exists.
+const NEWSLETTER_SIGNUP_TRACKED_KEY_PREFIX = "triply_newsletter_signup_tracked_v2:";
+
+// Re-fire after this long. A dedup key with no expiry is a permanent record
+// of "someone signed up from this browser", which is more than a marketing
+// counter needs; six months is well past the point where a repeat signup is
+// worth counting again.
+const NEWSLETTER_SIGNUP_TRACKED_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+/**
+ * FNV-1a, twice with different seeds, concatenated — 64 bits of non-reversible
+ * digest for a dedup key.
+ *
+ * Deliberately NOT crypto.subtle: that is async and this runs inline in a
+ * submit handler. This is not a security control (an attacker with the
+ * browser's localStorage could brute-force a known address either way); it
+ * exists so the key is not a plaintext email address sitting in storage for a
+ * marketing counter's benefit.
+ */
+function newsletterSignupDigest(value: string): string {
+  const round = (seed: number, input: string): string => {
+    let h = seed;
+    for (let i = 0; i < input.length; i++) {
+      h ^= input.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h.toString(16).padStart(8, "0");
+  };
+  return round(0x811c9dc5, value) + round(0x9e3779b9, `${value}|triply`);
+}
+
+/**
+ * Per-browser dedup guard for the newsletter's generate_lead event.
+ *
+ * PR #23 pass 4: /api/newsletter's response no longer distinguishes a new
+ * subscriber from an already-subscribed one — that distinction was an
+ * enumeration oracle to an unauthenticated caller (Sentry review, pass 3/4).
+ * The client can no longer read `alreadySubscribed` off the response to
+ * decide whether to fire trackNewsletterSignup, so this substitutes a
+ * localStorage guard keyed on a DIGEST of the lowercased email: fires once
+ * per email per browser, per TTL.
+ *
+ * Pass-5 review: the key used to be the raw email, written on every submit
+ * regardless of consent — a plaintext address parked in storage forever for
+ * the sake of a counter. It is now hashed, expires, and is not written at all
+ * until GA is actually loaded (i.e. until the cookie banner has been
+ * accepted).
+ *
+ * Trade-off, accepted: a resubmit of the same email from a DIFFERENT browser
+ * or device still double-counts — this is a marketing metric (generate_lead
+ * volume), not a security or billing control, so an occasional inflated
+ * count is fine. Wrapped in try/catch because localStorage can throw
+ * (private browsing, storage disabled, quota) — on failure this fires the
+ * event rather than risk silently dropping a real lead.
+ */
+export function markAndShouldTrackNewsletterSignup(email: string): boolean {
+  // No gtag means no consent yet (the GA script only loads once the cookie
+  // banner is accepted), or analytics is disabled entirely. Nothing will be
+  // sent, so nothing should be written down either — and returning true keeps
+  // a later, consented submit of the same address able to fire exactly once.
+  if (typeof window === "undefined" || !window.gtag) return true;
+
+  const key = `${NEWSLETTER_SIGNUP_TRACKED_KEY_PREFIX}${newsletterSignupDigest(
+    email.trim().toLowerCase()
+  )}`;
+  try {
+    const seenAt = Number(window.localStorage.getItem(key));
+    if (seenAt && Date.now() - seenAt < NEWSLETTER_SIGNUP_TRACKED_TTL_MS) return false;
+    window.localStorage.setItem(key, String(Date.now()));
+    return true;
+  } catch {
+    return true;
   }
 }
 
