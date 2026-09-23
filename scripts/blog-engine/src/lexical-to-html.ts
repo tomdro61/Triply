@@ -34,6 +34,36 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+/**
+ * Normalise an upload node's `value` (bare id, or a hydrated media doc) into
+ * the id + url + alt the HTML needs. Returns id null when there is no usable
+ * media id — in which case the node cannot round-trip and is not rendered.
+ */
+export function readUploadValue(value: unknown): { id: string | null; url: string; alt: string } {
+  if (typeof value === 'number' || typeof value === 'string') {
+    const id = String(value).trim()
+    return { id: id && !Number.isNaN(parseInt(id, 10)) ? id : null, url: '', alt: '' }
+  }
+  if (value && typeof value === 'object') {
+    const doc = value as { id?: number | string; url?: string; alt?: string }
+    const rawId = doc.id === undefined || doc.id === null ? '' : String(doc.id).trim()
+    const id = rawId && !Number.isNaN(parseInt(rawId, 10)) ? rawId : null
+    return { id, url: typeof doc.url === 'string' ? doc.url : '', alt: typeof doc.alt === 'string' ? doc.alt : '' }
+  }
+  return { id: null, url: '', alt: '' }
+}
+
+/** Count nodes of one type anywhere in a Lexical document (used to assert nothing was lost in a round trip). */
+export function countNodesOfType(doc: LexicalDocument | null | undefined, type: string): number {
+  let n = 0
+  const walk = (node: LexicalNode): void => {
+    if (node.type === type) n++
+    for (const child of node.children ?? []) walk(child)
+  }
+  for (const child of doc?.root?.children ?? []) walk(child)
+  return n
+}
+
 function renderInlineNode(node: LexicalNode): string {
   if (node.type === 'text') {
     let html = escapeHtml(node.text || '')
@@ -116,11 +146,18 @@ function renderBlockNode(node: LexicalNode): string {
     }
 
     case 'upload': {
-      // Upload nodes represent infographic images
-      const uploadNode = node as { value?: { url?: string; alt?: string } }
-      const url = uploadNode.value?.url || ''
-      const alt = uploadNode.value?.alt || ''
-      return url ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}">` : ''
+      // Upload nodes represent infographic / inline images. `value` is the
+      // media id (number or string) when the doc was fetched with depth=0, or
+      // the hydrated media doc ({ id, url, alt, ... }) with depth>0.
+      //
+      // data-media-id is REQUIRED for the round trip: html-to-lexical.ts drops
+      // any <img> that lacks a numeric data-media-id (it cannot invent a media
+      // relation from a URL). Before this attribute was emitted, every command
+      // that did Lexical → HTML → Lexical (update-links) silently deleted every
+      // inline image from every post it saved.
+      const { id, url, alt } = readUploadValue((node as { value?: unknown }).value)
+      if (id === null) return ''
+      return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" data-media-id="${id}">`
     }
 
     default: {

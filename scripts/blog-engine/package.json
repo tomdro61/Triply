@@ -12,7 +12,8 @@
     "update-links": "tsx src/update-links.ts",
     "import-queue": "tsx src/import-queue.ts",
     "dev": "tsx src/index.ts",
-    "migrate-tables": "tsx src/migrate-tables.ts"
+    "migrate-tables": "tsx src/migrate-tables.ts",
+    "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
@@ -27,5 +28,8 @@
     "@types/node": "^22.13.1",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
