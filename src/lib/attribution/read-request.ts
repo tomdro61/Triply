@@ -13,9 +13,18 @@
  *             cookie version)
  *   valid   → the parsed cookie + GA client id; with analytics opt-out the
  *             click ids and the GA id are stripped
- *   invalid → { v: null, invalid: true } and ONE Sentry event per lambda
- *             instance (fixed message + fingerprint; the Zod issue goes in
- *             context, not the message, so it groups as a single issue)
+ *   invalid → { v: null, invalid: true } and, on the "checkout" surface only,
+ *             ONE Sentry event per lambda instance (fixed message +
+ *             fingerprint; the Zod issue goes in context, not the message, so
+ *             it groups as a single issue)
+ *
+ * `surface` gates the Sentry reporting, not the parsing: both surfaces parse
+ * and return the cookie identically. Defaults to "checkout" (its only caller
+ * for a long time) so existing call sites keep reporting exactly as before.
+ * Pass "search" from /api/search: that route is public and bot-reachable, and
+ * without this a junk triply_attr cookie there would tag a
+ * `booking.step: checkout` Sentry event — with a null PaymentIntent — into
+ * the money-path error stream for a request that was never a checkout.
  */
 
 import * as Sentry from "@sentry/nextjs";
@@ -38,13 +47,14 @@ export function __resetInvalidReportForTests(): void {
 
 export function readAttributionFromRequest(
   request: NextRequest,
-  context: { stripePaymentIntentId?: string | null }
+  context: { stripePaymentIntentId?: string | null },
+  surface: "checkout" | "search" = "checkout"
 ): Attribution | null {
   try {
     const parsed = parseAttributionCookie(request.cookies.get(ATTR_COOKIE)?.value);
     if (parsed.state === "absent") return null;
     if (parsed.state === "invalid") {
-      if (!invalidReported) {
+      if (surface === "checkout" && !invalidReported) {
         invalidReported = true;
         Sentry.withScope((scope) => {
           scope.setFingerprint(["triply_attr_unparseable"]);
@@ -71,14 +81,18 @@ export function readAttributionFromRequest(
     return gaClientId ? { ...parsed.value, ga_client_id: gaClientId } : parsed.value;
   } catch (err) {
     // Attribution must never block a checkout — but a throw HERE is a bug in
-    // the reader, not a visitor without a cookie, so it is captured (guarded so
-    // the capture itself can never throw) before resolving to null.
-    try {
-      captureBookingError(err instanceof Error ? err : new Error(String(err)), {
-        step: "checkout",
-      });
-    } catch {
-      /* Sentry unavailable — nothing further to do */
+    // the reader, not a visitor without a cookie, so it is captured on the
+    // checkout surface (guarded so the capture itself can never throw) before
+    // resolving to null. Same reasoning as above: /api/search is not a
+    // checkout and must not manufacture one in the error stream.
+    if (surface === "checkout") {
+      try {
+        captureBookingError(err instanceof Error ? err : new Error(String(err)), {
+          step: "checkout",
+        });
+      } catch {
+        /* Sentry unavailable — nothing further to do */
+      }
     }
     return null;
   }

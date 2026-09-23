@@ -78,4 +78,45 @@ describe("readAttributionFromRequest", () => {
     expect(out2).toEqual({ v: null, invalid: true });
     expect(sentry.captureException).toHaveBeenCalledTimes(1);
   });
+
+  describe("surface parameter", () => {
+    it("defaults to 'checkout' — an invalid cookie still reports, matching every call site before this parameter existed", () => {
+      const out = readAttributionFromRequest(req({ triply_attr: "garbage" }), {});
+      expect(out).toEqual({ v: null, invalid: true });
+      expect(sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
+    it("surface='search': an invalid cookie still resolves to the invalid marker, but is NEVER reported to Sentry", () => {
+      const out = readAttributionFromRequest(req({ triply_attr: "garbage" }), {}, "search");
+      expect(out).toEqual({ v: null, invalid: true });
+      expect(sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it("surface='search' still parses a valid cookie identically to 'checkout'", () => {
+      const out = readAttributionFromRequest(
+        req({ triply_attr: encodeCookieValue(value), _ga: "GA1.1.1234567890.1700000000" }),
+        {},
+        "search"
+      );
+      expect(out).toEqual({ ...value, ga_client_id: "1234567890.1700000000" });
+    });
+
+    it("surface='search' does not report a thrown reader bug to Sentry either", async () => {
+      const { captureBookingError } = await import("@/lib/sentry");
+      // Absent cookie never throws in the reader — assert the guard exists by
+      // calling with a malformed request-like object that would throw before
+      // reaching the try's normal returns, exercising the catch branch.
+      const badRequest = {
+        cookies: {
+          get: () => {
+            throw new Error("boom");
+          },
+        },
+      } as unknown as NextRequest;
+
+      const out = readAttributionFromRequest(badRequest, {}, "search");
+      expect(out).toBeNull();
+      expect(captureBookingError).not.toHaveBeenCalled();
+    });
+  });
 });

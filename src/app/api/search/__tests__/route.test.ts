@@ -1,24 +1,16 @@
 /**
- * The search_events insert (src/lib/search-events/log.ts) must never affect
- * the search response — not its body, not its status, not its latency. This
- * is the contract test for that: the insert is made to reject/throw and the
- * route's response is asserted identical to the happy path.
+ * search_events (the per-search demand header row) is now written from
+ * inside searchParking itself (see src/lib/reslab/__tests__/search-events.test.ts
+ * for that contract, exercised against the real searchParking code path).
+ * This route no longer inserts anything — it just has to pass the right
+ * parameters through: whether dates were defaulted, the parsed attribution
+ * (on the "search" surface, never "checkout"), and the featured-parking
+ * surface override. Those params, plus the pre-existing Cache-Control
+ * contract, are what this file tests; searchParking itself is mocked.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-
-// after() requires a live Next.js request scope, which vitest doesn't
-// provide — forcing it to throw exercises the same fallback (plain
-// fire-and-forget) a real unit test run hits anyway.
-vi.mock("next/server", async () => {
-  const actual = await vi.importActual<typeof import("next/server")>("next/server");
-  return {
-    ...actual,
-    after: () => {
-      throw new Error("no request scope");
-    },
-  };
-});
+import type { Attribution } from "@/lib/attribution/schema";
 
 const searchParkingMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/reslab/search", () => ({
@@ -28,9 +20,9 @@ vi.mock("@/lib/reslab/search", () => ({
 
 vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
 
-const supabase = vi.hoisted(() => ({ from: vi.fn() }));
-vi.mock("@/lib/supabase/server", () => ({
-  createAdminClient: vi.fn(async () => supabase),
+const readAttributionMock = vi.hoisted(() => vi.fn<() => Attribution | null>(() => null));
+vi.mock("@/lib/attribution/read-request", () => ({
+  readAttributionFromRequest: readAttributionMock,
 }));
 
 import { GET } from "../route";
@@ -41,11 +33,10 @@ const okResult = {
   checkout: "2026-10-14",
   checkinTime: "10:00 AM",
   checkoutTime: "2:00 PM",
-  results: [
-    { pricing: { grandTotal: 123.45 } },
-    { pricing: { grandTotal: 99.99 } },
-  ],
+  results: [],
   total: 2,
+  degraded: false,
+  stale: false,
 };
 
 function req(query: Record<string, string> = {}) {
@@ -58,81 +49,119 @@ function req(query: Record<string, string> = {}) {
   return new NextRequest(`https://triplypro.com/api/search?${params.toString()}`);
 }
 
-const flush = () => new Promise((r) => setTimeout(r, 0));
-
 beforeEach(() => {
   searchParkingMock.mockReset();
-  supabase.from.mockReset();
-  vi.spyOn(console, "warn").mockImplementation(() => {});
+  searchParkingMock.mockResolvedValue(okResult);
+  readAttributionMock.mockReset();
+  readAttributionMock.mockReturnValue(null);
 });
 
-describe("GET /api/search — search_events insert never affects the response", () => {
-  it("returns the normal 200 body when the insert rejects", async () => {
-    searchParkingMock.mockResolvedValue(okResult);
-    supabase.from.mockReturnValue({
-      insert: () => Promise.reject(new Error("network down")),
-    });
+describe("GET /api/search", () => {
+  it("parses attribution on the 'search' surface, never 'checkout'", async () => {
+    await GET(req());
 
-    const res = await GET(req());
-    const body = await res.json();
+    expect(readAttributionMock).toHaveBeenCalledWith(expect.anything(), {}, "search");
+  });
 
-    expect(res.status).toBe(200);
-    expect(body).toEqual(okResult);
+  it("passes datesDefaulted=false and the caller's dates through when both are supplied", async () => {
+    await GET(req({ checkin: "2026-11-01", checkout: "2026-11-05" }));
 
-    await flush();
-    expect(console.warn).toHaveBeenCalledWith(
-      "[search-events]",
-      "EXCEPTION",
-      "network down"
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkin: "2026-11-01",
+        checkout: "2026-11-05",
+        datesDefaulted: false,
+        searchEventSource: undefined,
+      })
     );
   });
 
-  it("returns the normal 200 body when supabase reports a PGRST205 error (table not migrated yet)", async () => {
-    searchParkingMock.mockResolvedValue(okResult);
-    supabase.from.mockReturnValue({
-      insert: () =>
-        Promise.resolve({
-          error: { code: "PGRST205", message: 'Could not find the table "search_events"' },
-        }),
-    });
+  it("marks datesDefaulted=true when checkin/checkout are omitted (the tomorrow/+7 pricing fallback)", async () => {
+    const params = new URLSearchParams({ airport: "JFK" });
+    await GET(new NextRequest(`https://triplypro.com/api/search?${params.toString()}`));
 
-    const res = await GET(req());
-    const body = await res.json();
-
-    expect(res.status).toBe(200);
-    expect(body).toEqual(okResult);
-
-    await flush();
-    expect(console.warn).toHaveBeenCalledWith(
-      "[search-events]",
-      "PGRST205",
-      'Could not find the table "search_events"'
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({ datesDefaulted: true })
     );
   });
 
-  it("still returns 200 when createAdminClient itself throws", async () => {
-    searchParkingMock.mockResolvedValue(okResult);
-    const { createAdminClient } = await import("@/lib/supabase/server");
-    vi.mocked(createAdminClient).mockImplementationOnce(async () => {
-      throw new Error("no service-role key");
-    });
+  it("marks datesDefaulted=true when only one of checkin/checkout is supplied", async () => {
+    const params = new URLSearchParams({ airport: "JFK", checkin: "2026-11-01" });
+    await GET(new NextRequest(`https://triplypro.com/api/search?${params.toString()}`));
 
-    const res = await GET(req());
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(okResult);
-
-    await flush();
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({ datesDefaulted: true })
+    );
   });
 
-  it("skips the insert entirely for an invalid date range, but the search response is unaffected", async () => {
-    searchParkingMock.mockResolvedValue(okResult);
+  it("tags the featured-parking widget's requests searchEventSource='homepage-featured'", async () => {
+    await GET(req({ surface: "featured" }));
 
-    const res = await GET(req({ checkin: "2026-10-14", checkout: "2026-10-10" }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual(okResult);
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({ searchEventSource: "homepage-featured" })
+    );
+  });
 
-    await flush();
-    expect(supabase.from).not.toHaveBeenCalled();
+  it("passes the parsed attribution fields through to searchParking", async () => {
+    readAttributionMock.mockReturnValue({
+      v: 1,
+      first: { src: "google", med: "cpc", cmp: "brand", at: 1700000000 },
+      ga_client_id: "1234567890.1700000000",
+    });
+
+    await GET(req());
+
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: {
+          utmSource: "google",
+          utmMedium: "cpc",
+          utmCampaign: "brand",
+          gaClientId: "1234567890.1700000000",
+        },
+      })
+    );
+  });
+
+  it("passes all-null attribution when the cookie is absent", async () => {
+    readAttributionMock.mockReturnValue(null);
+
+    await GET(req());
+
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        attribution: { utmSource: null, utmMedium: null, utmCampaign: null, gaClientId: null },
+      })
+    );
+  });
+
+  it("caches a clean non-degraded result", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: false, stale: false });
+
+    const res = await GET(req());
+
+    expect(res.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=300, stale-while-revalidate=600"
+    );
+  });
+
+  it("shortens the TTL for a stale (complete but past-TTL) result", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: false, stale: true });
+
+    const res = await GET(req());
+
+    expect(res.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+  });
+
+  it("never caches a degraded or empty result", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 0, degraded: false, stale: false });
+    let res = await GET(req());
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: true, stale: false });
+    res = await GET(req());
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 });

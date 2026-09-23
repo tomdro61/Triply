@@ -80,8 +80,12 @@ export function FeaturedParking({ defaultAirport = "JFK" }: FeaturedParkingProps
       const { checkin, checkout } = getDefaultDates();
 
       try {
+        // surface=featured tags this search's demand row 'homepage-featured'
+        // (migration 027) instead of 'search' — this widget fires a real
+        // request with real dates on every homepage view and airport-tab
+        // click, which is a background poll, not a person choosing to search.
         const response = await fetch(
-          `/api/search?airport=${selectedAirport}&checkin=${checkin}&checkout=${checkout}&sort=popularity`
+          `/api/search?airport=${selectedAirport}&checkin=${checkin}&checkout=${checkout}&sort=popularity&surface=featured`
         );
 
         if (!response.ok) {

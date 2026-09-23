@@ -3,12 +3,19 @@
  *
  * Deliberately takes and returns plain YYYY-MM-DD strings — checkin/checkout
  * here are the same literal date strings the search route already validates
- * (zod `\d{4}-\d{2}-\d{2}`), never Date objects. Mirrors the UTC-day-diff
- * approach in src/lib/availability/log.ts (dayDiff): for a length-of-stay /
- * lead-time demand signal the calendar-day difference is what matters, not
- * any airport's local clock (unlike booking times, which are literal
- * airport-local strings — see the CLAUDE.md rule — these are plain dates with
- * no time-of-day component to get wrong).
+ * (zod `\d{4}-\d{2}-\d{2}`), never Date objects. `daysBetween` itself is a
+ * UTC calendar-day diff (src/lib/availability/log.ts dayDiff, duplicated here
+ * rather than imported so this module stays a standalone pure-function unit
+ * under test) — that's correct for stay_days, which is just a difference of
+ * two dates with no "now" involved.
+ *
+ * lead_days is different: it is check_in minus "today", and "today" is NOT
+ * timezone-neutral — a 9pm ET search is still "today" in New York but already
+ * "tomorrow" in UTC, which would silently under-count lead_days by a day for
+ * every US evening search. The caller (src/lib/reslab/search.ts, the same
+ * place availability_log computes its own lead_days) MUST pass `searchedOn`
+ * as `localToday(airport.timezone)`, never the utcToday() default below,
+ * which exists only so callers/tests can omit it deterministically.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;

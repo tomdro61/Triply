@@ -276,8 +276,15 @@ export function __resetAvailabilityLogWarnStateForTests(): void {
 /**
  * Fire-and-forget insert of one search's worth of rows. Returns immediately;
  * the caller must not await it. Never throws.
+ *
+ * `searchId`, if passed, is used as the shared search_id instead of
+ * generating a fresh one — this is how search_events (the per-search header
+ * row, src/lib/search-events/log.ts) is kept joinable to these per-lot rows:
+ * searchParking generates ONE id per search and passes it to both loggers.
+ * Omitted in every existing unit test, which gets its own random id per call
+ * exactly as before.
  */
-export function logAvailability(rows: AvailabilityRow[]): void {
+export function logAvailability(rows: AvailabilityRow[], searchId?: string): void {
   try {
     if (rows.length === 0) return;
     // Every Vercel build of every branch runs generateStaticParams → after() at
@@ -309,8 +316,9 @@ export function logAvailability(rows: AvailabilityRow[]): void {
     // One id per call (i.e. per search), shared by every row it writes — lets
     // the view count DISTINCT search_id instead of DISTINCT searched_at, which
     // is exact even if a future retry writes two transactions for one search.
-    const searchId = crypto.randomUUID();
-    const insertRows = insertable.map((row) => ({ ...row, env, search_id: searchId }));
+    // Same id search_events uses for its header row when the caller passes one.
+    const id = searchId ?? crypto.randomUUID();
+    const insertRows = insertable.map((row) => ({ ...row, env, search_id: id }));
 
     const insert = async () => {
       try {
