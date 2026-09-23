@@ -58,6 +58,12 @@ export function captureAPIError(
     endpoint: string;
     method: string;
     statusCode?: number;
+    /**
+     * Free-form diagnostic context attached to the event WITHOUT affecting
+     * grouping (unlike the message). Use for per-event detail such as a
+     * PostgREST `details`/`hint` or a failing row.
+     */
+    extra?: Record<string, unknown>;
   }
 ) {
   Sentry.withScope((scope) => {
@@ -65,6 +71,9 @@ export function captureAPIError(
     scope.setTag("api.method", context.method);
     if (context.statusCode) {
       scope.setTag("api.statusCode", context.statusCode.toString());
+    }
+    if (context.extra) {
+      scope.setContext("detail", context.extra);
     }
     Sentry.captureException(error);
   });

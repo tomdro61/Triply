@@ -19,6 +19,13 @@ import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
 import { generateSlug } from "@/lib/utils/slug";
 import { captureAPIError } from "@/lib/sentry";
+import {
+  logAvailability,
+  dayDiff,
+  localToday,
+  type AvailabilityRow,
+  type AvailabilitySource,
+} from "@/lib/availability/log";
 
 export { generateSlug };
 
@@ -216,6 +223,12 @@ export interface SearchParkingParams {
   checkinTime?: string; // "10:00 AM" format
   checkoutTime?: string; // "2:00 PM" format
   sort?: SortOption;
+  /**
+   * Which surface asked. Recorded with the sold-out signal so an airport-page
+   * render (a fixed +1d/+8d window, hit on every ISR revalidation) can be told
+   * apart from a real customer search. Defaults to "search".
+   */
+  source?: AvailabilitySource;
 }
 
 export interface SearchParkingResult {
@@ -360,6 +373,13 @@ const MAX_FAST_TIMEOUT_RETRIES = 2;
 // When we last reported an open-breaker 503 to Sentry. Rate-limits that report
 // to one per backoff window so an outage stays visible without flooding.
 let lastBackoffReportAt: number | null = null;
+// When we last reported an availability-row-builder throw (see the
+// logAvailability block in searchParking). Same reasoning as above.
+let lastAvailabilityReportAt: number | null = null;
+// Separate clock for the expected "unparseable dates" skip (chat path), so it
+// cannot starve the report of a genuine row-builder defect above.
+let lastAvailabilityDateSkipReportAt: number | null = null;
+const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 // Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
 let buildPhaseSweeps = 0;
 // Single-flight: coalesce concurrent cold-cache builds so we don't fire N
@@ -373,6 +393,8 @@ export function __resetLocationListCacheForTests(): void {
   lastFailureWasTimeoutOnly = false;
   consecutiveTimeoutOnlyFailures = 0;
   lastBackoffReportAt = null;
+  lastAvailabilityReportAt = null;
+  lastAvailabilityDateSkipReportAt = null;
   buildPhaseSweeps = 0;
   inFlightLocationBuild = null;
 }
@@ -775,6 +797,7 @@ export async function searchParking(
     checkinTime = "10:00 AM",
     checkoutTime = "2:00 PM",
     sort = "popularity",
+    source = "search",
   } = params;
 
   // Validate airport
@@ -861,7 +884,11 @@ export async function searchParking(
   // non-fatal — we still show the others — but count them so we can tell a
   // genuine "everything is sold out" empty from a ResLab degradation (below).
   let pricingErrors = 0;
-  const lotsWithPricing = await Promise.all(
+  // Keep the raw minPriceData alongside each transformed lot: transformLocation
+  // collapses sold_out/available_spots into one `availability` string and the
+  // filter below then drops the sold-out lots entirely, so this is the only
+  // point where the signal still exists in full.
+  const pricedLots = await Promise.all(
     locations.map(async (location) => {
       let minPriceData: ReslabMinPriceResponse | null = null;
 
@@ -880,14 +907,112 @@ export async function searchParking(
         pricingErrors++;
       }
 
-      return transformLocation(
+      return {
+        lot: transformLocation(
+          location,
+          minPriceData,
+          airportInfo.latitude,
+          airportInfo.longitude
+        ),
         location,
         minPriceData,
-        airportInfo.latitude,
-        airportInfo.longitude
-      );
+      };
     })
   );
+
+  const lotsWithPricing = pricedLots.map((p) => p.lot);
+
+  // Record which lots were sold out, BEFORE the filter below throws that away.
+  // ResLab has no history endpoint, so an unrecorded day is unrecoverable.
+  // Fire-and-forget and error-swallowing by contract — see
+  // src/lib/availability/log.ts and supabase/migrations/025_availability_log.sql.
+  //
+  // Wrapped in its own try/catch so that no defect in the row builder can
+  // ever take down a real search result just to log telemetry about it.
+  try {
+    // lead_days is measured against "today" in the airport's own timezone, not
+    // UTC — a US evening search is already "tomorrow" in UTC and would
+    // otherwise log a systematic -1 lead day.
+    const searchedOn = localToday(airportInfo.timezone);
+    const leadDays = dayDiff(searchedOn, checkin);
+    const stayDays = dayDiff(checkin, checkout);
+    if (leadDays === null || stayDays === null) {
+      // Unparseable dates: skip the whole search rather than store a
+      // fabricated lead_days — but say so, throttled on its own clock (this
+      // is an expected, recurring signal on the chat path, whose dates are
+      // model-supplied; it must not re-arm the clock that reports genuine
+      // row-builder defects below). A silent skip here could erase 100% of
+      // chat observations. Values are truncated: they are raw caller input.
+      // (A past check-in beyond the -1 CHECK is dropped per row, and
+      // reported, by rowIsInsertable inside logAvailability.)
+      const now = Date.now();
+      if (
+        lastAvailabilityDateSkipReportAt === null ||
+        now - lastAvailabilityDateSkipReportAt >= AVAILABILITY_REPORT_INTERVAL_MS
+      ) {
+        lastAvailabilityDateSkipReportAt = now;
+        captureAPIError(
+          new Error(`availability: search skipped, unparseable dates (source=${source})`),
+          {
+            endpoint: "searchParking.logAvailability",
+            method: "GET",
+            extra: {
+              checkin: String(checkin).slice(0, 32),
+              checkout: String(checkout).slice(0, 32),
+              searchedOn,
+            },
+          }
+        );
+      }
+    } else {
+      const availabilityRows: AvailabilityRow[] = pricedLots.map(
+        ({ location, minPriceData }) => {
+          // A lot whose pricing call failed is still an observation — "we
+          // looked and don't know". Logged with sold_out NULL so the rollup can
+          // tell a 1-of-12 sample from a census; never a fabricated `false`.
+          // safety-removed: the `if (!minPriceData) return []` skip is replaced
+          // by optional chaining — a null minPriceData now yields a null-valued
+          // row instead of being dropped, and nothing here can throw on it.
+          const reservation = minPriceData?.reservation;
+          const sold_out = reservation?.sold_out;
+          const available_spots = reservation?.available_spots;
+          const grand_total = reservation?.grand_total;
+          return {
+            airport_code: airportInfo.code,
+            check_in: checkin,
+            check_out: checkout,
+            lead_days: leadDays,
+            stay_days: stayDays,
+            reslab_location_id: location.id,
+            sold_out: typeof sold_out === "boolean" ? sold_out : null,
+            available_spots:
+              typeof available_spots === "number" ? available_spots : null,
+            grand_total_cents:
+              typeof grand_total === "number" && grand_total > 0
+                ? Math.round(grand_total * 100)
+                : null,
+            source,
+          };
+        }
+      );
+      logAvailability(availabilityRows);
+    }
+  } catch (err) {
+    // Throttled like every other capture in this file: this sits on the
+    // highest-volume path and one bad response shape would otherwise emit one
+    // Sentry event per search.
+    const now = Date.now();
+    if (
+      lastAvailabilityReportAt === null ||
+      now - lastAvailabilityReportAt >= AVAILABILITY_REPORT_INTERVAL_MS
+    ) {
+      lastAvailabilityReportAt = now;
+      captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+        endpoint: "searchParking.logAvailability",
+        method: "GET",
+      });
+    }
+  }
 
   // Filter out unavailable lots and lots with no valid pricing
   const availableLots = lotsWithPricing.filter(

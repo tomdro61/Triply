@@ -172,6 +172,7 @@ export async function POST(request: NextRequest) {
                 checkout,
                 checkinTime,
                 checkoutTime,
+                source: "chat",
               });
 
               const lots = result.results.slice(0, 5).map((lot) => {
