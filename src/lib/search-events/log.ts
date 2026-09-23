@@ -33,7 +33,7 @@
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
-import { isInt4, isRealDate, type AvailabilitySource } from "@/lib/availability/log";
+import { isInt4, isRealDate } from "@/lib/availability/log";
 
 /** Call sites that can log a search_events row. Shares the three real search
  *  surfaces with availability_log's AvailabilitySource, plus the homepage's
@@ -41,7 +41,8 @@ import { isInt4, isRealDate, type AvailabilitySource } from "@/lib/availability/
  *  on every homepage view and airport-tab click with fixed tomorrow/+7 dates
  *  — a fixed background poll, not a person choosing those dates, and must be
  *  distinguishable from real search demand (see the 027 migration header). */
-export type SearchEventSource = AvailabilitySource | "homepage-featured";
+export const SEARCH_EVENT_SOURCES = ["search", "chat", "airport-page", "homepage-featured"] as const;
+export type SearchEventSource = (typeof SEARCH_EVENT_SOURCES)[number];
 
 export interface SearchEventRow {
   /** Shared with the availability_log rows this same search wrote — the join key. */
@@ -142,6 +143,13 @@ export function uninsertableReasons(row: SearchEventRow): UninsertableReason[] {
   // correctly rejected rather than waved through.)
   const code = String(row.airport_code);
   if (code !== code.toUpperCase()) bad("airport_code", row.airport_code);
+  // Mirrors 027's CHECK (source IN (...)). The TS union is derived from the
+  // same tuple, but a runtime value can only be trusted at the boundary —
+  // and a fifth source added to the type without the SQL would otherwise
+  // send every row into the swallowing insert and burn its hourly slot.
+  if (!(SEARCH_EVENT_SOURCES as readonly string[]).includes(String(row.source))) {
+    bad("source", row.source);
+  }
   return reasons;
 }
 

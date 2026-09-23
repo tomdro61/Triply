@@ -47,9 +47,17 @@ import { CONSENT_COOKIE, hasAnalyticsOptOutFromCookie } from "@/lib/cookies/cons
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 
 let invalidReported = false;
+// Search-surface reader throws are reported at most once per process-hour:
+// /api/search is public, bot-reachable and the highest-volume route, and a
+// reader regression would otherwise emit one Sentry event per search (the
+// TRIPLY-13 shape). Checkout keeps its per-request capture — it is rare and
+// each one matters.
+let lastSearchThrowReportedAt: number | null = null;
+const SEARCH_THROW_REPORT_INTERVAL_MS = 60 * 60 * 1000;
 
 export function __resetInvalidReportForTests(): void {
   invalidReported = false;
+  lastSearchThrowReportedAt = null;
 }
 
 export function readAttributionFromRequest(
@@ -103,7 +111,14 @@ export function readAttributionFromRequest(
       if (surface === "checkout") {
         captureBookingError(error, { step: "checkout" });
       } else {
-        captureAPIError(error, { endpoint: "/api/search", method: "GET" });
+        const now = Date.now();
+        if (
+          lastSearchThrowReportedAt === null ||
+          now - lastSearchThrowReportedAt >= SEARCH_THROW_REPORT_INTERVAL_MS
+        ) {
+          lastSearchThrowReportedAt = now;
+          captureAPIError(error, { endpoint: "/api/search", method: "GET" });
+        }
       }
     } catch {
       /* Sentry unavailable — nothing further to do */
