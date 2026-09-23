@@ -237,6 +237,24 @@ export function trackContactFormSubmit() {
 }
 
 /**
+ * Track a click on a blog article's booking CTA, or a search submitted from
+ * the booking widget at the top of an article — the two ways a blog reader
+ * can head toward checkout.
+ */
+export function trackBlogCtaClick(params: {
+  /** Empty string when the article/reader hasn't picked an airport we sell. */
+  airportCode: string;
+  placement: "top-widget" | "mid-article" | "end-of-article" | "end-of-article-inline";
+}) {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", "blog_cta_click", {
+      airport_code: params.airportCode || undefined,
+      placement: params.placement,
+    });
+  }
+}
+
+/**
  * Track AI chat first interaction
  */
 export function trackChatStart() {

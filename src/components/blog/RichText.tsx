@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import * as Sentry from '@sentry/nextjs'
 import { ComparisonTable } from './ComparisonTable'
 
 // Lexical node types that Payload uses
@@ -462,16 +463,72 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
 interface RichTextProps {
   content: LexicalContent | null | undefined
   className?: string
+  /**
+   * Index of the top-level block to render `insertContent` after. Splitting the
+   * block array (rather than the rendered HTML) guarantees the insert lands
+   * between blocks and never inside a paragraph, list or table.
+   * See getMidArticleInsertIndex in @/lib/blog/article-split.
+   */
+  insertAfterIndex?: number | null
+  insertContent?: React.ReactNode
+  /** The post's slug, for the out-of-range Sentry report below. Optional —
+   * omitting it just means that report has no slug context. */
+  articleSlug?: string
 }
 
-export function RichText({ content, className = '' }: RichTextProps) {
+export function RichText({
+  content,
+  className = '',
+  insertAfterIndex = null,
+  insertContent = null,
+  articleSlug,
+}: RichTextProps) {
   if (!content?.root?.children) {
     return null
   }
 
+  const blocks = content.root.children
+  const insertRequested = insertContent != null && insertAfterIndex != null
+  const insertInRange =
+    insertAfterIndex != null && insertAfterIndex >= 0 && insertAfterIndex < blocks.length
+  const insertAt = insertRequested && insertInRange ? insertAfterIndex : null
+
+  // Was silently a dev-only `console.warn` — never fired in preview/staging
+  // (both run with NODE_ENV=production), and RichText renders client-side
+  // anyway, so even in dev it only ever reached the browser console. This is
+  // the caller (getMidArticleInsertIndex + this component) disagreeing about
+  // the block count, which should only happen if content changed between the
+  // two reads — worth knowing about either way.
+  if (insertRequested && !insertInRange) {
+    Sentry.withScope((scope) => {
+      scope.setTag('component', 'RichText')
+      // Tag, not just context: tags are searchable in Sentry, so "which
+      // article lost its CTA" is one query rather than an event-by-event read.
+      if (articleSlug) scope.setTag('article.slug', articleSlug)
+      scope.setContext('richTextInsert', {
+        slug: articleSlug ?? null,
+        insertAfterIndex,
+        blockCount: blocks.length,
+      })
+      Sentry.captureMessage(
+        'RichText: insertAfterIndex out of range — dropping the mid-article CTA',
+        'warning'
+      )
+    })
+  }
+
   return (
     <div className={`prose prose-slate max-w-none ${className}`}>
-      {content.root.children.map((node, index) => renderNode(node, index))}
+      {blocks.map((node, index) =>
+        index === insertAt ? (
+          <React.Fragment key={`block-${index}`}>
+            {renderNode(node, index)}
+            {insertContent}
+          </React.Fragment>
+        ) : (
+          renderNode(node, index)
+        )
+      )}
     </div>
   )
 }
