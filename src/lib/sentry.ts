@@ -62,6 +62,15 @@ export function captureAPIError(
     stage?: string;
     /** An upstream error code (e.g. Postgres SQLSTATE). */
     code?: string;
+    /**
+     * Free-form diagnostic context attached to the event WITHOUT affecting
+     * grouping (unlike the message). Use for per-event detail such as a
+     * PostgREST `details`/`hint`, a failing row, or how many times a deduped
+     * fault has already occurred on a warm instance (see /api/newsletter).
+     * Lands in the "detail" context. (Same shape as PR #31's addition — keep
+     * these identical so the two branches merge cleanly.)
+     */
+    extra?: Record<string, unknown>;
   }
 ) {
   Sentry.withScope((scope) => {
@@ -72,6 +81,9 @@ export function captureAPIError(
     }
     if (context.stage) scope.setTag("api.stage", context.stage);
     if (context.code) scope.setContext("api", { code: context.code });
+    if (context.extra) {
+      scope.setContext("detail", context.extra);
+    }
     Sentry.captureException(error);
   });
 }

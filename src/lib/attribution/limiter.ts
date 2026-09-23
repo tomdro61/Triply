@@ -42,8 +42,22 @@ function createBoundedRateLimiter(opts: { limit: number; windowMs: number; maxKe
     return true;
   }
 
+  /**
+   * Would `check(key)` succeed right now? Read-only: it never charges the
+   * bucket, never refreshes the key's LRU position, and never resets an
+   * expired window — so a caller can ask "is this key out of budget?" without
+   * spending any of that budget itself.
+   */
+  function peek(key: string, now = Date.now()): boolean {
+    const b = store.get(key);
+    if (!b) return true;
+    if (now >= b.resetAt) return true;
+    return b.count < limit;
+  }
+
   return {
     check,
+    peek,
     reset: () => store.clear(),
     size: () => store.size,
   };
@@ -79,6 +93,19 @@ export const NEWSLETTER_RATE_LIMIT_WINDOW_SECONDS = 60;
 
 export function checkNewsletterRateLimit(key: string, now = Date.now()): boolean {
   return newsletterLimiter.check(key, now);
+}
+
+/**
+ * Read-only companion to checkNewsletterRateLimit, for the newsletter route's
+ * read-only branches ("already subscribed", cooldown, redeemed code). Those
+ * branches deliberately don't CHARGE the mint quota — they neither mint nor
+ * send — but if they returned 200 while a genuinely new address from the same
+ * IP got a 429, the status alone would tell an unauthenticated caller which
+ * addresses are already on the list. Peeking lets them return the same 429
+ * under quota pressure without burning budget a real signup needs.
+ */
+export function peekNewsletterRateLimit(key: string, now = Date.now()): boolean {
+  return newsletterLimiter.peek(key, now);
 }
 
 export function __resetNewsletterRateLimitForTests(): void {

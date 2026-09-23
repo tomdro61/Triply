@@ -9,14 +9,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { db } = await vi.hoisted(async () => {
+const { db, captureException } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
-  return { db: new FakeSupabase() };
+  return { db: new FakeSupabase(), captureException: vi.fn() };
 });
 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@sentry/nextjs", () => ({
-  captureException: vi.fn(),
+  captureException,
   withScope: (fn: (scope: unknown) => void) =>
     fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() }),
 }));
@@ -32,6 +32,7 @@ function post(body: unknown) {
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
   db.tables = { promo_codes: [] };
   db.log = [];
 });
@@ -123,7 +124,38 @@ describe("POST /api/promo/validate", () => {
 
   it("unknown code is invalid", async () => {
     const res = await POST(post({ code: "NOPE" }));
+    expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.valid).toBe(false);
+    expect(json.error).toMatch(/invalid promo code/i);
+    // A genuine miss is not a fault — nothing to report.
+    expect(captureException).not.toHaveBeenCalled();
+  });
+
+  it("a DB fault on the lookup is a 503 that says so, not a 200 'Invalid promo code'", async () => {
+    // Pass-4 review: a connection reset used to be collapsed into the same
+    // 200 "Invalid promo code" as a genuinely unknown code, with nothing to
+    // Sentry — so a Supabase blip silently told every customer at checkout
+    // that their valid code was bad. Only PGRST116 (no row) means "unknown".
+    db.tables.promo_codes.push({
+      id: "p6",
+      code: "REALCODE",
+      discount_percent: 10,
+      active: true,
+      expires_at: null,
+      max_uses: null,
+      current_uses: 0,
+    });
+    db.failOnce("promo_codes", "select", "connection reset", "08006");
+
+    const res = await POST(post({ code: "REALCODE" }));
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json.valid).toBe(false);
+    expect(json.error).toMatch(/couldn't check that code right now/i);
+    // Distinguishable from the "Invalid promo code" a real miss returns, so
+    // the checkout form shows retry copy rather than rejecting the code.
+    expect(json.error).not.toMatch(/invalid promo code/i);
+    expect(captureException).toHaveBeenCalledTimes(1);
   });
 });

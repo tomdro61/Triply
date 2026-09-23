@@ -4,6 +4,14 @@ import { z } from "zod";
 import { captureAPIError } from "@/lib/sentry";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
 
+// A lookup fault is not a verdict on the code. Pass-4 review: this route used
+// to answer a connection reset with 200 "Invalid promo code" and report
+// nothing, so a Supabase blip told every customer at checkout that their valid
+// code was bad — indistinguishable, to them and to us, from a genuinely
+// unknown code.
+const LOOKUP_UNAVAILABLE_MESSAGE =
+  "We couldn't check that code right now. Please try again in a moment.";
+
 const promoValidateSchema = z.object({
   code: z.string().min(1).max(50),
 });
@@ -28,7 +36,24 @@ export async function POST(request: NextRequest) {
       .eq("code", code.toUpperCase())
       .single();
 
-    if (error || !promo) {
+    // Same rule as /api/checkout/lot and /api/newsletter: only PGRST116 (no
+    // row) means "no such code". Anything else is a real fault and must
+    // surface as one.
+    if (error && error.code !== "PGRST116") {
+      console.error("Promo code lookup failed:", error.message);
+      captureAPIError(new Error(`Promo code lookup failed: ${error.message}`), {
+        endpoint: "/api/promo/validate",
+        method: "POST",
+        stage: "lookup",
+        code: error.code,
+      });
+      return NextResponse.json(
+        { valid: false, error: LOOKUP_UNAVAILABLE_MESSAGE },
+        { status: 503 }
+      );
+    }
+
+    if (!promo) {
       return NextResponse.json({ valid: false, error: "Invalid promo code" });
     }
 

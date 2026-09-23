@@ -72,15 +72,12 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
       }
 
       if (!response.ok) {
-        // Prefer the route's own error text (e.g. UNAVAILABLE_MESSAGE) over a
-        // generic fallback — matches the homepage form. This route almost
-        // always sets `error` on a non-2xx; the fallback only covers a body
-        // that failed to parse as JSON.
-        const fallback =
-          response.status === 429
-            ? "Too many requests — please try again in a minute."
-            : "Something went wrong. Please try again.";
-        throw new Error(data?.error || fallback);
+        // /api/newsletter sets an actionable `error` string on every non-2xx
+        // it produces (403/413/429/500/503), and it is always preferred, so
+        // the per-status copy that used to live here was unreachable. The one
+        // remaining fallback covers a response this route did NOT write — a
+        // WAF/edge page or a 502 with a non-JSON body.
+        throw new Error(data?.error || "Something went wrong. Please try again.");
       }
 
       // A 2xx with no parseable body is not evidence anything happened —

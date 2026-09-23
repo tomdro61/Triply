@@ -43,17 +43,11 @@ export function Newsletter() {
       }
 
       if (!response.ok) {
-        const fallback =
-          response.status === 429
-            ? "Too many requests — please try again in a minute."
-            : response.status === 413
-              ? "That request was too large."
-              : response.status === 403
-                ? "We couldn't process that request. Please refresh and try again."
-                : response.status >= 500
-                  ? "Something went wrong. Please try again."
-                  : "Failed to subscribe";
-        throw new Error(data?.error || fallback);
+        // Same as the blog capture form: the route's own `error` string is
+        // the actionable one and is always preferred, so this ladder was
+        // dead code. The fallback only covers a response /api/newsletter did
+        // not write (WAF/edge page, 502 with a non-JSON body).
+        throw new Error(data?.error || "Something went wrong. Please try again.");
       }
 
       // A 2xx with no parseable body is not evidence anything happened —

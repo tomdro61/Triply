@@ -108,7 +108,11 @@ export class FakeSupabase {
   /** `${table}:${op}` -> injected error. Consumed on first use. */
   private injected = new Map<string, { message: string; code: string }>();
 
-  /** `${table}:${op}` -> error returned on EVERY call until cleared. */
+  /** `${table}:${op}` -> injected error that is NEVER consumed. A one-shot
+   *  failure can only prove a single request's behaviour; a SUSTAINED fault
+   *  (a column missing all deploy long, an UPDATE failing for half an hour)
+   *  is what turns a "harmless, it just retries next time" write into a loop,
+   *  and needs a fault that keeps failing. */
   private persistent = new Map<string, { message: string; code: string }>();
 
   /** Payload-conditional injected errors, consumed on first MATCH. Lets a test
@@ -169,6 +173,11 @@ export class FakeSupabase {
     return this;
   }
 
+  clearFailAlways(table: string, op: "select" | "insert" | "update" | "delete") {
+    this.persistent.delete(`${table}:${op}`);
+    return this;
+  }
+
   /** Fail the first `op` on `table` whose payload matches `predicate`, once.
    *  Use to target one write among several same-table:op writes. */
   failWhen(
@@ -217,6 +226,9 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private op: "select" | "insert" | "update" | "delete" = "select";
   private payload: Row | null = null;
   private selectStr = "";
+  /** `.select()` called AFTER insert/update/delete — PostgREST only returns
+   *  the affected rows when it is. */
+  private selectOnMutation = false;
   private singleRow = false;
   private requireOne = false;
   private orOnMutation = false;
@@ -229,13 +241,17 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   constructor(private db: FakeSupabase, private table: string) {}
 
   select(str = "", opts?: { count?: "exact" | "planned" | "estimated"; head?: boolean }) {
-    if (this.op === "select") this.selectStr = str;
-    // `{ count: "exact", head: true }` is how a caller asks "how many rows
-    // match?" without transferring them. Modelled for real (count computed
-    // BEFORE any limit, no rows in `data`) so a route that reads `count`
-    // can't pass a test purely because the fake handed back `data` anyway.
-    if (opts?.count) this.countMode = true;
-    if (opts?.head) this.headOnly = true;
+    if (this.op === "select") {
+      this.selectStr = str;
+      // `{ count: "exact", head: true }` is how a caller asks "how many rows
+      // match?" without transferring them. Modelled for real (count computed
+      // BEFORE any limit, no rows in `data`) so a route that reads `count`
+      // can't pass a test purely because the fake handed back `data` anyway.
+      if (opts?.count) this.countMode = true;
+      if (opts?.head) this.headOnly = true;
+    } else {
+      this.selectOnMutation = true;
+    }
     return this;
   }
   insert(payload: Row) {
@@ -431,6 +447,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       if (!row.created_at) row.created_at = new Date().toISOString();
       row.updated_at = new Date().toISOString();
       rows.push(row);
+      if (!this.selectOnMutation) return { data: null, error: null };
       return { data: this.singleRow ? row : [row], error: null };
     }
 
@@ -441,6 +458,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
         Object.assign(r, this.payload);
         r.updated_at = new Date().toISOString();
       }
+      if (!this.selectOnMutation) return { data: null, error: null };
       const out = hit.map((r) => ({ ...r }));
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
@@ -448,6 +466,12 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     if (this.op === "delete") {
       const out = hit.map((r) => ({ ...r }));
       this.db.tables[this.table] = rows.filter((r) => !this.matches(r));
+      // Without `.select()` PostgREST returns NO rows from a DELETE, so a
+      // caller that skips it cannot tell a 0-row delete from a successful
+      // one. Reproduce that: a fake that always handed back the deleted rows
+      // would bless exactly the bug the orphan-cleanup `.select("id")` in
+      // /api/newsletter exists to catch.
+      if (!this.selectOnMutation) return { data: null, error: null };
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 

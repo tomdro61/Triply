@@ -2,8 +2,11 @@
 
 import { Component, type ReactNode } from "react";
 import * as Sentry from "@sentry/nextjs";
-import { format } from "date-fns";
-import { maxAdvanceBookingDate } from "@/lib/booking-window";
+import {
+  MAX_ADVANCE_BOOKING_DAYS,
+  maxAdvanceBookingDate,
+  toLocalISODate,
+} from "@/lib/booking-window";
 
 // Matches `ChunkLoadError` (webpack/next's own error name for a failed
 // `import()`) or the message Safari/older browsers throw for the same
@@ -24,8 +27,8 @@ function isChunkLoadError(error: Error): boolean {
  */
 export function getFallbackDateBounds(): { min: string; max: string } {
   return {
-    min: format(new Date(), "yyyy-MM-dd"),
-    max: format(maxAdvanceBookingDate(), "yyyy-MM-dd"),
+    min: toLocalISODate(new Date()),
+    max: toLocalISODate(maxAdvanceBookingDate()),
   };
 }
 
@@ -41,6 +44,22 @@ export function nextReturnDateAfterDepartChange(
     return "";
   }
   return currentReturnDate;
+}
+
+/**
+ * The mirror case: a return date typed BEFORE the current depart date. The
+ * real picker swaps the pair (date-picker.tsx "Picked a date before departure
+ * — swap them"); the fallback does the same so it can never produce a range
+ * state the real widget structurally cannot.
+ */
+export function nextRangeAfterReturnChange(
+  currentDepartDate: string,
+  newReturnDate: string
+): { depart: string; return: string } {
+  if (newReturnDate && currentDepartDate && newReturnDate < currentDepartDate) {
+    return { depart: newReturnDate, return: currentDepartDate };
+  }
+  return { depart: currentDepartDate, return: newReturnDate };
 }
 
 interface DateRangeFieldErrorBoundaryProps {
@@ -110,19 +129,28 @@ export class DateRangeFieldErrorBoundary extends Component<
     }
   };
 
+  private handleReturnChange = (value: string) => {
+    const { departDate, onDepartChange, onReturnChange } = this.props;
+    const next = nextRangeAfterReturnChange(departDate, value);
+    if (next.depart !== departDate) onDepartChange(next.depart);
+    onReturnChange(next.return);
+  };
+
   /**
-   * A transient chunk failure (flaky network, a deploy racing a cached tab)
-   * shouldn't permanently downgrade the widget for the rest of the session —
-   * let the reader retry the real picker. Render-bug failures are excluded:
-   * DateRangeField would just throw again immediately.
+   * A chunk rotation (deploy racing a cached tab) is only recoverable by
+   * refetching the document: `next/dynamic` is `React.lazy` over a
+   * module-scope payload, and a rejected loader caches its error and rethrows
+   * on every later read — resetting boundary state would re-render the same
+   * fallback and fire another Sentry event. So the affordance is a reload,
+   * labelled as one. The native inputs already work meanwhile.
    */
-  private handleRetry = () => {
-    this.setState({ hasError: false, wasChunkFailure: false });
+  private handleReload = () => {
+    window.location.reload();
   };
 
   render() {
     if (this.state.hasError) {
-      const { departDate, returnDate, onReturnChange } = this.props;
+      const { departDate, returnDate } = this.props;
       const { min, max } = getFallbackDateBounds();
       return (
         <>
@@ -144,19 +172,25 @@ export class DateRangeFieldErrorBoundary extends Component<
               value={returnDate}
               min={departDate || min}
               max={max}
-              onChange={(e) => onReturnChange(e.target.value)}
+              onChange={(e) => this.handleReturnChange(e.target.value)}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-900"
             />
           </div>
-          {this.state.wasChunkFailure && (
-            <button
-              type="button"
-              onClick={this.handleRetry}
-              className="col-span-full text-xs text-gray-400 underline underline-offset-2 hover:text-gray-600 text-left"
-            >
-              Try the calendar picker again
-            </button>
-          )}
+          <p className="col-span-full text-xs text-gray-400">
+            Reservations open {MAX_ADVANCE_BOOKING_DAYS} days in advance.
+            {this.state.wasChunkFailure && (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  onClick={this.handleReload}
+                  className="underline underline-offset-2 hover:text-gray-600"
+                >
+                  Reload the page to use the calendar
+                </button>
+              </>
+            )}
+          </p>
         </>
       );
     }
