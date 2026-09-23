@@ -146,10 +146,18 @@ export async function POST(request: NextRequest) {
     const email = row.email.toLowerCase();
 
     // Address-level suppression: every row for this email, not just this id.
-    const { error: updateError } = await supabase
+    // `.ilike` (not `.eq`) because the unique index (026) and every other
+    // suppression check in this codebase treat the address as
+    // case-insensitive via lower(email) — a plain `.eq("email", email)`
+    // against a differently-cased stored value would match zero rows and
+    // still report success below. `.select("id")` so a zero-row match is
+    // visible: an update with no matching WHERE clause returns no error,
+    // only an empty result, so without it this always "succeeded".
+    const { data: updatedRows, error: updateError } = await supabase
       .from("booking_waitlist")
       .update({ unsubscribed_at: new Date().toISOString() })
-      .eq("email", email);
+      .ilike("email", email)
+      .select("id");
 
     if (updateError) {
       captureAPIError(new Error(updateError.message), {
@@ -158,6 +166,20 @@ export async function POST(request: NextRequest) {
         stage: "update",
         code: updateError.code,
       });
+      return htmlPage("Something went wrong. Please try again.", 500);
+    }
+
+    if (!updatedRows || updatedRows.length === 0) {
+      // The lookup above found this id by its own id (not by email), so
+      // getting here means the update's email filter matched nothing for a
+      // row we just confirmed exists — a real bug (e.g. a casing mismatch
+      // this filter didn't actually cover), not an expected empty state.
+      // Must not report success: the traveller would believe they're
+      // unsubscribed while every row for their address is still live.
+      captureAPIError(
+        new Error("waitlist unsubscribe: update matched no rows for a looked-up id"),
+        { endpoint: "/api/waitlist/unsubscribe", method: "POST", stage: "update_no_match" }
+      );
       return htmlPage("Something went wrong. Please try again.", 500);
     }
   } catch (error) {

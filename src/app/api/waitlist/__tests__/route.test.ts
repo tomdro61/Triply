@@ -195,12 +195,27 @@ describe("POST /api/waitlist — List-Unsubscribe-Post", () => {
 });
 
 describe("POST /api/waitlist — wantedCheckout", () => {
-  it("a valid checkout after checkin, within 30 days, is written to the row", async () => {
+  it("a valid checkout after checkin, within 60 days, is written to the row", async () => {
     const checkin = addDays(MAX_DATE, 10);
     const checkout = addDays(checkin, 5);
     const res = await POST(
       post({
         email: "checkout@example.com",
+        airportCode: "abe",
+        wantedCheckin: fmt(checkin),
+        wantedCheckout: fmt(checkout),
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(db.tables.booking_waitlist[0].wanted_checkout).toBe(fmt(checkout));
+  });
+
+  it("a 45-day long-stay checkout (within the 60-day cap) is accepted", async () => {
+    const checkin = addDays(MAX_DATE, 10);
+    const checkout = addDays(checkin, 45);
+    const res = await POST(
+      post({
+        email: "longstay@example.com",
         airportCode: "abe",
         wantedCheckin: fmt(checkin),
         wantedCheckout: fmt(checkout),
@@ -223,14 +238,14 @@ describe("POST /api/waitlist — wantedCheckout", () => {
     expect(res.status).toBe(400);
   });
 
-  it("checkout more than 30 days after checkin → 400", async () => {
+  it("checkout more than 60 days after checkin → 400", async () => {
     const checkin = addDays(MAX_DATE, 10);
     const res = await POST(
       post({
         email: "c@example.com",
         airportCode: "abe",
         wantedCheckin: fmt(checkin),
-        wantedCheckout: fmt(addDays(checkin, 31)),
+        wantedCheckout: fmt(addDays(checkin, 61)),
       })
     );
     expect(res.status).toBe(400);
@@ -259,6 +274,17 @@ describe("POST /api/waitlist — unsubscribed address", () => {
     expect(res.status).toBe(403);
     expect(db.tables.booking_waitlist).toHaveLength(1);
     expect(resendSend).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/waitlist — fail closed on the email-history check", () => {
+  it("a Supabase failure reading this address's history → 503, nothing written, no email", async () => {
+    db.failOnce("booking_waitlist", "select", "connection reset", "08006");
+    const res = await POST(post(tripAt(addDays(MAX_DATE, 10), "outage@example.com")));
+    expect(res.status).toBe(503);
+    expect(db.tables.booking_waitlist).toHaveLength(0);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(sentry.captureException).toHaveBeenCalled();
   });
 });
 

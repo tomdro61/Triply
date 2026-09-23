@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import * as Sentry from "@sentry/nextjs";
 import { addDays, format, isValid, parse, startOfDay, subDays } from "date-fns";
@@ -10,7 +9,7 @@ import { MAX_ADVANCE_BOOKING_DAYS, maxAdvanceBookingDate } from "@/lib/booking-w
 import { captureAPIError } from "@/lib/sentry";
 import { isSameOrigin, clientKey } from "@/lib/http/origin";
 import { checkWaitlistRateLimit } from "@/lib/attribution/limiter";
-import { waitlistUnsubscribeUrl } from "@/lib/waitlist/unsubscribe-token";
+import { waitlistUnsubscribeUrl, hmacHex } from "@/lib/waitlist/unsubscribe-token";
 
 /**
  * Waitlist for trips beyond the supplier's 60-day booking wall.
@@ -38,6 +37,15 @@ const DATE_FORMAT = "yyyy-MM-dd";
 // the row (it's still a real demand signal) but stop emailing — an attacker
 // who wants to hammer one inbox gets throttled even from many IPs.
 const MAX_SENDS_PER_EMAIL_PER_DAY = 3;
+
+// How far past check-in a traveller's return date can be. Was 30 — too tight
+// once the prompt actually started sending a real return date (pass 3, item
+// 7): a traveller booking a 45-day trip (not rare for the long-lead-time
+// waitlist audience — these are the furthest-out, often highest-value stays)
+// would 400 on a value the UI itself collected. Long enough to cover a real
+// long-stay trip, still short enough that a garbage/typo'd far-future
+// checkout can't produce a nonsense search link.
+const MAX_WANTED_STAY_DAYS = 60;
 
 /** Parses a YYYY-MM-DD string to a local start-of-day Date, or null. */
 function parseDateOnly(value: string): Date | null {
@@ -71,8 +79,9 @@ const waitlistSchema = z
     ),
     // Optional: the confirmation email doesn't need it, but the opens-on
     // notification links to /search, which needs BOTH dates to price a lot
-    // (see the cron's checkout fallback comment). Bounded to 30 days so a
-    // garbage/typo'd far-future checkout can't produce a nonsense search link.
+    // (see the cron's checkout fallback comment). Bounded by
+    // MAX_WANTED_STAY_DAYS so a garbage/typo'd far-future checkout can't
+    // produce a nonsense search link.
     wantedCheckout: dateOnly.optional(),
     source: z
       .string()
@@ -91,10 +100,10 @@ const waitlistSchema = z
         message: "Checkout must be after check-in",
         path: ["wantedCheckout"],
       });
-    } else if (checkout > addDays(checkin, 30)) {
+    } else if (checkout > addDays(checkin, MAX_WANTED_STAY_DAYS)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Checkout must be within 30 days of check-in",
+        message: `Checkout must be within ${MAX_WANTED_STAY_DAYS} days of check-in`,
         path: ["wantedCheckout"],
       });
     }
@@ -284,10 +293,12 @@ export async function POST(request: NextRequest) {
       // time; don't send a second confirmation.
     } else if (overSendCap) {
       // Never put the customer's email into Sentry/telemetry for a routine,
-      // expected-volume event — a short, non-reversible hash is enough to
-      // dedupe/rate-limit the telemetry itself without shipping PII.
+      // expected-volume event. Keyed (HMAC, same secret as the unsubscribe
+      // token) rather than a plain sha256: an email is a guessable input, so
+      // an unkeyed hash of it is a pseudonym recoverable via a rainbow table
+      // over common addresses, not the "non-reversible" this used to claim.
       reportOnce("send_cap_exceeded", {
-        emailHash: crypto.createHash("sha256").update(email).digest("hex").slice(0, 16),
+        emailHash: hmacHex(email).slice(0, 16),
       });
       // Row is still written (see the insert above) — it's still a real
       // demand signal — but honestly report that no email is going out,
@@ -396,6 +407,6 @@ async function sendWaitlistConfirmation({
   });
 
   if (error) {
-    throw new Error(`Resend error: ${error.message}`);
+    throw new Error(`Resend error for waitlist row ${id}: ${error.message}`);
   }
 }

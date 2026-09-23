@@ -171,6 +171,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private requireOne = false;
   private orOnMutation = false;
   private limitN: number | null = null;
+  private orderCol: string | null = null;
+  private orderAsc = true;
 
   constructor(private db: FakeSupabase, private table: string) {}
 
@@ -230,7 +232,14 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
     this.filters.push({ op: "or", col: "", val: expr });
     return this;
   }
-  order() {
+  // A no-op fake here let `.order("opens_on")`'s selection guarantee (oldest
+  // overdue rows attempted first, so the backlog can't starve the same rows
+  // run after run) go completely untested — the fake always returned
+  // insertion order regardless of what was asked for, which would pass a
+  // test that got the intended row purely by luck of seed order.
+  order(col: string, opts?: { ascending?: boolean }) {
+    this.orderCol = col;
+    this.orderAsc = opts?.ascending ?? true;
     return this;
   }
   limit(n: number) {
@@ -386,7 +395,20 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 
-    const limited = this.limitN == null ? hit : hit.slice(0, this.limitN);
+    const ordered = this.orderCol
+      ? [...hit].sort((a, b) => {
+          const col = this.orderCol as string;
+          const av = a[col];
+          const bv = b[col];
+          if (av == null && bv == null) return 0;
+          if (av == null) return this.orderAsc ? -1 : 1;
+          if (bv == null) return this.orderAsc ? 1 : -1;
+          if (av < bv) return this.orderAsc ? -1 : 1;
+          if (av > bv) return this.orderAsc ? 1 : -1;
+          return 0;
+        })
+      : hit;
+    const limited = this.limitN == null ? ordered : ordered.slice(0, this.limitN);
     const out = limited.map((r) => this.embeddedCustomer({ ...r }));
     // Real PostgREST returns a PGRST116 error for .single() on EITHER zero OR
     // multiple matches — the multiple case matters because customers.email is

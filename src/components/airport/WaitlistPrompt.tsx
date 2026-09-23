@@ -28,6 +28,12 @@ interface WaitlistPromptProps {
 export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptProps) {
   const [expanded, setExpanded] = useState(false);
   const [date, setDate] = useState(wantedCheckin ?? "");
+  // Optional return date. Without it, the opens-on email falls back to
+  // checkin + 7 days to build a working /search link (see the cron route) —
+  // fine as a pricing estimate, but it means the email can only ever name a
+  // check-in date, never the traveller's actual trip length. Collecting it
+  // up front fixes that for anyone willing to give it.
+  const [checkoutDate, setCheckoutDate] = useState("");
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [opensOn, setOpensOn] = useState<string | null>(null);
@@ -92,6 +98,9 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
           email,
           airportCode,
           wantedCheckin: date,
+          // Only sent when the traveller actually filled it in — the API
+          // treats it as optional and falls back to checkin + 7 days itself.
+          ...(checkoutDate ? { wantedCheckout: checkoutDate } : {}),
           source: "search",
           page: window.location.pathname,
         }),
@@ -119,6 +128,7 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
 
       setOpensOn(data?.opensOn ?? null);
       setEmail("");
+      setCheckoutDate("");
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Something went wrong. Please try again."
@@ -182,6 +192,32 @@ export function WaitlistPrompt({ airportCode, wantedCheckin }: WaitlistPromptPro
                 setError(null);
               }}
               required
+              disabled={isLoading}
+              className="h-9 text-sm bg-white"
+            />
+          </div>
+
+          <div className="sm:w-40">
+            <label htmlFor="waitlist-checkout" className="sr-only">
+              Return date (optional)
+            </label>
+            <Input
+              id="waitlist-checkout"
+              type="date"
+              name="wantedCheckout"
+              placeholder="Return date"
+              // A day after checkin, whatever checkin currently is — matches
+              // the API's own "checkout must be after checkin" rule.
+              min={
+                date
+                  ? format(addDays(parse(date, "yyyy-MM-dd", new Date()), 1), "yyyy-MM-dd")
+                  : minDateValue
+              }
+              value={checkoutDate}
+              onChange={(e) => {
+                setCheckoutDate(e.target.value);
+                setError(null);
+              }}
               disabled={isLoading}
               className="h-9 text-sm bg-white"
             />

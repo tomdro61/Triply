@@ -97,6 +97,30 @@ describe("POST /api/waitlist/unsubscribe — performs the unsubscribe", () => {
     expect(db.tables.booking_waitlist[0].unsubscribed_at).toBeNull();
   });
 
+  it("suppresses a row whose stored email is a different case than the token's row (unique index is on lower(email))", async () => {
+    db.tables.booking_waitlist = [
+      { id: "row_mixed", email: "Mixed@Example.com", unsubscribed_at: null },
+      { id: "row_mixed_2", email: "mixed@example.com", unsubscribed_at: null },
+    ];
+    const token = signWaitlistId("row_mixed");
+    const res = await POST(req({ id: "row_mixed", token }));
+    expect(res.status).toBe(200);
+    const [row1, row2] = db.tables.booking_waitlist;
+    expect(row1.unsubscribed_at).not.toBeNull();
+    expect(row2.unsubscribed_at).not.toBeNull();
+  });
+
+  it("an update() error on the suppression write → 500, not a false 200", async () => {
+    db.tables.booking_waitlist = [{ id: "row_only", email: "only@example.com", unsubscribed_at: null }];
+    db.failOnce("booking_waitlist", "update", "connection reset", "08006");
+    const token = signWaitlistId("row_only");
+    const res = await POST(req({ id: "row_only", token }));
+    expect(res.status).toBe(500);
+    const body = await res.text();
+    expect(body).not.toMatch(/you're unsubscribed/i);
+    expect(db.tables.booking_waitlist[0].unsubscribed_at).toBeNull();
+  });
+
   it("a token valid for a DIFFERENT id → 400, nothing written", async () => {
     const token = signWaitlistId("row_2_other");
     const res = await POST(req({ id: "row_1", token }));
