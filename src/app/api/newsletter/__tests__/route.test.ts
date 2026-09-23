@@ -336,7 +336,7 @@ describe("POST /api/newsletter — resubscribe", () => {
       source: null,
     });
 
-    const res = await POST(post({ email: "backagain@example.com" }));
+    const res = await POST(post({ email: "backagain@example.com", source: "blog" }));
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
@@ -346,6 +346,10 @@ describe("POST /api/newsletter — resubscribe", () => {
     expect(sub.promo_code_id).toBeTruthy();
     expect(sub.welcome_sent_at).toBeTruthy();
     expect(resendSend).toHaveBeenCalledTimes(1);
+    // Pass-5 regression guard: attribution used to be written inside the
+    // new-insert branch only, so a returning subscriber recorded nothing —
+    // and this test could not see it, because it sent no source at all.
+    expect(sub.source).toBe("blog");
   });
 
   it("a failed resubscribe UPDATE returns 503 and is reported to Sentry, not a false success", async () => {
@@ -387,7 +391,10 @@ describe("POST /api/newsletter — mint failure is honest", () => {
     db.failOnce("newsletter_subscribers", "insert", "duplicate key value", "23505");
 
     const res = await POST(post({ email: "raced@example.com" }));
-    expect(res.status).toBe(500);
+    // 503 like every other write failure on this route — a 23505 race is
+    // retryable, and the old 500 + its own copy was the one inconsistent
+    // failure shape.
+    expect(res.status).toBe(503);
     expect(sentry.captureException).toHaveBeenCalled();
     // The code minted before the failed insert is best-effort cleaned up,
     // not left behind as an orphaned live 10% code.
@@ -463,6 +470,122 @@ describe("POST /api/newsletter — a failed welcome email never locks the subscr
   });
 });
 
+/**
+ * Helper: an already-subscribed address holding a LIVE code that has never
+ * been confirmed as sent (welcome_sent_at null) — the resend branch.
+ */
+function seedResendable(id: string, email: string) {
+  const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
+  db.tables.promo_codes.push({
+    id: `${id}_promo`,
+    code: `WELCOME-${id.toUpperCase()}`,
+    active: true,
+    current_uses: 0,
+    max_uses: 1,
+    expires_at: future,
+  });
+  db.tables.newsletter_subscribers.push({
+    id,
+    email,
+    unsubscribed_at: null,
+    promo_code_id: `${id}_promo`,
+    source: null,
+    welcome_sent_at: null,
+  });
+}
+
+describe("POST /api/newsletter — the resend path is metered", () => {
+  it("a welcome_sent_at stamp that keeps failing cannot hand out unlimited resends: the mint quota stops it", async () => {
+    seedResendable("sub_stampfail", "stampfail@example.com");
+    // A SUSTAINED fault, not a one-shot: the cooldown can never arm, so every
+    // resubmission of this address takes the resend branch. Before pass 5
+    // that branch never charged the mint quota, leaving the 60/min request
+    // tier as the only brake — 60 welcome emails a minute to a known address.
+    db.failAlways(
+      "newsletter_subscribers",
+      "update",
+      "connection reset",
+      "08006"
+    );
+
+    for (let i = 0; i < 15; i++) {
+      const res = await POST(post({ email: "stampfail@example.com" }));
+      expect(res.status).toBe(200);
+    }
+    const limited = await POST(post({ email: "stampfail@example.com" }));
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("60");
+
+    // 15 sends, bounded by the mint quota — not 16, and nothing like the 60
+    // the request tier alone would have allowed.
+    expect(resendSend).toHaveBeenCalledTimes(15);
+    expect(db.tables.newsletter_subscribers[0].welcome_sent_at).toBeFalsy();
+
+    // The stamp failure is a real fault and IS reported — but deduped to one
+    // event per warm instance, not one per delivered email.
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+
+    db.clearFailAlways("newsletter_subscribers", "update");
+  });
+
+  it("with the mint quota spent, a resend-eligible address 429s instead of sending", async () => {
+    seedResendable("sub_after_quota", "afterquota@example.com");
+    for (let i = 0; i < 15; i++) {
+      expect((await POST(post({ email: `fresh${i}@example.com` }))).status).toBe(200);
+    }
+    expect(resendSend).toHaveBeenCalledTimes(15);
+
+    const res = await POST(post({ email: "afterquota@example.com" }));
+    expect(res.status).toBe(429);
+    // No 16th email: the resend is charged like any other send.
+    expect(resendSend).toHaveBeenCalledTimes(15);
+  });
+});
+
+describe("POST /api/newsletter — status parity under mint-quota pressure", () => {
+  it("once the mint quota is spent, an already-subscribed address gets the same 429 as an unknown one", async () => {
+    // Read-only branches do not CHARGE the mint quota (a shared IP's signup
+    // budget shouldn't be spendable by lookups), but they must not return 200
+    // while a new address from the same IP gets a 429 — the status would then
+    // answer exactly what the unified body withholds.
+    const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
+    db.tables.promo_codes.push({
+      id: "promo_parity",
+      code: "WELCOME-PARITY",
+      active: true,
+      current_uses: 0,
+      max_uses: 1,
+      expires_at: future,
+    });
+    db.tables.newsletter_subscribers.push({
+      id: "sub_parity",
+      email: "parity@example.com",
+      unsubscribed_at: null,
+      promo_code_id: "promo_parity",
+      source: null,
+      welcome_sent_at: new Date().toISOString(),
+    });
+
+    // Before the quota is spent both answer 200 — also part of the parity.
+    expect((await POST(post({ email: "parity@example.com" }))).status).toBe(200);
+
+    for (let i = 0; i < 15; i++) {
+      await POST(post({ email: `burn${i}@example.com` }));
+    }
+
+    const known = await POST(post({ email: "parity@example.com" }));
+    const unknown = await POST(post({ email: "never-seen@example.com" }));
+    expect(known.status).toBe(429);
+    expect(unknown.status).toBe(429);
+    expect(await known.json()).toEqual(await unknown.json());
+    expect(known.headers.get("Retry-After")).toBe(unknown.headers.get("Retry-After"));
+
+    // Peeking must not have consumed budget of its own: exactly the 15 new
+    // signups minted, and the known-address requests minted nothing.
+    expect(db.tables.promo_codes).toHaveLength(16);
+  });
+});
+
 describe("POST /api/newsletter — subscriber lookup errors", () => {
   it("a non-PGRST116 error on the subscriber lookup returns 503, not a route to new-signup", async () => {
     db.failOnce("newsletter_subscribers", "select", "connection reset", "08006");
@@ -493,6 +616,32 @@ describe("POST /api/newsletter — promo lookup errors", () => {
 });
 
 describe("POST /api/newsletter — deploy-window schema-cache errors", () => {
+  it("42703 on the subscriber SELECT retries without welcome_sent_at, and treats the unreadable cooldown as ACTIVE", async () => {
+    seedResendable("sub_window", "window@example.com");
+    // Migration 024 not applied: naming welcome_sent_at fails the WHOLE
+    // SELECT. The retry drops the column — but the cooldown then cannot be
+    // read OR written, so "unknown" must mean "active", not "never sent".
+    // Otherwise every already-subscribed address is resendable on every
+    // request for the length of the deploy window.
+    db.failOnce(
+      "newsletter_subscribers",
+      "select",
+      "column newsletter_subscribers.welcome_sent_at does not exist",
+      "42703"
+    );
+
+    const res = await POST(post({ email: "window@example.com", source: "blog" }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, message: SUCCESS_MESSAGE });
+
+    // No resend, no re-mint, and the retry itself is not a fault.
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    // Attribution still lands — it is a separate, column-tolerant UPDATE.
+    expect(db.tables.newsletter_subscribers[0].source).toBe("blog");
+  });
+
   it("PGRST204 on the attribution UPDATE (024 not yet applied) is swallowed, not reported, and the signup still succeeds", async () => {
     db.failOnce("newsletter_subscribers", "update", "column not found in schema cache", "PGRST204");
 

@@ -86,6 +86,13 @@ export class FakeSupabase {
   /** `${table}:${op}` -> injected error. Consumed on first use. */
   private injected = new Map<string, { message: string; code: string }>();
 
+  /** `${table}:${op}` -> injected error that is NEVER consumed. A one-shot
+   *  failure can only prove a single request's behaviour; a SUSTAINED fault
+   *  (a column missing all deploy long, an UPDATE failing for half an hour)
+   *  is what turns a "harmless, it just retries next time" write into a loop,
+   *  and needs a fault that keeps failing. */
+  private persistent = new Map<string, { message: string; code: string }>();
+
   /** Payload-conditional injected errors, consumed on first MATCH. Lets a test
    *  fail a SPECIFIC write among several same-`table:op` writes (e.g. the terminal
    *  status write vs the earlier claim UPDATE — both `bookings:update`) by
@@ -116,6 +123,23 @@ export class FakeSupabase {
     code = "XXFAKE"
   ) {
     this.injected.set(`${table}:${op}`, { message, code });
+    return this;
+  }
+
+  /** Make every `op` on `table` fail until `clearFailAlways` — see the
+   *  `persistent` field for why a one-shot failure is not enough. */
+  failAlways(
+    table: string,
+    op: "select" | "insert" | "update" | "delete",
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.persistent.set(`${table}:${op}`, { message, code });
+    return this;
+  }
+
+  clearFailAlways(table: string, op: "select" | "insert" | "update" | "delete") {
+    this.persistent.delete(`${table}:${op}`);
     return this;
   }
 
@@ -158,7 +182,7 @@ export class FakeSupabase {
       this.injected.delete(key);
       return err;
     }
-    return null;
+    return this.persistent.get(key) ?? null;
   }
 }
 
@@ -167,6 +191,9 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private op: "select" | "insert" | "update" | "delete" = "select";
   private payload: Row | null = null;
   private selectStr = "";
+  /** `.select()` called AFTER insert/update/delete — PostgREST only returns
+   *  the affected rows when it is. */
+  private selectOnMutation = false;
   private singleRow = false;
   private requireOne = false;
   private orOnMutation = false;
@@ -176,6 +203,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
 
   select(str = "") {
     if (this.op === "select") this.selectStr = str;
+    else this.selectOnMutation = true;
     return this;
   }
   insert(payload: Row) {
@@ -360,6 +388,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
       if (!row.created_at) row.created_at = new Date().toISOString();
       row.updated_at = new Date().toISOString();
       rows.push(row);
+      if (!this.selectOnMutation) return { data: null, error: null };
       return { data: this.singleRow ? row : [row], error: null };
     }
 
@@ -370,6 +399,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
         Object.assign(r, this.payload);
         r.updated_at = new Date().toISOString();
       }
+      if (!this.selectOnMutation) return { data: null, error: null };
       const out = hit.map((r) => ({ ...r }));
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
@@ -377,6 +407,12 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
     if (this.op === "delete") {
       const out = hit.map((r) => ({ ...r }));
       this.db.tables[this.table] = rows.filter((r) => !this.matches(r));
+      // Without `.select()` PostgREST returns NO rows from a DELETE, so a
+      // caller that skips it cannot tell a 0-row delete from a successful
+      // one. Reproduce that: a fake that always handed back the deleted rows
+      // would bless exactly the bug the orphan-cleanup `.select("id")` in
+      // /api/newsletter exists to catch.
+      if (!this.selectOnMutation) return { data: null, error: null };
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 

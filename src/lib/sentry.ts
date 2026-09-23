@@ -62,6 +62,13 @@ export function captureAPIError(
     stage?: string;
     /** An upstream error code (e.g. Postgres SQLSTATE). */
     code?: string;
+    /**
+     * Anything else worth attaching to the event, e.g. how many times this
+     * fault has already occurred on a warm instance when the capture itself
+     * is deduped to one event per class (see /api/newsletter). Merged into
+     * the same "api" context as `code`.
+     */
+    extra?: Record<string, unknown>;
   }
 ) {
   Sentry.withScope((scope) => {
@@ -71,7 +78,12 @@ export function captureAPIError(
       scope.setTag("api.statusCode", context.statusCode.toString());
     }
     if (context.stage) scope.setTag("api.stage", context.stage);
-    if (context.code) scope.setContext("api", { code: context.code });
+    if (context.code || context.extra) {
+      scope.setContext("api", {
+        ...context.extra,
+        ...(context.code ? { code: context.code } : {}),
+      });
+    }
     Sentry.captureException(error);
   });
 }

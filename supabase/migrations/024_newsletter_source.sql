@@ -12,13 +12,22 @@
 -- found) and is console.warn'ed and swallowed, so signups keep working if
 -- this migration runs AFTER the code deploys.
 --
--- welcome_sent_at is NOT the same story: it's read in the route's main
+-- welcome_sent_at is NOT the same story: it is read in the route's main
 -- subscriber SELECT, and an unknown column fails that whole query, not just
 -- one write. The route retries that SELECT once without the column on
--- 42703/PGRST204, so it degrades safely too — but that retry only exists
--- because of this constraint, not despite it. Applying this migration BEFORE
--- deploying the code that depends on it (the usual order) needs no such
--- tolerance and is always safe.
+-- 42703/PGRST204, so signups keep working in that window — but it does NOT
+-- behave the way it will once this migration lands, and the earlier claim
+-- here that it "degrades safely either order" was wrong:
+--   * welcome_sent_at cannot be READ, so the 7-day cooldown cannot be
+--     evaluated, and it cannot be WRITTEN either, so it could never arm.
+--   * The route therefore treats an unreadable cooldown as ACTIVE for that
+--     request: an already-subscribed address still gets the usual 200, but
+--     no welcome email is resent and no code re-minted until this migration
+--     is applied. Reading it as "never sent" instead is what would turn the
+--     endpoint into an on-demand mailer for any known address for the length
+--     of the deploy window, bounded only by the per-IP limiters.
+-- Apply this migration BEFORE deploying the code that depends on it. That
+-- order needs no tolerance at all and is the only one with full behaviour.
 --
 -- welcome_sent_at: when the welcome email (with the live promo code) was last
 -- sent to this address. Pass 2 review (PR #23): re-minting a fresh code on
