@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { captureAPIError } from "@/lib/sentry";
+import { isPromoCodeUsable } from "@/lib/promo/usable";
 
 const promoValidateSchema = z.object({
   code: z.string().min(1).max(50),
@@ -41,6 +42,17 @@ export async function POST(request: NextRequest) {
 
     if (promo.max_uses !== null && promo.current_uses >= promo.max_uses) {
       return NextResponse.json({ valid: false, error: "This promo code has reached its usage limit" });
+    }
+
+    // Defense in depth: the three checks above are drift-prone copies of this
+    // same logic — this route disagreed with checkout/newsletter about how to
+    // read a null max_uses/expires_at once already (see
+    // src/lib/promo/usable.ts). The shared predicate is the actual authority
+    // on pass/fail; a code that fails it despite clearing every check above
+    // (only possible if this route's copy has drifted from the shared one)
+    // must still be rejected, not treated as valid.
+    if (!isPromoCodeUsable(promo)) {
+      return NextResponse.json({ valid: false, error: "Invalid promo code" });
     }
 
     return NextResponse.json({

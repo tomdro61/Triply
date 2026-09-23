@@ -111,7 +111,7 @@ export class FakeSupabase {
    *  PERMANENT booking-insert failure vs a transient connection reset). */
   failOnce(
     table: string,
-    op: "select" | "insert" | "update",
+    op: "select" | "insert" | "update" | "delete",
     message: string,
     code = "XXFAKE"
   ) {
@@ -123,7 +123,7 @@ export class FakeSupabase {
    *  Use to target one write among several same-table:op writes. */
   failWhen(
     table: string,
-    op: "select" | "insert" | "update",
+    op: "select" | "insert" | "update" | "delete",
     predicate: (payload: Row | null) => boolean,
     message: string,
     code = "XXFAKE"
@@ -164,7 +164,7 @@ export class FakeSupabase {
 
 class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   private filters: Filter[] = [];
-  private op: "select" | "insert" | "update" = "select";
+  private op: "select" | "insert" | "update" | "delete" = "select";
   private payload: Row | null = null;
   private selectStr = "";
   private singleRow = false;
@@ -186,6 +186,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
   update(payload: Row) {
     this.op = "update";
     this.payload = payload;
+    return this;
+  }
+  delete() {
+    this.op = "delete";
     return this;
   }
   eq(col: string, val: unknown) {
@@ -367,6 +371,12 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown }> {
         r.updated_at = new Date().toISOString();
       }
       const out = hit.map((r) => ({ ...r }));
+      return { data: this.singleRow ? out[0] ?? null : out, error: null };
+    }
+
+    if (this.op === "delete") {
+      const out = hit.map((r) => ({ ...r }));
+      this.db.tables[this.table] = rows.filter((r) => !this.matches(r));
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 

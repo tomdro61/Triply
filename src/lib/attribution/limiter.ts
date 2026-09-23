@@ -68,10 +68,11 @@ export function __attributionRateLimitSizeForTests(): number {
 // limiter above — but 5/min/IP (the original budget) punished shared IPs
 // (airport WiFi, CGNAT) after a handful of readers signed up back to back.
 // Widened to ~15/min/IP; the route only charges this limiter on the mint
-// path now (after validation), not on every request, so the two changes
-// together still bound the actual cost (a code + an email) per IP per
-// minute while leaving read-only responses ("you're already subscribed")
-// unlimited.
+// path (after validation and the read-only lookups), not on every request.
+//
+// That mint-only charging left every OTHER request on the route (lookups,
+// "already subscribed" responses) completely unmetered — see
+// checkNewsletterRequestRateLimit below, which closes that gap.
 const newsletterLimiter = createBoundedRateLimiter({ limit: 15, windowMs: 60_000, maxKeys: 5000 });
 
 export const NEWSLETTER_RATE_LIMIT_WINDOW_SECONDS = 60;
@@ -86,4 +87,28 @@ export function __resetNewsletterRateLimitForTests(): void {
 
 export function __newsletterRateLimitSizeForTests(): number {
   return newsletterLimiter.size();
+}
+
+// Request-level ceiling for the newsletter route, charged on EVERY request
+// that clears the origin check — before any lookup, mint, or send. Pass-3
+// review: charging only the mint path (above) left every non-mint request
+// (1-2 SELECTs + an UPDATE per call) completely unbounded from a public
+// endpoint, and made hitting the mint quota vs. not into an enumeration
+// oracle ("already subscribed" lookups never 429'd, no matter how many were
+// sent). This is deliberately looser than the mint quota — it exists to cap
+// total DB load per IP, not to gate the expensive mint+send action.
+const newsletterRequestLimiter = createBoundedRateLimiter({ limit: 60, windowMs: 60_000, maxKeys: 5000 });
+
+export const NEWSLETTER_REQUEST_RATE_LIMIT_WINDOW_SECONDS = 60;
+
+export function checkNewsletterRequestRateLimit(key: string, now = Date.now()): boolean {
+  return newsletterRequestLimiter.check(key, now);
+}
+
+export function __resetNewsletterRequestRateLimitForTests(): void {
+  newsletterRequestLimiter.reset();
+}
+
+export function __newsletterRequestRateLimitSizeForTests(): number {
+  return newsletterRequestLimiter.size();
 }

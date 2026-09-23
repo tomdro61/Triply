@@ -7,10 +7,18 @@
 --   airport_code the article's airport, when it is one we can sell
 --   page         the article slug the signup came from
 --
--- Safe to apply in either deploy order: /api/newsletter writes source/
--- airport_code/page in a separate best-effort UPDATE that is console.warn'ed
--- and swallowed if the columns do not exist yet, so signups keep working
--- before this runs.
+-- Deploy order: /api/newsletter writes source/airport_code/page in a
+-- separate best-effort UPDATE that tolerates 42703/PGRST204 (column not
+-- found) and is console.warn'ed and swallowed, so signups keep working if
+-- this migration runs AFTER the code deploys.
+--
+-- welcome_sent_at is NOT the same story: it's read in the route's main
+-- subscriber SELECT, and an unknown column fails that whole query, not just
+-- one write. The route retries that SELECT once without the column on
+-- 42703/PGRST204, so it degrades safely too — but that retry only exists
+-- because of this constraint, not despite it. Applying this migration BEFORE
+-- deploying the code that depends on it (the usual order) needs no such
+-- tolerance and is always safe.
 --
 -- welcome_sent_at: when the welcome email (with the live promo code) was last
 -- sent to this address. Pass 2 review (PR #23): re-minting a fresh code on

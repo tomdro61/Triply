@@ -31,7 +31,10 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import { POST, __resetNewsletterRouteTelemetryForTests } from "../route";
-import { __resetNewsletterRateLimitForTests } from "@/lib/attribution/limiter";
+import {
+  __resetNewsletterRateLimitForTests,
+  __resetNewsletterRequestRateLimitForTests,
+} from "@/lib/attribution/limiter";
 
 const HOST = "www.triplypro.com";
 
@@ -57,6 +60,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   __resetNewsletterRateLimitForTests();
+  __resetNewsletterRequestRateLimitForTests();
   __resetNewsletterRouteTelemetryForTests();
   db.tables = { newsletter_subscribers: [], promo_codes: [] };
   db.log = [];
@@ -93,7 +97,7 @@ describe("POST /api/newsletter — limits", () => {
     ).toBe(200);
   });
 
-  it("the rate limit is only charged on the mint path — repeated already-subscribed lookups don't burn quota", async () => {
+  it("already-subscribed lookups don't burn the mint quota, but ARE bounded by the request-level limiter", async () => {
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
     db.tables.promo_codes.push({
       id: "promo_quota",
@@ -108,12 +112,32 @@ describe("POST /api/newsletter — limits", () => {
       unsubscribed_at: null,
       promo_code_id: "promo_quota",
       source: null,
+      // Recently sent, so these lookups hit the plain "already subscribed"
+      // response, not the resend path — isolates the limiter behaviour this
+      // test is actually about.
+      welcome_sent_at: new Date().toISOString(),
     });
 
-    for (let i = 0; i < 20; i++) {
+    // Pass-3 review: this used to assert 20 straight 200s to "prove" the
+    // mint-only quota didn't charge these lookups — but that quota not being
+    // charged is exactly the bug (unbounded requests from a public endpoint).
+    // The request-level limiter (60/min/IP) now bounds this instead: 60
+    // succeed, the 61st is 429.
+    for (let i = 0; i < 60; i++) {
       const res = await POST(post({ email: "quota@example.com" }));
       expect(res.status).toBe(200);
     }
+    const limited = await POST(post({ email: "quota@example.com" }));
+    expect(limited.status).toBe(429);
+
+    // The mint-specific 15/min quota is a separate bucket and is untouched by
+    // these lookups — a genuinely new signup from the same IP would still hit
+    // the REQUEST limiter first (also exhausted here), but from a fresh IP it
+    // mints normally, proving the mint quota itself was never charged.
+    const fromAnotherIp = await POST(
+      post({ email: "newsignup@example.com" }, { headers: { "x-forwarded-for": "198.51.100.42" } })
+    );
+    expect(fromAnotherIp.status).toBe(200);
   });
 });
 
@@ -166,6 +190,9 @@ describe("POST /api/newsletter — already subscribed", () => {
       unsubscribed_at: null,
       promo_code_id: "promo_1",
       source: null,
+      // Confirmed-sent recently — inside the resend cooldown, so this is the
+      // plain "already subscribed" response, not a resend.
+      welcome_sent_at: new Date().toISOString(),
     });
 
     const res = await POST(post({ email: "existing@example.com", source: "blog" }));
@@ -328,6 +355,9 @@ describe("POST /api/newsletter — resubscribe", () => {
     const json = await res.json();
     expect(json.error).toBeTruthy();
     expect(sentry.captureException).toHaveBeenCalled();
+    // The code minted before the failed UPDATE is best-effort cleaned up, not
+    // left behind as an orphaned live 10% code.
+    expect(db.tables.promo_codes).toHaveLength(0);
   });
 });
 
@@ -351,6 +381,9 @@ describe("POST /api/newsletter — mint failure is honest", () => {
     const res = await POST(post({ email: "raced@example.com" }));
     expect(res.status).toBe(500);
     expect(sentry.captureException).toHaveBeenCalled();
+    // The code minted before the failed insert is best-effort cleaned up,
+    // not left behind as an orphaned live 10% code.
+    expect(db.tables.promo_codes).toHaveLength(0);
   });
 });
 
@@ -382,6 +415,44 @@ describe("POST /api/newsletter — Resend errors are never a silent success", ()
     const json = await res.json();
     expect(json.message).not.toMatch(/check your email/i);
     expect(sentry.captureException).toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/newsletter — a failed welcome email never locks the subscriber out", () => {
+  it("a Resend failure on first signup does not stamp welcome_sent_at; retrying resends the SAME code and stamps it only once delivered", async () => {
+    resendSend.mockResolvedValueOnce({
+      data: null,
+      error: { name: "application_error", message: "Unverified domain" },
+    });
+
+    const first = await POST(post({ email: "retryme@example.com" }));
+    expect(first.status).toBe(200);
+    const firstJson = await first.json();
+    expect(firstJson.message).not.toMatch(/check your email/i);
+
+    expect(db.tables.promo_codes).toHaveLength(1);
+    const mintedCode = db.tables.promo_codes[0].code as string;
+    const subAfterFailure = db.tables.newsletter_subscribers[0];
+    expect(subAfterFailure.welcome_sent_at).toBeFalsy();
+
+    // Retry: the code is still active/unused/unexpired, and welcome_sent_at
+    // was never stamped (no confirmed send), so the cooldown doesn't apply —
+    // the route must resend the EXISTING code rather than dead-ending the
+    // subscriber with "check your email" and no way to ever get it resent.
+    resendSend.mockResolvedValueOnce({ data: { id: "email_retry" }, error: null });
+    const second = await POST(post({ email: "retryme@example.com" }));
+    expect(second.status).toBe(200);
+    const secondJson = await second.json();
+    expect(secondJson.alreadySubscribed).toBe(true);
+
+    // No duplicate mint — the same code is reused.
+    expect(db.tables.promo_codes).toHaveLength(1);
+    expect(resendSend).toHaveBeenLastCalledWith(
+      expect.objectContaining({ html: expect.stringContaining(mintedCode) })
+    );
+
+    // welcome_sent_at is now stamped, since this send was confirmed.
+    expect(db.tables.newsletter_subscribers[0].welcome_sent_at).toBeTruthy();
   });
 });
 

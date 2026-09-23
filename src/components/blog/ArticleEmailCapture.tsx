@@ -72,13 +72,15 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
       }
 
       if (!response.ok) {
-        const message =
+        // Prefer the route's own error text (e.g. UNAVAILABLE_MESSAGE) over a
+        // generic fallback — matches the homepage form. This route almost
+        // always sets `error` on a non-2xx; the fallback only covers a body
+        // that failed to parse as JSON.
+        const fallback =
           response.status === 429
             ? "Too many requests — please try again in a minute."
-            : response.status >= 500
-              ? "Something went wrong. Please try again."
-              : data?.error;
-        throw new Error(message || "Failed to send your code");
+            : "Something went wrong. Please try again.";
+        throw new Error(data?.error || fallback);
       }
 
       // A 2xx with no parseable body is not evidence anything happened —
