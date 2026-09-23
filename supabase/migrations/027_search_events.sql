@@ -72,6 +72,12 @@
 -- served no-store, degraded searches are systematically OVER-represented in
 -- this table relative to their real share of traffic (the same result gets
 -- re-originated on every request instead of being absorbed by the CDN).
+-- A search that ends in a 502 ("ResLab pricing unavailable for all N
+-- locations") STILL writes a header row, with degraded = true and
+-- results_count 0 — the row is emitted before the throw, deliberately and
+-- exactly as availability_log records its own rows for that same search. The
+-- demand was real even though the customer saw an error; filter on
+-- `degraded` (or `results_count > 0`) for a clean supply read.
 --
 -- ATTRIBUTION / JOIN KEY
 -- utm_source/utm_medium/utm_campaign and ga_client_id mirror the first-touch
@@ -132,7 +138,10 @@ CREATE TABLE IF NOT EXISTS search_events (
   cheapest_price_cents  int         NULL,
   -- Count of lots ResLab reported sold_out = true for this search, computed
   -- from the same per-lot pricing pass availability_log's rows are built
-  -- from (src/lib/reslab/search.ts). NULL when nothing priced.
+  -- from (src/lib/reslab/search.ts). NULL when NOTHING priced -- no locations
+  -- near the airport, or every ResLab pricing call failed. Never 0 in those
+  -- cases: a 0 during a total outage reads as "nothing was sold out", which
+  -- is the opposite of what was observed (nothing was observed at all).
   sold_out_count        int         NULL,
   -- Mirrors SearchParkingResult.degraded/.stale — see DESIGN above.
   degraded              boolean     NOT NULL DEFAULT false,
@@ -150,8 +159,15 @@ CREATE TABLE IF NOT EXISTS search_events (
   utm_medium            text        NULL,
   utm_campaign          text        NULL,
   ga_client_id          text        NULL,
-  -- Mirrored in the logger's contract (a bad value here means the whole
-  -- header row is dropped, not silently coerced): keep the two in sync.
+  -- Mirrored in the logger's contract by uninsertableReasons()
+  -- (src/lib/search-events/log.ts): a value either CHECK would reject means
+  -- the whole header row is DROPPED there and reported on the Sentry
+  -- signature `search_events.dropped_row`, never silently coerced and never
+  -- sent to the error-swallowing insert (where it would burn the hourly
+  -- `search_events.insert` alert slot this table's health depends on).
+  -- /api/search validates date SHAPE only, so "2026-02-30", a reversed range
+  -- and a long-past check-in are all reachable from a URL. Keep the two in
+  -- sync: a CHECK added here needs a clause added there.
   CHECK (stay_days >= 0),
   CHECK (lead_days >= -1)
 );
@@ -183,7 +199,23 @@ END $$;
 
 -- The join to availability_log — "what did the lots near this search look
 -- like" — is the primary reason search_id is NOT NULL.
-CREATE INDEX IF NOT EXISTS idx_search_events_search_id
+--
+-- UNIQUE, not just indexed: this table is ONE header row per search_id, and
+-- `JOIN availability_log USING (search_id)` above relies on it. A second
+-- header row for the same search (a retried write, a future caller that
+-- emits twice) would silently FAN OUT every such join — doubling lots_seen,
+-- halving nothing, and reading as real demand. Uniqueness makes that a
+-- rejected insert (swallowed + reported by the logger) instead of a quietly
+-- wrong number. DROP first: an earlier revision of this migration created
+-- the same name as a non-unique index, and CREATE INDEX IF NOT EXISTS would
+-- otherwise leave it in place.
+--   NOTE if this fails with "could not create unique index": a dev/preview DB
+--   already holds duplicate search_ids from before this constraint. Inspect
+--   with  SELECT search_id, count(*) FROM search_events GROUP BY 1 HAVING
+--   count(*) > 1;  and delete the extras — there are none in production,
+--   which has only ever been written by a code path that emits once.
+DROP INDEX IF EXISTS idx_search_events_search_id;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_search_events_search_id
   ON search_events (search_id);
 
 -- "how did <airport> trend over time" — the primary demand read.
@@ -265,5 +297,6 @@ NOTIFY pgrst, 'reload schema';
 -- and (production, homepage-featured) rows. Only 'unknown'/'preview' → the
 -- production deployment's env var is wrong. Nothing at all → kill switch
 -- (SEARCH_EVENTS_LOG_DISABLED), insert failures (Sentry
--- search_events.insert), or migration 027 not applied yet (PGRST205 in the
--- console, swallowed by contract — this view is the only way to notice).
+-- search_events.insert), rows dropped before the insert (Sentry
+-- search_events.dropped_row), or migration 027 not applied yet (PGRST205 in
+-- the console, swallowed by contract — this view is the only way to notice).

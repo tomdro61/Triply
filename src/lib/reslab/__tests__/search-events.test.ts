@@ -10,16 +10,16 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // after() requires a live Next.js request scope, which vitest doesn't
-// provide — forcing it to throw exercises the same fallback (plain
-// fire-and-forget) a real unit test run hits anyway. Identical pattern to
-// the old route-level test this replaces.
+// provide. Here it is mocked to CALL THROUGH (not to throw), so the inserts
+// this file asserts on actually fire — these are contract tests about the
+// ROW, not about the scheduling. The throw-and-fall-back-to-a-dangling-
+// promise branch is covered in src/lib/search-events/__tests__/log.test.ts
+// (and its availability_log twin), which mock after() to throw.
 vi.mock("next/server", async () => {
   const actual = await vi.importActual<typeof import("next/server")>("next/server");
   return {
     ...actual,
     after: (fn: () => unknown) => {
-      // Run it anyway so the insert still fires for these tests, the way
-      // the plain fire-and-forget fallback does.
       void fn();
     },
   };
@@ -36,7 +36,8 @@ vi.mock("@/lib/reslab/client", async () => {
   return { ...actual, reslab: reslabMock };
 });
 
-vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
+const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
+vi.mock("@/lib/sentry", () => ({ captureAPIError: sentry.captureAPIError }));
 
 interface InsertCall {
   table: string;
@@ -127,6 +128,11 @@ function minPrice(opts: { soldOut?: boolean; grandTotal?: number; availableSpots
 // tests for that path).
 const AIRPORT = "TEST-NY";
 
+// 11am Eastern on Oct 1 2026 — mid-day in the airport's own zone, so no
+// UTC/local day boundary is in play except where a test deliberately moves
+// the clock across one.
+const NOW_UTC = "2026-10-01T15:00:00Z";
+
 function flush() {
   return new Promise((r) => setTimeout(r, 0));
 }
@@ -147,13 +153,28 @@ beforeEach(() => {
   __resetLocationListCacheForTests();
   __resetAvailabilityLogWarnStateForTests();
   __resetSearchEventsLogWarnStateForTests();
+  sentry.captureAPIError.mockClear();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   process.env.NEXT_PUBLIC_APP_ENV = "production";
+  // Pin "now" (Date only — the loggers' fire-and-forget hand-off and flush()
+  // need real timers). Not cosmetic: lead_days is now GATED before the
+  // insert (027's lead_days >= -1), so with a real clock every fixture date
+  // below silently stops being written once that date is a fortnight past,
+  // and this whole file would start passing vacuously in 2027.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(NOW_UTC));
 });
 
 afterEach(() => {
   delete process.env.NEXT_PUBLIC_APP_ENV;
+  vi.useRealTimers();
 });
+
+/** The one search_events row this call wrote, or undefined. */
+function latestSearchEvent(): Record<string, unknown> | undefined {
+  const call = insertCalls.find((c) => c.table === "search_events");
+  return call ? (call.rows as Record<string, unknown>) : undefined;
+}
 
 describe("searchParking → search_events header row", () => {
   it("writes one search_events row sharing search_id with the availability_log rows from the same call", async () => {
@@ -207,8 +228,12 @@ describe("searchParking → search_events header row", () => {
       // Cheapest priced total among lots that made it into the response
       // (the sold-out $90 lot is filtered out before this is computed).
       cheapest_price_cents: 15000,
+      // Exact, against the pinned clock: Oct 1 -> Oct 10 is 9 days out.
+      // (A `typeof … === "number"` assertion here would pass on the UTC
+      // baseline this design exists to avoid — see the timezone-boundary
+      // block below, which pins that down on this same real code path.)
+      lead_days: 9,
     });
-    expect(typeof searchEventRow.lead_days).toBe("number");
   });
 
   it("logs cheapest_price_cents NULL, not a partial minimum, when the result is degraded", async () => {
@@ -300,5 +325,187 @@ describe("searchParking → search_events header row", () => {
       "network down",
       ""
     );
+  });
+});
+
+describe("timezone boundary — lead_days is the AIRPORT's today, not UTC's", () => {
+  // Date is already faked by beforeEach; these just move it.
+  const atUtc = (iso: string) => vi.setSystemTime(new Date(iso));
+
+  it("logs lead_days against the airport's local day for a US evening search", async () => {
+    // 9:30pm Eastern on Oct 10 is already Oct 11 in UTC. TEST-NY is
+    // America/New_York, so "today" is Oct 10 and a check-in on Oct 15 is 5
+    // days out — a UTC baseline would record 4 and under-count every US
+    // evening search by a day, forever, with nothing to say it had.
+    atUtc("2026-10-11T01:30:00Z");
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-15",
+      checkout: "2026-10-18",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()!.lead_days).toBe(5);
+    expect(new Date().toISOString().slice(0, 10)).toBe("2026-10-11"); // UTC would say 4
+  });
+
+  it("agrees with UTC when no day boundary is crossed", async () => {
+    atUtc("2026-10-11T15:00:00Z"); // 11am ET, Oct 11 in both
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-15",
+      checkout: "2026-10-18",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()!.lead_days).toBe(4);
+  });
+
+  it("writes the SAME lead_days to both tables for one search", async () => {
+    atUtc("2026-10-11T01:30:00Z");
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-15",
+      checkout: "2026-10-18",
+      source: "search",
+    });
+    await flush();
+
+    const availabilityRows = insertCalls.find((c) => c.table === "availability_log")!
+      .rows as Array<{ lead_days: number }>;
+    expect(availabilityRows.every((r) => r.lead_days === 5)).toBe(true);
+    expect(latestSearchEvent()!.lead_days).toBe(5);
+  });
+});
+
+describe("the production path rejects dates Postgres would bounce", () => {
+  it("drops the header row for a calendar-invalid check-in, and reports it on its own signature", async () => {
+    // "2026-02-30" passes /api/search's shape regex and dayDiff returns a
+    // number for it (Date.parse rolls it to Mar 2) — nothing upstream stops
+    // it. 027's date column rejects it as 22008.
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    const result = await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-02-30",
+      checkout: "2026-03-05",
+      source: "search",
+    });
+    await flush();
+
+    // The customer still gets their search.
+    expect(result.total).toBe(1);
+    expect(latestSearchEvent()).toBeUndefined();
+    const dropReports = sentry.captureAPIError.mock.calls.filter(
+      (c) => c[1]?.endpoint === "search_events.dropped_row"
+    );
+    expect(dropReports).toHaveLength(1);
+  });
+
+  it("drops the header row for a reversed range", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-14",
+      checkout: "2026-10-10",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()).toBeUndefined();
+    expect(
+      sentry.captureAPIError.mock.calls.some(
+        (c) => c[1]?.endpoint === "search_events.dropped_row"
+      )
+    ).toBe(true);
+  });
+
+  it("drops the header row for a long-past check-in (027's lead_days >= -1)", async () => {
+    vi.setSystemTime(new Date("2026-10-11T15:00:00Z"));
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-09-01",
+      checkout: "2026-09-05",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()).toBeUndefined();
+  });
+
+  it("still writes the header row for a same-day (0-night) stay", async () => {
+    vi.setSystemTime(new Date("2026-10-11T15:00:00Z"));
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-12",
+      checkout: "2026-10-12",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()).toMatchObject({ stay_days: 0, lead_days: 1 });
+  });
+});
+
+describe("sold_out_count is NULL, not 0, when nothing priced", () => {
+  it("records the header row with sold_out_count NULL when every ResLab pricing call fails", async () => {
+    // Total pricing outage: searchParking throws a 502 so the route can serve
+    // an uncacheable error — but the demand was real, and the header row is
+    // written BEFORE the throw (same as availability_log's own rows).
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2)]);
+    reslabMock.getMinPrice.mockRejectedValue(new Error("ResLab 502"));
+
+    await expect(
+      searchParking({
+        airport: AIRPORT,
+        checkin: "2026-10-10",
+        checkout: "2026-10-14",
+        source: "search",
+      })
+    ).rejects.toThrow(/pricing unavailable/);
+    await flush();
+
+    expect(latestSearchEvent()).toMatchObject({
+      results_count: 0,
+      // Never 0 here: 0 would read as "we looked and nothing was sold out".
+      sold_out_count: null,
+      cheapest_price_cents: null,
+      degraded: true,
+    });
+  });
+
+  it("still reports 0 when lots priced and none were sold out", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
+
+    await searchParking({
+      airport: AIRPORT,
+      checkin: "2026-10-10",
+      checkout: "2026-10-14",
+      source: "search",
+    });
+    await flush();
+
+    expect(latestSearchEvent()!.sold_out_count).toBe(0);
   });
 });

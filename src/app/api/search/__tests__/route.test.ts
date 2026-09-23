@@ -102,6 +102,25 @@ describe("GET /api/search", () => {
     );
   });
 
+  it("ignores an unknown ?surface value instead of 400ing the whole search", async () => {
+    // A telemetry tag must never be able to fail a search. Before
+    // `.catch(undefined)` this returned 400 "Invalid search parameters" and
+    // the customer saw no parking at all for a stale or mistyped link.
+    const res = await GET(req({ surface: "not-a-surface" }));
+
+    expect(res.status).toBe(200);
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({ searchEventSource: undefined })
+    );
+  });
+
+  it("still 400s on a genuinely malformed parameter — the relaxation is scoped to `surface`", async () => {
+    const res = await GET(req({ checkin: "10/10/2026" }));
+
+    expect(res.status).toBe(400);
+    expect(searchParkingMock).not.toHaveBeenCalled();
+  });
+
   it("passes the parsed attribution fields through to searchParking", async () => {
     readAttributionMock.mockReturnValue({
       v: 1,

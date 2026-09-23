@@ -47,9 +47,18 @@ const searchQuerySchema = z.object({
   // dates on every homepage view and airport-tab click. Tags the
   // search_events row 'homepage-featured' instead of 'search' so that
   // automated background traffic can be told apart from a real customer
-  // search — see migration 027 for the full reasoning. Never trusted for
-  // anything else; an arbitrary/missing value just falls back to 'search'.
-  surface: z.enum(["featured"]).optional(),
+  // search — see migration 027 for the full reasoning.
+  //
+  // CLIENT-ASSERTED, and deliberately so: anyone can send ?surface=featured
+  // and mis-tag their own search. That is acceptable for an analytics tag
+  // nothing transacts on, and it is the reason nothing else may read it.
+  //
+  // `.catch(undefined)` — NOT plain `.optional()`. A telemetry tag must never
+  // be able to fail a search: without it, ?surface=anything-else 400s the
+  // whole request, so a stale or mistyped link returns no parking at all. An
+  // unrecognised value is treated exactly like an absent one and falls back
+  // to 'search'.
+  surface: z.enum(["featured"]).optional().catch(undefined),
 });
 
 export async function GET(request: NextRequest) {

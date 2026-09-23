@@ -18,13 +18,20 @@
  *             fingerprint; the Zod issue goes in context, not the message, so
  *             it groups as a single issue)
  *
- * `surface` gates the Sentry reporting, not the parsing: both surfaces parse
- * and return the cookie identically. Defaults to "checkout" (its only caller
- * for a long time) so existing call sites keep reporting exactly as before.
- * Pass "search" from /api/search: that route is public and bot-reachable, and
- * without this a junk triply_attr cookie there would tag a
- * `booking.step: checkout` Sentry event — with a null PaymentIntent — into
- * the money-path error stream for a request that was never a checkout.
+ * `surface` gates WHERE the Sentry reporting goes and which of the two
+ * reports fires, never the parsing: both surfaces parse and return the cookie
+ * identically. Defaults to "checkout" (its only caller for a long time) so
+ * existing call sites behave exactly as before.
+ *
+ * Pass "search" from /api/search: that route is public and bot-reachable, so
+ * an INVALID cookie there is visitor-supplied noise, and reporting it would
+ * tag a `booking.step: checkout` Sentry event — with a null PaymentIntent —
+ * into the money-path error stream for a request that was never a checkout.
+ * A THROW is the opposite case and is still reported on both surfaces: it is
+ * a bug in the reader, not a visitor, and /api/search is the highest-volume
+ * caller — the one where a parser regression shows up first. It is routed to
+ * captureAPIError("/api/search") so it lands in that route's stream instead
+ * of the checkout money path.
  */
 
 import * as Sentry from "@sentry/nextjs";
@@ -37,7 +44,7 @@ import {
 } from "./schema";
 import { stripClickIdsFromCookie } from "./capture";
 import { CONSENT_COOKIE, hasAnalyticsOptOutFromCookie } from "@/lib/cookies/consent-server";
-import { captureBookingError } from "@/lib/sentry";
+import { captureAPIError, captureBookingError } from "@/lib/sentry";
 
 let invalidReported = false;
 
@@ -80,19 +87,26 @@ export function readAttributionFromRequest(
     const gaClientId = readGaClientId(request.cookies.get("_ga")?.value);
     return gaClientId ? { ...parsed.value, ga_client_id: gaClientId } : parsed.value;
   } catch (err) {
-    // Attribution must never block a checkout — but a throw HERE is a bug in
-    // the reader, not a visitor without a cookie, so it is captured on the
-    // checkout surface (guarded so the capture itself can never throw) before
-    // resolving to null. Same reasoning as above: /api/search is not a
-    // checkout and must not manufacture one in the error stream.
-    if (surface === "checkout") {
-      try {
-        captureBookingError(err instanceof Error ? err : new Error(String(err)), {
-          step: "checkout",
-        });
-      } catch {
-        /* Sentry unavailable — nothing further to do */
+    // Attribution must never block a checkout or a search — but a throw HERE
+    // is a bug in the reader, not a visitor without a cookie, so it is ALWAYS
+    // captured (guarded so the capture itself can never throw) before
+    // resolving to null. Only the destination differs: /api/search is not a
+    // checkout and must not manufacture one in the money-path error stream,
+    // so its throws go to that route's own stream instead of being dropped —
+    // it is the highest-volume caller, where a parser regression surfaces
+    // first, and a silent null there would look exactly like "no cookie".
+    try {
+      // Normalised INSIDE the guard: String(err) on a thrown object with a
+      // throwing toString() would otherwise escape this catch and take down
+      // the checkout it exists to protect.
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (surface === "checkout") {
+        captureBookingError(error, { step: "checkout" });
+      } else {
+        captureAPIError(error, { endpoint: "/api/search", method: "GET" });
       }
+    } catch {
+      /* Sentry unavailable — nothing further to do */
     }
     return null;
   }

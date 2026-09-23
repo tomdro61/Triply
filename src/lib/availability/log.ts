@@ -126,7 +126,15 @@ export function isRealDate(s: string): boolean {
 
 const INT4_MIN = -2147483648;
 const INT4_MAX = 2147483647;
-function isInt4(v: number): boolean {
+
+/**
+ * Storable in a Postgres `int` column. Exported so search_events' logger
+ * (src/lib/search-events/log.ts) gates its own row on the identical rule
+ * rather than keeping a second, driftable copy — both tables' numeric columns
+ * are int4 and both loggers swallow insert errors, so a value neither can
+ * store must be caught on the way in by the SAME predicate.
+ */
+export function isInt4(v: number): boolean {
   return Number.isInteger(v) && v >= INT4_MIN && v <= INT4_MAX;
 }
 

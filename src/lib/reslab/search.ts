@@ -856,8 +856,8 @@ export async function searchParking(
   // separately-computed search_events (UTC "today", route-level insert) used
   // to. lead_days is measured against "today" in the airport's own timezone,
   // not UTC — a US evening search is already "tomorrow" in UTC and would
-  // otherwise log a systematic -1 lead day (see derive.test.ts's timezone
-  // boundary case).
+  // otherwise log a systematic -1 lead day (asserted against this real code
+  // path in __tests__/search-events.test.ts, "timezone boundary").
   const searchedOn = localToday(airportInfo.timezone);
   const leadDays = dayDiff(searchedOn, checkin);
   const stayDays = dayDiff(checkin, checkout);
@@ -870,19 +870,54 @@ export async function searchParking(
   // lead/stay days are known to parse. Wrapped in its own try/catch, on its
   // own report clock, so a defect building this row can never take down a
   // real search result or starve availability_log's own error reporting.
+  //
+  // It takes the RAW arrays rather than pre-computed numbers on purpose:
+  // every derived telemetry value (the cheapest price, the sold-out count,
+  // and in particular the `Math.min(...)` SPREAD, which throws RangeError on
+  // a large enough array) is computed INSIDE this try/catch. Nothing
+  // telemetry-only is evaluated on the customer's path.
   const emitSearchEvent = (fields: {
     results_count: number;
-    cheapest_price_cents: number | null;
-    sold_out_count: number | null;
     degraded: boolean;
     stale: boolean;
+    /** The per-lot pricing pass, 1:1 with `locations`. Empty at the
+     *  zero-location early return. */
+    priced: readonly { minPriceData: ReslabMinPriceResponse | null }[];
+    /** The lots that will actually be returned, for the cheapest-price floor.
+     *  Empty at the zero-location early return. */
+    available: readonly UnifiedLot[];
+    /** How many of `priced` failed to price at all. */
+    pricingErrors: number;
   }): void => {
     try {
       // Unparseable dates: skip rather than write a row the table's NOT
       // NULL/CHECK constraints would bounce anyway — availability_log's own
       // skip (below) already reports this once per its own throttle window,
-      // so no second Sentry event here.
+      // so no second Sentry event here. (A date that PARSES but Postgres
+      // still refuses — "2026-02-30", a reversed range, a long-past check-in
+      // — is caught and reported by logSearchEvent's own insertability gate,
+      // on its own signature; see src/lib/search-events/log.ts.)
       if (leadDays === null || stayDays === null) return;
+
+      // Cheapest priced total, in cents, across the lots that will actually
+      // be returned — but NOT when the result is degraded: a "cheapest"
+      // computed from a partial ResLab response isn't a real cheapest, it's
+      // whatever survived, and would understate the true floor.
+      const pricedTotals = fields.available
+        .map((lot) => lot.pricing?.grandTotal)
+        .filter((v): v is number => typeof v === "number" && v > 0);
+      // Sold-out count from the same per-lot pricing pass availability_log's
+      // rows are built from, BEFORE the sold-out lots are filtered out.
+      // Null — not 0 — when NOTHING priced (no locations at all, or every
+      // ResLab pricing call failed): there were no lots to have an opinion
+      // about, and a 0 during a total outage reads as "nothing was sold out".
+      const nothingPriced =
+        fields.priced.length === 0 || fields.pricingErrors >= fields.priced.length;
+      const soldOutCount = nothingPriced
+        ? null
+        : fields.priced.filter((p) => p.minPriceData?.reservation?.sold_out === true)
+            .length;
+
       logSearchEvent({
         search_id: searchId,
         env: searchEnv,
@@ -897,7 +932,14 @@ export async function searchParking(
         utm_medium: attribution?.utmMedium ?? null,
         utm_campaign: attribution?.utmCampaign ?? null,
         ga_client_id: attribution?.gaClientId ?? null,
-        ...fields,
+        results_count: fields.results_count,
+        cheapest_price_cents:
+          !fields.degraded && pricedTotals.length > 0
+            ? Math.round(Math.min(...pricedTotals) * 100)
+            : null,
+        sold_out_count: soldOutCount,
+        degraded: fields.degraded,
+        stale: fields.stale,
       });
     } catch (err) {
       const now = Date.now();
@@ -972,13 +1014,15 @@ export async function searchParking(
   // result no-store (we never cache an empty search).
   if (locations.length === 0) {
     // A real search that found nothing is still demand — record the header
-    // row before returning. Nothing priced, so cheapest/sold_out are null.
+    // row before returning. Nothing priced, so cheapest/sold_out resolve to
+    // null from the empty arrays.
     emitSearchEvent({
       results_count: 0,
-      cheapest_price_cents: null,
-      sold_out_count: null,
       degraded: listBuildIncomplete,
       stale: listBuildStale,
+      priced: [],
+      available: [],
+      pricingErrors: 0,
     });
     return {
       airport: airportInfo,
@@ -1140,27 +1184,15 @@ export async function searchParking(
   // (complete, past-TTL) list is NOT degraded: the result is full, so it's
   // cacheable, just on a shorter TTL.
   const isDegraded = pricingErrors > 0 || listBuildIncomplete;
-  // Cheapest priced total, in cents, across the lots that will actually be
-  // returned — but NOT when the result is degraded: a "cheapest" computed
-  // from a partial ResLab response isn't a real cheapest, it's whatever
-  // survived, and would understate the true floor.
-  const pricedTotals = availableLots
-    .map((lot) => lot.pricing?.grandTotal)
-    .filter((v): v is number => typeof v === "number" && v > 0);
-  // Sold-out count from the same per-lot pricing pass availability_log's rows
-  // are built from, BEFORE the sold-out lots are filtered out of availableLots.
-  const soldOutCount = pricedLots.filter(
-    (p) => p.minPriceData?.reservation?.sold_out === true
-  ).length;
+  // Everything telemetry-only (cheapest price, sold-out count, the Math.min
+  // spread) is derived INSIDE emitSearchEvent's try/catch — see its comment.
   emitSearchEvent({
     results_count: availableLots.length,
-    cheapest_price_cents:
-      !isDegraded && pricedTotals.length > 0
-        ? Math.round(Math.min(...pricedTotals) * 100)
-        : null,
-    sold_out_count: soldOutCount,
     degraded: isDegraded,
     stale: listBuildStale,
+    priced: pricedLots,
+    available: availableLots,
+    pricingErrors,
   });
 
   // Found locations but priced none of them while pricing calls were erroring:

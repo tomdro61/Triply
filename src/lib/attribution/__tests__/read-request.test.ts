@@ -9,7 +9,7 @@ vi.mock("@sentry/nextjs", () => ({
     fn({ setFingerprint: vi.fn(), setTag: vi.fn(), setContext: vi.fn() });
   },
 }));
-vi.mock("@/lib/sentry", () => ({ captureBookingError: vi.fn() }));
+vi.mock("@/lib/sentry", () => ({ captureBookingError: vi.fn(), captureAPIError: vi.fn() }));
 
 import { __resetInvalidReportForTests, readAttributionFromRequest } from "../read-request";
 import { encodeCookieValue, type AttributionCookie } from "../schema";
@@ -101,11 +101,14 @@ describe("readAttributionFromRequest", () => {
       expect(out).toEqual({ ...value, ga_client_id: "1234567890.1700000000" });
     });
 
-    it("surface='search' does not report a thrown reader bug to Sentry either", async () => {
-      const { captureBookingError } = await import("@/lib/sentry");
-      // Absent cookie never throws in the reader — assert the guard exists by
-      // calling with a malformed request-like object that would throw before
-      // reaching the try's normal returns, exercising the catch branch.
+    it("surface='search' reports a THROWN reader bug — to /api/search, not the checkout money path", async () => {
+      const { captureBookingError, captureAPIError } = await import("@/lib/sentry");
+      // An absent cookie never throws in the reader, so the catch branch is
+      // reached with a request-like object whose cookie accessor throws. A
+      // throw here is a reader/parser bug, and /api/search is the
+      // highest-volume caller — the one where a regression shows up first.
+      // Swallowing it there (the pass-1 behaviour) made it look like "no
+      // cookie" on every request.
       const badRequest = {
         cookies: {
           get: () => {
@@ -116,7 +119,47 @@ describe("readAttributionFromRequest", () => {
 
       const out = readAttributionFromRequest(badRequest, {}, "search");
       expect(out).toBeNull();
+      expect(captureAPIError).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(captureAPIError).mock.calls[0][1]).toEqual({
+        endpoint: "/api/search",
+        method: "GET",
+      });
+      // Never the checkout stream: this request was not a checkout and has no
+      // PaymentIntent to reason about.
       expect(captureBookingError).not.toHaveBeenCalled();
+    });
+
+    it("surface='checkout' keeps reporting a thrown reader bug to the checkout stream, unchanged", async () => {
+      const { captureBookingError, captureAPIError } = await import("@/lib/sentry");
+      const badRequest = {
+        cookies: {
+          get: () => {
+            throw new Error("boom");
+          },
+        },
+      } as unknown as NextRequest;
+
+      const out = readAttributionFromRequest(badRequest, {});
+      expect(out).toBeNull();
+      expect(captureBookingError).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(captureBookingError).mock.calls[0][1]).toEqual({ step: "checkout" });
+      expect(captureAPIError).not.toHaveBeenCalled();
+    });
+
+    it("a Sentry outage cannot turn a reader bug into a failed request", async () => {
+      const { captureAPIError } = await import("@/lib/sentry");
+      vi.mocked(captureAPIError).mockImplementationOnce(() => {
+        throw new Error("sentry down");
+      });
+      const badRequest = {
+        cookies: {
+          get: () => {
+            throw new Error("boom");
+          },
+        },
+      } as unknown as NextRequest;
+
+      expect(readAttributionFromRequest(badRequest, {}, "search")).toBeNull();
     });
   });
 });
