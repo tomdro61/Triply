@@ -237,6 +237,37 @@ export function trackNewsletterSignup(opts?: {
   }
 }
 
+const NEWSLETTER_SIGNUP_TRACKED_KEY_PREFIX = "triply_newsletter_signup_tracked_v1:";
+
+/**
+ * Per-browser dedup guard for the newsletter's generate_lead event.
+ *
+ * PR #23 pass 4: /api/newsletter's response no longer distinguishes a new
+ * subscriber from an already-subscribed one — that distinction was an
+ * enumeration oracle to an unauthenticated caller (Sentry review, pass 3/4).
+ * The client can no longer read `alreadySubscribed` off the response to
+ * decide whether to fire trackNewsletterSignup, so this substitutes a
+ * localStorage guard keyed on the (lowercased) email: fires once per email
+ * per browser.
+ *
+ * Trade-off, accepted: a resubmit of the same email from a DIFFERENT browser
+ * or device still double-counts — this is a marketing metric (generate_lead
+ * volume), not a security or billing control, so an occasional inflated
+ * count is fine. Wrapped in try/catch because localStorage can throw
+ * (private browsing, storage disabled, quota) — on failure this fires the
+ * event rather than risk silently dropping a real lead.
+ */
+export function markAndShouldTrackNewsletterSignup(email: string): boolean {
+  const key = `${NEWSLETTER_SIGNUP_TRACKED_KEY_PREFIX}${email.trim().toLowerCase()}`;
+  try {
+    if (window.localStorage.getItem(key)) return false;
+    window.localStorage.setItem(key, "1");
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 /**
  * Track contact form submission
  */

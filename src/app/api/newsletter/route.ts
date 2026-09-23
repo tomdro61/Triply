@@ -19,6 +19,12 @@
  *   - resend.emails.send() RETURNS errors, it never throws for an API-level
  *     failure (unverified domain, 429, bad recipient) — every sender in
  *     src/lib/resend/ destructures { data, error }; this route now does too.
+ *
+ * Pass-4 review (PR #23, 2026-09-23): every 200 response now has the SAME
+ * status and body shape regardless of whether the address was new or already
+ * subscribed — see the SUCCESS_MESSAGE / SEND_TROUBLE_MESSAGE comment below.
+ * The response can no longer be used by an unauthenticated caller to
+ * enumerate which addresses are on the list.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -49,8 +55,25 @@ const WELCOME_EMAIL_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const UNAVAILABLE_MESSAGE =
   "We couldn't process your subscription right now. Please try again in a few minutes.";
 
-const SUPPORT_CONTACT_MESSAGE =
-  "We couldn't resend your code right now. If it still doesn't arrive, contact support@triplypro.com.";
+// Pass-4 review: every 200 response — new signup, already-subscribed with a
+// live code, redeemed/cooldown, freshly re-minted — must say the SAME thing
+// and carry the SAME shape to an unauthenticated caller. The route used to
+// return an `alreadySubscribed` flag and branch-specific copy ("You're
+// already subscribed — check your email", "You're already subscribed to
+// Triply", etc.); that was an enumeration oracle letting anyone probe whether
+// an address was already on the list. There are now exactly two possible
+// 200 bodies: SUCCESS_MESSAGE (a code is on file and was/will be emailed —
+// covers a fresh signup, a resend, and "already sent, nothing to do") and
+// SEND_TROUBLE_MESSAGE (this specific attempt's send failed). Which one a
+// given request hits still depends on internal state (new vs. existing,
+// sent vs. not), but the response itself can no longer be used to infer that
+// state.
+// Exported so tests assert against these directly rather than duplicating
+// (and risking drifting from) the literal copy.
+export const SUCCESS_MESSAGE =
+  "Check your inbox — if this address is new to us, your 10% code is on its way.";
+export const SEND_TROUBLE_MESSAGE =
+  "We hit a snag getting your code to your inbox. If it doesn't arrive, contact support@triplypro.com.";
 
 const newsletterSchema = z.object({
   // .trim() FIRST: zod runs .email() before any transform, so a pasted address
@@ -527,31 +550,21 @@ export async function POST(request: NextRequest) {
           if (sent) await stampWelcomeSentAt(supabase, existing.id);
           return NextResponse.json({
             success: true,
-            alreadySubscribed: true,
-            message: sent
-              ? "You're already subscribed — check your email for your promo code."
-              : SUPPORT_CONTACT_MESSAGE,
+            message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
           });
         }
 
-        return NextResponse.json({
-          success: true,
-          alreadySubscribed: true,
-          message: "You're already subscribed — check your email for your promo code.",
-        });
+        return NextResponse.json({ success: true, message: SUCCESS_MESSAGE });
       }
 
       if (redeemedCode || withinWelcomeCooldown(existing.welcome_sent_at)) {
         // Either the code on file has already been used (a fresh one would
         // make the discount infinitely renewable), or we emailed this
         // address within the last 7 days and won't mint/send again just
-        // because they resubmitted the form.
+        // because they resubmitted the form. Same body as every other 200 —
+        // see the SUCCESS_MESSAGE comment above.
         if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
-        return NextResponse.json({
-          success: true,
-          alreadySubscribed: true,
-          message: "You're already subscribed to Triply.",
-        });
+        return NextResponse.json({ success: true, message: SUCCESS_MESSAGE });
       }
 
       // Never redeemed, but expired/inactive/absent — mint and send a fresh
@@ -593,10 +606,7 @@ export async function POST(request: NextRequest) {
       if (sent) await stampWelcomeSentAt(supabase, existing.id);
       return NextResponse.json({
         success: true,
-        alreadySubscribed: true,
-        message: sent
-          ? "You're already on the list — we've sent a fresh 10% code to your inbox."
-          : "You're already subscribed, and we minted a fresh 10% code, but hit a snag emailing it. Please try again shortly.",
+        message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
       });
     }
 
@@ -671,9 +681,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: sent
-        ? "Check your email for your 10% off code!"
-        : "You're subscribed! We hit a snag sending your code by email — please try signing up again in a few minutes to get it resent.",
+      message: sent ? SUCCESS_MESSAGE : SEND_TROUBLE_MESSAGE,
     });
   } catch (error) {
     console.error("Newsletter signup error:", error);

@@ -5,7 +5,7 @@ import { Loader2, Mail, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getAirportByCode } from "@/config/airports";
-import { trackNewsletterSignup } from "@/lib/analytics/gtag";
+import { trackNewsletterSignup, markAndShouldTrackNewsletterSignup } from "@/lib/analytics/gtag";
 
 interface ArticleEmailCaptureProps {
   airportCode?: string | null;
@@ -62,7 +62,7 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
       // A 502/504 or WAF page returns HTML, not JSON — check ok + content-type
       // before parsing, so that never surfaces as "Unexpected token '<'".
       const contentType = response.headers.get("content-type") ?? "";
-      let data: { message?: string; error?: string; alreadySubscribed?: boolean } | null = null;
+      let data: { message?: string; error?: string } | null = null;
       if (contentType.includes("application/json")) {
         try {
           data = await response.json();
@@ -91,9 +91,11 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
 
       setSubmittedMessage(data.message || "Check your inbox — your 10% code is on its way.");
       setIsSubmitted(true);
-      // Already-subscribed responses didn't send a new email or mint a code
-      // for a genuinely new lead — don't inflate generate_lead with them.
-      if (!data.alreadySubscribed) {
+      // The response no longer says whether this address was already
+      // subscribed (that flag was an enumeration oracle — see /api/newsletter's
+      // pass-4 review). Dedup generate_lead per-browser instead, so a resubmit
+      // of the same email doesn't inflate lead volume.
+      if (markAndShouldTrackNewsletterSignup(email)) {
         trackNewsletterSignup({ source: "blog", airportCode: code || null });
       }
       setEmail("");

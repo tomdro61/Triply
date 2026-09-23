@@ -30,7 +30,12 @@ vi.mock("@sentry/nextjs", () => ({
   },
 }));
 
-import { POST, __resetNewsletterRouteTelemetryForTests } from "../route";
+import {
+  POST,
+  __resetNewsletterRouteTelemetryForTests,
+  SUCCESS_MESSAGE,
+  SEND_TROUBLE_MESSAGE,
+} from "../route";
 import {
   __resetNewsletterRateLimitForTests,
   __resetNewsletterRequestRateLimitForTests,
@@ -160,8 +165,9 @@ describe("POST /api/newsletter — new signup", () => {
     );
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json).toMatchObject({ success: true });
-    expect(json.alreadySubscribed).toBeUndefined();
+    // Pass 4: identical body shape to the already-subscribed cases — no
+    // alreadySubscribed flag, same message.
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     expect(db.tables.promo_codes).toHaveLength(1);
     expect(db.tables.newsletter_subscribers).toHaveLength(1);
@@ -175,7 +181,7 @@ describe("POST /api/newsletter — new signup", () => {
 });
 
 describe("POST /api/newsletter — already subscribed", () => {
-  it("existing subscriber with an unexpired, unused code: no new code, no email, alreadySubscribed true", async () => {
+  it("existing subscriber with an unexpired, unused code: no new code, no email, identical body to a new signup", async () => {
     const future = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10).toISOString();
     db.tables.promo_codes.push({
       id: "promo_1",
@@ -198,8 +204,9 @@ describe("POST /api/newsletter — already subscribed", () => {
     const res = await POST(post({ email: "existing@example.com", source: "blog" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.alreadySubscribed).toBe(true);
-    expect(json.message).toMatch(/already subscribed/i);
+    // Same status and body as a brand-new signup — the response itself must
+    // not reveal that this address was already on the list.
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     expect(db.tables.promo_codes).toHaveLength(1);
     expect(resendSend).not.toHaveBeenCalled();
@@ -226,7 +233,7 @@ describe("POST /api/newsletter — already subscribed", () => {
 
     const res = await POST(post({ email: "stale@example.com", source: "blog" }));
     const json = await res.json();
-    expect(json.alreadySubscribed).toBe(true);
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
     expect(db.tables.promo_codes).toHaveLength(2);
     expect(resendSend).toHaveBeenCalledTimes(1);
     // First-touch: an already-set source is never overwritten, even though
@@ -254,8 +261,10 @@ describe("POST /api/newsletter — already subscribed", () => {
     const res = await POST(post({ email: "redeemed@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.alreadySubscribed).toBe(true);
-    expect(json.message).not.toMatch(/code/i);
+    // Same body as every other success path — see the SUCCESS_MESSAGE
+    // comment in route.ts. What actually differs (no mint, no send) is only
+    // observable via the DB/Resend mocks below, never via the response.
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     // No fresh code minted, no mail sent — the one-time discount stays used.
     expect(db.tables.promo_codes).toHaveLength(1);
@@ -284,7 +293,7 @@ describe("POST /api/newsletter — already subscribed", () => {
     const res = await POST(post({ email: "cooldown@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.alreadySubscribed).toBe(true);
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     expect(db.tables.promo_codes).toHaveLength(1);
     expect(resendSend).not.toHaveBeenCalled();
@@ -330,8 +339,7 @@ describe("POST /api/newsletter — resubscribe", () => {
     const res = await POST(post({ email: "backagain@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.alreadySubscribed).toBeUndefined();
+    expect(json).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     const sub = db.tables.newsletter_subscribers[0];
     expect(sub.unsubscribed_at).toBeNull();
@@ -397,8 +405,7 @@ describe("POST /api/newsletter — Resend errors are never a silent success", ()
     const res = await POST(post({ email: "bademail@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.success).toBe(true);
-    expect(json.message).not.toMatch(/check your email/i);
+    expect(json).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
     expect(sentry.captureException).toHaveBeenCalled();
 
     // The subscriber + promo code still exist — a mail outage shouldn't
@@ -413,7 +420,7 @@ describe("POST /api/newsletter — Resend errors are never a silent success", ()
     const res = await POST(post({ email: "throwsemail@example.com" }));
     expect(res.status).toBe(200);
     const json = await res.json();
-    expect(json.message).not.toMatch(/check your email/i);
+    expect(json).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
     expect(sentry.captureException).toHaveBeenCalled();
   });
 });
@@ -428,7 +435,7 @@ describe("POST /api/newsletter — a failed welcome email never locks the subscr
     const first = await POST(post({ email: "retryme@example.com" }));
     expect(first.status).toBe(200);
     const firstJson = await first.json();
-    expect(firstJson.message).not.toMatch(/check your email/i);
+    expect(firstJson).toEqual({ success: true, message: SEND_TROUBLE_MESSAGE });
 
     expect(db.tables.promo_codes).toHaveLength(1);
     const mintedCode = db.tables.promo_codes[0].code as string;
@@ -443,7 +450,7 @@ describe("POST /api/newsletter — a failed welcome email never locks the subscr
     const second = await POST(post({ email: "retryme@example.com" }));
     expect(second.status).toBe(200);
     const secondJson = await second.json();
-    expect(secondJson.alreadySubscribed).toBe(true);
+    expect(secondJson).toEqual({ success: true, message: SUCCESS_MESSAGE });
 
     // No duplicate mint — the same code is reused.
     expect(db.tables.promo_codes).toHaveLength(1);

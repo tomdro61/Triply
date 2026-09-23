@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Mail, ArrowRight, Check, Tag, Bell, Lightbulb, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trackNewsletterSignup } from "@/lib/analytics/gtag";
+import { trackNewsletterSignup, markAndShouldTrackNewsletterSignup } from "@/lib/analytics/gtag";
 import { Input } from "@/components/ui/input";
 
 export function Newsletter() {
@@ -33,7 +33,7 @@ export function Newsletter() {
       // HTML, not JSON — check ok + content-type before parsing, so that
       // never surfaces as "Unexpected token '<'".
       const contentType = response.headers.get("content-type") ?? "";
-      let data: { message?: string; error?: string; alreadySubscribed?: boolean } | null = null;
+      let data: { message?: string; error?: string } | null = null;
       if (contentType.includes("application/json")) {
         try {
           data = await response.json();
@@ -64,9 +64,11 @@ export function Newsletter() {
 
       setSubmittedMessage(data.message || "Check your email for your 10% off code!");
       setIsSubmitted(true);
-      // Already-subscribed responses didn't mint a code or send a new email
-      // for a genuinely new lead.
-      if (!data.alreadySubscribed) {
+      // The response no longer says whether this address was already
+      // subscribed (that flag was an enumeration oracle — see /api/newsletter's
+      // pass-4 review). Dedup generate_lead per-browser instead, so a resubmit
+      // of the same email doesn't inflate lead volume.
+      if (markAndShouldTrackNewsletterSignup(email)) {
         trackNewsletterSignup();
       }
       setEmail("");
