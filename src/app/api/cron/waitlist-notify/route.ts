@@ -80,7 +80,7 @@ async function recordNotifyFailure(
   supabase: Awaited<ReturnType<typeof createAdminClient>>,
   row: WaitlistRow,
   errorMessage: string
-) {
+): Promise<boolean> {
   const attempts = (row.notify_attempts ?? 0) + 1;
   // Only a counter that actually REACHED the database can justify the
   // give-up alarm below (pass 4, item 6): firing it off the in-memory value
@@ -129,8 +129,35 @@ async function recordNotifyFailure(
       `waitlist-notify: row ${row.id} (${row.email}) has failed ${attempts} times and will no longer be retried — last error: ${errorMessage}`,
       "error"
     );
-    await Sentry.flush(2000);
   }
+  // The caller needs to know: a row whose failure could not even be RECORDED
+  // has made no progress at all and will be retried tomorrow unchanged.
+  return persisted;
+}
+
+/**
+ * Resend's per-call failure, with the status kept so the run can tell a
+ * permanent per-recipient rejection (4xx: invalid/suppressed address,
+ * validation error) from a transient one (429, 5xx, no status = network).
+ */
+class ResendSendError extends Error {
+  readonly statusCode: number | undefined;
+  constructor(message: string, statusCode: number | undefined) {
+    super(message);
+    this.name = "ResendSendError";
+    this.statusCode = statusCode;
+  }
+}
+
+/** Would retrying this failure tomorrow plausibly succeed? */
+function isTransientSendFailure(error: unknown): boolean {
+  if (error instanceof ResendSendError) {
+    const c = error.statusCode;
+    return c === undefined || c === 429 || c >= 500;
+  }
+  // Anything that is not a Resend rejection (socket reset, DNS, a thrown
+  // client) is infrastructure, not the recipient.
+  return true;
 }
 
 /**
@@ -157,11 +184,18 @@ async function markNotified(
   // as if the traveller had never been emailed at all.
   const attempt = async (): Promise<{ message: string; code?: string } | null> => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("booking_waitlist")
         .update({ notified_at: new Date().toISOString() })
-        .eq("id", rowId);
-      return error ? { message: error.message, code: error.code } : null;
+        .eq("id", rowId)
+        // A zero-row UPDATE is not an error to PostgREST; without this the
+        // delivery-critical write could report success and re-send tomorrow.
+        .select("id");
+      if (error) return { message: error.message, code: error.code };
+      if (!data || data.length === 0) {
+        return { message: `notified_at update matched no rows for id ${rowId}` };
+      }
+      return null;
     } catch (e) {
       return { message: e instanceof Error ? e.message : String(e) };
     }
@@ -234,8 +268,17 @@ export async function GET(request: NextRequest) {
   // "nobody got their email", including gating the 500 below on it.
   let sendFailed = 0;
   let markFailed = 0;
+  // Rows whose failure could not be recorded either: notified_at unset AND
+  // notify_attempts unchanged, so tomorrow re-sends them unchanged and the
+  // give-up counter can never retire them. Zero forward progress — a run
+  // with any of these must not report 200 (pass 5, item 1).
+  let unpersisted = 0;
   let deadlineHit = false;
   const startedAt = Date.now();
+  // One flush at the end, sized to what is left of maxDuration: four 2 s
+  // flushes after a 55 s batch would be killed mid-alarm on the worst run.
+  const flushRemaining = () =>
+    Sentry.flush(Math.max(250, Math.min(2000, 58_000 - (Date.now() - startedAt))));
 
   // Send failures are recorded AFTER the loop, not inline: a run in which
   // EVERY send failed is an outage (Resend down, key rotated), not N bad
@@ -243,7 +286,7 @@ export async function GET(request: NextRequest) {
   // backlog after five such days — permanently, silently (pass 4, item 2).
   // That verdict only exists once the loop has finished, so the evidence is
   // parked here until then.
-  const sendFailures: Array<{ row: WaitlistRow; message: string }> = [];
+  const sendFailures: Array<{ row: WaitlistRow; message: string; transient: boolean }> = [];
 
   for (const row of pending) {
     if (Date.now() - startedAt > NOTIFY_BUDGET_MS) {
@@ -268,7 +311,7 @@ export async function GET(request: NextRequest) {
           code: markError.code,
         });
         markFailed++;
-        await recordNotifyFailure(supabase, row, markError.message);
+        if (!(await recordNotifyFailure(supabase, row, markError.message))) unpersisted++;
         continue;
       }
       sent++;
@@ -284,6 +327,7 @@ export async function GET(request: NextRequest) {
         // the rest of the batch proving it. The assert at the top of this
         // handler normally makes this unreachable; getting here means the
         // env changed under a running instance.
+        await flushRemaining();
         return NextResponse.json(
           {
             ok: false,
@@ -295,30 +339,38 @@ export async function GET(request: NextRequest) {
         );
       }
       sendFailed++;
-      sendFailures.push({ row, message });
+      sendFailures.push({ row, message, transient: isTransientSendFailure(error) });
     }
   }
 
-  // A whole-batch send failure is an outage, not a bad address (see
-  // sendFailures above). `pending.length > 1` because a single-row batch is
-  // no evidence at all — and this table's normal state is a handful of rows
-  // a day, where the counter is the only thing that ever retires a genuinely
-  // dead address.
+  // A whole-batch send failure is an outage only when every failure is one
+  // a retry could fix (429 / 5xx / no HTTP status). Two suppressed or
+  // invalid addresses that happen to be the whole day's batch are NOT an
+  // outage — they are permanent rejections and must be charged, or they
+  // squat the queue and 500 the cron daily while the alarm blames Resend
+  // (pass 5, item 2). Batch size is irrelevant: a lone traveller during a
+  // real Resend outage is not charged either.
   const allSendsFailed = pending.length > 0 && sendFailed === pending.length;
-  const outage = allSendsFailed && pending.length > 1;
+  const outage = allSendsFailed && sendFailures.every((f) => f.transient);
   if (outage) {
     alarm(
       "waitlist_notify_outage",
-      `waitlist-notify: all ${pending.length} sends failed this run — treating as an outage, notify_attempts NOT charged. Last error: ${
+      `waitlist-notify: all ${pending.length} sends failed this run with transient errors — treating as an outage, notify_attempts NOT charged. Last error: ${
         sendFailures[sendFailures.length - 1]?.message ?? "unknown"
       }`,
       "error"
     );
-    await Sentry.flush(2000);
   } else {
     for (const failure of sendFailures) {
-      await recordNotifyFailure(supabase, failure.row, failure.message);
+      if (!(await recordNotifyFailure(supabase, failure.row, failure.message))) unpersisted++;
     }
+  }
+  if (unpersisted > 0) {
+    alarm(
+      "waitlist_notify_no_progress",
+      `waitlist-notify: ${unpersisted} row(s) could neither record delivery nor charge notify_attempts — they WILL be re-sent tomorrow and cannot retire until the write path is fixed`,
+      "error"
+    );
   }
 
   // "N of M failed" alarm — a cron that silently drops failures forever is
@@ -336,7 +388,6 @@ export async function GET(request: NextRequest) {
         (deadlineHit ? " (run also hit its time budget before finishing)" : ""),
       "warning"
     );
-    await Sentry.flush(2000);
   }
 
   // Cap/deadline alarm — deliberately INDEPENDENT of totalFailed above (pass
@@ -353,7 +404,6 @@ export async function GET(request: NextRequest) {
         ") — the backlog is outgrowing one run",
       "warning"
     );
-    await Sentry.flush(2000);
   }
 
   // Separate, independent signal (pass 3, item 3): rows more than 2 days
@@ -392,19 +442,45 @@ export async function GET(request: NextRequest) {
       `waitlist-notify: ${overdueCount} row(s) are more than 2 days overdue and still unnotified`,
       "error"
     );
-    await Sentry.flush(2000);
   }
 
+  // Standing population of rows this cron has GIVEN UP on. They are excluded
+  // from the send select and the overdue count by design, so without this
+  // their only trace is the one-time give-up event on a stable fingerprint —
+  // the first abandoned traveller opens the issue and every later one is an
+  // invisible increment (pass 5, item 3). Reported every run, chartable, with
+  // the revive SQL named (runbook § 14).
+  const { count: abandonedCount, error: abandonedError } = await supabase
+    .from("booking_waitlist")
+    .select("id", { count: "exact", head: true })
+    .is("notified_at", null)
+    .is("unsubscribed_at", null)
+    .gte("notify_attempts", MAX_NOTIFY_ATTEMPTS);
+  if (abandonedError) {
+    captureAPIError(new Error(abandonedError.message), { ...CTX, stage: "abandoned_check" });
+  } else if ((abandonedCount ?? 0) > 0) {
+    alarm(
+      "waitlist_notify_abandoned",
+      `waitlist-notify: ${abandonedCount} traveller(s) will never be notified (notify_attempts >= ${MAX_NOTIFY_ATTEMPTS}) — after fixing the cause, run the revive SQL in OPERATIONS_RUNBOOK § 14`,
+      "error"
+    );
+  }
+
+  await flushRemaining();
+
+  const noProgress = unpersisted > 0;
   return NextResponse.json(
     {
-      ok: !allSendsFailed,
+      ok: !allSendsFailed && !noProgress,
       scanned: pending.length,
       sent,
       sendFailed,
       markFailed,
+      unpersisted,
+      abandoned: abandonedError ? null : (abandonedCount ?? 0),
       capped,
     },
-    { status: allSendsFailed ? 500 : 200 }
+    { status: allSendsFailed || noProgress ? 500 : 200 }
   );
 }
 
@@ -475,6 +551,13 @@ async function sendOpensOnEmail(row: WaitlistRow) {
   });
 
   if (error) {
-    throw new Error(`Resend error for waitlist row ${row.id}: ${error.message}`);
+    const statusCode =
+      typeof (error as { statusCode?: unknown }).statusCode === "number"
+        ? (error as { statusCode: number }).statusCode
+        : undefined;
+    throw new ResendSendError(
+      `Resend error for waitlist row ${row.id}: ${error.message}`,
+      statusCode
+    );
   }
 }

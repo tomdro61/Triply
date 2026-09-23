@@ -197,11 +197,18 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
     expect(json.sent).toBe(0);
     expect(json.sendFailed).toBe(0);
     expect(json.markFailed).toBe(1);
-    // sendFailed (0) !== scanned (1) — the batch did not entirely fail to
-    // SEND, even though bookkeeping failed, so this must stay a 200.
-    expect(res.status).toBe(200);
-    expect(json.ok).toBe(true);
+    // The email went out, but NOTHING could be recorded — neither notified_at
+    // nor the attempt counter — so tomorrow re-sends it unchanged and the
+    // give-up counter can never retire it. Zero forward progress is a 500,
+    // not a green run with `markFailed` buried in the body (pass 5, item 1).
+    expect(res.status).toBe(500);
+    expect(json.ok).toBe(false);
+    expect(json.unpersisted).toBe(1);
     expect(sentry.captureException).toHaveBeenCalled();
+    const noProgress = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("could neither record delivery nor charge")
+    );
+    expect(noProgress).toBeDefined();
     const stuck = db.tables.booking_waitlist.find((r) => r.id === "marked_wrong");
     // Nothing was written, and nothing PRETENDS to have been: notified_at is
     // still null (the row will be re-sent tomorrow, loudly) and the counter
@@ -212,7 +219,13 @@ describe("GET /api/cron/waitlist-notify — selection", () => {
 
   it("a row crossing MAX_NOTIFY_ATTEMPTS fires one give-up alarm", async () => {
     db.tables.booking_waitlist = [row({ id: "about_to_give_up", email: "bad@example.com", notify_attempts: 4 })];
-    resendSend.mockRejectedValueOnce(new Error("hard bounce"));
+    // A suppressed / invalid recipient is a PERMANENT 4xx from Resend — the
+    // only kind of failure that charges the counter (a 429/5xx/network error
+    // is an outage, never the traveller's fault).
+    resendSend.mockResolvedValueOnce({
+      data: null,
+      error: { statusCode: 422, name: "validation_error", message: "recipient is suppressed" },
+    });
 
     await GET(req());
 
@@ -383,14 +396,70 @@ describe("GET /api/cron/waitlist-notify — whole-batch send failure", () => {
     expect(outageCall).toBeDefined();
   });
 
-  it("still charges a lone failing row — a one-row batch is no evidence of an outage, and the counter is what retires a dead address", async () => {
+  it("charges a lone PERMANENTLY-rejected address even though it is the whole batch — the counter is what retires a dead address", async () => {
     db.tables.booking_waitlist = [row({ id: "solo", email: "bad@example.com" })];
-    resendSend.mockRejectedValue(new Error("hard bounce"));
+    resendSend.mockResolvedValue({
+      data: null,
+      error: { statusCode: 422, name: "validation_error", message: "hard bounce" },
+    });
 
     const res = await GET(req());
     expect(res.status).toBe(500);
     const failed = db.tables.booking_waitlist.find((r) => r.id === "solo");
     expect(failed?.notify_attempts).toBe(1);
     expect(failed?.last_notify_error).toMatch(/hard bounce/);
+    const outageCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("treating as an outage")
+    );
+    expect(outageCall).toBeUndefined();
+  });
+
+  it("does NOT charge a lone traveller whose send failed transiently (429 / 5xx / network) — that is an outage of one, not a dead address", async () => {
+    db.tables.booking_waitlist = [row({ id: "solo", email: "fine@example.com" })];
+    resendSend.mockResolvedValue({
+      data: null,
+      error: { statusCode: 429, name: "rate_limit_exceeded", message: "Too many requests" },
+    });
+
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    const r = db.tables.booking_waitlist.find((x) => x.id === "solo");
+    expect(r?.notify_attempts).toBe(0);
+    expect(r?.last_notify_error).toBeNull();
+  });
+
+  it("two permanently-rejected addresses that are the whole batch are charged, not excused as an outage", async () => {
+    db.tables.booking_waitlist = [
+      row({ id: "dead1", email: "dead1@example.com" }),
+      row({ id: "dead2", email: "dead2@example.com" }),
+    ];
+    resendSend.mockResolvedValue({
+      data: null,
+      error: { statusCode: 422, name: "validation_error", message: "suppressed" },
+    });
+
+    await GET(req());
+    for (const r of db.tables.booking_waitlist) expect(r.notify_attempts).toBe(1);
+    const outageCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("treating as an outage")
+    );
+    expect(outageCall).toBeUndefined();
+  });
+
+  it("reports the standing population of given-up rows on every run", async () => {
+    db.tables.booking_waitlist = [
+      row({ id: "gone1", email: "gone1@example.com", notify_attempts: 5 }),
+      row({ id: "gone2", email: "gone2@example.com", notify_attempts: 7 }),
+      row({ id: "ok", email: "ok@example.com" }),
+    ];
+
+    const res = await GET(req());
+    const json = await res.json();
+    expect(json.sent).toBe(1);
+    expect(json.abandoned).toBe(2);
+    const abandonedCall = sentry.captureMessage.mock.calls.find((call) =>
+      String(call[0]).includes("will never be notified")
+    );
+    expect(abandonedCall).toBeDefined();
   });
 });
