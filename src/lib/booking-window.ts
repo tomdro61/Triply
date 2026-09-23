@@ -47,6 +47,14 @@ export function toLocalISODate(d: Date): string {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-12-09" → "Dec 9, 2026" for customer-facing copy (matches the widget's MMM d, yyyy). */
+function friendlyDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return `${MONTHS[(m ?? 1) - 1]} ${d}, ${y}`;
+}
+
 /**
  * The one place a search's dates are validated before they leave the widget.
  * Native `<input type="date">` `min`/`max` are constraint-validation HINTS —
@@ -70,10 +78,15 @@ export function validateSearchDates(
     return "Check-in can't be in the past.";
   }
   if (departDate > max) {
-    return `Reservations open ${MAX_ADVANCE_BOOKING_DAYS} days in advance — the latest check-in is ${max}.`;
+    return `Reservations open ${MAX_ADVANCE_BOOKING_DAYS} days in advance — the latest check-in is ${friendlyDate(max)}.`;
   }
   if (returnDate < departDate) {
     return "Return date must be on or after your check-in date.";
+  }
+  // The calendar disables `{ after: maxDate }` for the return leg too; the
+  // fallback input only hints it. Keep the gate as strict as the picker.
+  if (returnDate > max) {
+    return `Return dates are available up to ${friendlyDate(max)} for now.`;
   }
   return null;
 }
