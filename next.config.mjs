@@ -43,6 +43,12 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.public.blob.vercel-storage.com",
       },
+      {
+        // LiteAPI hotel photos (Park & Stay). Keep in sync with
+        // src/lib/hotels/photo-hosts.ts — a test asserts all three lists agree.
+        protocol: "https",
+        hostname: "static.cupid.travel",
+      },
     ],
   },
 
@@ -112,7 +118,7 @@ const nextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://*.clarity.ms https://api.mapbox.com",
               "style-src 'self' 'unsafe-inline' https://api.mapbox.com https://fonts.googleapis.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com https://static.cupid.travel",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.clarity.ms https://*.sentry.io",
               "frame-src https://js.stripe.com https://hooks.stripe.com",

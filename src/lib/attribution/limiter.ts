@@ -155,3 +155,16 @@ export function __resetWaitlistRateLimitForTests(): void {
 export function __waitlistRateLimitSizeForTests(): number {
   return waitlistLimiter.size();
 }
+
+// Park & Stay search fans out into one LiteAPI rates call per request (and a
+// ResLab pairing search). A per-lambda brake only, like the others — the
+// durable daily supplier-call counter is the real boundary (plan §5).
+const parkStaySearchLimiter = createBoundedRateLimiter({ limit: 20, windowMs: 60_000, maxKeys: 5000 });
+
+export function checkParkStaySearchRateLimit(key: string, now = Date.now()): boolean {
+  return parkStaySearchLimiter.check(key, now);
+}
+
+export function __resetParkStaySearchRateLimitForTests(): void {
+  parkStaySearchLimiter.reset();
+}
