@@ -1,6 +1,6 @@
 export const siteConfig = {
   name: "Triply",
-  description: "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
+  description: "Compare and book affordable airport parking. Free cancellation, shuttle service, and upfront pricing.",
   tagline: "Your Trip Simplified",
   url: process.env.NEXT_PUBLIC_APP_URL || "https://triplypro.com",
   ogImage: "/og-image.jpg",

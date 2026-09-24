@@ -4,7 +4,6 @@ import {
   Hero,
   FeaturedParking,
   Comparison,
-  Testimonials,
   FAQ,
   Newsletter,
   BrowseAirports,
@@ -26,7 +25,7 @@ const organizationSchema = {
   url: "https://triplypro.com",
   logo: "https://triplypro.com/Coral-logo.png",
   description:
-    "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
+    "Compare and book affordable airport parking. Free cancellation, shuttle service, and upfront pricing.",
   foundingDate: "2026",
   areaServed: [
     { "@type": "Country", name: "United States" },
@@ -73,7 +72,6 @@ export default function Home() {
           <Hero />
           <FeaturedParking />
           <Comparison />
-          <Testimonials />
           <FAQ />
           <BrowseAirports />
           <Newsletter />
