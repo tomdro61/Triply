@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: "%s | Triply",
   },
   description:
-    "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews. Your trip simplified.",
+    "Compare and book affordable airport parking. Free cancellation, shuttle service, and upfront pricing. Your trip simplified.",
   keywords: [
     "airport parking",
     "cheap parking",
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     siteName: "Triply",
     title: "Triply - Airport Parking Made Simple",
     description:
-      "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
+      "Compare and book affordable airport parking. Free cancellation, shuttle service, and upfront pricing.",
     images: [
       {
         url: "/opengraph-image",
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Triply - Airport Parking Made Simple",
     description:
-      "Compare and book affordable airport parking. Free cancellation, shuttle service, and verified reviews.",
+      "Compare and book affordable airport parking. Free cancellation, shuttle service, and upfront pricing.",
     images: ["/opengraph-image"],
   },
   robots: {

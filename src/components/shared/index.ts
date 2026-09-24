@@ -2,7 +2,6 @@ export { Navbar } from "./navbar";
 export { Hero } from "./hero";
 export { FeaturedParking } from "./featured-parking";
 export { Comparison } from "./comparison";
-export { Testimonials } from "./testimonials";
 export { FAQ } from "./faq";
 export { Newsletter } from "./newsletter";
 export { BrowseAirports } from "./browse-airports";
