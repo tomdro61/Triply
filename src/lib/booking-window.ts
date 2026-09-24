@@ -10,6 +10,20 @@ import { addDays, startOfDay } from "date-fns";
 export const MAX_ADVANCE_BOOKING_DAYS = 60;
 
 /**
+ * How far past check-in a WAITLIST return date can be (see
+ * POST /api/waitlist and the return-date field in WaitlistPrompt).
+ *
+ * Long enough to cover a real long-stay trip — the furthest-out, highest-value
+ * bookings this list exists to catch — and short enough that a typo'd
+ * far-future checkout can't produce a nonsense /search link in the opens-on
+ * email. Lives here, next to the other date rules, because the API's zod
+ * schema and the date picker's `max` MUST agree: a picker that accepts a date
+ * the API then 400s is the same class of bug as one that offers a date ResLab
+ * can't sell.
+ */
+export const MAX_WAITLIST_STAY_DAYS = 60;
+
+/**
  * Latest selectable check-in date: start of today + the ResLab booking window.
  * (react-day-picker's `{ after: maxDate }` leaves this day itself selectable and
  * disables everything after it, matching ResLab's inclusive 60-day boundary.)
