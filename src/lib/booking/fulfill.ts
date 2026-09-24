@@ -14,6 +14,7 @@ import type { z } from "zod";
 import { reslab, stripHtml } from "@/lib/reslab/client";
 import type { ReslabReservation } from "@/lib/reslab/client";
 import { createAdminClient } from "@/lib/supabase/server";
+import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-notification";
 import type { reservationSchema } from "@/lib/validation/schemas";
@@ -186,38 +187,103 @@ export async function persistBooking(
     const supabase = await createAdminClient();
 
     // --- Customer upsert -----------------------------------------------------
+    // `userId` is the SERVER-SESSION user (the reservation routes overwrite
+    // whatever the client sent) or, on the webhook/sweep paths, the id staged
+    // on the pending row by those same routes. It selects the booker's own
+    // customer row. It is NOT, on its own, permission to attach an
+    // email-matched row to that account — see customer-link.ts: that was the
+    // account-takeover hole (book under a victim's email, inherit their
+    // booking history and self-cancel). Linking requires the account's
+    // verified email to BE that address.
     let customerId: string;
-    let existingCustomer: { id: string } | null = null;
+    let existingCustomer: { id: string; email: string; user_id: string | null } | null = null;
+
+    // Not `.single()`: PostgREST answers BOTH zero and multiple rows with the
+    // same PGRST116, so a duplicated customer (customers has no UNIQUE on
+    // email or user_id, and duplicates exist in prod) would read as "no
+    // customer" and INSERT yet another row after the money moved. Read the
+    // list, take the oldest row deterministically, and report duplicates and
+    // faults — the booking continues either way.
+    type CustomerRow = { id: string; email: string; user_id: string | null };
+    const pickCustomer = (
+      by: string,
+      rows: CustomerRow[] | null,
+      error: { message: string } | null
+    ): CustomerRow | null => {
+      if (error) {
+        captureBookingError(
+          new Error(`customers lookup by ${by} failed (pi=${stripePaymentIntentId ?? "none"}): ${error.message}`),
+          { step: "checkout" }
+        );
+        return null;
+      }
+      if (!rows || rows.length === 0) return null;
+      if (rows.length > 1) {
+        captureBookingError(
+          new Error(`${rows.length} customers rows share the same ${by} (pi=${stripePaymentIntentId ?? "none"}) — using the oldest; dedupe needed`),
+          { step: "checkout" }
+        );
+      }
+      return rows[0];
+    };
 
     if (userId) {
-      const { data: customerByUserId } = await supabase
+      const { data, error } = await supabase
         .from("customers")
-        .select("id")
+        .select("id, email, user_id")
         .eq("user_id", userId)
-        .single();
-      if (customerByUserId) existingCustomer = customerByUserId;
+        .order("created_at", { ascending: true });
+      existingCustomer = pickCustomer("user_id", data, error);
     }
 
     if (!existingCustomer) {
-      const { data: customerByEmail } = await supabase
+      const { data, error } = await supabase
         .from("customers")
-        .select("id")
+        .select("id, email, user_id")
         .eq("email", customer.email)
-        .single();
-      if (customerByEmail) existingCustomer = customerByEmail;
+        .order("created_at", { ascending: true });
+      existingCustomer = pickCustomer("email", data, error);
     }
+
+    // The verified-email check is an external auth call inside the
+    // post-capture critical section — only make it when it can change the
+    // outcome (an unlinked matched row, or a brand-new row).
+    const linkableUserId =
+      existingCustomer && existingCustomer.user_id !== null
+        ? null
+        : await linkableUserIdForEmail(userId, customer.email);
 
     if (existingCustomer) {
       customerId = existingCustomer.id;
-      await supabase
-        .from("customers")
-        .update({
-          first_name: customer.firstName,
-          last_name: customer.lastName,
-          phone: customer.phone,
-          ...(userId && { user_id: userId }),
-        })
-        .eq("id", customerId);
+      // Link only a row that has NO account yet, and only to an account whose
+      // verified email is this address. Never overwrite a different non-null
+      // user_id — that is someone else's record.
+      const linkHere =
+        linkableUserId !== null && existingCustomer.user_id === null
+          ? { user_id: linkableUserId }
+          : {};
+      // Refresh the contact details only when this booking is FOR that row's
+      // address. A signed-in customer booking under someone else's email is
+      // filed under their own row (found by user_id above) — the other
+      // person's name and phone must not overwrite the account holder's.
+      const contactHere = sameEmail(existingCustomer.email, customer.email)
+        ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
+        : {};
+      const patch = { ...contactHere, ...linkHere };
+      if (Object.keys(patch).length > 0) {
+        const { error: updateError } = await supabase
+          .from("customers")
+          .update(patch)
+          .eq("id", customerId);
+        if (updateError) {
+          // Non-fatal for the booking (the row exists and is correct enough to
+          // attach to), but never silent.
+          captureBookingError(
+            new Error(`customers update failed (pi=${stripePaymentIntentId ?? "none"}): ${updateError.message}`),
+            { step: "checkout" }
+          );
+        }
+      }
     } else {
       const { data: newCustomer, error: customerError } = await supabase
         .from("customers")
@@ -226,7 +292,9 @@ export async function persistBooking(
           first_name: customer.firstName,
           last_name: customer.lastName,
           phone: customer.phone,
-          ...(userId && { user_id: userId }),
+          // A signed-in customer booking under a DIFFERENT email gets a plain
+          // guest row for that address, not one attached to their account.
+          ...(linkableUserId && { user_id: linkableUserId }),
         })
         .select("id")
         .single();

@@ -12,8 +12,9 @@
  * and nothing but tests stops a fifth.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { FakeSupabase } from "./supabase-fake";
+import { __setAuthUserLookupForTests } from "../customer-link";
 
 // ---------------------------------------------------------------------------
 // Mocks. ReslabError is kept REAL — classification is instanceof-based, and a
@@ -1307,5 +1308,159 @@ describe("attribution (migration 023) — review pass 1 additions", () => {
     expect(out.kind).toBe("created");
     expect(db.tables.bookings[0].attribution).toEqual({ v: null, invalid: true });
     expect(db.tables.bookings[0].channel).toBeNull();
+  });
+});
+
+
+describe("customer linking at fulfilment — the account-takeover fix (2026-09-24)", () => {
+  beforeEach(() => {
+    db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [] };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+  });
+  afterEach(() => __setAuthUserLookupForTests(null));
+
+  it("does NOT attach a victim's existing customer row to the booker's account when the booker's email differs (the attack)", async () => {
+    db.seed("customers", [{ id: "victim", email: "Ada.Lovelace@Example.com", user_id: null }]);
+    // Staged by the pending route from the ATTACKER's session; the typed email is the victim's.
+    db.seed("pending_bookings", [pendingRow({ user_id: "attacker-uid" })]);
+    __setAuthUserLookupForTests(async (id) =>
+      id === "attacker-uid" ? { verifiedEmail: "attacker@example.com" } : null
+    );
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const victim = db.tables.customers.find((c) => c.id === "victim");
+    expect(victim?.user_id).toBeNull();
+    // No second row was created for the victim's email either.
+    expect(db.tables.customers.filter((c) => String(c.email).toLowerCase() === "ada.lovelace@example.com")).toHaveLength(1);
+  });
+
+  it("links a guest customer row to the account whose VERIFIED email is that address (the legitimate case)", async () => {
+    db.seed("customers", [{ id: "ada", email: "Ada.Lovelace@Example.com", user_id: null }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    __setAuthUserLookupForTests(async (id) =>
+      id === "ada-uid" ? { verifiedEmail: "ada.lovelace@example.com" } : null
+    );
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.customers.find((c) => c.id === "ada")?.user_id).toBe("ada-uid");
+  });
+
+  it("never overwrites a row that already belongs to a different account", async () => {
+    db.seed("customers", [{ id: "ada", email: "Ada.Lovelace@Example.com", user_id: "someone-else" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "ada.lovelace@example.com" }));
+
+    await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(db.tables.customers.find((c) => c.id === "ada")?.user_id).toBe("someone-else");
+  });
+
+  it("a signed-in booker using a different email gets a plain guest row for that address, not one attached to their account", async () => {
+    db.seed("pending_bookings", [pendingRow({ user_id: "booker-uid" })]);
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "booker@example.com" }));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const row = db.tables.customers.find((c) => String(c.email).toLowerCase() === "ada.lovelace@example.com");
+    expect(row).toBeDefined();
+    expect(row?.user_id ?? null).toBeNull();
+  });
+
+  it("a signed-in booker's OWN row is used for a booking under someone else's email, and the other person's name/phone do not overwrite the account holder's", async () => {
+    db.seed("customers", [
+      { id: "booker", email: "booker@example.com", first_name: "Bo", last_name: "Oker", phone: "111", user_id: "booker-uid" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "booker-uid" })]);
+    const lookup = vi.fn(async () => ({ verifiedEmail: "booker@example.com" }));
+    __setAuthUserLookupForTests(lookup);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const booker = db.tables.customers.find((c) => c.id === "booker");
+    expect(booker?.first_name).toBe("Bo");
+    expect(booker?.phone).toBe("111");
+    expect(booker?.user_id).toBe("booker-uid");
+    expect(db.tables.bookings[0].customer_id).toBe("booker");
+    // Already linked → nothing the auth lookup returns can change the outcome, so it is not made.
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it("a customers SELECT fault (not PGRST116) is reported to Sentry rather than read as 'no customer'", async () => {
+    db.seed("customers", [{ id: "ada", email: "Ada.Lovelace@Example.com", user_id: "ada-uid" }]);
+    db.seed("pending_bookings", [pendingRow({ user_id: "ada-uid" })]);
+    db.failOnce("customers", "select", "connection reset", "08006");
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "ada.lovelace@example.com" }));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/customers lookup by user_id failed .*connection reset/) }),
+      expect.objectContaining({ step: "checkout" })
+    );
+    // The email lookup then found the row — no duplicate customer was inserted.
+    expect(db.tables.customers).toHaveLength(1);
+    expect(db.tables.bookings[0].customer_id).toBe("ada");
+  });
+
+  it("duplicate customers rows (no UNIQUE on email) are NOT read as 'no customer': the oldest wins, it is reported, and no third row is inserted", async () => {
+    db.seed("customers", [
+      { id: "newer", email: "Ada.Lovelace@Example.com", user_id: null, created_at: "2026-09-02T00:00:00Z" },
+      { id: "older", email: "Ada.Lovelace@Example.com", user_id: null, created_at: "2026-09-01T00:00:00Z" },
+    ]);
+    db.seed("pending_bookings", [pendingRow({ user_id: null })]);
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.customers).toHaveLength(2);
+    expect(db.tables.bookings[0].customer_id).toBe("older");
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/2 customers rows share the same email/) }),
+      expect.objectContaining({ step: "checkout" })
+    );
+  });
+
+  it("a session that lapses between staging and completion does not downgrade the booking to a guest one (the staged server id wins)", async () => {
+    db.seed("customers", [{ id: "ada", email: "Ada.Lovelace@Example.com", user_id: "ada-uid" }]);
+    const r = pendingRow({ user_id: "ada-uid" });
+    db.seed("pending_bookings", [r]);
+    __setAuthUserLookupForTests(async () => ({ verifiedEmail: "ada.lovelace@example.com" }));
+
+    // Browser path: the route could not read a session this time, so the
+    // server-overwritten payload carries userId: null.
+    const out = await createBooking({
+      source: "client",
+      stripePaymentIntentId: PI,
+      payload: {
+        locationId: r.location_id,
+        costsToken: r.costs_token,
+        fromDate: r.from_date,
+        toDate: r.to_date,
+        parkingTypeId: r.parking_type_id,
+        customer: r.customer,
+        vehicle: r.vehicle,
+        locationName: r.location_name,
+        locationAddress: r.location_address,
+        airportCode: "RESLAB",
+        subtotal: 80,
+        taxTotal: 5,
+        feesTotal: 3,
+        grandTotal: 88,
+        triplyServiceFee: 6,
+        userId: null,
+        stripePaymentIntentId: PI,
+        protectionPlanCode: null,
+      },
+    });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].customer_id).toBe("ada");
   });
 });

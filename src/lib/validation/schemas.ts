@@ -60,6 +60,10 @@ export const reservationSchema = z.object({
   feesTotal: z.number().optional(),
   grandTotal: z.number().optional(),
   triplyServiceFee: z.number().optional(),
+  // Accepted for shape only: both reservation routes OVERWRITE this with the
+  // session user (customer-link.ts) before it reaches the engine, and the
+  // pending-row read-back populates it from the staged server value. A
+  // client-supplied id is never trusted (2026-09-24 account-takeover fix).
   userId: z.string().nullable().optional(),
   stripePaymentIntentId: z.string().optional(),
   // Required KEY, nullable VALUE: "A" | "B" | "C" is the Park Guard tier the

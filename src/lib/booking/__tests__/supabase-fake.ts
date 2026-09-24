@@ -481,8 +481,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           const av = a[col];
           const bv = b[col];
           if (av == null && bv == null) return 0;
-          if (av == null) return this.orderAsc ? -1 : 1;
-          if (bv == null) return this.orderAsc ? 1 : -1;
+          // Postgres: ASC => NULLS LAST, DESC => NULLS FIRST. Never the
+          // reverse — a fake that orders nulls first would bless a row
+          // PostgREST puts last.
+          if (av == null) return this.orderAsc ? 1 : -1;
+          if (bv == null) return this.orderAsc ? -1 : 1;
           if (av < bv) return this.orderAsc ? -1 : 1;
           if (av > bv) return this.orderAsc ? 1 : -1;
           return 0;
