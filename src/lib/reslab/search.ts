@@ -23,9 +23,11 @@ import {
   logAvailability,
   dayDiff,
   localToday,
+  resolveEnv,
   type AvailabilityRow,
   type AvailabilitySource,
 } from "@/lib/availability/log";
+import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 
 export { generateSlug };
 
@@ -216,6 +218,18 @@ export function sortLots(lots: UnifiedLot[], sortBy: SortOption): UnifiedLot[] {
 // Main search function (used by both /api/search and /api/chat tool)
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** First-touch attribution + GA client id to record on the search_events
+ *  header row, read by the caller off the `triply_attr` cookie (see
+ *  readAttributionFromRequest) — passed in rather than parsed here because
+ *  searchParking has no Request object and must not couple to route-only
+ *  cookie parsing (chat and airport-page callers have none to give). */
+export interface SearchEventAttribution {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  gaClientId: string | null;
+}
+
 export interface SearchParkingParams {
   airport: string;
   checkin: string; // YYYY-MM-DD
@@ -226,9 +240,29 @@ export interface SearchParkingParams {
   /**
    * Which surface asked. Recorded with the sold-out signal so an airport-page
    * render (a fixed +1d/+8d window, hit on every ISR revalidation) can be told
-   * apart from a real customer search. Defaults to "search".
+   * apart from a real customer search. Defaults to "search". Also the
+   * search_events call-site tag unless `searchEventSource` overrides it.
    */
   source?: AvailabilitySource;
+  /**
+   * Overrides `source` on the search_events row only, for a call site that
+   * shares availability_log's "search" tag but must be distinguishable in
+   * the demand table — today just the homepage's featured-parking widget,
+   * which polls /api/search on every homepage view with fixed dates nobody
+   * typed. Leaving availability_log's own enum untouched avoids a migration
+   * to widen its CHECK for a distinction only search_events needs.
+   */
+  searchEventSource?: SearchEventSource;
+  /**
+   * True when checkin/checkout were NOT supplied by the caller and the route
+   * substituted its tomorrow/+7 pricing-estimate fallback (see route.ts).
+   * Recorded on the search_events row; omitted (false) by callers that always
+   * pass explicit dates (chat, airport pages).
+   */
+  datesDefaulted?: boolean;
+  /** See SearchEventAttribution. Omitted (all-null) when the caller has no
+   *  request to read a cookie from. */
+  attribution?: SearchEventAttribution;
 }
 
 export interface SearchParkingResult {
@@ -379,6 +413,10 @@ let lastAvailabilityReportAt: number | null = null;
 // Separate clock for the expected "unparseable dates" skip (chat path), so it
 // cannot starve the report of a genuine row-builder defect above.
 let lastAvailabilityDateSkipReportAt: number | null = null;
+// search_events header-row builder defect — its own clock, same reasoning:
+// distinct from availability_log's own row-builder throttle above so one
+// table's outage report can't mask the other's.
+let lastSearchEventReportAt: number | null = null;
 const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 // Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
 let buildPhaseSweeps = 0;
@@ -395,6 +433,7 @@ export function __resetLocationListCacheForTests(): void {
   lastBackoffReportAt = null;
   lastAvailabilityReportAt = null;
   lastAvailabilityDateSkipReportAt = null;
+  lastSearchEventReportAt = null;
   buildPhaseSweeps = 0;
   inFlightLocationBuild = null;
 }
@@ -798,6 +837,9 @@ export async function searchParking(
     checkoutTime = "2:00 PM",
     sort = "popularity",
     source = "search",
+    searchEventSource,
+    datesDefaulted = false,
+    attribution,
   } = params;
 
   // Validate airport
@@ -805,6 +847,114 @@ export async function searchParking(
   if (!airportInfo) {
     throw new Error(`Invalid airport code: ${airportCode}`);
   }
+
+  // Identifiers shared by BOTH telemetry tables this search writes:
+  // availability_log (per lot, below) and search_events (this search's
+  // header row) — generated once here, not inside either logger, so a row in
+  // one can be joined to the rows in the other by search_id, and so the two
+  // can never disagree about lead_days/env/searched-on the way the old
+  // separately-computed search_events (UTC "today", route-level insert) used
+  // to. lead_days is measured against "today" in the airport's own timezone,
+  // not UTC — a US evening search is already "tomorrow" in UTC and would
+  // otherwise log a systematic -1 lead day (asserted against this real code
+  // path in __tests__/search-events.test.ts, "timezone boundary").
+  const searchedOn = localToday(airportInfo.timezone);
+  const leadDays = dayDiff(searchedOn, checkin);
+  const stayDays = dayDiff(checkin, checkout);
+  const searchId = crypto.randomUUID();
+  const searchEnv = resolveEnv();
+  const eventSource: SearchEventSource = searchEventSource ?? source;
+
+  // Fire-and-forget search_events header row for THIS search, called at every
+  // return point below (including the zero-locations early return) once
+  // lead/stay days are known to parse. Wrapped in its own try/catch, on its
+  // own report clock, so a defect building this row can never take down a
+  // real search result or starve availability_log's own error reporting.
+  //
+  // It takes the RAW arrays rather than pre-computed numbers on purpose:
+  // every derived telemetry value (the cheapest price, the sold-out count,
+  // and in particular the `Math.min(...)` SPREAD, which throws RangeError on
+  // a large enough array) is computed INSIDE this try/catch. Nothing
+  // telemetry-only is evaluated on the customer's path.
+  const emitSearchEvent = (fields: {
+    results_count: number;
+    degraded: boolean;
+    stale: boolean;
+    /** The per-lot pricing pass, 1:1 with `locations`. Empty at the
+     *  zero-location early return. */
+    priced: readonly { minPriceData: ReslabMinPriceResponse | null }[];
+    /** The lots that will actually be returned, for the cheapest-price floor.
+     *  Empty at the zero-location early return. */
+    available: readonly UnifiedLot[];
+    /** How many of `priced` failed to price at all. */
+    pricingErrors: number;
+  }): void => {
+    try {
+      // Unparseable dates: skip rather than write a row the table's NOT
+      // NULL/CHECK constraints would bounce anyway — availability_log's own
+      // skip (below) already reports this once per its own throttle window,
+      // so no second Sentry event here. (A date that PARSES but Postgres
+      // still refuses — "2026-02-30", a reversed range, a long-past check-in
+      // — is caught and reported by logSearchEvent's own insertability gate,
+      // on its own signature; see src/lib/search-events/log.ts.)
+      if (leadDays === null || stayDays === null) return;
+
+      // Cheapest priced total, in cents, across the lots that will actually
+      // be returned — but NOT when the result is degraded: a "cheapest"
+      // computed from a partial ResLab response isn't a real cheapest, it's
+      // whatever survived, and would understate the true floor.
+      const pricedTotals = fields.available
+        .map((lot) => lot.pricing?.grandTotal)
+        .filter((v): v is number => typeof v === "number" && v > 0);
+      // Sold-out count from the same per-lot pricing pass availability_log's
+      // rows are built from, BEFORE the sold-out lots are filtered out.
+      // Null — not 0 — when NOTHING priced (no locations at all, or every
+      // ResLab pricing call failed): there were no lots to have an opinion
+      // about, and a 0 during a total outage reads as "nothing was sold out".
+      const nothingPriced =
+        fields.priced.length === 0 || fields.pricingErrors >= fields.priced.length;
+      const soldOutCount = nothingPriced
+        ? null
+        : fields.priced.filter((p) => p.minPriceData?.reservation?.sold_out === true)
+            .length;
+
+      logSearchEvent({
+        search_id: searchId,
+        env: searchEnv,
+        airport_code: airportInfo.code,
+        check_in: checkin,
+        check_out: checkout,
+        stay_days: stayDays,
+        lead_days: leadDays,
+        dates_defaulted: datesDefaulted,
+        source: eventSource,
+        utm_source: attribution?.utmSource ?? null,
+        utm_medium: attribution?.utmMedium ?? null,
+        utm_campaign: attribution?.utmCampaign ?? null,
+        ga_client_id: attribution?.gaClientId ?? null,
+        results_count: fields.results_count,
+        cheapest_price_cents:
+          !fields.degraded && pricedTotals.length > 0
+            ? Math.round(Math.min(...pricedTotals) * 100)
+            : null,
+        sold_out_count: soldOutCount,
+        degraded: fields.degraded,
+        stale: fields.stale,
+      });
+    } catch (err) {
+      const now = Date.now();
+      if (
+        lastSearchEventReportAt === null ||
+        now - lastSearchEventReportAt >= AVAILABILITY_REPORT_INTERVAL_MS
+      ) {
+        lastSearchEventReportAt = now;
+        captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+          endpoint: "searchParking.logSearchEvent",
+          method: "GET",
+        });
+      }
+    }
+  };
 
   // Convert times to 24-hour format
   const checkinTime24 = convertTo24Hour(checkinTime);
@@ -863,6 +1013,17 @@ export async function searchParking(
   // now throws above. Returned as a 200, but the route serves every empty
   // result no-store (we never cache an empty search).
   if (locations.length === 0) {
+    // A real search that found nothing is still demand — record the header
+    // row before returning. Nothing priced, so cheapest/sold_out resolve to
+    // null from the empty arrays.
+    emitSearchEvent({
+      results_count: 0,
+      degraded: listBuildIncomplete,
+      stale: listBuildStale,
+      priced: [],
+      available: [],
+      pricingErrors: 0,
+    });
     return {
       airport: airportInfo,
       checkin,
@@ -930,12 +1091,8 @@ export async function searchParking(
   // Wrapped in its own try/catch so that no defect in the row builder can
   // ever take down a real search result just to log telemetry about it.
   try {
-    // lead_days is measured against "today" in the airport's own timezone, not
-    // UTC — a US evening search is already "tomorrow" in UTC and would
-    // otherwise log a systematic -1 lead day.
-    const searchedOn = localToday(airportInfo.timezone);
-    const leadDays = dayDiff(searchedOn, checkin);
-    const stayDays = dayDiff(checkin, checkout);
+    // leadDays/stayDays/searchedOn computed once above, shared with
+    // search_events — see the comment there.
     if (leadDays === null || stayDays === null) {
       // Unparseable dates: skip the whole search rather than store a
       // fabricated lead_days — but say so, throttled on its own clock (this
@@ -995,7 +1152,7 @@ export async function searchParking(
           };
         }
       );
-      logAvailability(availabilityRows);
+      logAvailability(availabilityRows, searchId);
     }
   } catch (err) {
     // Throttled like every other capture in this file: this sits on the
@@ -1021,6 +1178,22 @@ export async function searchParking(
       lot.pricing?.grandTotal !== undefined &&
       lot.pricing.grandTotal > 0
   );
+
+  // Degraded if pricing was partial OR the location list was THIN — either
+  // way the result under-reports and must not be CDN-cached. A merely stale
+  // (complete, past-TTL) list is NOT degraded: the result is full, so it's
+  // cacheable, just on a shorter TTL.
+  const isDegraded = pricingErrors > 0 || listBuildIncomplete;
+  // Everything telemetry-only (cheapest price, sold-out count, the Math.min
+  // spread) is derived INSIDE emitSearchEvent's try/catch — see its comment.
+  emitSearchEvent({
+    results_count: availableLots.length,
+    degraded: isDegraded,
+    stale: listBuildStale,
+    priced: pricedLots,
+    available: availableLots,
+    pricingErrors,
+  });
 
   // Found locations but priced none of them while pricing calls were erroring:
   // ResLab is degraded, not genuinely empty. Throw so the route returns an
@@ -1057,11 +1230,7 @@ export async function searchParking(
     checkoutTime,
     results: sortedLots,
     total: sortedLots.length,
-    // Degraded if pricing was partial OR the location list was THIN — either
-    // way the result under-reports and must not be CDN-cached. A merely stale
-    // (complete, past-TTL) list is NOT degraded: the result is full, so it's
-    // cacheable, just on a shorter TTL. See `stale` below.
-    degraded: pricingErrors > 0 || listBuildIncomplete,
+    degraded: isDegraded,
     stale: listBuildStale,
     listIncomplete: listBuildIncomplete,
   };
