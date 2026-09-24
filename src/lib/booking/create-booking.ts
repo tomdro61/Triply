@@ -1269,6 +1269,13 @@ async function createBookingInner(
     // needs_reconciliation (non-retryable) — the correct outcome for a row that
     // will never parse.
     const payload = input.payload ?? payloadFromPendingRow(claimed);
+    // Both ids are SERVER-derived (the routes overwrite the client's userId
+    // from the session, and the row was staged from the session too). Prefer
+    // whichever one actually saw a session: a lapse between staging and
+    // completion (sign-out in another tab, a refresh-token blip) must not
+    // downgrade a signed-in booking to a guest one. Neither value can come
+    // from the client, so this cannot reopen the takeover hole.
+    payload.userId = claimed.user_id ?? payload.userId ?? null;
     return await fulfilClaimed(pi, claimed, payload, source, input.attribution ?? null);
   } catch (unexpected) {
     // Any escape from the fulfilment path leaves money in an unknown state.

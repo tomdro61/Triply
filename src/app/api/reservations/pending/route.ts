@@ -20,9 +20,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { pendingBookingSchema } from "@/lib/validation/schemas";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
+import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 
 export const maxDuration = 15;
 
@@ -152,6 +153,28 @@ export async function POST(request: NextRequest) {
     // invalid resolve to null / an "invalid" marker; it never blocks staging.
     const attribution = readAttributionFromRequest(request, { stripePaymentIntentId: piId });
 
+    // Identity from the session cookie, never the client body (see
+    // customer-link.ts). Staged on the row so the webhook and sweep paths —
+    // which have no session — fulfil with the same server-derived id.
+    const { identity, reason: identityReason } = await sessionIdentityFromRequest();
+    if (payload.userId && payload.userId !== (identity?.userId ?? null)) {
+      // Two very different situations, kept apart at triage: the server could
+      // not read a session at all (an auth fault or a token race — the
+      // customer becomes a guest for this booking), or it read a DIFFERENT
+      // user than the body claims (tampering, or a sign-out in another tab).
+      captureBookingError(
+        new Error(
+          identityReason === "auth_error"
+            ? `session unreadable; client userId dropped (booking proceeds as guest) pi=${piId}`
+            : identity === null
+              ? `client sent a userId but no session cookie was present (stale bundle or signed out) pi=${piId}`
+              : `client-supplied userId differs from the session user pi=${piId}`
+        ),
+        { step: "checkout" }
+      );
+    }
+    const sessionUserId = identity?.userId ?? null;
+
     // --- Refuse to overwrite work already in progress ------------------------
     const supabase = await createAdminClient();
 
@@ -191,7 +214,7 @@ export async function POST(request: NextRequest) {
         fees_total: payload.feesTotal ?? null,
         grand_total: payload.grandTotal ?? null,
         triply_service_fee: payload.triplyServiceFee ?? null,
-        user_id: payload.userId ?? null,
+        user_id: sessionUserId,
         // Written in lockstep: the boolean predates the tier column and is
         // still read by the legacy-row rule in create-booking.ts.
         has_protection_plan: protectionPlanCode !== null,

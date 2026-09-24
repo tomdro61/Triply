@@ -16,9 +16,10 @@ import {
   createBooking,
   PaymentNotConfirmedError,
 } from "@/lib/booking/create-booking";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
+import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
 
 // ResLab's own call is allowed up to 30s, and Park Guard, Supabase, and two
 // emails run after it. The Vercel default (15s on Pro) could kill this
@@ -54,6 +55,29 @@ export async function POST(request: NextRequest) {
 
     const payload = result.data;
     stripePaymentIntentId = payload.stripePaymentIntentId;
+
+    // Identity comes from the session cookie, never the client body. The body
+    // field is still accepted (older bundles send it, and the pending-row
+    // read-back needs the key) but it is overwritten here. A body value that
+    // disagrees with the session is worth knowing about.
+    const { identity, reason: identityReason } = await sessionIdentityFromRequest();
+    if (payload.userId && payload.userId !== (identity?.userId ?? null)) {
+      // Two very different situations, kept apart at triage: the server could
+      // not read a session at all (an auth fault or a token race — the
+      // customer becomes a guest for this booking), or it read a DIFFERENT
+      // user than the body claims (tampering, or a sign-out in another tab).
+      captureBookingError(
+        new Error(
+          identityReason === "auth_error"
+            ? `session unreadable; client userId dropped (booking proceeds as guest) pi=${stripePaymentIntentId ?? "none"}`
+            : identity === null
+              ? `client sent a userId but no session cookie was present (stale bundle or signed out) pi=${stripePaymentIntentId ?? "none"}`
+              : `client-supplied userId differs from the session user pi=${stripePaymentIntentId ?? "none"}`
+        ),
+        { step: "checkout" }
+      );
+    }
+    payload.userId = identity?.userId ?? null;
 
     if (!DEV_SKIP_PAYMENT && !stripePaymentIntentId) {
       return NextResponse.json(
