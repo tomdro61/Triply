@@ -78,7 +78,22 @@ export async function GET(request: NextRequest) {
   if (!validation.success) {
     return NextResponse.json(
       { error: "Invalid search parameters", fields: validation.error.flatten().fieldErrors },
-      { status: 400 }
+      { status: 400, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  // Both dates supplied and reversed (check-out before check-in): reject at
+  // the boundary. Real iOS users produced this via the picker (Sentry
+  // TRIPLY-31/34, Sept 2026); ResLab then priced nonsense and the availability
+  // writer dropped every row. Lexicographic compare is exact for YYYY-MM-DD.
+  if (
+    validation.data.checkin &&
+    validation.data.checkout &&
+    validation.data.checkout < validation.data.checkin
+  ) {
+    return NextResponse.json(
+      { error: "Check-out must be on or after check-in", code: "checkout_before_checkin" },
+      { status: 400, headers: { "Cache-Control": "no-store" } }
     );
   }
 
@@ -90,9 +105,18 @@ export async function GET(request: NextRequest) {
   // this fallback is never counted as if a person had typed those dates.
   const datesDefaulted = !validation.data.checkin || !validation.data.checkout;
   const checkin = validation.data.checkin || tomorrow.toISOString().split("T")[0];
+  const defaultCheckout = new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  // The pricing-estimate default must never sit BEFORE a supplied check-in (a
+  // far-out check-in with the return leg cleared by the picker) — and clamping
+  // to the check-in would price a zero-night stay. Keep the default's "+7
+  // nights" intent instead.
+  const plusSevenNights = (() => {
+    const [y, m, d] = checkin.split("-").map(Number);
+    const t = new Date(Date.UTC(y, m - 1, d + 7));
+    return `${t.getUTCFullYear()}-${String(t.getUTCMonth() + 1).padStart(2, "0")}-${String(t.getUTCDate()).padStart(2, "0")}`;
+  })();
   const checkout =
-    validation.data.checkout ||
-    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    validation.data.checkout || (defaultCheckout < checkin ? plusSevenNights : defaultCheckout);
   const pricingCheckinTime = validation.data.checkinTime || "10:00 AM";
   const pricingCheckoutTime = validation.data.checkoutTime || "2:00 PM";
   const sort = validation.data.sort || "popularity";
@@ -147,6 +171,14 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Search API error:", error);
+    // A malformed/reversed range is caller input, not an outage — answer 400
+    // BEFORE capturing, so a bot on ?checkout=<past> can't flood Sentry.
+    if (error instanceof Error && error.message.startsWith("Invalid date range")) {
+      return NextResponse.json(
+        { error: "Check-out must be on or after check-in", code: "checkout_before_checkin" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
     // The location-list circuit breaker fires on every search while it's open
     // and already reports itself once per backoff window with a more useful
     // message (see isLocationBackoffError). Capturing it here too would bury

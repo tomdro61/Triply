@@ -124,9 +124,11 @@ export async function POST(request: NextRequest) {
               .describe("Airport code (e.g., JFK, LGA)"),
             checkin: z
               .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
               .describe("Check-in date in YYYY-MM-DD format"),
             checkout: z
               .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
               .describe("Check-out date in YYYY-MM-DD format"),
             checkinTime: z
               .string()
@@ -207,6 +209,15 @@ export async function POST(request: NextRequest) {
                 lots,
               };
             } catch (err) {
+              // A reversed range is the model's (or the customer's) mistake, not
+              // an outage: tell the model so it can ask, and don't page ops.
+              if (err instanceof Error && err.message.startsWith("Invalid date range")) {
+                return {
+                  success: false as const,
+                  error:
+                    "Those dates look reversed — the check-out is before the check-in. Please confirm the dates with the customer.",
+                };
+              }
               // Report before falling back. The location-list circuit breaker
               // throws on every search for 10-minute windows, so this bare
               // catch would otherwise silently absorb a novel, high-volume

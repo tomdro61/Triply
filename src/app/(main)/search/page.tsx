@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { validateSearchDates } from "@/lib/booking-window";
 import { Map, List } from "lucide-react";
 import { Navbar } from "@/components/shared";
 import {
@@ -25,6 +26,9 @@ function SearchPageContent() {
   const initialCheckin =
     searchParams.get("checkin") ||
     new Date().toISOString().split("T")[0];
+  // A reversed range in the URL (bookmark, shared link, hand-edited) is NOT
+  // rewritten here — that would silently search a different range than the
+  // customer asked for. fetchResults refuses it with a "Check your dates" state.
   const initialCheckout =
     searchParams.get("checkout") ||
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
@@ -38,6 +42,9 @@ function SearchPageContent() {
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // A deterministic date problem (the API's 400) is NOT a transient upstream
+  // fault — it gets its own message and no "Try again" that can never succeed.
+  const [dateError, setDateError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedLot, setSelectedLot] = useState<UnifiedLot | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
@@ -51,6 +58,20 @@ function SearchPageContent() {
   const fetchResults = async () => {
     setLoading(true);
     setLoadError(false);
+    setDateError(null);
+    // Full date rules (past check-in, 60-day window, reversed range) — a
+    // bookmarked or emailed link with a bad check-in used to round-trip to
+    // ResLab and come back as "no parking". The picker's cleared return leg
+    // ("") is exempt: the API prices that as a defaulted range, as before.
+    if (departDate && returnDate) {
+      const dateProblem = validateSearchDates(departDate, returnDate);
+      if (dateProblem) {
+        setDateError(dateProblem);
+        setLots([]);
+        setLoading(false);
+        return;
+      }
+    }
     try {
       const params = new URLSearchParams({
         airport,
@@ -65,7 +86,17 @@ function SearchPageContent() {
       // misleading silent-failure that hid the 2026-06-29 incident.
       if (!response.ok || data.error) {
         console.error("Search API error:", data.error || `HTTP ${response.status}`);
-        setLoadError(true);
+        if (response.status === 400) {
+          // A 400 is deterministic — re-issuing the identical request can never
+          // succeed, so it must not render the transient "try again" panel.
+          setDateError(
+            data?.code === "checkout_before_checkin"
+              ? "Return date must be on or after your check-in date."
+              : "We couldn't read those search details — please re-pick your airport and dates."
+          );
+        } else {
+          setLoadError(true);
+        }
         setLots([]);
       } else {
         setLots(data.results || []);
@@ -160,9 +191,19 @@ function SearchPageContent() {
           airport={airport}
           onAirportChange={setAirport}
           departDate={departDate}
-          onDepartDateChange={setDepartDate}
+          onDepartDateChange={(d) => {
+            setDepartDate(d);
+            // Keep the range valid: a depart after the current return pulls the
+            // return up to it (the customer's newest pick wins, never dropped).
+            // Guard on the NEW value: the range picker clears the return leg
+            // with "" on every first click, and "" sorts before every date.
+            if (d && returnDate && returnDate < d) setReturnDate(d);
+          }}
           returnDate={returnDate}
-          onReturnDateChange={setReturnDate}
+          onReturnDateChange={(r) => {
+            setReturnDate(r);
+            if (r && departDate && r < departDate) setDepartDate(r);
+          }}
           onSearch={handleSearch}
         />
 
@@ -170,14 +211,23 @@ function SearchPageContent() {
         <div className="flex-1 flex overflow-hidden relative">
           {/* Mobile: List View */}
           {loading ? (
-            <div className={`w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50 ${mobileView === "map" ? "hidden lg:flex" : ""}`}>
+            <div className="w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange mx-auto mb-4" />
                 <p className="text-gray-500">Searching for parking...</p>
               </div>
             </div>
+          ) : dateError ? (
+            <div className="w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50">
+              <div className="text-center px-6 max-w-sm">
+                <p className="text-gray-900 font-semibold mb-2">Check your dates</p>
+                <p className="text-gray-500 text-sm">{dateError}</p>
+              </div>
+            </div>
           ) : loadError ? (
-            <div className={`w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50 ${mobileView === "map" ? "hidden lg:flex" : ""}`}>
+            // Never `hidden` in map view: the mobile map is suppressed on error,
+            // so hiding this too left a blank screen with no way back.
+            <div className="w-full lg:w-2/5 h-full flex items-center justify-center bg-gray-50">
               <div className="text-center px-6 max-w-sm">
                 <p className="text-gray-900 font-semibold mb-2">
                   We couldn&apos;t load parking right now
@@ -208,7 +258,7 @@ function SearchPageContent() {
           )}
 
           {/* Mobile: Map View */}
-          {mobileView === "map" && !loading && !loadError && (
+          {mobileView === "map" && !loading && !loadError && !dateError && (
             <div className="lg:hidden w-full h-full relative">
               <SearchMap
                 lots={sortedLots}

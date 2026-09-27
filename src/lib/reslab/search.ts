@@ -842,6 +842,18 @@ export async function searchParking(
     attribution,
   } = params;
 
+  // A reversed range is a caller bug, never a ResLab question. Checked here
+  // so /api/search, the chat tool and the airport pages all inherit it.
+  // Lexicographic compare is exact ONLY for YYYY-MM-DD, so the format is an
+  // enforced precondition, not an assumption.
+  const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+  if (!ISO_DATE.test(checkin) || !ISO_DATE.test(checkout)) {
+    throw new Error(`Invalid date range: dates must be YYYY-MM-DD (got ${checkin} / ${checkout})`);
+  }
+  if (checkout < checkin) {
+    throw new Error(`Invalid date range: check-out ${checkout} is before check-in ${checkin}`);
+  }
+
   // Validate airport
   const airportInfo = getAirportByCode(airportCode);
   if (!airportInfo) {
