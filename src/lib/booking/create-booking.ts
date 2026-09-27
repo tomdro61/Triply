@@ -184,8 +184,10 @@ export interface CreateBookingInput {
 // =============================================================================
 
 type ReslabFailure =
-  /** ResLab definitively rejected. Nothing was created. Safe to release money. */
-  | { definitive: true; userMessage: string; soldOut: boolean }
+  /** ResLab definitively rejected. Nothing was created. Safe to release money.
+   *  `detail` is the rejection body (truncated) for `last_error` + Sentry — a
+   *  bare "Validation error" told nobody WHICH field the lot wanted. */
+  | { definitive: true; userMessage: string; soldOut: boolean; detail: string | null }
   /** Timeout or 5xx. A reservation MAY exist. Never retry, never blind-release. */
   | { definitive: false; userMessage: string; soldOut: false };
 
@@ -216,18 +218,34 @@ function classifyReslabError(error: unknown): ReslabFailure {
       let userMessage =
         "This parking option is no longer available. Please choose a different option.";
       let soldOut = error.statusCode === 409;
+      const raw = error.message.replace("API request failed: ", "");
+      // `detail` is stored in last_error and sent to Sentry, so it carries the
+      // headline and the NAMES of the fields ResLab objected to — never the
+      // values, which echo the customer's name/email/plate. A non-JSON body
+      // (WAF/HTML page) is capped hard and stripped of tags.
+      let detail: string | null =
+        raw.length > 0 ? `HTTP ${error.statusCode}: ${raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)}` : null;
       try {
-        const parsed = JSON.parse(
-          error.message.replace("API request failed: ", "")
-        );
+        const parsed = JSON.parse(raw);
         if (parsed.message && typeof parsed.message === "string") {
           userMessage = parsed.message;
           if (/sold\s*out/i.test(parsed.message)) soldOut = true;
         }
+        const fields = Array.isArray(parsed.errors)
+          ? parsed.errors.filter((e: unknown) => typeof e === "string").slice(0, 20).join("; ")
+          : parsed && typeof parsed.errors === "object" && parsed.errors !== null
+            ? Object.keys(parsed.errors as Record<string, unknown>).slice(0, 20).join(", ")
+            : "";
+        // Always keep the RAW body: it contains `message` plus every `errors`
+        // shape we don't model (array-of-objects, field_errors, …). Preferring
+        // parsed.message reproduced the bare "Validation error" this detail
+        // exists to replace. Capped and tag-stripped above.
+        const rawClean = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+        detail = `HTTP ${error.statusCode}: ${rawClean.slice(0, 200)}` + (fields ? ` [fields: ${fields}]` : "");
       } catch {
-        // Keep the status-derived default.
+        // Keep the status-derived default; `detail` already holds the capped text.
       }
-      return { definitive: true, userMessage, soldOut };
+      return { definitive: true, userMessage, soldOut, detail };
     }
 
     // 5xx / 429 — ResLab may have committed before failing to answer.
@@ -1463,16 +1481,17 @@ async function fulfilClaimed(
     // Unreachable in practice (Step 7.5 already deferred a processing PI), kept
     // so the exhaustive release result stays type-checked.
     if (release.released === "deferred") return { kind: "deferred" };
+    // Alert first, then write: markTerminal can throw DurableStateError.
+    capturePaymentError(new Error(`Fulfilment blocked before booking: ${detail}`), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
     await markTerminal(
       piId,
       release.released === "refunded" ? "refunded_failed" : "released_failed",
       detail
     );
     await releaseCart(piId);
-    capturePaymentError(new Error(`Fulfilment blocked before booking: ${detail}`), {
-      stripePaymentIntentId: piId,
-      amount: pi.amount / 100,
-    });
     return {
       kind: "failed",
       reason: detail,
@@ -1496,12 +1515,13 @@ async function fulfilClaimed(
           : check.soldOut
           ? "released_sold_out"
           : "released_failed";
-      await markTerminal(piId, terminal, check.reason);
-      await releaseCart(piId);
+      // Alert first, then write: markTerminal can throw DurableStateError.
       capturePaymentError(
         new Error(`Fulfilment blocked before booking: ${check.reason}`),
         { stripePaymentIntentId: piId, amount: pi.amount / 100 }
       );
+      await markTerminal(piId, terminal, check.reason);
+      await releaseCart(piId);
       return check.soldOut
         ? { kind: "sold_out" }
         : {
@@ -1599,7 +1619,24 @@ async function fulfilClaimed(
           : failure.soldOut
           ? "released_sold_out"
           : "released_failed";
-      await markTerminal(piId, terminal, failure.userMessage);
+      if (!failure.soldOut) {
+        // A definitive non-sold-out rejection is a lost sale that is usually OUR
+        // payload (a field the lot names differently), not inventory. Loud, and
+        // ALERT FIRST, THEN WRITE: markTerminal can throw DurableStateError and
+        // the alert must not depend on the database being healthy.
+        capturePaymentError(
+          new Error(
+            `ResLab rejected the reservation (auth released): ${failure.userMessage}` +
+              (failure.detail ? ` — ${failure.detail}` : "")
+          ),
+          { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+        );
+      }
+      await markTerminal(
+        piId,
+        terminal,
+        failure.detail ? `${failure.userMessage} — ${failure.detail}` : failure.userMessage
+      );
       await releaseCart(piId);
       return failure.soldOut
         ? { kind: "sold_out" }

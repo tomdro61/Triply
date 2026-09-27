@@ -414,24 +414,27 @@ describe("the production path rejects dates Postgres would bounce", () => {
     expect(dropReports).toHaveLength(1);
   });
 
-  it("drops the header row for a reversed range", async () => {
+  it("a reversed range is rejected before ResLab or the writer are touched (2026-09-27: TRIPLY-31/34)", async () => {
     reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
     reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
 
-    await searchParking({
-      airport: AIRPORT,
-      checkin: "2026-10-14",
-      checkout: "2026-10-10",
-      source: "search",
-    });
+    await expect(
+      searchParking({
+        airport: AIRPORT,
+        checkin: "2026-10-14",
+        checkout: "2026-10-10",
+        source: "search",
+      })
+    ).rejects.toThrow(/Invalid date range/);
     await flush();
 
+    // Nothing priced, nothing logged, nothing reported as a dropped row — the
+    // caller (route → 400, chat tool → error) owns the message.
+    expect(reslabMock.getMinPrice).not.toHaveBeenCalled();
     expect(latestSearchEvent()).toBeUndefined();
     expect(
-      sentry.captureAPIError.mock.calls.some(
-        (c) => c[1]?.endpoint === "search_events.dropped_row"
-      )
-    ).toBe(true);
+      sentry.captureAPIError.mock.calls.some((c) => c[1]?.endpoint === "search_events.dropped_row")
+    ).toBe(false);
   });
 
   it("drops the header row for a long-past check-in (027's lead_days >= -1)", async () => {

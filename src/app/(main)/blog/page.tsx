@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { Navbar, Footer } from "@/components/shared";
 import { getPublishedPosts, getCategories } from "@/lib/cms";
 import { enabledAirports } from "@/config/airports";
@@ -23,12 +24,16 @@ export const metadata: Metadata = {
   alternates: { canonical: "/blog" },
 };
 
+// Next delivers `string[]` for a repeated key (`?page=1&page=2`, a standard bot
+// probe); the first value wins so a probe never becomes a 500.
+type Param = string | string[] | undefined;
 type SearchParams = Promise<{
-  page?: string;
-  airport?: string;
-  q?: string;
-  sort?: string;
+  page?: Param;
+  airport?: Param;
+  q?: Param;
+  sort?: Param;
 }>;
+const one = (v: Param): string | undefined => (Array.isArray(v) ? v[0] : v);
 
 export default async function BlogPage({
   searchParams,
@@ -36,10 +41,15 @@ export default async function BlogPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const page = parseInt(params.page || "1", 10);
-  const airportFilter = params.airport?.toUpperCase();
-  const searchQuery = params.q?.trim();
-  const sort = params.sort === "oldest" ? "oldest" : "newest";
+  // `?page=` is bot-probed with SQL-injection strings and negatives (Sentry
+  // TRIPLY-15, 138 events since June): parseInt turned those into NaN / -2 and
+  // the CMS answered 500. A page is a positive integer or the page is not found.
+  const pageRaw = one(params.page)?.trim() || "1";
+  if (!/^[1-9]\d{0,4}$/.test(pageRaw)) notFound();
+  const page = Number(pageRaw);
+  const airportFilter = one(params.airport)?.toUpperCase();
+  const searchQuery = one(params.q)?.trim();
+  const sort = one(params.sort) === "oldest" ? "oldest" : "newest";
   const isFirstPage = page === 1 && !airportFilter && !searchQuery;
 
   // Build CMS filters
@@ -61,6 +71,8 @@ export default async function BlogPage({
   ]);
 
   const { docs: posts, totalPages } = postsResult;
+  // Beyond the last page is a 404, not an empty grid that answers 200.
+  if (totalPages > 0 && page > totalPages) notFound();
   const categories = categoriesResult.docs;
 
   // Show all enabled airports as filter chips (so every supported airport is

@@ -57,6 +57,20 @@ beforeEach(() => {
 });
 
 describe("GET /api/search", () => {
+  it("rejects a check-out before the check-in with a 400 and never calls ResLab (TRIPLY-31/34)", async () => {
+    const res = await GET(req({ checkin: "2026-11-21", checkout: "2026-10-05" }));
+
+    expect(res.status).toBe(400);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(await res.json()).toEqual(expect.objectContaining({ code: "checkout_before_checkin" }));
+    expect(searchParkingMock).not.toHaveBeenCalled();
+  });
+
+  it("still accepts a same-day search (check-out equal to check-in)", async () => {
+    const res = await GET(req({ checkin: "2026-11-21", checkout: "2026-11-21" }));
+    expect(res.status).toBe(200);
+  });
+
   it("parses attribution on the 'search' surface, never 'checkout'", async () => {
     await GET(req());
 

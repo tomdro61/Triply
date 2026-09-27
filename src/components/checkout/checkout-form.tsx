@@ -28,6 +28,7 @@ import {
   type ProtectionPlanCode,
 } from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
+import { vehicleFieldAliasValues, isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -589,13 +590,26 @@ export function CheckoutForm({
    * parameter (not read from state) so the caller has to discharge "undecided"
    * explicitly — see requireProtectionChoice.
    */
+  // The vehicle step is AUTHORITATIVE for every vehicle-named extra field: a
+  // value typed into a same-named "additional" input (hidden today, but any
+  // stale state) must never outrank what the confirmation email and admin show.
+  const typedExtraFieldsExcludingVehicle = (): Record<string, string> =>
+    Object.fromEntries(Object.entries(extraFieldValues).filter(([name]) => !isVehicleFieldName(name)));
+
   const buildReservationBody = (
     stripePaymentIntentId: string,
     choice: ProtectionChoice
   ) => {
     const parkingTypeId =
       costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
-    const extraFields: Record<string, string> = { ...extraFieldValues };
+    // A lot that names its vehicle fields differently (`vehicle_make`,
+    // `license_plate_number`, …) gets the vehicle step's answers under ITS
+    // names; typed extra fields still win. Blank here = ResLab "Validation
+    // error" after the card is authorised (2026-09-25, BNA lot 471).
+    const extraFields: Record<string, string> = {
+      ...typedExtraFieldsExcludingVehicle(),
+      ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
+    };
 
     return {
       locationId: lot.reslabLocationId,
@@ -766,8 +780,11 @@ export function CheckoutForm({
         console.log("[DEV MODE] Skipping Stripe payment, creating ResLab reservation directly");
       }
 
-      // Build extra fields for API
-      const extraFields: Record<string, string> = { ...extraFieldValues };
+      // Build extra fields for API (same aliasing as buildReservationBody)
+      const extraFields: Record<string, string> = {
+        ...typedExtraFieldsExcludingVehicle(),
+        ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
+      };
 
       // Create reservation via API
       const response = await fetch("/api/reservations", {
@@ -850,6 +867,11 @@ export function CheckoutForm({
                 onBack={handleVehicleBack}
                 errors={vehicleErrors}
                 extraFields={lot.extraFields}
+                // Hide by NAME: every lot field the vehicle inputs answer. Safe
+                // to hide even while the inputs are empty — the step cannot
+                // advance until all five are filled (validateVehicleDetails),
+                // so a hidden field is never sent blank.
+                filledByVehicleStep={new Set((lot.extraFields ?? []).filter((f) => isVehicleFieldName(f.name)).map((f) => f.name))}
                 extraFieldValues={extraFieldValues}
                 onExtraFieldChange={(name, value) =>
                   setExtraFieldValues((prev) => ({ ...prev, [name]: value }))

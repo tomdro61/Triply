@@ -19,6 +19,9 @@ interface VehicleDetailsStepProps {
   onBack: () => void;
   errors: Partial<Record<keyof VehicleDetails, string>>;
   extraFields?: ExtraField[];
+  /** Lot extra-field names the checkout form fills from the inputs above (see
+   *  vehicleFieldAliasValues); hidden here so nobody types their plate twice. */
+  filledByVehicleStep?: ReadonlySet<string>;
   extraFieldValues?: Record<string, string>;
   onExtraFieldChange?: (name: string, value: string) => void;
   isLoading?: boolean;
@@ -43,6 +46,7 @@ export function VehicleDetailsStep({
   onBack,
   errors,
   extraFields = [],
+  filledByVehicleStep,
   extraFieldValues = {},
   onExtraFieldChange,
   isLoading = false,
@@ -51,19 +55,12 @@ export function VehicleDetailsStep({
     onChange({ ...data, [field]: value });
   };
 
-  // Filter extra fields that are not standard vehicle fields (we handle those already)
-  // Also filter car_makemodel since we collect make/model separately and combine them
-  const additionalFields = extraFields.filter(
-    (field) =>
-      ![
-        "car_make",
-        "car_model",
-        "car_makemodel",
-        "car_color",
-        "license_plate",
-        "license_plate_state"
-      ].includes(field.name)
-  );
+  // Hide every extra field the checkout form fills from the vehicle inputs
+  // above (common names AND lot-specific spellings such as `vehicle_make`,
+  // `license_plate_number`) — by NAME, so nothing flickers while typing. The
+  // step cannot advance with an empty vehicle input, so a hidden field is
+  // never sent blank.
+  const additionalFields = extraFields.filter((field) => !filledByVehicleStep?.has(field.name));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
