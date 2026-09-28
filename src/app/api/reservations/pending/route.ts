@@ -24,6 +24,13 @@ import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
+import { reslab } from "@/lib/reslab/client";
+import {
+  declaredExtraFieldsSchema,
+  missingRequiredExtraFields,
+  reslabExtraFieldValues,
+  type DeclaredExtraField,
+} from "@/lib/booking/required-extra-fields";
 
 export const maxDuration = 15;
 
@@ -190,6 +197,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ staged: false, reason: "already_booked" });
     }
 
+    // --- Required lot fields, BEFORE the charge -----------------------------
+    // ResLab rejects a reservation whose lot-declared field is blank, and it
+    // does so after the card is authorised (the auth is released; the sale is
+    // lost). The checkout step gates this too, but the client is never the
+    // only gate on a money path. Checked against the exact map fulfilment
+    // sends (reslabExtraFieldValues). Placed before the insert so a staged row
+    // — which later retries never overwrite — can't carry a blank field.
+    const declared = await declaredExtraFieldsFor(payload.locationId, piId, pi.amount);
+    if (declared) {
+      const missing = missingRequiredExtraFields(
+        declared,
+        reslabExtraFieldValues(payload.vehicle, payload.extraFields)
+      );
+      if (missing.length > 0) {
+        const labels = missing.map((f) => f.label?.trim() || f.name).join(", ");
+        return NextResponse.json(
+          {
+            error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in (enter N/A if it doesn't apply) — you have not been charged.`,
+            missingFields: missing.map((f) => f.name),
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     // Insert only. An existing row means either a retry of this same staging
     // call or a fulfilment already under way — either way the stored payload
     // wins, so we never clobber a row another caller may be mid-way through.
@@ -269,4 +301,46 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+/**
+ * The lot's declared extra fields, read fresh from ResLab (the checkout page's
+ * copy is client-supplied and cannot be trusted as the gate).
+ *
+ * Returns null — and the gate is skipped — when ResLab can't answer or answers
+ * in a shape we don't recognise. That FAILS OPEN on purpose: this check is
+ * new, the client-side step gate still runs, and blocking every checkout
+ * during a ResLab blip (429 windows are routine) would lose more sales than it
+ * saves. It is never silent: every skip is captured with the reason.
+ */
+async function declaredExtraFieldsFor(
+  locationId: number,
+  piId: string,
+  amountCents: number
+): Promise<DeclaredExtraField[] | null> {
+  let raw: unknown;
+  try {
+    const location = await reslab.getLocation(locationId);
+    raw = location.extra_fields ?? [];
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    capturePaymentError(
+      new Error(
+        `Pending-booking required-field check skipped — ResLab getLocation(${locationId}) failed: ${reason.slice(0, 300)}`
+      ),
+      { stripePaymentIntentId: piId, amount: amountCents / 100 }
+    );
+    return null;
+  }
+  const parsed = declaredExtraFieldsSchema.safeParse(raw);
+  if (!parsed.success) {
+    capturePaymentError(
+      new Error(
+        `Pending-booking required-field check skipped — unexpected extra_fields shape for location ${locationId}: ${parsed.error.issues[0]?.message ?? "unknown"}`
+      ),
+      { stripePaymentIntentId: piId, amount: amountCents / 100 }
+    );
+    return null;
+  }
+  return parsed.data;
 }

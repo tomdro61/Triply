@@ -29,6 +29,7 @@ import {
 } from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 import { vehicleFieldAliasValues, isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
+import { extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -147,6 +148,8 @@ export function CheckoutForm({
   const [vehicleErrors, setVehicleErrors] = useState<
     Partial<Record<keyof VehicleDetails, string>>
   >({});
+  // Keyed by the lot's extra-field NAME (see extraFieldStepErrors).
+  const [extraFieldErrors, setExtraFieldErrors] = useState<Record<string, string>>({});
 
   // Calculate price breakdown using API data when available
   const priceBreakdown = useMemo<PriceBreakdown>(() => {
@@ -255,7 +258,14 @@ export function CheckoutForm({
     }
 
     setVehicleErrors(errors);
-    return Object.keys(errors).length === 0;
+
+    // Lot-declared fields (e.g. a return flight number). ResLab rejects a blank
+    // one AFTER the card is authorised, so the step must not advance without
+    // them. The pending route re-checks server-side before the charge.
+    const extraErrors = extraFieldStepErrors(lot.extraFields, vehicleDetails, extraFieldValues);
+    setExtraFieldErrors(extraErrors);
+
+    return Object.keys(errors).length === 0 && Object.keys(extraErrors).length === 0;
   };
 
   // Step handlers
@@ -873,9 +883,16 @@ export function CheckoutForm({
                 // so a hidden field is never sent blank.
                 filledByVehicleStep={new Set((lot.extraFields ?? []).filter((f) => isVehicleFieldName(f.name)).map((f) => f.name))}
                 extraFieldValues={extraFieldValues}
-                onExtraFieldChange={(name, value) =>
-                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
-                }
+                extraFieldErrors={extraFieldErrors}
+                onExtraFieldChange={(name, value) => {
+                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }));
+                  setExtraFieldErrors((prev) => {
+                    if (!(name in prev)) return prev;
+                    const next = { ...prev };
+                    delete next[name];
+                    return next;
+                  });
+                }}
                 isLoading={isCreatingPaymentIntent}
               />
               {submitError && (
