@@ -1000,17 +1000,31 @@ async function findLocationsNearAirport(
   incomplete: boolean;
   stale: boolean;
 }> {
+  const { data, incomplete, stale } = await getChannelLocationsCached();
+  const locations = filterLocationsNearPoint(data, lat, lng, radiusKm);
+  return { locations, incomplete, stale };
+}
+
+/**
+ * Pure radius filter behind findLocationsNearAirport — exported so the admin
+ * "Monthly numbers" page counts sellable lots per airport with exactly the
+ * rule search uses, not a copy of it.
+ */
+export function filterLocationsNearPoint(
+  data: ReslabLocation[],
+  lat: number,
+  lng: number,
+  radiusKm = 15
+): ReslabLocation[] {
   // calculateDistance() returns MILES (geo.ts uses R=3959), so convert the km
   // radius before comparing — otherwise the filter is ~2.6x too wide.
   const radiusMi = radiusKm * 0.621371;
-  const { data, incomplete, stale } = await getChannelLocationsCached();
-  const locations = data.filter((loc) => {
+  return data.filter((loc) => {
     const llat = parseFloat(loc.latitude);
     const llng = parseFloat(loc.longitude);
     if (Number.isNaN(llat) || Number.isNaN(llng)) return false;
     return calculateDistance(lat, lng, llat, llng) <= radiusMi;
   });
-  return { locations, incomplete, stale };
 }
 
 export async function searchParking(
