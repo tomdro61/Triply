@@ -70,6 +70,11 @@ interface Stats {
     warnings: string[];
   } | null;
   attributionWarnings?: string[];
+  reslabSnapshot?:
+    | { ageHours: number; locationCount: number; writtenBy: string; wireKb: number; behind: boolean; stale: boolean }
+    | { missing: true }
+    | { error: string }
+    | null;
 }
 
 interface Booking {
@@ -401,6 +406,25 @@ export default function AdminDashboard() {
                   ` · invalid ${Math.round((stats.attribution.invalidRate7d ?? 0) * 100)}%`}
               </span>
             </div>
+            {stats.reslabSnapshot && (
+              <p
+                className={`text-xs mb-3 ${
+                  "error" in stats.reslabSnapshot || "missing" in stats.reslabSnapshot || stats.reslabSnapshot.stale
+                    ? "text-red-600 font-medium"
+                    : stats.reslabSnapshot.behind
+                      ? "text-amber-600 font-medium"
+                      : "text-gray-500"
+                }`}
+                title="The shared ResLab location list every server reads instead of re-fetching 40 pages. Refreshed by a cron every 4 hours. Red = the cron has not succeeded for over a day; search is falling back to per-server fetches."
+              >
+                ResLab lot list snapshot:{" "}
+                {"error" in stats.reslabSnapshot
+                  ? `unreadable (${stats.reslabSnapshot.error})`
+                  : "missing" in stats.reslabSnapshot
+                    ? "MISSING — refresh cron has never succeeded"
+                    : `${stats.reslabSnapshot.ageHours} h old · ${stats.reslabSnapshot.locationCount} lots · ${stats.reslabSnapshot.wireKb} KB · ${stats.reslabSnapshot.writtenBy}${stats.reslabSnapshot.stale ? " · STALE — cron failing, search on per-server fetches" : stats.reslabSnapshot.behind ? " · BEHIND — cron missed ≥ 2 runs" : ""}`}
+              </p>
+            )}
             <BreakdownTable
               rows={stats.attribution.byChannel.map((r) => ({
                 label: r.key.replace(/_/g, " "),

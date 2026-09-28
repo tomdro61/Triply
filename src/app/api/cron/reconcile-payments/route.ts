@@ -6,6 +6,7 @@ import {
   sendMonitorFailureAlert,
 } from "@/lib/resend/send-reconciliation-alert";
 import { captureAPIError } from "@/lib/sentry";
+import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_MAX_AGE_MS } from "@/lib/reslab/location-snapshot";
 
 // Daily payment→booking reconciliation (Vercel Cron — see vercel.json).
 // Read-only: scans recent Stripe charges vs bookings and EMAILS the admins if
@@ -31,6 +32,10 @@ const WINDOW_DAYS = 14;
 // Payment Link re-alerting every day for the whole window.
 const RECENT_UNMATCHED_MS = 2 * 24 * 60 * 60 * 1000;
 
+// Sentry.flush can itself reject (a throwing flush hook, an aborted transport);
+// a telemetry fault must never convert a healthy run into an unhandled 500.
+const safeFlush = () => Sentry.flush(2000).catch(() => {});
+
 const CTX = { endpoint: "/api/cron/reconcile-payments", method: "GET" as const };
 
 // Loud escalation for a monitor-health failure: Sentry (flushed) + admin email
@@ -43,7 +48,7 @@ async function escalateFailure(reason: string) {
   } catch (e) {
     captureAPIError(e instanceof Error ? e : new Error(String(e)), CTX);
   }
-  await Sentry.flush(2000);
+  await safeFlush();
   return NextResponse.json({ ok: false, error: reason }, { status: 500 });
 }
 
@@ -96,13 +101,13 @@ export async function GET(request: NextRequest) {
       // The run that matters most just failed to notify. Fail LOUD: Sentry +
       // flush + 500 — never report ok when the obligated alert didn't send.
       captureAPIError(emailErr instanceof Error ? emailErr : new Error(String(emailErr)), CTX);
-      await Sentry.flush(2000);
+      await safeFlush();
       return NextResponse.json(
         { ok: false, error: "anomalies found but alert email failed", anomalies: alertCount },
         { status: 500 }
       );
     }
-    await Sentry.flush(2000);
+    await safeFlush();
   } else if (process.env.HEARTBEAT_URL) {
     // Optional external dead-man's-switch: ping a cron monitor on a clean run
     // so the cron NOT running at all (which never reaches this code) trips an
@@ -114,6 +119,34 @@ export async function GET(request: NextRequest) {
       });
     } catch {
       /* heartbeat is best-effort */
+    }
+  }
+
+  // Daily heartbeat (AFTER the payment alert so it can never delay or affect it) for the shared ResLab location snapshot (plan v3 §6): the
+  // refresh cron reports its own failures, but only a run that HAPPENS can
+  // report — a cron that stopped being invoked reports nothing. This runs
+  // once a day regardless, so "the snapshot is > 24 h old" is a deterministic,
+  // once-a-day, genuinely-new Sentry event. Never affects the payment report.
+  if (isSnapshotEnabled()) {
+    try {
+      const meta = await readSnapshotMeta();
+      const problem =
+        meta.kind === "none"
+          ? "no snapshot row — the refresh cron has never succeeded"
+          : meta.kind === "error"
+            ? `snapshot unreadable: ${meta.message}`
+            : now - meta.builtAtMs > SNAPSHOT_MAX_AGE_MS
+              ? `snapshot is ${Math.round((now - meta.builtAtMs) / 3_600_000)} h old — the refresh cron has not succeeded in over a day; search is on per-instance sweeps`
+              : null;
+      if (problem) {
+        captureAPIError(new Error(`ResLab location snapshot: ${problem}`), { ...CTX, stage: "snapshot_heartbeat" });
+        // A once-a-day dead-man's switch is the one event here that must not be
+        // lost to a frozen function — flush like every other alert in this file.
+        await safeFlush();
+      }
+    } catch (heartbeatErr) {
+      captureAPIError(heartbeatErr instanceof Error ? heartbeatErr : new Error(String(heartbeatErr)), { ...CTX, stage: "snapshot_heartbeat" });
+      await safeFlush();
     }
   }
 
