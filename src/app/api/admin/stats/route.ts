@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_MAX_AGE_MS, SNAPSHOT_WARN_MS } from "@/lib/reslab/location-snapshot";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
@@ -300,6 +301,24 @@ export async function GET(request: NextRequest) {
 
     const airports = byAirport(attrRows);
 
+    const reslabSnapshot = isSnapshotEnabled()
+      ? await readSnapshotMeta().then((m) =>
+          m.kind === "row"
+            ? {
+                ageHours: Math.round(((Date.now() - m.builtAtMs) / 3_600_000) * 10) / 10,
+                locationCount: m.locationCount,
+                writtenBy: m.writtenBy,
+                wireKb: Math.round(m.wireBytes / 1024),
+                // behind: search is already on the 60-s CDN TTL (≥ 2 missed cron runs); stale: falling back to sweeps.
+                behind: Date.now() - m.builtAtMs > SNAPSHOT_WARN_MS,
+                stale: Date.now() - m.builtAtMs > SNAPSHOT_MAX_AGE_MS,
+              }
+            : m.kind === "none"
+              ? { missing: true as const }
+              : { error: m.message }
+        )
+      : null;
+
     return NextResponse.json({
       attribution: attrRowsComplete
         ? {
@@ -314,6 +333,9 @@ export async function GET(request: NextRequest) {
           }
         : null,
       attributionWarnings: warnings,
+      // Shared ResLab location snapshot (plan v3 §6): a human must be able to
+      // see the cron died. Metadata only (no payload); null when the flag is off.
+      reslabSnapshot,
       bookings: {
         total: totalResult.count || 0,
         today: todayResult.count || 0,

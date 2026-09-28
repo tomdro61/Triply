@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/waitlist-notify",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/refresh-reslab-locations",
+      "schedule": "0 */4 * * *"
     }
   ]
 }

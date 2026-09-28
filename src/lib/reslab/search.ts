@@ -20,6 +20,12 @@ import { convertTo24Hour } from "@/lib/utils/time";
 import { generateSlug } from "@/lib/utils/slug";
 import { captureAPIError } from "@/lib/sentry";
 import {
+  isSnapshotEnabled,
+  readSnapshot,
+  SNAPSHOT_FRESH_MS,
+  SNAPSHOT_MAX_AGE_MS,
+} from "@/lib/reslab/location-snapshot";
+import {
   logAvailability,
   dayDiff,
   localToday,
@@ -389,7 +395,27 @@ let cachedLocationList: {
   data: ReslabLocation[];
   builtAt: number;
   complete: boolean;
+  /** Where the list came from. A snapshot-sourced list is served on its own
+   *  (shorter) freshness rules and can never be laundered into a swept one. */
+  source?: "sweep" | "snapshot";
 } | null = null;
+// Shared-snapshot reader state (plan v3 §3). At most one snapshot read per
+// instance per SNAPSHOT_READ_MIN_INTERVAL_MS, regardless of outcome, so a
+// missing/stale row can never turn into a per-request Supabase read (the
+// egress-incident class). Single-flight so concurrent cold starts share one.
+let lastSnapshotReadAt: number | null = null;
+let inFlightSnapshotRead: Promise<void> | null = null;
+let lastSnapshotReportAt: number | null = null;
+const SNAPSHOT_READ_MIN_INTERVAL_MS = 15 * 60 * 1000;
+const SNAPSHOT_REPORT_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// The ">24 h snapshot falls through to the sweep path" rule below is only
+// correct while the snapshot serving ceiling does not exceed the sweep TTL:
+// past the ceiling the generic "fresh AND complete" check must ALSO be false,
+// or a 30 h snapshot would be served site-wide as stale:false. Pinned here so
+// a future change to either constant fails at module load, not in production.
+if (SNAPSHOT_MAX_AGE_MS > LOCATION_LIST_TTL_MS) {
+  throw new Error("SNAPSHOT_MAX_AGE_MS must not exceed LOCATION_LIST_TTL_MS");
+}
 // When the last build attempt failed (partial, implausible, or thrown). Drives
 // the backoff. Cleared on any successful complete build.
 let lastBuildFailureAt: number | null = null;
@@ -436,6 +462,9 @@ export function __resetLocationListCacheForTests(): void {
   lastSearchEventReportAt = null;
   buildPhaseSweeps = 0;
   inFlightLocationBuild = null;
+  lastSnapshotReadAt = null;
+  inFlightSnapshotRead = null;
+  lastSnapshotReportAt = null;
 }
 
 /**
@@ -453,7 +482,258 @@ export function isLocationBackoffError(error: unknown): boolean {
   );
 }
 
+/** What one full sweep of ResLab's paginated location list produced. */
+export interface ChannelLocationSweep {
+  /** Deduped by id (ResLab repeats ids across pages). */
+  unique: ReslabLocation[];
+  /** Rows fetched PRE-dedupe — the only number the 0.9 plausibility check may use. */
+  rowsFetched: number;
+  paginatorTotal: number;
+  lastPage: number;
+  refusedPages: number;
+  skippedPages: number;
+  implausible: boolean;
+  /** When page 1 was requested — the snapshot's `built_at`, never Date.now() at write time. */
+  sweepStartedAt: number;
+}
+
+/**
+ * ONE sweep of the channel list, state-free: no cache consult, no backoff, no
+ * Sentry, no module writes. `getChannelLocationsCached` wraps it with all of
+ * that; the refresh cron (src/app/api/cron/refresh-reslab-locations) calls it
+ * directly so a cron run can never read its own snapshot back and re-write it,
+ * and never has to touch NEXT_PHASE (which also silences availability_log,
+ * search_events and the airport-page error path in the same process).
+ *
+ * `trustedCompleteSize` is the size of the list the caller already trusts
+ * (the in-memory complete list, or the current snapshot row) for the ≥ 50 %
+ * anti-ratchet clause; null when there is none.
+ *
+ * Throws on an unusable paginator (a definitive "nothing usable came back").
+ */
+export async function sweepChannelLocations(
+  trustedCompleteSize: number | null
+): Promise<ChannelLocationSweep> {
+  const buildStart = Date.now();
+  // Page 1 gives last_page + the first slice. A throw here lands in the
+  // catch below, which prefers stale data over a 503.
+  const first = await reslab.getAllLocations(1);
+
+  // Trust nothing about the paginator. `request()` asserts the response
+  // shape rather than validating it, so a degraded body, an error object
+  // returned with HTTP 200, or a proxy interstitial all land here.
+  //
+  // BOTH fields must be validated, not just last_page. A missing last_page
+  // makes `2 <= undefined` false so we'd sweep exactly one page; a missing
+  // `total` disables the plausibility check below (which is guarded on
+  // `expectedRows > 0`). Either one alone lets ~10 of ~533 locations be
+  // cached as authoritative for 24h and CDN-cached — indistinguishable from
+  // success, with no Sentry event. Also cross-check that last_page can
+  // actually cover total/per_page, which catches a truncated paginator that
+  // is individually well-formed but internally inconsistent.
+  // Coerce before validating. This API demonstrably serializes numbers as
+  // strings elsewhere (ReslabLocation.latitude/longitude are typed string;
+  // `featured` is boolean | number), so if `total` ever arrives as "533" a
+  // bare Number.isInteger would reject EVERY build — a permanent, site-wide
+  // search outage of our own making, unfixable without a deploy. Coercing
+  // costs nothing: Number("abc"), Number(null), Number(undefined) all still
+  // fail the checks below.
+  const lastPage = Number(first.last_page);
+  const totalRows = Number(first.total);
+  const perPage = Number(first.per_page);
+
+  const pagerUnusable =
+    !Number.isInteger(lastPage) ||
+    lastPage < 1 ||
+    !Number.isInteger(totalRows) ||
+    totalRows < 1;
+  const pagerInconsistent =
+    !pagerUnusable &&
+    Number.isInteger(perPage) &&
+    perPage > 0 &&
+    lastPage < Math.ceil(totalRows / perPage);
+
+  if (pagerUnusable || pagerInconsistent) {
+    throw new ReslabError(
+      502,
+      `ResLab location list returned an unusable paginator ` +
+        `(last_page=${JSON.stringify(first.last_page)}, ` +
+        `total=${JSON.stringify(first.total)}, ` +
+        `per_page=${JSON.stringify(first.per_page)})`
+    );
+  }
+
+  const all: ReslabLocation[] = [...first.data];
+  const remaining: number[] = [];
+  for (let p = 2; p <= lastPage; p++) remaining.push(p);
+
+  // Fetch remaining pages in small concurrent batches to keep load civil.
+  // Tolerate an individual page failing rather than zeroing out all search.
+  // Tracked separately because they mean different things: `refusedPages`
+  // is ResLab saying no (back off hard), `skippedPages` is us running out
+  // of wall-clock (ResLab is just slow — back off briefly). Both make the
+  // build incomplete; only the mix decides how long we wait.
+  let refusedPages = 0;
+  let skippedPages = 0;
+  let consecutiveDeadBatches = 0;
+  const BATCH = 8;
+  for (let i = 0; i < remaining.length; i += BATCH) {
+    // Give up early rather than spending the remaining ~45 requests proving
+    // we're being refused. Counting the abandoned pages is what arms the
+    // backoff below — abandoning the sweep silently would leave the breaker
+    // un-armed and re-open the per-request sweep loop.
+    const outOfTime = Date.now() - buildStart > LOCATION_BUILD_BUDGET_MS;
+    if (outOfTime || consecutiveDeadBatches >= 1) {
+      skippedPages += remaining.length - i;
+      break;
+    }
+
+    const results = await Promise.allSettled(
+      remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
+    );
+    const rejected = results.filter((r) => r.status === "rejected").length;
+    consecutiveDeadBatches =
+      rejected === results.length ? consecutiveDeadBatches + 1 : 0;
+    for (const r of results) {
+      if (r.status === "fulfilled") all.push(...r.value.data);
+      else refusedPages++;
+    }
+  }
+
+  // ResLab's paginated list returns the same location id on multiple pages —
+  // dedupe by id so search doesn't render duplicate lot cards.
+  const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
+
+  // ⚠️ Compare `all.length` (rows fetched, PRE-dedupe) against `total`.
+  // Comparing `unique.length` would reject every healthy build and take
+  // search down permanently. Measured against live ResLab on 2026-08-10:
+  //   last_page 54 · total 533 · rows fetched 533 · UNIQUE 381
+  // 381 is only 71% of 533 — well under the 0.9 threshold — because ResLab
+  // repeats ~152 rows across pages. Rows match `total` exactly; unique does
+  // not and never will. Do not "simplify" this to unique.length.
+  //
+  // A build is only "good" if no page failed AND the result looks plausible.
+  // Counting rejections alone cannot distinguish a healthy sweep from ResLab
+  // answering HTTP 200 with an empty or truncated paginator — and that
+  // mistake would then be cached as authoritative. At a 24h TTL the blast
+  // radius is a full day: an empty list makes this instance answer "no
+  // parking" for every airport until the TTL expires, and a truncated one is
+  // complete-looking enough to be CDN-cached and to bake thin ISR airport
+  // pages. Compare against the paginator's own `total` (rows, pre-dedupe —
+  // ResLab repeats ids across pages, so `unique.length` is legitimately
+  // lower and must NOT be compared to `total` directly) and against the
+  // size of the list we already trust.
+  const expectedRows = totalRows;
+  const implausible =
+    unique.length === 0 ||
+    (expectedRows > 0 && all.length < expectedRows * 0.9) ||
+    (trustedCompleteSize !== null &&
+      unique.length < trustedCompleteSize * 0.5);
+
+
+  return {
+    unique,
+    rowsFetched: all.length,
+    paginatorTotal: totalRows,
+    lastPage,
+    refusedPages,
+    skippedPages,
+    implausible,
+    sweepStartedAt: buildStart,
+  };
+}
+
+/**
+ * Load the shared snapshot into `cachedLocationList` — the FIRST thing
+ * `getChannelLocationsCached` does, before `now` and `fallback` are captured,
+ * so every existing guard (anti-ratchet, "prefer complete", the 72 h ceiling,
+ * single-flight, the build-phase cap) sees a snapshot exactly as it would see
+ * a swept list. It may ONLY assign `cachedLocationList`; it never returns data.
+ *
+ * No-op when the flag is off (zero Supabase calls), when memory is fresh
+ * enough that a read could not change the outcome, or inside the debounce.
+ */
+async function maybeWarmFromSnapshot(): Promise<void> {
+  if (!isSnapshotEnabled()) return;
+  const now = Date.now();
+  const mem = cachedLocationList;
+  if (mem && mem.complete) {
+    // A swept list is trusted for the full TTL; a snapshot-sourced one is
+    // re-read after SNAPSHOT_FRESH_MS so a cron refresh is picked up.
+    const limit = mem.source === "snapshot" ? SNAPSHOT_FRESH_MS : LOCATION_LIST_TTL_MS;
+    if (now - mem.builtAt < limit) return;
+  }
+  // Join an in-flight read BEFORE consulting the debounce: a concurrent cold
+  // start must wait for the one read in progress, not skip it and sweep.
+  if (inFlightSnapshotRead) return inFlightSnapshotRead;
+  if (lastSnapshotReadAt !== null && now - lastSnapshotReadAt < SNAPSHOT_READ_MIN_INTERVAL_MS) return;
+  lastSnapshotReadAt = now;
+  inFlightSnapshotRead = (async () => {
+    try {
+      // Ask only for a row NEWER than what we hold: "nothing newer" is a few
+      // bytes, not a 400 KB payload we would then discard.
+      const r = await readSnapshot(now, mem && mem.complete ? mem.builtAt : null);
+      if (r.kind === "miss") {
+        if (r.reportable) reportSnapshot(`ResLab snapshot not usable: ${r.reason}`, now);
+        return;
+      }
+      const current = cachedLocationList;
+      // NEVER downgrade what customers can see: a smaller snapshot does not
+      // replace a bigger complete list, and an older one does not replace a
+      // newer swept one.
+      if (current && current.complete) {
+        if (r.locations.length < current.data.length) {
+          reportSnapshot(
+            `ResLab snapshot (${r.locations.length} lots) is smaller than the in-memory complete list (${current.data.length}); not adopted`,
+            now
+          );
+          return;
+        }
+        if (current.builtAt >= r.builtAtMs) return;
+      }
+      cachedLocationList = {
+        data: r.locations,
+        builtAt: r.builtAtMs,
+        complete: true,
+        source: "snapshot",
+      };
+    } catch (err) {
+      reportSnapshot(
+        `ResLab snapshot read threw: ${err instanceof Error ? err.message : String(err)}`,
+        Date.now()
+      );
+    } finally {
+      inFlightSnapshotRead = null;
+    }
+  })();
+  return inFlightSnapshotRead;
+}
+
+/**
+ * One Sentry event per instance per SNAPSHOT_REPORT_INTERVAL_MS; the cron's own
+ * failures are the loud signal. Never throws: a telemetry fault must not become
+ * a search 503 (the warm-up's contract is "assign memory or do nothing").
+ */
+function reportSnapshot(message: string, now: number): void {
+  if (lastSnapshotReportAt !== null && now - lastSnapshotReportAt < SNAPSHOT_REPORT_INTERVAL_MS) return;
+  lastSnapshotReportAt = now;
+  try {
+    captureAPIError(new Error(message), {
+      // Not "/api/search": the list is read from lot pages, airport pages and chat too.
+      endpoint: "reslab.location_snapshot",
+      method: "READ",
+      stage: "location_snapshot",
+    });
+  } catch {
+    // Sentry itself failing is not our problem here.
+  }
+}
+
 export async function getChannelLocationsCached(): Promise<LocationListResult> {
+  // Shared snapshot first (no-op unless ENABLE_RESLAB_LOCATION_SNAPSHOT): it
+  // can only populate `cachedLocationList`, which everything below then reads.
+  // `.catch` is belt-and-braces on top of the function's own guards.
+  await maybeWarmFromSnapshot().catch(() => {});
   const now = Date.now();
   // Capture the VALUE, not a predicate about it. The build below reads this
   // across awaits; holding the object (a) lets TypeScript narrow without
@@ -466,6 +746,19 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
     Date.now() - fallback.builtAt < LOCATION_LIST_MAX_AGE_MS
       ? fallback
       : null;
+
+  // A snapshot-sourced list has its own, shorter freshness rules: fresh under
+  // SNAPSHOT_FRESH_MS, complete-but-stale (60 s CDN TTL, the window in which a
+  // cron refresh is expected) up to SNAPSHOT_MAX_AGE_MS. Older than that it is
+  // just a complete list past its TTL for the code below — a "never downgrade"
+  // fallback while this instance sweeps for itself, staggered by the existing
+  // breaker, so a dead cron degrades to today's behaviour with no cliff.
+  if (fallback && fallback.complete && fallback.source === "snapshot") {
+    const age = now - fallback.builtAt;
+    if (age < SNAPSHOT_MAX_AGE_MS) {
+      return { data: fallback.data, incomplete: false, stale: age >= SNAPSHOT_FRESH_MS };
+    }
+  }
 
   // Fresh AND complete — the overwhelmingly common path.
   if (
@@ -562,123 +855,19 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
 
   inFlightLocationBuild = (async () => {
     try {
-      const buildStart = Date.now();
-      // Page 1 gives last_page + the first slice. A throw here lands in the
-      // catch below, which prefers stale data over a 503.
-      const first = await reslab.getAllLocations(1);
-
-      // Trust nothing about the paginator. `request()` asserts the response
-      // shape rather than validating it, so a degraded body, an error object
-      // returned with HTTP 200, or a proxy interstitial all land here.
-      //
-      // BOTH fields must be validated, not just last_page. A missing last_page
-      // makes `2 <= undefined` false so we'd sweep exactly one page; a missing
-      // `total` disables the plausibility check below (which is guarded on
-      // `expectedRows > 0`). Either one alone lets ~10 of ~533 locations be
-      // cached as authoritative for 24h and CDN-cached — indistinguishable from
-      // success, with no Sentry event. Also cross-check that last_page can
-      // actually cover total/per_page, which catches a truncated paginator that
-      // is individually well-formed but internally inconsistent.
-      // Coerce before validating. This API demonstrably serializes numbers as
-      // strings elsewhere (ReslabLocation.latitude/longitude are typed string;
-      // `featured` is boolean | number), so if `total` ever arrives as "533" a
-      // bare Number.isInteger would reject EVERY build — a permanent, site-wide
-      // search outage of our own making, unfixable without a deploy. Coercing
-      // costs nothing: Number("abc"), Number(null), Number(undefined) all still
-      // fail the checks below.
-      const lastPage = Number(first.last_page);
-      const totalRows = Number(first.total);
-      const perPage = Number(first.per_page);
-
-      const pagerUnusable =
-        !Number.isInteger(lastPage) ||
-        lastPage < 1 ||
-        !Number.isInteger(totalRows) ||
-        totalRows < 1;
-      const pagerInconsistent =
-        !pagerUnusable &&
-        Number.isInteger(perPage) &&
-        perPage > 0 &&
-        lastPage < Math.ceil(totalRows / perPage);
-
-      if (pagerUnusable || pagerInconsistent) {
-        throw new ReslabError(
-          502,
-          `ResLab location list returned an unusable paginator ` +
-            `(last_page=${JSON.stringify(first.last_page)}, ` +
-            `total=${JSON.stringify(first.total)}, ` +
-            `per_page=${JSON.stringify(first.per_page)})`
-        );
-      }
-
-      const all: ReslabLocation[] = [...first.data];
-      const remaining: number[] = [];
-      for (let p = 2; p <= lastPage; p++) remaining.push(p);
-
-      // Fetch remaining pages in small concurrent batches to keep load civil.
-      // Tolerate an individual page failing rather than zeroing out all search.
-      // Tracked separately because they mean different things: `refusedPages`
-      // is ResLab saying no (back off hard), `skippedPages` is us running out
-      // of wall-clock (ResLab is just slow — back off briefly). Both make the
-      // build incomplete; only the mix decides how long we wait.
-      let refusedPages = 0;
-      let skippedPages = 0;
-      let consecutiveDeadBatches = 0;
-      const BATCH = 8;
-      for (let i = 0; i < remaining.length; i += BATCH) {
-        // Give up early rather than spending the remaining ~45 requests proving
-        // we're being refused. Counting the abandoned pages is what arms the
-        // backoff below — abandoning the sweep silently would leave the breaker
-        // un-armed and re-open the per-request sweep loop.
-        const outOfTime = Date.now() - buildStart > LOCATION_BUILD_BUDGET_MS;
-        if (outOfTime || consecutiveDeadBatches >= 1) {
-          skippedPages += remaining.length - i;
-          break;
-        }
-
-        const results = await Promise.allSettled(
-          remaining.slice(i, i + BATCH).map((p) => reslab.getAllLocations(p))
-        );
-        const rejected = results.filter((r) => r.status === "rejected").length;
-        consecutiveDeadBatches =
-          rejected === results.length ? consecutiveDeadBatches + 1 : 0;
-        for (const r of results) {
-          if (r.status === "fulfilled") all.push(...r.value.data);
-          else refusedPages++;
-        }
-      }
+      const sweep = await sweepChannelLocations(
+        fallback?.complete ? fallback.data.length : null
+      );
+      const {
+        unique,
+        rowsFetched,
+        paginatorTotal: expectedRows,
+        lastPage,
+        refusedPages,
+        skippedPages,
+        implausible,
+      } = sweep;
       const failedPages = refusedPages + skippedPages;
-
-      // ResLab's paginated list returns the same location id on multiple pages —
-      // dedupe by id so search doesn't render duplicate lot cards.
-      const unique = Array.from(new Map(all.map((l) => [l.id, l])).values());
-
-      // ⚠️ Compare `all.length` (rows fetched, PRE-dedupe) against `total`.
-      // Comparing `unique.length` would reject every healthy build and take
-      // search down permanently. Measured against live ResLab on 2026-08-10:
-      //   last_page 54 · total 533 · rows fetched 533 · UNIQUE 381
-      // 381 is only 71% of 533 — well under the 0.9 threshold — because ResLab
-      // repeats ~152 rows across pages. Rows match `total` exactly; unique does
-      // not and never will. Do not "simplify" this to unique.length.
-      //
-      // A build is only "good" if no page failed AND the result looks plausible.
-      // Counting rejections alone cannot distinguish a healthy sweep from ResLab
-      // answering HTTP 200 with an empty or truncated paginator — and that
-      // mistake would then be cached as authoritative. At a 24h TTL the blast
-      // radius is a full day: an empty list makes this instance answer "no
-      // parking" for every airport until the TTL expires, and a truncated one is
-      // complete-looking enough to be CDN-cached and to bake thin ISR airport
-      // pages. Compare against the paginator's own `total` (rows, pre-dedupe —
-      // ResLab repeats ids across pages, so `unique.length` is legitimately
-      // lower and must NOT be compared to `total` directly) and against the
-      // size of the list we already trust.
-      const expectedRows = totalRows;
-      const implausible =
-        unique.length === 0 ||
-        (expectedRows > 0 && all.length < expectedRows * 0.9) ||
-        (fallback !== null &&
-          fallback.complete &&
-          unique.length < fallback.data.length * 0.5);
 
       if (failedPages > 0 || implausible) {
         // Rejected build. Arm the backoff so we stop hammering. Never clears
@@ -700,7 +889,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
             `ResLab location-list build rejected: ` +
               `${refusedPages} refused + ${skippedPages} skipped of ` +
               `${lastPage} pages, ` +
-              `assembled ${unique.length} unique from ${all.length} rows ` +
+              `assembled ${unique.length} unique from ${rowsFetched} rows ` +
               `(paginator total ${expectedRows})` +
               (fallback
                 ? `, cached list has ${fallback.data.length} (complete=${fallback.complete})`
@@ -763,7 +952,7 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
       lastBuildFailureAt = null;
       lastFailureWasTimeoutOnly = false;
       consecutiveTimeoutOnlyFailures = 0;
-      cachedLocationList = { data: unique, builtAt: Date.now(), complete: true };
+      cachedLocationList = { data: unique, builtAt: Date.now(), complete: true, source: "sweep" };
       return { data: unique, incomplete: false, stale: false };
     } catch (err) {
       // Total build failure (page 1 threw / unusable paginator — typically a
