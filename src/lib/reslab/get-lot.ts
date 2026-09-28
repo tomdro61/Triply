@@ -9,6 +9,7 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
+import { deriveAvailability } from "./availability";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
   getChannelLocationsCached,
@@ -140,7 +141,9 @@ function transformLocationToLot(
         }
       : undefined,
 
-    availability: minPriceData?.reservation.sold_out ? "unavailable" : "available",
+    // Same derivation as search results (was sold_out-only here, so the lot
+    // page could never reach "limited" and its "Limited Spots" tag never fired).
+    availability: deriveAvailability(minPriceData?.reservation),
 
     minimumBookingDays: location.minimum_booking_days || undefined,
     hoursBeforeReservation: location.hours_before_reservation || undefined,
