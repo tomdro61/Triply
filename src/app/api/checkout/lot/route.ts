@@ -15,6 +15,7 @@ import {
 } from "@/lib/parkguard/client";
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { ALREADY_USED_MESSAGE, hasRedeemed, isLiveStripeKey } from "@/lib/promo/redemption";
 
 // A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
 // (40s budget). The ceiling must sit above it so the sweep settles and arms its
@@ -267,7 +268,7 @@ export async function POST(request: NextRequest) {
       const supabase = await createAdminClient();
       const { data: promo, error: promoErr } = await supabase
         .from("promo_codes")
-        .select("id, discount_percent, active, expires_at, max_uses, current_uses")
+        .select("id, discount_percent, active, expires_at, max_uses, current_uses, once_per_customer")
         .eq("code", promoCode.toUpperCase())
         .single();
 
@@ -279,6 +280,36 @@ export async function POST(request: NextRequest) {
           new Error(`Promo lookup failed for ${promoCode}: ${promoErr.message}`),
           { endpoint: "/api/checkout/lot", method: "POST" }
         );
+      }
+
+      // Once-per-customer, EARLY check (migration 033): refuse before a
+      // PaymentIntent exists, so the customer never authorizes a card for a
+      // discount they can't have. Advisory only — the race-safe claim is in
+      // createBooking step 8.5. A lookup fault is reported and falls through:
+      // the authoritative check still runs before any money moves.
+      if (promo && isPromoCodeUsable(promo) && promo.once_per_customer === true) {
+        let used = false;
+        try {
+          used = await hasRedeemed(supabase, {
+            promoCodeId: promo.id,
+            email: customerEmail,
+            livemode: isLiveStripeKey(),
+          });
+        } catch (redemptionErr) {
+          captureAPIError(
+            redemptionErr instanceof Error ? redemptionErr : new Error(String(redemptionErr)),
+            { endpoint: "/api/checkout/lot", method: "POST", stage: "promo_redemption_lookup" }
+          );
+        }
+        if (used) {
+          return NextResponse.json(
+            {
+              error: `${ALREADY_USED_MESSAGE}. Remove the code to continue.`,
+              code: "promo_already_used",
+            },
+            { status: 409 }
+          );
+        }
       }
 
       if (promo && isPromoCodeUsable(promo)) {

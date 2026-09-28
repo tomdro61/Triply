@@ -20,6 +20,7 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import type { ApplyPromoResult } from "./promo-code";
 import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
 import {
   PROTECTION_PLANS,
@@ -516,12 +517,18 @@ export function CheckoutForm({
   // "invalid promo code".
   const handleApplyPromo = async (
     code: string
-  ): Promise<{ ok: true } | { ok: false; reason: "invalid" | "network" }> => {
+  ): Promise<ApplyPromoResult> => {
     try {
+      // Send the email once it looks complete so the once-per-customer rule
+      // can answer now; before that, /api/checkout/lot checks it on Continue.
+      const email = customerDetails.email.trim();
       const response = await fetch("/api/promo/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({
+          code,
+          ...(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && { email }),
+        }),
       });
       if (!response.ok) {
         // 4xx — server rejected the code (validation, rate limit, auth).
@@ -546,6 +553,7 @@ export function CheckoutForm({
         setPromoDiscountPercent(data.discountPercent);
         return { ok: true };
       }
+      if (data.reason === "already_used") return { ok: false, reason: "already_used" };
       return { ok: false, reason: "invalid" };
     } catch (err) {
       // True fetch rejection — network failure, offline, CORS, abort.

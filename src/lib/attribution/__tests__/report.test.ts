@@ -95,6 +95,29 @@ describe("buildPromoReport", () => {
     expect(out.find((p) => p.code === "save20")?.currentUses).toBe(0);
     expect(out.filter((p) => p.code.toUpperCase() === "SAVE20")).toHaveLength(1);
   });
+  it("carries source + once-per-customer (migration 033) and splits a code's live bookings by the booking's channel", () => {
+    const meta033 = [
+      { code: "LOT5", discount_percent: 5, active: true, current_uses: 3, max_uses: null, expires_at: null, source: "lot_staff", once_per_customer: true },
+    ];
+    const out = buildPromoReport(
+      [
+        row({ promo_code: "LOT5", channel: "direct" }),
+        row({ promo_code: "LOT5", channel: "direct" }),
+        row({ promo_code: "LOT5", channel: "organic_search" }),
+        row({ promo_code: "LOT5", channel: "email", status: "refunded" }),
+      ],
+      meta033
+    );
+    expect(out[0]).toMatchObject({ code: "LOT5", source: "lot_staff", oncePerCustomer: true, bookings: 3 });
+    expect(out[0].channels).toEqual([
+      { channel: "direct", bookings: 2 },
+      { channel: "organic_search", bookings: 1 },
+    ]);
+  });
+  it("a pre-033 read (no source / once_per_customer) reports them as null, not a guess", () => {
+    const out = buildPromoReport([], meta, Date.parse("2026-09-17"));
+    expect(out.find((p) => p.code === "SAVE20")).toMatchObject({ source: null, oncePerCustomer: null, channels: [] });
+  });
 });
 
 describe("presentRate — the capture-health alarm", () => {
