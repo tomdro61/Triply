@@ -38,6 +38,7 @@ import {
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { reservationSchema } from "@/lib/validation/schemas";
+import { redactForDigest } from "@/lib/digest/redact";
 import type { Attribution } from "@/lib/attribution/schema";
 import {
   getProtectionPlan,
@@ -219,12 +220,18 @@ function classifyReslabError(error: unknown): ReslabFailure {
         "This parking option is no longer available. Please choose a different option.";
       let soldOut = error.statusCode === 409;
       const raw = error.message.replace("API request failed: ", "");
-      // `detail` is stored in last_error and sent to Sentry, so it carries the
-      // headline and the NAMES of the fields ResLab objected to — never the
-      // values, which echo the customer's name/email/plate. A non-JSON body
-      // (WAF/HTML page) is capped hard and stripped of tags.
-      let detail: string | null =
-        raw.length > 0 ? `HTTP ${error.statusCode}: ${raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 200)}` : null;
+      // `detail` is stored in last_error and sent to Sentry. It carries the
+      // (redacted) headline text and the NAMES of the fields ResLab objected
+      // to. The raw body can echo the submitted email/plate/phone, so it goes
+      // through redactForDigest() — the field-name list stays as-is because
+      // it is the diagnostic. A non-JSON body (WAF/HTML page) is capped hard
+      // and stripped of tags.
+      // Bound the input BEFORE the redaction regexes run (a WAF/HTML page can be
+      // several KB and this sits after the card is authorised); redact, THEN take
+      // the 200 that survive, so a mask is never cut in half.
+      const cleaned = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2_000);
+      const tail = redactForDigest(cleaned).slice(0, 200) || "(no text in body after tag-strip)";
+      let detail: string | null = raw.length > 0 ? `HTTP ${error.statusCode}: ${tail}` : null;
       try {
         const parsed = JSON.parse(raw);
         if (parsed.message && typeof parsed.message === "string") {
@@ -240,8 +247,7 @@ function classifyReslabError(error: unknown): ReslabFailure {
         // shape we don't model (array-of-objects, field_errors, …). Preferring
         // parsed.message reproduced the bare "Validation error" this detail
         // exists to replace. Capped and tag-stripped above.
-        const rawClean = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-        detail = `HTTP ${error.statusCode}: ${rawClean.slice(0, 200)}` + (fields ? ` [fields: ${fields}]` : "");
+        detail = `HTTP ${error.statusCode}: ${tail}` + (fields ? ` [fields: ${fields}]` : "");
       } catch {
         // Keep the status-derived default; `detail` already holds the capped text.
       }
@@ -1619,24 +1625,23 @@ async function fulfilClaimed(
           : failure.soldOut
           ? "released_sold_out"
           : "released_failed";
+      // What we STORE and ALERT is redacted: ResLab's message can echo the
+      // customer's email/plate/phone, and last_error is read by the daily
+      // digest and Sentry. The customer still sees the unredacted userMessage.
+      const storedReason = redactForDigest(
+        failure.detail ? `${failure.userMessage} — ${failure.detail}` : failure.userMessage
+      );
       if (!failure.soldOut) {
         // A definitive non-sold-out rejection is a lost sale that is usually OUR
         // payload (a field the lot names differently), not inventory. Loud, and
         // ALERT FIRST, THEN WRITE: markTerminal can throw DurableStateError and
         // the alert must not depend on the database being healthy.
         capturePaymentError(
-          new Error(
-            `ResLab rejected the reservation (auth released): ${failure.userMessage}` +
-              (failure.detail ? ` — ${failure.detail}` : "")
-          ),
+          new Error(`ResLab rejected the reservation (auth released): ${storedReason}`),
           { stripePaymentIntentId: piId, amount: pi.amount / 100 }
         );
       }
-      await markTerminal(
-        piId,
-        terminal,
-        failure.detail ? `${failure.userMessage} — ${failure.detail}` : failure.userMessage
-      );
+      await markTerminal(piId, terminal, storedReason);
       await releaseCart(piId);
       return failure.soldOut
         ? { kind: "sold_out" }

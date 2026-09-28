@@ -395,6 +395,24 @@ describe("the resume path", () => {
 });
 
 describe("ResLab failure classification", () => {
+  it("redacts customer data from the stored ResLab rejection but keeps the field names", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.createReservation.mockRejectedValue(
+      new ReslabError(
+        422,
+        'API request failed: {"message":"Validation failed for ada@example.com, plate ABC1234, phone 617-555-0134","errors":{"vehicle_make":["required"],"return_flight_number":["required"]}}'
+      )
+    );
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    const row = db.tables.pending_bookings[0] as { last_error: string | null };
+    expect(row.last_error).toMatch(/ — HTTP 422: /); // "<customer message> — HTTP 422: <redacted body> [fields: …]"
+    expect(row.last_error).toContain("[fields: vehicle_make, return_flight_number]");
+    expect(row.last_error).not.toMatch(/example.com|ABC1234|555-0134/);
+  });
+
   it("releases the authorization on a definitive rejection", async () => {
     db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());

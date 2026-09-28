@@ -19,6 +19,10 @@
     {
       "path": "/api/cron/refresh-reslab-locations",
       "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/daily-digest",
+      "schedule": "5 13 * * *"
     }
   ]
 }
