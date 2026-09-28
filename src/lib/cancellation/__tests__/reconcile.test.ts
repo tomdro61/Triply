@@ -441,3 +441,46 @@ describe("reconcile — Park Guard tiers (per-row wholesale)", () => {
     expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9800, "selfcancel:pi_1");
   });
 });
+
+describe("reconcile — cancellation reason (migration 032)", () => {
+  it("finishing a customer HOLD keeps the customer's recorded reason; the cron never relabels it", async () => {
+    seed({
+      cancel_state: "held_reslab_ambiguous",
+      cancel_claimed_at: STALE,
+      cancellation_reason: "found_cheaper",
+      cancelled_by: "customer",
+    });
+    reslabMock.cancelReservation.mockResolvedValue({ cancelled: true });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await reconcileStuckCancellations(NOW);
+
+    expect(r.recovered).toBe(1);
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "refunded",
+      cancellation_reason: "found_cheaper",
+      cancelled_by: "customer",
+    });
+  });
+
+  it("ResLab refuses on recovery: the booking stays confirmed AND the reason is cleared", async () => {
+    seed({
+      cancel_state: "held_reslab_ambiguous",
+      cancel_claimed_at: STALE,
+      cancellation_reason: "plans_changed",
+      cancelled_by: "customer",
+    });
+    reslabMock.cancelReservation.mockImplementationOnce(async () => {
+      throw new ReslabError(400, "already checked in");
+    });
+    reslabMock.getReservation.mockResolvedValue({ cancelled: false });
+
+    await reconcileStuckCancellations(NOW);
+
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "confirmed",
+      cancellation_reason: null,
+      cancelled_by: null,
+    });
+  });
+});

@@ -5,6 +5,7 @@ import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
+import { recordCancellationReason } from "@/lib/cancellation/reason";
 
 // This handler now CREATES bookings, so it inherits the full fulfilment budget:
 // ResLab, capture, Supabase, Park Guard, and two emails.
@@ -415,6 +416,21 @@ export async function POST(request: NextRequest) {
               new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
+          }
+
+          // Attribute it (migration 032) ONLY if no cancel path already did.
+          // The admin and self-cancel routes record their reason before they
+          // refund, so reaching here unattributed means the refund came from
+          // outside the app (Stripe dashboard, partner) — reason unknown.
+          // Best-effort; never fails the webhook.
+          if (!updateErr) {
+            await recordCancellationReason({
+              bookingId: booking.id,
+              cancelledBy: "system",
+              reason: "unknown",
+              onlyIfUnset: true,
+              endpoint: "/api/webhooks/stripe",
+            });
           }
 
           // Stripe-side refunds (dashboard, dispute resolution, partner refunds)

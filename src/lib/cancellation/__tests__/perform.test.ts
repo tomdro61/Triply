@@ -472,3 +472,96 @@ describe("performSelfCancel — Park Guard tiers (per-row wholesale, migration 0
     );
   });
 });
+
+describe("performSelfCancel — cancellation reason (migration 032)", () => {
+  it("records the customer's reason + cancelled_by=customer on a completed cancel", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK, { reason: "found_cheaper" });
+
+    expect(r.status).toBe(200);
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "refunded",
+      cancellation_reason: "found_cheaper",
+      cancelled_by: "customer",
+    });
+  });
+
+  it("no reason given → still cancels, reason NULL (= unknown), cancelled_by=customer", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK);
+
+    expect(r.status).toBe(200);
+    expect(db.tables.bookings[0].cancellation_reason).toBeNull();
+    expect(db.tables.bookings[0].cancelled_by).toBe("customer");
+  });
+
+  it("the reason write failing (e.g. 032 not applied) never blocks the cancel or the refund", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    db.failWhen(
+      "bookings",
+      "update",
+      (p) => !!p && "cancelled_by" in p,
+      'column "cancelled_by" does not exist',
+    );
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK, { reason: "plans_changed" });
+
+    expect(r.status).toBe(200);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9400, "selfcancel:pi_1");
+    expect(db.tables.bookings[0].status).toBe("refunded");
+    expect(sentry.captureAPIError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/cancellation reason not recorded/) }),
+      expect.anything(),
+    );
+  });
+
+  it("ambiguous ResLab HOLD keeps the reason for the cron to finish with", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    reslabMock.cancelReservation.mockImplementationOnce(async () => {
+      throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    });
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK, { reason: "duplicate_booking" });
+
+    expect(r.status).toBe(202);
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "confirmed",
+      cancel_state: "held_reslab_ambiguous",
+      cancellation_reason: "duplicate_booking",
+      cancelled_by: "customer",
+    });
+  });
+
+  it("ResLab refuses → booking stays confirmed and the recorded reason is cleared", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    reslabMock.cancelReservation.mockImplementationOnce(async () => {
+      throw new ReslabError(400, "must not be started");
+    });
+    reslabMock.getReservation.mockResolvedValue({ cancelled: false });
+
+    const r = await performSelfCancel(mkBooking(), NOW_OK, { reason: "plans_changed" });
+
+    expect(r.status).toBe(409);
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "confirmed",
+      cancellation_reason: null,
+      cancelled_by: null,
+    });
+  });
+
+  it("a gate refusal (within 24h) writes no reason at all — nothing was claimed", async () => {
+    seedDb();
+
+    const r = await performSelfCancel(mkBooking(), NOW_WITHIN, { reason: "plans_changed" });
+
+    expect(r.status).toBe(422);
+    expect(db.tables.bookings[0].cancelled_by).toBeUndefined();
+  });
+});

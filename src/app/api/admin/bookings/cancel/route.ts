@@ -12,6 +12,11 @@ import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-con
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { adminClaim } from "@/lib/cancellation/claim";
+import {
+  ADMIN_CANCELLATION_REASONS,
+  cancellationNoteSchema,
+  recordCancellationReason,
+} from "@/lib/cancellation/reason";
 import { pgWholesaleForRow } from "@/lib/cancellation/refund-math";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 
@@ -33,6 +38,13 @@ const cancelSchema = z.object({
   // when a lot turns the customer away — Triply returns its own fee as goodwill.
   // Defaults false: the standard path retains the non-refundable service fee.
   refundServiceFee: z.boolean().optional().default(false),
+  // Why (migration 032). REQUIRED for an admin cancel — the admin always knows
+  // (or picks "other" + a note). `unknown` is deliberately not accepted here.
+  reason: z.enum(ADMIN_CANCELLATION_REASONS, {
+    error: "A cancellation reason is required",
+  }),
+  // Admin-only free text; never shown to the customer.
+  note: cancellationNoteSchema.optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -57,7 +69,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { reservationNumber, stripePaymentIntentId, refundServiceFee } = parsed.data;
+    const { reservationNumber, stripePaymentIntentId, refundServiceFee, reason, note } =
+      parsed.data;
 
     // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
@@ -167,6 +180,18 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+
+    // Attribute the cancel (migration 032) now that we hold the lock and BEFORE
+    // any refund, so the charge.refunded webhook (which only fills an
+    // unattributed row) never labels an admin cancel as "system". Best-effort:
+    // a failed write is Sentry-logged and the cancel proceeds.
+    await recordCancellationReason({
+      reservationNumber,
+      cancelledBy: "admin",
+      reason,
+      note: note ?? null,
+      endpoint: "/api/admin/bookings/cancel",
+    });
 
     const results: {
       reslab: boolean;

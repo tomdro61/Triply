@@ -12,6 +12,11 @@ import {
   type PromoMeta,
   type ReportRow,
 } from "@/lib/attribution/report";
+import {
+  buildCancellationReport,
+  type CancellationReport,
+  type CancellationReportRow,
+} from "@/lib/cancellation/report";
 
 export async function GET(request: NextRequest) {
   try {
@@ -301,6 +306,38 @@ export async function GET(request: NextRequest) {
 
     const airports = byAirport(attrRows);
 
+    // --- Cancellations by month / reason / lot (migration 032) --------------
+    // Same isolation as attribution: a failure (e.g. 032 not applied yet →
+    // "column does not exist") nulls this section with a Sentry event; it never
+    // takes the dashboard down.
+    let cancellations: CancellationReport | null = null;
+    let cancellationsError: string | null = null;
+    const cancelRows: CancellationReportRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error: pageError } = await excludeAdmins(
+        applyDateFilter(
+          supabase
+            .from("bookings")
+            .select("status, created_at, location_name, cancellation_reason, cancelled_by")
+        )
+      )
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (pageError) {
+        cancellationsError = "cancellation report fetch failed";
+        captureAPIError(
+          new Error(`Admin stats cancellations: fetch failed: ${pageError.message}`),
+          { endpoint: "/api/admin/stats", method: "GET" }
+        );
+        break;
+      }
+      const page = (data ?? []) as CancellationReportRow[];
+      cancelRows.push(...page);
+      if (page.length < PAGE) break;
+    }
+    if (!cancellationsError) cancellations = buildCancellationReport(cancelRows);
+
     const reslabSnapshot = isSnapshotEnabled()
       ? await readSnapshotMeta().then((m) =>
           m.kind === "row"
@@ -333,6 +370,8 @@ export async function GET(request: NextRequest) {
           }
         : null,
       attributionWarnings: warnings,
+      cancellations,
+      cancellationsError,
       // Shared ResLab location snapshot (plan v3 §6): a human must be able to
       // see the cron died. Metadata only (no payload); null when the flag is off.
       reslabSnapshot,

@@ -21,6 +21,13 @@ import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 import { csvEscape } from "@/lib/utils/csv";
 import { attributionSourceLabel as sourceLabel, type AttributionRow } from "@/lib/attribution/display";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
+import {
+  ADMIN_CANCELLATION_REASONS,
+  CANCELLATION_REASON_LABELS,
+  adminReasonSchema,
+  type AdminCancellationReason,
+  type CancellationReason,
+} from "@/lib/cancellation/reason-codes";
 
 interface Booking {
   id: string;
@@ -59,6 +66,10 @@ interface Booking {
     state: string;
   };
   created_at: string;
+  /** Migration 032. Absent until 032 is applied; NULL = unknown. */
+  cancellation_reason?: CancellationReason | null;
+  cancellation_note?: string | null;
+  cancelled_by?: "customer" | "admin" | "system" | null;
   customers: {
     id: string;
     email: string;
@@ -114,6 +125,9 @@ export default function AdminBookingsPage() {
   // Which cancel path is in flight, so only the clicked button shows its
   // spinner label while both are disabled.
   const [cancellingMode, setCancellingMode] = useState<"standard" | "full" | null>(null);
+  // Required reason + optional admin note for the cancel (migration 032).
+  const [cancelReason, setCancelReason] = useState<AdminCancellationReason | "">("");
+  const [cancelNote, setCancelNote] = useState("");
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
@@ -121,6 +135,10 @@ export default function AdminBookingsPage() {
   } | null>(null);
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
+    if (!cancelReason) {
+      setCancelResult({ success: false, message: "Pick a cancellation reason first." });
+      return;
+    }
     const fee = parseFloat(booking.triply_service_fee) || 0;
     // Park Guard's wholesale (snapshotted per row in protection_plan_wholesale
     // — migration 021) is non-refundable to Triply, so a STANDARD cancel
@@ -149,6 +167,8 @@ export default function AdminBookingsPage() {
           reservationNumber: booking.reslab_reservation_number,
           stripePaymentIntentId: booking.stripe_payment_intent_id,
           refundServiceFee,
+          reason: cancelReason,
+          note: cancelNote.trim() || undefined,
         }),
       });
       const data = await response.json();
@@ -165,7 +185,15 @@ export default function AdminBookingsPage() {
           )
         );
         setSelectedBooking((prev) =>
-          prev?.id === booking.id ? { ...prev, status: newStatus } : prev
+          prev?.id === booking.id
+            ? {
+                ...prev,
+                status: newStatus,
+                cancellation_reason: cancelReason,
+                cancellation_note: cancelNote.trim() || null,
+                cancelled_by: "admin",
+              }
+            : prev
         );
       }
     } catch {
@@ -433,7 +461,7 @@ export default function AdminBookingsPage() {
               {bookings.map((booking) => (
                 <button
                   key={booking.id}
-                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
                   className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -587,7 +615,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >
@@ -854,6 +882,55 @@ export default function AdminBookingsPage() {
                 </div>
               )}
 
+              {/* Recorded cancellation reason (migration 032) */}
+              {(selectedBooking.status === "cancelled" || selectedBooking.status === "refunded") && (
+                <div className="p-3 rounded-lg text-sm bg-gray-50 text-gray-700">
+                  <span className="font-medium">Cancellation reason:</span>{" "}
+                  {CANCELLATION_REASON_LABELS[selectedBooking.cancellation_reason ?? "unknown"]}
+                  {selectedBooking.cancelled_by && (
+                    <span className="text-gray-500"> · by {selectedBooking.cancelled_by}</span>
+                  )}
+                  {selectedBooking.cancellation_note && (
+                    <p className="mt-1 text-gray-600 whitespace-pre-wrap">{selectedBooking.cancellation_note}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Cancel reason — required before either cancel button works */}
+              {selectedBooking.status === "confirmed" && (
+                <div className="space-y-2">
+                  <label htmlFor="admin-cancel-reason" className="block text-sm font-medium text-gray-700">
+                    Cancellation reason <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    id="admin-cancel-reason"
+                    value={cancelReason}
+                    onChange={(e) => {
+                      const parsed = adminReasonSchema.safeParse(e.target.value);
+                      setCancelReason(parsed.success ? parsed.data : "");
+                    }}
+                    disabled={cancelling}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Select a reason…</option>
+                    {ADMIN_CANCELLATION_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {CANCELLATION_REASON_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={cancelNote}
+                    onChange={(e) => setCancelNote(e.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    disabled={cancelling}
+                    placeholder="Note (optional, admin only — never shown to the customer)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              )}
+
               {/* Cancel Result */}
               {cancelResult && (
                 <>
@@ -884,7 +961,7 @@ export default function AdminBookingsPage() {
                         (a partial protection refund on PG bookings). */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, false)}
-                      disabled={cancelling}
+                      disabled={cancelling || !cancelReason}
                       title={`Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
@@ -895,7 +972,7 @@ export default function AdminBookingsPage() {
                         customer away and Triply eats its fee + the PG wholesale. */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, true)}
-                      disabled={cancelling}
+                      disabled={cancelling || !cancelReason}
                       title="Refunds everything incl. the Triply service fee and the full Park Guard premium — use when the lot turned the customer away"
                       className="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors disabled:opacity-50"
                     >

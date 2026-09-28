@@ -3,6 +3,7 @@ import { reslab } from "@/lib/reslab/client";
 import { stripe } from "@/lib/stripe/client";
 import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { releaseClaim, type HoldState } from "./claim";
+import { clearCancellationReason } from "./reason";
 import { classifyCancelOutcome } from "./reslab-cancel";
 import {
   planTeardown,
@@ -227,6 +228,8 @@ export async function recoverOne(
     if (outcome.outcome === "refuse") {
       // Can't cancel (started/checked-in) — no money moved. Revert to a clean
       // confirmed booking and alert; this cancel can't complete online.
+      // The customer's recorded reason no longer describes a cancellation.
+      await clearCancellationReason(reservationNumber, ownedAt, CRON_ENDPOINT);
       await releaseClaim(reservationNumber, ownedAt).catch(() => {});
       return "reslab_refused";
     }
