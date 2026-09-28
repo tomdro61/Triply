@@ -437,7 +437,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
             (r) =>
               r.stripe_payment_intent_id === row.stripe_payment_intent_id
           )) ||
-        // Migration 029: UNIQUE (stripe_payment_intent_id) — the recovery
+        // Migration 031: UNIQUE (stripe_payment_intent_id) — the recovery
         // cron's claim-before-send lock — and the opt-out table's PK.
         (this.table === "checkout_recovery_emails" &&
           rows.some(
