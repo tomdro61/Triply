@@ -63,6 +63,9 @@ interface Stats {
       active: boolean | null;
       discountPercent: number | null;
       expired: boolean;
+      source: string | null;
+      oncePerCustomer: boolean | null;
+      channels: Array<{ channel: string; bookings: number }>;
     }> | null;
     presentRate7d: number | null;
     invalidRate7d: number | null;
@@ -465,6 +468,12 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="text-left text-xs text-gray-500 uppercase">
                     <th className="pb-2">Code</th>
+                    <th className="pb-2" title="promo_codes.source (migration 033) — where the code is distributed. — = not recorded.">
+                      Source
+                    </th>
+                    <th className="pb-2" title="Where the customers who used it actually came from: each booking's attribution channel (first touch).">
+                      Booked via
+                    </th>
                     <th className="pb-2 text-right">Bookings</th>
                     <th className="pb-2 text-right">Discount</th>
                     <th className="pb-2 text-right" title="promo_codes.current_uses (DB counter) — should track Bookings from the deploy of the trigger onward">
@@ -486,6 +495,15 @@ export default function AdminDashboard() {
                         {p.expired && p.active && (
                           <span className="ml-1 text-xs text-amber-600">expired</span>
                         )}
+                        {p.oncePerCustomer && (
+                          <span className="ml-1 text-xs text-gray-400" title="One use per customer email">1/cust</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 text-gray-600">{p.source ?? "—"}</td>
+                      <td className="py-1.5 text-xs text-gray-500">
+                        {p.channels.length === 0
+                          ? "—"
+                          : p.channels.map((c) => `${c.channel} ${c.bookings}`).join(" · ")}
                       </td>
                       <td className="py-1.5 text-right">{p.bookings}</td>
                       <td className="py-1.5 text-right">{formatPrice(p.discount)}</td>

@@ -5,7 +5,12 @@ import { Tag, X, Check, Loader2 } from "lucide-react";
 
 export type ApplyPromoResult =
   | { ok: true }
-  | { ok: false; reason: "invalid" | "network" };
+  | { ok: false; reason: "invalid" | "network" | "already_used" };
+
+/** Shown when the once-per-customer rule rejects the code for this email.
+ *  Same wording as ALREADY_USED_MESSAGE in @/lib/promo/redemption (server-only
+ *  module, so not imported into this client component). */
+const ALREADY_USED_COPY = "This code has already been used with this email";
 
 interface PromoCodeProps {
   appliedCode: string | null;
@@ -42,6 +47,8 @@ export function PromoCode({
         setCode("");
       } else if (result.reason === "network") {
         setError("Couldn't reach the server — please try again");
+      } else if (result.reason === "already_used") {
+        setError(ALREADY_USED_COPY);
       } else {
         setError("Invalid or expired promo code");
       }
