@@ -123,7 +123,7 @@ describe("flight number fields — ResLab answers 422 \"Invalid Flight Number\" 
   });
 
   it("accepts the two values ResLab has confirmed, and the ways people type them", () => {
-    for (const v of ["DL0460", "AA1093", "dl 460", "DL-460", " B6 123 ", "9W12", "WN1"]) {
+    for (const v of ["DL0460", "AA1093", "DL460", "dl 460", "DL-460", "DL.460", " B6 123 ", "9W12", "WN1"]) {
       expect(isValidFlightNumber(v), v).toBe(true);
     }
     expect(normalizeFlightNumber(" dl-0460 ")).toBe("DL0460");
@@ -137,7 +137,7 @@ describe("flight number fields — ResLab answers 422 \"Invalid Flight Number\" 
 
   it("the step is blocked with a message that shows the expected form", () => {
     expect(extraFieldStepErrors([FLIGHT], vehicle, { return_flight_number: "N/A" })).toEqual({
-      return_flight_number: "Return Flight number needs a flight number, for example DL 460",
+      return_flight_number: "Return Flight number: enter a flight number, for example DL 460",
     });
     expect(extraFieldStepErrors([FLIGHT], vehicle, { return_flight_number: "dl 460" })).toEqual({});
   });
@@ -159,6 +159,15 @@ describe("flight number fields — ResLab answers 422 \"Invalid Flight Number\" 
     expect(invalidFormatExtraFields(declared, { return_flight_number: "DL460" })).toEqual([]);
   });
 
+  it("one unreadable input type costs that field's format check, never the lot's whole list", () => {
+    const parsed = declaredExtraFieldsSchema.safeParse([
+      { name: "return_flight_number", type: "both", input_type: 7 },
+      { name: "ship", type: "parking", input_type: "text" },
+    ]);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data[0].input_type).toBeNull();
+  });
+
   it("never format-checks a TEXT field, whatever it is called", () => {
     const text = [{ name: "returning_flight", type: "both", inputType: "text" }];
     expect(invalidFormatExtraFields(text, { returning_flight: "N/A" })).toEqual([]);
@@ -175,6 +184,8 @@ describe("notApplicableHint", () => {
     const hint = notApplicableHint("flight_number");
     expect(hint).toMatch(/DL 460/);
     expect(hint).not.toMatch(/N\/A/);
+    // The lot takes no booking without one: say what the options are.
+    expect(hint).toMatch(/Choose another lot or contact us/);
   });
 
   it("tells a number field to take 0, a text field N/A", () => {

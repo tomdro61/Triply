@@ -53,7 +53,9 @@ export const declaredExtraFieldSchema = z.object({
   // required (isRequiredExtraField) instead of failing the whole array and
   // skipping the gate for the lot.
   type: z.string().nullish(),
-  input_type: z.string().nullish(),
+  // .catch: an input type we cannot read only costs the format check for that
+  // field. It must never fail the whole list and skip the lot's gate.
+  input_type: z.string().nullish().catch(null),
 });
 export const declaredExtraFieldsSchema = z.array(declaredExtraFieldSchema);
 
@@ -115,10 +117,11 @@ export function isFlightNumberField(field: WithInputType): boolean {
   return t.trim().toLowerCase() === FLIGHT_NUMBER_INPUT_TYPE;
 }
 
-/** "dl 460", "DL-460" → "DL460": the compact form ResLab has accepted
- *  (DL0460, AA1093 on confirmed reservations). */
+/** "dl 460", "DL-460", "DL.460" → "DL460": the compact form ResLab accepts
+ *  (DL0460 and AA1093 on confirmed reservations; DL460 verified on staging
+ *  2026-09-29, RTL855661). */
 export function normalizeFlightNumber(value: string): string {
-  return value.replace(/[\s-]/g, "").toUpperCase();
+  return value.replace(/[\s.-]/g, "").toUpperCase();
 }
 
 /**
@@ -134,6 +137,9 @@ export function isValidFlightNumber(value: string): boolean {
 }
 
 export const FLIGHT_NUMBER_EXAMPLE = "DL 460";
+
+/** The lot will not take a booking without one, so say what the options are. */
+export const NO_FLIGHT_NUMBER_ADVICE = "No flight number? Choose another lot or contact us.";
 
 /**
  * The required flight fields whose answer ResLab would refuse: not blank (that
@@ -155,7 +161,7 @@ export function invalidFormatExtraFields<
 /** What a required field tells the customer under its input. */
 export function notApplicableHint(inputType: string): string {
   if (isFlightNumberField({ inputType })) {
-    return `Required by this lot. Enter the flight number, for example ${FLIGHT_NUMBER_EXAMPLE}.`;
+    return `Required by this lot. Enter the flight number, for example ${FLIGHT_NUMBER_EXAMPLE}. ${NO_FLIGHT_NUMBER_ADVICE}`;
   }
   return inputType === "number"
     ? "Required by this lot. If it doesn't apply to you, enter 0."
@@ -220,5 +226,11 @@ export function extraFieldStepErrors<
 
 /** One wording for the form and the server refusal. */
 export function flightNumberFormatMessage(label: string | null | undefined): string {
-  return `${label?.trim() || "This field"} needs a flight number, for example ${FLIGHT_NUMBER_EXAMPLE}`;
+  return `${label?.trim() || "This field"}: enter a flight number, for example ${FLIGHT_NUMBER_EXAMPLE}`;
+}
+
+/** Is this a real flight number that is only not in the form that is sent?
+ *  Only a page loaded before the deploy produces one. */
+export function isUnnormalizedFlightNumber(value: string | undefined): boolean {
+  return value !== undefined && isValidFlightNumber(value) && value !== normalizeFlightNumber(value);
 }

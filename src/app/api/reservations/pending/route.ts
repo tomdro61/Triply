@@ -33,7 +33,9 @@ import {
   declaredExtraFieldsSchema,
   missingRequiredExtraFields,
   invalidFormatExtraFields,
-  flightNumberFormatMessage,
+  isFlightNumberField,
+  isUnnormalizedFlightNumber,
+  FLIGHT_NUMBER_EXAMPLE,
   reslabExtraFieldValues,
   REQUIRED_FIELD_LOOKUP_TIMEOUT_MS,
   type DeclaredExtraField,
@@ -242,7 +244,10 @@ export async function POST(request: NextRequest) {
         );
         return NextResponse.json(
           {
-            error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in (enter N/A if it doesn't apply). If you don't see it there, reload the page — you have not been charged.`,
+            // Never offer N/A for a flight field: ResLab refuses it.
+            error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in${
+              missing.some(isFlightNumberField) ? "" : " (enter N/A if it doesn't apply)"
+            }. If you don't see it there, reload the page — you have not been charged.`,
             missingFields: missing.map((f) => f.name),
           },
           { status: 400 }
@@ -262,11 +267,16 @@ export async function POST(request: NextRequest) {
             detail: { invalidFields: invalid.map((f) => f.name) },
           }
         );
+        const invalidLabels = invalid.map((f) => f.label?.trim() || f.name).join(", ");
+        // A real flight number that only lacks the sent form comes from a page
+        // loaded before this release: there is nothing for the customer to
+        // correct, only to reload.
+        const onlyFormatting = invalid.every((f) => isUnnormalizedFlightNumber(sentValues[f.name]));
         return NextResponse.json(
           {
-            error: `${invalid
-              .map((f) => flightNumberFormatMessage(f.label))
-              .join(". ")}. Please go back to Vehicle Information and correct it. If it still isn't accepted, reload the page — you have not been charged.`,
+            error: onlyFormatting
+              ? "This page is out of date. Please reload it and try again — you have not been charged."
+              : `Enter a flight number (for example ${FLIGHT_NUMBER_EXAMPLE}) for: ${invalidLabels}. Please go back to Vehicle Information to correct this — you have not been charged.`,
             invalidFields: invalid.map((f) => f.name),
           },
           { status: 400 }

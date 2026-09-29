@@ -169,7 +169,9 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     const res = await POST(req(body({ extraFields: { return_flight_number: "N/A" } })));
     expect(res.status).toBe(400);
     const json = await res.json();
-    expect(json.error).toMatch(/Return Flight number needs a flight number, for example DL 460/);
+    expect(json.error).toBe(
+      "Enter a flight number (for example DL 460) for: Return Flight number. Please go back to Vehicle Information to correct this — you have not been charged."
+    );
     expect(json.error).toMatch(/you have not been charged/);
     expect(json.invalidFields).toEqual(["return_flight_number"]);
     expect(db.tables.pending_bookings).toHaveLength(0);
@@ -186,8 +188,41 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     expect((await POST(req(body({ extraFields: { return_flight_number: "DL0460" } })))).status).toBe(200);
     expect(db.tables.pending_bookings).toHaveLength(1);
     db.tables = { pending_bookings: [], bookings: [] };
-    expect((await POST(req(body({ extraFields: { return_flight_number: "DL 460" } })))).status).toBe(400);
+    // A real flight number that was not compacted comes from a page loaded
+    // before this release: nothing to correct, only to reload.
+    const stale = await POST(req(body({ extraFields: { return_flight_number: "DL 460" } })));
+    expect(stale.status).toBe(400);
+    expect((await stale.json()).error).toBe(
+      "This page is out of date. Please reload it and try again — you have not been charged."
+    );
     expect(db.tables.pending_bookings).toHaveLength(0);
+  });
+
+  it("names every invalid flight field once", async () => {
+    reslabMock.getLocation.mockResolvedValue({
+      id: 42,
+      extra_fields: [
+        { id: 1, name: "flight_number", label: "Flight Number", type: "both", input_type: "flight_number" },
+        { id: 2, name: "return_flight_number", label: "Return Flight number", type: "both", input_type: "flight_number" },
+      ],
+    });
+    const res = await POST(req(body({ extraFields: { flight_number: "none", return_flight_number: "DL 460" } })));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "Enter a flight number (for example DL 460) for: Flight Number, Return Flight number. Please go back to Vehicle Information to correct this — you have not been charged."
+    );
+  });
+
+  it("never tells a customer to enter N/A in a flight field that is missing", async () => {
+    reslabMock.getLocation.mockResolvedValue({
+      id: 42,
+      extra_fields: [{ id: 2, name: "return_flight_number", label: "Return Flight number", type: "both", input_type: "flight_number" }],
+    });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(400);
+    const { error } = await res.json();
+    expect(error).toMatch(/This lot needs: Return Flight number/);
+    expect(error).not.toMatch(/N\/A/);
   });
 
   it("stages when the field is answered (N/A counts)", async () => {
