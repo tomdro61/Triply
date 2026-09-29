@@ -28,20 +28,33 @@ import { z } from "zod";
 import type { VehicleDetails } from "@/types/checkout";
 import { isVehicleFieldName, vehicleFieldAliasValues } from "@/lib/booking/vehicle-field-aliases";
 
+/**
+ * How long the pending route's pre-charge field lookup may take, ResLab login
+ * included. That route's maxDuration is 15 s and every ResLab call has its own
+ * 10 s timeout (login + lookup on a cold instance = 20 s), so without this a
+ * hanging ResLab gets the function KILLED: no skip, no Sentry event, a
+ * non-JSON 504, and a check that was meant to be advisory blocks every
+ * checkout.
+ */
+export const REQUIRED_FIELD_LOOKUP_TIMEOUT_MS = 4_000;
+
 /** The minimum of a ResLab extra field this rule reads. Validated at the
  *  ResLab boundary (the pending route) — extra keys pass through. */
 export const declaredExtraFieldSchema = z.object({
   name: z.string().min(1),
-  label: z.string().optional(),
-  type: z.string(),
+  label: z.string().nullish(),
+  // A field with no scope is still a field the lot declared: it counts as
+  // required (isRequiredExtraField) instead of failing the whole array and
+  // skipping the gate for the lot.
+  type: z.string().nullish(),
 });
 export const declaredExtraFieldsSchema = z.array(declaredExtraFieldSchema);
 
 export type DeclaredExtraField = z.infer<typeof declaredExtraFieldSchema>;
 
 /** Is the customer required to answer this lot-declared field? */
-export function isRequiredExtraField(field: { type: string }): boolean {
-  return field.type.trim().toLowerCase() !== "room";
+export function isRequiredExtraField(field: { type?: string | null }): boolean {
+  return (field.type ?? "").trim().toLowerCase() !== "room";
 }
 
 /** Blank means empty after trimming — a space is not an answer to ResLab. */
@@ -75,7 +88,7 @@ export function reslabExtraFieldValues(
  * The required declared fields that have no answer in `values`, in the lot's
  * order. Empty array = safe to charge.
  */
-export function missingRequiredExtraFields<F extends { name: string; type: string }>(
+export function missingRequiredExtraFields<F extends { name: string; type?: string | null }>(
   declared: ReadonlyArray<F> | undefined,
   values: Readonly<Record<string, string>>
 ): F[] {
@@ -92,10 +105,13 @@ export function notApplicableHint(inputType: string): string {
 }
 
 /**
- * The extra fields the checkout would send for this lot, built exactly as the
- * form's reservation body builds them: typed answers (never for a vehicle-named
- * field — the vehicle step is authoritative for those), overlaid by the vehicle
- * step's answers under the lot's own vehicle spellings.
+ * The extra fields the checkout sends for this lot: typed answers (never for a
+ * vehicle-named field — the vehicle step is authoritative for those), overlaid
+ * by the vehicle step's answers under the lot's own vehicle spellings.
+ *
+ * The checkout form builds its request body THROUGH this function, so the step
+ * gate (extraFieldStepErrors) checks the map that is actually sent, not a copy
+ * of it.
  */
 export function checkoutExtraFields(
   lotFields: ReadonlyArray<{ name: string }> | undefined,
@@ -114,7 +130,9 @@ export function checkoutExtraFields(
  * answered by the vehicle inputs (which have their own errors), so they never
  * appear here. Empty object = the step may advance.
  */
-export function extraFieldStepErrors<F extends { name: string; type: string; label?: string }>(
+export function extraFieldStepErrors<
+  F extends { name: string; type?: string | null; label?: string | null },
+>(
   lotFields: ReadonlyArray<F> | undefined,
   vehicle: VehicleDetails,
   typed: Readonly<Record<string, string>>

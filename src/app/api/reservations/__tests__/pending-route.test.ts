@@ -30,6 +30,7 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => ({
 vi.mock("@/lib/sentry", () => ({
   capturePaymentError: vi.fn(),
   captureBookingError: vi.fn(),
+  captureRequiredFieldCheck: vi.fn(),
 }));
 vi.mock("@sentry/nextjs", () => ({
   captureException: sentry.captureException,
@@ -40,7 +41,9 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import { POST } from "../pending/route";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureRequiredFieldCheck } from "@/lib/sentry";
+import { ReslabError } from "@/lib/reslab/client";
+import { REQUIRED_FIELD_LOOKUP_TIMEOUT_MS } from "@/lib/booking/required-extra-fields";
 import { __resetInvalidReportForTests } from "@/lib/attribution/read-request";
 import { encodeCookieValue, type AttributionCookie } from "@/lib/attribution/schema";
 
@@ -145,10 +148,19 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toMatch(/Return flight #/);
+    expect(json.error).toMatch(/reload the page/);
     expect(json.error).toMatch(/you have not been charged/);
     expect(json.missingFields).toEqual(["return_flight_number"]);
     expect(db.tables.pending_bookings).toHaveLength(0);
     expect(reslabMock.getLocation).toHaveBeenCalledWith(42);
+    // The vehicle step gates the same field, so a server refusal means the two
+    // gates disagree or the lot changed: reported, with names and no answers.
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "refused",
+      expect.any(String),
+      { stripePaymentIntentId: PI, locationId: 42, detail: { missingFields: ["return_flight_number"] } }
+    );
+    expect(vi.mocked(capturePaymentError)).not.toHaveBeenCalled();
   });
 
   it("stages when the field is answered (N/A counts)", async () => {
@@ -175,9 +187,108 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     const res = await POST(req(body()));
     expect(res.status).toBe(200);
     expect(db.tables.pending_bookings).toHaveLength(1);
-    expect(vi.mocked(capturePaymentError)).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/required-field check skipped.*429/) }),
-      expect.objectContaining({ stripePaymentIntentId: PI })
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.stringMatching(/required-field check skipped/),
+      expect.objectContaining({
+        stripePaymentIntentId: PI,
+        locationId: 42,
+        detail: expect.objectContaining({ reason: expect.stringMatching(/429/) }),
+      })
+    );
+    // Not a payment failure: it must stay out of the payment-error signal.
+    expect(vi.mocked(capturePaymentError)).not.toHaveBeenCalled();
+  });
+
+  it("FAILS OPEN on a ResLab 5xx and records the status", async () => {
+    reslabMock.getLocation.mockRejectedValue(new ReslabError(502, "API request failed: Bad Gateway"));
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.any(String),
+      expect.objectContaining({ detail: expect.objectContaining({ statusCode: 502 }) })
+    );
+  });
+
+  it("a HANGING ResLab is skipped at the deadline, long before the function limit", async () => {
+    vi.useFakeTimers();
+    try {
+      reslabMock.getLocation.mockReturnValue(new Promise(() => {}));
+      const pending = POST(req(body()));
+      await vi.advanceTimersByTimeAsync(REQUIRED_FIELD_LOOKUP_TIMEOUT_MS + 1);
+      const res = await pending;
+      expect(res.status).toBe(200);
+      expect(db.tables.pending_bookings).toHaveLength(1);
+      expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+        "skipped",
+        expect.stringMatching(/timed out/),
+        expect.objectContaining({ detail: expect.objectContaining({ reason: "timeout" }) })
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a lookup that fails AFTER the deadline is not reported a second time", async () => {
+    vi.useFakeTimers();
+    try {
+      let rejectLate: (e: Error) => void = () => {};
+      reslabMock.getLocation.mockReturnValue(
+        new Promise((_resolve, reject) => {
+          rejectLate = reject;
+        })
+      );
+      const pending = POST(req(body()));
+      await vi.advanceTimersByTimeAsync(REQUIRED_FIELD_LOOKUP_TIMEOUT_MS + 1);
+      expect((await pending).status).toBe(200);
+      rejectLate(new ReslabError(404, "API request failed: Not Found"));
+      await vi.advanceTimersByTimeAsync(10);
+      expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith("skipped", expect.any(String), expect.anything());
+      expect(db.tables.pending_bookings).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a 404 from the ResLab LOGIN is a fault, not a missing lot: fails open", async () => {
+    reslabMock.getLocation.mockRejectedValue(new ReslabError(404, "Authentication failed: Not Found"));
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.any(String),
+      expect.objectContaining({ detail: expect.objectContaining({ statusCode: 404 }) })
+    );
+  });
+
+  it("a location with NO extra_fields key is an unrecognised response: skipped, reported, still stages", async () => {
+    reslabMock.getLocation.mockResolvedValue({ id: 42 });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.stringMatching(/unexpected extra_fields shape/),
+      expect.objectContaining({ detail: { issue: "extra_fields key absent from the location" } })
+    );
+  });
+
+  it("REFUSES before the charge when ResLab says the lot no longer exists (404 is not a blip)", async () => {
+    reslabMock.getLocation.mockRejectedValue(new ReslabError(404, "API request failed: Not Found"));
+    const res = await POST(req(body()));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toMatch(/no longer available/);
+    expect(json.error).toMatch(/you have not been charged/);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "lot_not_found",
+      expect.any(String),
+      expect.objectContaining({ stripePaymentIntentId: PI, locationId: 42 })
     );
   });
 
@@ -185,10 +296,58 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: [{ label: "nameless", type: "parking" }] });
     const res = await POST(req(body()));
     expect(res.status).toBe(200);
-    expect(vi.mocked(capturePaymentError)).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringMatching(/unexpected extra_fields shape/) }),
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.stringMatching(/unexpected extra_fields shape/),
       expect.anything()
     );
+  });
+
+  it("extra_fields that is not a list is skipped, reported, and still stages", async () => {
+    reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: { name: "x" } });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "skipped",
+      expect.stringMatching(/unexpected extra_fields shape/),
+      expect.anything()
+    );
+  });
+
+  it.each([[null], [undefined]])("an explicit extra_fields: %s means the lot declares nothing: stages, nothing reported", async (value) => {
+    reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: value });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).not.toHaveBeenCalled();
+  });
+
+  it("a declared field with NO type still counts as required (one odd field never disables the gate)", async () => {
+    reslabMock.getLocation.mockResolvedValue({
+      id: 42,
+      extra_fields: [{ id: 5, name: "ship", label: "Name of Ship", type: null }, FLIGHT],
+    });
+    const res = await POST(req(body({ extraFields: { return_flight_number: "UA 12" } })));
+    expect(res.status).toBe(400);
+    expect((await res.json()).missingFields).toEqual(["ship"]);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+  });
+
+  it("a lot that declares nothing stages with exactly one ResLab read and nothing reported", async () => {
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(reslabMock.getLocation).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(captureRequiredFieldCheck)).not.toHaveBeenCalled();
+  });
+
+  it("an already-booked PaymentIntent never reaches ResLab", async () => {
+    db.tables = { pending_bookings: [], bookings: [{ id: "b1", stripe_payment_intent_id: PI }] };
+    const res = await POST(req(body()));
+    expect(await res.json()).toEqual({ staged: false, reason: "already_booked" });
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
 
   it("does not call ResLab at all when the PaymentIntent check rejects the payload", async () => {

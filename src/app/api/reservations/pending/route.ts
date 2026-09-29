@@ -20,15 +20,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { pendingBookingSchema } from "@/lib/validation/schemas";
-import { capturePaymentError, captureBookingError } from "@/lib/sentry";
+import {
+  capturePaymentError,
+  captureBookingError,
+  captureRequiredFieldCheck,
+} from "@/lib/sentry";
 import { readProtectionMetadata, STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import { sessionIdentityFromRequest } from "@/lib/booking/customer-link";
-import { reslab } from "@/lib/reslab/client";
+import { reslab, ReslabError } from "@/lib/reslab/client";
 import {
   declaredExtraFieldsSchema,
   missingRequiredExtraFields,
   reslabExtraFieldValues,
+  REQUIRED_FIELD_LOOKUP_TIMEOUT_MS,
   type DeclaredExtraField,
 } from "@/lib/booking/required-extra-fields";
 
@@ -204,17 +209,40 @@ export async function POST(request: NextRequest) {
     // only gate on a money path. Checked against the exact map fulfilment
     // sends (reslabExtraFieldValues). Placed before the insert so a staged row
     // — which later retries never overwrite — can't carry a blank field.
-    const declared = await declaredExtraFieldsFor(payload.locationId, piId, pi.amount);
-    if (declared) {
+    const lookup = await declaredExtraFieldsFor(payload.locationId, piId);
+    if (lookup.kind === "lot_not_found") {
+      // Definitive, not transient: ResLab would refuse the reservation after
+      // the card is authorised. Stop here, before the charge.
+      return NextResponse.json(
+        {
+          error:
+            "This lot is no longer available to book. Please choose another lot — you have not been charged.",
+        },
+        { status: 400 }
+      );
+    }
+    if (lookup.kind === "declared") {
       const missing = missingRequiredExtraFields(
-        declared,
+        lookup.fields,
         reslabExtraFieldValues(payload.vehicle, payload.extraFields)
       );
       if (missing.length > 0) {
         const labels = missing.map((f) => f.label?.trim() || f.name).join(", ");
+        // The vehicle step gates the same fields, so reaching this means the
+        // two gates disagree or the lot changed its fields after the page
+        // loaded. Either is worth knowing about. Names only, never answers.
+        captureRequiredFieldCheck(
+          "refused",
+          "Pending-booking staging refused: required lot field(s) blank at the server gate",
+          {
+            stripePaymentIntentId: piId,
+            locationId: payload.locationId,
+            detail: { missingFields: missing.map((f) => f.name) },
+          }
+        );
         return NextResponse.json(
           {
-            error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in (enter N/A if it doesn't apply) — you have not been charged.`,
+            error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in (enter N/A if it doesn't apply). If you don't see it there, reload the page — you have not been charged.`,
             missingFields: missing.map((f) => f.name),
           },
           { status: 400 }
@@ -303,44 +331,102 @@ export async function POST(request: NextRequest) {
   }
 }
 
+type DeclaredFieldLookup =
+  | { kind: "declared"; fields: DeclaredExtraField[] }
+  | { kind: "lot_not_found" }
+  | { kind: "skipped" };
+
+const LOOKUP_TIMED_OUT = Symbol("required-field-lookup-timeout");
+
+/** How reslab/client.ts words a failed API call, as opposed to a failed login. */
+const RESLAB_REQUEST_FAILED_PREFIX = "API request failed";
+
 /**
  * The lot's declared extra fields, read fresh from ResLab (the checkout page's
  * copy is client-supplied and cannot be trusted as the gate).
  *
- * Returns null — and the gate is skipped — when ResLab can't answer or answers
- * in a shape we don't recognise. That FAILS OPEN on purpose: this check is
- * new, the client-side step gate still runs, and blocking every checkout
- * during a ResLab blip (429 windows are routine) would lose more sales than it
- * saves. It is never silent: every skip is captured with the reason.
+ * "skipped" FAILS OPEN on purpose, for a transient fault only (timeout, 5xx,
+ * 429, an unreadable shape): this check is new, the client-side step gate
+ * still runs, and blocking every checkout during a ResLab blip would lose more
+ * sales than it saves. It is never silent: every skip is captured with its
+ * reason. A 404 is not a blip — the lot is gone — and is refused.
  */
 async function declaredExtraFieldsFor(
   locationId: number,
-  piId: string,
-  amountCents: number
-): Promise<DeclaredExtraField[] | null> {
+  piId: string
+): Promise<DeclaredFieldLookup> {
+  const context = { stripePaymentIntentId: piId, locationId };
   let raw: unknown;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const location = await reslab.getLocation(locationId);
-    raw = location.extra_fields ?? [];
+    // When the deadline wins, the ResLab call is still in flight and settles
+    // later; Promise.race has already attached handlers to it, so a late
+    // rejection is handled and its outcome simply no longer matters.
+    const lookup = reslab.getLocation(locationId);
+    const deadline = new Promise<typeof LOOKUP_TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => resolve(LOOKUP_TIMED_OUT), REQUIRED_FIELD_LOOKUP_TIMEOUT_MS);
+    });
+    const result = await Promise.race([lookup, deadline]);
+    if (result === LOOKUP_TIMED_OUT) {
+      captureRequiredFieldCheck(
+        "skipped",
+        "Pending-booking required-field check skipped: ResLab lookup timed out",
+        { ...context, detail: { reason: "timeout", timeoutMs: REQUIRED_FIELD_LOOKUP_TIMEOUT_MS } }
+      );
+      return { kind: "skipped" };
+    }
+    if (!("extra_fields" in result)) {
+      // An explicit null or [] is a lot that declares nothing. NO key at all is
+      // a response we do not recognise: the gate must not switch itself off
+      // without a trace.
+      captureRequiredFieldCheck(
+        "skipped",
+        "Pending-booking required-field check skipped: unexpected extra_fields shape",
+        { ...context, detail: { issue: "extra_fields key absent from the location" } }
+      );
+      return { kind: "skipped" };
+    }
+    raw = result.extra_fields ?? [];
   } catch (error) {
+    // Only a 404 for the LOCATION is definitive. The login call throws the
+    // same error class ("Authentication failed: …"); a 404 there is a fault on
+    // the way to ResLab, not a missing lot, and fails open like any other.
+    if (
+      error instanceof ReslabError &&
+      error.statusCode === 404 &&
+      error.message.startsWith(RESLAB_REQUEST_FAILED_PREFIX)
+    ) {
+      captureRequiredFieldCheck(
+        "lot_not_found",
+        "Pending-booking staging refused: ResLab reports the lot does not exist (404)",
+        { ...context, detail: { statusCode: 404 } }
+      );
+      return { kind: "lot_not_found" };
+    }
     const reason = error instanceof Error ? error.message : String(error);
-    capturePaymentError(
-      new Error(
-        `Pending-booking required-field check skipped — ResLab getLocation(${locationId}) failed: ${reason.slice(0, 300)}`
-      ),
-      { stripePaymentIntentId: piId, amount: amountCents / 100 }
+    captureRequiredFieldCheck(
+      "skipped",
+      "Pending-booking required-field check skipped: ResLab lookup failed",
+      {
+        ...context,
+        detail: {
+          reason: reason.slice(0, 300),
+          statusCode: error instanceof ReslabError ? error.statusCode : null,
+        },
+      }
     );
-    return null;
+    return { kind: "skipped" };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
   const parsed = declaredExtraFieldsSchema.safeParse(raw);
   if (!parsed.success) {
-    capturePaymentError(
-      new Error(
-        `Pending-booking required-field check skipped — unexpected extra_fields shape for location ${locationId}: ${parsed.error.issues[0]?.message ?? "unknown"}`
-      ),
-      { stripePaymentIntentId: piId, amount: amountCents / 100 }
+    captureRequiredFieldCheck(
+      "skipped",
+      "Pending-booking required-field check skipped: unexpected extra_fields shape",
+      { ...context, detail: { issue: parsed.error.issues[0]?.message ?? "unknown" } }
     );
-    return null;
+    return { kind: "skipped" };
   }
-  return parsed.data;
+  return { kind: "declared", fields: parsed.data };
 }
