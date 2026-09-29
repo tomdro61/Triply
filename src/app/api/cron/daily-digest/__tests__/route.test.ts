@@ -43,7 +43,7 @@ function digest(over: Partial<DigestData> = {}): DigestData {
     dateEt: "2026-09-27", windowLabel: "Sept 27, 2026 · 00:00–24:00 ET", generatedAt: new Date(T0).toISOString(),
     bookings: ok({ count: { value: 6, avg7: 5, avg28: 3, since: "2026-02-19" }, staging: 0, unmatched: 0, otherStatus: 0, refunded: 0, disputed: 0, cancelledOrFailed: 0, gmv: 600, chargedOnline: 590, avgOrder: 100, feeIncome: 40, serviceFees: 30, pgMargin: 10, pgRefundedWholesaleEaten: 0, pgAttachRate: 0.3, dirtyPgRows: 0, promoBookings: 0, promoDiscount: 0, repeatByEmail: 1, repeatCapped: false, unpricedRows: 0, leadTime: { sameDay: 3, d1to3: 2, d4to14: 1, d15plus: 0, unknown: 0 } }),
     whereFrom: ok({ byChannel: [], topAirports: [], landing: { blog: 5, airportPage: 0, homepage: 1, other: 0, none: 0 }, aiReferrals: 0, topBlogPosts: [] }),
-    funnel: ok({ originSearches: { value: 400, avg7: 380, avg28: null, since: "2026-09-24" }, distinctAirports: 30, topAirports: [], datesDefaultedShare: 0.1, meanResults: 9, soldOutShare: 0.05, soldOutDenominator: 300, soldOutByAirport: [], degradedCount: 2 }),
+    funnel: ok({ originSearches: { value: 400, avg7: 380, avg28: null, since: "2026-09-24" }, distinctAirports: 30, topAirports: [], datesDefaultedShare: 0.1, meanResults: 9, nothingBookableShare: 0.05, nothingBookableDegraded: 0, zeroResultShare: 0.06, pricedSearches: 300, nothingBookableByAirport: [], lotSoldOutRate: 0.2, degradedCount: 2 }),
     lostSales: ok({ byStatus: { completed: 6 }, rows: [] }),
     engagement: ok({ newsletterBySource: {}, waitlistByAirport: {}, chatSessions: 2, welcomeCodesMinted: 1 }),
     health: ok({ telemetry: { kind: "ok" as const, lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" as const }, stuckPending: { kind: "n" as const, n: 0 }, lastDigest: { kind: "days" as const, n: 1 } }),
@@ -219,6 +219,35 @@ describe("GET /api/cron/daily-digest", () => {
     expect(readMock.writeModelRead).not.toHaveBeenCalled();
     const embed = discordMock.postToDiscord.mock.calls[0][1] as { fields: Array<{ name: string; value: string }> };
     expect(embed.fields.find((f) => f.name.startsWith("Model read"))?.value).toMatch(/out of time/);
+  });
+
+  it("?dry=1 collects, reads and renders but posts nothing, records nothing and never opens a check-in", async () => {
+    delete process.env.DISCORD_DAILY_DIGEST_WEBHOOK_URL; // dry mode needs no webhook
+    readMock.writeModelRead.mockResolvedValue({ kind: "withheld", reason: "failed number check (35.07%)", text: "Some read." });
+    const res = await GET(req("?date=2026-09-27&dry=1"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ ok: true, dry: true, dateEt: "2026-09-27", verdict: "ok", modelRead: "withheld", modelReadReason: "failed number check (35.07%)", withheldText: "Some read." });
+    expect(body.embed.fields.map((f: { name: string }) => f.name)).toContain("Bookings");
+    expect(discordMock.postToDiscord).not.toHaveBeenCalled();
+    expect(runs.upserts).toHaveLength(0);
+    expect(sentryMock.captureCheckIn).not.toHaveBeenCalled();
+    expect(captureMock.captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("?dry=1 does not post the crash embed either, and reports ok:false for a could-not-run day", async () => {
+    runs.clientThrows = new Error("supabaseKey is required");
+    const res = await GET(req("?dry=1"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ outcome: "crashed", crashEmbedPosted: false });
+    expect(discordMock.postToDiscord).not.toHaveBeenCalled();
+    expect(sentryMock.captureCheckIn).not.toHaveBeenCalled();
+    runs.clientThrows = null;
+    collectMock.collectDigest.mockResolvedValue(digest({ bookings: { ok: false, error: "timeout" } }));
+    const dryRes = await GET(req("?dry=1"));
+    expect(dryRes.status).toBe(200);
+    expect(await dryRes.json()).toMatchObject({ ok: false, dry: true, verdict: "could_not_run", sectionsFailed: 1 });
+    expect(discordMock.postToDiscord).not.toHaveBeenCalled();
   });
 
   it("an unexpected throw is caught: Sentry, a red CRASHED embed, an error check-in, 500 — never a dangling in_progress", async () => {
