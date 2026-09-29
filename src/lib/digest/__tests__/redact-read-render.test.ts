@@ -37,8 +37,8 @@ function funnel(over: Partial<FunnelSection> = {}): FunnelSection {
     originSearches: { value: 420, avg7: 400, avg28: null, since: "2026-09-24" },
     distinctAirports: 31,
     topAirports: [{ key: "JFK", searches: 40 }],
-    datesDefaultedShare: 0.12, meanResults: 9.4, soldOutShare: 0.05, soldOutDenominator: 300,
-    soldOutByAirport: [], degradedCount: 3,
+    datesDefaultedShare: 0.12, meanResults: 9.4, nothingBookableShare: 0.05, nothingBookableDegraded: 0, zeroResultShare: 0.06, pricedSearches: 300,
+    nothingBookableByAirport: [], lotSoldOutRate: 0.2, degradedCount: 3,
     ...over,
   };
 }
@@ -90,6 +90,16 @@ describe("model read — input allow-list and number validator", () => {
     expect(firstUnexplainedNumber("Over 7d the 28d trend held; the 1st booking came early.", allowed)).toBeNull();
   });
 
+  it("lead-time bucket labels are not figures: '1–3 days' and '15+ days' pass, a bare 15% still fails", () => {
+    const allowed = allowedTokens(modelInput(data()), "2026-09-27");
+    expect(firstUnexplainedNumber("Most booked 1–3 days out; one was 15+ days ahead, none in the 4-14 day band.", allowed)).toBeNull();
+    expect(firstUnexplainedNumber("Bookings were up 15% on the week.", allowed)).toBe("15%");
+    expect(firstUnexplainedNumber("There were 41 cancellations.", allowed)).toBe("41");
+    // without the day suffix these are figures, not labels
+    expect(firstUnexplainedNumber("Fee income was $15+ per booking.", allowed)).toBe("$15");
+    expect(firstUnexplainedNumber("Some 15+ bookings came from the blog.", allowed)).toBe("15");
+  });
+
   it("accepts the zero-padded month of an echoed date and a 100% / 0% share", () => {
     const d = data({ bookings: { ok: true, data: bookings({ pgAttachRate: 1, count: { value: 1, avg7: 5, avg28: 3, since: "2026-02-19" } }) } });
     const allowed = allowedTokens(modelInput(d), "2026-09-27");
@@ -110,7 +120,17 @@ describe("render — verdicts, flags, limits", () => {
     expect(verdict.kind).toBe("ok");
     expect(flags).toEqual([]);
     expect(embed.color).toBe(0xf87356);
-    expect(embed.fields.map((f) => f.name)).toEqual(["Bookings", "Lost sales", "Health", "Model read (from aggregates)", "Where from", "Funnel", "Engagement (incl. staging)"]);
+    expect(embed.fields.map((f) => f.name)).toEqual(["Bookings", "Fee income", "GMV", "Searches (server-side)", "No lot shown", "Park Guard", "Where bookings came from", "Lead time & extras", "Lost sales", "Search detail", "Engagement", "Health"]);
+    expect(embed.fields.slice(0, 6).every((f) => f.inline)).toBe(true); // two rows of three tiles
+    expect(embed.description).toBe("✅ No flags.\n\n_Read (Haiku, from the aggregates):_ Fine day."); // the read sits at the top, under the flags, attributed
+    expect(embed.footer.text).toMatch(/GMV includes due-at-lot and is pre-discount/);
+    expect(embed.footer.text).toMatch(/before ResLab's fee and before promo/);
+    expect(embed.footer.text).toMatch(/engagement counts include staging/);
+    expect(embed.title).toBe("📊 Triply daily — Sun Sept 27");
+    expect(embed.fields[0].value).toMatch(/^\*\*6\*\*\n7-day avg 5\.2 · 28-day 3\.1$/);
+    expect(embed.fields.find((f) => f.name === "Health")!.value).not.toMatch(/⚠️/); // snapshot "off" is neutral: no tick, no siren
+    const healthy = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "row", ageHours: 2.1, behind: false, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "days", n: 1 } } } });
+    expect(renderEmbed(healthy, null).embed.fields.find((f) => f.name === "Health")!.value).toBe("✅ telemetry ok (500 rows/24h) · snapshot 2.1 h, 391 lots · stuck pending 0");
     expect(embed.footer.text).toContain("Sept 27, 2026");
   });
 
@@ -148,6 +168,9 @@ describe("render — verdicts, flags, limits", () => {
     expect(texts.some((t) => /2 lost sale/.test(t))).toBe(true);
     expect(texts.some((t) => /silent/.test(t))).toBe(true);
     expect(texts.some((t) => /stale/.test(t))).toBe(true);
+    // a snapshot merely "behind" is a flag too (search already lost its long CDN TTL), not just a ⚠️ in a droppable line
+    const behind = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "row", ageHours: 12, behind: true, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "days", n: 1 } } } });
+    expect(flagsFor(behind).some((f) => /snapshot behind \(12 h\)/.test(f.text))).toBe(true);
     // uncovered baseline ⇒ the bookings flag is suppressed
     const d2 = data({ bookings: { ok: true, data: bookings({ count: { value: 0, avg7: null, avg28: null, since: "2026-02-19" } }) } });
     expect(flagsFor(d2).some((f) => /half the 7-day/.test(f.text))).toBe(false);
@@ -160,7 +183,7 @@ describe("render — verdicts, flags, limits", () => {
       whereFrom: { ok: true, data: { byChannel: Array.from({ length: 30 }, (_, i) => ({ key: `channel_${i}_${"z".repeat(20)}`, bookings: 1 })), topAirports: [], landing: { blog: 0, airportPage: 0, homepage: 0, other: 0, none: 0 }, aiReferrals: 0, topBlogPosts: Array.from({ length: 30 }, (_, i) => ({ path: `/blog/${"p".repeat(40)}${i}`, bookings: 1 })) } },
     });
     // Many flags make the description long; with the 1,024-clamped fields the total passes 6,000.
-    d.funnel = { ok: true, data: funnel({ soldOutByAirport: Array.from({ length: 70 }, (_, i) => ({ key: `AP${i}`, share: 0.9, priced: 10 })) }) };
+    d.funnel = { ok: true, data: funnel({ nothingBookableByAirport: Array.from({ length: 70 }, (_, i) => ({ key: `AP${i}`, share: 0.9, priced: 10 })) }) };
     const { embed, truncated } = renderEmbed(d, { kind: "ok", text: "t".repeat(900) });
     const total = embed.title.length + embed.description.length + embed.footer.text.length + embed.fields.reduce((n, f) => n + f.name.length + f.value.length, 0);
     expect(total).toBeLessThanOrEqual(DISCORD_TOTAL_LIMIT);
@@ -172,7 +195,7 @@ describe("render — verdicts, flags, limits", () => {
 
   it("more flags than fit are summarised, counted as truncation, and never silently dropped", () => {
     const d = data();
-    d.funnel = { ok: true, data: funnel({ soldOutByAirport: Array.from({ length: 30 }, (_, i) => ({ key: `AP${i}`, share: 0.9, priced: 10 })) }) };
+    d.funnel = { ok: true, data: funnel({ nothingBookableByAirport: Array.from({ length: 30 }, (_, i) => ({ key: `AP${i}`, share: 0.9, priced: 10 })) }) };
     const { embed, flags, truncated } = renderEmbed(d, null);
     expect(flags).toHaveLength(30);
     expect(embed.description).toMatch(/… and 10 more flag\(s\)/);
@@ -193,7 +216,8 @@ describe("render — verdicts, flags, limits", () => {
     expect(health).toMatch(/last digest UNKNOWN/);
     expect(health).not.toMatch(/first digest|no earlier digest/);
     const b = embed.fields.find((f) => f.name === "Bookings")!.value;
-    expect(b).toMatch(/\*\*6 · baselines unavailable/);
+    expect(b).toMatch(/^\*\*6\*\*\nbaselines unavailable/);
+    expect(health).not.toMatch(/^✅/); // a warning line never gets the green tick
   });
 
   it("money totals going unavailable is a red flag, never a coral 'No flags.'", () => {
@@ -205,6 +229,35 @@ describe("render — verdicts, flags, limits", () => {
     const r2 = renderEmbed(h, null);
     expect(r2.flags.map((f) => f.text).join("\n")).toMatch(/stuck-pending check unavailable/);
     expect(r2.embed.fields.find((f) => f.name === "Health")!.value).toMatch(/stuck pending UNKNOWN \(42501/);
+  });
+
+  it("a day on which nothing priced, or most priced searches showed no lot, is RED — never 'No flags.'", () => {
+    const outage = data({ funnel: { ok: true, data: funnel({ originSearches: { value: 3300, avg7: null, avg28: null, since: "2026-09-24" }, pricedSearches: 0, zeroResultShare: "unavailable", nothingBookableShare: "unavailable", lotSoldOutRate: "unavailable", degradedCount: 3300 }) } });
+    const r1 = renderEmbed(outage, null);
+    expect(r1.flags.map((f) => f.text).join("\n")).toMatch(/no search priced a single lot \(3300 origin searches\) — ResLab pricing or the location list/);
+    expect(r1.flags.map((f) => f.text).join("\n")).not.toMatch(/was down/); // an observation, never a cause
+    expect(r1.embed.color).toBe(0xdc2626);
+    expect(r1.embed.fields.find((f) => f.name === "No lot shown")!.value).toBe("**n/a**\nnothing priced all day");
+    expect(r1.embed.fields.find((f) => f.name === "Search detail")!.value).not.toMatch(/unavailable/);
+    const swallowed = data({ funnel: { ok: true, data: funnel({ pricedSearches: 200, zeroResultShare: 0.9, nothingBookableShare: 0, nothingBookableDegraded: 3 }) } });
+    const r2 = renderEmbed(swallowed, null);
+    expect(r2.flags.map((f) => f.text).join("\n")).toMatch(/90% of priced searches showed the customer no lots at all/);
+    expect(r2.embed.fields.find((f) => f.name === "Search detail")!.value).toMatch(/\+3 on degraded searches — ResLab, not inventory/);
+    expect(r2.embed.fields.find((f) => f.name === "No lot shown")!.value).toMatch(/^\*\*90%\*\*\nof 200 priced/);
+  });
+
+  it("a failed funnel section shows its reason in every funnel tile; neutral health states get no green tick", () => {
+    const { embed } = renderEmbed(data({ funnel: { ok: false, error: "PGRST205 relation search_events does not exist" } }), null);
+    expect(embed.fields.find((f) => f.name === "Searches (server-side)")!.value).toMatch(/^\*\*n\/a\*\*\nPGRST205 relation search_events/);
+    expect(embed.fields.find((f) => f.name === "No lot shown")!.value).toMatch(/^\*\*n\/a\*\*\nPGRST205/);
+    const neutral = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "none" } } } });
+    const line = renderEmbed(neutral, null).embed.fields.find((f) => f.name === "Health")!.value;
+    expect(line).not.toMatch(/^✅/);
+    expect(line).not.toMatch(/⚠️/);
+    expect(line).toMatch(/snapshot off · stuck pending 0 · no earlier digest on record/);
+    const lost = renderEmbed(data({ lostSales: { ok: true, data: { byStatus: { released_failed: 2 }, rows: [{ airport: "BNA", lot: "Lot", status: "released_failed", reason: "[email]" }] } } }), null).embed;
+    expect(lost.fields.find((f) => f.name === "Lost sales")!.value).toMatch(/hold released \(ResLab rejected\) 2/);
+    expect(lost.fields.find((f) => f.name === "Lost sales")!.value).not.toMatch(/Released failed/);
   });
 
   it("a could-not-run embed keeps the route's extra flags (e.g. the possible-duplicate warning)", () => {
@@ -223,8 +276,9 @@ describe("render — verdicts, flags, limits", () => {
 
   it("a withheld or unavailable model read is a visible line, not an omission", () => {
     const a = renderEmbed(data(), { kind: "withheld", reason: "failed number check ($9)" }).embed;
-    expect(a.fields.find((f) => f.name.startsWith("Model read"))?.value).toMatch(/withheld/);
+    expect(a.description).toMatch(/_Read withheld \(failed number check \(\$9\)\)\._/);
     const b = renderEmbed(data(), { kind: "unavailable", reason: "timeout" }).embed;
-    expect(b.fields.find((f) => f.name.startsWith("Model read"))?.value).toMatch(/unavailable \(timeout\)/);
+    expect(b.description).toMatch(/_Read unavailable \(timeout\)\._/);
+    expect(b.fields.some((f) => /Model read/.test(f.name))).toBe(false); // the read is never a field any more
   });
 });

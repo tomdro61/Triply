@@ -60,9 +60,21 @@ export interface FunnelSection {
   topAirports: Array<{ key: string; searches: number }>;
   datesDefaultedShare: Metric;
   meanResults: Metric;
-  soldOutShare: Metric;
-  soldOutDenominator: number;
-  soldOutByAirport: Array<{ key: string; share: number; priced: number }>;
+  /**
+   * Share of PRICED searches that returned zero bookable lots while at least one lot
+   * was sold out ("nothing to book" — inventory, not an outage). The writer's
+   * sold_out_count is counted BEFORE sold-out lots are filtered from results, so
+   * "any lot sold out" is ~100% of searches every day and means nothing.
+   */
+  nothingBookableShare: Metric;
+  /** Of the nothing-bookable searches, how many were degraded (ResLab wobble, not inventory) — reported, not attributed. */
+  nothingBookableDegraded: number;
+  /** Share of priced searches that showed the customer NO lot for ANY reason (the customer-visible outcome). */
+  zeroResultShare: Metric;
+  pricedSearches: number;
+  nothingBookableByAirport: Array<{ key: string; share: number; priced: number }>;
+  /** Σ sold-out lots ÷ Σ (sold-out + returned) lots over priced searches — inventory pressure. */
+  lotSoldOutRate: Metric;
   degradedCount: Metric;
 }
 

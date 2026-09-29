@@ -18,7 +18,7 @@ interface WaitlistPromptProps {
 }
 
 /**
- * The one thing we can offer a traveller whose trip is past ResLab's 60-day
+ * The one thing we can offer a traveller whose trip is past ResLab's advance-booking
  * wall. They cannot pick their date, they get no explanation, and they leave —
  * so this explains the cap in one line and takes an email instead.
  *

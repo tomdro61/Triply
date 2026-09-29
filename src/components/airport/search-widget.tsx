@@ -131,7 +131,7 @@ export function SearchWidget({ airportCode, variant = "default" }: SearchWidgetP
         </DateRangeFieldErrorBoundary>
       </div>
 
-      {/* The date pickers stop at the 60-day supplier wall with no explanation.
+      {/* The date pickers stop at the supplier's advance-booking wall with no explanation.
           Needs an airport to promise anything specific, so it only renders
           once one is chosen — and stays a single quiet link until the
           traveller says their trip is further out, rather than showing the
