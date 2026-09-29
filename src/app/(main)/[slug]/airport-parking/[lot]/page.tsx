@@ -14,6 +14,7 @@ import {
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
+import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { convertTo24Hour } from "@/lib/utils/time";
 
 // A cold-start slug lookup now reaches the ~54-page ResLab sweep through
@@ -168,7 +169,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
               <LotGallery
                 photos={lot.photos}
                 lotName={lot.name}
-                tag={lot.availability === "limited" ? "Limited Spots" : undefined}
+                tag={limitedSpotsTag(lot.availability, { checkin, checkout })}
               />
               <LotOverview lot={lot} />
               <LotAmenities amenities={lot.amenities} />
