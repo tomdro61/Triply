@@ -28,7 +28,8 @@ import {
   type ProtectionPlanCode,
 } from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
-import { vehicleFieldAliasValues, isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
+import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
+import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -147,6 +148,8 @@ export function CheckoutForm({
   const [vehicleErrors, setVehicleErrors] = useState<
     Partial<Record<keyof VehicleDetails, string>>
   >({});
+  // Keyed by the lot's extra-field NAME (see extraFieldStepErrors).
+  const [extraFieldErrors, setExtraFieldErrors] = useState<Record<string, string>>({});
 
   // Calculate price breakdown using API data when available
   const priceBreakdown = useMemo<PriceBreakdown>(() => {
@@ -255,7 +258,14 @@ export function CheckoutForm({
     }
 
     setVehicleErrors(errors);
-    return Object.keys(errors).length === 0;
+
+    // Lot-declared fields (e.g. a return flight number). ResLab rejects a blank
+    // one AFTER the card is authorised, so the step must not advance without
+    // them. The pending route re-checks server-side before the charge.
+    const extraErrors = extraFieldStepErrors(lot.extraFields, vehicleDetails, extraFieldValues);
+    setExtraFieldErrors(extraErrors);
+
+    return Object.keys(errors).length === 0 && Object.keys(extraErrors).length === 0;
   };
 
   // Step handlers
@@ -593,8 +603,10 @@ export function CheckoutForm({
   // The vehicle step is AUTHORITATIVE for every vehicle-named extra field: a
   // value typed into a same-named "additional" input (hidden today, but any
   // stale state) must never outrank what the confirmation email and admin show.
-  const typedExtraFieldsExcludingVehicle = (): Record<string, string> =>
-    Object.fromEntries(Object.entries(extraFieldValues).filter(([name]) => !isVehicleFieldName(name)));
+  // Built by the same function the step gate validates (checkoutExtraFields),
+  // so the gate can never pass a map other than the one sent.
+  const extraFieldsForRequest = (): Record<string, string> =>
+    checkoutExtraFields(lot.extraFields, vehicleDetails, extraFieldValues);
 
   const buildReservationBody = (
     stripePaymentIntentId: string,
@@ -606,10 +618,7 @@ export function CheckoutForm({
     // `license_plate_number`, …) gets the vehicle step's answers under ITS
     // names; typed extra fields still win. Blank here = ResLab "Validation
     // error" after the card is authorised (2026-09-25, BNA lot 471).
-    const extraFields: Record<string, string> = {
-      ...typedExtraFieldsExcludingVehicle(),
-      ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
-    };
+    const extraFields = extraFieldsForRequest();
 
     return {
       locationId: lot.reslabLocationId,
@@ -780,11 +789,8 @@ export function CheckoutForm({
         console.log("[DEV MODE] Skipping Stripe payment, creating ResLab reservation directly");
       }
 
-      // Build extra fields for API (same aliasing as buildReservationBody)
-      const extraFields: Record<string, string> = {
-        ...typedExtraFieldsExcludingVehicle(),
-        ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
-      };
+      // Build extra fields for API (same function as buildReservationBody)
+      const extraFields = extraFieldsForRequest();
 
       // Create reservation via API
       const response = await fetch("/api/reservations", {
@@ -873,9 +879,16 @@ export function CheckoutForm({
                 // so a hidden field is never sent blank.
                 filledByVehicleStep={new Set((lot.extraFields ?? []).filter((f) => isVehicleFieldName(f.name)).map((f) => f.name))}
                 extraFieldValues={extraFieldValues}
-                onExtraFieldChange={(name, value) =>
-                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
-                }
+                extraFieldErrors={extraFieldErrors}
+                onExtraFieldChange={(name, value) => {
+                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }));
+                  setExtraFieldErrors((prev) => {
+                    if (!(name in prev)) return prev;
+                    const next = { ...prev };
+                    delete next[name];
+                    return next;
+                  });
+                }}
                 isLoading={isCreatingPaymentIntent}
               />
               {submitError && (

@@ -34,6 +34,7 @@ import {
   type AvailabilitySource,
 } from "@/lib/availability/log";
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
+import { deriveAvailability } from "@/lib/reslab/availability";
 
 export { generateSlug };
 
@@ -75,16 +76,8 @@ export function transformLocation(
     icon: a.icon,
   }));
 
-  // Determine availability
-  let availability: "available" | "limited" | "unavailable" = "available";
-  if (minPriceData?.reservation.sold_out) {
-    availability = "unavailable";
-  } else if (
-    minPriceData?.reservation.available_spots !== undefined &&
-    minPriceData.reservation.available_spots < 10
-  ) {
-    availability = "limited";
-  }
+  // Shared with the lot detail page (get-lot.ts) so the two can't drift.
+  const availability = deriveAvailability(minPriceData?.reservation);
 
   // Get currency code
   const currencyCode = location.currency?.code || "USD";

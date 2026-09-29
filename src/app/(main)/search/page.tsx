@@ -59,7 +59,7 @@ function SearchPageContent() {
     setLoading(true);
     setLoadError(false);
     setDateError(null);
-    // Full date rules (past check-in, 60-day window, reversed range) — a
+    // Full date rules (past check-in, advance-booking window, reversed range) — a
     // bookmarked or emailed link with a bad check-in used to round-trip to
     // ResLab and come back as "no parking". The picker's cleared return leg
     // ("") is exempt: the API prices that as a defaulted range, as before.
