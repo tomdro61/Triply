@@ -51,3 +51,17 @@ export function deriveAvailability(
   }
   return "available";
 }
+
+/**
+ * The lot page's scarcity tag. Only shown for dates the customer chose: with
+ * no `checkin`/`checkout` in the URL (a visitor from Google or the sitemap)
+ * the page prices a placeholder range (tomorrow + 7 days), and a spot count
+ * for a trip nobody picked is not a claim we can make about theirs.
+ */
+export function limitedSpotsTag(
+  availability: LotAvailability,
+  chosen: { checkin?: string; checkout?: string },
+): "Limited Spots" | undefined {
+  if (!chosen.checkin || !chosen.checkout) return undefined;
+  return availability === "limited" ? "Limited Spots" : undefined;
+}

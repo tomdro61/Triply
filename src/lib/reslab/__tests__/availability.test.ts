@@ -17,7 +17,7 @@ vi.mock("@/lib/reslab/client", async () => {
   return { ...actual, reslab: reslabMock };
 });
 
-import { deriveAvailability, LIMITED_SPOTS_THRESHOLD } from "../availability";
+import { deriveAvailability, limitedSpotsTag, LIMITED_SPOTS_THRESHOLD } from "../availability";
 import { getLotFromReslab } from "../get-lot";
 import { transformLocation } from "../search";
 import type { ReslabLocation, ReslabMinPriceResponse } from "@/lib/reslab/client";
@@ -162,5 +162,25 @@ describe("lot detail page matches search for the same ResLab response", () => {
 
     expect(lot?.availability).toBe("available");
     errSpy.mockRestore();
+  });
+});
+
+describe("limitedSpotsTag — the lot page only claims scarcity for chosen dates", () => {
+  const chosen = { checkin: "2026-10-01", checkout: "2026-10-05" };
+
+  it("shows the tag for a limited lot when the customer picked both dates", () => {
+    expect(limitedSpotsTag("limited", chosen)).toBe("Limited Spots");
+  });
+
+  it("shows nothing when the page priced its placeholder dates", () => {
+    expect(limitedSpotsTag("limited", {})).toBeUndefined();
+    expect(limitedSpotsTag("limited", { checkin: "2026-10-01" })).toBeUndefined();
+    expect(limitedSpotsTag("limited", { checkout: "2026-10-05" })).toBeUndefined();
+    expect(limitedSpotsTag("limited", { checkin: "", checkout: "" })).toBeUndefined();
+  });
+
+  it("shows nothing for an available or sold-out lot", () => {
+    expect(limitedSpotsTag("available", chosen)).toBeUndefined();
+    expect(limitedSpotsTag("unavailable", chosen)).toBeUndefined();
   });
 });
