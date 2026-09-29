@@ -89,8 +89,17 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
       if (health && health.telemetry.kind === "ok") flags.push({ text: "zero origin searches (telemetry writer healthy)" });
       else flags.push({ text: "zero origin searches AND the search telemetry writer is silent or stale" });
     }
-    for (const a of f.soldOutByAirport) {
-      if (a.priced >= 5 && a.share > 0.3) flags.push({ text: `${a.key}: ${Math.round(a.share * 100)}% of priced searches sold out` });
+    // The customer-visible outcome is flagged on its own, whatever the cause: a day on
+    // which nothing priced, or most priced searches showed no lot, must never read green.
+    if (f.pricedSearches === 0 && f.originSearches.value !== "unavailable" && f.originSearches.value > 0) {
+      // An observation, not a cause: sold_out_count is NULL both when ResLab priced nothing
+      // AND when the location list came back empty (a thin snapshot, a blocked-id mistake).
+      flags.push({ text: `no search priced a single lot (${f.originSearches.value} origin searches) — ResLab pricing or the location list, not inventory` });
+    } else if (f.zeroResultShare !== "unavailable" && f.zeroResultShare > 0.3) {
+      flags.push({ text: `${Math.round(f.zeroResultShare * 100)}% of priced searches showed the customer no lots at all` });
+    }
+    for (const a of f.nothingBookableByAirport) {
+      if (a.priced >= 5 && a.share > 0.3) flags.push({ text: `${a.key}: ${Math.round(a.share * 100)}% of priced searches found nothing bookable (sold out, not degraded)` });
     }
   }
   if (d.lostSales.ok) {
@@ -155,7 +164,10 @@ function funnelField(d: DigestData): string {
     `origin searches (CDN misses, not customers): ${vsBaseline(f.originSearches)}`,
     `airports ${m(f.distinctAirports)} · top: ${topList(f.topAirports, "searches", 5)}`,
     `dates defaulted ${pct(f.datesDefaultedShare)} · mean results ${m(f.meanResults, (n) => n.toFixed(1))}`,
-    `sold-out share ${f.soldOutDenominator === 0 ? "n/a (nothing priced)" : pct(f.soldOutShare)} over ${f.soldOutDenominator} priced`,
+    // Both shares are over the SAME base (priced searches); say so rather than "of which".
+    f.pricedSearches === 0
+      ? "showed no lot: n/a — nothing priced all day"
+      : `showed no lot ${pct(f.zeroResultShare)} of ${f.pricedSearches} priced searches · sold out and empty ${pct(f.nothingBookableShare)} of the same ${f.pricedSearches}${f.nothingBookableDegraded ? ` (+${f.nothingBookableDegraded} on degraded searches — ResLab, not inventory)` : ""} · lots sold out ${pct(f.lotSoldOutRate)}`,
     `degraded origin searches: ${m(f.degradedCount)} (over-represented — degraded results re-originate every request)`,
   ].join("\n");
 }

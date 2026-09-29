@@ -150,7 +150,7 @@ describe("collectDigest — sections, baselines, isolation", () => {
       { count: 0 },
     );
     set("customers", { data: [{ id: "c1", email: "ada@example.com" }, { id: "c9", email: "new@example.com" }] });
-    set("search_events", { data: [{ airport_code: "JFK", dates_defaulted: false, results_count: 10, sold_out_count: 0, degraded: false }, { airport_code: "JFK", dates_defaulted: true, results_count: 8, sold_out_count: null, degraded: true }] }, { count: 2800 }, { count: 0 });
+    set("search_events", { data: [{ airport_code: "JFK", dates_defaulted: false, results_count: 10, sold_out_count: 2, degraded: false }, { airport_code: "JFK", dates_defaulted: true, results_count: 8, sold_out_count: null, degraded: true }] }, { count: 2800 }, { count: 0 });
     set("newsletter_subscribers", { data: [{ source: "blog" }] });
     set("booking_waitlist", { data: [] });
     set("chat_sessions", { count: 3 });
@@ -179,8 +179,12 @@ describe("collectDigest — sections, baselines, isolation", () => {
     expect(d.health.ok && d.health.data.stuckPending).toEqual({ kind: "n", n: 0 });
     expect(d.whereFrom.ok && d.whereFrom.data.landing.blog).toBe(2);
     expect(d.whereFrom.ok && d.whereFrom.data.topBlogPosts).toEqual([{ path: "/blog/newark-parking", bookings: 2 }]);
-    expect(d.funnel.ok && d.funnel.data.soldOutDenominator).toBe(1); // NULL sold_out_count excluded from the denominator
+    expect(d.funnel.ok && d.funnel.data.pricedSearches).toBe(1); // NULL sold_out_count excluded from the denominator
     expect(d.funnel.ok && d.funnel.data.degradedCount).toBe(1);
+    // 2 sold out but 10 still returned ⇒ NOT "nothing bookable"; lot sold-out rate 2/12
+    expect(d.funnel.ok && d.funnel.data.nothingBookableShare).toBe(0);
+    expect(d.funnel.ok && d.funnel.data.zeroResultShare).toBe(0);
+    expect(d.funnel.ok && d.funnel.data.lotSoldOutRate).toBeCloseTo(2 / 12);
     // telemetry: production rows only — the fresher preview row must not vouch for production
     expect(d.health.ok && d.health.data.telemetry).toEqual({ kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 });
     expect(d.health.ok && d.health.data.lastDigest).toEqual({ kind: "days", n: 1 });
@@ -322,6 +326,26 @@ describe("collectDigest — sections, baselines, isolation", () => {
     expect(d.lostSales.data.rows[0].reason).not.toMatch(/example\.com|ABC1234/);
     expect(d.lostSales.data.rows[0].reason).toMatch(/\[email\]/);
     expect(d.lostSales.data.byStatus).toEqual({ released_failed: 1 });
+  });
+
+  it("funnel: zero-result searches split into outcome, sell-out attribution, and degraded", async () => {
+    set("bookings", { data: [] }, { data: [] });
+    quietOthers(); // first — it resets search_events
+    set("search_events", { data: [
+      { airport_code: "EWR", dates_defaulted: false, results_count: 0, sold_out_count: 3, degraded: false }, // sold out
+      { airport_code: "EWR", dates_defaulted: false, results_count: 0, sold_out_count: 2, degraded: true },  // degraded: not inventory
+      { airport_code: "EWR", dates_defaulted: false, results_count: 0, sold_out_count: 0, degraded: false }, // the $0.00 swallow: no lot, none sold out
+      { airport_code: "EWR", dates_defaulted: false, results_count: 5, sold_out_count: 1, degraded: false },
+      { airport_code: "EWR", dates_defaulted: false, results_count: 0, sold_out_count: null, degraded: true }, // not priced
+    ] }, { count: 0 }, { count: 0 });
+    const d = await collectDigest(w, NOW);
+    expect(d.funnel.ok).toBe(true);
+    if (!d.funnel.ok) return;
+    expect(d.funnel.data.pricedSearches).toBe(4);
+    expect(d.funnel.data.zeroResultShare).toBe(3 / 4);
+    expect(d.funnel.data.nothingBookableShare).toBe(1 / 4);
+    expect(d.funnel.data.nothingBookableDegraded).toBe(1);
+    expect(d.funnel.data.lotSoldOutRate).toBeCloseTo(6 / 11);
   });
 
   it("health: a production writer with rows in the 7-day view but none in 26 h is STALE, not ok", async () => {
