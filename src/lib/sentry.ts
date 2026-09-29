@@ -121,3 +121,42 @@ export function captureParkGuardError(
     Sentry.captureException(error);
   });
 }
+
+/**
+ * The pre-charge "lot-declared fields" check in /api/reservations/pending.
+ *
+ * Deliberately NOT capturePaymentError: nothing here is a payment failure, and
+ * on a bad ResLab afternoon a skip fires on every checkout — filed as
+ * `payment.error` it would bury the real ones. Warning level and its own tag;
+ * the PaymentIntent id stays a tag so a skip can be matched to a later
+ * fulfilment failure for the same payment.
+ *
+ * Grouping: skips are one issue (they follow ResLab's health, not a lot). A
+ * refusal or a missing lot is grouped PER LOT, so a lot that starts turning
+ * customers away opens its own issue instead of adding events to an old one.
+ */
+export function captureRequiredFieldCheck(
+  outcome: "skipped" | "refused" | "lot_not_found",
+  message: string,
+  context: {
+    stripePaymentIntentId: string;
+    locationId: number;
+    /** Field names, a ResLab status, a parse issue — never customer answers. */
+    detail?: Record<string, unknown>;
+  }
+) {
+  Sentry.withScope((scope) => {
+    scope.setLevel("warning");
+    scope.setTag("check", "required_extra_fields");
+    scope.setTag("check.outcome", outcome);
+    scope.setTag("payment.intentId", context.stripePaymentIntentId);
+    scope.setTag("booking.lotId", String(context.locationId));
+    scope.setFingerprint(
+      outcome === "skipped"
+        ? ["required-extra-fields", outcome]
+        : ["required-extra-fields", outcome, String(context.locationId)]
+    );
+    if (context.detail) scope.setContext("detail", context.detail);
+    Sentry.captureException(new Error(message));
+  });
+}
