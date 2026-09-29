@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   Menu,
   X,
+  LineChart,
 } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 
@@ -107,6 +108,7 @@ export default function AdminLayout({
 
   const navLinks = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/admin/numbers", icon: LineChart, label: "Monthly numbers" },
     { href: "/admin/bookings", icon: Ticket, label: "Bookings" },
     { href: "/admin/chats", icon: MessageCircle, label: "Chat Sessions" },
     { href: "/admin/partners", icon: Users, label: "Partners" },
