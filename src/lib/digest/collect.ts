@@ -436,7 +436,7 @@ export function collectWhereFrom(confirmed: BookingRow[]): Section<WhereFromSect
 interface SearchEventRow {
   airport_code: string;
   dates_defaulted: boolean | null;
-  results_count: number | null;
+  results_count: number; // NOT NULL DEFAULT 0 (migration 027) — never coerce, never null
   sold_out_count: number | null;
   degraded: boolean | null;
 }
@@ -456,16 +456,28 @@ export async function collectFunnel(sb: Client, w: DigestWindow): Promise<Sectio
       CAP
     );
     if (capped) return fail(new Error("row cap hit"));
-    const byAirport = new Map<string, { searches: number; priced: number; soldOut: number }>();
-    let defaulted = 0, resultsSum = 0, resultsN = 0, priced = 0, soldOut = 0, degraded = 0;
+    // sold_out_count (writer: src/lib/reslab/search.ts) counts the lots ResLab marked
+    // sold out BEFORE they are filtered from results; results_count is what the
+    // customer saw. "Nothing bookable" = priced, zero results, ≥ 1 sold out.
+    // Two different things are tracked: the customer-visible OUTCOME (zero results, any
+    // reason) and the sell-out ATTRIBUTION (zero results AND ≥ 1 lot sold out). A degraded
+    // search (ResLab wobble) is counted separately, never as inventory.
+    const byAirport = new Map<string, { searches: number; priced: number; nothing: number }>();
+    let defaulted = 0, resultsSum = 0, resultsN = 0, priced = 0, nothing = 0, nothingDegraded = 0, zeroResults = 0, degraded = 0, soldOutLots = 0, returnedLots = 0;
     for (const r of rows) {
-      const a = byAirport.get(r.airport_code) ?? { searches: 0, priced: 0, soldOut: 0 };
+      const a = byAirport.get(r.airport_code) ?? { searches: 0, priced: 0, nothing: 0 };
       a.searches++;
       if (r.dates_defaulted) defaulted++;
-      if (typeof r.results_count === "number") { resultsSum += r.results_count; resultsN++; }
+      resultsSum += r.results_count; resultsN++;
       if (r.sold_out_count !== null && r.sold_out_count !== undefined) {
         priced++; a.priced++;
-        if (r.sold_out_count > 0) { soldOut++; a.soldOut++; }
+        soldOutLots += r.sold_out_count;
+        returnedLots += r.results_count;
+        if (r.results_count === 0) zeroResults++;
+        if (r.sold_out_count > 0 && r.results_count === 0) {
+          if (r.degraded) nothingDegraded++;
+          else { nothing++; a.nothing++; }
+        }
       }
       if (r.degraded) degraded++;
       byAirport.set(r.airport_code, a);
@@ -492,9 +504,12 @@ export async function collectFunnel(sb: Client, w: DigestWindow): Promise<Sectio
       topAirports: top.slice(0, 5).map(([key, v]) => ({ key, searches: v.searches })),
       datesDefaultedShare: rows.length === 0 ? 0 : defaulted / rows.length,
       meanResults: resultsN === 0 ? "unavailable" : resultsSum / resultsN,
-      soldOutShare: priced === 0 ? "unavailable" : soldOut / priced,
-      soldOutDenominator: priced,
-      soldOutByAirport: top.filter(([, v]) => v.priced > 0).map(([key, v]) => ({ key, share: v.soldOut / v.priced, priced: v.priced })),
+      nothingBookableShare: priced === 0 ? "unavailable" : nothing / priced,
+      nothingBookableDegraded: nothingDegraded,
+      zeroResultShare: priced === 0 ? "unavailable" : zeroResults / priced,
+      pricedSearches: priced,
+      nothingBookableByAirport: top.filter(([, v]) => v.priced > 0).map(([key, v]) => ({ key, share: v.nothing / v.priced, priced: v.priced })),
+      lotSoldOutRate: soldOutLots + returnedLots === 0 ? "unavailable" : soldOutLots / (soldOutLots + returnedLots),
       degradedCount: degraded,
     });
   } catch (err) {
