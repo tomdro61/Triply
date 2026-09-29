@@ -205,8 +205,8 @@ describe("GET /api/cron/daily-digest", () => {
     readMock.writeModelRead.mockResolvedValue({ kind: "withheld", reason: "failed number check ($9)" });
     const res = await GET(req());
     expect(await res.json()).toMatchObject({ outcome: "posted", modelRead: "withheld" });
-    const embed = discordMock.postToDiscord.mock.calls[0][1] as { fields: Array<{ name: string; value: string }> };
-    expect(embed.fields.find((f) => f.name.startsWith("Model read"))?.value).toMatch(/withheld/);
+    const embed = discordMock.postToDiscord.mock.calls[0][1] as { description: string };
+    expect(embed.description).toMatch(/Read withheld/);
   });
 
   it("the model read is skipped when collect ate the budget, so the post still gets its time", async () => {
@@ -217,8 +217,8 @@ describe("GET /api/cron/daily-digest", () => {
     const res = await GET(req());
     expect(await res.json()).toMatchObject({ outcome: "posted", modelRead: "unavailable" });
     expect(readMock.writeModelRead).not.toHaveBeenCalled();
-    const embed = discordMock.postToDiscord.mock.calls[0][1] as { fields: Array<{ name: string; value: string }> };
-    expect(embed.fields.find((f) => f.name.startsWith("Model read"))?.value).toMatch(/out of time/);
+    const embed = discordMock.postToDiscord.mock.calls[0][1] as { description: string };
+    expect(embed.description).toMatch(/out of time/);
   });
 
   it("?dry=1 collects, reads and renders but posts nothing, records nothing and never opens a check-in", async () => {

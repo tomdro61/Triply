@@ -46,21 +46,7 @@ export function verdictFor(d: DigestData): Verdict {
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const m = (v: Metric, f: (n: number) => string = String) => (v === "unavailable" ? "unavailable" : f(v));
 const pct = (v: Metric) => m(v, (n) => `${Math.round(n * 100)}%`);
-
-function vsBaseline(b: Baselined, f: (n: number) => string = String): string {
-  if (b.value === "unavailable") return "unavailable";
-  const parts = [f(b.value)];
-  if (b.baselineError) {
-    parts.push(`baselines unavailable (${b.baselineError.slice(0, 60)})`);
-    return parts.join(" · ");
-  }
-  parts.push(b.avg7 === null ? `7d n/a (data since ${b.since})` : `7d avg ${f(Math.round(b.avg7 * 10) / 10)}`);
-  parts.push(b.avg28 === null ? "28d n/a" : `28d avg ${f(Math.round(b.avg28 * 10) / 10)}`);
-  return parts.join(" · ");
-}
-
-const topList = (rows: Array<{ key: string; [k: string]: unknown }>, valueKey: string, n = 5) =>
-  rows.slice(0, n).map((r) => `${r.key} ${String(r[valueKey])}`).join(", ") || "—";
+const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s); // declared before its first caller
 
 // ── flags ──
 
@@ -113,24 +99,117 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (h.telemetry.kind === "unavailable") flags.push({ text: "search telemetry health unreadable" });
     if (h.lastDigest.kind === "error") flags.push({ text: "digest run log unreadable — duplicate posts possible, 'last digest' unknown" });
     if (h.snapshot.kind === "missing") flags.push({ text: "ResLab snapshot missing — refresh cron has never succeeded" });
-    if (h.snapshot.kind === "row" && h.snapshot.stale) flags.push({ text: `ResLab snapshot stale (${h.snapshot.ageHours} h)` });
+    // "behind" (> SNAPSHOT_WARN_MS) already costs search its long CDN TTL; a ⚠️ in a droppable Health line is not enough.
+    if (h.snapshot.kind === "row" && (h.snapshot.stale || h.snapshot.behind)) flags.push({ text: `ResLab snapshot ${h.snapshot.stale ? "stale" : "behind"} (${h.snapshot.ageHours} h)` });
     if (h.stuckPending.kind === "n" && h.stuckPending.n > 0) flags.push({ text: `${h.stuckPending.n} pending booking(s) stuck > 1 h (possibly mid-sweep)` });
     if (h.stuckPending.kind === "error") flags.push({ text: "stuck-pending check unavailable (money could be stranded unseen)" });
   }
   return flags;
 }
 
-// ── sections → fields ──
+// ── layout ──
+//
+// Discord renders inline fields three to a row, so the numbers people scan for
+// are six tiles (two rows), each "**big number**" over one short line of
+// context. The written read sits at the top under the flags — it is the part
+// worth reading first. Detail blocks use plain labels; every caveat that used
+// to sit in the body lives in the footer.
 
-function bookingsField(d: DigestData): string {
+const one = (n: number) => String(Math.round(n * 10) / 10);
+const titleCase = (k: string) => (k.charAt(0).toUpperCase() + k.slice(1)).replace(/_/g, " ");
+const weekday = (dateEt: string) => {
+  const [y, mo, d] = dateEt.split("-").map(Number);
+  return new Date(Date.UTC(y, mo - 1, d)).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+};
+const kv = (o: Record<string, number>) => Object.entries(o).map(([k, n]) => `${titleCase(k)} ${n}`).join(" · ");
+/** pending_bookings statuses in plain words — title-casing "released_failed" reads as the opposite of what it means. */
+const STATUS_WORDS: Record<string, string> = {
+  completed: "completed",
+  pending: "pending",
+  processing: "processing",
+  released_failed: "hold released (ResLab rejected)",
+  released_sold_out: "hold released (sold out)",
+  refunded_failed: "refunded (ResLab rejected)",
+  refunded_sold_out: "refunded (sold out)",
+  expired: "expired",
+  failed: "failed",
+  suspected_duplicate: "duplicate (lost the cart race)",
+  refunded_after_capture: "refunded (after capture)",
+  needs_reconciliation: "NEEDS RECONCILIATION",
+  capture_ambiguous: "CAPTURE AMBIGUOUS",
+};
+const statusWords = (k: string) => STATUS_WORDS[k] ?? k;
+// Month/day from the window label so the title spells "Sept" the way the footer does.
+const monthDay = (windowLabel: string) => windowLabel.split(" · ")[0].replace(/, \d{4}$/, "");
+
+function baselineLine(b: Baselined, f: (n: number) => string = one): string {
+  if (b.baselineError) return `baselines unavailable (${b.baselineError.slice(0, 50)})`;
+  const a7 = b.avg7 === null ? `7-day avg n/a (data since ${b.since.slice(5)})` : `7-day avg ${f(b.avg7)}`;
+  const a28 = b.avg28 === null ? "28-day n/a" : `28-day ${f(b.avg28)}`;
+  return `${a7} · ${a28}`;
+}
+
+const NA = (why: string) => `**n/a**\n${clamp(why, 60)}`;
+
+function tiles(d: DigestData): Embed["fields"] {
+  // The compiler proves the reason is non-empty: a failed section always carries its error.
+  const bookingsTile = d.bookings.ok ? `**${m(d.bookings.data.count.value)}**\n${baselineLine(d.bookings.data.count)}` : NA(d.bookings.error);
+  const feeTile = d.bookings.ok
+    ? `**${m(d.bookings.data.feeIncome, usd)}**\nservice ${m(d.bookings.data.serviceFees, usd)} · Park Guard ${m(d.bookings.data.pgMargin, usd)}`
+    : NA(d.bookings.error);
+  const gmvTile = d.bookings.ok
+    ? (() => {
+        const b = d.bookings.data;
+        const online = b.chargedOnline !== "unavailable" && b.gmv !== "unavailable" && b.chargedOnline < b.gmv ? ` · online ≈ ${usd(b.chargedOnline)}` : "";
+        return `**${m(b.gmv, usd)}**\navg order ${m(b.avgOrder, usd)}${online}`;
+      })()
+    : NA(d.bookings.error);
+  const searchTile = d.funnel.ok
+    ? `**${m(d.funnel.data.originSearches.value)}**\n${m(d.funnel.data.distinctAirports)} airports · CDN misses · ${baselineLine(d.funnel.data.originSearches, (n) => String(Math.round(n)))}`
+    : NA(d.funnel.error);
+  const noLotTile = d.funnel.ok
+    ? d.funnel.data.pricedSearches === 0
+      ? `**n/a**\nnothing priced all day`
+      : `**${pct(d.funnel.data.zeroResultShare)}**\nof ${d.funnel.data.pricedSearches} priced · lots sold out ${pct(d.funnel.data.lotSoldOutRate)}`
+    : NA(d.funnel.error);
+  const pgTile = d.bookings.ok ? `**${pct(d.bookings.data.pgAttachRate)}**\nattach rate` : NA(d.bookings.error);
+  return [
+    { name: "Bookings", value: bookingsTile, inline: true },
+    { name: "Fee income", value: feeTile, inline: true },
+    { name: "GMV", value: gmvTile, inline: true },
+    { name: "Searches (server-side)", value: searchTile, inline: true },
+    { name: "No lot shown", value: noLotTile, inline: true },
+    { name: "Park Guard", value: pgTile, inline: true },
+  ];
+}
+
+function whereFromField(d: DigestData): string {
+  if (!d.whereFrom.ok) return `unavailable (${d.whereFrom.error})`;
+  const w = d.whereFrom.data;
+  const land = w.landing;
+  const landed = [
+    land.blog ? `blog post ${land.blog}` : "",
+    land.airportPage ? `airport page ${land.airportPage}` : "",
+    land.homepage ? `homepage ${land.homepage}` : "",
+    land.other ? `other ${land.other}` : "",
+    land.none ? `no cookie ${land.none}` : "",
+  ].filter(Boolean).join(" · ") || "—";
+  const posts = w.topBlogPosts.map((p) => `${p.path.replace(/^\/blog\//, "")}${p.bookings > 1 ? ` (${p.bookings})` : ""}`).join(", ");
+  return [
+    `${w.byChannel.slice(0, 6).map((c) => `${titleCase(c.key)} ${c.bookings}`).join(" · ") || "—"}`,
+    `Landed on: ${landed}${w.aiReferrals ? ` · AI-assistant referrals ${w.aiReferrals}` : ""}`,
+    w.topAirports.length ? `Airports: ${w.topAirports.map((a) => `${a.key} ${a.bookings}`).join(", ")}` : "",
+    posts ? `Top posts: ${posts}` : "",
+  ].filter(Boolean).join("\n");
+}
+
+function leadTimeField(d: DigestData): string {
   if (!d.bookings.ok) return `unavailable (${d.bookings.error})`;
   const b = d.bookings.data;
+  const lt = b.leadTime;
   const lines = [
-    `**${vsBaseline(b.count)}**`,
-    `GMV ${m(b.gmv, usd)} (incl. due-at-lot, pre-discount) · charged online ≈ ${m(b.chargedOnline, usd)} · avg ${m(b.avgOrder, usd)}`,
-    `Triply fee income ${m(b.feeIncome, usd)} (service ${m(b.serviceFees, usd)} + PG margin ${m(b.pgMargin, usd)})`,
-    `PG attach ${pct(b.pgAttachRate)} · promo ${b.promoBookings} (${m(b.promoDiscount, usd)} off) · repeat (by email) ${m(b.repeatByEmail)}${b.repeatCapped ? " (cap)" : ""}`,
-    `lead: same-day ${b.leadTime.sameDay} · 1–3d ${b.leadTime.d1to3} · 4–14d ${b.leadTime.d4to14} · 15d+ ${b.leadTime.d15plus}${b.leadTime.unknown ? ` · unknown ${b.leadTime.unknown}` : ""}`,
+    `Same-day ${lt.sameDay} · 1–3 days ${lt.d1to3} · 4–14 days ${lt.d4to14} · 15+ days ${lt.d15plus}${lt.unknown ? ` · unknown ${lt.unknown}` : ""}`,
+    `Promo bookings ${b.promoBookings}${b.promoDiscount !== "unavailable" && b.promoDiscount > 0 ? ` (${usd(b.promoDiscount)} off)` : ""} · repeat customers ${m(b.repeatByEmail)}${b.repeatCapped ? " (cap)" : ""}`,
   ];
   const extras: string[] = [];
   if (b.refunded) extras.push(`refunded ${b.refunded}`);
@@ -139,84 +218,79 @@ function bookingsField(d: DigestData): string {
   if (b.staging) extras.push(`staging (excluded) ${b.staging}`);
   if (b.unmatched) extras.push(`unmatched ${b.unmatched}`);
   if (b.otherStatus) extras.push(`other status ${b.otherStatus}`);
-  if (b.pgRefundedWholesaleEaten !== "unavailable" && b.pgRefundedWholesaleEaten > 0) extras.push(`PG wholesale eaten on refunds ${usd(b.pgRefundedWholesaleEaten)}`);
+  if (b.pgRefundedWholesaleEaten !== "unavailable" && b.pgRefundedWholesaleEaten > 0) extras.push(`Park Guard wholesale eaten on refunds ${usd(b.pgRefundedWholesaleEaten)}`);
   if (extras.length) lines.push(extras.join(" · "));
   return lines.join("\n");
-}
-
-function whereFromField(d: DigestData): string {
-  if (!d.whereFrom.ok) return `unavailable (${d.whereFrom.error})`;
-  const w = d.whereFrom.data;
-  const land = w.landing;
-  return [
-    `channels: ${topList(w.byChannel, "bookings", 6)}`,
-    `airports: ${topList(w.topAirports, "bookings", 5)}`,
-    `landed on: blog ${land.blog} · airport page ${land.airportPage} · home ${land.homepage} · other ${land.other} · no cookie ${land.none}`,
-    `AI-assistant referrals: ${w.aiReferrals}`,
-    w.topBlogPosts.length ? `top posts: ${w.topBlogPosts.map((p) => `${p.path} (${p.bookings})`).join(", ")}` : "",
-  ].filter(Boolean).join("\n");
-}
-
-function funnelField(d: DigestData): string {
-  if (!d.funnel.ok) return `unavailable (${d.funnel.error})`;
-  const f = d.funnel.data;
-  return [
-    `origin searches (CDN misses, not customers): ${vsBaseline(f.originSearches)}`,
-    `airports ${m(f.distinctAirports)} · top: ${topList(f.topAirports, "searches", 5)}`,
-    `dates defaulted ${pct(f.datesDefaultedShare)} · mean results ${m(f.meanResults, (n) => n.toFixed(1))}`,
-    // Both shares are over the SAME base (priced searches); say so rather than "of which".
-    f.pricedSearches === 0
-      ? "showed no lot: n/a — nothing priced all day"
-      : `showed no lot ${pct(f.zeroResultShare)} of ${f.pricedSearches} priced searches · sold out and empty ${pct(f.nothingBookableShare)} of the same ${f.pricedSearches}${f.nothingBookableDegraded ? ` (+${f.nothingBookableDegraded} on degraded searches — ResLab, not inventory)` : ""} · lots sold out ${pct(f.lotSoldOutRate)}`,
-    `degraded origin searches: ${m(f.degradedCount)} (over-represented — degraded results re-originate every request)`,
-  ].join("\n");
 }
 
 function lostSalesField(d: DigestData): string {
   if (!d.lostSales.ok) return `unavailable (${d.lostSales.error})`;
   const l = d.lostSales.data;
-  const status = Object.entries(l.byStatus).map(([k, n]) => `${k} ${n}`).join(" · ") || "none";
-  const rows = l.rows.slice(0, 6).map((r) => `• ${r.airport} · ${r.lot} · ${r.status} · ${r.reason}`);
-  return [status, ...rows].join("\n");
+  const status = Object.entries(l.byStatus).map(([k, n]) => `${statusWords(k)} ${n}`).join(" · ") || "no checkouts";
+  const rows = l.rows.slice(0, 6).map((r) => `• ${r.airport} · ${r.lot} · ${statusWords(r.status)} · ${r.reason}`);
+  return [`Checkouts: ${status}`, ...(rows.length ? rows : ["No lost sales."])].join("\n");
+}
+
+function searchDetailField(d: DigestData): string {
+  if (!d.funnel.ok) return `unavailable (${d.funnel.error})`;
+  const f = d.funnel.data;
+  const lines = [
+    `Top airports: ${f.topAirports.map((a) => `${a.key} ${a.searches}`).join(", ") || "—"}`,
+    `Dates defaulted ${pct(f.datesDefaultedShare)} · avg results per search ${m(f.meanResults, (n) => n.toFixed(1))} · degraded ${m(f.degradedCount)} (over-represented: degraded results re-originate)`,
+  ];
+  if (f.pricedSearches > 0 && (f.nothingBookableShare === "unavailable" || f.nothingBookableShare > 0 || f.nothingBookableDegraded > 0)) {
+    lines.push(`Sold out and empty ${pct(f.nothingBookableShare)} of ${f.pricedSearches} priced${f.nothingBookableDegraded ? ` (+${f.nothingBookableDegraded} on degraded searches — ResLab, not inventory)` : ""}`);
+  }
+  return lines.join("\n");
 }
 
 function engagementField(d: DigestData): string {
   if (!d.engagement.ok) return `unavailable (${d.engagement.error})`;
   const e = d.engagement.data;
-  const kv = (o: Record<string, number>) => Object.entries(o).map(([k, n]) => `${k} ${n}`).join(", ") || "0";
-  return [
-    `newsletter: ${kv(e.newsletterBySource)} · waitlist: ${kv(e.waitlistByAirport)}`,
-    `chat sessions ${m(e.chatSessions)} · WELCOME codes minted ${m(e.welcomeCodesMinted)}`,
-  ].join("\n");
+  const nl = Object.values(e.newsletterBySource).reduce((n, v) => n + v, 0);
+  const wl = Object.values(e.waitlistByAirport).reduce((n, v) => n + v, 0);
+  return `Newsletter ${nl}${nl ? ` (${kv(e.newsletterBySource)})` : ""} · Waitlist ${wl}${wl ? ` (${kv(e.waitlistByAirport)})` : ""} · Chat sessions ${m(e.chatSessions)} · WELCOME codes ${m(e.welcomeCodesMinted)}`;
 }
 
 function healthField(d: DigestData): string {
-  if (!d.health.ok) return `unavailable (${d.health.error})`;
+  if (!d.health.ok) return `⚠️ unavailable (${d.health.error})`;
   const h = d.health.data;
-const t = h.telemetry;
-  const tel =
+  const t = h.telemetry;
+  // warn = something is wrong; neutral = nothing wrong but nothing to vouch for either
+  // (the snapshot flag off, no earlier digest on record). Only an all-clear line gets ✅.
+  type Part = { text: string; warn?: boolean; neutral?: boolean };
+  const parts: Part[] = [];
+  parts.push(
     t.kind === "silent_7d"
-      ? "search telemetry writer SILENT ≥ 7 days"
+      ? { text: "search telemetry SILENT ≥ 7 days", warn: true }
       : t.kind === "unavailable"
-        ? `search telemetry unavailable (${t.error})`
-        : `search telemetry ${t.kind === "ok" ? "ok" : "STALE"} (last production row ${t.lastRowAt.slice(0, 16).replace("T", " ")} UTC, ${t.rows24h} rows/24h)`;
-  const snap =
+        ? { text: `search telemetry unreadable (${clamp(t.error, 50)})`, warn: true }
+        : t.kind === "ok"
+          ? { text: `telemetry ok (${t.rows24h} rows/24h)` }
+          : { text: `telemetry STALE (last production row ${t.lastRowAt.slice(0, 16).replace("T", " ")} UTC, ${t.rows24h} rows/24h)`, warn: true }
+  );
+  parts.push(
     h.snapshot.kind === "off"
-      ? "ResLab snapshot: flag off"
+      ? { text: "snapshot off", neutral: true }
       : h.snapshot.kind === "row"
-        ? `ResLab snapshot ${h.snapshot.ageHours} h old · ${h.snapshot.locationCount} lots${h.snapshot.stale ? " · STALE" : h.snapshot.behind ? " · behind" : ""}`
+        ? { text: `snapshot${h.snapshot.stale ? " STALE" : h.snapshot.behind ? " behind" : ""} ${h.snapshot.ageHours} h, ${h.snapshot.locationCount} lots`, warn: h.snapshot.stale || h.snapshot.behind }
         : h.snapshot.kind === "missing"
-          ? "ResLab snapshot MISSING"
-          : `ResLab snapshot unreadable (${h.snapshot.message})`;
-  const stuck = h.stuckPending.kind === "n" ? `stuck pending ${h.stuckPending.n}` : `stuck pending UNKNOWN (${h.stuckPending.message.slice(0, 60)})`;
-  const last =
-    h.lastDigest.kind === "none" ? "no earlier digest on record" : h.lastDigest.kind === "days" ? `last digest ${h.lastDigest.n} day(s) ago` : `last digest UNKNOWN (run log: ${h.lastDigest.message.slice(0, 60)})`;
-  return [tel, snap, `${stuck} · ${last}`].join("\n");
+          ? { text: "snapshot MISSING", warn: true }
+          : { text: `snapshot unreadable (${clamp(h.snapshot.message, 50)})`, warn: true }
+  );
+  parts.push(
+    h.stuckPending.kind === "n"
+      ? { text: `stuck pending ${h.stuckPending.n}`, warn: h.stuckPending.n > 0 }
+      : { text: `stuck pending UNKNOWN (${clamp(h.stuckPending.message, 50)})`, warn: true }
+  );
+  if (h.lastDigest.kind === "none") parts.push({ text: "no earlier digest on record", neutral: true });
+  else if (h.lastDigest.kind === "days" && h.lastDigest.n !== 1) parts.push({ text: `last digest ${h.lastDigest.n} days ago`, warn: true });
+  else if (h.lastDigest.kind === "error") parts.push({ text: `last digest UNKNOWN (run log: ${clamp(h.lastDigest.message, 50)})`, warn: true });
+  const line = parts.map((p) => (p.warn ? `⚠️ ${p.text}` : p.text)).join(" · ");
+  return parts.some((p) => p.warn || p.neutral) ? line : `✅ ${line}`;
 }
 
 // ── assembly ──
-
-const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
 function counted(e: Embed): number {
   return e.title.length + e.description.length + e.footer.text.length + e.fields.reduce((n, f) => n + f.name.length + f.value.length, 0);
@@ -224,7 +298,8 @@ function counted(e: Embed): number {
 
 export function renderEmbed(d: DigestData, read: ReadResult | null, extraFlags: Flag[] = []): { embed: Embed; verdict: Verdict; flags: Flag[]; truncated: boolean } {
   const verdict = verdictFor(d);
-  const footerBase = `${d.windowLabel} · generated ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC · fee income excludes ResLab commission/fee and promo · not GA4/Sentry/Stripe payouts`;
+  const day = `${weekday(d.dateEt)} ${monthDay(d.windowLabel)}`;
+  const footerBase = `${d.windowLabel} · GMV includes due-at-lot and is pre-discount · fee income = service fees + Park Guard margin, before ResLab's fee and before promo · searches are server-side (CDN misses), not customers · engagement counts include staging · not GA4 / Stripe payouts · generated ${d.generatedAt.slice(11, 16)} UTC`;
 
   if (verdict.kind === "could_not_run") {
     // Route-level flags (e.g. "run log unreadable — may be a duplicate") must survive here too.
@@ -244,39 +319,47 @@ export function renderEmbed(d: DigestData, read: ReadResult | null, extraFlags: 
   }
 
   const flags = flagsFor(d, extraFlags);
-  const title = `${verdict.kind === "partial" ? "⚠️ partial · " : ""}📊 Triply daily — ${d.windowLabel.split(" · ")[0]}`;
+  const title = verdict.kind === "partial" ? `⚠️ Triply daily — ${day} — partial` : `📊 Triply daily — ${day}`;
   let truncated = false;
   const shownFlags = flags.slice(0, MAX_FLAGS).map((f) => `• ${f.text}`);
   if (flags.length > MAX_FLAGS) {
     shownFlags.push(`… and ${flags.length - MAX_FLAGS} more flag(s)`);
     truncated = true;
   }
-  const fullDescription = flags.length ? `🔴 **Flags**\n${shownFlags.join("\n")}` : "No flags.";
+  const readLine =
+    read === null ? "" : read.kind === "ok" ? `_Read (Haiku, from the aggregates):_ ${read.text}` : read.kind === "withheld" ? `_Read withheld (${read.reason})._` : `_Read unavailable (${read.reason})._`;
+  const flagBlock = flags.length ? `🔴 **Flags**\n${shownFlags.join("\n")}` : "✅ No flags.";
+  const fullDescription = [flagBlock, readLine].filter(Boolean).join("\n\n");
   const description = clamp(fullDescription, DESCRIPTION_LIMIT);
   if (description !== fullDescription) truncated = true;
-  const readLine =
-    read === null ? null : read.kind === "ok" ? read.text : read.kind === "withheld" ? `Model read withheld (${read.reason})` : `Model read unavailable (${read.reason})`;
 
-  // Priority order = drop order reversed: the last entries are dropped first.
-  const fields: Embed["fields"] = [
-    { name: "Bookings", value: clamp(bookingsField(d), FIELD_VALUE_LIMIT) },
-    { name: "Lost sales", value: clamp(lostSalesField(d), FIELD_VALUE_LIMIT) },
-    { name: "Health", value: clamp(healthField(d), FIELD_VALUE_LIMIT) },
-    ...(readLine ? [{ name: "Model read (from aggregates)", value: clamp(readLine, FIELD_VALUE_LIMIT) }] : []),
-    { name: "Where from", value: clamp(whereFromField(d), FIELD_VALUE_LIMIT) },
-    { name: "Funnel", value: clamp(funnelField(d), FIELD_VALUE_LIMIT) },
-    { name: "Engagement (incl. staging)", value: clamp(engagementField(d), FIELD_VALUE_LIMIT) },
+  // Visual order, with a drop priority (lower drops first) that is independent of it.
+  type Ranked = { field: Embed["fields"][number]; keep: number };
+  const tileRows = tiles(d);
+  const FLOOR = tileRows.length; // the tiles are never dropped
+  const ranked: Ranked[] = [
+    ...tileRows.map((field) => ({ field, keep: 9 })),
+    { field: { name: "Where bookings came from", value: clamp(whereFromField(d), FIELD_VALUE_LIMIT) }, keep: 6 },
+    { field: { name: "Lead time & extras", value: clamp(leadTimeField(d), FIELD_VALUE_LIMIT) }, keep: 5 },
+    { field: { name: "Lost sales", value: clamp(lostSalesField(d), FIELD_VALUE_LIMIT) }, keep: 7 },
+    { field: { name: "Search detail", value: clamp(searchDetailField(d), FIELD_VALUE_LIMIT) }, keep: 3 },
+    { field: { name: "Engagement", value: clamp(engagementField(d), FIELD_VALUE_LIMIT) }, keep: 2 },
+    { field: { name: "Health", value: clamp(healthField(d), FIELD_VALUE_LIMIT) }, keep: 8 },
   ];
 
-  const embed: Embed = {
+  const build = (rows: Ranked[]): Embed => ({
     title: clamp(title, 256),
     description,
     color: flags.length || verdict.kind === "partial" ? RED : BRAND,
-    fields,
+    fields: rows.map((r) => r.field),
     footer: { text: clamp(footerBase, 2_048) },
-  };
-  while (counted(embed) > SAFE_TOTAL && embed.fields.length > 1) {
-    embed.fields.pop();
+  });
+  let rows = ranked;
+  let embed = build(rows);
+  while (counted(embed) > SAFE_TOTAL && rows.length > FLOOR) {
+    const lowest = Math.min(...rows.map((r) => r.keep));
+    rows = rows.filter((r) => r.keep !== lowest);
+    embed = build(rows);
     truncated = true;
   }
   if (truncated) embed.footer.text = clamp(`… truncated to fit Discord · ${footerBase}`, 2_048);
