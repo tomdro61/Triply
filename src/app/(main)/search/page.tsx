@@ -5,14 +5,14 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { validateSearchDates } from "@/lib/booking-window";
 import { Map, List } from "lucide-react";
 import { Navbar } from "@/components/shared";
-import {
-  SearchHeader,
-  SearchResultsList,
-  SearchMap,
-  ProductDetailSlider,
-  type SearchTab,
-} from "@/components/search";
+// Direct imports, not the "@/components/search" barrel: the barrel also
+// re-exports SearchMap, which must stay out of this page's first-load bundle.
+import { SearchHeader, type SearchTab } from "@/components/search/search-header";
+import { SearchResultsList } from "@/components/search/search-results-list";
+import { ProductDetailSlider } from "@/components/search/product-detail-slider";
+import { LazySearchMap as SearchMap } from "@/components/search/lazy-search-map";
 import { MobileMapCard } from "@/components/search/mobile-map-card";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
@@ -50,6 +50,11 @@ function SearchPageContent() {
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [activeMapCardIndex, setActiveMapCardIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
+  // The side-by-side map only exists at lg+. Below that its container is
+  // display:none, but a mounted map still downloads and boots mapbox-gl, so
+  // phones paid for a map they could not see. Mount it only on wide screens.
+  // Tailwind's lg breakpoint is 1024px.
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   const airportInfo = getAirportByCode(airport);
   const locationName = airportInfo?.city || "New York";
@@ -291,14 +296,16 @@ function SearchPageContent() {
           )}
 
           {/* Desktop: Map (always visible on lg+) */}
-          <div className="hidden lg:block w-3/5 h-full relative border-l border-gray-200">
-            <SearchMap
-              lots={sortedLots}
-              hoveredId={hoveredId}
-              onHover={setHoveredId}
-              onSelect={setSelectedLot}
-              airport={airportInfo}
-            />
+          <div className="hidden lg:block w-3/5 h-full relative border-l border-gray-200 bg-gray-100">
+            {isDesktop && (
+              <SearchMap
+                lots={sortedLots}
+                hoveredId={hoveredId}
+                onHover={setHoveredId}
+                onSelect={setSelectedLot}
+                airport={airportInfo}
+              />
+            )}
           </div>
         </div>
       </div>

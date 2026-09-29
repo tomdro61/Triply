@@ -28,9 +28,15 @@ interface LotCardProps {
   isHovered: boolean;
   onHover: (id: string | null) => void;
   onSelect: (lot: UnifiedLot) => void;
+  /**
+   * True only for the first card in the list. Its photo is the page's largest
+   * contentful paint on phones, so it must not wait behind the lazy-load
+   * observer; every other card stays lazy.
+   */
+  isFirst?: boolean;
 }
 
-export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
+export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: LotCardProps) {
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -112,6 +118,8 @@ export function LotCard({ lot, isHovered, onHover, onSelect }: LotCardProps) {
           fill
           className="object-cover"
           sizes="(max-width: 640px) 100vw, 192px"
+          loading={isFirst ? "eager" : "lazy"}
+          fetchPriority={isFirst ? "high" : "auto"}
         />
         {lot.availability === "limited" && (
           <div className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase tracking-wide">
