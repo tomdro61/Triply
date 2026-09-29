@@ -163,6 +163,33 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     expect(vi.mocked(capturePaymentError)).not.toHaveBeenCalled();
   });
 
+  it("REFUSES a flight field ResLab would reject (N/A), before the charge", async () => {
+    const RETURN_FLIGHT = { id: 114, name: "return_flight_number", label: "Return Flight number", type: "both", input_type: "flight_number", per_car: 0 };
+    reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: [RETURN_FLIGHT] });
+    const res = await POST(req(body({ extraFields: { return_flight_number: "N/A" } })));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toMatch(/Return Flight number needs a flight number, for example DL 460/);
+    expect(json.error).toMatch(/you have not been charged/);
+    expect(json.invalidFields).toEqual(["return_flight_number"]);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(vi.mocked(captureRequiredFieldCheck)).toHaveBeenCalledWith(
+      "refused",
+      expect.any(String),
+      { stripePaymentIntentId: PI, locationId: 42, detail: { invalidFields: ["return_flight_number"] } }
+    );
+  });
+
+  it("stages a flight field in the compact form; refuses one still carrying a space", async () => {
+    const RETURN_FLIGHT = { id: 114, name: "return_flight_number", label: "Return Flight number", type: "both", input_type: "flight_number", per_car: 0 };
+    reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: [RETURN_FLIGHT] });
+    expect((await POST(req(body({ extraFields: { return_flight_number: "DL0460" } })))).status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    db.tables = { pending_bookings: [], bookings: [] };
+    expect((await POST(req(body({ extraFields: { return_flight_number: "DL 460" } })))).status).toBe(400);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+  });
+
   it("stages when the field is answered (N/A counts)", async () => {
     reslabMock.getLocation.mockResolvedValue({ id: 42, extra_fields: [FLIGHT, ROOM] });
     const res = await POST(req(body({ extraFields: { return_flight_number: "N/A" } })));

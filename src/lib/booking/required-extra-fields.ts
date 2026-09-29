@@ -15,10 +15,16 @@
  *
  * Rule: a declared field is required unless it is scoped to rooms only (we
  * only book parking). Unknown `type` values count as required — failing safe
- * costs the customer a keystroke; failing open costs the sale. A field the
- * customer cannot know (a return flight when driving) stays satisfiable: the
- * UI tells them to enter "N/A" (or 0 for a number field) instead of leaving it
- * blank.
+ * costs the customer a keystroke; failing open costs the sale. ResLab's own
+ * spec calls extra_fields "mandatory additional fields… collect values for all
+ * of them".
+ *
+ * A plain text field the customer cannot answer stays satisfiable with "N/A".
+ * A FLIGHT field does not: ResLab validates `input_type: "flight_number"` and
+ * rejects "N/A" with 422 "Invalid Flight Number" — after the card is
+ * authorised (verified on staging 2026-09-29, Park For U LGA). So flight
+ * fields are format-checked here, before the charge, and their hint never
+ * offers N/A.
  *
  * Pure and env-free: imported by the checkout form ("use client"), the pending
  * route (the server-side gate, before the charge) and by tests.
@@ -47,6 +53,7 @@ export const declaredExtraFieldSchema = z.object({
   // required (isRequiredExtraField) instead of failing the whole array and
   // skipping the gate for the lot.
   type: z.string().nullish(),
+  input_type: z.string().nullish(),
 });
 export const declaredExtraFieldsSchema = z.array(declaredExtraFieldSchema);
 
@@ -97,8 +104,59 @@ export function missingRequiredExtraFields<F extends { name: string; type?: stri
   );
 }
 
-/** What a required field should tell a customer it does not apply to. */
+/** ResLab's input type for a field it format-checks as a flight number. */
+export const FLIGHT_NUMBER_INPUT_TYPE = "flight_number";
+
+/** The lot page carries `inputType`; ResLab's own object carries `input_type`. */
+type WithInputType = { inputType?: string | null; input_type?: string | null };
+
+export function isFlightNumberField(field: WithInputType): boolean {
+  const t = field.inputType ?? field.input_type ?? "";
+  return t.trim().toLowerCase() === FLIGHT_NUMBER_INPUT_TYPE;
+}
+
+/** "dl 460", "DL-460" → "DL460": the compact form ResLab has accepted
+ *  (DL0460, AA1093 on confirmed reservations). */
+export function normalizeFlightNumber(value: string): string {
+  return value.replace(/[\s-]/g, "").toUpperCase();
+}
+
+/**
+ * An airline designator (two characters, at least one a letter: DL, B6, 9W)
+ * followed by 1–4 digits. Checked on the NORMALISED form. This is our gate,
+ * not ResLab's published rule (they publish none): it exists to stop the
+ * answers we know they refuse ("N/A", "none", free text) before the charge.
+ */
+const FLIGHT_NUMBER_RE = /^(?:[A-Z][A-Z0-9]|[0-9][A-Z])[0-9]{1,4}$/;
+
+export function isValidFlightNumber(value: string): boolean {
+  return FLIGHT_NUMBER_RE.test(normalizeFlightNumber(value));
+}
+
+export const FLIGHT_NUMBER_EXAMPLE = "DL 460";
+
+/**
+ * The required flight fields whose answer ResLab would refuse: not blank (that
+ * is missingRequiredExtraFields' job), and either not a flight number or not
+ * in the compact form that is sent. `values` is the map fulfilment sends, so a
+ * value still carrying a space is refused here, not by ResLab after the charge.
+ */
+export function invalidFormatExtraFields<
+  F extends { name: string; type?: string | null } & WithInputType,
+>(declared: ReadonlyArray<F> | undefined, values: Readonly<Record<string, string>>): F[] {
+  return (declared ?? []).filter((f) => {
+    if (!isRequiredExtraField(f) || !isFlightNumberField(f)) return false;
+    const value = values[f.name];
+    if (isBlank(value) || value === undefined) return false;
+    return !isValidFlightNumber(value) || value !== normalizeFlightNumber(value);
+  });
+}
+
+/** What a required field tells the customer under its input. */
 export function notApplicableHint(inputType: string): string {
+  if (isFlightNumberField({ inputType })) {
+    return `Required by this lot. Enter the flight number, for example ${FLIGHT_NUMBER_EXAMPLE}.`;
+  }
   return inputType === "number"
     ? "Required by this lot. If it doesn't apply to you, enter 0."
     : "Required by this lot. If it doesn't apply to you, enter N/A.";
@@ -114,12 +172,22 @@ export function notApplicableHint(inputType: string): string {
  * of it.
  */
 export function checkoutExtraFields(
-  lotFields: ReadonlyArray<{ name: string }> | undefined,
+  lotFields: ReadonlyArray<{ name: string } & WithInputType> | undefined,
   vehicle: VehicleDetails,
   typed: Readonly<Record<string, string>>
 ): Record<string, string> {
+  const flightFields = new Set((lotFields ?? []).filter(isFlightNumberField).map((f) => f.name));
   const typedExcludingVehicle = Object.fromEntries(
-    Object.entries(typed).filter(([name]) => !isVehicleFieldName(name))
+    Object.entries(typed)
+      .filter(([name]) => !isVehicleFieldName(name))
+      // A flight number is sent in the compact form ResLab has accepted. Only
+      // a value that IS a flight number is rewritten; anything else is left as
+      // typed so the gate can refuse it and show the customer what they wrote.
+      .map(([name, value]): [string, string] =>
+        flightFields.has(name) && isValidFlightNumber(value)
+          ? [name, normalizeFlightNumber(value)]
+          : [name, value]
+      )
   );
   return { ...typedExcludingVehicle, ...vehicleFieldAliasValues(lotFields, vehicle) };
 }
@@ -131,7 +199,7 @@ export function checkoutExtraFields(
  * appear here. Empty object = the step may advance.
  */
 export function extraFieldStepErrors<
-  F extends { name: string; type?: string | null; label?: string | null },
+  F extends { name: string; type?: string | null; label?: string | null } & WithInputType,
 >(
   lotFields: ReadonlyArray<F> | undefined,
   vehicle: VehicleDetails,
@@ -143,5 +211,14 @@ export function extraFieldStepErrors<
     if (isVehicleFieldName(f.name)) continue;
     errors[f.name] = `${f.label?.trim() || "This field"} is required`;
   }
+  for (const f of invalidFormatExtraFields(lotFields, values)) {
+    if (isVehicleFieldName(f.name)) continue;
+    errors[f.name] = flightNumberFormatMessage(f.label);
+  }
   return errors;
+}
+
+/** One wording for the form and the server refusal. */
+export function flightNumberFormatMessage(label: string | null | undefined): string {
+  return `${label?.trim() || "This field"} needs a flight number, for example ${FLIGHT_NUMBER_EXAMPLE}`;
 }

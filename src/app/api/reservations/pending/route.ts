@@ -32,6 +32,8 @@ import { reslab, ReslabError } from "@/lib/reslab/client";
 import {
   declaredExtraFieldsSchema,
   missingRequiredExtraFields,
+  invalidFormatExtraFields,
+  flightNumberFormatMessage,
   reslabExtraFieldValues,
   REQUIRED_FIELD_LOOKUP_TIMEOUT_MS,
   type DeclaredExtraField,
@@ -222,10 +224,8 @@ export async function POST(request: NextRequest) {
       );
     }
     if (lookup.kind === "declared") {
-      const missing = missingRequiredExtraFields(
-        lookup.fields,
-        reslabExtraFieldValues(payload.vehicle, payload.extraFields)
-      );
+      const sentValues = reslabExtraFieldValues(payload.vehicle, payload.extraFields);
+      const missing = missingRequiredExtraFields(lookup.fields, sentValues);
       if (missing.length > 0) {
         const labels = missing.map((f) => f.label?.trim() || f.name).join(", ");
         // The vehicle step gates the same fields, so reaching this means the
@@ -244,6 +244,30 @@ export async function POST(request: NextRequest) {
           {
             error: `This lot needs: ${labels}. Please go back to Vehicle Information and fill it in (enter N/A if it doesn't apply). If you don't see it there, reload the page — you have not been charged.`,
             missingFields: missing.map((f) => f.name),
+          },
+          { status: 400 }
+        );
+      }
+
+      // ResLab format-checks flight fields and answers 422 "Invalid Flight
+      // Number" — after the card is authorised. Refuse here instead.
+      const invalid = invalidFormatExtraFields(lookup.fields, sentValues);
+      if (invalid.length > 0) {
+        captureRequiredFieldCheck(
+          "refused",
+          "Pending-booking staging refused: flight field would be rejected by ResLab",
+          {
+            stripePaymentIntentId: piId,
+            locationId: payload.locationId,
+            detail: { invalidFields: invalid.map((f) => f.name) },
+          }
+        );
+        return NextResponse.json(
+          {
+            error: `${invalid
+              .map((f) => flightNumberFormatMessage(f.label))
+              .join(". ")}. Please go back to Vehicle Information and correct it. If it still isn't accepted, reload the page — you have not been charged.`,
+            invalidFields: invalid.map((f) => f.name),
           },
           { status: 400 }
         );

@@ -5,6 +5,10 @@ import {
   reslabExtraFieldValues,
   extraFieldStepErrors,
   checkoutExtraFields,
+  invalidFormatExtraFields,
+  isValidFlightNumber,
+  normalizeFlightNumber,
+  isFlightNumberField,
   declaredExtraFieldsSchema,
   notApplicableHint,
 } from "../required-extra-fields";
@@ -108,7 +112,71 @@ describe("declaredExtraFieldsSchema — the ResLab boundary", () => {
   });
 });
 
+describe("flight number fields — ResLab answers 422 \"Invalid Flight Number\" after the card is authorised", () => {
+  const FLIGHT = { id: 3, name: "return_flight_number", label: "Return Flight number", type: "both", inputType: "flight_number", perCar: false };
+
+  it("recognises the field by ResLab's input type, in either spelling of the key", () => {
+    expect(isFlightNumberField({ inputType: "flight_number" })).toBe(true);
+    expect(isFlightNumberField({ input_type: "flight_number" })).toBe(true);
+    expect(isFlightNumberField({ inputType: "text" })).toBe(false);
+    expect(isFlightNumberField({})).toBe(false);
+  });
+
+  it("accepts the two values ResLab has confirmed, and the ways people type them", () => {
+    for (const v of ["DL0460", "AA1093", "dl 460", "DL-460", " B6 123 ", "9W12", "WN1"]) {
+      expect(isValidFlightNumber(v), v).toBe(true);
+    }
+    expect(normalizeFlightNumber(" dl-0460 ")).toBe("DL0460");
+  });
+
+  it("refuses what ResLab refused on staging, and other non-answers", () => {
+    for (const v of ["N/A", "n/a", "none", "NA", "0", "TBD", "12345", "DL", "DELTA460", "DL12345"]) {
+      expect(isValidFlightNumber(v), v).toBe(false);
+    }
+  });
+
+  it("the step is blocked with a message that shows the expected form", () => {
+    expect(extraFieldStepErrors([FLIGHT], vehicle, { return_flight_number: "N/A" })).toEqual({
+      return_flight_number: "Return Flight number needs a flight number, for example DL 460",
+    });
+    expect(extraFieldStepErrors([FLIGHT], vehicle, { return_flight_number: "dl 460" })).toEqual({});
+  });
+
+  it("a blank flight field says \"required\", not \"invalid\"", () => {
+    expect(extraFieldStepErrors([FLIGHT], vehicle, { return_flight_number: " " })).toEqual({
+      return_flight_number: "Return Flight number is required",
+    });
+  });
+
+  it("sends the compact form; leaves a non-flight answer as typed so the gate can refuse it", () => {
+    expect(checkoutExtraFields([FLIGHT], vehicle, { return_flight_number: "dl 460" })).toEqual({ return_flight_number: "DL460" });
+    expect(checkoutExtraFields([FLIGHT], vehicle, { return_flight_number: "N/A" })).toEqual({ return_flight_number: "N/A" });
+  });
+
+  it("the server gate refuses a value still carrying a space (an old page would send it as typed)", () => {
+    const declared = [{ name: "return_flight_number", type: "both", input_type: "flight_number" }];
+    expect(invalidFormatExtraFields(declared, { return_flight_number: "DL 460" }).map((f) => f.name)).toEqual(["return_flight_number"]);
+    expect(invalidFormatExtraFields(declared, { return_flight_number: "DL460" })).toEqual([]);
+  });
+
+  it("never format-checks a TEXT field, whatever it is called", () => {
+    const text = [{ name: "returning_flight", type: "both", inputType: "text" }];
+    expect(invalidFormatExtraFields(text, { returning_flight: "N/A" })).toEqual([]);
+  });
+
+  it("a room-only flight field is not ours to check", () => {
+    const room = [{ name: "flight", type: "room", inputType: "flight_number" }];
+    expect(invalidFormatExtraFields(room, { flight: "N/A" })).toEqual([]);
+  });
+});
+
 describe("notApplicableHint", () => {
+  it("a flight field asks for a flight number and never offers N/A", () => {
+    const hint = notApplicableHint("flight_number");
+    expect(hint).toMatch(/DL 460/);
+    expect(hint).not.toMatch(/N\/A/);
+  });
+
   it("tells a number field to take 0, a text field N/A", () => {
     expect(notApplicableHint("number")).toMatch(/enter 0/);
     expect(notApplicableHint("text")).toMatch(/N\/A/);
@@ -181,6 +249,17 @@ function serverMissing(
   ).map((f) => f.name);
 }
 
+/** The server's format gate, fed the body the form sends. */
+function serverInvalid(
+  fields: ReadonlyArray<{ name: string; type: string; inputType: string }>,
+  typed: Record<string, string>
+): string[] {
+  return invalidFormatExtraFields(
+    fields,
+    reslabExtraFieldValues(vehicle, checkoutExtraFields(fields, vehicle, typed))
+  ).map((f) => f.name);
+}
+
 describe("client and server gates agree on real lots", () => {
   const lots: RealLot[] = [
     "Park For U (LGA) 343",
@@ -202,11 +281,24 @@ describe("client and server gates agree on real lots", () => {
     expect(serverMissing(fields, typed).sort()).toEqual([...ASKED[lot]].sort());
   });
 
-  it.each(lots)("%s — N/A everywhere: both gates pass", (lot) => {
+  it.each(lots)("%s — N/A satisfies every TEXT field; a flight field refuses it on both gates", (lot) => {
     const fields = REAL_LOTS[lot];
     const typed = Object.fromEntries(ASKED[lot].map((n) => [n, "N/A"]));
+    const flight = fields.filter((f) => f.inputType === "flight_number").map((f) => f.name);
+    expect(Object.keys(extraFieldStepErrors(fields, vehicle, typed))).toEqual(flight);
+    expect(serverInvalid(fields, typed)).toEqual(flight);
+    // Nothing is MISSING: the answers are present, one is just not a flight.
+    expect(serverMissing(fields, typed)).toEqual([]);
+  });
+
+  it.each(lots)("%s — real answers: both gates pass", (lot) => {
+    const fields = REAL_LOTS[lot];
+    const typed = Object.fromEntries(
+      ASKED[lot].map((n) => [n, fields.find((f) => f.name === n)?.inputType === "flight_number" ? "dl 460" : "2"])
+    );
     expect(extraFieldStepErrors(fields, vehicle, typed)).toEqual({});
     expect(serverMissing(fields, typed)).toEqual([]);
+    expect(serverInvalid(fields, typed)).toEqual([]);
   });
 
   it("uses the lot's label, trimmed, in the message", () => {
