@@ -74,8 +74,39 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Staff-only cancellation notes (migration 032) live in their own
+    // service-role-only table, not on bookings. Attach them as
+    // `cancellation_note` so the page reads one shape. A separate best-effort
+    // query rather than an embed: an embed on a table that isn't there yet
+    // (032 not applied) would take the whole bookings list down, whereas this
+    // only loses the notes and reports to Sentry.
+    const rows: Array<Record<string, unknown>> = (bookings ?? []) as Array<Record<string, unknown>>;
+    const notes = new Map<string, string>();
+    const ids = rows.map((b) => b.id).filter((id): id is string => typeof id === "string");
+    if (ids.length > 0) {
+      const { data: noteRows, error: noteError } = await supabase
+        .from("booking_cancellation_notes")
+        .select("booking_id, note")
+        .in("booking_id", ids)
+        // Bounded: a slow notes lookup must not hold up the bookings list.
+        .abortSignal(AbortSignal.timeout(3_000));
+      if (noteError) {
+        captureAPIError(
+          new Error(`Admin bookings: cancellation notes fetch failed: ${noteError.message}`),
+          { endpoint: "/api/admin/bookings", method: "GET" }
+        );
+      } else {
+        for (const n of (noteRows ?? []) as Array<{ booking_id: string; note: string }>) {
+          notes.set(n.booking_id, n.note);
+        }
+      }
+    }
+
     return NextResponse.json({
-      bookings: bookings || [],
+      bookings: rows.map((b) => ({
+        ...b,
+        cancellation_note: notes.get(String(b.id)) ?? null,
+      })),
       pagination: {
         page,
         limit,
