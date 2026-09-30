@@ -15,6 +15,7 @@ import { adminClaim } from "@/lib/cancellation/claim";
 import {
   ADMIN_CANCELLATION_REASONS,
   cancellationNoteSchema,
+  recordCancellationNote,
   recordCancellationReason,
 } from "@/lib/cancellation/reason";
 import { pgWholesaleForRow } from "@/lib/cancellation/refund-math";
@@ -43,7 +44,8 @@ const cancelSchema = z.object({
   reason: z.enum(ADMIN_CANCELLATION_REASONS, {
     error: "A cancellation reason is required",
   }),
-  // Admin-only free text; never shown to the customer.
+  // Staff-only free text, stored in booking_cancellation_notes (service-role
+  // only — never on the customer-readable bookings row).
   note: cancellationNoteSchema.optional(),
 });
 
@@ -184,14 +186,22 @@ export async function POST(request: NextRequest) {
     // Attribute the cancel (migration 032) now that we hold the lock and BEFORE
     // any refund, so the charge.refunded webhook (which only fills an
     // unattributed row) never labels an admin cancel as "system". Best-effort:
-    // a failed write is Sentry-logged and the cancel proceeds.
-    await recordCancellationReason({
-      reservationNumber,
-      cancelledBy: "admin",
-      reason,
-      note: note ?? null,
-      endpoint: "/api/admin/bookings/cancel",
-    });
+    // a failed write is Sentry-logged and the cancel proceeds — but the outcome
+    // is returned to the admin page, which must not display a reason or note
+    // as recorded when it was not (the note is unrecoverable once the page
+    // moves on).
+    // Both writes are independent and each is bounded to 3 s inside the
+    // helper, so together they add at most one round-trip before ResLab.
+    // noteRecorded is null when no note was given.
+    const [reasonRecorded, noteRecorded] = await Promise.all([
+      recordCancellationReason({
+        reservationNumber,
+        cancelledBy: "admin",
+        reason,
+        endpoint: "/api/admin/bookings/cancel",
+      }),
+      note ? recordCancellationNote(booking.id, note, "/api/admin/bookings/cancel") : null,
+    ]);
 
     const results: {
       reslab: boolean;
@@ -210,6 +220,14 @@ export async function POST(request: NextRequest) {
       parkGuard: booking.protection_plan ? false : null,
       errors: [],
     };
+    // Reporting data only: never fails the cancel (allSucceeded ignores
+    // `errors`), but it belongs in the human-readable partial message.
+    if (!reasonRecorded) {
+      results.errors.push("Reason: cancellation reason NOT recorded (see Sentry)");
+    }
+    if (noteRecorded === false) {
+      results.errors.push("Reason: admin note NOT recorded (see Sentry)");
+    }
 
     // Step 1: Cancel in ResLab (release the parking spot)
     try {
@@ -527,6 +545,11 @@ export async function POST(request: NextRequest) {
         success: allSucceeded,
         results,
         newStatus,
+        // Whether the reason / note actually landed (migration 032). The page
+        // shows them as recorded only when true; `noteRecorded` is null when no
+        // note was given.
+        reasonRecorded,
+        noteRecorded,
         message: allSucceeded
           ? `${
               wasRefunded

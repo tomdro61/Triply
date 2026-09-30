@@ -9,7 +9,7 @@ const BY_LABELS: Record<string, string> = {
   customer: "Customer (self-cancel)",
   admin: "Admin",
   system: "System (refund outside the app)",
-  unknown: "Not recorded (before migration 032)",
+  unknown: "Not recorded",
 };
 
 /**
@@ -147,8 +147,13 @@ export function CancellationReportPanel({
         </div>
       )}
       <p className="mt-3 text-xs text-gray-400">
-        Cancelled = status cancelled or refunded. Months are the month the booking was made. &quot;Unknown&quot;
-        covers every cancellation before reasons were recorded, and customers who skipped the question.
+        Cancelled = status cancelled or refunded, so a full refund issued outside the app (e.g. from the
+        Stripe dashboard) counts as a cancellation. Months are the UTC month the booking was made, not
+        when it was cancelled. Reason &quot;Unknown / not given&quot; = no reason saved: every cancellation
+        before migration 032, customers who skipped the question, refunds issued outside the app, and the
+        rare write that failed. Cancelled by &quot;Not recorded&quot; = who cancelled wasn&apos;t saved
+        (pre-032 rows or a failed write; a failed admin save on a full refund shows as System instead).
+        Staging test bookings at real lots are included.
       </p>
     </div>
   );

@@ -94,6 +94,38 @@ describe("webhook charge.refunded — cancellation reason", () => {
     });
   });
 
+  it("never relabels a customer who skipped the dropdown (cancelled_by set, reason NULL) — the common self-cancel case", async () => {
+    // A no-Park-Guard self-cancel refunds 100%, so this webhook fires for it.
+    // `onlyIfUnset` must key on cancelled_by, not on the reason.
+    seed({ status: "refunded", cancelled_by: "customer", cancellation_reason: null });
+    await POST(req());
+    expect(db.tables.bookings[0]).toMatchObject({
+      cancelled_by: "customer",
+      cancellation_reason: null,
+    });
+  });
+
+  it("a partial refund writes no attribution at all", async () => {
+    seed();
+    constructEvent.mockReturnValue({
+      type: "charge.refunded",
+      data: { object: { payment_intent: "pi_1", amount: 10_000, amount_refunded: 2_500 } },
+    });
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    // The partial-refund branch was actually reached (it logs an informational event).
+    expect(
+      sentry.capturePaymentError.mock.calls.some((c) =>
+        /Partial refund on booking b1/.test(String((c[0] as Error).message)),
+      ),
+    ).toBe(true);
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "confirmed",
+      cancelled_by: null,
+      cancellation_reason: null,
+    });
+  });
+
   it("a failed reason write does not fail the webhook", async () => {
     seed();
     db.failWhen("bookings", "update", (p) => !!p && "cancelled_by" in p, "no column");

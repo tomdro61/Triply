@@ -132,6 +132,10 @@ export default function AdminBookingsPage() {
     success: boolean;
     message: string;
     parkGuardSyncFailed?: boolean;
+    // The cancel went through but the reason / note did not get saved
+    // (migration 032 not applied, or a transient write failure).
+    reasonNotRecorded?: boolean;
+    noteNotRecorded?: boolean;
   } | null>(null);
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
@@ -172,29 +176,37 @@ export default function AdminBookingsPage() {
         }),
       });
       const data = await response.json();
+      const cancelled = !!(data.success || data.results?.supabase);
+      // The route says whether the reason / note actually landed. Only trust a
+      // true; a missing field (older bundle / unexpected body) counts as not
+      // recorded so the screen never claims more than the database holds.
+      const reasonRecorded = data.reasonRecorded === true;
+      const noteRecorded = data.noteRecorded === true;
+      const noteGiven = cancelNote.trim().length > 0;
       setCancelResult({
-        success: data.success,
-        message: data.message,
+        success: !!data.success,
+        // 4xx/5xx bodies carry `error`, not `message` — without this fallback a
+        // refused cancel rendered an empty red box.
+        message: data.message ?? data.error ?? `Cancel failed (HTTP ${response.status})`,
         parkGuardSyncFailed: data.results?.parkGuard === false,
+        reasonNotRecorded: cancelled && !reasonRecorded,
+        noteNotRecorded: cancelled && noteGiven && !noteRecorded,
       });
-      if (data.success || data.results?.supabase) {
+      if (cancelled) {
         const newStatus = data.newStatus || "cancelled";
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === booking.id ? { ...b, status: newStatus } : b
-          )
-        );
-        setSelectedBooking((prev) =>
-          prev?.id === booking.id
-            ? {
-                ...prev,
-                status: newStatus,
-                cancellation_reason: cancelReason,
-                cancellation_note: cancelNote.trim() || null,
-                cancelled_by: "admin",
-              }
-            : prev
-        );
+        // Show only what was saved; an unsaved reason renders as "Unknown /
+        // not given", matching what the report will show. Patched into the
+        // list row too, so reopening the booking from the list (no refetch)
+        // shows the same thing as the panel.
+        const patch = (b: Booking): Booking => ({
+          ...b,
+          status: newStatus,
+          cancellation_reason: reasonRecorded ? cancelReason : b.cancellation_reason ?? null,
+          cancellation_note: noteRecorded ? cancelNote.trim() : b.cancellation_note ?? null,
+          cancelled_by: reasonRecorded ? "admin" : b.cancelled_by ?? null,
+        });
+        setBookings((prev) => prev.map((b) => (b.id === booking.id ? patch(b) : b)));
+        setSelectedBooking((prev) => (prev?.id === booking.id ? patch(prev) : prev));
       }
     } catch {
       setCancelResult({ success: false, message: "Network error — could not reach cancel API" });
@@ -925,7 +937,7 @@ export default function AdminBookingsPage() {
                     maxLength={500}
                     rows={2}
                     disabled={cancelling}
-                    placeholder="Note (optional, admin only — never shown to the customer)"
+                    placeholder="Note (optional, staff only — stored apart from the booking, not readable by the customer)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
@@ -940,6 +952,26 @@ export default function AdminBookingsPage() {
                   {cancelResult.parkGuardSyncFailed && (
                     <div className="mt-2 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
                       <strong>Park Guard sync pending —</strong> the cancellation refund went through, but Park Guard wasn&apos;t notified. Manually mark the reservation cancelled in the Coverage Hub or check Sentry for details.
+                    </div>
+                  )}
+                  {(cancelResult.reasonNotRecorded || cancelResult.noteNotRecorded) && (
+                    <div className="mt-2 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
+                      <strong>
+                        {cancelResult.reasonNotRecorded ? "Cancellation reason" : "Admin note"} not saved —
+                      </strong>{" "}
+                      the cancellation itself went through, but the{" "}
+                      {cancelResult.reasonNotRecorded && cancelResult.noteNotRecorded
+                        ? "reason and note were"
+                        : cancelResult.reasonNotRecorded
+                        ? "reason was"
+                        : "note was"}{" "}
+                      not written to the database (check Sentry; if migration 032 isn&apos;t applied, apply it).
+                      {cancelResult.noteNotRecorded && cancelNote.trim() && (
+                        <>
+                          {" "}Your note, so it isn&apos;t lost:
+                          <p className="mt-1 whitespace-pre-wrap font-mono text-xs">{cancelNote.trim()}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </>

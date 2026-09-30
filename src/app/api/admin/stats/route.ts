@@ -134,9 +134,11 @@ export async function GET(request: NextRequest) {
       excludeAdmins(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed")
       )),
-      // Cancelled bookings (filtered)
+      // Cancelled bookings (filtered). A refunding cancel writes `refunded`, so
+      // `cancelled` alone showed 0 against ~31 real cancellations. Same
+      // definition as the cancellation report (src/lib/cancellation/report.ts).
       excludeAdmins(applyDateFilter(
-        supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "cancelled")
+        supabase.from("bookings").select("*", { count: "exact", head: true }).in("status", ["cancelled", "refunded"])
       )),
     ]);
 

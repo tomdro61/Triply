@@ -536,7 +536,9 @@ export default function AdminDashboard() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Cancelled</span>
+              <span className="text-gray-600" title="Status cancelled or refunded — the same rule as the Cancellations panel">
+                Cancelled <span className="text-xs text-gray-400">(incl. refunded)</span>
+              </span>
               <span className="font-semibold text-red-600">
                 {stats?.bookings.cancelled || 0}
               </span>

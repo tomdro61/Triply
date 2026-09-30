@@ -16,14 +16,21 @@ import type { CancellationReason, CancelledBy } from "./reason-codes";
 
 export * from "./reason-codes";
 
+/**
+ * Every write here is bounded. "Best-effort" only holds if the catch block is
+ * reached: a Supabase call that hangs would run the cancel into its function
+ * timeout instead — the customer sees a network error, nothing is refunded and
+ * the claim stays held for its stale window. (Rule from the PR #49 review: a
+ * fail-open that depends on a catch block does not fail open on a timeout.)
+ */
+const DB_TIMEOUT_MS = 3_000;
+
 export interface RecordReasonInput {
   /** Row key. Exactly one of these is used: reservation number, else booking id. */
   reservationNumber?: string;
   bookingId?: string;
   cancelledBy: CancelledBy;
   reason: CancellationReason | null;
-  /** Admin only. Omitted → the column is left untouched. */
-  note?: string | null;
   /** Pin to the cancel claim, so a stale request can't relabel a new owner's cancel. */
   ownedAt?: string;
   /** Only write when no one has attributed this row yet (`cancelled_by IS NULL`). */
@@ -40,13 +47,10 @@ export async function recordCancellationReason(input: RecordReasonInput): Promis
   const key = input.reservationNumber ?? input.bookingId ?? "(none)";
   try {
     const supabase = await createAdminClient();
-    const payload: Record<string, unknown> = {
+    let q = supabase.from("bookings").update({
       cancellation_reason: input.reason,
       cancelled_by: input.cancelledBy,
-    };
-    if (input.note !== undefined) payload.cancellation_note = input.note;
-
-    let q = supabase.from("bookings").update(payload);
+    });
     if (input.reservationNumber) {
       q = q.eq("reslab_reservation_number", input.reservationNumber);
     } else if (input.bookingId) {
@@ -57,7 +61,7 @@ export async function recordCancellationReason(input: RecordReasonInput): Promis
     if (input.ownedAt) q = q.eq("cancel_claimed_at", input.ownedAt);
     if (input.onlyIfUnset) q = q.is("cancelled_by", null);
 
-    const { error } = await q;
+    const { error } = await q.abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
     if (error) throw new Error(error.message);
     return true;
   } catch (error) {
@@ -68,6 +72,44 @@ export async function recordCancellationReason(input: RecordReasonInput): Promis
         }`,
       ),
       { endpoint: input.endpoint, method: "POST", statusCode: 200 },
+    );
+    return false;
+  }
+}
+
+/**
+ * The admin's free-text note. Stored in `booking_cancellation_notes`, NOT on
+ * `bookings`: customers can read every column of their own booking row through
+ * PostgREST (RLS row policy, no column restriction), and this table has no
+ * grant to anon/authenticated at all — so the note really is staff-only.
+ * One row per booking; a re-cancel attempt on the same booking overwrites.
+ * Best-effort like the reason: returns false (and logs) on failure, never throws.
+ */
+export async function recordCancellationNote(
+  bookingId: string,
+  note: string,
+  endpoint: string,
+): Promise<boolean> {
+  try {
+    const supabase = await createAdminClient();
+    const { error } = await supabase
+      .from("booking_cancellation_notes")
+      .upsert(
+        { booking_id: bookingId, note, updated_at: new Date().toISOString() },
+        { onConflict: "booking_id" },
+      )
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
+    if (error) throw new Error(error.message);
+    return true;
+  } catch (error) {
+    // Only the error message is logged — never the note text.
+    captureAPIError(
+      new Error(
+        `cancellation note not recorded for booking ${bookingId}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      ),
+      { endpoint, method: "POST", statusCode: 200 },
     );
     return false;
   }
@@ -90,7 +132,8 @@ export async function clearCancellationReason(
       .update({ cancellation_reason: null, cancelled_by: null })
       .eq("reslab_reservation_number", reservationNumber)
       .eq("status", "confirmed")
-      .eq("cancel_claimed_at", ownedAt);
+      .eq("cancel_claimed_at", ownedAt)
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
     if (error) throw new Error(error.message);
   } catch (error) {
     captureAPIError(

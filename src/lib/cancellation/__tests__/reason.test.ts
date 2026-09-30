@@ -16,6 +16,7 @@ vi.mock("@/lib/sentry", () => sentry);
 const {
   parseCustomerReason,
   recordCancellationReason,
+  recordCancellationNote,
   clearCancellationReason,
   adminReasonSchema,
   cancellationNoteSchema,
@@ -33,7 +34,6 @@ function seed(over: Record<string, unknown> = {}) {
       status: "confirmed",
       cancel_claimed_at: OWNED,
       cancellation_reason: null,
-      cancellation_note: null,
       cancelled_by: null,
       ...over,
     },
@@ -42,6 +42,7 @@ function seed(over: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   db.tables.bookings = [];
+  db.tables.booking_cancellation_notes = [];
   db.log = [];
   db.clearFailures();
   sentry.captureAPIError.mockReset();
@@ -120,8 +121,9 @@ describe("recordCancellationReason", () => {
     expect(db.tables.bookings[0]).toMatchObject({
       cancellation_reason: "found_cheaper",
       cancelled_by: "customer",
-      cancellation_note: null,
     });
+    // The reason write never touches the notes table.
+    expect(db.log.filter((l) => l.table === "booking_cancellation_notes")).toEqual([]);
   });
 
   it("a stale owner (claim re-stolen) writes nothing", async () => {
@@ -172,7 +174,6 @@ describe("recordCancellationReason", () => {
         reservationNumber: "RTL1",
         cancelledBy: "admin",
         reason: "other",
-        note: "n",
         endpoint: "/t",
       }),
     ).resolves.toBe(false);
@@ -180,6 +181,39 @@ describe("recordCancellationReason", () => {
     expect(String(sentry.captureAPIError.mock.calls[0][0].message)).toMatch(
       /cancellation reason not recorded for RTL1/,
     );
+  });
+});
+
+describe("recordCancellationNote — staff-only, in its own table", () => {
+  it("writes the note to booking_cancellation_notes, never onto bookings", async () => {
+    seed();
+    const ok = await recordCancellationNote("b1", "gate closed at 3am", "/t");
+    expect(ok).toBe(true);
+    expect(db.tables.booking_cancellation_notes).toEqual([
+      expect.objectContaining({ booking_id: "b1", note: "gate closed at 3am" }),
+    ]);
+    // Nothing note-shaped lands on the customer-readable bookings row.
+    expect(Object.keys(db.tables.bookings[0])).not.toContain("cancellation_note");
+    expect(db.log.filter((l) => l.table === "bookings")).toEqual([]);
+  });
+
+  it("a second note for the same booking replaces the first (one row per booking)", async () => {
+    seed();
+    await recordCancellationNote("b1", "first", "/t");
+    await recordCancellationNote("b1", "second", "/t");
+    expect(db.tables.booking_cancellation_notes).toHaveLength(1);
+    expect(db.tables.booking_cancellation_notes[0].note).toBe("second");
+  });
+
+  it("a DB error (e.g. 032 not applied) returns false, logs WITHOUT the note text, never throws", async () => {
+    seed();
+    db.failOnce("booking_cancellation_notes", "insert", 'relation "booking_cancellation_notes" does not exist', "42P01");
+    await expect(recordCancellationNote("b1", "suspected chargeback abuse", "/t")).resolves.toBe(false);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    const msg = String(sentry.captureAPIError.mock.calls[0][0].message);
+    expect(msg).toMatch(/cancellation note not recorded for booking b1/);
+    expect(msg).not.toMatch(/chargeback/);
+    expect(db.tables.booking_cancellation_notes).toEqual([]);
   });
 });
 
