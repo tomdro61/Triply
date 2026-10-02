@@ -6,7 +6,6 @@ import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { PartnerInquiryForm } from "@/components/partners/partner-inquiry-form";
-import { productionAirports } from "@/config/airports";
 import {
   ArrowLeft,
   Building2,
@@ -17,10 +16,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 
-const airportCount = productionAirports.length;
-
 const title = "List Your Parking Lot";
-const description = `Own or operate an airport parking lot or garage? List it on Triply to reach travelers comparing parking at ${airportCount} airports across the US and Canada.`;
+const description = `Own or operate an airport parking lot or garage? List it on Triply to reach travelers comparing parking at 80+ airports across the US and Canada.`;
 
 export const metadata: Metadata = {
   title,
@@ -43,7 +40,7 @@ const benefits = [
   {
     icon: Search,
     title: "In front of travelers who are ready to book",
-    body: `Your lot appears in Triply search results and on our airport parking pages, where travelers compare options side by side at ${airportCount} airports across the US and Canada.`,
+    body: `Your lot appears in Triply search results and on our airport parking pages, where travelers compare options side by side at 80+ airports across the US and Canada.`,
   },
   {
     icon: BookOpen,
@@ -53,7 +50,7 @@ const benefits = [
   {
     icon: CreditCard,
     title: "Prepaid reservations, monthly payouts",
-    body: "Travelers pay online when they reserve, and the reservation is only confirmed once payment goes through. Partners are paid monthly.",
+    body: "Travelers pay online when they reserve, and the reservation is only confirmed once payment goes through. Triply pays partners monthly.",
   },
   {
     icon: LayoutDashboard,
@@ -69,7 +66,7 @@ const steps = [
   },
   {
     title: "We get in touch",
-    body: "Our team reviews your details and contacts you to talk through your facility and how listing works.",
+    body: "Our team reviews your details and contacts you directly to talk through your facility and how listing works. There is no middleman: your agreement is with Triply.",
   },
   {
     title: "Your lot goes live",
@@ -89,7 +86,7 @@ const faqs = [
   },
   {
     question: "Which airports does Triply cover?",
-    answer: `Travelers can compare parking at ${airportCount} airports across the US and Canada on Triply. If your airport is not listed yet, choose "Other / not listed" on the form and tell us where you are.`,
+    answer: `Travelers can compare parking at 80+ airports across the US and Canada on Triply. If your airport is not listed yet, choose "Other / not listed" on the form and tell us where you are.`,
   },
   {
     question: "How do travelers pay?",
@@ -98,7 +95,7 @@ const faqs = [
   },
   {
     question: "How often are partners paid?",
-    answer: "Partners are paid monthly.",
+    answer: "Triply pays partners directly, monthly.",
   },
   {
     question: "How will I see my Triply reservations?",
@@ -108,7 +105,7 @@ const faqs = [
   {
     question: "What are the terms for listing?",
     answer:
-      "Beyond monthly payment, we go through terms directly with each operator once we know more about your facility. Send the form and we will contact you.",
+      "Operators partner directly with Triply, and the listing agreement is between you and Triply. Beyond monthly payment, we go through the terms with each operator once we know more about the facility. Send the form and we will contact you.",
   },
   {
     question: "How quickly will you get back to me?",
