@@ -4,6 +4,7 @@ import { reslab } from "@/lib/reslab/client";
 import { generateSlug } from "@/lib/utils/slug";
 import {
   getPublishedPosts,
+  CmsAuthError,
   getDistinctAirportCodes,
   getCategories,
   getContentUpdatedAt,
@@ -89,7 +90,10 @@ async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }
@@ -102,7 +106,10 @@ async function blogCategoryPages(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.6,
     }));
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }
@@ -199,7 +206,10 @@ async function blogPostPages(id: number): Promise<MetadataRoute.Sitemap> {
         priority: priorityMap[post.articleType || ""] || 0.6,
       })
     );
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }

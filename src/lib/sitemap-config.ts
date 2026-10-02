@@ -34,6 +34,11 @@ export async function getSitemapSegmentIds(): Promise<number[]> {
       ids.push(BLOG_ID_START + i);
     }
   } catch {
+    // Deliberately NOT rethrowing CmsAuthError here: this runs at build time
+    // (generateSitemaps) and for /api/sitemap-index. A refused CMS key must
+    // not fail the build or drop the static/airport/lot segments — the blog
+    // segment itself 500s loudly (sitemap.ts) and fetchFromCms already
+    // reported the cms:auth event.
     ids.push(BLOG_ID_START);
   }
 

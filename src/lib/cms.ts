@@ -12,6 +12,26 @@ const CMS_URL = process.env.NEXT_PUBLIC_CMS_URL || 'http://localhost:3001'
 // never reaches the client bundle.
 const CMS_API_KEY = process.env.PAYLOAD_API_KEY
 
+/**
+ * The CMS refused the main app's credentials (401/403). Distinct class so the
+ * sitemap and page-level catch blocks can let it propagate instead of
+ * rendering "no posts" — a bad or missing PAYLOAD_API_KEY must be loud.
+ */
+export class CmsAuthError extends Error {
+  readonly statusCode: number
+  constructor(path: string, statusCode: number) {
+    super(
+      `CMS refused the main app's API key (${statusCode}) on ${path} — check PAYLOAD_API_KEY in Vercel (cms:auth)`,
+    )
+    this.name = 'CmsAuthError'
+    this.statusCode = statusCode
+  }
+}
+
+const AUTH_CAPTURE_INTERVAL_MS = 5 * 60 * 1000
+let lastAuthCaptureAt = 0
+let authCapturesSuppressed = 0
+
 export function resolveCmsImageUrl(url: string): string {
   if (!url) return ''
   if (url.startsWith('http')) return url
@@ -80,7 +100,51 @@ export async function fetchFromCms(
     }
   }
 
-  // 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
+  // 401/403 is never a content answer: it means PAYLOAD_API_KEY is missing,
+  // wrong or revoked while the CMS requires it (Phase 0 lockdown, Oct 2026).
+  // Returning null here would dark-launch an EMPTY blog and sitemap with
+  // nothing but a console line — the exact silent failure the June 25 and
+  // Sept notes warned about. Throw instead so SSR 500s (search engines retry)
+  // and Sentry gets a tagged event the moment a key goes bad.
+  if (res.status === 401 || res.status === 403) {
+    const err = new CmsAuthError(path, res.status)
+    // Throttled: a 403 is never stored in Next's data cache, so a bot crawling
+    // long-tail blog slugs while the key is bad would otherwise fire one Sentry
+    // event per request. One event per instance per 5 min carries the
+    // suppressed count; the throw itself is never suppressed.
+    const now = Date.now()
+    if (now - lastAuthCaptureAt > AUTH_CAPTURE_INTERVAL_MS) {
+      const suppressed = authCapturesSuppressed
+      lastAuthCaptureAt = now
+      authCapturesSuppressed = 0
+      let bodyHead = ''
+      try {
+        bodyHead = (await res.text()).slice(0, 200)
+      } catch {
+        bodyHead = '(unreadable)'
+      }
+      captureAPIError(err, {
+        endpoint: path,
+        method: 'GET',
+        statusCode: res.status,
+        stage: 'cms:auth',
+        // Tells a Payload 403 ("You are not allowed…") apart from a Vercel
+        // WAF / bot-challenge 403, which would otherwise read as a key problem.
+        extra: {
+          server: res.headers.get('server'),
+          mitigated: res.headers.get('x-vercel-mitigated'),
+          bodyHead,
+          suppressedSinceLastCapture: suppressed,
+          keyConfigured: Boolean(CMS_API_KEY),
+        },
+      })
+    } else {
+      authCapturesSuppressed++
+    }
+    throw err
+  }
+
+  // Other 4xx falls through here — real "not found" / bad query, distinct from 5xx/network which throw above so SSR returns 500 (search engines retry) instead of masking as 404.
   if (!res.ok) {
     console.error(`CMS fetch error ${res.status} on ${path}`)
     // A systemic 4xx (e.g. a bad where-clause on a new query field) degrades

@@ -9,6 +9,7 @@ import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
+import { getPublishedPosts } from "@/lib/cms";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 
 // Build airport code enum from config
@@ -249,22 +250,11 @@ export async function POST(request: NextRequest) {
           }),
           execute: async ({ query }: { query: string }) => {
             try {
-              const cmsUrl =
-                process.env.NEXT_PUBLIC_CMS_URL || "http://localhost:3001";
-              const res = await fetch(
-                `${cmsUrl}/api/posts?where[status][equals]=published&sort=-publishedAt&depth=1&limit=5`,
-                { next: { revalidate: 300 } }
-              );
-
-              if (!res.ok) {
-                return {
-                  success: false as const,
-                  posts: [] as { title: string; excerpt: string; content: string; slug: string; publishedAt: string }[],
-                  message: "Could not fetch blog posts",
-                };
-              }
-
-              const data = await res.json();
+              // Through the shared CMS helper so this read carries the main
+              // app's API key (CMS reads lock in Phase 0b), its 8 s timeout
+              // and the cms:auth Sentry capture — a direct fetch here would
+              // have silently lost blog search the day reads locked.
+              const data = await getPublishedPosts({ depth: "1" }, 1, 5);
               const allPosts = data.docs || [];
 
               if (allPosts.length === 0) {
