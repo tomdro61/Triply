@@ -33,7 +33,16 @@ export async function getSitemapSegmentIds(): Promise<number[]> {
     for (let i = 0; i < blogSegmentCount; i++) {
       ids.push(BLOG_ID_START + i);
     }
-  } catch {
+  } catch (error) {
+    // Deliberately NOT rethrowing CmsAuthError here. This runs at build time
+    // (generateSitemaps) and for /api/sitemap-index: swallowing keeps the
+    // index and the static/airport/lot segments listed. Note that a refused
+    // key still FAILS THE BUILD through the prerendered blog segments in
+    // sitemap.ts (their rethrow is deliberate — red builds are the loud
+    // signal; PAYLOAD_API_KEY must be set in Production, Preview and local
+    // env before CMS reads lock). fetchFromCms already reported the
+    // cms:auth event; log the rest so a 5xx/timeout here isn't invisible.
+    console.warn("sitemap: blog post count unavailable, listing one blog segment:", error);
     ids.push(BLOG_ID_START);
   }
 

@@ -9,7 +9,9 @@ interface BlogFeaturedPostProps {
     excerpt: string;
     category?: { name: string } | null;
     featuredImage?: { url: string; alt?: string } | null;
-    author?: { name?: string; email?: string } | null;
+    // A number when the reader may not populate users (anonymous CMS reads
+    // since the Oct 2026 lockdown); an object when the main app reads with its key.
+    author?: number | { name?: string; email?: string } | null;
     publishedAt?: string | null;
   };
 }
@@ -47,8 +49,8 @@ export function BlogFeaturedPost({ post }: BlogFeaturedPostProps) {
           <p className="text-gray-600 mb-4 line-clamp-3">{post.excerpt}</p>
 
           <div className="flex items-center gap-3 text-sm text-gray-500">
-            {post.author && (
-              <span>{post.author.name || post.author.email}</span>
+            {typeof post.author === 'object' && post.author?.name && (
+              <span>{post.author.name}</span>
             )}
             {post.publishedAt && (
               <time dateTime={post.publishedAt}>
