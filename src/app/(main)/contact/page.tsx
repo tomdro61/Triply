@@ -199,6 +199,18 @@ export default function ContactPage() {
                           </option>
                         ))}
                       </select>
+                      {formData.subject === "Partnership Inquiry" && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          Own or operate a parking lot?{" "}
+                          <Link
+                            href="/partners"
+                            className="text-brand-orange hover:text-orange-600 font-medium"
+                          >
+                            See how to list it on Triply
+                          </Link>
+                          .
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -282,6 +294,14 @@ export default function ContactPage() {
                       className="text-brand-orange hover:text-orange-600 text-sm font-medium"
                     >
                       View My Reservations
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/partners"
+                      className="text-brand-orange hover:text-orange-600 text-sm font-medium"
+                    >
+                      Own a parking lot? List it on Triply
                     </Link>
                   </li>
                   <li>

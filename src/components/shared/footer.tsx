@@ -9,6 +9,7 @@ export function Footer() {
       links: [
         { label: "About Us", href: "/about" },
         { label: "Blog", href: "/blog" },
+        { label: "List Your Lot", href: "/partners" },
       ],
     },
     {

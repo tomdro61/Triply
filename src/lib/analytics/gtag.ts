@@ -327,6 +327,20 @@ export function trackContactFormSubmit() {
 }
 
 /**
+ * Track a lot-operator inquiry sent from /partners. Same `generate_lead`
+ * event as the contact form, with its own lead_type so supply leads can be
+ * counted apart from customer messages.
+ */
+export function trackPartnerInquirySubmit(airportCode: string) {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", "generate_lead", {
+      lead_type: "partner_inquiry",
+      airport_code: airportCode,
+    });
+  }
+}
+
+/**
  * Track a click on a blog article's booking CTA, or a search submitted from
  * the booking widget at the top of an article — the two ways a blog reader
  * can head toward checkout.
