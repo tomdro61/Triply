@@ -9,7 +9,7 @@ import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
-import { getPublishedPosts } from "@/lib/cms";
+import { CmsAuthError, getPublishedPosts } from "@/lib/cms";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
 
 // Build airport code enum from config
@@ -308,7 +308,17 @@ export async function POST(request: NextRequest) {
                     ? "No blog posts found matching your query"
                     : undefined,
               };
-            } catch {
+            } catch (err) {
+              // CmsAuthError is already captured (throttled) in fetchFromCms;
+              // everything else — CMS 5xx, unreachable, timeout, a parser
+              // throw — was previously swallowed with no signal at all.
+              if (!(err instanceof CmsAuthError)) {
+                captureAPIError(err instanceof Error ? err : new Error(String(err)), {
+                  endpoint: "/api/chat#searchBlog",
+                  method: "GET",
+                  stage: "cms",
+                });
+              }
               return {
                 success: false as const,
                 posts: [] as { title: string; excerpt: string; content: string; slug: string; publishedAt: string }[],

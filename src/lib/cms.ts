@@ -19,9 +19,11 @@ const CMS_API_KEY = process.env.PAYLOAD_API_KEY
  */
 export class CmsAuthError extends Error {
   readonly statusCode: number
-  constructor(path: string, statusCode: number) {
+  constructor(path: string, statusCode: number, keyConfigured: boolean) {
     super(
-      `CMS refused the main app's API key (${statusCode}) on ${path} — check PAYLOAD_API_KEY in Vercel (cms:auth)`,
+      keyConfigured
+        ? `CMS refused the main app's API key (${statusCode}) on ${path} — check PAYLOAD_API_KEY in Vercel, or a WAF challenge (cms:auth)`
+        : `CMS requires authentication (${statusCode}) on ${path} but PAYLOAD_API_KEY is not configured (cms:auth)`,
     )
     this.name = 'CmsAuthError'
     this.statusCode = statusCode
@@ -107,7 +109,7 @@ export async function fetchFromCms(
   // Sept notes warned about. Throw instead so SSR 500s (search engines retry)
   // and Sentry gets a tagged event the moment a key goes bad.
   if (res.status === 401 || res.status === 403) {
-    const err = new CmsAuthError(path, res.status)
+    const err = new CmsAuthError(path, res.status, Boolean(CMS_API_KEY))
     // Throttled: a 403 is never stored in Next's data cache, so a bot crawling
     // long-tail blog slugs while the key is bad would otherwise fire one Sentry
     // event per request. One event per instance per 5 min carries the
@@ -140,6 +142,8 @@ export async function fetchFromCms(
       })
     } else {
       authCapturesSuppressed++
+      // Not reading the body: release the socket instead of holding it to GC.
+      res.body?.cancel().catch(() => {})
     }
     throw err
   }
