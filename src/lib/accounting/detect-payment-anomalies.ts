@@ -228,8 +228,15 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
 
   // Double-charges: group retained by card fingerprint (fallback email);
   // flag groups holding MORE charges than bookings (an unresolved duplicate).
+  //
+  // Only CHECKOUT charges take part. A non-checkout charge (a Payment Link for
+  // a date change, a dashboard charge) sharing an email with a real booking is
+  // not a double charge — it is already reported as an unmatched charge above
+  // for 48 h. Counting it here paged "1 double-charge" every day for the whole
+  // 14-day window after a $4.74 Payment Link (Oct 2026).
   const groups = new Map<string, Row[]>();
   for (const r of retained) {
+    if (!r.fromCheckout) continue;
     // Group by customer EMAIL first — it's stable across payment methods. Card
     // fingerprints are NOT: the same card via Apple/Google Pay carries a
     // device token with a different fingerprint than the card entered manually,
