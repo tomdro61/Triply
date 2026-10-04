@@ -40,6 +40,14 @@ function leaf(expr: string): (row: Row) => boolean {
         return actual != null && String(actual) >= raw;
       case "is":
         return raw === "null" ? actual == null : String(actual) === raw;
+      case "ilike":
+        // Same LIKE-pattern semantics as the `.ilike()` builder (see likeRegex).
+        return actual != null && likeRegex(raw).test(String(actual));
+      case "in": {
+        // PostgREST `col.in.(a,b,c)`.
+        const list = raw.replace(/^\(/, "").replace(/\)$/, "").split(",").map((s) => s.trim());
+        return list.includes(String(actual));
+      }
       default:
         throw new Error(`supabase-fake: unsupported or() operator "${op}"`);
     }
