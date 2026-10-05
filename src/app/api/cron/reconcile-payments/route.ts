@@ -158,6 +158,7 @@ export async function GET(request: NextRequest) {
     duplicateBookings: report.duplicateBookings.length,
     freshUnmatched,
     possibleManualCharges: report.possibleManualCharges.length,
+    invoicePayments: report.invoicePayments,
     scanned: report.scannedPaymentIntents,
     windowDays: WINDOW_DAYS,
     stripeLivemode: report.stripeLivemode,
