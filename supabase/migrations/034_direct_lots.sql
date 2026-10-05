@@ -18,7 +18,8 @@
 --   livemode                   Stripe mode of the PaymentIntent — NOT NULL for
 --                              direct rows; it is the ONLY staging/prod marker
 --                              on this shared table (test exclusion = livemode=false).
-SET lock_timeout = '3s';
+BEGIN;
+SET LOCAL lock_timeout = '3s';
 
 -- bookings ------------------------------------------------------------------
 ALTER TABLE bookings
@@ -54,12 +55,15 @@ DO $$ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.bookings'::regclass AND conname = 'bookings_direct_fields_check') THEN
     ALTER TABLE bookings ADD CONSTRAINT bookings_direct_fields_check
+      -- Every predicate carries IS NOT NULL: in a CHECK, NULL counts as PASS, so
+      -- `x BETWEEN 0 AND 100` alone would admit a direct row with no payout
+      -- inputs at all (review H1 on the synthesis SQL).
       CHECK (inventory_source <> 'direct' OR (
         livemode IS NOT NULL
         AND lot_snapshot IS NOT NULL
-        AND direct_partner_share_percent BETWEEN 0 AND 100
-        AND direct_tax_rate_percent >= 0
-        AND direct_tax_collected_by IN ('triply', 'lot')));
+        AND direct_partner_share_percent IS NOT NULL AND direct_partner_share_percent BETWEEN 0 AND 100
+        AND direct_tax_rate_percent IS NOT NULL AND direct_tax_rate_percent >= 0
+        AND direct_tax_collected_by IS NOT NULL AND direct_tax_collected_by IN ('triply', 'lot')));
   END IF;
 END $$;
 
@@ -109,6 +113,7 @@ COMMENT ON COLUMN bookings.livemode IS
   'Stripe livemode of the PaymentIntent. NOT NULL for direct rows; NULL on pre-015 ResLab rows (= live).';
 
 NOTIFY pgrst, 'reload schema';
+COMMIT;
 
 -- Verify:
 --   SELECT conrelid::regclass, conname, convalidated FROM pg_constraint

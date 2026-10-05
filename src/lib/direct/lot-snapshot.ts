@@ -10,8 +10,11 @@ import { DIRECT_LOT_VISIBILITIES } from "./visibility";
  * CMS edit never changes history. Versioned so a reader can refuse a shape it
  * does not understand instead of guessing.
  *
- * Money INPUTS (rate, tax, share) are here for audit; the money the customer
- * was charged lives in PaymentIntent metadata, which is the only authority.
+ * Money INPUTS (rate, tax) are here for audit; the money the customer was
+ * charged lives in PaymentIntent metadata, which is the only authority. The
+ * partner share is NOT here: a signed-in customer can read their own bookings
+ * row (RLS, 001) and with it this snapshot; the share lives only in the typed
+ * `direct_partner_share_percent` column (Phase 4 decides its read grant).
  */
 export const lotSnapshotSchema = z.object({
   v: z.literal(1),
@@ -40,12 +43,11 @@ export const lotSnapshotSchema = z.object({
   rateCents: z.number().int().positive(),
   taxRatePercent: z.number().min(0).max(100),
   taxCollectedBy: z.enum(["triply", "lot"]),
-  partnerSharePercent: z.number().min(0).max(100),
   minStayDays: z.number().int().min(1),
   minLeadHours: z.number().min(0),
   /** Fallback recipients only; the live CMS value is preferred at send time (C7). */
   notificationEmails: z.array(z.string().email()).min(1),
-});
+}).strict(); // unknown keys are refused, not stripped: a snapshot with extra data is a bug
 
 export type LotSnapshot = z.infer<typeof lotSnapshotSchema>;
 

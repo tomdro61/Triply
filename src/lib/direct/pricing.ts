@@ -25,16 +25,16 @@ const WALL_CLOCK_RE = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$
  * NOT a timezone conversion (CLAUDE.md: booking times are literal strings):
  * both ends of a stay are in the same airport's clock, so their difference is
  * what the customer sees on their own watch. Date.UTC is used purely as
- * calendar arithmetic. (A DST change inside the stay shifts the true elapsed
- * time by an hour; the customer-facing day count follows the wall clock, which
- * is also what ResLab bills by.)
+ * calendar arithmetic. A DST change inside the stay shifts the true elapsed
+ * time by an hour; the day count here follows the WALL CLOCK (pinned by a
+ * test). Whether ResLab does the same across a DST boundary is unverified.
  */
 export function wallClockMinutes(value: string): number | null {
   const m = WALL_CLOCK_RE.exec(value.trim());
   if (!m) return null;
-  const [, y, mo, d, h, mi] = m.map(Number);
-  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
-  const ms = Date.UTC(y, mo - 1, d, h, mi);
+  const [, y, mo, d, h, mi, sec] = m.map(Number);
+  if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || (Number.isFinite(sec) && sec > 59)) return null;
+  const ms = Date.UTC(y, mo - 1, d, h, mi); // seconds never change a billed-day count
   // Reject calendar roll-over (e.g. 2026-02-30 → March 2).
   const probe = new Date(ms);
   if (probe.getUTCMonth() !== mo - 1 || probe.getUTCDate() !== d) return null;

@@ -769,7 +769,8 @@ export function CheckoutForm({
         if (DEV_SKIP_PAYMENT) {
           // Dev mode without full API data - create mock confirmation
           console.log("[DEV MODE] Creating mock reservation (missing costsToken or parkingTypeId)");
-          const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+          // DEV- so a mock id never matches the real TRP- confirmation format (direct lots, A-21).
+          const confirmationId = `DEV-${Date.now().toString(36).toUpperCase()}`;
 
           // Store lot data for confirmation page (in case lot ID isn't in mock data)
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));

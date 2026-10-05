@@ -12,6 +12,10 @@ describe("directDays — 24-hour periods from drop-off to pickup", () => {
     ["2026-10-02 11:30:00", "2026-10-02 13:00:00", 1], // same day → 1 day minimum
     ["2026-10-02 23:00:00", "2026-10-03 01:00:00", 1], // crosses midnight, 2 h → 1 day
     ["2026-12-31 10:00", "2027-01-01 10:00", 1], // year boundary, HH:MM form
+    ["2028-02-28 10:00:00", "2028-03-01 10:00:00", 2], // leap day counts
+    // Wall-clock rule across the US fall-back night (Nov 1 2026): exactly 24 h on
+    // the clock = 1 day, even though 25 real hours elapsed. Unverified vs ResLab.
+    ["2026-11-01 00:30:00", "2026-11-02 00:30:00", 1],
   ])("%s → %s = %i day(s)", (a, b, days) => {
     const r = directDays(a, b);
     expect(r.ok).toBe(true);
@@ -28,6 +32,9 @@ describe("directDays — 24-hour periods from drop-off to pickup", () => {
     expect(directDays("2026-02-30 10:00:00", "2026-03-02 10:00:00").ok).toBe(false);
     expect(directDays("not a date", "2026-10-05 07:00:00").ok).toBe(false);
     expect(wallClockMinutes("2026-10-02 24:00:00")).toBeNull();
+    expect(wallClockMinutes("2026-10-02 10:00:99")).toBeNull();
+    expect(wallClockMinutes("2026-02-29 10:00:00")).toBeNull(); // not a leap year
+    expect(wallClockMinutes("2028-02-29 10:00:00")).not.toBeNull();
   });
 });
 
@@ -58,6 +65,12 @@ describe("computeDirectQuote — integer cents, ResLab column semantics", () => 
     expect(q.grandTotalCents).toBe(11000);
     expect(q.discountCents).toBe(1000);
     expect(q.chargeCents).toBe(11000 - 1000 + q.serviceFeeCents);
+  });
+
+  it("a 100 % promo leaves tax + service fee on the charge", () => {
+    const q = computeDirectQuote({ rateCents: 2000, days: 2, taxRatePercent: 10, discountPercent: 100 });
+    expect(q.discountCents).toBe(4000);
+    expect(q.chargeCents).toBe(400 + q.serviceFeeCents);
   });
 
   it("rounding never produces fractional cents", () => {

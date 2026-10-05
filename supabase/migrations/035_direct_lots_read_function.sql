@@ -11,8 +11,12 @@
 -- and the app's `direct/store.ts` integration test catches it.
 --
 -- Apply AFTER the CMS migration 20261005_add_lots (the tables must exist),
--- BEFORE the app code that calls it. Re-run-safe (CREATE OR REPLACE / guarded).
+-- BEFORE the app code that calls it. Re-run-safe. NOTE: a RETURNS TABLE signature
+-- cannot be changed by CREATE OR REPLACE — adding a column later means DROP +
+-- CREATE + re-GRANT, with a window where rpc() 404s. Hence the full column set
+-- (incl. content/SEO) is returned from the start.
 SET lock_timeout = '3s';
+DROP FUNCTION IF EXISTS public.direct_lots(TEXT, INTEGER);
 
 GRANT USAGE ON SCHEMA payload TO service_role;
 GRANT SELECT ON payload.lots, payload.lots_rels, payload.lots_notification_emails,
@@ -27,6 +31,9 @@ RETURNS TABLE (
   airport_code TEXT,
   reslab_location_id INTEGER,
   description_short TEXT,
+  content JSONB,
+  seo_meta_title TEXT,
+  seo_meta_description TEXT,
   featured_image_url TEXT,
   featured_image_alt TEXT,
   gallery_urls TEXT[],
@@ -69,6 +76,9 @@ BEGIN
     l.airport_code::text,
     l.reslab_location_id::integer,
     l.description_short::text,
+    l.content,
+    l.seo_meta_title::text,
+    l.seo_meta_description::text,
     fm.url::text,
     fm.alt::text,
     COALESCE((
@@ -134,6 +144,9 @@ GRANT EXECUTE ON FUNCTION public.direct_lots(TEXT, INTEGER) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
 
+-- media.url is a RELATIVE CMS path (/api/media/file/<name>) served through
+-- cms.triplypro.com with Media read public (A-13): the store resolves it with
+-- resolveCmsImageUrl. PostgREST returns numeric columns as JSON numbers.
 -- Verify:
 --   SELECT count(*) FROM public.direct_lots();                       -- 0 until the first lot
 --   SELECT has_function_privilege('anon', 'public.direct_lots(text,integer)', 'EXECUTE');          -- false

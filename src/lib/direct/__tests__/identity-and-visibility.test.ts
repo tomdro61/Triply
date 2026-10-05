@@ -76,7 +76,6 @@ describe("lot snapshot schema", () => {
     rateCents: 1595,
     taxRatePercent: 18.375,
     taxCollectedBy: "triply",
-    partnerSharePercent: 80,
     minStayDays: 1,
     minLeadHours: 2,
     notificationEmails: ["ops@triplypro.com"],
@@ -96,6 +95,7 @@ describe("lot snapshot schema", () => {
     ["lowercase airport", { ...good, airportCode: "lga" }],
     ["unknown visibility", { ...good, visibility: "everyone" }],
     ["missing street", { ...good, address: { ...good.address, street: "" } }],
+    ["partner share leaked into the snapshot", { ...good, partnerSharePercent: 80 }],
   ])("rejects %s", (_label, bad) => {
     expect(parseLotSnapshot(bad)).toBeNull();
   });
