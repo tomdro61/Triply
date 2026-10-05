@@ -85,7 +85,7 @@ BEGIN
       SELECT array_agg(gm.url::text ORDER BY g._order)
         FROM payload.lots_gallery g
         JOIN payload.media gm ON gm.id = g.image_id
-       WHERE g._parent_id = l.id
+       WHERE g._parent_id = l.id AND gm.url IS NOT NULL  -- a media row mid-upload must not blank the gallery
     ), ARRAY[]::text[]),
     l.distance_to_terminal_minutes,
     l.shuttle_details::text,

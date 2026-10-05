@@ -20,6 +20,7 @@
  * See supabase/migrations/025_availability_log.sql.
  */
 
+import { resolveEnv } from "@/lib/env";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
@@ -100,15 +101,8 @@ export function localToday(timeZone: string): string {
  * longer make production rows land as 'unknown' and leave the rollup empty
  * forever with nothing to say why.
  */
-export function resolveEnv(): string {
-  const configured = process.env.NEXT_PUBLIC_APP_ENV;
-  if (configured) return configured;
-  const vercel = process.env.VERCEL_ENV;
-  if (vercel === "production" || vercel === "preview" || vercel === "development") {
-    return vercel;
-  }
-  return "unknown";
-}
+// resolveEnv moved to @/lib/env (shared by pure libraries); re-exported for existing callers.
+export { resolveEnv };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
