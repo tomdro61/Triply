@@ -93,6 +93,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="make"
               value={data.make}
               onChange={(e) => handleChange("make", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -119,6 +120,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="model"
               value={data.model}
               onChange={(e) => handleChange("model", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -145,6 +147,7 @@ export function VehicleDetailsStep({
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           />
           <select
+            data-funnel-field="color"
             value={data.color}
             onChange={(e) => handleChange("color", e.target.value)}
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer ${
@@ -178,6 +181,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="licensePlate"
               value={data.licensePlate}
               onChange={(e) =>
                 handleChange("licensePlate", e.target.value.toUpperCase())
@@ -200,6 +204,7 @@ export function VehicleDetailsStep({
             State *
           </label>
           <select
+            data-funnel-field="state"
             value={data.state}
             onChange={(e) => handleChange("state", e.target.value)}
             className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer ${
@@ -254,6 +259,7 @@ export function VehicleDetailsStep({
                     {field.inputType === "textarea" ? (
                       <textarea
                         id={inputId}
+                        data-funnel-field={`extra:${field.name}`}
                         value={extraFieldValues[field.name] || ""}
                         onChange={(e) =>
                           onExtraFieldChange?.(field.name, e.target.value)
@@ -268,6 +274,7 @@ export function VehicleDetailsStep({
                       <input
                         id={inputId}
                         type={field.inputType === "number" ? "number" : "text"}
+                        data-funnel-field={`extra:${field.name}`}
                         value={extraFieldValues[field.name] || ""}
                         onChange={(e) =>
                           onExtraFieldChange?.(field.name, e.target.value)
