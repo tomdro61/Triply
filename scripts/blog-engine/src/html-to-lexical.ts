@@ -298,7 +298,7 @@ function convertInlineNode(child: Node, inheritFormat = 0): LexicalNode[] {
   const result: LexicalNode[] = []
 
   if (child.nodeType === NodeType.TEXT_NODE) {
-    const text = (child as TextNode).rawText
+    const text = (child as TextNode).text // .text decodes entities; rawText kept "&amp;" literally
     if (text) {
       result.push(makeTextNode(text, inheritFormat))
     }
@@ -544,7 +544,7 @@ function convertChildBlocks(container: HTMLElement): LexicalNode[] {
 
   for (const child of container.childNodes) {
     if (child.nodeType === NodeType.TEXT_NODE) {
-      const text = (child as TextNode).rawText.trim()
+      const text = (child as TextNode).text.trim()
       if (text) {
         pendingInline.push(makeTextNode(text))
       }
