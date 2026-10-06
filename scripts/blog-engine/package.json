@@ -13,6 +13,7 @@
     "import-queue": "tsx src/import-queue.ts",
     "dev": "tsx src/index.ts",
     "migrate-tables": "tsx src/migrate-tables.ts",
+    "backlinks": "tsx src/backlinks.ts",
     "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {
