@@ -15,6 +15,18 @@ import {
   getChannelLocationsCached,
   BLOCKED_RESLAB_LOCATION_IDS,
 } from "./search";
+import { cache } from "react";
+import { getAirportByCode } from "@/config/airports";
+import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
+import {
+  fetchDirectLots,
+  isSellable,
+  parseDirectLotUnifiedId,
+  type DirectLot,
+  type DirectLotsResult,
+} from "@/lib/direct/store";
+import { directLotToUnified } from "@/lib/direct/adapter";
+import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 
 /**
  * Airport coordinates for distance calculation
@@ -260,7 +272,17 @@ export async function findLotBySlug(
   // Callers propagate; the page renders an error state rather than a false 404.
   const { data: locations, incomplete } = await getChannelLocationsCached();
 
-  const match = locations.find((loc) => generateSlug(loc.name) === slug);
+  // Slugs are derived from names, and the channel can carry two lots with the
+  // same name at different airports. When the caller knows which airport the
+  // URL was under, prefer the match nearest it — otherwise a JFK link could
+  // open (and sell) the other airport's lot of the same name (review M5).
+  const matches = locations.filter((loc) => generateSlug(loc.name) === slug);
+  let match = matches[0];
+  if (matches.length > 1 && airportCoords) {
+    const dist = (loc: ReslabLocation) =>
+      calculateDistance(airportCoords.latitude, airportCoords.longitude, parseFloat(loc.latitude), parseFloat(loc.longitude), false);
+    match = matches.reduce((best, loc) => (dist(loc) < dist(best) ? loc : best), matches[0]);
+  }
   if (!match) {
     if (incomplete) {
       // The list is KNOWN thin — the cache deliberately retains a partial sweep
@@ -293,28 +315,118 @@ export async function findLotBySlug(
 }
 
 /**
- * Get lot by ID (handles both reslab-{id} format and direct ID)
+ * The sellable DIRECT lots, read once per request. `React.cache` dedupes the
+ * lot page's two calls (body + generateMetadata) — they pass different
+ * from/to times, so caching getLotById itself would not. Returns the typed
+ * failure rather than throwing so the caller can decide what "unknown" means
+ * for the id it was asked about (a ResLab id does not care; a miss does).
+ */
+const loadSellableDirectLots = cache(async (): Promise<DirectLotsResult> => {
+  const r = await fetchDirectLots({}, "getLotById");
+  return r.ok ? { ...r, lots: r.lots.filter((l) => isSellable(l)) } : r;
+});
+
+function directToUnified(lot: DirectLot, fromDate: string, toDate: string): UnifiedLot {
+  // directLotFromRow already refused any row whose airport is not configured
+  // and enabled, so this lookup cannot miss for a lot that reached us.
+  const airport = getAirportByCode(lot.airportCode);
+  if (!airport) throw new Error(`direct lot ${lot.id}: airport ${lot.airportCode} vanished from config`);
+  return directLotToUnified(lot, airport, { fromDate, toDate });
+}
+
+/**
+ * Where the lookup came from. `code` is the airport in the page URL (the lot
+ * page always has one; the checkout API has none) and scopes DIRECT matches
+ * to that airport, so a JFK direct lot does not render under /boston-… and a
+ * CMS slug cannot shadow another airport's ResLab lot (plan A-24).
+ */
+export interface LotLookupContext extends AirportCoords {
+  code?: string;
+}
+
+type ReslabAttempt = { ok: true; lot: UnifiedLot | null } | { ok: false; error: unknown };
+
+/**
+ * Resolve a lot page / checkout id. Order (plan A-24):
+ *   1. `direct-<id>`          → the direct lot (flag on); no ResLab call
+ *   2. `reslab-<id>` / `<id>` → ResLab
+ *   3. slug                   → direct slug first (CMS slugs are unique),
+ *                               then the ResLab slug walk
+ * With DIRECT_BOOKING_OPEN, a ResLab lot that a direct lot declares as its
+ * twin renders as the direct lot (search suppresses it too — review B17);
+ * until then the ResLab listing keeps selling (review M3).
+ *
+ * The direct read and the ResLab resolution run CONCURRENTLY (review M7), so a
+ * ResLab lot page never waits on the database and a direct lot page never
+ * waits on ResLab — a direct slug hit discards the ResLab outcome, including a
+ * thin-list 503. A miss while the direct read itself FAILED is a 503, never a
+ * 404 — the same rule as the thin ResLab list in findLotBySlug.
+ *
+ * Numeric ids are matched STRICTLY (`/^\d+$/`): the old `parseInt` let a slug
+ * that merely started with digits render a different lot's page (Aug 16 find).
+ *
+ * With ENABLE_DIRECT_LOTS off no direct read happens and the ResLab order is
+ * exactly as before.
  */
 export async function getLotById(
   id: string,
   fromDate: string,
   toDate: string,
-  airportCoords?: AirportCoords
+  airport?: LotLookupContext
 ): Promise<UnifiedLot | null> {
-  // Check if it's a reslab ID
-  if (id.startsWith("reslab-")) {
-    const locationId = parseInt(id.replace("reslab-", ""), 10);
-    if (!isNaN(locationId)) {
-      return getLotFromReslab(locationId, fromDate, toDate, airportCoords);
-    }
+  const directPromise = isDirectLotsEnabled() ? loadSellableDirectLots() : null;
+  const inScope = (l: DirectLot) => !airport?.code || l.airportCode === airport.code;
+  const unavailable = (direct: Extract<DirectLotsResult, { ok: false }>, what: string) =>
+    new DirectInventoryUnavailableError(
+      `${what}: direct inventory read failed (${direct.kind}) — cannot tell missing from unread`,
+      direct.kind,
+    );
+
+  // 1. Canonical direct id — answered from the direct read alone.
+  const payloadId = directPromise ? parseDirectLotUnifiedId(id) : null;
+  if (payloadId !== null) {
+    const direct = await directPromise!;
+    if (!direct.ok) throw unavailable(direct, `direct lot ${id}`);
+    const hit = direct.lots.find((l) => l.payloadId === payloadId && inScope(l));
+    // Not sellable here (draft / inactive / wrong environment / other airport) or no such row.
+    return hit ? directToUnified(hit, fromDate, toDate) : null;
   }
 
-  // Try as a direct location ID
-  const locationId = parseInt(id, 10);
-  if (!isNaN(locationId)) {
-    return getLotFromReslab(locationId, fromDate, toDate, airportCoords);
+  // 2/3. ResLab resolution, started now so it overlaps the direct read.
+  const reslabPrefixed = /^reslab-(\d+)$/.exec(id);
+  const numericId = reslabPrefixed ? reslabPrefixed[1] : /^\d+$/.test(id) ? id : null;
+  const reslabAttempt: Promise<ReslabAttempt> = (
+    numericId !== null
+      ? getLotFromReslab(Number(numericId), fromDate, toDate, airport)
+      : findLotBySlug(id, fromDate, toDate, airport)
+  ).then(
+    (lot) => ({ ok: true as const, lot }),
+    (error: unknown) => ({ ok: false as const, error }),
+  );
+
+  if (!directPromise) {
+    const attempt = await reslabAttempt;
+    if (!attempt.ok) throw attempt.error;
+    return attempt.lot;
   }
 
-  // Try as a slug
-  return findLotBySlug(id, fromDate, toDate, airportCoords);
+  const [direct, attempt] = await Promise.all([directPromise, reslabAttempt]);
+  const directLots = direct.ok ? direct.lots.filter(inScope) : [];
+
+  // A direct slug beats a ResLab slug of the same spelling, and beats a ResLab
+  // failure: this page does not depend on ResLab at all.
+  if (numericId === null) {
+    const bySlug = directLots.find((l) => l.slug === id);
+    if (bySlug) return directToUnified(bySlug, fromDate, toDate);
+  }
+
+  if (!attempt.ok) throw attempt.error;
+  if (attempt.lot) {
+    const twin = DIRECT_BOOKING_OPEN
+      ? directLots.find((l) => l.reslabLocationId === attempt.lot?.reslabLocationId)
+      : undefined;
+    return twin ? directToUnified(twin, fromDate, toDate) : attempt.lot;
+  }
+  if (!direct.ok) throw unavailable(direct, `lot "${id}" (not a ResLab lot)`);
+  return null;
 }

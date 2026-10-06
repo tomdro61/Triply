@@ -42,6 +42,9 @@ function SearchPageContent() {
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // True when /api/search answered with direct lots only because ResLab was
+  // unreachable (`reslabUnavailable`) — a partial list, shown with a banner.
+  const [partialResults, setPartialResults] = useState(false);
   // A deterministic date problem (the API's 400) is NOT a transient upstream
   // fault — it gets its own message and no "Try again" that can never succeed.
   const [dateError, setDateError] = useState<string | null>(null);
@@ -58,6 +61,7 @@ function SearchPageContent() {
   const fetchResults = async () => {
     setLoading(true);
     setLoadError(false);
+    setPartialResults(false);
     setDateError(null);
     // Full date rules (past check-in, advance-booking window, reversed range) — a
     // bookmarked or emailed link with a bad check-in used to round-trip to
@@ -100,6 +104,7 @@ function SearchPageContent() {
         setLots([]);
       } else {
         setLots(data.results || []);
+        setPartialResults(data.reslabUnavailable === true);
         trackSearch({ airportCode: airport, checkin: departDate, checkout: returnDate });
       }
     } catch (err) {
@@ -254,6 +259,8 @@ function SearchPageContent() {
               onHover={setHoveredId}
               onSelect={setSelectedLot}
               className={mobileView === "map" ? "hidden lg:block" : ""}
+              partialResults={partialResults}
+              onRetry={fetchResults}
             />
           )}
 

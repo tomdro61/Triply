@@ -123,6 +123,31 @@ describe("airport page — degraded results must not be baked into ISR", () => {
     expect(data.totalLots).toBe(3);
   });
 
+  it("a ResLab outage answered with direct lots only (reslabUnavailable) throws at runtime, without a second root-less capture", async () => {
+    // searchParking already captured the root ResLab error when it chose to
+    // serve direct lots; baking a one-lot page for an hour is the thing to stop.
+    searchMock.searchParking.mockResolvedValue(
+      result({ results: [lot(1)], total: 1, degraded: true, listIncomplete: false, reslabUnavailable: true }),
+    );
+
+    await expect(fetchAirportPageData(AIRPORT)).rejects.toThrow(/ResLab unavailable/);
+    await expect(fetchAirportPageData(AIRPORT)).rejects.toThrow(/ResLab unavailable/);
+    // Throttled like the breaker error (module-level 10-min clock, shared with
+    // the earlier cases in this file): at most one capture, never one per call.
+    expect(captureMock.captureAPIError.mock.calls.length).toBeLessThanOrEqual(1);
+  });
+
+  it("during `next build`, a reslabUnavailable result keeps its direct lots rather than rendering empty", async () => {
+    process.env.NEXT_PHASE = "phase-production-build";
+    searchMock.searchParking.mockResolvedValue(
+      result({ results: [lot(1)], total: 1, degraded: true, reslabUnavailable: true }),
+    );
+
+    const data = await fetchAirportPageData(AIRPORT);
+
+    expect(data.totalLots).toBe(1);
+  });
+
   it("a clean result renders normally", async () => {
     searchMock.searchParking.mockResolvedValue(
       result({ results: [lot(1), lot(2)], total: 2 }),

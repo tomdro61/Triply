@@ -76,6 +76,14 @@ export interface SearchEventRow {
   /** The location list was complete but past its TTL — the result is full,
    *  just not fresh. Mirrors SearchParkingResult.stale. */
   stale: boolean;
+  /** How many DIRECT (non-ResLab) lots were merged into this result
+   *  (migration 034). NULL when ENABLE_DIRECT_LOTS is off — the merge never
+   *  ran, which is different from "ran and found none". `results_count`
+   *  stays ResLab-only so its history is comparable across the flag flip. */
+  direct_results_count: number | null;
+  /** True when the flag was on but the direct read failed or timed out, so
+   *  direct lots are missing from this result for a non-data reason. */
+  direct_skipped: boolean;
   /** Call site — same enum as availability_log.source, plus
    *  "homepage-featured" (see SearchEventSource above). */
   source: SearchEventSource;
@@ -166,13 +174,16 @@ export function rowIsInsertable(row: SearchEventRow): boolean {
 export function sanitizeRow(row: SearchEventRow): SearchEventRow {
   const cents = row.cheapest_price_cents;
   const soldOut = row.sold_out_count;
+  const direct = row.direct_results_count;
   const okCents = cents === null || isInt4(cents);
   const okSoldOut = soldOut === null || isInt4(soldOut);
-  if (okCents && okSoldOut) return row;
+  const okDirect = direct === null || isInt4(direct);
+  if (okCents && okSoldOut && okDirect) return row;
   return {
     ...row,
     cheapest_price_cents: okCents ? cents : null,
     sold_out_count: okSoldOut ? soldOut : null,
+    direct_results_count: okDirect ? direct : null,
   };
 }
 

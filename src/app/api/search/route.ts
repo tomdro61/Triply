@@ -151,9 +151,16 @@ export async function GET(request: NextRequest) {
     // one min-price call per nearby lot — i.e. it would move the amplification
     // loop onto a different ResLab endpoint at the worst possible moment. Cache
     // it, but briefly, so a repaired list is picked up within a minute.
+    //
+    // `directUnavailable` (the direct-lot read failed; ResLab lots are all
+    // present) is treated like `stale`, NOT like `degraded`: a no-store here
+    // would push every search to origin for the length of a database blip
+    // and re-create the ResLab min-price amplification loop (review C11).
+    // 60 s is short enough that direct lots reappear promptly once the read
+    // recovers.
     const cacheControl =
       result.total > 0 && !result.degraded
-        ? result.stale
+        ? result.stale || result.directUnavailable
           ? "public, s-maxage=60, stale-while-revalidate=300"
           : "public, s-maxage=300, stale-while-revalidate=600"
         : "no-store";

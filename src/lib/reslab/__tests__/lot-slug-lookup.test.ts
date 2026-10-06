@@ -50,6 +50,25 @@ beforeEach(() => {
   searchMock.getChannelLocationsCached.mockReset();
 });
 
+describe("findLotBySlug — duplicate names across the channel", () => {
+  it("prefers the match nearest the caller's airport (a JFK link must not open Boston's lot of the same name)", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [
+        { ...loc(1, "Park Shuttle Fly"), latitude: "42.36", longitude: "-71.01" }, // Boston
+        { ...loc(2, "Park Shuttle Fly"), latitude: "40.64", longitude: "-73.78" }, // JFK
+      ],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockRejectedValue(new Error("stop here"));
+
+    await findLotBySlug("park-shuttle-fly", FROM, TO, { latitude: 40.6413, longitude: -73.7781 }).catch(() => null);
+
+    expect(reslabMock.getLocation).toHaveBeenCalledWith(2);
+    expect(reslabMock.getLocation).not.toHaveBeenCalledWith(1);
+  });
+});
+
 describe("findLotBySlug — must not sweep /locations on the request path", () => {
   it("resolves a slug WITHOUT calling getAllLocations", async () => {
     searchMock.getChannelLocationsCached.mockResolvedValue({

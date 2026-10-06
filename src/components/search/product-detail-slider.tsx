@@ -25,6 +25,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -114,9 +115,18 @@ export function ProductDetailSlider({
   })();
 
   const timesMissing = !localCheckInTime || !localCheckOutTime;
+  // Same gate as the lot page's BookingWidget: a direct lot is listed before
+  // its checkout ships, so Reserve stays off here too (review M1).
+  const bookingNotOpenYet = lot.source === "direct" && !DIRECT_BOOKING_OPEN;
+  const reserveDisabled = timesMissing || bookingNotOpenYet;
+  const reserveDisabledReason = bookingNotOpenYet
+    ? "Online booking for this lot opens soon"
+    : timesMissing
+      ? "Select check-in and check-out times"
+      : undefined;
 
   const handleReserve = () => {
-    if (timesMissing) return;
+    if (reserveDisabled) return;
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: localCheckIn,
@@ -466,8 +476,8 @@ export function ProductDetailSlider({
           </div>
           <button
             onClick={handleReserve}
-            disabled={timesMissing}
-            title={timesMissing ? "Select check-in and check-out times" : undefined}
+            disabled={reserveDisabled}
+            title={reserveDisabledReason}
             className="bg-brand-orange text-white font-bold py-2.5 px-6 rounded-lg shadow-md hover:bg-orange-600 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-orange"
           >
             Reserve Now

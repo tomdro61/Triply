@@ -6,6 +6,7 @@ import { getSystemPrompt, AI_MODEL } from "@/lib/ai/config";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
 import { checkUsageAnomaly } from "@/lib/ai/usage-alert";
 import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
@@ -197,6 +198,12 @@ export async function POST(request: NextRequest) {
                   .join(", "),
                 slug: lot.slug,
                 numberOfDays: lot.pricing?.numberOfDays,
+                // Direct lots are listed before their online checkout ships
+                // (DIRECT_BOOKING_OPEN); the model must not steer a customer
+                // to a Reserve button that is off.
+                ...(lot.source === "direct" && !DIRECT_BOOKING_OPEN
+                  ? { bookable: false as const, bookingNote: "Online booking for this lot opens soon — it cannot be reserved on the site yet." }
+                  : {}),
                 searchUrl: `/search?airport=${airport}&checkin=${checkin}&checkout=${checkout}${checkinTime ? `&checkinTime=${encodeURIComponent(checkinTime)}` : ""}${checkoutTime ? `&checkoutTime=${encodeURIComponent(checkoutTime)}` : ""}`,
                 };
               });
@@ -208,6 +215,13 @@ export async function POST(request: NextRequest) {
                 checkout: result.checkout,
                 totalResults: result.total,
                 lots,
+                // Set only when ResLab was unreachable and the list is this
+                // airport's direct lots alone (ENABLE_DIRECT_LOTS) — so the
+                // model can say "a partial list right now" instead of
+                // presenting one lot as the whole market.
+                ...(result.reslabUnavailable
+                  ? { note: "Partial results: our main inventory provider is temporarily unreachable, so only some lots are listed. Suggest the customer also try again shortly." }
+                  : {}),
               };
             } catch (err) {
               // A reversed range is the model's (or the customer's) mistake, not
