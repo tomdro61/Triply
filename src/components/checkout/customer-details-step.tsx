@@ -47,6 +47,7 @@ export function CustomerDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="firstName"
               value={data.firstName}
               onChange={(e) => handleChange("firstName", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -73,6 +74,7 @@ export function CustomerDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="lastName"
               value={data.lastName}
               onChange={(e) => handleChange("lastName", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -100,6 +102,7 @@ export function CustomerDetailsStep({
           />
           <input
             type="email"
+            data-funnel-field="email"
             value={data.email}
             onChange={(e) => handleChange("email", e.target.value)}
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -126,6 +129,7 @@ export function CustomerDetailsStep({
           />
           <input
             type="tel"
+            data-funnel-field="phone"
             value={data.phone}
             onChange={(e) => handleChange("phone", e.target.value)}
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${

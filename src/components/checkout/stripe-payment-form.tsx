@@ -214,11 +214,13 @@ export function StripePaymentForm({
           />
           <span className="text-sm text-gray-600">
             I agree to the{" "}
-            <a href="/terms" className="text-brand-orange hover:underline">
+            {/* New tab: in the same tab, reading the terms before agreeing
+                left checkout and threw away everything the customer typed. */}
+            <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
               Terms of Service
             </a>{" "}
             and{" "}
-            <a href="/privacy" className="text-brand-orange hover:underline">
+            <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
               Privacy Policy
             </a>
             . I understand that my reservation is subject to the parking
