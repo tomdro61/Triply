@@ -35,6 +35,9 @@ import {
 } from "@/lib/availability/log";
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 import { deriveAvailability } from "@/lib/reslab/availability";
+import { isDirectLotsEnabled } from "@/lib/direct/flag";
+import { fetchListableDirectLots, type DirectLot, type DirectLotsResult } from "@/lib/direct/store";
+import { directLotToUnified } from "@/lib/direct/adapter";
 
 export { generateSlug };
 
@@ -287,6 +290,20 @@ export interface SearchParkingResult {
   // "we're missing whole lots" from "one lot failed to price" read this; the
   // airport ISR pages use it to decide whether a render is safe to bake.
   listIncomplete?: boolean;
+  // ResLab threw (list fetch failed / circuit breaker open) but the result
+  // still carries this airport's DIRECT lots — a 200 instead of the 503 the
+  // caller would otherwise have returned. Always paired with degraded:true
+  // (never CDN-cached); the airport ISR pages treat it like listIncomplete.
+  // Only ever set with ENABLE_DIRECT_LOTS on.
+  reslabUnavailable?: boolean;
+  // The direct-lot read failed or timed out, so direct lots are absent for a
+  // non-data reason. NOT folded into `degraded` (review C11): a no-store
+  // response here would push every search to origin and re-create the
+  // ResLab min-price amplification loop during a database blip. The route
+  // caches it briefly (60 s) instead.
+  directUnavailable?: boolean;
+  // How many direct lots were merged in; null when the flag is off.
+  directCount?: number | null;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -1082,6 +1099,9 @@ export async function searchParking(
     available: readonly UnifiedLot[];
     /** How many of `priced` failed to price at all. */
     pricingErrors: number;
+    /** Direct lots merged in (null = flag off). Kept OUT of results_count. */
+    directCount: number | null;
+    directSkipped: boolean;
   }): void => {
     try {
       // Unparseable dates: skip rather than write a row the table's NOT
@@ -1134,6 +1154,8 @@ export async function searchParking(
         sold_out_count: soldOutCount,
         degraded: fields.degraded,
         stale: fields.stale,
+        direct_results_count: fields.directCount,
+        direct_skipped: fields.directSkipped,
       });
     } catch (err) {
       const now = Date.now();
@@ -1158,6 +1180,19 @@ export async function searchParking(
   const fromDate = `${checkin} ${checkinTime24}:00`;
   const toDate = `${checkout} ${checkoutTime24}:00`;
 
+  // ── Direct (non-ResLab) lots — plan A-22 ──────────────────────────────────
+  // Started BEFORE the ResLab list fetch so the two run in parallel; awaited
+  // only where the merge needs it. fetchListableDirectLots never throws (a
+  // typed failure instead), is bounded at 4 s, and already filters to lots
+  // that are published + active + visible in THIS environment, so a
+  // staging_only lot can never appear in a production result. With the flag
+  // off this is null and every line below that reads it is a no-op — the
+  // ResLab path is unchanged.
+  const directEnabled = isDirectLotsEnabled();
+  const directPromise: Promise<DirectLotsResult> | null = directEnabled
+    ? fetchListableDirectLots(airportInfo.code, source === "chat" ? "/api/chat" : "/api/search")
+    : null;
+
   // Search for locations near the airport.
   //
   // safety-removed: the previous `catch { locations = [] }` swallowed ResLab
@@ -1165,7 +1200,13 @@ export async function searchParking(
   // transient ResLab 502 got cached as "No parking found" and stuck for the
   // full TTL — the live incident on 2026-06-29. Let ResLab errors propagate so
   // the route returns an uncacheable 5xx instead of poisoning the cache.
-  let locations: ReslabLocation[];
+  //
+  // With direct lots enabled the error is HELD rather than thrown (see
+  // `reslabFailure` below): if this airport has direct lots the search still
+  // answers 200 with them (degraded, no-store, Sentry capture kept); if it has
+  // none, the held error is rethrown and behaviour is identical to today.
+  let locations: ReslabLocation[] = [];
+  let reslabFailure: unknown = null;
   // True when the workaround served a THIN location list (pages failed, or the
   // sweep looked implausible) — folded into `degraded` so the route won't
   // CDN-cache a list that under-reports the lots near this airport.
@@ -1174,39 +1215,102 @@ export async function searchParking(
   // is a full one — but the route shortens its CDN TTL so we pick up a repaired
   // list quickly once ResLab recovers.
   let listBuildStale = false;
-  if (airportInfo.reslabLocationId) {
-    // Single mapped location — search-by-ID works even during the geo outage.
-    locations =
-      (await reslab.searchLocations({
-        locations: [airportInfo.reslabLocationId],
-      })) || [];
-  } else if (RESLAB_GEO_SEARCH_BROKEN) {
-    // Workaround for ResLab's broken lat/lng geo-search (see flag above).
-    const near = await findLocationsNearAirport(
-      airportInfo.latitude,
-      airportInfo.longitude
-    );
-    locations = near.locations;
-    listBuildIncomplete = near.incomplete;
-    listBuildStale = near.stale;
-  } else {
-    // Original path — restore by flipping RESLAB_GEO_SEARCH_BROKEN to false.
-    locations =
-      (await reslab.searchLocations({
-        lat: String(airportInfo.latitude),
-        lng: String(airportInfo.longitude),
-      })) || [];
+  try {
+    if (airportInfo.reslabLocationId) {
+      // Single mapped location — search-by-ID works even during the geo outage.
+      locations =
+        (await reslab.searchLocations({
+          locations: [airportInfo.reslabLocationId],
+        })) || [];
+    } else if (RESLAB_GEO_SEARCH_BROKEN) {
+      // Workaround for ResLab's broken lat/lng geo-search (see flag above).
+      const near = await findLocationsNearAirport(
+        airportInfo.latitude,
+        airportInfo.longitude
+      );
+      locations = near.locations;
+      listBuildIncomplete = near.incomplete;
+      listBuildStale = near.stale;
+    } else {
+      // Original path — restore by flipping RESLAB_GEO_SEARCH_BROKEN to false.
+      locations =
+        (await reslab.searchLocations({
+          lat: String(airportInfo.latitude),
+          lng: String(airportInfo.longitude),
+        })) || [];
+    }
+  } catch (err) {
+    // Flag off: exactly the pre-direct behaviour — propagate.
+    if (!directPromise) throw err;
+    reslabFailure = err;
+    locations = [];
   }
+
+  // Resolve the direct branch (already in flight). A failed read is a
+  // "skipped" branch — the result still carries every ResLab lot — reported
+  // by the store (throttled, tag direct_lots_read) and flagged on the result
+  // and the search_events row so a quiet outage is still visible.
+  let directLots: DirectLot[] = [];
+  let directSkipped = false;
+  if (directPromise) {
+    const direct = await directPromise;
+    if (direct.ok) directLots = direct.lots;
+    else directSkipped = true;
+  }
+
+  // Direct lots priced for the searched window through the same quote
+  // checkout will charge. The totals are absent when the window does not
+  // price (a same-day search with reversed TIMES survives the date checks
+  // above), and the grandTotal filter then drops the lot rather than showing
+  // "$0" — so every decision below is taken on the PRICED list, never on the
+  // raw sellable one (review L1).
+  const directUnified: UnifiedLot[] = directLots.map((lot) =>
+    directLotToUnified(lot, airportInfo, { fromDate, toDate })
+  ).filter((lot) => lot.pricing?.grandTotal !== undefined && lot.pricing.grandTotal > 0);
+  const directCount: number | null = directEnabled ? directUnified.length : null;
+
+  if (reslabFailure !== null) {
+    if (directUnified.length === 0) throw reslabFailure;
+    // ResLab is down but this airport has direct inventory: answer with it.
+    // Keep the Sentry capture the route would have made, minus the
+    // circuit-breaker error, which self-reports once per window.
+    if (!isLocationBackoffError(reslabFailure)) {
+      captureAPIError(
+        reslabFailure instanceof Error ? reslabFailure : new Error(String(reslabFailure)),
+        {
+          endpoint: "searchParking.reslab",
+          method: "GET",
+          stage: "reslab_unavailable_direct_served",
+          extra: { airport: airportInfo.code, source, directLots: directUnified.length },
+        }
+      );
+    }
+  }
+
+  // A direct lot that is ALSO on the ResLab channel (`reslabLocationId` set in
+  // the CMS) is sold direct only: drop the ResLab twin here, before pricing,
+  // so the pair never lists twice and no getMinPrice call is spent on the
+  // suppressed id (review B17). Sits beside the blocked-id filter on purpose.
+  // Until DIRECT_BOOKING_OPEN, a direct lot with a declared twin is not in
+  // `directLots` at all (store.isListable), so this set is empty and the
+  // ResLab listing sells exactly as today (review M3).
+  // Scope note: this is THIS airport's direct lots (fetchListableDirectLots is
+  // per airport), so a ResLab lot inside two airports' radii is suppressed only
+  // where its twin is declared — the lot page applies the same airport scope.
+  const suppressedReslabIds = new Set<number>(
+    directLots.map((l) => l.reslabLocationId).filter((id): id is number => id !== null)
+  );
 
   // Drop lots we've deliberately hidden (see BLOCKED_RESLAB_LOCATION_IDS).
   locations = locations.filter(
-    (loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id)
+    (loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) && !suppressedReslabIds.has(loc.id)
   );
 
   // Genuine "no lots near this airport" — distinct from a ResLab failure, which
   // now throws above. Returned as a 200, but the route serves every empty
-  // result no-store (we never cache an empty search).
-  if (locations.length === 0) {
+  // result no-store (we never cache an empty search). Only when BOTH sources
+  // are empty: a direct-only airport must not fall into this branch.
+  if (locations.length === 0 && directUnified.length === 0) {
     // A real search that found nothing is still demand — record the header
     // row before returning. Nothing priced, so cheapest/sold_out resolve to
     // null from the empty arrays.
@@ -1217,6 +1321,8 @@ export async function searchParking(
       priced: [],
       available: [],
       pricingErrors: 0,
+      directCount,
+      directSkipped,
     });
     return {
       airport: airportInfo,
@@ -1232,6 +1338,7 @@ export async function searchParking(
       degraded: listBuildIncomplete,
       stale: listBuildStale,
       listIncomplete: listBuildIncomplete,
+      ...(directEnabled ? { directUnavailable: directSkipped, directCount } : {}),
     };
   }
 
@@ -1371,15 +1478,30 @@ export async function searchParking(
       lot.availability !== "unavailable" &&
       lot.pricing?.grandTotal !== undefined &&
       lot.pricing.grandTotal > 0
-  );
+  ).map((lot) => ({ ...lot, airportCode: airportInfo.code }));
 
-  // Degraded if pricing was partial OR the location list was THIN — either
-  // way the result under-reports and must not be CDN-cached. A merely stale
+  // Degraded if pricing was partial OR the location list was THIN OR ResLab
+  // was unreachable and only direct lots are being served — either way the
+  // result under-reports and must not be CDN-cached. A merely stale
   // (complete, past-TTL) list is NOT degraded: the result is full, so it's
   // cacheable, just on a shorter TTL.
-  const isDegraded = pricingErrors > 0 || listBuildIncomplete;
+  //
+  // `reslabUnavailable` = ResLab contributed NOTHING for a non-data reason:
+  // the list fetch threw, OR every lot it listed failed to price (the
+  // recurring TRIPLY-13 "pricing unavailable for all N" degradation). Both
+  // used to be a throw; with direct lots to show they are a 200 — and the
+  // airport ISR pages / chat key on this flag to treat that 200 as the outage
+  // it is (review H1). Only ever set with the flag on, because without direct
+  // lots both cases still throw.
+  const reslabUnavailable =
+    reslabFailure !== null ||
+    (directUnified.length > 0 && locations.length > 0 && availableLots.length === 0 && pricingErrors > 0);
+  const isDegraded = pricingErrors > 0 || listBuildIncomplete || reslabUnavailable;
   // Everything telemetry-only (cheapest price, sold-out count, the Math.min
   // spread) is derived INSIDE emitSearchEvent's try/catch — see its comment.
+  // results_count / cheapest / sold_out stay ResLab-only (plan A-22) so the
+  // demand history reads the same across the flag flip; direct lots have
+  // their own column.
   emitSearchEvent({
     results_count: availableLots.length,
     degraded: isDegraded,
@@ -1387,12 +1509,16 @@ export async function searchParking(
     priced: pricedLots,
     available: availableLots,
     pricingErrors,
+    directCount,
+    directSkipped,
   });
 
   // Found locations but priced none of them while pricing calls were erroring:
   // ResLab is degraded, not genuinely empty. Throw so the route returns an
-  // uncacheable 5xx rather than caching a misleading "no parking" result.
-  if (availableLots.length === 0 && pricingErrors > 0) {
+  // uncacheable 5xx rather than caching a misleading "no parking" result —
+  // unless direct lots can still be shown, in which case the result goes out
+  // degraded (no-store) with the partial-pricing capture below.
+  if (availableLots.length === 0 && pricingErrors > 0 && directUnified.length === 0) {
     throw new ReslabError(
       502,
       `ResLab pricing unavailable for all ${locations.length} ${airportCode} location(s)`
@@ -1413,8 +1539,9 @@ export async function searchParking(
     );
   }
 
-  // Sort lots
-  const sortedLots = sortLots(availableLots, sort);
+  // Sort lots — both sources together, so a direct lot competes on the same
+  // price/distance as its ResLab neighbours rather than being pinned anywhere.
+  const sortedLots = sortLots([...availableLots, ...directUnified], sort);
 
   return {
     airport: airportInfo,
@@ -1427,5 +1554,8 @@ export async function searchParking(
     degraded: isDegraded,
     stale: listBuildStale,
     listIncomplete: listBuildIncomplete,
+    ...(directEnabled
+      ? { reslabUnavailable, directUnavailable: directSkipped, directCount }
+      : {}),
   };
 }

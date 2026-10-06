@@ -188,6 +188,25 @@ describe("GET /api/search", () => {
     );
   });
 
+  it("caches a result whose DIRECT branch failed briefly, like stale — never no-store (review C11)", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: false, stale: false, directUnavailable: true });
+
+    const res = await GET(req());
+
+    expect(res.headers.get("Cache-Control")).toBe(
+      "public, s-maxage=60, stale-while-revalidate=300"
+    );
+  });
+
+  it("a ResLab outage answered with direct lots is degraded and therefore no-store", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 1, degraded: true, stale: false, reslabUnavailable: true });
+
+    const res = await GET(req());
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("never caches a degraded or empty result", async () => {
     searchParkingMock.mockResolvedValue({ ...okResult, total: 0, degraded: false, stale: false });
     let res = await GET(req());

@@ -18,6 +18,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -145,12 +146,18 @@ export function BookingWidget({
 
   const timesMissing = !checkInTime || !checkOutTime;
   const belowMinDays = lot.minimumBookingDays ? days < lot.minimumBookingDays : false;
-  const reserveDisabled = timesMissing || belowMinDays;
-  const reserveDisabledReason = timesMissing
-    ? "Select check-in and check-out times"
-    : belowMinDays
-      ? `Minimum ${lot.minimumBookingDays} days required`
-      : undefined;
+  // Direct (non-ResLab) lots are listed from Phase 2 but their checkout ships
+  // in Phase 3; until then the button is off and says why. /api/checkout/lot
+  // refuses them too, so this is the courteous gate, not the only one.
+  const bookingNotOpenYet = lot.source === "direct" && !DIRECT_BOOKING_OPEN;
+  const reserveDisabled = timesMissing || belowMinDays || bookingNotOpenYet;
+  const reserveDisabledReason = bookingNotOpenYet
+    ? "Online booking for this lot opens soon"
+    : timesMissing
+      ? "Select check-in and check-out times"
+      : belowMinDays
+        ? `Minimum ${lot.minimumBookingDays} days required`
+        : undefined;
 
   const handleReserve = () => {
     if (reserveDisabled) return;
@@ -240,6 +247,18 @@ export function BookingWidget({
         </span>
         <span className="text-gray-500 font-medium"> / day</span>
       </div>
+
+      {bookingNotOpenYet && (
+        <div className="flex items-start gap-2 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <AlertCircle size={18} className="text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-semibold text-blue-800">Online booking opens soon</span>
+            <p className="text-blue-700 text-xs mt-0.5">
+              This lot is new to Triply. Check back shortly to reserve it online.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Pay at Location Indicator */}
       {lot.dueAtLocation && (

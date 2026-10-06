@@ -76,6 +76,20 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
           `(${result.results.length} lots) — refusing to bake it into ISR`
       );
     }
+    // Same rule for a ResLab outage answered with direct lots only
+    // (ENABLE_DIRECT_LOTS, plan A-23): /api/search serves that no-store, but
+    // baking it here would publish a one-lot airport page for an hour.
+    if (result.reslabUnavailable) {
+      throw new ReslabError(
+        502,
+        `ResLab unavailable for ${airport.code}; ${result.results.length} direct ` +
+          `lot(s) only — refusing to bake it into ISR`,
+        // searchParking already captured the ROOT error when it chose to serve
+        // direct lots; this marker lets the catch below skip a second,
+        // root-less capture on every revalidation (review).
+        { reslabUnavailableDirectServed: true }
+      );
+    }
   } catch (err) {
     // searchParking throws on a real ResLab failure, and also when our own
     // location-list circuit breaker is open (a cold instance backing off after
@@ -97,7 +111,12 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     // only capture: a blanket time-based throttle would discard a novel failure
     // with no trace while the build reported success.
     const nowMs = Date.now();
-    const isSelfReporting = isLocationBackoffError(err);
+    const isSelfReporting =
+      isLocationBackoffError(err) ||
+      (err instanceof ReslabError &&
+        typeof err.details === "object" &&
+        err.details !== null &&
+        "reslabUnavailableDirectServed" in err.details);
     if (
       !isSelfReporting ||
       lastAirportPageReportAt === null ||

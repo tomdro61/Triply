@@ -34,6 +34,13 @@ export interface UnifiedLot {
   source: "reslab" | "direct";
   sourceId: string;
   reslabLocationId?: number; // ResLab location ID for API calls
+  /**
+   * IATA code of the airport this lot was found for. Set by searchParking on
+   * every result and by the direct-lot adapter always; a lot loaded by id
+   * alone (the checkout API) may not carry it. Replaces the old
+   * `lot.id.split("-")[0]` derivation, which only ever yielded "RESLAB".
+   */
+  airportCode?: string;
 
   name: string;
   slug: string;

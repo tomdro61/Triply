@@ -632,7 +632,10 @@ export function CheckoutForm({
       // Location info for Supabase
       locationName: lot.name,
       locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
-      airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+      // Informational only — the server derives airport_code itself (PR #26).
+      // Set for direct lots; a ResLab lot loaded by id has no airport context
+      // here (the old `lot.id.split("-")[0]` only ever produced "RESLAB").
+      airportCode: lot.airportCode || "",
       // Pricing info
       subtotal: costData?.subtotal || priceBreakdown.subtotal,
       taxTotal: costData?.taxTotal || priceBreakdown.taxes,
@@ -811,7 +814,7 @@ export function CheckoutForm({
           // Location info for Supabase
           locationName: lot.name,
           locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
-          airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+          airportCode: lot.airportCode || "",
           // Pricing info
           subtotal: costData.subtotal || priceBreakdown.subtotal,
           taxTotal: costData.taxTotal || priceBreakdown.taxes,

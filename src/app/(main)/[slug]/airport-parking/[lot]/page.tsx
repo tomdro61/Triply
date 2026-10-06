@@ -16,6 +16,8 @@ import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
 import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { convertTo24Hour } from "@/lib/utils/time";
+import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
+import type { UnifiedLot } from "@/types/lot";
 
 // A cold-start slug lookup now reaches the ~54-page ResLab sweep through
 // getChannelLocationsCached (40s budget, LOCATION_BUILD_BUDGET_MS). The
@@ -50,6 +52,36 @@ function LoadingState() {
   );
 }
 
+/**
+ * The direct-lot inventory read failed and this slug is not a ResLab lot, so
+ * we cannot tell "missing" from "unread". Rendered in place rather than
+ * rethrown: a rethrow would 500 (and Sentry-capture) every crawl of every
+ * direct-lot URL for as long as the read is down, while the store has already
+ * reported the root cause once per instance. Never a notFound() and never a
+ * noindex — both read as "remove this URL" to Google. This renders inside the
+ * page's Suspense boundary, so the status is a 200 with transient copy; the
+ * sitemap keeps the URL, and the next crawl after recovery sees the lot.
+ */
+function UnavailableState({ backUrl }: { backUrl: string }) {
+  return (
+    <div className="bg-gray-50 min-h-screen">
+      <Navbar forceSolid />
+      <main className="pt-20 min-h-[60vh] flex items-center justify-center px-4">
+        <div className="text-center max-w-md">
+          <h1 className="text-xl font-bold text-gray-900 mb-2">This lot is temporarily unavailable</h1>
+          <p className="text-gray-500 text-sm mb-6">
+            We couldn&apos;t load its details just now. This is usually brief — please try again in a moment.
+          </p>
+          <Link href={backUrl} className="inline-block bg-brand-orange text-white font-semibold text-sm px-5 py-2.5 rounded-full">
+            Back to search
+          </Link>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
   const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
@@ -77,19 +109,26 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   const fromDate = `${defaultCheckin} ${checkinTime24}:00`;
   const toDate = `${defaultCheckout} ${checkoutTime24}:00`;
 
-  // Try to get lot from ResLab API first
-  // Pass airport coordinates for distance calculation
-  let lot = await getLotById(lotSlug, fromDate, toDate, {
-    latitude: airport.latitude,
-    longitude: airport.longitude,
-  });
+  // Build back URL
+  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}`;
+
+  // Resolve the lot (ResLab or direct). The airport code scopes direct-lot
+  // matches to this URL's airport; the coordinates drive the distance shown.
+  let lot: UnifiedLot | null;
+  try {
+    lot = await getLotById(lotSlug, fromDate, toDate, {
+      latitude: airport.latitude,
+      longitude: airport.longitude,
+      code: airport.code,
+    });
+  } catch (err) {
+    if (err instanceof DirectInventoryUnavailableError) return <UnavailableState backUrl={backUrl} />;
+    throw err;
+  }
 
   if (!lot) {
     notFound();
   }
-
-  // Build back URL
-  const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}`;
 
   // Structured data for parking facility
   const parkingSchema = {
@@ -220,8 +259,24 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const fromDate = `${defaultCheckin} 10:00:00`;
   const toDate = `${defaultCheckout} 14:00:00`;
 
-  // Try to get lot
-  const lot = await getLotById(lotSlug, fromDate, toDate);
+  // Try to get lot. Same airport scope as the page body (the two share one
+  // direct-lot read per request via React.cache).
+  let lot: UnifiedLot | null;
+  try {
+    lot = await getLotById(
+      lotSlug,
+      fromDate,
+      toDate,
+      airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined
+    );
+  } catch (err) {
+    // No `robots: noindex` here: that is a removal signal, and this is a
+    // transient read failure on a URL we publish (see UnavailableState).
+    if (err instanceof DirectInventoryUnavailableError) {
+      return { title: "Parking Temporarily Unavailable | Triply" };
+    }
+    throw err;
+  }
 
   if (!airport || !lot) {
     return {
