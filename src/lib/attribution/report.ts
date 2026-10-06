@@ -86,6 +86,15 @@ export interface PromoMeta {
   current_uses: number | null;
   max_uses: number | null;
   expires_at: string | null;
+  /** Migration 033. Optional so a read that predates it still reports. */
+  source?: string | null;
+  once_per_customer?: boolean | null;
+}
+
+/** Bookings on one code from one attribution channel. */
+export interface PromoChannelCount {
+  channel: AttributionSource;
+  bookings: number;
 }
 
 export interface PromoReportRow {
@@ -99,6 +108,13 @@ export interface PromoReportRow {
   active: boolean | null;
   discountPercent: number | null;
   expired: boolean;
+  /** promo_codes.source (migration 033); null = unknown / pre-033 code. */
+  source: string | null;
+  oncePerCustomer: boolean | null;
+  /** The code's live bookings split by the BOOKING's attribution channel —
+   *  where the customer actually came from, next to where the code was
+   *  meant to be distributed (`source`). Most bookings first. */
+  channels: PromoChannelCount[];
 }
 
 /** Derived booking count + discount per code, next to the DB counter so
@@ -107,6 +123,7 @@ export interface PromoReportRow {
  *  purpose" becomes visible. */
 export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Date.now()): PromoReportRow[] {
   const agg = new Map<string, { bookings: number; discount: number; gross: number; triply: number }>();
+  const channelsByCode = new Map<string, Map<AttributionSource, number>>();
   for (const b of rows) {
     if (!b.promo_code || !isLive(b)) continue;
     const p = agg.get(b.promo_code) ?? { bookings: 0, discount: 0, gross: 0, triply: 0 };
@@ -115,7 +132,15 @@ export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Dat
     p.gross += grossOf(b);
     p.triply += num(b.triply_service_fee);
     agg.set(b.promo_code, p);
+    const ch = channelsByCode.get(b.promo_code) ?? new Map<AttributionSource, number>();
+    const label = attributionSourceLabel(b);
+    ch.set(label, (ch.get(label) ?? 0) + 1);
+    channelsByCode.set(b.promo_code, ch);
   }
+  const channelsOf = (code: string): PromoChannelCount[] =>
+    [...(channelsByCode.get(code) ?? new Map<AttributionSource, number>())]
+      .map(([channel, bookings]) => ({ channel, bookings }))
+      .sort((x, y) => y.bookings - x.bookings || x.channel.localeCompare(y.channel));
   const metaByCode = new Map(meta.map((m) => [m.code.toUpperCase(), m]));
   const out: PromoReportRow[] = [];
   const seen = new Set<string>();
@@ -130,6 +155,9 @@ export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Dat
       active: m?.active ?? null,
       discountPercent: m?.discount_percent ?? null,
       expired: !!m?.expires_at && new Date(m.expires_at).getTime() < now,
+      source: m?.source ?? null,
+      oncePerCustomer: m?.once_per_customer ?? null,
+      channels: channelsOf(code),
     });
   }
   for (const m of meta) {
@@ -145,6 +173,9 @@ export function buildPromoReport(rows: ReportRow[], meta: PromoMeta[], now = Dat
       active: m.active,
       discountPercent: m.discount_percent,
       expired: !!m.expires_at && new Date(m.expires_at).getTime() < now,
+      source: m.source ?? null,
+      oncePerCustomer: m.once_per_customer ?? null,
+      channels: [],
     });
   }
   return out.sort((x, y) => y.bookings - x.bookings || x.code.localeCompare(y.code));

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { z } from "zod";
 import { captureAPIError } from "@/lib/sentry";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { ALREADY_USED_MESSAGE, hasRedeemed, isLiveStripeKey } from "@/lib/promo/redemption";
 
 // A lookup fault is not a verdict on the code. Pass-4 review: this route used
 // to answer a connection reset with 200 "Invalid promo code" and report
@@ -14,7 +15,15 @@ const LOOKUP_UNAVAILABLE_MESSAGE =
 
 const promoValidateSchema = z.object({
   code: z.string().min(1).max(50),
+  // Optional: the promo box can be used before the email is typed. When the
+  // email is present and well-formed, the once-per-customer rule is checked
+  // here so the customer sees it before entering a card. A malformed email is
+  // IGNORED rather than rejected (400) — the form validates it separately, and
+  // a half-typed address must not make a valid code read as invalid.
+  email: z.string().max(320).optional(),
 });
+
+const emailSchema = z.string().trim().email();
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,12 +36,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { code } = result.data;
+    const { code, email } = result.data;
     const supabase = await createAdminClient();
 
     const { data: promo, error } = await supabase
       .from("promo_codes")
-      .select("id, code, discount_percent, active, expires_at, max_uses, current_uses")
+      .select("id, code, discount_percent, active, expires_at, max_uses, current_uses, once_per_customer")
       .eq("code", code.toUpperCase())
       .single();
 
@@ -78,6 +87,37 @@ export async function POST(request: NextRequest) {
     // must still be rejected, not treated as valid.
     if (!isPromoCodeUsable(promo)) {
       return NextResponse.json({ valid: false, error: "Invalid promo code" });
+    }
+
+    // Once-per-customer (migration 033). Advisory — the race-safe claim is in
+    // the booking engine, before capture. A lookup fault is a 503, never a
+    // verdict either way (same rule as the code lookup above).
+    const parsedEmail = email === undefined ? null : emailSchema.safeParse(email);
+    if (promo.once_per_customer === true && parsedEmail?.success) {
+      let used: boolean;
+      try {
+        used = await hasRedeemed(supabase, {
+          promoCodeId: promo.id,
+          email: parsedEmail.data,
+          livemode: isLiveStripeKey(),
+        });
+      } catch (redemptionErr) {
+        captureAPIError(
+          redemptionErr instanceof Error ? redemptionErr : new Error(String(redemptionErr)),
+          { endpoint: "/api/promo/validate", method: "POST", stage: "redemption_lookup" }
+        );
+        return NextResponse.json(
+          { valid: false, error: LOOKUP_UNAVAILABLE_MESSAGE },
+          { status: 503 }
+        );
+      }
+      if (used) {
+        return NextResponse.json({
+          valid: false,
+          reason: "already_used",
+          error: ALREADY_USED_MESSAGE,
+        });
+      }
     }
 
     return NextResponse.json({

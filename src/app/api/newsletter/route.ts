@@ -54,6 +54,7 @@ import {
 } from "@/lib/attribution/limiter";
 import { getAirportByCode } from "@/config/airports";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import type { PromoSource } from "@/lib/promo/redemption";
 
 const MAX_BODY_BYTES = 2048;
 
@@ -205,6 +206,10 @@ async function mintPromoCode(
       expires_at: expiresAt.toISOString(),
       max_uses: 1,
       current_uses: 0,
+      // Migration 033: every code carries its distribution source. Welcome
+      // codes are delivered by email (whatever page the signup came from —
+      // that is newsletter_subscribers.source).
+      source: "email" satisfies PromoSource,
     })
     .select("id")
     .single();

@@ -39,6 +39,13 @@ import {
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { reservationSchema } from "@/lib/validation/schemas";
 import { redactForDigest } from "@/lib/digest/redact";
+import {
+  ALREADY_USED_MESSAGE,
+  claimRedemption,
+  releaseRedemption,
+  PromoRedemptionError,
+  type ClaimResult,
+} from "@/lib/promo/redemption";
 import type { Attribution } from "@/lib/attribution/schema";
 import {
   getProtectionPlan,
@@ -962,6 +969,118 @@ async function releaseCart(pi: string) {
   }
 }
 
+/**
+ * Once-per-customer gate (migration 033). Returns null to proceed, or the
+ * outcome to return when the code was already used with this email.
+ *
+ * Runs while the card is only AUTHORIZED (before ResLab, before capture), so a
+ * refusal cancels the hold and nothing is charged. The one exception is a PI
+ * that is already `succeeded` (a wallet that auto-captures): money has moved,
+ * and failing a paid booking over a marketing rule is never acceptable — it
+ * proceeds, un-claimed, and the double use is alerted instead.
+ *
+ * DB faults surface as DurableStateError → the caller's catch releases the row
+ * for retry. Never read as "not used" (that would silently disable the limit)
+ * nor as "used" (that would cancel a legitimate booking).
+ */
+async function enforceOncePerCustomer(
+  pi: Stripe.PaymentIntent,
+  payload: BookingPayload,
+  code: string
+): Promise<CreateBookingResult | null> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("promo_codes")
+    .select("id, once_per_customer")
+    .eq("code", code)
+    .maybeSingle();
+  if (error) throw new DurableStateError("promo_codes once-per-customer read", error.message);
+
+  const promoRow = data as { id: string; once_per_customer?: boolean } | null;
+  if (!promoRow) {
+    // The discount was applied at PaymentIntent creation, so the code existed
+    // then. Deleted or renamed since: there is no rule left to enforce.
+    captureBookingError(
+      new Error(`Promo ${code} on ${pi.id} has no promo_codes row at fulfilment — once-per-customer not enforced`),
+      { step: "checkout" }
+    );
+    return null;
+  }
+  if (promoRow.once_per_customer === undefined) {
+    // Column missing from the read: migration 033 not applied (or PostgREST's
+    // schema cache is behind). Transient — retry, never default either way.
+    throw new DurableStateError(
+      "promo_codes once-per-customer read",
+      "promo_codes.once_per_customer is missing — has migration 033 been applied?"
+    );
+  }
+  if (!promoRow.once_per_customer) return null;
+
+  let claim: ClaimResult;
+  try {
+    claim = await claimRedemption(supabase, {
+      promoCodeId: promoRow.id,
+      code,
+      email: payload.customer.email,
+      paymentIntentId: pi.id,
+      livemode: pi.livemode,
+    });
+  } catch (err) {
+    if (err instanceof PromoRedemptionError) {
+      throw new DurableStateError("promo redemption claim", err.message);
+    }
+    throw err;
+  }
+  if (claim.kind === "claimed") return null;
+
+  if (pi.status === "succeeded") {
+    captureBookingError(
+      new Error(
+        `Promo ${code} reused on already-captured ${pi.id} (first used on ${claim.ownerPaymentIntentId}) — proceeding; a paid booking is never failed over a promo rule`
+      ),
+      { step: "checkout" }
+    );
+    return null;
+  }
+
+  const release = await releasePayment(pi);
+  if (release.released === "deferred") return { kind: "deferred" };
+  const reason = `promo ${code} already used with this email (on ${claim.ownerPaymentIntentId})`;
+  // Alert first, then write: markTerminal can throw DurableStateError.
+  captureBookingError(new Error(`Fulfilment refused before booking: ${reason} — ${pi.id} ${release.released}`), {
+    step: "checkout",
+  });
+  await markTerminal(
+    pi.id,
+    release.released === "refunded" ? "refunded_failed" : "released_failed",
+    reason
+  );
+  await releaseCart(pi.id);
+  return {
+    kind: "failed",
+    reason,
+    userMessage: `${ALREADY_USED_MESSAGE}. You have not been charged — please start your booking again without the code.`,
+  };
+}
+
+/** Hand back this PI's promo claim after a failure BEFORE capture. Non-fatal:
+ *  a stuck claim is also cleared lazily (its owner row is terminal), but it
+ *  would block the customer's retry with that code until then, so it is
+ *  reported rather than dropped. */
+async function releasePromoClaim(pi: string) {
+  try {
+    const supabase = await createAdminClient();
+    await releaseRedemption(supabase, pi);
+  } catch (err) {
+    captureBookingError(
+      new Error(
+        `promo_redemptions release failed for ${pi}: ${err instanceof Error ? err.message : String(err)}`
+      ),
+      { step: "checkout" }
+    );
+  }
+}
+
 async function markEmailSent(pi: string) {
   const supabase = await createAdminClient();
   const { error } = await supabase
@@ -1539,6 +1658,39 @@ async function fulfilClaimed(
     if (check.freshToken) payload.costsToken = check.freshToken;
   }
 
+  // Carry the promo through from PI metadata so the booking records the discount
+  // that was actually charged (migration 016). `promoCode` is stamped as typed;
+  // uppercase it to match promo_codes.code. `discountPercent` is present only for
+  // a valid, applied promo — clamp defensively. Read here (not at step 11) so the
+  // once-per-customer claim below and the booking row agree on the code.
+  const rawDiscountPercent = parseFloat(pi.metadata?.discountPercent ?? "0");
+  const promo = {
+    code: pi.metadata?.promoCode
+      ? pi.metadata.promoCode.trim().toUpperCase()
+      : null,
+    discountPercent:
+      Number.isFinite(rawDiscountPercent) &&
+      rawDiscountPercent > 0 &&
+      rawDiscountPercent <= 100
+        ? rawDiscountPercent
+        : 0,
+    // The real charge, in cents — the source of truth for what the customer
+    // paid, so the stored discount reconciles to Stripe exactly.
+    chargedCents: pi.amount,
+  };
+
+  // --- Step 8.5: once-per-customer promo claim (migration 033) ----------------
+  // AUTHORITATIVE and race-safe (partial unique index on promo_redemptions).
+  // Sits BEFORE the ResLab reservation and BEFORE capture on purpose: a card is
+  // only authorized here, so a refusal cancels the hold and the customer is
+  // never charged. A check at the bookings INSERT (step 11) would run after the
+  // money moved. Skipped on resume: the reservation exists, so the claim was
+  // taken on the attempt that created it.
+  if (!resuming && promo.code && promo.discountPercent > 0) {
+    const refused = await enforceOncePerCustomer(pi, payload, promo.code);
+    if (refused) return refused;
+  }
+
   // --- Step 9: ResLab reservation ---------------------------------------------
   let reservation: ReslabReservation;
 
@@ -1643,6 +1795,7 @@ async function fulfilClaimed(
       }
       await markTerminal(piId, terminal, storedReason);
       await releaseCart(piId);
+      await releasePromoClaim(piId);
       return failure.soldOut
         ? { kind: "sold_out" }
         : {
@@ -1716,25 +1869,7 @@ async function fulfilClaimed(
   // anything irreversible happens.
 
   // --- Step 11: persist -------------------------------------------------------
-  // Carry the promo through from PI metadata so the booking records the discount
-  // that was actually charged (migration 016). `promoCode` is stamped as typed;
-  // uppercase it to match promo_codes.code. `discountPercent` is present only for
-  // a valid, applied promo — clamp defensively.
-  const rawDiscountPercent = parseFloat(pi.metadata?.discountPercent ?? "0");
-  const promo = {
-    code: pi.metadata?.promoCode
-      ? pi.metadata.promoCode.trim().toUpperCase()
-      : null,
-    discountPercent:
-      Number.isFinite(rawDiscountPercent) &&
-      rawDiscountPercent > 0 &&
-      rawDiscountPercent <= 100
-        ? rawDiscountPercent
-        : 0,
-    // The real charge, in cents — the source of truth for what the customer
-    // paid, so the stored discount reconciles to Stripe exactly.
-    chargedCents: pi.amount,
-  };
+  // `promo` was resolved from PI metadata before step 8.5.
   const persisted = await persistBooking(payload, reservation, charged, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {

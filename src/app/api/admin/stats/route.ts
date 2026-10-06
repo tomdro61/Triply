@@ -291,7 +291,7 @@ export async function GET(request: NextRequest) {
 
     const { data: promoRows, error: promoError } = await supabase
       .from("promo_codes")
-      .select("code, discount_percent, active, current_uses, max_uses, expires_at");
+      .select("code, discount_percent, active, current_uses, max_uses, expires_at, source, once_per_customer");
     if (promoError) warn("promo_codes fetch failed", promoError);
 
     // Capture health over the last 7 days, independent of the date filter on

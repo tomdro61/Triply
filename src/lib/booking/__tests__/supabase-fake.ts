@@ -478,6 +478,17 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           rows.some(
             (r) => r.cart_key === row.cart_key && r.released_at == null
           )) ||
+        // Migration 033's two partial unique indexes: one live claim per
+        // (code, lowercased email, livemode) and one live claim per PI.
+        (this.table === "promo_redemptions" &&
+          rows.some(
+            (r) =>
+              r.released_at == null &&
+              ((r.promo_code_id === row.promo_code_id &&
+                r.email_lower === row.email_lower &&
+                r.livemode === row.livemode) ||
+                r.stripe_payment_intent_id === row.stripe_payment_intent_id)
+          )) ||
         (this.table === "bookings" &&
           row.stripe_payment_intent_id != null &&
           rows.some(
