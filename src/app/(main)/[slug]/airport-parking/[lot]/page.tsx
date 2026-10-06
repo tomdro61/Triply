@@ -57,8 +57,10 @@ function LoadingState() {
  * we cannot tell "missing" from "unread". Rendered in place rather than
  * rethrown: a rethrow would 500 (and Sentry-capture) every crawl of every
  * direct-lot URL for as long as the read is down, while the store has already
- * reported the root cause once per instance. Never a notFound() — Google
- * treats a 404 as permanent.
+ * reported the root cause once per instance. Never a notFound() and never a
+ * noindex — both read as "remove this URL" to Google. This renders inside the
+ * page's Suspense boundary, so the status is a 200 with transient copy; the
+ * sitemap keeps the URL, and the next crawl after recovery sees the lot.
  */
 function UnavailableState({ backUrl }: { backUrl: string }) {
   return (
@@ -268,8 +270,10 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
       airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined
     );
   } catch (err) {
+    // No `robots: noindex` here: that is a removal signal, and this is a
+    // transient read failure on a URL we publish (see UnavailableState).
     if (err instanceof DirectInventoryUnavailableError) {
-      return { title: "Parking Temporarily Unavailable | Triply", robots: { index: false } };
+      return { title: "Parking Temporarily Unavailable | Triply" };
     }
     throw err;
   }

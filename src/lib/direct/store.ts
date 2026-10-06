@@ -5,6 +5,7 @@ import { getAirportByCode } from "@/config/airports";
 import { captureAPIError } from "@/lib/sentry";
 import { resolveEnv } from "@/lib/env";
 import { isDirectLotVisible, parseVisibility, type DirectLotVisibility } from "./visibility";
+import { DIRECT_BOOKING_OPEN } from "./flag";
 
 /**
  * Read path for DIRECT lots (plan B2 as amended by the gate): the main app
@@ -141,20 +142,30 @@ export function parseDirectLotUnifiedId(id: string): number | null {
   return directLotUnifiedId(n) === id ? n : null;
 }
 
-/** Pure: row → DirectLot, or null with a reason (field path + issue, never values). */
-export function directLotFromRow(raw: unknown): { lot: DirectLot } | { lot: null; reason: string } {
+/**
+ * Why a row produced no DirectLot:
+ *   invalid   the row is BROKEN (shape, visibility, rate) — a CMS edit went
+ *             wrong; the lot's URL must answer 503, never 404 (getLotById)
+ *   unlisted  the row is fine but its airport is not one the app lists
+ *             (unknown code, or `enabled: false`) — a legitimate content
+ *             state, treated as "no such lot here"
+ */
+export type DirectLotRejection = { lot: null; kind: "invalid" | "unlisted"; reason: string };
+
+/** Pure: row → DirectLot, or a typed rejection (field path + issue, never values). */
+export function directLotFromRow(raw: unknown): { lot: DirectLot } | DirectLotRejection {
   const parsed = directLotRowSchema.safeParse(raw);
   if (!parsed.success) {
     const i = parsed.error.issues[0];
-    return { lot: null, reason: `row does not match direct_lots() shape at ${i?.path.join(".") || "(root)"}: ${i?.code}` };
+    return { lot: null, kind: "invalid", reason: `row does not match direct_lots() shape at ${i?.path.join(".") || "(root)"}: ${i?.code}` };
   }
   const r = parsed.data;
   const visibility = parseVisibility(r.visibility);
-  if (!visibility) return { lot: null, reason: "unknown visibility value" };
+  if (!visibility) return { lot: null, kind: "invalid", reason: "unknown visibility value" };
   const airport = getAirportByCode(r.airport_code);
-  if (!airport || !airport.enabled) return { lot: null, reason: `airport '${r.airport_code}' is not configured or not enabled` };
+  if (!airport || !airport.enabled) return { lot: null, kind: "unlisted", reason: `airport '${r.airport_code}' is not configured or not enabled` };
   const rateCents = Math.round(r.base_daily_rate * 100);
-  if (rateCents <= 0) return { lot: null, reason: "non-positive rate" };
+  if (rateCents <= 0) return { lot: null, kind: "invalid", reason: "non-positive rate" };
   return {
     lot: {
       id: directLotUnifiedId(r.id),
@@ -204,10 +215,54 @@ export function isSellable(lot: DirectLot, env: string = resolveEnv()): boolean 
   return lot.status === "published" && lot.isActive && isDirectLotVisible(lot.visibility, env);
 }
 
+/**
+ * Sellable AND allowed on the site right now. Until direct booking opens
+ * (DIRECT_BOOKING_OPEN, Phase 3), a direct lot that declares a ResLab twin
+ * (`reslabLocationId`) is hidden everywhere — search, lot page, sitemap — so
+ * its ResLab listing keeps selling exactly as today, with no duplicate card
+ * and no same-slug page that could take it dark (review M2/M3). When booking
+ * opens the direct lot replaces the twin (plan B17).
+ */
+export function isListable(lot: DirectLot, env: string = resolveEnv()): boolean {
+  return isSellable(lot, env) && (DIRECT_BOOKING_OPEN || lot.reslabLocationId === null);
+}
+
 export type DirectLotsFailureKind = "misconfigured" | "timeout" | "unavailable";
+/**
+ * What little can be read off a row that failed to parse, so a lookup can
+ * tell "THIS lot is broken" (503) from "no such lot" (404) without the broken
+ * row making every miss on the site a 503. Each field is null unless the raw
+ * value had the expected primitive type.
+ */
+export interface DroppedRowKey {
+  id: number | null;
+  slug: string | null;
+  airportCode: string | null;
+}
 export type DirectLotsResult =
-  | { ok: true; lots: DirectLot[]; dropped: number }
+  | {
+      ok: true;
+      lots: DirectLot[];
+      /** Rows rejected as INVALID (broken). Unlisted-airport rows are not counted. */
+      dropped: number;
+      droppedKeys: DroppedRowKey[];
+    }
   | { ok: false; kind: DirectLotsFailureKind; code: string; message: string };
+
+function droppedRowKey(raw: unknown): DroppedRowKey {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const id =
+    typeof r.id === "number" && Number.isInteger(r.id)
+      ? r.id
+      : typeof r.id === "string" && /^\d{1,9}$/.test(r.id)
+        ? Number(r.id)
+        : null;
+  return {
+    id,
+    slug: typeof r.slug === "string" && r.slug.length > 0 ? r.slug : null,
+    airportCode: typeof r.airport_code === "string" ? r.airport_code.toUpperCase() : null,
+  };
+}
 
 // 42501 grant revoked · 42883/PGRST202/PGRST203 function missing or ambiguous ·
 // 42P01/3F000 table or schema missing · 42703 column renamed under the function ·
@@ -281,10 +336,16 @@ export async function fetchDirectLots(
     }
     const lots: DirectLot[] = [];
     const reasons: string[] = [];
+    const unlisted: string[] = [];
+    const droppedKeys: DroppedRowKey[] = [];
     for (const raw of data as unknown[]) {
       const out = directLotFromRow(raw);
       if (out.lot) lots.push(out.lot);
-      else reasons.push(out.reason);
+      else if (out.kind === "unlisted") unlisted.push(out.reason);
+      else {
+        reasons.push(out.reason);
+        droppedKeys.push(droppedRowKey(raw));
+      }
     }
     // One throttle key per DISTINCT reason, so a lot that stays broken can never
     // hide a newly broken one behind its key (reasons are field path + issue
@@ -296,7 +357,17 @@ export async function fetchDirectLots(
         extra: { droppedTotal: reasons.length, withThisReason: reasons.filter((x) => x === reason).length },
       });
     }
-    return { ok: true, lots, dropped: reasons.length };
+    // An unlisted airport is a content/config state, not a broken row: still
+    // worth one throttled note (someone typed a code the site doesn't sell),
+    // but it never feeds `dropped`, so it can never turn a miss into a 503.
+    for (const reason of new Set(unlisted)) {
+      captureThrottled(`unlisted:${reason}`, new Error(`direct_lots: row(s) at an unlisted airport — ${reason}`), {
+        endpoint,
+        stage: "direct_lots_unlisted",
+        extra: { withThisReason: unlisted.filter((x) => x === reason).length },
+      });
+    }
+    return { ok: true, lots, dropped: reasons.length, droppedKeys };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const kind = classifyFailure("", message);
@@ -305,10 +376,15 @@ export async function fetchDirectLots(
   }
 }
 
-/** Sellable lots for an airport in this environment (what search merges in). */
-export async function fetchSellableDirectLots(airportCode: string, endpoint?: string, env: string = resolveEnv()): Promise<DirectLotsResult> {
+/**
+ * LISTABLE lots (isListable: sellable + twin rule) for an airport in this
+ * environment — what search merges in and the sitemap lists. Not for a money
+ * path: Phase 3's pending route must apply `isSellable` and the booking-open
+ * check explicitly.
+ */
+export async function fetchListableDirectLots(airportCode: string, endpoint?: string, env: string = resolveEnv()): Promise<DirectLotsResult> {
   const r = await fetchDirectLots({ airportCode }, endpoint);
-  return r.ok ? { ...r, lots: r.lots.filter((l) => isSellable(l, env)) } : r;
+  return r.ok ? { ...r, lots: r.lots.filter((l) => isListable(l, env)) } : r;
 }
 
 export type DirectLotLookup =
@@ -324,6 +400,8 @@ export async function fetchDirectLot(payloadId: number, endpoint = "direct_lots"
   const r = await fetchDirectLots({ payloadId }, endpoint);
   if (!r.ok) return { status: "unavailable", kind: r.kind, message: r.message };
   if (r.lots.length > 0) return { status: "found", lot: r.lots[0] };
-  if (r.dropped > 0) return { status: "invalid", reason: "row did not parse (see Sentry direct_lots_parse)" };
+  if (r.droppedKeys.some((k) => k.id === payloadId || k.id === null)) {
+    return { status: "invalid", reason: "row did not parse (see Sentry direct_lots_parse)" };
+  }
   return { status: "not_found" };
 }

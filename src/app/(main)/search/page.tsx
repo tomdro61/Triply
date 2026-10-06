@@ -276,6 +276,19 @@ function SearchPageContent() {
                 airport={airportInfo}
               />
 
+              {/* The list (and its banner) is hidden in map view — repeat the partial notice here */}
+              {partialResults && (
+                <div
+                  role="status"
+                  className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-3 p-3 bg-amber-50/95 border border-amber-200 rounded-lg text-xs shadow"
+                >
+                  <span className="font-semibold text-amber-800">Some lots are temporarily unavailable</span>
+                  <button onClick={fetchResults} className="shrink-0 text-amber-900 font-semibold underline underline-offset-2">
+                    Try again
+                  </button>
+                </div>
+              )}
+
               {/* Card carousel at bottom */}
               {sortedLots.length > 0 && (
                 <div className="absolute bottom-0 left-0 right-0 pb-20 pt-2">

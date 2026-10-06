@@ -215,6 +215,24 @@ describe("fetchDirectLots — typed failures, throttled reporting", () => {
     expect(r.ok && r.dropped).toBe(2);
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(2);
   });
+
+  it("names the broken rows (id / slug / airport read leniently) so a lookup can tell THIS lot is broken from 'no such lot'", async () => {
+    rpcResolves({ data: [{ ...row, id: "2", slug: "broken-lot", airport_code: "jfk", lat: null }, { ...row, id: 3, slug: 7, address_zip: "" }] });
+    const r = await fetchDirectLots();
+    expect(r.ok && r.droppedKeys).toEqual([
+      { id: 2, slug: "broken-lot", airportCode: "JFK" },
+      { id: 3, slug: null, airportCode: "JFK" },
+    ]);
+  });
+
+  it("a row at an airport the site does not list is UNLISTED, not dropped — it can never make a miss a 503", async () => {
+    rpcResolves({ data: [row, { ...row, id: 2, slug: "elsewhere", airport_code: "ZZZ" }] });
+    const r = await fetchDirectLots();
+    expect(r.ok && r.lots.map((l) => l.id)).toEqual(["direct-1"]);
+    expect(r.ok && r.dropped).toBe(0);
+    expect(r.ok && r.droppedKeys).toEqual([]);
+    expect(sentry.captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "direct_lots_unlisted" });
+  });
 });
 
 describe("fetchDirectLot — found / not_found / invalid / unavailable", () => {

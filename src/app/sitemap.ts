@@ -3,8 +3,8 @@ import { productionAirports } from "@/config/airports";
 import { reslab } from "@/lib/reslab/client";
 import { BLOCKED_RESLAB_LOCATION_IDS } from "@/lib/reslab/search";
 import { generateSlug } from "@/lib/utils/slug";
-import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
-import { fetchDirectLots, isSellable, type DirectLot } from "@/lib/direct/store";
+import { isDirectLotsEnabled } from "@/lib/direct/flag";
+import { fetchDirectLots, isListable, type DirectLot } from "@/lib/direct/store";
 import {
   getPublishedPosts,
   CmsAuthError,
@@ -134,16 +134,14 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
     let directLots: DirectLot[] = [];
     if (isDirectLotsEnabled()) {
       const direct = await fetchDirectLots({}, "sitemap");
-      if (direct.ok) directLots = direct.lots.filter((l) => isSellable(l));
+      if (direct.ok) directLots = direct.lots.filter((l) => isListable(l));
       else console.warn(`Sitemap lot segment ${id}: direct lots unavailable (${direct.kind}), listing ResLab only`);
     }
     // A ResLab twin of a direct lot is sold direct only once direct booking is
-    // open (review B17 / M3): its URL then renders the direct lot, so list the
-    // direct slug and not the twin.
+    // open (review B17 / M3; until then isListable hides the direct lot): its
+    // URL then renders the direct lot, so list the direct slug and not the twin.
     const suppressedReslabIds = new Set<number>(
-      DIRECT_BOOKING_OPEN
-        ? directLots.map((l) => l.reslabLocationId).filter((v): v is number => v !== null)
-        : []
+      directLots.map((l) => l.reslabLocationId).filter((v): v is number => v !== null)
     );
 
     const results = await Promise.allSettled(
@@ -173,11 +171,15 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
     // per-airport ResLab promise: a ResLab failure for an airport must not
     // drop its direct lots (review L2). lastModified goes through the same
     // Invalid-Date guard as the blog segment (review L3).
+    const seen = new Set(urls.map((u) => u.url));
     for (const airport of airportChunk) {
       for (const l of directLots) {
         if (l.airportCode !== airport.code) continue;
+        const url = `${baseUrl}/${airport.slug}/airport-parking/${l.slug}`;
+        if (seen.has(url)) continue; // a same-slug ResLab entry already lists it
+        seen.add(url);
         urls.push({
-          url: `${baseUrl}/${airport.slug}/airport-parking/${l.slug}`,
+          url,
           lastModified: toValidDate(l.updatedAt),
           changeFrequency: "weekly" as const,
           priority: 0.8,

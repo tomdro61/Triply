@@ -67,6 +67,33 @@ describe("findLotBySlug — duplicate names across the channel", () => {
     expect(reslabMock.getLocation).toHaveBeenCalledWith(2);
     expect(reslabMock.getLocation).not.toHaveBeenCalledWith(1);
   });
+
+  it("never lets a blocked lot win the tie over an unblocked lot of the same name", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [
+        { ...loc(416, "Parking 4 Airport"), latitude: "40.64", longitude: "-73.78" }, // blocked, nearest
+        { ...loc(9, "Parking 4 Airport"), latitude: "40.70", longitude: "-73.80" },
+      ],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockRejectedValue(new Error("stop here"));
+
+    await findLotBySlug("parking-4-airport", FROM, TO, { latitude: 40.6413, longitude: -73.7781 }).catch(() => null);
+
+    expect(reslabMock.getLocation).toHaveBeenCalledWith(9);
+  });
+
+  it("a slug whose only match is blocked is a firm 404 even on a THIN list — never a retryable 503", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [loc(416, "Parking 4 Airport")],
+      incomplete: true,
+      stale: false,
+    });
+
+    expect(await findLotBySlug("parking-4-airport", FROM, TO)).toBeNull();
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+  });
 });
 
 describe("findLotBySlug — must not sweep /locations on the request path", () => {

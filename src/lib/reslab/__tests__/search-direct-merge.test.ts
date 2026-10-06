@@ -203,14 +203,14 @@ describe("searchParking — direct lots ON", () => {
     expect(reslabMock.getMinPrice).toHaveBeenCalledWith(2, expect.anything());
   });
 
-  it("until direct booking is open, a declared twin keeps its ResLab listing (a selling lot never goes dark — review M3)", async () => {
+  it("until direct booking is open, a direct lot with a declared twin is hidden and its ResLab listing sells as today (review M3) — no duplicate card", async () => {
     reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(2)]);
     reslabMock.getMinPrice.mockResolvedValue(minPrice());
-    directRows([directLotRow({ reslab_location_id: 1 })]);
+    directRows([directLotRow({ reslab_location_id: 1 }), directLotRow({ id: 2, slug: "untwinned" })]);
 
     const result = await search();
 
-    expect(result.results.map((l) => l.id).sort()).toEqual(["direct-1", "reslab-1", "reslab-2"]);
+    expect(result.results.map((l) => l.id).sort()).toEqual(["direct-2", "reslab-1", "reslab-2"]);
     expect(reslabMock.getMinPrice).toHaveBeenCalledTimes(2);
   });
 

@@ -25,6 +25,7 @@ vi.mock("@/lib/direct/flag", async () => {
 });
 
 import { getLotById } from "../get-lot";
+import { ReslabError } from "@/lib/reslab/client";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import { __resetCaptureThrottleForTests } from "@/lib/direct/store";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
@@ -119,10 +120,60 @@ describe("getLotById — flag on", () => {
     expect(await getLotById("direct-1", FROM, TO)).toMatchObject({ id: "direct-1" });
   });
 
-  it("until direct booking is open, a declared ResLab twin still renders the ResLab lot", async () => {
-    directRows([directLotRow({ reslab_location_id: 7 })]);
+  it("until direct booking is open, a direct lot with a declared twin is unreachable and the ResLab lot renders — even on a same-slug URL (review M2)", async () => {
+    directRows([directLotRow({ reslab_location_id: 7, slug: "lot-seven" })]);
     expect(await getLotById("reslab-7", FROM, TO, AT_JFK)).toMatchObject({ id: "reslab-7" });
     expect(await getLotById("lot-seven", FROM, TO, AT_JFK)).toMatchObject({ id: "reslab-7" });
+    expect(await getLotById("direct-1", FROM, TO, AT_JFK)).toBeNull();
+    // and a ResLab-id page never waited on the database at all
+    expect(db.rpc).toHaveBeenCalledTimes(2); // the slug and the direct-id lookups only
+  });
+
+  it("a direct slug answers without ResLab settling (review M1)", async () => {
+    directRows([directLotRow()]);
+    searchMock.getChannelLocationsCached.mockReturnValue(new Promise(() => {})); // never resolves
+    const lot = await Promise.race([
+      getLotById("the-parking-point-jfk", FROM, TO, AT_JFK),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("waited on ResLab")), 500)),
+    ]);
+    expect(lot).toMatchObject({ id: "direct-1" });
+    expect(searchMock.getChannelLocationsCached).not.toHaveBeenCalled();
+  });
+
+  it("a numeric id ResLab does not know is a plain 404 while twins are off, even if the direct read is failing (review L4)", async () => {
+    directRows(null, { code: "42501", message: "permission denied" });
+    reslabMock.getLocation.mockRejectedValue(Object.assign(new ReslabError(404, "nope"), {}));
+    expect(await getLotById("reslab-999", FROM, TO, AT_JFK)).toBeNull();
+    expect(db.rpc).not.toHaveBeenCalled();
+  });
+
+  it("a miss on THE lot whose row was dropped as unparseable is a 503, not a 404 (review L5)", async () => {
+    directRows([directLotRow({ address_zip: "" })]); // the published lot's row is now broken
+    await expect(getLotById("the-parking-point-jfk", FROM, TO, AT_JFK)).rejects.toBeInstanceOf(DirectInventoryUnavailableError);
+    await expect(getLotById("direct-1", FROM, TO, AT_JFK)).rejects.toBeInstanceOf(DirectInventoryUnavailableError);
+  });
+
+  it("…but a broken row never turns OTHER misses into 503s (pass-3 H1): junk slugs stay 404", async () => {
+    directRows([directLotRow({ address_zip: "" })]);
+    expect(await getLotById("no-such-lot", FROM, TO, AT_JFK)).toBeNull();
+    expect(await getLotById("direct-42", FROM, TO, AT_JFK)).toBeNull();
+    // a broken row at ANOTHER airport is not even in scope
+    directRows([directLotRow({ slug: "no-such-lot", airport_code: "BOS", address_zip: "" })]);
+    expect(await getLotById("no-such-lot", FROM, TO, AT_JFK)).toBeNull();
+  });
+
+  it("a row at an airport the site does not list is simply absent (never a 503)", async () => {
+    directRows([directLotRow({ slug: "no-such-lot", airport_code: "ZZZ" })]);
+    expect(await getLotById("no-such-lot", FROM, TO, AT_JFK)).toBeNull();
+    expect(await getLotById("direct-1", FROM, TO)).toBeNull();
+  });
+
+  it("scopes the lot-page read to the URL's airport (pass-3 M3)", async () => {
+    directRows([directLotRow()]);
+    await getLotById("some-slug", FROM, TO, AT_JFK);
+    expect(db.rpc).toHaveBeenCalledWith("direct_lots", { p_airport_code: "JFK", p_id: null });
+    await getLotById("some-slug", FROM, TO);
+    expect(db.rpc).toHaveBeenLastCalledWith("direct_lots", { p_airport_code: null, p_id: null });
   });
 
   it("once direct booking is open, the twin maps reslab-<id>, the bare id and the ResLab slug to the direct lot (same airport only)", async () => {

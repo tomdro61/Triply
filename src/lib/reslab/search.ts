@@ -35,8 +35,8 @@ import {
 } from "@/lib/availability/log";
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 import { deriveAvailability } from "@/lib/reslab/availability";
-import { isDirectLotsEnabled, DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
-import { fetchSellableDirectLots, type DirectLot, type DirectLotsResult } from "@/lib/direct/store";
+import { isDirectLotsEnabled } from "@/lib/direct/flag";
+import { fetchListableDirectLots, type DirectLot, type DirectLotsResult } from "@/lib/direct/store";
 import { directLotToUnified } from "@/lib/direct/adapter";
 
 export { generateSlug };
@@ -1182,7 +1182,7 @@ export async function searchParking(
 
   // ── Direct (non-ResLab) lots — plan A-22 ──────────────────────────────────
   // Started BEFORE the ResLab list fetch so the two run in parallel; awaited
-  // only where the merge needs it. fetchSellableDirectLots never throws (a
+  // only where the merge needs it. fetchListableDirectLots never throws (a
   // typed failure instead), is bounded at 4 s, and already filters to lots
   // that are published + active + visible in THIS environment, so a
   // staging_only lot can never appear in a production result. With the flag
@@ -1190,7 +1190,7 @@ export async function searchParking(
   // ResLab path is unchanged.
   const directEnabled = isDirectLotsEnabled();
   const directPromise: Promise<DirectLotsResult> | null = directEnabled
-    ? fetchSellableDirectLots(airportInfo.code, source === "chat" ? "/api/chat" : "/api/search")
+    ? fetchListableDirectLots(airportInfo.code, source === "chat" ? "/api/chat" : "/api/search")
     : null;
 
   // Search for locations near the airport.
@@ -1291,15 +1291,14 @@ export async function searchParking(
   // the CMS) is sold direct only: drop the ResLab twin here, before pricing,
   // so the pair never lists twice and no getMinPrice call is spent on the
   // suppressed id (review B17). Sits beside the blocked-id filter on purpose.
-  // Waits on DIRECT_BOOKING_OPEN: until the direct lot can be booked, hiding
-  // its ResLab listing would take a selling lot off the site (review M3).
-  // Scope note: this is THIS airport's direct lots (fetchSellableDirectLots is
+  // Until DIRECT_BOOKING_OPEN, a direct lot with a declared twin is not in
+  // `directLots` at all (store.isListable), so this set is empty and the
+  // ResLab listing sells exactly as today (review M3).
+  // Scope note: this is THIS airport's direct lots (fetchListableDirectLots is
   // per airport), so a ResLab lot inside two airports' radii is suppressed only
   // where its twin is declared — the lot page applies the same airport scope.
   const suppressedReslabIds = new Set<number>(
-    DIRECT_BOOKING_OPEN
-      ? directLots.map((l) => l.reslabLocationId).filter((id): id is number => id !== null)
-      : []
+    directLots.map((l) => l.reslabLocationId).filter((id): id is number => id !== null)
   );
 
   // Drop lots we've deliberately hidden (see BLOCKED_RESLAB_LOCATION_IDS).
