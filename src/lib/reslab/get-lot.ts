@@ -7,6 +7,7 @@ import {
   getFeaturedPhoto,
 } from "./client";
 import { UnifiedLot } from "@/types/lot";
+import type { PricingWindow } from "@/lib/reslab/pricing-window";
 import { calculateDistance } from "@/lib/utils/geo";
 import { generateSlug } from "@/lib/utils/slug";
 import { deriveAvailability } from "./availability";
@@ -184,6 +185,15 @@ function transformLocationToLot(
 }
 
 /**
+ * Optional per-lot override of the pricing window, given the ResLab location
+ * once it is loaded (the lot page passes reslabLotPricingWindow so a lot's
+ * notice period and timezone are honoured, as in search). Null = the lot can't
+ * take a booking for that check-in: no min-price call, the lot renders
+ * unpriced. Checkout never passes one — it prices the customer's own times.
+ */
+export type ReslabPricingWindowFn = (location: ReslabLocation) => PricingWindow | null;
+
+/**
  * Fetch lot details from ResLab API
  * Uses getMinPrice instead of getLocationTypes (which has API issues)
  */
@@ -191,7 +201,8 @@ export async function getLotFromReslab(
   locationId: number,
   fromDate: string,
   toDate: string,
-  airportCoords?: AirportCoords
+  airportCoords?: AirportCoords,
+  pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
   // Deliberately hidden lot — treated as not found on every path (slug and
   // numeric id) so it can't be reached via the detail page or /api/checkout/lot.
@@ -203,17 +214,20 @@ export async function getLotFromReslab(
 
     // Get minimum price (which also returns parking type info)
     let minPriceData: ReslabMinPriceResponse | null = null;
-    try {
-      minPriceData = await reslab.getMinPrice(locationId, {
-        type: "parking",
-        reservation_type: "parking",
-        from_date: fromDate,
-        to_date: toDate,
-        number_of_spots: 1,
-      });
-    } catch (error) {
-      console.error("Error getting min price:", error);
-      // Continue without pricing - we can still show the lot
+    const window = pricingWindowFor ? pricingWindowFor(location) : { fromDate, toDate };
+    if (window) {
+      try {
+        minPriceData = await reslab.getMinPrice(locationId, {
+          type: "parking",
+          reservation_type: "parking",
+          from_date: window.fromDate,
+          to_date: window.toDate,
+          number_of_spots: 1,
+        });
+      } catch (error) {
+        console.error("Error getting min price:", error);
+        // Continue without pricing - we can still show the lot
+      }
     }
 
     return transformLocationToLot(location, minPriceData, airportCoords);
@@ -262,7 +276,8 @@ export async function findLotBySlug(
   slug: string,
   fromDate: string,
   toDate: string,
-  airportCoords?: AirportCoords
+  airportCoords?: AirportCoords,
+  pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
   // Deliberately NOT wrapped in try/catch. A ResLab failure (or an open
   // circuit breaker) must NOT be flattened into `null`, because null means
@@ -321,7 +336,7 @@ export async function findLotBySlug(
     return null;
   }
 
-  return getLotFromReslab(match.id, fromDate, toDate, airportCoords);
+  return getLotFromReslab(match.id, fromDate, toDate, airportCoords, pricingWindowFor);
 }
 
 /**
@@ -387,7 +402,9 @@ export async function getLotById(
   id: string,
   fromDate: string,
   toDate: string,
-  airport?: LotLookupContext
+  airport?: LotLookupContext,
+  /** ResLab lots only; direct lots price with fromDate/toDate. */
+  pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
   const directEnabled = isDirectLotsEnabled();
   const airportCode = airport?.code ?? null;
@@ -439,7 +456,7 @@ export async function getLotById(
   const reslabPrefixed = /^reslab-(\d+)$/.exec(id);
   const numericId = reslabPrefixed ? reslabPrefixed[1] : /^\d+$/.test(id) ? id : null;
   if (numericId !== null) {
-    const lot = await getLotFromReslab(Number(numericId), fromDate, toDate, airport);
+    const lot = await getLotFromReslab(Number(numericId), fromDate, toDate, airport, pricingWindowFor);
     if (!lot || !directEnabled || !DIRECT_BOOKING_OPEN) return lot;
     const direct = await loadSellableDirectLots(airportCode);
     const twin = direct.ok
@@ -454,7 +471,7 @@ export async function getLotById(
     const bySlug = direct.lots.find((l) => l.slug === id && inScope(l));
     if (bySlug) return directToUnified(bySlug, fromDate, toDate);
   }
-  const viaReslab = await findLotBySlug(id, fromDate, toDate, airport);
+  const viaReslab = await findLotBySlug(id, fromDate, toDate, airport, pricingWindowFor);
   if (viaReslab) {
     const twin =
       direct?.ok && DIRECT_BOOKING_OPEN

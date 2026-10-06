@@ -96,7 +96,11 @@ function SearchPageContent() {
           setDateError(
             data?.code === "checkout_before_checkin"
               ? "Return date must be on or after your check-in date."
-              : "We couldn't read those search details — please re-pick your airport and dates."
+              : data?.code === "same_day_too_late"
+                ? "It's too late to book parking for today at this airport. Try a check-in date of tomorrow."
+                : data?.code === "checkin_in_past"
+                  ? "That check-in date has already passed at this airport. Please pick a new date."
+                  : "We couldn't read those search details — please re-pick your airport and dates."
           );
         } else {
           setLoadError(true);
@@ -105,6 +109,11 @@ function SearchPageContent() {
       } else {
         setLots(data.results || []);
         setPartialResults(data.reslabUnavailable === true);
+        if (data.closedForToday === true && (data.results?.length ?? 0) === 0) {
+          setDateError(
+            "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
+          );
+        }
         trackSearch({ airportCode: airport, checkin: departDate, checkout: returnDate });
       }
     } catch (err) {

@@ -15,9 +15,50 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
 import { getLotById } from "@/lib/reslab/get-lot";
 import { limitedSpotsTag } from "@/lib/reslab/availability";
-import { convertTo24Hour } from "@/lib/utils/time";
+import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/lib/reslab/pricing-window";
+import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import type { UnifiedLot } from "@/types/lot";
+
+/**
+ * How the lot page PRICES the lot: the URL's times when present and still
+ * bookable, otherwise a timezone-aware default — a same-day check-in prices at
+ * the earliest slot still open instead of a fixed 10:00 AM, which ResLab
+ * rejected as past (the page then showed $0.00/day). A ResLab lot is priced
+ * per lot (`pricingWindowFor`: its notice period and timezone, the same rule
+ * as search — src/lib/reslab/pricing-window.ts); fromDate/toDate are the
+ * airport-level window used for direct lots. Pricing only: the booking widget
+ * keeps reading the raw URL times, so none of this becomes a booking time.
+ */
+function lotPricing(
+  checkin: string,
+  checkout: string,
+  timeZone: string | undefined,
+  checkinTime?: string,
+  checkoutTime?: string
+): { fromDate: string; toDate: string; pricingWindowFor?: ReslabPricingWindowFn } {
+  if (!timeZone) {
+    // No airport (metadata for an unknown slug renders "Not Found"):
+    // pricing-only fallback, never shown as a price for a real lot.
+    return toPricingWindow(checkin, checkout, {
+      checkinTime: checkinTime || "10:00 AM",
+      checkoutTime: checkoutTime || "2:00 PM",
+    });
+  }
+  const input = { checkin, checkout, airportTimeZone: timeZone, checkinTime, checkoutTime, now: new Date() };
+  const times = airportPricingTimes(input);
+  // Pricing-only fallback (safe — the customer picks real times before
+  // checkout): a past check-in or no slot left today can't price at any time.
+  // ResLab lots skip the call (pricingWindowFor → null); a direct lot keeps
+  // the old literal and renders unpriced, as before.
+  const airportWindow = times.ok
+    ? toPricingWindow(checkin, checkout, times)
+    : toPricingWindow(checkin, checkout, { checkinTime: "10:00 AM", checkoutTime: "2:00 PM" });
+  return {
+    ...airportWindow,
+    pricingWindowFor: (location) => reslabLotPricingWindow(location, input),
+  };
+}
 
 // A cold-start slug lookup now reaches the ~54-page ResLab sweep through
 // getChannelLocationsCached (40s budget, LOCATION_BUILD_BUDGET_MS). The
@@ -100,14 +141,13 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     checkout ||
     new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // tomorrow + 7 days
   // For pricing lookup only — actual booking times are required to be picked by the user.
-  const pricingCheckinTime = checkinTime || "10:00 AM";
-  const pricingCheckoutTime = checkoutTime || "2:00 PM";
-
-  // Format dates for API
-  const checkinTime24 = convertTo24Hour(pricingCheckinTime);
-  const checkoutTime24 = convertTo24Hour(pricingCheckoutTime);
-  const fromDate = `${defaultCheckin} ${checkinTime24}:00`;
-  const toDate = `${defaultCheckout} ${checkoutTime24}:00`;
+  const { fromDate, toDate, pricingWindowFor } = lotPricing(
+    defaultCheckin,
+    defaultCheckout,
+    airport.timezone,
+    checkinTime,
+    checkoutTime
+  );
 
   // Build back URL
   const backUrl = `/search?airport=${airport.code}&checkin=${defaultCheckin}&checkout=${defaultCheckout}`;
@@ -116,11 +156,13 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   // matches to this URL's airport; the coordinates drive the distance shown.
   let lot: UnifiedLot | null;
   try {
-    lot = await getLotById(lotSlug, fromDate, toDate, {
-      latitude: airport.latitude,
-      longitude: airport.longitude,
-      code: airport.code,
-    });
+    lot = await getLotById(
+      lotSlug,
+      fromDate,
+      toDate,
+      { latitude: airport.latitude, longitude: airport.longitude, code: airport.code },
+      pricingWindowFor
+    );
   } catch (err) {
     if (err instanceof DirectInventoryUnavailableError) return <UnavailableState backUrl={backUrl} />;
     throw err;
@@ -223,6 +265,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
                 initialCheckOut={defaultCheckout}
                 initialCheckInTime={checkinTime || ""}
                 initialCheckOutTime={checkoutTime || ""}
+                airportTimeZone={airport.timezone}
               />
             </div>
           </div>
@@ -245,7 +288,7 @@ export default function LotPage(props: LotPageProps) {
 // Generate metadata
 export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout } = await searchParams;
+  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
 
   const airport = getAirportBySlug(slug);
 
@@ -256,8 +299,15 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const defaultCheckout =
     checkout ||
     new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const fromDate = `${defaultCheckin} 10:00:00`;
-  const toDate = `${defaultCheckout} 14:00:00`;
+  // Same window as the page body (it used a fixed 10:00 AM, a guaranteed 422
+  // on every same-day view), so both renders make the same min-price call.
+  const { fromDate, toDate, pricingWindowFor } = lotPricing(
+    defaultCheckin,
+    defaultCheckout,
+    airport?.timezone,
+    checkinTime,
+    checkoutTime
+  );
 
   // Try to get lot. Same airport scope as the page body (the two share one
   // direct-lot read per request via React.cache).
@@ -267,7 +317,8 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
       lotSlug,
       fromDate,
       toDate,
-      airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined
+      airport ? { latitude: airport.latitude, longitude: airport.longitude, code: airport.code } : undefined,
+      pricingWindowFor
     );
   } catch (err) {
     // No `robots: noindex` here: that is a removal signal, and this is a
