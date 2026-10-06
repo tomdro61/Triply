@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,7 @@ import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
 import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
+import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -103,18 +104,40 @@ export function ProductDetailSlider({
   }, [localCheckIn, localCheckOut, price, hasApiPricing, lot.pricing]);
 
   const airport = getAirportByCode(airportCode);
+
+  // Same rule as the lot page's BookingWidget: for a check-in today, hide
+  // slots already past (or inside the lot's notice period) at the airport —
+  // ResLab refuses them at checkout — and treat a passed pre-filled time as
+  // unselected so the times gate keeps Reserve off.
+  // Re-evaluated every minute so a slot that passes while the page sits open
+  // drops out of the list (Reserve re-checks at click time too). Null until
+  // mounted: the server render and hydration show the same full list, and the
+  // filter applies on the client only — no hydration mismatch at a slot edge.
+  const [clock, setClock] = useState<number | null>(null);
+  useEffect(() => {
+    setClock(Date.now());
+    const id = setInterval(() => setClock(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const checkInTimeOptions = useMemo(
+    () =>
+      bookableCheckinTimes(timeOptions, localCheckIn, airport?.timezone, lot.hoursBeforeReservation, clock === null ? null : new Date(clock)),
+    [localCheckIn, airport?.timezone, lot.hoursBeforeReservation, clock]
+  );
+  const selectedCheckInTime = checkInTimeOptions.includes(localCheckInTime) ? localCheckInTime : "";
+
   const lotDetailUrl = (() => {
     if (!airport) return "#";
     const params = new URLSearchParams({
       checkin: localCheckIn,
       checkout: localCheckOut,
     });
-    if (localCheckInTime) params.set("checkinTime", localCheckInTime);
+    if (selectedCheckInTime) params.set("checkinTime", selectedCheckInTime);
     if (localCheckOutTime) params.set("checkoutTime", localCheckOutTime);
     return `/${airport.slug}/airport-parking/${lot.slug}?${params.toString()}`;
   })();
 
-  const timesMissing = !localCheckInTime || !localCheckOutTime;
+  const timesMissing = !selectedCheckInTime || !localCheckOutTime;
   // Same gate as the lot page's BookingWidget: a direct lot is listed before
   // its checkout ships, so Reserve stays off here too (review M1).
   const bookingNotOpenYet = lot.source === "direct" && !DIRECT_BOOKING_OPEN;
@@ -127,11 +150,18 @@ export function ProductDetailSlider({
 
   const handleReserve = () => {
     if (reserveDisabled) return;
+    // The list refreshes once a minute; re-check against the clock now so a
+    // slot that passed since then never reaches checkout.
+    if (!stillBookableCheckinTime(selectedCheckInTime, timeOptions, localCheckIn, airport?.timezone, lot.hoursBeforeReservation)) {
+      setLocalCheckInTime("");
+      setClock(Date.now());
+      return;
+    }
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: localCheckIn,
       checkout: localCheckOut,
-      checkinTime: localCheckInTime,
+      checkinTime: selectedCheckInTime,
       checkoutTime: localCheckOutTime,
     });
     router.push(`/checkout?${params.toString()}`);
@@ -268,16 +298,16 @@ export function ProductDetailSlider({
                     <div className="relative w-28">
                       <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
-                        value={localCheckInTime}
+                        value={selectedCheckInTime}
                         onChange={(e) => setLocalCheckInTime(e.target.value)}
                         className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
-                          localCheckInTime
+                          selectedCheckInTime
                             ? "bg-gray-50 border-gray-200 text-gray-900"
                             : "bg-orange-50 border-brand-orange text-gray-500"
                         }`}
                       >
                         <option value="" disabled>Select</option>
-                        {timeOptions.map((time) => (
+                        {checkInTimeOptions.map((time) => (
                           <option key={time} value={time}>{time}</option>
                         ))}
                       </select>
@@ -326,6 +356,12 @@ export function ProductDetailSlider({
                   </div>
                 </div>
 
+                {localCheckIn && checkInTimeOptions.length === 0 && (
+                  <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
+                    <AlertCircle size={12} className="flex-shrink-0" />
+                    No check-in times left today. Please pick a later date.
+                  </p>
+                )}
                 {timesMissing && (
                   <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
                     <AlertCircle size={12} className="flex-shrink-0" />

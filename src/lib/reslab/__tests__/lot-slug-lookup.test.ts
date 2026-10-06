@@ -206,3 +206,37 @@ describe("blocked lots (BLOCKED_RESLAB_LOCATION_IDS)", () => {
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
 });
+
+describe("getLotFromReslab — per-lot pricing window (same-day, 2026-10-06)", () => {
+  it("prices with the window the caller derives from the loaded location", async () => {
+    reslabMock.getLocation.mockResolvedValue({ ...loc(7, "Notice Lot"), hours_before_reservation: 3 });
+    reslabMock.getMinPrice.mockResolvedValue(null);
+    const windowFor = vi.fn(() => ({ fromDate: "2026-10-06 16:30:00", toDate: "2026-10-09 14:00:00" }));
+
+    await getLotFromReslab(7, FROM, TO, undefined, windowFor);
+
+    expect(windowFor).toHaveBeenCalledWith(expect.objectContaining({ hours_before_reservation: 3 }));
+    expect(reslabMock.getMinPrice).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ from_date: "2026-10-06 16:30:00", to_date: "2026-10-09 14:00:00" })
+    );
+  });
+
+  it("makes no min-price call and renders the lot unpriced when the lot can't take a booking", async () => {
+    reslabMock.getLocation.mockResolvedValue(loc(7, "Notice Lot"));
+
+    const lot = await getLotFromReslab(7, FROM, TO, undefined, () => null);
+
+    expect(reslabMock.getMinPrice).not.toHaveBeenCalled();
+    expect(lot?.pricing).toBeUndefined();
+  });
+
+  it("without a window function, prices fromDate/toDate exactly as before (checkout's path)", async () => {
+    reslabMock.getLocation.mockResolvedValue(loc(7, "Notice Lot"));
+    reslabMock.getMinPrice.mockResolvedValue(null);
+
+    await getLotFromReslab(7, FROM, TO);
+
+    expect(reslabMock.getMinPrice).toHaveBeenCalledWith(7, expect.objectContaining({ from_date: FROM, to_date: TO }));
+  });
+});

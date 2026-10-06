@@ -19,6 +19,7 @@ import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
 import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
+import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -26,6 +27,8 @@ interface BookingWidgetProps {
   initialCheckOut: string;
   initialCheckInTime?: string;
   initialCheckOutTime?: string;
+  /** The airport's IANA timezone, to hide check-in slots already past today. */
+  airportTimeZone?: string;
 }
 
 const timeOptions = [
@@ -85,6 +88,7 @@ export function BookingWidget({
   initialCheckOut,
   initialCheckInTime = "",
   initialCheckOutTime = "",
+  airportTimeZone,
 }: BookingWidgetProps) {
   const router = useRouter();
 
@@ -96,6 +100,27 @@ export function BookingWidget({
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);
   const [checkOutTime, setCheckOutTime] = useState(initialCheckOutTime);
+
+  // For a check-in today, hide slots already past (or inside the lot's notice
+  // period) at the airport: ResLab refuses them at checkout. A pre-filled time
+  // that has passed (an old link) reads as unselected, so the times gate below
+  // keeps Reserve off until the customer picks a real one.
+  // Re-evaluated every minute so a slot that passes while the page sits open
+  // drops out of the list (Reserve re-checks at click time too). Null until
+  // mounted: the server render and hydration show the same full list, and the
+  // filter applies on the client only — no hydration mismatch at a slot edge.
+  const [clock, setClock] = useState<number | null>(null);
+  useEffect(() => {
+    setClock(Date.now());
+    const id = setInterval(() => setClock(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const checkInTimeOptions = useMemo(
+    () =>
+      bookableCheckinTimes(timeOptions, checkIn, airportTimeZone, lot.hoursBeforeReservation, clock === null ? null : new Date(clock)),
+    [checkIn, airportTimeZone, lot.hoursBeforeReservation, clock]
+  );
+  const selectedCheckInTime = checkInTimeOptions.includes(checkInTime) ? checkInTime : "";
 
   // Use API pricing if available
   const hasApiPricing = lot.pricing?.grandTotal !== undefined;
@@ -144,7 +169,7 @@ export function BookingWidget({
       : `${lot.cancellationPolicies[0].percentage}% refund if cancelled`
     : "Free cancellation up to 24h before";
 
-  const timesMissing = !checkInTime || !checkOutTime;
+  const timesMissing = !selectedCheckInTime || !checkOutTime;
   const belowMinDays = lot.minimumBookingDays ? days < lot.minimumBookingDays : false;
   // Direct (non-ResLab) lots are listed from Phase 2 but their checkout ships
   // in Phase 3; until then the button is off and says why. /api/checkout/lot
@@ -161,11 +186,18 @@ export function BookingWidget({
 
   const handleReserve = () => {
     if (reserveDisabled) return;
+    // The list refreshes once a minute; re-check against the clock now so a
+    // slot that passed since then never reaches checkout.
+    if (!stillBookableCheckinTime(selectedCheckInTime, timeOptions, checkIn, airportTimeZone, lot.hoursBeforeReservation)) {
+      setCheckInTime("");
+      setClock(Date.now());
+      return;
+    }
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: checkIn,
       checkout: checkOut,
-      checkinTime: checkInTime,
+      checkinTime: selectedCheckInTime,
       checkoutTime: checkOutTime,
     });
     router.push(`/checkout?${params.toString()}`);
@@ -319,16 +351,16 @@ export function BookingWidget({
                 <div className="relative w-28">
                   <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                   <select
-                    value={checkInTime}
+                    value={selectedCheckInTime}
                     onChange={(e) => setCheckInTime(e.target.value)}
                     className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
-                      checkInTime
+                      selectedCheckInTime
                         ? "bg-gray-50 border-gray-200 text-gray-900"
                         : "bg-orange-50 border-brand-orange text-gray-500"
                     }`}
                   >
                     <option value="" disabled>Select</option>
-                    {timeOptions.map((time) => (
+                    {checkInTimeOptions.map((time) => (
                       <option key={time} value={time}>{time}</option>
                     ))}
                   </select>
@@ -377,6 +409,12 @@ export function BookingWidget({
               </div>
             </div>
 
+            {checkIn && checkInTimeOptions.length === 0 && (
+              <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
+                <AlertCircle size={12} className="flex-shrink-0" />
+                No check-in times left today. Please pick a later date.
+              </p>
+            )}
             {timesMissing && (
               <p className="text-xs text-brand-orange font-medium flex items-center gap-1">
                 <AlertCircle size={12} className="flex-shrink-0" />
