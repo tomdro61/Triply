@@ -32,7 +32,10 @@ export function generateSEOContent(
     return [
       {
         heading: `Parking at ${name}`,
-        body: `We're currently expanding our parking inventory near ${name} (${code}). Check back soon for competitive rates and convenient parking options near ${city}.`,
+        // Neutral on purpose: 0 lots can mean "we list none here" or "all
+        // booked for the sampled week" (the page shows its own copy for each
+        // and doesn't render this section at 0 lots today).
+        body: `Search Triply for parking near ${name} (${code}) to see the lots and rates available for your dates near ${city}.`,
       },
     ];
   }
@@ -92,7 +95,7 @@ export function generateFAQs(
     return [
       {
         question: `Is off-airport parking available near ${code}?`,
-        answer: `We're currently expanding our parking inventory near ${name}. Check back soon or search for available options on Triply.`,
+        answer: `Search Triply with your travel dates to see which parking options near ${name} are available.`,
       },
     ];
   }
@@ -129,4 +132,36 @@ export function generateFAQs(
       answer: `We recommend booking at least 1–2 weeks before your trip for the best rates. Prices tend to increase closer to your travel date, especially during holidays and peak travel seasons.`,
     },
   ];
+}
+
+/**
+ * Copy for an airport page with no bookable lots in its sampled week, keyed on
+ * how many lots we list there (AirportPageData.locationsConsidered):
+ * - 0: we list nothing near this airport → "coming soon".
+ * - > 0: we serve it, but every lot was sold out or unavailable → say so; never
+ *   "coming soon" for an airport we serve.
+ * - null: unknown (the search failed during a build) → claim nothing.
+ * No absolute dates in the copy: an ISR page can be served stale after a quiet
+ * spell; the relative "next week" is bounded by the hourly revalidation.
+ */
+export function emptyStateCopy(
+  airportName: string,
+  locationsConsidered: number | null
+): { heading: string; body: string } {
+  if (locationsConsidered === 0) {
+    return {
+      heading: "Parking Options Coming Soon",
+      body: `We're expanding our parking inventory near ${airportName}. Use the search above to check for the latest availability.`,
+    };
+  }
+  if (locationsConsidered === null) {
+    return {
+      heading: `Find Parking Near ${airportName}`,
+      body: "Use the search above to see available lots and prices for your dates.",
+    };
+  }
+  return {
+    heading: "No Online Availability for the Next Week",
+    body: `Parking near ${airportName} is booked or unavailable for the next week. Use the search above to check your dates.`,
+  };
 }
