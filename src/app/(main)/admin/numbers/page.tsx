@@ -10,7 +10,7 @@
  * money itself. Those requests are slow (a ResLab + Stripe lookup per
  * booking), so the table renders first and net take fills in month by month.
  */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2, ArrowLeft, AlertTriangle } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
@@ -28,15 +28,36 @@ interface NumbersResponse {
   bookings: MonthBookings[] | null;
   lots: {
     rows: Array<{ code: string; city: string; lots: number }>;
-    incomplete: boolean;
-    stale: boolean;
     totalLocations: number;
   } | null;
   searches: { env: string; days: Array<{ day: string; count: number }> } | null;
+  /** Staging (Stripe test-mode) rows left out of every count; null when bookings failed. */
+  stagingExcluded: number | null;
   warnings: string[];
 }
 
 type NetState = NetTake | "loading" | { error: string };
+
+// Closed months never change, so a successful reconcile is kept for the tab's
+// lifetime (sessionStorage) and a reload costs no ResLab/Stripe calls.
+// Storage can be unavailable (private mode); every access is try/caught.
+function readCachedNet(key: string): NetTake | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as NetTake;
+    return typeof v === "object" && v !== null && "net" in v ? v : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedNet(key: string, value: NetState): void {
+  try {
+    if (typeof value === "object" && "net" in value) sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* storage unavailable — the number still renders, it just isn't cached */
+  }
+}
 
 // Two at a time: each accounting call fans out ResLab + Stripe lookups at
 // concurrency 5, and ResLab has throttled us before.
@@ -124,49 +145,83 @@ export default function MonthlyNumbersPage() {
   const [data, setData] = useState<NumbersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [net, setNet] = useState<Record<string, NetState>>({});
+  const [historyRequested, setHistoryRequested] = useState(false);
+  // Aborts in-flight reconciler calls when the page unmounts — each one fans
+  // out a ResLab + Stripe lookup per booking, so a bounced sidebar click must
+  // not leave that running server-side.
+  const abortRef = useRef<AbortController | null>(null);
+
+  // Net take comes from the reconciler, which costs one ResLab call and one
+  // Stripe call PER BOOKING in the month. Loading all six months on every
+  // visit was ~300–600 ResLab calls a page view (review High 2), so only the
+  // headline month loads by itself; the history is one click, and closed
+  // months are cached in sessionStorage because they do not change.
+  const loadNet = useCallback(async (targets: MonthWindow[]) => {
+    const controller = abortRef.current ?? new AbortController();
+    abortRef.current = controller;
+    const queue = [...targets].reverse(); // newest first
+    setNet((prev) => ({
+      ...prev,
+      ...Object.fromEntries(queue.filter((m) => !(m.key in prev)).map((m) => [m.key, "loading" as const])),
+    }));
+    const worker = async () => {
+      for (let m = queue.shift(); m; m = queue.shift()) {
+        const month = m;
+        const cacheKey = `admin-numbers:net:${month.key}`;
+        let state: NetState;
+        const cached = !month.partial ? readCachedNet(cacheKey) : null;
+        if (cached) {
+          state = cached;
+        } else {
+          try {
+            const r = await fetch(`/api/admin/accounting?from=${month.from}&to=${month.to}&by=created`, {
+              signal: controller.signal,
+            });
+            if (!r.ok) throw new Error(`accounting ${r.status}`);
+            const parsed = accountingSliceSchema.safeParse(await r.json());
+            state = parsed.success ? netTakeFrom(parsed.data) : { error: "unexpected accounting response shape" };
+            if (!month.partial && parsed.success) writeCachedNet(cacheKey, state);
+          } catch (e) {
+            if (controller.signal.aborted) return;
+            state = { error: e instanceof Error ? e.message : String(e) };
+          }
+        }
+        if (controller.signal.aborted) return;
+        setNet((prev) => ({ ...prev, [month.key]: state }));
+      }
+    };
+    await Promise.all(Array.from({ length: ACCOUNTING_CONCURRENCY }, worker));
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    abortRef.current = controller;
     async function load() {
-      const res = await fetch("/api/admin/monthly-numbers");
+      const res = await fetch("/api/admin/monthly-numbers", { signal: controller.signal });
       if (!res.ok) {
         setError(res.status === 403 ? "Forbidden" : `Failed to load (${res.status})`);
         return;
       }
       const body: NumbersResponse = await res.json();
-      if (cancelled) return;
+      if (controller.signal.aborted) return;
       setData(body);
-
-      // Net take: newest month first, so the number people look at lands first.
-      const queue = [...body.months].reverse();
-      setNet(Object.fromEntries(queue.map((m) => [m.key, "loading" as const])));
-      const worker = async () => {
-        for (let m = queue.shift(); m; m = queue.shift()) {
-          const month = m;
-          let state: NetState;
-          try {
-            const r = await fetch(
-              `/api/admin/accounting?from=${month.from}&to=${month.to}&by=created`
-            );
-            if (!r.ok) throw new Error(`accounting ${r.status}`);
-            const parsed = accountingSliceSchema.safeParse(await r.json());
-            state = parsed.success
-              ? netTakeFrom(parsed.data)
-              : { error: "unexpected accounting response shape" };
-          } catch (e) {
-            state = { error: e instanceof Error ? e.message : String(e) };
-          }
-          if (cancelled) return;
-          setNet((prev) => ({ ...prev, [month.key]: state }));
-        }
-      };
-      await Promise.all(Array.from({ length: ACCOUNTING_CONCURRENCY }, worker));
+      // Headline only: the last COMPLETE month.
+      const lastFull = body.months.length >= 2 ? body.months[body.months.length - 2] : null;
+      if (lastFull) await loadNet([lastFull]);
     }
-    load().catch((e: unknown) => setError(e instanceof Error ? e.message : String(e)));
+    load().catch((e: unknown) => {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e));
+    });
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, []);
+  }, [loadNet]);
+
+  const loadHistory = () => {
+    if (!data || historyRequested) return;
+    setHistoryRequested(true);
+    void loadNet(data.months.filter((m) => !(m.key in net)));
+  };
 
   if (error) {
     return <p className="text-red-700">{error}</p>;
@@ -179,7 +234,7 @@ export default function MonthlyNumbersPage() {
     );
   }
 
-  const { months, bookings, lots, searches, warnings } = data;
+  const { months, bookings, lots, searches, warnings, stagingExcluded } = data;
   const short = (m: MonthWindow) => m.label.slice(0, 3) + (m.partial ? "*" : "");
   // Headline = the last COMPLETE month (the current one is still moving).
   const lastFull = months.length >= 2 ? months[months.length - 2] : null;
@@ -196,7 +251,8 @@ export default function MonthlyNumbersPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-900">Monthly numbers</h1>
         <p className="text-gray-600 text-sm">
-          Last 6 months by booking date (UTC months, test lots excluded). * = month in progress.
+          Last 6 months by booking date (UTC months; test lots and staging bookings excluded
+          {stagingExcluded !== null && stagingExcluded > 0 ? ` — ${stagingExcluded} staging` : ""}). * = month in progress.
         </p>
         {warnings.length > 0 && (
           <p className="mt-2 text-sm text-amber-700 flex items-center gap-1.5">
@@ -252,8 +308,21 @@ export default function MonthlyNumbersPage() {
 
       <Card
         title="What we keep"
-        note="Net take from the accounting reconciler: channel commission − ResLab fee + service fee + Park Guard margin − Stripe fees. Per booking ÷ confirmed bookings. * = before Stripe fees (fee data incomplete)."
+        note="Net take from the accounting reconciler: channel commission − ResLab fee + service fee + Park Guard margin − Stripe fees (the numerator includes the service fee kept on refunded bookings). Per booking ÷ confirmed bookings. * = before Stripe fees (fee data incomplete)."
       >
+        {!historyRequested && (
+          <p className="text-sm text-gray-600 mb-3">
+            Net take is loaded for the last complete month only — each month costs one ResLab and one
+            Stripe lookup per booking.{" "}
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="text-brand-orange font-semibold underline underline-offset-2"
+            >
+              Load the other {Math.max(0, months.length - 1)} months
+            </button>
+          </p>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -291,8 +360,8 @@ export default function MonthlyNumbersPage() {
       </Card>
 
       <Card
-        title="Sellable lots per airport"
-        note="ResLab lots on our channel within search's 15 km radius, hidden lots removed. Red = none, amber = one."
+        title="ResLab channel lots per airport"
+        note="ResLab lots on our channel within search's 15 km radius, hidden lots removed; direct lots are not counted here yet. Red = none, amber = one."
       >
         {lots ? (
           <>
@@ -300,11 +369,6 @@ export default function MonthlyNumbersPage() {
               <p className="text-sm text-red-700 mb-3">
                 {thinAirports.length} airport{thinAirports.length === 1 ? "" : "s"} with 0–1 lots:{" "}
                 {thinAirports.map((r) => `${r.city} (${r.lots})`).join(", ")}.
-              </p>
-            )}
-            {(lots.incomplete || lots.stale) && (
-              <p className="text-sm text-amber-700 mb-3">
-                Location list is {lots.incomplete ? "incomplete — counts may be low" : "stale"}.
               </p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -329,7 +393,10 @@ export default function MonthlyNumbersPage() {
             </div>
           </>
         ) : (
-          <Unavailable what="Location list" />
+          <p className="text-sm text-amber-700 flex items-center gap-1.5">
+            <AlertTriangle size={14} /> Location list is not warm on this instance — this page never
+            calls ResLab itself. Run a search and reload.
+          </p>
         )}
       </Card>
 

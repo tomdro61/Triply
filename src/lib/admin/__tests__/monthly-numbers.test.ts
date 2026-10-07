@@ -103,17 +103,18 @@ describe("bookingsByMonth", () => {
     expect(out[1]).toMatchObject({ paid: 1, repeat: 1, repeatRate: 1 });
   });
 
-  it("a refunded booking still makes the next one a repeat; no email is never a repeat", () => {
+  it("a refunded booking does NOT seed history (cancel-and-rebook is not a returning customer — same rule as the digest); no email is never a repeat", () => {
     const out = bookingsByMonth(
       [
         row("2026-08-01T00:00:00Z", "r@x.com", "refunded"),
-        row("2026-08-02T00:00:00Z", "r@x.com"),
-        row("2026-08-03T00:00:00Z", null),
+        row("2026-08-02T00:00:00Z", "r@x.com"), // first CONFIRMED booking → not a repeat
+        row("2026-08-03T00:00:00Z", "r@x.com", "refunded"), // repeat: a confirmed booking preceded it
         row("2026-08-04T00:00:00Z", null),
+        row("2026-08-05T00:00:00Z", null),
       ],
       months
     );
-    expect(out[0]).toMatchObject({ paid: 4, repeat: 1 });
+    expect(out[0]).toMatchObject({ paid: 5, repeat: 1 });
   });
 
   it("returns null repeat rate for a month with no paid bookings", () => {
@@ -170,7 +171,7 @@ describe("lotsPerAirport", () => {
       loc(3, 44.88, -93.2), // MSP
       loc(4, 41.2, -73.8), // ~60 km from JFK: out of radius
     ];
-    const out = lotsPerAirport(locations, airports, new Set([416]));
+    const out = lotsPerAirport(locations as readonly ReslabLocation[], airports, new Set([416]));
     expect(out).toEqual([
       { code: "SLC", city: "Salt Lake City", lots: 0 },
       { code: "MSP", city: "Minneapolis", lots: 1 },

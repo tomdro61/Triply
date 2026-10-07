@@ -95,7 +95,7 @@ export interface MonthBookings {
   refunded: number;
   /** confirmed + refunded: every paid booking, the repeat-rate denominator. */
   paid: number;
-  /** Paid bookings whose (lowercased) email had an EARLIER paid booking. */
+  /** Paid bookings whose (lowercased) email had an EARLIER CONFIRMED booking. */
   repeat: number;
   /** repeat / paid; null when there were no paid bookings. */
   repeatRate: number | null;
@@ -104,14 +104,19 @@ export interface MonthBookings {
 /**
  * Bookings and repeat rate per month.
  *
- * `rows` must be the FULL history (all months, test lots already removed), not
- * just the window: a September booking is a repeat when the same email booked
- * in March, so the "seen before" set has to be built from the beginning.
+ * `rows` must be the FULL history (all months, test lots and staging rows
+ * already removed), not just the window: a September booking is a repeat when
+ * the same email booked in March, so the "seen before" set has to be built
+ * from the beginning.
  *
- * Repeat = a paid booking by an email that already had a paid booking before
- * it (earlier month OR earlier the same month). Booking-level, so the rate
- * reads as "what share of this month's bookings came from returning customers".
- * Rows with no email count toward `paid` but can never be a repeat.
+ * Repeat = a paid booking by an email that already had a CONFIRMED booking
+ * before it (earlier month OR earlier the same month) — the same definition
+ * as the daily digest's repeat metric (src/lib/digest/collect.ts
+ * repeatByEmail), so the team reads one number. A refunded booking does not
+ * seed history: a customer who cancels and rebooks, or retries after a
+ * price-drift refund, is not a "returning customer". Booking-level, so the
+ * rate reads as "what share of this month's bookings came from returning
+ * customers". Rows with no email count toward `paid` but can never be a repeat.
  */
 export function bookingsByMonth(rows: NumbersBookingRow[], months: MonthWindow[]): MonthBookings[] {
   const byKey = new Map<string, MonthBookings>(
@@ -132,7 +137,7 @@ export function bookingsByMonth(rows: NumbersBookingRow[], months: MonthWindow[]
       bucket.paid++;
       if (email !== null && seen.has(email)) bucket.repeat++;
     }
-    if (email !== null) seen.add(email);
+    if (email !== null && r.status === "confirmed") seen.add(email);
   }
   const out = months.map((m) => byKey.get(m.key) as MonthBookings);
   for (const b of out) b.repeatRate = b.paid > 0 ? b.repeat / b.paid : null;

@@ -1,10 +1,15 @@
 /**
- * Sellable lots per airport for /admin/numbers. Server-only: it reuses search's
- * own radius filter, so it imports search.ts (kept out of the client-safe
- * ./monthly-numbers.ts for that reason).
+ * ResLab channel lots per airport for /admin/numbers. Server-only: it reuses
+ * search's own radius filter, so it imports search.ts (kept out of the
+ * client-safe ./monthly-numbers.ts for that reason).
+ *
+ * Counts the RESLAB channel only. Direct lots (src/lib/direct) are listed
+ * beside ResLab lots by searchParking once DIRECT_BOOKING_OPEN; add them here
+ * (fetchListableDirectLots + twin suppression) when that flips — until then
+ * the page labels this card "ResLab channel lots".
  */
 import type { ReslabLocation } from "@/lib/reslab/client";
-import { filterLocationsNearPoint } from "@/lib/reslab/search";
+import { locationsNearPoint, AIRPORT_SEARCH_RADIUS_KM } from "@/lib/reslab/search";
 
 export interface AirportPoint {
   code: string;
@@ -21,11 +26,11 @@ export interface AirportLots {
 
 /**
  * Lots we can sell per airport: channel locations within search's own radius
- * (filterLocationsNearPoint, 15 km) minus the lots search hides. Sorted
- * fewest-first so the airports we can't really sell are at the top.
+ * (locationsNearPoint, AIRPORT_SEARCH_RADIUS_KM) minus the lots search hides.
+ * Sorted fewest-first so the airports we can't really sell are at the top.
  */
 export function lotsPerAirport(
-  locations: ReslabLocation[],
+  locations: readonly ReslabLocation[],
   airports: AirportPoint[],
   blockedIds: ReadonlySet<number>
 ): AirportLots[] {
@@ -34,7 +39,7 @@ export function lotsPerAirport(
     .map((a) => ({
       code: a.code,
       city: a.city,
-      lots: filterLocationsNearPoint(visible, a.latitude, a.longitude).length,
+      lots: locationsNearPoint(visible, a.latitude, a.longitude, AIRPORT_SEARCH_RADIUS_KM).length,
     }))
     .sort((x, y) => x.lots - y.lots || x.code.localeCompare(y.code));
 }
