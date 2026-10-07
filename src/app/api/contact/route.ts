@@ -22,6 +22,17 @@ import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/
  *      subject is an enum (contactFormSchema) and the greeting names nobody,
  *      so the email cannot carry a scammer's text to a victim's inbox.
  */
+/** 429 — deliberately generic. */
+function tooMany() {
+  return NextResponse.json(
+    { error: "Too many messages from this connection. Please try again in a few minutes." },
+    {
+      status: 429,
+      headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
+    }
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     // A non-JSON body is caller error, not a crash: parse to undefined and
@@ -31,11 +42,15 @@ export async function POST(request: NextRequest) {
 
     const honeypot = record[CONTACT_HONEYPOT_FIELD];
     if (typeof honeypot === "string" && honeypot.trim() !== "") {
+      // The trap counts against the same per-IP allowance a real submission
+      // uses, so one source can push at most 5 drops per window through the
+      // logs; past that it gets the ordinary 429 (which tells a bot nothing).
+      if (!checkContactRateLimit(clientKey(request))) return tooMany();
       const email = typeof record.email === "string" ? record.email : "";
       const subject = typeof record.subject === "string" ? record.subject.slice(0, 60) : "";
-      const context = { subject, emailDomain: email.split("@")[1]?.toLowerCase() ?? "", ipKey: clientKey(request) };
-      console.warn("[contact] honeypot drop", context);
-      captureContactHoneypotDrop(context);
+      const context = { subject, emailDomain: (email.split("@")[1] ?? "").toLowerCase().slice(0, 100), ipKey: clientKey(request) };
+      captureContactHoneypotDrop(context); // throttled per instance; console line kept short
+      console.warn("[contact] honeypot drop", context.ipKey, context.emailDomain);
       return NextResponse.json({ success: true });
     }
 
@@ -49,16 +64,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Per-IP ceiling, charged only now that the request is a real, well-formed
-    // submission. 429 is deliberately generic.
-    if (!checkContactRateLimit(clientKey(request))) {
-      return NextResponse.json(
-        { error: "Too many messages from this connection. Please try again in a few minutes." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
-        }
-      );
-    }
+    // submission (a person's 400s never burn their own allowance).
+    if (!checkContactRateLimit(clientKey(request))) return tooMany();
 
     const { name, email, subject, message } = result.data;
 

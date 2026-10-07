@@ -129,14 +129,34 @@ export function captureParkGuardError(
  * the false-positive rate can be read off the event count. No message body,
  * no full address: subject, the address's domain and the IP key only.
  */
+// Throttled per instance: a bot hammering the honeypot must not mint one
+// Sentry event per request (the TRIPLY-13 flood class). One event per
+// HONEYPOT_CAPTURE_INTERVAL_MS, carrying how many drops it stands for.
+const HONEYPOT_CAPTURE_INTERVAL_MS = 10 * 60 * 1000;
+let lastHoneypotCaptureAt = 0;
+let honeypotSuppressed = 0;
+/** Tests only. */
+export function __resetHoneypotCaptureForTests(): void {
+  lastHoneypotCaptureAt = 0;
+  honeypotSuppressed = 0;
+}
 export function captureContactHoneypotDrop(context: { subject: string; emailDomain: string; ipKey: string }) {
+  const now = Date.now();
+  if (now - lastHoneypotCaptureAt < HONEYPOT_CAPTURE_INTERVAL_MS) {
+    honeypotSuppressed++;
+    return;
+  }
+  lastHoneypotCaptureAt = now;
+  const suppressedSinceLastCapture = honeypotSuppressed;
+  honeypotSuppressed = 0;
+  const emailDomain = context.emailDomain.slice(0, 100); // caller text; keep the title bounded
   Sentry.withScope((scope) => {
     scope.setLevel("info");
     scope.setTag("contact.honeypot", "true");
     scope.setFingerprint(["contact", "honeypot-drop"]);
-    scope.setContext("contact", context);
+    scope.setContext("contact", { ...context, emailDomain, suppressedSinceLastCapture });
     Sentry.captureMessage(
-      `Contact form submission dropped by honeypot (${context.subject || "no subject"}, @${context.emailDomain || "?"})`
+      `Contact form submission dropped by honeypot (${context.subject || "no subject"}, @${emailDomain || "?"}; +${suppressedSinceLastCapture} suppressed)`
     );
   });
 }

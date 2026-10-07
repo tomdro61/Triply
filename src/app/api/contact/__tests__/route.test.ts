@@ -77,6 +77,14 @@ describe("POST /api/contact", () => {
     });
   });
 
+  it("the honeypot path counts against the per-IP limit, so one source cannot push unlimited drops through the logs", async () => {
+    const bot = { ...valid, [CONTACT_HONEYPOT_FIELD]: "x" };
+    for (let i = 0; i < 5; i++) expect((await POST(req(bot))).status).toBe(200);
+    expect((await POST(req(bot))).status).toBe(429);
+    expect(sentry.captureContactHoneypotDrop).toHaveBeenCalledTimes(5);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
   it("an empty honeypot (what both real forms send) is not a trap", async () => {
     const res = await POST(req({ ...valid, [CONTACT_HONEYPOT_FIELD]: "" }));
     expect(res.status).toBe(200);

@@ -113,8 +113,8 @@ export default function ContactPage() {
                     Message Sent!
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Thank you for reaching out. We&apos;ve received your message and sent a note to your
-                    email and will respond within 24-48 hours.
+                    Thank you for reaching out. We&apos;ve received your message and will
+                    respond within 24-48 hours.
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
                     <button
