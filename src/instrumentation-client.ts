@@ -16,18 +16,9 @@ Sentry.init({
   tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
 
   // Session replay — 10% of all sessions, 100% of sessions with errors.
+  // The replay integration itself is added lazily, below.
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
-
-  // Replay must mask customer PII visible on screen (names, emails, phone,
-  // vehicle info, addresses on confirmation pages, admin booking modal, etc.).
-  // Without this, replays leak customer data into Sentry recordings.
-  integrations: [
-    Sentry.replayIntegration({
-      maskAllText: true,
-      blockAllMedia: true,
-    }),
-  ],
 
   // Don't send IP address, cookies, or User-Agent by default — too easy to
   // leak session tokens or other identifiers via cookies. Attach selectively
@@ -87,6 +78,62 @@ Sentry.init({
     /extensions\//i,
   ],
 });
+
+// Session replay, loaded after the page is idle.
+//
+// Replay (the rrweb recorder) is the largest part of Sentry's browser code.
+// Bundled into init above, it was downloaded and parsed on every page before
+// the page could respond to a tap. Error capture and tracing still start
+// immediately with Sentry.init; only the recorder waits. Trade-off: an error
+// thrown in the first second or two of a visit, before the recorder is up,
+// is still reported but has no replay attached.
+//
+// Replay must mask customer PII visible on screen (names, emails, phone,
+// vehicle info, addresses on confirmation pages, admin booking modal, etc.).
+// Without maskAllText / blockAllMedia, replays leak customer data into Sentry
+// recordings.
+function loadReplay() {
+  import("@sentry/nextjs")
+    .then(({ replayIntegration }) => {
+      Sentry.addIntegration(
+        replayIntegration({
+          maskAllText: true,
+          blockAllMedia: true,
+        })
+      );
+    })
+    .catch(() => {
+      // Chunk failed to load (offline, blocked by an extension). Error capture
+      // is unaffected. Deliberately silent: a replay chunk that never loads on
+      // some client is not an application error, and reporting it from here
+      // would be one event per such page view.
+    });
+}
+
+/**
+ * Pages whose failures we most want a replay for happen in the first seconds
+ * of a HARD load: /checkout/complete and /confirmation/* are where a customer
+ * lands after a 3-D Secure redirect, and a ResLab 5xx on the confirmation
+ * fetch (TRIPLY-27) fires before "load + idle". On those routes the recorder
+ * starts immediately; everywhere else it waits for idle (PR #50 review).
+ */
+const REPLAY_EAGER_PATHS = /^\/(checkout|confirmation)(\/|$)/;
+
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "development") {
+  if (REPLAY_EAGER_PATHS.test(window.location.pathname)) {
+    loadReplay();
+  } else {
+    const whenIdle = (cb: () => void) =>
+      "requestIdleCallback" in window
+        ? window.requestIdleCallback(cb, { timeout: 5000 })
+        : setTimeout(cb, 3000);
+    if (document.readyState === "complete") {
+      whenIdle(loadReplay);
+    } else {
+      window.addEventListener("load", () => whenIdle(loadReplay), { once: true });
+    }
+  }
+}
 
 // Captures router-level transitions for App Router navigation tracing.
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;
