@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
 import { trackContactFormSubmit } from "@/lib/analytics/gtag";
+import { CONTACT_HONEYPOT_FIELD, CONTACT_SUBJECTS } from "@/lib/validation/schemas";
 import {
   ArrowLeft,
   Mail,
@@ -22,6 +23,9 @@ export default function ContactPage() {
     subject: "",
     message: "",
   });
+  // Honeypot — hidden from people, filled by bots; /api/contact drops the
+  // submission silently when it is non-empty.
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,13 +46,18 @@ export default function ContactPage() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, [CONTACT_HONEYPOT_FIELD]: website }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send message");
+        // A 504/413 arrives as HTML, not JSON — never show a parser error.
+        const data: { error?: string } | null = await response.json().catch(() => null);
+        throw new Error(
+          data?.error ||
+            (response.status === 429
+              ? "Too many messages from this connection. Please try again in a few minutes."
+              : "We couldn't send your message right now. Please try again, or email support@triplypro.com.")
+        );
       }
 
       setSuccess(true);
@@ -61,15 +70,8 @@ export default function ContactPage() {
     }
   };
 
-  const subjectOptions = [
-    "General Inquiry",
-    "Booking Help",
-    "Cancellation Request",
-    "Payment Issue",
-    "Feedback",
-    "Partnership Inquiry",
-    "Other",
-  ];
+  // The server validates against the same list (contactFormSchema).
+  const subjectOptions = CONTACT_SUBJECTS;
 
   return (
     <>
@@ -91,7 +93,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Contact Us</h1>
-                <p className="text-gray-600">We'd love to hear from you</p>
+                <p className="text-gray-600">We&apos;d love to hear from you</p>
               </div>
             </div>
           </div>
@@ -111,8 +113,8 @@ export default function ContactPage() {
                     Message Sent!
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Thank you for reaching out. We've sent a confirmation to your
-                    email and will respond within 24-48 hours.
+                    Thank you for reaching out. We&apos;ve received your message and will
+                    respond within 24-48 hours.
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
                     <button
@@ -137,7 +139,23 @@ export default function ContactPage() {
                       <h2 className="font-semibold text-gray-900">Send us a message</h2>
                     </div>
                   </div>
-                  <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                  <form onSubmit={handleSubmit} className="relative p-6 space-y-4">
+                    {/* Honeypot: off-screen, skipped by tab, autofill and password managers, invisible to screen readers. */}
+                    <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
+                      <input
+                        id={`contact-${CONTACT_HONEYPOT_FIELD}`}
+                        name={CONTACT_HONEYPOT_FIELD}
+                        type="text"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
+                        value={website}
+                        onChange={(e) => setWebsite(e.target.value)}
+                      />
+                    </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <label
@@ -199,6 +217,18 @@ export default function ContactPage() {
                           </option>
                         ))}
                       </select>
+                      {formData.subject === "Partnership Inquiry" && (
+                        <p className="mt-2 text-sm text-gray-600">
+                          Own or operate a parking lot?{" "}
+                          <Link
+                            href="/partners"
+                            className="text-brand-orange hover:text-orange-600 font-medium"
+                          >
+                            See how to list it on Triply
+                          </Link>
+                          .
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -282,6 +312,14 @@ export default function ContactPage() {
                       className="text-brand-orange hover:text-orange-600 text-sm font-medium"
                     >
                       View My Reservations
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/partners"
+                      className="text-brand-orange hover:text-orange-600 text-sm font-medium"
+                    >
+                      Own a parking lot? List it on Triply
                     </Link>
                   </li>
                   <li>

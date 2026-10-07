@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
 import { ArrowRight } from "lucide-react";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 
 interface RatesTableProps {
   airport: Airport;
@@ -67,10 +68,10 @@ export function RatesTable({ airport, lots }: RatesTableProps) {
                 </td>
                 <td className="py-3.5 pl-4 text-right">
                   <Link
-                    href={`/${airport.slug}/airport-parking/${lot.sourceId}`}
+                    href={`/${airport.slug}/airport-parking/${lot.slug}`}
                     className="text-xs text-brand-orange hover:underline font-medium inline-flex items-center gap-0.5"
                   >
-                    Book <ArrowRight className="w-3 h-3" />
+                    {lot.source === "direct" && !DIRECT_BOOKING_OPEN ? "Details" : "Book"} <ArrowRight className="w-3 h-3" />
                   </Link>
                 </td>
               </tr>

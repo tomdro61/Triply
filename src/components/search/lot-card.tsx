@@ -217,7 +217,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
                 id: lot.id,
                 name: lot.name,
                 price: lot.pricing?.minPrice,
-                airport: lot.id.split("-")[0]?.toUpperCase(),
+                airport: lot.airportCode,
               });
               onSelect(lot);
             }}

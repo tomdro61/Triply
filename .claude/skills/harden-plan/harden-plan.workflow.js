@@ -35,6 +35,9 @@ const DEFAULT_LENSES = [
   { key: 'FIRS', name: 'FIRST-PRINCIPLES ARCHITECTURE CRITIC', body: `Step back from the plan's framing and attack the ARCHITECTURE. Is this the right fix or a patch on a deeper defect? Is there a simpler/more robust design? Does the phasing create a long inconsistent-state window? Name the single biggest risk the plan underestimates and the single thing most likely to be over-engineered. Weigh alternatives honestly.` },
 ]
 const LENSES = [...DEFAULT_LENSES, ...(A.extraLenses || [])]
+// HARD RULE (Tom, 2026-10-02): review/verify/synthesis/gate agents run on Opus, never on the
+// parent model. A model named in prose (focus text) does nothing - only this option does.
+const REVIEW_MODEL = 'opus'
 
 const FINDINGS_SCHEMA = {
   type: 'object', additionalProperties: false,
@@ -103,7 +106,7 @@ const GATE_SCHEMA = {
 const reviewed = await pipeline(
   LENSES,
   (lens) => agent(`${commonHead}\n\nYOUR LENS — ${lens.name}:\n${lens.body}${findingRules(lens.key)}`, {
-    schema: FINDINGS_SCHEMA, phase: 'Review', effort: 'high', label: `review:${lens.key}`,
+    model: REVIEW_MODEL, schema: FINDINGS_SCHEMA, phase: 'Review', effort: 'high', label: `review:${lens.key}`,
   }),
   (review, lens) => parallel((review?.findings || []).map((f) => () =>
     agent(`Adversarially verify this review finding against the ACTUAL codebase and the plan at ${DOC}. Default to skepticism — many plausible-sounding findings are wrong once you read the code. Read the relevant source before ruling.${REPO}
@@ -112,7 +115,7 @@ FINDING (${lens.key}):
 ${JSON.stringify(f, null, 2)}
 
 CONFIRMED = proven real against code/plan; PLAUSIBLE = likely real but not fully provable statically; REFUTED = the code/plan already handles it or the premise is wrong. If real but the proposed fix is wrong/incomplete, give the corrected fix. Adjust severity if mis-rated.`, {
-      schema: VERDICT_SCHEMA, phase: 'Verify', effort: 'high', label: `verify:${lens.key}:${f.id || '?'}`,
+      model: REVIEW_MODEL, schema: VERDICT_SCHEMA, phase: 'Verify', effort: 'high', label: `verify:${lens.key}:${f.id || '?'}`,
     }).then((v) => ({ ...f, lens: lens.key, verdict: v })).catch(() => null)
   )),
 )
@@ -128,7 +131,7 @@ CRITICAL EXTRA STEP: check your own amendment set for MUTUAL CONTRADICTIONS — 
 
 SURVIVING FINDINGS (JSON):
 ${JSON.stringify(survivors.map((f) => ({ id: f.id, lens: f.lens, title: f.title, severity: f.severity, planSection: f.planSection, problem: f.problem, fix: f.fix, verdict: f.verdict.verdict, correctedFix: f.verdict.correctedFix, revisedSeverity: f.verdict.revisedSeverity })), null, 2)}`, {
-  schema: SYNTH_SCHEMA, phase: 'Synthesize', effort: 'max', label: 'synthesize',
+  model: REVIEW_MODEL, schema: SYNTH_SCHEMA, phase: 'Synthesize', effort: 'max', label: 'synthesize',
 })
 
 const gate = await agent(`Final gate. Read the current plan (${DOC}) and assume ALL amendments below are applied (including the reconciliations for any listed contradictions). Then attack it once more as the harshest possible reviewer: with these applied, is the plan bulletproof? Name every residual risk that would still bite in production, with a concrete mitigation. Explicitly re-check for any contradiction the synthesis missed. Do not rubber-stamp.${REPO}
@@ -138,7 +141,7 @@ ${JSON.stringify(synthesis.amendments, null, 2)}
 
 DECLARED CONTRADICTIONS (JSON):
 ${JSON.stringify(synthesis.contradictions || [], null, 2)}`, {
-  schema: GATE_SCHEMA, phase: 'Gate', effort: 'high', label: 'final-gate',
+  model: REVIEW_MODEL, schema: GATE_SCHEMA, phase: 'Gate', effort: 'high', label: 'final-gate',
 })
 
 const sev = (f) => (f.verdict.revisedSeverity && f.verdict.revisedSeverity !== 'unchanged') ? f.verdict.revisedSeverity : f.severity

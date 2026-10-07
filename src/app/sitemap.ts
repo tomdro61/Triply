@@ -1,9 +1,20 @@
 import type { MetadataRoute } from "next";
 import { productionAirports } from "@/config/airports";
-import { reslab } from "@/lib/reslab/client";
+import {
+  AIRPORT_SEARCH_RADIUS_KM,
+  BLOCKED_RESLAB_LOCATION_IDS,
+  getChannelLocationsNoSweep,
+  locationsNearPoint,
+} from "@/lib/reslab/search";
+import { isSnapshotEnabled } from "@/lib/reslab/location-snapshot";
+import { resolveEnv } from "@/lib/env";
+import { captureAPIError } from "@/lib/sentry";
 import { generateSlug } from "@/lib/utils/slug";
+import { isDirectLotsEnabled } from "@/lib/direct/flag";
+import { fetchDirectLots, isListable, type DirectLot } from "@/lib/direct/store";
 import {
   getPublishedPosts,
+  CmsAuthError,
   getDistinctAirportCodes,
   getCategories,
   getContentUpdatedAt,
@@ -60,6 +71,7 @@ function staticPages(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/about`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${baseUrl}/help`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${baseUrl}/contact`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${baseUrl}/partners`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${baseUrl}/blog`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${baseUrl}/terms`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${baseUrl}/privacy`, changeFrequency: "yearly", priority: 0.3 },
@@ -89,7 +101,10 @@ async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.7,
     }));
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }
@@ -102,7 +117,10 @@ async function blogCategoryPages(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly" as const,
       priority: 0.6,
     }));
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }
@@ -115,33 +133,100 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
     start + AIRPORTS_PER_LOT_SEGMENT
   );
 
-  try {
-    const results = await Promise.allSettled(
-      airportChunk.map(async (airport) => {
-        const locations = await reslab.searchLocations({
-          lat: String(airport.latitude),
-          lng: String(airport.longitude),
-        });
-
-        return locations.map((loc) => ({
-          url: `${baseUrl}/${airport.slug}/airport-parking/${generateSlug(loc.name)}`,
-          changeFrequency: "daily" as const,
-          priority: 0.8,
-        }));
-      })
-    );
-
-    const urls: MetadataRoute.Sitemap = [];
-    for (const result of results) {
-      if (result.status === "fulfilled") {
-        urls.push(...result.value);
-      }
+  // ResLab lots come from the channel location list this instance holds or the
+  // shared snapshot (028) — never from ResLab directly. This segment is built
+  // during `next build` and regenerated hourly; it used to call ResLab's
+  // lat/lng geo-search once per airport, which has been broken since June
+  // (RESLAB_GEO_SEARCH_BROKEN), so every lot segment was empty in production.
+  // A sweep here would spend the rate-limited /locations budget on a sitemap.
+  const channel = await getChannelLocationsNoSweep();
+  if (channel === null) {
+    const why = isSnapshotEnabled()
+      ? "no usable location list (snapshot unavailable)"
+      : "no location list in memory (ENABLE_RESLAB_LOCATION_SNAPSHOT is off)";
+    // In production at runtime, fail the regeneration so Next keeps serving
+    // the last good segment instead of replacing it with one that has no
+    // ResLab lots for an hour (Sentry gets it via onRequestError). Keyed on
+    // the environment, not the flag: with the flag off (the PR #40 rollback)
+    // only an instance that happened to sweep for a search holds a list, so
+    // lot URLs would come and go. In that mode the segments stay at their
+    // build-time version (direct lots only) and every hourly regeneration
+    // reports this error — expected during a rollback, not a new incident.
+    // At build, or outside production, list direct lots only.
+    if (resolveEnv() === "production" && process.env.NEXT_PHASE !== "phase-production-build") {
+      throw new Error(`Sitemap lot segment ${id}: ${why}; keeping the previous segment`);
     }
-    return urls;
-  } catch (error) {
-    console.warn(`Sitemap lot segment ${id} failed:`, error);
-    return [];
+    console.warn(`Sitemap lot segment ${id}: ${why}; listing no ResLab lots`);
   }
+
+  // Direct lots (ENABLE_DIRECT_LOTS): one bounded read per segment. A failed
+  // read is reported by the store and leaves the segment ResLab-only — the
+  // ResLab URLs are the bulk of the sitemap and must not disappear with it.
+  // isSellable applies the environment rule, so a staging_only lot is never
+  // listed from a production build.
+  let directLots: DirectLot[] = [];
+  if (isDirectLotsEnabled()) {
+    try {
+      const direct = await fetchDirectLots({}, "sitemap");
+      if (direct.ok) directLots = direct.lots.filter((l) => isListable(l));
+      else console.warn(`Sitemap lot segment ${id}: direct lots unavailable (${direct.kind}), listing ResLab only`);
+    } catch (error) {
+      // fetchDirectLots reports its own failures and doesn't throw, so this is
+      // a code bug (e.g. in isListable): report it, keep the ResLab URLs.
+      console.warn(`Sitemap lot segment ${id}: direct lots read threw, listing ResLab only:`, error);
+      captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+        endpoint: "sitemap",
+        method: "GET",
+        stage: "direct_lots",
+      });
+    }
+  }
+  // A ResLab twin of a direct lot is sold direct only once direct booking is
+  // open (review B17 / M3; until then isListable hides the direct lot): its
+  // URL then renders the direct lot, so list the direct slug and not the twin.
+  const suppressedReslabIds = new Set<number>(
+    directLots.map((l) => l.reslabLocationId).filter((v): v is number => v !== null)
+  );
+
+  const urls: MetadataRoute.Sitemap = [];
+  const seen = new Set<string>();
+  for (const airport of airportChunk) {
+    // Same selection searchParking makes: the mapped location for an airport
+    // with a reslabLocationId, otherwise every lot within its 15 km radius.
+    const near = channel === null
+      ? []
+      : airport.reslabLocationId !== undefined
+        ? channel.filter((loc) => loc.id === airport.reslabLocationId)
+        : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM);
+    for (const loc of near) {
+      if (BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) || suppressedReslabIds.has(loc.id)) continue;
+      const url = `${baseUrl}/${airport.slug}/airport-parking/${generateSlug(loc.name)}`;
+      if (seen.has(url)) continue; // two lots with one name resolve to one page
+      seen.add(url);
+      urls.push({ url, changeFrequency: "daily" as const, priority: 0.8 });
+    }
+    // lastModified goes through the same Invalid-Date guard as the blog
+    // segment (review L3).
+    for (const l of directLots) {
+      if (l.airportCode !== airport.code) continue;
+      const url = `${baseUrl}/${airport.slug}/airport-parking/${l.slug}`;
+      if (seen.has(url)) continue; // a same-slug ResLab entry already lists it
+      seen.add(url);
+      urls.push({
+        url,
+        lastModified: toValidDate(l.updatedAt),
+        changeFrequency: "weekly" as const,
+        priority: 0.8,
+      });
+    }
+  }
+  if (channel !== null) {
+    // One line per segment, so a build log shows the list was used.
+    console.log(
+      `Sitemap lot segment ${id}: ${urls.length} URLs from a ${channel.length}-lot channel list`
+    );
+  }
+  return urls;
 }
 
 // Returns the first candidate that parses to a valid Date. Next serializes
@@ -199,7 +284,10 @@ async function blogPostPages(id: number): Promise<MetadataRoute.Sitemap> {
         priority: priorityMap[post.articleType || ""] || 0.6,
       })
     );
-  } catch {
+  } catch (error) {
+    // A refused API key must not become an empty sitemap: rethrow so the
+    // route 500s (search engines retry) and Sentry has the cms:auth event.
+    if (error instanceof CmsAuthError) throw error;
     return [];
   }
 }

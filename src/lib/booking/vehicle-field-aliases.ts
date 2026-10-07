@@ -24,6 +24,10 @@ type VehicleSource = keyof VehicleDetails | "makemodel";
  * unconditionally; the rest are lot-specific spellings seen in ResLab data.
  * Add a spelling here when a lot's `extra_fields` shows a new one — never ask
  * the customer to type their plate a second time under a different label.
+ *
+ * Checked against the live lot list 2026-09-29 (391 lots). Deliberately NOT
+ * here: `stateprovince` (Quality Inn BUF) — it could mean the plate's state or
+ * the customer's home state, so the customer answers it.
  */
 export const VEHICLE_FIELD_SOURCES: Readonly<Record<string, VehicleSource>> = {
   car_make: "make",
@@ -36,6 +40,8 @@ export const VEHICLE_FIELD_SOURCES: Readonly<Record<string, VehicleSource>> = {
   vehicle_make: "make",
   vehicle_model: "model",
   vehicle_makemodel: "makemodel",
+  car_make_model: "makemodel",
+  makemodel_of_car: "makemodel",
   vehicle_color: "color",
   vehicle_colour: "color",
   car_colour: "color",
@@ -52,6 +58,7 @@ export const VEHICLE_FIELD_SOURCES: Readonly<Record<string, VehicleSource>> = {
   license_state: "state",
   licence_plate_state: "state",
   plate_state: "state",
+  plate_state_eg_co: "state",
   vehicle_state: "state",
 };
 

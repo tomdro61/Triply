@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getAirportBySlug, productionAirports } from "@/config/airports";
+import { getAirportBySlug } from "@/config/airports";
 import { fetchAirportPageData } from "@/lib/airport-page/data";
-import { generateSEOContent, generateFAQs } from "@/lib/airport-page/content";
+import { generateSEOContent, generateFAQs, emptyStateCopy } from "@/lib/airport-page/content";
 import { buildAirportSchemas } from "@/lib/airport-page/schemas";
 import { getAirportContent } from "@/data/airport-content";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -30,10 +30,19 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// No paths are prerendered at build: each airport page is rendered on its
+// first request and then served from the ISR cache (revalidated hourly).
+// Prerendering every production airport (~85) at build fired hundreds of
+// concurrent ResLab min-price calls from every build worker; when an airport's
+// calls all failed, the build baked the empty "no lots" page, which then stayed
+// up for an hour or more after every deploy (77 empty after the 2026-10-06
+// deploy). A failed first render now throws (data.ts) → that request gets an
+// uncached error, and a later request retries once data.ts's 5-minute
+// per-instance failure memo expires.
+// Links to these pages set prefetch={false} so a list can't render them all
+// at once either. Plan: notes/2026-10-07-airport-pages-plan-v2.md.
 export async function generateStaticParams() {
-  return productionAirports.map((airport) => ({
-    slug: airport.slug,
-  }));
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -46,18 +55,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     getAirportContent(airport.code),
   ]);
   const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
-  const lotCount = data.totalLots > 0 ? `${data.totalLots}+` : "";
+  // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
+  const lotCount = data.totalLots > 0 ? `${data.totalLots}+ ` : "";
 
   return {
     title: `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
     description: customContent?.metaDescription
-      ?? `Compare ${lotCount} parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`,
+      ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`,
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
     },
     openGraph: {
       title: `${airport.code} Airport Parking${priceText}/day`,
-      description: `Compare ${lotCount} parking lots near ${airport.name}. Book online and save up to 60%.`,
+      description: `Compare ${lotCount}parking lots near ${airport.name}. Book online and save up to 60%.`,
       url: `https://www.triplypro.com/${airport.slug}/airport-parking`,
       type: "website",
     },
@@ -75,7 +85,10 @@ export default async function AirportParkingPage({ params }: PageProps) {
   ]);
   const seoSections = customContent?.sections ?? generateSEOContent(airport, data);
   const faqs = customContent?.faqs ?? generateFAQs(airport, data);
-  const schemas = buildAirportSchemas(airport, data, faqs);
+  const emptyState = emptyStateCopy(airport.name, data.locationsConsidered);
+  // FAQPage JSON-LD only when the FAQ is actually shown (it isn't at 0 lots) —
+  // Google requires FAQ markup to match visible content.
+  const schemas = buildAirportSchemas(airport, data, data.totalLots > 0 ? faqs : []);
 
   return (
     <>
@@ -97,12 +110,9 @@ export default async function AirportParkingPage({ params }: PageProps) {
       ) : (
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-3">
-            Parking Options Coming Soon
+            {emptyState.heading}
           </h2>
-          <p className="text-gray-500 max-w-lg mx-auto">
-            We&apos;re expanding our parking inventory near {airport.name}.
-            Use the search above to check for the latest availability.
-          </p>
+          <p className="text-gray-500 max-w-lg mx-auto">{emptyState.body}</p>
         </section>
       )}
 

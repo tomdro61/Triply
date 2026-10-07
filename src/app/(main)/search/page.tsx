@@ -42,6 +42,9 @@ function SearchPageContent() {
   const [lots, setLots] = useState<UnifiedLot[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  // True when /api/search answered with direct lots only because ResLab was
+  // unreachable (`reslabUnavailable`) — a partial list, shown with a banner.
+  const [partialResults, setPartialResults] = useState(false);
   // A deterministic date problem (the API's 400) is NOT a transient upstream
   // fault — it gets its own message and no "Try again" that can never succeed.
   const [dateError, setDateError] = useState<string | null>(null);
@@ -63,8 +66,9 @@ function SearchPageContent() {
   const fetchResults = async () => {
     setLoading(true);
     setLoadError(false);
+    setPartialResults(false);
     setDateError(null);
-    // Full date rules (past check-in, 60-day window, reversed range) — a
+    // Full date rules (past check-in, advance-booking window, reversed range) — a
     // bookmarked or emailed link with a bad check-in used to round-trip to
     // ResLab and come back as "no parking". The picker's cleared return leg
     // ("") is exempt: the API prices that as a defaulted range, as before.
@@ -97,7 +101,11 @@ function SearchPageContent() {
           setDateError(
             data?.code === "checkout_before_checkin"
               ? "Return date must be on or after your check-in date."
-              : "We couldn't read those search details — please re-pick your airport and dates."
+              : data?.code === "same_day_too_late"
+                ? "It's too late to book parking for today at this airport. Try a check-in date of tomorrow."
+                : data?.code === "checkin_in_past"
+                  ? "That check-in date has already passed at this airport. Please pick a new date."
+                  : "We couldn't read those search details — please re-pick your airport and dates."
           );
         } else {
           setLoadError(true);
@@ -105,6 +113,12 @@ function SearchPageContent() {
         setLots([]);
       } else {
         setLots(data.results || []);
+        setPartialResults(data.reslabUnavailable === true);
+        if (data.closedForToday === true && (data.results?.length ?? 0) === 0) {
+          setDateError(
+            "No lots near this airport can take a booking for the rest of today. Try a check-in date of tomorrow."
+          );
+        }
         trackSearch({ airportCode: airport, checkin: departDate, checkout: returnDate });
       }
     } catch (err) {
@@ -259,6 +273,8 @@ function SearchPageContent() {
               onHover={setHoveredId}
               onSelect={setSelectedLot}
               className={mobileView === "map" ? "hidden lg:block" : ""}
+              partialResults={partialResults}
+              onRetry={fetchResults}
             />
           )}
 
@@ -273,6 +289,19 @@ function SearchPageContent() {
                 showControls={false}
                 airport={airportInfo}
               />
+
+              {/* The list (and its banner) is hidden in map view — repeat the partial notice here */}
+              {partialResults && (
+                <div
+                  role="status"
+                  className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between gap-3 p-3 bg-amber-50/95 border border-amber-200 rounded-lg text-xs shadow"
+                >
+                  <span className="font-semibold text-amber-800">Some lots are temporarily unavailable</span>
+                  <button onClick={fetchResults} className="shrink-0 text-amber-900 font-semibold underline underline-offset-2">
+                    Try again
+                  </button>
+                </div>
+              )}
 
               {/* Card carousel at bottom */}
               {sortedLots.length > 0 && (

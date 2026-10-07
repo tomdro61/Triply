@@ -2,6 +2,7 @@
 
 import { VehicleDetails } from "@/types/checkout";
 import { Car, Palette, CreditCard, ChevronLeft, FileText, Loader2 } from "lucide-react";
+import { isRequiredExtraField, notApplicableHint } from "@/lib/booking/required-extra-fields";
 
 interface ExtraField {
   id: number;
@@ -23,6 +24,8 @@ interface VehicleDetailsStepProps {
    *  vehicleFieldAliasValues); hidden here so nobody types their plate twice. */
   filledByVehicleStep?: ReadonlySet<string>;
   extraFieldValues?: Record<string, string>;
+  /** Keyed by extra-field name; set by the form's step gate. */
+  extraFieldErrors?: Record<string, string>;
   onExtraFieldChange?: (name: string, value: string) => void;
   isLoading?: boolean;
 }
@@ -48,6 +51,7 @@ export function VehicleDetailsStep({
   extraFields = [],
   filledByVehicleStep,
   extraFieldValues = {},
+  extraFieldErrors = {},
   onExtraFieldChange,
   isLoading = false,
 }: VehicleDetailsStepProps) {
@@ -89,6 +93,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="make"
               value={data.make}
               onChange={(e) => handleChange("make", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -115,6 +120,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="model"
               value={data.model}
               onChange={(e) => handleChange("model", e.target.value)}
               className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
@@ -141,6 +147,7 @@ export function VehicleDetailsStep({
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           />
           <select
+            data-funnel-field="color"
             value={data.color}
             onChange={(e) => handleChange("color", e.target.value)}
             className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer ${
@@ -174,6 +181,7 @@ export function VehicleDetailsStep({
             />
             <input
               type="text"
+              data-funnel-field="licensePlate"
               value={data.licensePlate}
               onChange={(e) =>
                 handleChange("licensePlate", e.target.value.toUpperCase())
@@ -196,6 +204,7 @@ export function VehicleDetailsStep({
             State *
           </label>
           <select
+            data-funnel-field="state"
             value={data.state}
             onChange={(e) => handleChange("state", e.target.value)}
             className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer ${
@@ -223,52 +232,71 @@ export function VehicleDetailsStep({
             Additional Information
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {additionalFields.map((field) => (
-              <div key={field.id}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {field.label}
-                  {field.type === "required" && " *"}
-                </label>
-                <div className="relative">
-                  <FileText
-                    size={18}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                  />
-                  {field.inputType === "textarea" ? (
-                    <textarea
-                      value={extraFieldValues[field.name] || ""}
-                      onChange={(e) =>
-                        onExtraFieldChange?.(field.name, e.target.value)
-                      }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors resize-none"
-                      rows={3}
-                      required={field.type === "required"}
+            {additionalFields.map((field) => {
+              // ResLab sends no required flag — `type` is the product scope
+              // (parking/room/both). See required-extra-fields.ts for the rule.
+              const required = isRequiredExtraField(field);
+              const error = extraFieldErrors[field.name];
+              const inputId = `extra-field-${field.id}`;
+              const hintId = `${inputId}-hint`;
+              const inputClass = `w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors ${
+                error ? "border-red-500" : "border-gray-300"
+              }`;
+              return (
+                <div key={field.id}>
+                  <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1">
+                    {field.label}
+                    {required && " *"}
+                  </label>
+                  <div className="relative">
+                    <FileText
+                      size={18}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
                     />
-                  ) : field.inputType === "select" ? (
-                    <select
-                      value={extraFieldValues[field.name] || ""}
-                      onChange={(e) =>
-                        onExtraFieldChange?.(field.name, e.target.value)
-                      }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors appearance-none cursor-pointer"
-                      required={field.type === "required"}
-                    >
-                      <option value="">Select...</option>
-                    </select>
-                  ) : (
-                    <input
-                      type={field.inputType === "number" ? "number" : "text"}
-                      value={extraFieldValues[field.name] || ""}
-                      onChange={(e) =>
-                        onExtraFieldChange?.(field.name, e.target.value)
-                      }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none transition-colors"
-                      required={field.type === "required"}
-                    />
+                    {/* No <select> branch: ResLab's input_type is text |
+                        license_plate | number, and a required select with no
+                        options could never be satisfied. */}
+                    {field.inputType === "textarea" ? (
+                      <textarea
+                        id={inputId}
+                        data-funnel-field={`extra:${field.name}`}
+                        value={extraFieldValues[field.name] || ""}
+                        onChange={(e) =>
+                          onExtraFieldChange?.(field.name, e.target.value)
+                        }
+                        className={`${inputClass} resize-none`}
+                        rows={3}
+                        required={required}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={required ? hintId : undefined}
+                      />
+                    ) : (
+                      <input
+                        id={inputId}
+                        type={field.inputType === "number" ? "number" : "text"}
+                        data-funnel-field={`extra:${field.name}`}
+                        value={extraFieldValues[field.name] || ""}
+                        onChange={(e) =>
+                          onExtraFieldChange?.(field.name, e.target.value)
+                        }
+                        className={inputClass}
+                        required={required}
+                        aria-invalid={error ? true : undefined}
+                        aria-describedby={required ? hintId : undefined}
+                      />
+                    )}
+                  </div>
+                  {error ? (
+                    <p className="text-red-500 text-xs mt-1">{error}</p>
+                  ) : null}
+                  {required && (
+                    <p id={hintId} className="text-gray-500 text-xs mt-1">
+                      {notApplicableHint(field.inputType)}
+                    </p>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ import {
   captureBookingError,
 } from "@/lib/sentry";
 import { convertTo12Hour } from "@/lib/utils/time";
+import { reslabExtraFieldValues } from "@/lib/booking/required-extra-fields";
 // Attribution helpers are pure and import nothing from @/lib/reslab/search or
 // @/lib/reslab/get-lot — the shared location-list cache is per-lambda and cold
 // here, and a sweep after capture is the Aug-16 outage class. A static test
@@ -91,15 +92,9 @@ export async function createReslabReservation(
 ): Promise<ReslabReservation> {
   const { customer, vehicle, extraFields } = payload;
 
-  const apiExtraFields: Record<string, string> = {
-    car_make: vehicle.make,
-    car_model: vehicle.model,
-    car_makemodel: `${vehicle.make} ${vehicle.model}`, // Combined field required by ResLab
-    car_color: vehicle.color,
-    license_plate: vehicle.licensePlate,
-    license_plate_state: vehicle.state,
-    ...extraFields,
-  };
+  // The same map the pending route validates before the charge — see
+  // required-extra-fields.ts. Never build it inline here.
+  const apiExtraFields = reslabExtraFieldValues(vehicle, extraFields);
 
   const fullName = `${customer.firstName} ${customer.lastName}`;
 

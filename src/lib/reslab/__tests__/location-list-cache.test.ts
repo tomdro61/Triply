@@ -241,10 +241,11 @@ describe("location list cache — the amplification loop (the outage)", () => {
   });
 
   it("keeps sweeping during `next build` so a blip can't ship empty airport pages", async () => {
-    // The backoff is module state shared across every prerendered airport page.
-    // Honouring it during the build would fast-fail the rest of the pages, and
-    // airport-page/data.ts swallows build-phase failures — shipping ~85 empty
-    // indexable SEO pages.
+    // The backoff is module state shared across every page a build prerenders.
+    // Honouring it during the build would fast-fail the rest, and
+    // airport-page/data.ts swallows build-phase failures — a build that
+    // prerenders searching pages (airport pages did until 2026-10-07) would
+    // ship empty indexable SEO pages.
     allFail();
     await expect(getChannelLocationsCached()).rejects.toThrow();
     reslabMock.getAllLocations.mockClear();
@@ -696,7 +697,8 @@ describe("location list cache — build phase is bounded", () => {
     process.env.NEXT_PHASE = "phase-production-build";
     allFail();
 
-    // ~85 airport pages prerender; an unbounded bypass would sweep for each.
+    // A build that prerenders many searching pages (airport pages did until
+    // 2026-10-07) would sweep for each if the bypass were unbounded.
     let attempts = 0;
     for (let i = 0; i < 20; i++) {
       await getChannelLocationsCached().catch(() => {});

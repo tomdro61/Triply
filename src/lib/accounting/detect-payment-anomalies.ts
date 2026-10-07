@@ -15,6 +15,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot } from "@/config/admin";
+import { captureAPIError } from "@/lib/sentry";
 
 export interface OrphanCharge {
   paymentIntentId: string;
@@ -46,6 +47,14 @@ export interface AnomalyReport {
   orphans: OrphanCharge[];
   /** succeeded + retained + NO booking + NOT from checkout — likely manual links. */
   possibleManualCharges: OrphanCharge[];
+  /**
+   * Succeeded payments of Stripe INVOICES (a paid InvoicePayment references
+   * the PaymentIntent — the current API has no `pi.invoice`). An invoice is
+   * always something a person on the team deliberately sent — often for
+   * things unrelated to Triply bookings — so they are excluded from every
+   * classification above and only counted here for the email footnote.
+   */
+  invoicePayments: number;
   /** same card/email, more retained charges than bookings — unresolved double-charge. */
   doubleCharges: DoubleCharge[];
   /**
@@ -183,6 +192,7 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     disputed: boolean;
     fromCheckout: boolean;
     testLot: boolean;
+    invoice: boolean;
     hasBooking: boolean;
   };
   const rows: Row[] = pis
@@ -202,12 +212,55 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
         disputed: ch?.disputed || false,
         fromCheckout: !!pi.metadata?.lotId,
         testLot: locationId != null && isAtTestLot(locationId),
+        invoice: false, // resolved below, only for the rows that could be unmatched
         hasBooking: bookedPI.has(pi.id),
       };
-    })
-    .filter((r) => !r.testLot); // ignore test-lot charges
+    });
 
-  const retained = rows.filter((r) => r.netRetained > 0);
+  // Invoice detection. Stripe's current API (2025-03 "basil" onward) no longer
+  // puts `invoice` on the PaymentIntent; the link lives on InvoicePayment
+  // objects. Ask only for the rows that would otherwise be reported as
+  // unmatched (retained, no booking, not from checkout) — normally 0–3 per
+  // run — and FAIL TOWARD ALERTING: a lookup error leaves the row unmatched.
+  // Every call is bounded (5 s, no SDK retries) and the whole pass stops after
+  // 40 s: the SDK's default 80 s timeout outlives the cron's 60 s maxDuration,
+  // and a function killed by Vercel never reaches the route's loud failure
+  // path — a fail-safe that depends on a catch block does not survive a
+  // timeout (the Sept 29 rule).
+  const lookupStartedAt = Date.now();
+  let lookupErrorReported = false;
+  for (const r of rows) {
+    if (r.testLot || r.fromCheckout || r.hasBooking || r.netRetained <= 0) continue;
+    if (Date.now() - lookupStartedAt > 40_000) break; // remaining rows stay unmatched
+    try {
+      const res = await stripe.invoicePayments.list(
+        { payment: { type: "payment_intent", payment_intent: r.id }, status: "paid", limit: 1 },
+        { timeout: 5000, maxNetworkRetries: 0 }
+      );
+      // Trust only a record that names THIS PaymentIntent — never the mere
+      // presence of a result, which an ignored filter could produce.
+      r.invoice = res.data.some((p) => {
+        const ref = p.payment?.payment_intent;
+        return (typeof ref === "string" ? ref : ref?.id) === r.id;
+      });
+    } catch (error) {
+      r.invoice = false;
+      // Once per run: a lasting failure here would quietly turn every invoice
+      // back into an "unmatched" email forever.
+      if (!lookupErrorReported) {
+        lookupErrorReported = true;
+        captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+          endpoint: "/api/cron/reconcile-payments",
+          method: "GET",
+          stage: "invoice_lookup",
+        });
+      }
+    }
+  }
+  const invoicePayments = rows.filter((r) => r.invoice).length;
+  const classified = rows.filter((r) => !r.testLot && !r.invoice); // ignore test-lot + invoice payments
+
+  const retained = classified.filter((r) => r.netRetained > 0);
 
   // Orphans: retained, no booking. Split checkout vs likely-manual.
   const orphans: OrphanCharge[] = [];
@@ -228,8 +281,15 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
 
   // Double-charges: group retained by card fingerprint (fallback email);
   // flag groups holding MORE charges than bookings (an unresolved duplicate).
+  //
+  // Only CHECKOUT charges take part. A non-checkout charge (a Payment Link for
+  // a date change, a dashboard charge) sharing an email with a real booking is
+  // not a double charge — it is already reported as an unmatched charge above
+  // for 48 h. Counting it here paged "1 double-charge" every day for the whole
+  // 14-day window after a $4.74 Payment Link (Oct 2026).
   const groups = new Map<string, Row[]>();
   for (const r of retained) {
+    if (!r.fromCheckout) continue;
     // Group by customer EMAIL first — it's stable across payment methods. Card
     // fingerprints are NOT: the same card via Apple/Google Pay carries a
     // device token with a different fingerprint than the card entered manually,
@@ -272,6 +332,7 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     succeededRetained: retained.length,
     orphans: orphans.sort((a, b) => a.createdISO.localeCompare(b.createdISO)),
     possibleManualCharges,
+    invoicePayments,
     doubleCharges,
     duplicateBookings,
   };

@@ -15,6 +15,14 @@ interface SearchResultsListProps {
   onHover: (id: string | null) => void;
   onSelect: (lot: UnifiedLot) => void;
   className?: string;
+  /**
+   * Set when the list is KNOWN to be partial — our main inventory provider
+   * was unreachable and only this airport's direct lots are shown. Rendered
+   * as a banner with a retry rather than passing the short list off as the
+   * whole market (review M2).
+   */
+  partialResults?: boolean;
+  onRetry?: () => void;
 }
 
 export function SearchResultsList({
@@ -27,6 +35,8 @@ export function SearchResultsList({
   onHover,
   onSelect,
   className = "",
+  partialResults = false,
+  onRetry,
 }: SearchResultsListProps) {
   return (
     <div className={`w-full lg:w-2/5 h-full overflow-y-auto no-scrollbar bg-gray-50 ${className}`}>
@@ -64,6 +74,27 @@ export function SearchResultsList({
       </div>
 
       <div className="p-4 sm:p-6 space-y-4 pb-20">
+        {partialResults && (
+          <div
+            role="status"
+            className="flex items-start justify-between gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm"
+          >
+            <div>
+              <p className="font-semibold text-amber-800">Some lots are temporarily unavailable</p>
+              <p className="text-amber-700 text-xs mt-0.5">
+                We&apos;re showing the lots we could load. More are usually back within a few minutes.
+              </p>
+            </div>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="shrink-0 text-amber-900 font-semibold text-xs underline underline-offset-2"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        )}
         {lots.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-500">No parking lots found for your search criteria.</p>
