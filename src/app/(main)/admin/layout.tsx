@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   LineChart,
+  Calculator,
 } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 
@@ -82,7 +83,7 @@ export default function AdminLayout({
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h1>
           <p className="text-gray-600 mb-4">
-            You don't have permission to access the admin dashboard.
+            You don&apos;t have permission to access the admin dashboard.
           </p>
           <p className="text-sm text-gray-500 mb-6 break-all">
             Signed in as: {userEmail}
@@ -109,6 +110,7 @@ export default function AdminLayout({
   const navLinks = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/numbers", icon: LineChart, label: "Monthly numbers" },
+    { href: "/admin/accounting", icon: Calculator, label: "Accounting" },
     { href: "/admin/bookings", icon: Ticket, label: "Bookings" },
     { href: "/admin/chats", icon: MessageCircle, label: "Chat Sessions" },
     { href: "/admin/partners", icon: Users, label: "Partners" },
