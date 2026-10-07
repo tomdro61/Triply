@@ -18,12 +18,16 @@ import {
   accountingSliceSchema,
   lotsSeverity,
   netTakeFrom,
+  DATE_AXES,
+  DATE_AXIS_LABELS,
+  type DateAxis,
   type MonthBookings,
   type MonthWindow,
   type NetTake,
 } from "@/lib/admin/monthly-numbers";
 
 interface NumbersResponse {
+  by: DateAxis;
   months: MonthWindow[];
   bookings: MonthBookings[] | null;
   lots: {
@@ -33,23 +37,28 @@ interface NumbersResponse {
   searches: { env: string; days: Array<{ day: string; count: number }> } | null;
   /** Staging (Stripe test-mode) rows left out of every count; null when bookings failed. */
   stagingExcluded: number | null;
+  /** Paid bookings whose trip month is after the window (trip axes only); null when bookings failed. */
+  afterWindow: number | null;
   warnings: string[];
 }
 
 type NetState = NetTake | "loading" | { error: string };
 
 // Closed months rarely change (a later refund can still move one), so a
-// DEFINITIVE reconcile — a cash figure, after Stripe fees — is kept for the
-// tab's lifetime (sessionStorage) and a reload costs no ResLab/Stripe calls.
-// A null or pre-Stripe result is never cached: that is usually a transient
-// ResLab/Stripe miss and must be asked again. Storage can be unavailable
-// (private mode); every access is try/caught.
+// DEFINITIVE reconcile — both figures present, i.e. Stripe fee data complete
+// — is kept for the tab's lifetime (sessionStorage) and a reload costs no
+// ResLab/Stripe calls. A result with either figure null is never cached: that
+// is usually a transient ResLab/Stripe miss and must be asked again. Storage
+// can be unavailable (private mode); every access is try/caught.
+// Key is versioned: the shape changed when the page adopted accounting's
+// gross/cash vocabulary, and an old cached object must not be read as new.
+const NET_CACHE_PREFIX = "admin-numbers:net:v2:";
 function readCachedNet(key: string): NetTake | null {
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) return null;
     const v = JSON.parse(raw) as Partial<NetTake>;
-    return typeof v === "object" && v !== null && typeof v.net === "number" && v.basis === "cash"
+    return typeof v === "object" && v !== null && typeof v.gross === "number" && typeof v.cash === "number"
       ? (v as NetTake)
       : null;
   } catch {
@@ -58,7 +67,7 @@ function readCachedNet(key: string): NetTake | null {
 }
 function writeCachedNet(key: string, value: NetState): void {
   try {
-    if (typeof value === "object" && "net" in value && value.net !== null && value.basis === "cash") {
+    if (typeof value === "object" && "gross" in value && value.gross !== null && value.cash !== null) {
       sessionStorage.setItem(key, JSON.stringify(value));
     }
   } catch {
@@ -138,20 +147,34 @@ function Unavailable({ what }: { what: string }) {
   );
 }
 
-function netCell(n: NetState | undefined, pick: "net" | "perBooking") {
+// Same figures, same names as /admin/accounting: "gross" is its headline tile
+// ("Triply revenue (gross)"), "cash" its "net cash … after Stripe fees".
+const NET_TITLES: Record<"gross" | "cash" | "perBooking", string> = {
+  gross: "Triply revenue (gross) — accounting's headline: channel commission − ResLab fee + service fee + Park Guard margin",
+  cash: "Net cash after Stripe processing fees — accounting's 'net cash' subtitle / P&L bottom line",
+  perBooking: "Gross ÷ confirmed bookings",
+};
+function netCell(n: NetState | undefined, pick: "gross" | "cash" | "perBooking") {
   if (n === undefined || n === "loading") return <span className="text-gray-400">…</span>;
   if ("error" in n) return <span className="text-amber-700" title={n.error}>error</span>;
   const v = n[pick];
-  if (v === null) return <span className="text-gray-400" title={n.reason ?? ""}>—</span>;
-  return (
-    <span title={n.basis === "pre-stripe" ? "Before Stripe fees (Stripe fee data incomplete)" : "After Stripe fees"}>
-      {formatPrice(v)}
-      {n.basis === "pre-stripe" && <sup className="text-amber-600">*</sup>}
-    </span>
-  );
+  if (v === null) {
+    return (
+      <span
+        className="text-gray-400"
+        title={pick === "cash" && n.gross !== null ? "Stripe fee data incomplete for this month" : (n.reason ?? "")}
+      >
+        —
+      </span>
+    );
+  }
+  return <span title={NET_TITLES[pick]}>{formatPrice(v)}</span>;
 }
 
 export default function MonthlyNumbersPage() {
+  // The date a booking is filed under — the same selector as /admin/accounting.
+  // "Trip checkout" is the ResLab settlement view: what their invoice pays on.
+  const [by, setBy] = useState<DateAxis>("created");
   const [data, setData] = useState<NumbersResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [net, setNet] = useState<Record<string, NetState>>({});
@@ -167,7 +190,7 @@ export default function MonthlyNumbersPage() {
   // visit was ~300–600 ResLab calls a page view (review High 2), so only the
   // headline month loads by itself; the history is one click, and definitive
   // results for closed months are cached in sessionStorage.
-  const loadNet = useCallback(async (targets: MonthWindow[]) => {
+  const loadNet = useCallback(async (targets: MonthWindow[], axis: DateAxis) => {
     const controller = abortRef.current ?? new AbortController();
     abortRef.current = controller;
     const queue = [...targets].reverse(); // newest first
@@ -178,14 +201,16 @@ export default function MonthlyNumbersPage() {
     const worker = async () => {
       for (let m = queue.shift(); m; m = queue.shift()) {
         const month = m;
-        const cacheKey = `admin-numbers:net:${month.key}`;
+        // Cached per axis: the same calendar month holds different bookings
+        // by created vs by checkout.
+        const cacheKey = `${NET_CACHE_PREFIX}${axis}:${month.key}`;
         let state: NetState;
         const cached = !month.partial ? readCachedNet(cacheKey) : null;
         if (cached) {
           state = cached;
         } else {
           try {
-            const r = await fetch(`/api/admin/accounting?from=${month.from}&to=${month.to}&by=created`, {
+            const r = await fetch(`/api/admin/accounting?from=${month.from}&to=${month.to}&by=${axis}`, {
               signal: controller.signal,
             });
             if (!r.ok) throw new Error(`accounting ${r.status}`);
@@ -207,8 +232,15 @@ export default function MonthlyNumbersPage() {
   useEffect(() => {
     const controller = new AbortController();
     abortRef.current = controller;
+    // A new axis is a new page of numbers: drop the old ones (and the old
+    // "load the other months" state) rather than show created-month figures
+    // under checkout-month headings while the new ones load.
+    setData(null);
+    setNet({});
+    setHistoryRequested(false);
+    setError(null);
     async function load() {
-      const res = await fetch("/api/admin/monthly-numbers", { signal: controller.signal });
+      const res = await fetch(`/api/admin/monthly-numbers?by=${by}`, { signal: controller.signal });
       if (!res.ok) {
         setError(res.status === 403 ? "Forbidden" : `Failed to load (${res.status})`);
         return;
@@ -218,7 +250,7 @@ export default function MonthlyNumbersPage() {
       setData(body);
       // Headline only: the last COMPLETE month.
       const lastFull = body.months.length >= 2 ? body.months[body.months.length - 2] : null;
-      if (lastFull) await loadNet([lastFull]);
+      if (lastFull) await loadNet([lastFull], by);
     }
     load().catch((e: unknown) => {
       if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e));
@@ -226,27 +258,52 @@ export default function MonthlyNumbersPage() {
     return () => {
       controller.abort();
     };
-  }, [loadNet]);
+  }, [loadNet, by]);
 
   const loadHistory = () => {
     if (!data || historyRequested) return;
     setHistoryRequested(true);
     // Includes an errored headline month, so one click is also the retry.
-    void loadNet(data.months.filter((m) => needsNet(net, m.key)));
+    void loadNet(data.months.filter((m) => needsNet(net, m.key)), by);
   };
 
+  const axisSelector = (
+    <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+      <span className="font-medium">Date field</span>
+      <select
+        value={by}
+        onChange={(e) => setBy(e.target.value as DateAxis)}
+        className="border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-sm focus:ring-1 focus:ring-brand-orange focus:border-brand-orange"
+      >
+        {DATE_AXES.map((a) => (
+          <option key={a} value={a}>
+            {DATE_AXIS_LABELS[a]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+
   if (error) {
-    return <p className="text-red-700">{error}</p>;
+    return (
+      <div className="space-y-4">
+        {axisSelector}
+        <p className="text-red-700">{error}</p>
+      </div>
+    );
   }
   if (!data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
+      <div className="space-y-4">
+        {axisSelector}
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
+        </div>
       </div>
     );
   }
 
-  const { months, bookings, lots, searches, warnings, stagingExcluded } = data;
+  const { months, bookings, lots, searches, warnings, stagingExcluded, afterWindow } = data;
   const short = (m: MonthWindow) => m.label.slice(0, 3) + (m.partial ? "*" : "");
   // Headline = the last COMPLETE month (the current one is still moving).
   const lastFull = months.length >= 2 ? months[months.length - 2] : null;
@@ -261,11 +318,26 @@ export default function MonthlyNumbersPage() {
         <Link href="/admin" className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 mb-2">
           <ArrowLeft size={14} /> Dashboard
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Monthly numbers</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold text-gray-900">Monthly numbers</h1>
+          {axisSelector}
+        </div>
         <p className="text-gray-600 text-sm">
-          Last 6 months by booking date (UTC months; test lots and staging bookings excluded
+          Last 6 months by{" "}
+          <strong>
+            {by === "created" ? "booking date" : by === "checkout" ? "trip check-out date (what ResLab settles on)" : "trip check-in date"}
+          </strong>{" "}
+          ({by === "created" ? "UTC months" : "airport-local calendar months"}; test lots and staging bookings excluded
           {stagingExcluded !== null && stagingExcluded > 0 ? ` — ${stagingExcluded} staging` : ""}). * = month in progress.
+          Same selector and figures as Accounting.
         </p>
+        {by !== "created" && afterWindow !== null && afterWindow > 0 && (
+          <p className="mt-1 text-sm text-gray-600">
+            {afterWindow} paid booking{afterWindow === 1 ? "" : "s"} with a trip{" "}
+            {by === "checkout" ? "ending" : "starting"} after {months[months.length - 1]?.label} — not in this
+            window.
+          </p>
+        )}
         {warnings.length > 0 && (
           <p className="mt-2 text-sm text-amber-700 flex items-center gap-1.5">
             <AlertTriangle size={14} /> Partial data: {warnings.join("; ")}.
@@ -278,8 +350,8 @@ export default function MonthlyNumbersPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { t: `Bookings · ${lastFull.label}`, v: lastFullBookings ? String(lastFullBookings.confirmed) : "—" },
-            { t: "Net take", v: netCell(lastFullNet, "net") },
-            { t: "Net per booking", v: netCell(lastFullNet, "perBooking") },
+            { t: "Triply revenue (gross)", v: netCell(lastFullNet, "gross") },
+            { t: "Net cash (after Stripe)", v: netCell(lastFullNet, "cash") },
             { t: "Repeat rate", v: pct(lastFullBookings?.repeatRate ?? null) },
           ].map((k) => (
             <div key={k.t} className="bg-white rounded-xl border border-gray-200 p-5">
@@ -291,7 +363,10 @@ export default function MonthlyNumbersPage() {
       )}
 
       <div className="grid lg:grid-cols-2 gap-6">
-        <Card title="Bookings per month" note="Confirmed bookings (refunds excluded).">
+        <Card
+          title="Bookings per month"
+          note={`Confirmed bookings (refunds excluded), by ${by === "created" ? "booking date" : by === "checkout" ? "trip check-out" : "trip check-in"}.`}
+        >
           {bookings ? (
             <LineChart
               color="#f97316"
@@ -320,11 +395,11 @@ export default function MonthlyNumbersPage() {
 
       <Card
         title="What we keep"
-        note="Net take from the accounting reconciler: channel commission − ResLab fee + service fee + Park Guard margin − Stripe fees (the numerator includes the service fee kept on refunded bookings). Per booking ÷ confirmed bookings. * = before Stripe fees (fee data incomplete)."
+        note={`The same two figures as /admin/accounting with its Date field set to "${DATE_AXIS_LABELS[by]}". 'Triply revenue (gross)' = channel commission − ResLab fee + service fee + Park Guard margin (includes the service fee kept on refunded bookings); 'Net cash' = gross − Stripe processing fees. Per booking = gross ÷ confirmed bookings.`}
       >
         {!historyRequested && (
           <p className="text-sm text-gray-600 mb-3">
-            Net take is loaded for the last complete month only — each month costs one ResLab and one
+            Revenue is loaded for the last complete month only — each month costs one ResLab and one
             Stripe lookup per booking.{" "}
             <button
               type="button"
@@ -342,8 +417,9 @@ export default function MonthlyNumbersPage() {
                 <th className="pb-2">Month</th>
                 <th className="pb-2 text-right">Bookings</th>
                 <th className="pb-2 text-right">Refunded</th>
-                <th className="pb-2 text-right">Net take</th>
-                <th className="pb-2 text-right">Net / booking</th>
+                <th className="pb-2 text-right">Revenue (gross)</th>
+                <th className="pb-2 text-right">Net cash</th>
+                <th className="pb-2 text-right">Gross / booking</th>
                 <th className="pb-2 text-right">Repeat</th>
               </tr>
             </thead>
@@ -358,7 +434,8 @@ export default function MonthlyNumbersPage() {
                     </td>
                     <td className="py-1.5 text-right font-medium">{b ? b.confirmed : "—"}</td>
                     <td className="py-1.5 text-right text-gray-500">{b ? b.refunded : "—"}</td>
-                    <td className="py-1.5 text-right">{netCell(net[m.key], "net")}</td>
+                    <td className="py-1.5 text-right">{netCell(net[m.key], "gross")}</td>
+                    <td className="py-1.5 text-right">{netCell(net[m.key], "cash")}</td>
                     <td className="py-1.5 text-right">{netCell(net[m.key], "perBooking")}</td>
                     <td className="py-1.5 text-right">
                       {b ? `${pct(b.repeatRate)} (${b.repeat}/${b.paid})` : "—"}

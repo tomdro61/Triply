@@ -22,7 +22,8 @@
  *   - this page NEVER triggers a ResLab call: the lot counts come from
  *     getChannelLocationsNoSweep (snapshot / warm list, else null).
  */
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, isAtTestLot } from "@/config/admin";
 import { productionAirports } from "@/config/airports";
@@ -31,8 +32,10 @@ import { resolveEnv } from "@/lib/env";
 import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
 import {
   bookingsByMonth,
+  paidAfterWindow,
   lastNDays,
   lastNMonths,
+  DATE_AXES,
   type NumbersBookingRow,
 } from "@/lib/admin/monthly-numbers";
 import { lotsPerAirport } from "@/lib/admin/airport-lots";
@@ -48,16 +51,22 @@ const PAGE = 1000;
 const DB_TIMEOUT_MS = 8_000;
 const sig = () => AbortSignal.timeout(DB_TIMEOUT_MS);
 
+// ?by= — the same axis selector as /api/admin/accounting (created is the
+// default there too). An unknown value is a 400, not a silent default.
+const querySchema = z.object({ by: z.enum(DATE_AXES).default("created") });
+
 type CustomerJoin = { email: string | null } | null;
 interface BookingRow {
   created_at: string;
+  check_in: string | null;
+  check_out: string | null;
   status: string;
   reslab_location_id: number | null;
   livemode: boolean | null;
   customers: CustomerJoin | CustomerJoin[];
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const authClient = await createClient();
   const {
     data: { user },
@@ -66,6 +75,12 @@ export async function GET() {
   if (!isAdminEmail(user.email)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const parsed = querySchema.safeParse({ by: request.nextUrl.searchParams.get("by") ?? undefined });
+  if (!parsed.success) {
+    return NextResponse.json({ error: `by must be one of ${DATE_AXES.join(", ")}` }, { status: 400 });
+  }
+  const { by } = parsed.data;
 
   const now = new Date();
   const months = lastNMonths(now, MONTHS_SHOWN);
@@ -91,7 +106,7 @@ export async function GET() {
       for (let from = 0; ; from += PAGE) {
         const { data, error } = await supabase
           .from("bookings")
-          .select("created_at, status, reslab_location_id, livemode, customers ( email )")
+          .select("created_at, check_in, check_out, status, reslab_location_id, livemode, customers ( email )")
           .order("created_at", { ascending: true })
           .order("id", { ascending: true })
           .range(from, from + PAGE - 1)
@@ -109,11 +124,21 @@ export async function GET() {
             continue;
           }
           const c = Array.isArray(b.customers) ? (b.customers[0] ?? null) : b.customers;
-          rows.push({ created_at: b.created_at, status: b.status, email: c?.email ?? null });
+          rows.push({
+            created_at: b.created_at,
+            check_in: b.check_in,
+            check_out: b.check_out,
+            status: b.status,
+            email: c?.email ?? null,
+          });
         }
         if (page.length < PAGE) break;
       }
-      return { months: bookingsByMonth(rows, months), stagingExcluded };
+      return {
+        months: bookingsByMonth(rows, months, by),
+        stagingExcluded,
+        afterWindow: paidAfterWindow(rows, months, by),
+      };
     })().catch((e: unknown) => {
       warn("bookings fetch failed", e);
       return null;
@@ -161,9 +186,13 @@ export async function GET() {
 
     const [bookingsResult, lots, searches] = await Promise.all([bookingsTask, lotsTask, searchesTask]);
     return NextResponse.json({
+      by,
       months,
       bookings: bookingsResult?.months ?? null,
       stagingExcluded: bookingsResult?.stagingExcluded ?? null,
+      // Paid bookings filed after the window (trips starting/ending in a later
+      // month on the checkin/checkout axes); null when bookings failed.
+      afterWindow: bookingsResult?.afterWindow ?? null,
       lots,
       searches,
       warnings,

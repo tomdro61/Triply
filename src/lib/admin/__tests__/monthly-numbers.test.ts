@@ -4,6 +4,9 @@ import {
   emailKey,
   lastNDays,
   lastNMonths,
+  literalMonthKey,
+  bookingMonthKey,
+  paidAfterWindow,
   lotsSeverity,
   monthKeyOf,
   netTakeFrom,
@@ -117,6 +120,74 @@ describe("bookingsByMonth", () => {
     expect(out[0]).toMatchObject({ paid: 5, repeat: 1 });
   });
 
+  it("files bookings under the trip month on the checkout axis using the LITERAL string, never Date math", () => {
+    const rows: NumbersBookingRow[] = [
+      // Booked in July, trip ends 31 Aug 23:30 airport-local — must stay in August
+      // on every machine clock (a Date parse in UTC-anything would move it).
+      { created_at: "2026-07-20T10:00:00Z", status: "confirmed", email: "a@x.com", check_in: "2026-08-28 10:00:00", check_out: "2026-08-31 23:30:00" },
+      // Booked in August, trip ends in September → September on the checkout axis
+      { created_at: "2026-08-25T10:00:00Z", status: "confirmed", email: "b@x.com", check_in: "2026-08-30 10:00:00", check_out: "2026-09-02 14:00:00" },
+      // Legacy row with no check_out: unfilable on this axis, still counted on created
+      { created_at: "2026-09-10T10:00:00Z", status: "confirmed", email: "c@x.com", check_in: null, check_out: null },
+    ];
+    const byCheckout = bookingsByMonth(rows, months, "checkout");
+    expect(byCheckout[0]).toMatchObject({ key: "2026-08", confirmed: 1 });
+    expect(byCheckout[1]).toMatchObject({ key: "2026-09", confirmed: 1 });
+    const byCreated = bookingsByMonth(rows, months, "created");
+    expect(byCreated[0]).toMatchObject({ key: "2026-08", confirmed: 1 }); // b
+    expect(byCreated[1]).toMatchObject({ key: "2026-09", confirmed: 1 }); // c
+    const byCheckin = bookingsByMonth(rows, months, "checkin");
+    expect(byCheckin[0]).toMatchObject({ key: "2026-08", confirmed: 2 }); // a and b start in August
+  });
+
+  it("buckets trip months from the literal string even on a UTC+14 clock (Date math would move a 00:30 Sep 1 check-out into August)", () => {
+    // Pins the "never Date math" rule where it would actually bite: on a UTC
+    // runner a Date parse of the literal still lands in the right month, so
+    // the test above cannot catch a regression to monthKeyOf(). Node re-reads
+    // TZ at runtime; at UTC+14 a local "2026-09-01 00:30" is Aug 31 10:30 UTC,
+    // so UTC-getter bucketing says August while the literal says September.
+    const saved = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati"; // UTC+14
+    try {
+      // Sanity: under this clock, Date-based bucketing of the same literal is the WRONG month.
+      expect(monthKeyOf("2026-09-01 00:30:00")).toBe("2026-08");
+      expect(bookingMonthKey({ created_at: "2026-07-01T00:00:00Z", status: "confirmed", email: null, check_out: "2026-09-01 00:30:00" }, "checkout")).toBe("2026-09");
+      expect(bookingMonthKey({ created_at: "2026-07-01T00:00:00Z", status: "confirmed", email: null, check_in: "2026-09-01T00:30:00" }, "checkin")).toBe("2026-09");
+    } finally {
+      if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
+    }
+  });
+
+  it("counts paid bookings whose trip month is after the window (booked trips we would otherwise hide)", () => {
+    const rows: NumbersBookingRow[] = [
+      { created_at: "2026-09-10T10:00:00Z", status: "confirmed", email: "a@x.com", check_in: "2026-10-05 10:00:00", check_out: "2026-10-08 10:00:00" },
+      { created_at: "2026-09-11T10:00:00Z", status: "confirmed", email: "b@x.com", check_in: "2026-09-29 10:00:00", check_out: "2026-10-02 10:00:00" },
+      { created_at: "2026-09-12T10:00:00Z", status: "cancelled", email: "c@x.com", check_in: "2026-11-01 10:00:00", check_out: "2026-11-03 10:00:00" },
+    ];
+    expect(paidAfterWindow(rows, months, "checkout")).toBe(2); // a and b end in October, after the Aug–Sep window
+    expect(paidAfterWindow(rows, months, "checkin")).toBe(1); // only a starts after September
+    expect(paidAfterWindow(rows, months, "created")).toBe(0);
+  });
+
+  it("on a trip axis, repeat is still decided in booking order while the row is filed by its trip month", () => {
+    const rows: NumbersBookingRow[] = [
+      { created_at: "2026-08-01T10:00:00Z", status: "confirmed", email: "r@x.com", check_in: "2026-09-28 10:00:00", check_out: "2026-09-30 10:00:00" },
+      { created_at: "2026-08-10T10:00:00Z", status: "confirmed", email: "r@x.com", check_in: "2026-08-14 10:00:00", check_out: "2026-08-15 10:00:00" },
+    ];
+    const out = bookingsByMonth(rows, months, "checkout");
+    // B (booked Aug 10, after A) is the repeat and is filed in August by its trip; A is filed in September.
+    expect(out[0]).toMatchObject({ key: "2026-08", paid: 1, repeat: 1 });
+    expect(out[1]).toMatchObject({ key: "2026-09", paid: 1, repeat: 0 });
+  });
+
+  it("literalMonthKey reads the prefix only and rejects anything that is not a date", () => {
+    expect(literalMonthKey("2026-10-31 23:00:00")).toBe("2026-10");
+    expect(literalMonthKey("2026-10-01")).toBe("2026-10");
+    expect(literalMonthKey("")).toBeNull();
+    expect(literalMonthKey(null)).toBeNull();
+    expect(literalMonthKey("Oct 31 2026")).toBeNull();
+  });
+
   it("returns null repeat rate for a month with no paid bookings", () => {
     const out = bookingsByMonth([], months);
     expect(out.map((b) => b.repeatRate)).toEqual([null, null]);
@@ -130,19 +201,22 @@ describe("netTakeFrom", () => {
       triplyNet: { total, cashTotal, totalReason: reason, serviceFee: 1 },
     });
 
-  it("prefers cashTotal (after Stripe fees) and divides by confirmed", () => {
+  it("carries BOTH of accounting's figures under its names: gross (headline) and cash (after Stripe); per booking = gross ÷ confirmed", () => {
+    // 2026-10-07: the page led with the after-Stripe figure while
+    // /admin/accounting's headline tile is the gross one — the two pages
+    // disagreed on October by exactly the Stripe fees. Never again.
     const n = netTakeFrom(slice(10, 200, 176.7));
-    expect(n).toMatchObject({ net: 176.7, basis: "cash", reason: null });
-    expect(n.perBooking).toBeCloseTo(17.67, 10);
+    expect(n).toMatchObject({ gross: 200, cash: 176.7, reason: null });
+    expect(n.perBooking).toBeCloseTo(20, 10);
   });
-  it("falls back to pre-Stripe total, flagged", () => {
-    expect(netTakeFrom(slice(4, 100, null))).toMatchObject({ net: 100, perBooking: 25, basis: "pre-stripe" });
+  it("keeps gross when Stripe fee data is incomplete (cash null), never substitutes one for the other", () => {
+    expect(netTakeFrom(slice(4, 100, null))).toMatchObject({ gross: 100, cash: null, perBooking: 25, reason: null });
   });
   it("carries the reconciler's reason when there is no total", () => {
     expect(netTakeFrom(slice(4, null, null, "missing ResLab data for 1 of 4 confirmed bookings"))).toEqual({
-      net: null,
+      gross: null,
+      cash: null,
       perBooking: null,
-      basis: null,
       reason: "missing ResLab data for 1 of 4 confirmed bookings",
     });
   });
