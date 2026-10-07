@@ -231,7 +231,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
               <li key={idx} className="flex items-center">
                 {idx > 0 && <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />}
                 {item.href ? (
-                  <Link href={item.href} className="hover:text-brand-orange transition-colors">
+                  <Link href={item.href} prefetch={false} className="hover:text-brand-orange transition-colors">
                     {item.name}
                   </Link>
                 ) : (

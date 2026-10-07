@@ -186,6 +186,7 @@ describe("searchParking — direct lots ON", () => {
     const result = await search();
 
     expect(result.total).toBe(1);
+    expect(result.locationsConsidered).toBe(1);
     expect(result.message).toBeUndefined();
     expect(reslabMock.getMinPrice).not.toHaveBeenCalled();
   });
@@ -199,6 +200,8 @@ describe("searchParking — direct lots ON", () => {
     const result = await search();
 
     expect(result.results.map((l) => l.id).sort()).toEqual(["direct-1", "reslab-2"]);
+    // The suppressed twin is not counted twice: reslab-2 + direct-1.
+    expect(result.locationsConsidered).toBe(2);
     expect(reslabMock.getMinPrice).toHaveBeenCalledTimes(1);
     expect(reslabMock.getMinPrice).toHaveBeenCalledWith(2, expect.anything());
   });
