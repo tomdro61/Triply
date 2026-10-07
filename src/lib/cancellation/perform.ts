@@ -6,6 +6,11 @@ import { isCancellable } from "./eligibility";
 import { claimForCancel, releaseClaim, markCancelState } from "./claim";
 import { classifyCancelOutcome } from "./reslab-cancel";
 import {
+  recordCancellationReason,
+  clearCancellationReason,
+  type CustomerCancellationReason,
+} from "./reason";
+import {
   planTeardown,
   finalizeCancelledReservation,
   type CancelBookingRow,
@@ -36,9 +41,15 @@ export interface CancelResult {
   body: Record<string, unknown>;
 }
 
+export interface SelfCancelOptions {
+  /** The optional dropdown answer. null/absent = not given (stored as NULL). */
+  reason?: CustomerCancellationReason | null;
+}
+
 export async function performSelfCancel(
   booking: CancelBookingRow,
   now: number = Date.now(),
+  options: SelfCancelOptions = {},
 ): Promise<CancelResult> {
   const reservationNumber = booking.reslab_reservation_number;
   const piId = booking.stripe_payment_intent_id;
@@ -220,6 +231,17 @@ export async function performSelfCancel(
   }
   const ownedAt = claim.ownedAt;
 
+  // 5b. Attribute the cancel (migration 032). Written at claim time, pinned to
+  //     the claim, so a HOLD finished later by the reconciliation cron keeps the
+  //     customer's answer. Best-effort — never blocks or fails the cancel.
+  await recordCancellationReason({
+    reservationNumber,
+    cancelledBy: "customer",
+    reason: options.reason ?? null,
+    ownedAt,
+    endpoint: ENDPOINT,
+  });
+
   // 6. ResLab cancel + classify (the first side effect).
   let cancelResult:
     | { ok: true; reservation: Awaited<ReturnType<typeof reslab.cancelReservation>> }
@@ -235,6 +257,7 @@ export async function performSelfCancel(
   if (outcome.outcome === "refuse") {
     // Reservation still active / cancel rejected → release the claim, refund
     // NOTHING (the spot is still live and billable).
+    await clearCancellationReason(reservationNumber, ownedAt, ENDPOINT);
     await safeRelease(reservationNumber, ownedAt);
     captureAPIError(
       new Error(`self-cancel refused for ${reservationNumber}: ${outcome.detail}`),

@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 import { z } from "zod";
 import { Loader2, AlertCircle, CalendarX, X } from "lucide-react";
 import { PG_NONREFUNDABLE_SUMMARY } from "@/lib/parkguard/plans";
+import {
+  CUSTOMER_CANCELLATION_REASONS,
+  CUSTOMER_REASON_LABELS,
+  customerReasonSchema,
+  type CustomerCancellationReason,
+} from "@/lib/cancellation/reason-codes";
 
 interface CancelReservationButtonProps {
   reservationNumber: string;
@@ -70,6 +76,8 @@ export function CancelReservationButton({
   const [preview, setPreview] = useState<RefundPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewDeadEnd, setPreviewDeadEnd] = useState(false);
+  // Optional "why?" dropdown (migration 032). "" = not answered; never required.
+  const [reason, setReason] = useState<CustomerCancellationReason | "">("");
   // Discards superseded preview responses: reopen-during-flight, close, and
   // (critically) once a cancel is submitted — the dialog stays mounted through
   // `submitting`, so a slow preview landing mid-cancel would otherwise repaint
@@ -85,6 +93,7 @@ export function CancelReservationButton({
     setPreview(null);
     setPreviewError(null);
     setPreviewDeadEnd(false);
+    setReason("");
 
     const seq = ++previewSeq.current;
     void (async () => {
@@ -161,7 +170,12 @@ export function CancelReservationButton({
     try {
       const res = await fetch(
         `/api/user/bookings/${encodeURIComponent(reservationNumber)}/cancel`,
-        { method: "POST" },
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          // Optional — the server ignores a missing/unknown value and cancels anyway.
+          body: JSON.stringify(reason ? { reason } : {}),
+        },
       );
       const data: Record<string, unknown> = await res.json().catch(() => ({}));
 
@@ -381,6 +395,35 @@ export function CancelReservationButton({
                   </>
                 ))}
             </div>
+
+            {!previewDeadEnd && (
+              <div className="mt-4">
+                <label
+                  htmlFor={`cancel-reason-${reservationNumber}`}
+                  className="block text-sm font-medium text-gray-700"
+                >
+                  Mind telling us why?{" "}
+                  <span className="font-normal text-gray-500">(optional)</span>
+                </label>
+                <select
+                  id={`cancel-reason-${reservationNumber}`}
+                  value={reason}
+                  onChange={(e) => {
+                    const parsed = customerReasonSchema.safeParse(e.target.value);
+                    setReason(parsed.success ? parsed.data : "");
+                  }}
+                  disabled={phase === "submitting"}
+                  className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-brand-orange focus:outline-none focus:ring-2 focus:ring-brand-orange/30 disabled:opacity-60"
+                >
+                  <option value="">Prefer not to say</option>
+                  {CUSTOMER_CANCELLATION_REASONS.map((r) => (
+                    <option key={r} value={r}>
+                      {CUSTOMER_REASON_LABELS[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
               <button

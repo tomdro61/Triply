@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, ShieldCheck, AlertCircle } from "lucide-react";
@@ -8,6 +8,12 @@ import { Navbar, Footer } from "@/components/shared";
 import { CheckoutForm } from "@/components/checkout";
 import { UnifiedLot } from "@/types/lot";
 import { CheckoutCostData } from "@/types/checkout";
+import {
+  trackCheckoutLoadFailed,
+  trackCheckoutOpen,
+  trackCheckoutView,
+} from "@/lib/analytics/gtag";
+import { bucketCheckoutFailure, deviceToday, leadDays } from "@/lib/analytics/checkout-funnel";
 
 interface CheckoutData {
   lot: UnifiedLot;
@@ -35,18 +41,41 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Checkout-funnel analytics (refs only — nothing here affects rendering or
+  // booking). checkout_open fires on mount, before the data load that waits
+  // on ResLab, so visitors who leave while it loads are counted; exactly one
+  // of checkout_view / checkout_load_failed reports how the load ended.
+  const openedAtRef = useRef<number | null>(null);
+  const loadReportedRef = useRef(false);
+  const loadMs = () =>
+    openedAtRef.current === null ? 0 : Math.round(performance.now() - openedAtRef.current);
+  const reportLoadFailed = (reason: string, status?: number) => {
+    if (loadReportedRef.current) return;
+    loadReportedRef.current = true;
+    trackCheckoutLoadFailed({ reason, status, loadMs: loadMs() });
+  };
+
+  useEffect(() => {
+    if (openedAtRef.current !== null) return; // StrictMode re-run
+    openedAtRef.current = performance.now();
+    trackCheckoutOpen();
+  }, []);
+
   useEffect(() => {
     if (!lotId) {
+      reportLoadFailed("no_lot");
       setLoading(false);
       return;
     }
     if (!checkInTime || !checkOutTime) {
+      reportLoadFailed("missing_times");
       setError("Please select check-in and check-out times before continuing.");
       setLoading(false);
       return;
     }
 
     const fetchCheckoutData = async () => {
+      let status: number | undefined;
       try {
         const params = new URLSearchParams({
           lotId,
@@ -57,6 +86,7 @@ function CheckoutContent() {
         });
 
         const response = await fetch(`/api/checkout/lot?${params}`);
+        status = response.status;
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to fetch lot data");
@@ -64,9 +94,39 @@ function CheckoutContent() {
 
         const data = await response.json();
         setCheckoutData(data);
+        if (!data?.lot) {
+          reportLoadFailed("no_lot", status);
+        } else if (data.costData?.soldOut) {
+          reportLoadFailed("sold_out", status);
+        } else if (!loadReportedRef.current) {
+          loadReportedRef.current = true;
+          // Own try: inside the load's try, an analytics throw would turn a
+          // successful load into "Unable to Load Checkout".
+          try {
+            // The RAW check-in: when the URL has none, checkIn is a made-up
+            // "tomorrow" and its lead time would be fiction.
+            const rawCheckin = searchParams.get("checkin");
+            trackCheckoutView({
+              lotId: data.lot.id,
+              leadDays: rawCheckin ? leadDays(rawCheckin, deviceToday()) : null,
+              loadMs: loadMs(),
+              priced: data.costData?.costsToken ? 1 : 0,
+            });
+          } catch {
+            // Analytics only — never a checkout failure.
+          }
+        }
       } catch (err) {
         console.error("Checkout data fetch error:", err);
         setError(err instanceof Error ? err.message : "Failed to load checkout data");
+        reportLoadFailed(
+          bucketCheckoutFailure({
+            status,
+            message: err instanceof Error ? err.message : undefined,
+            error: err,
+          }),
+          status
+        );
       } finally {
         setLoading(false);
       }

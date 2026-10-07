@@ -15,7 +15,7 @@ export const READ_TIMEOUT_MS = 6_000;
 
 export type ReadResult =
   | { kind: "ok"; text: string }
-  | { kind: "withheld"; reason: string }
+  | { kind: "withheld"; reason: string; text?: string }
   | { kind: "unavailable"; reason: string };
 
 /**
@@ -39,7 +39,7 @@ export function modelInput(d: DigestData): Record<string, unknown> {
       chargedOnline: b.chargedOnline,
       avgOrder: b.avgOrder,
       feeIncome: b.feeIncome,
-      pgAttachRate: b.pgAttachRate,
+      parkGuardAttachRate: b.pgAttachRate, // named in full: Haiku read "pg" as "payment gateway"
       promoBookings: b.promoBookings,
       repeatByEmail: b.repeatByEmail,
       leadTime: b.leadTime,
@@ -58,7 +58,10 @@ export function modelInput(d: DigestData): Record<string, unknown> {
       distinctAirports: f.distinctAirports,
       topAirports: f.topAirports,
       datesDefaultedShare: f.datesDefaultedShare,
-      soldOutShare: f.soldOutShare,
+      pricedSearches: f.pricedSearches, // 0 on an outage day: the read must not sound calm under a red flag
+      zeroResultShare: f.zeroResultShare,
+      nothingBookableShare: f.nothingBookableShare,
+      lotSoldOutRate: f.lotSoldOutRate,
       degradedCount: f.degradedCount,
     },
     lostSalesByStatus: l ? l.byStatus : null,
@@ -75,6 +78,9 @@ const SYSTEM = `You write a 3–5 sentence morning read of yesterday's numbers f
 - Compare yesterday to avg7/avg28 only where those are present (null means "no baseline yet" — say so, do not guess).
 - No causal claims ("because", "due to", "driven by"); say what changed, and name one thing worth a look.
 - "originSearches" are CDN misses, not customer searches — never call them customers or visits.
+- Glossary: parkGuardAttachRate = share of bookings that added the Park Guard protection plan (Park Guard is a protection plan, never "payment gateway" or "insurance"); feeIncome = Triply's own fee income (service fees + Park Guard margin), not revenue; zeroResultShare = share of priced searches that showed the customer no lot at all; nothingBookableShare = share of priced searches that returned no lot while at least one lot was sold out (do not state a cause); lotSoldOutRate = of the lots that priced (sold out + returned), the share that were sold out; repeatByEmail = bookings from an email seen before.
+- Write percentages as whole numbers ("35%"), money to the cent or rounded to the dollar, exactly as they appear.
+- Never use the JSON key names in prose (no "feeIncome", "originSearches", "lotSoldOutRate"): say "fee income", "origin searches (CDN misses)", "lots sold out".
 - No advice on pricing, legal, or marketing spend. No greetings. Plain sentences, no bullets, no headers.`;
 
 // ── number validation ──────────────────────────────────────────────
@@ -114,6 +120,7 @@ export function allowedTokens(input: Record<string, unknown>, dateEt: string): S
         // a share (0 and 1 included — "0%" / "100%"): the model may write it as a percentage
         out.add(normalise(String(Math.round(v * 100))));
         out.add(normalise((v * 100).toFixed(1)));
+        out.add(normalise((v * 100).toFixed(2)));
       }
     } else if (Array.isArray(v)) v.forEach(walk);
     else if (v && typeof v === "object") Object.values(v).forEach(walk);
@@ -123,8 +130,14 @@ export function allowedTokens(input: Record<string, unknown>, dateEt: string): S
 }
 
 /** Returns the first offending token, or null when every number is accounted for. */
+// Lead-time bucket LABELS ("1–3 days", "4–14 days", "15+ days") are echoed from the
+// input's field names, not invented; strip them before scanning so "3" or "15" inside
+// a label is not mistaken for a figure — while a bare "15%" is still caught.
+// The day suffix is MANDATORY: a bare "$15+" or "1-3" is a figure and must be checked.
+const BUCKET_LABEL = /\b(?:1\s?[–-]\s?3|4\s?[–-]\s?14|15\s?\+)(?:\s?-?\s?days?|\s?d\b)/gi;
+
 export function firstUnexplainedNumber(text: string, allowed: Set<string>): string | null {
-  for (const m of text.matchAll(CANDIDATE)) {
+  for (const m of text.replace(BUCKET_LABEL, " ").matchAll(CANDIDATE)) {
     const raw = m[0];
     const suffix = raw.replace(/[$\s]/g, "").match(SUFFIX)?.[0] ?? "";
     // "10k", "9am", "3x", "$1.2k": a unit or magnitude the aggregates never use.
@@ -152,6 +165,6 @@ export async function writeModelRead(data: DigestData): Promise<ReadResult> {
   }
   if (text.length === 0) return { kind: "unavailable", reason: "empty" };
   const bad = firstUnexplainedNumber(text, allowedTokens(input, data.dateEt));
-  if (bad !== null) return { kind: "withheld", reason: `failed number check (${bad})` };
+  if (bad !== null) return { kind: "withheld", reason: `failed number check (${bad})`, text: text.slice(0, 900) };
   return { kind: "ok", text: text.slice(0, 900) };
 }

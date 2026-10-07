@@ -40,6 +40,14 @@ function leaf(expr: string): (row: Row) => boolean {
         return actual != null && String(actual) >= raw;
       case "is":
         return raw === "null" ? actual == null : String(actual) === raw;
+      case "ilike":
+        // Same LIKE-pattern semantics as the `.ilike()` builder (see likeRegex).
+        return actual != null && likeRegex(raw).test(String(actual));
+      case "in": {
+        // PostgREST `col.in.(a,b,c)`.
+        const list = raw.replace(/^\(/, "").replace(/\)$/, "").split(",").map((s) => s.trim());
+        return list.includes(String(actual));
+      }
       default:
         throw new Error(`supabase-fake: unsupported or() operator "${op}"`);
     }
@@ -232,7 +240,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private singleRow = false;
   private requireOne = false;
   private orOnMutation = false;
+  /** Set by `.upsert(..., { onConflict })`: the column whose match turns the
+   *  insert into an update of the existing row. */
+  private upsertOn: string | null = null;
   private limitN: number | null = null;
+  private rangeFrom: number | null = null;
   private countMode = false;
   private headOnly = false;
   private orderCol: string | null = null;
@@ -262,6 +274,18 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   update(payload: Row) {
     this.op = "update";
     this.payload = payload;
+    return this;
+  }
+  /** INSERT ... ON CONFLICT (onConflict) DO UPDATE. Injected failures target it
+   *  as an `insert`. Without `onConflict` this fake does a plain insert, which
+   *  is STRICTER than the real server (supabase-js always sends
+   *  `resolution=merge-duplicates`, so PostgREST would merge on the primary
+   *  key) — a caller that relies on the implicit PK merge gets a duplicate row
+   *  here, never a false pass. Callers in this codebase pass the key column. */
+  upsert(payload: Row, opts?: { onConflict?: string }) {
+    this.op = "insert";
+    this.payload = payload;
+    this.upsertOn = opts?.onConflict ?? null;
     return this;
   }
   delete() {
@@ -318,6 +342,19 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   }
   limit(n: number) {
     this.limitN = n;
+    return this;
+  }
+  /** PostgREST `Range: from-to` (inclusive, zero-based). Applied after ordering,
+   *  before the count is read — the count stays over every match. */
+  range(from: number, to: number) {
+    this.rangeFrom = from;
+    this.limitN = to - from + 1;
+    return this;
+  }
+  /** Accepted and ignored: the fake never hangs, so a deadline has nothing to
+   *  cut short. Its presence in a call chain is what lets a bounded query run
+   *  under this fake at all. */
+  abortSignal(_signal: AbortSignal) {
     return this;
   }
   maybeSingle() {
@@ -420,6 +457,16 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
 
     if (this.op === "insert") {
       const row = { ...this.payload } as Row;
+      if (this.upsertOn) {
+        const key = this.upsertOn;
+        const existing = rows.find((r) => String(r[key]) === String(row[key]));
+        if (existing) {
+          Object.assign(existing, row);
+          existing.updated_at = new Date().toISOString();
+          if (!this.selectOnMutation) return { data: null, error: null };
+          return { data: this.singleRow ? { ...existing } : [{ ...existing }], error: null };
+        }
+      }
       // Emulate the UNIQUE constraints the engine relies on.
       const dupe =
         (this.table === "pending_bookings" &&
@@ -503,14 +550,15 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     // The count is over EVERY match, before `.limit()` — that is what
     // PostgREST returns, and a backlog check that counted only the limited
     // page would under-report exactly when the backlog is worst.
+    const start = this.rangeFrom ?? 0;
+    const limited = this.limitN == null ? ordered.slice(start) : ordered.slice(start, start + this.limitN);
     if (this.countMode || this.headOnly) {
       return {
-        data: this.headOnly ? null : hit.map((r) => this.embeddedCustomer({ ...r })),
+        data: this.headOnly ? null : limited.map((r) => this.embeddedCustomer({ ...r })),
         count: hit.length,
         error: null,
       };
     }
-    const limited = this.limitN == null ? ordered : ordered.slice(0, this.limitN);
     const out = limited.map((r) => this.embeddedCustomer({ ...r }));
     // Real PostgREST returns a PGRST116 error for .single() on EITHER zero OR
     // multiple matches — the multiple case matters because customers.email is

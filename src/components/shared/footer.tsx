@@ -89,6 +89,9 @@ export function Footer() {
                   <li key={lIdx}>
                     <Link
                       href={link.href}
+                      // On every page: never prefetch these (the airport links
+                      // would each render an airport page against ResLab).
+                      prefetch={false}
                       className="text-gray-400 hover:text-white transition-colors text-sm"
                     >
                       {link.label}

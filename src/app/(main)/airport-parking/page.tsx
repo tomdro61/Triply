@@ -97,6 +97,10 @@ export default function AirportParkingHubPage() {
                   <Link
                     key={airport.code}
                     href={`/${airport.slug}/airport-parking`}
+                    // Airport pages are generated on first request after a deploy;
+                    // prefetching every airport in this list would render them at once
+                    // against ResLab (plan 2026-10-07 v2.1).
+                    prefetch={false}
                     className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-brand-orange/30 hover:shadow-sm transition-all group"
                   >
                     <div className="w-9 h-9 rounded-full bg-gray-100 group-hover:bg-brand-orange/10 flex items-center justify-center shrink-0 transition-colors">

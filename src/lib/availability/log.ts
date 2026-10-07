@@ -20,6 +20,7 @@
  * See supabase/migrations/025_availability_log.sql.
  */
 
+import { resolveEnv } from "@/lib/env";
 import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
@@ -100,15 +101,8 @@ export function localToday(timeZone: string): string {
  * longer make production rows land as 'unknown' and leave the rollup empty
  * forever with nothing to say why.
  */
-export function resolveEnv(): string {
-  const configured = process.env.NEXT_PUBLIC_APP_ENV;
-  if (configured) return configured;
-  const vercel = process.env.VERCEL_ENV;
-  if (vercel === "production" || vercel === "preview" || vercel === "development") {
-    return vercel;
-  }
-  return "unknown";
-}
+// resolveEnv moved to @/lib/env (shared by pure libraries); re-exported for existing callers.
+export { resolveEnv };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -295,9 +289,10 @@ export function __resetAvailabilityLogWarnStateForTests(): void {
 export function logAvailability(rows: AvailabilityRow[], searchId?: string): void {
   try {
     if (rows.length === 0) return;
-    // Every Vercel build of every branch runs generateStaticParams → after() at
-    // build time, with the service-role key injected — without this guard every
-    // build of every branch would write into the (real, production) table.
+    // Any search run during `next build` (a prerendered page that searches —
+    // airport pages did until 2026-10-07) has the service-role key injected;
+    // without this guard any such build, on any branch, would write into the
+    // (real, production) table.
     if (process.env.NEXT_PHASE === "phase-production-build") return;
     // Kill switch for an incident or a load test. Vercel env var changes don't
     // reach already-running deployments, so this needs a redeploy, not just a
