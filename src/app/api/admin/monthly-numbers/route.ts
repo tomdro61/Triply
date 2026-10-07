@@ -32,6 +32,7 @@ import { resolveEnv } from "@/lib/env";
 import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
 import {
   bookingsByMonth,
+  paidAfterWindow,
   lastNDays,
   lastNMonths,
   DATE_AXES,
@@ -133,7 +134,11 @@ export async function GET(request: NextRequest) {
         }
         if (page.length < PAGE) break;
       }
-      return { months: bookingsByMonth(rows, months, by), stagingExcluded };
+      return {
+        months: bookingsByMonth(rows, months, by),
+        stagingExcluded,
+        afterWindow: paidAfterWindow(rows, months, by),
+      };
     })().catch((e: unknown) => {
       warn("bookings fetch failed", e);
       return null;
@@ -185,6 +190,9 @@ export async function GET(request: NextRequest) {
       months,
       bookings: bookingsResult?.months ?? null,
       stagingExcluded: bookingsResult?.stagingExcluded ?? null,
+      // Paid bookings filed after the window (trips starting/ending in a later
+      // month on the checkin/checkout axes); null when bookings failed.
+      afterWindow: bookingsResult?.afterWindow ?? null,
       lots,
       searches,
       warnings,

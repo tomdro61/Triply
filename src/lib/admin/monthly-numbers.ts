@@ -86,7 +86,7 @@ export function emailKey(email: string | null | undefined): string | null {
  *   checkout  trip completion — what ResLab SETTLES on, so the month a booking
  *             shows up on their invoice
  */
-export const DATE_AXES = ["created", "checkin", "checkout"] as const;
+export const DATE_AXES = ["created", "checkout", "checkin"] as const; // same order as /admin/accounting's selector
 export type DateAxis = (typeof DATE_AXES)[number];
 export const DATE_AXIS_LABELS: Record<DateAxis, string> = {
   created: "Booking created (general reports)",
@@ -118,6 +118,25 @@ export interface NumbersBookingRow {
 export function bookingMonthKey(r: NumbersBookingRow, axis: DateAxis): string | null {
   if (axis === "created") return monthKeyOf(r.created_at);
   return literalMonthKey(axis === "checkin" ? r.check_in : r.check_out);
+}
+
+/**
+ * Paid bookings filed AFTER the last month in the window — on the trip axes
+ * these are booked trips that start/end next month or later (the booking
+ * window is 100 days), which a "last N months" view would otherwise hide
+ * without a trace. Always 0 on the created axis (nothing is booked in the
+ * future).
+ */
+export function paidAfterWindow(rows: NumbersBookingRow[], months: MonthWindow[], axis: DateAxis): number {
+  const last = months[months.length - 1]?.key;
+  if (!last) return 0;
+  let n = 0;
+  for (const r of rows) {
+    if (!isPaid(r.status)) continue;
+    const key = bookingMonthKey(r, axis);
+    if (key !== null && key > last) n++;
+  }
+  return n;
 }
 
 /** A booking the customer actually paid for (kept or later refunded). */

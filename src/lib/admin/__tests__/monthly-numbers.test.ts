@@ -5,6 +5,8 @@ import {
   lastNDays,
   lastNMonths,
   literalMonthKey,
+  bookingMonthKey,
+  paidAfterWindow,
   lotsSeverity,
   monthKeyOf,
   netTakeFrom,
@@ -136,6 +138,46 @@ describe("bookingsByMonth", () => {
     expect(byCreated[1]).toMatchObject({ key: "2026-09", confirmed: 1 }); // c
     const byCheckin = bookingsByMonth(rows, months, "checkin");
     expect(byCheckin[0]).toMatchObject({ key: "2026-08", confirmed: 2 }); // a and b start in August
+  });
+
+  it("buckets trip months from the literal string even on a UTC+14 clock (Date math would move a 00:30 Sep 1 check-out into August)", () => {
+    // Pins the "never Date math" rule where it would actually bite: on a UTC
+    // runner a Date parse of the literal still lands in the right month, so
+    // the test above cannot catch a regression to monthKeyOf(). Node re-reads
+    // TZ at runtime; at UTC+14 a local "2026-09-01 00:30" is Aug 31 10:30 UTC,
+    // so UTC-getter bucketing says August while the literal says September.
+    const saved = process.env.TZ;
+    process.env.TZ = "Pacific/Kiritimati"; // UTC+14
+    try {
+      // Sanity: under this clock, Date-based bucketing of the same literal is the WRONG month.
+      expect(monthKeyOf("2026-09-01 00:30:00")).toBe("2026-08");
+      expect(bookingMonthKey({ created_at: "2026-07-01T00:00:00Z", status: "confirmed", email: null, check_out: "2026-09-01 00:30:00" }, "checkout")).toBe("2026-09");
+      expect(bookingMonthKey({ created_at: "2026-07-01T00:00:00Z", status: "confirmed", email: null, check_in: "2026-09-01T00:30:00" }, "checkin")).toBe("2026-09");
+    } finally {
+      if (saved === undefined) delete process.env.TZ; else process.env.TZ = saved;
+    }
+  });
+
+  it("counts paid bookings whose trip month is after the window (booked trips we would otherwise hide)", () => {
+    const rows: NumbersBookingRow[] = [
+      { created_at: "2026-09-10T10:00:00Z", status: "confirmed", email: "a@x.com", check_in: "2026-10-05 10:00:00", check_out: "2026-10-08 10:00:00" },
+      { created_at: "2026-09-11T10:00:00Z", status: "confirmed", email: "b@x.com", check_in: "2026-09-29 10:00:00", check_out: "2026-10-02 10:00:00" },
+      { created_at: "2026-09-12T10:00:00Z", status: "cancelled", email: "c@x.com", check_in: "2026-11-01 10:00:00", check_out: "2026-11-03 10:00:00" },
+    ];
+    expect(paidAfterWindow(rows, months, "checkout")).toBe(2); // a and b end in October, after the Aug–Sep window
+    expect(paidAfterWindow(rows, months, "checkin")).toBe(1); // only a starts after September
+    expect(paidAfterWindow(rows, months, "created")).toBe(0);
+  });
+
+  it("on a trip axis, repeat is still decided in booking order while the row is filed by its trip month", () => {
+    const rows: NumbersBookingRow[] = [
+      { created_at: "2026-08-01T10:00:00Z", status: "confirmed", email: "r@x.com", check_in: "2026-09-28 10:00:00", check_out: "2026-09-30 10:00:00" },
+      { created_at: "2026-08-10T10:00:00Z", status: "confirmed", email: "r@x.com", check_in: "2026-08-14 10:00:00", check_out: "2026-08-15 10:00:00" },
+    ];
+    const out = bookingsByMonth(rows, months, "checkout");
+    // B (booked Aug 10, after A) is the repeat and is filed in August by its trip; A is filed in September.
+    expect(out[0]).toMatchObject({ key: "2026-08", paid: 1, repeat: 1 });
+    expect(out[1]).toMatchObject({ key: "2026-09", paid: 1, repeat: 0 });
   });
 
   it("literalMonthKey reads the prefix only and rejects anything that is not a date", () => {

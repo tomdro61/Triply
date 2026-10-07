@@ -37,6 +37,8 @@ interface NumbersResponse {
   searches: { env: string; days: Array<{ day: string; count: number }> } | null;
   /** Staging (Stripe test-mode) rows left out of every count; null when bookings failed. */
   stagingExcluded: number | null;
+  /** Paid bookings whose trip month is after the window (trip axes only); null when bookings failed. */
+  afterWindow: number | null;
   warnings: string[];
 }
 
@@ -158,7 +160,10 @@ function netCell(n: NetState | undefined, pick: "gross" | "cash" | "perBooking")
   const v = n[pick];
   if (v === null) {
     return (
-      <span className="text-gray-400" title={pick === "cash" ? "Stripe fee data incomplete for this month" : (n.reason ?? "")}>
+      <span
+        className="text-gray-400"
+        title={pick === "cash" && n.gross !== null ? "Stripe fee data incomplete for this month" : (n.reason ?? "")}
+      >
         —
       </span>
     );
@@ -298,7 +303,7 @@ export default function MonthlyNumbersPage() {
     );
   }
 
-  const { months, bookings, lots, searches, warnings, stagingExcluded } = data;
+  const { months, bookings, lots, searches, warnings, stagingExcluded, afterWindow } = data;
   const short = (m: MonthWindow) => m.label.slice(0, 3) + (m.partial ? "*" : "");
   // Headline = the last COMPLETE month (the current one is still moving).
   const lastFull = months.length >= 2 ? months[months.length - 2] : null;
@@ -326,6 +331,13 @@ export default function MonthlyNumbersPage() {
           {stagingExcluded !== null && stagingExcluded > 0 ? ` — ${stagingExcluded} staging` : ""}). * = month in progress.
           Same selector and figures as Accounting.
         </p>
+        {by !== "created" && afterWindow !== null && afterWindow > 0 && (
+          <p className="mt-1 text-sm text-gray-600">
+            {afterWindow} paid booking{afterWindow === 1 ? "" : "s"} with a trip{" "}
+            {by === "checkout" ? "ending" : "starting"} after {months[months.length - 1]?.label} — not in this
+            window.
+          </p>
+        )}
         {warnings.length > 0 && (
           <p className="mt-2 text-sm text-amber-700 flex items-center gap-1.5">
             <AlertTriangle size={14} /> Partial data: {warnings.join("; ")}.
