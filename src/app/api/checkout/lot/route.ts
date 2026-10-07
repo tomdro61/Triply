@@ -15,6 +15,8 @@ import {
 } from "@/lib/parkguard/client";
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 
 // A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
 // (40s budget). The ceiling must sit above it so the sweep settles and arms its
@@ -62,6 +64,17 @@ export async function GET(request: NextRequest) {
 
     if (!lot) {
       return NextResponse.json({ error: "Lot not found" }, { status: 404 });
+    }
+
+    // Direct lots are discoverable (Phase 2) but not yet bookable: the quote
+    // and PaymentIntent branches land in Phase 3. Refuse here so no checkout
+    // can be assembled from ResLab-shaped fields that a direct lot does not
+    // have — the booking widget already keeps customers off this path.
+    if (lot.source === "direct" && !DIRECT_BOOKING_OPEN) {
+      return NextResponse.json(
+        { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
     }
 
     // Get costs_token from getCost API for reservation creation
@@ -158,7 +171,10 @@ export async function GET(request: NextRequest) {
     // derived events — the failure mode that let 1,311 Sentry events go
     // unnoticed for ~4 weeks. Matches /api/search. Every other error is still
     // captured unconditionally.
-    if (!isLocationBackoffError(error)) {
+    // The direct-inventory read failure is likewise already reported (throttled)
+    // by the store that failed, so it is not re-captured per request here.
+    const directUnavailable = error instanceof DirectInventoryUnavailableError;
+    if (!isLocationBackoffError(error) && !directUnavailable) {
       captureAPIError(error instanceof Error ? error : new Error(String(error)), {
         endpoint: "/api/checkout/lot",
         method: "GET",
@@ -168,6 +184,7 @@ export async function GET(request: NextRequest) {
     // honest status, and uptime monitors page on 500s.
     const transient =
       isLocationBackoffError(error) ||
+      directUnavailable ||
       (error instanceof ReslabError && error.statusCode >= 500);
     return NextResponse.json(
       { error: transient ? "Parking data is temporarily unavailable" : "Failed to fetch lot data" },

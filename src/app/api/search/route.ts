@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
+import { searchParking, isLocationBackoffError, SearchDateError } from "@/lib/reslab/search";
 import type { SearchEventAttribution } from "@/lib/reslab/search";
 import { SortOption } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
@@ -117,8 +117,6 @@ export async function GET(request: NextRequest) {
   })();
   const checkout =
     validation.data.checkout || (defaultCheckout < checkin ? plusSevenNights : defaultCheckout);
-  const pricingCheckinTime = validation.data.checkinTime || "10:00 AM";
-  const pricingCheckoutTime = validation.data.checkoutTime || "2:00 PM";
   const sort = validation.data.sort || "popularity";
   const searchEventSource = validation.data.surface === "featured" ? "homepage-featured" : undefined;
 
@@ -127,8 +125,11 @@ export async function GET(request: NextRequest) {
       airport,
       checkin,
       checkout,
-      checkinTime: pricingCheckinTime,
-      checkoutTime: pricingCheckoutTime,
+      // Omitted unless the visitor chose them: searchParking prices from a
+      // timezone-aware default. A fixed "10:00 AM" here was already past for
+      // every same-day search after 10 AM, so ResLab refused every lot.
+      checkinTime: validation.data.checkinTime,
+      checkoutTime: validation.data.checkoutTime,
       sort,
       datesDefaulted,
       searchEventSource,
@@ -151,9 +152,16 @@ export async function GET(request: NextRequest) {
     // one min-price call per nearby lot — i.e. it would move the amplification
     // loop onto a different ResLab endpoint at the worst possible moment. Cache
     // it, but briefly, so a repaired list is picked up within a minute.
+    //
+    // `directUnavailable` (the direct-lot read failed; ResLab lots are all
+    // present) is treated like `stale`, NOT like `degraded`: a no-store here
+    // would push every search to origin for the length of a database blip
+    // and re-create the ResLab min-price amplification loop (review C11).
+    // 60 s is short enough that direct lots reappear promptly once the read
+    // recovers.
     const cacheControl =
       result.total > 0 && !result.degraded
-        ? result.stale
+        ? result.stale || result.directUnavailable
           ? "public, s-maxage=60, stale-while-revalidate=300"
           : "public, s-maxage=300, stale-while-revalidate=600"
         : "no-store";
@@ -176,6 +184,15 @@ export async function GET(request: NextRequest) {
     if (error instanceof Error && error.message.startsWith("Invalid date range")) {
       return NextResponse.json(
         { error: "Check-out must be on or after check-in", code: "checkout_before_checkin" },
+        { status: 400, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+    // Past check-in / no slot left today: the visitor's dates, not an outage.
+    // 400 with a code the search page turns into a date message — before
+    // capture, and no-store (the answer flips at midnight).
+    if (error instanceof SearchDateError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
         { status: 400, headers: { "Cache-Control": "no-store" } }
       );
     }

@@ -110,7 +110,7 @@ export async function sendReconciliationAlert(report: AnomalyReport) {
           ${table("Orphan charges — paid, NO booking (" + report.orphans.length + ")", ["Created", "Amount", "Email", "Method", "", "PaymentIntent"], orphanRows)}
           ${table("Double-charges — more charges than bookings (" + report.doubleCharges.length + ")", ["Email", "Charges/Bookings", "Amounts", "Span", "PaymentIntents"], doubleRows)}
           ${table("Unmatched charges — no booking, no checkout metadata (" + report.possibleManualCharges.length + ")", ["Created", "Amount", "Email", "Method", "PaymentIntent"], manualRows)}
-          <p style="font-size:12px;color:#6b7280;margin-top:12px;">"Unmatched" are usually manual Stripe Payment Links (e.g. reservation extensions), not bugs — but verify any you don't recognize, since a real orphan missing metadata would land here too.</p>
+          <p style="font-size:12px;color:#6b7280;margin-top:12px;">"Unmatched" are usually manual Stripe Payment Links (e.g. reservation extensions), not bugs — but verify any you don't recognize, since a real orphan missing metadata would land here too.${report.invoicePayments > 0 ? ` ${report.invoicePayments} Stripe invoice payment(s) in the window were skipped — invoices are always deliberate.` : ""}</p>
           <div style="margin-top:24px;">
             <a href="https://dashboard.stripe.com/payments" style="display:inline-block;background:#f87356;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;">Open Stripe Payments</a>
           </div>

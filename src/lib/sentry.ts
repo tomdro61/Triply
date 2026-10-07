@@ -123,6 +123,32 @@ export function captureParkGuardError(
 }
 
 /**
+ * A Stripe payment on our account that did NOT come from checkout — a Payment
+ * Link, a dashboard charge, a manual invoice. Nothing to fulfil, nothing wrong.
+ * Recorded at info level under its own fingerprint so it is visible without
+ * paging as a "cannot fulfil" error (TRIPLY-24 was a $4.74 Payment Link).
+ */
+export function captureNonCheckoutPayment(context: {
+  stripePaymentIntentId: string;
+  amount: number;
+  eventType: string;
+}) {
+  Sentry.withScope((scope) => {
+    scope.setLevel("info");
+    scope.setTag("payment.nonCheckout", "true");
+    scope.setTag("payment.intentId", context.stripePaymentIntentId);
+    scope.setFingerprint(["payment", "non-checkout"]);
+    scope.setContext("payment", {
+      amount: context.amount,
+      eventType: context.eventType,
+    });
+    Sentry.captureMessage(
+      `Non-checkout Stripe payment received (${context.eventType}, $${context.amount.toFixed(2)}) — no lotId metadata, no staged booking; nothing to fulfil`
+    );
+  });
+}
+
+/**
  * The pre-charge "lot-declared fields" check in /api/reservations/pending.
  *
  * Deliberately NOT capturePaymentError: nothing here is a payment failure, and

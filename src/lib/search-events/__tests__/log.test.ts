@@ -45,6 +45,8 @@ function row(overrides: Partial<SearchEventRow> = {}): SearchEventRow {
     sold_out_count: 1,
     degraded: false,
     stale: false,
+    direct_results_count: null,
+    direct_skipped: false,
     source: "search",
     utm_source: null,
     utm_medium: null,

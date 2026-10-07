@@ -5,7 +5,8 @@ import { NextRequest } from "next/server";
 import { getSystemPrompt, AI_MODEL } from "@/lib/ai/config";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
 import { checkUsageAnomaly } from "@/lib/ai/usage-alert";
-import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
+import { searchParking, isLocationBackoffError, SearchDateError } from "@/lib/reslab/search";
+import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import { enabledAirports } from "@/config/airports";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
@@ -134,11 +135,11 @@ export async function POST(request: NextRequest) {
             checkinTime: z
               .string()
               .optional()
-              .describe('Check-in time (e.g., "10:00 AM")'),
+              .describe('Check-in time (e.g., "10:00 AM"). Omit unless the customer stated a time — the search then prices a default (10:00 AM, or the earliest open slot for a check-in today).'),
             checkoutTime: z
               .string()
               .optional()
-              .describe('Check-out time (e.g., "2:00 PM")'),
+              .describe('Check-out time (e.g., "2:00 PM"). Omit unless the customer stated a time.'),
             vehicleType: z
               .enum(["standard", "oversized", "suv", "truck"])
               .optional()
@@ -197,6 +198,12 @@ export async function POST(request: NextRequest) {
                   .join(", "),
                 slug: lot.slug,
                 numberOfDays: lot.pricing?.numberOfDays,
+                // Direct lots are listed before their online checkout ships
+                // (DIRECT_BOOKING_OPEN); the model must not steer a customer
+                // to a Reserve button that is off.
+                ...(lot.source === "direct" && !DIRECT_BOOKING_OPEN
+                  ? { bookable: false as const, bookingNote: "Online booking for this lot opens soon — it cannot be reserved on the site yet." }
+                  : {}),
                 searchUrl: `/search?airport=${airport}&checkin=${checkin}&checkout=${checkout}${checkinTime ? `&checkinTime=${encodeURIComponent(checkinTime)}` : ""}${checkoutTime ? `&checkoutTime=${encodeURIComponent(checkoutTime)}` : ""}`,
                 };
               });
@@ -208,6 +215,16 @@ export async function POST(request: NextRequest) {
                 checkout: result.checkout,
                 totalResults: result.total,
                 lots,
+                // Set only when ResLab was unreachable and the list is this
+                // airport's direct lots alone (ENABLE_DIRECT_LOTS) — so the
+                // model can say "a partial list right now" instead of
+                // presenting one lot as the whole market.
+                ...(result.closedForToday
+                  ? { note: "No lots near this airport can take a booking for the rest of today. Suggest a check-in date of tomorrow." }
+                  : {}),
+                ...(result.reslabUnavailable
+                  ? { note: "Partial results: our main inventory provider is temporarily unreachable, so only some lots are listed. Suggest the customer also try again shortly." }
+                  : {}),
               };
             } catch (err) {
               // A reversed range is the model's (or the customer's) mistake, not
@@ -217,6 +234,16 @@ export async function POST(request: NextRequest) {
                   success: false as const,
                   error:
                     "Those dates look reversed — the check-out is before the check-in. Please confirm the dates with the customer.",
+                };
+              }
+              // Past check-in / no slot left today: the dates, not an outage.
+              if (err instanceof SearchDateError) {
+                return {
+                  success: false as const,
+                  error:
+                    err.code === "same_day_too_late"
+                      ? "It's too late today to book parking at this airport. Suggest a check-in date of tomorrow."
+                      : "That check-in date has already passed at this airport. Please confirm the dates with the customer.",
                 };
               }
               // Report before falling back. The location-list circuit breaker

@@ -366,3 +366,83 @@ export function trackChatStart() {
     window.gtag("event", "chat_start");
   }
 }
+
+// ── Checkout funnel (2026-10-06) ────────────────────────────────────────────
+// Where the people who open /checkout drop out before the payment step. Keys
+// and reason buckets only — see src/lib/analytics/checkout-funnel.ts. Report
+// with a GA4 funnel exploration on checkout_open → checkout_view →
+// checkout_step_view(details → vehicle → payment); repeat step views from Back
+// don't distort it because funnels count users. Breakdowns need the event-
+// scoped custom dimensions checkout_step, checkout_fields, checkout_reason,
+// lead_days registered in GA4.
+
+/** Fire-and-forget: analytics must never be able to break a checkout step. */
+function sendCheckoutEvent(name: string, params: Record<string, string | number | undefined>) {
+  if (typeof window === "undefined" || !window.gtag) return;
+  try {
+    window.gtag("event", name, params);
+  } catch {
+    // Deliberately ignored: a failing analytics call is not a checkout error.
+  }
+}
+
+/** /checkout mounted — before its data loads (the load waits on ResLab). */
+export function trackCheckoutOpen() {
+  sendCheckoutEvent("checkout_open", {});
+}
+
+/** The checkout form rendered with a loaded lot. */
+export function trackCheckoutView(params: {
+  lotId: string;
+  leadDays: number | null;
+  loadMs: number;
+  /** 0 when the load fell back to estimated pricing (ResLab cost call failed)
+   *  — those visitors then fail at "Continue to Payment"; keep them separable. */
+  priced: 0 | 1;
+}) {
+  sendCheckoutEvent("checkout_view", {
+    lot_id: params.lotId,
+    lead_days: params.leadDays ?? undefined,
+    load_ms: params.loadMs,
+    priced: params.priced,
+  });
+}
+
+/** /checkout couldn't show the form (error, sold out, no lot, missing times). */
+export function trackCheckoutLoadFailed(params: { reason: string; status?: number; loadMs: number }) {
+  sendCheckoutEvent("checkout_load_failed", {
+    checkout_reason: params.reason,
+    http_status: params.status,
+    load_ms: params.loadMs,
+  });
+}
+
+export function trackCheckoutStepView(step: string) {
+  sendCheckoutEvent("checkout_step_view", { checkout_step: step });
+}
+
+/** `source`: "browser" = native required/type checks; "form" = our validators. */
+export function trackCheckoutValidationError(params: {
+  step: string;
+  fields: string;
+  source: "browser" | "form";
+}) {
+  if (!params.fields) return;
+  sendCheckoutEvent("checkout_validation_error", {
+    checkout_step: params.step,
+    checkout_fields: params.fields,
+    validation_source: params.source,
+  });
+}
+
+/** "Continue to Payment" failed to create the PaymentIntent. */
+export function trackCheckoutPaymentInitFailed(params: { reason: string; status?: number }) {
+  sendCheckoutEvent("checkout_payment_init_failed", {
+    checkout_reason: params.reason,
+    http_status: params.status,
+  });
+}
+
+export function trackCheckoutBack(fromStep: string) {
+  sendCheckoutEvent("checkout_back", { checkout_step: fromStep });
+}

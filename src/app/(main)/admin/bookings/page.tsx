@@ -115,6 +115,8 @@ export default function AdminBookingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // Degraded-search notices from the API (customer lookup failed / truncated).
+  const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -264,8 +266,10 @@ export default function AdminBookingsPage() {
 
       setBookings(data.bookings || []);
       setPagination(data.pagination);
+      setSearchWarnings(Array.isArray(data.warnings) ? data.warnings : []);
     } catch (error) {
       console.error("Failed to fetch bookings:", error);
+      setSearchWarnings([]);
     } finally {
       setLoading(false);
     }
@@ -363,6 +367,22 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Filters */}
+      {searchWarnings.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {searchWarnings.includes("customer_search_unavailable") && (
+            <p>
+              <strong>Name/email search is unavailable right now</strong> — results below match only
+              the confirmation number and lot name. Check Sentry.
+            </p>
+          )}
+          {searchWarnings.includes("customer_search_truncated") && (
+            <p>
+              <strong>Too many customers match that term</strong> — results are incomplete. Narrow the
+              search (full name or full email).
+            </p>
+          )}
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap items-center gap-4">
           <form onSubmit={handleSearch} className="flex-1 min-w-[200px]">
@@ -372,7 +392,7 @@ export default function AdminBookingsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by confirmation # or location..."
+                placeholder="Search by name, email, confirmation # (RTL…), or lot…"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none"
               />
             </div>

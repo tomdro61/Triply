@@ -20,7 +20,12 @@ vi.mock("@/lib/reslab/location-snapshot", async () => {
 });
 
 import { ReslabError } from "@/lib/reslab/client";
-import { getChannelLocationsCached, sweepChannelLocations, __resetLocationListCacheForTests } from "../search";
+import {
+  getChannelLocationsCached,
+  getChannelLocationsNoSweep,
+  sweepChannelLocations,
+  __resetLocationListCacheForTests,
+} from "../search";
 import { SNAPSHOT_FRESH_MS, SNAPSHOT_MAX_AGE_MS } from "../location-snapshot";
 
 const HOUR = 60 * 60 * 1000;
@@ -252,5 +257,69 @@ describe("sweepChannelLocations — the extracted, state-free sweep", () => {
     const s = await sweepChannelLocations(null);
     expect(s.refusedPages).toBe(1);
     expect(captureMock.captureAPIError).not.toHaveBeenCalled();
+  });
+});
+
+// The sitemap's reader: it must never spend the rate-limited /locations budget.
+describe("getChannelLocationsNoSweep", () => {
+  it("flag off, nothing in memory: null, with ZERO store and ResLab calls", async () => {
+    delete process.env.ENABLE_RESLAB_LOCATION_SNAPSHOT;
+    healthy();
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+    expect(storeMock.readSnapshot).not.toHaveBeenCalled();
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+  });
+
+  it("flag on, snapshot hit: the snapshot list, no sweep", async () => {
+    healthy();
+    const locations = hit(150, 1 * HOUR);
+    await expect(getChannelLocationsNoSweep()).resolves.toEqual(locations);
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+  });
+
+  it("flag on, snapshot miss, ResLab healthy: still null — it never falls through to a sweep", async () => {
+    healthy();
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+    // Inside the 15-minute debounce the store is read once, not per call.
+    expect(storeMock.readSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it("never hands out an incomplete list held in memory", async () => {
+    delete process.env.ENABLE_RESLAB_LOCATION_SNAPSHOT;
+    reslabMock.getAllLocations.mockImplementation(async (p: number) => {
+      if (p === 3) throw new ReslabError(502, "Bad Gateway");
+      return page(p);
+    });
+    await getChannelLocationsCached().catch(() => {});
+    reslabMock.getAllLocations.mockClear();
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+  });
+
+  it("flag off, warm instance: returns the list an earlier search swept, without sweeping again", async () => {
+    delete process.env.ENABLE_RESLAB_LOCATION_SNAPSHOT;
+    healthy();
+    await getChannelLocationsCached();
+    reslabMock.getAllLocations.mockClear();
+    const list = await getChannelLocationsNoSweep();
+    expect(list).toHaveLength(PAGES * PER_PAGE);
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
+  });
+
+  it("refuses a list older than the 72 h ceiling", async () => {
+    delete process.env.ENABLE_RESLAB_LOCATION_SNAPSHOT;
+    healthy();
+    await getChannelLocationsCached();
+    vi.setSystemTime(new Date(T0 + 73 * HOUR));
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+  });
+
+  it("a throwing store read resolves null instead of throwing (a throw would fail the build)", async () => {
+    healthy();
+    storeMock.readSnapshot.mockRejectedValue(new Error("boom"));
+    await expect(getChannelLocationsNoSweep()).resolves.toBeNull();
+    expect(reslabMock.getAllLocations).not.toHaveBeenCalled();
   });
 });
