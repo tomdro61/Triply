@@ -224,7 +224,16 @@ function getAuthenticatedClient(): OAuth2Client {
 
 // ── Airport Detection ───────────────────────────────────────────────────────
 
-function detectAirportCode(slug: string): string | null {
+/**
+ * Which airport cluster a blog slug belongs to, matched on WHOLE hyphen-separated
+ * tokens — never substrings. The previous `slug.includes(pattern)` over this
+ * insertion-ordered map put `dallas-…` and `last-minute-…` under LAS, `affordable-…`
+ * under ORD, `hidden-fees` under DEN, `overseas` under SEA and `because` under AUS,
+ * so the airport-cluster section of the report was counting unrelated articles.
+ * Multi-token patterns ("san-francisco") must appear as consecutive tokens.
+ * Exported for the unit test only.
+ */
+export function detectAirportCode(slug: string): string | null {
   const airportNameMap: Record<string, string> = {
     'jfk': 'JFK', 'kennedy': 'JFK',
     'laguardia': 'LGA', 'lga': 'LGA',
@@ -258,8 +267,16 @@ function detectAirportCode(slug: string): string | null {
     'houston': 'IAH', 'iah': 'IAH', 'bush': 'IAH',
   }
 
+  const tokens = slug.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
+  const hasTokenSequence = (pattern: string): boolean => {
+    const want = pattern.split('-')
+    for (let i = 0; i + want.length <= tokens.length; i++) {
+      if (want.every((w, j) => tokens[i + j] === w)) return true
+    }
+    return false
+  }
   for (const [pattern, code] of Object.entries(airportNameMap)) {
-    if (slug.includes(pattern)) return code
+    if (hasTokenSequence(pattern)) return code
   }
   return null
 }
