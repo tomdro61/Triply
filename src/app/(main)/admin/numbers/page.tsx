@@ -38,26 +38,36 @@ interface NumbersResponse {
 
 type NetState = NetTake | "loading" | { error: string };
 
-// Closed months never change, so a successful reconcile is kept for the tab's
-// lifetime (sessionStorage) and a reload costs no ResLab/Stripe calls.
-// Storage can be unavailable (private mode); every access is try/caught.
+// Closed months rarely change (a later refund can still move one), so a
+// DEFINITIVE reconcile — a cash figure, after Stripe fees — is kept for the
+// tab's lifetime (sessionStorage) and a reload costs no ResLab/Stripe calls.
+// A null or pre-Stripe result is never cached: that is usually a transient
+// ResLab/Stripe miss and must be asked again. Storage can be unavailable
+// (private mode); every access is try/caught.
 function readCachedNet(key: string): NetTake | null {
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) return null;
-    const v = JSON.parse(raw) as NetTake;
-    return typeof v === "object" && v !== null && "net" in v ? v : null;
+    const v = JSON.parse(raw) as Partial<NetTake>;
+    return typeof v === "object" && v !== null && typeof v.net === "number" && v.basis === "cash"
+      ? (v as NetTake)
+      : null;
   } catch {
     return null;
   }
 }
 function writeCachedNet(key: string, value: NetState): void {
   try {
-    if (typeof value === "object" && "net" in value) sessionStorage.setItem(key, JSON.stringify(value));
+    if (typeof value === "object" && "net" in value && value.net !== null && value.basis === "cash") {
+      sessionStorage.setItem(key, JSON.stringify(value));
+    }
   } catch {
     /* storage unavailable — the number still renders, it just isn't cached */
   }
 }
+/** A month whose net take is missing or errored — what "load" and "retry" target. */
+const needsNet = (net: Record<string, NetState>, key: string): boolean =>
+  !(key in net) || (typeof net[key] === "object" && "error" in net[key]);
 
 // Two at a time: each accounting call fans out ResLab + Stripe lookups at
 // concurrency 5, and ResLab has throttled us before.
@@ -146,23 +156,24 @@ export default function MonthlyNumbersPage() {
   const [error, setError] = useState<string | null>(null);
   const [net, setNet] = useState<Record<string, NetState>>({});
   const [historyRequested, setHistoryRequested] = useState(false);
-  // Aborts in-flight reconciler calls when the page unmounts — each one fans
-  // out a ResLab + Stripe lookup per booking, so a bounced sidebar click must
-  // not leave that running server-side.
+  // Stops state updates (and the client side of in-flight fetches) when the
+  // page unmounts. NB the reconciler keeps running server-side until it
+  // finishes — /api/admin/accounting does not read request.signal — so the
+  // real cost ceiling is "one month per visit", set by the lazy loading below.
   const abortRef = useRef<AbortController | null>(null);
 
   // Net take comes from the reconciler, which costs one ResLab call and one
   // Stripe call PER BOOKING in the month. Loading all six months on every
   // visit was ~300–600 ResLab calls a page view (review High 2), so only the
-  // headline month loads by itself; the history is one click, and closed
-  // months are cached in sessionStorage because they do not change.
+  // headline month loads by itself; the history is one click, and definitive
+  // results for closed months are cached in sessionStorage.
   const loadNet = useCallback(async (targets: MonthWindow[]) => {
     const controller = abortRef.current ?? new AbortController();
     abortRef.current = controller;
     const queue = [...targets].reverse(); // newest first
     setNet((prev) => ({
       ...prev,
-      ...Object.fromEntries(queue.filter((m) => !(m.key in prev)).map((m) => [m.key, "loading" as const])),
+      ...Object.fromEntries(queue.filter((m) => needsNet(prev, m.key)).map((m) => [m.key, "loading" as const])),
     }));
     const worker = async () => {
       for (let m = queue.shift(); m; m = queue.shift()) {
@@ -220,7 +231,8 @@ export default function MonthlyNumbersPage() {
   const loadHistory = () => {
     if (!data || historyRequested) return;
     setHistoryRequested(true);
-    void loadNet(data.months.filter((m) => !(m.key in net)));
+    // Includes an errored headline month, so one click is also the retry.
+    void loadNet(data.months.filter((m) => needsNet(net, m.key)));
   };
 
   if (error) {
@@ -394,8 +406,8 @@ export default function MonthlyNumbersPage() {
           </>
         ) : (
           <p className="text-sm text-amber-700 flex items-center gap-1.5">
-            <AlertTriangle size={14} /> Location list is not warm on this instance — this page never
-            calls ResLab itself. Run a search and reload.
+            <AlertTriangle size={14} /> Location list not available on this instance right now
+            (snapshot / warm list only — this page never calls ResLab). Try again in a minute.
           </p>
         )}
       </Card>

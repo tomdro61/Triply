@@ -110,12 +110,14 @@ export interface MonthBookings {
  * from the beginning.
  *
  * Repeat = a paid booking by an email that already had a CONFIRMED booking
- * before it (earlier month OR earlier the same month) — the same definition
- * as the daily digest's repeat metric (src/lib/digest/collect.ts
- * repeatByEmail), so the team reads one number. A refunded booking does not
- * seed history: a customer who cancels and rebooks, or retries after a
- * price-drift refund, is not a "returning customer". Booking-level, so the
- * rate reads as "what share of this month's bookings came from returning
+ * before it (earlier month OR earlier the same month). History is seeded the
+ * same way as the daily digest's repeatByEmail (src/lib/digest/collect.ts):
+ * only an earlier CONFIRMED booking makes a later one a repeat — a customer
+ * who cancels and rebooks, or retries after a price-drift refund, is not a
+ * "returning customer". The two numbers are related, not identical: this one
+ * counts per BOOKING over all paid bookings in the month, the digest counts
+ * distinct CUSTOMERS per day with a prior booking before that day. The rate
+ * reads as "what share of this month's bookings came from returning
  * customers". Rows with no email count toward `paid` but can never be a repeat.
  */
 export function bookingsByMonth(rows: NumbersBookingRow[], months: MonthWindow[]): MonthBookings[] {
