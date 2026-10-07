@@ -13,6 +13,7 @@ import {
   partnerInquiryMissingField,
   type PartnerInquiryFields,
 } from "@/lib/partners/inquiry";
+import { CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
 import { Send, Loader2, Check, AlertCircle } from "lucide-react";
 
 const MISSING_FIELD_MESSAGE: Record<NonNullable<ReturnType<typeof partnerInquiryMissingField>>, string> = {
@@ -75,7 +76,7 @@ export function PartnerInquiryForm() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...buildPartnerInquiryPayload(fields), website }),
+        body: JSON.stringify({ ...buildPartnerInquiryPayload(fields), [CONTACT_HONEYPOT_FIELD]: website }),
       });
 
       if (!response.ok) {
@@ -126,17 +127,20 @@ export function PartnerInquiryForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white rounded-xl border border-gray-200 p-6 space-y-4"
+      className="relative bg-white rounded-xl border border-gray-200 p-6 space-y-4"
     >
-      {/* Honeypot: off-screen, skipped by tab and autofill, invisible to screen readers. */}
+      {/* Honeypot: off-screen, skipped by tab, autofill and password managers, invisible to screen readers. */}
       <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
-        <label htmlFor="partner-website">Website</label>
         <input
-          id="partner-website"
-          name="website"
+          id={`partner-${CONTACT_HONEYPOT_FIELD}`}
+          name={CONTACT_HONEYPOT_FIELD}
           type="text"
           tabIndex={-1}
           autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
           value={website}
           onChange={(e) => setWebsite(e.target.value)}
         />

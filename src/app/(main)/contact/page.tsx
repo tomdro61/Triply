@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Navbar, Footer } from "@/components/shared";
 import { trackContactFormSubmit } from "@/lib/analytics/gtag";
+import { CONTACT_HONEYPOT_FIELD, CONTACT_SUBJECTS } from "@/lib/validation/schemas";
 import {
   ArrowLeft,
   Mail,
@@ -45,7 +46,7 @@ export default function ContactPage() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, website }),
+        body: JSON.stringify({ ...formData, [CONTACT_HONEYPOT_FIELD]: website }),
       });
 
       if (!response.ok) {
@@ -69,15 +70,8 @@ export default function ContactPage() {
     }
   };
 
-  const subjectOptions = [
-    "General Inquiry",
-    "Booking Help",
-    "Cancellation Request",
-    "Payment Issue",
-    "Feedback",
-    "Partnership Inquiry",
-    "Other",
-  ];
+  // The server validates against the same list (contactFormSchema).
+  const subjectOptions = CONTACT_SUBJECTS;
 
   return (
     <>
@@ -119,7 +113,7 @@ export default function ContactPage() {
                     Message Sent!
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Thank you for reaching out. We&apos;ve sent a confirmation to your
+                    Thank you for reaching out. We&apos;ve received your message and sent a note to your
                     email and will respond within 24-48 hours.
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
@@ -145,16 +139,19 @@ export default function ContactPage() {
                       <h2 className="font-semibold text-gray-900">Send us a message</h2>
                     </div>
                   </div>
-                  <form onSubmit={handleSubmit} className="p-6 space-y-4">
-                    {/* Honeypot: off-screen, skipped by tab and autofill, invisible to screen readers. */}
+                  <form onSubmit={handleSubmit} className="relative p-6 space-y-4">
+                    {/* Honeypot: off-screen, skipped by tab, autofill and password managers, invisible to screen readers. */}
                     <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
-                      <label htmlFor="contact-website">Website</label>
                       <input
-                        id="contact-website"
-                        name="website"
+                        id={`contact-${CONTACT_HONEYPOT_FIELD}`}
+                        name={CONTACT_HONEYPOT_FIELD}
                         type="text"
                         tabIndex={-1}
                         autoComplete="off"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        data-bwignore="true"
+                        data-form-type="other"
                         value={website}
                         onChange={(e) => setWebsite(e.target.value)}
                       />

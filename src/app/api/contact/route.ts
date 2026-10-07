@@ -2,37 +2,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ADMIN_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
-import { captureAPIError } from "@/lib/sentry";
+import { captureAPIError, captureContactHoneypotDrop } from "@/lib/sentry";
 import { clientKey } from "@/lib/http/origin";
 import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/attribution/limiter";
 
+/**
+ * POST /api/contact — the /contact and /partners forms.
+ *
+ * Public, and it sends TWO emails per accepted request from our verified
+ * Resend domain (one to the team, one to whatever address was typed), so it
+ * carries three guards (PR #56 review):
+ *   1. honeypot — a filled CONTACT_HONEYPOT_FIELD gets the same 200 a real
+ *      submission gets, nothing is sent, and the drop is RECORDED (Sentry info
+ *      event + console) so a lead eaten by a password manager's identity fill
+ *      is never silently lost;
+ *   2. a per-IP limit, charged only on a request that passed validation, so
+ *      a person's typos never burn their own allowance;
+ *   3. nothing caller-controlled is repeated in the confirmation email: the
+ *      subject is an enum (contactFormSchema) and the greeting names nobody,
+ *      so the email cannot carry a scammer's text to a victim's inbox.
+ */
 export async function POST(request: NextRequest) {
   try {
-    // Per-IP ceiling first: this route sends two emails per request from our
-    // verified domain (one to the team, one to whatever address was typed), so
-    // an unmetered endpoint is a spam relay that damages booking-email
-    // deliverability. 429 is deliberately generic.
-    if (!checkContactRateLimit(clientKey(request))) {
-      return NextResponse.json(
-        { error: "Too many messages from this connection. Please try again in a few minutes." },
-        {
-          status: 429,
-          headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
-        }
-      );
-    }
+    // A non-JSON body is caller error, not a crash: parse to undefined and
+    // let Zod answer 400 instead of 500-ing (and paging Sentry) per bot post.
+    const body: unknown = await request.json().catch(() => undefined);
+    const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
 
-    const body: unknown = await request.json();
-
-    // Honeypot (see CONTACT_HONEYPOT_FIELD): a non-empty value is answered
-    // with the same 200 a real submission gets — and nothing is sent — so a
-    // bot learns nothing from the response.
-    if (
-      body &&
-      typeof body === "object" &&
-      typeof (body as Record<string, unknown>)[CONTACT_HONEYPOT_FIELD] === "string" &&
-      ((body as Record<string, unknown>)[CONTACT_HONEYPOT_FIELD] as string).trim() !== ""
-    ) {
+    const honeypot = record[CONTACT_HONEYPOT_FIELD];
+    if (typeof honeypot === "string" && honeypot.trim() !== "") {
+      const email = typeof record.email === "string" ? record.email : "";
+      const subject = typeof record.subject === "string" ? record.subject.slice(0, 60) : "";
+      const context = { subject, emailDomain: email.split("@")[1]?.toLowerCase() ?? "", ipKey: clientKey(request) };
+      console.warn("[contact] honeypot drop", context);
+      captureContactHoneypotDrop(context);
       return NextResponse.json({ success: true });
     }
 
@@ -45,6 +48,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Per-IP ceiling, charged only now that the request is a real, well-formed
+    // submission. 429 is deliberately generic.
+    if (!checkContactRateLimit(clientKey(request))) {
+      return NextResponse.json(
+        { error: "Too many messages from this connection. Please try again in a few minutes." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
+        }
+      );
+    }
+
     const { name, email, subject, message } = result.data;
 
     // Escape for HTML email templates
@@ -53,7 +68,7 @@ export async function POST(request: NextRequest) {
     const safeMessage = escapeHtml(message);
 
     // Send email to support team
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: ADMIN_EMAILS,
       replyTo: email,
@@ -93,11 +108,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send confirmation email to user. It names the SUBJECT only — never the
-    // message body: an echo of caller-supplied text, sent from our verified
-    // domain to a caller-supplied address, is a spam relay.
+    // Confirmation to the sender. Deliberately contains NOTHING the caller
+    // typed: the subject is one of CONTACT_SUBJECTS (enum-validated above) and
+    // there is no name in the greeting. Resend resolves `{ error }` rather than
+    // throwing, so the failure is read and logged; the request still succeeds
+    // (the team copy went out) and the response says whether this one did.
+    let confirmationSent = true;
     try {
-      await resend.emails.send({
+      const { error: confirmationError } = await resend.emails.send({
         from: FROM_EMAIL,
         to: [email],
         subject: "We received your message - Triply",
@@ -109,8 +127,8 @@ export async function POST(request: NextRequest) {
             </div>
             <div style="padding: 40px;">
               <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Thanks for contacting us!</h2>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi ${safeName},</p>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message about <strong>${safeSubject}</strong> and will get back to you as soon as possible, typically within 24-48 hours.</p>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi there,</p>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message (<strong>${safeSubject}</strong>) and will get back to you as soon as possible, typically within 24-48 hours.</p>
               <p style="color: #374151; font-size: 15px; line-height: 1.6;">In the meantime, you might find answers to common questions in our <a href="https://www.triplypro.com/help" style="color: #f87356; text-decoration: none;">FAQs</a>.</p>
               <p style="margin-top: 24px; color: #374151; font-size: 15px; line-height: 1.6;">
                 Best regards,<br>
@@ -126,11 +144,18 @@ export async function POST(request: NextRequest) {
           </div>
         `,
       });
-    } catch {
-      // Don't fail the request if confirmation email fails (common in test mode)
+      if (confirmationError) {
+        confirmationSent = false;
+        console.warn("[contact] confirmation email not sent:", confirmationError.message, {
+          emailDomain: email.split("@")[1]?.toLowerCase() ?? "",
+        });
+      }
+    } catch (confirmationThrow) {
+      confirmationSent = false;
+      console.warn("[contact] confirmation email threw:", confirmationThrow);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, confirmationSent });
   } catch (error) {
     console.error("Contact form error:", error);
     captureAPIError(error instanceof Error ? error : new Error(String(error)), {

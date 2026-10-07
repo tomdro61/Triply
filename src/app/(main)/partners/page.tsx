@@ -12,7 +12,7 @@ import {
   Search,
   BookOpen,
   CreditCard,
-  LayoutDashboard,
+  Mail,
   ChevronDown,
 } from "lucide-react";
 
@@ -53,9 +53,9 @@ const benefits = [
     body: "Travelers pay online when they reserve, and the reservation is only confirmed once payment goes through. Triply pays partners monthly.",
   },
   {
-    icon: LayoutDashboard,
+    icon: Mail,
     title: "Every reservation, straight to your inbox",
-    body: "Each booking is emailed to your lot with the confirmation number, guest name, vehicle and dates, so your team always knows who is arriving. A partner dashboard for direct partners is on the way.",
+    body: "Once your lot is live, each booking will be emailed to your lot with the confirmation number, guest name and dates, so your team always knows who is arriving. A partner dashboard for direct partners is on the way.",
   },
 ];
 
@@ -70,11 +70,11 @@ const steps = [
   },
   {
     title: "Your lot goes live",
-    body: "Once set up, your lot appears in search results for your airport so travelers can compare and book it.",
+    body: "Once set up, your lot appears in search results and on the airport page for your airport, where travelers compare options and book.",
   },
   {
     title: "Receive reservations",
-    body: "Every booking is emailed to your lot as it happens, with everything your team needs to check the guest in.",
+    body: "Once you are live, each booking will be emailed to your lot with everything your team needs to check the guest in.",
   },
 ];
 
@@ -100,7 +100,7 @@ const faqs = [
   {
     question: "How will I see my Triply reservations?",
     answer:
-      "Every reservation is emailed to your lot as soon as it is booked, with the confirmation number, guest name, vehicle details, dates and times. A partner dashboard for direct partners is on the way.",
+      "Once your lot is live, every reservation will be emailed to your lot as soon as it is booked, with the confirmation number, guest name, dates and times. A partner dashboard for direct partners is on the way.",
   },
   {
     question: "What are the terms for listing?",

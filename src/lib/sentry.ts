@@ -123,6 +123,25 @@ export function captureParkGuardError(
 }
 
 /**
+ * /api/contact dropped a submission because its honeypot field was filled.
+ * Info level, one fingerprint: the point is that a drop is never SILENT — a
+ * real lead caught by a password manager's identity fill can be found, and
+ * the false-positive rate can be read off the event count. No message body,
+ * no full address: subject, the address's domain and the IP key only.
+ */
+export function captureContactHoneypotDrop(context: { subject: string; emailDomain: string; ipKey: string }) {
+  Sentry.withScope((scope) => {
+    scope.setLevel("info");
+    scope.setTag("contact.honeypot", "true");
+    scope.setFingerprint(["contact", "honeypot-drop"]);
+    scope.setContext("contact", context);
+    Sentry.captureMessage(
+      `Contact form submission dropped by honeypot (${context.subject || "no subject"}, @${context.emailDomain || "?"})`
+    );
+  });
+}
+
+/**
  * A Stripe payment on our account that did NOT come from checkout — a Payment
  * Link, a dashboard charge, a manual invoice. Nothing to fulfil, nothing wrong.
  * Recorded at info level under its own fingerprint so it is visible without
