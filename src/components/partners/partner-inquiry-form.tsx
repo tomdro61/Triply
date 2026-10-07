@@ -5,11 +5,22 @@ import { productionAirports } from "@/config/airports";
 import { trackPartnerInquirySubmit } from "@/lib/analytics/gtag";
 import {
   OTHER_AIRPORT,
+  PARTNER_NAME_MAX,
+  PARTNER_LOT_NAME_MAX,
+  PARTNER_PHONE_MAX,
   PARTNER_NOTES_MAX,
   buildPartnerInquiryPayload,
+  partnerInquiryMissingField,
   type PartnerInquiryFields,
 } from "@/lib/partners/inquiry";
 import { Send, Loader2, Check, AlertCircle } from "lucide-react";
+
+const MISSING_FIELD_MESSAGE: Record<NonNullable<ReturnType<typeof partnerInquiryMissingField>>, string> = {
+  name: "Please enter your name.",
+  email: "Please enter your work email.",
+  lotName: "Please enter your lot or company name.",
+  airport: "Please choose the airport you serve.",
+};
 
 const airportOptions = [...productionAirports].sort((a, b) =>
   a.city.localeCompare(b.city)
@@ -31,6 +42,9 @@ const labelClass = "block text-sm font-medium text-gray-700 mb-1";
 
 export function PartnerInquiryForm() {
   const [fields, setFields] = useState<PartnerInquiryFields>(EMPTY);
+  // Honeypot — hidden from people, filled by bots; /api/contact drops the
+  // submission silently when it is non-empty.
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,19 +60,33 @@ export function PartnerInquiryForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
+    if (submitting) return;
     setError(null);
+
+    // `required` lets "   " through; the builder trims, so check what it will send.
+    const missing = partnerInquiryMissingField(fields);
+    if (missing) {
+      setError(MISSING_FIELD_MESSAGE[missing]);
+      return;
+    }
+    setSubmitting(true);
 
     try {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildPartnerInquiryPayload(fields)),
+        body: JSON.stringify({ ...buildPartnerInquiryPayload(fields), website }),
       });
 
-      const data: { error?: string } = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send your inquiry");
+        // A 504/413 arrives as HTML, not JSON — never show a parser error.
+        const data: { error?: string } | null = await response.json().catch(() => null);
+        throw new Error(
+          data?.error ||
+            (response.status === 429
+              ? "Too many messages from this connection. Please try again in a few minutes."
+              : "We couldn't send your inquiry right now. Please try again, or email support@triplypro.com.")
+        );
       }
 
       trackPartnerInquirySubmit(fields.airport);
@@ -81,8 +109,8 @@ export function PartnerInquiryForm() {
           Thanks — we&apos;ve got your details
         </h3>
         <p className="text-gray-600 mb-6">
-          We&apos;ve sent a confirmation to your email and will be in touch
-          within 24-48 hours on business days.
+          We&apos;ve received your details and will be in touch within 24-48
+          hours on business days.
         </p>
         <button
           type="button"
@@ -100,6 +128,20 @@ export function PartnerInquiryForm() {
       onSubmit={handleSubmit}
       className="bg-white rounded-xl border border-gray-200 p-6 space-y-4"
     >
+      {/* Honeypot: off-screen, skipped by tab and autofill, invisible to screen readers. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
+        <label htmlFor="partner-website">Website</label>
+        <input
+          id="partner-website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
+
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="partner-name" className={labelClass}>
@@ -113,7 +155,7 @@ export function PartnerInquiryForm() {
             value={fields.name}
             onChange={handleChange}
             required
-            maxLength={200}
+            maxLength={PARTNER_NAME_MAX}
             className={inputClass}
           />
         </div>
@@ -148,7 +190,7 @@ export function PartnerInquiryForm() {
             value={fields.lotName}
             onChange={handleChange}
             required
-            maxLength={200}
+            maxLength={PARTNER_LOT_NAME_MAX}
             className={inputClass}
           />
         </div>
@@ -163,7 +205,7 @@ export function PartnerInquiryForm() {
             autoComplete="tel"
             value={fields.phone}
             onChange={handleChange}
-            maxLength={40}
+            maxLength={PARTNER_PHONE_MAX}
             className={inputClass}
           />
         </div>
@@ -226,7 +268,10 @@ export function PartnerInquiryForm() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div
+          role="alert"
+          className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm"
+        >
           <AlertCircle className="h-5 w-5 flex-shrink-0" />
           {error}
         </div>

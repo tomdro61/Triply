@@ -22,6 +22,9 @@ export default function ContactPage() {
     subject: "",
     message: "",
   });
+  // Honeypot — hidden from people, filled by bots; /api/contact drops the
+  // submission silently when it is non-empty.
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,13 +45,18 @@ export default function ContactPage() {
       const response = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, website }),
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        throw new Error(data.error || "Failed to send message");
+        // A 504/413 arrives as HTML, not JSON — never show a parser error.
+        const data: { error?: string } | null = await response.json().catch(() => null);
+        throw new Error(
+          data?.error ||
+            (response.status === 429
+              ? "Too many messages from this connection. Please try again in a few minutes."
+              : "We couldn't send your message right now. Please try again, or email support@triplypro.com.")
+        );
       }
 
       setSuccess(true);
@@ -91,7 +99,7 @@ export default function ContactPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Contact Us</h1>
-                <p className="text-gray-600">We'd love to hear from you</p>
+                <p className="text-gray-600">We&apos;d love to hear from you</p>
               </div>
             </div>
           </div>
@@ -111,7 +119,7 @@ export default function ContactPage() {
                     Message Sent!
                   </h2>
                   <p className="text-gray-600 mb-6">
-                    Thank you for reaching out. We've sent a confirmation to your
+                    Thank you for reaching out. We&apos;ve sent a confirmation to your
                     email and will respond within 24-48 hours.
                   </p>
                   <div className="flex flex-wrap justify-center gap-4">
@@ -138,6 +146,19 @@ export default function ContactPage() {
                     </div>
                   </div>
                   <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Honeypot: off-screen, skipped by tab and autofill, invisible to screen readers. */}
+                    <div aria-hidden="true" className="absolute -left-[9999px] top-auto w-px h-px overflow-hidden">
+                      <label htmlFor="contact-website">Website</label>
+                      <input
+                        id="contact-website"
+                        name="website"
+                        type="text"
+                        tabIndex={-1}
+                        autoComplete="off"
+                        value={website}
+                        onChange={(e) => setWebsite(e.target.value)}
+                      />
+                    </div>
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
                         <label

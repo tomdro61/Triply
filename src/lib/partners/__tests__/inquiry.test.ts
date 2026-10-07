@@ -6,6 +6,7 @@ import {
   PARTNER_INQUIRY_SUBJECT,
   PARTNER_NOTES_MAX,
   OTHER_AIRPORT,
+  partnerInquiryMissingField,
   type PartnerInquiryFields,
 } from "../inquiry";
 
@@ -48,14 +49,29 @@ describe("partner inquiry payload", () => {
     expect(msg).not.toContain("Notes:");
   });
 
-  it("stays under the route's 5,000-char message cap at maximum input", () => {
+  it("stays under the route's 5,000-char message cap even when every field blows past its input maxLength", () => {
+    // The caps live in the BUILDER (normalizePartnerInquiry), so this holds
+    // even if an input's maxLength attribute is removed.
     const payload = buildPartnerInquiryPayload({
       ...base,
-      lotName: "L".repeat(200),
-      phone: "9".repeat(40),
-      spaces: "100000",
-      notes: "n".repeat(PARTNER_NOTES_MAX + 500),
+      name: "N".repeat(5_000),
+      lotName: "L".repeat(5_000),
+      phone: "9".repeat(5_000),
+      spaces: "1".repeat(5_000),
+      notes: "n".repeat(PARTNER_NOTES_MAX + 5_000),
     });
+    expect(payload.name).toHaveLength(200);
+    expect(payload.message.length).toBeLessThan(5_000);
     expect(contactFormSchema.safeParse(payload).success).toBe(true);
+  });
+
+  it("treats whitespace-only required fields as missing and trims what it sends", () => {
+    expect(partnerInquiryMissingField({ ...base, name: "   " })).toBe("name");
+    expect(partnerInquiryMissingField({ ...base, lotName: "\t" })).toBe("lotName");
+    expect(partnerInquiryMissingField({ ...base, airport: "" })).toBe("airport");
+    expect(partnerInquiryMissingField(base)).toBeNull();
+    const payload = buildPartnerInquiryPayload({ ...base, name: "  Pat Operator  ", email: " pat@example.com " });
+    expect(payload.name).toBe("Pat Operator");
+    expect(payload.email).toBe("pat@example.com");
   });
 });

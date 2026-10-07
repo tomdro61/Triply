@@ -10,6 +10,15 @@ import { PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
  */
 export const protectionPlanCodeSchema = z.enum(PROTECTION_PLAN_CODES).nullable();
 
+/**
+ * Honeypot field name for /api/contact. Both forms (/contact, /partners)
+ * render an input with this name that is hidden from people (off-screen,
+ * tabindex -1, autocomplete off) but filled by form-filling bots; the route
+ * silently drops a submission whose value is non-empty. Lives here, not in
+ * the route file, because Next only allows HTTP-method exports from route.ts.
+ */
+export const CONTACT_HONEYPOT_FIELD = "website";
+
 export const contactFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   email: z.string().email("Invalid email address").max(254),

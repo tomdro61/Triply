@@ -54,8 +54,8 @@ const benefits = [
   },
   {
     icon: LayoutDashboard,
-    title: "A partner dashboard for your reservations",
-    body: "See every Triply reservation for your location with confirmation number, guest, vehicle, dates and status. Filter by date or status and export to CSV.",
+    title: "Every reservation, straight to your inbox",
+    body: "Each booking is emailed to your lot with the confirmation number, guest name, vehicle and dates, so your team always knows who is arriving. A partner dashboard for direct partners is on the way.",
   },
 ];
 
@@ -66,15 +66,15 @@ const steps = [
   },
   {
     title: "We get in touch",
-    body: "Our team reviews your details and contacts you directly to talk through your facility and how listing works. There is no middleman: your agreement is with Triply.",
+    body: "Our team reviews your details and contacts you directly to talk through your facility and how listing works. You list directly with Triply: your agreement is with us, not a third-party booking network.",
   },
   {
     title: "Your lot goes live",
     body: "Once set up, your lot appears in search results for your airport so travelers can compare and book it.",
   },
   {
-    title: "Manage reservations",
-    body: "Sign in to the Triply partner dashboard to see and export the reservations made for your location.",
+    title: "Receive reservations",
+    body: "Every booking is emailed to your lot as it happens, with everything your team needs to check the guest in.",
   },
 ];
 
@@ -82,7 +82,7 @@ const faqs = [
   {
     question: "Who can list a lot on Triply?",
     answer:
-      "Operators of parking lots, garages and park-and-fly facilities that serve airport travelers. If you run parking near an airport, send us your details and we will follow up.",
+      "Operators of parking lots, garages and park-and-fly facilities that serve airport travelers and want to work directly with Triply. If you run parking near an airport, send us your details and we will follow up. (If your lot already reaches Triply through a booking network such as Reservations Lab, it is listed through that channel and there is nothing you need to do.)",
   },
   {
     question: "Which airports does Triply cover?",
@@ -95,17 +95,17 @@ const faqs = [
   },
   {
     question: "How often are partners paid?",
-    answer: "Triply pays partners directly, monthly.",
+    answer: "Direct partners are paid by Triply monthly for the reservations completed at their lot.",
   },
   {
     question: "How will I see my Triply reservations?",
     answer:
-      "Partners get a sign-in to the Triply partner dashboard, which lists every reservation for their location with the confirmation number, guest name, vehicle details, dates, parking revenue and status, and can export them to CSV.",
+      "Every reservation is emailed to your lot as soon as it is booked, with the confirmation number, guest name, vehicle details, dates and times. A partner dashboard for direct partners is on the way.",
   },
   {
     question: "What are the terms for listing?",
     answer:
-      "Operators partner directly with Triply, and the listing agreement is between you and Triply. Beyond monthly payment, we go through the terms with each operator once we know more about the facility. Send the form and we will contact you.",
+      "You list directly with Triply, and the listing agreement is between you and Triply. We go through the commission, payout schedule and the rest of the terms with each operator once we know more about the facility. Send the form and we will contact you.",
   },
   {
     question: "How quickly will you get back to me?",
@@ -156,8 +156,9 @@ export default function PartnersPage() {
             <p className="mt-6 text-gray-700 leading-relaxed">
               Triply is an airport parking marketplace. Travelers come to us to
               compare lots near their airport and book a space before they
-              fly. If you operate airport parking, listing with Triply puts your
-              lot in that comparison.
+              fly. If you operate airport parking, listing directly with Triply
+              puts your lot in that comparison — travelers pay online when they
+              reserve, and you are paid monthly.
             </p>
             <a
               href="#partner-inquiry"
@@ -233,12 +234,13 @@ export default function PartnersPage() {
               Tell us about your lot
             </h2>
             <p className="text-gray-600 mb-4">
-              Already a partner?{" "}
+              This form is for operators who want to list directly with Triply.
+              Already have a partner dashboard login?{" "}
               <Link
                 href="/partner"
                 className="text-brand-orange hover:text-orange-600 font-medium"
               >
-                Sign in to your dashboard
+                Sign in here
               </Link>
               .
             </p>

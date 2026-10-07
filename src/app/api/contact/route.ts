@@ -1,12 +1,40 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ADMIN_EMAILS } from "@/config/admin";
-import { contactFormSchema, escapeHtml } from "@/lib/validation/schemas";
+import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
 import { captureAPIError } from "@/lib/sentry";
+import { clientKey } from "@/lib/http/origin";
+import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/attribution/limiter";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // Per-IP ceiling first: this route sends two emails per request from our
+    // verified domain (one to the team, one to whatever address was typed), so
+    // an unmetered endpoint is a spam relay that damages booking-email
+    // deliverability. 429 is deliberately generic.
+    if (!checkContactRateLimit(clientKey(request))) {
+      return NextResponse.json(
+        { error: "Too many messages from this connection. Please try again in a few minutes." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
+        }
+      );
+    }
+
+    const body: unknown = await request.json();
+
+    // Honeypot (see CONTACT_HONEYPOT_FIELD): a non-empty value is answered
+    // with the same 200 a real submission gets — and nothing is sent — so a
+    // bot learns nothing from the response.
+    if (
+      body &&
+      typeof body === "object" &&
+      typeof (body as Record<string, unknown>)[CONTACT_HONEYPOT_FIELD] === "string" &&
+      ((body as Record<string, unknown>)[CONTACT_HONEYPOT_FIELD] as string).trim() !== ""
+    ) {
+      return NextResponse.json({ success: true });
+    }
 
     // Validate with Zod
     const result = contactFormSchema.safeParse(body);
@@ -65,7 +93,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send confirmation email to user
+    // Send confirmation email to user. It names the SUBJECT only — never the
+    // message body: an echo of caller-supplied text, sent from our verified
+    // domain to a caller-supplied address, is a spam relay.
     try {
       await resend.emails.send({
         from: FROM_EMAIL,
@@ -80,11 +110,7 @@ export async function POST(request: NextRequest) {
             <div style="padding: 40px;">
               <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Thanks for contacting us!</h2>
               <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi ${safeName},</p>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message and will get back to you as soon as possible, typically within 24-48 hours.</p>
-              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
-                <p style="margin: 0 0 10px; font-weight: bold; color: #374151; font-size: 14px;">Your message:</p>
-                <p style="margin: 0; color: #6b7280; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${safeMessage}</p>
-              </div>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message about <strong>${safeSubject}</strong> and will get back to you as soon as possible, typically within 24-48 hours.</p>
               <p style="color: #374151; font-size: 15px; line-height: 1.6;">In the meantime, you might find answers to common questions in our <a href="https://www.triplypro.com/help" style="color: #f87356; text-decoration: none;">FAQs</a>.</p>
               <p style="margin-top: 24px; color: #374151; font-size: 15px; line-height: 1.6;">
                 Best regards,<br>
