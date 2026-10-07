@@ -13,12 +13,22 @@ import { NextRequest } from "next/server";
 import type { Attribution } from "@/lib/attribution/schema";
 
 const searchParkingMock = vi.hoisted(() => vi.fn());
+const SearchDateErrorStub = vi.hoisted(
+  () =>
+    class SearchDateError extends Error {
+      constructor(public readonly code: string) {
+        super(`date error: ${code}`);
+      }
+    }
+);
 vi.mock("@/lib/reslab/search", () => ({
   searchParking: searchParkingMock,
   isLocationBackoffError: () => false,
+  SearchDateError: SearchDateErrorStub,
 }));
 
-vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
+const captureAPIErrorMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry", () => ({ captureAPIError: captureAPIErrorMock }));
 
 const readAttributionMock = vi.hoisted(() => vi.fn<() => Attribution | null>(() => null));
 vi.mock("@/lib/attribution/read-request", () => ({
@@ -65,6 +75,37 @@ describe("GET /api/search", () => {
     expect(await res.json()).toEqual(expect.objectContaining({ code: "checkout_before_checkin" }));
     expect(searchParkingMock).not.toHaveBeenCalled();
   });
+
+  it("leaves the times to searchParking when the visitor didn't choose any (no fixed 10:00 AM)", async () => {
+    await GET(req());
+
+    const args = searchParkingMock.mock.calls[0][0];
+    expect(args.checkinTime).toBeUndefined();
+    expect(args.checkoutTime).toBeUndefined();
+  });
+
+  it("passes chosen times through", async () => {
+    await GET(req({ checkinTime: "6:30 PM", checkoutTime: "9:00 AM" }));
+
+    expect(searchParkingMock).toHaveBeenCalledWith(
+      expect.objectContaining({ checkinTime: "6:30 PM", checkoutTime: "9:00 AM" })
+    );
+  });
+
+  it.each(["same_day_too_late", "checkin_in_past"])(
+    "answers SearchDateError(%s) with a no-store 400 carrying the code, without paging Sentry",
+    async (code) => {
+      captureAPIErrorMock.mockClear();
+      searchParkingMock.mockRejectedValue(new SearchDateErrorStub(code));
+
+      const res = await GET(req());
+
+      expect(res.status).toBe(400);
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(await res.json()).toEqual(expect.objectContaining({ code }));
+      expect(captureAPIErrorMock).not.toHaveBeenCalled();
+    }
+  );
 
   it("still accepts a same-day search (check-out equal to check-in)", async () => {
     const res = await GET(req({ checkin: "2026-11-21", checkout: "2026-11-21" }));

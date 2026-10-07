@@ -15,6 +15,7 @@
     "migrate-tables": "tsx src/migrate-tables.ts",
     "gsc": "tsx src/gsc.ts",
     "gsc:auth": "tsx src/gsc.ts auth",
+    "backlinks": "tsx src/backlinks.ts",
     "test": "tsx --test src/*.test.ts"
   },
   "dependencies": {

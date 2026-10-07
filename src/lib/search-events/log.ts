@@ -339,9 +339,8 @@ async function insert(row: SearchEventRow): Promise<void> {
  */
 export function logSearchEvent(row: SearchEventRow): void {
   try {
-    // Every Vercel build of every branch runs generateStaticParams → after()
-    // at build time, with the service-role key injected — see
-    // availability/log.ts for the full reasoning.
+    // A search run during `next build` has the service-role key injected —
+    // see availability/log.ts for the full reasoning.
     if (process.env.NEXT_PHASE === "phase-production-build") return;
     if (killSwitchOn()) return;
 

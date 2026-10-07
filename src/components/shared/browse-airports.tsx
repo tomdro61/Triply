@@ -30,6 +30,9 @@ export function BrowseAirports() {
             <Link
               key={airport.code}
               href={`/${airport.slug}/airport-parking`}
+              // Generated on first request after a deploy — don't prefetch (each
+              // prefetch would render an airport page against ResLab).
+              prefetch={false}
               className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-white hover:border-brand-orange/30 hover:shadow-sm transition-all group"
             >
               <div className="w-8 h-8 rounded-full bg-gray-100 group-hover:bg-brand-orange/10 flex items-center justify-center shrink-0 transition-colors">

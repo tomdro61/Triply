@@ -87,3 +87,14 @@ test('countNodesOfType walks nested children', () => {
   assert.equal(countNodesOfType(doc as Parameters<typeof lexicalToHtml>[0], 'paragraph'), 2)
   assert.equal(countNodesOfType(null, 'upload'), 0)
 })
+
+// 2026-10-06: text nodes used rawText, so "&amp;" was stored literally and readers saw
+// "Park &amp; Ride" on ~2,700 live posts.
+test('HTML entities are decoded into text nodes (stored as "&", rendered once as "&amp;")', () => {
+  const doc = htmlToLexical('<p>Park &amp; Ride &quot;A&quot; it&#39;s</p>')
+  const text = JSON.stringify(doc)
+  assert.match(text, /Park & Ride \\"A\\" it's/)
+  assert.doesNotMatch(text, /&amp;|&quot;|&#39;/)
+  assert.match(roundTrip('<p>Park &amp; Ride</p>'), /Park &amp; Ride/)
+  assert.doesNotMatch(roundTrip('<p>Park &amp; Ride</p>'), /&amp;amp;/)
+})

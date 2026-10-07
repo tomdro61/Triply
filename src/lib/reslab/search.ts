@@ -17,6 +17,11 @@ import {
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
+import {
+  airportPricingTimes,
+  reslabLotPricingWindow,
+  type PricingWindowInput,
+} from "@/lib/reslab/pricing-window";
 import { generateSlug } from "@/lib/utils/slug";
 import { captureAPIError } from "@/lib/sentry";
 import {
@@ -232,12 +237,31 @@ export interface SearchEventAttribution {
   gaClientId: string | null;
 }
 
+/**
+ * The searched dates can't be priced for a reason that is the CALLER's, not
+ * ResLab's: the check-in is already past at the airport, or it is today and no
+ * check-in slot is left. Callers answer 400 with `code` — never a 5xx, never a
+ * Sentry event (it isn't an outage, and retrying can't succeed).
+ */
+export class SearchDateError extends Error {
+  constructor(public readonly code: "checkin_in_past" | "same_day_too_late") {
+    super(
+      code === "checkin_in_past"
+        ? "Check-in date has already passed at this airport"
+        : "It's too late to book parking for today at this airport"
+    );
+    this.name = "SearchDateError";
+  }
+}
+
 export interface SearchParkingParams {
   airport: string;
   checkin: string; // YYYY-MM-DD
   checkout: string; // YYYY-MM-DD
-  checkinTime?: string; // "10:00 AM" format
-  checkoutTime?: string; // "2:00 PM" format
+  // "10:00 AM" format. Omit unless the customer chose a time: searchParking
+  // then prices from a timezone-aware default (see resolvePricingTimes).
+  checkinTime?: string;
+  checkoutTime?: string; // "2:00 PM" format; same rule
   sort?: SortOption;
   /**
    * Which surface asked. Recorded with the sold-out signal so an airport-page
@@ -275,7 +299,23 @@ export interface SearchParkingResult {
   checkoutTime: string;
   results: UnifiedLot[];
   total: number;
+  /**
+   * How many lots we list near this airport for this search, before pricing:
+   * ResLab locations after the blocked-id and direct-twin filters, plus listable
+   * direct lots. Counts lots that turned out sold out, closed for today or
+   * failed to price, so 0 means "we list nothing here" while
+   * `total === 0 && locationsConsidered > 0` means "we list lots, none bookable
+   * for these dates". Only meaningful when neither `listIncomplete`,
+   * `reslabUnavailable` nor `directUnavailable` is set (a source is missing,
+   * so the count under-reports); the airport pages refuse to cache those and
+   * key their empty-state copy on it otherwise.
+   */
+  locationsConsidered: number;
   message?: string;
+  // Every lot found is closed to bookings for the rest of today (notice
+  // period): a real answer, not an outage — the search page shows it as a
+  // date message and chat relays it.
+  closedForToday?: boolean;
   // True when some/all ResLab pricing calls failed, so the list is incomplete.
   // The route refuses to CDN-cache a degraded result — the lot list under-
   // reports (thin location build, or some lots failed to price).
@@ -785,10 +825,13 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
   const backingOff =
     lastBuildFailureAt !== null && now - lastBuildFailureAt < backoffWindow;
 
-  // `next build` prerenders ~85 airport landing pages, and airport-page/data.ts
-  // deliberately swallows build-phase failures so a blip can't fail the deploy.
-  // Honouring the backoff there would fast-fail every remaining page and ship
-  // ~85 empty, indexable SEO pages that then serve from ISR for up to an hour.
+  // Until 2026-10-07 `next build` prerendered ~85 airport landing pages, and
+  // airport-page/data.ts swallows build-phase failures so a blip can't fail the
+  // deploy. Honouring the backoff there would fast-fail every remaining page
+  // and ship empty, indexable SEO pages. Airport pages are now rendered on
+  // first request and the sitemap never sweeps (getChannelLocationsNoSweep),
+  // so no current build path should reach this; the bounded bypass stays for
+  // any page that prerenders a search in future.
   //
   // But the bypass must be BOUNDED. A rejected build caches `complete: false`,
   // which by design never satisfies the fresh path — so an unbounded bypass
@@ -803,8 +846,10 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
   // (like the cache itself) is per-worker — the real bound is
   // BUILD_PHASE_MAX_SWEEPS × workers, not × 1.
   // Count every build-phase sweep, and enforce the cap INDEPENDENTLY of whether
-  // a backoff happens to be active. A build runs for minutes (~85 pages, each
-  // fanning out ~15 min-price calls), so backoff windows expire during it — and
+  // a backoff happens to be active. A build that prerendered the airport pages
+  // ran for minutes (~85 pages, each
+  // fanning out ~15 min-price calls), long enough for backoff windows to expire
+  // during it — and
   // a check that only fires while `backingOff` is true lets every expiry buy
   // another uncapped sweep. Measured that way: 8 sweeps across a 60-minute
   // build phase, not 3. Consulting the cap unconditionally makes
@@ -999,28 +1044,61 @@ export async function getChannelLocationsCached(): Promise<LocationListResult> {
   return inFlightLocationBuild;
 }
 
+// "Near an airport" for search and the sitemap. 15 km matches ResLab's
+// documented search radius.
+export const AIRPORT_SEARCH_RADIUS_KM = 15;
+
 // Replacement for ResLab's broken lat/lng geo-search: locations within
-// `radiusKm` of the airport. 15km matches ResLab's documented search radius.
+// `radiusKm` of the airport.
 async function findLocationsNearAirport(
   lat: number,
   lng: number,
-  radiusKm = 15
+  radiusKm = AIRPORT_SEARCH_RADIUS_KM
 ): Promise<{
   locations: ReslabLocation[];
   incomplete: boolean;
   stale: boolean;
 }> {
+  const { data, incomplete, stale } = await getChannelLocationsCached();
+  return { locations: locationsNearPoint(data, lat, lng, radiusKm), incomplete, stale };
+}
+
+/** Pure distance filter shared by search and the sitemap. */
+export function locationsNearPoint(
+  data: readonly ReslabLocation[],
+  lat: number,
+  lng: number,
+  radiusKm: number
+): ReslabLocation[] {
   // calculateDistance() returns MILES (geo.ts uses R=3959), so convert the km
   // radius before comparing — otherwise the filter is ~2.6x too wide.
   const radiusMi = radiusKm * 0.621371;
-  const { data, incomplete, stale } = await getChannelLocationsCached();
-  const locations = data.filter((loc) => {
+  return data.filter((loc) => {
     const llat = parseFloat(loc.latitude);
     const llng = parseFloat(loc.longitude);
     if (Number.isNaN(llat) || Number.isNaN(llng)) return false;
     return calculateDistance(lat, lng, llat, llng) <= radiusMi;
   });
-  return { locations, incomplete, stale };
+}
+
+/**
+ * The channel location list for callers that must NEVER trigger a ResLab
+ * sweep — the sitemap, which is generated at build and regenerated hourly.
+ * Warms from the shared snapshot (028) when ENABLE_RESLAB_LOCATION_SNAPSHOT is
+ * on, then returns the COMPLETE list this instance holds if it is within the
+ * same 72 h ceiling search applies (LOCATION_LIST_MAX_AGE_MS) — from the
+ * snapshot or from an earlier search's sweep, so with the flag off a warm
+ * instance can still answer. Otherwise null: never a thin list. Never calls
+ * ResLab; never throws (the warm-up reports its own failures).
+ */
+export async function getChannelLocationsNoSweep(): Promise<readonly ReslabLocation[] | null> {
+  // maybeWarmFromSnapshot catches internally; the .catch is belt-and-braces,
+  // as in getChannelLocationsCached — a throw here would fail a build.
+  await maybeWarmFromSnapshot().catch(() => {});
+  const mem = cachedLocationList;
+  if (!mem || !mem.complete) return null;
+  if (Date.now() - mem.builtAt > LOCATION_LIST_MAX_AGE_MS) return null;
+  return mem.data;
 }
 
 export async function searchParking(
@@ -1030,10 +1108,6 @@ export async function searchParking(
     airport: airportCode,
     checkin,
     checkout,
-    // Search results show "from $X" estimates only — the customer must pick
-    // their actual times on the lot detail page before booking.
-    checkinTime = "10:00 AM",
-    checkoutTime = "2:00 PM",
     sort = "popularity",
     source = "search",
     searchEventSource,
@@ -1057,6 +1131,27 @@ export async function searchParking(
   const airportInfo = getAirportByCode(airportCode);
   if (!airportInfo) {
     throw new Error(`Invalid airport code: ${airportCode}`);
+  }
+
+  // Pricing-only times. Results show "from $X" estimates and the customer
+  // picks real times on the lot page before booking; a time the caller
+  // supplied is used as given unless it has already passed today. A same-day
+  // check-in prices at the earliest slot still open at the airport instead of
+  // a fixed 10:00 AM, which ResLab rejected as past for every same-day search
+  // after 10 AM (see src/lib/reslab/pricing-window.ts).
+  const pricingInput: PricingWindowInput = {
+    checkin,
+    checkout,
+    airportTimeZone: airportInfo.timezone,
+    checkinTime: params.checkinTime,
+    checkoutTime: params.checkoutTime,
+    now: new Date(),
+  };
+  const pricingTimes = airportPricingTimes(pricingInput);
+  // A past check-in is not demand worth recording (027's lead_days CHECK
+  // would refuse most of these rows anyway): answer it before any telemetry.
+  if (!pricingTimes.ok && pricingTimes.reason === "checkin_in_past") {
+    throw new SearchDateError("checkin_in_past");
   }
 
   // Identifiers shared by BOTH telemetry tables this search writes:
@@ -1091,8 +1186,8 @@ export async function searchParking(
     results_count: number;
     degraded: boolean;
     stale: boolean;
-    /** The per-lot pricing pass, 1:1 with `locations`. Empty at the
-     *  zero-location early return. */
+    /** The per-lot pricing pass: one entry per location except lots skipped
+     *  as closed for today. Empty at the zero-location early return. */
     priced: readonly { minPriceData: ReslabMinPriceResponse | null }[];
     /** The lots that will actually be returned, for the cheapest-price floor.
      *  Empty at the zero-location early return. */
@@ -1172,6 +1267,23 @@ export async function searchParking(
     }
   };
 
+  // No check-in slot left today: still real "parking tonight" demand, so it
+  // gets its search_events row before the caller answers 400.
+  if (!pricingTimes.ok) {
+    emitSearchEvent({
+      results_count: 0,
+      degraded: false,
+      stale: false,
+      priced: [],
+      available: [],
+      pricingErrors: 0,
+      directCount: null,
+      directSkipped: false,
+    });
+    throw new SearchDateError(pricingTimes.reason);
+  }
+  const { checkinTime, checkoutTime } = pricingTimes;
+
   // Convert times to 24-hour format
   const checkinTime24 = convertTo24Hour(checkinTime);
   const checkoutTime24 = convertTo24Hour(checkoutTime);
@@ -1179,6 +1291,13 @@ export async function searchParking(
   // Format dates for ResLab API (YYYY-MM-DD HH:mm:ss)
   const fromDate = `${checkin} ${checkinTime24}:00`;
   const toDate = `${checkout} ${checkoutTime24}:00`;
+
+  // A same-day check-in has to clear each lot's own notice period, judged in
+  // the lot's own timezone — the same rule the lot page prices with. Null =
+  // this lot can't take a booking for that check-in: skipped, NOT counted as
+  // a pricing error, so it can't mark the search degraded or page Sentry.
+  const pricingWindowFor = (location: ReslabLocation) =>
+    reslabLotPricingWindow(location, pricingInput);
 
   // ── Direct (non-ResLab) lots — plan A-22 ──────────────────────────────────
   // Started BEFORE the ResLab list fetch so the two run in parallel; awaited
@@ -1305,6 +1424,7 @@ export async function searchParking(
   locations = locations.filter(
     (loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) && !suppressedReslabIds.has(loc.id)
   );
+  const locationsConsidered = locations.length + directLots.length;
 
   // Genuine "no lots near this airport" — distinct from a ResLab failure, which
   // now throws above. Returned as a 200, but the route serves every empty
@@ -1332,6 +1452,8 @@ export async function searchParking(
       checkoutTime,
       results: [],
       total: 0,
+      // directLots may be non-empty here when none of them priced.
+      locationsConsidered,
       message: "No parking locations found near this airport",
       // An outage-induced empty (a thin build dropped this airport's lots) is
       // already no-store via total:0; flag it so it's distinguishable.
@@ -1350,16 +1472,28 @@ export async function searchParking(
   // collapses sold_out/available_spots into one `availability` string and the
   // filter below then drops the sold-out lots entirely, so this is the only
   // point where the signal still exists in full.
-  const pricedLots = await Promise.all(
+  const allPricedLots = await Promise.all(
     locations.map(async (location) => {
       let minPriceData: ReslabMinPriceResponse | null = null;
+      const window = pricingWindowFor(location);
+      if (window === null) {
+        // Can't take a booking today in the lot's own zone (notice period, or
+        // the date has already passed there). No ResLab call and no pricing
+        // error; removed before the results and the telemetry below.
+        return {
+          lot: transformLocation(location, null, airportInfo.latitude, airportInfo.longitude),
+          location,
+          minPriceData,
+          closedToday: true,
+        };
+      }
 
       try {
         minPriceData = await reslab.getMinPrice(location.id, {
           type: "parking",
           reservation_type: "parking",
-          from_date: fromDate,
-          to_date: toDate,
+          from_date: window.fromDate,
+          to_date: window.toDate,
           number_of_spots: 1,
         });
       } catch {
@@ -1378,9 +1512,14 @@ export async function searchParking(
         ),
         location,
         minPriceData,
+        closedToday: false,
       };
     })
   );
+  // Telemetry (availability_log, search_events) records only lots we asked
+  // ResLab about; a lot closed for today was never an observation.
+  const pricedLots = allPricedLots.filter((p) => !p.closedToday);
+  const closedTodayCount = allPricedLots.length - pricedLots.length;
 
   const lotsWithPricing = pricedLots.map((p) => p.lot);
 
@@ -1521,7 +1660,7 @@ export async function searchParking(
   if (availableLots.length === 0 && pricingErrors > 0 && directUnified.length === 0) {
     throw new ReslabError(
       502,
-      `ResLab pricing unavailable for all ${locations.length} ${airportCode} location(s)`
+      `ResLab pricing unavailable for all ${pricedLots.length} ${airportCode} location(s)`
     );
   }
 
@@ -1533,7 +1672,7 @@ export async function searchParking(
   if (pricingErrors > 0) {
     captureAPIError(
       new Error(
-        `ResLab pricing degraded: ${pricingErrors}/${locations.length} ${airportCode} location(s) failed to price`
+        `ResLab pricing degraded: ${pricingErrors}/${pricedLots.length} ${airportCode} location(s) failed to price`
       ),
       { endpoint: "/api/search", method: "GET", statusCode: 502 }
     );
@@ -1551,6 +1690,14 @@ export async function searchParking(
     checkoutTime,
     results: sortedLots,
     total: sortedLots.length,
+    locationsConsidered,
+    // Not on a thin list: with lots missing, "closed for today" may be false.
+    ...(sortedLots.length === 0 && closedTodayCount > 0 && !listBuildIncomplete
+      ? {
+          message: "No lots near this airport can take a booking for the rest of today",
+          closedForToday: true,
+        }
+      : {}),
     degraded: isDegraded,
     stale: listBuildStale,
     listIncomplete: listBuildIncomplete,

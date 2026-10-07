@@ -289,9 +289,10 @@ export function __resetAvailabilityLogWarnStateForTests(): void {
 export function logAvailability(rows: AvailabilityRow[], searchId?: string): void {
   try {
     if (rows.length === 0) return;
-    // Every Vercel build of every branch runs generateStaticParams → after() at
-    // build time, with the service-role key injected — without this guard every
-    // build of every branch would write into the (real, production) table.
+    // Any search run during `next build` (a prerendered page that searches —
+    // airport pages did until 2026-10-07) has the service-role key injected;
+    // without this guard any such build, on any branch, would write into the
+    // (real, production) table.
     if (process.env.NEXT_PHASE === "phase-production-build") return;
     // Kill switch for an incident or a load test. Vercel env var changes don't
     // reach already-running deployments, so this needs a redeploy, not just a
