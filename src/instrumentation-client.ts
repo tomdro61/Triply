@@ -103,19 +103,35 @@ function loadReplay() {
       );
     })
     .catch(() => {
-      // Chunk failed to load (offline, blocked). Error capture is unaffected.
+      // Chunk failed to load (offline, blocked by an extension). Error capture
+      // is unaffected. Deliberately silent: a replay chunk that never loads on
+      // some client is not an application error, and reporting it from here
+      // would be one event per such page view.
     });
 }
 
+/**
+ * Pages whose failures we most want a replay for happen in the first seconds
+ * of a HARD load: /checkout/complete and /confirmation/* are where a customer
+ * lands after a 3-D Secure redirect, and a ResLab 5xx on the confirmation
+ * fetch (TRIPLY-27) fires before "load + idle". On those routes the recorder
+ * starts immediately; everywhere else it waits for idle (PR #50 review).
+ */
+const REPLAY_EAGER_PATHS = /^\/(checkout|confirmation)(\/|$)/;
+
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "development") {
-  const whenIdle = (cb: () => void) =>
-    "requestIdleCallback" in window
-      ? window.requestIdleCallback(cb, { timeout: 5000 })
-      : setTimeout(cb, 3000);
-  if (document.readyState === "complete") {
-    whenIdle(loadReplay);
+  if (REPLAY_EAGER_PATHS.test(window.location.pathname)) {
+    loadReplay();
   } else {
-    window.addEventListener("load", () => whenIdle(loadReplay), { once: true });
+    const whenIdle = (cb: () => void) =>
+      "requestIdleCallback" in window
+        ? window.requestIdleCallback(cb, { timeout: 5000 })
+        : setTimeout(cb, 3000);
+    if (document.readyState === "complete") {
+      whenIdle(loadReplay);
+    } else {
+      window.addEventListener("load", () => whenIdle(loadReplay), { once: true });
+    }
   }
 }
 

@@ -99,25 +99,18 @@ export default function RootLayout({
         {GA_MEASUREMENT_ID && (
           <>
             {/*
-              Load order matters for analytics, so it is split in two:
-              - gtag-init stays afterInteractive. It defines window.gtag and
-                the dataLayer queue, sets consent defaults and queues config,
-                exactly as before, so every trackX() call (search, view_item,
-                begin_checkout, purchase, blog_cta_click, …) is recorded from
-                the same moment it was before.
-              - gtag.js (the ~150 KB Google tag library) is lazyOnload: it is
-                fetched once the page has loaded and the browser is idle, then
-                replays everything queued in dataLayer, in order. It no longer
-                competes with our own code while the page becomes usable.
-              The _ga cookie that booking attribution (PR #26) reads at
-              checkout is set when gtag.js runs, on the landing page, long
-              before checkout. Only a first-ever page view that is /search
-              itself can now miss it on that page's own search-event row (it
-              could already, when gtag.js lost the race to the search fetch).
+              gtag.js stays afterInteractive ON PURPOSE (PR #50 review). Moving
+              it to lazyOnload (load + idle) would mean a visit that ends
+              before then — many seconds on a slow phone — records no session,
+              no page_view and sets no _ga cookie, and a first-ever visit that
+              lands on /search would almost never carry ga_client_id on its
+              search_events row (/api/search reads _ga server-side on the
+              mount-time fetch). The PR's own numbers showed no gain from this
+              part. Clarity below IS deferred: nothing reads it server-side.
             */}
             <Script
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-              strategy="lazyOnload"
+              strategy="afterInteractive"
             />
             <Script id="gtag-init" strategy="afterInteractive">
               {`
