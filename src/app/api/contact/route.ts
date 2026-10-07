@@ -1,12 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { ADMIN_EMAILS } from "@/config/admin";
-import { contactFormSchema, escapeHtml } from "@/lib/validation/schemas";
-import { captureAPIError } from "@/lib/sentry";
+import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
+import { captureAPIError, captureContactHoneypotDrop } from "@/lib/sentry";
+import { clientKey } from "@/lib/http/origin";
+import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/attribution/limiter";
+
+/**
+ * POST /api/contact — the /contact and /partners forms.
+ *
+ * Public, and it sends TWO emails per accepted request from our verified
+ * Resend domain (one to the team, one to whatever address was typed), so it
+ * carries three guards (PR #56 review):
+ *   1. honeypot — a filled CONTACT_HONEYPOT_FIELD gets the same 200 a real
+ *      submission gets, nothing is sent, and the drop is RECORDED (Sentry info
+ *      event + console) so a lead eaten by a password manager's identity fill
+ *      is never silently lost;
+ *   2. a per-IP limit, charged only on a request that passed validation, so
+ *      a person's typos never burn their own allowance;
+ *   3. nothing caller-controlled is repeated in the confirmation email: the
+ *      subject is an enum (contactFormSchema) and the greeting names nobody,
+ *      so the email cannot carry a scammer's text to a victim's inbox.
+ */
+/** 429 — deliberately generic. */
+function tooMany() {
+  return NextResponse.json(
+    { error: "Too many messages from this connection. Please try again in a few minutes." },
+    {
+      status: 429,
+      headers: { "Retry-After": String(CONTACT_RATE_LIMIT_WINDOW_SECONDS), "Cache-Control": "no-store" },
+    }
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // A non-JSON body is caller error, not a crash: parse to undefined and
+    // let Zod answer 400 instead of 500-ing (and paging Sentry) per bot post.
+    const body: unknown = await request.json().catch(() => undefined);
+    const record = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+
+    const honeypot = record[CONTACT_HONEYPOT_FIELD];
+    if (typeof honeypot === "string" && honeypot.trim() !== "") {
+      // The trap counts against the same per-IP allowance a real submission
+      // uses, so one source can push at most 5 drops per window through the
+      // logs; past that it gets the ordinary 429 (which tells a bot nothing).
+      if (!checkContactRateLimit(clientKey(request))) return tooMany();
+      const email = typeof record.email === "string" ? record.email : "";
+      const subject = typeof record.subject === "string" ? record.subject.slice(0, 60) : "";
+      const context = { subject, emailDomain: (email.split("@")[1] ?? "").toLowerCase().slice(0, 100), ipKey: clientKey(request) };
+      captureContactHoneypotDrop(context); // throttled per instance; console line kept short
+      console.warn("[contact] honeypot drop", context.ipKey, context.emailDomain);
+      return NextResponse.json({ success: true });
+    }
 
     // Validate with Zod
     const result = contactFormSchema.safeParse(body);
@@ -17,6 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Per-IP ceiling, charged only now that the request is a real, well-formed
+    // submission (a person's 400s never burn their own allowance).
+    if (!checkContactRateLimit(clientKey(request))) return tooMany();
+
     const { name, email, subject, message } = result.data;
 
     // Escape for HTML email templates
@@ -25,7 +75,7 @@ export async function POST(request: NextRequest) {
     const safeMessage = escapeHtml(message);
 
     // Send email to support team
-    const { data, error } = await resend.emails.send({
+    const { error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: ADMIN_EMAILS,
       replyTo: email,
@@ -65,9 +115,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Send confirmation email to user
+    // Confirmation to the sender. Deliberately contains NOTHING the caller
+    // typed: the subject is one of CONTACT_SUBJECTS (enum-validated above) and
+    // there is no name in the greeting. Resend resolves `{ error }` rather than
+    // throwing, so the failure is read and logged; the request still succeeds
+    // (the team copy went out) and the response says whether this one did.
+    let confirmationSent = true;
     try {
-      await resend.emails.send({
+      const { error: confirmationError } = await resend.emails.send({
         from: FROM_EMAIL,
         to: [email],
         subject: "We received your message - Triply",
@@ -79,12 +134,8 @@ export async function POST(request: NextRequest) {
             </div>
             <div style="padding: 40px;">
               <h2 style="margin: 0 0 20px; color: #111827; font-size: 20px; font-weight: 700;">Thanks for contacting us!</h2>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi ${safeName},</p>
-              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message and will get back to you as soon as possible, typically within 24-48 hours.</p>
-              <div style="background-color: #f9fafb; padding: 20px; border-radius: 8px; border: 1px solid #e5e7eb; margin: 20px 0;">
-                <p style="margin: 0 0 10px; font-weight: bold; color: #374151; font-size: 14px;">Your message:</p>
-                <p style="margin: 0; color: #6b7280; white-space: pre-wrap; font-size: 14px; line-height: 1.6;">${safeMessage}</p>
-              </div>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">Hi there,</p>
+              <p style="color: #374151; font-size: 15px; line-height: 1.6;">We've received your message (<strong>${safeSubject}</strong>) and will get back to you as soon as possible, typically within 24-48 hours.</p>
               <p style="color: #374151; font-size: 15px; line-height: 1.6;">In the meantime, you might find answers to common questions in our <a href="https://www.triplypro.com/help" style="color: #f87356; text-decoration: none;">FAQs</a>.</p>
               <p style="margin-top: 24px; color: #374151; font-size: 15px; line-height: 1.6;">
                 Best regards,<br>
@@ -100,11 +151,18 @@ export async function POST(request: NextRequest) {
           </div>
         `,
       });
-    } catch {
-      // Don't fail the request if confirmation email fails (common in test mode)
+      if (confirmationError) {
+        confirmationSent = false;
+        console.warn("[contact] confirmation email not sent:", confirmationError.message, {
+          emailDomain: email.split("@")[1]?.toLowerCase() ?? "",
+        });
+      }
+    } catch (confirmationThrow) {
+      confirmationSent = false;
+      console.warn("[contact] confirmation email threw:", confirmationThrow);
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, confirmationSent });
   } catch (error) {
     console.error("Contact form error:", error);
     captureAPIError(error instanceof Error ? error : new Error(String(error)), {

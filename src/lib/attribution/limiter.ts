@@ -155,3 +155,20 @@ export function __resetWaitlistRateLimitForTests(): void {
 export function __waitlistRateLimitSizeForTests(): number {
   return waitlistLimiter.size();
 }
+
+// /api/contact sends TWO emails per request (the team copy and a confirmation
+// to whatever address the caller typed) from our verified Resend domain, and
+// /partners now points operators — and whoever finds the endpoint — at it.
+// Same shape as the waitlist budget: a person sends one or two messages; a
+// script sends hundreds. Per IP, so a shared airport WiFi still gets a few.
+const contactLimiter = createBoundedRateLimiter({ limit: 5, windowMs: 10 * 60_000, maxKeys: 5000 });
+
+export const CONTACT_RATE_LIMIT_WINDOW_SECONDS = 10 * 60;
+
+export function checkContactRateLimit(key: string, now = Date.now()): boolean {
+  return contactLimiter.check(key, now);
+}
+
+export function __resetContactRateLimitForTests(): void {
+  contactLimiter.reset();
+}
