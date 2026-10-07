@@ -238,7 +238,7 @@ export function FeaturedParking({ defaultAirport = "JFK" }: FeaturedParkingProps
                       </div>
 
                       <Link
-                        href={`/${selectedAirportInfo.slug}/airport-parking/${lot.sourceId}`}
+                        href={`/${selectedAirportInfo.slug}/airport-parking/${lot.slug}`}
                         className="px-4 py-2 text-sm font-medium text-brand-orange border border-brand-orange rounded-lg hover:bg-brand-orange hover:text-white transition-colors"
                       >
                         Details

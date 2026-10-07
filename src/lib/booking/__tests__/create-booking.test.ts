@@ -394,6 +394,31 @@ describe("the resume path", () => {
   });
 });
 
+describe("what ResLab is sent", () => {
+  it("sends exactly the extra-field map the pending route validated before the charge", async () => {
+    db.seed("pending_bookings", [
+      pendingRow({ extra_fields: { return_flight_number: "N/A", license_plate_number: "ABC123" } }),
+    ]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(reslabMock.createReservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        car_make: "Volvo",
+        car_model: "XC60",
+        car_makemodel: "Volvo XC60",
+        car_color: "Blue",
+        license_plate: "ABC123",
+        license_plate_state: "NY",
+        return_flight_number: "N/A",
+        license_plate_number: "ABC123",
+      })
+    );
+  });
+});
+
 describe("ResLab failure classification", () => {
   it("redacts customer data from the stored ResLab rejection but keeps the field names", async () => {
     db.seed("pending_bookings", [pendingRow()]);

@@ -17,7 +17,7 @@ function LotCard({ lot, airportSlug }: { lot: UnifiedLot; airportSlug: string })
 
   return (
     <Link
-      href={`/${airportSlug}/airport-parking/${lot.sourceId}`}
+      href={`/${airportSlug}/airport-parking/${lot.slug}`}
       className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-brand-orange/30 transition-all"
     >
       <div className="relative h-40 bg-gray-100">

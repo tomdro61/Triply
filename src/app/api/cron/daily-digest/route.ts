@@ -14,7 +14,9 @@
  *
  * Idempotent per ET date via `digest_runs` (Vercel cron is at-least-once).
  * `?date=YYYY-MM-DD` re-runs a day (validated, ≤ 90 days back); `?force=1`
- * re-posts one already recorded.
+ * re-posts one already recorded; `?dry=1` collects, reads and renders but
+ * posts nothing, records nothing and touches no check-in — it returns the
+ * embed so a change can be previewed without a message in the channel.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -65,6 +67,7 @@ export async function GET(request: NextRequest) {
   const started = Date.now();
   const now = new Date(started);
   const force = request.nextUrl.searchParams.get("force") === "1";
+  const dry = request.nextUrl.searchParams.get("dry") === "1";
 
   // Which ET day?
   const dateParam = request.nextUrl.searchParams.get("date");
@@ -81,13 +84,13 @@ export async function GET(request: NextRequest) {
   }
 
   const webhook = process.env.DISCORD_DAILY_DIGEST_WEBHOOK_URL || process.env.DISCORD_SESSION_WEBHOOK_URL;
-  if (!webhook) {
+  if (!webhook && !dry) {
     captureAPIError(new Error("daily digest: no Discord webhook configured"), { ...CTX, stage: "config", statusCode: 503 });
     await safeFlush();
     return NextResponse.json({ ok: false, outcome: "no_webhook" }, { status: 503 });
   }
 
-  const checkInId = checkIn("in_progress");
+  const checkInId = dry ? undefined : checkIn("in_progress");
   const w = windowForEtDay(dateEt);
 
   try {
@@ -97,8 +100,8 @@ export async function GET(request: NextRequest) {
     // row": it means we cannot know, so we post but say so in the embed and the
     // response, and do not report the run as clean.
     const extraFlags: Flag[] = [];
-    let runLogRead: "ok" | "error" | "skipped" = force ? "skipped" : "ok"; // force = a deliberate re-post; nothing is read
-    if (!force) {
+    let runLogRead: "ok" | "error" | "skipped" = force || dry ? "skipped" : "ok"; // force = a deliberate re-post, dry = no post: nothing is read
+    if (!force && !dry) {
       const prior = await sb.from("digest_runs").select("outcome, posted_at").eq("digest_date", dateEt).abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS)).maybeSingle();
       if (prior.error) {
         runLogRead = "error";
@@ -128,6 +131,20 @@ export async function GET(request: NextRequest) {
       read = remaining >= READ_MIN_REMAINING_MS ? await writeModelRead(data) : { kind: "unavailable", reason: "skipped: out of time after collect" };
     }
     const { embed, verdict, flags, truncated } = renderEmbed(data, read, extraFlags);
+    const modelRead = read === null ? "skipped" : read.kind;
+    const modelReadReason = read !== null && read.kind !== "ok" ? read.reason : null;
+
+    if (dry) {
+      // 200 always (the preview must come back), but `ok` means what it means everywhere else.
+      return NextResponse.json({
+        ok: verdict.kind !== "could_not_run", dry: true, dateEt, verdict: verdict.kind, sectionsFailed: verdict.kind === "ok" ? 0 : verdict.failed.length,
+        flags: flags.map((f) => f.text), modelRead, modelReadReason,
+        // The rejected paragraph, for previewing a prompt change. Dry response ONLY — never the posted embed.
+        withheldText: read !== null && read.kind === "withheld" ? read.text ?? null : null,
+        truncated, embed, ms: Date.now() - started,
+      });
+    }
+    if (!webhook) throw new Error("unreachable: reached the posting path with no webhook configured");
 
     // Collect failures are reported on their own, BEFORE the post, so a Discord
     // outage cannot hide "N sections failed" behind "post failed".
@@ -142,7 +159,6 @@ export async function GET(request: NextRequest) {
     const outcome: Outcome =
       post.kind !== "posted" ? "post_failed" : verdict.kind === "could_not_run" ? "could_not_run" : verdict.kind === "partial" ? "posted_partial" : "posted";
     const sectionsFailed = verdict.kind === "ok" ? 0 : verdict.failed.length;
-    const modelRead = read === null ? "skipped" : read.kind;
     const messageChars = embed.title.length + embed.description.length + embed.footer.text.length + embed.fields.reduce((n, f) => n + f.name.length + f.value.length, 0);
 
     const rec = await sb
@@ -156,7 +172,7 @@ export async function GET(request: NextRequest) {
     if (rec.error) captureAPIError(new Error(`digest_runs write failed: ${rec.error.code ?? "?"} ${rec.error.message}`), { ...CTX, stage: "record", statusCode: 500 });
 
     const summary = {
-      dateEt, outcome, verdict: verdict.kind, sectionsFailed, flags: flags.map((f) => f.text), modelRead, truncated, messageChars,
+      dateEt, outcome, verdict: verdict.kind, sectionsFailed, flags: flags.map((f) => f.text), modelRead, modelReadReason, truncated, messageChars,
       runLog: { read: runLogRead, write: runLogWrite }, ms: Date.now() - started,
     };
 
@@ -189,10 +205,12 @@ export async function GET(request: NextRequest) {
       footer: { text: w.label },
     };
     let posted = false;
-    try {
-      posted = (await postToDiscord(webhook, embed, { remainingBudgetMs: Math.max(0, RUN_BUDGET_MS - (Date.now() - started)) })).kind === "posted";
-    } catch {
-      posted = false;
+    if (!dry && webhook) {
+      try {
+        posted = (await postToDiscord(webhook, embed, { remainingBudgetMs: Math.max(0, RUN_BUDGET_MS - (Date.now() - started)) })).kind === "posted";
+      } catch {
+        posted = false;
+      }
     }
     checkIn("error", checkInId);
     await safeFlush();

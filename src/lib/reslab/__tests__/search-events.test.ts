@@ -391,16 +391,17 @@ describe("timezone boundary — lead_days is the AIRPORT's today, not UTC's", ()
 
 describe("the production path rejects dates Postgres would bounce", () => {
   it("drops the header row for a calendar-invalid check-in, and reports it on its own signature", async () => {
-    // "2026-02-30" passes /api/search's shape regex and dayDiff returns a
+    // "2027-02-30" passes /api/search's shape regex and dayDiff returns a
     // number for it (Date.parse rolls it to Mar 2) — nothing upstream stops
-    // it. 027's date column rejects it as 22008.
+    // it. 027's date column rejects it as 22008. (A FUTURE invalid date: a
+    // past one is now refused up front as checkin_in_past — see below.)
     reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
     reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
 
     const result = await searchParking({
       airport: AIRPORT,
-      checkin: "2026-02-30",
-      checkout: "2026-03-05",
+      checkin: "2027-02-30",
+      checkout: "2027-03-05",
       source: "search",
     });
     await flush();
@@ -437,19 +438,26 @@ describe("the production path rejects dates Postgres would bounce", () => {
     ).toBe(false);
   });
 
-  it("drops the header row for a long-past check-in (027's lead_days >= -1)", async () => {
+  it("refuses a long-past check-in before ResLab or the writer are touched (2026-10-06)", async () => {
+    // Was: priced against ResLab (every lot 422'd) and the header row was
+    // dropped by 027's lead_days >= -1 gate. A check-in already past at the
+    // airport is now a SearchDateError — the route answers 400
+    // checkin_in_past — so no row is ever attempted.
     vi.setSystemTime(new Date("2026-10-11T15:00:00Z"));
     reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1)]);
     reslabMock.getMinPrice.mockResolvedValue(minPrice({ grandTotal: 120 }));
 
-    await searchParking({
-      airport: AIRPORT,
-      checkin: "2026-09-01",
-      checkout: "2026-09-05",
-      source: "search",
-    });
+    await expect(
+      searchParking({
+        airport: AIRPORT,
+        checkin: "2026-09-01",
+        checkout: "2026-09-05",
+        source: "search",
+      })
+    ).rejects.toMatchObject({ name: "SearchDateError", code: "checkin_in_past" });
     await flush();
 
+    expect(reslabMock.getMinPrice).not.toHaveBeenCalled();
     expect(latestSearchEvent()).toBeUndefined();
   });
 

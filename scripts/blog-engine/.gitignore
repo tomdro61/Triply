@@ -6,3 +6,5 @@ reports/
 *.log
 temp-*
 test-output/
+gsc-oauth.json
+gsc-token.json

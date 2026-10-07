@@ -39,7 +39,9 @@ export interface ReslabExtraField {
   name: string;
   label: string;
   type: "parking" | "room" | "both";
-  input_type: "text" | "license_plate" | "number";
+  // "flight_number" is not in the v1.10 spec but is live (4 lots, 2026-09-29)
+  // and ResLab validates it: 422 "Invalid Flight Number".
+  input_type: "text" | "license_plate" | "number" | "flight_number";
   per_car: boolean | number;
   value?: string; // Present in reservation responses
 }

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { capturePaymentError, captureParkGuardError } from "@/lib/sentry";
+import { capturePaymentError, captureParkGuardError, captureNonCheckoutPayment } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
+import { recordCancellationReason } from "@/lib/cancellation/reason";
 
 // This handler now CREATES bookings, so it inherits the full fulfilment budget:
 // ResLab, capture, Supabase, Park Guard, and two emails.
@@ -86,6 +87,44 @@ export async function POST(request: NextRequest) {
           );
         }
         break;
+      }
+
+      // A payment that did not come from checkout — a Payment Link sent to a
+      // customer, a dashboard charge — lands on this same webhook. Every
+      // checkout PaymentIntent is stamped with `lotId` (api/checkout/lot) and
+      // has a staged pending row; a non-checkout one has neither. Running the
+      // engine on it produced a "cannot fulfil without a payload" ERROR for a
+      // payment that needs no fulfilment (TRIPLY-24, a $4.74 Payment Link).
+      // Gate on BOTH signals: if a pending row exists we fulfil as normal even
+      // without the metadata, so a stamping bug can never strand a real
+      // booking — and the sweep cron would still complete it from the row.
+      // `customerEmail` is the second checkout-only key; either one marks a
+      // checkout, so a future path that drops `lotId` still alerts loudly.
+      const looksLikeCheckout = Boolean(
+        paymentIntent.metadata?.lotId || paymentIntent.metadata?.customerEmail
+      );
+      if (!looksLikeCheckout) {
+        const { data: staged, error: stagedErr } = await supabase
+          .from("pending_bookings")
+          .select("stripe_payment_intent_id")
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .maybeSingle();
+        if (stagedErr) {
+          capturePaymentError(
+            new Error(`Webhook ${event.type}: pending_bookings lookup failed: ${stagedErr.message}`),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+          retryable = true;
+          break;
+        }
+        if (!staged) {
+          captureNonCheckoutPayment({
+            stripePaymentIntentId: paymentIntent.id,
+            amount: paymentIntent.amount / 100,
+            eventType: event.type,
+          });
+          break;
+        }
       }
 
       // No booking exists. THIS is the guarantee: create it server-side, from
@@ -415,6 +454,21 @@ export async function POST(request: NextRequest) {
               new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
+          }
+
+          // Attribute it (migration 032) ONLY if no cancel path already did.
+          // The admin and self-cancel routes record their reason before they
+          // refund, so reaching here unattributed means the refund came from
+          // outside the app (Stripe dashboard, partner) — reason unknown.
+          // Best-effort; never fails the webhook.
+          if (!updateErr) {
+            await recordCancellationReason({
+              bookingId: booking.id,
+              cancelledBy: "system",
+              reason: "unknown",
+              onlyIfUnset: true,
+              endpoint: "/api/webhooks/stripe",
+            });
           }
 
           // Stripe-side refunds (dashboard, dispute resolution, partner refunds)

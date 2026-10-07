@@ -15,6 +15,8 @@ import {
   Calculator,
 } from "lucide-react";
 import { formatDate, formatPrice } from "@/lib/utils";
+import { CancellationReportPanel } from "@/components/admin/cancellation-report";
+import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 
 interface Stats {
@@ -70,6 +72,9 @@ interface Stats {
     warnings: string[];
   } | null;
   attributionWarnings?: string[];
+  /** Migration 032. null + cancellationsError when the fetch failed. */
+  cancellations?: CancellationReport | null;
+  cancellationsError?: string | null;
   reslabSnapshot?:
     | { ageHours: number; locationCount: number; writtenBy: string; wireKb: number; behind: boolean; stale: boolean }
     | { missing: true }
@@ -531,7 +536,9 @@ export default function AdminDashboard() {
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-600">Cancelled</span>
+              <span className="text-gray-600" title="Status cancelled or refunded — the same rule as the Cancellations panel">
+                Cancelled <span className="text-xs text-gray-400">(incl. refunded)</span>
+              </span>
               <span className="font-semibold text-red-600">
                 {stats?.bookings.cancelled || 0}
               </span>
@@ -572,6 +579,14 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {/* Cancellations by month / reason / lot (migration 032) */}
+      {stats && (
+        <CancellationReportPanel
+          report={stats.cancellations ?? null}
+          error={stats.cancellationsError ?? null}
+        />
+      )}
 
       {/* Park Guard conversions */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">

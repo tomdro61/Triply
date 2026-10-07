@@ -19,7 +19,7 @@ import { createHash } from "node:crypto";
 import { gzip, gunzip } from "node:zlib";
 import { promisify } from "node:util";
 import { createAdminClient } from "@/lib/supabase/server";
-import { resolveEnv } from "@/lib/availability/log";
+import { resolveEnv } from "@/lib/env";
 import type { ReslabLocation } from "@/lib/reslab/client";
 
 const gzipAsync = promisify(gzip);

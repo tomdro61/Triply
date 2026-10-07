@@ -37,3 +37,19 @@ describe("isVehicleFieldName — what the vehicle step hides from 'additional fi
     expect(isVehicleFieldName("return_flight_number")).toBe(false);
   });
 });
+
+describe("spellings found in the live lot list (2026-09-29)", () => {
+  it("fills make/model and plate state under the lot's own names", () => {
+    expect(
+      vehicleFieldAliasValues(
+        [{ name: "car_make_model" }, { name: "makemodel_of_car" }, { name: "plate_state_eg_co" }],
+        vehicle
+      )
+    ).toEqual({ car_make_model: "Toyota Camry", makemodel_of_car: "Toyota Camry", plate_state_eg_co: "TN" });
+  });
+
+  it("leaves stateprovince to the customer (plate state or home state: we cannot know)", () => {
+    expect(isVehicleFieldName("stateprovince")).toBe(false);
+    expect(vehicleFieldAliasValues([{ name: "stateprovince" }], vehicle)).toEqual({});
+  });
+});

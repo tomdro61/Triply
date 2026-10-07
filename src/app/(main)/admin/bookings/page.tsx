@@ -21,6 +21,13 @@ import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 import { csvEscape } from "@/lib/utils/csv";
 import { attributionSourceLabel as sourceLabel, type AttributionRow } from "@/lib/attribution/display";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
+import {
+  ADMIN_CANCELLATION_REASONS,
+  CANCELLATION_REASON_LABELS,
+  adminReasonSchema,
+  type AdminCancellationReason,
+  type CancellationReason,
+} from "@/lib/cancellation/reason-codes";
 
 interface Booking {
   id: string;
@@ -59,6 +66,10 @@ interface Booking {
     state: string;
   };
   created_at: string;
+  /** Migration 032. Absent until 032 is applied; NULL = unknown. */
+  cancellation_reason?: CancellationReason | null;
+  cancellation_note?: string | null;
+  cancelled_by?: "customer" | "admin" | "system" | null;
   customers: {
     id: string;
     email: string;
@@ -104,6 +115,8 @@ export default function AdminBookingsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  // Degraded-search notices from the API (customer lookup failed / truncated).
+  const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("all");
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -114,13 +127,24 @@ export default function AdminBookingsPage() {
   // Which cancel path is in flight, so only the clicked button shows its
   // spinner label while both are disabled.
   const [cancellingMode, setCancellingMode] = useState<"standard" | "full" | null>(null);
+  // Required reason + optional admin note for the cancel (migration 032).
+  const [cancelReason, setCancelReason] = useState<AdminCancellationReason | "">("");
+  const [cancelNote, setCancelNote] = useState("");
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
     parkGuardSyncFailed?: boolean;
+    // The cancel went through but the reason / note did not get saved
+    // (migration 032 not applied, or a transient write failure).
+    reasonNotRecorded?: boolean;
+    noteNotRecorded?: boolean;
   } | null>(null);
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
+    if (!cancelReason) {
+      setCancelResult({ success: false, message: "Pick a cancellation reason first." });
+      return;
+    }
     const fee = parseFloat(booking.triply_service_fee) || 0;
     // Park Guard's wholesale (snapshotted per row in protection_plan_wholesale
     // — migration 021) is non-refundable to Triply, so a STANDARD cancel
@@ -149,24 +173,42 @@ export default function AdminBookingsPage() {
           reservationNumber: booking.reslab_reservation_number,
           stripePaymentIntentId: booking.stripe_payment_intent_id,
           refundServiceFee,
+          reason: cancelReason,
+          note: cancelNote.trim() || undefined,
         }),
       });
       const data = await response.json();
+      const cancelled = !!(data.success || data.results?.supabase);
+      // The route says whether the reason / note actually landed. Only trust a
+      // true; a missing field (older bundle / unexpected body) counts as not
+      // recorded so the screen never claims more than the database holds.
+      const reasonRecorded = data.reasonRecorded === true;
+      const noteRecorded = data.noteRecorded === true;
+      const noteGiven = cancelNote.trim().length > 0;
       setCancelResult({
-        success: data.success,
-        message: data.message,
+        success: !!data.success,
+        // 4xx/5xx bodies carry `error`, not `message` — without this fallback a
+        // refused cancel rendered an empty red box.
+        message: data.message ?? data.error ?? `Cancel failed (HTTP ${response.status})`,
         parkGuardSyncFailed: data.results?.parkGuard === false,
+        reasonNotRecorded: cancelled && !reasonRecorded,
+        noteNotRecorded: cancelled && noteGiven && !noteRecorded,
       });
-      if (data.success || data.results?.supabase) {
+      if (cancelled) {
         const newStatus = data.newStatus || "cancelled";
-        setBookings((prev) =>
-          prev.map((b) =>
-            b.id === booking.id ? { ...b, status: newStatus } : b
-          )
-        );
-        setSelectedBooking((prev) =>
-          prev?.id === booking.id ? { ...prev, status: newStatus } : prev
-        );
+        // Show only what was saved; an unsaved reason renders as "Unknown /
+        // not given", matching what the report will show. Patched into the
+        // list row too, so reopening the booking from the list (no refetch)
+        // shows the same thing as the panel.
+        const patch = (b: Booking): Booking => ({
+          ...b,
+          status: newStatus,
+          cancellation_reason: reasonRecorded ? cancelReason : b.cancellation_reason ?? null,
+          cancellation_note: noteRecorded ? cancelNote.trim() : b.cancellation_note ?? null,
+          cancelled_by: reasonRecorded ? "admin" : b.cancelled_by ?? null,
+        });
+        setBookings((prev) => prev.map((b) => (b.id === booking.id ? patch(b) : b)));
+        setSelectedBooking((prev) => (prev?.id === booking.id ? patch(prev) : prev));
       }
     } catch {
       setCancelResult({ success: false, message: "Network error — could not reach cancel API" });
@@ -224,8 +266,10 @@ export default function AdminBookingsPage() {
 
       setBookings(data.bookings || []);
       setPagination(data.pagination);
+      setSearchWarnings(Array.isArray(data.warnings) ? data.warnings : []);
     } catch (error) {
       console.error("Failed to fetch bookings:", error);
+      setSearchWarnings([]);
     } finally {
       setLoading(false);
     }
@@ -323,6 +367,22 @@ export default function AdminBookingsPage() {
       </div>
 
       {/* Filters */}
+      {searchWarnings.length > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          {searchWarnings.includes("customer_search_unavailable") && (
+            <p>
+              <strong>Name/email search is unavailable right now</strong> — results below match only
+              the confirmation number and lot name. Check Sentry.
+            </p>
+          )}
+          {searchWarnings.includes("customer_search_truncated") && (
+            <p>
+              <strong>Too many customers match that term</strong> — results are incomplete. Narrow the
+              search (full name or full email).
+            </p>
+          )}
+        </div>
+      )}
       <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
         <div className="flex flex-wrap items-center gap-4">
           <form onSubmit={handleSearch} className="flex-1 min-w-[200px]">
@@ -332,7 +392,7 @@ export default function AdminBookingsPage() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by confirmation # or location..."
+                placeholder="Search by name, email, confirmation # (RTL…), or lot…"
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none"
               />
             </div>
@@ -433,7 +493,7 @@ export default function AdminBookingsPage() {
               {bookings.map((booking) => (
                 <button
                   key={booking.id}
-                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
                   className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -587,7 +647,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); }}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >
@@ -854,6 +914,55 @@ export default function AdminBookingsPage() {
                 </div>
               )}
 
+              {/* Recorded cancellation reason (migration 032) */}
+              {(selectedBooking.status === "cancelled" || selectedBooking.status === "refunded") && (
+                <div className="p-3 rounded-lg text-sm bg-gray-50 text-gray-700">
+                  <span className="font-medium">Cancellation reason:</span>{" "}
+                  {CANCELLATION_REASON_LABELS[selectedBooking.cancellation_reason ?? "unknown"]}
+                  {selectedBooking.cancelled_by && (
+                    <span className="text-gray-500"> · by {selectedBooking.cancelled_by}</span>
+                  )}
+                  {selectedBooking.cancellation_note && (
+                    <p className="mt-1 text-gray-600 whitespace-pre-wrap">{selectedBooking.cancellation_note}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Cancel reason — required before either cancel button works */}
+              {selectedBooking.status === "confirmed" && (
+                <div className="space-y-2">
+                  <label htmlFor="admin-cancel-reason" className="block text-sm font-medium text-gray-700">
+                    Cancellation reason <span className="text-red-600">*</span>
+                  </label>
+                  <select
+                    id="admin-cancel-reason"
+                    value={cancelReason}
+                    onChange={(e) => {
+                      const parsed = adminReasonSchema.safeParse(e.target.value);
+                      setCancelReason(parsed.success ? parsed.data : "");
+                    }}
+                    disabled={cancelling}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  >
+                    <option value="">Select a reason…</option>
+                    {ADMIN_CANCELLATION_REASONS.map((r) => (
+                      <option key={r} value={r}>
+                        {CANCELLATION_REASON_LABELS[r]}
+                      </option>
+                    ))}
+                  </select>
+                  <textarea
+                    value={cancelNote}
+                    onChange={(e) => setCancelNote(e.target.value)}
+                    maxLength={500}
+                    rows={2}
+                    disabled={cancelling}
+                    placeholder="Note (optional, staff only — stored apart from the booking, not readable by the customer)"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+              )}
+
               {/* Cancel Result */}
               {cancelResult && (
                 <>
@@ -863,6 +972,26 @@ export default function AdminBookingsPage() {
                   {cancelResult.parkGuardSyncFailed && (
                     <div className="mt-2 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
                       <strong>Park Guard sync pending —</strong> the cancellation refund went through, but Park Guard wasn&apos;t notified. Manually mark the reservation cancelled in the Coverage Hub or check Sentry for details.
+                    </div>
+                  )}
+                  {(cancelResult.reasonNotRecorded || cancelResult.noteNotRecorded) && (
+                    <div className="mt-2 p-3 rounded-lg text-sm bg-amber-50 text-amber-900 border border-amber-200">
+                      <strong>
+                        {cancelResult.reasonNotRecorded ? "Cancellation reason" : "Admin note"} not saved —
+                      </strong>{" "}
+                      the cancellation itself went through, but the{" "}
+                      {cancelResult.reasonNotRecorded && cancelResult.noteNotRecorded
+                        ? "reason and note were"
+                        : cancelResult.reasonNotRecorded
+                        ? "reason was"
+                        : "note was"}{" "}
+                      not written to the database (check Sentry; if migration 032 isn&apos;t applied, apply it).
+                      {cancelResult.noteNotRecorded && cancelNote.trim() && (
+                        <>
+                          {" "}Your note, so it isn&apos;t lost:
+                          <p className="mt-1 whitespace-pre-wrap font-mono text-xs">{cancelNote.trim()}</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </>
@@ -884,7 +1013,7 @@ export default function AdminBookingsPage() {
                         (a partial protection refund on PG bookings). */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, false)}
-                      disabled={cancelling}
+                      disabled={cancelling || !cancelReason}
                       title={`Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
@@ -895,7 +1024,7 @@ export default function AdminBookingsPage() {
                         customer away and Triply eats its fee + the PG wholesale. */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, true)}
-                      disabled={cancelling}
+                      disabled={cancelling || !cancelReason}
                       title="Refunds everything incl. the Triply service fee and the full Park Guard premium — use when the lot turned the customer away"
                       className="px-4 py-2 bg-red-800 text-white rounded-lg hover:bg-red-900 transition-colors disabled:opacity-50"
                     >

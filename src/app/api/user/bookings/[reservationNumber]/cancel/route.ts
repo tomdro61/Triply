@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { performSelfCancel, type CancelBookingRow } from "@/lib/cancellation/perform";
+import { parseCustomerReason } from "@/lib/cancellation/reason";
 
 // Match every sibling money-path route (reservations, webhooks/stripe, the
 // crons). This handler chains Stripe retrieve → claim → ResLab cancel (+ a
@@ -118,8 +119,19 @@ export async function POST(
         : null,
     };
 
-    // 4. Run the cancellation FSM.
-    const result = await performSelfCancel(row);
+    // 4. The OPTIONAL cancellation reason (migration 032). A missing, empty or
+    //    malformed body is "no reason given" — it must never block the cancel,
+    //    so a parse failure is expected input, not an error.
+    let body: unknown = null;
+    try {
+      body = await request.json();
+    } catch {
+      body = null; // no body / not JSON — the reason is optional
+    }
+    const reason = parseCustomerReason(body);
+
+    // 5. Run the cancellation FSM.
+    const result = await performSelfCancel(row, Date.now(), { reason });
     return NextResponse.json(result.body, { status: result.status });
   } catch (error) {
     captureAPIError(

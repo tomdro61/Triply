@@ -57,7 +57,9 @@ describe("nextReturnDateAfterDepartChange", () => {
 
 describe("nextRangeAfterReturnChange — the mirror of the depart guard", () => {
   it("swaps the pair when the new return date precedes the depart date (as the real picker does)", () => {
-    expect(nextRangeAfterReturnChange("2026-10-20", "2026-10-05")).toEqual({
+    // minDate pinned: the default is "today", and this case went red on
+    // 2026-10-06 the moment 2026-10-05 became a past date.
+    expect(nextRangeAfterReturnChange("2026-10-20", "2026-10-05", "2026-10-01")).toEqual({
       depart: "2026-10-05",
       return: "2026-10-20",
     });

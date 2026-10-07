@@ -50,6 +50,52 @@ beforeEach(() => {
   searchMock.getChannelLocationsCached.mockReset();
 });
 
+describe("findLotBySlug — duplicate names across the channel", () => {
+  it("prefers the match nearest the caller's airport (a JFK link must not open Boston's lot of the same name)", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [
+        { ...loc(1, "Park Shuttle Fly"), latitude: "42.36", longitude: "-71.01" }, // Boston
+        { ...loc(2, "Park Shuttle Fly"), latitude: "40.64", longitude: "-73.78" }, // JFK
+      ],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockRejectedValue(new Error("stop here"));
+
+    await findLotBySlug("park-shuttle-fly", FROM, TO, { latitude: 40.6413, longitude: -73.7781 }).catch(() => null);
+
+    expect(reslabMock.getLocation).toHaveBeenCalledWith(2);
+    expect(reslabMock.getLocation).not.toHaveBeenCalledWith(1);
+  });
+
+  it("never lets a blocked lot win the tie over an unblocked lot of the same name", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [
+        { ...loc(416, "Parking 4 Airport"), latitude: "40.64", longitude: "-73.78" }, // blocked, nearest
+        { ...loc(9, "Parking 4 Airport"), latitude: "40.70", longitude: "-73.80" },
+      ],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockRejectedValue(new Error("stop here"));
+
+    await findLotBySlug("parking-4-airport", FROM, TO, { latitude: 40.6413, longitude: -73.7781 }).catch(() => null);
+
+    expect(reslabMock.getLocation).toHaveBeenCalledWith(9);
+  });
+
+  it("a slug whose only match is blocked is a firm 404 even on a THIN list — never a retryable 503", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [loc(416, "Parking 4 Airport")],
+      incomplete: true,
+      stale: false,
+    });
+
+    expect(await findLotBySlug("parking-4-airport", FROM, TO)).toBeNull();
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+  });
+});
+
 describe("findLotBySlug — must not sweep /locations on the request path", () => {
   it("resolves a slug WITHOUT calling getAllLocations", async () => {
     searchMock.getChannelLocationsCached.mockResolvedValue({
@@ -158,5 +204,39 @@ describe("blocked lots (BLOCKED_RESLAB_LOCATION_IDS)", () => {
     expect(await findLotBySlug("parking-4-airport-jfk", FROM, TO)).toBeNull();
     expect(await getLotFromReslab(416, FROM, TO)).toBeNull();
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
+  });
+});
+
+describe("getLotFromReslab — per-lot pricing window (same-day, 2026-10-06)", () => {
+  it("prices with the window the caller derives from the loaded location", async () => {
+    reslabMock.getLocation.mockResolvedValue({ ...loc(7, "Notice Lot"), hours_before_reservation: 3 });
+    reslabMock.getMinPrice.mockResolvedValue(null);
+    const windowFor = vi.fn(() => ({ fromDate: "2026-10-06 16:30:00", toDate: "2026-10-09 14:00:00" }));
+
+    await getLotFromReslab(7, FROM, TO, undefined, windowFor);
+
+    expect(windowFor).toHaveBeenCalledWith(expect.objectContaining({ hours_before_reservation: 3 }));
+    expect(reslabMock.getMinPrice).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ from_date: "2026-10-06 16:30:00", to_date: "2026-10-09 14:00:00" })
+    );
+  });
+
+  it("makes no min-price call and renders the lot unpriced when the lot can't take a booking", async () => {
+    reslabMock.getLocation.mockResolvedValue(loc(7, "Notice Lot"));
+
+    const lot = await getLotFromReslab(7, FROM, TO, undefined, () => null);
+
+    expect(reslabMock.getMinPrice).not.toHaveBeenCalled();
+    expect(lot?.pricing).toBeUndefined();
+  });
+
+  it("without a window function, prices fromDate/toDate exactly as before (checkout's path)", async () => {
+    reslabMock.getLocation.mockResolvedValue(loc(7, "Notice Lot"));
+    reslabMock.getMinPrice.mockResolvedValue(null);
+
+    await getLotFromReslab(7, FROM, TO);
+
+    expect(reslabMock.getMinPrice).toHaveBeenCalledWith(7, expect.objectContaining({ from_date: FROM, to_date: TO }));
   });
 });

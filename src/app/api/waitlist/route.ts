@@ -20,7 +20,7 @@ import {
 } from "@/lib/waitlist/unsubscribe-token";
 
 /**
- * Waitlist for trips beyond the supplier's 60-day booking wall.
+ * Waitlist for trips beyond the supplier's advance-booking wall (MAX_ADVANCE_BOOKING_DAYS).
  *
  * ResLab returns HTTP 422 for any check-in further out than
  * MAX_ADVANCE_BOOKING_DAYS, so these travellers cannot be sold to yet. We take

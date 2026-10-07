@@ -20,7 +20,15 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
-import { trackBeginCheckout, trackAddPaymentInfo } from "@/lib/analytics/gtag";
+import {
+  trackBeginCheckout,
+  trackAddPaymentInfo,
+  trackCheckoutBack,
+  trackCheckoutPaymentInitFailed,
+  trackCheckoutStepView,
+  trackCheckoutValidationError,
+} from "@/lib/analytics/gtag";
+import { bucketCheckoutFailure, fieldList } from "@/lib/analytics/checkout-funnel";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -28,7 +36,8 @@ import {
   type ProtectionPlanCode,
 } from "@/lib/parkguard/plans";
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
-import { vehicleFieldAliasValues, isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
+import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
+import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -147,6 +156,50 @@ export function CheckoutForm({
   const [vehicleErrors, setVehicleErrors] = useState<
     Partial<Record<keyof VehicleDetails, string>>
   >({});
+  // Keyed by the lot's extra-field NAME (see extraFieldStepErrors).
+  const [extraFieldErrors, setExtraFieldErrors] = useState<Record<string, string>>({});
+
+  // ── Checkout-funnel analytics ─────────────────────────────────────────────
+  // Effects and a ref only: no state, and nothing here can change a step,
+  // a validation outcome or the payment flow (see checkout-funnel.ts).
+  const formAreaRef = useRef<HTMLDivElement>(null);
+  // Last step reported, so an effect re-run on the SAME step (StrictMode's
+  // dev double-mount) doesn't count twice; Back → forward still re-reports.
+  const lastStepViewRef = useRef<CheckoutStep | null>(null);
+
+  useEffect(() => {
+    if (lastStepViewRef.current === currentStep) return;
+    lastStepViewRef.current = currentStep;
+    trackCheckoutStepView(currentStep);
+  }, [currentStep]);
+
+  // The step forms use native required / type=email / type=tel, so for an
+  // empty or malformed field the BROWSER blocks the submit and our validators
+  // never run. `invalid` doesn't bubble, so listen in the capture phase on the
+  // form area; inputs name themselves with data-funnel-field.
+  useEffect(() => {
+    const area = formAreaRef.current;
+    if (!area) return;
+    const pending = new Set<string>();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onInvalid = (e: Event) => {
+      const key = e.target instanceof HTMLElement ? e.target.dataset.funnelField : undefined;
+      if (!key) return;
+      pending.add(key);
+      if (timer) return;
+      // One submit fires one `invalid` per bad field: report them together.
+      timer = setTimeout(() => {
+        trackCheckoutValidationError({ step: currentStep, fields: fieldList(pending), source: "browser" });
+        pending.clear();
+        timer = null;
+      }, 0);
+    };
+    area.addEventListener("invalid", onInvalid, true);
+    return () => {
+      area.removeEventListener("invalid", onInvalid, true);
+      if (timer) clearTimeout(timer);
+    };
+  }, [currentStep]);
 
   // Calculate price breakdown using API data when available
   const priceBreakdown = useMemo<PriceBreakdown>(() => {
@@ -231,6 +284,7 @@ export function CheckoutForm({
       errors.phone = "Phone number is required";
     }
 
+    trackCheckoutValidationError({ step: "details", fields: fieldList(Object.keys(errors)), source: "form" });
     setCustomerErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -255,7 +309,19 @@ export function CheckoutForm({
     }
 
     setVehicleErrors(errors);
-    return Object.keys(errors).length === 0;
+
+    // Lot-declared fields (e.g. a return flight number). ResLab rejects a blank
+    // one AFTER the card is authorised, so the step must not advance without
+    // them. The pending route re-checks server-side before the charge.
+    const extraErrors = extraFieldStepErrors(lot.extraFields, vehicleDetails, extraFieldValues);
+    setExtraFieldErrors(extraErrors);
+    trackCheckoutValidationError({
+      step: "vehicle",
+      fields: fieldList([...Object.keys(errors), ...Object.keys(extraErrors).map((name) => `extra:${name}`)]),
+      source: "form",
+    });
+
+    return Object.keys(errors).length === 0 && Object.keys(extraErrors).length === 0;
   };
 
   // Step handlers
@@ -280,6 +346,7 @@ export function CheckoutForm({
 
     // Create PaymentIntent with server-verified price
     setIsCreatingPaymentIntent(true);
+    let initStatus: number | undefined; // analytics only — read in the catch
     try {
       const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
       if (!parkingTypeId || !lot.reslabLocationId) {
@@ -311,6 +378,7 @@ export function CheckoutForm({
           ...(promoCode && { promoCode }),
         }),
       });
+      initStatus = response.status;
 
       const data = await response.json();
 
@@ -343,16 +411,26 @@ export function CheckoutForm({
       setSubmitError(
         error instanceof Error ? error.message : "Failed to initialize payment"
       );
+      trackCheckoutPaymentInitFailed({
+        reason: bucketCheckoutFailure({
+          status: initStatus,
+          message: error instanceof Error ? error.message : undefined,
+          error,
+        }),
+        status: initStatus,
+      });
     } finally {
       setIsCreatingPaymentIntent(false);
     }
   };
 
   const handleVehicleBack = () => {
+    trackCheckoutBack("vehicle");
     setCurrentStep("details");
   };
 
   const handlePaymentBack = () => {
+    trackCheckoutBack("payment");
     // Invalidate any in-flight update-pi toggle from the prior PI so its
     // resolution can't clobber fresh state on the new PI created after
     // navigation. The sequence-ID stale-discard guard inside
@@ -593,8 +671,10 @@ export function CheckoutForm({
   // The vehicle step is AUTHORITATIVE for every vehicle-named extra field: a
   // value typed into a same-named "additional" input (hidden today, but any
   // stale state) must never outrank what the confirmation email and admin show.
-  const typedExtraFieldsExcludingVehicle = (): Record<string, string> =>
-    Object.fromEntries(Object.entries(extraFieldValues).filter(([name]) => !isVehicleFieldName(name)));
+  // Built by the same function the step gate validates (checkoutExtraFields),
+  // so the gate can never pass a map other than the one sent.
+  const extraFieldsForRequest = (): Record<string, string> =>
+    checkoutExtraFields(lot.extraFields, vehicleDetails, extraFieldValues);
 
   const buildReservationBody = (
     stripePaymentIntentId: string,
@@ -606,10 +686,7 @@ export function CheckoutForm({
     // `license_plate_number`, …) gets the vehicle step's answers under ITS
     // names; typed extra fields still win. Blank here = ResLab "Validation
     // error" after the card is authorised (2026-09-25, BNA lot 471).
-    const extraFields: Record<string, string> = {
-      ...typedExtraFieldsExcludingVehicle(),
-      ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
-    };
+    const extraFields = extraFieldsForRequest();
 
     return {
       locationId: lot.reslabLocationId,
@@ -623,7 +700,10 @@ export function CheckoutForm({
       // Location info for Supabase
       locationName: lot.name,
       locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
-      airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+      // Informational only — the server derives airport_code itself (PR #26).
+      // Set for direct lots; a ResLab lot loaded by id has no airport context
+      // here (the old `lot.id.split("-")[0]` only ever produced "RESLAB").
+      airportCode: lot.airportCode || "",
       // Pricing info
       subtotal: costData?.subtotal || priceBreakdown.subtotal,
       taxTotal: costData?.taxTotal || priceBreakdown.taxes,
@@ -760,7 +840,8 @@ export function CheckoutForm({
         if (DEV_SKIP_PAYMENT) {
           // Dev mode without full API data - create mock confirmation
           console.log("[DEV MODE] Creating mock reservation (missing costsToken or parkingTypeId)");
-          const confirmationId = `TRP-${Date.now().toString(36).toUpperCase()}`;
+          // DEV- so a mock id never matches the real TRP- confirmation format (direct lots, A-21).
+          const confirmationId = `DEV-${Date.now().toString(36).toUpperCase()}`;
 
           // Store lot data for confirmation page (in case lot ID isn't in mock data)
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
@@ -780,11 +861,8 @@ export function CheckoutForm({
         console.log("[DEV MODE] Skipping Stripe payment, creating ResLab reservation directly");
       }
 
-      // Build extra fields for API (same aliasing as buildReservationBody)
-      const extraFields: Record<string, string> = {
-        ...typedExtraFieldsExcludingVehicle(),
-        ...vehicleFieldAliasValues(lot.extraFields, vehicleDetails),
-      };
+      // Build extra fields for API (same function as buildReservationBody)
+      const extraFields = extraFieldsForRequest();
 
       // Create reservation via API
       const response = await fetch("/api/reservations", {
@@ -804,7 +882,7 @@ export function CheckoutForm({
           // Location info for Supabase
           locationName: lot.name,
           locationAddress: `${lot.address}, ${lot.city}, ${lot.state}`,
-          airportCode: lot.id.split("-")[0]?.toUpperCase() || "",
+          airportCode: lot.airportCode || "",
           // Pricing info
           subtotal: costData.subtotal || priceBreakdown.subtotal,
           taxTotal: costData.taxTotal || priceBreakdown.taxes,
@@ -846,7 +924,7 @@ export function CheckoutForm({
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Main Form */}
       <div className="lg:col-span-2">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
+        <div ref={formAreaRef} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 sm:p-8">
           <CheckoutSteps currentStep={currentStep} />
 
           {currentStep === "details" && (
@@ -873,9 +951,16 @@ export function CheckoutForm({
                 // so a hidden field is never sent blank.
                 filledByVehicleStep={new Set((lot.extraFields ?? []).filter((f) => isVehicleFieldName(f.name)).map((f) => f.name))}
                 extraFieldValues={extraFieldValues}
-                onExtraFieldChange={(name, value) =>
-                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }))
-                }
+                extraFieldErrors={extraFieldErrors}
+                onExtraFieldChange={(name, value) => {
+                  setExtraFieldValues((prev) => ({ ...prev, [name]: value }));
+                  setExtraFieldErrors((prev) => {
+                    if (!(name in prev)) return prev;
+                    const next = { ...prev };
+                    delete next[name];
+                    return next;
+                  });
+                }}
                 isLoading={isCreatingPaymentIntent}
               />
               {submitError && (
