@@ -122,20 +122,28 @@ export function buildRecoveryEmail(
       ? `${lot.airportCode} airport parking`
       : "the parking you picked";
   const dates = `${displayDate(c.checkin)}, ${c.checkinTime} to ${displayDate(c.checkout)}, ${c.checkoutTime}`;
+  const dateRange = `${displayDate(c.checkin)} – ${displayDate(c.checkout)}`;
   const subject = lot.airportCode
-    ? `Your ${lot.airportCode} parking booking isn't finished`
-    : "Your parking booking isn't finished";
+    ? `Finish your ${lot.airportCode} parking booking`
+    : "Finish your parking booking";
   // The PaymentIntent amount is what the card would have been charged, so it
   // already includes any protection plan or promo chosen at the time; the
   // resume link carries neither, and the checkout page re-prices live.
-  const amountLabel = "Due at booking when you left (incl. any protection plan or promo you'd chosen)";
+  const amountLabel = "Price when you left";
   const why = "You're getting this because you started a booking at triplypro.com with this address.";
+  // Plain and friendly (Tom, 2026-10-08): what they started, that finishing
+  // reserves it, the details, the button. "Hasn't been charged" is a
+  // footnote, not the headline. Speaks only for THIS attempt — the customer
+  // may hold an earlier booking at the same lot (a date-change attempt).
+  // Nothing we cannot stand behind: no discount, no countdown, no "only N
+  // left", and no claim that the spot is still available (we do not know).
+  const intro = `You started booking parking at ${where} for ${dateRange} but didn't complete it. Finish the booking to reserve your spot.`;
+  const charged = "Your card hasn't been charged. Prices can change, so you'll see the current price before you pay.";
 
-  // "This booking", not "nothing is reserved": the customer may well hold an
-  // earlier booking at the same lot (a date-change attempt) — the copy must
-  // only speak for the attempt it is about.
   const text = [
-    "You started booking parking on Triply but didn't finish. This booking isn't reserved and you have not been charged for it.",
+    "You're almost done",
+    "",
+    intro,
     "",
     `Lot: ${where}`,
     `Dates: ${dates}`,
@@ -143,7 +151,8 @@ export function buildRecoveryEmail(
     "",
     `Finish your booking: ${resumeUrl}`,
     "",
-    "Prices and availability can change. You'll see the current price before you pay.",
+    charged,
+    "Questions? Visit https://www.triplypro.com/help",
     "",
     why,
     `Triply · ${postalAddress}`,
@@ -156,9 +165,9 @@ export function buildRecoveryEmail(
           <h1 style="margin: 0; color: #f87356; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Triply</h1>
         </div>
         <div style="padding: 40px;">
-          <h2 style="margin: 0 0 16px; color: #111827; font-size: 20px; font-weight: 700;">Your booking isn't finished</h2>
+          <h2 style="margin: 0 0 16px; color: #111827; font-size: 20px; font-weight: 700;">You're almost done</h2>
           <p style="font-size: 15px; color: #374151; line-height: 1.6; margin: 0 0 20px;">
-            You started booking parking but didn't finish. This booking isn't reserved and you have not been charged for it.
+            ${escapeHtml(intro)}
           </p>
           <table style="width: 100%; font-size: 15px; color: #374151; border-collapse: collapse;">
             <tr><td style="padding: 6px 0; color: #6b7280; width: 40%;">Lot</td><td style="padding: 6px 0;">${escapeHtml(where)}</td></tr>
@@ -171,7 +180,8 @@ export function buildRecoveryEmail(
             </a>
           </div>
           <p style="font-size: 13px; color: #6b7280; line-height: 1.6; margin: 0;">
-            Prices and availability can change. You'll see the current price before you pay.
+            ${escapeHtml(charged)}
+            Questions? Visit our <a href="https://www.triplypro.com/help" style="color: #f87356; text-decoration: none;">help page</a>.
           </p>
         </div>
         <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">

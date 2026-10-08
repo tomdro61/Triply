@@ -954,15 +954,22 @@ describe("GET /api/cron/checkout-recovery — the email", () => {
     await GET(req());
     const msg = resendSend.mock.calls[0][0];
     expect(msg.to).toEqual(["alice@example.com"]);
-    expect(msg.subject).toBe("Your JFK parking booking isn't finished");
+    expect(msg.subject).toBe("Finish your JFK parking booking");
+    expect(msg.html).toContain("You're almost done");
     expect(msg.html).toContain("Jet Parking JFK (JFK)");
     expect(msg.html).toContain("$84.23");
     expect(msg.html).toContain("10:00 AM");
-    expect(msg.html).toContain("protection plan or promo");
+    expect(msg.html).toContain("Price when you left");
+    // The apostrophe is HTML-escaped in the html body; the text body is literal.
+    expect(msg.html).toContain("Your card hasn&#39;t been charged");
+    expect(msg.text).toContain("Your card hasn't been charged");
+    expect(msg.html).toContain("https://www.triplypro.com/help");
     expect(msg.html).toContain(POSTAL);
     expect(msg.text).toContain(POSTAL);
     expect(msg.text).toContain("You're getting this because you started a booking");
     expect(msg.html).not.toMatch(/one-time/i);
+    // Speaks only for THIS attempt and claims nothing we cannot verify.
+    expect(msg.html).not.toMatch(/nothing is reserved|still available/i);
 
     const resume = new URL(msg.text.match(/Finish your booking: (\S+)/)[1]);
     expect(resume.pathname).toBe("/checkout");
