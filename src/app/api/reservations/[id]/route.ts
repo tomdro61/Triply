@@ -124,7 +124,7 @@ export async function GET(
     const adminClientForVehicle = await createAdminClient();
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
+      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status, airport_code")
       .eq("reslab_reservation_number", id)
       .single();
 
@@ -210,6 +210,9 @@ export async function GET(
         protectionPlanPrice,
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
+        // The airport the booking was made for (e.g. "JFK"), for the GA4
+        // purchase event. The lot id cannot supply it — it is "reslab-<n>".
+        airportCode: bookingData?.airport_code || null,
         dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         customer: {

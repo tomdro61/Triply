@@ -36,6 +36,7 @@ interface ReservationData {
   protectionPlanPrice: number;
   pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
   pgIdentifier: string | null;
+  airportCode: string | null;
   customer: {
     firstName: string;
     lastName: string;
@@ -100,10 +101,10 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         grandTotal: reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
-        airportCode: lotId?.split("-")[0]?.toUpperCase(),
+        airportCode: reservation.airportCode || undefined,
       });
     }
-  }, [reservation, confirmationId, serviceFeeParam, lotId]);
+  }, [reservation, confirmationId, serviceFeeParam]);
 
   // Check if user is logged in
   useEffect(() => {
