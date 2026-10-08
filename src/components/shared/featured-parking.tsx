@@ -118,7 +118,7 @@ export function FeaturedParking({ defaultAirport = "JFK" }: FeaturedParkingProps
               Featured Parking Options
             </h2>
             <p className="text-gray-500">
-              Top-rated lots with the best prices
+              Recommended lots, ranked by bookings and price
             </p>
           </div>
 

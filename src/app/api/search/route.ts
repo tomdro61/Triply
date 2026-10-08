@@ -159,9 +159,13 @@ export async function GET(request: NextRequest) {
     // and re-create the ResLab min-price amplification loop (review C11).
     // 60 s is short enough that direct lots reappear promptly once the read
     // recovers.
+    //
+    // `rankingDegraded` (the booking counts behind the Recommended order could
+    // not be read; the list fell back to cheapest-first) is the same shape:
+    // complete and correctly priced, so short TTL rather than no-store.
     const cacheControl =
       result.total > 0 && !result.degraded
-        ? result.stale || result.directUnavailable
+        ? result.stale || result.directUnavailable || result.rankingDegraded
           ? "public, s-maxage=60, stale-while-revalidate=300"
           : "public, s-maxage=300, stale-while-revalidate=600"
         : "no-store";

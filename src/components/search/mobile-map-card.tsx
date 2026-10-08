@@ -4,6 +4,7 @@ import Image from "next/image";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
   lot: UnifiedLot;
@@ -46,6 +47,7 @@ export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
         {/* Info */}
         <div className="flex-1 min-w-0 flex flex-col justify-between">
           <div>
+            <LotBadges badges={lot.badges} className="mb-1" />
             <h3 className="font-bold text-gray-900 text-base leading-snug line-clamp-2">
               {lot.name}
             </h3>

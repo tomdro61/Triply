@@ -110,6 +110,33 @@ describe("sitemap lot segments", () => {
     expect(channel.getChannelLocationsNoSweep).toHaveBeenCalledTimes(1);
   });
 
+  it("lists each lot under its own airport only (JFK/LGA overlap); the kill switch restores both", async () => {
+    const lgaIndex = productionAirports.findIndex((a) => a.code === "LGA");
+    const LGA_SEGMENT = LOTS_ID_START + Math.floor(lgaIndex / AIRPORTS_PER_LOT_SEGMENT);
+    const lots = [
+      loc(275, "PARK AC JFK Airport Parking", "40.6637560", "-73.8152580"),
+      loc(159, "Hyatt Place Flushing", "40.7589732", "-73.8323536"),
+    ];
+    channel.getChannelLocationsNoSweep.mockResolvedValue(lots);
+    const both = async () =>
+      (await Promise.all([...new Set([JFK_SEGMENT, LGA_SEGMENT])].map(segment))).flat().map((u) => u.url);
+
+    let urls = await both();
+    expect(urls.some((u) => u.endsWith("/new-york-jfk/airport-parking/park-ac-jfk-airport-parking"))).toBe(true);
+    expect(urls.some((u) => u.endsWith("/new-york-jfk/airport-parking/hyatt-place-flushing"))).toBe(false);
+    expect(urls.some((u) => u.endsWith("/new-york-lga/airport-parking/hyatt-place-flushing"))).toBe(true);
+    expect(urls.some((u) => u.endsWith("/new-york-lga/airport-parking/park-ac-jfk-airport-parking"))).toBe(false);
+
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    try {
+      urls = await both();
+      expect(urls.some((u) => u.endsWith("/new-york-jfk/airport-parking/hyatt-place-flushing"))).toBe(true);
+      expect(urls.some((u) => u.endsWith("/new-york-lga/airport-parking/park-ac-jfk-airport-parking"))).toBe(true);
+    } finally {
+      delete process.env.SEARCH_OWN_AIRPORT_FILTER;
+    }
+  });
+
   it("lists one URL when two lots share a name", async () => {
     channel.getChannelLocationsNoSweep.mockResolvedValue([
       loc(1, "Same Name", "40.6600", "-73.7900"),

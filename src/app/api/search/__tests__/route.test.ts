@@ -239,6 +239,18 @@ describe("GET /api/search", () => {
     );
   });
 
+  it("caches a result whose booking counts were unreadable briefly — never no-store (min-price amplification)", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: false, stale: false, rankingDegraded: true });
+    const res = await GET(req());
+    expect(res.headers.get("Cache-Control")).toBe("public, s-maxage=60, stale-while-revalidate=300");
+  });
+
+  it("degraded still wins over rankingDegraded → no-store", async () => {
+    searchParkingMock.mockResolvedValue({ ...okResult, total: 2, degraded: true, stale: false, rankingDegraded: true });
+    const res = await GET(req());
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("a ResLab outage answered with direct lots is degraded and therefore no-store", async () => {
     searchParkingMock.mockResolvedValue({ ...okResult, total: 1, degraded: true, stale: false, reslabUnavailable: true });
 

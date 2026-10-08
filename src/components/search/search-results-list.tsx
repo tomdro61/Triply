@@ -60,8 +60,10 @@ export function SearchResultsList({
               className="w-full pl-3 pr-8 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 focus:ring-1 focus:ring-brand-orange focus:border-brand-orange cursor-pointer hover:bg-gray-50 transition-colors appearance-none shadow-sm"
             >
               <option value="popularity">Recommended</option>
-              <option value="price_asc">Lowest Price</option>
-              <option value="price_desc">Highest Price</option>
+              {/* Sorted by the trip total (incl. tax + fee), matching the
+                  "Lowest total" badge — not the per-day rate. */}
+              <option value="price_asc">Lowest Total</option>
+              <option value="price_desc">Highest Total</option>
               <option value="rating">Top Rated</option>
               <option value="distance">Closest</option>
             </select>

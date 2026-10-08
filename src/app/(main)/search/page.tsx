@@ -16,6 +16,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
+import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
 
 function SearchPageContent() {
   const router = useRouter();
@@ -146,15 +147,13 @@ function SearchPageContent() {
   const sortedLots = useMemo(() => {
     const sorted = [...lots];
     switch (sortBy) {
+      // Same key as the server's price sorts and the "Lowest total" badge: the
+      // total the card shows (src/lib/search/ranking.ts), not the per-day rate.
       case "price_asc":
-        sorted.sort(
-          (a, b) => (a.pricing?.minPrice ?? 0) - (b.pricing?.minPrice ?? 0)
-        );
+        sorted.sort(compareByTotal);
         break;
       case "price_desc":
-        sorted.sort(
-          (a, b) => (b.pricing?.minPrice ?? 0) - (a.pricing?.minPrice ?? 0)
-        );
+        sorted.sort(compareByTotalDesc);
         break;
       case "rating":
         sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));

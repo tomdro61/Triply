@@ -11,6 +11,12 @@ export interface Airport {
   enabled: boolean;
   isTest?: boolean; // Flag for test locations
   reslabLocationId?: number; // Direct mapping to ResLab location ID
+  /**
+   * A cruise port, not an airport. Its lots legitimately serve the airport next
+   * door too (Port Everglades ↔ FLL), so it never takes lots away from an
+   * airport's results and never loses them — see src/lib/search/airport-ownership.ts.
+   */
+  isSeaport?: boolean;
 }
 
 export const airports: Airport[] = [
@@ -676,6 +682,7 @@ export const airports: Airport[] = [
     longitude: -80.1129,
     slug: "fort-lauderdale-poe",
     enabled: true,
+    isSeaport: true,
   },
   {
     code: "PVD",

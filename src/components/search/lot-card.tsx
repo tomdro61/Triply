@@ -22,6 +22,7 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
   lot: UnifiedLot;
@@ -133,6 +134,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
         {/* Header Row */}
         <div className="flex justify-between items-start mb-1">
           <div>
+            <LotBadges badges={lot.badges} className="mb-1.5" />
             <h3 className="font-bold text-gray-900 text-lg leading-tight">
               {lot.name}
             </h3>

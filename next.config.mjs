@@ -43,6 +43,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "**.public.blob.vercel-storage.com",
       },
+      {
+        // ResLab serves some hotel lots' photos from this CDN (e.g. Hampton Inn
+        // JFK). Unlisted, the image optimizer 400s them — a broken photo on the
+        // search card in production, a crashed /search page in development.
+        protocol: "https",
+        hostname: "cdn.worldota.net",
+      },
     ],
   },
 
