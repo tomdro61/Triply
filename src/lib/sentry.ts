@@ -123,6 +123,45 @@ export function captureParkGuardError(
 }
 
 /**
+ * /api/contact dropped a submission because its honeypot field was filled.
+ * Info level, one fingerprint: the point is that a drop is never SILENT — a
+ * real lead caught by a password manager's identity fill can be found, and
+ * the false-positive rate can be read off the event count. No message body,
+ * no full address: subject, the address's domain and the IP key only.
+ */
+// Throttled per instance: a bot hammering the honeypot must not mint one
+// Sentry event per request (the TRIPLY-13 flood class). One event per
+// HONEYPOT_CAPTURE_INTERVAL_MS, carrying how many drops it stands for.
+const HONEYPOT_CAPTURE_INTERVAL_MS = 10 * 60 * 1000;
+let lastHoneypotCaptureAt = 0;
+let honeypotSuppressed = 0;
+/** Tests only. */
+export function __resetHoneypotCaptureForTests(): void {
+  lastHoneypotCaptureAt = 0;
+  honeypotSuppressed = 0;
+}
+export function captureContactHoneypotDrop(context: { subject: string; emailDomain: string; ipKey: string }) {
+  const now = Date.now();
+  if (now - lastHoneypotCaptureAt < HONEYPOT_CAPTURE_INTERVAL_MS) {
+    honeypotSuppressed++;
+    return;
+  }
+  lastHoneypotCaptureAt = now;
+  const suppressedSinceLastCapture = honeypotSuppressed;
+  honeypotSuppressed = 0;
+  const emailDomain = context.emailDomain.slice(0, 100); // caller text; keep the title bounded
+  Sentry.withScope((scope) => {
+    scope.setLevel("info");
+    scope.setTag("contact.honeypot", "true");
+    scope.setFingerprint(["contact", "honeypot-drop"]);
+    scope.setContext("contact", { ...context, emailDomain, suppressedSinceLastCapture });
+    Sentry.captureMessage(
+      `Contact form submission dropped by honeypot (${context.subject || "no subject"}, @${emailDomain || "?"}; +${suppressedSinceLastCapture} suppressed)`
+    );
+  });
+}
+
+/**
  * A Stripe payment on our account that did NOT come from checkout — a Payment
  * Link, a dashboard charge, a manual invoice. Nothing to fulfil, nothing wrong.
  * Recorded at info level under its own fingerprint so it is visible without

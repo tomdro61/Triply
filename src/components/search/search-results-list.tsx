@@ -100,10 +100,11 @@ export function SearchResultsList({
             <p className="text-gray-500">No parking lots found for your search criteria.</p>
           </div>
         ) : (
-          lots.map((lot) => (
+          lots.map((lot, index) => (
             <LotCard
               key={lot.id}
               lot={lot}
+              isFirst={index === 0}
               isHovered={hoveredId === lot.id}
               onHover={onHover}
               onSelect={onSelect}

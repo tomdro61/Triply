@@ -10,10 +10,40 @@ import { PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
  */
 export const protectionPlanCodeSchema = z.enum(PROTECTION_PLAN_CODES).nullable();
 
+/**
+ * Honeypot field name for /api/contact. Both forms (/contact, /partners)
+ * render an input with this name that is hidden from people (off-screen,
+ * tabindex -1, autocomplete off, password-manager ignore attributes) but
+ * filled by form-filling bots; the route drops a submission whose value is
+ * non-empty and records the drop. A nonsense token on purpose: a semantic
+ * name ("website") is one 1Password/LastPass/Bitwarden fill from an identity,
+ * which would silently drop a real lead. Lives here, not in the route file,
+ * because Next only allows HTTP-method exports from route.ts.
+ */
+export const CONTACT_HONEYPOT_FIELD = "hp_x7q";
+
+/**
+ * The only subjects /api/contact accepts — exactly the /contact dropdown
+ * (and /partners always sends "Partnership Inquiry"). An enum rather than
+ * free text because the subject is repeated back in the confirmation email
+ * we send FROM our verified domain TO a caller-supplied address: free text
+ * there is a spam relay ("Claim your refund at …"), escaping or not.
+ */
+export const CONTACT_SUBJECTS = [
+  "General Inquiry",
+  "Booking Help",
+  "Cancellation Request",
+  "Payment Issue",
+  "Feedback",
+  "Partnership Inquiry",
+  "Other",
+] as const;
+export type ContactSubject = (typeof CONTACT_SUBJECTS)[number];
+
 export const contactFormSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
   email: z.string().email("Invalid email address").max(254),
-  subject: z.string().min(1, "Subject is required").max(500),
+  subject: z.enum(CONTACT_SUBJECTS, { message: "Please choose a subject" }),
   message: z.string().min(1, "Message is required").max(5000),
 });
 
