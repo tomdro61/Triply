@@ -6,6 +6,10 @@ import type { RecoveryCandidate } from "./select";
  * The one "you didn't finish booking" email. Short, plain, honest: what they
  * picked, what it cost at checkout, one button back to the same checkout. No
  * discount, no countdown, no "only N left" — nothing we cannot stand behind.
+ *
+ * It is COMMERCIAL mail (no transaction completed), so the footer carries the
+ * business postal address (CAN-SPAM) and says plainly why the recipient got
+ * it; "one-time" was removed because the per-address cap is 7 days, not ever.
  */
 
 export interface RecoveryLotInfo {
@@ -14,6 +18,9 @@ export interface RecoveryLotInfo {
   /** Resolved airport code; null when it could not be resolved. */
   airportCode: string | null;
 }
+
+/** Deadline for one Resend call. The cron must settle inside its 60 s. */
+export const RESEND_SEND_TIMEOUT_MS = 10_000;
 
 /**
  * Resend's per-call failure with the HTTP status kept, so the cron can tell a
@@ -76,7 +83,8 @@ export function buildResumeUrl(c: RecoveryCandidate): string {
 export function buildRecoveryEmail(
   c: RecoveryCandidate,
   lot: RecoveryLotInfo,
-  unsubscribeUrl: string
+  unsubscribeUrl: string,
+  postalAddress: string
 ): { subject: string; html: string; text: string } {
   const resumeUrl = buildResumeUrl(c);
   const amount = `$${(c.amountCents / 100).toFixed(2)}`;
@@ -89,19 +97,25 @@ export function buildRecoveryEmail(
   const subject = lot.airportCode
     ? `Your ${lot.airportCode} parking booking isn't finished`
     : "Your parking booking isn't finished";
+  // The PaymentIntent amount is what the card would have been charged, so it
+  // already includes any protection plan or promo chosen at the time; the
+  // resume link carries neither, and the checkout page re-prices live.
+  const amountLabel = "Due at booking when you left (incl. any protection plan or promo you'd chosen)";
+  const why = "You're getting this because you started a booking at triplypro.com with this address.";
 
   const text = [
     "You started booking parking on Triply but didn't finish, so nothing is reserved and you have not been charged.",
     "",
     `Lot: ${where}`,
     `Dates: ${dates}`,
-    `Due at booking when you left: ${amount}`,
+    `${amountLabel}: ${amount}`,
     "",
     `Finish your booking: ${resumeUrl}`,
     "",
     "Prices and availability can change. You'll see the current price before you pay.",
     "",
-    "You're getting this one-time email because you started a booking at triplypro.com with this address.",
+    why,
+    `Triply · ${postalAddress}`,
     `Unsubscribe: ${unsubscribeUrl}`,
   ].join("\n");
 
@@ -118,7 +132,7 @@ export function buildRecoveryEmail(
           <table style="width: 100%; font-size: 15px; color: #374151; border-collapse: collapse;">
             <tr><td style="padding: 6px 0; color: #6b7280; width: 40%;">Lot</td><td style="padding: 6px 0;">${escapeHtml(where)}</td></tr>
             <tr><td style="padding: 6px 0; color: #6b7280;">Dates</td><td style="padding: 6px 0;">${escapeHtml(dates)}</td></tr>
-            <tr><td style="padding: 6px 0; color: #6b7280;">Due at booking when you left</td><td style="padding: 6px 0;">${amount}</td></tr>
+            <tr><td style="padding: 6px 0; color: #6b7280;">${escapeHtml(amountLabel)}</td><td style="padding: 6px 0;">${amount}</td></tr>
           </table>
           <div style="text-align: center; margin: 30px 0;">
             <a href="${escapeHtml(resumeUrl)}" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
@@ -131,7 +145,8 @@ export function buildRecoveryEmail(
         </div>
         <div style="background-color: #f9fafb; padding: 24px 40px; border-top: 1px solid #e5e7eb; text-align: center;">
           <p style="margin: 0; color: #9ca3af; font-size: 12px;">
-            You're getting this one-time email because you started a booking at triplypro.com with this address.<br>
+            ${escapeHtml(why)}<br>
+            Triply · ${escapeHtml(postalAddress)}<br>
             <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a><br>
             <a href="${escapeHtml(unsubscribeUrl)}" style="color: #9ca3af; text-decoration: underline;">Unsubscribe</a>
           </p>
@@ -142,24 +157,54 @@ export function buildRecoveryEmail(
   return { subject, html, text };
 }
 
+/** Resend's Idempotency-Key for one abandoned checkout: keyed on the
+ *  PaymentIntent (never the ledger row id, which changes when a claim is
+ *  released and retried), so a lost response + retry cannot send twice. */
+export const recoveryIdempotencyKey = (paymentIntentId: string) => `checkout-recovery/${paymentIntentId}`;
+
 export async function sendRecoveryEmail(
   c: RecoveryCandidate,
   lot: RecoveryLotInfo,
-  unsubscribeUrl: string
+  unsubscribeUrl: string,
+  postalAddress: string
 ): Promise<void> {
-  const { subject, html, text } = buildRecoveryEmail(c, lot, unsubscribeUrl);
-  // resend never throws for an API-level failure — it resolves { error }.
-  const { error } = await resend.emails.send({
-    from: FROM_EMAIL,
-    to: [c.email],
-    subject,
-    html,
-    text,
-    headers: {
-      "List-Unsubscribe": `<${unsubscribeUrl}>`,
-      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  const { subject, html, text } = buildRecoveryEmail(c, lot, unsubscribeUrl, postalAddress);
+  // resend never throws for an API-level failure — it resolves { error }. The
+  // race is the deadline: a hung send must surface as a (transient) failure,
+  // not run the cron into its function timeout with the row left `claimed`.
+  const send = resend.emails.send(
+    {
+      from: FROM_EMAIL,
+      to: [c.email],
+      subject,
+      html,
+      text,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
     },
+    { idempotencyKey: recoveryIdempotencyKey(c.paymentIntentId) }
+  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () =>
+        reject(
+          new RecoverySendError(
+            `Resend did not answer within ${RESEND_SEND_TIMEOUT_MS} ms for ${c.paymentIntentId}`,
+            undefined
+          )
+        ),
+      RESEND_SEND_TIMEOUT_MS
+    );
   });
+  let error: { message: string; statusCode?: unknown } | null;
+  try {
+    ({ error } = await Promise.race([send, timeout]));
+  } finally {
+    clearTimeout(timer);
+  }
   if (error) {
     const statusCode =
       typeof (error as { statusCode?: unknown }).statusCode === "number"

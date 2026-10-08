@@ -14,6 +14,19 @@ import { convertTo24Hour } from "@/lib/utils/time";
  * got a card through. The PaymentIntent is the ONLY durable record of that
  * moment — pending_bookings is staged only when Pay Now is clicked (see
  * /api/reservations/pending), so a customer who never clicked it has no row.
+ *
+ * THE TRIP, NOT THE EMAIL, decides "already handled" (review of PR #44,
+ * 2026-10-07). checkout-form.tsx mints a NEW PaymentIntent every time the
+ * customer re-enters the payment step (Back button, reopening the URL to check
+ * it went through, fixing a typo in the email), so an abandoned PaymentIntent
+ * routinely sits next to a paid one for the SAME trip — created earlier or
+ * later, under the same or a different email. An email keyed on "same address,
+ * paid afterwards" told paying customers "nothing is reserved" and sent trip
+ * details to mistyped addresses. So: any other PaymentIntent for the same trip
+ * fingerprint (lot + dates + times) that is NOT itself sitting at
+ * requires_payment_method — paid, authorised, mid-3DS, or cancelled by our
+ * own fulfilment — means this trip was attempted and must not be chased. The
+ * cron adds the same fingerprint check against bookings and pending_bookings.
  */
 
 /** Old enough that the customer has plainly stopped (not mid-typing a card). */
@@ -22,6 +35,9 @@ export const RECOVERY_MIN_AGE_MS = 45 * 60_000;
 export const RECOVERY_MAX_AGE_MS = 24 * 60 * 60_000;
 /** Never email about a check-in that starts within this long. */
 export const RECOVERY_MIN_LEAD_MS = 60 * 60_000;
+
+/** The only status that means "reached payment, never got a card through". */
+export const ABANDONED_STATUS: Stripe.PaymentIntent.Status = "requires_payment_method";
 
 /** A PaymentIntent in any of these has money behind it (authorized, captured
  *  or settling) — i.e. the customer DID pay. Manual capture puts cards in
@@ -35,17 +51,38 @@ export const PAID_STATUSES: ReadonlySet<Stripe.PaymentIntent.Status> = new Set([
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{1,2}:\d{2}\s[AP]M$/;
 
-/** What /api/checkout/lot stamps on every PaymentIntent. Validated, never
- *  defaulted: a PaymentIntent missing any of these is skipped, not guessed. */
-export const recoveryMetadataSchema = z.object({
-  customerEmail: z.string().trim().toLowerCase().pipe(z.string().email()),
+/** The fields that identify a TRIP. Any PaymentIntent carrying them can be
+ *  fingerprinted, whatever its status or email. */
+export const tripSchema = z.object({
   lotId: z.string().min(1),
-  locationId: z.string().regex(/^\d+$/).transform(Number),
   checkin: z.string().regex(DATE_RE),
   checkout: z.string().regex(DATE_RE),
   checkinTime: z.string().regex(TIME_RE),
   checkoutTime: z.string().regex(TIME_RE),
 });
+
+/** What /api/checkout/lot stamps on every PaymentIntent. Validated, never
+ *  defaulted: a PaymentIntent missing any of these is skipped, not guessed. */
+export const recoveryMetadataSchema = tripSchema.extend({
+  customerEmail: z.string().trim().toLowerCase().pipe(z.string().email()),
+  locationId: z.string().regex(/^\d+$/).transform(Number),
+});
+
+export function tripFingerprint(t: z.infer<typeof tripSchema>): string {
+  return `${t.lotId}|${t.checkin} ${t.checkinTime}|${t.checkout} ${t.checkoutTime}`;
+}
+
+/** Fingerprint from raw PaymentIntent metadata, or null when it cannot be read. */
+export function tripFingerprintOf(metadata: Stripe.Metadata | null | undefined): string | null {
+  const parsed = tripSchema.safeParse(metadata ?? {});
+  return parsed.success ? tripFingerprint(parsed.data) : null;
+}
+
+/** The literal "YYYY-MM-DD HH:mm:ss" string bookings / pending_bookings store
+ *  for a date + "h:mm AM" pair — built by string formatting, never Date math. */
+export function literalWallClock(date: string, time12h: string): string {
+  return `${date} ${convertTo24Hour(time12h)}:00`;
+}
 
 export type PaymentIntentLike = Pick<
   Stripe.PaymentIntent,
@@ -66,6 +103,32 @@ export interface RecoveryCandidate {
   checkout: string;
   checkinTime: string;
   checkoutTime: string;
+  /** lot + dates + times — what "the same trip" means everywhere in this feature. */
+  trip: string;
+  /** The literal wall-clock strings bookings.check_in/check_out and
+   *  pending_bookings.from_date/to_date hold for this trip. */
+  fromDate: string;
+  toDate: string;
+  /** The same trip as the database stores it — see storedTripKey. */
+  storedTrip: string;
+}
+
+/**
+ * The trip as bookings / pending_bookings identify it: ResLab location +
+ * the two literal wall-clock strings. PostgREST returns a TIMESTAMP column as
+ * "2026-10-17T10:00:00" and the TEXT columns hold "2026-10-17 10:00:00";
+ * normalising the separator (and dropping any fractional part) makes the two
+ * comparable — still string work, never a Date.
+ */
+export function storedTripKey(locationId: number | string, checkIn: unknown, checkOut: unknown): string | null {
+  const norm = (v: unknown): string | null => {
+    if (typeof v !== "string" || v.length < 19) return null;
+    return v.slice(0, 19).replace("T", " ");
+  };
+  const from = norm(checkIn);
+  const to = norm(checkOut);
+  if (from === null || to === null) return null;
+  return `${Number(locationId)}|${from}|${to}`;
 }
 
 export interface SelectionResult {
@@ -74,8 +137,15 @@ export interface SelectionResult {
     tooYoung: number;
     tooOld: number;
     invalidMetadata: number;
+    blockedLot: number;
+    /** `direct-*` lots cannot be booked yet (DIRECT_BOOKING_OPEN); never
+     *  invite anyone back to a checkout that refuses them. */
+    directLot: number;
     checkinPassed: number;
     paidSince: number;
+    /** Another PaymentIntent for the same trip was paid, authorised, mid-3DS
+     *  or cancelled by fulfilment — by anyone, before or after this one. */
+    tripAttempted: number;
     duplicateEmail: number;
   };
 }
@@ -98,22 +168,40 @@ export function latestLocalWallClock(nowMs: number): string {
   return latest;
 }
 
+export interface SelectionOptions {
+  /** ResLab locations hidden from the site (BLOCKED_RESLAB_LOCATION_IDS):
+   *  never invite anyone back to a lot we have deliberately pulled. */
+  blockedLocationIds?: ReadonlySet<number>;
+}
+
 export function selectRecoveryCandidates(
   paymentIntents: readonly PaymentIntentLike[],
-  nowMs: number
+  nowMs: number,
+  options: SelectionOptions = {}
 ): SelectionResult {
   const skipped: SelectionResult["skipped"] = {
     tooYoung: 0,
     tooOld: 0,
     invalidMetadata: 0,
+    blockedLot: 0,
+    directLot: 0,
     checkinPassed: 0,
     paidSince: 0,
+    tripAttempted: 0,
     duplicateEmail: 0,
   };
+  const blocked = options.blockedLocationIds ?? new Set<number>();
 
   // Latest creation time of a PAID PaymentIntent per (lowercased) email.
   const paidAt = new Map<string, number>();
+  // Every trip some PaymentIntent got PAST the payment form on — whatever the
+  // email, whenever it was created. An abandoned attempt at one of these is
+  // a re-entry (Back, reload, email fix, 3DS retry), not an abandonment.
+  const attemptedTrips = new Set<string>();
   for (const pi of paymentIntents) {
+    if (pi.status === ABANDONED_STATUS) continue;
+    const trip = tripFingerprintOf(pi.metadata);
+    if (trip) attemptedTrips.add(trip);
     if (!PAID_STATUSES.has(pi.status)) continue;
     const raw = pi.metadata?.customerEmail;
     if (!raw) continue;
@@ -126,7 +214,7 @@ export function selectRecoveryCandidates(
   const byEmail = new Map<string, RecoveryCandidate>();
 
   for (const pi of paymentIntents) {
-    if (pi.status !== "requires_payment_method") continue;
+    if (pi.status !== ABANDONED_STATUS) continue;
     const createdMs = pi.created * 1000;
     const age = nowMs - createdMs;
     if (age < RECOVERY_MIN_AGE_MS) {
@@ -145,6 +233,15 @@ export function selectRecoveryCandidates(
     }
     const m = parsed.data;
 
+    if (blocked.has(m.locationId)) {
+      skipped.blockedLot++;
+      continue;
+    }
+    if (m.lotId.startsWith("direct-")) {
+      skipped.directLot++;
+      continue;
+    }
+
     // String comparison of two "YYYY-MM-DD HH:mm" wall clocks — no Date math
     // on the booking time.
     const checkinWallClock = `${m.checkin} ${convertTo24Hour(m.checkinTime)}`;
@@ -154,12 +251,19 @@ export function selectRecoveryCandidates(
     }
 
     // Paid on a PaymentIntent created at/after this one — the usual "declined,
-    // tried again" or "came back and finished" shape. A paid PI created
-    // BEFORE this one is a different, earlier trip and does not count; the
-    // cron separately checks the bookings table for anything completed since.
+    // tried again" or "came back and finished" shape, same address.
     const paid = paidAt.get(m.customerEmail);
     if (paid !== undefined && paid >= createdMs) {
       skipped.paidSince++;
+      continue;
+    }
+
+    // The same trip got past the payment form on another PaymentIntent — any
+    // address, any order. This is what catches "paid, then pressed Back",
+    // "fixed the email, then paid", and "mid-3DS on the retry".
+    const trip = tripFingerprint(m);
+    if (attemptedTrips.has(trip)) {
+      skipped.tripAttempted++;
       continue;
     }
 
@@ -175,7 +279,12 @@ export function selectRecoveryCandidates(
       checkout: m.checkout,
       checkinTime: m.checkinTime,
       checkoutTime: m.checkoutTime,
+      trip,
+      fromDate: literalWallClock(m.checkin, m.checkinTime),
+      toDate: literalWallClock(m.checkout, m.checkoutTime),
+      storedTrip: "",
     };
+    candidate.storedTrip = storedTripKey(m.locationId, candidate.fromDate, candidate.toDate) as string;
 
     // One email per address per run: keep the most recent abandoned checkout.
     const existing = byEmail.get(m.customerEmail);
