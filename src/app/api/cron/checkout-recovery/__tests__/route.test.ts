@@ -337,6 +337,7 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
         id: "b1",
         customer_id: "cust_1",
         reslab_location_id: 10,
+        status: "confirmed",
         // PostgREST renders a TIMESTAMP column with a "T".
         check_in: storedTrip.from.replace(" ", "T"),
         check_out: storedTrip.to.replace(" ", "T"),
@@ -356,6 +357,7 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
         id: "b1",
         customer_id: "cust_1",
         reslab_location_id: 10,
+        status: "confirmed",
         check_in: `${inTwentyDays}T10:00:00`,
         check_out: `${inTwentyTwoDays}T18:00:00`,
         created_at: minutesAgo(10),
@@ -389,9 +391,41 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     stripeList.mockImplementation(() => (async function* () { yield* stripePis; })());
     db.tables.checkout_recovery_emails = [];
     db.tables.bookings[0].reslab_location_id = 10;
+    db.tables.bookings[0].status = "confirmed";
     const res = await GET(req());
     expect(resendSend).not.toHaveBeenCalled();
     expect((await res.json()).bookedTrip).toBe(1);
+  });
+
+  it("a booking at the same lot that is already over, cancelled or refunded does NOT block — that is a returning customer", async () => {
+    const booking = (overrides: Record<string, unknown>) => ({
+      id: "b1",
+      customer_id: "cust_1",
+      reslab_location_id: 10,
+      check_in: `${inTwentyDays}T10:00:00`,
+      check_out: `${inTwentyTwoDays}T18:00:00`,
+      status: "confirmed",
+      created_at: minutesAgo(20 * 24 * 60),
+      ...overrides,
+    });
+    const cases = [
+      booking({ check_in: `${format(subDays(new Date(), 12), "yyyy-MM-dd")}T10:00:00`, check_out: `${format(subDays(new Date(), 10), "yyyy-MM-dd")}T18:00:00` }),
+      booking({ status: "cancelled" }),
+      booking({ status: "refunded" }),
+    ];
+    for (const b of cases) {
+      vi.clearAllMocks();
+      resendSend.mockResolvedValue({ data: { id: "email_x" }, error: null });
+      noSweep.mockResolvedValue(null);
+      getLocation.mockResolvedValue({ name: "Jet Parking JFK", latitude: "40.6650", longitude: "-73.7900" });
+      stripePis = [pi({ id: "pi_return", ageMin: 60 })];
+      stripeList.mockImplementation(() => (async function* () { yield* stripePis; })());
+      db.tables.checkout_recovery_emails = [];
+      db.tables.customers = [{ id: "cust_1", email: "alice@example.com" }];
+      db.tables.bookings = [b];
+      await GET(req());
+      expect(sentTo(), JSON.stringify(b)).toEqual(["alice@example.com"]);
+    }
   });
 
   it("skips when Pay Now was clicked since for the same trip or by the same address (pending_bookings)", async () => {
@@ -728,9 +762,9 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
     expect(sentTo()).toEqual(["retry@example.com"]);
     const body = await res.json();
     expect(body.sent).toBe(1);
-    // The `sent` row is inside the 7-day cap, so that address never reaches
-    // the claim; the UNIQUE lock is exercised by the overlapping-run test.
-    expect(body.cappedWithin7d).toBe(1);
+    // A candidate's OWN `sent` row never caps it; it reaches the claim, the
+    // INSERT hits 23505, and the re-claim finds no `retry` row → taken.
+    expect(body.alreadyClaimed).toBe(1);
     const row = db.tables.checkout_recovery_emails.find((r) => r.id === "r");
     expect(row?.status).toBe("sent");
     expect(row?.last_error ?? null).toBeNull();
@@ -739,13 +773,48 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
     expect(db.tables.checkout_recovery_emails).toHaveLength(2);
   });
 
-  it("the 7-day cap counts attempts that went out (or are going out), not a parked `retry`", async () => {
+  it("the 7-day cap counts attempts that reached Resend — including a `retry` that timed out after the call — not one that never got there", async () => {
     stripePis = [pi({ id: "pi_new", metadata: { ...tripN(1), customerEmail: "parked@example.com" } })];
     db.tables.checkout_recovery_emails = [
-      { id: "old", stripe_payment_intent_id: "pi_old_attempt", email: "parked@example.com", livemode: true, status: "retry", created_at: minutesAgo(2 * 24 * 60), claimed_at: minutesAgo(2 * 24 * 60) },
+      { id: "old", stripe_payment_intent_id: "pi_old_attempt", email: "parked@example.com", livemode: true, status: "retry", created_at: minutesAgo(2 * 24 * 60), claimed_at: minutesAgo(2 * 24 * 60), send_started_at: null },
     ];
     await GET(req());
     expect(sentTo()).toEqual(["parked@example.com"]);
+
+    vi.clearAllMocks();
+    resendSend.mockResolvedValue({ data: { id: "email_2" }, error: null });
+    noSweep.mockResolvedValue(null);
+    getLocation.mockResolvedValue({ name: "Jet Parking JFK", latitude: "40.6650", longitude: "-73.7900" });
+    stripeList.mockImplementation(() => (async function* () { yield* stripePis; })());
+    db.tables.checkout_recovery_emails = [
+      // Timed out AFTER the Resend call: probably delivered. Counts.
+      { id: "old", stripe_payment_intent_id: "pi_old_attempt", email: "parked@example.com", livemode: true, status: "retry", created_at: minutesAgo(2 * 24 * 60), claimed_at: minutesAgo(2 * 24 * 60), send_started_at: minutesAgo(2 * 24 * 60) },
+    ];
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect((await res.json()).cappedWithin7d).toBe(1);
+  });
+
+  it("re-claiming a `retry` row keeps send_started_at — the evidence an earlier attempt reached Resend — so a later crash is alarmed, never swept", async () => {
+    stripePis = [pi({ id: "pi_retry2" })];
+    const firstStamp = minutesAgo(20);
+    db.tables.checkout_recovery_emails = [
+      { id: "r2", stripe_payment_intent_id: "pi_retry2", email: "alice@example.com", livemode: true, status: "retry", created_at: firstStamp, claimed_at: firstStamp, send_started_at: firstStamp, last_error: "timed out" },
+    ];
+    // The stamp write of THIS attempt fails → parked again without sending.
+    db.failWhen(
+      "checkout_recovery_emails",
+      "update",
+      (p) => p !== null && "send_started_at" in p && !("status" in p),
+      "canceling statement due to statement timeout",
+      "57014"
+    );
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect((await res.json()).sendFailed).toBe(1);
+    const row = db.tables.checkout_recovery_emails[0];
+    expect(row.status).toBe("retry");
+    expect(row.send_started_at).toBe(firstStamp);
   });
 
   it("stale `claimed` rows: one that never reached Resend is released; one that did is alarmed, never retried; a fresh one is left alone", async () => {

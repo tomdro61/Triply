@@ -99,9 +99,10 @@ const DB_TIMEOUT_MS = 3_000;
  *  raced here; reslabFetch's own 10 s sits behind a token fetch that can add
  *  another 10–20 s on a cold instance, so we never wait for it. */
 const RESLAB_LOOKUP_MS = 8_000;
-/** Worst case for one candidate: lot lookup + claim + send-start stamp +
- *  Resend + mark. A candidate is started only when this still fits. */
-const CANDIDATE_RESERVE_MS = RESLAB_LOOKUP_MS + DB_TIMEOUT_MS * 3 + RESEND_SEND_TIMEOUT_MS;
+/** Worst case for one candidate: lot lookup + claim INSERT + re-claim UPDATE
+ *  + send-start stamp + Resend + mark. A candidate is started only when
+ *  this still fits before the deadline. */
+const CANDIDATE_RESERVE_MS = RESLAB_LOOKUP_MS + DB_TIMEOUT_MS * 4 + RESEND_SEND_TIMEOUT_MS;
 /** At most one recovery email per address in this window. */
 export const PER_EMAIL_CAP_MS = 7 * 24 * 60 * 60_000;
 /** A booking or a Pay-Now attempt for the same trip in this window means it
@@ -109,6 +110,13 @@ export const PER_EMAIL_CAP_MS = 7 * 24 * 60 * 60_000;
 const TRIP_LOOKBACK_MS = 30 * 24 * 60 * 60_000;
 /** A `claimed` row older than this will never be finished by its run. */
 const STALE_CLAIM_MS = 15 * 60_000;
+/** bookings.status values that mean the customer still holds the spot
+ *  (migration 003: confirmed | cancelled | completed | payment_failed |
+ *  disputed | refunded). */
+const LIVE_BOOKING_STATUSES = ["confirmed", "disputed", "completed"];
+/** The shared location snapshot's own read deadline
+ *  (SNAPSHOT_READ_TIMEOUT_MS in src/lib/reslab/location-snapshot.ts). */
+const SNAPSHOT_WARM_MS = 5_000;
 /** Stripe request timeout for the PaymentIntent list (per page, no retries)
  *  and the budget for the whole iteration (checked between rows, so the
  *  true worst case is budget + one page). */
@@ -167,7 +175,7 @@ function lotInfo(loc: Pick<ReslabLocation, "name" | "latitude" | "longitude" | "
     airportCode,
     gone: false,
     timeZone: isValidTimeZone(lotZone) ? lotZone : isValidTimeZone(airportZone) ? airportZone : null,
-    hoursBeforeReservation: typeof loc.hours_before_reservation === "number" ? loc.hours_before_reservation : null,
+    hoursBeforeReservation: Number.isFinite(loc.hours_before_reservation) ? loc.hours_before_reservation : null,
   };
 }
 
@@ -276,13 +284,15 @@ type BookingRow = {
 /**
  * Candidates whose trip is already BOOKED: a bookings row for the same
  * location + literal check-in/check-out in the last 30 days (any email, any
- * order — the booking may predate the abandoned re-entry); a booking by the
- * same address at the SAME LOT in the window (a date-change attempt — the
- * customer holds a booking there); or a booking by the same address
- * at/after the abandoned checkout (a PaymentIntent created BEFORE the
- * abandoned one but paid after, e.g. two tabs, which the Stripe-side
- * ordering check in select.ts cannot see). Both reads are targeted (by lot,
- * by window) so PostgREST's row cap can never silently drop a booked trip.
+ * order — the booking may predate the abandoned re-entry); a LIVE booking by
+ * the same address at the SAME LOT (a date-change attempt — the customer
+ * holds a booking there; a trip already over, cancelled or refunded is a
+ * returning customer, our best lead, and does not suppress); or a booking
+ * by the same address at/after the abandoned checkout (a PaymentIntent
+ * created BEFORE the abandoned one but paid after, e.g. two tabs, which the
+ * Stripe-side ordering check in select.ts cannot see). Both reads are
+ * targeted (by lot, by window) so PostgREST's row cap can never silently
+ * drop a booked trip.
  */
 async function bookedTrips(
   supabase: Supabase,
@@ -292,11 +302,18 @@ async function bookedTrips(
   const cols = "reslab_location_id, check_in, check_out, created_at, customers!inner(email)";
   const locationIds = [...new Set(candidates.map((c) => c.locationId))];
   const earliest = Math.min(...candidates.map((c) => c.createdMs));
+  // check_out is a literal TIMESTAMP ("2026-10-22T18:00:00") compared as a
+  // string against yesterday's UTC date — a day of slack covers every zone
+  // we serve. An abandoned check-in is always in the future, so a booking
+  // of the same trip always passes this filter.
+  const stillLiveAfter = new Date(nowMs - 24 * 60 * 60_000).toISOString().slice(0, 10);
   const [byLot, since] = await Promise.all([
     supabase
       .from("bookings")
       .select(cols)
       .in("reslab_location_id", locationIds)
+      .in("status", LIVE_BOOKING_STATUSES)
+      .gte("check_out", stillLiveAfter)
       .gte("created_at", new Date(nowMs - TRIP_LOOKBACK_MS).toISOString())
       .abortSignal(dbSignal()),
     supabase
@@ -424,25 +441,42 @@ async function pendingTrips(
   return out;
 }
 
-/** Emails that already got (or are being sent) a recovery email within the
- *  7-day cap, in THIS Stripe mode (staging shares the DB). A `retry` row is
- *  an attempt that has not gone out — it does not count. */
+/**
+ * Candidates whose address already got (or may have got) a recovery email
+ * within the 7-day cap, in THIS Stripe mode (staging shares the DB). A row
+ * counts when it is `claimed`/`sent`/`failed`, or `retry` with
+ * send_started_at set (Resend was reached — a timed-out send is usually a
+ * delivered one). A candidate's OWN row never caps it: that is the retry
+ * the row exists for. A `retry` row that never reached Resend does not count.
+ */
 async function recentlyEmailed(
   supabase: Supabase,
-  emails: string[],
+  candidates: RecoveryCandidate[],
   livemode: boolean,
   nowMs: number
 ): Promise<Set<string>> {
   const { data, error } = await supabase
     .from("checkout_recovery_emails")
-    .select("email")
-    .in("email", emails)
+    .select("stripe_payment_intent_id, email, status, send_started_at")
+    .in("email", [...new Set(candidates.map((c) => c.email))])
     .eq("livemode", livemode)
-    .in("status", ["claimed", "sent", "failed"])
     .gte("created_at", new Date(nowMs - PER_EMAIL_CAP_MS).toISOString())
     .abortSignal(dbSignal());
   if (error) throw new Error(`send ledger read failed: ${error.message}`);
-  return new Set(((data ?? []) as Array<{ email: string }>).map((r) => r.email));
+  const rows = (data ?? []) as Array<{
+    stripe_payment_intent_id: string;
+    email: string;
+    status: string;
+    send_started_at: string | null;
+  }>;
+  const counted = rows.filter((r) => r.status !== "retry" || r.send_started_at);
+  const out = new Set<string>();
+  for (const c of candidates) {
+    if (counted.some((r) => r.email === c.email && r.stripe_payment_intent_id !== c.paymentIntentId)) {
+      out.add(c.paymentIntentId);
+    }
+  }
+  return out;
 }
 
 /**
@@ -505,7 +539,7 @@ async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ re
 async function markRow(
   supabase: Supabase,
   rowId: string,
-  patch: { status: "sent" | "failed" | "retry"; sent_at?: string; last_error?: string },
+  patch: { status: "sent" | "failed" | "retry"; sent_at?: string; last_error?: string | null },
   result: { markFailed: number }
 ) {
   const { data, error } = await supabase
@@ -557,9 +591,14 @@ async function claimRow(
     });
     return "error";
   }
+  // send_started_at and last_error are KEPT: they are the evidence that an
+  // earlier attempt reached Resend (the email may be in the inbox). A
+  // re-claimed row that then crashes must be alarmed, never swept as
+  // "never reached Resend" — which would delete the row behind a delivered
+  // email's unsubscribe link.
   const re = await supabase
     .from("checkout_recovery_emails")
-    .update({ status: "claimed", claimed_at: nowIso, send_started_at: null, last_error: null })
+    .update({ status: "claimed", claimed_at: nowIso })
     .eq("stripe_payment_intent_id", c.paymentIntentId)
     .eq("status", "retry")
     .select("id")
@@ -670,7 +709,7 @@ async function run(postalAddress: string) {
       bookedTrips(supabase, selected, nowMs),
       pendingTrips(supabase, selected, nowMs),
       // Every PaymentIntent in one list call comes from the same Stripe key.
-      recentlyEmailed(supabase, emails, selected[0].livemode, nowMs),
+      recentlyEmailed(supabase, selected, selected[0].livemode, nowMs),
     ]);
   } catch (error) {
     return fail("exclusions", errorMessage(error));
@@ -681,7 +720,7 @@ async function run(postalAddress: string) {
       !suppressed.has(c.email) &&
       !booked.has(c.paymentIntentId) &&
       !pending.has(c.paymentIntentId) &&
-      !capped.has(c.email)
+      !capped.has(c.paymentIntentId)
   );
 
   const result = {
@@ -690,7 +729,7 @@ async function run(postalAddress: string) {
     suppressed: selected.filter((c) => suppressed.has(c.email)).length,
     bookedTrip: selected.filter((c) => booked.has(c.paymentIntentId)).length,
     pendingTrip: selected.filter((c) => pending.has(c.paymentIntentId)).length,
-    cappedWithin7d: selected.filter((c) => capped.has(c.email)).length,
+    cappedWithin7d: selected.filter((c) => capped.has(c.paymentIntentId)).length,
     staleClaims: stale,
     lotGone: 0,
     checkinTooSoon: 0,
@@ -706,7 +745,7 @@ async function run(postalAddress: string) {
   // Enter the loop only with room for one full candidate; otherwise defer
   // the lot to the next tick (15 min away) rather than start something the
   // function timeout could cut off.
-  if (toSend.length > 0 && elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
+  if (toSend.length > 0 && elapsed() + SNAPSHOT_WARM_MS + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
     result.deferredToNextRun = toSend.length;
     alarm(
       "checkout_recovery_capped",
@@ -821,7 +860,7 @@ async function run(postalAddress: string) {
     // The email is out. A failed status write leaves the row `claimed`, which
     // still blocks any resend — bookkeeping only, but reported (and the
     // stale-claim alarm will keep pointing at it).
-    await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString() }, result);
+    await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString(), last_error: null }, result);
     result.sent++;
   }
 
