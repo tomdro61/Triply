@@ -29,6 +29,8 @@ export interface Amenity {
   icon?: string;
 }
 
+export type LotBadge = "most_booked" | "lowest_total";
+
 export interface UnifiedLot {
   id: string;
   source: "reslab" | "direct";
@@ -82,6 +84,14 @@ export interface UnifiedLot {
   };
 
   availability: "available" | "limited" | "unavailable";
+
+  /**
+   * Set by searchParking on search results only (src/lib/search/ranking.ts):
+   * "most_booked" = the airport's clear booking leader over the last 90 days;
+   * "lowest_total" = the lowest total for the searched dates, never on a
+   * degraded/partial result.
+   */
+  badges?: LotBadge[];
 
   minimumBookingDays?: number;
   hoursBeforeReservation?: number;

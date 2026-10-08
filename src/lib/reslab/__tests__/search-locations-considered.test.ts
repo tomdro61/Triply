@@ -18,6 +18,13 @@ vi.mock("@/lib/reslab/client", async () => {
 
 const sentry = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
 vi.mock("@/lib/sentry", () => ({ captureAPIError: sentry.captureAPIError }));
+// The Recommended ranking reads booking counts from Supabase; these suites test
+// other behaviour, so the counts are stubbed (empty, ok) rather than letting the
+// shared DB fake fail and the capture throttle hide it.
+vi.mock("@/lib/search/booking-popularity", () => ({
+  getLotBookingCounts: vi.fn(async () => ({ ok: true, counts: new Map() })),
+  isRecommendedRankingEnabled: () => true,
+}));
 
 const db = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: vi.fn(async () => db) }));

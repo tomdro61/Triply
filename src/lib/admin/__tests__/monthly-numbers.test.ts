@@ -253,6 +253,28 @@ describe("lotsPerAirport", () => {
     ]);
   });
 
+  it("counts each lot only at its own airport where radii overlap (JFK/LGA); the kill switch restores both", () => {
+    const pair = [
+      { code: "JFK", city: "New York", latitude: 40.6413, longitude: -73.7781 },
+      { code: "LGA", city: "New York", latitude: 40.7769, longitude: -73.874 },
+    ];
+    const locations = [
+      loc(275, 40.663756, -73.815258), // PARK AC (JFK)
+      loc(561, 40.6659081, -73.7855037), // A1 JFK Park
+      loc(159, 40.7589732, -73.8323536), // Hyatt Flushing — inside JFK's radius, closer to LGA
+      loc(388, 40.7680051, -73.8752667), // Carvia (LGA)
+    ];
+    const count = () =>
+      Object.fromEntries(lotsPerAirport(locations, pair, new Set()).map((r) => [r.code, r.lots]));
+    expect(count()).toEqual({ JFK: 2, LGA: 2 });
+    process.env.SEARCH_OWN_AIRPORT_FILTER = "off";
+    try {
+      expect(count()).toEqual({ JFK: 3, LGA: 4 });
+    } finally {
+      delete process.env.SEARCH_OWN_AIRPORT_FILTER;
+    }
+  });
+
   it("severity: 0 none, 1 thin, 2+ ok", () => {
     expect([0, 1, 2, 30].map(lotsSeverity)).toEqual(["none", "thin", "ok", "ok"]);
   });

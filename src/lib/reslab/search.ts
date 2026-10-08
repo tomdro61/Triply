@@ -14,7 +14,7 @@ import {
   stripHtml,
   getFeaturedPhoto,
 } from "@/lib/reslab/client";
-import { UnifiedLot, SortOption } from "@/types/lot";
+import { UnifiedLot, SortOption, type LotBadge } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import { convertTo24Hour } from "@/lib/utils/time";
 import {
@@ -40,9 +40,27 @@ import {
 } from "@/lib/availability/log";
 import { logSearchEvent, type SearchEventSource } from "@/lib/search-events/log";
 import { deriveAvailability } from "@/lib/reslab/availability";
-import { isDirectLotsEnabled } from "@/lib/direct/flag";
+import { DIRECT_BOOKING_OPEN, isDirectLotsEnabled } from "@/lib/direct/flag";
 import { fetchListableDirectLots, type DirectLot, type DirectLotsResult } from "@/lib/direct/store";
 import { directLotToUnified } from "@/lib/direct/adapter";
+import {
+  isExemptFromOwnership,
+  isOwnAirportFilterEnabled,
+  locationBelongsToAirport,
+  lotBelongsToAirport,
+} from "@/lib/search/airport-ownership";
+import {
+  getLotBookingCounts,
+  isRecommendedRankingEnabled,
+  type LotBookingCounts,
+} from "@/lib/search/booking-popularity";
+import {
+  compareByTotal,
+  compareByTotalDesc,
+  lowestTotalLot,
+  pickMostBookedLot,
+  rankRecommended,
+} from "@/lib/search/ranking";
 
 export { generateSlug };
 
@@ -184,21 +202,30 @@ export function transformLocation(
 }
 
 /**
- * Sort lots by the specified option
+ * Sort lots by the specified option.
+ *
+ * Price sorts compare the total the card shows (customerTotalFromPricing via
+ * compareByTotal), not the per-day `minPrice`, so "Lowest Price" and the
+ * "Lowest total" badge always agree. Unpriced lots sort last either way.
+ *
+ * `popularity` is the "Recommended" option: with `recommended: true`, the pinned
+ * booking leader (pickMostBookedLot, chosen by the caller) then cheapest-first;
+ * with `recommended: false` (SEARCH_RECOMMENDED_RANKING=off), the old distance
+ * order. Explicit on purpose — a sorter must not read the environment.
  */
-export function sortLots(lots: UnifiedLot[], sortBy: SortOption): UnifiedLot[] {
+export function sortLots(
+  lots: UnifiedLot[],
+  sortBy: SortOption,
+  ranking: { recommended: false } | { recommended: true; pinnedId: string | null }
+): UnifiedLot[] {
   const sorted = [...lots];
 
   switch (sortBy) {
     case "price_asc":
-      sorted.sort(
-        (a, b) => (a.pricing?.minPrice ?? 999) - (b.pricing?.minPrice ?? 999)
-      );
+      sorted.sort(compareByTotal);
       break;
     case "price_desc":
-      sorted.sort(
-        (a, b) => (b.pricing?.minPrice ?? 0) - (a.pricing?.minPrice ?? 0)
-      );
+      sorted.sort(compareByTotalDesc);
       break;
     case "rating":
       sorted.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
@@ -211,6 +238,9 @@ export function sortLots(lots: UnifiedLot[], sortBy: SortOption): UnifiedLot[] {
       break;
     case "popularity":
     default:
+      if (ranking.recommended) {
+        return rankRecommended(sorted, ranking.pinnedId);
+      }
       sorted.sort(
         (a, b) =>
           (a.distanceFromAirport ?? 999) - (b.distanceFromAirport ?? 999)
@@ -344,6 +374,17 @@ export interface SearchParkingResult {
   directUnavailable?: boolean;
   // How many direct lots were merged in; null when the flag is off.
   directCount?: number | null;
+  // The Recommended order fell back to cheapest-first because the booking
+  // counts could not be read (src/lib/search/booking-popularity.ts). The list
+  // is complete and correctly priced, so it stays cacheable — the route just
+  // shortens the CDN TTL (never no-store: that would push every search to
+  // origin and re-create the min-price amplification loop). Set on any sort:
+  // the "Most booked" badge is missing too.
+  rankingDegraded?: boolean;
+  // This airport's own lots left nothing bookable (sold out, closed for today
+  // or failed to price), so the full radius list — other airports' lots
+  // included — was shown instead (src/lib/search/airport-ownership.ts).
+  ownAirportFallback?: boolean;
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -494,6 +535,37 @@ let lastAvailabilityDateSkipReportAt: number | null = null;
 // table's outage report can't mask the other's.
 let lastSearchEventReportAt: number | null = null;
 const AVAILABILITY_REPORT_INTERVAL_MS = 10 * 60 * 1000;
+
+// Per-airport throttle for the own-airport fallback log line (below).
+const lastOwnFallbackLogAt = new Map<string, number>();
+
+/**
+ * The own-airport filter fell back to the full radius list (src/lib/search/
+ * airport-ownership.ts). Usually a sell-out night — not an error, so no Sentry
+ * event — but a filter regression (bad airport coordinates, a new airport, a
+ * botched override) would look the same to customers: every search silently
+ * back on the old list. One structured log line per airport per ten minutes
+ * lets the two be told apart in the runtime logs (search "own_airport_fallback").
+ */
+function reportOwnAirportFallback(
+  airportCode: string,
+  ownPriced: readonly { minPriceData: ReslabMinPriceResponse | null }[],
+  ownPricingErrors: number
+): void {
+  const now = Date.now();
+  const last = lastOwnFallbackLogAt.get(airportCode);
+  if (last !== undefined && now - last < AVAILABILITY_REPORT_INTERVAL_MS) return;
+  lastOwnFallbackLogAt.set(airportCode, now);
+  console.warn(
+    JSON.stringify({
+      event: "own_airport_fallback",
+      airport: airportCode,
+      ownLots: ownPriced.length,
+      ownSoldOut: ownPriced.filter((p) => p.minPriceData?.reservation?.sold_out === true).length,
+      ownPricingErrors,
+    })
+  );
+}
 // Bypasses consumed by the current `next build` worker (see BUILD_PHASE_MAX_SWEEPS).
 let buildPhaseSweeps = 0;
 // Single-flight: coalesce concurrent cold-cache builds so we don't fire N
@@ -508,6 +580,7 @@ export function __resetLocationListCacheForTests(): void {
   consecutiveTimeoutOnlyFailures = 0;
   lastBackoffReportAt = null;
   lastAvailabilityReportAt = null;
+  lastOwnFallbackLogAt.clear();
   lastAvailabilityDateSkipReportAt = null;
   lastSearchEventReportAt = null;
   buildPhaseSweeps = 0;
@@ -1312,6 +1385,18 @@ export async function searchParking(
     ? fetchListableDirectLots(airportInfo.code, source === "chat" ? "/api/chat" : "/api/search")
     : null;
 
+  // Booking counts for the Recommended order + "Most booked" badge, started
+  // now and awaited only at the sort, so the read overlaps the ResLab pricing
+  // calls instead of adding to them. getLotBookingCounts never rejects, so the
+  // throw paths below can't leave a rejected promise floating. Not consulted
+  // for the airport pages (they sort by price and render no badges) nor on a
+  // Vercel preview, which prices against STAGING ResLab — its location ids are
+  // not production's, so production counts would badge unrelated lots there.
+  const rankingEnabled = isRecommendedRankingEnabled();
+  const withBadges = rankingEnabled && source !== "airport-page";
+  const countsPromise: Promise<LotBookingCounts> | null =
+    withBadges && process.env.VERCEL_ENV !== "preview" ? getLotBookingCounts() : null;
+
   // Search for locations near the airport.
   //
   // safety-removed: the previous `catch { locations = [] }` swallowed ResLab
@@ -1619,6 +1704,45 @@ export async function searchParking(
       lot.pricing.grandTotal > 0
   ).map((lot) => ({ ...lot, airportCode: airportInfo.code }));
 
+  // Each airport lists its OWN lots: drop a lot another airport is strictly
+  // closer to (src/lib/search/airport-ownership.ts — JFK and LGA overlap).
+  // Applied AFTER pricing on purpose: if this airport's own lots leave nothing
+  // a customer can book (sold out, closed for today, or failed to price), the
+  // full radius list is shown as before rather than turning a sale into "no
+  // results" — flagged `ownAirportFallback` so a sell-out night can be told
+  // from a regression. A direct lot counts only once it can be booked
+  // (DIRECT_BOOKING_OPEN). A seaport or test airport is never filtered.
+  const ownershipExempt = isExemptFromOwnership(airportInfo);
+  const ownFilter = isOwnAirportFilterEnabled() && !ownershipExempt;
+  const belongsHere = (loc: ReslabLocation) => locationBelongsToAirport(loc, airportInfo);
+  const ownAvailable = ownFilter
+    ? availableLots.filter((lot) => lotBelongsToAirport(lot, airportInfo))
+    : availableLots;
+  const ownPriced = ownFilter ? pricedLots.filter((p) => belongsHere(p.location)) : pricedLots;
+  // In pricedLots, a null minPriceData means exactly "getMinPrice threw"
+  // (closed-for-today lots were removed above).
+  const ownPricingErrors = ownPriced.filter((p) => p.minPriceData === null).length;
+  const bookableDirect = DIRECT_BOOKING_OPEN ? directUnified.length : 0;
+  // A bookable direct lot stands in for sold-out own lots, but not for own
+  // lots that FAILED to price — that is an outage, and the other airport's
+  // ResLab lots keep the customer (and `reslabUnavailable`) honest.
+  const ownAirportFallback =
+    ownFilter &&
+    ownAvailable.length === 0 &&
+    availableLots.length > 0 &&
+    (bookableDirect === 0 || ownPricingErrors > 0);
+  const shownReslabLots = ownAirportFallback ? availableLots : ownAvailable;
+  // The pricing pass for the lots shown, so search_events' results_count and
+  // sold_out_count describe the same set (the digest divides one by the other).
+  const shownPriced = ownAirportFallback ? pricedLots : ownPriced;
+  const shownPricingErrors = shownPriced.filter((p) => p.minPriceData === null).length;
+  if (ownAirportFallback) reportOwnAirportFallback(airportInfo.code, ownPriced, ownPricingErrors);
+  // The "Most booked" leader is ALWAYS chosen from this airport's own lots —
+  // with the filter switched off and on the fallback too — so another airport's
+  // leader can never be pinned here. On the fallback the own leader is not
+  // among the results, so nothing is pinned (pickMostBookedLot).
+  const consideredIds = (ownershipExempt ? locations : locations.filter(belongsHere)).map((loc) => loc.id);
+
   // Degraded if pricing was partial OR the location list was THIN OR ResLab
   // was unreachable and only direct lots are being served — either way the
   // result under-reports and must not be CDN-cached. A merely stale
@@ -1636,18 +1760,26 @@ export async function searchParking(
     reslabFailure !== null ||
     (directUnified.length > 0 && locations.length > 0 && availableLots.length === 0 && pricingErrors > 0);
   const isDegraded = pricingErrors > 0 || listBuildIncomplete || reslabUnavailable;
+  // The same judgement for the lots the customer is SHOWN: a hidden other-
+  // airport lot failing to price does not make this airport's list partial.
+  // Drives the "Lowest total" badge and the search_events row; caching still
+  // follows `isDegraded` (conservative — the min-price amplification history).
+  const shownDegraded = shownPricingErrors > 0 || listBuildIncomplete || reslabUnavailable;
   // Everything telemetry-only (cheapest price, sold-out count, the Math.min
   // spread) is derived INSIDE emitSearchEvent's try/catch — see its comment.
   // results_count / cheapest / sold_out stay ResLab-only (plan A-22) so the
   // demand history reads the same across the flag flip; direct lots have
   // their own column.
   emitSearchEvent({
-    results_count: availableLots.length,
-    degraded: isDegraded,
+    // What the customer is shown (own-airport lots), so results_count, the
+    // sold-out count and the cheapest floor all describe the page they saw.
+    // availability_log above still records every lot priced.
+    results_count: shownReslabLots.length,
+    degraded: shownDegraded,
     stale: listBuildStale,
-    priced: pricedLots,
-    available: availableLots,
-    pricingErrors,
+    priced: shownPriced,
+    available: shownReslabLots,
+    pricingErrors: shownPricingErrors,
     directCount,
     directSkipped,
   });
@@ -1679,8 +1811,34 @@ export async function searchParking(
   }
 
   // Sort lots — both sources together, so a direct lot competes on the same
-  // price/distance as its ResLab neighbours rather than being pinned anywhere.
-  const sortedLots = sortLots([...availableLots, ...directUnified], sort);
+  // price/distance as its ResLab neighbours. The only lot ever pinned is the
+  // airport's clear booking leader (pickMostBookedLot).
+  const merged = [...shownReslabLots, ...directUnified];
+  const counts = countsPromise ? await countsPromise : null;
+  const pinned = counts?.ok ? pickMostBookedLot(merged, consideredIds, counts.counts) : null;
+  const sortedLots = sortLots(
+    merged,
+    sort,
+    rankingEnabled ? { recommended: true, pinnedId: pinned?.id ?? null } : { recommended: false }
+  );
+  // Counts unread → no "Most booked" on any sort, and the Recommended order fell
+  // back to cheapest-first: cache briefly so the badge/pin return quickly.
+  const rankingDegraded = counts !== null && !counts.ok;
+
+  // Badges are independent of the chosen sort, and only where cards render them.
+  // "Lowest total" is withheld unless the result is complete (no partial
+  // pricing, thin list, ResLab outage or failed direct-lot read).
+  const lowest = withBadges
+    ? lowestTotalLot(sortedLots, { resultComplete: !shownDegraded && !directSkipped })
+    : null;
+  const results: UnifiedLot[] = withBadges
+    ? sortedLots.map((lot) => {
+        const badges: LotBadge[] = [];
+        if (pinned && lot.id === pinned.id) badges.push("most_booked");
+        if (lowest && lot.id === lowest.id) badges.push("lowest_total");
+        return badges.length > 0 ? { ...lot, badges } : lot;
+      })
+    : sortedLots;
 
   return {
     airport: airportInfo,
@@ -1688,8 +1846,8 @@ export async function searchParking(
     checkout,
     checkinTime,
     checkoutTime,
-    results: sortedLots,
-    total: sortedLots.length,
+    results,
+    total: results.length,
     locationsConsidered,
     // Not on a thin list: with lots missing, "closed for today" may be false.
     ...(sortedLots.length === 0 && closedTodayCount > 0 && !listBuildIncomplete
@@ -1701,6 +1859,8 @@ export async function searchParking(
     degraded: isDegraded,
     stale: listBuildStale,
     listIncomplete: listBuildIncomplete,
+    ...(rankingDegraded ? { rankingDegraded } : {}),
+    ...(ownAirportFallback ? { ownAirportFallback } : {}),
     ...(directEnabled
       ? { reslabUnavailable, directUnavailable: directSkipped, directCount }
       : {}),

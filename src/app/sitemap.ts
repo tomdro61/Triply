@@ -7,6 +7,7 @@ import {
   locationsNearPoint,
 } from "@/lib/reslab/search";
 import { isSnapshotEnabled } from "@/lib/reslab/location-snapshot";
+import { isOwnAirportFilterEnabled, locationBelongsToAirport } from "@/lib/search/airport-ownership";
 import { resolveEnv } from "@/lib/env";
 import { captureAPIError } from "@/lib/sentry";
 import { generateSlug } from "@/lib/utils/slug";
@@ -192,12 +193,16 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
   const seen = new Set<string>();
   for (const airport of airportChunk) {
     // Same selection searchParking makes: the mapped location for an airport
-    // with a reslabLocationId, otherwise every lot within its 15 km radius.
+    // with a reslabLocationId, otherwise every lot within its 15 km radius
+    // that no other airport is closer to (src/lib/search/airport-ownership.ts)
+    // — so LGA stops publishing JFK lots under /new-york-lga/.
     const near = channel === null
       ? []
       : airport.reslabLocationId !== undefined
         ? channel.filter((loc) => loc.id === airport.reslabLocationId)
-        : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM);
+        : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM).filter(
+            (loc) => !isOwnAirportFilterEnabled() || locationBelongsToAirport(loc, airport)
+          );
     for (const loc of near) {
       if (BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) || suppressedReslabIds.has(loc.id)) continue;
       const url = `${baseUrl}/${airport.slug}/airport-parking/${generateSlug(loc.name)}`;
