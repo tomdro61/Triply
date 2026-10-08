@@ -4,7 +4,7 @@ import { captureAPIError } from "@/lib/sentry";
 import { verifyRecoveryToken } from "@/lib/checkout-recovery/unsubscribe-token";
 
 /**
- * GET/POST /api/checkout-recovery/unsubscribe?id=<send row id>&token=<HMAC>
+ * GET/POST /api/checkout-recovery/unsubscribe?id=<PaymentIntent id>&token=<HMAC>
  *
  * Opt-out for the "you didn't finish booking" email, same shape as
  * /api/waitlist/unsubscribe (see that route's header for the full reasoning):
@@ -12,8 +12,10 @@ import { verifyRecoveryToken } from "@/lib/checkout-recovery/unsubscribe-token";
  *   an email and must not opt people out.
  * - POST performs it; also what a mail client sends for
  *   List-Unsubscribe-Post: List-Unsubscribe=One-Click.
- * Address-level: records the row's email in checkout_recovery_optouts, which
- * the cron checks before every send.
+ * Address-level: records the ledger row's email in checkout_recovery_optouts,
+ * which the cron checks before every send. The link is keyed on the
+ * PaymentIntent (UNIQUE on the ledger), not the row id — see
+ * recoveryUnsubscribeUrl for why.
  */
 
 export const dynamic = "force-dynamic";
@@ -64,7 +66,8 @@ async function lookupEmail(
   const { data, error } = await supabase
     .from("checkout_recovery_emails")
     .select("id, email")
-    .eq("id", id)
+    .eq("stripe_payment_intent_id", id)
+    .abortSignal(AbortSignal.timeout(3_000))
     .maybeSingle();
   if (error) {
     captureAPIError(new Error(error.message), { endpoint: ENDPOINT, method, stage: "lookup", code: error.code });
@@ -103,7 +106,8 @@ export async function POST(request: NextRequest) {
     const supabase = await createAdminClient();
     const { error } = await supabase
       .from("checkout_recovery_optouts")
-      .insert({ email: found.email });
+      .insert({ email: found.email })
+      .abortSignal(AbortSignal.timeout(3_000));
     // 23505 = already opted out — the outcome the person asked for.
     if (error && error.code !== "23505") {
       captureAPIError(new Error(error.message), { endpoint: ENDPOINT, method: "POST", stage: "insert", code: error.code });

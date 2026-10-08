@@ -25,15 +25,19 @@ import { convertTo24Hour } from "@/lib/utils/time";
  * details to mistyped addresses. So: any other PaymentIntent for the same trip
  * fingerprint (lot + dates + times) that is NOT itself sitting at
  * requires_payment_method — paid, authorised, mid-3DS, or cancelled by our
- * own fulfilment — means this trip was attempted and must not be chased. The
- * cron adds the same fingerprint check against bookings and pending_bookings.
+ * own fulfilment — means this trip was attempted and must not be chased, and
+ * only the NEWEST PaymentIntent of a chain (same trip or same address, any
+ * status, any age) is ever eligible. The cron adds the same fingerprint check
+ * against bookings and pending_bookings.
  */
 
 /** Old enough that the customer has plainly stopped (not mid-typing a card). */
 export const RECOVERY_MIN_AGE_MS = 45 * 60_000;
 /** Past a day the trip may already be booked elsewhere; one email, early. */
 export const RECOVERY_MAX_AGE_MS = 24 * 60 * 60_000;
-/** Never email about a check-in that starts within this long. */
+/** Never email about a check-in that starts within this long. A floor: the
+ *  cron also applies the lot's own `hours_before_reservation` when it can
+ *  resolve the lot. */
 export const RECOVERY_MIN_LEAD_MS = 60 * 60_000;
 
 /** The only status that means "reached payment, never got a card through". */
@@ -146,7 +150,12 @@ export interface SelectionResult {
     /** Another PaymentIntent for the same trip was paid, authorised, mid-3DS
      *  or cancelled by fulfilment — by anyone, before or after this one. */
     tripAttempted: number;
-    duplicateEmail: number;
+    /** A NEWER PaymentIntent exists for the same trip or the same address,
+     *  in any status and at any age: the customer moved on from this one
+     *  (fixed the email, changed the dates, is back on the checkout right
+     *  now). Only the newest attempt in a chain can ever be emailed, and
+     *  only once it is itself old enough. */
+    superseded: number;
   };
 }
 
@@ -188,7 +197,7 @@ export function selectRecoveryCandidates(
     checkinPassed: 0,
     paidSince: 0,
     tripAttempted: 0,
-    duplicateEmail: 0,
+    superseded: 0,
   };
   const blocked = options.blockedLocationIds ?? new Set<number>();
 
@@ -198,14 +207,27 @@ export function selectRecoveryCandidates(
   // email, whenever it was created. An abandoned attempt at one of these is
   // a re-entry (Back, reload, email fix, 3DS retry), not an abandonment.
   const attemptedTrips = new Set<string>();
+  // The newest PaymentIntent per trip and per address, ANY status, ANY age
+  // (a too-young one counts: the customer is on the checkout right now).
+  // Ties on the same second go to the later list position, which Stripe
+  // returns newest-first — so the earlier element wins.
+  const newestByTrip = new Map<string, { createdMs: number; id: string }>();
+  const newestByEmail = new Map<string, { createdMs: number; id: string }>();
+  const noteNewest = (map: Map<string, { createdMs: number; id: string }>, key: string, pi: PaymentIntentLike) => {
+    const createdMs = pi.created * 1000;
+    const cur = map.get(key);
+    if (!cur || cur.createdMs < createdMs) map.set(key, { createdMs, id: pi.id });
+  };
   for (const pi of paymentIntents) {
-    if (pi.status === ABANDONED_STATUS) continue;
     const trip = tripFingerprintOf(pi.metadata);
-    if (trip) attemptedTrips.add(trip);
-    if (!PAID_STATUSES.has(pi.status)) continue;
+    if (trip) noteNewest(newestByTrip, trip, pi);
     const raw = pi.metadata?.customerEmail;
-    if (!raw) continue;
-    const email = raw.trim().toLowerCase();
+    const email = raw ? raw.trim().toLowerCase() : null;
+    if (email) noteNewest(newestByEmail, email, pi);
+
+    if (pi.status === ABANDONED_STATUS) continue;
+    if (trip) attemptedTrips.add(trip);
+    if (!PAID_STATUSES.has(pi.status) || !email) continue;
     const createdMs = pi.created * 1000;
     if ((paidAt.get(email) ?? 0) < createdMs) paidAt.set(email, createdMs);
   }
@@ -237,6 +259,8 @@ export function selectRecoveryCandidates(
       skipped.blockedLot++;
       continue;
     }
+    // DIRECT_LOT_ID_PREFIX (src/lib/direct/store.ts) — spelled out so this
+    // pure module does not import the store and its Supabase client.
     if (m.lotId.startsWith("direct-")) {
       skipped.directLot++;
       continue;
@@ -267,6 +291,16 @@ export function selectRecoveryCandidates(
       continue;
     }
 
+    // Not the newest attempt for this trip or this address → the customer
+    // moved on (typo'd address fixed and abandoned again; same trip re-entered
+    // ten minutes ago and still open). The newest one is judged on its own
+    // — and emailed, if at all, only once IT is 45 min old. This is also what
+    // keeps a mistyped address from ever receiving the trip details.
+    if (newestByTrip.get(trip)?.id !== pi.id || newestByEmail.get(m.customerEmail)?.id !== pi.id) {
+      skipped.superseded++;
+      continue;
+    }
+
     const candidate: RecoveryCandidate = {
       paymentIntentId: pi.id,
       email: m.customerEmail,
@@ -282,16 +316,13 @@ export function selectRecoveryCandidates(
       trip,
       fromDate: literalWallClock(m.checkin, m.checkinTime),
       toDate: literalWallClock(m.checkout, m.checkoutTime),
-      storedTrip: "",
+      storedTrip: `${m.locationId}|${literalWallClock(m.checkin, m.checkinTime)}|${literalWallClock(m.checkout, m.checkoutTime)}`,
     };
-    candidate.storedTrip = storedTripKey(m.locationId, candidate.fromDate, candidate.toDate) as string;
 
-    // One email per address per run: keep the most recent abandoned checkout.
+    // The newest-per-address rule above already leaves at most one candidate
+    // per address; the map is the invariant's guard, not a second dedupe.
     const existing = byEmail.get(m.customerEmail);
-    if (existing) {
-      skipped.duplicateEmail++;
-      if (existing.createdMs >= createdMs) continue;
-    }
+    if (existing && existing.createdMs >= createdMs) continue;
     byEmail.set(m.customerEmail, candidate);
   }
 

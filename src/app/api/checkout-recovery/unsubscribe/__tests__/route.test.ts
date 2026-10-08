@@ -33,22 +33,28 @@ beforeEach(() => {
 
 describe("/api/checkout-recovery/unsubscribe", () => {
   it("GET only renders a confirm page — a link scanner must not opt anyone out", async () => {
-    const res = await GET(new NextRequest(url("send_1", signRecoveryId("send_1"))));
+    const res = await GET(new NextRequest(url("pi_1", signRecoveryId("pi_1"))));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('method="post"');
     expect(db.tables.checkout_recovery_optouts).toHaveLength(0);
   });
 
   it("POST with a valid token records an address-level opt-out, idempotently", async () => {
-    const token = signRecoveryId("send_1");
-    expect((await POST(new NextRequest(url("send_1", token), { method: "POST" }))).status).toBe(200);
-    expect((await POST(new NextRequest(url("send_1", token), { method: "POST" }))).status).toBe(200);
+    const token = signRecoveryId("pi_1");
+    expect((await POST(new NextRequest(url("pi_1", token), { method: "POST" }))).status).toBe(200);
+    expect((await POST(new NextRequest(url("pi_1", token), { method: "POST" }))).status).toBe(200);
     expect(db.tables.checkout_recovery_optouts.map((r) => r.email)).toEqual(["alice@example.com"]);
   });
 
+  it("the link is keyed on the PaymentIntent, not the ledger row id — a row id with a valid token is unknown", async () => {
+    const res = await POST(new NextRequest(url("send_1", signRecoveryId("send_1")), { method: "POST" }));
+    expect(res.status).toBe(404);
+    expect(db.tables.checkout_recovery_optouts).toHaveLength(0);
+  });
+
   it("rejects a bad token, and a WAITLIST token for the same id (domain-separated)", async () => {
-    for (const token of ["deadbeef", signWaitlistId("send_1")]) {
-      const res = await POST(new NextRequest(url("send_1", token), { method: "POST" }));
+    for (const token of ["deadbeef", signWaitlistId("pi_1")]) {
+      const res = await POST(new NextRequest(url("pi_1", token), { method: "POST" }));
       expect(res.status).toBe(400);
     }
     expect(db.tables.checkout_recovery_optouts).toHaveLength(0);

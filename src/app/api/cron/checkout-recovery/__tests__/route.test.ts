@@ -2,14 +2,22 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { addDays, format, subDays } from "date-fns";
 
-const { db, sentry, resendSend, stripeList, getLocation } = await vi.hoisted(async () => {
+const { db, sentry, resendSend, stripeList, getLocation, noSweep, FakeReslabError } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
+  class FakeReslabError extends Error {
+    constructor(public statusCode: number, message: string) {
+      super(message);
+      this.name = "ReslabError";
+    }
+  }
   return {
     db: new FakeSupabase(),
     sentry: { captureMessage: vi.fn(), withScope: vi.fn(), captureException: vi.fn() },
     resendSend: vi.fn(),
     stripeList: vi.fn(),
     getLocation: vi.fn(),
+    noSweep: vi.fn(),
+    FakeReslabError,
   };
 });
 
@@ -19,7 +27,13 @@ vi.mock("@/lib/resend/client", () => ({
   FROM_EMAIL: "Triply <bookings@triplypro.com>",
 }));
 vi.mock("@/lib/stripe/client", () => ({ stripe: { paymentIntents: { list: stripeList } } }));
-vi.mock("@/lib/reslab/client", () => ({ reslab: { getLocation } }));
+vi.mock("@/lib/reslab/client", () => ({ reslab: { getLocation }, ReslabError: FakeReslabError }));
+// The cron must never start a ResLab sweep: only the no-sweep accessor and the
+// blocked-id set are reachable from it.
+vi.mock("@/lib/reslab/search", () => ({
+  BLOCKED_RESLAB_LOCATION_IDS: new Set([416]),
+  getChannelLocationsNoSweep: noSweep,
+}));
 vi.mock("@sentry/nextjs", () => ({
   captureMessage: sentry.captureMessage,
   captureException: sentry.captureException,
@@ -78,6 +92,12 @@ function pi(o: PiOverrides = {}) {
 
 /** Metadata for a DIFFERENT trip (same lot, later dates). */
 const otherTrip = { checkin: inTwentyDays, checkout: inTwentyTwoDays };
+/** The n-th distinct trip — fixtures with several addresses need one each,
+ *  because only the newest attempt per TRIP is ever a candidate. */
+const tripN = (n: number) => ({
+  checkin: format(addDays(new Date(), 30 + 3 * n), "yyyy-MM-dd"),
+  checkout: format(addDays(new Date(), 32 + 3 * n), "yyyy-MM-dd"),
+});
 
 /** The same trip as `pi()` books it, as bookings / pending_bookings store it. */
 const storedTrip = {
@@ -104,8 +124,9 @@ beforeEach(() => {
       yield* stripePis;
     })()
   );
-  // Near JFK, so the airport resolves.
+  // Near JFK, so the airport resolves. No snapshot by default → live lookup.
   getLocation.mockResolvedValue({ name: "Jet Parking JFK", latitude: "40.6650", longitude: "-73.7900" });
+  noSweep.mockResolvedValue(null);
   db.tables = {
     bookings: [],
     customers: [],
@@ -159,17 +180,18 @@ describe("GET /api/cron/checkout-recovery — auth + gate", () => {
     const created = params.created.gte as number;
     expect(nowSec() - created).toBeGreaterThanOrEqual(24 * 3600 - 5);
     expect(nowSec() - created).toBeLessThanOrEqual(24 * 3600 + 5);
-    expect(options).toEqual({ timeout: 15_000 });
+    // Retries off: stripe-node would otherwise retry a timed-out page twice.
+    expect(options).toEqual({ timeout: 15_000, maxNetworkRetries: 0 });
   });
 });
 
 describe("GET /api/cron/checkout-recovery — selection", () => {
   it("emails only checkouts 45 min – 24 h old", async () => {
     stripePis = [
-      pi({ id: "pi_young", ageMin: 30, metadata: { customerEmail: "young@example.com" } }),
-      pi({ id: "pi_ok", ageMin: 50, metadata: { customerEmail: "ok@example.com" } }),
-      pi({ id: "pi_edge", ageMin: 23 * 60, metadata: { customerEmail: "edge@example.com" } }),
-      pi({ id: "pi_old", ageMin: 25 * 60, metadata: { customerEmail: "old@example.com" } }),
+      pi({ id: "pi_young", ageMin: 30, metadata: { ...tripN(1), customerEmail: "young@example.com" } }),
+      pi({ id: "pi_ok", ageMin: 50, metadata: { ...tripN(2), customerEmail: "ok@example.com" } }),
+      pi({ id: "pi_edge", ageMin: 23 * 60, metadata: { ...tripN(3), customerEmail: "edge@example.com" } }),
+      pi({ id: "pi_old", ageMin: 25 * 60, metadata: { ...tripN(4), customerEmail: "old@example.com" } }),
     ];
     const res = await GET(req());
     expect(res.status).toBe(200);
@@ -260,6 +282,31 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     expect(resendSend).not.toHaveBeenCalled();
   });
 
+  it("typo'd email, fixed, and abandoned AGAIN on the same trip → only the corrected (newest) address is emailed", async () => {
+    stripePis = [
+      pi({ id: "pi_typo", ageMin: 65, metadata: { customerEmail: "jon@example.com" } }),
+      pi({ id: "pi_fixed", ageMin: 60, metadata: { customerEmail: "john@example.com" } }),
+    ];
+    const res = await GET(req());
+    expect(sentTo()).toEqual(["john@example.com"]);
+    expect((await res.json()).skipped.superseded).toBe(1);
+  });
+
+  it("a NEWER PaymentIntent too young to judge (customer is back on the checkout now) supersedes the old one — nothing is sent yet", async () => {
+    stripePis = [
+      pi({ id: "pi_old_same_trip", ageMin: 50, metadata: { customerEmail: "back@example.com" } }),
+      pi({ id: "pi_new_same_trip", ageMin: 10, metadata: { customerEmail: "back@example.com" } }),
+      pi({ id: "pi_old_other", ageMin: 50, metadata: { ...otherTrip, customerEmail: "edit@example.com" } }),
+      // Same address, a THIRD trip, mid-3DS right now.
+      pi({ id: "pi_new_other", status: "requires_action", ageMin: 5, metadata: { ...tripN(1), customerEmail: "edit@example.com" } }),
+    ];
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    const body = await res.json();
+    expect(body.skipped.superseded).toBe(2);
+    expect(body.skipped.tooYoung).toBe(1);
+  });
+
   it("same trip mid-3DS (requires_action) or cancelled by fulfilment on another PaymentIntent → no email", async () => {
     stripePis = [
       pi({ id: "pi_3ds_old", ageMin: 60, metadata: { customerEmail: "three@example.com" } }),
@@ -330,7 +377,7 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     stripePis = [
       pi({ id: "pi_trip", ageMin: 60, metadata: { customerEmail: "trip@example.com" } }),
       pi({ id: "pi_mail", ageMin: 60, metadata: { ...otherTrip, customerEmail: "mail@example.com" } }),
-      pi({ id: "pi_free", ageMin: 60, metadata: { ...otherTrip, customerEmail: "free@example.com" } }),
+      pi({ id: "pi_free", ageMin: 60, metadata: { ...tripN(1), customerEmail: "free@example.com" } }),
     ];
     db.tables.pending_bookings = [
       {
@@ -355,6 +402,24 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     const res = await GET(req());
     expect(sentTo()).toEqual(["free@example.com"]);
     expect((await res.json()).pendingTrip).toBe(2);
+  });
+
+  it("a money-retained Pay-Now attempt for the same trip two days ago (outside Stripe's 24 h list) still suppresses", async () => {
+    stripePis = [pi({ id: "pi_again", ageMin: 60 })];
+    db.tables.pending_bookings = [
+      {
+        stripe_payment_intent_id: "pi_day_one",
+        location_id: 10,
+        from_date: storedTrip.from,
+        to_date: storedTrip.to,
+        status: "needs_reconciliation",
+        customer: { email: "alice@example.com" },
+        created_at: minutesAgo(2 * 24 * 60),
+      },
+    ];
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect((await res.json()).pendingTrip).toBe(1);
   });
 
   it("the candidate's own pending_bookings row: `pending` / `expired` still emails, anything further never does", async () => {
@@ -399,14 +464,66 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
   });
 });
 
+describe("GET /api/cron/checkout-recovery — the lot", () => {
+  const snapshotLot = (overrides: Record<string, unknown> = {}) => ({
+    id: 10,
+    name: "Snapshot Parking JFK",
+    latitude: "40.6650",
+    longitude: "-73.7900",
+    timezone: { id: 1, name: "Eastern", code: "America/New_York" },
+    hours_before_reservation: 1,
+    ...overrides,
+  });
+
+  it("takes the lot from the shared snapshot — no live ResLab call, and the same name on every retry", async () => {
+    stripePis = [pi()];
+    noSweep.mockResolvedValue([snapshotLot()]);
+    await GET(req());
+    expect(getLocation).not.toHaveBeenCalled();
+    expect(resendSend.mock.calls[0][0].html).toContain("Snapshot Parking JFK (JFK)");
+  });
+
+  it("a lot ResLab reports gone (404) is never emailed about, and nothing is claimed", async () => {
+    stripePis = [pi()];
+    getLocation.mockRejectedValueOnce(new FakeReslabError(404, "Not found"));
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+    expect((await res.json()).lotGone).toBe(1);
+  });
+
+  it("a same-day check-in inside the lot's own notice period is not emailed (the link would 400 at ResLab)", async () => {
+    // 11:00 AM New York; check-in today at 2:00 PM = 3 h ahead.
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date("2026-10-20T15:00:00Z") });
+    try {
+      const sameDay = { checkin: "2026-10-20", checkout: "2026-10-22", checkinTime: "2:00 PM" };
+      stripePis = [
+        pi({ id: "pi_tight", ageMin: 50, metadata: { ...sameDay, customerEmail: "tight@example.com" } }),
+      ];
+      noSweep.mockResolvedValue([snapshotLot({ hours_before_reservation: 4 })]);
+      let res = await GET(req());
+      expect(resendSend).not.toHaveBeenCalled();
+      expect((await res.json()).checkinTooSoon).toBe(1);
+      expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+
+      noSweep.mockResolvedValue([snapshotLot({ hours_before_reservation: 1 })]);
+      res = await GET(req());
+      expect(sentTo()).toEqual(["tight@example.com"]);
+      expect((await res.json()).checkinTooSoon).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("GET /api/cron/checkout-recovery — suppression", () => {
   it("honours this email's opt-out, the newsletter unsubscribe and the waitlist unsubscribe", async () => {
     stripePis = [
-      pi({ id: "pi_1", metadata: { customerEmail: "optout@example.com" } }),
-      pi({ id: "pi_2", metadata: { customerEmail: "news@example.com" } }),
-      pi({ id: "pi_3", metadata: { customerEmail: "wait@example.com" } }),
-      pi({ id: "pi_4", metadata: { customerEmail: "news-subscribed@example.com" } }),
-      pi({ id: "pi_5", metadata: { customerEmail: "fine@example.com" } }),
+      pi({ id: "pi_1", metadata: { ...tripN(1), customerEmail: "optout@example.com" } }),
+      pi({ id: "pi_2", metadata: { ...tripN(2), customerEmail: "news@example.com" } }),
+      pi({ id: "pi_3", metadata: { ...tripN(3), customerEmail: "wait@example.com" } }),
+      pi({ id: "pi_4", metadata: { ...tripN(4), customerEmail: "news-subscribed@example.com" } }),
+      pi({ id: "pi_5", metadata: { ...tripN(5), customerEmail: "fine@example.com" } }),
     ];
     const ts = new Date().toISOString();
     db.tables.checkout_recovery_optouts = [{ email: "optout@example.com" }];
@@ -477,8 +594,8 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
 
   it("at most one recovery email per address per 7 days", async () => {
     stripePis = [
-      pi({ id: "pi_recent", metadata: { customerEmail: "recent@example.com" } }),
-      pi({ id: "pi_stale", metadata: { customerEmail: "stale@example.com" } }),
+      pi({ id: "pi_recent", metadata: { ...tripN(1), customerEmail: "recent@example.com" } }),
+      pi({ id: "pi_stale", metadata: { ...tripN(2), customerEmail: "stale@example.com" } }),
     ];
     db.tables.checkout_recovery_emails = [
       {
@@ -501,6 +618,35 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
     const res = await GET(req());
     expect(sentTo()).toEqual(["stale@example.com"]);
     expect((await res.json()).cappedWithin7d).toBe(1);
+  });
+
+  it("a Resend 409 (key already used — the email may be out) is recorded as sent, alarmed, and never retried", async () => {
+    stripePis = [pi({ id: "pi_409" })];
+    resendSend.mockResolvedValueOnce({
+      data: null,
+      error: { statusCode: 409, message: "Idempotency key was used with a different payload", name: "invalid_idempotent_request" },
+    });
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.sentUnconfirmed).toBe(1);
+    expect(body.sendFailed).toBe(0);
+    const row = db.tables.checkout_recovery_emails[0];
+    expect(row.status).toBe("sent");
+    expect(String(row.last_error)).toContain("different payload");
+    expect(sentry.captureMessage).toHaveBeenCalled();
+
+    await GET(req());
+    expect(resendSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("a claim INSERT that errors is cleaned up by PaymentIntent in case it committed after the timeout", async () => {
+    stripePis = [pi({ id: "pi_claim_err" })];
+    db.failOnce("checkout_recovery_emails", "insert", "canceling statement due to statement timeout", "57014");
+    const res = await GET(req());
+    expect((await res.json()).claimFailed).toBe(1);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.log).toContainEqual({ table: "checkout_recovery_emails", op: "delete" });
   });
 
   it("a `claimed` row older than 15 min (crash between claim and mark) is alarmed on every run, never silently retried", async () => {
@@ -564,6 +710,18 @@ describe("GET /api/cron/checkout-recovery — send failures", () => {
     expect(resendSend).toHaveBeenCalledTimes(1);
   });
 
+  it("a Resend 401/403 (our key or domain, not this recipient) releases the claim and stops the run instead of burning every address for 7 days", async () => {
+    stripePis = [
+      pi({ id: "pi_1", metadata: { ...tripN(1), customerEmail: "one@example.com" } }),
+      pi({ id: "pi_2", metadata: { ...tripN(2), customerEmail: "two@example.com" } }),
+    ];
+    resendSend.mockResolvedValueOnce({ data: null, error: { statusCode: 403, message: "domain not verified", name: "x" } });
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+  });
+
   it("a Resend call that never answers fails as transient (released, loud) instead of running into the function timeout", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
@@ -615,8 +773,11 @@ describe("GET /api/cron/checkout-recovery — the email", () => {
 
     const unsub = new URL(msg.headers["List-Unsubscribe"].slice(1, -1));
     expect(unsub.pathname).toBe("/api/checkout-recovery/unsubscribe");
+    // Keyed on the PaymentIntent, not the ledger row id: stable across a
+    // released-and-retried claim, so the Resend idempotent payload matches
+    // and a delivered email's link never 404s.
     const id = unsub.searchParams.get("id") as string;
-    expect(id).toBe(db.tables.checkout_recovery_emails[0].id);
+    expect(id).toBe("pi_abandoned");
     expect(verifyRecoveryToken(id, unsub.searchParams.get("token") as string)).toBe(true);
     expect(msg.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
 

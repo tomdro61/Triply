@@ -19,10 +19,18 @@ export function verifyRecoveryToken(id: string, token: string): boolean {
   return verifyWaitlistToken(`${DOMAIN}${id}`, token);
 }
 
-export function recoveryUnsubscribeUrl(id: string): string {
+/**
+ * The link's subject is the Stripe PaymentIntent id (`checkout_recovery_emails`
+ * is UNIQUE on it), NOT the ledger row id: a released-and-retried claim gets
+ * a new row id, which would change the email body under the same Resend
+ * idempotency key (409) and leave an already-delivered email pointing at a
+ * deleted row (404 on unsubscribe — a commercial email with no working
+ * opt-out). The PaymentIntent id is stable across every retry.
+ */
+export function recoveryUnsubscribeUrl(paymentIntentId: string): string {
   const base = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const url = new URL("/api/checkout-recovery/unsubscribe", base);
-  url.searchParams.set("id", id);
-  url.searchParams.set("token", signRecoveryId(id));
+  url.searchParams.set("id", paymentIntentId);
+  url.searchParams.set("token", signRecoveryId(paymentIntentId));
   return url.toString();
 }

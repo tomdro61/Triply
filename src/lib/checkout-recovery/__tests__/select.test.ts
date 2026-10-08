@@ -54,7 +54,7 @@ describe("selectRecoveryCandidates — the trip decides, not the email", () => {
     }
   });
 
-  it("two abandoned PaymentIntents for the same trip do not suppress each other", () => {
+  it("two abandoned PaymentIntents for the same trip: only the NEWEST is a candidate (the older address was a typo or a stranger)", () => {
     const r = selectRecoveryCandidates(
       [
         pi("pi_1", 60, { ...trip, customerEmail: "a@example.com" }),
@@ -62,7 +62,34 @@ describe("selectRecoveryCandidates — the trip decides, not the email", () => {
       ],
       NOW
     );
-    expect(r.candidates.map((c) => c.email).sort()).toEqual(["a@example.com", "b@example.com"]);
+    expect(r.candidates.map((c) => c.paymentIntentId)).toEqual(["pi_1"]);
+    expect(r.skipped.superseded).toBe(1);
+  });
+
+  it("a newer PaymentIntent — any status, even too young to judge — supersedes an older one for the same trip or address", () => {
+    const r = selectRecoveryCandidates(
+      [
+        pi("pi_old_trip", 60, { ...trip, customerEmail: "a@example.com" }),
+        pi("pi_new_trip", 5, { ...trip, customerEmail: "z@example.com" }),
+        pi("pi_old_mail", 60, { ...other, customerEmail: "b@example.com" }),
+        pi("pi_new_mail", 5, { ...other, checkin: "2026-11-09", customerEmail: "B@example.com" }, "requires_action"),
+      ],
+      NOW
+    );
+    expect(r.candidates).toEqual([]);
+    expect(r.skipped.superseded).toBe(2);
+    expect(r.skipped.tooYoung).toBe(1);
+  });
+
+  it("the newest abandoned attempt of a chain is still a candidate once it is old enough", () => {
+    const r = selectRecoveryCandidates(
+      [
+        pi("pi_older", 90, { ...trip, customerEmail: "a@example.com" }),
+        pi("pi_newest", 50, { ...trip, customerEmail: "a@example.com" }),
+      ],
+      NOW
+    );
+    expect(r.candidates.map((c) => c.paymentIntentId)).toEqual(["pi_newest"]);
   });
 
   it("a different trip by the same address, paid EARLIER, does not block; paid LATER does", () => {

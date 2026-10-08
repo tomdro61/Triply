@@ -44,6 +44,23 @@ export function isTransientSendFailure(error: unknown): boolean {
   return true;
 }
 
+/** Resend rejected OUR credentials or domain (401/403) — nothing to do with
+ *  this recipient, and every later send in the run would fail the same way. */
+export function isSendConfigFailure(error: unknown): boolean {
+  return error instanceof RecoverySendError && (error.statusCode === 401 || error.statusCode === 403);
+}
+
+/**
+ * Resend's idempotency answer: the key was already used with a different
+ * payload (`invalid_idempotent_request`), or the first request is still in
+ * flight (`concurrent_idempotent_requests`). Either way an email under this
+ * key may already be out — it must be recorded as sent, never retried and
+ * never marked failed.
+ */
+export function isIdempotencyConflict(error: unknown): boolean {
+  return error instanceof RecoverySendError && error.statusCode === 409;
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -159,7 +176,10 @@ export function buildRecoveryEmail(
 
 /** Resend's Idempotency-Key for one abandoned checkout: keyed on the
  *  PaymentIntent (never the ledger row id, which changes when a claim is
- *  released and retried), so a lost response + retry cannot send twice. */
+ *  released and retried), so a lost response + retry cannot send twice. The
+ *  payload must be byte-stable across retries for the replay to match — so
+ *  the unsubscribe link is keyed on the PaymentIntent too, and the lot name
+ *  comes from the shared location snapshot. */
 export const recoveryIdempotencyKey = (paymentIntentId: string) => `checkout-recovery/${paymentIntentId}`;
 
 export async function sendRecoveryEmail(

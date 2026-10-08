@@ -30,7 +30,16 @@ CREATE TABLE IF NOT EXISTS checkout_recovery_emails (
 CREATE INDEX IF NOT EXISTS idx_checkout_recovery_emails_email_created
   ON checkout_recovery_emails (email, created_at);
 
+-- The stale-claim scan (status = 'claimed' AND created_at < …) runs every tick.
+CREATE INDEX IF NOT EXISTS idx_checkout_recovery_emails_claimed
+  ON checkout_recovery_emails (created_at)
+  WHERE status = 'claimed';
+
 ALTER TABLE checkout_recovery_emails ENABLE ROW LEVEL SECURITY;
+-- Server-only (the 029/032 pattern): RLS with no policies already denies the
+-- API roles; the REVOKE is defence in depth for a table of customer emails.
+REVOKE ALL ON TABLE checkout_recovery_emails FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE checkout_recovery_emails TO service_role;
 
 CREATE TABLE IF NOT EXISTS checkout_recovery_optouts (
   email TEXT PRIMARY KEY,
@@ -39,3 +48,5 @@ CREATE TABLE IF NOT EXISTS checkout_recovery_optouts (
 );
 
 ALTER TABLE checkout_recovery_optouts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE checkout_recovery_optouts FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT ON TABLE checkout_recovery_optouts TO service_role;
