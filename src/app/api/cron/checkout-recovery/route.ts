@@ -40,10 +40,14 @@ import {
  *   - the check-in has not passed and clears the lot's own notice period,
  *   - THE SAME TRIP (lot + dates + times) was not attempted or booked by
  *     anyone, before or after — another PaymentIntent past the payment form
- *     (select.ts), a bookings row in the last 30 days, or a pending_bookings
- *     row (Pay Now was clicked) — checkout mints a new PaymentIntent on every
- *     re-entry, so an abandoned one next to a paid one for the same trip is
- *     the NORMAL shape of a successful booking, not an abandonment,
+ *     (select.ts), a LIVE bookings row in the last 30 days, or a
+ *     pending_bookings row of ANY status (Pay Now was clicked; this table is
+ *     never deleted from, and it is what keeps a cancelled / refunded /
+ *     payment_failed attempt at the same trip suppressed — a retention scrub
+ *     of pending_bookings would weaken this rule) — checkout mints a new
+ *     PaymentIntent on every re-entry, so an abandoned one next to a paid one
+ *     for the same trip is the NORMAL shape of a successful booking, not an
+ *     abandonment,
  *   - it is the NEWEST PaymentIntent for its trip and its address (select.ts),
  *   - the same address has not paid since, and has not paid or booked at the
  *     SAME LOT in the window (a date-change attempt),
@@ -282,9 +286,11 @@ type BookingRow = {
 };
 
 /**
- * Candidates whose trip is already BOOKED: a bookings row for the same
- * location + literal check-in/check-out in the last 30 days (any email, any
- * order — the booking may predate the abandoned re-entry); a LIVE booking by
+ * Candidates whose trip is already BOOKED: a LIVE bookings row (confirmed /
+ * disputed / completed, check_out not past) for the same location + literal
+ * check-in/check-out in the last 30 days (any email, any order — the booking
+ * may predate the abandoned re-entry; a cancelled or refunded one of the
+ * same trip still suppresses through pendingTrips); a LIVE booking by
  * the same address at the SAME LOT (a date-change attempt — the customer
  * holds a booking there; a trip already over, cancelled or refunded is a
  * returning customer, our best lead, and does not suppress); or a booking
@@ -302,10 +308,11 @@ async function bookedTrips(
   const cols = "reslab_location_id, check_in, check_out, created_at, customers!inner(email)";
   const locationIds = [...new Set(candidates.map((c) => c.locationId))];
   const earliest = Math.min(...candidates.map((c) => c.createdMs));
-  // check_out is a literal TIMESTAMP ("2026-10-22T18:00:00") compared as a
-  // string against yesterday's UTC date — a day of slack covers every zone
-  // we serve. An abandoned check-in is always in the future, so a booking
-  // of the same trip always passes this filter.
+  // check_out is a literal TIMESTAMP (no zone); Postgres casts yesterday's
+  // UTC date to that day's midnight for the comparison — a day of slack
+  // covers every zone we serve, and no Date math touches the stored value.
+  // An abandoned check-in is always in the future, so a booking of the same
+  // trip always passes this filter.
   const stillLiveAfter = new Date(nowMs - 24 * 60 * 60_000).toISOString().slice(0, 10);
   const [byLot, since] = await Promise.all([
     supabase
@@ -843,6 +850,7 @@ async function run(postalAddress: string) {
         // domain — not this row's fault, and every later send would fail
         // the same way. Park it and stop.
         await markRow(supabase, rowId, { status: "retry", last_error: message.slice(0, 500) }, result);
+        result.deferredToNextRun += toSend.length - toSend.indexOf(c) - 1;
         break;
       }
       if (isTransientSendFailure(error)) {
