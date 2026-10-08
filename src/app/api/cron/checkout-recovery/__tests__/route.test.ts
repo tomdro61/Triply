@@ -251,13 +251,23 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     expect((await res.json()).skipped.paidSince).toBe(2);
   });
 
-  it("a payment made BEFORE the abandoned checkout for a DIFFERENT trip does not block the email", async () => {
+  it("a payment made BEFORE the abandoned checkout for a DIFFERENT trip at another lot does not block the email", async () => {
     stripePis = [
-      pi({ id: "pi_old_trip", status: "succeeded", ageMin: 20 * 60, metadata: otherTrip }),
+      pi({ id: "pi_old_trip", status: "succeeded", ageMin: 20 * 60, metadata: { ...otherTrip, lotId: "reslab-99", locationId: "99" } }),
       pi({ id: "pi_new_trip", ageMin: 50 }),
     ];
     await GET(req());
     expect(sentTo()).toEqual(["alice@example.com"]);
+  });
+
+  it("a payment at the SAME lot by the same address, before the abandoned checkout (a date-change attempt), blocks it", async () => {
+    stripePis = [
+      pi({ id: "pi_booked", status: "requires_capture", ageMin: 20 * 60, metadata: otherTrip }),
+      pi({ id: "pi_new_dates", ageMin: 50 }),
+    ];
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect((await res.json()).skipped.sameLotPaid).toBe(1);
   });
 
   // The two Criticals from the PR #44 review. Checkout mints a NEW
@@ -356,14 +366,14 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     expect((await res.json()).bookedTrip).toBe(1);
   });
 
-  it("a booking by the same address made BEFORE the abandoned checkout, for another trip, does not block", async () => {
+  it("a booking by the same address made BEFORE the abandoned checkout, at another lot, does not block; at the SAME lot it does", async () => {
     stripePis = [pi({ id: "pi_x", ageMin: 60 })];
     db.tables.customers = [{ id: "cust_1", email: "alice@example.com" }];
     db.tables.bookings = [
       {
         id: "b1",
         customer_id: "cust_1",
-        reslab_location_id: 10,
+        reslab_location_id: 99,
         check_in: `${inTwentyDays}T10:00:00`,
         check_out: `${inTwentyTwoDays}T18:00:00`,
         created_at: minutesAgo(5 * 24 * 60),
@@ -371,6 +381,17 @@ describe("GET /api/cron/checkout-recovery — selection", () => {
     ];
     await GET(req());
     expect(sentTo()).toEqual(["alice@example.com"]);
+
+    vi.clearAllMocks();
+    resendSend.mockResolvedValue({ data: { id: "email_2" }, error: null });
+    noSweep.mockResolvedValue(null);
+    getLocation.mockResolvedValue({ name: "Jet Parking JFK", latitude: "40.6650", longitude: "-73.7900" });
+    stripeList.mockImplementation(() => (async function* () { yield* stripePis; })());
+    db.tables.checkout_recovery_emails = [];
+    db.tables.bookings[0].reslab_location_id = 10;
+    const res = await GET(req());
+    expect(resendSend).not.toHaveBeenCalled();
+    expect((await res.json()).bookedTrip).toBe(1);
   });
 
   it("skips when Pay Now was clicked since for the same trip or by the same address (pending_bookings)", async () => {
@@ -490,6 +511,51 @@ describe("GET /api/cron/checkout-recovery — the lot", () => {
     expect(resendSend).not.toHaveBeenCalled();
     expect(db.tables.checkout_recovery_emails).toHaveLength(0);
     expect((await res.json()).lotGone).toBe(1);
+  });
+
+  it("a check-in TOMORROW inside a lot's 24 h notice period is not emailed either — the gate is not same-day only", async () => {
+    // 8:00 PM New York on Oct 19; check-in Oct 20 at 10:00 AM = 14 h ahead.
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date("2026-10-20T00:00:00Z") });
+    try {
+      const tomorrow = { checkin: "2026-10-20", checkout: "2026-10-22", checkinTime: "10:00 AM" };
+      stripePis = [pi({ id: "pi_tmrw", ageMin: 50, metadata: { ...tomorrow, customerEmail: "tmrw@example.com" } })];
+      noSweep.mockResolvedValue([snapshotLot({ hours_before_reservation: 24 })]);
+      let res = await GET(req());
+      expect(resendSend).not.toHaveBeenCalled();
+      expect((await res.json()).checkinTooSoon).toBe(1);
+
+      noSweep.mockResolvedValue([snapshotLot({ hours_before_reservation: 12 })]);
+      res = await GET(req());
+      expect(sentTo()).toEqual(["tmrw@example.com"]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the gate runs in the LOT's own zone, not the airport's or the latest US one", async () => {
+    // 09:00Z Oct 20 = 11:00 PM Oct 19 in Honolulu, 05:00 AM in New York.
+    // Check-in Oct 20 8:00 AM HST = 18:00Z, 9 h ahead there: inside a 12 h
+    // notice, clear of a 2 h one. (The select.ts floor, judged in the latest
+    // US zone, lets both through — only the lot-zone gate can tell.)
+    vi.useFakeTimers({ shouldAdvanceTime: true, now: new Date("2026-10-20T09:00:00Z") });
+    try {
+      const hawaii = { checkin: "2026-10-20", checkout: "2026-10-22", checkinTime: "8:00 AM" };
+      stripePis = [pi({ id: "pi_hnl", ageMin: 50, metadata: { ...hawaii, customerEmail: "hnl@example.com" } })];
+      noSweep.mockResolvedValue([
+        snapshotLot({ timezone: { id: 2, name: "Hawaii", code: "Pacific/Honolulu" }, hours_before_reservation: 12 }),
+      ]);
+      let res = await GET(req());
+      expect(resendSend).not.toHaveBeenCalled();
+      expect((await res.json()).checkinTooSoon).toBe(1);
+
+      noSweep.mockResolvedValue([
+        snapshotLot({ timezone: { id: 2, name: "Hawaii", code: "Pacific/Honolulu" }, hours_before_reservation: 2 }),
+      ]);
+      res = await GET(req());
+      expect(sentTo()).toEqual(["hnl@example.com"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("a same-day check-in inside the lot's own notice period is not emailed (the link would 400 at ResLab)", async () => {
@@ -640,24 +706,69 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
     expect(resendSend).toHaveBeenCalledTimes(1);
   });
 
-  it("a claim INSERT that errors is cleaned up by PaymentIntent in case it committed after the timeout", async () => {
+  it("a claim INSERT that errors (e.g. the 3 s abort) is counted, nothing is sent, and nothing is deleted inline — a commit-after-abort row is left for the sweep", async () => {
     stripePis = [pi({ id: "pi_claim_err" })];
-    db.failOnce("checkout_recovery_emails", "insert", "canceling statement due to statement timeout", "57014");
+    db.failOnce("checkout_recovery_emails", "insert", "AbortError: signal timed out", "");
     const res = await GET(req());
     expect((await res.json()).claimFailed).toBe(1);
     expect(resendSend).not.toHaveBeenCalled();
-    expect(db.log).toContainEqual({ table: "checkout_recovery_emails", op: "delete" });
+    expect(db.log).not.toContainEqual({ table: "checkout_recovery_emails", op: "delete" });
   });
 
-  it("a `claimed` row older than 15 min (crash between claim and mark) is alarmed on every run, never silently retried", async () => {
+  it("a `retry` row (transient failure last tick) is re-claimed and sent; a `sent`/`failed`/foreign `claimed` row is not", async () => {
+    stripePis = [
+      pi({ id: "pi_retry", metadata: { ...tripN(1), customerEmail: "retry@example.com" } }),
+      pi({ id: "pi_done", metadata: { ...tripN(2), customerEmail: "done@example.com" } }),
+    ];
+    db.tables.checkout_recovery_emails = [
+      { id: "r", stripe_payment_intent_id: "pi_retry", email: "retry@example.com", livemode: true, status: "retry", created_at: minutesAgo(15), claimed_at: minutesAgo(15), last_error: "unavailable" },
+      { id: "d", stripe_payment_intent_id: "pi_done", email: "done@example.com", livemode: true, status: "sent", created_at: minutesAgo(15), claimed_at: minutesAgo(15) },
+    ];
+    const res = await GET(req());
+    expect(sentTo()).toEqual(["retry@example.com"]);
+    const body = await res.json();
+    expect(body.sent).toBe(1);
+    // The `sent` row is inside the 7-day cap, so that address never reaches
+    // the claim; the UNIQUE lock is exercised by the overlapping-run test.
+    expect(body.cappedWithin7d).toBe(1);
+    const row = db.tables.checkout_recovery_emails.find((r) => r.id === "r");
+    expect(row?.status).toBe("sent");
+    expect(row?.last_error ?? null).toBeNull();
+    // The same row id, so the unsubscribe subject and the Resend payload are
+    // identical to the first attempt's.
+    expect(db.tables.checkout_recovery_emails).toHaveLength(2);
+  });
+
+  it("the 7-day cap counts attempts that went out (or are going out), not a parked `retry`", async () => {
+    stripePis = [pi({ id: "pi_new", metadata: { ...tripN(1), customerEmail: "parked@example.com" } })];
+    db.tables.checkout_recovery_emails = [
+      { id: "old", stripe_payment_intent_id: "pi_old_attempt", email: "parked@example.com", livemode: true, status: "retry", created_at: minutesAgo(2 * 24 * 60), claimed_at: minutesAgo(2 * 24 * 60) },
+    ];
+    await GET(req());
+    expect(sentTo()).toEqual(["parked@example.com"]);
+  });
+
+  it("stale `claimed` rows: one that never reached Resend is released; one that did is alarmed, never retried; a fresh one is left alone", async () => {
     db.tables.checkout_recovery_emails = [
       {
-        id: "stale",
-        stripe_payment_intent_id: "pi_crashed",
-        email: "crashed@example.com",
+        id: "never_sent",
+        stripe_payment_intent_id: "pi_crashed_early",
+        email: "early@example.com",
         livemode: true,
         status: "claimed",
         created_at: minutesAgo(20),
+        claimed_at: minutesAgo(20),
+        send_started_at: null,
+      },
+      {
+        id: "maybe_sent",
+        stripe_payment_intent_id: "pi_crashed_late",
+        email: "late@example.com",
+        livemode: true,
+        status: "claimed",
+        created_at: minutesAgo(20),
+        claimed_at: minutesAgo(20),
+        send_started_at: minutesAgo(20),
       },
       {
         id: "fresh",
@@ -666,30 +777,40 @@ describe("GET /api/cron/checkout-recovery — idempotency + 7-day cap", () => {
         livemode: true,
         status: "claimed",
         created_at: minutesAgo(5),
+        claimed_at: minutesAgo(5),
+        send_started_at: null,
       },
     ];
     const res = await GET(req());
-    expect((await res.json()).staleClaims).toBe(1);
+    expect((await res.json()).staleClaims).toEqual({ released: 1, alarmed: 1 });
     expect(sentry.captureMessage).toHaveBeenCalledTimes(1);
-    expect(String(sentry.captureMessage.mock.calls[0][0])).toContain("1 claimed row(s)");
+    expect(String(sentry.captureMessage.mock.calls[0][0])).toContain("1 claimed row(s) reached Resend");
     expect(resendSend).not.toHaveBeenCalled();
-    expect(db.tables.checkout_recovery_emails.map((r) => r.status)).toEqual(["claimed", "claimed"]);
+    expect(db.tables.checkout_recovery_emails.map((r) => r.id).sort()).toEqual(["fresh", "maybe_sent"]);
   });
 });
 
 describe("GET /api/cron/checkout-recovery — send failures", () => {
-  it("a transient Resend failure releases the claim so the next tick can retry, and is loud", async () => {
+  it("a transient Resend failure parks the row as `retry` (never deleted — the email may be out) so the next tick re-claims it, and is loud", async () => {
     stripePis = [pi()];
     resendSend.mockResolvedValueOnce({ data: null, error: { statusCode: 503, message: "unavailable", name: "x" } });
     const res = await GET(req());
     expect(res.status).toBe(500);
-    expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+    expect(db.tables.checkout_recovery_emails).toHaveLength(1);
+    expect(db.tables.checkout_recovery_emails[0].status).toBe("retry");
+    expect(db.tables.checkout_recovery_emails[0].send_started_at).toBeTruthy();
     expect(sentry.captureMessage).toHaveBeenCalled();
+    const firstRowId = db.tables.checkout_recovery_emails[0].id;
 
     const retry = await GET(req());
     expect(retry.status).toBe(200);
     expect(resendSend).toHaveBeenCalledTimes(2);
+    expect(db.tables.checkout_recovery_emails).toHaveLength(1);
+    expect(db.tables.checkout_recovery_emails[0].id).toBe(firstRowId);
     expect(db.tables.checkout_recovery_emails[0].status).toBe("sent");
+    // Byte-identical payload on the retry → Resend replays, never double-sends.
+    expect(resendSend.mock.calls[1][0]).toEqual(resendSend.mock.calls[0][0]);
+    expect(resendSend.mock.calls[1][1]).toEqual(resendSend.mock.calls[0][1]);
   });
 
   it("a permanent rejection keeps the row as failed so it is never retried, with the address redacted from last_error and Sentry", async () => {
@@ -719,7 +840,18 @@ describe("GET /api/cron/checkout-recovery — send failures", () => {
     const res = await GET(req());
     expect(res.status).toBe(500);
     expect(resendSend).toHaveBeenCalledTimes(1);
-    expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+    expect(db.tables.checkout_recovery_emails.map((r) => r.status)).toEqual(["retry"]);
+  });
+
+  it("a Resend 409 whose body lacks statusCode is still recognised by name, not retried every tick", async () => {
+    stripePis = [pi({ id: "pi_409_name" })];
+    resendSend.mockResolvedValueOnce({
+      data: null,
+      error: { message: "Idempotency key used with a different payload", name: "invalid_idempotent_request" },
+    });
+    const res = await GET(req());
+    expect((await res.json()).sentUnconfirmed).toBe(1);
+    expect(db.tables.checkout_recovery_emails[0].status).toBe("sent");
   });
 
   it("a Resend call that never answers fails as transient (released, loud) instead of running into the function timeout", async () => {
@@ -731,7 +863,7 @@ describe("GET /api/cron/checkout-recovery — send failures", () => {
       await vi.advanceTimersByTimeAsync(10_500);
       const res = await pending;
       expect(res.status).toBe(500);
-      expect(db.tables.checkout_recovery_emails).toHaveLength(0);
+      expect(db.tables.checkout_recovery_emails.map((r) => r.status)).toEqual(["retry"]);
     } finally {
       vi.useRealTimers();
     }

@@ -147,6 +147,11 @@ export interface SelectionResult {
     directLot: number;
     checkinPassed: number;
     paidSince: number;
+    /** The same address PAID for the same lot on any other PaymentIntent in
+     *  the window, before or after — a date-change attempt (modifying a
+     *  booking is not self-serve) is the usual shape; the customer holds a
+     *  booking there and must not be chased for the retry. */
+    sameLotPaid: number;
     /** Another PaymentIntent for the same trip was paid, authorised, mid-3DS
      *  or cancelled by fulfilment — by anyone, before or after this one. */
     tripAttempted: number;
@@ -196,6 +201,7 @@ export function selectRecoveryCandidates(
     directLot: 0,
     checkinPassed: 0,
     paidSince: 0,
+    sameLotPaid: 0,
     tripAttempted: 0,
     superseded: 0,
   };
@@ -203,6 +209,8 @@ export function selectRecoveryCandidates(
 
   // Latest creation time of a PAID PaymentIntent per (lowercased) email.
   const paidAt = new Map<string, number>();
+  // `${email}|${lotId}` of every PAID PaymentIntent, any order.
+  const paidLots = new Set<string>();
   // Every trip some PaymentIntent got PAST the payment form on — whatever the
   // email, whenever it was created. An abandoned attempt at one of these is
   // a re-entry (Back, reload, email fix, 3DS retry), not an abandonment.
@@ -230,6 +238,8 @@ export function selectRecoveryCandidates(
     if (!PAID_STATUSES.has(pi.status) || !email) continue;
     const createdMs = pi.created * 1000;
     if ((paidAt.get(email) ?? 0) < createdMs) paidAt.set(email, createdMs);
+    const lotId = pi.metadata?.lotId;
+    if (lotId) paidLots.add(`${email}|${lotId}`);
   }
 
   const cutoffWallClock = latestLocalWallClock(nowMs + RECOVERY_MIN_LEAD_MS);
@@ -281,7 +291,6 @@ export function selectRecoveryCandidates(
       skipped.paidSince++;
       continue;
     }
-
     // The same trip got past the payment form on another PaymentIntent — any
     // address, any order. This is what catches "paid, then pressed Back",
     // "fixed the email, then paid", and "mid-3DS on the retry".
@@ -291,11 +300,19 @@ export function selectRecoveryCandidates(
       continue;
     }
 
+    // Paid at this lot on another PaymentIntent, any order: the customer
+    // holds a booking there and this is a date-change attempt.
+    if (paidLots.has(`${m.customerEmail}|${m.lotId}`)) {
+      skipped.sameLotPaid++;
+      continue;
+    }
+
     // Not the newest attempt for this trip or this address → the customer
     // moved on (typo'd address fixed and abandoned again; same trip re-entered
     // ten minutes ago and still open). The newest one is judged on its own
-    // — and emailed, if at all, only once IT is 45 min old. This is also what
-    // keeps a mistyped address from ever receiving the trip details.
+    // — and emailed, if at all, only once IT is 45 min old. Recency, not
+    // correctness: the newest address is the one the customer settled on,
+    // which is the best evidence we have of where they can be reached.
     if (newestByTrip.get(trip)?.id !== pi.id || newestByEmail.get(m.customerEmail)?.id !== pi.id) {
       skipped.superseded++;
       continue;

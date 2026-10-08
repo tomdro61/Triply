@@ -29,10 +29,13 @@ export const RESEND_SEND_TIMEOUT_MS = 10_000;
  */
 export class RecoverySendError extends Error {
   readonly statusCode: number | undefined;
-  constructor(message: string, statusCode: number | undefined) {
+  /** Resend's error `name` (e.g. "invalid_idempotent_request"), when given. */
+  readonly resendName: string | undefined;
+  constructor(message: string, statusCode: number | undefined, resendName?: string) {
     super(message);
     this.name = "RecoverySendError";
     this.statusCode = statusCode;
+    this.resendName = resendName;
   }
 }
 
@@ -58,7 +61,15 @@ export function isSendConfigFailure(error: unknown): boolean {
  * never marked failed.
  */
 export function isIdempotencyConflict(error: unknown): boolean {
-  return error instanceof RecoverySendError && error.statusCode === 409;
+  if (!(error instanceof RecoverySendError)) return false;
+  // Resend's `statusCode` comes from the JSON error body, so match the error
+  // name too: a 409 body without it would otherwise read as transient and be
+  // retried every tick until the PaymentIntent ages out.
+  return (
+    error.statusCode === 409 ||
+    error.resendName === "invalid_idempotent_request" ||
+    error.resendName === "concurrent_idempotent_requests"
+  );
 }
 
 function escapeHtml(s: string): string {
@@ -120,8 +131,11 @@ export function buildRecoveryEmail(
   const amountLabel = "Due at booking when you left (incl. any protection plan or promo you'd chosen)";
   const why = "You're getting this because you started a booking at triplypro.com with this address.";
 
+  // "This booking", not "nothing is reserved": the customer may well hold an
+  // earlier booking at the same lot (a date-change attempt) — the copy must
+  // only speak for the attempt it is about.
   const text = [
-    "You started booking parking on Triply but didn't finish, so nothing is reserved and you have not been charged.",
+    "You started booking parking on Triply but didn't finish. This booking isn't reserved and you have not been charged for it.",
     "",
     `Lot: ${where}`,
     `Dates: ${dates}`,
@@ -144,7 +158,7 @@ export function buildRecoveryEmail(
         <div style="padding: 40px;">
           <h2 style="margin: 0 0 16px; color: #111827; font-size: 20px; font-weight: 700;">Your booking isn't finished</h2>
           <p style="font-size: 15px; color: #374151; line-height: 1.6; margin: 0 0 20px;">
-            You started booking parking but didn't finish, so nothing is reserved and you have not been charged.
+            You started booking parking but didn't finish. This booking isn't reserved and you have not been charged for it.
           </p>
           <table style="width: 100%; font-size: 15px; color: #374151; border-collapse: collapse;">
             <tr><td style="padding: 6px 0; color: #6b7280; width: 40%;">Lot</td><td style="padding: 6px 0;">${escapeHtml(where)}</td></tr>
@@ -219,20 +233,20 @@ export async function sendRecoveryEmail(
       RESEND_SEND_TIMEOUT_MS
     );
   });
-  let error: { message: string; statusCode?: unknown } | null;
+  let error: { message: string; statusCode?: unknown; name?: unknown } | null;
   try {
     ({ error } = await Promise.race([send, timeout]));
   } finally {
     clearTimeout(timer);
   }
   if (error) {
-    const statusCode =
-      typeof (error as { statusCode?: unknown }).statusCode === "number"
-        ? (error as { statusCode: number }).statusCode
-        : undefined;
+    const e = error as { statusCode?: unknown; name?: unknown };
+    const statusCode = typeof e.statusCode === "number" ? e.statusCode : undefined;
+    const resendName = typeof e.name === "string" ? e.name : undefined;
     throw new RecoverySendError(
       `Resend error for checkout recovery ${c.paymentIntentId}: ${error.message}`,
-      statusCode
+      statusCode,
+      resendName
     );
   }
 }

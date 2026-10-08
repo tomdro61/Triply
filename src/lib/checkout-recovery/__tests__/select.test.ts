@@ -92,10 +92,10 @@ describe("selectRecoveryCandidates — the trip decides, not the email", () => {
     expect(r.candidates.map((c) => c.paymentIntentId)).toEqual(["pi_newest"]);
   });
 
-  it("a different trip by the same address, paid EARLIER, does not block; paid LATER does", () => {
+  it("a different trip at another lot by the same address, paid EARLIER, does not block; paid LATER does", () => {
     const earlier = selectRecoveryCandidates(
       [
-        pi("pi_paid", 120, { ...other, customerEmail: "a@example.com" }, "succeeded"),
+        pi("pi_paid", 120, { ...other, lotId: "reslab-99", locationId: "99", customerEmail: "a@example.com" }, "succeeded"),
         pi("pi_left", 60, { ...trip, customerEmail: "a@example.com" }),
       ],
       NOW
@@ -111,6 +111,28 @@ describe("selectRecoveryCandidates — the trip decides, not the email", () => {
     );
     expect(later.candidates).toEqual([]);
     expect(later.skipped.paidSince).toBe(1);
+  });
+
+  it("a paid trip at the same lot by the same address, OLDER than the abandoned one (a date-change attempt), suppresses", () => {
+    const r = selectRecoveryCandidates(
+      [
+        pi("pi_booked", 20 * 60, { ...other, customerEmail: "a@example.com" }, "requires_capture"),
+        pi("pi_new_dates", 60, { ...trip, customerEmail: "a@example.com" }),
+      ],
+      NOW
+    );
+    expect(r.candidates).toEqual([]);
+    expect(r.skipped.sameLotPaid).toBe(1);
+
+    // A different lot does not: that is a genuinely new trip.
+    const elsewhere = selectRecoveryCandidates(
+      [
+        pi("pi_booked", 20 * 60, { ...other, lotId: "reslab-99", locationId: "99", customerEmail: "a@example.com" }, "succeeded"),
+        pi("pi_new_lot", 60, { ...trip, customerEmail: "a@example.com" }),
+      ],
+      NOW
+    );
+    expect(elsewhere.candidates.map((c) => c.paymentIntentId)).toEqual(["pi_new_lot"]);
   });
 
   it("a non-abandoned PaymentIntent with unreadable metadata cannot vouch for any trip", () => {
