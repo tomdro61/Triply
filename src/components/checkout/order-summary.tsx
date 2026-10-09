@@ -22,6 +22,19 @@ interface OrderSummaryProps {
    * displayed total but NOT the amount Stripe charges.
    */
   promoLocked?: boolean;
+  /**
+   * DIRECT lots: the declared vehicle and the ESTIMATED amount due at the lot
+   * (vehicle-surcharge plan R1/R10). Display only and never added to `Total`,
+   * which stays what the card is charged.
+   */
+  vehicleEstimate?: {
+    label: string;
+    surchargeCents: number;
+    surchargeTaxCents: number;
+    atLotCents: number;
+    /** priceBreakdown.total (online) + atLotCents, in cents. */
+    tripTotalCents: number;
+  } | null;
 }
 
 export function OrderSummary({
@@ -33,6 +46,7 @@ export function OrderSummary({
   onApplyPromo,
   onRemovePromo,
   promoLocked = false,
+  vehicleEstimate = null,
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -182,6 +196,33 @@ export function OrderSummary({
               </span>
             </div>
           </div>
+          {vehicleEstimate && (
+            <div className="mt-3 pt-3 border-t border-gray-200 text-sm space-y-1">
+              <div className="flex justify-between gap-3">
+                <span className="text-gray-600">Vehicle</span>
+                <span className="text-gray-900 text-right">{vehicleEstimate.label}</span>
+              </div>
+              {vehicleEstimate.atLotCents > 0 && (
+                <>
+                  <div className="flex justify-between gap-3">
+                    <span className="flex items-center gap-1 text-amber-700">
+                      <Wallet size={14} />
+                      Estimated due at the lot
+                    </span>
+                    <span className="font-medium text-amber-700">${(vehicleEstimate.atLotCents / 100).toFixed(2)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    ${(vehicleEstimate.surchargeCents / 100).toFixed(2)} surcharge + ${(vehicleEstimate.surchargeTaxCents / 100).toFixed(2)} tax,
+                    paid at drop-off. Not charged today.
+                  </p>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-gray-600">Estimated trip total</span>
+                    <span className="font-medium text-gray-900">${(vehicleEstimate.tripTotalCents / 100).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           {priceBreakdown.dueAtLocation > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex justify-between text-sm">

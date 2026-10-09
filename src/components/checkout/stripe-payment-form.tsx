@@ -54,6 +54,14 @@ interface StripePaymentFormProps {
    * what Stripe will charge. Re-selecting a card resolves it.
    */
   protectionStateAmbiguous?: boolean;
+  /**
+   * DIRECT lots with oversized-vehicle surcharges: renders the vehicle-size
+   * selector above Parking Protection. Receives `processing` so the choice is
+   * locked while a payment is in flight (vehicle-surcharge plan R4).
+   */
+  renderVehicleSize?: (disabled: boolean) => React.ReactNode;
+  /** false = a vehicle size is still required (R8); Pay stays disabled. ResLab lots: always true. */
+  vehicleSizeAnswered?: boolean;
 }
 
 export function StripePaymentForm({
@@ -71,6 +79,8 @@ export function StripePaymentForm({
   protectionPlanUpdating = false,
   protectionChoiceError = null,
   protectionStateAmbiguous = false,
+  renderVehicleSize,
+  vehicleSizeAnswered = true,
 }: StripePaymentFormProps) {
   const protectionAnswered = protectionPlanChoice !== null;
   const stripe = useStripe();
@@ -83,7 +93,7 @@ export function StripePaymentForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || processing || protectionPlanUpdating || protectionStateAmbiguous) {
+    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || processing || protectionPlanUpdating || protectionStateAmbiguous) {
       return;
     }
 
@@ -183,6 +193,9 @@ export function StripePaymentForm({
         </p>
       </div>
 
+      {/* Vehicle size — direct lots with surcharges only; gates Pay Now (R8) */}
+      {renderVehicleSize?.(processing)}
+
       {/* Parking Protection — required tier / no-protection pick, gates Pay Now */}
       <ProtectionPlan
         value={protectionPlanChoice}
@@ -276,7 +289,7 @@ export function StripePaymentForm({
         </button>
         <button
           type="submit"
-          disabled={processing || !acceptedTerms || !protectionAnswered || protectionPlanUpdating || protectionStateAmbiguous || !stripe || !elements}
+          disabled={processing || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || protectionPlanUpdating || protectionStateAmbiguous || !stripe || !elements}
           className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {processing ? (
@@ -295,6 +308,8 @@ export function StripePaymentForm({
             // BEFORE "unanswered"). The button amount could be wrong; do not
             // show a dollar value the customer might trust.
             <>Re-select your protection option to confirm total</>
+          ) : !vehicleSizeAnswered ? (
+            <>Choose your vehicle size above</>
           ) : !protectionAnswered ? (
             <>Select a protection option above</>
           ) : (
