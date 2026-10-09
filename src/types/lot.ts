@@ -107,6 +107,13 @@ export interface UnifiedLot {
    * describe the booking's own price split). Empty = the lot has none.
    */
   vehicleSurcharges?: { code: string; label: string; dailyRateCents: number }[];
+  /**
+   * DIRECT lots only: whether this deployment lets the lot be checked out
+   * (isDirectCheckoutOpen — DIRECT_BOOKING_OPEN, or the Preview-only flag).
+   * Set server-side by the adapter: the flag is a server env var, so the
+   * Reserve buttons read it from here. ResLab lots leave it undefined.
+   */
+  checkoutOpen?: boolean;
 
   // Extra fields required by location
   extraFields?: {

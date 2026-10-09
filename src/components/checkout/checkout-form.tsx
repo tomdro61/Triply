@@ -12,6 +12,7 @@ import {
   VehicleDetails,
   PriceBreakdown,
   CheckoutCostData,
+  DirectCheckoutTerms,
   ExtraFieldValue,
 } from "@/types/checkout";
 import { CheckoutSteps } from "./checkout-steps";
@@ -38,6 +39,14 @@ import {
 import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
 import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
+import { VehicleSizeSelector } from "./vehicle-size-selector";
+import {
+  atLotEstimate,
+  initialVehicleChoice,
+  refreshVehicleChoice,
+  vehicleSizeOptions,
+  type VehicleChoice,
+} from "@/lib/direct/vehicle-display";
 
 interface CheckoutFormProps {
   lot: UnifiedLot;
@@ -48,12 +57,20 @@ interface CheckoutFormProps {
   costData?: CheckoutCostData | null;
   fromDate?: string;
   toDate?: string;
+  /** Raw `vehicleSize` URL param (direct lots); validated here against the server's terms. */
+  requestedVehicleSize: string | null;
+  /** Raw `vehicleSizeSource` URL param ("checkout" after a change on this page). */
+  requestedVehicleSizeSource: string | null;
 }
 
 // Dev mode - skip Stripe payment for testing (only in development)
 const DEV_SKIP_PAYMENT =
   process.env.NODE_ENV === "development" &&
   process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
+
+// Matches /out of date/ so the checkout funnel buckets it as `stale_quote`.
+const DIRECT_PRICE_STALE_MESSAGE =
+  "The price shown for this lot is out of date. Please reload the page to see the current total — you have not been charged.";
 
 export function CheckoutForm({
   lot,
@@ -64,6 +81,8 @@ export function CheckoutForm({
   costData,
   fromDate,
   toDate,
+  requestedVehicleSize,
+  requestedVehicleSizeSource,
 }: CheckoutFormProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -74,6 +93,27 @@ export function CheckoutForm({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
+
+  // --- Direct lots: oversized-vehicle choice (vehicle-surcharge plan §1.5) ---
+  // The terms are the server's: from the checkout GET, then replaced by the
+  // POST that creates the PaymentIntent (the ones stamped on it, R5). The
+  // surcharge is paid AT THE LOT: nothing here ever changes an online amount
+  // or the PaymentIntent, so a change needs no network call.
+  const isDirect = lot.source === "direct";
+  const [directTerms, setDirectTerms] = useState<DirectCheckoutTerms | null>(
+    isDirect ? (costData?.direct ?? null) : null
+  );
+  // null on a direct lot with surcharges = no valid choice yet (R8): the
+  // selector opens expanded and Pay waits for a pick.
+  const [vehicleChoice, setVehicleChoice] = useState<VehicleChoice | null>(() =>
+    initialVehicleChoice(isDirect ? costData?.direct : null, requestedVehicleSize, requestedVehicleSizeSource)
+  );
+  const vehicleSizeAnswered = !isDirect || vehicleChoice !== null;
+  // Set when the PaymentIntent POST priced the lot differently from the page
+  // (the lot was edited mid-checkout). `costData` is from page load and never
+  // refreshes, so Continue stays refused until a reload — each retry would
+  // otherwise create another PaymentIntent and refuse again.
+  const [directPriceStale, setDirectPriceStale] = useState(false);
 
   // Get current user on mount
   useEffect(() => {
@@ -334,6 +374,10 @@ export function CheckoutForm({
 
   const handleVehicleNext = async () => {
     if (!validateVehicleDetails()) return;
+    if (directPriceStale) {
+      setSubmitError(DIRECT_PRICE_STALE_MESSAGE);
+      return;
+    }
 
     // In dev mode, skip payment intent creation. Mirror the production
     // pre-selection so the dev payment step arrives with a decision in state
@@ -348,10 +392,6 @@ export function CheckoutForm({
     setIsCreatingPaymentIntent(true);
     let initStatus: number | undefined; // analytics only — read in the catch
     try {
-      const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
-      if (!parkingTypeId || !lot.reslabLocationId) {
-        throw new Error("Missing required lot data for payment");
-      }
 
       // The PaymentIntent is created WITH the protection choice so the amount
       // Stripe holds matches what the payment step shows. First visit: Plan A
@@ -362,10 +402,27 @@ export function CheckoutForm({
       // present (explicit null for "none") — required at the API boundary.
       const protectionPlanCodeForPI: ProtectionPlanCode | null =
         protectionPlanChoice === null ? "A" : selectedPlanCode;
-      const response = await fetch("/api/checkout/lot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      let requestBody: Record<string, unknown>;
+      if (isDirect) {
+        // Direct lots (A-28): the server prices from its own lot read; no
+        // ResLab ids exist. The vehicle size is NOT sent — it is never charged.
+        requestBody = {
+          inventorySource: "direct",
+          lotId: lot.id,
+          checkin: checkIn,
+          checkout: checkOut,
+          checkinTime: checkInTime,
+          checkoutTime: checkOutTime,
+          customerEmail: customerDetails.email,
+          protectionPlanCode: protectionPlanCodeForPI,
+          ...(promoCode && { promoCode }),
+        };
+      } else {
+        const parkingTypeId = costData?.parkingTypeId || lot.pricing?.parkingTypes?.[0]?.id;
+        if (!parkingTypeId || !lot.reslabLocationId) {
+          throw new Error("Missing required lot data for payment");
+        }
+        requestBody = {
           lotId: lot.id,
           locationId: lot.reslabLocationId,
           checkin: checkIn,
@@ -376,7 +433,12 @@ export function CheckoutForm({
           customerEmail: customerDetails.email,
           protectionPlanCode: protectionPlanCodeForPI,
           ...(promoCode && { promoCode }),
-        }),
+        };
+      }
+      const response = await fetch("/api/checkout/lot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
       });
       initStatus = response.status;
 
@@ -386,6 +448,59 @@ export function CheckoutForm({
         throw new Error(data.error || "Failed to initialize payment");
       }
 
+      if (isDirect) {
+        // The terms just stamped on the PaymentIntent are the ones the server
+        // will compute the at-lot estimate from (R5) — show exactly those.
+        const terms: DirectCheckoutTerms | undefined = data.direct;
+        if (!terms || !costData) {
+          captureAPIError(new Error("Direct checkout could not show the PaymentIntent's terms"), {
+            endpoint: "/api/checkout/lot",
+            method: "POST",
+            stage: !terms ? "direct_terms_missing" : "direct_costdata_missing",
+            extra: { lotId: lot.id, paymentIntentId: data.paymentIntentId },
+          });
+          throw new Error("We couldn't load this lot's checkout details. Please reload the page — you have not been charged.");
+        }
+        // The summary and the Pay button show the checkout GET's prices; the
+        // PaymentIntent was priced from a fresh lot read. If the lot's rate or
+        // tax changed in between — or the server did not apply the promo the
+        // summary shows — stop here, before the card is confirmed, rather than
+        // charge an amount the customer was never shown. Parking, tax and the
+        // service fee are computed before any discount, so a promo cannot move
+        // them; the discount is compared on its own.
+        const toCents = (n: unknown): number => (typeof n === "number" ? Math.round(n * 100) : NaN);
+        const serverDiscountPercent = typeof data.discountPercent === "number" ? data.discountPercent : 0;
+        const priceDrift =
+          toCents(data.subtotal) !== toCents(costData.subtotal) ||
+          toCents(data.taxTotal) !== toCents(costData.taxTotal) ||
+          toCents(data.serviceFee) !== toCents(costData.serviceFee);
+        const promoDrift = serverDiscountPercent !== promoDiscountPercent;
+        if (priceDrift || promoDrift) {
+          captureAPIError(new Error("Direct checkout PaymentIntent priced differently from the checkout page"), {
+            endpoint: "/api/checkout/lot",
+            method: "POST",
+            stage: priceDrift ? "direct_price_drift" : "direct_promo_drift",
+            extra: {
+              lotId: lot.id,
+              paymentIntentId: data.paymentIntentId,
+              page: { subtotal: costData.subtotal, taxTotal: costData.taxTotal, serviceFee: costData.serviceFee, discountPercent: promoDiscountPercent },
+              paymentIntent: { subtotal: data.subtotal, taxTotal: data.taxTotal, serviceFee: data.serviceFee, discountPercent: serverDiscountPercent },
+            },
+          });
+          if (priceDrift) {
+            // The page's prices are from load and never refresh: only a reload fixes it.
+            setDirectPriceStale(true);
+            throw new Error(DIRECT_PRICE_STALE_MESSAGE);
+          }
+          // Only the promo stopped applying (expired / used up since Apply). Drop
+          // it so the summary shows the real total; the next Continue creates a
+          // PaymentIntent that matches it.
+          handleRemovePromo();
+          throw new Error("Your promo code could no longer be applied, so your total has been updated. Please review it and continue — you have not been charged.");
+        }
+        setDirectTerms(terms);
+        setVehicleChoice((prev) => refreshVehicleChoice(prev, terms));
+      }
       setClientSecret(data.clientSecret);
       setPaymentIntentId(data.paymentIntentId);
       if (data.costsToken) {
@@ -662,6 +777,44 @@ export function CheckoutForm({
   };
 
   /**
+   * The customer's vehicle choice on a direct lot, or throw — Pay Now is
+   * disabled until one exists (R8), so null here is a state bug.
+   */
+  const requireVehicleChoice = (stripePaymentIntentId: string): VehicleChoice => {
+    if (vehicleChoice === null) {
+      capturePaymentError(new Error("Direct checkout submitted with no vehicle size in state"), {
+        stripePaymentIntentId,
+        amount: priceBreakdown.dueNow,
+      });
+      throw new Error("Please choose your vehicle size before paying.");
+    }
+    return vehicleChoice;
+  };
+
+  /**
+   * The DIRECT-lot booking payload (`directPendingBookingSchema`, .strict):
+   * identity, contact, vehicle and the size CODE only. No money, no location —
+   * the server takes every amount from the PaymentIntent (B10/R5).
+   */
+  const buildDirectBookingBody = (stripePaymentIntentId: string, choice: ProtectionChoice) => {
+    if (!fromDate || !toDate) throw new Error("Unable to complete booking. Please reload the page.");
+    const vehicleSize = requireVehicleChoice(stripePaymentIntentId);
+    return {
+      inventorySource: "direct" as const,
+      lotId: lot.id,
+      fromDate,
+      toDate,
+      customer: customerDetails,
+      vehicle: vehicleDetails,
+      userId: user?.id || null,
+      stripePaymentIntentId,
+      protectionPlanCode: protectionChoiceToCode(choice),
+      vehicleSize: vehicleSize.code,
+      vehicleSizeSource: vehicleSize.source,
+    };
+  };
+
+  /**
    * The booking payload. Built once and used for BOTH the pre-payment staging
    * call and the post-payment fulfilment call, so the durable row and the live
    * request can never describe different bookings. The protection choice is a
@@ -747,10 +900,9 @@ export function CheckoutForm({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...buildReservationBody(
-          stripePaymentIntentId,
-          requireProtectionChoice(stripePaymentIntentId)
-        ),
+        ...(isDirect
+          ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
+          : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))),
         confirmationParams: confirmationParams(),
       }),
     });
@@ -774,10 +926,9 @@ export function CheckoutForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
-          buildReservationBody(
-            stripePaymentIntentId,
-            requireProtectionChoice(stripePaymentIntentId)
-          )
+          isDirect
+            ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
+            : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
         ),
       });
 
@@ -920,6 +1071,32 @@ export function CheckoutForm({
     }
   };
 
+  // A size change is display + staged-payload only: no PaymentIntent update.
+  // The URL keeps the choice so a refresh does not lose it.
+  const handleVehicleSizeChange = (code: string) => {
+    setVehicleChoice({ code, source: "checkout" });
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("vehicleSize", code);
+      url.searchParams.set("vehicleSizeSource", "checkout");
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+  };
+
+  // R1: the at-lot estimate and trip total are their OWN display fields —
+  // never folded into priceBreakdown, whose total/dueNow are the card charge.
+  const vehicleEstimate = (() => {
+    if (!isDirect || !directTerms || !vehicleChoice) return null;
+    const option = vehicleSizeOptions(directTerms.vehicleSurcharges).find((o) => o.code === vehicleChoice.code);
+    if (!option) return null;
+    const e = atLotEstimate(option, directTerms.days, directTerms.taxRatePercent);
+    return {
+      label: option.label,
+      ...e,
+      tripTotalCents: Math.round(priceBreakdown.total * 100) + e.atLotCents,
+    };
+  })();
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
       {/* Main Form */}
@@ -1028,6 +1205,19 @@ export function CheckoutForm({
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionChoiceError={protectionChoiceError}
                   protectionStateAmbiguous={protectionStateAmbiguous}
+                  vehicleSizeAnswered={vehicleSizeAnswered}
+                  renderVehicleSize={
+                    isDirect && directTerms && directTerms.vehicleSurcharges.length > 0
+                      ? (disabled) => (
+                          <VehicleSizeSelector
+                            terms={directTerms}
+                            value={vehicleChoice?.code ?? null}
+                            onChange={handleVehicleSizeChange}
+                            disabled={disabled}
+                          />
+                        )
+                      : undefined
+                  }
                 />
               </StripeProvider>
             ) : (
@@ -1054,6 +1244,7 @@ export function CheckoutForm({
           // payment step would update the displayed total but NOT the
           // already-frozen PI amount, so Stripe would charge the wrong total.
           promoLocked={clientSecret !== null}
+          vehicleEstimate={vehicleEstimate}
         />
       </div>
     </div>

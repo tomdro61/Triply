@@ -18,8 +18,9 @@ export function isDirectLotsEnabled(env: NodeJS.ProcessEnv = process.env): boole
  * switch). Phase 2 lists direct lots; Phase 3/4 ship the checkout and flip
  * this to true in the same PR. Until then, everything that would take a
  * selling lot offline waits on it too (review M3):
- *   - the Reserve buttons (lot page + search slider) stay off for direct lots,
- *   - GET /api/checkout/lot refuses them (503 direct_not_bookable_yet),
+ *   - GET/POST /api/checkout/lot refuse direct lots (503 direct_not_bookable_yet)
+ *     unless the preview switch below opens them; the Reserve buttons follow
+ *     the same answer through the server-set `lot.checkoutOpen`,
  *   - a declared ResLab twin is NOT yet suppressed from search / the lot page /
  *     the sitemap — the ResLab listing keeps selling until the direct one can.
  * A compile-time constant, not an env var: it must flip with the code that
