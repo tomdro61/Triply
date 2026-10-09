@@ -6,12 +6,15 @@ import { captureAPIError } from "@/lib/sentry";
 import { resolveEnv } from "@/lib/env";
 import { isDirectLotVisible, parseVisibility, type DirectLotVisibility } from "./visibility";
 import { DIRECT_BOOKING_OPEN } from "./flag";
+import { MAX_VEHICLE_SURCHARGES, NO_OVERSIZED_VEHICLE, VEHICLE_SIZE_CODE_RE } from "./vehicle-size";
+import { isEncodableTaxRatePercent } from "./vehicle-surcharge-metadata";
 
 /**
  * Read path for DIRECT lots (plan B2 as amended by the gate): the main app
- * reads `payload.lots*` through `public.direct_lots()` — a service-role-only
- * Postgres function (migration 035) — never over HTTP to the CMS. The CMS and
- * its API key are therefore off every request path.
+ * reads `payload.lots*` through `public.direct_lots_v2()` — a service-role-only
+ * Postgres function (migration 036; 035's `direct_lots()` plus the vehicle
+ * surcharges) — never over HTTP to the CMS. The CMS and its API key are
+ * therefore off every request path.
  *
  * Contract (review H1): a failure is TYPED so callers can act on it —
  *   misconfigured  function missing / grant revoked / schema drift → search
@@ -35,12 +38,28 @@ import { DIRECT_BOOKING_OPEN } from "./flag";
 
 const DB_TIMEOUT_MS = 4_000;
 
+/** The read function (migration 036). `direct_lots()` (035) is dropped by a later cleanup. */
+export const DIRECT_LOTS_RPC = "direct_lots_v2";
+
 /** A required number as PostgREST (JSON number) or node-postgres (numeric string) delivers it — never null/"" → 0. */
 const requiredNumber = z.union([z.number(), z.string().regex(/^-?\d+(\.\d+)?$/)]).pipe(z.coerce.number());
 const optionalNumber = requiredNumber.nullable();
 
 /**
- * Exactly the columns `public.direct_lots()` returns (migration 035), in the
+ * One surcharge row as direct_lots_v2() aggregates it (raw `daily_rate`, no
+ * ROUND). Mirrors the CMS validators: a row the CMS would refuse makes the
+ * whole lot unreadable here, never "no surcharges" (silent-zero class).
+ */
+const vehicleSurchargeRowSchema = z
+  .object({
+    code: z.string().regex(VEHICLE_SIZE_CODE_RE).refine((c) => c !== NO_OVERSIZED_VEHICLE, "reserved code"),
+    label: z.string().trim().min(1).max(40),
+    dailyRate: requiredNumber.pipe(z.number().positive().max(1000)),
+  })
+  .strict();
+
+/**
+ * Exactly the columns `public.direct_lots_v2()` returns (migration 036), in the
  * same order. `.strict()`: an unexpected key means the function and this
  * module have drifted apart, which must fail the integration test, not be
  * silently ignored.
@@ -89,6 +108,10 @@ export const directLotRowSchema = z
     status: z.enum(["draft", "published"]),
     published_at: z.string().nullable(),
     updated_at: z.string(),
+    vehicle_surcharges: z
+      .array(vehicleSurchargeRowSchema)
+      .max(MAX_VEHICLE_SURCHARGES)
+      .refine((rows) => new Set(rows.map((r) => r.code)).size === rows.length, "duplicate surcharge code"),
   })
   .strict();
 export type DirectLotRow = z.infer<typeof directLotRowSchema>;
@@ -130,6 +153,15 @@ export interface DirectLot {
   /** Partner-facing — must never reach a browser. */
   notificationEmails: string[];
   updatedAt: string;
+  /** Oversized-vehicle surcharges, PAID AT THE LOT (never online). Public data. CMS order. */
+  vehicleSurcharges: DirectVehicleSurcharge[];
+}
+
+export interface DirectVehicleSurcharge {
+  code: string;
+  label: string;
+  /** Integer cents per billed day, before tax. */
+  dailyRateCents: number;
 }
 
 export const DIRECT_LOT_ID_PREFIX = "direct-";
@@ -157,7 +189,7 @@ export function directLotFromRow(raw: unknown): { lot: DirectLot } | DirectLotRe
   const parsed = directLotRowSchema.safeParse(raw);
   if (!parsed.success) {
     const i = parsed.error.issues[0];
-    return { lot: null, kind: "invalid", reason: `row does not match direct_lots() shape at ${i?.path.join(".") || "(root)"}: ${i?.code}` };
+    return { lot: null, kind: "invalid", reason: `row does not match ${DIRECT_LOTS_RPC}() shape at ${i?.path.join(".") || "(root)"}: ${i?.code}` };
   }
   const r = parsed.data;
   const visibility = parseVisibility(r.visibility);
@@ -166,6 +198,14 @@ export function directLotFromRow(raw: unknown): { lot: DirectLot } | DirectLotRe
   if (!airport || !airport.enabled) return { lot: null, kind: "unlisted", reason: `airport '${r.airport_code}' is not configured or not enabled` };
   const rateCents = Math.round(r.base_daily_rate * 100);
   if (rateCents <= 0) return { lot: null, kind: "invalid", reason: "non-positive rate" };
+  // Stamped on the PaymentIntent and read back by the pending route: a rate
+  // that does not round-trip (4+ decimals, exponent form) would make every
+  // booking at this lot fail AFTER the card details are entered.
+  if (!isEncodableTaxRatePercent(r.tax_rate_percent)) return { lot: null, kind: "invalid", reason: "tax rate has more than 3 decimals" };
+  // Rounded, not checked for exactness: the CMS stores 9.95 as numeric, but
+  // 9.95 * 100 is 994.999… in floating point.
+  const vehicleSurcharges = r.vehicle_surcharges.map((v) => ({ code: v.code, label: v.label, dailyRateCents: Math.round(v.dailyRate * 100) }));
+  if (vehicleSurcharges.some((v) => v.dailyRateCents <= 0)) return { lot: null, kind: "invalid", reason: "non-positive surcharge rate" };
   return {
     lot: {
       id: directLotUnifiedId(r.id),
@@ -203,6 +243,7 @@ export function directLotFromRow(raw: unknown): { lot: DirectLot } | DirectLotRe
       partnerSharePercent: r.partner_share_percent,
       notificationEmails: r.notification_emails,
       updatedAt: r.updated_at,
+      vehicleSurcharges,
     },
   };
 }
@@ -318,7 +359,7 @@ export async function fetchDirectLots(
   try {
     const supabase = await createAdminClient();
     const { data, error } = await supabase
-      .rpc("direct_lots", { p_airport_code: airportCode, p_id: filter.payloadId ?? null })
+      .rpc(DIRECT_LOTS_RPC, { p_airport_code: airportCode, p_id: filter.payloadId ?? null })
       .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
     if (error) {
       const kind = classifyFailure(error.code ?? "", error.message ?? "");

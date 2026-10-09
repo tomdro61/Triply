@@ -106,6 +106,8 @@ export function directLotToUnified(lot: DirectLot, airport: Airport, window: Dir
     // Paid in full online (plan D4).
     dueAtLocation: false,
     dueAtLocationAmount: 0,
+    // Paid at the lot, never online — kept out of dueAtLocation* on purpose.
+    vehicleSurcharges: lot.vehicleSurcharges.map((v) => ({ code: v.code, label: v.label, dailyRateCents: v.dailyRateCents })),
 
     extraFields: [],
     // Left undefined on purpose: the booking widget then shows Triply's own

@@ -19,7 +19,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { pendingBookingSchema } from "@/lib/validation/schemas";
+import { pendingBookingSchema, directPendingBookingSchema } from "@/lib/validation/schemas";
+import { DIRECT_ENGINE_READY, isDirectCheckoutOpen } from "@/lib/direct/flag";
+import { directVehicleEstimate } from "@/lib/direct/vehicle-estimate";
+import { convertTo24Hour } from "@/lib/utils/time";
 import {
   capturePaymentError,
   captureBookingError,
@@ -51,6 +54,11 @@ export async function POST(request: NextRequest) {
     if (body && typeof body === "object" && "hasProtectionPlan" in body) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
     }
+    // A direct lot is chosen ONLY by an explicit inventorySource; every other
+    // body takes the ResLab path exactly as before.
+    if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
+      return await stageDirect(body);
+    }
     const result = pendingBookingSchema.safeParse(body);
     if (!result.success) {
       // This endpoint runs BEFORE confirmPayment — the customer genuinely has
@@ -74,6 +82,13 @@ export async function POST(request: NextRequest) {
     // created before deploy won't carry them, and rejecting those would break
     // every checkout already in flight at cutover.
     const mismatches: string[] = [];
+
+    // Cross-source (A-29): a direct-lot PaymentIntent carries none of the
+    // ResLab keys checked below, so without this a ResLab-shaped body would
+    // bind to it unchallenged.
+    if (meta.inventorySource && meta.inventorySource !== "reslab") {
+      mismatches.push("inventorySource");
+    }
 
     if (
       meta.customerEmail &&
@@ -463,4 +478,119 @@ async function declaredExtraFieldsFor(
     return { kind: "skipped" };
   }
   return { kind: "declared", fields: parsed.data };
+}
+
+/**
+ * DIRECT-lot staging (plan A-29 / B10; vehicle-surcharge plan §1.5, R4, R5).
+ *
+ * Phase 3 validates and binds everything, then REFUSES with 503
+ * `direct_not_bookable_yet` before any write until DIRECT_ENGINE_READY (4b) —
+ * so in Phase 3 no direct pending row can exist and, because checkout stages
+ * BEFORE confirming the card, Pay fails closed with no charge (A-31).
+ *
+ * 4b adds, after the gate: the lot read (snapshot + the size LABEL, matched by
+ * code), the pending_bookings insert with vehicle_* (CHECK-enforced by
+ * migration 036), and on 23505 a refresh of vehicle_* while the row is still
+ * `pending` (R4 — a size changed after a declined card).
+ */
+async function stageDirect(body: unknown): Promise<NextResponse> {
+  if (!isDirectCheckoutOpen()) {
+    return NextResponse.json(
+      { error: "Online booking for this lot is not open yet — you have not been charged.", code: "direct_not_bookable_yet" },
+      { status: 503 }
+    );
+  }
+  const result = directPendingBookingSchema.safeParse(body);
+  if (!result.success) {
+    return NextResponse.json(
+      { error: `${result.error.issues[0].message} — you have not been charged.` },
+      { status: 400 }
+    );
+  }
+  const payload = result.data;
+  const piId = payload.stripePaymentIntentId;
+  const pi = await stripe.paymentIntents.retrieve(piId);
+  const meta = pi.metadata ?? {};
+
+  // Bind to the PaymentIntent. Unlike the ResLab branch every key is REQUIRED:
+  // direct PaymentIntents only ever existed with them.
+  const mismatches: string[] = [];
+  if (meta.inventorySource !== "direct") mismatches.push("inventorySource");
+  if (meta.lotId !== payload.lotId) mismatches.push("lotId");
+  if (!meta.customerEmail || meta.customerEmail.trim().toLowerCase() !== payload.customer.email.trim().toLowerCase()) {
+    mismatches.push("customerEmail");
+  }
+  // Literal wall-clock strings, compared exactly — never parsed as a Date.
+  if (!meta.checkin || !meta.checkinTime || payload.fromDate !== `${meta.checkin} ${convertTo24Hour(meta.checkinTime)}:00`) {
+    mismatches.push("checkin");
+  }
+  if (!meta.checkout || !meta.checkoutTime || payload.toDate !== `${meta.checkout} ${convertTo24Hour(meta.checkoutTime)}:00`) {
+    mismatches.push("checkout");
+  }
+  if (mismatches.length > 0) {
+    capturePaymentError(
+      new Error(`Direct pending-booking staging rejected — payload does not match PaymentIntent metadata: ${mismatches.join(", ")}`),
+      { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+    );
+    return NextResponse.json(
+      { error: "Booking details do not match this payment — you have not been charged." },
+      { status: 400 }
+    );
+  }
+
+  // Protection: derived from the PaymentIntent, and the client must agree (as for ResLab).
+  const metaProtection = readProtectionMetadata(meta);
+  if (metaProtection.kind === "invalid" || metaProtection.kind === "legacy_plan_a") {
+    capturePaymentError(new Error(`Direct pending-booking staging rejected — protection metadata ${metaProtection.kind}`), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
+    return NextResponse.json(
+      { error: "Your protection selection couldn't be verified — please choose it again. You have not been charged." },
+      { status: 400 }
+    );
+  }
+  const protectionPlanCode = metaProtection.kind === "tier" ? metaProtection.code : null;
+  if (payload.protectionPlanCode !== protectionPlanCode) {
+    capturePaymentError(new Error("Direct pending-booking staging rejected — client protectionPlanCode does not match PaymentIntent metadata"), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
+    return NextResponse.json(
+      { error: "Your protection selection doesn't match this payment — please choose it again. You have not been charged." },
+      { status: 400 }
+    );
+  }
+
+  // The at-lot vehicle estimate, from the PaymentIntent's own terms (R5).
+  const vehicle = directVehicleEstimate(payload.vehicleSize, meta);
+  if (!vehicle.ok) {
+    if (vehicle.reason === "metadata") {
+      capturePaymentError(new Error(`Direct pending-booking staging rejected — ${vehicle.detail}`), {
+        stripePaymentIntentId: piId,
+        amount: pi.amount / 100,
+      });
+      return NextResponse.json(
+        { error: "We couldn't verify this payment's details. Please go back and try again — you have not been charged." },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json(
+      {
+        error: "That vehicle size isn't offered at this lot any more. Please choose your vehicle size again — you have not been charged.",
+        code: "unknown_vehicle_size",
+      },
+      { status: 400 }
+    );
+  }
+
+  // Phase 3 stops here: nothing is written and the card is never confirmed.
+  if (!DIRECT_ENGINE_READY) {
+    return NextResponse.json(
+      { error: "Online booking for this lot is not open yet — you have not been charged.", code: "direct_not_bookable_yet" },
+      { status: 503 }
+    );
+  }
+  // Unreachable until 4b replaces this with the insert described above.
+  throw new Error("direct pending staging is not implemented before Phase 4b");
 }

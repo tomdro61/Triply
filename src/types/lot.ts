@@ -101,6 +101,13 @@ export interface UnifiedLot {
   dueAtLocation?: boolean; // If true, customer pays at the lot
   dueAtLocationAmount?: number;
 
+  /**
+   * DIRECT lots only: oversized-vehicle surcharges, PAID AT THE LOT and never
+   * charged online (never part of dueAtLocation/dueAtLocationAmount, which
+   * describe the booking's own price split). Empty = the lot has none.
+   */
+  vehicleSurcharges?: { code: string; label: string; dailyRateCents: number }[];
+
   // Extra fields required by location
   extraFields?: {
     id: number;

@@ -171,9 +171,9 @@ describe("getLotById — flag on", () => {
   it("scopes the lot-page read to the URL's airport (pass-3 M3)", async () => {
     directRows([directLotRow()]);
     await getLotById("some-slug", FROM, TO, AT_JFK);
-    expect(db.rpc).toHaveBeenCalledWith("direct_lots", { p_airport_code: "JFK", p_id: null });
+    expect(db.rpc).toHaveBeenCalledWith("direct_lots_v2", { p_airport_code: "JFK", p_id: null });
     await getLotById("some-slug", FROM, TO);
-    expect(db.rpc).toHaveBeenLastCalledWith("direct_lots", { p_airport_code: null, p_id: null });
+    expect(db.rpc).toHaveBeenLastCalledWith("direct_lots_v2", { p_airport_code: null, p_id: null });
   });
 
   it("once direct booking is open, the twin maps reslab-<id>, the bare id and the ResLab slug to the direct lot (same airport only)", async () => {

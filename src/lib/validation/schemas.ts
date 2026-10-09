@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
+import { VEHICLE_SIZE_CODE_RE, VEHICLE_SIZE_SOURCES } from "@/lib/direct/vehicle-size";
 
 /**
  * Park Guard tier on the wire: "A" | "B" | "C", or an explicit null when the
@@ -132,3 +133,30 @@ export function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+/**
+ * Pending-booking payload for a DIRECT lot (plan A-29, B10; surcharge plan
+ * §1.5 + R5/R8). Chosen ONLY by an explicit `inventorySource: "direct"`.
+ * `.strict()`: no money, location or lot fields are accepted from the client —
+ * the server takes every amount from the PaymentIntent metadata and the lot
+ * from its own read. The vehicle size is the code only; the at-lot estimate is
+ * computed server-side from the rates stamped on the PaymentIntent.
+ */
+export const directPendingBookingSchema = z
+  .object({
+    inventorySource: z.literal("direct"),
+    lotId: z.string().regex(/^direct-\d{1,9}$/, "Invalid lot"),
+    fromDate: reservationSchema.shape.fromDate,
+    toDate: reservationSchema.shape.toDate,
+    customer: reservationSchema.shape.customer,
+    vehicle: reservationSchema.shape.vehicle,
+    // Shape only — overwritten by the session user (see reservationSchema).
+    userId: z.string().nullable().optional(),
+    stripePaymentIntentId: z.string().min(1, "stripePaymentIntentId is required"),
+    protectionPlanCode: protectionPlanCodeSchema,
+    confirmationParams: z.record(z.string(), z.string()).optional(),
+    vehicleSize: z.string().regex(VEHICLE_SIZE_CODE_RE, "Please choose your vehicle size"),
+    vehicleSizeSource: z.enum(VEHICLE_SIZE_SOURCES),
+  })
+  .strict();
+export type DirectPendingBookingInput = z.infer<typeof directPendingBookingSchema>;

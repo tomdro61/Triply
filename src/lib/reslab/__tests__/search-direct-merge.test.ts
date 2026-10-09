@@ -147,7 +147,7 @@ describe("searchParking — direct lots ON", () => {
     const result = await search({ sort: "price_asc" });
     await flush();
 
-    expect(db.rpc).toHaveBeenCalledWith("direct_lots", { p_airport_code: AIRPORT, p_id: null });
+    expect(db.rpc).toHaveBeenCalledWith("direct_lots_v2", { p_airport_code: AIRPORT, p_id: null });
     expect(result.total).toBe(2);
     const direct = result.results.find((l) => l.source === "direct")!;
     expect(direct).toMatchObject({ id: "direct-1", slug: "the-parking-point-jfk", airportCode: "JFK" });

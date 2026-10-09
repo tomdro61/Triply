@@ -56,4 +56,14 @@ export interface CheckoutCostData {
   numberOfDays?: number;
   soldOut: boolean;
   parkingTypeId?: number | null;
+  /** DIRECT lots only: the terms this checkout was priced with (quoteDirectCheckout). */
+  direct?: DirectCheckoutTerms;
+}
+
+export interface DirectCheckoutTerms {
+  /** Billed days (directDays) — the parking AND any vehicle surcharge are billed on these. */
+  days: number;
+  taxRatePercent: number;
+  /** Oversized-vehicle surcharges, PAID AT THE LOT — never part of any online amount above. */
+  vehicleSurcharges: { code: string; label: string; dailyRateCents: number }[];
 }
