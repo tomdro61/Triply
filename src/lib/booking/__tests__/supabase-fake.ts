@@ -373,7 +373,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private embeddedCustomer(row: Row): Row {
     if (!this.selectStr.includes("customers!inner")) return row;
     const cust = this.db.tables.customers.find((c) => c.id === row.customer_id);
-    return { ...row, customers: cust ? { email: cust.email } : null };
+    if (!cust) return { ...row, customers: null };
+    // first_name only when the select asks for it (the review cron does).
+    const embed: Row = { email: cust.email };
+    if (this.selectStr.includes("first_name")) embed.first_name = cust.first_name ?? null;
+    return { ...row, customers: embed };
   }
 
   private matches(row: Row): boolean {
@@ -492,7 +496,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
               r.stripe_payment_intent_id === row.stripe_payment_intent_id
           )) ||
         (this.table === "checkout_recovery_optouts" &&
-          rows.some((r) => r.email === row.email));
+          rows.some((r) => r.email === row.email)) ||
+        // Migration 037: UNIQUE (booking_id, kind) — the review cron's lock.
+        (this.table === "review_emails" &&
+          rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind));
       if (dupe) {
         return {
           data: null,
