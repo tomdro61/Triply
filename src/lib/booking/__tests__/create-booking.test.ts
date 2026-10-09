@@ -649,6 +649,31 @@ describe("price integrity", () => {
     expect(booking.promo_code ?? null).toBeNull();
   });
 
+  it("writes bookings.livemode from the PaymentIntent — live charge (migration 034)", async () => {
+    // The only staging/prod marker on the shared bookings table. Fulfilment
+    // omitted it from Oct 5, 2026, so every booking was NULL and a staging test
+    // booking would have counted as live revenue in the admin numbers.
+    db.seed("pending_bookings", [pendingRow({ livemode: true })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ livemode: true }));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].livemode).toBe(true);
+  });
+
+  it("writes bookings.livemode from the PaymentIntent — test-mode charge", async () => {
+    // The staged row deliberately disagrees: the charge itself is the source of
+    // truth, so a call site reading the pending row instead would fail here.
+    db.seed("pending_bookings", [pendingRow({ livemode: true })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ livemode: false }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.bookings[0].livemode).toBe(false);
+  });
+
   it("releases the payment when the lot sold out during checkout", async () => {
     db.seed("pending_bookings", [pendingRow()]);
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());

@@ -101,10 +101,11 @@ async function load(env: NodeJS.ProcessEnv): Promise<LotBookingCounts> {
     }
     if (rows.length > ROW_CAP) throw new Error(`bookings: more than ${ROW_CAP} rows in ${POPULARITY_WINDOW_DAYS} days`);
 
-    // bookings.livemode is NOT reliably written: fulfilment's insert omits it,
-    // so every booking since migration 034 (2026-10-05) has NULL. The staged
-    // payment row (pending_bookings.livemode) is authoritative — the same join
-    // the daily digest makes. NULL with no staged row = a pre-015 booking (live).
+    // bookings.livemode was not written by fulfilment from migration 034
+    // (2026-10-05) until the Oct 2026 fix, so older rows can still be NULL. For
+    // those the staged payment row (pending_bookings.livemode) is authoritative —
+    // the same join the daily digest makes. NULL with no staged row = a pre-015
+    // booking (live).
     const unresolved = [
       ...new Set(
         rows.flatMap((r) => (r.livemode === null && r.stripe_payment_intent_id ? [r.stripe_payment_intent_id] : []))
