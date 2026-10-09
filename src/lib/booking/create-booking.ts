@@ -1458,7 +1458,7 @@ async function fulfilClaimed(
   // same cart settling twice" from "a genuine second purchase" — every
   // reservation is number_of_spots: 1, so a family parking two cars MUST check
   // out twice with that identical tuple. It refunded those real customers, and
-  // had no livemode filter (bookings carries no environment column), so a
+  // had no livemode filter (bookings had no environment column then), so a
   // staging test booking could refund a live customer.
   //
   // Prevention stays where it belongs: the cart_claims lock (CART_CLAIM_WINDOW_MS)
@@ -1735,7 +1735,7 @@ async function fulfilClaimed(
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
   };
-  const persisted = await persistBooking(payload, reservation, charged, promo, attribution);
+  const persisted = await persistBooking(payload, reservation, charged, pi.livemode, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {
     await markTerminal(piId, "completed");
@@ -1941,7 +1941,9 @@ async function fulfilOnly(
   const plan = getProtectionPlan(payload.protectionPlanCode);
   const charged: ChargedProtection | null = plan ? { plan, premium: plan.price } : null;
   const reservation = await createReslabReservation(payload);
-  const persisted = await persistBooking(payload, reservation, charged);
+  // livemode false: no charge exists on this dev-only path, but the row lands in
+  // the shared prod table, so it must not count as live revenue.
+  const persisted = await persistBooking(payload, reservation, charged, false);
   await sendBookingEmails(payload, reservation, persisted.pgSyncStatus, charged);
   return {
     kind: "created",

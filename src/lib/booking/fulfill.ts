@@ -141,6 +141,11 @@ export async function persistBooking(
   payload: BookingPayload,
   reservation: ReslabReservation,
   charged: ChargedProtection | null,
+  /** Stripe mode of the charge (`pi.livemode`), written to bookings.livemode —
+   *  the only staging/prod marker on this shared table (migration 034). Required,
+   *  not optional: an omitted field is how every booking from Oct 5 to Oct 8,
+   *  2026 got NULL. */
+  livemode: boolean,
   promo?: AppliedPromo,
   /** Marketing attribution captured at stage time (migration 023). Optional:
    *  the dev-only fulfilOnly path has none. Threaded separately from `payload`
@@ -478,6 +483,7 @@ export async function persistBooking(
         ...(promoCode && { promo_code: promoCode }),
         vehicle_info: vehicle,
         status: "confirmed",
+        livemode,
         ...(stripePaymentIntentId && {
           stripe_payment_intent_id: stripePaymentIntentId,
         }),
