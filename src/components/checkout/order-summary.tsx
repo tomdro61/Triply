@@ -188,40 +188,55 @@ export function OrderSummary({
               ${priceBreakdown.taxes.toFixed(2)}
             </span>
           </div>
-          <div className="border-t border-gray-200 pt-2 mt-2">
-            <div className="flex justify-between">
-              <span className="font-bold text-gray-900">Total</span>
-              <span className="font-bold text-gray-900 text-xl">
-                ${priceBreakdown.total.toFixed(2)}
-              </span>
-            </div>
-          </div>
-          {vehicleEstimate && (
-            <div className="mt-3 pt-3 border-t border-gray-200 text-sm space-y-1">
-              <div className="flex justify-between gap-3">
-                <span className="text-gray-600">Vehicle</span>
-                <span className="text-gray-900 text-right">{vehicleEstimate.label}</span>
+          {vehicleEstimate && vehicleEstimate.atLotCents > 0 ? (
+            // An oversized vehicle on a direct lot: money changes hands twice, so
+            // the card charge is never labelled "Total" (it reads as the whole
+            // trip). Same words as the Reserve pop-up.
+            <>
+              <div className="border-t border-gray-200 pt-2 mt-2">
+                <div className="flex justify-between">
+                  <span className="font-bold text-gray-900">Charged today</span>
+                  <span className="font-bold text-gray-900 text-xl">
+                    ${priceBreakdown.total.toFixed(2)}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500">Paid by card now</p>
               </div>
-              {vehicleEstimate.atLotCents > 0 && (
-                <>
-                  <div className="flex justify-between gap-3">
-                    <span className="flex items-center gap-1 text-amber-700">
-                      <Wallet size={14} />
-                      Estimated due at the lot
-                    </span>
-                    <span className="font-medium text-amber-700">${(vehicleEstimate.atLotCents / 100).toFixed(2)}</span>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    ${(vehicleEstimate.surchargeCents / 100).toFixed(2)} surcharge + ${(vehicleEstimate.surchargeTaxCents / 100).toFixed(2)} tax,
-                    paid at drop-off. Not charged today.
-                  </p>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-gray-600">Estimated trip total</span>
-                    <span className="font-medium text-gray-900">${(vehicleEstimate.tripTotalCents / 100).toFixed(2)}</span>
-                  </div>
-                </>
+              <div className="mt-3">
+                <div className="flex justify-between gap-3 text-sm">
+                  <span className="flex items-center gap-1 font-medium text-amber-700">
+                    <Wallet size={14} />
+                    Due at the lot (est.)
+                  </span>
+                  <span className="font-semibold text-amber-700">${(vehicleEstimate.atLotCents / 100).toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-gray-500">
+                  {vehicleEstimate.label}: ${(vehicleEstimate.surchargeCents / 100).toFixed(2)} + $
+                  {(vehicleEstimate.surchargeTaxCents / 100).toFixed(2)} tax, paid at drop-off
+                </p>
+              </div>
+              <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-sm">
+                <span className="font-medium text-gray-900">Trip total (est.)</span>
+                <span className="font-semibold text-gray-900">${(vehicleEstimate.tripTotalCents / 100).toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="border-t border-gray-200 pt-2 mt-2">
+                <div className="flex justify-between">
+                  <span className="font-bold text-gray-900">Total</span>
+                  <span className="font-bold text-gray-900 text-xl">
+                    ${priceBreakdown.total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+              {vehicleEstimate && (
+                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between gap-3 text-sm">
+                  <span className="text-gray-600">Vehicle</span>
+                  <span className="text-gray-900 text-right">{vehicleEstimate.label}</span>
+                </div>
               )}
-            </div>
+            </>
           )}
           {priceBreakdown.dueAtLocation > 0 && (
             <div className="mt-3 pt-3 border-t border-gray-200">
