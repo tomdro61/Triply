@@ -16,7 +16,15 @@ import {
 import { protectionPlanCodeSchema } from "@/lib/validation/schemas";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
-import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
+import { isDirectCheckoutOpen } from "@/lib/direct/flag";
+import { quoteDirectCheckout, type DirectCheckoutQuote } from "@/lib/direct/checkout-quote";
+import { parseDirectLotUnifiedId } from "@/lib/direct/store";
+import {
+  DIRECT_SURCHARGES_KEY,
+  DIRECT_TAX_RATE_KEY,
+  encodeSurchargeRates,
+} from "@/lib/direct/vehicle-surcharge-metadata";
+import type { CheckoutCostData } from "@/types/checkout";
 
 // A slug lotId reaches the ~54-page ResLab sweep via getChannelLocationsCached
 // (40s budget). The ceiling must sit above it so the sweep settles and arms its
@@ -66,14 +74,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Lot not found" }, { status: 404 });
     }
 
-    // Direct lots are discoverable (Phase 2) but not yet bookable: the quote
-    // and PaymentIntent branches land in Phase 3. Refuse here so no checkout
-    // can be assembled from ResLab-shaped fields that a direct lot does not
-    // have — the booking widget already keeps customers off this path.
-    if (lot.source === "direct" && !DIRECT_BOOKING_OPEN) {
+    // Direct lots: priced by quoteDirectCheckout — the same function POST
+    // charges from — never from ResLab-shaped fields a direct lot does not
+    // have. Closed until DIRECT_BOOKING_OPEN (or the Preview-only checkout
+    // flag, review R11); the booking widget keeps customers off this path too.
+    if (lot.source === "direct") {
+      if (!isDirectCheckoutOpen()) {
+        return NextResponse.json(
+          { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
+          { status: 503, headers: { "Cache-Control": "no-store" } }
+        );
+      }
+      const direct = await quoteDirectCheckout({
+        payloadId: Number(lot.sourceId),
+        fromDate,
+        toDate,
+        endpoint: "/api/checkout/lot",
+      });
+      if (!direct.ok) {
+        return NextResponse.json(
+          { error: direct.error, code: direct.code },
+          { status: direct.status, headers: { "Cache-Control": "no-store" } }
+        );
+      }
       return NextResponse.json(
-        { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
-        { status: 503, headers: { "Cache-Control": "no-store" } }
+        { lot, costData: directCostData(direct), fromDate, toDate },
+        { headers: { "Cache-Control": "no-store" } }
       );
     }
 
@@ -223,6 +249,11 @@ export async function POST(request: NextRequest) {
     if (body && typeof body === "object" && "hasProtectionPlan" in body) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
     }
+    // A direct lot is chosen ONLY by an explicit inventorySource; every other
+    // body takes the ResLab path exactly as before.
+    if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
+      return await postDirect(body);
+    }
     const result = checkoutPostSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -281,25 +312,9 @@ export async function POST(request: NextRequest) {
 
     // Validate and apply promo code server-side
     if (promoCode) {
-      const supabase = await createAdminClient();
-      const { data: promo, error: promoErr } = await supabase
-        .from("promo_codes")
-        .select("id, discount_percent, active, expires_at, max_uses, current_uses")
-        .eq("code", promoCode.toUpperCase())
-        .single();
-
-      // PGRST116 = no rows found (invalid code) — quiet ignore. Anything
-      // else is a real Supabase error that would silently charge the
-      // customer full price; surface it.
-      if (promoErr && promoErr.code !== "PGRST116") {
-        captureAPIError(
-          new Error(`Promo lookup failed for ${promoCode}: ${promoErr.message}`),
-          { endpoint: "/api/checkout/lot", method: "POST" }
-        );
-      }
-
-      if (promo && isPromoCodeUsable(promo)) {
-        discountPercent = promo.discount_percent;
+      const usablePercent = await usablePromoDiscountPercent(promoCode);
+      if (usablePercent !== null) {
+        discountPercent = usablePercent;
         const discount = costResponse.reservation.sub_total * (discountPercent / 100);
         verifiedTotal = verifiedTotal - discount;
         verifiedDueNow = verifiedTotal - dueAtLocation;
@@ -373,6 +388,9 @@ export async function POST(request: NextRequest) {
       // half-present pair is an integrity error there, never "no protection".
       // Deleted as a pair by /update-pi when the customer picks "no protection".
       ...(protectionPlan && protectionMetadataPatch(protectionPlan)),
+      // Explicit on both branches (A-28): readers select the inventory adapter
+      // from this, never from the absence of a direct key.
+      inventorySource: "reslab",
     });
 
     return NextResponse.json({
@@ -401,3 +419,166 @@ export async function POST(request: NextRequest) {
   }
 }
 
+
+/**
+ * The promo's discount percentage if the code exists and is usable, else null.
+ * A Supabase error other than "no such code" is captured (it would silently
+ * charge full price) and treated as unusable, as before.
+ */
+async function usablePromoDiscountPercent(promoCode: string): Promise<number | null> {
+  const supabase = await createAdminClient();
+  const { data: promo, error: promoErr } = await supabase
+    .from("promo_codes")
+    .select("id, discount_percent, active, expires_at, max_uses, current_uses")
+    .eq("code", promoCode.toUpperCase())
+    .single();
+
+  // PGRST116 = no rows found (invalid code) — quiet ignore. Anything
+  // else is a real Supabase error that would silently charge the
+  // customer full price; surface it.
+  if (promoErr && promoErr.code !== "PGRST116") {
+    captureAPIError(
+      new Error(`Promo lookup failed for ${promoCode}: ${promoErr.message}`),
+      { endpoint: "/api/checkout/lot", method: "POST" }
+    );
+  }
+
+  return promo && isPromoCodeUsable(promo) ? promo.discount_percent : null;
+}
+
+// =============================================================================
+// Direct lots (plan A-28 + vehicle-surcharge plan R5)
+// =============================================================================
+
+/** GET's costData for a direct lot — the same numbers POST charges. */
+function directCostData(direct: Extract<DirectCheckoutQuote, { ok: true }>): CheckoutCostData {
+  const { quote, days, lot } = direct;
+  return {
+    costsToken: null,
+    grandTotal: quote.grandTotalCents / 100,
+    subtotal: quote.subtotalCents / 100,
+    taxTotal: quote.taxTotalCents / 100,
+    feesTotal: 0,
+    serviceFee: quote.serviceFeeCents / 100,
+    dueAtLocation: 0,
+    dueNow: (quote.grandTotalCents + quote.serviceFeeCents) / 100,
+    numberOfDays: days,
+    soldOut: false,
+    parkingTypeId: null,
+    direct: {
+      days,
+      taxRatePercent: lot.taxRatePercent,
+      vehicleSurcharges: lot.vehicleSurcharges.map((v) => ({ code: v.code, label: v.label, dailyRateCents: v.dailyRateCents })),
+    },
+  };
+}
+
+const directCheckoutPostSchema = z
+  .object({
+    inventorySource: z.literal("direct"),
+    lotId: z.string().regex(/^direct-\d{1,9}$/, "Invalid lot"),
+    checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+    checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+    checkinTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-in time is required"),
+    checkoutTime: z.string().regex(/^\d{1,2}:\d{2}\s[AP]M$/, "Check-out time is required"),
+    customerEmail: z.string().email(),
+    promoCode: z.string().optional(),
+    // Required key, nullable value (see checkoutPostSchema).
+    protectionPlanCode: protectionPlanCodeSchema,
+  })
+  .strict();
+
+/**
+ * PaymentIntent for a DIRECT lot. Charge = grandTotal − discount + serviceFee
+ * (+ Park Guard premium), all from quoteDirectCheckout on a fresh lot read.
+ * Everything fulfilment and the pending route need is stamped into metadata IN
+ * CENTS (B8), plus the tax rate and the vehicle-surcharge rates the customer is
+ * shown (R5) — the at-lot estimate is computed from these, never from a later
+ * CMS read or the client. The surcharge itself is never charged.
+ */
+async function postDirect(body: unknown): Promise<NextResponse> {
+  if (!isDirectCheckoutOpen()) {
+    return NextResponse.json(
+      { error: "Online booking for this lot is not open yet", code: "direct_not_bookable_yet" },
+      { status: 503 }
+    );
+  }
+  const parsed = directCheckoutPostSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+  }
+  const { lotId, checkin, checkout, checkinTime, checkoutTime, customerEmail, promoCode, protectionPlanCode } =
+    parsed.data;
+  const payloadId = parseDirectLotUnifiedId(lotId);
+  if (payloadId === null) {
+    return NextResponse.json({ error: "Invalid lot" }, { status: 400 });
+  }
+
+  const discountPercent = promoCode ? ((await usablePromoDiscountPercent(promoCode)) ?? 0) : 0;
+
+  const fromDate = `${checkin} ${convertTo24Hour(checkinTime)}:00`;
+  const toDate = `${checkout} ${convertTo24Hour(checkoutTime)}:00`;
+  const direct = await quoteDirectCheckout({ payloadId, fromDate, toDate, discountPercent, endpoint: "/api/checkout/lot" });
+  if (!direct.ok) {
+    return NextResponse.json({ error: direct.error, code: direct.code }, { status: direct.status });
+  }
+  const { lot, quote, days } = direct;
+
+  // Same refusal as the ResLab branch: never a premium-only PaymentIntent.
+  const parkingOnlyChargeAmountCents = quote.chargeCents;
+  if (parkingOnlyChargeAmountCents <= 0) {
+    return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
+  }
+  const parkingOnlyChargeAmount = parkingOnlyChargeAmountCents / 100;
+
+  const protectionPlan = getProtectionPlan(protectionPlanCode);
+  const protectionPremiumCents = Math.round((protectionPlan?.price ?? 0) * 100);
+  const chargeAmount = (parkingOnlyChargeAmountCents + protectionPremiumCents) / 100;
+  const serviceFee = quote.serviceFeeCents / 100;
+  const terms = directCostData(direct).direct;
+
+  const paymentIntent = await createPaymentIntent(chargeAmount, {
+    inventorySource: "direct",
+    lotId,
+    directLotId: String(payloadId),
+    checkin,
+    checkout,
+    // Literal 12-hour strings the customer picked; never parsed as a Date.
+    checkinTime,
+    checkoutTime,
+    customerEmail,
+    verifiedTotal: String(chargeAmount),
+    serviceFee: String(serviceFee),
+    parkingOnlyChargeAmount: String(parkingOnlyChargeAmount),
+    parkingOnlyChargeAmountCents: String(parkingOnlyChargeAmountCents),
+    ...(promoCode && { promoCode }),
+    ...(discountPercent > 0 && { discountPercent: String(discountPercent) }),
+    ...(protectionPlan && protectionMetadataPatch(protectionPlan)),
+    // B8: the money authority for a direct booking, in cents.
+    directRateCents: String(lot.rateCents),
+    directDays: String(days),
+    directSubtotalCents: String(quote.subtotalCents),
+    directTaxCents: String(quote.taxTotalCents),
+    directGrandTotalCents: String(quote.grandTotalCents),
+    directDiscountCents: String(quote.discountCents),
+    directServiceFeeCents: String(quote.serviceFeeCents),
+    // R5: the terms the at-lot vehicle estimate is computed from.
+    [DIRECT_TAX_RATE_KEY]: String(lot.taxRatePercent),
+    [DIRECT_SURCHARGES_KEY]: encodeSurchargeRates(lot.vehicleSurcharges),
+  });
+
+  return NextResponse.json({
+    clientSecret: paymentIntent.client_secret,
+    paymentIntentId: paymentIntent.id,
+    costsToken: null,
+    verifiedTotal: chargeAmount,
+    verifiedDueNow: chargeAmount,
+    dueAtLocation: 0,
+    subtotal: quote.subtotalCents / 100,
+    taxTotal: quote.taxTotalCents / 100,
+    feesTotal: 0,
+    serviceFee,
+    discountPercent,
+    direct: terms,
+  });
+}

@@ -1031,6 +1031,27 @@ async function createBookingInner(
     expand: ["latest_charge"],
   });
 
+  // --- Step 0b: inventory source (direct lots, A-29/A-31) --------------------
+  // This engine fulfils ResLab bookings only. A direct-lot PaymentIntent must
+  // never reach the self-create path below with a ResLab-shaped payload (a
+  // client that confirmed the card without staging, then posted a ResLab body),
+  // nor be fulfilled from a row. Refuse before any write; the hold stays for
+  // reconciliation. Phase 4b replaces this with source-based routing (A-33).
+  const piSource = pi.metadata?.inventorySource;
+  if (piSource !== undefined && piSource !== "reslab") {
+    capturePaymentError(
+      new Error(
+        `createBooking refused PaymentIntent ${stripePaymentIntentId} with inventorySource=${JSON.stringify(piSource)} (source=${source}) — the engine fulfils ResLab bookings only`
+      ),
+      { stripePaymentIntentId, amount: pi.amount / 100 }
+    );
+    return {
+      kind: "needs_reconciliation",
+      reason: "PaymentIntent is not a ResLab booking",
+      retryable: false,
+    };
+  }
+
   // --- Step 1: refund gate (G1) ---------------------------------------------
   // A refund can succeed and the process die before the terminal DB write lands.
   // Without this read, a re-drive would find freed inventory and hand a booking

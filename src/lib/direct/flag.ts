@@ -26,3 +26,34 @@ export function isDirectLotsEnabled(env: NodeJS.ProcessEnv = process.env): boole
  * makes it true, never ahead of it.
  */
 export const DIRECT_BOOKING_OPEN = false as boolean;
+
+/**
+ * Whether a direct lot's CHECKOUT is open in this deployment (review R11):
+ * `DIRECT_BOOKING_OPEN`, or — to click through the vehicle-size pop-up and the
+ * checkout before the engine exists — the `DIRECT_CHECKOUT_PREVIEW=true` env
+ * flag, honoured ONLY on preview / staging / development (never production or
+ * an unknown environment). Opens GET/POST /api/checkout/lot (and, from 3b, the
+ * Reserve buttons) only:
+ * /api/reservations/pending refuses direct lots until DIRECT_ENGINE_READY, and
+ * checkout stages the booking BEFORE confirming the card, so Pay fails closed
+ * with no charge. Server-side only (env is not in the browser bundle).
+ */
+const PREVIEW_CHECKOUT_ENVS = new Set(["preview", "staging", "development"]);
+
+export function isDirectCheckoutOpen(env: NodeJS.ProcessEnv = process.env): boolean {
+  if (DIRECT_BOOKING_OPEN) return true;
+  if ((env.DIRECT_CHECKOUT_PREVIEW ?? "").trim().toLowerCase() !== "true") return false;
+  // An ALLOWLIST, not "anything but production": an unknown environment is the
+  // most restrictive case (lib/env.ts). Production by either signal is closed.
+  if (env.VERCEL_ENV === "production") return false;
+  const appEnv = (env.NEXT_PUBLIC_APP_ENV || env.VERCEL_ENV || (env.NODE_ENV === "development" ? "development" : ""))
+    .trim()
+    .toLowerCase();
+  return PREVIEW_CHECKOUT_ENVS.has(appEnv);
+}
+
+/**
+ * Whether the server may STAGE and fulfil a direct-lot booking (plan C15 /
+ * A-29). Flipped in Phase 4b, in the PR that ships the engine — never ahead of it.
+ */
+export const DIRECT_ENGINE_READY = false as boolean;

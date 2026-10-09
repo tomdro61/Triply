@@ -117,3 +117,29 @@ export function computeDirectQuote(input: DirectQuoteInput): DirectQuote {
 
 /** Dollars from cents, for the places that still speak dollars (emails, admin). */
 export const centsToDollars = (cents: number): number => Math.round(cents) / 100;
+
+export interface VehicleSurchargeQuote {
+  /** days × dailyRate, before tax. */
+  surchargeCents: number;
+  /** Tax on the surcharge, at the lot's tax rate. */
+  surchargeTaxCents: number;
+  /** What the lot collects at drop-off: surcharge + its tax. An ESTIMATE — the lot sizes the vehicle at the gate. */
+  atLotCents: number;
+}
+
+/**
+ * The oversized-vehicle surcharge, PAID AT THE LOT (plan
+ * notes/2026-10-09-direct-lots-vehicle-surcharge-plan.md §1.3). Billed on the
+ * SAME days as the parking (`directDays`), taxed at the lot's rate, rounded
+ * the same way as the parking tax. `dailyRateCents` 0 = "No oversized vehicle".
+ * Never part of any online charge or money column.
+ */
+export function computeVehicleSurcharge(input: { days: number; dailyRateCents: number; taxRatePercent: number }): VehicleSurchargeQuote {
+  const { days, dailyRateCents, taxRatePercent } = input;
+  if (!Number.isInteger(days) || days < 1) throw new Error(`vehicle surcharge: days must be >= 1 (got ${days})`);
+  if (!isNonNegInt(dailyRateCents)) throw new Error(`vehicle surcharge: dailyRateCents must be a non-negative integer (got ${dailyRateCents})`);
+  if (!(taxRatePercent >= 0 && taxRatePercent <= 100)) throw new Error(`vehicle surcharge: taxRatePercent out of range (${taxRatePercent})`);
+  const surchargeCents = dailyRateCents * days;
+  const surchargeTaxCents = Math.round((surchargeCents * taxRatePercent) / 100);
+  return { surchargeCents, surchargeTaxCents, atLotCents: surchargeCents + surchargeTaxCents };
+}

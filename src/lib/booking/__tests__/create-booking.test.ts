@@ -1532,3 +1532,57 @@ describe("customer linking at fulfilment — the account-takeover fix (2026-09-2
     expect(db.tables.bookings[0].customer_id).toBe("ada");
   });
 });
+
+describe("inventory source guard (direct lots, A-29/A-31)", () => {
+  const resLabPayload = () => {
+    const r = pendingRow();
+    return {
+      locationId: r.location_id,
+      costsToken: r.costs_token,
+      fromDate: r.from_date,
+      toDate: r.to_date,
+      parkingTypeId: r.parking_type_id,
+      customer: r.customer,
+      vehicle: r.vehicle,
+      subtotal: 80,
+      taxTotal: 5,
+      feesTotal: 3,
+      grandTotal: 88,
+      triplyServiceFee: 6,
+      userId: null,
+      stripePaymentIntentId: PI,
+      protectionPlanCode: null,
+    };
+  };
+
+  it("a ResLab payload on a DIRECT PaymentIntent (card confirmed without staging) self-creates nothing and books nothing", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ metadata: { customerEmail: "Ada.Lovelace@Example.com", inventorySource: "direct", lotId: "direct-1" } })
+    );
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI, payload: resLabPayload() });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+  });
+
+  it("the webhook path refuses a direct PaymentIntent too", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ metadata: { inventorySource: "direct" } }));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+
+  it("a PaymentIntent stamped inventorySource: reslab books exactly as before", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ metadata: { customerEmail: "Ada.Lovelace@Example.com", inventorySource: "reslab" } })
+    );
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+  });
+});

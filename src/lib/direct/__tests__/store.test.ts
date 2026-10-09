@@ -24,7 +24,7 @@ import {
   __resetCaptureThrottleForTests,
 } from "../store";
 
-/** Exactly what `public.direct_lots()` returns for The Parking Point JFK (migration 035). */
+/** Exactly what `public.direct_lots_v2()` returns for The Parking Point JFK (migration 036). */
 const row = {
   id: 1,
   name: "The Parking Point JFK",
@@ -62,6 +62,11 @@ const row = {
   status: "published",
   published_at: null,
   updated_at: "2026-10-05T20:00:00.000Z",
+  vehicle_surcharges: [
+    { code: "small_suv", label: "Small SUV", dailyRate: 5 },
+    { code: "midsize_suv", label: "Midsize SUV / minivan", dailyRate: 7 },
+    { code: "large_suv_truck", label: "Large SUV / truck", dailyRate: 10 },
+  ],
 };
 
 /** Simulates the supabase-js rpc builder: `.rpc(...).abortSignal(...)` resolves to `{ data, error }`. */
@@ -159,7 +164,7 @@ describe("fetchDirectLots — typed failures, throttled reporting", () => {
   it("returns parsed lots, uppercases the airport filter, and drops bad rows with ONE report", async () => {
     rpcResolves({ data: [row, { ...row, id: 2, slug: "broken", lat: null }] });
     const r = await fetchDirectLots({ airportCode: "jfk" });
-    expect(adminClient.rpc).toHaveBeenCalledWith("direct_lots", { p_airport_code: "JFK", p_id: null });
+    expect(adminClient.rpc).toHaveBeenCalledWith("direct_lots_v2", { p_airport_code: "JFK", p_id: null });
     expect(r.ok && r.lots.map((l) => l.id)).toEqual(["direct-1"]);
     expect(r.ok && r.dropped).toBe(1);
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
@@ -240,7 +245,7 @@ describe("fetchDirectLot — found / not_found / invalid / unavailable", () => {
     rpcResolves({ data: [row] });
     const r = await fetchDirectLot(1);
     expect(r.status).toBe("found");
-    expect(adminClient.rpc).toHaveBeenCalledWith("direct_lots", { p_airport_code: null, p_id: 1 });
+    expect(adminClient.rpc).toHaveBeenCalledWith("direct_lots_v2", { p_airport_code: null, p_id: 1 });
   });
   it("not_found when the function returns nothing", async () => {
     rpcResolves({ data: [] });
@@ -277,10 +282,10 @@ describe("unified ids", () => {
  * Pins the LIVE function's row shape. Opt-in: `DIRECT_LOTS_INTEGRATION=1 npx vitest run
  * src/lib/direct` — it loads the real .env.local (vitest.setup.ts points Supabase at
  * a fake host for unit tests, so the ordinary env cannot be trusted here). A Payload
- * column rename or an edit to migration 035 that changes a column fails this test.
+ * column rename or an edit to migration 036 that changes a column fails this test.
  */
 describe.skipIf(process.env.DIRECT_LOTS_INTEGRATION !== "1")(
-  "integration: public.direct_lots() via supabase-js",
+  "integration: public.direct_lots_v2() via supabase-js",
   () => {
     it("the live row shape equals the schema, every row parses, and the JFK test lot is staging-only", async () => {
       const { config } = await import("dotenv");
@@ -289,7 +294,7 @@ describe.skipIf(process.env.DIRECT_LOTS_INTEGRATION !== "1")(
       expect(real.NEXT_PUBLIC_SUPABASE_URL, "needs .env.local").toMatch(/^https:\/\/.+supabase\.co/);
       const { createClient } = await import("@supabase/supabase-js");
       const sb = createClient(real.NEXT_PUBLIC_SUPABASE_URL, real.SUPABASE_SERVICE_ROLE_KEY);
-      const { data, error } = await sb.rpc("direct_lots", { p_airport_code: null, p_id: null }).abortSignal(AbortSignal.timeout(8000));
+      const { data, error } = await sb.rpc("direct_lots_v2", { p_airport_code: null, p_id: null }).abortSignal(AbortSignal.timeout(8000));
       expect(error).toBeNull();
       const rows = (data ?? []) as Array<Record<string, unknown>>;
       expect(rows.length, "expected at least the JFK test lot").toBeGreaterThan(0);
@@ -301,6 +306,12 @@ describe.skipIf(process.env.DIRECT_LOTS_INTEGRATION !== "1")(
       expect(jfk!.visibility).toBe("staging_only");
       expect(isSellable(jfk!, "staging")).toBe(true);
       expect(isSellable(jfk!, "production")).toBe(false);
+      // The live CMS rows (2026-10-09): paid at the lot, never online.
+      expect(jfk!.vehicleSurcharges.map((v) => [v.code, v.dailyRateCents])).toEqual([
+        ["small_suv", 500],
+        ["midsize_suv", 700],
+        ["large_suv_truck", 1000],
+      ]);
     }, 15_000);
   },
 );

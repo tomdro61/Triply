@@ -48,6 +48,11 @@ export function directLotRow(overrides: Record<string, unknown> = {}) {
     status: "published",
     published_at: null,
     updated_at: "2026-10-05T20:00:00.000Z",
+    vehicle_surcharges: [
+      { code: "small_suv", label: "Small SUV", dailyRate: 5 },
+      { code: "midsize_suv", label: "Midsize SUV / minivan", dailyRate: 7 },
+      { code: "large_suv_truck", label: "Large SUV / truck", dailyRate: 10 },
+    ],
     ...overrides,
   };
 }

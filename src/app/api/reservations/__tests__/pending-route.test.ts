@@ -136,6 +136,34 @@ describe("POST /api/reservations/pending — attribution", () => {
   });
 });
 
+describe("POST /api/reservations/pending — inventory source (direct lots, A-29)", () => {
+  it("a ResLab PaymentIntent stamped inventorySource: reslab (every new one after this release) still stages", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 9400,
+      livemode: false,
+      metadata: { customerEmail: "ada@example.com", locationId: "42", inventorySource: "reslab" },
+    });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(200);
+    expect(db.tables.pending_bookings).toHaveLength(1);
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("a ResLab body against a DIRECT PaymentIntent is refused, naming inventorySource", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 6366,
+      livemode: false,
+      metadata: { customerEmail: "ada@example.com", inventorySource: "direct", lotId: "direct-1" },
+    });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(400);
+    expect(db.tables.pending_bookings).toHaveLength(0);
+    expect(String(vi.mocked(capturePaymentError).mock.calls[0][0])).toMatch(/inventorySource/);
+  });
+});
+
 describe("POST /api/reservations/pending — required lot fields (before the charge)", () => {
   // ResLab's own shape: `type` is the product scope; there is no required flag.
   const FLIGHT = { id: 1, name: "return_flight_number", label: "Return flight #", type: "parking", input_type: "text", per_car: 0 };
