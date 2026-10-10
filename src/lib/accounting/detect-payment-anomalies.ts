@@ -14,7 +14,7 @@
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { isAtTestLot } from "@/config/admin";
+import { isAtTestLot, isTestBooking } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
 
 export interface OrphanCharge {
@@ -126,7 +126,7 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     const { data: recent, error } = await supabase
       .from("bookings")
       .select(
-        "reslab_reservation_number, stripe_payment_intent_id, reslab_location_id, check_in, check_out, created_at, vehicle_info, customers!inner(email)"
+        "reslab_reservation_number, stripe_payment_intent_id, reslab_location_id, inventory_source, direct_lot_id, livemode, check_in, check_out, created_at, vehicle_info, customers!inner(email)"
       )
       .eq("status", "confirmed")
       .gte("created_at", sinceISO);
@@ -141,15 +141,24 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
 
     const byCart = new Map<string, typeof recent>();
     for (const b of recent ?? []) {
-      // Triply-prod is shared by staging and production, and `bookings` has no
-      // livemode column. Testers exercising this very feature book the same cart
-      // repeatedly under different test PaymentIntents, which would otherwise
-      // become "duplicate bookings" on the production cron run. Same test-lot
-      // exclusion the charge rows above already use.
-      if (b.reslab_location_id != null && isAtTestLot(b.reslab_location_id)) {
+      // Triply-prod is shared by staging and production. Testers exercising this
+      // very feature book the same cart repeatedly under different test
+      // PaymentIntents, which would otherwise become "duplicate bookings" on the
+      // production cron run. isTestBooking drops a test-LOT row and any row that
+      // records Stripe test mode (`livemode === false`, written by fulfilment);
+      // NULL livemode is a pre-015 live row and stays in.
+      if (isTestBooking(b)) {
         continue;
       }
       const email = (b.customers as unknown as { email: string })?.email ?? "";
+      // The lot is identified per inventory source: a direct booking has no
+      // ResLab location id (NULL), so keying on reslab_location_id alone would
+      // put every direct lot under one "null" lot and pair up a customer's
+      // bookings at two DIFFERENT direct lots. Source is normalised by the
+      // strict `=== "direct"` rule, so a row read without the column groups as
+      // ResLab.
+      const source = b.inventory_source === "direct" ? "direct" : "reslab";
+      const lot = b.direct_lot_id ?? b.reslab_location_id;
       // Group by LICENSE PLATE too. A family parking two cars checks out twice
       // with the same email+lot+dates but DIFFERENT plates — that is legitimate,
       // not a duplicate, and this monitor is the only thing catching the real
@@ -157,7 +166,7 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
       // without the plate would page ops on every two-vehicle booking.
       const key = [
         email.toLowerCase(),
-        b.reslab_location_id,
+        `${source}:${lot}`,
         b.check_in,
         b.check_out,
         plateOf(b),

@@ -38,10 +38,9 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-vi.mock("@/config/admin", () => ({
-  // No test-LOT rows in these fixtures; the staging path is what's under test.
-  isAtTestLot: () => false,
-}));
+// `@/config/admin` is NOT mocked: the real isTestBooking / isAtTestLot run, so
+// the livemode rule is exercised as shipped. Fixtures use real (non-test) lot
+// ids; rows without a `livemode` key behave as NULL (live, pre-015).
 
 vi.mock("@/lib/stripe/client", () => ({
   stripe: {
@@ -60,6 +59,7 @@ vi.mock("@/lib/stripe/client", () => ({
 }));
 
 import { reconcileRevenue } from "../reconcile";
+import { stripe } from "@/lib/stripe/client";
 
 const OPTS: ReconcileOptions = {
   from: "2026-07-01",
@@ -604,5 +604,206 @@ describe("reconcileRevenue — Park Guard tiers (per-row wholesale, migration 02
     expect(r.refunded.pgWholesale).toBe(2);
     expect(r.refunded.pgMargin).toBeCloseTo(-2, 2);
     expect(r.pgWholesaleMissingReservations).toEqual([]);
+  });
+});
+
+/**
+ * Direct lots (Phase 4b-1) and the recorded-livemode test exclusion.
+ *
+ * A direct booking (Triply-owned lot) has no ResLab reservation: its
+ * `reslab_reservation_number` is our own TRP- number. Fetching it from ResLab
+ * would 404, and a confirmed one inside the ResLab completeness gate would null
+ * the month's headline. Direct rows are classified ONLY on
+ * `inventory_source === "direct"` (never `!== "reslab"`), so a row read without
+ * the column still behaves as ResLab.
+ */
+describe("reconcileRevenue — direct lots + recorded livemode", () => {
+  const reslabCalls = () =>
+    vi
+      .mocked(fetch)
+      .mock.calls.map(([input]) => String(input))
+      .filter((u) => u.includes("/reservations/"));
+
+  const retrievedPIs = () =>
+    vi.mocked(stripe.paymentIntents.retrieve).mock.calls.map(([id]) => id);
+
+  /** A live direct booking (no ResLab lot, our own TRP- number). */
+  function pushDirect(num: string, pi: string | null, over: Record<string, unknown> = {}) {
+    pushRow(num, pi, {
+      inventory_source: "direct",
+      direct_lot_id: "1",
+      reslab_location_id: null,
+      livemode: true,
+      due_at_location: 0,
+      discount_amount: 0,
+      ...over,
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(stripe.paymentIntents.retrieve).mockClear();
+  });
+
+  it("a month with one ResLab row + one live direct row: headline non-null, ResLab fetched once, direct reported separately", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { inventory_source: "reslab", livemode: true });
+    // Direct: $50 parking + $5.95 fee charged online. Its TRP number is NOT
+    // registered in the ResLab fake, so any ResLab call for it would 404.
+    registerLivePI("pi_direct", 5595);
+    pushDirect("TRP-ABCD1234", "pi_direct", { grand_total: 50, subtotal: 46, triply_service_fee: 5.95 });
+
+    const r = await reconcileRevenue(OPTS);
+
+    // ResLab was asked about the ResLab row only.
+    expect(reslabCalls()).toEqual(["https://reslab.test/v1/reservations/RTL_REAL"]);
+    expect(r.reslab.fetchErrors).toEqual([]);
+    expect(r.reslab.confirmedExpected).toBe(1);
+    expect(r.reslab.dataIncomplete).toBe(false);
+    // The headline resolves, from the ResLab row alone (fee 10 + channel 12).
+    expect(r.triplyNet.total).toBe(22);
+    expect(r.triplyNet.totalReason).toBeNull();
+    // The direct row is in none of the ResLab-shaped figures...
+    expect(r.bookings.map((b) => b.reslab_reservation_number)).toEqual(["RTL_REAL"]);
+    expect(r.counts).toMatchObject({ confirmed: 1, total: 1, stagingExcluded: 0, testExcluded: 0 });
+    expect(r.grossRevenue).toBe(100);
+    expect(r.stripe.gross).toBe(90);
+    expect(r.reslab.settlementRows).toBe(1);
+    // ...and is reported on its own, from live Stripe, never as a silent $0.
+    expect(r.direct).toEqual({
+      count: 1,
+      confirmed: 1,
+      refunded: 0,
+      cancelled: 0,
+      other: 0,
+      grossOnlineCharge: 55.95,
+      grossOnlineChargeIsDerived: false,
+      reservations: ["TRP-ABCD1234"],
+      stripeErrors: [],
+    });
+  });
+
+  it("a month of ONLY direct rows never calls ResLab (not even to authenticate)", async () => {
+    registerLivePI("pi_d1", 5595);
+    pushDirect("TRP-ONLY0001", "pi_d1");
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+    expect(r.triplyNet.total).toBe(0);
+    expect(r.direct.count).toBe(1);
+    expect(r.bookings).toEqual([]);
+  });
+
+  it("counts refunded / cancelled direct rows but only CONFIRMED ones in the gross", async () => {
+    registerLivePI("pi_c", 5595);
+    registerLivePI("pi_r", 5595, 5595);
+    pushDirect("TRP-CONF0001", "pi_c");
+    pushDirect("TRP-REFD0001", "pi_r", { status: "refunded" });
+    pushDirect("TRP-CANC0001", null, { status: "cancelled" });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.direct).toMatchObject({ count: 3, confirmed: 1, refunded: 1, cancelled: 1, other: 0 });
+    expect(r.direct.grossOnlineCharge).toBeCloseTo(55.95, 2);
+    expect(r.direct.reservations).toEqual(["TRP-CONF0001", "TRP-REFD0001", "TRP-CANC0001"]);
+  });
+
+  it("derives the direct online charge (grand + fee + premium - discount) when Stripe is off, and flags it", async () => {
+    pushDirect("TRP-DERV0001", "pi_x", {
+      grand_total: 50,
+      triply_service_fee: 5.95,
+      protection_plan: "$1,000 Protection",
+      protection_plan_price: 12.99,
+      discount_amount: 5,
+    });
+
+    const r = await reconcileRevenue({ ...OPTS, includeStripe: false });
+
+    expect(r.direct.grossOnlineCharge).toBeCloseTo(50 + 5.95 + 12.99 - 5, 2);
+    expect(r.direct.grossOnlineChargeIsDerived).toBe(true);
+  });
+
+  it("a live direct row whose PI the live key cannot read is surfaced on the direct summary, not dropped", async () => {
+    pushDirect("TRP-BADPI001", "pi_unreadable", { grand_total: 50, triply_service_fee: 5.95 });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.counts.stagingExcluded).toBe(0);
+    expect(r.direct.count).toBe(1);
+    expect(r.direct.grossOnlineCharge).toBeCloseTo(55.95, 2);
+    expect(r.direct.grossOnlineChargeIsDerived).toBe(true);
+    expect(r.direct.stripeErrors.map((e) => e.resNum)).toEqual(["TRP-BADPI001"]);
+    // Not in the ResLab-side error list (whose rows are in the CSV).
+    expect(r.stripeFetch.errors).toEqual([]);
+  });
+
+  it("a row WITHOUT inventory_source is ResLab (polarity rule): fetched from ResLab, never summarised as direct", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_NOCOL");
+    pushRow("RTL_NOCOL", "pi_real"); // fixture shape predates the column
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(reslabCalls()).toEqual(["https://reslab.test/v1/reservations/RTL_NOCOL"]);
+    expect(r.direct.count).toBe(0);
+    expect(r.bookings).toHaveLength(1);
+  });
+
+  it("excludes a livemode=false row of EITHER source as staging, without fetching it from ResLab or Stripe", async () => {
+    registerLivePI("pi_real");
+    registerReservation("RTL_REAL");
+    pushRow("RTL_REAL", "pi_real", { livemode: true });
+    // A staging ResLab booking at a REAL lot, recorded as test mode.
+    pushRow("RTL_STAGING", "pi_test_r", { inventory_source: "reslab", livemode: false });
+    // A staging direct booking.
+    pushDirect("TRP-STAGE001", "pi_test_d", { livemode: false });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.counts.stagingExcluded).toBe(2);
+    expect(r.counts.testExcluded).toBe(0);
+    expect(r.stagingExcludedReservations).toEqual(["RTL_STAGING", "TRP-STAGE001"]);
+    expect(reslabCalls()).toEqual(["https://reslab.test/v1/reservations/RTL_REAL"]);
+    expect(retrievedPIs()).toEqual(["pi_real"]);
+    expect(r.direct.count).toBe(0);
+    expect(r.bookings.map((b) => b.reslab_reservation_number)).toEqual(["RTL_REAL"]);
+    expect(r.counts.total).toBe(1);
+    expect(r.triplyNet.total).not.toBeNull();
+  });
+
+  it("excludes a livemode=false row even under a TEST reconcile key (its mode is recorded, not inferred)", async () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_dummy";
+    pushRow("RTL_STAGING", "pi_test_r", { livemode: false });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.counts.stagingExcluded).toBe(1);
+    expect(r.bookings).toEqual([]);
+  });
+
+  it("a test-LOT row still counts as testExcluded, not staging", async () => {
+    pushRow("RTL_TESTLOT", "pi_t", { reslab_location_id: 195, livemode: false });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.counts.testExcluded).toBe(1);
+    expect(r.counts.stagingExcluded).toBe(0);
+    expect(r.stagingExcludedReservations).toEqual([]);
+  });
+
+  it("a row recorded livemode=true is NEVER inferred as staging, even when both signals fire; kept and surfaced", async () => {
+    // Unreadable PI under the live key AND a prod-ResLab 404: the NULL-livemode
+    // inference would drop this, but the row records a live payment.
+    pushRow("RTL_LIVE404", "pi_foreign", { livemode: true });
+
+    const r = await reconcileRevenue(OPTS);
+
+    expect(r.counts.stagingExcluded).toBe(0);
+    expect(r.bookings.map((b) => b.reslab_reservation_number)).toEqual(["RTL_LIVE404"]);
+    expect(r.stripeFetch.errors.find((e) => e.resNum === "RTL_LIVE404")?.err).toMatch(/livemode=true/);
+    // The real ResLab 404 stays visible, and the headline fails loud (null).
+    expect(r.reslab.fetchErrors.some((e) => e.resNum === "RTL_LIVE404")).toBe(true);
+    expect(r.triplyNet.total).toBeNull();
   });
 });
