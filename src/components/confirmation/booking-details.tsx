@@ -28,6 +28,12 @@ interface BookingDetailsProps {
   customerPhone?: string;
   vehicleInfo?: string;
   dueAtLocation?: number;
+  /**
+   * The booking was cancelled: keep the record (lot, dates, amount) but drop
+   * what only applies to a live reservation — the "Pay at Location" promise
+   * and Get Directions. Required, never defaulted (see ConfirmationHeader).
+   */
+  cancelled: boolean;
 }
 
 export function BookingDetails({
@@ -43,6 +49,7 @@ export function BookingDetails({
   customerPhone,
   vehicleInfo,
   dueAtLocation,
+  cancelled,
 }: BookingDetailsProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -131,7 +138,11 @@ export function BookingDetails({
           </div>
           <div className="text-right">
             <p className="text-sm text-gray-600">
-              {dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
+              {/* Cancelled: the original booking amount, not what the customer
+                  has paid net of any refund. */}
+              {cancelled
+                ? "Booking Total"
+                : dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
             </p>
             <p className="text-2xl font-bold text-brand-orange">
               ${total.toFixed(2)}
@@ -140,7 +151,7 @@ export function BookingDetails({
         </div>
 
         {/* Due at Location Notice */}
-        {typeof dueAtLocation === "number" && dueAtLocation > 0 && (
+        {!cancelled && typeof dueAtLocation === "number" && dueAtLocation > 0 && (
           <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
             <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -188,13 +199,15 @@ export function BookingDetails({
         )}
 
         {/* Get Directions Button */}
-        <button
-          onClick={handleGetDirections}
-          className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          <Navigation size={18} />
-          Get Directions
-        </button>
+        {!cancelled && (
+          <button
+            onClick={handleGetDirections}
+            className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Navigation size={18} />
+            Get Directions
+          </button>
+        )}
       </div>
     </div>
   );

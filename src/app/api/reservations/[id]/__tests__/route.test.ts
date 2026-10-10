@@ -289,6 +289,7 @@ describe("ResLab booking — unchanged", () => {
     expect(res.status).toBe(200);
     expect(h.getReservation).toHaveBeenCalledTimes(1);
     expect(h.getReservation).toHaveBeenCalledWith(RTL);
+    expect(h.captureBookingError).not.toHaveBeenCalled();
     expect(await res.json()).toEqual({
       reservation: {
         id: 4242,
@@ -365,5 +366,74 @@ describe("ResLab booking — unchanged", () => {
     expect((await call(RTL)).status).toBe(404);
     h.getReservation.mockRejectedValueOnce(new Error("ResLab API error 502: bad gateway"));
     expect((await call(RTL)).status).toBe(500);
+  });
+
+  describe("cancelled status — either side counts", () => {
+    const run = async (
+      row: { status: string; cancel_state?: string | null } | null,
+      reslabCancelled: 0 | 1
+    ) => {
+      h.state.detailRow = row
+        ? { data: { ...reslabRow, cancel_state: null, ...row }, error: null }
+        : { data: null, error: { message: "timeout", code: "57014" } };
+      h.getReservation.mockResolvedValue({ ...reslabReservation, cancelled: reslabCancelled });
+      const res = await call(RTL);
+      expect(res.status).toBe(200);
+      return (await res.json()).reservation.status as string;
+    };
+    const sentryMessages = () =>
+      h.captureBookingError.mock.calls.map(([err]) => (err as Error).message);
+
+    it("reads cancel_state in the detail select", async () => {
+      await run({ status: "confirmed" }, 0);
+      expect(h.state.detailSelect).toContain("cancel_state");
+    });
+
+    it("live on both sides → confirmed, nothing captured", async () => {
+      expect(await run({ status: "confirmed" }, 0)).toBe("confirmed");
+      expect(h.captureBookingError).not.toHaveBeenCalled();
+    });
+
+    it("a finished cancel (ResLab cancelled, row refunded) → cancelled, nothing captured", async () => {
+      expect(await run({ status: "refunded", cancel_state: "refund_issued" }, 1)).toBe("cancelled");
+      expect(h.captureBookingError).not.toHaveBeenCalled();
+    });
+
+    it.each(["refunded", "cancelled"])(
+      "row %s but ResLab still live (failed admin ResLab cancel / Stripe-dashboard refund) → cancelled + Sentry",
+      async (status) => {
+        expect(await run({ status }, 0)).toBe("cancelled");
+        expect(sentryMessages()).toEqual([
+          `Booking ${RTL} is ${status} in our database but still live in ResLab — if it was meant to be cancelled, release the ResLab reservation; if not, set the row back to confirmed`,
+        ]);
+      }
+    );
+
+    it("cancelled in ResLab only, no cancel of ours in flight → cancelled + Sentry (refund owed?)", async () => {
+      expect(await run({ status: "confirmed", cancel_state: null }, 1)).toBe("cancelled");
+      expect(sentryMessages()).toEqual([
+        `Booking ${RTL} is cancelled in ResLab but confirmed in our database — check whether the customer is owed a refund`,
+      ]);
+    });
+
+    it.each(["claimed", "admin_claimed"])(
+      "cancelled in ResLab while our cancel holds the claim (%s) → cancelled, nothing captured",
+      async (cancel_state) => {
+        expect(await run({ status: "confirmed", cancel_state }, 1)).toBe("cancelled");
+        expect(h.captureBookingError).not.toHaveBeenCalled();
+      }
+    );
+
+    it("a disputed booking is not cancelled", async () => {
+      expect(await run({ status: "disputed" }, 0)).toBe("confirmed");
+      expect(h.captureBookingError).not.toHaveBeenCalled();
+    });
+
+    it("a failed row read falls back to ResLab's flag alone, as before", async () => {
+      expect(await run(null, 0)).toBe("confirmed");
+      h.captureBookingError.mockReset();
+      expect(await run(null, 1)).toBe("cancelled");
+      expect(h.captureBookingError).toHaveBeenCalledTimes(1); // the failed read only
+    });
   });
 });
