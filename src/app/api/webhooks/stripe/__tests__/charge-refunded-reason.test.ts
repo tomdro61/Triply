@@ -16,6 +16,7 @@ const { db, constructEvent, sentry } = await vi.hoisted(async () => {
       capturePaymentError: vi.fn(),
       captureParkGuardError: vi.fn(),
       captureAPIError: vi.fn(),
+      captureBookingError: vi.fn(),
     },
   };
 });
@@ -124,6 +125,26 @@ describe("webhook charge.refunded — cancellation reason", () => {
       cancelled_by: null,
       cancellation_reason: null,
     });
+  });
+
+  it("never overwrites a dispute, and writes no reason for a row that didn't move", async () => {
+    seed({ status: "disputed" });
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(db.tables.bookings[0]).toMatchObject({ status: "disputed", cancelled_by: null, cancellation_reason: null });
+    expect(sentry.captureBookingError).toHaveBeenCalledTimes(1);
+  });
+
+  it("a payment_failed row is left as is too", async () => {
+    seed({ status: "payment_failed" });
+    await POST(req());
+    expect(db.tables.bookings[0].status).toBe("payment_failed");
+  });
+
+  it("a cancelled row with a full refund still becomes refunded (accounting reads refunded as money returned)", async () => {
+    seed({ status: "cancelled" });
+    await POST(req());
+    expect(db.tables.bookings[0].status).toBe("refunded");
   });
 
   it("a failed reason write does not fail the webhook", async () => {

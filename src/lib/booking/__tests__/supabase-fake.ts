@@ -17,7 +17,7 @@
 export type Row = Record<string, unknown>;
 
 interface Filter {
-  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "ilike" | "or";
+  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "ilike" | "or" | "not";
   col: string;
   val: unknown;
 }
@@ -29,6 +29,13 @@ function leaf(expr: string): (row: Row) => boolean {
   const col = expr.slice(0, first);
   const op = expr.slice(first + 1, second);
   const raw = expr.slice(second + 1);
+  if (op === "not") {
+    // `col.not.op.value`. SQL three-valued logic: NOT (NULL op x) is NULL, so a
+    // NULL column never matches a negated comparison — except `not.is.null`.
+    const inner = leaf(`${col}.${raw}`);
+    const isNullCheck = raw.startsWith("is.");
+    return (row) => (row[col] == null && !isNullCheck ? false : !inner(row));
+  }
   return (row) => {
     const actual = row[col];
     switch (op) {
@@ -300,6 +307,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     this.filters.push({ op: "in", col, val });
     return this;
   }
+  /** PostgREST `.not(col, op, value)`, e.g. `.not("status", "in", "(a,b)")`. */
+  not(col: string, op: string, val: unknown) {
+    this.filters.push({ op: "not", col, val: `${col}.not.${op}.${val === null ? "null" : String(val)}` });
+    return this;
+  }
   is(col: string, val: unknown) {
     this.filters.push({ op: "is", col, val });
     return this;
@@ -380,6 +392,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     const withEmbed = this.embeddedCustomer(row);
     return this.filters.every((f) => {
       if (f.op === "or") return parseOr(String(f.val))(withEmbed);
+      if (f.op === "not") return leaf(String(f.val))(withEmbed);
 
       // Embedded column reference, e.g. "customers.email".
       let actual: unknown;
