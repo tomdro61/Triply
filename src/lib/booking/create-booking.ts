@@ -56,6 +56,7 @@ import {
   type ChargedProtection,
   type ReservationResponse,
 } from "./fulfill";
+import { fromReslab } from "./fulfilled-reservation";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -1679,6 +1680,13 @@ async function fulfilClaimed(
     await recordReslabNumber(piId, reservation.reservation_number);
   }
 
+  // From here on, the source-neutral view of the reservation. Converted ONLY
+  // now — after the number is recorded and outside both try blocks — so nothing
+  // between createReservation and recordReslabNumber can throw (a throw there
+  // leaves a live reservation unrecorded, and the next caller would book a
+  // second one). fromReslab itself never throws.
+  const fr = fromReslab(reservation);
+
   // --- Step 10: CAPTURE — the customer's money moves here, and only here ------
   if (pi.status === "requires_capture") {
     try {
@@ -1698,11 +1706,11 @@ async function fulfilClaimed(
         await markTerminal(
           piId,
           "capture_ambiguous",
-          `Capture failed with reservation ${reservation.reservation_number} live`
+          `Capture failed with reservation ${fr.number} live`
         );
         capturePaymentError(
           new Error(
-            `CAPTURE FAILED after ResLab reservation ${reservation.reservation_number} was created (${piId}). Reservation is live and UNPAID — cancel it or re-attempt capture within the hold window.`
+            `CAPTURE FAILED after ResLab reservation ${fr.number} was created (${piId}). Reservation is live and UNPAID — cancel it or re-attempt capture within the hold window.`
           ),
           { stripePaymentIntentId: piId, amount: pi.amount / 100 }
         );
@@ -1715,11 +1723,11 @@ async function fulfilClaimed(
         await markTerminal(
           piId,
           "capture_ambiguous",
-          `Capture result unknown for reservation ${reservation.reservation_number}`
+          `Capture result unknown for reservation ${fr.number}`
         );
         capturePaymentError(
           new Error(
-            `CAPTURE RESULT UNKNOWN for ${piId} with reservation ${reservation.reservation_number} live. Do not roll back without checking Stripe manually.`
+            `CAPTURE RESULT UNKNOWN for ${piId} with reservation ${fr.number} live. Do not roll back without checking Stripe manually.`
           ),
           { stripePaymentIntentId: piId, amount: pi.amount / 100 }
         );
@@ -1757,14 +1765,14 @@ async function fulfilClaimed(
     // paid, so the stored discount reconciles to Stripe exactly.
     chargedCents: pi.amount,
   };
-  const persisted = await persistBooking(payload, reservation, charged, pi.livemode, promo, attribution);
+  const persisted = await persistBooking(payload, fr, charged, pi.livemode, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {
     await markTerminal(piId, "completed");
     await releaseCart(piId);
     return {
       kind: "already_exists",
-      reservationNumber: reservation.reservation_number,
+      reservationNumber: fr.number,
     };
   }
 
@@ -1773,7 +1781,7 @@ async function fulfilClaimed(
     // a real ResLab booking the customer will try to use. Escalate instead.
     capturePaymentError(
       new Error(
-        `CHARGED with a live ResLab reservation (${reservation.reservation_number}) but no bookings row for ${piId}. Customer WILL arrive at the lot. Retrying; repair manually if it does not clear.`
+        `CHARGED with a live ResLab reservation (${fr.number}) but no bookings row for ${piId}. Customer WILL arrive at the lot. Retrying; repair manually if it does not clear.`
       ),
       { stripePaymentIntentId: piId, amount: pi.amount / 100 }
     );
@@ -1814,7 +1822,7 @@ async function fulfilClaimed(
       // The admin notification prints the airport; the client's value is
       // "RESLAB" (lot-id prefix), so report the code the row actually got.
       persisted.airportCode ? { ...payload, airportCode: persisted.airportCode } : payload,
-      reservation,
+      fr,
       persisted.pgSyncStatus,
       charged
     );
@@ -1824,14 +1832,14 @@ async function fulfilClaimed(
   await markTerminal(piId, "completed");
   await releaseCart(piId);
 
-  captureBookingSuccessBreadcrumb(source, reservation.reservation_number);
+  captureBookingSuccessBreadcrumb(source, fr.number);
 
   return {
     kind: "created",
-    reservationNumber: reservation.reservation_number,
+    reservationNumber: fr.number,
     reservation: buildReservationResponse(
       payload,
-      reservation,
+      fr,
       persisted.pgIdentifier,
       charged
     ),
@@ -1962,17 +1970,17 @@ async function fulfilOnly(
   // only price there is on this dev-only path.
   const plan = getProtectionPlan(payload.protectionPlanCode);
   const charged: ChargedProtection | null = plan ? { plan, premium: plan.price } : null;
-  const reservation = await createReslabReservation(payload);
+  const fr = fromReslab(await createReslabReservation(payload));
   // livemode false: no charge exists on this dev-only path, but the row lands in
   // the shared prod table, so it must not count as live revenue.
-  const persisted = await persistBooking(payload, reservation, charged, false);
-  await sendBookingEmails(payload, reservation, persisted.pgSyncStatus, charged);
+  const persisted = await persistBooking(payload, fr, charged, false);
+  await sendBookingEmails(payload, fr, persisted.pgSyncStatus, charged);
   return {
     kind: "created",
-    reservationNumber: reservation.reservation_number,
+    reservationNumber: fr.number,
     reservation: buildReservationResponse(
       payload,
-      reservation,
+      fr,
       persisted.pgIdentifier,
       charged
     ),

@@ -13,6 +13,7 @@
 import type { z } from "zod";
 import { reslab, stripHtml } from "@/lib/reslab/client";
 import type { ReslabReservation } from "@/lib/reslab/client";
+import type { FulfilledReservation } from "@/lib/booking/fulfilled-reservation";
 import { createAdminClient } from "@/lib/supabase/server";
 import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
@@ -139,7 +140,7 @@ export interface AppliedPromo {
 
 export async function persistBooking(
   payload: BookingPayload,
-  reservation: ReslabReservation,
+  fr: FulfilledReservation,
   charged: ChargedProtection | null,
   /** Stripe mode of the charge (`pi.livemode`), written to bookings.livemode —
    *  the only staging/prod marker on this shared table (migration 034). Required,
@@ -172,7 +173,6 @@ export async function persistBooking(
   const protectionPlan = charged?.plan ?? null;
   const protectionPremium = charged?.premium ?? 0;
 
-  const resHistory = reservation.history?.[0];
   const result: PersistResult = {
     bookingId: null,
     airportCode: null,
@@ -303,7 +303,7 @@ export async function persistBooking(
       customerId = newCustomer.id;
     }
 
-    const storedSubtotal = subtotal || resHistory?.subtotal || 0;
+    const storedSubtotal = subtotal || fr.money.subtotal || 0;
 
     // Discount taken off the online charge by the promo, derived from the ACTUAL
     // Stripe charge (`chargedCents`) rather than re-computing percent × subtotal.
@@ -316,10 +316,10 @@ export async function persistBooking(
     let discountAmount = 0;
     if (discountPercent > 0 && promo) {
       const preDiscountOnlineCents = Math.round(
-        ((resHistory?.grand_total ?? grandTotal ?? 0) +
+        ((fr.money.grandTotal ?? grandTotal ?? 0) +
           (triplyServiceFee || 0) +
           protectionPremium -
-          (resHistory?.due_at_location_total || 0)) *
+          (fr.money.dueAtLocation || 0)) *
           100
       );
       discountAmount =
@@ -338,15 +338,13 @@ export async function persistBooking(
     // otherwise mark the whole booking failed). A remaining null fail-closes the
     // cancel gate for this booking (routes the customer to support) and is
     // Sentry-flagged so a feature-wide "nobody can cancel" regression is visible.
-    let locationTimezone: string | null =
-      resHistory?.location?.timezone?.code ?? null;
+    let locationTimezone: string | null = fr.location?.timezone ?? null;
     // The lot's coordinates drive the airport derivation below. Same source,
     // same single fallback fetch — never the shared location-list cache.
-    let lotCoords = validCoords(
-      resHistory?.location?.latitude,
-      resHistory?.location?.longitude
-    );
-    if ((!locationTimezone || !lotCoords) && locationId != null) {
+    let lotCoords = fr.location?.coords ?? null;
+    // ResLab lots only: `locationId` is a ResLab id. A direct lot (4b) supplies
+    // its own timezone + coordinates and must never fetch a ResLab lot's.
+    if (fr.source === "reslab" && (!locationTimezone || !lotCoords) && locationId != null) {
       try {
         const fetched = await reslab.getLocation(locationId);
         if (!locationTimezone) locationTimezone = fetched?.timezone?.code ?? null;
@@ -363,7 +361,7 @@ export async function persistBooking(
           locErr instanceof Error ? locErr : new Error(String(locErr)),
           {
             step: "checkout",
-            confirmationNumber: reservation.reservation_number,
+            confirmationNumber: fr.number,
           }
         );
       }
@@ -373,7 +371,7 @@ export async function persistBooking(
         new Error(
           `Booking persisted with null location_timezone (reslab_location_id=${locationId}); self-cancel gate will fail-closed for it`
         ),
-        { step: "checkout", confirmationNumber: reservation.reservation_number }
+        { step: "checkout", confirmationNumber: fr.number }
       );
     }
 
@@ -421,7 +419,7 @@ export async function persistBooking(
       channel = null;
       captureBookingError(
         chErr instanceof Error ? chErr : new Error(String(chErr)),
-        { step: "checkout", confirmationNumber: reservation.reservation_number }
+        { step: "checkout", confirmationNumber: fr.number }
       );
     }
 
@@ -441,7 +439,7 @@ export async function persistBooking(
       derivedAirportCode = null;
       captureBookingError(
         apErr instanceof Error ? apErr : new Error(String(apErr)),
-        { step: "checkout", confirmationNumber: reservation.reservation_number }
+        { step: "checkout", confirmationNumber: fr.number }
       );
     }
 
@@ -450,11 +448,11 @@ export async function persistBooking(
       .from("bookings")
       .insert({
         customer_id: customerId,
-        reslab_reservation_number: reservation.reservation_number,
+        reslab_reservation_number: fr.number,
         reslab_location_id: locationId,
         location_name:
-          locationName || resHistory?.location?.name || `Location ${locationId}`,
-        location_address: locationAddress || resHistory?.location?.address || "",
+          locationName || fr.location?.name || `Location ${locationId}`,
+        location_address: locationAddress || fr.location?.address || "",
         // Derived server-side (see above). NULL = unknown; never the client's
         // "RESLAB". airport_code is nullable (001) so this cannot 23502.
         airport_code: derivedAirportCode,
@@ -469,14 +467,14 @@ export async function persistBooking(
         check_in: fromDate,
         check_out: toDate,
         subtotal: storedSubtotal,
-        tax_total: taxTotal || resHistory?.total_tax || 0,
-        fees_total: feesTotal || resHistory?.total_fees || 0,
+        tax_total: taxTotal || fr.money.taxTotal || 0,
+        fees_total: feesTotal || fr.money.feesTotal || 0,
         // ResLab is source of truth for parking revenue; the client value is
         // only a fallback if ResLab didn't echo it back. The protection premium
         // lives in protection_plan_price so reporting can read them apart.
-        grand_total: resHistory?.grand_total ?? grandTotal ?? 0,
+        grand_total: fr.money.grandTotal ?? grandTotal ?? 0,
         triply_service_fee: triplyServiceFee || 0,
-        due_at_location: resHistory?.due_at_location_total || 0,
+        due_at_location: fr.money.dueAtLocation || 0,
         // Promo (migration 016). discount_amount is always written (0 = none) so
         // reporting never sees NULL; promo_code only when a discount applied.
         discount_amount: discountAmount,
@@ -525,7 +523,7 @@ export async function persistBooking(
             `Booking insert failed for protection-opted reservation; customer charged for premium but Park Guard not enrolled: ${bookingError.message}`
           );
           captureParkGuardError(ctxErr, {
-            reslabReservationNumber: reservation.reservation_number,
+            reslabReservationNumber: fr.number,
             operation: "capture",
           });
           if (stripePaymentIntentId) {
@@ -546,7 +544,7 @@ export async function persistBooking(
     if (charged && bookingRow?.id) {
       const pg = await enrolParkGuard(
         payload,
-        reservation,
+        fr,
         bookingRow.id,
         supabase,
         charged
@@ -568,7 +566,7 @@ export async function persistBooking(
         `Supabase save failed for protection-opted reservation; customer charged for premium but Park Guard not enrolled: ${sbErr.message}`
       );
       captureParkGuardError(ctxErr, {
-        reslabReservationNumber: reservation.reservation_number,
+        reslabReservationNumber: fr.number,
         operation: "capture",
       });
       if (stripePaymentIntentId) {
@@ -588,26 +586,24 @@ export async function persistBooking(
  */
 async function enrolParkGuard(
   payload: BookingPayload,
-  reservation: ReslabReservation,
+  fr: FulfilledReservation,
   bookingId: string,
   supabase: Awaited<ReturnType<typeof createAdminClient>>,
   charged: ChargedProtection
 ): Promise<{ pgIdentifier: string | null; pgSyncStatus: PgSyncStatus }> {
   const { fromDate, toDate, customer, vehicle, locationAddress } = payload;
-  const resHistory = reservation.history?.[0];
-
   try {
     const [startDate, startTime24] = fromDate.split(" ");
     const [endDate, endTime24] = toDate.split(" ");
     // Local components, not toISOString — Vercel runs UTC, so toISOString would
     // shift late-evening ET bookings to the next day's date.
     const todayDate = formatPgDate(new Date());
-    const pgLocation = resHistory?.location;
+    const pgLocation = fr.location;
 
     const pgStreet = pgLocation?.address || locationAddress;
     const pgCity = pgLocation?.city;
-    const pgState = pgLocation?.state?.code;
-    const pgZip = pgLocation?.zip_code;
+    const pgState = pgLocation?.stateCode;
+    const pgZip = pgLocation?.zip;
 
     if (!pgStreet || !pgCity || !pgState || !pgZip) {
       // Distinct sentinel so alerting and reconciliation can tell this PERMANENT
@@ -619,7 +615,7 @@ async function enrolParkGuard(
         ),
         {
           bookingId,
-          reslabReservationNumber: reservation.reservation_number,
+          reslabReservationNumber: fr.number,
           operation: "capture",
           statusCode: PARKGUARD_STATUS.MISSING_DATA,
         }
@@ -635,7 +631,7 @@ async function enrolParkGuard(
           ),
           {
             bookingId,
-            reslabReservationNumber: reservation.reservation_number,
+            reslabReservationNumber: fr.number,
             operation: "update",
           }
         );
@@ -685,7 +681,7 @@ async function enrolParkGuard(
         ),
         {
           bookingId,
-          reslabReservationNumber: reservation.reservation_number,
+          reslabReservationNumber: fr.number,
           operation: "update",
           pgIdentifier: pgRes.pg_identifier,
         }
@@ -702,7 +698,7 @@ async function enrolParkGuard(
       pgError instanceof Error ? pgError : new Error(String(pgError)),
       {
         bookingId,
-        reslabReservationNumber: reservation.reservation_number,
+        reslabReservationNumber: fr.number,
         operation: "capture",
         ...(pgError instanceof ParkGuardError && {
           statusCode: pgError.statusCode,
@@ -727,7 +723,7 @@ async function enrolParkGuard(
  */
 export async function sendBookingEmails(
   payload: BookingPayload,
-  reservation: ReslabReservation,
+  fr: FulfilledReservation,
   pgSyncStatus: PgSyncStatus,
   charged: ChargedProtection | null
 ): Promise<{ customerEmailSent: boolean }> {
@@ -745,16 +741,15 @@ export async function sendBookingEmails(
     stripePaymentIntentId,
   } = payload;
 
-  const resHistory = reservation.history?.[0];
-  const resLocation = resHistory?.location;
+  const resLocation = fr.location;
   const shuttleDetails =
-    stripHtml(resLocation?.shuttle_info_details ?? null) || undefined;
+    stripHtml(resLocation?.shuttleDetailsHtml ?? null) || undefined;
   const specialConditions =
-    stripHtml(resLocation?.special_conditions ?? null) || undefined;
+    stripHtml(resLocation?.specialConditionsHtml ?? null) || undefined;
 
   const protectionPremium = charged?.premium ?? 0;
   const totalAmount =
-    (resHistory?.grand_total ?? grandTotal ?? 0) +
+    (fr.money.grandTotal ?? grandTotal ?? 0) +
     (triplyServiceFee || 0) +
     protectionPremium;
 
@@ -769,7 +764,7 @@ export async function sendBookingEmails(
     await sendBookingConfirmation({
       to: customer.email,
       customerName: fullName,
-      confirmationNumber: reservation.reservation_number,
+      confirmationNumber: fr.number,
       lotName: locationName || resLocation?.name || `Location ${locationId}`,
       lotAddress: locationAddress || resLocation?.address || "",
       checkInDate,
@@ -777,7 +772,7 @@ export async function sendBookingEmails(
       checkInTime: convertTo12Hour(checkInTime24),
       checkOutTime: convertTo12Hour(checkOutTime24),
       totalAmount,
-      dueAtLocation: resHistory?.due_at_location_total || 0,
+      dueAtLocation: fr.money.dueAtLocation || 0,
       vehicleInfo,
       shuttleDetails,
       specialConditions,
@@ -791,7 +786,7 @@ export async function sendBookingEmails(
   } catch (emailError) {
     captureBookingError(
       new Error(
-        `Confirmation email failed for ${reservation.reservation_number}: ${
+        `Confirmation email failed for ${fr.number}: ${
           emailError instanceof Error ? emailError.message : String(emailError)
         }`
       ),
@@ -800,7 +795,7 @@ export async function sendBookingEmails(
     if (stripePaymentIntentId) {
       capturePaymentError(
         new Error(
-          `Customer paid but confirmation email did not send (reservation ${reservation.reservation_number})`
+          `Customer paid but confirmation email did not send (reservation ${fr.number})`
         ),
         { stripePaymentIntentId, amount: totalAmount }
       );
@@ -809,7 +804,7 @@ export async function sendBookingEmails(
 
   try {
     await sendAdminBookingNotification({
-      confirmationNumber: reservation.reservation_number,
+      confirmationNumber: fr.number,
       customerName: fullName,
       customerEmail: customer.email,
       customerPhone: customer.phone,
@@ -818,7 +813,7 @@ export async function sendBookingEmails(
       checkInDate: fromDate.split(" ")[0],
       checkOutDate: toDate.split(" ")[0],
       totalAmount,
-      dueAtLocation: resHistory?.due_at_location_total || 0,
+      dueAtLocation: fr.money.dueAtLocation || 0,
       vehicleInfo,
       airportCode: airportCode || undefined,
       ...(charged && {
@@ -830,7 +825,7 @@ export async function sendBookingEmails(
     // Internal notification only — never escalated to a money event.
     captureBookingError(
       new Error(
-        `Admin notification email failed for ${reservation.reservation_number}: ${
+        `Admin notification email failed for ${fr.number}: ${
           adminEmailError instanceof Error
             ? adminEmailError.message
             : String(adminEmailError)
@@ -860,15 +855,17 @@ export interface ReservationResponse {
   dueNow: number;
   dueAtLocation: number;
   customer: { firstName: string; lastName: string; email: string; phone: string };
-  items: { type: string; fromDate: string; toDate: string; numberOfDays: null; numberOfSpots: number }[];
+  items: { type: string; fromDate: string | undefined; toDate: string | undefined; numberOfDays: null; numberOfSpots: number }[];
+  /** Location fields are copied verbatim from the reservation — an absent one
+   *  stays absent (dropped from the JSON), a null stays null. */
   location: {
-    id: number;
-    name: string;
-    address: string;
-    city: string;
+    id: number | null | undefined;
+    name: string | null | undefined;
+    address: string | null | undefined;
+    city: string | null | undefined;
     state: string | undefined;
-    zipCode: string;
-    phone: string;
+    zipCode: string | null | undefined;
+    phone: string | null | undefined;
     shuttleDetails: string | undefined;
     specialConditions: string | undefined;
   } | null;
@@ -879,24 +876,23 @@ export interface ReservationResponse {
  */
 export function buildReservationResponse(
   payload: BookingPayload,
-  reservation: ReslabReservation,
+  fr: FulfilledReservation,
   pgIdentifier: string | null,
   charged: ChargedProtection | null
 ): ReservationResponse {
-  const resHistory = reservation.history?.[0];
-  const resLocation = resHistory?.location;
+  const resLocation = fr.location;
   const protectionPremium = charged?.premium ?? 0;
   const shuttleDetails =
-    stripHtml(resLocation?.shuttle_info_details ?? null) || undefined;
+    stripHtml(resLocation?.shuttleDetailsHtml ?? null) || undefined;
   const specialConditions =
-    stripHtml(resLocation?.special_conditions ?? null) || undefined;
+    stripHtml(resLocation?.specialConditionsHtml ?? null) || undefined;
 
   return {
-    id: resHistory?.id || reservation.reservation_number,
-    reservationNumber: reservation.reservation_number,
-    status: reservation.cancelled ? "cancelled" : "confirmed",
+    id: fr.historyId || fr.number,
+    reservationNumber: fr.number,
+    status: fr.cancelled ? "cancelled" : "confirmed",
     grandTotal:
-      (resHistory?.grand_total ?? payload.grandTotal ?? 0) +
+      (fr.money.grandTotal ?? payload.grandTotal ?? 0) +
       (payload.triplyServiceFee || 0) +
       protectionPremium,
     serviceFee: payload.triplyServiceFee || 0,
@@ -904,11 +900,11 @@ export function buildReservationResponse(
     protectionPlanPrice: protectionPremium,
     pgIdentifier,
     dueNow:
-      (resHistory?.grand_total || 0) +
+      (fr.money.grandTotal || 0) +
       (payload.triplyServiceFee || 0) +
       protectionPremium -
-      (resHistory?.due_at_location_total || 0),
-    dueAtLocation: resHistory?.due_at_location_total || 0,
+      (fr.money.dueAtLocation || 0),
+    dueAtLocation: fr.money.dueAtLocation || 0,
     customer: {
       firstName: payload.customer.firstName,
       lastName: payload.customer.lastName,
@@ -916,21 +912,21 @@ export function buildReservationResponse(
       phone: payload.customer.phone,
     },
     items:
-      resHistory?.dates?.map((date) => ({
+      fr.dates?.map((date) => ({
         type: "parking",
-        fromDate: date.from_date,
-        toDate: date.to_date,
+        fromDate: date.fromDate,
+        toDate: date.toDate,
         numberOfDays: null,
         numberOfSpots: 1,
       })) || [],
     location: resLocation
       ? {
-          id: resLocation.id,
+          id: resLocation.reslabLocationId,
           name: resLocation.name,
           address: resLocation.address,
           city: resLocation.city,
-          state: resLocation.state?.code,
-          zipCode: resLocation.zip_code,
+          state: resLocation.stateCode,
+          zipCode: resLocation.zip,
           phone: resLocation.phone,
           shuttleDetails,
           specialConditions,
