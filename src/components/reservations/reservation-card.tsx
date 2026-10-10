@@ -8,7 +8,15 @@ import { CancelReservationButton } from "./cancel-reservation-button";
 interface Booking {
   id: string;
   reslab_reservation_number: string;
-  reslab_location_id: number;
+  /** NULL on a direct-lot booking (Triply-owned lot, no ResLab location). */
+  reslab_location_id: number | null;
+  /** "direct" = Triply-owned lot (migration 034); anything else is ResLab. */
+  inventory_source?: string | null;
+  /** The direct lot's CMS id; NULL on ResLab rows. */
+  direct_lot_id?: string | null;
+  /** Direct lots: the oversized-vehicle estimate PAID AT THE LOT, in cents. NULL on ResLab rows. */
+  vehicle_surcharge_cents?: number | null;
+  vehicle_surcharge_tax_cents?: number | null;
   location_name: string;
   location_address: string;
   airport_code: string | null;
@@ -97,7 +105,17 @@ export function ReservationCard({
   // Build confirmation URL with lot info + (when known) the customer email
   // as a fallback auth token for the API GET. See the prop comment above.
   const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : "";
-  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=reslab-${booking.reslab_location_id}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
+  // ?lot= is the confirmation page's sessionStorage key for the lot's photos;
+  // a direct booking's lot id is "direct-<CMS id>" (never "reslab-null").
+  const lotParam =
+    booking.inventory_source === "direct"
+      ? `direct-${booking.direct_lot_id}`
+      : `reslab-${booking.reslab_location_id}`;
+  const atLotCents =
+    booking.inventory_source === "direct"
+      ? (booking.vehicle_surcharge_cents ?? 0) + (booking.vehicle_surcharge_tax_cents ?? 0)
+      : 0;
+  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=${lotParam}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-orange/30 transition-all duration-200">
@@ -166,13 +184,21 @@ export function ReservationCard({
               #{booking.reslab_reservation_number}
             </p>
           </div>
-          <p className="font-bold text-brand-orange text-lg">
-            ${(
-              Number(booking.grand_total) +
-              Number(booking.triply_service_fee ?? 0) +
-              Number(booking.protection_plan_price ?? 0)
-            ).toFixed(2)}
-          </p>
+          <div className="text-right">
+            <p className="font-bold text-brand-orange text-lg">
+              ${(
+                Number(booking.grand_total) +
+                Number(booking.triply_service_fee ?? 0) +
+                Number(booking.protection_plan_price ?? 0)
+              ).toFixed(2)}
+            </p>
+            {/* Direct lots: paid at drop-off, never part of the online total above. */}
+            {atLotCents > 0 && (
+              <p className="text-xs text-amber-700">
+                + ${(atLotCents / 100).toFixed(2)} est. at the lot
+              </p>
+            )}
+          </div>
         </div>
       </Link>
 

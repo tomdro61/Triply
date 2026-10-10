@@ -9,8 +9,11 @@ import { isCancellable } from "@/lib/cancellation/eligibility";
 // protection_plan + protection_plan_price — both are consumed downstream (the
 // reservation-card total and the dirty-data check below). location_timezone is
 // used only to compute the `cancellable` flag server-side (never the client).
+// inventory_source / direct_lot_id let the card link a direct-lot booking
+// (reslab_location_id NULL) correctly; vehicle_* carry a direct booking's
+// at-lot oversized-vehicle estimate (display only). All NULL on ResLab rows.
 const BOOKING_COLUMNS =
-  "id, reslab_reservation_number, reslab_location_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, triply_service_fee, protection_plan, protection_plan_price, vehicle_info, status, created_at";
+  "id, reslab_reservation_number, reslab_location_id, inventory_source, direct_lot_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, triply_service_fee, protection_plan, protection_plan_price, vehicle_info, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents, status, created_at";
 
 export async function GET() {
   try {

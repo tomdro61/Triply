@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useMemo, useRef, use } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Home, Search, AlertCircle } from "lucide-react";
+import { Home, Search, AlertCircle, Wallet } from "lucide-react";
 import { Navbar, Footer } from "@/components/shared";
 import {
   ConfirmationHeader,
@@ -25,9 +25,26 @@ interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
 }
 
+interface AtLotEstimate {
+  vehicleSize: string;
+  vehicleSizeLabel: string;
+  surcharge: number;
+  surchargeTax: number;
+  total: number;
+}
+
 interface ReservationData {
-  id: number;
+  id: number | string;
   reservationNumber: string;
+  /** "direct" = a Triply-owned lot (no ResLab record); anything else is ResLab. */
+  inventorySource?: "reslab" | "direct";
+  /** Direct bookings only: the lot's airport (from the booking's lot snapshot). */
+  airportCode?: string;
+  /**
+   * Direct bookings only: the oversized-vehicle surcharge PAID AT THE LOT. A
+   * separate display value — never part of grandTotal / dueNow / dueAtLocation.
+   */
+  atLotEstimate?: AtLotEstimate | null;
   status: string;
   grandTotal: number;
   dueNow: number;
@@ -50,15 +67,17 @@ interface ReservationData {
     numberOfSpots: number;
   }>;
   location: {
-    id: number;
+    /** ResLab location id (number), or the direct lot's CMS id (string). */
+    id: number | string;
     name: string;
     address: string;
     city: string;
     state: string;
     zipCode: string;
     phone: string;
-    latitude: string;
-    longitude: string;
+    /** ResLab sends strings; a direct booking sends numbers from its snapshot. */
+    latitude: string | number;
+    longitude: string | number;
     shuttleDetails?: string;
     specialConditions?: string;
   } | null;
@@ -93,14 +112,24 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   useEffect(() => {
     if (reservation?.location && !hasFiredPurchase.current) {
       hasFiredPurchase.current = true;
+      // Source-aware: a direct lot's `lot` param is "direct-N", so the old
+      // split("-")[0] would report the airport as "DIRECT"; its airport comes
+      // from the booking's snapshot instead, and its lot id keeps the "direct-"
+      // prefix so it can never collide with a ResLab location id in GA4.
+      // ResLab bookings are reported exactly as before.
+      const isDirect = reservation.inventorySource === "direct";
       trackPurchase({
         confirmationNumber: confirmationId,
-        lotId: String(reservation.location.id),
+        lotId: isDirect
+          ? `direct-${reservation.location.id}`
+          : String(reservation.location.id),
         lotName: reservation.location.name,
         grandTotal: reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
-        airportCode: lotId?.split("-")[0]?.toUpperCase(),
+        airportCode: isDirect
+          ? reservation.airportCode
+          : lotId?.split("-")[0]?.toUpperCase(),
       });
     }
   }, [reservation, confirmationId, serviceFeeParam, lotId]);
@@ -173,20 +202,37 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         ? storedLot.photos
         : [{ id: "1", url: "/placeholder-parking.jpg", alt: reservation.location.name }];
 
-      // Build UnifiedLot from reservation data
+      // Build UnifiedLot from reservation data. Source-aware: a direct lot has
+      // no ResLab location id; its id is "direct-<CMS id>" (the same id the
+      // checkout put in ?lot=) and its coordinates arrive as numbers.
+      const isDirect = reservation.inventorySource === "direct";
+      const identity: Pick<UnifiedLot, "id" | "source" | "sourceId" | "reslabLocationId" | "airportCode"> = isDirect
+        ? {
+            id: `direct-${reservation.location.id}`,
+            source: "direct",
+            sourceId: String(reservation.location.id),
+            airportCode: reservation.airportCode,
+          }
+        : {
+            id: `reslab-${reservation.location.id}`,
+            source: "reslab",
+            sourceId: String(reservation.location.id),
+            reslabLocationId: Number(reservation.location.id),
+          };
       return {
-        id: `reslab-${reservation.location.id}`,
-        source: "reslab",
-        sourceId: String(reservation.location.id),
-        reslabLocationId: reservation.location.id,
+        ...identity,
         name: reservation.location.name,
         slug: reservation.location.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         address: reservation.location.address,
         city: reservation.location.city,
         state: reservation.location.state,
         zipCode: reservation.location.zipCode,
-        latitude: parseFloat(reservation.location.latitude),
-        longitude: parseFloat(reservation.location.longitude),
+        latitude: isDirect
+          ? Number(reservation.location.latitude)
+          : parseFloat(String(reservation.location.latitude)),
+        longitude: isDirect
+          ? Number(reservation.location.longitude)
+          : parseFloat(String(reservation.location.longitude)),
         phone: reservation.location.phone,
         shuttleInfo: reservation.location.shuttleDetails
           ? { summary: "", details: reservation.location.shuttleDetails }
@@ -371,6 +417,30 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 vehicleInfo={vehicleInfo}
                 dueAtLocation={reservation?.dueAtLocation}
               />
+
+              {/* Direct lots: the oversized-vehicle surcharge is paid AT THE
+                  LOT. Its own line, never added to the total above (which is
+                  what was charged online). */}
+              {reservation?.atLotEstimate && (
+                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <p className="font-semibold text-amber-800">Estimated due at the lot</p>
+                      <p className="font-bold text-amber-800">
+                        ${reservation.atLotEstimate.total.toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="text-sm text-amber-700 mt-1">
+                      Oversized vehicle ({reservation.atLotEstimate.vehicleSizeLabel}):
+                      {" "}${reservation.atLotEstimate.surcharge.toFixed(2)}
+                      {reservation.atLotEstimate.surchargeTax > 0 &&
+                        ` + $${reservation.atLotEstimate.surchargeTax.toFixed(2)} tax`}
+                      , paid at drop-off. Not charged online.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {reservation?.protectionPlan && (
                 <ProtectionPlanStatus
