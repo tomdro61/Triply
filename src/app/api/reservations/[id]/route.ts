@@ -133,7 +133,7 @@ export async function GET(
       .select(`
         vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status,
         inventory_source, direct_lot_id, lot_snapshot, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents,
-        status, subtotal, tax_total, fees_total, grand_total, discount_amount, due_at_location,
+        status, subtotal, tax_total, fees_total, grand_total, discount_amount, due_at_location, cancel_state,
         customers(first_name, last_name, email, phone)
       `)
       .eq("reslab_reservation_number", id)
@@ -243,6 +243,34 @@ export async function GET(
     const history = reservation.history?.[0];
     const location = history?.location;
 
+    // Cancelled if EITHER side says so. Our row is cancelled/refunded only by a
+    // cancel or a full refund, and two shipped paths write it while ResLab's
+    // flag stays 0: an admin cancel whose ResLab call failed, and a full refund
+    // made in the Stripe dashboard. That customer has been refunded — the page
+    // must not show them "Booking Confirmed!" and a QR code. A failed row read
+    // (bookingData undefined) falls back to ResLab's flag alone, as before.
+    const reslabCancelled = Boolean(reservation.cancelled);
+    const rowCancelled = bookingData?.status === "cancelled" || bookingData?.status === "refunded";
+    if (rowCancelled && !reslabCancelled) {
+      // The lot still holds a spot we refunded (and ResLab may bill us for it) —
+      // OR a full goodwill / duplicate-charge refund flipped the row while the
+      // customer still means to park. Ops must decide which before acting.
+      captureBookingError(
+        new Error(`Booking ${id} is ${bookingData?.status} in our database but still live in ResLab — if it was meant to be cancelled, release the ResLab reservation; if not, set the row back to confirmed`),
+        { step: "confirmation", confirmationNumber: id }
+      );
+    } else if (reslabCancelled && bookingData?.status === "confirmed" && !bookingData?.cancel_state) {
+      // Cancelled on ResLab's side (the lot, or the ResLab dashboard) with no
+      // cancel of ours in flight: the customer now sees "Booking Cancelled" but
+      // nothing has refunded them. (Our own cancels pass through this state for
+      // a moment, but both claim the row first — cancel_state 'claimed' /
+      // 'admin_claimed' — before their ResLab call, so they're skipped.)
+      captureBookingError(
+        new Error(`Booking ${id} is cancelled in ResLab but confirmed in our database — check whether the customer is owed a refund`),
+        { step: "confirmation", confirmationNumber: id }
+      );
+    }
+
     // Parse customer name from reserved_for
     const reservedFor = history?.reserved_for || reservation.reserved_by || "";
     const nameParts = reservedFor.split(" ");
@@ -259,7 +287,7 @@ export async function GET(
         id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
         inventorySource: "reslab",
-        status: reservation.cancelled ? "cancelled" : "confirmed",
+        status: reslabCancelled || rowCancelled ? "cancelled" : "confirmed",
         grandTotal: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
         subtotal: history?.subtotal || 0,
         taxTotal: history?.total_tax || 0,

@@ -30,7 +30,8 @@ interface ConfirmationPageProps {
 interface ReservationDataBase {
   id: number | string;
   reservationNumber: string;
-  status: string;
+  /** Both API paths emit only these two (cancelled/refunded rows → "cancelled"). */
+  status: "confirmed" | "cancelled";
   /** ResLab: pre-discount total incl. due-at-lot. Direct: pre-discount online total. */
   grandTotal: number;
   /** What was charged online: grandTotal − dueAtLocation (− promo discount on a direct booking). */
@@ -114,9 +115,16 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
   const hasFiredPurchase = useRef(false);
 
-  // Track purchase when reservation data loads (fire once)
+  // The API reports "cancelled" from ResLab's own flag (ResLab bookings) or the
+  // booking row (direct). A cancelled booking keeps its record on this page but
+  // loses everything that only makes sense for a live reservation: the QR code,
+  // calendar, directions, protection status and the purchase event.
+  const isCancelled = reservation?.status === "cancelled";
+
+  // Track purchase when reservation data loads (fire once). Never for a
+  // cancelled booking — a revisit to its link is not a sale.
   useEffect(() => {
-    if (reservation?.location && !hasFiredPurchase.current) {
+    if (reservation?.location && reservation.status !== "cancelled" && !hasFiredPurchase.current) {
       hasFiredPurchase.current = true;
       // Source-aware: a direct lot's `lot` param is "direct-N", so the old
       // split("-")[0] would report the airport as "DIRECT"; its airport comes
@@ -411,10 +419,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           <ConfirmationHeader
             confirmationId={confirmationId}
             email={customerEmail}
+            cancelled={isCancelled}
           />
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Main Content Grid (one centred column for a cancelled booking:
+              the right column only holds live-reservation items) */}
+          <div
+            className={
+              isCancelled
+                ? "grid grid-cols-1 gap-8 max-w-2xl mx-auto"
+                : "grid grid-cols-1 lg:grid-cols-2 gap-8"
+            }
+          >
             {/* Left Column */}
             <div className="space-y-6">
               <BookingDetails
@@ -430,12 +446,13 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 customerPhone={customerPhone}
                 vehicleInfo={vehicleInfo}
                 dueAtLocation={reservation?.dueAtLocation}
+                cancelled={isCancelled}
               />
 
               {/* Direct lots: the oversized-vehicle surcharge is paid AT THE
                   LOT. Its own line, never added to the total above (which is
                   what was charged online). */}
-              {reservation?.inventorySource === "direct" && reservation.atLotEstimate && (
+              {!isCancelled && reservation?.inventorySource === "direct" && reservation.atLotEstimate && (
                 <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
@@ -456,7 +473,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 </div>
               )}
 
-              {reservation?.protectionPlan && (
+              {!isCancelled && reservation?.protectionPlan && (
                 <ProtectionPlanStatus
                   planName={reservation.protectionPlan}
                   price={reservation.protectionPlanPrice}
@@ -465,29 +482,33 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 />
               )}
 
-              <AddToCalendar
-                lot={lot}
-                checkIn={checkIn}
-                checkOut={checkOut}
-                checkInTime={checkInTime}
-                checkOutTime={checkOutTime}
-                confirmationId={confirmationId}
-              />
+              {!isCancelled && (
+                <AddToCalendar
+                  lot={lot}
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  checkInTime={checkInTime}
+                  checkOutTime={checkOutTime}
+                  confirmationId={confirmationId}
+                />
+              )}
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6">
-              <QRCodeSection
-                confirmationId={confirmationId}
-                lotName={lot.name}
-              />
+            {!isCancelled && (
+              <div className="space-y-6">
+                <QRCodeSection
+                  confirmationId={confirmationId}
+                  lotName={lot.name}
+                />
 
-              <WhatsNext lot={lot} checkIn={checkIn} checkInTime={checkInTime} />
-            </div>
+                <WhatsNext lot={lot} checkIn={checkIn} checkInTime={checkInTime} />
+              </div>
+            )}
           </div>
 
           {/* Create Account Prompt (for guests only) */}
-          {!user && showAccountPrompt && (
+          {!isCancelled && !user && showAccountPrompt && (
             <div className="mt-8">
               <CreateAccountPrompt
                 email={customerEmail}
@@ -515,9 +536,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           </div>
 
           {/* Print-friendly note */}
-          <p className="text-center text-sm text-gray-500 mt-8">
-            We recommend saving or printing this confirmation for your records.
-          </p>
+          {!isCancelled && (
+            <p className="text-center text-sm text-gray-500 mt-8">
+              We recommend saving or printing this confirmation for your records.
+            </p>
+          )}
         </div>
       </main>
 
