@@ -565,3 +565,45 @@ describe("performSelfCancel — cancellation reason (migration 032)", () => {
     expect(db.tables.bookings[0].cancelled_by).toBeUndefined();
   });
 });
+
+describe("direct lots — inventory source + environment guards (plan 4b §9 H-C/H-D)", () => {
+  it("a direct booking with our own number never calls ResLab and still refunds", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const res = await performSelfCancel(
+      mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+      NOW_OK,
+    );
+    expect(res.status).toBe(200);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(reslabMock.getReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).toHaveBeenCalled();
+  });
+
+  it("a ResLab booking whose select lacks inventory_source STILL calls ResLab", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const booking = mkBooking();
+    expect("inventory_source" in booking).toBe(false);
+    await performSelfCancel(booking, NOW_OK);
+    expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+  });
+
+  it("source and number disagreeing is refused before anything happens", async () => {
+    seedDb({ inventory_source: "direct" });
+    const res = await performSelfCancel(mkBooking({ inventory_source: "direct" }), NOW_OK);
+    expect(res.status).toBe(500);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+  });
+
+  it("a booking paid in the other Stripe mode is refused (tests run on a test key)", async () => {
+    seedDb();
+    const res = await performSelfCancel(mkBooking({ livemode: true }), NOW_OK);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("other_environment");
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+});

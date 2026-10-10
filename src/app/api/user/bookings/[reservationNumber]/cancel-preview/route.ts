@@ -5,6 +5,7 @@ import { captureAPIError } from "@/lib/sentry";
 import { stripe } from "@/lib/stripe/client";
 import { planTeardown } from "@/lib/cancellation/finalize";
 import { isCancellable } from "@/lib/cancellation/eligibility";
+import { isOtherStripeMode, OTHER_MODE_MESSAGE } from "@/lib/cancellation/source-guard";
 
 /**
  * Refund preview for the cancel confirmation dialog.
@@ -47,7 +48,8 @@ const paramSchema = z.object({
 const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name,
   check_in, check_out, location_timezone,
-  protection_plan, protection_plan_price, protection_plan_wholesale, stripe_payment_intent_id
+  protection_plan, protection_plan_price, protection_plan_wholesale, stripe_payment_intent_id,
+  livemode
 `;
 
 export async function GET(
@@ -120,6 +122,15 @@ export async function GET(
           error: "cannot_cancel",
           message: "This reservation can no longer be cancelled.",
         },
+        { status: 409, headers: NO_STORE },
+      );
+    }
+
+    // A booking paid in the other Stripe mode can't be priced (or cancelled)
+    // with this deployment's key — same refusal as the cancel action.
+    if (isOtherStripeMode(booking.livemode)) {
+      return NextResponse.json(
+        { error: "other_environment", message: OTHER_MODE_MESSAGE },
         { status: 409, headers: NO_STORE },
       );
     }

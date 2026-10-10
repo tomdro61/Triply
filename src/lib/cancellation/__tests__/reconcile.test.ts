@@ -90,6 +90,9 @@ function seed(over: Record<string, unknown> = {}) {
       stripe_payment_intent_id: "pi_1",
       cancel_state: "reslab_cancelled_refund_pending",
       cancel_claimed_at: STALE,
+      // The suite runs on a TEST Stripe key; the cron only scans its own mode.
+      inventory_source: "reslab",
+      livemode: false,
       ...over,
     },
   ];
@@ -123,6 +126,8 @@ function mkRow(reservationNumber: string, over: Record<string, unknown> = {}) {
     stripe_payment_intent_id: "pi_1",
     cancel_state: "reslab_cancelled_refund_pending",
     cancel_claimed_at: STALE,
+    inventory_source: "reslab" as string | null,
+    livemode: false as boolean | null,
     ...over,
   };
 }
@@ -484,3 +489,35 @@ describe("reconcile — cancellation reason (migration 032)", () => {
     });
   });
 });
+
+describe("reconcile — direct lots + environment (plan 4b §9 H-C/H-D)", () => {
+  it("never touches a booking paid in the other Stripe mode (a live row under a test key)", async () => {
+    seed({ livemode: true });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.scanned).toBe(0);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("a direct booking held as ambiguous is finished without any ResLab call", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      cancel_state: "held_reslab_ambiguous",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(1);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(reslabMock.getReservation).not.toHaveBeenCalled();
+  });
+
+  it("a row whose source and number disagree stays held and is reported", async () => {
+    seed({ inventory_source: "direct", cancel_state: "held_reslab_ambiguous" });
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(0);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+});
+

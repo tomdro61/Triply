@@ -47,6 +47,11 @@ export interface CancelBookingRow {
   protection_plan_wholesale: string | number | null;
   pg_identifier: string | null;
   stripe_payment_intent_id: string | null;
+  /** 'reslab' | 'direct' (migration 034). Optional: older selects omit it, and
+   *  cancelSource() treats a missing value as ResLab only for a non-TRP number. */
+  inventory_source?: string | null;
+  /** Stripe mode of the booking (034). NULL on pre-015 rows (live). */
+  livemode?: boolean | null;
   customers: {
     email: string | null;
     first_name: string | null;

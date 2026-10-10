@@ -19,6 +19,7 @@ import {
   recordCancellationReason,
 } from "@/lib/cancellation/reason";
 import { pgWholesaleForRow } from "@/lib/cancellation/refund-math";
+import { cancelSource, isOtherStripeMode, OTHER_MODE_MESSAGE } from "@/lib/cancellation/source-guard";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 
 // Sequential ResLab + Stripe + Supabase + Park Guard + email. Pinned so a healthy
@@ -80,6 +81,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
         protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
+        inventory_source, livemode,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -95,6 +97,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Booking is already ${booking.status}` },
         { status: 409 }
+      );
+    }
+    // Environment + inventory guards before ANY side effect (direct-lots plan 4b
+    // §9 H-C/H-D). This route never aborts once it starts — a wrong-mode refund
+    // 404s and the booking is still marked cancelled and emailed — so a booking
+    // paid in the other Stripe mode is refused here, outright.
+    if (isOtherStripeMode(booking.livemode)) {
+      return NextResponse.json({ error: OTHER_MODE_MESSAGE }, { status: 409 });
+    }
+    const source = cancelSource({ ...booking, reslab_reservation_number: reservationNumber });
+    if (source.kind === "inconsistent") {
+      captureAPIError(
+        new Error(`admin cancel refused for ${reservationNumber}: ${source.detail}`),
+        { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 500 }
+      );
+      return NextResponse.json(
+        { error: "This booking's inventory source and number disagree — cancel it by hand (see Sentry)." },
+        { status: 500 }
       );
     }
 
@@ -229,14 +249,20 @@ export async function POST(request: NextRequest) {
       results.errors.push("Reason: admin note NOT recorded (see Sentry)");
     }
 
-    // Step 1: Cancel in ResLab (release the parking spot)
-    try {
-      await reslab.cancelReservation(reservationNumber);
+    // Step 1: Cancel in ResLab (release the parking spot). A direct lot has no
+    // vendor reservation — Triply issued the number — so there is nothing to
+    // release; the step counts as done.
+    if (source.kind === "direct") {
       results.reslab = true;
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : "ResLab cancellation failed";
-      results.errors.push(`ResLab: ${msg}`);
+    } else {
+      try {
+        await reslab.cancelReservation(reservationNumber);
+        results.reslab = true;
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "ResLab cancellation failed";
+        results.errors.push(`ResLab: ${msg}`);
+      }
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)

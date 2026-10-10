@@ -5,6 +5,7 @@ import { reslab } from "@/lib/reslab/client";
 import { isCancellable } from "./eligibility";
 import { claimForCancel, releaseClaim, markCancelState } from "./claim";
 import { classifyCancelOutcome } from "./reslab-cancel";
+import { cancelSource, isOtherStripeMode, OTHER_MODE_MESSAGE } from "./source-guard";
 import {
   recordCancellationReason,
   clearCancellationReason,
@@ -68,6 +69,28 @@ export async function performSelfCancel(
       body: {
         error: "not_cancellable",
         message: `This reservation is ${booking.status} and can't be cancelled online.`,
+      },
+    };
+  }
+
+  // 1b. Environment + inventory guards, before anything is claimed (direct-lots
+  //     plan 4b §9 H-C/H-D). A booking paid in the other Stripe mode would be
+  //     refunded with the wrong key; a row whose source and number disagree
+  //     must never skip a ResLab release by accident.
+  if (isOtherStripeMode(booking.livemode)) {
+    return { status: 409, body: { error: "other_environment", message: OTHER_MODE_MESSAGE } };
+  }
+  const source = cancelSource(booking);
+  if (source.kind === "inconsistent") {
+    captureAPIError(
+      new Error(`self-cancel refused for ${reservationNumber}: ${source.detail}`),
+      { endpoint: ENDPOINT, method: "POST", statusCode: 500 },
+    );
+    return {
+      status: 500,
+      body: {
+        error: "unavailable",
+        message: "We couldn't cancel this reservation online. Please contact support.",
       },
     };
   }
@@ -242,17 +265,24 @@ export async function performSelfCancel(
     endpoint: ENDPOINT,
   });
 
-  // 6. ResLab cancel + classify (the first side effect).
-  let cancelResult:
-    | { ok: true; reservation: Awaited<ReturnType<typeof reslab.cancelReservation>> }
-    | { ok: false; error: unknown };
-  try {
-    const reservation = await reslab.cancelReservation(reservationNumber);
-    cancelResult = { ok: true, reservation };
-  } catch (error) {
-    cancelResult = { ok: false, error };
+  // 6. Release the spot (the first side effect). A direct lot has no vendor
+  //    reservation — Triply issued the number — so there is nothing to release
+  //    and the cancel proceeds straight to the money step.
+  let outcome: Awaited<ReturnType<typeof classifyCancelOutcome>>;
+  if (source.kind === "direct") {
+    outcome = { outcome: "proceed" };
+  } else {
+    let cancelResult:
+      | { ok: true; reservation: Awaited<ReturnType<typeof reslab.cancelReservation>> }
+      | { ok: false; error: unknown };
+    try {
+      const reservation = await reslab.cancelReservation(reservationNumber);
+      cancelResult = { ok: true, reservation };
+    } catch (error) {
+      cancelResult = { ok: false, error };
+    }
+    outcome = await classifyCancelOutcome(reservationNumber, cancelResult);
   }
-  const outcome = await classifyCancelOutcome(reservationNumber, cancelResult);
 
   if (outcome.outcome === "refuse") {
     // Reservation still active / cancel rejected → release the claim, refund

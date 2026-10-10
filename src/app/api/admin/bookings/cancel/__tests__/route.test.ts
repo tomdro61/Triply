@@ -260,3 +260,43 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: false });
   });
 });
+
+describe("POST /api/admin/bookings/cancel — direct lots + environment guards (plan 4b §9 H-C/H-D)", () => {
+  it("a direct booking never calls ResLab and is refunded as usual", async () => {
+    seed({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct", livemode: false });
+    const res = await POST(
+      new NextRequest("https://x.test/api/admin/bookings/cancel", {
+        method: "POST",
+        body: JSON.stringify({ reservationNumber: "TRP-AB12CD34", reason: "found_cheaper" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).toHaveBeenCalled();
+    expect(row().status).toBe("refunded");
+  });
+
+  it("a ResLab row read without inventory_source still calls ResLab", async () => {
+    await POST(req({ reason: "found_cheaper" }));
+    expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+  });
+
+  it("a booking paid in the other Stripe mode is refused before any side effect", async () => {
+    seed({ livemode: true });
+    const res = await POST(req({ reason: "found_cheaper" }));
+    expect(res.status).toBe(409);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "confirmed", cancel_claimed_at: null, cancelled_by: null });
+  });
+
+  it("source and number disagreeing is refused before any side effect", async () => {
+    seed({ inventory_source: "direct" });
+    const res = await POST(req({ reason: "found_cheaper" }));
+    expect(res.status).toBe(500);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row().cancel_claimed_at).toBeNull();
+  });
+});

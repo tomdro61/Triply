@@ -5,6 +5,7 @@ import { captureAPIError, captureParkGuardError } from "@/lib/sentry";
 import { releaseClaim, type HoldState } from "./claim";
 import { clearCancellationReason } from "./reason";
 import { classifyCancelOutcome } from "./reslab-cancel";
+import { cancelSource, stripeKeyIsLive } from "./source-guard";
 import {
   planTeardown,
   finalizeCancelledReservation,
@@ -53,7 +54,7 @@ const HOLD_STATES: HoldState[] = [
 ];
 
 const SCAN_COLUMNS =
-  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at";
+  "id, reslab_reservation_number, status, customer_id, location_name, location_address, check_in, check_out, location_timezone, protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id, cancel_state, cancel_claimed_at, inventory_source, livemode";
 
 interface ScanBookingRow {
   id: string;
@@ -72,6 +73,8 @@ interface ScanBookingRow {
   stripe_payment_intent_id: string | null;
   cancel_state: string;
   cancel_claimed_at: string;
+  inventory_source: string | null;
+  livemode: boolean | null;
 }
 
 export interface StalledCancel {
@@ -105,12 +108,19 @@ export async function reconcileStuckCancellations(
   // Recovery scan — customer HOLD states only, past the grace window. Explicit
   // IN excludes 'admin_claimed', bare 'claimed', and NULL (no three-valued-logic
   // surprise).
+  // Only bookings paid in THIS deployment's Stripe mode (direct-lots plan 4b
+  // §9 H-D): staging and production share the table, and this cron runs on
+  // Production only — a staging test booking stuck in a HOLD would otherwise be
+  // refunded with the live key (404) and still be marked cancelled. NULL
+  // (pre-015 rows) is live.
+  const modeFilter = stripeKeyIsLive() ? "livemode.is.null,livemode.eq.true" : "livemode.eq.false";
   const { data, error } = await admin
     .from("bookings")
     .select(SCAN_COLUMNS)
     .eq("status", "confirmed")
     .in("cancel_state", HOLD_STATES)
     .lt("cancel_claimed_at", graceBefore)
+    .or(modeFilter)
     .limit(MAX_RECOVER_PER_RUN);
   if (error) {
     throw new Error(`cancel reconcile scan failed: ${error.message}`);
@@ -214,7 +224,17 @@ export async function recoverOne(
   // For an ambiguous HOLD, re-establish the ResLab state (the original cancel
   // call timed out / 5xx'd — did it apply?). classifyCancelOutcome probes on a
   // 4xx, so 'proceed' means genuinely cancelled.
-  if (holdState === "held_reslab_ambiguous") {
+  // A direct lot has no vendor reservation to re-probe; a row whose source and
+  // number disagree must never skip a ResLab release by accident (plan §9 H-C).
+  const source = cancelSource(row);
+  if (source.kind === "inconsistent") {
+    captureAPIError(
+      new Error(`cancel reconcile: ${reservationNumber} left held — ${source.detail}`),
+      { endpoint: CRON_ENDPOINT, method: "POST", statusCode: 500 },
+    );
+    return "still_ambiguous";
+  }
+  if (holdState === "held_reslab_ambiguous" && source.kind === "reslab") {
     let cancelResult:
       | { ok: true; reservation: Awaited<ReturnType<typeof reslab.cancelReservation>> }
       | { ok: false; error: unknown };
@@ -314,6 +334,8 @@ async function toCancelBookingRow(
     protection_plan_wholesale: row.protection_plan_wholesale,
     pg_identifier: row.pg_identifier,
     stripe_payment_intent_id: row.stripe_payment_intent_id,
+    inventory_source: row.inventory_source,
+    livemode: row.livemode,
     customers: c
       ? { email: c.email, first_name: c.first_name, last_name: c.last_name }
       : null,

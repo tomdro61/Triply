@@ -34,6 +34,7 @@ const BOOKING_SELECT = `
   id, status, reslab_reservation_number, location_name, location_address,
   check_in, check_out, location_timezone, protection_plan, protection_plan_price,
   protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
+  inventory_source, livemode,
   customers ( email, first_name, last_name )
 `;
 
