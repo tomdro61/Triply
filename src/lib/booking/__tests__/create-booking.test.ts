@@ -70,7 +70,9 @@ vi.mock("@/lib/reslab/client", async () => {
 });
 
 vi.mock("@/lib/resend/send-booking-confirmation", () => ({
-  sendBookingConfirmation: vi.fn(async () => undefined),
+  // The real sender resolves { success, emailId } and never throws on a Resend
+  // error; fulfilment only counts an accepted send as sent.
+  sendBookingConfirmation: vi.fn(async () => ({ success: true, emailId: "em_1" })),
 }));
 vi.mock("@/lib/resend/send-admin-booking-notification", () => ({
   sendAdminBookingNotification: vi.fn(async () => undefined),
@@ -802,6 +804,33 @@ describe("emails", () => {
 
     expect(out.kind).toBe("created");
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("records the email as sent only when Resend accepted it (the sender reports failure by RETURNING, not throwing)", async () => {
+    const { sendBookingConfirmation } = await import(
+      "@/lib/resend/send-booking-confirmation"
+    );
+    vi.mocked(sendBookingConfirmation).mockResolvedValueOnce({ success: false, error: new Error("resend 500") });
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.pending_bookings[0].email_sent).toBe(false);
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("confirmation email did not send") }),
+      expect.anything()
+    );
+  });
+
+  it("an accepted send is recorded", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.pending_bookings[0].email_sent).toBe(true);
   });
 });
 

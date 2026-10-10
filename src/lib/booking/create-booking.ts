@@ -1824,7 +1824,8 @@ async function fulfilClaimed(
       persisted.airportCode ? { ...payload, airportCode: persisted.airportCode } : payload,
       fr,
       persisted.pgSyncStatus,
-      charged
+      charged,
+      persisted.discountAmount
     );
     if (customerEmailSent) await markEmailSent(piId);
   }
@@ -1974,7 +1975,7 @@ async function fulfilOnly(
   // livemode false: no charge exists on this dev-only path, but the row lands in
   // the shared prod table, so it must not count as live revenue.
   const persisted = await persistBooking(payload, fr, charged, false);
-  await sendBookingEmails(payload, fr, persisted.pgSyncStatus, charged);
+  await sendBookingEmails(payload, fr, persisted.pgSyncStatus, charged, persisted.discountAmount);
   return {
     kind: "created",
     reservationNumber: fr.number,

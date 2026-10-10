@@ -78,6 +78,10 @@ export interface PersistResult {
   bookingInsertPermanent: boolean;
   /** Set when the insert lost a race on UNIQUE(stripe_payment_intent_id). */
   duplicatePaymentIntent: boolean;
+  /** Promo discount actually taken off the online charge, in dollars (0 when
+   *  none) — the value written to bookings.discount_amount. The emails need it:
+   *  without it their "Total" overstated what a promo customer paid. */
+  discountAmount: number;
 }
 
 /**
@@ -181,6 +185,7 @@ export async function persistBooking(
     bookingInsertFailed: false,
     bookingInsertPermanent: false,
     duplicatePaymentIntent: false,
+    discountAmount: 0,
   };
 
   try {
@@ -325,6 +330,7 @@ export async function persistBooking(
       discountAmount =
         Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
     }
+    result.discountAmount = discountAmount;
     // Only record the code when a discount was actually applied (an invalid code
     // that was typed but not honored leaves no discount and isn't "used").
     const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
@@ -725,7 +731,9 @@ export async function sendBookingEmails(
   payload: BookingPayload,
   fr: FulfilledReservation,
   pgSyncStatus: PgSyncStatus,
-  charged: ChargedProtection | null
+  charged: ChargedProtection | null,
+  /** Promo discount in dollars (PersistResult.discountAmount); 0 when none. */
+  discountAmount: number
 ): Promise<{ customerEmailSent: boolean }> {
   const {
     locationId,
@@ -751,7 +759,8 @@ export async function sendBookingEmails(
   const totalAmount =
     (fr.money.grandTotal ?? grandTotal ?? 0) +
     (triplyServiceFee || 0) +
-    protectionPremium;
+    protectionPremium -
+    discountAmount;
 
   const fullName = `${customer.firstName} ${customer.lastName}`;
   const vehicleInfo = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
@@ -761,7 +770,7 @@ export async function sendBookingEmails(
   try {
     const [checkInDate, checkInTime24] = fromDate.split(" ");
     const [checkOutDate, checkOutTime24] = toDate.split(" ");
-    await sendBookingConfirmation({
+    const sent = await sendBookingConfirmation({
       to: customer.email,
       customerName: fullName,
       confirmationNumber: fr.number,
@@ -782,7 +791,16 @@ export async function sendBookingEmails(
       }),
       pgSyncStatus,
     });
-    customerEmailSent = true;
+    // The sender never throws on a Resend error — it RETURNS { success: false }
+    // (and reports it). Only a real acceptance counts as sent; marking a failed
+    // send as sent hid customers who never got their confirmation.
+    customerEmailSent = sent?.success === true;
+    if (!customerEmailSent && stripePaymentIntentId) {
+      capturePaymentError(
+        new Error(`Customer paid but confirmation email did not send (reservation ${fr.number})`),
+        { stripePaymentIntentId, amount: totalAmount }
+      );
+    }
   } catch (emailError) {
     captureBookingError(
       new Error(
