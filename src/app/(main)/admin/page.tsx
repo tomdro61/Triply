@@ -18,6 +18,7 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { CancellationReportPanel } from "@/components/admin/cancellation-report";
 import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
+import { readStatsResponse } from "@/lib/admin/stats-response";
 
 interface Stats {
   bookings: {
@@ -205,7 +206,11 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
+  // Set when /api/admin/stats fails: the cards must not show zeros as if real.
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  // A failed load must not read as "No bookings yet".
+  const [recentBookingsError, setRecentBookingsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -251,18 +256,39 @@ export default function AdminDashboard() {
           }
         }
 
-        const [statsRes, bookingsRes] = await Promise.all([
-          fetch(`/api/admin/stats?${params}`),
-          fetch(`/api/admin/bookings?${bookingParams}`),
+        // Each response is read on its own: a failure of one (a 504 HTML body,
+        // a dropped connection) must neither hide the other nor leave the stat
+        // cards showing stale or zero figures without the error banner.
+        const [statsResult] = await Promise.all([
+          readStatsResponse<Stats>(fetch(`/api/admin/stats?${params}`)),
+          fetch(`/api/admin/bookings?${bookingParams}`)
+            .then(async (bookingsRes) => {
+              if (!bookingsRes.ok) throw new Error(`HTTP ${bookingsRes.status}`);
+              const bookingsData: { bookings?: Booking[] } = await bookingsRes.json();
+              setRecentBookings(bookingsData.bookings || []);
+              setRecentBookingsError(null);
+            })
+            .catch((error) => {
+              console.error("Failed to fetch recent bookings:", error);
+              setRecentBookings([]);
+              setRecentBookingsError(
+                `Recent bookings failed to load (${error instanceof Error ? error.message : "network error"}).`
+              );
+            }),
         ]);
 
-        const statsData = await statsRes.json();
-        const bookingsData = await bookingsRes.json();
-
-        setStats(statsData);
-        setRecentBookings(bookingsData.bookings || []);
+        if (statsResult.ok) {
+          setStats(statsResult.data);
+          setStatsError(null);
+        } else {
+          setStats(null);
+          setStatsError(statsResult.error);
+        }
       } catch (error) {
+        // readStatsResponse never throws; this is only a last-resort guard.
         console.error("Failed to fetch admin data:", error);
+        setStats(null);
+        setStatsError(`Stats failed to load (${error instanceof Error ? error.message : String(error)})`);
       } finally {
         setLoading(false);
       }
@@ -351,6 +377,12 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {statsError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {statsError} The figures below are unavailable, not zero.
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -652,7 +684,11 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        {recentBookings.length === 0 ? (
+        {recentBookingsError ? (
+          <div className="p-8 text-center text-red-700">
+            {recentBookingsError} Refresh to try again.
+          </div>
+        ) : recentBookings.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No bookings yet
           </div>

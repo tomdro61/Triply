@@ -46,7 +46,7 @@ function digest(over: Partial<DigestData> = {}): DigestData {
     funnel: ok({ originSearches: { value: 400, avg7: 380, avg28: null, since: "2026-09-24" }, distinctAirports: 30, topAirports: [], datesDefaultedShare: 0.1, meanResults: 9, nothingBookableShare: 0.05, nothingBookableDegraded: 0, zeroResultShare: 0.06, pricedSearches: 300, nothingBookableByAirport: [], lotSoldOutRate: 0.2, degradedCount: 2 }),
     lostSales: ok({ byStatus: { completed: 6 }, rows: [] }),
     engagement: ok({ newsletterBySource: {}, waitlistByAirport: {}, chatSessions: 2, welcomeCodesMinted: 1 }),
-    health: ok({ telemetry: { kind: "ok" as const, lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" as const }, stuckPending: { kind: "n" as const, n: 0 }, lastDigest: { kind: "days" as const, n: 1 } }),
+    health: ok({ telemetry: { kind: "ok" as const, lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" as const }, stuckPending: { kind: "n" as const, n: 0 }, emailNotSent: { kind: "n" as const, n: 0, capped: false, numbers: [], lookbackDays: 7 }, lastDigest: { kind: "days" as const, n: 1 } }),
     ...over,
   };
 }

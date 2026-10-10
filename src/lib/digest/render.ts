@@ -16,6 +16,8 @@ const FIELD_VALUE_LIMIT = 1_024;
 const DESCRIPTION_LIMIT = 4_096;
 /** Flags beyond this are summarised as "… and N more" so a ResLab-wide sold-out day cannot silently lose flags to the description clamp. */
 export const MAX_FLAGS = 20;
+/** Reservation numbers printed in the unsent-email flag; the count is always shown in full. */
+export const EMAIL_NUMBERS_SHOWN = 10;
 
 export interface Embed {
   title: string;
@@ -61,7 +63,7 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (b.count.value !== "unavailable" && b.count.avg7 !== null && b.count.avg7 >= 2 && b.count.value < b.count.avg7 * 0.5) {
       flags.push({ text: `bookings ${b.count.value} < half the 7-day avg (${b.count.avg7.toFixed(1)})` });
     }
-    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record — check manually` });
+    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record or no recorded Stripe mode — check manually` });
     if (b.otherStatus > 0) flags.push({ text: `${b.otherStatus} booking(s) with an unknown status` });
     if (b.dirtyPgRows > 0) flags.push({ text: `${b.dirtyPgRows} Park Guard row(s) with no wholesale recorded` });
     if (b.leadTime.unknown > 0) flags.push({ text: `${b.leadTime.unknown} booking(s) with no lot timezone (lead time unknown)` });
@@ -103,6 +105,13 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (h.snapshot.kind === "row" && (h.snapshot.stale || h.snapshot.behind)) flags.push({ text: `ResLab snapshot ${h.snapshot.stale ? "stale" : "behind"} (${h.snapshot.ageHours} h)` });
     if (h.stuckPending.kind === "n" && h.stuckPending.n > 0) flags.push({ text: `${h.stuckPending.n} pending booking(s) stuck > 1 h (possibly mid-sweep)` });
     if (h.stuckPending.kind === "error") flags.push({ text: "stuck-pending check unavailable (money could be stranded unseen)" });
+    if (h.emailNotSent.kind === "n" && h.emailNotSent.n > 0) {
+      const e = h.emailNotSent;
+      const shown = e.numbers.slice(0, EMAIL_NUMBERS_SHOWN).join(", ");
+      const more = e.numbers.length > EMAIL_NUMBERS_SHOWN ? ` … +${e.numbers.length - EMAIL_NUMBERS_SHOWN} more` : "";
+      flags.push({ text: `${e.n}${e.capped ? "+" : ""} completed booking(s) in the last ${e.lookbackDays} days with no confirmation email sent: ${shown}${more}` });
+    }
+    if (h.emailNotSent.kind === "error") flags.push({ text: "confirmation-email check unavailable (a customer could be missing their confirmation unseen)" });
   }
   return flags;
 }
@@ -282,6 +291,11 @@ function healthField(d: DigestData): string {
     h.stuckPending.kind === "n"
       ? { text: `stuck pending ${h.stuckPending.n}`, warn: h.stuckPending.n > 0 }
       : { text: `stuck pending UNKNOWN (${clamp(h.stuckPending.message, 50)})`, warn: true }
+  );
+  parts.push(
+    h.emailNotSent.kind === "n"
+      ? { text: `emails unsent ${h.emailNotSent.n}${h.emailNotSent.capped ? "+" : ""}`, warn: h.emailNotSent.n > 0 }
+      : { text: `emails unsent UNKNOWN (${clamp(h.emailNotSent.message, 50)})`, warn: true }
   );
   if (h.lastDigest.kind === "none") parts.push({ text: "no earlier digest on record", neutral: true });
   else if (h.lastDigest.kind === "days" && h.lastDigest.n !== 1) parts.push({ text: `last digest ${h.lastDigest.n} days ago`, warn: true });

@@ -8,11 +8,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 type Answer = { data?: unknown; error?: { code?: string; message: string } | null; count?: number | null };
 const answers = vi.hoisted(() => ({
   byTable: new Map<string, Answer[]>(),
-  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null }>,
+  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null; eqs: Array<[string, unknown]> }>,
 }));
 const COLUMNS: Record<string, string[]> = {
-  bookings: ["id", "created_at", "status", "check_in", "location_timezone", "reslab_location_id", "stripe_payment_intent_id", "customer_id", "airport_code", "promo_code", "discount_amount", "grand_total", "triply_service_fee", "due_at_location", "protection_plan", "protection_plan_price", "protection_plan_wholesale", "channel", "attribution", "customers(email)"],
-  pending_bookings: ["stripe_payment_intent_id", "livemode", "status", "last_error", "airport_code", "location_name", "location_id", "created_at"],
+  bookings: ["id", "created_at", "status", "check_in", "location_timezone", "reslab_location_id", "stripe_payment_intent_id", "livemode", "customer_id", "airport_code", "promo_code", "discount_amount", "grand_total", "triply_service_fee", "due_at_location", "protection_plan", "protection_plan_price", "protection_plan_wholesale", "channel", "attribution", "customers(email)"],
+  pending_bookings: ["stripe_payment_intent_id", "livemode", "status", "last_error", "airport_code", "location_name", "location_id", "created_at", "reslab_reservation_number", "email_sent"],
   customers: ["id", "email"],
   search_events: ["id", "airport_code", "dates_defaulted", "results_count", "sold_out_count", "degraded"],
   newsletter_subscribers: ["source"],
@@ -29,6 +29,7 @@ vi.mock("@/lib/supabase/server", () => ({
       let head = false;
       let select = "";
       let range: [number, number] | null = null;
+      const eqs: Array<[string, unknown]> = [];
       for (const m of ["select", "eq", "in", "gte", "lt", "like", "not", "order", "limit", "range", "abortSignal"]) {
         chain[m] = (...args: unknown[]) => {
           if (m === "select") {
@@ -36,11 +37,12 @@ vi.mock("@/lib/supabase/server", () => ({
             if (args[1] && (args[1] as { head?: boolean }).head) head = true;
           }
           if (m === "range") range = [Number(args[0]), Number(args[1])];
+          if (m === "eq") eqs.push([String(args[0]), args[1]]);
           return chain;
         };
       }
       const resolve = () => {
-        answers.calls.push({ table, head, select, range });
+        answers.calls.push({ table, head, select, range, eqs });
         const unknown = select.split(",").map((c) => c.trim()).filter((c) => c && !(COLUMNS[table] ?? []).includes(c));
         if (unknown.length) return { data: null, error: { code: "42703", message: `column ${table}.${unknown[0]} does not exist` }, count: null };
         const q = answers.byTable.get(table) ?? [];
@@ -64,7 +66,7 @@ vi.mock("@/lib/reslab/location-snapshot", () => ({
   SNAPSHOT_MAX_AGE_MS: 24 * 3_600_000,
 }));
 
-import { partitionBookings, leadDays, collectDigest, SINCE } from "../collect";
+import { partitionBookings, leadDays, collectDigest, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS } from "../collect";
 import { windowForEtDay } from "../window";
 
 const set = (table: string, ...a: Answer[]) => answers.byTable.set(table, a);
@@ -73,7 +75,7 @@ const NOW = new Date("2026-09-28T13:05:00Z");
 function booking(over: Record<string, unknown> = {}) {
   return {
     id: "b1", created_at: "2026-09-27T15:00:00Z", status: "confirmed", check_in: "2026-09-29T10:00:00",
-    location_timezone: "America/New_York", reslab_location_id: 112, stripe_payment_intent_id: "pi_live1",
+    location_timezone: "America/New_York", reslab_location_id: 112, stripe_payment_intent_id: "pi_live1", livemode: true,
     customer_id: "c1", airport_code: "EWR", promo_code: null, discount_amount: "0", grand_total: "65.38",
     triply_service_fee: "5.95", due_at_location: "0", protection_plan: null, protection_plan_price: null,
     protection_plan_wholesale: null, channel: "organic_search",
@@ -96,20 +98,40 @@ beforeEach(() => {
 });
 
 describe("partitionBookings — test lots out, staging out, unmatched counted (never silently in or out)", () => {
-  it("splits by the pending_bookings livemode map", () => {
+  it("splits by bookings.livemode itself (NULL = a pre-015 live row); a direct-lot row is classified like any other", () => {
     const rows = [
       booking({ id: "live", stripe_payment_intent_id: "pi_live" }),
-      booking({ id: "stag", stripe_payment_intent_id: "pi_test" }),
+      booking({ id: "stag", stripe_payment_intent_id: "pi_test", livemode: false }),
       booking({ id: "nopi", stripe_payment_intent_id: null }),
-      booking({ id: "nopending", stripe_payment_intent_id: "pi_unknown" }),
+      booking({ id: "legacy", stripe_payment_intent_id: "pi_old", livemode: null }),
       booking({ id: "testlot", reslab_location_id: 195, stripe_payment_intent_id: "pi_live2" }),
       booking({ id: "staff", customers: { email: "tom@triplypro.com" }, stripe_payment_intent_id: "pi_live3" }),
+      booking({ id: "direct", reslab_location_id: null, stripe_payment_intent_id: "pi_direct" }),
+      booking({ id: "directsoak", reslab_location_id: null, stripe_payment_intent_id: "pi_direct_test", livemode: false }),
+      booking({ id: "devskip", stripe_payment_intent_id: null, livemode: false }),
     ] as never[];
-    const lm = new Map([["pi_live", true], ["pi_test", false], ["pi_live2", true], ["pi_live3", true]]);
-    const p = partitionBookings(rows, lm);
-    expect(p.live.map((r) => r.id)).toEqual(["live", "staff"]); // a staff email at a REAL lot is real revenue
+    const p = partitionBookings(rows);
+    expect(p.live.map((r) => r.id)).toEqual(["live", "legacy", "staff", "direct"]); // a staff email at a REAL lot is real revenue
+    expect(p.staging).toBe(3);
+    expect(p.unmatched).toBe(1);
+  });
+
+  it("a NULL livemode is live ONLY before 2026-10-09; a later NULL is unmatched, so a regression of the fulfilment write shows", () => {
+    const rows = [
+      booking({ id: "pre015", created_at: "2026-02-20T12:00:00Z", livemode: null }),
+      booking({ id: "lastLegit", created_at: "2026-10-08T23:59:59.999Z", livemode: null }),
+      booking({ id: "boundary", created_at: "2026-10-09T00:00:00Z", livemode: null }),
+      booking({ id: "offsetForm", created_at: "2026-10-09T00:30:00+00:00", livemode: null }),
+      booking({ id: "regressed", created_at: "2026-10-10T15:00:00Z", livemode: null }),
+      booking({ id: "garbled", created_at: "not-a-date", livemode: null }),
+      booking({ id: "writtenTrue", created_at: "2026-10-10T15:00:00Z", livemode: true }),
+      booking({ id: "writtenFalse", created_at: "2026-10-10T15:00:00Z", livemode: false }),
+    ] as never[];
+    const p = partitionBookings(rows);
+    expect(p.live.map((r) => r.id)).toEqual(["pre015", "lastLegit", "writtenTrue"]);
+    expect(p.unmatched).toBe(4);
     expect(p.staging).toBe(1);
-    expect(p.unmatched).toBe(2);
+    expect(LIVEMODE_NULL_LEGIT_BEFORE_MS).toBe(Date.UTC(2026, 9, 9));
   });
 });
 
@@ -138,17 +160,13 @@ describe("collectDigest — sections, baselines, isolation", () => {
       // 28-day baseline rows: 35 live confirmed in the last 7 days, +1 staging soak (excluded), +1 test-lot row (excluded)
       { data: [
         ...Array.from({ length: 35 }, (_, i) => booking({ id: `p${i}`, created_at: `2026-09-2${(i % 7)}T12:00:00Z`, stripe_payment_intent_id: `pi_p${i}` })),
-        booking({ id: "soak", created_at: "2026-09-22T12:00:00Z", stripe_payment_intent_id: "pi_soak" }),
+        booking({ id: "soak", created_at: "2026-09-22T12:00:00Z", stripe_payment_intent_id: "pi_soak", livemode: false }),
         booking({ id: "tl", created_at: "2026-09-22T12:00:00Z", reslab_location_id: 195, stripe_payment_intent_id: "pi_tl" }),
       ] },
     );
-    // pending_bookings query order: day's livemode join → baseline livemode join → lost sales → stuck pendings
-    set("pending_bookings",
-      { data: [{ stripe_payment_intent_id: "pi_live1", livemode: true }, { stripe_payment_intent_id: "pi_live2", livemode: true }] },
-      { data: [...Array.from({ length: 35 }, (_, i) => ({ stripe_payment_intent_id: `pi_p${i}`, livemode: true })), { stripe_payment_intent_id: "pi_soak", livemode: false }, { stripe_payment_intent_id: "pi_tl", livemode: true }] },
-      { data: [] },
-      { count: 0 },
-    );
+    // pending_bookings query order: lost sales → stuck pendings → unsent confirmation emails
+    // (no livemode join any more — bookings.livemode is read directly)
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [] });
     set("customers", { data: [{ id: "c1", email: "ada@example.com" }, { id: "c9", email: "new@example.com" }] });
     set("search_events", { data: [{ airport_code: "JFK", dates_defaulted: false, results_count: 10, sold_out_count: 2, degraded: false }, { airport_code: "JFK", dates_defaulted: true, results_count: 8, sold_out_count: null, degraded: true }] }, { count: 2800 }, { count: 0 });
     set("newsletter_subscribers", { data: [{ source: "blog" }] });
@@ -197,7 +215,7 @@ describe("collectDigest — sections, baselines, isolation", () => {
   it("a NULL money column makes GMV 'unavailable', never a silently shorter total", async () => {
     // no customers row ⇒ no repeat head count ⇒ bookings answers: list → baseline rows
     set("bookings", { data: [booking({ triply_service_fee: null })] }, { data: [] });
-    set("pending_bookings", { data: [{ stripe_payment_intent_id: "pi_live1", livemode: true }] }, { data: [] }, { count: 0 });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [] });
     set("customers", { data: [] });
     quietOthers();
     const d = await collectDigest(w, NOW);
@@ -209,7 +227,7 @@ describe("collectDigest — sections, baselines, isolation", () => {
 
   it("the repeat-customer lookup failing does not take the day's numbers down", async () => {
     set("bookings", { data: [booking()] }, { error: { code: "57014", message: "statement timeout" } }, { data: [] });
-    set("pending_bookings", { data: [{ stripe_payment_intent_id: "pi_live1", livemode: true }] }, { data: [] }, { count: 0 });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [] });
     set("customers", { data: [{ id: "c1", email: "ada@example.com" }] });
     quietOthers();
     const d = await collectDigest(w, NOW);
@@ -241,13 +259,14 @@ describe("collectDigest — sections, baselines, isolation", () => {
 
   it("exactly cap rows is NOT capped (all aggregated); cap + 1 is", async () => {
     set("bookings", { data: Array.from({ length: 500 }, (_, i) => booking({ id: `b${i}`, stripe_payment_intent_id: `pi_${i}`, customers: null })) }, { data: [] });
-    set("pending_bookings", { data: Array.from({ length: 500 }, (_, i) => ({ stripe_payment_intent_id: `pi_${i}`, livemode: true })) }, { data: [] }, { count: 0 });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [] });
     quietOthers();
     const d = await collectDigest(w, NOW);
     expect(d.bookings.ok && d.bookings.data.count.value).toBe(500);
-    // the day's list asked for 501 rows in one range, and the livemode join was chunked into 200s
+    // the day's list asked for 501 rows in one range, and livemode came from bookings itself (no pending_bookings join)
     expect(answers.calls.find((c) => c.table === "bookings")?.range).toEqual([0, 500]);
-    expect(answers.calls.filter((c) => c.table === "pending_bookings" && c.select.includes("livemode")).length).toBe(3);
+    expect(answers.calls.find((c) => c.table === "bookings")?.select).toMatch(/\blivemode\b/);
+    expect(answers.calls.filter((c) => c.table === "pending_bookings" && !c.head && c.select.includes("stripe_payment_intent_id")).length).toBe(0);
   });
 
   it("a head count with no content-range header is an error, never a zero", async () => {
@@ -278,7 +297,7 @@ describe("collectDigest — sections, baselines, isolation", () => {
 
   it("a baseline query failing keeps the day's numbers and reports the baseline as unavailable", async () => {
     set("bookings", { data: [booking()] }, { error: { code: "57014", message: "statement timeout" } });
-    set("pending_bookings", { data: [{ stripe_payment_intent_id: "pi_live1", livemode: true }] }, { data: [] }, { count: 0 });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [] });
     set("customers", { data: [] });
     quietOthers();
     const d = await collectDigest(w, NOW);
@@ -310,14 +329,14 @@ describe("collectDigest — sections, baselines, isolation", () => {
   });
 
   it("lost sales: redacted before they leave the collector, test lots excluded, lot column is location_id", async () => {
-    // an empty day ⇒ no livemode join queries ⇒ pending_bookings answers: lost sales → stuck pendings
+    // pending_bookings answers: lost sales → stuck pendings → unsent emails
     set("bookings", { data: [] }, { data: [] });
     set("pending_bookings",
       { data: [
         { status: "released_failed", last_error: "HTTP 422: Validation error for ada@example.com plate ABC1234 [fields: vehicle_make]", airport_code: "BNA", location_name: "Southwestern Airport Parking (BNA)", location_id: 471 },
         { status: "released_failed", last_error: "test", airport_code: "TEST", location_name: "TEST-NY", location_id: 195 },
       ] },
-      { count: 0 });
+      { count: 0 }, { data: [] });
     quietOthers();
     const d = await collectDigest(w, NOW);
     expect(d.lostSales.ok).toBe(true);
@@ -326,6 +345,60 @@ describe("collectDigest — sections, baselines, isolation", () => {
     expect(d.lostSales.data.rows[0].reason).not.toMatch(/example\.com|ABC1234/);
     expect(d.lostSales.data.rows[0].reason).toMatch(/\[email\]/);
     expect(d.lostSales.data.byStatus).toEqual({ released_failed: 1 });
+  });
+
+  it("lost sales: a direct-lot checkout (location_id NULL, TRP- number in the error) is counted, not dropped or crashed on", async () => {
+    set("bookings", { data: [] }, { data: [] });
+    set("pending_bookings",
+      { data: [
+        { status: "released_failed", last_error: "capture declined for TRP-7K2M9QXA plate ABC1234", airport_code: "JFK", location_name: "The Parking Point JFK", location_id: null },
+        { status: "completed", last_error: null, airport_code: "JFK", location_name: "The Parking Point JFK", location_id: null },
+      ] },
+      { count: 0 }, { data: [] });
+    quietOthers();
+    const d = await collectDigest(w, NOW);
+    expect(d.lostSales.ok).toBe(true);
+    if (!d.lostSales.ok) return;
+    expect(d.lostSales.data.byStatus).toEqual({ released_failed: 1, completed: 1 });
+    expect(d.lostSales.data.rows).toEqual([{ airport: "JFK", lot: "The Parking Point JFK", status: "released_failed", reason: "capture declined for TRP-7K2M9QXA plate [plate]" }]);
+  });
+
+  it("health: completed live checkouts with email_sent=false are listed by number (RTL + TRP), test lots out, odd numbers never printed", async () => {
+    set("bookings", { data: [] }, { data: [] });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: [
+      { reslab_reservation_number: "RTL854206", location_id: 112 },
+      { reslab_reservation_number: "TRP-7K2M9QXA", location_id: null },
+      { reslab_reservation_number: "RTL1", location_id: 195 }, // test lot
+      { reslab_reservation_number: "ada@example.com", location_id: 112 }, // never printed raw
+      { reslab_reservation_number: null, location_id: 112 },
+    ] });
+    quietOthers();
+    const d = await collectDigest(w, NOW);
+    expect(d.health.ok && d.health.data.emailNotSent).toEqual({
+      kind: "n", n: 4, capped: false, lookbackDays: 7,
+      numbers: ["RTL854206", "TRP-7K2M9QXA", "(unrecognised number)", "(no number)"],
+    });
+    const q = answers.calls.find((c) => c.table === "pending_bookings" && c.select.startsWith("reslab_reservation_number"))!;
+    // live mode only, completed only, email not sent — never a staging row in the production digest
+    expect(q.eqs).toEqual(expect.arrayContaining([["livemode", true], ["status", "completed"], ["email_sent", false]]));
+    expect(q.eqs.find(([k]) => k === "inventory_source")).toBeUndefined(); // both sources
+  });
+
+  it("health: the unsent-email query failing is an error state, never 'none'; over the cap is reported as capped", async () => {
+    set("bookings", { data: [] }, { data: [] });
+    set("pending_bookings", { data: [] }, { count: 0 }, { error: { code: "57014", message: "statement timeout" } });
+    quietOthers();
+    const d = await collectDigest(w, NOW);
+    expect(d.health.ok && d.health.data.emailNotSent).toMatchObject({ kind: "error", message: expect.stringMatching(/57014 statement timeout/) });
+    // the rest of health still stands
+    expect(d.health.ok && d.health.data.stuckPending).toEqual({ kind: "n", n: 0 });
+
+    answers.byTable.clear();
+    set("bookings", { data: [] }, { data: [] });
+    set("pending_bookings", { data: [] }, { count: 0 }, { data: Array.from({ length: 51 }, (_, i) => ({ reslab_reservation_number: `RTL9${i}`, location_id: 112 })) });
+    quietOthers();
+    const d2 = await collectDigest(w, NOW);
+    expect(d2.health.ok && d2.health.data.emailNotSent).toMatchObject({ kind: "n", n: 50, capped: true });
   });
 
   it("funnel: zero-result searches split into outcome, sell-out attribution, and degraded", async () => {

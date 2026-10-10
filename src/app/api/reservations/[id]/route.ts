@@ -3,6 +3,8 @@ import { reslab } from "@/lib/reslab/client";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
 import { isAdminEmail } from "@/config/admin";
+import { cancelSource } from "@/lib/cancellation/source-guard";
+import { buildDirectReservation } from "@/lib/direct/reservation-view";
 
 export async function GET(
   request: NextRequest,
@@ -121,10 +123,19 @@ export async function GET(
     // even when the original booking had a real time (e.g., FVSPF765362 returns
     // "00:00:00" via API while the ResLab dashboard shows the correct 08:00 AM).
     // Supabase preserves what the customer originally picked, so it's authoritative.
+    //
+    // The direct-lot columns (inventory_source … customers) are read so a
+    // DIRECT booking (plan 4b §2.2) can be answered from this row alone — it
+    // has no ResLab record. They are NULL / unused on ResLab rows.
     const adminClientForVehicle = await createAdminClient();
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
-      .select("vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
+      .select(`
+        vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status,
+        inventory_source, direct_lot_id, lot_snapshot, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents,
+        status, subtotal, tax_total, fees_total, grand_total, discount_amount, due_at_location,
+        customers(first_name, last_name, email, phone)
+      `)
       .eq("reslab_reservation_number", id)
       .single();
 
@@ -138,6 +149,68 @@ export async function GET(
       );
     }
 
+    // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
+    // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
+    const normalizeBookingDate = (value: string | null | undefined): string | null => {
+      if (!value) return null;
+      // Strip optional trailing fractional seconds + Z, then optional offset,
+      // then convert T to space. Anchored to end-of-string to avoid eating
+      // any digit run earlier in the value.
+      const trimmed = value
+        .replace(/\.\d+Z?$/, "")
+        .replace(/Z$|[+-]\d{2}:?\d{2}$/, "");
+      return trimmed.replace("T", " ");
+    };
+    const supabaseFromDate = normalizeBookingDate(bookingData?.check_in);
+    const supabaseToDate = normalizeBookingDate(bookingData?.check_out);
+
+    // Which system holds this booking (plan 4b §9 H-C, same strict polarity as
+    // cancellation): DIRECT only when the row says `direct` AND the number is
+    // our own TRP-; a ResLab number on a row that says reslab — or whose read
+    // failed (inventory_source undefined) — takes the ResLab path exactly as
+    // before; any disagreement is refused, never guessed.
+    const source = cancelSource({
+      inventory_source: bookingData?.inventory_source,
+      reslab_reservation_number: id,
+    });
+
+    if (source.kind !== "reslab") {
+      // A TRP- number never goes to ResLab (it would 404 there and tell the
+      // customer their booking doesn't exist). Keep a missing row (404) apart
+      // from a failed read (500) — the failed read was captured above.
+      if (bookingErr) {
+        return bookingErr.code === "PGRST116"
+          ? NextResponse.json({ error: "Reservation not found" }, { status: 404 })
+          : NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
+      }
+      if (source.kind === "inconsistent") {
+        captureBookingError(
+          new Error(`reservation source inconsistent: ${source.detail}`),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        return NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
+      }
+
+      // The service fee and Park Guard premium are parsed from the row by the
+      // direct view itself, strictly (a NULL fee or a plan without a positive
+      // premium is a 500), never the lenient ResLab-path coercion below.
+      const direct = buildDirectReservation(id, bookingData, {
+        pgIdentifier: bookingData?.pg_identifier || null,
+        pgSyncStatus: bookingData?.pg_sync_status || null,
+        fromDate: supabaseFromDate,
+        toDate: supabaseToDate,
+      });
+      if (!direct.ok) {
+        captureBookingError(
+          new Error(`direct booking view failed: ${direct.detail}`),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        return NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
+      }
+      return NextResponse.json({ reservation: direct.reservation });
+    }
+
+    // --- ResLab booking (behaviour unchanged) ---
     const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
 
     // Resolve protection state defensively. If protection_plan is set, the row
@@ -163,21 +236,6 @@ export async function GET(
     }
     const protectionPlanPrice = resolvedProtectionPlanPrice;
 
-    // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
-    // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
-    const normalizeBookingDate = (value: string | null | undefined): string | null => {
-      if (!value) return null;
-      // Strip optional trailing fractional seconds + Z, then optional offset,
-      // then convert T to space. Anchored to end-of-string to avoid eating
-      // any digit run earlier in the value.
-      const trimmed = value
-        .replace(/\.\d+Z?$/, "")
-        .replace(/Z$|[+-]\d{2}:?\d{2}$/, "");
-      return trimmed.replace("T", " ");
-    };
-    const supabaseFromDate = normalizeBookingDate(bookingData?.check_in);
-    const supabaseToDate = normalizeBookingDate(bookingData?.check_out);
-
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);
 
@@ -200,6 +258,7 @@ export async function GET(
       reservation: {
         id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
+        inventorySource: "reslab",
         status: reservation.cancelled ? "cancelled" : "confirmed",
         grandTotal: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
         subtotal: history?.subtotal || 0,

@@ -36,10 +36,14 @@ export function capturePaymentError(
     stripePaymentIntentId?: string;
     amount?: number;
     userId?: string;
+    /** Group events by this instead of the stack trace — one Sentry issue (and
+     *  one new-issue email) per key, e.g. per PaymentIntent. */
+    fingerprint?: string[];
   }
 ) {
   Sentry.withScope((scope) => {
     scope.setTag("payment.error", "true");
+    if (context.fingerprint) scope.setFingerprint(context.fingerprint);
     if (context.stripePaymentIntentId) {
       scope.setTag("payment.intentId", context.stripePaymentIntentId);
     }

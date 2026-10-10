@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_MAX_AGE_MS, SNAPSHOT_WARN_MS } from "@/lib/reslab/location-snapshot";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
+import { isAdminEmail, excludeTestBookings } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import {
@@ -32,18 +32,11 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createAdminClient();
 
-    // Test-booking exclusion (aligned with /api/admin/accounting and
-    // src/config/admin.ts:isTestBooking semantics, 2026-06-01):
-    // A booking is "test" iff it's against a TEST ResLab lot id (194/195/
-    // 196/197). Admin-email bookings at REAL airport lots are NOT excluded
-    // — that conflation previously hid legitimate revenue.
-    // Empty TEST_RESLAB_LOCATION_IDS → no filter applied.
-    const testLotIds = [...TEST_RESLAB_LOCATION_IDS];
-    const notTestLotFilter =
-      testLotIds.length > 0 ? `(${testLotIds.join(",")})` : null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const excludeAdmins = (query: any) =>
-      notTestLotFilter ? query.not("reslab_location_id", "in", notTestLotFilter) : query;
+    // Test-booking exclusion (src/config/admin.ts isTestBooking): a test ResLab
+    // lot (194-197) OR a Stripe TEST-mode payment (staging shares this DB).
+    // Null-safe on both columns, so direct-lot rows (no ResLab lot id) and
+    // pre-015 rows (no livemode) count. Admin-email bookings at REAL lots are
+    // NOT excluded — that conflation previously hid legitimate revenue.
 
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");
@@ -88,59 +81,80 @@ export async function GET(request: NextRequest) {
       cancelledResult,
     ] = await Promise.all([
       // Total bookings (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true })
       )),
       // Today's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())),
       // This week's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", weekStart.toISOString())),
       // This month's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", monthStart.toISOString())),
       // Total revenue (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale").eq("status", "confirmed")
       )),
       // Today's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())),
       // This week's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString())),
       // This month's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString())),
       // Confirmed bookings (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed")
       )),
       // Cancelled bookings (filtered). A refunding cancel writes `refunded`, so
       // `cancelled` alone showed 0 against ~31 real cancellations. Same
       // definition as the cancellation report (src/lib/cancellation/report.ts).
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).in("status", ["cancelled", "refunded"])
       )),
     ]);
+
+    // A failed query resolves with { error } and null data/count. Reading only
+    // .data rendered a dashboard of zeros that looked like a real (bad) day.
+    const queryResults: Record<string, { error: { message: string } | null }> = {
+      totalResult, todayResult, weekResult, monthResult, revenueResult,
+      todayRevenueResult, weekRevenueResult, monthRevenueResult, confirmedResult, cancelledResult,
+    };
+    const failedQueries = Object.entries(queryResults).filter(([, r]) => r.error);
+    if (failedQueries.length > 0) {
+      captureAPIError(
+        new Error(
+          `Admin stats: ${failedQueries.length} of ${Object.keys(queryResults).length} queries failed — ` +
+            failedQueries.map(([name, r]) => `${name}: ${r.error?.message}`).join("; ")
+        ),
+        { endpoint: "/api/admin/stats", method: "GET" }
+      );
+      return NextResponse.json(
+        { error: "Could not load booking stats — a database query failed. Try again." },
+        { status: 503 }
+      );
+    }
 
     type RevenueRow = {
       grand_total: string;
@@ -267,7 +281,7 @@ export async function GET(request: NextRequest) {
     const attrRows: ReportRow[] = [];
     let attrRowsComplete = true;
     for (let from = 0; ; from += PAGE) {
-      const { data, error: pageError } = await excludeAdmins(
+      const { data, error: pageError } = await excludeTestBookings(
         applyDateFilter(
           supabase
             .from("bookings")
@@ -298,7 +312,7 @@ export async function GET(request: NextRequest) {
     // purpose (it is a regression alarm, not a report). Only a VALID cookie
     // counts as present; the invalid marker is reported separately.
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recent, error: recentError } = await excludeAdmins(
+    const { data: recent, error: recentError } = await excludeTestBookings(
       supabase.from("bookings").select("attribution").gte("created_at", sevenDaysAgo).limit(1000)
     );
     if (recentError) warn("7-day capture-rate fetch failed", recentError);
@@ -316,7 +330,7 @@ export async function GET(request: NextRequest) {
     let cancellationsError: string | null = null;
     const cancelRows: CancellationReportRow[] = [];
     for (let from = 0; ; from += PAGE) {
-      const { data, error: pageError } = await excludeAdmins(
+      const { data, error: pageError } = await excludeTestBookings(
         applyDateFilter(
           supabase
             .from("bookings")

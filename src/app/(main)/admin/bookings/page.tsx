@@ -32,7 +32,19 @@ import {
 interface Booking {
   id: string;
   reslab_reservation_number: string;
-  reslab_location_id: number;
+  /** NULL on a direct-lot booking (Triply-owned lot, no ResLab location). */
+  reslab_location_id: number | null;
+  /** "direct" = Triply-owned lot (migration 034); anything else is ResLab. */
+  inventory_source?: string | null;
+  /** The direct lot's CMS id; NULL on ResLab rows. */
+  direct_lot_id?: string | null;
+  /**
+   * Direct lots (migration 036): the oversized-vehicle estimate PAID AT THE
+   * LOT. Display only — never part of any online figure. NULL on ResLab rows.
+   */
+  vehicle_size_label?: string | null;
+  vehicle_surcharge_cents?: number | null;
+  vehicle_surcharge_tax_cents?: number | null;
   location_name: string;
   check_in: string;
   check_out: string;
@@ -781,6 +793,14 @@ export default function AdminBookingsPage() {
                   0,
                   bookingTotal - dueAtLocation - discountAmount
                 );
+                // Direct lots only: the oversized-vehicle surcharge the customer
+                // pays AT THE LOT. Its own line — never folded into the online
+                // figures above (a direct row's due_at_location is 0).
+                const atLotEstimateCents =
+                  selectedBooking.inventory_source === "direct"
+                    ? (selectedBooking.vehicle_surcharge_cents ?? 0) +
+                      (selectedBooking.vehicle_surcharge_tax_cents ?? 0)
+                    : 0;
 
                 return (
                   <div>
@@ -840,6 +860,21 @@ export default function AdminBookingsPage() {
                           <span className="text-gray-500">Due at location</span>
                           <span className="text-amber-700 font-medium">
                             {formatPrice(dueAtLocation)}
+                          </span>
+                        </div>
+                      )}
+                      {atLotEstimateCents > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">
+                            Est. at the lot
+                            {selectedBooking.vehicle_size_label && (
+                              <span className="ml-1 text-xs">
+                                ({selectedBooking.vehicle_size_label}, not charged online)
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-amber-700 font-medium">
+                            {formatPrice(atLotEstimateCents / 100)}
                           </span>
                         </div>
                       )}

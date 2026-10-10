@@ -5,7 +5,7 @@
  * still-live reservation, or touching a row it doesn't own.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { FakeSupabase } from "@/lib/booking/__tests__/supabase-fake";
 
 const db = new FakeSupabase();
@@ -90,6 +90,9 @@ function seed(over: Record<string, unknown> = {}) {
       stripe_payment_intent_id: "pi_1",
       cancel_state: "reslab_cancelled_refund_pending",
       cancel_claimed_at: STALE,
+      // The suite runs on a TEST Stripe key; the cron only scans its own mode.
+      inventory_source: "reslab",
+      livemode: false,
       ...over,
     },
   ];
@@ -123,6 +126,8 @@ function mkRow(reservationNumber: string, over: Record<string, unknown> = {}) {
     stripe_payment_intent_id: "pi_1",
     cancel_state: "reslab_cancelled_refund_pending",
     cancel_claimed_at: STALE,
+    inventory_source: "reslab" as string | null,
+    livemode: false as boolean | null,
     ...over,
   };
 }
@@ -484,3 +489,108 @@ describe("reconcile — cancellation reason (migration 032)", () => {
     });
   });
 });
+
+describe("reconcile — direct lots + environment (plan 4b §9 H-C/H-D)", () => {
+  it("never touches a booking paid in the other Stripe mode (a live row under a test key)", async () => {
+    seed({ livemode: true });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.scanned).toBe(0);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("a direct booking held as ambiguous is finished without any ResLab call", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      cancel_state: "held_reslab_ambiguous",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(1);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(reslabMock.getReservation).not.toHaveBeenCalled();
+  });
+
+  it("a row whose source and number disagree stays held and is reported", async () => {
+    seed({ inventory_source: "direct", cancel_state: "held_reslab_ambiguous" });
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(0);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+  it("a pre-015 NULL row (a live booking) is never scanned under a test key", async () => {
+    seed({ livemode: null });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.scanned).toBe(0);
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("a direct row stalled in reslab_cancelled_refund_pending recovers with no ResLab call", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      cancel_state: "reslab_cancelled_refund_pending",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(1);
+    expect(r.stalled).toEqual([]);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(reslabMock.getReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 10_000, "selfcancel:pi_1");
+    expect(db.tables.bookings[0]).toMatchObject({ status: "refunded", cancel_state: "refund_issued" });
+  });
+
+  it("a ResLab held_reslab_ambiguous row whose inventory_source is absent STILL calls ResLab", async () => {
+    seed({ cancel_state: "held_reslab_ambiguous" });
+    delete db.tables.bookings[0].inventory_source;
+    expect("inventory_source" in db.tables.bookings[0]).toBe(false);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const r = await reconcileStuckCancellations(NOW);
+    expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+    expect(r.recovered).toBe(1);
+    expect(db.tables.bookings[0].status).toBe("refunded");
+  });
+
+  describe("on a production (LIVE) key — the only place this cron runs", () => {
+    beforeEach(() => {
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("scans NULL (pre-015, live) + true rows, never a staging false row; refunds only those two", async () => {
+      db.tables.customers = [{ id: "c1", email: "c@example.com", first_name: "A", last_name: "B" }];
+      db.tables.bookings = [
+        mkRow("RTL1", { stripe_payment_intent_id: "pi_null", livemode: null }),
+        mkRow("RTL2", { stripe_payment_intent_id: "pi_live", livemode: true }),
+        mkRow("RTL3", { stripe_payment_intent_id: "pi_test", livemode: false }),
+      ];
+      stripeMock.paymentIntents.retrieve.mockImplementation(async (id: string) =>
+        mkPi("succeeded", { id }),
+      );
+
+      const r = await reconcileStuckCancellations(NOW);
+
+      expect(r.scanned).toBe(2);
+      expect(r.recovered).toBe(2);
+      expect(r.stalled).toEqual([]);
+      expect(createRefundCents).toHaveBeenCalledTimes(2);
+      expect(createRefundCents.mock.calls.map((c) => c[0]).sort()).toEqual(["pi_live", "pi_null"]);
+      expect(stripeMock.paymentIntents.retrieve).not.toHaveBeenCalledWith("pi_test", expect.anything());
+      const byNumber = (n: string) => db.tables.bookings.find((b) => b.reslab_reservation_number === n)!;
+      expect(byNumber("RTL1").status).toBe("refunded");
+      expect(byNumber("RTL2").status).toBe("refunded");
+      // The staging row is untouched: still confirmed, still held, claim unchanged.
+      expect(byNumber("RTL3")).toMatchObject({
+        status: "confirmed",
+        cancel_state: "reslab_cancelled_refund_pending",
+        cancel_claimed_at: STALE,
+      });
+    });
+  });
+});
+

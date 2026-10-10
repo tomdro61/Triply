@@ -47,6 +47,14 @@ export interface CancelBookingRow {
   protection_plan_wholesale: string | number | null;
   pg_identifier: string | null;
   stripe_payment_intent_id: string | null;
+  /** 'reslab' | 'direct' (migration 034). REQUIRED so a mapper that builds this
+   *  row field by field can't silently drop it (that made every direct
+   *  self-cancel "inconsistent" — plan 4b §9 H-C). cancelSource() itself stays
+   *  tolerant of a missing value for older callers. */
+  inventory_source: string | null;
+  /** Stripe mode of the booking (034). NULL on pre-015 rows, which are LIVE.
+   *  REQUIRED for the same reason: dropping it disables the H-D mode guard. */
+  livemode: boolean | null;
   customers: {
     email: string | null;
     first_name: string | null;

@@ -30,6 +30,10 @@ if (!resNum) {
   console.error("Usage: node scripts/verify-self-cancel.mjs <RES_NUMBER> [--preview-env <path>]");
   process.exit(1);
 }
+if (/^TRP-/i.test(resNum.trim())) {
+  console.error(`Refusing ${resNum}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.`);
+  process.exit(2);
+}
 
 // Staging ResLab creds, loaded WITHOUT clobbering the prod ones above.
 let reslabEnv = {

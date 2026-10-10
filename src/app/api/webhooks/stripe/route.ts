@@ -444,14 +444,32 @@ export async function POST(request: NextRequest) {
             break;
           }
 
-          const { error: updateErr } = await supabase
+          // Never overwrite `disputed` (the dispute record is what ops works
+          // from) or `payment_failed`. `.select` tells us whether the status
+          // actually advanced: a filtered-out UPDATE returns no error and no
+          // rows, and the side effects below that describe a NEW refund-
+          // cancellation must not fire for a row that didn't move.
+          const { data: advanced, error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "refunded" })
-            .eq("id", booking.id);
+            .eq("id", booking.id)
+            .not("status", "in", "(disputed,payment_failed)")
+            .select("id");
+          const statusAdvanced = !updateErr && (advanced?.length ?? 0) > 0;
 
           if (updateErr) {
             capturePaymentError(
               new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+          } else if (!statusAdvanced) {
+            // A refund on a disputed / payment_failed row is a payment event,
+            // not a checkout-step failure: tag it with the PI + amount so ops
+            // can find the charge.
+            capturePaymentError(
+              new Error(
+                `Full refund on booking ${booking.id} left its status as is (disputed or payment_failed) — check the dispute/payment record`
+              ),
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
           }
@@ -461,7 +479,7 @@ export async function POST(request: NextRequest) {
           // refund, so reaching here unattributed means the refund came from
           // outside the app (Stripe dashboard, partner) — reason unknown.
           // Best-effort; never fails the webhook.
-          if (!updateErr) {
+          if (statusAdvanced) {
             await recordCancellationReason({
               bookingId: booking.id,
               cancelledBy: "system",

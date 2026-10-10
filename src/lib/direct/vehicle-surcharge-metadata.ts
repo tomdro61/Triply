@@ -50,8 +50,8 @@ export function decodeSurchargeRates(value: string | undefined): SurchargeRate[]
   return out;
 }
 
-// At most 3 decimals: the same precision as bookings.direct_tax_rate_percent
-// NUMERIC(6,3) (migration 034) and the CMS validator — a 4th decimal would be
+// At most 3 decimals: the same precision as direct_booking_terms.tax_rate_percent
+// NUMERIC(6,3) (migration 038) and the CMS validator — a 4th decimal would be
 // charged here and silently rounded when the booking is stored.
 const TAX_RATE_RE = /^\d{1,3}(\.\d{1,3})?$/;
 

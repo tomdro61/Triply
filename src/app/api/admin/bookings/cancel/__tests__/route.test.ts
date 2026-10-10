@@ -7,10 +7,10 @@
  * without the reason write failing. The staff note lives in its own
  * service-role-only table, never on the customer-readable bookings row.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { db, reslabMock, stripeMock, parkGuardMock, sentry, order } = await vi.hoisted(async () => {
+const { db, reslabMock, stripeMock, parkGuardMock, sentry, order, sendEmail } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
@@ -19,6 +19,7 @@ const { db, reslabMock, stripeMock, parkGuardMock, sentry, order } = await vi.ho
     parkGuardMock: { updateReservation: vi.fn() },
     sentry: { captureAPIError: vi.fn(), captureParkGuardError: vi.fn() },
     order: [] as string[],
+    sendEmail: vi.fn(async () => ({ success: true })),
   };
 });
 
@@ -32,7 +33,7 @@ vi.mock("@/config/admin", () => ({ isAdminEmail: () => true }));
 vi.mock("@/lib/reslab/client", () => ({ reslab: reslabMock }));
 vi.mock("@/lib/stripe/client", () => stripeMock);
 vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
-  sendCancellationConfirmation: vi.fn(async () => ({ success: true })),
+  sendCancellationConfirmation: sendEmail,
 }));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/parkguard/client", () => ({
@@ -105,6 +106,7 @@ beforeEach(() => {
   parkGuardMock.updateReservation.mockReset().mockResolvedValue({});
   sentry.captureAPIError.mockReset();
   sentry.captureParkGuardError.mockReset();
+  sendEmail.mockReset().mockResolvedValue({ success: true });
 });
 
 /** Every 400 must happen before ANY side effect: no DB access at all, no Stripe, no PG. */
@@ -258,5 +260,107 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 94.05, "admin-cancel:pi_1");
     expect(parkGuardMock.updateReservation).not.toHaveBeenCalled();
     expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: false });
+  });
+});
+
+describe("POST /api/admin/bookings/cancel — direct lots + environment guards (plan 4b §9 H-C/H-D)", () => {
+  it("a direct booking never calls ResLab and is refunded with the standard-cancel money", async () => {
+    seed({
+      ...PG_ROW,
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      livemode: false,
+      customers: { email: "c@example.com", first_name: "Case", last_name: "Test" },
+    });
+    const res = await POST(
+      new NextRequest("https://x.test/api/admin/bookings/cancel", {
+        method: "POST",
+        body: JSON.stringify({ reservationNumber: "TRP-AB12CD34", reason: "found_cheaper" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    // Parity with the ResLab standard cancel: 100 − 5.95 fee − 6.00 PG wholesale.
+    expect(stripeMock.createRefund).toHaveBeenCalledTimes(1);
+    expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 88.05, "admin-cancel:pi_1");
+    expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
+    expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: false, pg_identifier: null });
+    expect(sendEmail).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "c@example.com",
+        confirmationNumber: "TRP-AB12CD34",
+        refundAmount: 88.05,
+        wasRefunded: true,
+      }),
+    );
+    expect((await res.json()).results.email).toBe(true);
+  });
+
+  it("a ResLab row read without inventory_source still calls ResLab", async () => {
+    await POST(req({ reason: "found_cheaper" }));
+    expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+  });
+
+  it("a booking paid in the other Stripe mode is refused before any side effect", async () => {
+    seed({ livemode: true });
+    const res = await POST(req({ reason: "found_cheaper" }));
+    expect(res.status).toBe(409);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "confirmed", cancel_claimed_at: null, cancelled_by: null });
+  });
+
+  it("a pre-015 row (NULL livemode = live) is refused under a test key — staging must not cancel it", async () => {
+    seed({ livemode: null });
+    const res = await POST(req({ reason: "found_cheaper" }));
+    expect(res.status).toBe(409);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.getPaymentIntent).not.toHaveBeenCalled();
+    expect(row().cancel_claimed_at).toBeNull();
+  });
+
+  describe("on a production (LIVE) key", () => {
+    beforeEach(() => {
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("a staging TEST booking (livemode:false) → 409, staff wording, no claim, no ResLab, no refund", async () => {
+      seed({ livemode: false });
+      const res = await POST(req({ reason: "found_cheaper" }));
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toMatch(/other environment/);
+      expect(stripeMock.getPaymentIntent).not.toHaveBeenCalled();
+      expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+      expect(stripeMock.createRefund).not.toHaveBeenCalled();
+      expect(sendEmail).not.toHaveBeenCalled();
+      expect(row()).toMatchObject({
+        status: "confirmed",
+        cancel_claimed_at: null,
+        cancel_state: null,
+        cancelled_by: null,
+      });
+    });
+
+    it("a pre-015 NULL row is cancelled exactly as before", async () => {
+      seed({ livemode: null });
+      const res = await POST(req({ reason: "found_cheaper" }));
+      expect(res.status).toBe(200);
+      expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+      expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 94.05, "admin-cancel:pi_1");
+    });
+  });
+
+  it("source and number disagreeing is refused before any side effect", async () => {
+    seed({ inventory_source: "direct" });
+    const res = await POST(req({ reason: "found_cheaper" }));
+    expect(res.status).toBe(500);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row().cancel_claimed_at).toBeNull();
   });
 });

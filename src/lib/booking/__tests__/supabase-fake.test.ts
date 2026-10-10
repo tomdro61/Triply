@@ -108,3 +108,138 @@ describe("FakeSupabase — count/head and sustained failures", () => {
     expect(fake.tables.booking_waitlist[0].notified_at).toBe("x");
   });
 });
+
+describe("FakeSupabase — constraints the direct-lots engine relies on", () => {
+  const fresh = () => {
+    const db = new FakeSupabase();
+    db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [] };
+    return db;
+  };
+
+  it("a confirmation number collision on UPDATE returns 23505 and changes nothing", async () => {
+    const db = fresh();
+    db.seed("pending_bookings", [
+      { stripe_payment_intent_id: "pi_a", reslab_reservation_number: "TRP-AAAAAAAA" },
+      { stripe_payment_intent_id: "pi_b", reslab_reservation_number: null },
+    ]);
+    const { error } = await db
+      .from("pending_bookings")
+      .update({ reslab_reservation_number: "TRP-AAAAAAAA" })
+      .eq("stripe_payment_intent_id", "pi_b");
+    expect(error).toMatchObject({ code: "23505" });
+    expect(db.tables.pending_bookings[1].reslab_reservation_number).toBeNull();
+  });
+
+  it("re-writing a row's own number is not a collision", async () => {
+    const db = fresh();
+    db.seed("pending_bookings", [{ stripe_payment_intent_id: "pi_a", reslab_reservation_number: "TRP-AAAAAAAA" }]);
+    const { error } = await db
+      .from("pending_bookings")
+      .update({ reslab_reservation_number: "TRP-AAAAAAAA" })
+      .eq("stripe_payment_intent_id", "pi_a");
+    expect(error).toBeNull();
+  });
+
+  it("bookings.reslab_reservation_number is UNIQUE on insert", async () => {
+    const db = fresh();
+    db.seed("bookings", [{ stripe_payment_intent_id: "pi_a", reslab_reservation_number: "TRP-AAAAAAAA", reslab_location_id: null, direct_lot_id: "1", inventory_source: "direct" }]);
+    const { error } = await db.from("bookings").insert({
+      stripe_payment_intent_id: "pi_b", reslab_reservation_number: "TRP-AAAAAAAA", reslab_location_id: 42,
+    });
+    expect(error).toMatchObject({ code: "23505" });
+  });
+
+  it("CHECKs on insert: a direct row needs its lot id, no ResLab id, livemode, a customer-safe snapshot and vehicle columns", async () => {
+    const db = fresh();
+    const base = {
+      stripe_payment_intent_id: "pi_d", reslab_reservation_number: "TRP-BBBBBBBB", inventory_source: "direct",
+      direct_lot_id: "1", reslab_location_id: null, livemode: false, lot_snapshot: { v: 2 },
+      vehicle_size: "none", vehicle_size_label: "No oversized vehicle", vehicle_surcharge_cents: 0,
+      vehicle_surcharge_tax_cents: 0, vehicle_size_source: "modal",
+    };
+    expect((await db.from("bookings").insert({ ...base, reslab_location_id: 42 })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert({ ...base, livemode: null })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert({ ...base, lot_snapshot: { notificationEmails: ["x@y.z"] } })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert({ ...base, vehicle_size: null })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert(base)).error).toBeNull();
+  });
+
+  it("a ResLab row (default source) needs its location id and no vehicle columns", async () => {
+    const db = fresh();
+    expect((await db.from("bookings").insert({ stripe_payment_intent_id: "pi_r", reslab_reservation_number: "RTL1" })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert({ stripe_payment_intent_id: "pi_r", reslab_reservation_number: "RTL1", reslab_location_id: 42, vehicle_size: "none" })).error).toMatchObject({ code: "23514" });
+    expect((await db.from("bookings").insert({ stripe_payment_intent_id: "pi_r", reslab_reservation_number: "RTL1", reslab_location_id: 42 })).error).toBeNull();
+    // The stored row is exactly what was written (defaults only inform the check).
+    expect(db.tables.bookings[0]).not.toHaveProperty("inventory_source");
+  });
+});
+
+describe("FakeSupabase — real constraint names, CHECK-before-UNIQUE, select capture", () => {
+  const fresh = () => new FakeSupabase();
+  const terms = {
+    stripe_payment_intent_id: "pi_t", direct_lot_id: "1", livemode: false, partner_share_percent: 80,
+    tax_rate_percent: 16, tax_collected_by: "triply", lot_recipients: ["lot@example.com"],
+  };
+
+  it("direct_booking_terms is a known table with stripe_payment_intent_id as its PRIMARY KEY", async () => {
+    const db = fresh();
+    expect(db.tables.direct_booking_terms).toEqual([]);
+    expect((await db.from("direct_booking_terms").insert(terms)).error).toBeNull();
+    const { error } = await db.from("direct_booking_terms").insert({ ...terms, direct_lot_id: "2" });
+    expect(error).toMatchObject({ code: "23505", message: expect.stringContaining('"direct_booking_terms_pkey"') });
+    expect(db.tables.direct_booking_terms).toHaveLength(1);
+  });
+
+  it("direct_booking_terms rejects an empty recipient list or a NULL element (038)", async () => {
+    const db = fresh();
+    for (const lot_recipients of [[], ["a@b.co", null]]) {
+      const { error } = await db.from("direct_booking_terms").insert({ ...terms, lot_recipients });
+      expect(error).toMatchObject({ code: "23514", message: expect.stringContaining('"direct_booking_terms_lot_recipients_check"') });
+    }
+    expect(db.tables.direct_booking_terms).toHaveLength(0);
+  });
+
+  it("23505 messages carry the real constraint name", async () => {
+    const db = fresh();
+    db.seed("bookings", [{ stripe_payment_intent_id: "pi_a", reslab_reservation_number: "RTL1", reslab_location_id: 42 }]);
+    db.seed("pending_bookings", [{ stripe_payment_intent_id: "pi_p", reslab_reservation_number: "TRP-AAAAAAAA" }]);
+    const cases: Array<[string, Record<string, unknown>, string]> = [
+      ["bookings", { stripe_payment_intent_id: "pi_a", reslab_reservation_number: "RTL2", reslab_location_id: 42 }, "bookings_stripe_payment_intent_id_key"],
+      ["bookings", { stripe_payment_intent_id: "pi_b", reslab_reservation_number: "RTL1", reslab_location_id: 42 }, "bookings_reslab_reservation_number_key"],
+      ["pending_bookings", { stripe_payment_intent_id: "pi_p", location_id: 1, parking_type_id: 2 }, "pending_bookings_pkey"],
+      ["pending_bookings", { stripe_payment_intent_id: "pi_q", reslab_reservation_number: "TRP-AAAAAAAA", location_id: 1, parking_type_id: 2 }, "pending_bookings_reservation_number_uq"],
+    ];
+    for (const [table, row, name] of cases) {
+      const { error } = await db.from(table).insert(row);
+      expect(error).toMatchObject({ code: "23505", message: `duplicate key value violates unique constraint "${name}"` });
+    }
+  });
+
+  it("evaluates CHECKs BEFORE UNIQUE, as Postgres does — a row violating both reports 23514", async () => {
+    const db = fresh();
+    db.seed("bookings", [{ stripe_payment_intent_id: "pi_a", reslab_reservation_number: "RTL1", reslab_location_id: 42 }]);
+    // Same PaymentIntent (UNIQUE) AND no reslab_location_id on a ResLab row (CHECK).
+    const { error } = await db.from("bookings").insert({ stripe_payment_intent_id: "pi_a", reslab_reservation_number: "RTL9" });
+    expect(error).toMatchObject({
+      code: "23514",
+      message: 'new row for relation "bookings" violates check constraint "bookings_inventory_source_ids_check"',
+    });
+  });
+
+  it("records each SELECT's column list in `selects`, and leaves `log` as {table, op} only", async () => {
+    const db = fresh();
+    db.seed("bookings", [{ id: "b1" }]);
+    await db.from("bookings").select("id, status").eq("id", "b1");
+    await db.from("bookings").update({ status: "x" }).eq("id", "b1");
+    await db.from("customers").select();
+    expect(db.selects).toEqual([
+      { table: "bookings", select: "id, status" },
+      { table: "customers", select: "" },
+    ]);
+    expect(db.log).toEqual([
+      { table: "bookings", op: "select" },
+      { table: "bookings", op: "update" },
+      { table: "customers", op: "select" },
+    ]);
+  });
+});

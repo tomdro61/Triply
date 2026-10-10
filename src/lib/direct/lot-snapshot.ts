@@ -13,8 +13,10 @@ import { DIRECT_LOT_VISIBILITIES } from "./visibility";
  * Money INPUTS (rate, tax) are here for audit; the money the customer was
  * charged lives in PaymentIntent metadata, which is the only authority. The
  * partner share is NOT here: a signed-in customer can read their own bookings
- * row (RLS, 001) and with it this snapshot; the share lives only in the typed
- * `direct_partner_share_percent` column (Phase 4 decides its read grant).
+ * row (RLS, 001) and with it this snapshot. The share, tax terms and the lot's
+ * notice recipients live in the service-role-only `direct_booking_terms` table
+ * (migration 038), and a bookings snapshot may not carry `notificationEmails`
+ * (DB CHECK) — the v2 snapshot written in Phase 4b drops it.
  */
 export const lotSnapshotSchema = z.object({
   v: z.literal(1),

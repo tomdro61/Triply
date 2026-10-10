@@ -13,7 +13,15 @@ import { isPast, parseISO, isToday } from "date-fns";
 interface Booking {
   id: string;
   reslab_reservation_number: string;
-  reslab_location_id: number;
+  /** NULL on a direct-lot booking (Triply-owned lot, no ResLab location). */
+  reslab_location_id: number | null;
+  /** "direct" = Triply-owned lot (migration 034); anything else is ResLab. */
+  inventory_source?: string | null;
+  /** The direct lot's CMS id; NULL on ResLab rows. */
+  direct_lot_id?: string | null;
+  /** Direct lots: the oversized-vehicle estimate PAID AT THE LOT, in cents. NULL on ResLab rows. */
+  vehicle_surcharge_cents?: number | null;
+  vehicle_surcharge_tax_cents?: number | null;
   location_name: string;
   location_address: string;
   airport_code: string | null;

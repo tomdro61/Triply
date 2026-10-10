@@ -38,7 +38,8 @@
 
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { isAtTestLot } from "@/config/admin";
+import { isAtTestLot, isTestBooking } from "@/config/admin";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import type {
   DateField,
   ReconcileOptions,
@@ -197,6 +198,17 @@ interface SupabaseRow {
   reslab_location_id: number | null;
   location_name: string | null;
   airport_code: string | null;
+  // Migration 034. 'reslab' (DB default) or 'direct' (a Triply-owned lot: no
+  // ResLab reservation, `reslab_reservation_number` holds our own TRP- number).
+  // Branch on `=== "direct"` ONLY — never `!== "reslab"` — so a row read
+  // without the column (old fixtures, old selects) still behaves as ResLab.
+  inventory_source: string | null;
+  direct_lot_id: string | null;
+  // Stripe mode of the payment. false = TEST mode (staging writes to this same
+  // database); NULL = a pre-015 row, which is live. See isTestBooking.
+  livemode: boolean | null;
+  // Promo discount (migration 016). Only read for direct rows' derived charge.
+  discount_amount: string | number | null;
   customers: CustomersJoin | CustomersJoin[];
 }
 
@@ -207,8 +219,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   const supabase = await createAdminClient();
   const dateCol = DATE_COLUMN[opts.by];
 
-  // Test-booking filter: lot-id-based (aligned with /api/admin/stats post-
-  // 2026-06-01). A booking is excluded iff it's at a TEST ResLab lot id.
+  // Test-booking filter (isTestBooking, applied below): a booking at a TEST
+  // ResLab lot id, or one paid in Stripe TEST mode (livemode === false).
   const { data: rows, error } = await supabase
     .from("bookings")
     .select(
@@ -218,6 +230,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier,
       stripe_payment_intent_id,
       reslab_location_id, location_name, airport_code,
+      inventory_source, direct_lot_id, livemode, discount_amount,
       customers ( email )
     `
     )
@@ -230,15 +243,38 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   const allRows: SupabaseRow[] = rows ?? [];
 
+  // Three-way partition, BEFORE any vendor fetch:
+  //   - test rows (isTestBooking) are dropped. A test-LOT row counts as
+  //     `testExcluded`; a Stripe-TEST-mode row (livemode === false — a staging
+  //     booking in this shared database) counts as `stagingExcluded`, by its
+  //     own recorded mode rather than the two-signal inference further down
+  //     (which stays for the NULL-livemode pre-015 rows only).
+  //   - direct rows (inventory_source === "direct") have no ResLab reservation
+  //     at all: fetching their TRP- number would 404, and a confirmed one in
+  //     the ResLab completeness gate would null the month's headline. They are
+  //     summarised on their own in `result.direct`, never in the ResLab figures.
+  //   - everything else is a ResLab booking (`real`), reconciled as before.
   const real: SupabaseRow[] = [];
+  const directRows: SupabaseRow[] = [];
   let testExcluded = 0;
+  const modeExcludedResNums: string[] = [];
   for (const b of allRows) {
-    if (isAtTestLot(b.reslab_location_id)) {
-      testExcluded++;
+    if (isTestBooking(b)) {
+      if (isAtTestLot(b.reslab_location_id)) testExcluded++;
+      else modeExcludedResNums.push(b.reslab_reservation_number ?? b.id);
+      continue;
+    }
+    if (b.inventory_source === "direct") {
+      directRows.push(b);
       continue;
     }
     real.push(b);
   }
+
+  // `resource_missing` is only trustworthy under a LIVE key (see the staging
+  // exclusion below). Restricted live keys (`rk_live_`) count as live too.
+  // Same rule as the cancellation source guard — one definition of "live key".
+  const stripeIsLive = stripeKeyIsLive();
 
   // ---- ResLab + Stripe fetches (concurrent batches, each gated by flag) ----
 
@@ -344,12 +380,24 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     });
   })();
 
-  const stripePromise = (async (): Promise<StripeSlice[]> => {
-    if (!opts.includeStripe || real.length === 0) return real.map(() => ({ ...emptyStripe }));
+  // Direct rows' Stripe errors are kept apart from `stripeFetchErrors` (whose
+  // "see CSV" pointers would dangle — direct rows are not in bookings[]/the CSV).
+  const directStripeErrors: ReconcileResult["direct"]["stripeErrors"] = [];
+
+  // `reportNotFound`: whether a `resource_missing` is itself an error worth
+  // reporting. For ResLab rows it is NOT (it feeds the staging inference
+  // below); for a LIVE direct row under a live key it IS (nothing else would
+  // explain why that row fell back to the derived charge).
+  const fetchStripeSlices = async (
+    rows: SupabaseRow[],
+    errors: Array<{ resNum: string; err: string }>,
+    reportNotFound: boolean
+  ): Promise<StripeSlice[]> => {
+    if (!opts.includeStripe || rows.length === 0) return rows.map(() => ({ ...emptyStripe }));
     if (!process.env.STRIPE_SECRET_KEY) {
-      return real.map(() => ({ ...emptyStripe, error: "STRIPE_SECRET_KEY missing" }));
+      return rows.map(() => ({ ...emptyStripe, error: "STRIPE_SECRET_KEY missing" }));
     }
-    return withConcurrency(real, STRIPE_CONCURRENCY, async (b) => {
+    return withConcurrency(rows, STRIPE_CONCURRENCY, async (b) => {
       if (!b.stripe_payment_intent_id) return { ...emptyStripe };
       try {
         const pi = await stripe.paymentIntents.retrieve(b.stripe_payment_intent_id, {
@@ -381,15 +429,19 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         // booking, NOT a real fetch failure. Don't count it as an error (that's
         // what over-reported "N per-booking fetches failed"); flag it for exclusion.
         const notFound = (e as { code?: string })?.code === "resource_missing";
-        if (!notFound) {
-          stripeFetchErrors.push({ resNum: b.reslab_reservation_number, err: msg });
+        if (!notFound || reportNotFound) {
+          errors.push({ resNum: b.reslab_reservation_number, err: msg });
         }
         return { ...emptyStripe, error: msg, notFound };
       }
     });
-  })();
+  };
 
-  const [reslabSlices, stripeSlices] = await Promise.all([reslabPromise, stripePromise]);
+  const [reslabSlices, stripeSlices, directStripeSlices] = await Promise.all([
+    reslabPromise,
+    fetchStripeSlices(real, stripeFetchErrors, false),
+    fetchStripeSlices(directRows, directStripeErrors, stripeIsLive),
+  ]);
 
   // Staging/test bookings pollute the SHARED prod DB (a staging soak writes a real
   // `confirmed` row to prod bookings, but its payment is test-mode Stripe and its
@@ -414,13 +466,24 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // can't read the PI", i.e. a TEST booking under a LIVE key (prod — correct) but
   // a LIVE booking under a TEST key (local/staging — the opposite). So the whole
   // exclusion is gated on running live; on a test key we skip it (that accounting
-  // is estimate-mode anyway). Restricted live keys (`rk_live_`) count as live too.
-  const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
-  const stripeIsLive = secretKey.startsWith("sk_live_") || secretKey.startsWith("rk_live_");
+  // is estimate-mode anyway). `stripeIsLive` is computed above the fetches.
+  //
+  // Rows that RECORD their mode never reach the inference: livemode === false
+  // was dropped up front, and a row recording livemode === true is a live
+  // payment by its own record, so an unreadable PI there is a mis-stored or
+  // foreign PI — kept and surfaced, never excluded. Only NULL-livemode rows
+  // (pre-015) are inferred.
   const stagingIdx = new Set<number>();
   if (opts.includeStripe && stripeIsLive) {
     for (let i = 0; i < stripeSlices.length; i++) {
       if (!stripeSlices[i]?.notFound) continue;
+      if (real[i].livemode === true) {
+        stripeFetchErrors.push({
+          resNum: real[i].reslab_reservation_number,
+          err: `Stripe PI ${real[i].stripe_payment_intent_id ?? "(none)"} unreadable by live key (resource_missing) on a row recorded livemode=true — mis-stored or foreign PI, kept in totals`,
+        });
+        continue;
+      }
       // Corroborate on a DEFINITIVE 404 (reservation absent from prod ResLab), not
       // on "any ResLab error". A transient 5xx / timeout / empty-history response
       // does NOT prove the reservation is missing, so it must not be read as
@@ -467,7 +530,9 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       .map((i) => real[i].reslab_reservation_number)
       .filter((rn): rn is string => !!rn)
   );
-  let stagingExcluded = 0;
+  // Starts at the rows dropped up front for livemode === false; the loop below
+  // adds the inferred (two-signal) ones.
+  let stagingExcluded = modeExcludedResNums.length;
 
   // ---- Per-booking detail + aggregation ----
 
@@ -885,6 +950,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // false-positive (no confirmed → no fetches → guard fires) AND a
   // partial-failure case would false-negative (some succeeded → guard
   // satisfied even though half the channel commission is missing).
+  // `real` holds ResLab rows only — direct rows (no ResLab reservation to
+  // fetch) were partitioned out up front, so they can never hold this gate open.
   const reslabConfirmedExpected = real.filter(
     (b, i) =>
       b.status === "confirmed" &&
@@ -957,12 +1024,63 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
         : null,
   };
 
+  // ---- Direct lots (inventory_source === "direct") ----
+  // Their own figure, never folded into the ResLab settlement, the Stripe
+  // gross or triplyNet: Triply collects the whole parking charge and owes the
+  // lot a payout, a money model the ResLab-shaped P&L above does not describe.
+  // Phase 6 builds the payout section; until then this reports what customers
+  // paid online, so these bookings are never silently $0.
+  const direct: ReconcileResult["direct"] = {
+    count: directRows.length,
+    confirmed: 0,
+    refunded: 0,
+    cancelled: 0,
+    other: 0,
+    grossOnlineCharge: 0,
+    grossOnlineChargeIsDerived: false,
+    reservations: [],
+    stripeErrors: directStripeErrors,
+  };
+  for (let i = 0; i < directRows.length; i++) {
+    const b = directRows[i];
+    const st = directStripeSlices[i] ?? emptyStripe;
+    direct.reservations.push(b.reslab_reservation_number ?? b.id);
+    if (b.status === "confirmed") {
+      direct.confirmed++;
+      if (opts.includeStripe && st.amountReceived !== null) {
+        direct.grossOnlineCharge += st.amountReceived;
+      } else {
+        // The direct online charge (4b plan §2.2): grand_total + service fee +
+        // premium − promo discount. `due_at_location` is 0 on direct rows —
+        // the at-lot vehicle surcharge is never part of the online charge.
+        direct.grossOnlineCharge += Math.max(
+          0,
+          num(b.grand_total) +
+            num(b.triply_service_fee) +
+            (b.protection_plan ? num(b.protection_plan_price) : 0) -
+            num(b.discount_amount)
+        );
+        direct.grossOnlineChargeIsDerived = true;
+      }
+    } else if (b.status === "refunded") {
+      direct.refunded++;
+    } else if (b.status === "cancelled") {
+      direct.cancelled++;
+    } else {
+      direct.other++;
+    }
+  }
+
   return {
     options: opts,
-    counts: { ...counts, testExcluded, stagingExcluded, total: real.length - stagingExcluded },
-    // The reservation numbers behind `counts.stagingExcluded`, so a misclassified
+    // `total` = the ResLab bookings in `bookings[]`; direct rows are counted in
+    // `direct.count`, test/staging rows in the two exclusion counts.
+    counts: { ...counts, testExcluded, stagingExcluded, total: real.length - stagingIdx.size },
+    // The reservation numbers behind `counts.stagingExcluded` (recorded
+    // livemode=false rows first, then inferred ones), so a misclassified
     // exclusion is auditable instead of a bare count with no per-row trace.
-    stagingExcludedReservations: [...stagingResNums],
+    stagingExcludedReservations: [...modeExcludedResNums, ...stagingResNums],
+    direct,
     pgWholesaleMissingReservations: pgWholesaleMissingResNums,
     grossRevenue,
     grossCustomerSpend,

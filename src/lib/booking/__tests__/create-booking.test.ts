@@ -70,7 +70,9 @@ vi.mock("@/lib/reslab/client", async () => {
 });
 
 vi.mock("@/lib/resend/send-booking-confirmation", () => ({
-  sendBookingConfirmation: vi.fn(async () => undefined),
+  // The real sender resolves { success, emailId } and never throws on a Resend
+  // error; fulfilment only counts an accepted send as sent.
+  sendBookingConfirmation: vi.fn(async () => ({ success: true, emailId: "em_1" })),
 }));
 vi.mock("@/lib/resend/send-admin-booking-notification", () => ({
   sendAdminBookingNotification: vi.fn(async () => undefined),
@@ -802,6 +804,33 @@ describe("emails", () => {
 
     expect(out.kind).toBe("created");
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("records the email as sent only when Resend accepted it (the sender reports failure by RETURNING, not throwing)", async () => {
+    const { sendBookingConfirmation } = await import(
+      "@/lib/resend/send-booking-confirmation"
+    );
+    vi.mocked(sendBookingConfirmation).mockResolvedValueOnce({ success: false, error: new Error("resend 500") });
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.pending_bookings[0].email_sent).toBe(false);
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("confirmation email did not send") }),
+      expect.anything()
+    );
+  });
+
+  it("an accepted send is recorded", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.pending_bookings[0].email_sent).toBe(true);
   });
 });
 
@@ -1586,3 +1615,54 @@ describe("inventory source guard (direct lots, A-29/A-31)", () => {
     expect(out.kind).toBe("created");
   });
 });
+
+describe("confirmation-email money invariant (promo bookings)", () => {
+  // The customer email states "Total" and "Due at the lot"; the difference is
+  // what the card was charged. A promo discount comes off the ONLINE charge, so
+  // the email total must subtract it — or a promo customer is told they paid
+  // more than Stripe took. The admin notification states the same total.
+  for (const amount of [6600, 6601]) {
+    it(`totalAmount − dueAtLocation === pi.amount/100 to the cent, and the admin email gets the same total (pi.amount ${amount})`, async () => {
+      const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+      db.seed("pending_bookings", [pendingRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(
+        paymentIntent({ amount, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+      );
+
+      const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+      expect(out.kind).toBe("created");
+      expect(db.tables.bookings[0].discount_amount).toBeGreaterThan(0);
+      expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+      const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+      expect(customer.dueAtLocation).toBe(20);
+      // NaN (never 0) if the due amount went missing, so the equality fails loudly.
+      expect(Math.round((customer.totalAmount - (customer.dueAtLocation ?? Number.NaN)) * 100)).toBe(amount);
+      expect(sendAdminBookingNotification).toHaveBeenCalledTimes(1);
+      const admin = vi.mocked(sendAdminBookingNotification).mock.calls[0][0];
+      expect(admin.totalAmount).toBe(customer.totalAmount);
+      expect(admin.dueAtLocation).toBe(customer.dueAtLocation);
+    });
+  }
+});
+
+describe("admin notification failure", () => {
+  // The sender reports its own Resend failure (send-admin-booking-notification.ts),
+  // so fulfilment adds nothing — but a refused admin email must never fail the
+  // booking or become a money event.
+  it("a { success: false } return neither fails the booking nor raises a payment error", async () => {
+    const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+    vi.mocked(sendAdminBookingNotification).mockResolvedValueOnce({ success: false, error: new Error("resend 429") });
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(capturePaymentError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("Admin notification") }),
+      expect.anything()
+    );
+  });
+});
+

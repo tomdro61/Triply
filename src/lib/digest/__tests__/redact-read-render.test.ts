@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { redactForDigest } from "../redact";
 import { allowedTokens, firstUnexplainedNumber, modelInput } from "../read";
 import { renderEmbed, verdictFor, flagsFor, DISCORD_TOTAL_LIMIT } from "../render";
-import type { DigestData, BookingsSection, FunnelSection } from "../types";
+import type { DigestData, BookingsSection, FunnelSection, HealthSection } from "../types";
 
 describe("redactForDigest", () => {
   it("strips emails, phones, Stripe ids and plate-shaped tokens; keeps ResLab numbers and field names", () => {
@@ -19,7 +19,30 @@ describe("redactForDigest", () => {
   it("is a no-op on empty input", () => {
     expect(redactForDigest(null)).toBe("");
   });
+  it("keeps a Triply direct-lot number (TRP-XXXXXXXX) whole, alongside RTL numbers, while still masking plates, emails and phones", () => {
+    const s = "capture failed for TRP-7K2M9QXA (lot notice pending), RTL854206, plate ABC1234, ada@example.com, 615-391-2669";
+    const r = redactForDigest(s);
+    expect(r).toContain("TRP-7K2M9QXA");
+    expect(r).not.toContain("TRP-[plate]");
+    expect(r).toContain("RTL854206");
+    expect(r).toContain("plate [plate]");
+    expect(r).not.toMatch(/ABC1234|example\.com|391-2669/);
+    expect(r).toContain("[email]");
+    expect(r).toContain("[phone]");
+  });
+  it("an all-digit TRP tail is kept too (the phone pass needs 10 digits)", () => {
+    expect(redactForDigest("TRP-23456789 ok")).toBe("TRP-23456789 ok");
+  });
+  it("does NOT exempt a plate merely because it follows 'TRP-': the whole token must be a valid Triply number", () => {
+    // I/L/O/U are not Crockford; 7 chars is too short; a prefix glued to TRP- is not the number
+    expect(redactForDigest("TRP-ABC1234L")).toBe("TRP-[plate]");
+    expect(redactForDigest("TRP-ABC1234")).toBe("TRP-[plate]");
+    expect(redactForDigest("XTRP-7K2M9QXA")).toBe("XTRP-[plate]");
+    expect(redactForDigest("trp-7K2M9QXA")).toBe("trp-[plate]");
+  });
 });
+
+const NO_UNSENT: HealthSection["emailNotSent"] = { kind: "n", n: 0, capped: false, numbers: [], lookbackDays: 7 };
 
 function bookings(over: Partial<BookingsSection> = {}): BookingsSection {
   return {
@@ -52,7 +75,7 @@ function data(over: Partial<DigestData> = {}): DigestData {
     funnel: { ok: true, data: funnel() },
     lostSales: { ok: true, data: { byStatus: { completed: 6 }, rows: [] } },
     engagement: { ok: true, data: { newsletterBySource: { blog: 2 }, waitlistByAirport: {}, chatSessions: 3, welcomeCodesMinted: 2 } },
-    health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "days", n: 1 } } },
+    health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "days", n: 1 } } },
     ...over,
   };
 }
@@ -129,8 +152,8 @@ describe("render — verdicts, flags, limits", () => {
     expect(embed.title).toBe("📊 Triply daily — Sun Sept 27");
     expect(embed.fields[0].value).toMatch(/^\*\*6\*\*\n7-day avg 5\.2 · 28-day 3\.1$/);
     expect(embed.fields.find((f) => f.name === "Health")!.value).not.toMatch(/⚠️/); // snapshot "off" is neutral: no tick, no siren
-    const healthy = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "row", ageHours: 2.1, behind: false, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "days", n: 1 } } } });
-    expect(renderEmbed(healthy, null).embed.fields.find((f) => f.name === "Health")!.value).toBe("✅ telemetry ok (500 rows/24h) · snapshot 2.1 h, 391 lots · stuck pending 0");
+    const healthy = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "row", ageHours: 2.1, behind: false, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "days", n: 1 } } } });
+    expect(renderEmbed(healthy, null).embed.fields.find((f) => f.name === "Health")!.value).toBe("✅ telemetry ok (500 rows/24h) · snapshot 2.1 h, 391 lots · stuck pending 0 · emails unsent 0");
     expect(embed.footer.text).toContain("Sept 27, 2026");
   });
 
@@ -161,7 +184,7 @@ describe("render — verdicts, flags, limits", () => {
     const d = data({
       bookings: { ok: true, data: bookings({ count: { value: 1, avg7: 5, avg28: 4, since: "2026-02-19" } }) },
       lostSales: { ok: true, data: { byStatus: { released_failed: 2 }, rows: [] } },
-      health: { ok: true, data: { telemetry: { kind: "silent_7d" }, snapshot: { kind: "row", ageHours: 30, behind: true, stale: true, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "none" } } },
+      health: { ok: true, data: { telemetry: { kind: "silent_7d" }, snapshot: { kind: "row", ageHours: 30, behind: true, stale: true, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "none" } } },
     });
     const texts = flagsFor(d).map((f) => f.text);
     expect(texts.some((t) => /half the 7-day avg/.test(t))).toBe(true);
@@ -169,7 +192,7 @@ describe("render — verdicts, flags, limits", () => {
     expect(texts.some((t) => /silent/.test(t))).toBe(true);
     expect(texts.some((t) => /stale/.test(t))).toBe(true);
     // a snapshot merely "behind" is a flag too (search already lost its long CDN TTL), not just a ⚠️ in a droppable line
-    const behind = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "row", ageHours: 12, behind: true, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "days", n: 1 } } } });
+    const behind = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "row", ageHours: 12, behind: true, stale: false, locationCount: 391 }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "days", n: 1 } } } });
     expect(flagsFor(behind).some((f) => /snapshot behind \(12 h\)/.test(f.text))).toBe(true);
     // uncovered baseline ⇒ the bookings flag is suppressed
     const d2 = data({ bookings: { ok: true, data: bookings({ count: { value: 0, avg7: null, avg28: null, since: "2026-02-19" } }) } });
@@ -205,7 +228,7 @@ describe("render — verdicts, flags, limits", () => {
 
   it("a stale telemetry writer, an unreadable run log and a failed baseline are flags with the numbers still shown", () => {
     const d = data();
-    d.health = { ok: true, data: { telemetry: { kind: "stale", lastRowAt: "2026-09-25T03:58:00Z", rows24h: 0 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "error", message: "PGRST205 no table" } } };
+    d.health = { ok: true, data: { telemetry: { kind: "stale", lastRowAt: "2026-09-25T03:58:00Z", rows24h: 0 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "error", message: "PGRST205 no table" } } };
     d.bookings = { ok: true, data: bookings({ count: { value: 6, avg7: null, avg28: null, since: "2026-02-19", baselineError: "statement timeout" } }) };
     const { embed, flags } = renderEmbed(d, null);
     const texts = flags.map((f) => f.text).join("\n");
@@ -225,7 +248,7 @@ describe("render — verdicts, flags, limits", () => {
     const { embed, flags } = renderEmbed(d, null);
     expect(flags.map((f) => f.text).join("\n")).toMatch(/1 booking\(s\) with a NULL money column/);
     expect(embed.color).toBe(0xdc2626);
-    const h = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "off" }, stuckPending: { kind: "error", message: "42501 permission denied" }, lastDigest: { kind: "none" } } } });
+    const h = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "off" }, stuckPending: { kind: "error", message: "42501 permission denied" }, emailNotSent: NO_UNSENT, lastDigest: { kind: "none" } } } });
     const r2 = renderEmbed(h, null);
     expect(r2.flags.map((f) => f.text).join("\n")).toMatch(/stuck-pending check unavailable/);
     expect(r2.embed.fields.find((f) => f.name === "Health")!.value).toMatch(/stuck pending UNKNOWN \(42501/);
@@ -250,14 +273,36 @@ describe("render — verdicts, flags, limits", () => {
     const { embed } = renderEmbed(data({ funnel: { ok: false, error: "PGRST205 relation search_events does not exist" } }), null);
     expect(embed.fields.find((f) => f.name === "Searches (server-side)")!.value).toMatch(/^\*\*n\/a\*\*\nPGRST205 relation search_events/);
     expect(embed.fields.find((f) => f.name === "No lot shown")!.value).toMatch(/^\*\*n\/a\*\*\nPGRST205/);
-    const neutral = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "none" } } } });
+    const neutral = data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 5 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "none" } } } });
     const line = renderEmbed(neutral, null).embed.fields.find((f) => f.name === "Health")!.value;
     expect(line).not.toMatch(/^✅/);
     expect(line).not.toMatch(/⚠️/);
-    expect(line).toMatch(/snapshot off · stuck pending 0 · no earlier digest on record/);
+    expect(line).toMatch(/snapshot off · stuck pending 0 · emails unsent 0 · no earlier digest on record/);
     const lost = renderEmbed(data({ lostSales: { ok: true, data: { byStatus: { released_failed: 2 }, rows: [{ airport: "BNA", lot: "Lot", status: "released_failed", reason: "[email]" }] } } }), null).embed;
     expect(lost.fields.find((f) => f.name === "Lost sales")!.value).toMatch(/hold released \(ResLab rejected\) 2/);
     expect(lost.fields.find((f) => f.name === "Lost sales")!.value).not.toMatch(/Released failed/);
+  });
+
+  it("completed bookings with no confirmation email are a RED flag listing the numbers (both sources); a failed check is never 'none'", () => {
+    const numbers = ["RTL854206", "TRP-7K2M9QXA", ...Array.from({ length: 10 }, (_, i) => `RTL8600${String(i).padStart(2, "0")}`)];
+    const h = (emailNotSent: HealthSection["emailNotSent"]) =>
+      data({ health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent, lastDigest: { kind: "days", n: 1 } } } });
+    const r = renderEmbed(h({ kind: "n", n: 12, capped: false, numbers, lookbackDays: 7 }), null);
+    const text = r.flags.map((f) => f.text).join("\n");
+    expect(text).toMatch(/12 completed booking\(s\) in the last 7 days with no confirmation email sent: RTL854206, TRP-7K2M9QXA, /);
+    expect(text).toMatch(/… \+2 more/); // 10 numbers printed, the count stays exact
+    expect(r.embed.color).toBe(0xdc2626);
+    expect(r.embed.description).toContain("TRP-7K2M9QXA"); // not redacted to TRP-[plate] on the way out
+    expect(r.embed.fields.find((f) => f.name === "Health")!.value).toMatch(/⚠️ emails unsent 12/);
+    const capped = renderEmbed(h({ kind: "n", n: 50, capped: true, numbers: numbers.slice(0, 2), lookbackDays: 7 }), null);
+    expect(capped.flags.map((f) => f.text).join("\n")).toMatch(/^50\+ completed booking/m);
+    const err = renderEmbed(h({ kind: "error", message: "57014 statement timeout" }), null);
+    expect(err.flags.map((f) => f.text).join("\n")).toMatch(/confirmation-email check unavailable/);
+    expect(err.embed.fields.find((f) => f.name === "Health")!.value).toMatch(/emails unsent UNKNOWN \(57014/);
+    const none = renderEmbed(h(NO_UNSENT), null);
+    expect(none.flags.map((f) => f.text).join("\n")).not.toMatch(/confirmation email/);
+    // the model never sees reservation numbers (health is not in the allow-list)
+    expect(JSON.stringify(modelInput(h({ kind: "n", n: 1, capped: false, numbers: ["TRP-7K2M9QXA"], lookbackDays: 7 })))).not.toContain("TRP-");
   });
 
   it("a could-not-run embed keeps the route's extra flags (e.g. the possible-duplicate warning)", () => {
@@ -269,7 +314,7 @@ describe("render — verdicts, flags, limits", () => {
   it("zero origin searches is flagged even before the 7-day baseline exists", () => {
     const d = data();
     d.funnel = { ok: true, data: funnel({ originSearches: { value: 0, avg7: null, avg28: null, since: "2026-09-24" } }) };
-    d.health = { ok: true, data: { telemetry: { kind: "silent_7d" }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, lastDigest: { kind: "none" } } };
+    d.health = { ok: true, data: { telemetry: { kind: "silent_7d" }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "none" } } };
     const { flags } = renderEmbed(d, null);
     expect(flags.map((f) => f.text).join("\n")).toMatch(/zero origin searches AND the search telemetry writer is silent or stale/);
   });
