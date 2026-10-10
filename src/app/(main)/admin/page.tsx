@@ -209,6 +209,8 @@ export default function AdminDashboard() {
   // Set when /api/admin/stats fails: the cards must not show zeros as if real.
   const [statsError, setStatsError] = useState<string | null>(null);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  // A failed load must not read as "No bookings yet".
+  const [recentBookingsError, setRecentBookingsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
@@ -264,10 +266,14 @@ export default function AdminDashboard() {
               if (!bookingsRes.ok) throw new Error(`HTTP ${bookingsRes.status}`);
               const bookingsData: { bookings?: Booking[] } = await bookingsRes.json();
               setRecentBookings(bookingsData.bookings || []);
+              setRecentBookingsError(null);
             })
             .catch((error) => {
               console.error("Failed to fetch recent bookings:", error);
               setRecentBookings([]);
+              setRecentBookingsError(
+                `Recent bookings failed to load (${error instanceof Error ? error.message : "network error"}).`
+              );
             }),
         ]);
 
@@ -678,7 +684,11 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        {recentBookings.length === 0 ? (
+        {recentBookingsError ? (
+          <div className="p-8 text-center text-red-700">
+            {recentBookingsError} Refresh to try again.
+          </div>
+        ) : recentBookings.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No bookings yet
           </div>

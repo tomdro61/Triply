@@ -27,6 +27,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { createBooking } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const livemode = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_");
+  const livemode = stripeKeyIsLive();
 
   try {
     const supabase = await createAdminClient();
@@ -162,13 +163,18 @@ export async function GET(request: NextRequest) {
           new Error(
             `Opposite-mode pending booking ${r.stripe_payment_intent_id} has reservation ${r.reslab_reservation_number} recorded but is still ${r.status} after > 1 h. NOT expired by the sweep (this deployment holds the wrong-mode Stripe key and cannot read the authorization). Check it against the ${otherEnv} Stripe account by hand (capture or cancel the authorization, then settle the row). Reported once; the row's last_error is stamped "${HELD_REPORTED_MARKER}".`
           ),
-          { stripePaymentIntentId: r.stripe_payment_intent_id }
+          // One issue per PaymentIntent: grouped by stack trace, a second held
+          // row would join the first one's issue and email nobody — and the
+          // stamp below then stops it being reported again.
+          { stripePaymentIntentId: r.stripe_payment_intent_id, fingerprint: ["sweep-cross-mode-held", r.stripe_payment_intent_id] }
         );
         // Compare-and-set: only while the row is exactly as read (same status,
         // same last_error). If the other environment moved it on in between,
         // this matches nothing and the row is simply re-evaluated next tick.
-        // (The updated_at trigger bumps the row; only the opposite mode's own
-        // sweep keys on updated_at, and that never runs from here.)
+        // The updated_at trigger bumps the row. Crons run on Production only, so
+        // in practice this stamps STAGING rows; a manual run on staging would
+        // stamp live rows and delay production's own stuck-row scan (keyed on
+        // updated_at) by one stale window — harmless, but don't do it.
         const prior = r.last_error as string | null;
         const stamp = `${HELD_REPORTED_MARKER} ${new Date().toISOString()}${prior ? ` | prior: ${prior}` : ""}`;
         let mark = supabase

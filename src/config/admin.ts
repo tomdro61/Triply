@@ -35,8 +35,10 @@ export function isAtTestLot(reslabLocationId: number | null | undefined): boolea
  * booking. Email is never consulted (see isAtTestLot).
  */
 export function isTestBooking(row: {
-  // Exactly the column types: a caller that forgot to SELECT a column must fail
-  // to compile, not read `undefined` as "not a test lot" / "live".
+  // Exactly the column types, so a TYPED caller that drops a column fails to
+  // compile. The Supabase clients are untyped, so a select string that omits
+  // `livemode` still reads `undefined` here (treated as live) — every caller
+  // must select both columns.
   reslab_location_id: number | null;
   livemode: boolean | null;
 }): boolean {

@@ -16,6 +16,7 @@ import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
 export interface OrphanCharge {
   paymentIntentId: string;
@@ -336,7 +337,7 @@ export async function detectPaymentAnomalies(windowDays = 14): Promise<AnomalyRe
     // the route's zero-scan escalation exists to catch, so that guard
     // (`stripeLivemode && scannedPaymentIntents === 0`) could never fire. A
     // rotated or broken Stripe key reported a clean run.
-    stripeLivemode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_"),
+    stripeLivemode: stripeKeyIsLive(),
     scannedPaymentIntents: pis.length,
     succeededRetained: retained.length,
     orphans: orphans.sort((a, b) => a.createdISO.localeCompare(b.createdISO)),
