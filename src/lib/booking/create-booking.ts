@@ -54,6 +54,7 @@ import {
   buildReservationResponse,
   type BookingPayload,
   type ChargedProtection,
+  type ReservationResponse,
 } from "./fulfill";
 
 // =============================================================================
@@ -87,7 +88,7 @@ export type CreateBookingResult =
   | {
       kind: "created";
       reservationNumber: string;
-      reservation: ReturnType<typeof buildReservationResponse>;
+      reservation: ReservationResponse;
     }
   /** A booking already exists for this PaymentIntent. No side effects, no email. */
   | { kind: "already_exists"; reservationNumber: string }

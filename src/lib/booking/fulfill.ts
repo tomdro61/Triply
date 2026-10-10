@@ -844,6 +844,37 @@ export async function sendBookingEmails(
 }
 
 /**
+ * The `reservation` object POST /api/reservations returns for a created
+ * booking. Spelled out (not `ReturnType<…>`) so a change to the builder can't
+ * silently change the API's type.
+ */
+export interface ReservationResponse {
+  id: number | string;
+  reservationNumber: string;
+  status: string;
+  grandTotal: number;
+  serviceFee: number;
+  protectionPlan: string | null;
+  protectionPlanPrice: number;
+  pgIdentifier: string | null;
+  dueNow: number;
+  dueAtLocation: number;
+  customer: { firstName: string; lastName: string; email: string; phone: string };
+  items: { type: string; fromDate: string; toDate: string; numberOfDays: null; numberOfSpots: number }[];
+  location: {
+    id: number;
+    name: string;
+    address: string;
+    city: string;
+    state: string | undefined;
+    zipCode: string;
+    phone: string;
+    shuttleDetails: string | undefined;
+    specialConditions: string | undefined;
+  } | null;
+}
+
+/**
  * Shape the API response for a successfully created booking.
  */
 export function buildReservationResponse(
@@ -851,7 +882,7 @@ export function buildReservationResponse(
   reservation: ReslabReservation,
   pgIdentifier: string | null,
   charged: ChargedProtection | null
-) {
+): ReservationResponse {
   const resHistory = reservation.history?.[0];
   const resLocation = resHistory?.location;
   const protectionPremium = charged?.premium ?? 0;
