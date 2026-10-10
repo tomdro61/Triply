@@ -112,6 +112,40 @@ function parseOr(expr: string): (row: Row) => boolean {
   return (row) => terms.some((f) => f(row));
 }
 
+/**
+ * CHECK constraints the direct-lots engine must respect (migrations 034, 036,
+ * 038), evaluated on INSERT only, against the row WITH its column defaults
+ * applied (the stored row is left as the caller wrote it, so recorded snapshots
+ * don't change). Not modelled on UPDATE: fixtures write partial rows directly.
+ * Returns the violated constraint's name, or null.
+ */
+function violatedCheck(table: string, row: Row): string | null {
+  const v = { inventory_source: "reslab", ...row } as Row;
+  const isNull = (x: unknown) => x === null || x === undefined;
+  if (table === "bookings") {
+    const reslabOk = v.inventory_source === "reslab" && !isNull(v.reslab_location_id) && isNull(v.direct_lot_id);
+    const directOk = v.inventory_source === "direct" && !isNull(v.direct_lot_id) && isNull(v.reslab_location_id);
+    if (!reslabOk && !directOk) return "bookings_inventory_source_ids_check";
+    if (v.inventory_source === "direct") {
+      const snap = v.lot_snapshot as Row | null | undefined;
+      if (isNull(v.livemode) || isNull(snap) || (snap && "notificationEmails" in snap)) {
+        return "bookings_direct_fields_check_v2";
+      }
+    }
+    const vehicleCols = ["vehicle_size", "vehicle_size_label", "vehicle_surcharge_cents", "vehicle_surcharge_tax_cents", "vehicle_size_source"];
+    if (v.inventory_source === "reslab" && vehicleCols.some((c) => !isNull(v[c]))) return "bookings_vehicle_size_check";
+    if (v.inventory_source === "direct" && vehicleCols.some((c) => isNull(v[c]))) return "bookings_vehicle_size_check";
+  }
+  if (table === "pending_bookings") {
+    const reslabOk = v.inventory_source === "reslab" && !isNull(v.location_id) && !isNull(v.parking_type_id) && isNull(v.direct_lot_id);
+    const directOk =
+      v.inventory_source === "direct" && !isNull(v.direct_lot_id) && !isNull(v.lot_snapshot) &&
+      isNull(v.location_id) && isNull(v.parking_type_id);
+    if (!reslabOk && !directOk) return "pending_bookings_inventory_source_ids_check";
+  }
+  return null;
+}
+
 export class FakeSupabase {
   tables: Record<string, Row[]> = {
     pending_bookings: [],
@@ -497,6 +531,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
             (r) =>
               r.stripe_payment_intent_id === row.stripe_payment_intent_id
           )) ||
+        // 001: bookings.reslab_reservation_number UNIQUE; 034: the partial
+        // UNIQUE on pending_bookings.reslab_reservation_number (non-null).
+        ((this.table === "bookings" || this.table === "pending_bookings") &&
+          row.reslab_reservation_number != null &&
+          rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) ||
         // Migration 031: UNIQUE (stripe_payment_intent_id) — the recovery
         // cron's claim-before-send lock — and the opt-out table's PK.
         (this.table === "checkout_recovery_emails" &&
@@ -512,6 +551,13 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           error: { message: "duplicate key value", code: "23505" },
         };
       }
+      const check = violatedCheck(this.table, row);
+      if (check) {
+        return {
+          data: null,
+          error: { message: `new row violates check constraint "${check}"`, code: "23514" },
+        };
+      }
       if (!row.id) row.id = `row_${rows.length + 1}`;
       if (!row.created_at) row.created_at = new Date().toISOString();
       row.updated_at = new Date().toISOString();
@@ -523,6 +569,18 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     const hit = rows.filter((r) => this.matches(r));
 
     if (this.op === "update") {
+      // 034's partial UNIQUE fires on UPDATE too — that is where a confirmation
+      // number collision surfaces (recordReslabNumber). Validate before
+      // mutating so the statement stays atomic, as Postgres does.
+      const newNumber = this.payload?.reslab_reservation_number;
+      if (this.table === "pending_bookings" && newNumber != null) {
+        const clash =
+          hit.length > 1 ||
+          rows.some((r) => !hit.includes(r) && r.reslab_reservation_number === newNumber);
+        if (clash) {
+          return { data: null, error: { message: "duplicate key value violates unique constraint \"pending_bookings_reservation_number_uq\"", code: "23505" } };
+        }
+      }
       for (const r of hit) {
         Object.assign(r, this.payload);
         r.updated_at = new Date().toISOString();
