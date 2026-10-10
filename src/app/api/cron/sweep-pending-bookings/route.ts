@@ -83,14 +83,23 @@ export async function GET(request: NextRequest) {
     // accumulate forever in the shared Triply-prod DB (see the CMS-egress
     // history). Retire opposite-mode rows that have been stuck well past any real
     // checkout — WITHOUT calling Stripe (we hold the wrong-mode key and cannot
-    // retrieve those PaymentIntents). An hour-old pending/processing test row is
-    // unambiguously abandoned.
+    // retrieve those PaymentIntents). An hour-old pending/processing test row
+    // with NO reservation number is unambiguously abandoned.
+    //
+    // A row WITH a recorded reservation number (ResLab RTL… or a Triply direct
+    // TRP-…) is NOT abandoned: the number is written only after the payment was
+    // authorized, mid-fulfilment. Expiring it blind (no Stripe call is possible
+    // from here) would make it terminal under a live authorization and a real
+    // reservation — the other environment's webhook/sweep would then find it
+    // terminal and never capture or release. Those rows are left untouched and
+    // reported below for a human (plan 4b §9 M-G).
     const otherModeCutoff = new Date(Date.now() - CROSS_MODE_CLEANUP_MS).toISOString();
     const { data: otherMode, error: otherErr } = await supabase
       .from("pending_bookings")
       .update({ status: "expired", last_error: "swept: opposite-mode abandoned row cleanup" })
       .eq("livemode", !livemode)
       .in("status", ["pending", "processing"])
+      .is("reslab_reservation_number", null)
       .lt("created_at", otherModeCutoff)
       .select("stripe_payment_intent_id");
     if (otherErr) {
@@ -106,6 +115,38 @@ export async function GET(request: NextRequest) {
           .update({ released_at: new Date().toISOString() })
           .eq("stripe_payment_intent_id", r.stripe_payment_intent_id)
           .is("released_at", null);
+      }
+    }
+
+    // The opposite-mode rows the cleanup deliberately skipped: authorized, a
+    // reservation number recorded, still not finished an hour later. Report each
+    // one (one Sentry issue per row — the message is stable across ticks) and
+    // change nothing. Non-fatal to the primary sweep, like the cleanup.
+    let crossModeHeld = 0;
+    const { data: heldOther, error: heldErr } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id, status, reslab_reservation_number")
+      .eq("livemode", !livemode)
+      .in("status", ["pending", "processing"])
+      .not("reslab_reservation_number", "is", null)
+      .lt("created_at", otherModeCutoff)
+      .order("created_at", { ascending: true })
+      .limit(MAX_PER_RUN);
+    if (heldErr) {
+      capturePaymentError(
+        new Error(`pending_bookings opposite-mode held-row check failed: ${heldErr.message}`),
+        {}
+      );
+    } else {
+      const otherEnv = livemode ? "staging (Stripe TEST)" : "production (Stripe LIVE)";
+      for (const r of heldOther ?? []) {
+        crossModeHeld++;
+        capturePaymentError(
+          new Error(
+            `Opposite-mode pending booking ${r.stripe_payment_intent_id} has reservation ${r.reslab_reservation_number} recorded but is still ${r.status} after > 1 h. NOT expired by the sweep (this deployment holds the wrong-mode Stripe key and cannot read the authorization). Check it against the ${otherEnv} Stripe account by hand (capture or cancel the authorization, then settle the row).`
+          ),
+          { stripePaymentIntentId: r.stripe_payment_intent_id }
+        );
       }
     }
 
@@ -137,6 +178,8 @@ export async function GET(request: NextRequest) {
       failed: 0,
       /** Left for the next tick because the time budget ran out. */
       deferredToNextRun: 0,
+      /** Opposite-mode rows with a reservation number, left alone and reported (Sentry). */
+      crossModeHeld,
     };
 
     for (const row of stuck ?? []) {

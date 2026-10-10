@@ -110,6 +110,13 @@ export interface HealthSection {
     | { kind: "error"; message: string };
   /** Live pending_bookings stuck > 1 h; an error carries its message so it can be flagged, not just "unavailable". */
   stuckPending: { kind: "n"; n: number } | { kind: "error"; message: string };
+  /**
+   * Live checkouts `completed` in the lookback with `email_sent = false` — the
+   * customer may have no confirmation and nothing re-drives it. `numbers` are
+   * shape-checked RTL… / TRP-… reservation numbers; `capped` = more rows than
+   * the fetch cap (`n` is then a lower bound). An error is flagged, never 0.
+   */
+  emailNotSent: { kind: "n"; n: number; capped: boolean; numbers: string[]; lookbackDays: number } | { kind: "error"; message: string };
   /** "none" = no earlier posted digest; "error" = the run log could not be read (NOT the same as none). */
   lastDigest: { kind: "none" } | { kind: "days"; n: number } | { kind: "error"; message: string };
 }

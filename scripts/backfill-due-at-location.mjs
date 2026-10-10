@@ -67,6 +67,8 @@ async function main() {
     .from('bookings')
     .select('id, reslab_reservation_number, location_name, grand_total, triply_service_fee, due_at_location')
     .eq('due_at_location', 0)
+    // Direct-lot bookings (TRP- numbers) have no ResLab reservation to read.
+    .eq('inventory_source', 'reslab')
     .order('created_at', { ascending: true });
 
   if (error) throw error;
@@ -77,6 +79,13 @@ async function main() {
   let failed = 0;
 
   for (const row of rows) {
+    // Belt and braces with the inventory_source filter: never send a Triply
+    // direct-lot number to ResLab, and never write ResLab's answer onto it.
+    if (/^TRP-/i.test(String(row.reslab_reservation_number ?? '').trim())) {
+      console.log(`  ✗ ${row.reslab_reservation_number}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; skipped (see OPERATIONS_RUNBOOK direct-lots section)`);
+      failed++;
+      continue;
+    }
     const result = await fetchDueAtLocation(token, row.reslab_reservation_number);
     if (result.error) {
       console.log(`  ✗ ${row.reslab_reservation_number} (${row.location_name}): ${result.error}`);

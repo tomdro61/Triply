@@ -18,6 +18,7 @@
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot } from "@/config/admin";
+import { isReslabConfirmationNumber, isTriplyConfirmationNumber } from "@/lib/direct/confirmation-number";
 import { isLive, airportKey, byChannel, type ReportRow } from "@/lib/attribution/report";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { sameEmail } from "@/lib/booking/customer-link";
@@ -150,6 +151,8 @@ interface BookingRow extends ReportRow {
   location_timezone: string | null;
   reslab_location_id: number | null;
   stripe_payment_intent_id: string | null;
+  /** Stripe mode of the PaymentIntent, written by fulfilment (PR #73). NULL = a pre-015 row = live. */
+  livemode: boolean | null;
   customer_id: string | null;
   due_at_location: string | number | null;
   protection_plan_wholesale: string | number | null;
@@ -157,7 +160,7 @@ interface BookingRow extends ReportRow {
 }
 
 const BOOKING_COLUMNS =
-  "id, created_at, status, check_in, location_timezone, reslab_location_id, stripe_payment_intent_id, customer_id, airport_code, promo_code, discount_amount, grand_total, triply_service_fee, due_at_location, protection_plan, protection_plan_price, protection_plan_wholesale, channel, attribution, customers(email)";
+  "id, created_at, status, check_in, location_timezone, reslab_location_id, stripe_payment_intent_id, livemode, customer_id, airport_code, promo_code, discount_amount, grand_total, triply_service_fee, due_at_location, protection_plan, protection_plan_price, protection_plan_wholesale, channel, attribution, customers(email)";
 
 /** Calendar-day lead time from a wall-clock check-in string and a TIMESTAMPTZ created_at, in the lot's zone. */
 export function leadDays(checkIn: string | null, createdAtIso: string, tz: string | null): number | null {
@@ -182,41 +185,33 @@ function bookingsIn(sb: Client, startUtc: Date, endUtc: Date, cap: number, colum
   );
 }
 
-/** Map-join to pending_bookings.livemode — there is no FK, PostgREST cannot embed it. */
-async function livemodeFor(sb: Client, rows: Array<{ stripe_payment_intent_id: string | null }>): Promise<Map<string, boolean>> {
-  const ids = [...new Set(rows.map((r) => r.stripe_payment_intent_id).filter((x): x is string => Boolean(x)))];
-  const out = new Map<string, boolean>();
-  for (const batch of chunks(ids)) {
-    const { data, error } = await sb
-      .from("pending_bookings")
-      .select("stripe_payment_intent_id, livemode")
-      .in("stripe_payment_intent_id", batch)
-      .limit(batch.length)
-      .abortSignal(sig());
-    if (error) throw new Error(`pending_bookings: ${error.code ?? "?"} ${error.message}`);
-    for (const r of (data ?? []) as Array<{ stripe_payment_intent_id: string; livemode: boolean }>) out.set(r.stripe_payment_intent_id, r.livemode === true);
-  }
-  return out;
-}
-
 export interface PartitionedBookings {
   live: BookingRow[];
   staging: number;
   unmatched: number;
 }
 
-/** Split yesterday's rows into live / staging / unmatched, test lots removed. */
-export function partitionBookings(rows: BookingRow[], livemode: Map<string, boolean>): PartitionedBookings {
+/**
+ * Split yesterday's rows into live / staging / unmatched, test lots removed.
+ * Mode comes from `bookings.livemode` itself (written by fulfilment since PR #73,
+ * backfilled by migration 034; NULL only on pre-015 rows, which are live) — no
+ * join to pending_bookings, so a direct-lot row (NULL lot id, a TRP- number) is
+ * classified exactly like a ResLab one. A non-staging row with no PaymentIntent
+ * is "unmatched": flagged, never silently counted in or out.
+ */
+export function partitionBookings(rows: BookingRow[]): PartitionedBookings {
   const out: PartitionedBookings = { live: [], staging: 0, unmatched: 0 };
   for (const r of rows) {
     if (isAtTestLot(r.reslab_location_id)) continue;
-    const pi = r.stripe_payment_intent_id;
-    if (!pi || !livemode.has(pi)) {
+    if (r.livemode === false) {
+      out.staging++;
+      continue;
+    }
+    if (!r.stripe_payment_intent_id) {
       out.unmatched++;
       continue;
     }
-    if (livemode.get(pi)) out.live.push(r);
-    else out.staging++;
+    out.live.push(r);
   }
   return out;
 }
@@ -269,8 +264,8 @@ async function repeatByEmail(sb: Client, live: BookingRow[], startUtc: Date): Pr
 
 /**
  * The bookings baseline uses the SAME definition as the day's count (confirmed,
- * livemode via the pending_bookings join, test lots out): one 28-day fetch of
- * the four columns needed, then both windows are counted from it. A plain head
+ * bookings.livemode not false, test lots out): one 28-day fetch of the
+ * columns needed, then both windows are counted from it. A plain head
  * count would include staging soaks at real lots and compare unlike numbers.
  */
 async function liveConfirmedBaseline(sb: Client, w: DigestWindow): Promise<Pick<Baselined, "avg7" | "avg28" | "baselineError">> {
@@ -280,10 +275,9 @@ async function liveConfirmedBaseline(sb: Client, w: DigestWindow): Promise<Pick<
     async (s, e) => {
       if (counted === null) {
         const CAP = 3_000;
-        const { rows, capped } = await bookingsIn(sb, t28.startUtc, t28.endUtc, CAP, "id, created_at, status, reslab_location_id, stripe_payment_intent_id");
+        const { rows, capped } = await bookingsIn(sb, t28.startUtc, t28.endUtc, CAP, "id, created_at, status, reslab_location_id, stripe_payment_intent_id, livemode");
         if (capped) throw new Error("bookings(baseline): row cap hit");
-        const lm = await livemodeFor(sb, rows);
-        const live = partitionBookings(rows, lm).live.filter(isLive);
+        const live = partitionBookings(rows).live.filter(isLive);
         const parsed = live.map((r) => Date.parse(r.created_at));
         if (parsed.some((t) => !Number.isFinite(t))) throw new Error("bookings(baseline): unparseable created_at");
         counted = parsed;
@@ -300,8 +294,7 @@ export async function collectBookings(sb: Client, w: DigestWindow): Promise<Sect
   try {
     const { rows, capped } = await bookingsIn(sb, w.startUtc, w.endUtc, 500);
     if (capped) return fail(new Error("row cap hit"));
-    const lm = await livemodeFor(sb, rows);
-    const p = partitionBookings(rows, lm);
+    const p = partitionBookings(rows);
     const confirmed = p.live.filter(isLive);
     const refunded = p.live.filter((r) => r.status === "refunded").length;
     const disputed = p.live.filter((r) => r.status === "disputed").length;
@@ -524,6 +517,8 @@ export async function collectLostSales(sb: Client, w: DigestWindow): Promise<Sec
     // pending_bookings names the lot column `location_id` (migration 015), not
     // `reslab_location_id` as `bookings` does. A wrong column name is a 42703 that
     // fails the whole select — the collect test's fake rejects unknown columns.
+    // `location_id` is NULL on a direct-lot row (Triply-owned lot, no ResLab id):
+    // isAtTestLot(null) is false, so a direct checkout counts like any other.
     const { data, error } = await sb
       .from("pending_bookings")
       .select("status, last_error, airport_code, location_name, location_id")
@@ -636,6 +631,7 @@ export async function collectHealth(sb: Client, w: DigestWindow, now: Date): Pro
     } catch (err) {
       stuckPending = { kind: "error", message: err instanceof Error ? err.message : String(err) };
     }
+    const emailNotSent = await unsentConfirmationEmails(sb, now);
     // A posted_partial digest WAS posted; only could_not_run / post_failed are gaps.
     const last = await sb
       .from("digest_runs")
@@ -654,9 +650,54 @@ export async function collectHealth(sb: Client, w: DigestWindow, now: Date): Pro
       const [y1, m1, d1] = w.dateEt.split("-").map(Number);
       lastDigest = { kind: "days", n: Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y, m - 1, d)) / 86_400_000) };
     }
-    return ok({ telemetry, snapshot, stuckPending, lastDigest });
+    return ok({ telemetry, snapshot, stuckPending, emailNotSent, lastDigest });
   } catch (err) {
     return fail(err);
+  }
+}
+
+/** How far back (by checkout creation) the unsent-confirmation check looks. */
+export const EMAIL_UNSENT_LOOKBACK_DAYS = 7;
+/** Most reservation numbers fetched; beyond it the count is reported as "N+". */
+export const EMAIL_UNSENT_CAP = 50;
+
+/**
+ * Completed checkouts whose confirmation email was never recorded as sent
+ * (plan 4b §10 F-3): a `completed` row is never re-driven, so a Resend
+ * rejection is otherwise invisible. Live mode only, test lots out, both
+ * inventory sources (a direct row's `location_id` is NULL). A health check like
+ * stuck pendings: "as of now", over a short lookback — a manual re-send does not
+ * flip `email_sent`, so a row stays listed until it ages out or the flag is set
+ * by hand. Reservation numbers are business ids (RTL… / TRP-…), allow-listed by
+ * shape; anything else is never printed.
+ */
+async function unsentConfirmationEmails(sb: Client, now: Date): Promise<HealthSection["emailNotSent"]> {
+  try {
+    const since = new Date(now.getTime() - EMAIL_UNSENT_LOOKBACK_DAYS * 86_400_000).toISOString();
+    const { data, error } = await sb
+      .from("pending_bookings")
+      .select("reslab_reservation_number, location_id")
+      .eq("livemode", true)
+      .eq("status", "completed")
+      .eq("email_sent", false)
+      .gte("created_at", since)
+      .order("created_at")
+      .limit(EMAIL_UNSENT_CAP + 1)
+      .abortSignal(sig());
+    if (error) throw new Error(`pending_bookings(email_sent): ${error.code ?? "?"} ${error.message}`);
+    const rows = (data ?? []) as Array<{ reslab_reservation_number: string | null; location_id: number | null }>;
+    const capped = rows.length > EMAIL_UNSENT_CAP;
+    const numbers = rows
+      .slice(0, EMAIL_UNSENT_CAP)
+      .filter((r) => !isAtTestLot(r.location_id))
+      .map((r) => {
+        const n = r.reslab_reservation_number;
+        if (!n) return "(no number)";
+        return isReslabConfirmationNumber(n) || isTriplyConfirmationNumber(n) ? n : "(unrecognised number)";
+      });
+    return { kind: "n", n: numbers.length, capped, numbers, lookbackDays: EMAIL_UNSENT_LOOKBACK_DAYS };
+  } catch (err) {
+    return { kind: "error", message: err instanceof Error ? err.message : String(err) };
   }
 }
 

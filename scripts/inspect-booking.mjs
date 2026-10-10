@@ -16,6 +16,11 @@ if (!resNum) {
   console.error('Usage: node scripts/inspect-booking.mjs <RES_NUMBER>');
   process.exit(1);
 }
+// Supabase-only (no ResLab call), so a direct-lot booking is read like any other.
+// Say so, because the ResLab-side scripts refuse these numbers.
+if (/^TRP-/i.test(resNum.trim())) {
+  console.error(`Note: ${resNum} is a Triply direct-lot booking — no ResLab reservation exists (the ResLab scripts refuse it); see OPERATIONS_RUNBOOK direct-lots section.`);
+}
 
 const { data, error } = await supabase
   .from('bookings')

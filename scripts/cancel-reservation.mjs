@@ -34,6 +34,10 @@ if (!resNum) {
   console.error('Usage: node scripts/cancel-reservation.mjs <RES_NUM> --apply [--status refunded|cancelled]');
   process.exit(1);
 }
+if (/^TRP-/i.test(resNum.trim())) {
+  console.error(`Refusing ${resNum}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.`);
+  process.exit(2);
+}
 
 async function authenticate() {
   const res = await fetch(`${API_URL}/authenticate`, {

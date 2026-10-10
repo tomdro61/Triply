@@ -60,6 +60,12 @@ async function main() {
     );
     process.exit(1);
   }
+  // The template is the ResLab-branded confirmation (ResLab QR/branding); a
+  // direct-lot booking must not receive it.
+  if (/^TRP-/i.test(resNum.trim())) {
+    console.error(`Refusing ${resNum}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.`);
+    process.exit(2);
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

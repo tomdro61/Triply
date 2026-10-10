@@ -107,6 +107,10 @@ async function main() {
     console.error('       Dates in "YYYY-MM-DD HH:MM:SS" format (24h)');
     process.exit(1);
   }
+  if (/^TRP-/i.test(resNum.trim())) {
+    console.error(`Refusing ${resNum}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.`);
+    process.exit(2);
+  }
 
   console.log(`\nReservation: ${resNum}`);
   console.log(`New dates:   ${newFrom}  →  ${newTo}\n`);

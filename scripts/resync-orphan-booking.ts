@@ -48,6 +48,9 @@ function parseArgs(argv: string[]): { bookingId?: string; addr: AddressOverrides
   return { bookingId, addr };
 }
 
+const DIRECT_REFUSAL =
+  "TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.";
+
 const { bookingId, addr: cliAddr } = parseArgs(process.argv);
 if (!bookingId) {
   console.error(
@@ -55,6 +58,10 @@ if (!bookingId) {
       "[--street S] [--city C] [--state ST] [--zip Z]"
   );
   process.exit(1);
+}
+if (/^TRP-/i.test(bookingId.trim())) {
+  console.error(`Refusing ${bookingId}: ${DIRECT_REFUSAL}`);
+  process.exit(2);
 }
 
 const supabase = createClient(
@@ -99,6 +106,13 @@ async function main() {
 
   if (fetchErr || !booking) {
     throw new Error(`Booking not found: ${fetchErr?.message ?? "no row"}`);
+  }
+  // The address lookup keys on the ResLab lot id and the payload is ResLab-shaped;
+  // a direct-lot booking has neither.
+  if (/^TRP-/i.test(String(booking.reslab_reservation_number ?? "").trim())) {
+    throw new Error(
+      `${booking.reslab_reservation_number}: ${DIRECT_REFUSAL}`
+    );
   }
   if (booking.pg_identifier) {
     throw new Error(
