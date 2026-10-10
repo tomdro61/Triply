@@ -205,6 +205,8 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
+  // Set when /api/admin/stats fails: the cards must not show zeros as if real.
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("all");
@@ -259,7 +261,13 @@ export default function AdminDashboard() {
         const statsData = await statsRes.json();
         const bookingsData = await bookingsRes.json();
 
-        setStats(statsData);
+        if (statsRes.ok) {
+          setStats(statsData);
+          setStatsError(null);
+        } else {
+          setStats(null);
+          setStatsError(statsData?.error || `Stats failed to load (HTTP ${statsRes.status})`);
+        }
         setRecentBookings(bookingsData.bookings || []);
       } catch (error) {
         console.error("Failed to fetch admin data:", error);
@@ -351,6 +359,12 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {statsError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {statsError} The figures below are unavailable, not zero.
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

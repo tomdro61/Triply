@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_MAX_AGE_MS, SNAPSHOT_WARN_MS } from "@/lib/reslab/location-snapshot";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isAdminEmail, TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
+import { isAdminEmail, excludeTestBookings } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import {
@@ -32,18 +32,13 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createAdminClient();
 
-    // Test-booking exclusion (aligned with /api/admin/accounting and
-    // src/config/admin.ts:isTestBooking semantics, 2026-06-01):
-    // A booking is "test" iff it's against a TEST ResLab lot id (194/195/
-    // 196/197). Admin-email bookings at REAL airport lots are NOT excluded
-    // — that conflation previously hid legitimate revenue.
-    // Empty TEST_RESLAB_LOCATION_IDS → no filter applied.
-    const testLotIds = [...TEST_RESLAB_LOCATION_IDS];
-    const notTestLotFilter =
-      testLotIds.length > 0 ? `(${testLotIds.join(",")})` : null;
+    // Test-booking exclusion (src/config/admin.ts isTestBooking): a test ResLab
+    // lot (194-197) OR a Stripe TEST-mode payment (staging shares this DB).
+    // Null-safe on both columns, so direct-lot rows (no ResLab lot id) and
+    // pre-015 rows (no livemode) count. Admin-email bookings at REAL lots are
+    // NOT excluded — that conflation previously hid legitimate revenue.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const excludeAdmins = (query: any) =>
-      notTestLotFilter ? query.not("reslab_location_id", "in", notTestLotFilter) : query;
+    const excludeAdmins = (query: any) => excludeTestBookings(query);
 
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");
@@ -141,6 +136,27 @@ export async function GET(request: NextRequest) {
         supabase.from("bookings").select("*", { count: "exact", head: true }).in("status", ["cancelled", "refunded"])
       )),
     ]);
+
+    // A failed query resolves with { error } and null data/count. Reading only
+    // .data rendered a dashboard of zeros that looked like a real (bad) day.
+    const queryResults: Record<string, { error: { message: string } | null }> = {
+      totalResult, todayResult, weekResult, monthResult, revenueResult,
+      todayRevenueResult, weekRevenueResult, monthRevenueResult, confirmedResult, cancelledResult,
+    };
+    const failedQueries = Object.entries(queryResults).filter(([, r]) => r.error);
+    if (failedQueries.length > 0) {
+      captureAPIError(
+        new Error(
+          `Admin stats: ${failedQueries.length} of ${Object.keys(queryResults).length} queries failed — ` +
+            failedQueries.map(([name, r]) => `${name}: ${r.error?.message}`).join("; ")
+        ),
+        { endpoint: "/api/admin/stats", method: "GET" }
+      );
+      return NextResponse.json(
+        { error: "Could not load booking stats — a database query failed. Try again." },
+        { status: 503 }
+      );
+    }
 
     type RevenueRow = {
       grand_total: string;

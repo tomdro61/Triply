@@ -27,3 +27,33 @@ export function isAdminEmail(email: string | undefined | null): boolean {
 export function isAtTestLot(reslabLocationId: number | null | undefined): boolean {
   return reslabLocationId != null && TEST_RESLAB_LOCATION_IDS.has(reslabLocationId);
 }
+
+/**
+ * True iff a bookings row is NOT real revenue: a booking at a test ResLab lot,
+ * or one paid in Stripe TEST mode (`livemode === false` — staging shares this
+ * database). `livemode` NULL means live: every pre-015 row is a real ResLab
+ * booking. Email is never consulted (see isAtTestLot).
+ */
+export function isTestBooking(row: {
+  reslab_location_id: number | null | undefined;
+  livemode: boolean | null | undefined;
+}): boolean {
+  return isAtTestLot(row.reslab_location_id) || row.livemode === false;
+}
+
+/**
+ * The same rule as a PostgREST filter, for queries that count or sum bookings:
+ * (no lot id OR not a test lot) AND (livemode NULL OR true). Two `.or()` calls
+ * on one query are ANDed by PostgREST (verified against Triply-prod 2026-10-10:
+ * 414 rows either way). A plain `.not("reslab_location_id","in",…)` would drop
+ * every direct row (NULL lot id); `.eq("livemode", true)` would drop the
+ * pre-015 live rows (NULL).
+ */
+export function excludeTestBookings<T extends { or(filter: string): T }>(query: T): T {
+  const ids = [...TEST_RESLAB_LOCATION_IDS];
+  const lot = ids.length > 0
+    ? query.or(`reslab_location_id.is.null,reslab_location_id.not.in.(${ids.join(",")})`)
+    : query;
+  return lot.or("livemode.is.null,livemode.eq.true");
+}
+
