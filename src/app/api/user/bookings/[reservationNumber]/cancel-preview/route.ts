@@ -5,7 +5,7 @@ import { captureAPIError } from "@/lib/sentry";
 import { stripe } from "@/lib/stripe/client";
 import { planTeardown } from "@/lib/cancellation/finalize";
 import { isCancellable } from "@/lib/cancellation/eligibility";
-import { isOtherStripeMode, OTHER_MODE_MESSAGE } from "@/lib/cancellation/source-guard";
+import { isOtherStripeMode, OTHER_MODE_CUSTOMER_MESSAGE } from "@/lib/cancellation/source-guard";
 
 /**
  * Refund preview for the cancel confirmation dialog.
@@ -127,10 +127,11 @@ export async function GET(
     }
 
     // A booking paid in the other Stripe mode can't be priced (or cancelled)
-    // with this deployment's key — same refusal as the cancel action.
+    // with this deployment's key — same refusal (and the same customer
+    // wording) as the cancel action. Before any Stripe read.
     if (isOtherStripeMode(booking.livemode)) {
       return NextResponse.json(
-        { error: "other_environment", message: OTHER_MODE_MESSAGE },
+        { error: "other_environment", message: OTHER_MODE_CUSTOMER_MESSAGE },
         { status: 409, headers: NO_STORE },
       );
     }

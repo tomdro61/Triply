@@ -66,7 +66,7 @@ vi.mock("@/lib/reslab/location-snapshot", () => ({
   SNAPSHOT_MAX_AGE_MS: 24 * 3_600_000,
 }));
 
-import { partitionBookings, leadDays, collectDigest, SINCE } from "../collect";
+import { partitionBookings, leadDays, collectDigest, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS } from "../collect";
 import { windowForEtDay } from "../window";
 
 const set = (table: string, ...a: Answer[]) => answers.byTable.set(table, a);
@@ -114,6 +114,24 @@ describe("partitionBookings — test lots out, staging out, unmatched counted (n
     expect(p.live.map((r) => r.id)).toEqual(["live", "legacy", "staff", "direct"]); // a staff email at a REAL lot is real revenue
     expect(p.staging).toBe(3);
     expect(p.unmatched).toBe(1);
+  });
+
+  it("a NULL livemode is live ONLY before 2026-10-09; a later NULL is unmatched, so a regression of the fulfilment write shows", () => {
+    const rows = [
+      booking({ id: "pre015", created_at: "2026-02-20T12:00:00Z", livemode: null }),
+      booking({ id: "lastLegit", created_at: "2026-10-08T23:59:59.999Z", livemode: null }),
+      booking({ id: "boundary", created_at: "2026-10-09T00:00:00Z", livemode: null }),
+      booking({ id: "offsetForm", created_at: "2026-10-09T00:30:00+00:00", livemode: null }),
+      booking({ id: "regressed", created_at: "2026-10-10T15:00:00Z", livemode: null }),
+      booking({ id: "garbled", created_at: "not-a-date", livemode: null }),
+      booking({ id: "writtenTrue", created_at: "2026-10-10T15:00:00Z", livemode: true }),
+      booking({ id: "writtenFalse", created_at: "2026-10-10T15:00:00Z", livemode: false }),
+    ] as never[];
+    const p = partitionBookings(rows);
+    expect(p.live.map((r) => r.id)).toEqual(["pre015", "lastLegit", "writtenTrue"]);
+    expect(p.unmatched).toBe(4);
+    expect(p.staging).toBe(1);
+    expect(LIVEMODE_NULL_LEGIT_BEFORE_MS).toBe(Date.UTC(2026, 9, 9));
   });
 });
 

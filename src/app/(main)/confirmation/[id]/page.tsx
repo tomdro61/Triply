@@ -20,33 +20,20 @@ import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
+import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
 }
 
-interface AtLotEstimate {
-  vehicleSize: string;
-  vehicleSizeLabel: string;
-  surcharge: number;
-  surchargeTax: number;
-  total: number;
-}
-
-interface ReservationData {
+/** Fields both sources of GET /api/reservations/[id] return. */
+interface ReservationDataBase {
   id: number | string;
   reservationNumber: string;
-  /** "direct" = a Triply-owned lot (no ResLab record); anything else is ResLab. */
-  inventorySource?: "reslab" | "direct";
-  /** Direct bookings only: the lot's airport (from the booking's lot snapshot). */
-  airportCode?: string;
-  /**
-   * Direct bookings only: the oversized-vehicle surcharge PAID AT THE LOT. A
-   * separate display value — never part of grandTotal / dueNow / dueAtLocation.
-   */
-  atLotEstimate?: AtLotEstimate | null;
   status: string;
+  /** ResLab: pre-discount total incl. due-at-lot. Direct: pre-discount online total. */
   grandTotal: number;
+  /** What was charged online: grandTotal − dueAtLocation (− promo discount on a direct booking). */
   dueNow: number;
   dueAtLocation: number;
   protectionPlan: string | null;
@@ -91,6 +78,25 @@ interface ReservationData {
   extraFields?: Record<string, string>;
 }
 
+/** A ResLab booking (`inventorySource` absent on responses from before it was added). */
+interface ReslabReservationData extends ReservationDataBase {
+  inventorySource?: "reslab";
+}
+
+/** A Triply-owned lot (no ResLab record) — built from the booking row + lot snapshot. */
+interface DirectReservationData extends ReservationDataBase {
+  inventorySource: "direct";
+  /** The lot's airport (from the booking's lot snapshot). */
+  airportCode: string;
+  /**
+   * The oversized-vehicle surcharge PAID AT THE LOT. A separate display
+   * value — never part of grandTotal / dueNow / dueAtLocation.
+   */
+  atLotEstimate: AtLotEstimateView | null;
+}
+
+type ReservationData = ReslabReservationData | DirectReservationData;
+
 function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -124,7 +130,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           ? `direct-${reservation.location.id}`
           : String(reservation.location.id),
         lotName: reservation.location.name,
-        grandTotal: reservation.grandTotal,
+        // Direct: the amount actually charged (net of any promo discount).
+        // ResLab: unchanged.
+        grandTotal: isDirect ? reservation.dueNow : reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
         airportCode: isDirect
@@ -277,7 +285,13 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     if (reservation) {
       return {
         days: reservation.items[0]?.numberOfDays || 1,
-        total: reservation.grandTotal,
+        // Direct: BookingDetails labels this "Total Paid" (dueAtLocation is
+        // 0), so it must be what was charged online — `dueNow`, which nets a
+        // promo discount; grandTotal is pre-discount. ResLab: unchanged.
+        total:
+          reservation.inventorySource === "direct"
+            ? reservation.dueNow
+            : reservation.grandTotal,
       };
     }
 
@@ -421,7 +435,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
               {/* Direct lots: the oversized-vehicle surcharge is paid AT THE
                   LOT. Its own line, never added to the total above (which is
                   what was charged online). */}
-              {reservation?.atLotEstimate && (
+              {reservation?.inventorySource === "direct" && reservation.atLotEstimate && (
                 <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">

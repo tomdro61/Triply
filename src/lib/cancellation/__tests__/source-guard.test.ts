@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { cancelSource, isOtherStripeMode, stripeKeyIsLive } from "../source-guard";
 
 describe("cancelSource — strict polarity (plan 4b §9 H-C)", () => {
@@ -19,13 +19,35 @@ describe("cancelSource — strict polarity (plan 4b §9 H-C)", () => {
 });
 
 describe("isOtherStripeMode (plan 4b §9 H-D)", () => {
-  it("compares only a recorded mode", () => {
+  it("compares a recorded mode with the key's", () => {
     expect(isOtherStripeMode(false, true)).toBe(true); // staging booking, production key
     expect(isOtherStripeMode(true, false)).toBe(true); // live booking, staging key
     expect(isOtherStripeMode(true, true)).toBe(false);
     expect(isOtherStripeMode(false, false)).toBe(false);
-    expect(isOtherStripeMode(null, true)).toBe(false);
+  });
+  it("NULL (pre-015 row) is a LIVE booking: production acts, a test key refuses", () => {
+    expect(isOtherStripeMode(null, true)).toBe(false); // production, unchanged
+    expect(isOtherStripeMode(null, false)).toBe(true); // staging/localhost must not cancel it
+  });
+  it("undefined (column not selected) never guards", () => {
     expect(isOtherStripeMode(undefined, false)).toBe(false);
+    expect(isOtherStripeMode(undefined, true)).toBe(false);
+  });
+  it("defaults to this deployment's key", () => {
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
+    try {
+      expect(isOtherStripeMode(null)).toBe(false);
+      expect(isOtherStripeMode(false)).toBe(true);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
+    try {
+      expect(isOtherStripeMode(null)).toBe(true);
+      expect(isOtherStripeMode(false)).toBe(false);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
   it("reads live keys (secret and restricted)", () => {
     expect(stripeKeyIsLive("sk_live_x")).toBe(true);

@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS direct_booking_terms (
   partner_share_percent      NUMERIC(5,2) NOT NULL CHECK (partner_share_percent BETWEEN 0 AND 100),
   tax_rate_percent           NUMERIC(6,3) NOT NULL CHECK (tax_rate_percent >= 0),
   tax_collected_by           TEXT NOT NULL CHECK (tax_collected_by IN ('triply', 'lot')),
-  lot_recipients             TEXT[] NOT NULL CHECK (cardinality(lot_recipients) >= 1),
+  -- At least one recipient and no NULL element (a NULL address would reach Resend
+  -- as an empty "to" and fail the lot notice).
+  lot_recipients             TEXT[] NOT NULL CHECK (cardinality(lot_recipients) >= 1
+                                                    AND array_position(lot_recipients, NULL) IS NULL),
   lot_notice_email_id        TEXT,
   lot_notice_recipients      TEXT[],
   lot_cancel_notice_email_id TEXT,
@@ -44,6 +47,12 @@ CREATE TABLE IF NOT EXISTS direct_booking_terms (
 ALTER TABLE direct_booking_terms ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON direct_booking_terms FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON direct_booking_terms TO service_role;
+-- updated_at maintenance (update_updated_at_column() is defined in 001; its
+-- search_path was pinned in 020). Notice-id stamps UPDATE this row.
+DROP TRIGGER IF EXISTS update_direct_booking_terms_updated_at ON direct_booking_terms;
+CREATE TRIGGER update_direct_booking_terms_updated_at
+  BEFORE UPDATE ON direct_booking_terms
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- bookings --------------------------------------------------------------------
 ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_direct_fields_check;
@@ -76,6 +85,10 @@ ALTER TABLE pending_bookings
 
 COMMENT ON TABLE direct_booking_terms IS
   'Direct-lot payout + notice terms per PaymentIntent (migration 038). Service role only — never customer-readable.';
+
+-- PostgREST caches the schema: without a reload the new table/columns 404 or
+-- PGRST204 until the next cache refresh (see 023's note). 034/035/036 do the same.
+NOTIFY pgrst, 'reload schema';
 COMMIT;
 
 -- Verify (expect: table with RLS and no policies; the three columns gone; v2 check present):
@@ -85,10 +98,14 @@ COMMIT;
 --     AND column_name LIKE 'direct_%';                                                    -- direct_lot_id only
 --   SELECT conname FROM pg_constraint WHERE conname LIKE 'bookings_direct_fields_check%';  -- _v2 only
 --   SELECT has_table_privilege('authenticated', 'direct_booking_terms', 'SELECT');        -- false
+--   SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.direct_booking_terms'::regclass
+--     AND NOT tgisinternal;                                     -- update_direct_booking_terms_updated_at
 --
 -- Rollback (only while 0 direct rows exist):
 --   ALTER TABLE bookings DROP CONSTRAINT IF EXISTS bookings_direct_fields_check_v2,
 --     DROP COLUMN IF EXISTS lot_notice_claimed_at, DROP COLUMN IF EXISTS lot_cancel_notice_claimed_at;
 --   ALTER TABLE pending_bookings DROP COLUMN IF EXISTS capture_attempts;
+--   DROP TRIGGER IF EXISTS update_direct_booking_terms_updated_at ON direct_booking_terms;
 --   DROP TABLE IF EXISTS direct_booking_terms;
+--   NOTIFY pgrst, 'reload schema';
 --   (then re-run the 034 bookings block to restore the three columns + the v1 check)

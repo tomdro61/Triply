@@ -63,7 +63,7 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (b.count.value !== "unavailable" && b.count.avg7 !== null && b.count.avg7 >= 2 && b.count.value < b.count.avg7 * 0.5) {
       flags.push({ text: `bookings ${b.count.value} < half the 7-day avg (${b.count.avg7.toFixed(1)})` });
     }
-    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record — check manually` });
+    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record or no recorded Stripe mode — check manually` });
     if (b.otherStatus > 0) flags.push({ text: `${b.otherStatus} booking(s) with an unknown status` });
     if (b.dirtyPgRows > 0) flags.push({ text: `${b.dirtyPgRows} Park Guard row(s) with no wholesale recorded` });
     if (b.leadTime.unknown > 0) flags.push({ text: `${b.leadTime.unknown} booking(s) with no lot timezone (lead time unknown)` });

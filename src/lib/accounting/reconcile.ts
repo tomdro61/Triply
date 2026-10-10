@@ -39,6 +39,7 @@
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import type {
   DateField,
   ReconcileOptions,
@@ -272,8 +273,8 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
 
   // `resource_missing` is only trustworthy under a LIVE key (see the staging
   // exclusion below). Restricted live keys (`rk_live_`) count as live too.
-  const secretKey = process.env.STRIPE_SECRET_KEY ?? "";
-  const stripeIsLive = secretKey.startsWith("sk_live_") || secretKey.startsWith("rk_live_");
+  // Same rule as the cancellation source guard — one definition of "live key".
+  const stripeIsLive = stripeKeyIsLive();
 
   // ---- ResLab + Stripe fetches (concurrent batches, each gated by flag) ----
 

@@ -151,7 +151,8 @@ interface BookingRow extends ReportRow {
   location_timezone: string | null;
   reslab_location_id: number | null;
   stripe_payment_intent_id: string | null;
-  /** Stripe mode of the PaymentIntent, written by fulfilment (PR #73). NULL = a pre-015 row = live. */
+  /** Stripe mode of the PaymentIntent, written by fulfilment (PR #73). NULL on a row created before
+   *  LIVEMODE_NULL_LEGIT_BEFORE_MS = a pre-015 live row; a later NULL is "unmatched". */
   livemode: boolean | null;
   customer_id: string | null;
   due_at_location: string | number | null;
@@ -192,12 +193,25 @@ export interface PartitionedBookings {
 }
 
 /**
+ * The first instant at which a NULL `bookings.livemode` is NOT legitimate.
+ * Fulfilment has written livemode since PR #73 (live Oct 8, 2026); before that
+ * a NULL was a pre-015 row (all live by design) or a row the backfill covered.
+ * A NULL created on/after this is a regression of the fulfilment write — it
+ * must be visible ("unmatched"), not silently counted as live revenue. One day
+ * after the deploy, so nothing written in the deploy window is misflagged.
+ */
+export const LIVEMODE_NULL_LEGIT_BEFORE_MS = Date.parse("2026-10-09T00:00:00Z");
+
+/**
  * Split yesterday's rows into live / staging / unmatched, test lots removed.
  * Mode comes from `bookings.livemode` itself (written by fulfilment since PR #73,
- * backfilled by migration 034; NULL only on pre-015 rows, which are live) — no
- * join to pending_bookings, so a direct-lot row (NULL lot id, a TRP- number) is
- * classified exactly like a ResLab one. A non-staging row with no PaymentIntent
- * is "unmatched": flagged, never silently counted in or out.
+ * backfilled by migration 034) — no join to pending_bookings, so a direct-lot
+ * row (NULL lot id, a TRP- number) is classified exactly like a ResLab one.
+ * "unmatched" = flagged, never silently counted in or out:
+ *   - a non-staging row with no PaymentIntent;
+ *   - a NULL livemode on a row created on/after LIVEMODE_NULL_LEGIT_BEFORE_MS
+ *     (or with an unparseable created_at) — before it, NULL means a pre-015
+ *     live row.
  */
 export function partitionBookings(rows: BookingRow[]): PartitionedBookings {
   const out: PartitionedBookings = { live: [], staging: 0, unmatched: 0 };
@@ -206,6 +220,14 @@ export function partitionBookings(rows: BookingRow[]): PartitionedBookings {
     if (r.livemode === false) {
       out.staging++;
       continue;
+    }
+    if (r.livemode == null) {
+      // Never string-compare a PostgREST timestamp (offset forms vary).
+      const created = Date.parse(r.created_at);
+      if (!Number.isFinite(created) || created >= LIVEMODE_NULL_LEGIT_BEFORE_MS) {
+        out.unmatched++;
+        continue;
+      }
     }
     if (!r.stripe_payment_intent_id) {
       out.unmatched++;

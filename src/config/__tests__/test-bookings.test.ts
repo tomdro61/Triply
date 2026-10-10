@@ -15,6 +15,14 @@ describe("isTestBooking", () => {
   it("a live direct-lot row (no ResLab lot id) is real", () => {
     expect(isTestBooking({ reslab_location_id: null, livemode: true })).toBe(false);
   });
+  it("takes the exact column types — an unselected column (undefined) is a compile error, not 'live'", () => {
+    // Type-level guard, checked by `tsc --noEmit`: without the column in the
+    // SELECT, `livemode` would be undefined and silently count as live.
+    // @ts-expect-error livemode is required (boolean | null), never omitted
+    expect(isTestBooking({ reslab_location_id: 42 })).toBe(false);
+    // @ts-expect-error reslab_location_id is number | null, not undefined
+    expect(isTestBooking({ reslab_location_id: undefined, livemode: true })).toBe(false);
+  });
 });
 
 describe("excludeTestBookings", () => {

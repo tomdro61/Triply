@@ -79,7 +79,7 @@ async function main() {
   const { data: booking, error } = await supabase
     .from("bookings")
     .select(
-      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status"
+      "reslab_reservation_number, location_name, location_address, check_in, check_out, grand_total, triply_service_fee, discount_amount, due_at_location, vehicle_info, customer_id, protection_plan, protection_plan_price, pg_sync_status"
     )
     .eq("reslab_reservation_number", resNum)
     .single();
@@ -134,10 +134,16 @@ async function main() {
   // protection_plan_price and due_at_location are legitimately null for
   // bookings without Park Guard / pre-paid-only flows — both default to 0.
   const protectionPlanPrice = Number(booking.protection_plan_price ?? 0);
+  // discount_amount = the promo discount taken off the online charge (migration
+  // 016; always written since, 0 = none; NULL only on older rows = no promo).
+  // Subtract it exactly as fulfilment's confirmation email does
+  // (sendBookingEmails), or a promo customer is shown more than they paid.
+  const discountAmount = Number(booking.discount_amount ?? 0);
   const totalAmount =
     Number(booking.grand_total) +
     Number(booking.triply_service_fee ?? 0) +
-    protectionPlanPrice;
+    protectionPlanPrice -
+    discountAmount;
 
   // Template only accepts the three values below + null. Anything else
   // (e.g. "failed", legacy values) falls through to null, which renders
@@ -177,7 +183,7 @@ async function main() {
   console.log(`  Check-out: ${emailProps.checkOutDate} ${emailProps.checkOutTime}`);
   console.log(`  Protection: ${emailProps.protectionPlan ?? "(none)"}  ` +
     `$${protectionPlanPrice.toFixed(2)}  (sync: ${emailProps.pgSyncStatus ?? "n/a"})`);
-  console.log(`  Total:     $${totalAmount.toFixed(2)}`);
+  console.log(`  Total:     $${totalAmount.toFixed(2)}${discountAmount > 0 ? `  (after $${discountAmount.toFixed(2)} promo discount)` : ""}`);
   console.log(`  Vehicle:   ${vehicleInfo ?? "(none)"}`);
 
   if (dryRun) {

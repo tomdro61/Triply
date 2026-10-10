@@ -106,16 +106,22 @@ export function ReservationCard({
   // as a fallback auth token for the API GET. See the prop comment above.
   const emailParam = customerEmail ? `&email=${encodeURIComponent(customerEmail)}` : "";
   // ?lot= is the confirmation page's sessionStorage key for the lot's photos;
-  // a direct booking's lot id is "direct-<CMS id>" (never "reslab-null").
+  // a direct booking's lot id is "direct-<CMS id>" (never "reslab-null"). A
+  // direct row missing its direct_lot_id gets NO lot param rather than a bogus
+  // "direct-null" key — the param is only a photo-cache hint; the page builds
+  // the lot from the API response either way.
   const lotParam =
     booking.inventory_source === "direct"
-      ? `direct-${booking.direct_lot_id}`
+      ? booking.direct_lot_id
+        ? `direct-${encodeURIComponent(booking.direct_lot_id)}`
+        : null
       : `reslab-${booking.reslab_location_id}`;
+  const lotQuery = lotParam ? `lot=${lotParam}&` : "";
   const atLotCents =
     booking.inventory_source === "direct"
       ? (booking.vehicle_surcharge_cents ?? 0) + (booking.vehicle_surcharge_tax_cents ?? 0)
       : 0;
-  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?lot=${lotParam}&checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
+  const confirmationUrl = `/confirmation/${booking.reslab_reservation_number}?${lotQuery}checkin=${format(checkInDate, "yyyy-MM-dd")}&checkout=${format(checkOutDate, "yyyy-MM-dd")}${emailParam}`;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-lg hover:border-brand-orange/30 transition-all duration-200">

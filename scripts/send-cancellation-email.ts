@@ -42,12 +42,10 @@ async function main() {
     console.error("Usage: npx tsx --env-file=.env.local scripts/send-cancellation-email.ts <RES_NUM> --refund <amount> [--send]");
     process.exit(1);
   }
-  // The template is the ResLab cancellation email; a direct-lot cancellation has
-  // its own flow (the lot's cancel notice) — see the runbook.
-  if (/^TRP-/i.test(resNum.trim())) {
-    console.error(`Refusing ${resNum}: TRP- numbers are Triply direct-lot bookings — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section.`);
-    process.exit(2);
-  }
+  // Works for ResLab (RTL…) and Triply direct-lot (TRP-…) bookings alike: the
+  // template is Triply-branded and this script only reads Supabase and sends via
+  // Resend — it never calls ResLab. It is the only manual re-send for a direct
+  // customer's cancellation email.
   if (refundRaw == null || isNaN(Number(refundRaw)) || Number(refundRaw) <= 0) {
     console.error("ERROR: --refund <amount> is required and must be a positive number (the amount Stripe CAPTURED, not the Supabase grand_total).");
     process.exit(1);

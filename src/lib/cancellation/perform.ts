@@ -5,7 +5,7 @@ import { reslab } from "@/lib/reslab/client";
 import { isCancellable } from "./eligibility";
 import { claimForCancel, releaseClaim, markCancelState } from "./claim";
 import { classifyCancelOutcome } from "./reslab-cancel";
-import { cancelSource, isOtherStripeMode, OTHER_MODE_MESSAGE } from "./source-guard";
+import { cancelSource, isOtherStripeMode, OTHER_MODE_CUSTOMER_MESSAGE } from "./source-guard";
 import {
   recordCancellationReason,
   clearCancellationReason,
@@ -77,8 +77,10 @@ export async function performSelfCancel(
   //     plan 4b §9 H-C/H-D). A booking paid in the other Stripe mode would be
   //     refunded with the wrong key; a row whose source and number disagree
   //     must never skip a ResLab release by accident.
+  //     The customer sees plain wording; the staff "other environment" text
+  //     is for the admin route only.
   if (isOtherStripeMode(booking.livemode)) {
-    return { status: 409, body: { error: "other_environment", message: OTHER_MODE_MESSAGE } };
+    return { status: 409, body: { error: "other_environment", message: OTHER_MODE_CUSTOMER_MESSAGE } };
   }
   const source = cancelSource(booking);
   if (source.kind === "inconsistent") {

@@ -37,8 +37,6 @@ export async function GET(request: NextRequest) {
     // Null-safe on both columns, so direct-lot rows (no ResLab lot id) and
     // pre-015 rows (no livemode) count. Admin-email bookings at REAL lots are
     // NOT excluded — that conflation previously hid legitimate revenue.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const excludeAdmins = (query: any) => excludeTestBookings(query);
 
     const { searchParams } = new URL(request.url);
     const filterStartDate = searchParams.get("startDate");
@@ -83,56 +81,56 @@ export async function GET(request: NextRequest) {
       cancelledResult,
     ] = await Promise.all([
       // Total bookings (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true })
       )),
       // Today's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())),
       // This week's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", weekStart.toISOString())),
       // This month's bookings
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
         .gte("created_at", monthStart.toISOString())),
       // Total revenue (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale").eq("status", "confirmed")
       )),
       // Today's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", today.toISOString())
         .lt("created_at", tomorrow.toISOString())),
       // This week's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", weekStart.toISOString())),
       // This month's revenue
-      excludeAdmins(supabase
+      excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
         .gte("created_at", monthStart.toISOString())),
       // Confirmed bookings (filtered)
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed")
       )),
       // Cancelled bookings (filtered). A refunding cancel writes `refunded`, so
       // `cancelled` alone showed 0 against ~31 real cancellations. Same
       // definition as the cancellation report (src/lib/cancellation/report.ts).
-      excludeAdmins(applyDateFilter(
+      excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).in("status", ["cancelled", "refunded"])
       )),
     ]);
@@ -283,7 +281,7 @@ export async function GET(request: NextRequest) {
     const attrRows: ReportRow[] = [];
     let attrRowsComplete = true;
     for (let from = 0; ; from += PAGE) {
-      const { data, error: pageError } = await excludeAdmins(
+      const { data, error: pageError } = await excludeTestBookings(
         applyDateFilter(
           supabase
             .from("bookings")
@@ -314,7 +312,7 @@ export async function GET(request: NextRequest) {
     // purpose (it is a regression alarm, not a report). Only a VALID cookie
     // counts as present; the invalid marker is reported separately.
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recent, error: recentError } = await excludeAdmins(
+    const { data: recent, error: recentError } = await excludeTestBookings(
       supabase.from("bookings").select("attribution").gte("created_at", sevenDaysAgo).limit(1000)
     );
     if (recentError) warn("7-day capture-rate fetch failed", recentError);
@@ -332,7 +330,7 @@ export async function GET(request: NextRequest) {
     let cancellationsError: string | null = null;
     const cancelRows: CancellationReportRow[] = [];
     for (let from = 0; ; from += PAGE) {
-      const { data, error: pageError } = await excludeAdmins(
+      const { data, error: pageError } = await excludeTestBookings(
         applyDateFilter(
           supabase
             .from("bookings")

@@ -111,6 +111,11 @@ export async function POST(
       protection_plan_wholesale: booking.protection_plan_wholesale,
       pg_identifier: booking.pg_identifier,
       stripe_payment_intent_id: booking.stripe_payment_intent_id,
+      // Both drive guards in performSelfCancel (direct-lots plan 4b §9 H-C/H-D):
+      // dropping inventory_source made every direct cancel "inconsistent", and
+      // dropping livemode silently disabled the Stripe-mode refusal.
+      inventory_source: booking.inventory_source,
+      livemode: booking.livemode,
       customers: rawCustomer
         ? {
             email: rawCustomer.email,

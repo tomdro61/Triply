@@ -14,9 +14,6 @@ import { directRow, directSnapshot } from "./reservation-view-fixtures";
  */
 
 const common = (overrides: Partial<DirectReservationCommon> = {}): DirectReservationCommon => ({
-  serviceFee: 5.95,
-  protectionPlan: null,
-  protectionPlanPrice: 0,
   pgIdentifier: null,
   pgSyncStatus: null,
   fromDate: "2026-11-02 08:00:00",
@@ -87,23 +84,64 @@ describe("buildDirectReservation", () => {
   it("dueNow is the online charge: grand + fee + premium − promo discount; grandTotal stays pre-discount like ResLab", () => {
     const r = buildDirectReservation(
       "TRP-7K3M9QXA",
-      directRow({ discount_amount: "2.99" }),
-      common({ protectionPlan: "Plan A", protectionPlanPrice: 12.99, pgIdentifier: "PG-1", pgSyncStatus: "synced" })
+      directRow({ discount_amount: "2.99", protection_plan: "Plan A", protection_plan_price: "12.99" }),
+      common({ pgIdentifier: "PG-1", pgSyncStatus: "synced" })
     );
     if (!r.ok) throw new Error(r.detail);
     expect(r.reservation.grandTotal).toBe(53.57); // 34.63 + 5.95 + 12.99
     expect(r.reservation.dueNow).toBe(50.58); // − 2.99
+    expect(r.reservation.serviceFee).toBe(5.95);
     expect(r.reservation.protectionPlan).toBe("Plan A");
+    expect(r.reservation.protectionPlanPrice).toBe(12.99);
     expect(r.reservation.pgIdentifier).toBe("PG-1");
   });
 
-  it("maps cancelled and refunded rows to the route's 'cancelled' vocabulary", () => {
-    for (const status of ["cancelled", "refunded"]) {
-      const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ status }), common());
-      if (!r.ok) throw new Error(r.detail);
-      expect(r.reservation.status).toBe("cancelled");
-    }
+  it("reads the service fee from the row (strictly), not from the caller", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ triply_service_fee: "7.25" }), common());
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.serviceFee).toBe(7.25);
+    expect(r.reservation.grandTotal).toBe(41.88); // 34.63 + 7.25
+    expect(r.reservation.dueNow).toBe(41.88);
   });
+
+  it("a $0 service fee is a real value, not an error", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ triply_service_fee: "0" }), common());
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.serviceFee).toBe(0);
+    expect(r.reservation.dueNow).toBe(34.63);
+  });
+
+  it("ignores a stray protection_plan_price when no plan is set (same rule as reconcile)", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ protection_plan: null, protection_plan_price: "12.99" }), common());
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.protectionPlan).toBeNull();
+    expect(r.reservation.protectionPlanPrice).toBe(0);
+    expect(r.reservation.grandTotal).toBe(40.58);
+    expect(r.reservation.dueNow).toBe(40.58);
+  });
+
+  it.each([
+    ["confirmed", "confirmed"],
+    ["completed", "confirmed"],
+    ["disputed", "confirmed"],
+    ["cancelled", "cancelled"],
+    ["refunded", "cancelled"],
+  ])("maps status %s → %s", (status, expected) => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ status }), common());
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.status).toBe(expected);
+  });
+
+  it.each(["payment_failed", "pending", "CONFIRMED", "something_new"])(
+    "status %s is not on the allow-list → refused, never shown as confirmed",
+    (status) => {
+      const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ status }), common());
+      expect(r.ok).toBe(false);
+      if (r.ok) return;
+      expect(r.detail).toContain("unexpected status");
+      expect(r.detail).toContain(status);
+    }
+  );
 
   it("accepts a v1 snapshot but never echoes partner/contact/terms keys into the response", () => {
     const v1 = { ...directSnapshot, v: 1, notificationEmails: ["ops@lot.example"] };
@@ -126,6 +164,20 @@ describe("buildDirectReservation", () => {
     ["vehicle columns null", { vehicle_size: null, vehicle_surcharge_cents: null }],
     ["fractional cents", { vehicle_surcharge_cents: 12.5 }],
     ["no customer", { customers: null }],
+    ["service fee null", { triply_service_fee: null }],
+    ["service fee missing", { triply_service_fee: undefined }],
+    ["service fee garbage", { triply_service_fee: "5.95abc" }],
+    ["service fee negative (string)", { triply_service_fee: "-5.95" }],
+    ["service fee negative (number)", { triply_service_fee: -5.95 }],
+    ["grand_total negative (string)", { grand_total: "-34.63" }],
+    ["grand_total negative (number)", { grand_total: -34.63 }],
+    ["discount negative", { discount_amount: "-2.99" }],
+    ["due_at_location negative", { due_at_location: -1 }],
+    ["protection plan with null price", { protection_plan: "Plan A", protection_plan_price: null }],
+    ["protection plan with $0 price", { protection_plan: "Plan A", protection_plan_price: "0" }],
+    ["protection plan with garbage price", { protection_plan: "Plan A", protection_plan_price: "abc" }],
+    ["protection plan with negative price", { protection_plan: "Plan A", protection_plan_price: "-12.99" }],
+    ["protection plan empty string", { protection_plan: "", protection_plan_price: "12.99" }],
   ])("%s → refused, never guessed", (_label, overrides) => {
     const r = buildDirectReservation("TRP-7K3M9QXA", directRow(overrides), common());
     expect(r.ok).toBe(false);

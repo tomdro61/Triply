@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
-import { capturePaymentError, captureParkGuardError, captureNonCheckoutPayment, captureBookingError } from "@/lib/sentry";
+import { capturePaymentError, captureParkGuardError, captureNonCheckoutPayment } from "@/lib/sentry";
 import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
@@ -463,11 +463,14 @@ export async function POST(request: NextRequest) {
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
           } else if (!statusAdvanced) {
-            captureBookingError(
+            // A refund on a disputed / payment_failed row is a payment event,
+            // not a checkout-step failure: tag it with the PI + amount so ops
+            // can find the charge.
+            capturePaymentError(
               new Error(
                 `Full refund on booking ${booking.id} left its status as is (disputed or payment_failed) — check the dispute/payment record`
               ),
-              { step: "checkout" }
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
           }
 

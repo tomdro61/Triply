@@ -144,6 +144,44 @@ describe("direct booking", () => {
     expect(h.captureBookingError).toHaveBeenCalledTimes(1);
   });
 
+  it("a promo booking: dueNow is the online charge net of the discount; grandTotal stays pre-discount", async () => {
+    h.state.detailRow = {
+      data: { ...row(), discount_amount: "2.99", protection_plan: "Plan A", protection_plan_price: "12.99" },
+      error: null,
+    };
+    const res = await call(TRP);
+    expect(res.status).toBe(200);
+    const { reservation } = await res.json();
+    expect(reservation.grandTotal).toBe(53.57); // 34.63 + 5.95 + 12.99
+    expect(reservation.dueNow).toBe(50.58); // − 2.99
+    expect(reservation.protectionPlan).toBe("Plan A");
+    expect(reservation.protectionPlanPrice).toBe(12.99);
+    expect(h.captureBookingError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["service fee NULL", { triply_service_fee: null }],
+    ["service fee garbled", { triply_service_fee: "abc" }],
+    ["service fee negative", { triply_service_fee: "-5.95" }],
+    ["protection plan without a price", { protection_plan: "Plan A", protection_plan_price: null }],
+    ["protection plan with a $0 price", { protection_plan: "Plan A", protection_plan_price: "0" }],
+  ])("%s on a direct row → 500 + ONE Sentry event (never the lenient $0)", async (_label, overrides) => {
+    h.state.detailRow = { data: { ...row(), ...overrides }, error: null };
+    const res = await call(TRP);
+    expect(res.status).toBe(500);
+    expect(h.getReservation).not.toHaveBeenCalled();
+    expect(h.captureBookingError).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["payment_failed", "something_new"])("status %s on a direct row → 500 + Sentry", async (status) => {
+    h.state.detailRow = { data: { ...row(), status }, error: null };
+    const res = await call(TRP);
+    expect(res.status).toBe(500);
+    expect(h.getReservation).not.toHaveBeenCalled();
+    expect(h.captureBookingError).toHaveBeenCalledTimes(1);
+    expect(String(h.captureBookingError.mock.calls[0][0].message)).toContain("unexpected status");
+  });
+
   it("source and number disagree (TRP- number on a reslab row) → 500, no ResLab call", async () => {
     h.state.detailRow = { data: { ...row(), inventory_source: "reslab" }, error: null };
     const res = await call(TRP);
@@ -303,6 +341,22 @@ describe("ResLab booking — unchanged", () => {
     expect(res.status).toBe(200);
     expect(h.getReservation).toHaveBeenCalledTimes(1);
     expect(h.captureBookingError).toHaveBeenCalledTimes(1); // the failed read is still surfaced
+  });
+
+  it("keeps the lenient ResLab-path fee/protection handling (NULL fee → 0; plan without price → suppressed + Sentry)", async () => {
+    h.state.detailRow = {
+      data: { ...reslabRow, triply_service_fee: null, protection_plan_price: null },
+      error: null,
+    };
+    h.getReservation.mockResolvedValue(reslabReservation);
+    const res = await call(RTL);
+    expect(res.status).toBe(200);
+    const { reservation } = await res.json();
+    expect(reservation.serviceFee).toBe(0);
+    expect(reservation.protectionPlan).toBeNull();
+    expect(reservation.protectionPlanPrice).toBe(0);
+    expect(reservation.grandTotal).toBe(70.82);
+    expect(h.captureBookingError).toHaveBeenCalledTimes(1);
   });
 
   it("ResLab 404 → 404; other ResLab failure → 500", async () => {

@@ -53,13 +53,48 @@ const snapshotDisplaySchema = z.object({
   }),
 });
 
-/** A NUMERIC column: PostgREST sends a string, a fake may send a number. Never coerced from null/garbage. */
+/**
+ * A non-negative NUMERIC column: PostgREST sends a string, a fake may send a
+ * number. Never coerced from null/garbage, and a negative amount is refused
+ * (no money column on a direct booking can legitimately be below zero).
+ */
 const moneyColumn = z.union([
-  z.number(), // zod 4 rejects NaN / ±Infinity by default
-  z.string().regex(/^-?\d+(\.\d+)?$/).transform(Number),
+  z.number().nonnegative(), // zod 4 rejects NaN / ±Infinity by default
+  z.string().regex(/^\d+(\.\d+)?$/).transform(Number),
 ]);
 
 const centsColumn = z.number().int().min(0);
+
+/** Every value the bookings.status CHECK allows (migrations 001 + 003). */
+const BOOKING_STATUSES = ["confirmed", "completed", "disputed", "cancelled", "refunded", "payment_failed"] as const;
+type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+const isBookingStatus = (s: string): s is BookingStatus =>
+  (BOOKING_STATUSES as readonly string[]).includes(s);
+
+/**
+ * The confirmation page's status vocabulary (the same one the ResLab branch
+ * reports). An allow-list: a status this view does not know how to present —
+ * `payment_failed` (no money was taken, there is nothing to confirm) — is
+ * `null`, which the builder turns into an integrity error, never "confirmed".
+ */
+function displayStatus(status: BookingStatus): "confirmed" | "cancelled" | null {
+  switch (status) {
+    case "confirmed":
+    case "completed":
+    case "disputed":
+      return "confirmed";
+    case "cancelled":
+    case "refunded":
+      return "cancelled";
+    case "payment_failed":
+      return null;
+    default: {
+      const unreachable: never = status;
+      return unreachable;
+    }
+  }
+}
 
 const directRowSchema = z.object({
   inventory_source: z.literal("direct"),
@@ -73,6 +108,14 @@ const directRowSchema = z.object({
   // NULL = no promo on this booking (the column is nullable by design, 016).
   discount_amount: moneyColumn.nullable(),
   due_at_location: moneyColumn,
+  // Part of the online charge on every direct booking: a NULL / garbled fee
+  // is an integrity error, never a silent $0 (which would understate the
+  // "Total Paid" the customer sees).
+  triply_service_fee: moneyColumn,
+  // NULL = no Park Guard. When set, protection_plan_price must be positive
+  // (checked in the builder); when not set, the price is ignored (reconcile).
+  protection_plan: z.string().min(1).nullable(),
+  protection_plan_price: moneyColumn.nullable(),
   vehicle_size: z.string().min(1),
   vehicle_size_label: z.string().min(1),
   vehicle_surcharge_cents: centsColumn,
@@ -145,11 +188,13 @@ export type DirectReservationResult =
   | { ok: true; reservation: DirectReservationView }
   | { ok: false; detail: string };
 
-/** Values the route has already resolved for both sources (fee, Park Guard, literal wall-clock times). */
+/**
+ * Values the route has already resolved for both sources (Park Guard sync
+ * state, literal wall-clock times). The money — service fee and Park Guard
+ * premium — is deliberately NOT here: the direct view parses it from the row
+ * strictly, never the route's lenient ResLab-path coercion.
+ */
 export interface DirectReservationCommon {
-  serviceFee: number;
-  protectionPlan: string | null;
-  protectionPlanPrice: number;
   pgIdentifier: string | null;
   pgSyncStatus: string | null;
   /** "YYYY-MM-DD HH:mm:ss" airport-local, exactly as stored. null = missing (an error for a direct row). */
@@ -213,6 +258,28 @@ export function buildDirectReservation(
     return { ok: false, detail: `lot_snapshot.directLotId ${snap.directLotId} != direct_lot_id ${row.direct_lot_id}` };
   }
 
+  if (!isBookingStatus(row.status)) {
+    return { ok: false, detail: `unexpected status "${row.status}"` };
+  }
+  const status = displayStatus(row.status);
+  if (status === null) {
+    return { ok: false, detail: `unexpected status "${row.status}" for a confirmation view` };
+  }
+
+  // Park Guard premium: only when a plan is set (the same rule reconcile
+  // applies), and a set plan must carry a positive premium — "Protection
+  // Active … $0.00" or a total missing the premium is an integrity error.
+  let protectionPlanPrice = 0;
+  if (row.protection_plan !== null) {
+    if (row.protection_plan_price === null || row.protection_plan_price <= 0) {
+      return {
+        ok: false,
+        detail: `protection_plan "${row.protection_plan}" with protection_plan_price ${String(row.protection_plan_price)}`,
+      };
+    }
+    protectionPlanPrice = row.protection_plan_price;
+  }
+
   if (!common.fromDate || !common.toDate) {
     return { ok: false, detail: "check_in / check_out missing" };
   }
@@ -227,7 +294,7 @@ export function buildDirectReservation(
   if (!estimate.ok) return { ok: false, detail: estimate.detail };
 
   const grandCents =
-    toCents(row.grand_total) + toCents(common.serviceFee) + toCents(common.protectionPlanPrice);
+    toCents(row.grand_total) + toCents(row.triply_service_fee) + toCents(protectionPlanPrice);
   const discountCents = toCents(row.discount_amount ?? 0);
   const dueAtLocationCents = toCents(row.due_at_location);
 
@@ -243,14 +310,14 @@ export function buildDirectReservation(
       reservationNumber,
       inventorySource: "direct",
       // Same vocabulary the ResLab branch reports: cancelled or confirmed.
-      status: row.status === "cancelled" || row.status === "refunded" ? "cancelled" : "confirmed",
+      status,
       grandTotal: fromCents(grandCents),
       subtotal: row.subtotal,
       taxTotal: row.tax_total,
       feesTotal: row.fees_total,
-      serviceFee: common.serviceFee,
-      protectionPlan: common.protectionPlan,
-      protectionPlanPrice: common.protectionPlanPrice,
+      serviceFee: row.triply_service_fee,
+      protectionPlan: row.protection_plan,
+      protectionPlanPrice,
       pgIdentifier: common.pgIdentifier,
       pgSyncStatus: common.pgSyncStatus,
       dueNow: fromCents(grandCents - discountCents - dueAtLocationCents),

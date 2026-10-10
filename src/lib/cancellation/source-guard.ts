@@ -42,16 +42,32 @@ export function stripeKeyIsLive(key: string = process.env.STRIPE_SECRET_KEY ?? "
  * staging test booking seen by production, or a live booking seen by staging
  * (they share one database). Acting on it would refund with the wrong key (a
  * 404), mark it cancelled anyway, email the customer, and route any lot notice
- * to the wrong place. Only a RECORDED mode is compared (plan §9 H-D): NULL —
- * every pre-015 row, all real ResLab bookings — is left to the existing paths.
+ * to the wrong place (plan §9 H-D).
+ *
+ *   - `undefined` — the caller's select didn't read the column: no guard (the
+ *     path behaves exactly as before the column existed).
+ *   - `null`      — a pre-015 row. Every one of those is a real LIVE booking, so
+ *     it is treated as live: production (live key) acts on it as before, while
+ *     a TEST key — staging, or localhost, which talks to PRODUCTION ResLab —
+ *     refuses rather than cancel a real customer's reservation.
+ *   - boolean     — compared with the key's mode.
+ *
+ * The cancellation cron's scan filter (`livemode.is.null,livemode.eq.true` on a
+ * live key) encodes the same NULL-is-live rule.
  */
 export function isOtherStripeMode(
   livemode: boolean | null | undefined,
   keyIsLive: boolean = stripeKeyIsLive()
 ): boolean {
-  if (typeof livemode !== "boolean") return false;
-  return livemode !== keyIsLive;
+  if (livemode === undefined) return false;
+  const bookingIsLive = livemode ?? true;
+  return bookingIsLive !== keyIsLive;
 }
 
+/** Staff wording (admin route): tells ops where to manage the booking. */
 export const OTHER_MODE_MESSAGE =
   "This booking was made in the other environment (staging vs production). Manage it from that environment's admin.";
+
+/** Customer wording (self-cancel + cancel-preview): no environment jargon. */
+export const OTHER_MODE_CUSTOMER_MESSAGE =
+  "We can't change this reservation online right now. Please contact support.";

@@ -18,6 +18,7 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { CancellationReportPanel } from "@/components/admin/cancellation-report";
 import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
+import { readStatsResponse } from "@/lib/admin/stats-response";
 
 interface Stats {
   bookings: {
@@ -253,24 +254,35 @@ export default function AdminDashboard() {
           }
         }
 
-        const [statsRes, bookingsRes] = await Promise.all([
-          fetch(`/api/admin/stats?${params}`),
-          fetch(`/api/admin/bookings?${bookingParams}`),
+        // Each response is read on its own: a failure of one (a 504 HTML body,
+        // a dropped connection) must neither hide the other nor leave the stat
+        // cards showing stale or zero figures without the error banner.
+        const [statsResult] = await Promise.all([
+          readStatsResponse<Stats>(fetch(`/api/admin/stats?${params}`)),
+          fetch(`/api/admin/bookings?${bookingParams}`)
+            .then(async (bookingsRes) => {
+              if (!bookingsRes.ok) throw new Error(`HTTP ${bookingsRes.status}`);
+              const bookingsData: { bookings?: Booking[] } = await bookingsRes.json();
+              setRecentBookings(bookingsData.bookings || []);
+            })
+            .catch((error) => {
+              console.error("Failed to fetch recent bookings:", error);
+              setRecentBookings([]);
+            }),
         ]);
 
-        const statsData = await statsRes.json();
-        const bookingsData = await bookingsRes.json();
-
-        if (statsRes.ok) {
-          setStats(statsData);
+        if (statsResult.ok) {
+          setStats(statsResult.data);
           setStatsError(null);
         } else {
           setStats(null);
-          setStatsError(statsData?.error || `Stats failed to load (HTTP ${statsRes.status})`);
+          setStatsError(statsResult.error);
         }
-        setRecentBookings(bookingsData.bookings || []);
       } catch (error) {
+        // readStatsResponse never throws; this is only a last-resort guard.
         console.error("Failed to fetch admin data:", error);
+        setStats(null);
+        setStatsError(`Stats failed to load (${error instanceof Error ? error.message : String(error)})`);
       } finally {
         setLoading(false);
       }

@@ -149,31 +149,6 @@ export async function GET(
       );
     }
 
-    const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
-
-    // Resolve protection state defensively. If protection_plan is set, the row
-    // MUST also have a positive protection_plan_price — anything else is a
-    // schema-level bug that would render "Protection Active … $0.00" to the
-    // customer. Suppress the protection block in that case and Sentry-flag so
-    // ops can manually repair.
-    let resolvedProtectionPlan: string | null = bookingData?.protection_plan || null;
-    let resolvedProtectionPlanPrice = 0;
-    if (resolvedProtectionPlan) {
-      const parsed = parseFloat(bookingData?.protection_plan_price ?? "");
-      if (Number.isFinite(parsed) && parsed > 0) {
-        resolvedProtectionPlanPrice = parsed;
-      } else {
-        captureBookingError(
-          new Error(
-            `Booking has protection_plan='${resolvedProtectionPlan}' but invalid protection_plan_price='${bookingData?.protection_plan_price}' — suppressing protection block in API response`
-          ),
-          { step: "confirmation", confirmationNumber: id }
-        );
-        resolvedProtectionPlan = null;
-      }
-    }
-    const protectionPlanPrice = resolvedProtectionPlanPrice;
-
     // Normalize Supabase timestamp (TIMESTAMP without tz, returned as
     // "2026-05-10T08:00:00") to the "YYYY-MM-DD HH:mm:ss" shape consumers expect.
     const normalizeBookingDate = (value: string | null | undefined): string | null => {
@@ -216,10 +191,10 @@ export async function GET(
         return NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
       }
 
+      // The service fee and Park Guard premium are parsed from the row by the
+      // direct view itself, strictly (a NULL fee or a plan without a positive
+      // premium is a 500), never the lenient ResLab-path coercion below.
       const direct = buildDirectReservation(id, bookingData, {
-        serviceFee: triplyServiceFee,
-        protectionPlan: resolvedProtectionPlan,
-        protectionPlanPrice,
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
         fromDate: supabaseFromDate,
@@ -234,6 +209,32 @@ export async function GET(
       }
       return NextResponse.json({ reservation: direct.reservation });
     }
+
+    // --- ResLab booking (behaviour unchanged) ---
+    const triplyServiceFee = parseFloat(bookingData?.triply_service_fee ?? "0") || 0;
+
+    // Resolve protection state defensively. If protection_plan is set, the row
+    // MUST also have a positive protection_plan_price — anything else is a
+    // schema-level bug that would render "Protection Active … $0.00" to the
+    // customer. Suppress the protection block in that case and Sentry-flag so
+    // ops can manually repair.
+    let resolvedProtectionPlan: string | null = bookingData?.protection_plan || null;
+    let resolvedProtectionPlanPrice = 0;
+    if (resolvedProtectionPlan) {
+      const parsed = parseFloat(bookingData?.protection_plan_price ?? "");
+      if (Number.isFinite(parsed) && parsed > 0) {
+        resolvedProtectionPlanPrice = parsed;
+      } else {
+        captureBookingError(
+          new Error(
+            `Booking has protection_plan='${resolvedProtectionPlan}' but invalid protection_plan_price='${bookingData?.protection_plan_price}' — suppressing protection block in API response`
+          ),
+          { step: "confirmation", confirmationNumber: id }
+        );
+        resolvedProtectionPlan = null;
+      }
+    }
+    const protectionPlanPrice = resolvedProtectionPlanPrice;
 
     // Fetch reservation from ResLab API
     const reservation = await reslab.getReservation(id);

@@ -116,8 +116,15 @@ function parseOr(expr: string): (row: Row) => boolean {
  * CHECK constraints the direct-lots engine must respect (migrations 034, 036,
  * 038), evaluated on INSERT only, against the row WITH its column defaults
  * applied (the stored row is left as the caller wrote it, so recorded snapshots
- * don't change). Not modelled on UPDATE: fixtures write partial rows directly.
- * Returns the violated constraint's name, or null.
+ * don't change). Returns the violated constraint's name, or null.
+ *
+ * Not modelled on UPDATE — Postgres DOES enforce these on UPDATE, so this fake
+ * is more permissive there. Two reasons it can't cheaply be stricter: suites
+ * seed rows through `seed()`, which bypasses insert and so holds rows that
+ * would never pass these CHECKs (a bookings row without `reslab_location_id`,
+ * say), and an UPDATE payload is partial — evaluating it would mean merging
+ * into such a seeded row and failing the update for a column it never touched.
+ * A test that needs CHECK-on-UPDATE behaviour must inject it (`failWhen`).
  */
 function violatedCheck(table: string, row: Row): string | null {
   const v = { inventory_source: "reslab", ...row } as Row;
@@ -143,7 +150,61 @@ function violatedCheck(table: string, row: Row): string | null {
       isNull(v.location_id) && isNull(v.parking_type_id);
     if (!reslabOk && !directOk) return "pending_bookings_inventory_source_ids_check";
   }
+  if (table === "direct_booking_terms") {
+    // 038: column CHECKs (Postgres names an inline column CHECK <table>_<col>_check).
+    const share = Number(v.partner_share_percent);
+    if (isNull(v.partner_share_percent) || !(share >= 0 && share <= 100)) {
+      return "direct_booking_terms_partner_share_percent_check";
+    }
+    if (isNull(v.tax_rate_percent) || !(Number(v.tax_rate_percent) >= 0)) return "direct_booking_terms_tax_rate_percent_check";
+    if (v.tax_collected_by !== "triply" && v.tax_collected_by !== "lot") return "direct_booking_terms_tax_collected_by_check";
+    const recipients = v.lot_recipients;
+    if (!Array.isArray(recipients) || recipients.length < 1 || recipients.some((r) => isNull(r))) {
+      return "direct_booking_terms_lot_recipients_check";
+    }
+  }
   return null;
+}
+
+/**
+ * UNIQUE / PRIMARY KEY constraints the engine relies on, checked on INSERT.
+ * Returns the REAL constraint name (what Postgres puts in the 23505 message),
+ * or null.
+ */
+function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
+  const samePi = (r: Row) => r.stripe_payment_intent_id === row.stripe_payment_intent_id;
+  switch (table) {
+    case "pending_bookings":
+      // 015: stripe_payment_intent_id is the PRIMARY KEY.
+      if (rows.some(samePi)) return "pending_bookings_pkey";
+      // 034: partial UNIQUE index on reslab_reservation_number (non-null).
+      if (row.reslab_reservation_number != null && rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) {
+        return "pending_bookings_reservation_number_uq";
+      }
+      return null;
+    case "bookings":
+      // 003: stripe_payment_intent_id TEXT UNIQUE (NULLs never collide).
+      if (row.stripe_payment_intent_id != null && rows.some(samePi)) return "bookings_stripe_payment_intent_id_key";
+      // 001: reslab_reservation_number TEXT UNIQUE.
+      if (row.reslab_reservation_number != null && rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) {
+        return "bookings_reslab_reservation_number_key";
+      }
+      return null;
+    case "direct_booking_terms":
+      // 038: stripe_payment_intent_id is the PRIMARY KEY.
+      return rows.some(samePi) ? "direct_booking_terms_pkey" : null;
+    case "cart_claims":
+      // 015: partial UNIQUE index on cart_key WHERE released_at IS NULL.
+      return rows.some((r) => r.cart_key === row.cart_key && r.released_at == null) ? "idx_cart_claims_live" : null;
+    case "checkout_recovery_emails":
+      // 031: the recovery cron's claim-before-send lock.
+      return rows.some(samePi) ? "checkout_recovery_emails_pi_unique" : null;
+    case "checkout_recovery_optouts":
+      // 031: the opt-out table's PK.
+      return rows.some((r) => r.email === row.email) ? "checkout_recovery_optouts_pkey" : null;
+    default:
+      return null;
+  }
 }
 
 export class FakeSupabase {
@@ -152,6 +213,7 @@ export class FakeSupabase {
     bookings: [],
     cart_claims: [],
     customers: [],
+    direct_booking_terms: [],
   };
 
   /** `${table}:${op}` -> injected error. Consumed on first use. */
@@ -178,6 +240,12 @@ export class FakeSupabase {
 
   /** Every query executed, for assertions like "createReservation was skipped". */
   log: Array<{ table: string; op: string }> = [];
+
+  /** The column list of every SELECT executed, in order. Kept OUT of `log` on
+   *  purpose: the fulfilment golden snapshot records `log`, and a select-string
+   *  change must not churn it. Use this to assert a query never reads a column
+   *  (e.g. a customer-facing read touching partner terms). */
+  selects: Array<{ table: string; select: string }> = [];
 
   seed(table: string, rows: Row[]) {
     this.tables[table] = rows.map((r) => ({ ...r }));
@@ -472,6 +540,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
 
   private run(): { data: unknown; error: unknown; count?: number } {
     this.db.log.push({ table: this.table, op: this.op });
+    if (this.op === "select") this.db.selects.push({ table: this.table, select: this.selectStr });
 
     // Real PostgREST rejects `.or()` on a mutating request. Reproduce it so a
     // regression to `.update(...).or(...)` fails a test instead of silently
@@ -514,48 +583,23 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           return { data: this.singleRow ? { ...existing } : [{ ...existing }], error: null };
         }
       }
-      // Emulate the UNIQUE constraints the engine relies on.
-      const dupe =
-        (this.table === "pending_bookings" &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        (this.table === "cart_claims" &&
-          rows.some(
-            (r) => r.cart_key === row.cart_key && r.released_at == null
-          )) ||
-        (this.table === "bookings" &&
-          row.stripe_payment_intent_id != null &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        // 001: bookings.reslab_reservation_number UNIQUE; 034: the partial
-        // UNIQUE on pending_bookings.reslab_reservation_number (non-null).
-        ((this.table === "bookings" || this.table === "pending_bookings") &&
-          row.reslab_reservation_number != null &&
-          rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) ||
-        // Migration 031: UNIQUE (stripe_payment_intent_id) — the recovery
-        // cron's claim-before-send lock — and the opt-out table's PK.
-        (this.table === "checkout_recovery_emails" &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        (this.table === "checkout_recovery_optouts" &&
-          rows.some((r) => r.email === row.email));
-      if (dupe) {
-        return {
-          data: null,
-          error: { message: "duplicate key value", code: "23505" },
-        };
-      }
+      // Postgres evaluates CHECK constraints BEFORE the unique index insertion,
+      // so a row that violates both reports 23514, not 23505.
       const check = violatedCheck(this.table, row);
       if (check) {
         return {
           data: null,
-          error: { message: `new row violates check constraint "${check}"`, code: "23514" },
+          error: {
+            message: `new row for relation "${this.table}" violates check constraint "${check}"`,
+            code: "23514",
+          },
+        };
+      }
+      const unique = violatedUnique(this.table, row, rows);
+      if (unique) {
+        return {
+          data: null,
+          error: { message: `duplicate key value violates unique constraint "${unique}"`, code: "23505" },
         };
       }
       if (!row.id) row.id = `row_${rows.length + 1}`;

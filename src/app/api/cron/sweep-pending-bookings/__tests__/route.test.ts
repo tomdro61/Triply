@@ -126,3 +126,86 @@ describe("GET /api/cron/sweep-pending-bookings — opposite-mode cleanup (plan 4
     expect(capturePaymentError).not.toHaveBeenCalled();
   });
 });
+
+describe("GET /api/cron/sweep-pending-bookings — held opposite-mode rows are reported ONCE", () => {
+  const heldPis = () => capturePaymentError.mock.calls.map(([, ctx]) => (ctx as { stripePaymentIntentId?: string }).stripePaymentIntentId);
+
+  it("reports a held row on the first tick, stamps it (keeping the prior error), and stays quiet after", async () => {
+    db.seed("pending_bookings", [
+      stagingRow({ stripe_payment_intent_id: "pi_held", status: "processing", reslab_reservation_number: "TRP-7K2M9QXA", last_error: "capture failed: card_declined" }),
+      stagingRow({ stripe_payment_intent_id: "pi_held_null", status: "pending", reslab_reservation_number: "RTL854206" }),
+    ]);
+
+    const first = await (await GET(req())).json();
+    expect(first).toMatchObject({ ok: true, crossModeHeld: 2, crossModeHeldUnmarked: 0 });
+    expect(heldPis().sort()).toEqual(["pi_held", "pi_held_null"]);
+
+    const row = (pi: string) => db.tables.pending_bookings.find((r) => r.stripe_payment_intent_id === pi)!;
+    expect(row("pi_held").last_error).toMatch(/^held-cross-mode-reported \d{4}-\d{2}-\d{2}T\S+ \| prior: capture failed: card_declined$/);
+    expect(row("pi_held_null").last_error).toMatch(/^held-cross-mode-reported \d{4}-\d{2}-\d{2}T\S+$/);
+    // booking state untouched
+    expect(row("pi_held").status).toBe("processing");
+    expect(row("pi_held_null").status).toBe("pending");
+
+    capturePaymentError.mockClear();
+    for (let tick = 0; tick < 3; tick++) {
+      const again = await (await GET(req())).json();
+      expect(again).toMatchObject({ ok: true, crossModeHeld: 0 });
+    }
+    expect(capturePaymentError).not.toHaveBeenCalled();
+  });
+
+  it("a row the other environment re-touches (last_error rewritten) is reported again", async () => {
+    db.seed("pending_bookings", [
+      stagingRow({ stripe_payment_intent_id: "pi_held", status: "processing", reslab_reservation_number: "TRP-7K2M9QXA" }),
+    ]);
+    await GET(req());
+    db.tables.pending_bookings[0].last_error = "capture failed again: timeout";
+    capturePaymentError.mockClear();
+    const body = await (await GET(req())).json();
+    expect(body.crossModeHeld).toBe(1);
+    expect(heldPis()).toEqual(["pi_held"]);
+  });
+
+  it("orders newest first, so a fresh row is never starved behind the per-run cap", async () => {
+    const rows = Array.from({ length: 26 }, (_, i) =>
+      stagingRow({
+        stripe_payment_intent_id: `pi_old_${String(i).padStart(2, "0")}`,
+        status: "processing",
+        reslab_reservation_number: `RTL${i}`,
+        created_at: ago((30 + i) * HOUR),
+      })
+    );
+    rows.push(stagingRow({ stripe_payment_intent_id: "pi_newest", status: "processing", reslab_reservation_number: "TRP-NEWNEWNE", created_at: ago(2 * HOUR) }));
+    db.seed("pending_bookings", rows);
+
+    const first = await (await GET(req())).json();
+    expect(first.crossModeHeld).toBe(25);
+    expect(heldPis()).toContain("pi_newest");
+    expect(heldPis()[0]).toBe("pi_newest");
+
+    // the two oldest are picked up next tick — nothing is reported twice
+    capturePaymentError.mockClear();
+    const second = await (await GET(req())).json();
+    expect(second.crossModeHeld).toBe(2);
+    expect(heldPis().sort()).toEqual(["pi_old_24", "pi_old_25"]);
+  });
+
+  it("a failed stamp is non-fatal and counted; the row is reported again next tick", async () => {
+    db.seed("pending_bookings", [
+      stagingRow({ stripe_payment_intent_id: "pi_held", status: "processing", reslab_reservation_number: "TRP-7K2M9QXA" }),
+    ]);
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    db.failWhen("pending_bookings", "update", (p) => typeof p?.last_error === "string" && p.last_error.startsWith("held-cross-mode-reported"), "connection reset");
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ ok: true, crossModeHeld: 1, crossModeHeldUnmarked: 1 });
+    expect(db.tables.pending_bookings[0].last_error).toBeNull();
+    expect(errSpy).toHaveBeenCalledWith(expect.stringMatching(/could not stamp held opposite-mode row pi_held: connection reset/));
+
+    capturePaymentError.mockClear();
+    expect((await (await GET(req())).json()).crossModeHeld).toBe(1);
+    expect(heldPis()).toEqual(["pi_held"]);
+    errSpy.mockRestore();
+  });
+});

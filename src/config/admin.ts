@@ -35,8 +35,10 @@ export function isAtTestLot(reslabLocationId: number | null | undefined): boolea
  * booking. Email is never consulted (see isAtTestLot).
  */
 export function isTestBooking(row: {
-  reslab_location_id: number | null | undefined;
-  livemode: boolean | null | undefined;
+  // Exactly the column types: a caller that forgot to SELECT a column must fail
+  // to compile, not read `undefined` as "not a test lot" / "live".
+  reslab_location_id: number | null;
+  livemode: boolean | null;
 }): boolean {
   return isAtTestLot(row.reslab_location_id) || row.livemode === false;
 }
