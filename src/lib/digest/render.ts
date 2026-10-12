@@ -50,7 +50,10 @@ export function verdictFor(d: DigestData): Verdict {
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const m = (v: Metric, f: (n: number) => string = String) => (v === "unavailable" ? "unavailable" : f(v));
 const pct = (v: Metric) => m(v, (n) => `${Math.round(n * 100)}%`);
-const signedPct = (share: number) => `${share >= 0 ? "+" : "−"}${Math.abs(Math.round(share * 100))}%`;
+const signedPct = (share: number) => {
+  const n = Math.round(share * 100);
+  return n === 0 ? "±0%" : `${n > 0 ? "+" : "−"}${Math.abs(n)}%`;
+};
 const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s); // declared before its first caller
 
 // ── flags ──
@@ -196,7 +199,7 @@ function tiles(d: DigestData): Embed["fields"] {
 }
 
 /**
- * "Google 3 · AI 2 (ChatGPT 1, Gemini 1) · No referrer → blog 2": the AI
+ * "Google 3 · AI 2 (ChatGPT 1, Gemini 1) · Blog (no referrer) 2": the AI
  * assistants fold into one entry so their total reads at a glance, largest
  * entry first.
  */
@@ -219,16 +222,26 @@ const dayRange = (first: string, last: string) => (first === last ? dayLabel(fir
 function paceField(d: DigestData): string {
   if (!d.pace.ok) return `unavailable (${clamp(d.pace.error, 80)})`;
   const p = d.pace.data;
-  const line = (label: string, t: PaceTotals) => `${label}: ${t.bookings} bookings · GMV ${m(t.gmv, usd)} · fee income ${m(t.feeIncome, usd)}`;
+  const line = (label: string, t: PaceTotals) => {
+    const caveats = [
+      t.unmatched ? `${t.unmatched} unclassified booking(s) not counted` : "",
+      t.dirtyPgRows ? `fee income excludes ${t.dirtyPgRows} Park Guard row(s) with no wholesale` : "",
+    ].filter(Boolean);
+    return `${label}: ${t.bookings} bookings · GMV ${m(t.gmv, usd)} · fee income ${m(t.feeIncome, usd)}${caveats.length ? ` (${caveats.join("; ")})` : ""}`;
+  };
   const change =
-    p.prior.bookings > 0 ? `Bookings ${signedPct((p.mtd.bookings - p.prior.bookings) / p.prior.bookings)} vs the same days last month` : "No bookings in the same days last month";
+    p.bookingsChange !== null
+      ? `Bookings ${signedPct(p.bookingsChange)} vs the same days last month`
+      : p.mtd.unmatched || p.prior.unmatched
+        ? "Change withheld: unclassified bookings in the comparison"
+        : "No bookings in the same days last month";
   return [line(dayRange(p.mtdFirstDay, p.mtdLastDay), p.mtd), line(dayRange(p.priorFirstDay, p.priorLastDay), p.prior), change].join("\n");
 }
 
 function recoveryField(d: DigestData): string {
   if (!d.recovery.ok) return `unavailable (${clamp(d.recovery.error, 80)})`;
   const r = d.recovery.data;
-  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
+  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ waiting to send ${r.waiting}` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
 }
 
 function whereFromField(d: DigestData): string {

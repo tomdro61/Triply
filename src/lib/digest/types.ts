@@ -77,18 +77,30 @@ export interface PaceSection {
   priorLastDay: string;
   mtd: PaceTotals;
   prior: PaceTotals;
+  /**
+   * (mtd − prior) ÷ prior bookings, computed once here so the embed and the
+   * model read can never state two different figures. null when there is no
+   * fair comparison: no prior bookings, or either period has unmatched rows.
+   */
+  bookingsChange: number | null;
 }
 
 export interface PaceTotals {
   bookings: number;
   gmv: Metric;
+  /** Service fees + Park Guard margin; PG rows with no recorded wholesale are excluded and counted in dirtyPgRows. */
   feeIncome: Metric;
+  /** Rows partitionBookings could not classify as live or staging; they are NOT in bookings/gmv/feeIncome. */
+  unmatched: number;
+  dirtyPgRows: number;
 }
 
 /** Abandoned-checkout recovery email (#44) over the 7 ET days ending with the digest day. Live mode only. */
 export interface RecoverySection {
   sent: number;
   failed: number;
+  /** Rows still `claimed` or parked in `retry` (a Resend outage or config failure parks them here). */
+  waiting: number;
   optOuts: number;
   /** Live confirmed bookings whose first or last touch carried utm_campaign=checkout_recovery (the email's link). */
   recoveredBookings: Metric;

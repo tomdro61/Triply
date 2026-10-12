@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bookingSource, bookingSourceLabel, BOOKING_SOURCES, BOOKING_SOURCE_LABELS } from "../source";
+import { bookingSource, bookingSourceLabel, bookingSourceLabelForKey, isBookingSource, BOOKING_SOURCES, BOOKING_SOURCE_LABELS } from "../source";
 import type { AttributionRow } from "../display";
 
 type First = NonNullable<NonNullable<AttributionRow["attribution"]>["first"]>;
@@ -56,6 +56,37 @@ describe("bookingSource", () => {
     expect(bookingSource(row(null))).toBe("unknown");
     expect(bookingSource(row(""))).toBe("unknown");
     expect(bookingSource(row("Organic_Search", { ref: "google.com" }))).toBe("unknown");
+  });
+
+  it("hosts are matched exactly, never as substrings", () => {
+    expect(bookingSource(row("referral", { ref: "google.com.evil.com" }))).toBe("referral");
+    expect(bookingSource(row("organic_search", { ref: "google.com.evil.com" }))).toBe("other_search");
+    expect(bookingSource(row("referral", { ref: "thankyou.com" }))).toBe("referral");
+    expect(bookingSource(row("referral", { ref: "bayou.com" }))).toBe("referral");
+    expect(bookingSource(row("referral", { ref: "you.com" }))).toBe("other_ai");
+    expect(bookingSource(row("referral", { ref: "mygeminiblog.example" }))).toBe("referral");
+    expect(bookingSource(row("referral", { src: "meta" }))).toBe("referral"); // Facebook-ads shorthand, not meta.ai
+    expect(bookingSource(row("referral", { ref: "https://chatgpt.com/c/abc" }))).toBe("chatgpt");
+  });
+
+  it("Android app referrers: only the Google search app is Google; Gemini app is Gemini; Gmail and YouTube are not search", () => {
+    expect(bookingSource(row("referral", { ref: "com.google.android.apps.searchlite" }))).toBe("google");
+    expect(bookingSource(row("referral", { ref: "com.google.android.apps.bard" }))).toBe("gemini");
+    expect(bookingSource(row("referral", { ref: "com.google.android.gm" }))).toBe("email");
+    expect(bookingSource(row("referral", { ref: "com.google.android.youtube" }))).toBe("social");
+    expect(bookingSource(row("referral", { ref: "docs.google.com" }))).toBe("referral");
+  });
+
+  it("a paid click stays Paid even when its utm_source names an assistant", () => {
+    expect(bookingSource(row("paid_search", { src: "chatgpt", med: "cpc" }))).toBe("paid");
+    expect(bookingSource(row("email", { src: "chatgpt.com", med: "email" }))).toBe("chatgpt"); // non-paid: the AI hint wins
+  });
+
+  it("isBookingSource / bookingSourceLabelForKey guard keys that arrive over JSON", () => {
+    expect(isBookingSource("chatgpt")).toBe(true);
+    expect(isBookingSource("organic_search")).toBe(false);
+    expect(bookingSourceLabelForKey("no_referrer_blog")).toBe("Blog (no referrer)");
+    expect(bookingSourceLabelForKey("something_new")).toBe("something_new");
   });
 
   it("every source has a label", () => {

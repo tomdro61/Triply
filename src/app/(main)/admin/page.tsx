@@ -19,7 +19,7 @@ import { CancellationReportPanel } from "@/components/admin/cancellation-report"
 import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
-import { BOOKING_SOURCE_LABELS, type BookingSource } from "@/lib/attribution/source";
+import { bookingSourceLabelForKey } from "@/lib/attribution/source";
 
 interface Stats {
   bookings: {
@@ -53,7 +53,8 @@ interface Stats {
     margin: { total: number; today: number; thisWeek: number; thisMonth: number };
   };
   attribution?: {
-    bySource: Array<{ key: BookingSource; bookings: number; gross: number; triply: number; protected: number }>;
+    /** Optional on the wire: a server from before the bySource change does not send it (rollback / version skew). */
+    bySource?: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirport: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirportTotal: number;
     byPromo: Array<{
@@ -463,17 +464,21 @@ export default function AdminDashboard() {
                     : `${stats.reslabSnapshot.ageHours} h old · ${stats.reslabSnapshot.locationCount} lots · ${stats.reslabSnapshot.wireKb} KB · ${stats.reslabSnapshot.writtenBy}${stats.reslabSnapshot.stale ? " · STALE — cron failing, search on per-server fetches" : stats.reslabSnapshot.behind ? " · BEHIND — cron missed ≥ 2 runs" : ""}`}
               </p>
             )}
-            <BreakdownTable
-              rows={stats.attribution.bySource.map((r) => ({
-                label: BOOKING_SOURCE_LABELS[r.key] ?? r.key,
-                bookings: r.bookings,
-                money: r.gross,
-              }))}
-              moneyHeader="Gross"
-              emptyText="No bookings in range"
-            />
+            {stats.attribution.bySource ? (
+              <BreakdownTable
+                rows={stats.attribution.bySource.map((r) => ({
+                  label: bookingSourceLabelForKey(r.key),
+                  bookings: r.bookings,
+                  money: r.gross,
+                }))}
+                moneyHeader="Gross"
+                emptyText="No bookings in range"
+              />
+            ) : (
+              <p className="text-sm text-amber-700">Source breakdown unavailable — reload the page.</p>
+            )}
             <p className="mt-3 text-xs text-gray-400">
-              Where the customer first came from. &ldquo;No referrer → blog&rdquo; = arrived straight on a blog
+              Where the customer first came from. &ldquo;Blog (no referrer)&rdquo; = arrived straight on a blog
               article with no referrer (almost always a search or AI app). &ldquo;No data&rdquo; = booked before
               capture existed or with no cookie; &ldquo;Invalid cookie&rdquo; = present but unreadable (a bug —
               check Sentry).

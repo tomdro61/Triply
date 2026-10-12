@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import type { RecoveryCandidate } from "./select";
+import { RECOVERY_CAMPAIGN } from "./campaign";
 
 /**
  * The one "you didn't finish booking" email. Short, plain, honest: what they
@@ -103,7 +104,7 @@ export function buildResumeUrl(c: RecoveryCandidate): string {
     checkoutTime: c.checkoutTime,
     utm_source: "triply",
     utm_medium: "email",
-    utm_campaign: "checkout_recovery",
+    utm_campaign: RECOVERY_CAMPAIGN,
   });
   return `${base}/checkout?${params.toString()}`;
 }

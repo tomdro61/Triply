@@ -77,8 +77,8 @@ function data(over: Partial<DigestData> = {}): DigestData {
     lostSales: { ok: true, data: { byStatus: { completed: 6 }, rows: [] } },
     engagement: { ok: true, data: { newsletterBySource: { blog: 2 }, waitlistByAirport: {}, chatSessions: 3, welcomeCodesMinted: 2 } },
     health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "days", n: 1 } } },
-    pace: { ok: true, data: { mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 62, gmv: 5210.4, feeIncome: 431.5 }, prior: { bookings: 40, gmv: 3900, feeIncome: 290 } } },
-    recovery: { ok: true, data: { sent: 6, failed: 0, optOuts: 1, recoveredBookings: 2 } },
+    pace: { ok: true, data: { mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 62, gmv: 5210.4, feeIncome: 431.5, unmatched: 0, dirtyPgRows: 0 }, prior: { bookings: 40, gmv: 3900, feeIncome: 290, unmatched: 0, dirtyPgRows: 0 }, bookingsChange: 0.55 } },
+    recovery: { ok: true, data: { sent: 6, failed: 0, waiting: 0, optOuts: 1, recoveredBookings: 2 } },
     ...over,
   };
 }
@@ -344,7 +344,7 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
         { key: "gemini", bookings: 2 },
         { key: "direct", bookings: 1 },
       ])
-    ).toBe("Google 14 · No referrer → blog 11 · Bing & other engines 8 · AI 6 (ChatGPT 4, Gemini 2) · Direct 1");
+    ).toBe("Google 14 · Blog (no referrer) 11 · Bing & other engines 8 · AI 6 (ChatGPT 4, Gemini 2) · Direct 1");
     expect(sourceLine([{ key: "google", bookings: 2 }, { key: "chatgpt", bookings: 1 }])).toBe("Google 2 · AI: ChatGPT 1");
     expect(sourceLine([])).toBe("—");
   });
@@ -352,7 +352,7 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
   it("the where-from block shows the day and the 7 days to it; a failed week keeps the day's line", () => {
     const v = field(data(), "Where bookings came from");
     expect(v).toMatch(/^Sept 27: Google 4 · AI: ChatGPT 1$/m);
-    expect(v).toMatch(/^7 days to Sept 27 \(40\): Google 14 · No referrer → blog 11 · Bing & other engines 8 · AI 6 \(ChatGPT 4, Gemini 2\) · Direct 1$/m);
+    expect(v.split("\n")).toContain("7 days to Sept 27 (40): Google 14 · Blog (no referrer) 11 · Bing & other engines 8 · AI 6 (ChatGPT 4, Gemini 2) · Direct 1");
     const wf = data().whereFrom;
     if (!wf.ok) throw new Error("fixture");
     const broken = data({ whereFrom: { ok: true, data: { ...wf.data, bySource7d: { ok: false, error: "bookings: 57014 canceling statement" } } } });
@@ -361,6 +361,8 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
     expect(b).toMatch(/7 days to Sept 27: unavailable \(bookings: 57014/);
   });
 
+  const T = (bookings: number, gmv: number | "unavailable", feeIncome: number, extra: { unmatched?: number; dirtyPgRows?: number } = {}) => ({ bookings, gmv, feeIncome, unmatched: 0, dirtyPgRows: 0, ...extra });
+
   it("month to date compares the same days of last month, with a signed change", () => {
     const v = field(data(), "Month to date");
     expect(v.split("\n")).toEqual([
@@ -368,20 +370,32 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
       "Aug 1–27: 40 bookings · GMV $3,900 · fee income $290",
       "Bookings +55% vs the same days last month",
     ]);
-    const down = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-01", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-01", mtd: { bookings: 3, gmv: "unavailable", feeIncome: 20 }, prior: { bookings: 4, gmv: 300, feeIncome: 25 } } } });
+    const down = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-01", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-01", mtd: T(3, "unavailable", 20), prior: T(4, 300, 25), bookingsChange: -0.25 } } });
     expect(field(down, "Month to date").split("\n")).toEqual([
       "Oct 1: 3 bookings · GMV unavailable · fee income $20",
       "Sept 1: 4 bookings · GMV $300 · fee income $25",
       "Bookings −25% vs the same days last month",
     ]);
-    const none = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-02", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-02", mtd: { bookings: 3, gmv: 300, feeIncome: 20 }, prior: { bookings: 0, gmv: 0, feeIncome: 0 } } } });
+    const none = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-02", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-02", mtd: T(3, 300, 20), prior: T(0, 0, 0), bookingsChange: null } } });
     expect(field(none, "Month to date")).toMatch(/No bookings in the same days last month$/);
+  });
+
+  it("unclassified rows put a caveat on the totals and withhold the change, never a confident drop", () => {
+    const unmatched = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(30, 2000, 200, { unmatched: 9, dirtyPgRows: 2 }), prior: T(50, 4000, 300), bookingsChange: null } } });
+    const u = field(unmatched, "Month to date").split("\n");
+    expect(u[0]).toBe("Oct 1–12: 30 bookings · GMV $2,000 · fee income $200 (9 unclassified booking(s) not counted; fee income excludes 2 Park Guard row(s) with no wholesale)");
+    expect(u[2]).toBe("Change withheld: unclassified bookings in the comparison");
+    const flat = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(250, 1, 1), prior: T(251, 1, 1), bookingsChange: -1 / 251 } } });
+    expect(field(flat, "Month to date")).toMatch(/Bookings ±0% vs/);
   });
 
   it("the abandoned-checkout line reports sends, opt-outs and bookings through the link", () => {
     expect(field(data(), "Abandoned-checkout emails (last 7 days)")).toBe("Sent 6 · opted out 1 · bookings through the email link 2");
-    const failedSends = data({ recovery: { ok: true, data: { sent: 2, failed: 1, optOuts: 0, recoveredBookings: "unavailable" } } });
+    const failedSends = data({ recovery: { ok: true, data: { sent: 2, failed: 1, waiting: 0, optOuts: 0, recoveredBookings: "unavailable" } } });
     expect(field(failedSends, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 2 · failed 1 · opted out 0 · bookings through the email link unavailable");
+    // A Resend outage parks rows in retry: that must never read as a quiet week.
+    const stuck = data({ recovery: { ok: true, data: { sent: 0, failed: 0, waiting: 4, optOuts: 0, recoveredBookings: 0 } } });
+    expect(field(stuck, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 0 · ⚠️ waiting to send 4 · opted out 0 · bookings through the email link 0");
   });
 
   it("pace and recovery failing never change the verdict and never raise a flag", () => {
@@ -397,11 +411,43 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
     const input = modelInput(data());
     const json = JSON.stringify(input);
     expect(json).toContain('"source":"ChatGPT"');
-    expect(json).toContain('"source":"No referrer → blog"');
+    expect(json).toContain('"source":"Blog (no referrer)"');
     expect(json).not.toContain("no_referrer_blog");
-    expect(json).toContain('"bookingsChangePercent":55');
+    expect(json).toContain('"bookingsChange":{"direction":"up","percent":55}');
     expect(json).toContain('"bookingsThroughEmailLink":2');
     const allowed = allowedTokens(input, "2026-09-27");
-    expect(firstUnexplainedNumber("Month to date is 62 bookings, up 55% on the same days of August; ChatGPT sent 4 bookings over the last 7 days.", allowed)).toBeNull();
+    expect(firstUnexplainedNumber("Month to date (Sept 1–27) is 62 bookings, up 55% on Aug 1–27; ChatGPT sent 4 bookings over the last 7 days.", allowed)).toBeNull();
+  });
+
+  it("a down month passes the number check (the validator reads 'down 25%' as 25)", () => {
+    const d = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-10", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-10", mtd: T(30, 2000, 200), prior: T(40, 3000, 300), bookingsChange: -0.25 } } });
+    const input = modelInput(d);
+    expect(JSON.stringify(input)).toContain('"bookingsChange":{"direction":"down","percent":25}');
+    const allowed = allowedTokens(input, "2026-10-10");
+    expect(firstUnexplainedNumber("Month to date (Oct 1–10) has 30 bookings, down 25% on Sept 1–10.", allowed)).toBeNull();
+    expect(firstUnexplainedNumber("Month to date is down −25%.", allowed)).toBeNull();
+  });
+
+  it("failed comparison sections reach the model as null, never as zeros", () => {
+    const input = modelInput(data({ pace: { ok: false, error: "x" }, recovery: { ok: false, error: "y" } }));
+    expect(input.monthToDate).toBeNull();
+    expect(input.checkoutRecoveryLast7Days).toBeNull();
+    const wf = data().whereFrom;
+    if (!wf.ok) throw new Error("fixture");
+    const noWeek = modelInput(data({ whereFrom: { ok: true, data: { ...wf.data, bySource7d: { ok: false, error: "z" } } } }));
+    expect((noWeek.whereFrom as { bySourceLast7Days: unknown }).bySourceLast7Days).toBeNull();
+  });
+
+  it("a busy but ordinary day still fits Discord without truncation", () => {
+    const rows = BOOKING_SOURCES.map((key, i) => ({ key, bookings: i + 1 }));
+    const wf = data().whereFrom;
+    if (!wf.ok) throw new Error("fixture");
+    const d = data({
+      whereFrom: { ok: true, data: { ...wf.data, bySource: rows, bySource7d: { ok: true, data: { total: 120, rows } }, topAirports: ["EWR", "JFK", "ATL", "IAD", "SFO"].map((key) => ({ key, bookings: 2 })), topBlogPosts: [1, 2, 3].map((i) => ({ path: `/blog/newark-airport-parking-guide-${i}`, bookings: 1 })) } },
+      lostSales: { ok: true, data: { byStatus: { completed: 8, released_failed: 6 }, rows: Array.from({ length: 6 }, (_, i) => ({ airport: "JFK", lot: `Lot ${i}`, status: "released_failed", reason: "Validation error" })) } },
+    });
+    const { embed, truncated } = renderEmbed(d, { kind: "ok", text: "r".repeat(700) });
+    expect(truncated).toBe(false);
+    expect(embed.fields.map((f) => f.name)).toEqual(expect.arrayContaining(["Month to date", "Abandoned-checkout emails (last 7 days)", "Health", "Lost sales"]));
   });
 });

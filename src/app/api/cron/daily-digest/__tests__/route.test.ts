@@ -47,8 +47,8 @@ function digest(over: Partial<DigestData> = {}): DigestData {
     lostSales: ok({ byStatus: { completed: 6 }, rows: [] }),
     engagement: ok({ newsletterBySource: {}, waitlistByAirport: {}, chatSessions: 2, welcomeCodesMinted: 1 }),
     health: ok({ telemetry: { kind: "ok" as const, lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" as const }, stuckPending: { kind: "n" as const, n: 0 }, emailNotSent: { kind: "n" as const, n: 0, capped: false, numbers: [], lookbackDays: 7 }, lastDigest: { kind: "days" as const, n: 1 } }),
-    pace: ok({ mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 60, gmv: 5000, feeIncome: 400 }, prior: { bookings: 50, gmv: 4000, feeIncome: 300 } }),
-    recovery: ok({ sent: 3, failed: 0, optOuts: 0, recoveredBookings: 0 }),
+    pace: ok({ mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 60, gmv: 5000, feeIncome: 400, unmatched: 0, dirtyPgRows: 0 }, prior: { bookings: 50, gmv: 4000, feeIncome: 300, unmatched: 0, dirtyPgRows: 0 }, bookingsChange: 0.2 }),
+    recovery: ok({ sent: 3, failed: 0, waiting: 0, optOuts: 0, recoveredBookings: 0 }),
     ...over,
   };
 }

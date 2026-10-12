@@ -23,6 +23,7 @@ import { isLive, airportKey, bySource, type ReportRow } from "@/lib/attribution/
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { sameEmail } from "@/lib/booking/customer-link";
 import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_WARN_MS, SNAPSHOT_MAX_AGE_MS } from "@/lib/reslab/location-snapshot";
+import { RECOVERY_CAMPAIGN } from "@/lib/checkout-recovery/campaign";
 import { redactForDigest } from "./redact";
 import { calendarDayIn, shiftIsoDate, trailingWindow, zonedMidnightUtc, DIGEST_TZ, type DigestWindow } from "./window";
 import type {
@@ -514,18 +515,26 @@ async function paceTotals(sb: Client, firstDay: string, lastDay: string): Promis
   // Status as it stands NOW: a booking refunded since it was made is not counted,
   // in either month. The earlier month has had longer to be refunded, so its
   // figure can read slightly low; this is a pace check, not accounting.
-  const confirmed = partitionBookings(rows).live.filter(isLive);
-  return { bookings: confirmed.length, gmv: sumMetric(confirmed, grossMetric), feeIncome: feeIncomeOf(confirmed).feeIncome };
+  const p = partitionBookings(rows);
+  const confirmed = p.live.filter(isLive);
+  const fees = feeIncomeOf(confirmed);
+  return { bookings: confirmed.length, gmv: sumMetric(confirmed, grossMetric), feeIncome: fees.feeIncome, unmatched: p.unmatched, dirtyPgRows: fees.dirtyPgRows };
 }
 
 export async function collectPace(sb: Client, w: DigestWindow): Promise<Section<PaceSection>> {
   try {
     const win = paceWindows(w.dateEt);
+    // Both or nothing: one month failing fails the section, never "0 last month".
     const [mtd, prior] = await Promise.all([
-      paceTotals(sb, win.mtdFirstDay, win.mtdLastDay),
-      paceTotals(sb, win.priorFirstDay, win.priorLastDay),
+      paceTotals(sb, win.mtdFirstDay, win.mtdLastDay).catch((err: unknown) => {
+        throw new Error(`month to date: ${err instanceof Error ? err.message : String(err)}`);
+      }),
+      paceTotals(sb, win.priorFirstDay, win.priorLastDay).catch((err: unknown) => {
+        throw new Error(`last month: ${err instanceof Error ? err.message : String(err)}`);
+      }),
     ]);
-    return ok({ ...win, mtd, prior });
+    const fair = prior.bookings > 0 && mtd.unmatched === 0 && prior.unmatched === 0;
+    return ok({ ...win, mtd, prior, bookingsChange: fair ? (mtd.bookings - prior.bookings) / prior.bookings : null });
   } catch (err) {
     return fail(err);
   }
@@ -533,8 +542,6 @@ export async function collectPace(sb: Client, w: DigestWindow): Promise<Section<
 
 // ───────────────────────────── checkout recovery ─────────────────────────────
 
-/** utm_campaign on the recovery email's resume link (checkout-recovery/email.ts buildResumeUrl). */
-export const RECOVERY_CAMPAIGN = "checkout_recovery";
 
 /**
  * The recovery email over the same 7 days as the source mix. Sends and opt-outs
@@ -561,6 +568,7 @@ export async function collectRecovery(sb: Client, w: DigestWindow, week: Section
     return ok({
       sent: rows.filter((r) => r.status === "sent").length,
       failed: rows.filter((r) => r.status === "failed").length,
+      waiting: rows.filter((r) => r.status === "claimed" || r.status === "retry").length,
       optOuts: exactCount("checkout_recovery_optouts", optouts),
       recoveredBookings,
     });
