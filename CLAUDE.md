@@ -122,13 +122,39 @@ Before opening a PR:
 - Customer-facing or money/booking code → get a second set of eyes: run
   `/scoped-review` (committed to this repo — see **Skills** below).
 
+### Codex (OpenAI) is part of review — since October 12, 2026
+
+`/scoped-review` also runs an **adversarial review from OpenAI's Codex** — a
+second model, not primed by Claude's reasoning — on merge sweeps and on any
+diff touching money, checkout, reservations, webhooks, auth, migrations, or
+what an AI is told to say (rules in Step 4.5 of the skill). Codex findings are
+**verified against the code like any other reviewer's** — never applied blind.
+
+One-time setup per machine (each dev, in Claude Code):
+
+```
+/plugin marketplace add openai/codex-plugin-cc
+/plugin install codex@openai-codex
+/codex:setup              # offers to npm-install the Codex CLI
+! codex login             # sign in with your ChatGPT account
+```
+
+- **Windows:** also put `[windows]` / `sandbox = "unelevated"` in
+  `~/.codex/config.toml`. Without it Codex can't run any command, reads
+  nothing, and returns "No material findings" — an empty review that looks
+  clean. Add `model_reasoning_effort = "high"` (top level) for reviews.
+- No plugin? `/scoped-review` still runs, and says plainly that Codex was skipped.
+- Leave the plugin's **review gate OFF** (it loops and drains usage limits).
+- Reviews spend the signed-in ChatGPT account's Codex allowance.
+- Codex reads `AGENTS.md` (repo root) for our review guidelines.
+
 ## Skills (in `.claude/skills/`)
 
-Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:** some dispatch sub-agents or MCP tools that come from **plugins** (`pr-review-toolkit:*`, `feature-dev:*`, Playwright) — you need those installed for the skill to fully run. The skill *instructions* travel via git; the plugin/MCP dependencies don't.
+Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:** some dispatch sub-agents or MCP tools that come from **plugins** (`pr-review-toolkit:*`, `feature-dev:*`, Playwright, the Codex plugin) — you need those installed for the skill to fully run. The skill *instructions* travel via git; the plugin/MCP dependencies don't.
 
 | Skill | Use it for |
 |---|---|
-| `/scoped-review` | Multi-agent code review scoped to what changed. Before declaring a feature done / before a PR. |
+| `/scoped-review` | Multi-agent code review scoped to what changed, plus a Codex (OpenAI) second opinion on risky diffs. Before declaring a feature done / before a PR. |
 | `/sketch-flow` | Required state-machine sketch **before** writing any new async handler touching Stripe / ResLab / Supabase / Park Guard from a UI handler. |
 | `/verify-flow <flow>` | End-to-end verification of a customer flow (checkout, confirmation) via local dev + Playwright — after a customer-facing change. |
 | `/post-deploy-check` | Verify a prod deploy actually landed (Vercel Ready, URL 200, Sentry quiet, migrations applied) — after merging to `main`. |
@@ -174,4 +200,4 @@ npm run publish          # promote draft/review posts to published
 
 *Shared team CLAUDE.md — committed to the `triply` repo so every contributor's
 Claude Code reads the same rules. Personal/ops notes stay in each dev's own
-environment, not here. Last updated: July 23, 2026.*
+environment, not here. Last updated: October 12, 2026 — Codex (OpenAI) added to code review.*
