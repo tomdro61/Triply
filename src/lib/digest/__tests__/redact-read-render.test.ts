@@ -395,7 +395,7 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
     expect(field(failedSends, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 2 · failed 1 · opted out 0 · bookings through the email link unavailable");
     // A Resend outage parks rows in retry: that must never read as a quiet week.
     const stuck = data({ recovery: { ok: true, data: { sent: 0, failed: 0, waiting: 4, optOuts: 0, recoveredBookings: 0 } } });
-    expect(field(stuck, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 0 · ⚠️ waiting to send 4 · opted out 0 · bookings through the email link 0");
+    expect(field(stuck, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 0 · ⚠️ in progress or stuck 4 (check the recovery cron) · opted out 0 · bookings through the email link 0");
   });
 
   it("pace and recovery failing never change the verdict and never raise a flag", () => {
@@ -426,6 +426,16 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
     const allowed = allowedTokens(input, "2026-10-10");
     expect(firstUnexplainedNumber("Month to date (Oct 1–10) has 30 bookings, down 25% on Sept 1–10.", allowed)).toBeNull();
     expect(firstUnexplainedNumber("Month to date is down −25%.", allowed)).toBeNull();
+  });
+
+  it("with unclassified rows the model gets no last-month figures to compare against", () => {
+    const d = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(38, 3000, 300, { unmatched: 3 }), prior: T(41, 3100, 310), bookingsChange: null } } });
+    const mtd = modelInput(d).monthToDate as Record<string, unknown>;
+    expect(mtd.comparisonWithheld).toBe(true);
+    expect(mtd.unclassifiedBookings).toEqual({ thisMonth: 3, lastMonth: 0 });
+    expect(mtd).not.toHaveProperty("sameDaysLastMonthBookings");
+    const allowed = allowedTokens(modelInput(d), "2026-10-12");
+    expect(firstUnexplainedNumber("38 bookings so far against 41 the same days last month.", allowed)).toBe("41");
   });
 
   it("failed comparison sections reach the model as null, never as zeros", () => {

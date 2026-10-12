@@ -241,7 +241,7 @@ function paceField(d: DigestData): string {
 function recoveryField(d: DigestData): string {
   if (!d.recovery.ok) return `unavailable (${clamp(d.recovery.error, 80)})`;
   const r = d.recovery.data;
-  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ waiting to send ${r.waiting}` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
+  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ in progress or stuck ${r.waiting} (check the recovery cron)` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
 }
 
 function whereFromField(d: DigestData): string {

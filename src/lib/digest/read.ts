@@ -76,9 +76,11 @@ export function modelInput(d: DigestData): Record<string, unknown> {
       bookings: p.mtd.bookings,
       gmv: p.mtd.gmv,
       feeIncome: p.mtd.feeIncome,
-      sameDaysLastMonthBookings: p.prior.bookings,
-      sameDaysLastMonthGmv: p.prior.gmv,
-      sameDaysLastMonthFeeIncome: p.prior.feeIncome,
+      // With unclassified rows in either period the totals are not comparable: last
+      // month's figures are withheld so the read cannot set two partial counts side by side.
+      ...(p.mtd.unmatched || p.prior.unmatched
+        ? { comparisonWithheld: true, unclassifiedBookings: { thisMonth: p.mtd.unmatched, lastMonth: p.prior.unmatched } }
+        : { sameDaysLastMonthBookings: p.prior.bookings, sameDaysLastMonthGmv: p.prior.gmv, sameDaysLastMonthFeeIncome: p.prior.feeIncome }),
       // Direction + magnitude, never a signed number: the validator reads "down 25%"
       // as 25, so a -25 in the input would withhold every read on a down month.
       bookingsChange:
@@ -86,7 +88,7 @@ export function modelInput(d: DigestData): Record<string, unknown> {
           ? null
           : { direction: Math.round(p.bookingsChange * 100) === 0 ? "flat" : p.bookingsChange > 0 ? "up" : "down", percent: Math.abs(Math.round(p.bookingsChange * 100)) },
     },
-    checkoutRecoveryLast7Days: rc && { emailsSent: rc.sent, emailsFailed: rc.failed, emailsWaiting: rc.waiting, bookingsThroughEmailLink: rc.recoveredBookings },
+    checkoutRecoveryLast7Days: rc && { emailsSent: rc.sent, emailsFailed: rc.failed, emailsInProgressOrStuck: rc.waiting, bookingsThroughEmailLink: rc.recoveredBookings },
     lostSalesByStatus: l ? l.byStatus : null,
     engagement: e && {
       newsletter: e.newsletterBySource,
@@ -101,7 +103,8 @@ const SYSTEM = `You write a 3–5 sentence morning read of yesterday's numbers f
 - Compare yesterday to avg7/avg28 only where those are present (null means "no baseline yet" — say so, do not guess).
 - No causal claims ("because", "due to", "driven by"); say what changed, and name one thing worth a look.
 - bySource is yesterday's bookings by where the customer first came from; bySourceLast7Days is the 7 days ending yesterday. "Blog (no referrer)" = the customer arrived straight on a blog article with no referrer (likely a search or AI app); describe it as "arrived on a blog article with no referrer", never as direct or typed-in traffic or as the blog "driving" bookings.
-- monthToDate compares this month so far with the same days of last month; state bookingsChange exactly as given (direction and percent); if it is null, say no comparison is available.
+- monthToDate compares this month so far with the same days of last month; state bookingsChange exactly as given (direction and percent); if it is null, say no comparison is available; if comparisonWithheld is true, say the month comparison is withheld because some bookings could not be classified, and do not compare the months.
+- checkoutRecoveryLast7Days.emailsInProgressOrStuck = recovery emails claimed or parked for retry; call them "in progress or stuck", never "waiting to send".
 - "originSearches" are CDN misses, not customer searches — never call them customers or visits.
 - Glossary: parkGuardAttachRate = share of bookings that added the Park Guard protection plan (Park Guard is a protection plan, never "payment gateway" or "insurance"); feeIncome = Triply's own fee income (service fees + Park Guard margin), not revenue; zeroResultShare = share of priced searches that showed the customer no lot at all; nothingBookableShare = share of priced searches that returned no lot while at least one lot was sold out (do not state a cause); lotSoldOutRate = of the lots that priced (sold out + returned), the share that were sold out; repeatByEmail = bookings from an email seen before.
 - Write percentages as whole numbers ("35%"), money to the cent or rounded to the dollar, exactly as they appear.

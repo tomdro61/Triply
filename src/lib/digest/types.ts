@@ -99,7 +99,12 @@ export interface PaceTotals {
 export interface RecoverySection {
   sent: number;
   failed: number;
-  /** Rows still `claimed` or parked in `retry` (a Resend outage or config failure parks them here). */
+  /**
+   * Rows still `claimed` or parked in `retry`. A Resend outage or config failure
+   * parks rows here; a retry older than the cron's 24 h candidate window is never
+   * re-claimed, and a claim with send_started_at set may already have gone out.
+   * So this is "in progress or stuck", not a send queue.
+   */
   waiting: number;
   optOuts: number;
   /** Live confirmed bookings whose first or last touch carried utm_campaign=checkout_recovery (the email's link). */

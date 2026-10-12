@@ -475,7 +475,9 @@ export default function AdminDashboard() {
                 emptyText="No bookings in range"
               />
             ) : (
-              <p className="text-sm text-amber-700">Source breakdown unavailable — reload the page.</p>
+              <p className="text-sm text-amber-700">
+                Source breakdown not sent by the server (version mismatch) — reload, or check the deploy.
+              </p>
             )}
             <p className="mt-3 text-xs text-gray-400">
               Where the customer first came from. &ldquo;Blog (no referrer)&rdquo; = arrived straight on a blog
