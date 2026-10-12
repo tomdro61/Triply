@@ -61,7 +61,7 @@ export function zonedMidnightUtc(dateIso: string, timeZone: string): Date {
   return midnight;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
+export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec"];
 
 export function windowForEtDay(dateEt: string): DigestWindow {
   const startUtc = zonedMidnightUtc(dateEt, DIGEST_TZ);

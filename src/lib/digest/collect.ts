@@ -11,7 +11,7 @@
  * no post, no Sentry event and no run record.
  *
  * Definitions are imported from the modules that own them (plan Appendix B):
- * `isLive`/`airportKey`/`byChannel` from attribution/report, `isAtTestLot`
+ * `isLive`/`airportKey`/`bySource` from attribution/report, `isAtTestLot`
  * from config/admin, `sameEmail` from booking/customer-link, the snapshot
  * thresholds from reslab/location-snapshot.
  */
@@ -19,15 +19,15 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot } from "@/config/admin";
 import { isReslabConfirmationNumber, isTriplyConfirmationNumber } from "@/lib/direct/confirmation-number";
-import { isLive, airportKey, byChannel, type ReportRow } from "@/lib/attribution/report";
+import { isLive, airportKey, bySource, type ReportRow } from "@/lib/attribution/report";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { sameEmail } from "@/lib/booking/customer-link";
 import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_WARN_MS, SNAPSHOT_MAX_AGE_MS } from "@/lib/reslab/location-snapshot";
 import { redactForDigest } from "./redact";
-import { calendarDayIn, trailingWindow, type DigestWindow } from "./window";
+import { calendarDayIn, shiftIsoDate, trailingWindow, zonedMidnightUtc, DIGEST_TZ, type DigestWindow } from "./window";
 import type {
   Baselined, BookingsSection, DigestData, EngagementSection, FunnelSection, HealthSection,
-  LostSalesSection, Metric, Section, WhereFromSection,
+  LostSalesSection, Metric, PaceSection, PaceTotals, RecoverySection, Section, WhereFromSection,
 } from "./types";
 
 type Client = Awaited<ReturnType<typeof createAdminClient>>;
@@ -49,7 +49,6 @@ export const COLLECT_DEADLINE_MS = 30_000;
 export const TELEMETRY_STALE_MS = 26 * 3_600_000;
 
 const REPEAT_EMAIL_CAP = 40;
-const AI_REFERRER = /chatgpt|openai|copilot|perplexity|claude\.ai|anthropic|gemini/i;
 const sig = () => AbortSignal.timeout(QUERY_TIMEOUT_MS);
 
 type Failed = { ok: false; error: string };
@@ -140,6 +139,45 @@ function money(v: unknown): Metric {
   if (v === null || v === undefined || v === "") return "unavailable";
   const n = parseMoneyColumn(v as string | number);
   return Number.isFinite(n) ? n : "unavailable";
+}
+
+/** Sum to the cent; any "unavailable" term makes the whole total "unavailable", never a partial sum. */
+function sumMetric<R>(rows: R[], f: (r: R) => Metric): Metric {
+  let t = 0;
+  for (const r of rows) {
+    const v = f(r);
+    if (v === "unavailable") return "unavailable";
+    t += v;
+  }
+  return Math.round(t * 100) / 100;
+}
+
+type MoneyRow = Pick<BookingRow, "grand_total" | "triply_service_fee" | "protection_plan" | "protection_plan_price" | "protection_plan_wholesale">;
+
+// GMV = grand_total + service fee + PG premium (the attribution report's `grossOf`),
+// but a NULL in any of the three is "unavailable", never a silent 0.
+function grossMetric(r: MoneyRow): Metric {
+  const gt = money(r.grand_total);
+  const fee = money(r.triply_service_fee);
+  const pg = r.protection_plan ? money(r.protection_plan_price) : 0;
+  return gt === "unavailable" || fee === "unavailable" || pg === "unavailable" ? "unavailable" : gt + fee + pg;
+}
+
+/**
+ * Fee income = service fees + Park Guard margin over the rows whose wholesale
+ * was recorded. A PG row with no wholesale is excluded from the margin and
+ * reported separately (`dirtyPgRows`), as before.
+ */
+function feeIncomeOf(confirmed: MoneyRow[]): { serviceFees: Metric; pgMargin: Metric; feeIncome: Metric; pgRows: number; dirtyPgRows: number } {
+  const serviceFees = sumMetric(confirmed, (r) => money(r.triply_service_fee));
+  const pgRows = confirmed.filter((r) => r.protection_plan);
+  const pgClean = pgRows.filter((r) => parseMoneyColumn(r.protection_plan_wholesale) > 0);
+  const pgMargin = sumMetric(pgClean, (r) => {
+    const price = money(r.protection_plan_price);
+    return price === "unavailable" ? "unavailable" : price - parseMoneyColumn(r.protection_plan_wholesale);
+  });
+  const feeIncome = serviceFees === "unavailable" || pgMargin === "unavailable" ? "unavailable" : Math.round((serviceFees + pgMargin) * 100) / 100;
+  return { serviceFees, pgMargin, feeIncome, pgRows: pgRows.length, dirtyPgRows: pgRows.length - pgClean.length };
 }
 
 // ───────────────────────────── bookings ─────────────────────────────
@@ -323,23 +361,8 @@ export async function collectBookings(sb: Client, w: DigestWindow): Promise<Sect
     const cancelledOrFailed = p.live.filter((r) => r.status === "cancelled" || r.status === "payment_failed").length;
     const otherStatus = p.live.length - confirmed.length - refunded - disputed - cancelledOrFailed;
 
-    const sum = (rows: BookingRow[], f: (r: BookingRow) => Metric): Metric => {
-      let t = 0;
-      for (const r of rows) {
-        const v = f(r);
-        if (v === "unavailable") return "unavailable";
-        t += v;
-      }
-      return Math.round(t * 100) / 100;
-    };
-    // GMV = grand_total + service fee + PG premium (the attribution report's `grossOf`),
-    // but a NULL in any of the three is "unavailable", never a silent 0.
-    const gross = (r: BookingRow): Metric => {
-      const gt = money(r.grand_total);
-      const fee = money(r.triply_service_fee);
-      const pg = r.protection_plan ? money(r.protection_plan_price) : 0;
-      return gt === "unavailable" || fee === "unavailable" || pg === "unavailable" ? "unavailable" : gt + fee + pg;
-    };
+    const sum = sumMetric<BookingRow>;
+    const gross = grossMetric;
     const gmv = sum(confirmed, gross);
     const unpricedRows = confirmed.filter((r) => gross(r) === "unavailable").length;
     const chargedOnline = sum(confirmed, (r) => {
@@ -348,16 +371,8 @@ export async function collectBookings(sb: Client, w: DigestWindow): Promise<Sect
       const disc = money(r.discount_amount);
       return g === "unavailable" || due === "unavailable" || disc === "unavailable" ? "unavailable" : g - due - disc;
     });
-    const serviceFees = sum(confirmed, (r) => money(r.triply_service_fee));
-    const pgRows = confirmed.filter((r) => r.protection_plan);
-    const pgClean = pgRows.filter((r) => parseMoneyColumn(r.protection_plan_wholesale) > 0);
-    const dirtyPgRows = pgRows.length - pgClean.length;
-    const pgMargin = sum(pgClean, (r) => {
-      const price = money(r.protection_plan_price);
-      return price === "unavailable" ? "unavailable" : price - parseMoneyColumn(r.protection_plan_wholesale);
-    });
+    const { serviceFees, pgMargin, feeIncome, pgRows, dirtyPgRows } = feeIncomeOf(confirmed);
     const pgRefundedWholesaleEaten = sum(p.live.filter((r) => r.status === "refunded" && r.protection_plan), (r) => money(r.protection_plan_wholesale));
-    const feeIncome = serviceFees === "unavailable" || pgMargin === "unavailable" ? "unavailable" : Math.round((serviceFees + pgMargin) * 100) / 100;
     const promo = confirmed.filter((r) => r.promo_code);
     const promoDiscount = sum(promo, (r) => money(r.discount_amount));
     // A comparison nicety, like the baselines: its failure must not take the day's numbers down.
@@ -392,7 +407,7 @@ export async function collectBookings(sb: Client, w: DigestWindow): Promise<Sect
       serviceFees,
       pgMargin,
       pgRefundedWholesaleEaten,
-      pgAttachRate: count === 0 ? 0 : pgRows.length / count,
+      pgAttachRate: count === 0 ? 0 : pgRows / count,
       dirtyPgRows,
       promoBookings: promo.length,
       promoDiscount,
@@ -410,11 +425,12 @@ export async function collectBookings(sb: Client, w: DigestWindow): Promise<Sect
 
 // ───────────────────────────── where from ─────────────────────────────
 
-export function collectWhereFrom(confirmed: BookingRow[]): Section<WhereFromSection> {
+const sourceCounts = (rows: BookingRow[]) => bySource(rows).map((c) => ({ key: c.key, bookings: c.bookings }));
+
+export function collectWhereFrom(confirmed: BookingRow[], week: Section<BookingRow[]>): Section<WhereFromSection> {
   try {
     const landing = { blog: 0, airportPage: 0, homepage: 0, other: 0, none: 0 };
     const posts = new Map<string, number>();
-    let ai = 0;
     for (const r of confirmed) {
       const first = r.attribution?.first;
       const land = first?.land;
@@ -429,17 +445,124 @@ export function collectWhereFrom(confirmed: BookingRow[]): Section<WhereFromSect
       } else if (/airport-parking/.test(land)) landing.airportPage++;
       else if (land === "/") landing.homepage++;
       else landing.other++;
-      if (AI_REFERRER.test(`${first?.ref ?? ""} ${first?.src ?? ""}`)) ai++;
     }
-    const channels = byChannel(confirmed).map((c) => ({ key: c.key, bookings: c.bookings }));
     const airports = new Map<string, number>();
     for (const r of confirmed) airports.set(airportKey(r), (airports.get(airportKey(r)) ?? 0) + 1);
     return ok({
-      byChannel: channels,
+      bySource: sourceCounts(confirmed),
+      bySource7d: week.ok ? ok({ total: week.data.length, rows: sourceCounts(week.data) }) : week,
       topAirports: [...airports.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([key, bookings]) => ({ key, bookings })),
       landing,
-      aiReferrals: ai,
       topBlogPosts: [...posts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([path, bookings]) => ({ path, bookings })),
+    });
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+// ───────────────────────────── trailing week ─────────────────────────────
+
+/** The 7 ET days ending WITH the digest day (inclusive), unlike trailingWindow, which ends the day before. */
+export function weekEndingOn(w: DigestWindow): { firstDay: string; startUtc: Date; endUtc: Date } {
+  const firstDay = shiftIsoDate(w.dateEt, -6);
+  return { firstDay, startUtc: zonedMidnightUtc(firstDay, DIGEST_TZ), endUtc: w.endUtc };
+}
+
+const WEEK_COLUMNS = "id, created_at, status, reslab_location_id, stripe_payment_intent_id, livemode, channel, attribution";
+
+/** Live confirmed bookings over weekEndingOn(w), same partition as the day's count. Shared by the 7-day source mix and the recovery line. */
+export async function collectWeek(sb: Client, w: DigestWindow): Promise<Section<BookingRow[]>> {
+  try {
+    const wk = weekEndingOn(w);
+    const { rows, capped } = await bookingsIn(sb, wk.startUtc, wk.endUtc, 2_000, WEEK_COLUMNS);
+    if (capped) return fail(new Error("7-day bookings: row cap hit"));
+    return ok(partitionBookings(rows).live.filter(isLive));
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+// ───────────────────────────── month-to-date pace ─────────────────────────────
+
+const PACE_COLUMNS =
+  "id, created_at, status, reslab_location_id, stripe_payment_intent_id, livemode, grand_total, triply_service_fee, protection_plan, protection_plan_price, protection_plan_wholesale";
+
+/**
+ * Month-to-date and the same stretch of the previous month: the 1st through the
+ * digest day's number, capped at the previous month's length (Mar 31 compares
+ * with all of February). Pure calendar arithmetic on ET days.
+ */
+export function paceWindows(dateEt: string): { mtdFirstDay: string; mtdLastDay: string; priorFirstDay: string; priorLastDay: string } {
+  const [y, m, d] = dateEt.split("-").map(Number);
+  const py = m === 1 ? y - 1 : y;
+  const pm = m === 1 ? 12 : m - 1;
+  const priorFirstDay = `${py}-${String(pm).padStart(2, "0")}-01`;
+  const priorMonthDays = new Date(Date.UTC(py, pm, 0)).getUTCDate(); // day 0 of month pm+1 = the last day of month pm
+  return {
+    mtdFirstDay: `${dateEt.slice(0, 8)}01`,
+    mtdLastDay: dateEt,
+    priorFirstDay,
+    priorLastDay: shiftIsoDate(priorFirstDay, Math.min(d, priorMonthDays) - 1),
+  };
+}
+
+async function paceTotals(sb: Client, firstDay: string, lastDay: string): Promise<PaceTotals> {
+  const startUtc = zonedMidnightUtc(firstDay, DIGEST_TZ);
+  const endUtc = zonedMidnightUtc(shiftIsoDate(lastDay, 1), DIGEST_TZ);
+  const { rows, capped } = await bookingsIn(sb, startUtc, endUtc, 3_000, PACE_COLUMNS);
+  if (capped) throw new Error(`bookings(pace ${firstDay}): row cap hit`);
+  // Status as it stands NOW: a booking refunded since it was made is not counted,
+  // in either month. The earlier month has had longer to be refunded, so its
+  // figure can read slightly low; this is a pace check, not accounting.
+  const confirmed = partitionBookings(rows).live.filter(isLive);
+  return { bookings: confirmed.length, gmv: sumMetric(confirmed, grossMetric), feeIncome: feeIncomeOf(confirmed).feeIncome };
+}
+
+export async function collectPace(sb: Client, w: DigestWindow): Promise<Section<PaceSection>> {
+  try {
+    const win = paceWindows(w.dateEt);
+    const [mtd, prior] = await Promise.all([
+      paceTotals(sb, win.mtdFirstDay, win.mtdLastDay),
+      paceTotals(sb, win.priorFirstDay, win.priorLastDay),
+    ]);
+    return ok({ ...win, mtd, prior });
+  } catch (err) {
+    return fail(err);
+  }
+}
+
+// ───────────────────────────── checkout recovery ─────────────────────────────
+
+/** utm_campaign on the recovery email's resume link (checkout-recovery/email.ts buildResumeUrl). */
+export const RECOVERY_CAMPAIGN = "checkout_recovery";
+
+/**
+ * The recovery email over the same 7 days as the source mix. Sends and opt-outs
+ * come from its own tables (live mode only for sends; the opt-out table has no
+ * mode); a recovered booking is a live confirmed booking whose first or last
+ * touch carried the email link's campaign. A customer who came back WITHOUT
+ * clicking the link is not counted, so the number is a floor.
+ */
+export async function collectRecovery(sb: Client, w: DigestWindow, week: Section<BookingRow[]>): Promise<Section<RecoverySection>> {
+  try {
+    const wk = weekEndingOn(w);
+    const s = wk.startUtc.toISOString(), e = wk.endUtc.toISOString();
+    const CAP = 900; // strictly under PostgREST's 1,000-row page, or the > CAP check could never fire
+    const [emails, optouts] = await Promise.all([
+      sb.from("checkout_recovery_emails").select("status").eq("livemode", true).gte("created_at", s).lt("created_at", e).limit(CAP + 1).abortSignal(sig()),
+      sb.from("checkout_recovery_optouts").select("email", { count: "exact", head: true }).gte("created_at", s).lt("created_at", e).abortSignal(sig()),
+    ]);
+    if (emails.error) throw new Error(`checkout_recovery_emails: ${emails.error.code ?? "?"} ${emails.error.message}`);
+    const rows = (emails.data ?? []) as Array<{ status: string }>;
+    if (rows.length > CAP) return fail(new Error("checkout_recovery_emails: row cap hit"));
+    const recoveredBookings: Metric = week.ok
+      ? week.data.filter((r) => r.attribution?.first?.cmp === RECOVERY_CAMPAIGN || r.attribution?.last?.cmp === RECOVERY_CAMPAIGN).length
+      : "unavailable";
+    return ok({
+      sent: rows.filter((r) => r.status === "sent").length,
+      failed: rows.filter((r) => r.status === "failed").length,
+      optOuts: exactCount("checkout_recovery_optouts", optouts),
+      recoveredBookings,
     });
   } catch (err) {
     return fail(err);
@@ -732,7 +855,7 @@ export async function collectDigest(w: DigestWindow, now: Date = new Date()): Pr
     sb = await createAdminClient(); // throws when SUPABASE_SERVICE_ROLE_KEY is unset/rotated away
   } catch (err) {
     const f = failed(err instanceof Error ? new Error(`admin client: ${err.message}`) : err);
-    return { ...base, bookings: f, whereFrom: f, funnel: f, lostSales: f, engagement: f, health: f };
+    return { ...base, bookings: f, whereFrom: f, funnel: f, lostSales: f, engagement: f, health: f, pace: f, recovery: f };
   }
   const deadlineAt = Date.now() + COLLECT_DEADLINE_MS;
   const bookings = await withDeadline("bookings", deadlineAt, () => collectBookings(sb, w));
@@ -743,7 +866,15 @@ export async function collectDigest(w: DigestWindow, now: Date = new Date()): Pr
     withDeadline("engagement", deadlineAt, () => collectEngagement(sb, w)),
     withDeadline("health", deadlineAt, () => collectHealth(sb, w, now)),
   ]);
-  const whereFrom: Section<WhereFromSection> = bookings.ok ? collectWhereFrom(confirmed) : fail(new Error("bookings unavailable"));
+  // The comparison sections run after the verdict sections, under the same
+  // deadline: they are niceties and must never starve the numbers the verdict
+  // rests on.
+  const [week, pace] = await Promise.all([
+    withDeadline("week", deadlineAt, () => collectWeek(sb, w)),
+    withDeadline("pace", deadlineAt, () => collectPace(sb, w)),
+  ]);
+  const recovery = await withDeadline("recovery", deadlineAt, () => collectRecovery(sb, w, week));
+  const whereFrom: Section<WhereFromSection> = bookings.ok ? collectWhereFrom(confirmed, week) : fail(new Error("bookings unavailable"));
   const bookingsSection: Section<BookingsSection> = bookings.ok ? { ok: true, data: bookings.data } : bookings;
   return {
     ...base,
@@ -753,5 +884,7 @@ export async function collectDigest(w: DigestWindow, now: Date = new Date()): Pr
     lostSales,
     engagement,
     health,
+    pace,
+    recovery,
   };
 }

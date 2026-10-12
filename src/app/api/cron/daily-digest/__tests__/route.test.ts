@@ -42,11 +42,13 @@ function digest(over: Partial<DigestData> = {}): DigestData {
   return {
     dateEt: "2026-09-27", windowLabel: "Sept 27, 2026 · 00:00–24:00 ET", generatedAt: new Date(T0).toISOString(),
     bookings: ok({ count: { value: 6, avg7: 5, avg28: 3, since: "2026-02-19" }, staging: 0, unmatched: 0, otherStatus: 0, refunded: 0, disputed: 0, cancelledOrFailed: 0, gmv: 600, chargedOnline: 590, avgOrder: 100, feeIncome: 40, serviceFees: 30, pgMargin: 10, pgRefundedWholesaleEaten: 0, pgAttachRate: 0.3, dirtyPgRows: 0, promoBookings: 0, promoDiscount: 0, repeatByEmail: 1, repeatCapped: false, unpricedRows: 0, leadTime: { sameDay: 3, d1to3: 2, d4to14: 1, d15plus: 0, unknown: 0 } }),
-    whereFrom: ok({ byChannel: [], topAirports: [], landing: { blog: 5, airportPage: 0, homepage: 1, other: 0, none: 0 }, aiReferrals: 0, topBlogPosts: [] }),
+    whereFrom: ok({ bySource: [], bySource7d: ok({ total: 0, rows: [] }), topAirports: [], landing: { blog: 5, airportPage: 0, homepage: 1, other: 0, none: 0 }, topBlogPosts: [] }),
     funnel: ok({ originSearches: { value: 400, avg7: 380, avg28: null, since: "2026-09-24" }, distinctAirports: 30, topAirports: [], datesDefaultedShare: 0.1, meanResults: 9, nothingBookableShare: 0.05, nothingBookableDegraded: 0, zeroResultShare: 0.06, pricedSearches: 300, nothingBookableByAirport: [], lotSoldOutRate: 0.2, degradedCount: 2 }),
     lostSales: ok({ byStatus: { completed: 6 }, rows: [] }),
     engagement: ok({ newsletterBySource: {}, waitlistByAirport: {}, chatSessions: 2, welcomeCodesMinted: 1 }),
     health: ok({ telemetry: { kind: "ok" as const, lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" as const }, stuckPending: { kind: "n" as const, n: 0 }, emailNotSent: { kind: "n" as const, n: 0, capped: false, numbers: [], lookbackDays: 7 }, lastDigest: { kind: "days" as const, n: 1 } }),
+    pace: ok({ mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 60, gmv: 5000, feeIncome: 400 }, prior: { bookings: 50, gmv: 4000, feeIncome: 300 } }),
+    recovery: ok({ sent: 3, failed: 0, optOuts: 0, recoveredBookings: 0 }),
     ...over,
   };
 }

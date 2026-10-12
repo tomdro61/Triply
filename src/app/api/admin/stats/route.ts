@@ -7,7 +7,7 @@ import { parseMoneyColumn } from "@/lib/utils/money";
 import {
   buildPromoReport,
   byAirport,
-  byChannel,
+  bySource,
   presentRate,
   type PromoMeta,
   type ReportRow,
@@ -375,7 +375,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       attribution: attrRowsComplete
         ? {
-            byChannel: byChannel(attrRows),
+            bySource: bySource(attrRows),
             byAirport: airports.rows,
             byAirportTotal: airports.total,
             byPromo: promoError ? null : buildPromoReport(attrRows, (promoRows ?? []) as PromoMeta[]),
