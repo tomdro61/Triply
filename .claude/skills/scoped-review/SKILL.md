@@ -218,7 +218,12 @@ Skip it for small, low-risk diffs (it spends Tom's ChatGPT usage allowance).
    - Base: `main` (or `origin/main`) for `feature` / `merge`; for an uncommitted-only review use `--scope working-tree` instead of `--base`.
    - Focus text: 2–4 sentences naming what the change does and the specific risks from the matrix above (e.g. money math, ET/DST windows, silent defaults, partial data shown as complete). It is self-contained: Codex has no conversation context.
    - It is read-only (it cannot edit files). Typical run: 3–6 minutes.
-3. **Check it actually read the code.** A healthy run logs `[codex] Running command: ...` lines before its verdict. If it reports it could not read the diff / "blocked by policy", or says "No material findings" without having run any command, that is a **failed** review, not a clean one. On Windows the cause is a missing `[windows] sandbox = "unelevated"` (or `"elevated"`) in `~/.codex/config.toml`. Fix and re-run; never report it as clean.
+3. **Check it actually read the code. A run counts as a review only if ALL of these hold:**
+   - the companion exited 0 and printed a `# Codex Adversarial Review` block with a `Target:` naming the base you asked for and a `Verdict:` line;
+   - the log shows at least one `[codex] Command completed: ... (exit 0)` for a `git diff` against that base. A `Running command` line alone proves nothing, because a command can start and then fail;
+   - the summary does not say it could not inspect, read or access the diff.
+
+   Anything else (a non-zero exit, no verdict block, only failed or `blocked by policy` commands, a provider or usage-limit error, or "No material findings" without a successful diff read) is a **FAILED** Codex review. Report it as "Codex review FAILED: <reason>", separate from findings, never as clean. On Windows the usual cause is a missing `[windows] sandbox = "unelevated"` (or `"elevated"`) in `~/.codex/config.toml`. Fix and re-run.
 
 ### Triage — Codex findings are input, not truth
 
