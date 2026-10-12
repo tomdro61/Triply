@@ -174,6 +174,17 @@ export interface HealthSection {
    * the fetch cap (`n` is then a lower bound). An error is flagged, never 0.
    */
   emailNotSent: { kind: "n"; n: number; capped: boolean; numbers: string[]; lookbackDays: number } | { kind: "error"; message: string };
+  /**
+   * Live DIRECT-lot bookings still `confirmed` more than an hour after creation
+   * whose lot was never sent its booking notice (4b plan §9 H-B) — the lot's
+   * only channel. `numbers` are shape-checked TRP-… numbers. An error is
+   * flagged, never 0.
+   */
+  /** Direct lots: bookings the LOT was never told about, and cancellations it
+   *  was never told about. `capped` = the fetch hit LOT_NOTICE_CAP (show "n+"). */
+  lotNotNotified:
+    | { kind: "n"; n: number; numbers: string[]; capped: boolean; cancelN: number; cancelNumbers: string[]; cancelCapped: boolean }
+    | { kind: "error"; message: string };
   /** "none" = no earlier posted digest; "error" = the run log could not be read (NOT the same as none). */
   lastDigest: { kind: "none" } | { kind: "days"; n: number } | { kind: "error"; message: string };
 }

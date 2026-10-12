@@ -59,6 +59,10 @@ vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
 }));
 
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 
 const { performSelfCancel } = await import("../perform");
 const { checkInInstantMs } = await import("../eligibility");
@@ -120,6 +124,7 @@ function mkPi(status: string, over: Record<string, unknown> = {}) {
 beforeEach(() => {
   db.tables.bookings = [];
   db.log = [];
+  lotNotice.sendLotCancelNotice.mockClear();
   for (const m of [
     stripeMock.paymentIntents.retrieve,
     createRefundCents,
@@ -592,6 +597,73 @@ describe("direct lots — inventory source + environment guards (plan 4b §9 H-C
     expect(sendCancellationConfirmation).toHaveBeenCalledWith(
       expect.objectContaining({ confirmationNumber: "TRP-AB12CD34", wasRefunded: true, refundAmount: 94 }),
     );
+    // The lot is told, once, after the status write landed (4b plan §3.4).
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+  });
+
+  it("the lot notice runs AFTER the terminal status write — the row it reads is already terminal", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    const res = await performSelfCancel(
+      mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+      NOW_OK,
+    );
+    expect(res.status).toBe(200);
+    expect(seenStatus).toHaveLength(1);
+    expect(["cancelled", "refunded"]).toContain(seenStatus[0]);
+  });
+
+  it("a stolen terminal write (another owner already finished the cancel) STILL sends the lot notice", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    // Just before our pinned terminal write lands, a new owner steals the claim
+    // and finishes: the row is already cancelled, our write matches 0 rows.
+    let stolen = false;
+    db.failWhen(
+      "bookings",
+      "update",
+      (p) => {
+        if (!stolen && p?.cancel_state === "refund_issued") {
+          stolen = true;
+          Object.assign(db.tables.bookings[0], {
+            status: "refunded",
+            cancel_state: "refund_issued",
+            cancel_claimed_at: "2099-01-01T00:00:00.000Z",
+          });
+        }
+        return false;
+      },
+      "unused",
+    );
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    try {
+      await performSelfCancel(
+        mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+        NOW_OK,
+      );
+      expect(stolen).toBe(true);
+      // The write was NOT ours (stale-stolen no-op is reported) ...
+      expect(sentry.captureAPIError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/terminal write no-op/) }),
+        expect.anything(),
+      );
+      // ... yet the lot is still told (the claim inside decides who sends).
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+      expect(seenStatus).toEqual(["refunded"]);
+    } finally {
+      db.clearFailures();
+    }
   });
 
   it("a ResLab booking whose select lacks inventory_source STILL calls ResLab", async () => {

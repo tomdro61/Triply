@@ -14,14 +14,30 @@
  * reservation (vehicle, name, phone are not in PI metadata). Every field the
  * PaymentIntent can corroborate is checked; `protectionPlanCode` is DERIVED from
  * PI metadata rather than trusted, because it determines what the customer paid.
+ *
+ * DIRECT lots (`stageDirect`): also upserts the service-role-only
+ * `direct_booking_terms` row (written first), and the staged row is the SOLE
+ * fulfilment source — the engine ignores any client payload (§9 H-A).
+ *
+ * Both branches answer an already-AUTHORIZED PaymentIntent with 409
+ * `already_authorized` before any other check (the client hands off to
+ * /checkout/complete; never "you have not been charged").
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { pendingBookingSchema, directPendingBookingSchema } from "@/lib/validation/schemas";
+import { z } from "zod";
 import { DIRECT_ENGINE_READY, isDirectCheckoutOpen } from "@/lib/direct/flag";
 import { directVehicleEstimate } from "@/lib/direct/vehicle-estimate";
+import { readDirectMetadataMoney } from "@/lib/direct/metadata-money";
+import { quoteDirectCheckout } from "@/lib/direct/checkout-quote";
+import { parseDirectLotUnifiedId } from "@/lib/direct/store";
+import { buildLotSnapshotV2 } from "@/lib/direct/lot-snapshot-build";
+import { snapshotAddressLine } from "@/lib/direct/lot-snapshot";
+import { NO_OVERSIZED_VEHICLE } from "@/lib/direct/vehicle-size";
+import { NO_OVERSIZED_LABEL } from "@/lib/direct/vehicle-display";
 import { convertTo24Hour } from "@/lib/utils/time";
 import {
   capturePaymentError,
@@ -44,7 +60,11 @@ import {
   type DeclaredExtraField,
 } from "@/lib/booking/required-extra-fields";
 
-export const maxDuration = 15;
+// Direct staging's bounded waits add up to ~33 s in the worst case (PaymentIntent
+// 4 s + lot read 4 s + session 4 s + seven DB calls at 3 s), so the function
+// limit sits above that: a slow database then fails CLOSED with our own 503,
+// never a platform 504 with nothing in Sentry (4b plan §10 F-13, pass-1 review).
+export const maxDuration = 40;
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +77,7 @@ export async function POST(request: NextRequest) {
     // A direct lot is chosen ONLY by an explicit inventorySource; every other
     // body takes the ResLab path exactly as before.
     if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
-      return await stageDirect(body);
+      return await stageDirect(body, request);
     }
     const result = pendingBookingSchema.safeParse(body);
     if (!result.success) {
@@ -76,6 +96,19 @@ export async function POST(request: NextRequest) {
 
     const pi = await stripe.paymentIntents.retrieve(piId);
     const meta = pi.metadata ?? {};
+
+    // --- PaymentIntent state FIRST (4b plan §9 M-A, §10 F-9) -----------------
+    // Already authorized = Pay pressed again after the first finish failed: the
+    // booking is under way. Never a "not charged" refusal, and never staged
+    // again (the client would call confirmPayment on an authorized payment and
+    // show Stripe's raw error) — hand off to /checkout/complete.
+    if (AUTHORIZED_PI_STATUSES.has(pi.status)) return alreadyAuthorized(piId);
+    if (pi.status === "canceled") {
+      return NextResponse.json(
+        { error: "This payment has expired. Please go back and start checkout again — you have not been charged.", code: "payment_not_stageable" },
+        { status: 400 }
+      );
+    }
 
     // --- Bind the payload to the PaymentIntent -------------------------------
     // Keys added by this release are checked only WHEN PRESENT: PaymentIntents
@@ -209,11 +242,23 @@ export async function POST(request: NextRequest) {
     // --- Refuse to overwrite work already in progress ------------------------
     const supabase = await createAdminClient();
 
-    const { data: existingBooking } = await supabase
+    const { data: existingBooking, error: existingBookingError } = await supabase
       .from("bookings")
       .select("id")
       .eq("stripe_payment_intent_id", piId)
       .maybeSingle();
+    if (existingBookingError) {
+      // Can't tell whether this payment is already booked: refuse rather than
+      // stage over it (4b plan §9 M-A). The card is not confirmed yet.
+      capturePaymentError(
+        new Error(`Pending-booking staging: existing-booking read failed: ${existingBookingError.message}`),
+        { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+      );
+      return NextResponse.json(
+        { error: "Could not prepare your booking. Please try again — you have not been charged." },
+        { status: 503 }
+      );
+    }
 
     if (existingBooking) {
       // Already fulfilled. Staging now would be a no-op at best and could
@@ -484,43 +529,107 @@ async function declaredExtraFieldsFor(
   return { kind: "declared", fields: parsed.data };
 }
 
+/** Customer-facing suffix on every refusal: staging runs BEFORE the card is confirmed. */
+const NOT_CHARGED = "you have not been charged.";
+
+/** Stripe reads and DB writes in direct staging are bounded (4b plan §3.1, §10 F-13). */
+const DIRECT_PI_TIMEOUT_MS = 4_000;
+const DIRECT_WRITE_TIMEOUT_MS = 3_000;
+
+/** PaymentIntent states a staging call can legitimately see: the card is not confirmed yet. */
+const STAGEABLE_PI_STATUSES = new Set(["requires_payment_method", "requires_confirmation", "requires_action"]);
+/** Already authorized (or further): the booking is being finished — never tell this customer "not charged". */
+const AUTHORIZED_PI_STATUSES = new Set(["requires_capture", "processing", "succeeded"]);
+
+const lotRecipientsSchema = z.array(z.string().email()).min(1);
+
+/** The client hands off to /checkout/complete on this (checkout-form, §10 F-9). */
+function alreadyAuthorized(piId: string): NextResponse {
+  return NextResponse.json(
+    { error: "Your payment is authorized — we're finishing your booking.", code: "already_authorized", paymentIntentId: piId },
+    { status: 409 }
+  );
+}
+
+/** Just enough of the body to read the PaymentIntent before anything else. */
+const directPiIdSchema = z.object({ stripePaymentIntentId: z.string().startsWith("pi_").max(255) }).passthrough();
+
+const refuse = (status: number, error: string, code?: string) =>
+  NextResponse.json({ error, ...(code && { code }) }, { status });
+
 /**
- * DIRECT-lot staging (plan A-29 / B10; vehicle-surcharge plan §1.5, R4, R5).
+ * DIRECT-lot staging (4b plan §3.1; plan A-29 / B10; surcharge plan §1.5, R4,
+ * R5). Fails CLOSED, before the card is confirmed: every refusal here means the
+ * customer has not been charged — EXCEPT the 409 `already_authorized`, which
+ * exists precisely so an authorized customer is never told that (§9 M-A; the
+ * client hands off to /checkout/complete). Nothing is written unless every
+ * check passes.
  *
- * Phase 3 validates and binds everything, then REFUSES with 503
- * `direct_not_bookable_yet` before any write until DIRECT_ENGINE_READY (4b) —
- * so in Phase 3 no direct pending row can exist and, because checkout stages
- * BEFORE confirming the card, Pay fails closed with no charge (A-31).
+ * Order: PaymentIntent id → PaymentIntent (bounded) → STATE (authorized → 409;
+ * cancelled → refuse) → gate → parse (`.strict`) → bind → money (arithmetic
+ * only, §9 H-E) → lot read (bounded; the same eligibility and lead-time checks
+ * as checkout, §9 M-B) → snapshot + size label → existing booking → a
+ * declined attempt's row reopened → terms row → pending row. The state check
+ * comes first so no later "not charged" refusal can reach an authorized
+ * customer who changed a detail before pressing Pay again.
  *
- * 4b adds, after the gate: the lot read (snapshot + the size LABEL, matched by
- * code), the pending_bookings insert with vehicle_* (CHECK-enforced by
- * migration 036), and on 23505 a refresh of vehicle_* while the row is still
- * `pending` (R4 — a size changed after a declined card).
+ * Every amount comes from the PaymentIntent's metadata; the lot read supplies
+ * only the snapshot, the size LABEL and the partner terms. The terms row is
+ * written first (§10 F-7: an orphan terms row is inert, read only by PI from a
+ * booking); the engine refuses to capture without it (§9 M-C).
  */
-async function stageDirect(body: unknown): Promise<NextResponse> {
-  if (!isDirectCheckoutOpen()) {
-    return NextResponse.json(
-      { error: "Online booking for this lot is not open yet — you have not been charged.", code: "direct_not_bookable_yet" },
-      { status: 503 }
+async function stageDirect(body: unknown, request: NextRequest): Promise<NextResponse> {
+  const idOnly = directPiIdSchema.safeParse(body);
+  if (!idOnly.success) {
+    return refuse(400, `Missing or invalid payment reference — ${NOT_CHARGED}`);
+  }
+  const piId = idOnly.data.stripePaymentIntentId;
+
+  let pi: Awaited<ReturnType<typeof stripe.paymentIntents.retrieve>>;
+  try {
+    pi = await stripe.paymentIntents.retrieve(piId, undefined, { timeout: DIRECT_PI_TIMEOUT_MS });
+  } catch (error) {
+    capturePaymentError(
+      new Error(`Direct pending-booking staging: PaymentIntent read failed — ${error instanceof Error ? error.message : String(error)}`),
+      { stripePaymentIntentId: piId }
     );
+    return refuse(503, `We couldn't reach our payment provider. Please try again — ${NOT_CHARGED}`);
+  }
+  const meta = pi.metadata ?? {};
+
+  // PaymentIntent state FIRST (§9 M-A, §10 F-9). Authorized = Pay pressed again
+  // after a failed finish: the booking is under way — hand off, whatever the
+  // body now says. A ResLab PaymentIntent is answered the same way.
+  if (AUTHORIZED_PI_STATUSES.has(pi.status)) return alreadyAuthorized(piId);
+  if (!STAGEABLE_PI_STATUSES.has(pi.status)) {
+    // canceled: the authorization window closed or the payment was released.
+    return refuse(400, `This payment has expired. Please go back and start checkout again — ${NOT_CHARGED}`, "payment_not_stageable");
+  }
+
+  if (!isDirectCheckoutOpen()) {
+    return refuse(503, `Online booking for this lot is not open yet — ${NOT_CHARGED}`, "direct_not_bookable_yet");
   }
   const result = directPendingBookingSchema.safeParse(body);
   if (!result.success) {
-    return NextResponse.json(
-      { error: `${result.error.issues[0].message} — you have not been charged.` },
-      { status: 400 }
-    );
+    return refuse(400, `${result.error.issues[0].message} — ${NOT_CHARGED}`);
   }
   const payload = result.data;
-  const piId = payload.stripePaymentIntentId;
-  const pi = await stripe.paymentIntents.retrieve(piId);
-  const meta = pi.metadata ?? {};
+  const report = (message: string) =>
+    capturePaymentError(new Error(`Direct pending-booking staging rejected — ${message}`), {
+      stripePaymentIntentId: piId,
+      amount: pi.amount / 100,
+    });
 
   // Bind to the PaymentIntent. Unlike the ResLab branch every key is REQUIRED:
   // direct PaymentIntents only ever existed with them.
+  const payloadLotId = parseDirectLotUnifiedId(payload.lotId);
   const mismatches: string[] = [];
   if (meta.inventorySource !== "direct") mismatches.push("inventorySource");
+  // A ResLab key on a "direct" PaymentIntent is a corrupted or forged payment.
+  if (meta.locationId !== undefined) mismatches.push("locationId");
+  if (meta.parkingTypeId !== undefined) mismatches.push("parkingTypeId");
   if (meta.lotId !== payload.lotId) mismatches.push("lotId");
+  if (payloadLotId === null || meta.directLotId !== String(payloadLotId)) mismatches.push("directLotId");
   if (!meta.customerEmail || meta.customerEmail.trim().toLowerCase() !== payload.customer.email.trim().toLowerCase()) {
     mismatches.push("customerEmail");
   }
@@ -531,70 +640,283 @@ async function stageDirect(body: unknown): Promise<NextResponse> {
   if (!meta.checkout || !meta.checkoutTime || payload.toDate !== `${meta.checkout} ${convertTo24Hour(meta.checkoutTime)}:00`) {
     mismatches.push("checkout");
   }
-  if (mismatches.length > 0) {
-    capturePaymentError(
-      new Error(`Direct pending-booking staging rejected — payload does not match PaymentIntent metadata: ${mismatches.join(", ")}`),
-      { stripePaymentIntentId: piId, amount: pi.amount / 100 }
-    );
-    return NextResponse.json(
-      { error: "Booking details do not match this payment — you have not been charged." },
-      { status: 400 }
-    );
+  if (mismatches.length > 0 || payloadLotId === null) {
+    report(`payload does not match PaymentIntent metadata: ${mismatches.join(", ")}`);
+    return refuse(400, `Booking details do not match this payment — ${NOT_CHARGED}`);
   }
 
   // Protection: derived from the PaymentIntent, and the client must agree (as for ResLab).
   const metaProtection = readProtectionMetadata(meta);
   if (metaProtection.kind === "invalid" || metaProtection.kind === "legacy_plan_a") {
-    capturePaymentError(new Error(`Direct pending-booking staging rejected — protection metadata ${metaProtection.kind}`), {
-      stripePaymentIntentId: piId,
-      amount: pi.amount / 100,
-    });
-    return NextResponse.json(
-      { error: "Your protection selection couldn't be verified — please choose it again. You have not been charged." },
-      { status: 400 }
-    );
+    report(`protection metadata ${metaProtection.kind}`);
+    return refuse(400, "Your protection selection couldn't be verified — please choose it again. You have not been charged.");
   }
   const protectionPlanCode = metaProtection.kind === "tier" ? metaProtection.code : null;
   if (payload.protectionPlanCode !== protectionPlanCode) {
-    capturePaymentError(new Error("Direct pending-booking staging rejected — client protectionPlanCode does not match PaymentIntent metadata"), {
-      stripePaymentIntentId: piId,
-      amount: pi.amount / 100,
-    });
-    return NextResponse.json(
-      { error: "Your protection selection doesn't match this payment — please choose it again. You have not been charged." },
-      { status: 400 }
-    );
+    report("client protectionPlanCode does not match PaymentIntent metadata");
+    return refuse(400, "Your protection selection doesn't match this payment — please choose it again. You have not been charged.");
   }
 
   // The at-lot vehicle estimate, from the PaymentIntent's own terms (R5).
   const vehicle = directVehicleEstimate(payload.vehicleSize, meta);
   if (!vehicle.ok) {
     if (vehicle.reason === "metadata") {
-      capturePaymentError(new Error(`Direct pending-booking staging rejected — ${vehicle.detail}`), {
-        stripePaymentIntentId: piId,
-        amount: pi.amount / 100,
-      });
-      return NextResponse.json(
-        { error: "We couldn't verify this payment's details. Please go back and try again — you have not been charged." },
-        { status: 400 }
-      );
+      report(vehicle.detail);
+      return refuse(400, `We couldn't verify this payment's details. Please go back and try again — ${NOT_CHARGED}`);
     }
-    return NextResponse.json(
-      {
-        error: "That vehicle size isn't offered at this lot any more. Please choose your vehicle size again — you have not been charged.",
-        code: "unknown_vehicle_size",
-      },
-      { status: 400 }
+    return refuse(
+      400,
+      `That vehicle size isn't offered at this lot any more. Please choose your vehicle size again — ${NOT_CHARGED}`,
+      "unknown_vehicle_size"
     );
   }
 
-  // Phase 3 stops here: nothing is written and the card is never confirmed.
+  // Unreachable while DIRECT_ENGINE_READY is true; kept as the guard for a
+  // rollback of that flag (4b plan §9.3 drain).
   if (!DIRECT_ENGINE_READY) {
-    return NextResponse.json(
-      { error: "Online booking for this lot is not open yet — you have not been charged.", code: "direct_not_bookable_yet" },
-      { status: 503 }
+    return refuse(503, `Online booking for this lot is not open yet — ${NOT_CHARGED}`, "direct_not_bookable_yet");
+  }
+
+  // Money: the stamped numbers must agree with each other and with Stripe (§9 H-E).
+  const money = readDirectMetadataMoney(meta, pi.amount);
+  if (!money.ok) {
+    report(`money metadata: ${money.detail}`);
+    return refuse(400, `We couldn't verify this payment's amount. Please go back and try again — ${NOT_CHARGED}`);
+  }
+
+  // One bounded lot read, with exactly checkout's eligibility rules (sellable
+  // here, minimum stay, the lot's notice period in the airport's clock).
+  const quoted = await quoteDirectCheckout({
+    payloadId: payloadLotId,
+    fromDate: payload.fromDate,
+    toDate: payload.toDate,
+    endpoint: "/api/reservations/pending",
+  });
+  if (!quoted.ok) {
+    if (quoted.status === 503) {
+      return refuse(503, `Parking data is temporarily unavailable. Please try again — ${NOT_CHARGED}`);
+    }
+    if (quoted.status === 404) {
+      return refuse(400, `This lot is no longer available to book. Please choose another lot — ${NOT_CHARGED}`, "direct_not_found");
+    }
+    return refuse(400, `${quoted.error} — ${NOT_CHARGED}`, quoted.code);
+  }
+  const lot = quoted.lot;
+  if (quoted.days !== money.money.days) {
+    report(`stay is ${quoted.days} billed days today but the payment was priced for ${money.money.days}`);
+    return refuse(400, `Booking details do not match this payment — ${NOT_CHARGED}`);
+  }
+
+  const snapshot = buildLotSnapshotV2(lot);
+  if (!snapshot) {
+    captureBookingError(new Error(`Direct lot ${lot.payloadId} cannot be snapshotted (address/state/zip/coords) — staging refused`), {
+      step: "checkout",
+    });
+    return refuse(503, `This lot can't be booked right now. Please try again later — ${NOT_CHARGED}`);
+  }
+  const recipients = lotRecipientsSchema.safeParse(lot.notificationEmails);
+  if (!recipients.success) {
+    captureBookingError(new Error(`Direct lot ${lot.payloadId} has no valid notification email — staging refused`), {
+      step: "checkout",
+    });
+    return refuse(503, `This lot can't be booked right now. Please try again later — ${NOT_CHARGED}`);
+  }
+  const sizeLabel =
+    payload.vehicleSize === NO_OVERSIZED_VEHICLE
+      ? NO_OVERSIZED_LABEL
+      : lot.vehicleSurcharges.find((v) => v.code === payload.vehicleSize)?.label;
+  if (!sizeLabel) {
+    return refuse(
+      400,
+      `That vehicle size isn't offered at this lot any more. Please choose your vehicle size again — ${NOT_CHARGED}`,
+      "unknown_vehicle_size"
     );
   }
-  // Unreachable until 4b replaces this with the insert described above.
-  throw new Error("direct pending staging is not implemented before Phase 4b");
+
+  // Attribution and identity from the request, never the body (as for ResLab).
+  const attribution = readAttributionFromRequest(request, { stripePaymentIntentId: piId });
+  const { identity, reason: identityReason } = await sessionIdentityFromRequest();
+  if (payload.userId && payload.userId !== (identity?.userId ?? null)) {
+    captureBookingError(
+      new Error(
+        identityReason === "auth_error"
+          ? `session unreadable; client userId dropped (booking proceeds as guest) pi=${piId}`
+          : identity === null
+            ? `client sent a userId but no session cookie was present (stale bundle or signed out) pi=${piId}`
+            : `client-supplied userId differs from the session user pi=${piId}`
+      ),
+      { step: "checkout" }
+    );
+  }
+
+  const supabase = await createAdminClient();
+  const writeSignal = () => AbortSignal.timeout(DIRECT_WRITE_TIMEOUT_MS);
+  const cannotPrepare = () => refuse(503, `Could not prepare your booking. Please try again — ${NOT_CHARGED}`);
+
+  // Already fulfilled, or a fulfilment already holds the row: never rewrite it.
+  const { data: existingBooking, error: existingError } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("stripe_payment_intent_id", piId)
+    .abortSignal(writeSignal())
+    .maybeSingle();
+  if (existingError) {
+    report(`existing-booking read failed: ${existingError.message}`);
+    return cannotPrepare();
+  }
+  if (existingBooking) return NextResponse.json({ staged: false, reason: "already_booked" });
+
+  const { data: existingRow, error: rowError } = await supabase
+    .from("pending_bookings")
+    .select("status")
+    .eq("stripe_payment_intent_id", piId)
+    .abortSignal(writeSignal())
+    .maybeSingle();
+  if (rowError) {
+    report(`pending-row read failed: ${rowError.message}`);
+    return cannotPrepare();
+  }
+  const existingStatus = (existingRow as { status: string } | null)?.status;
+  if (existingStatus !== undefined && existingStatus !== "pending") {
+    // The PaymentIntent is stageable (checked above): no money is held and no
+    // fulfilment can be running — the engine claims only after authorization.
+    // A `failed` row is a declined card's: reopen it so the refresh below
+    // applies the tier and vehicle size the customer chose for THIS attempt
+    // (otherwise the engine reopens it after authorization with the old ones
+    // and the lot is told the wrong size). Only a row nothing ever worked on.
+    // Any other non-pending row is never "already staged": start again.
+    if (existingStatus === "failed") {
+      const { data: reopened, error: reopenError } = await supabase
+        .from("pending_bookings")
+        .update({ status: "pending", last_error: "reopened at re-stage after a declined card" })
+        .eq("stripe_payment_intent_id", piId)
+        .eq("status", "failed")
+        .is("reslab_reservation_number", null)
+        .is("claimed_at", null)
+        .is("reslab_attempt_started_at", null)
+        .select("stripe_payment_intent_id")
+        .abortSignal(writeSignal())
+        .maybeSingle();
+      if (reopenError) {
+        report(`declined-row reopen failed: ${reopenError.message}`);
+        return cannotPrepare();
+      }
+      if (!reopened) {
+        report("pending row is failed and was worked on before — not reopened; customer asked to start again");
+        return refuse(400, `This payment can't be used again. Please go back and start checkout again — ${NOT_CHARGED}`, "payment_not_stageable");
+      }
+    } else {
+      report(`pending row is ${existingStatus} under a stageable PaymentIntent — customer asked to start again`);
+      return refuse(400, `This payment can't be used again. Please go back and start checkout again — ${NOT_CHARGED}`, "payment_not_stageable");
+    }
+  }
+
+  // Terms first (§10 F-7). Stage-owned columns only — never the lot-notice ones.
+  const { error: termsError } = await supabase
+    .from("direct_booking_terms")
+    .upsert(
+      {
+        stripe_payment_intent_id: piId,
+        direct_lot_id: String(lot.payloadId),
+        livemode: pi.livemode,
+        partner_share_percent: lot.partnerSharePercent,
+        // B8: the rate the customer was charged at, not today's CMS value.
+        tax_rate_percent: money.money.taxRatePercent,
+        tax_collected_by: lot.taxCollectedBy,
+        lot_recipients: recipients.data,
+      },
+      { onConflict: "stripe_payment_intent_id" }
+    )
+    .abortSignal(writeSignal());
+  if (termsError) {
+    report(`terms write failed: ${termsError.message}`);
+    return cannotPrepare();
+  }
+
+  const vehicleColumns = {
+    vehicle_size: vehicle.vehicleSize,
+    vehicle_size_label: sizeLabel,
+    vehicle_surcharge_cents: vehicle.surchargeCents,
+    vehicle_surcharge_tax_cents: vehicle.surchargeTaxCents,
+    vehicle_size_source: payload.vehicleSizeSource,
+  };
+  const protectionColumns = {
+    has_protection_plan: protectionPlanCode !== null,
+    protection_plan_code: protectionPlanCode,
+  };
+  const m = money.money;
+  const { error: insertError } = await supabase
+    .from("pending_bookings")
+    .insert({
+      stripe_payment_intent_id: piId,
+      status: "pending",
+      inventory_source: "direct",
+      direct_lot_id: String(lot.payloadId),
+      lot_snapshot: snapshot,
+      location_id: null,
+      parking_type_id: null,
+      costs_token: null,
+      from_date: payload.fromDate,
+      to_date: payload.toDate,
+      customer: payload.customer,
+      vehicle: payload.vehicle,
+      extra_fields: null,
+      // /checkout/complete rebuilds the 3-D Secure return URL from this.
+      confirmation_params: payload.confirmationParams ?? null,
+      location_name: snapshot.name,
+      location_address: snapshotAddressLine(snapshot),
+      airport_code: snapshot.airportCode,
+      // Dollars, from the PaymentIntent's cents (B8). grand_total excludes the
+      // service fee and Park Guard, as on every ResLab row.
+      subtotal: m.subtotalCents / 100,
+      tax_total: m.taxCents / 100,
+      fees_total: 0,
+      grand_total: m.grandTotalCents / 100,
+      triply_service_fee: m.serviceFeeCents / 100,
+      user_id: identity?.userId ?? null,
+      ...protectionColumns,
+      attribution,
+      livemode: pi.livemode,
+      ...vehicleColumns,
+    })
+    .abortSignal(writeSignal());
+
+  if (insertError) {
+    if ((insertError as { code?: string }).code !== "23505") {
+      report(`pending insert failed: ${insertError.message}`);
+      return cannotPrepare();
+    }
+    // 23505: an earlier Pay on this PaymentIntent (a declined card, a double
+    // click). The customer may have changed the tier, the vehicle size (R4) or
+    // corrected their name, phone, plate or car since — and for a direct lot
+    // this row is the ONLY fulfilment source and the lot notice its only
+    // channel, so refresh all of it (email and dates are bound to the
+    // PaymentIntent above). Only while the row is `pending` with no number.
+    // Fatal on failure: a stale row would tell the lot the wrong car. Zero rows
+    // updated = a fulfilment claimed it in between; the stored row stands.
+    const { error: refreshError } = await supabase
+      .from("pending_bookings")
+      .update({
+        ...protectionColumns,
+        ...vehicleColumns,
+        customer: payload.customer,
+        vehicle: payload.vehicle,
+        confirmation_params: payload.confirmationParams ?? null,
+        // Only a session that IS there may replace the staged user: a lapse
+        // (sign-out in another tab, a token blip) must never downgrade a
+        // signed-in booking to a guest one — direct fulfilment reads this id only.
+        ...(identity ? { user_id: identity.userId } : {}),
+      })
+      .eq("stripe_payment_intent_id", piId)
+      .eq("status", "pending")
+      .is("reslab_reservation_number", null)
+      .abortSignal(writeSignal());
+    if (refreshError) {
+      report(`re-stage refresh failed: ${refreshError.message}`);
+      return cannotPrepare();
+    }
+    return NextResponse.json({ staged: true, reason: "already_staged" });
+  }
+
+  return NextResponse.json({ staged: true });
 }

@@ -6,6 +6,8 @@ type BookingErrorContext = {
   userId?: string;
   airportCode?: string;
   confirmationNumber?: string;
+  /** Tag `inventory_source` (direct lots, 4b plan §9.3). */
+  inventorySource?: "reslab" | "direct";
 };
 
 export function captureBookingError(
@@ -14,6 +16,7 @@ export function captureBookingError(
 ) {
   Sentry.withScope((scope) => {
     scope.setTag("booking.step", context.step);
+    if (context.inventorySource) scope.setTag("inventory_source", context.inventorySource);
     if (context.lotId) scope.setTag("booking.lotId", context.lotId);
     if (context.airportCode) scope.setTag("booking.airport", context.airportCode);
     if (context.confirmationNumber) {
@@ -39,10 +42,13 @@ export function capturePaymentError(
     /** Group events by this instead of the stack trace — one Sentry issue (and
      *  one new-issue email) per key, e.g. per PaymentIntent. */
     fingerprint?: string[];
+    /** Tag `inventory_source` (direct lots, 4b plan §9.3). */
+    inventorySource?: "reslab" | "direct";
   }
 ) {
   Sentry.withScope((scope) => {
     scope.setTag("payment.error", "true");
+    if (context.inventorySource) scope.setTag("inventory_source", context.inventorySource);
     if (context.fingerprint) scope.setFingerprint(context.fingerprint);
     if (context.stripePaymentIntentId) {
       scope.setTag("payment.intentId", context.stripePaymentIntentId);
@@ -227,5 +233,24 @@ export function captureRequiredFieldCheck(
     );
     if (context.detail) scope.setContext("detail", context.detail);
     Sentry.captureException(new Error(message));
+  });
+}
+
+/**
+ * Direct-lot notice to the LOT (4b plan §3.4). The lot's only channel for a
+ * booking or a cancellation — every failed or skipped send is an event, tagged
+ * so an alert rule can page on `direct_lot_notice:failed`.
+ */
+export function captureDirectLotNotice(
+  error: Error,
+  context: { stripePaymentIntentId: string; kind: "booking" | "cancel"; outcome: "sent" | "not_claimed" | "skipped" | "failed" }
+) {
+  Sentry.withScope((scope) => {
+    scope.setTag("direct_lot_notice", context.outcome);
+    scope.setTag("direct_lot_notice.kind", context.kind);
+    scope.setTag("inventory_source", "direct");
+    scope.setTag("payment.intentId", context.stripePaymentIntentId);
+    scope.setLevel(context.outcome === "failed" ? "error" : "warning");
+    Sentry.captureException(error);
   });
 }

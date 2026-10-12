@@ -25,6 +25,10 @@ const { db, constructEvent, sentry, parkGuardMock } = await vi.hoisted(async () 
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", () => ({ stripe: { webhooks: { constructEvent } } }));
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 vi.mock("@/lib/parkguard/client", () => ({
   parkGuard: parkGuardMock,
   ParkGuardError: class extends Error {},
@@ -174,6 +178,52 @@ describe("webhook charge.refunded — cancellation reason", () => {
     seed({ status: "cancelled" });
     await POST(req());
     expect(db.tables.bookings[0].status).toBe("refunded");
+  });
+
+  describe("the DIRECT lot's cancel notice (4b plan §3.4)", () => {
+    beforeEach(() => lotNotice.sendLotCancelNotice.mockClear());
+
+    const partialRefund = () => ({
+      type: "charge.refunded",
+      data: { object: { payment_intent: "pi_1", amount: 10_000, amount_refunded: 2_500 } },
+    });
+
+    it("a FULL refund on a confirmed direct booking → the lot is told, once, with the PaymentIntent, after the status write", async () => {
+      seed({ inventory_source: "direct" });
+      const seenStatus: unknown[] = [];
+      lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+        seenStatus.push(db.tables.bookings[0].status);
+        return "not_claimed";
+      });
+      const res = await POST(req());
+      expect(res.status).toBe(200);
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+      expect(seenStatus).toEqual(["refunded"]);
+    });
+
+    it("a PARTIAL refund on a direct booking → NO cancel notice (the lot would turn away a paying customer)", async () => {
+      seed({ inventory_source: "direct" });
+      constructEvent.mockReturnValue(partialRefund());
+      const res = await POST(req());
+      expect(res.status).toBe(200);
+      expect(db.tables.bookings[0].status).toBe("confirmed");
+      expect(lotNotice.sendLotCancelNotice).not.toHaveBeenCalled();
+    });
+
+    it("a full refund on a ResLab booking → no lot notice", async () => {
+      seed({ inventory_source: "reslab" });
+      await POST(req());
+      expect(db.tables.bookings[0].status).toBe("refunded");
+      expect(lotNotice.sendLotCancelNotice).not.toHaveBeenCalled();
+    });
+
+    it("a full refund on a DISPUTED direct booking (status does not advance) → no lot notice", async () => {
+      seed({ inventory_source: "direct", status: "disputed" });
+      await POST(req());
+      expect(db.tables.bookings[0].status).toBe("disputed");
+      expect(lotNotice.sendLotCancelNotice).not.toHaveBeenCalled();
+    });
   });
 
   it("a failed reason write does not fail the webhook", async () => {

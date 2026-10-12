@@ -1,6 +1,8 @@
 /**
  * Booking fulfilment — ResLab reservation, Supabase persistence, Park Guard
- * enrolment, and notification emails.
+ * enrolment, and notification emails; and, for Triply direct lots (4b),
+ * `persistDirectBooking` / `sendDirect*` / `buildDirectReservationResponse`,
+ * which never touch ResLab.
  *
  * Extracted verbatim-in-behaviour from POST /api/reservations so the same
  * fulfilment can be driven by all three entry points (the browser, the
@@ -13,7 +15,13 @@
 import type { z } from "zod";
 import { reslab, stripHtml } from "@/lib/reslab/client";
 import type { ReslabReservation } from "@/lib/reslab/client";
-import type { FulfilledReservation } from "@/lib/booking/fulfilled-reservation";
+import type {
+  DirectFulfilledReservation,
+  FulfilledReservation,
+  ReslabFulfilledReservation,
+} from "@/lib/booking/fulfilled-reservation";
+import type { DirectBookingPayload } from "@/lib/direct/fulfilment";
+import { snapshotAddressLine } from "@/lib/direct/lot-snapshot";
 import { createAdminClient } from "@/lib/supabase/server";
 import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
@@ -76,7 +84,9 @@ export interface PersistResult {
    *  entire ~3-day redelivery budget on an insert that can never succeed, and
    *  leaves the pending row parked with nothing left to re-drive it. */
   bookingInsertPermanent: boolean;
-  /** Set when the insert lost a race on UNIQUE(stripe_payment_intent_id). */
+  /** Set on ANY 23505 from the bookings insert. Usually a concurrent caller's
+   *  insert of this PaymentIntent, but possibly another booking's reservation
+   *  number; the caller looks the row up by PaymentIntent to tell which (4b §3.3 B7). */
   duplicatePaymentIntent: boolean;
   /** Promo discount actually taken off the online charge, in dollars (0 when
    *  none) — the value written to bookings.discount_amount. The emails need it:
@@ -144,7 +154,7 @@ export interface AppliedPromo {
 
 export async function persistBooking(
   payload: BookingPayload,
-  fr: FulfilledReservation,
+  fr: ReslabFulfilledReservation,
   charged: ChargedProtection | null,
   /** Stripe mode of the charge (`pi.livemode`), written to bookings.livemode —
    *  the only staging/prod marker on this shared table (migration 034). Required,
@@ -191,122 +201,11 @@ export async function persistBooking(
   try {
     const supabase = await createAdminClient();
 
-    // --- Customer upsert -----------------------------------------------------
-    // `userId` is the SERVER-SESSION user (the reservation routes overwrite
-    // whatever the client sent) or, on the webhook/sweep paths, the id staged
-    // on the pending row by those same routes. It selects the booker's own
-    // customer row. It is NOT, on its own, permission to attach an
-    // email-matched row to that account — see customer-link.ts: that was the
-    // account-takeover hole (book under a victim's email, inherit their
-    // booking history and self-cancel). Linking requires the account's
-    // verified email to BE that address.
-    let customerId: string;
-    let existingCustomer: { id: string; email: string; user_id: string | null } | null = null;
-
-    // Not `.single()`: PostgREST answers BOTH zero and multiple rows with the
-    // same PGRST116, so a duplicated customer (customers has no UNIQUE on
-    // email or user_id, and duplicates exist in prod) would read as "no
-    // customer" and INSERT yet another row after the money moved. Read the
-    // list, take the oldest row deterministically, and report duplicates and
-    // faults — the booking continues either way.
-    type CustomerRow = { id: string; email: string; user_id: string | null };
-    const pickCustomer = (
-      by: string,
-      rows: CustomerRow[] | null,
-      error: { message: string } | null
-    ): CustomerRow | null => {
-      if (error) {
-        captureBookingError(
-          new Error(`customers lookup by ${by} failed (pi=${stripePaymentIntentId ?? "none"}): ${error.message}`),
-          { step: "checkout" }
-        );
-        return null;
-      }
-      if (!rows || rows.length === 0) return null;
-      if (rows.length > 1) {
-        captureBookingError(
-          new Error(`${rows.length} customers rows share the same ${by} (pi=${stripePaymentIntentId ?? "none"}) — using the oldest; dedupe needed`),
-          { step: "checkout" }
-        );
-      }
-      return rows[0];
-    };
-
-    if (userId) {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, email, user_id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: true });
-      existingCustomer = pickCustomer("user_id", data, error);
-    }
-
-    if (!existingCustomer) {
-      const { data, error } = await supabase
-        .from("customers")
-        .select("id, email, user_id")
-        .eq("email", customer.email)
-        .order("created_at", { ascending: true });
-      existingCustomer = pickCustomer("email", data, error);
-    }
-
-    // The verified-email check is an external auth call inside the
-    // post-capture critical section — only make it when it can change the
-    // outcome (an unlinked matched row, or a brand-new row).
-    const linkableUserId =
-      existingCustomer && existingCustomer.user_id !== null
-        ? null
-        : await linkableUserIdForEmail(userId, customer.email);
-
-    if (existingCustomer) {
-      customerId = existingCustomer.id;
-      // Link only a row that has NO account yet, and only to an account whose
-      // verified email is this address. Never overwrite a different non-null
-      // user_id — that is someone else's record.
-      const linkHere =
-        linkableUserId !== null && existingCustomer.user_id === null
-          ? { user_id: linkableUserId }
-          : {};
-      // Refresh the contact details only when this booking is FOR that row's
-      // address. A signed-in customer booking under someone else's email is
-      // filed under their own row (found by user_id above) — the other
-      // person's name and phone must not overwrite the account holder's.
-      const contactHere = sameEmail(existingCustomer.email, customer.email)
-        ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
-        : {};
-      const patch = { ...contactHere, ...linkHere };
-      if (Object.keys(patch).length > 0) {
-        const { error: updateError } = await supabase
-          .from("customers")
-          .update(patch)
-          .eq("id", customerId);
-        if (updateError) {
-          // Non-fatal for the booking (the row exists and is correct enough to
-          // attach to), but never silent.
-          captureBookingError(
-            new Error(`customers update failed (pi=${stripePaymentIntentId ?? "none"}): ${updateError.message}`),
-            { step: "checkout" }
-          );
-        }
-      }
-    } else {
-      const { data: newCustomer, error: customerError } = await supabase
-        .from("customers")
-        .insert({
-          email: customer.email,
-          first_name: customer.firstName,
-          last_name: customer.lastName,
-          phone: customer.phone,
-          // A signed-in customer booking under a DIFFERENT email gets a plain
-          // guest row for that address, not one attached to their account.
-          ...(linkableUserId && { user_id: linkableUserId }),
-        })
-        .select("id")
-        .single();
-
-      if (customerError) throw customerError;
-      customerId = newCustomer.id;
-    }
+    const customerId = await upsertCustomer(supabase, {
+      userId,
+      customer,
+      stripePaymentIntentId,
+    });
 
     const storedSubtotal = subtotal || fr.money.subtotal || 0;
 
@@ -348,8 +247,9 @@ export async function persistBooking(
     // The lot's coordinates drive the airport derivation below. Same source,
     // same single fallback fetch — never the shared location-list cache.
     let lotCoords = fr.location?.coords ?? null;
-    // ResLab lots only: `locationId` is a ResLab id. A direct lot (4b) supplies
-    // its own timezone + coordinates and must never fetch a ResLab lot's.
+    // ResLab only: persistBooking never sees a direct lot (see
+    // persistDirectBooking); the source check restates that `locationId` is a
+    // ResLab id.
     if (fr.source === "reslab" && (!locationTimezone || !lotCoords) && locationId != null) {
       try {
         const fetched = await reslab.getLocation(locationId);
@@ -381,53 +281,7 @@ export async function persistBooking(
       );
     }
 
-    // --- Attribution channel + airport (non-blocking) -----------------------
-    // Each in its OWN try/catch, like the timezone fallback above: a throw
-    // anywhere inside this outer try marks bookingInsertFailed for a booking
-    // whose money is already captured. A null here is a reporting gap, not a
-    // customer problem — captured to Sentry, never allowed to block the insert.
-    // The pending row's JSONB is a boundary too: re-validate before trusting
-    // its shape, so a corrupt row becomes the invalid marker, never a throw.
-    // Inside the guard: safeParse cannot throw today, but a future refine on
-    // the schema must not be able to fail a paid booking either.
-    let storedAttribution: Attribution | null = null;
-    let channel: Channel | null = null;
-    try {
-      storedAttribution = normalizeStoredAttribution(attribution);
-      const validAttribution =
-        storedAttribution && storedAttribution.v === 1 ? storedAttribution : null;
-      if (validAttribution) {
-        // `utm_source=partner-<reslab_location_id>` is visitor input; only an
-        // ACTIVE partner row earns the partner channel, else it is a referral.
-        // Lower-cased to match the classifier's own matching.
-        let activePartnerLocationIds: Set<number> | undefined;
-        const partnerTag = (validAttribution.first.src ?? "").toLowerCase().match(PARTNER_SOURCE_RE);
-        if (partnerTag) {
-          const { data: partner, error: partnerError } = await supabase
-            .from("partners")
-            .select("reslab_location_id")
-            .eq("reslab_location_id", Number(partnerTag[1]))
-            .eq("is_active", true)
-            .maybeSingle();
-          if (partnerError) {
-            // A DB fault is not "no such partner". Asserting `referral` here
-            // would permanently mislabel a partner booking with no trace, so
-            // leave the channel unknown and say why.
-            throw new Error(`partners lookup failed: ${partnerError.message}`);
-          }
-          activePartnerLocationIds = new Set(
-            partner ? [Number((partner as { reslab_location_id: number }).reslab_location_id)] : []
-          );
-        }
-        channel = classifyChannel(validAttribution, { activePartnerLocationIds });
-      }
-    } catch (chErr) {
-      channel = null;
-      captureBookingError(
-        chErr instanceof Error ? chErr : new Error(String(chErr)),
-        { step: "checkout", confirmationNumber: fr.number }
-      );
-    }
+    const { storedAttribution, channel } = await deriveChannel(supabase, attribution, fr.number);
 
     // The client-supplied airportCode is "RESLAB" on ~all bookings (it is the
     // lot-id prefix) and is deliberately NOT written here. Derived instead from
@@ -506,10 +360,10 @@ export async function persistBooking(
       .single();
 
     if (bookingError) {
-      // 23505 on stripe_payment_intent_id means a concurrent caller already
-      // inserted this booking. That is a SUCCESS for idempotency purposes, not
-      // a failure — the customer has their reservation. Distinguish it so the
-      // caller doesn't fire a money alert for a race we handled correctly.
+      // 23505: usually a concurrent caller already inserted this booking (a
+      // SUCCESS for idempotency — the customer has their reservation), but it
+      // can also be the reservation-number UNIQUE. Flag it and let the caller
+      // tell which by looking the row up by PaymentIntent; no money alert here.
       const code = (bookingError as { code?: string }).code;
       const isDuplicate = code === "23505";
       result.duplicatePaymentIntent = isDuplicate;
@@ -586,15 +440,210 @@ export async function persistBooking(
   }
 }
 
+type AdminClient = Awaited<ReturnType<typeof createAdminClient>>;
+
+/**
+ * Find or create the booker's `customers` row and return its id. Shared by the
+ * ResLab and direct persists. Throws on a failed INSERT (the caller's catch
+ * marks the booking insert failed); lookups and updates are reported and
+ * tolerated, exactly as before this was extracted.
+ */
+async function upsertCustomer(
+  supabase: AdminClient,
+  args: {
+    userId: string | null | undefined;
+    customer: BookingPayload["customer"];
+    stripePaymentIntentId: string | null | undefined;
+  }
+): Promise<string> {
+  const { userId, customer, stripePaymentIntentId } = args;
+  // --- Customer upsert -----------------------------------------------------
+  // `userId` is the SERVER-SESSION user (the reservation routes overwrite
+  // whatever the client sent) or, on the webhook/sweep paths, the id staged
+  // on the pending row by those same routes. It selects the booker's own
+  // customer row. It is NOT, on its own, permission to attach an
+  // email-matched row to that account — see customer-link.ts: that was the
+  // account-takeover hole (book under a victim's email, inherit their
+  // booking history and self-cancel). Linking requires the account's
+  // verified email to BE that address.
+  let customerId: string;
+  let existingCustomer: { id: string; email: string; user_id: string | null } | null = null;
+
+  // Not `.single()`: PostgREST answers BOTH zero and multiple rows with the
+  // same PGRST116, so a duplicated customer (customers has no UNIQUE on
+  // email or user_id, and duplicates exist in prod) would read as "no
+  // customer" and INSERT yet another row after the money moved. Read the
+  // list, take the oldest row deterministically, and report duplicates and
+  // faults — the booking continues either way.
+  type CustomerRow = { id: string; email: string; user_id: string | null };
+  const pickCustomer = (
+    by: string,
+    rows: CustomerRow[] | null,
+    error: { message: string } | null
+  ): CustomerRow | null => {
+    if (error) {
+      captureBookingError(
+        new Error(`customers lookup by ${by} failed (pi=${stripePaymentIntentId ?? "none"}): ${error.message}`),
+        { step: "checkout" }
+      );
+      return null;
+    }
+    if (!rows || rows.length === 0) return null;
+    if (rows.length > 1) {
+      captureBookingError(
+        new Error(`${rows.length} customers rows share the same ${by} (pi=${stripePaymentIntentId ?? "none"}) — using the oldest; dedupe needed`),
+        { step: "checkout" }
+      );
+    }
+    return rows[0];
+  };
+
+  if (userId) {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("id, email, user_id")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+    existingCustomer = pickCustomer("user_id", data, error);
+  }
+
+  if (!existingCustomer) {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("id, email, user_id")
+      .eq("email", customer.email)
+      .order("created_at", { ascending: true });
+    existingCustomer = pickCustomer("email", data, error);
+  }
+
+  // The verified-email check is an external auth call inside the
+  // post-capture critical section — only make it when it can change the
+  // outcome (an unlinked matched row, or a brand-new row).
+  const linkableUserId =
+    existingCustomer && existingCustomer.user_id !== null
+      ? null
+      : await linkableUserIdForEmail(userId, customer.email);
+
+  if (existingCustomer) {
+    customerId = existingCustomer.id;
+    // Link only a row that has NO account yet, and only to an account whose
+    // verified email is this address. Never overwrite a different non-null
+    // user_id — that is someone else's record.
+    const linkHere =
+      linkableUserId !== null && existingCustomer.user_id === null
+        ? { user_id: linkableUserId }
+        : {};
+    // Refresh the contact details only when this booking is FOR that row's
+    // address. A signed-in customer booking under someone else's email is
+    // filed under their own row (found by user_id above) — the other
+    // person's name and phone must not overwrite the account holder's.
+    const contactHere = sameEmail(existingCustomer.email, customer.email)
+      ? { first_name: customer.firstName, last_name: customer.lastName, phone: customer.phone }
+      : {};
+    const patch = { ...contactHere, ...linkHere };
+    if (Object.keys(patch).length > 0) {
+      const { error: updateError } = await supabase
+        .from("customers")
+        .update(patch)
+        .eq("id", customerId);
+      if (updateError) {
+        // Non-fatal for the booking (the row exists and is correct enough to
+        // attach to), but never silent.
+        captureBookingError(
+          new Error(`customers update failed (pi=${stripePaymentIntentId ?? "none"}): ${updateError.message}`),
+          { step: "checkout" }
+        );
+      }
+    }
+  } else {
+    const { data: newCustomer, error: customerError } = await supabase
+      .from("customers")
+      .insert({
+        email: customer.email,
+        first_name: customer.firstName,
+        last_name: customer.lastName,
+        phone: customer.phone,
+        // A signed-in customer booking under a DIFFERENT email gets a plain
+        // guest row for that address, not one attached to their account.
+        ...(linkableUserId && { user_id: linkableUserId }),
+      })
+      .select("id")
+      .single();
+
+    if (customerError) throw customerError;
+    customerId = newCustomer.id;
+  }
+  return customerId;
+}
+
+/**
+ * Stored attribution + derived channel for a booking row. Never throws: a
+ * throw here would fail a booking whose money is already captured. Shared by
+ * the ResLab and direct persists.
+ */
+async function deriveChannel(
+  supabase: AdminClient,
+  attribution: Attribution | null | undefined,
+  confirmationNumber: string
+): Promise<{ storedAttribution: Attribution | null; channel: Channel | null }> {
+  // --- Attribution channel (non-blocking) -----------------------------------
+  // In its OWN try/catch: a throw inside the caller's try marks
+  // bookingInsertFailed for a booking whose money is already captured. A null here is a reporting gap, not a
+  // customer problem — captured to Sentry, never allowed to block the insert.
+  // The pending row's JSONB is a boundary too: re-validate before trusting
+  // its shape, so a corrupt row becomes the invalid marker, never a throw.
+  // Inside the guard: safeParse cannot throw today, but a future refine on
+  // the schema must not be able to fail a paid booking either.
+  let storedAttribution: Attribution | null = null;
+  let channel: Channel | null = null;
+  try {
+    storedAttribution = normalizeStoredAttribution(attribution);
+    const validAttribution =
+      storedAttribution && storedAttribution.v === 1 ? storedAttribution : null;
+    if (validAttribution) {
+      // `utm_source=partner-<reslab_location_id>` is visitor input; only an
+      // ACTIVE partner row earns the partner channel, else it is a referral.
+      // Lower-cased to match the classifier's own matching.
+      let activePartnerLocationIds: Set<number> | undefined;
+      const partnerTag = (validAttribution.first.src ?? "").toLowerCase().match(PARTNER_SOURCE_RE);
+      if (partnerTag) {
+        const { data: partner, error: partnerError } = await supabase
+          .from("partners")
+          .select("reslab_location_id")
+          .eq("reslab_location_id", Number(partnerTag[1]))
+          .eq("is_active", true)
+          .maybeSingle();
+        if (partnerError) {
+          // A DB fault is not "no such partner". Asserting `referral` here
+          // would permanently mislabel a partner booking with no trace, so
+          // leave the channel unknown and say why.
+          throw new Error(`partners lookup failed: ${partnerError.message}`);
+        }
+        activePartnerLocationIds = new Set(
+          partner ? [Number((partner as { reslab_location_id: number }).reslab_location_id)] : []
+        );
+      }
+      channel = classifyChannel(validAttribution, { activePartnerLocationIds });
+    }
+  } catch (chErr) {
+    channel = null;
+    captureBookingError(
+      chErr instanceof Error ? chErr : new Error(String(chErr)),
+      { step: "checkout", confirmationNumber }
+    );
+  }
+  return { storedAttribution, channel };
+}
+
 /**
  * Park Guard enrolment. Never throws — a PG outage must not fail a paid booking,
  * but every failure is captured for background reconciliation.
  */
 async function enrolParkGuard(
-  payload: BookingPayload,
+  payload: Pick<BookingPayload, "fromDate" | "toDate" | "customer" | "vehicle" | "locationAddress">,
   fr: FulfilledReservation,
   bookingId: string,
-  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  supabase: AdminClient,
   charged: ChargedProtection
 ): Promise<{ pgIdentifier: string | null; pgSyncStatus: PgSyncStatus }> {
   const { fromDate, toDate, customer, vehicle, locationAddress } = payload;
@@ -729,7 +778,7 @@ async function enrolParkGuard(
  */
 export async function sendBookingEmails(
   payload: BookingPayload,
-  fr: FulfilledReservation,
+  fr: ReslabFulfilledReservation,
   pgSyncStatus: PgSyncStatus,
   charged: ChargedProtection | null,
   /** Promo discount in dollars (PersistResult.discountAmount); 0 when none. */
@@ -894,7 +943,7 @@ export interface ReservationResponse {
  */
 export function buildReservationResponse(
   payload: BookingPayload,
-  fr: FulfilledReservation,
+  fr: ReslabFulfilledReservation,
   pgIdentifier: string | null,
   charged: ChargedProtection | null
 ): ReservationResponse {
@@ -950,5 +999,271 @@ export function buildReservationResponse(
           specialConditions,
         }
       : null,
+  };
+}
+
+// =============================================================================
+// Direct lots (4b plan §3.3–§3.4) — persist, emails and the create response for
+// a Triply-owned lot. No ResLab anywhere: everything comes from the staged row
+// (DirectBookingPayload) and the PaymentIntent-derived DirectFulfilledReservation.
+// =============================================================================
+
+export type DirectPersistResult =
+  | { kind: "inserted"; bookingId: string; pgIdentifier: string | null; pgSyncStatus: PgSyncStatus }
+  /** 23505 on the bookings insert. The caller decides which UNIQUE fired (§3.3 B7). */
+  | { kind: "unique_violation" }
+  /** `permanent`: a Postgres integrity violation other than 23505 — identical on every retry. */
+  | { kind: "failed"; permanent: boolean };
+
+/**
+ * Persist a DIRECT booking. Never throws (same contract as persistBooking).
+ * Money comes from `fr.money` only — no payload fallback. `due_at_location` is
+ * the stored 0 (the online charge covers all of the parking); an
+ * oversized-vehicle surcharge is collected at the lot and lives only in the
+ * `vehicle_*` columns, never in a money column. Timezone and airport come from
+ * the snapshot — no ResLab lookup, no coordinate derivation.
+ */
+export async function persistDirectBooking(
+  dp: DirectBookingPayload,
+  fr: DirectFulfilledReservation,
+  charged: ChargedProtection | null,
+  livemode: boolean,
+  promoCode: string | null,
+  attribution: Attribution | null
+): Promise<DirectPersistResult> {
+  const s = fr.snapshot;
+  const addressLine = snapshotAddressLine(s);
+  try {
+    const supabase = await createAdminClient();
+    const customerId = await upsertCustomer(supabase, {
+      userId: dp.userId,
+      customer: dp.customer,
+      stripePaymentIntentId: dp.stripePaymentIntentId,
+    });
+    const { storedAttribution, channel } = await deriveChannel(supabase, attribution, fr.number);
+
+    const { data: bookingRow, error: bookingError } = await supabase
+      .from("bookings")
+      .insert({
+        customer_id: customerId,
+        reslab_reservation_number: fr.number,
+        inventory_source: "direct",
+        direct_lot_id: String(dp.directLotId),
+        reslab_location_id: null,
+        // Customer-safe v2 snapshot — no notice recipients (038 CHECK).
+        lot_snapshot: s,
+        location_name: s.name,
+        location_address: addressLine,
+        airport_code: s.airportCode,
+        attribution: storedAttribution,
+        channel,
+        location_timezone: s.timezone,
+        // Literal wall-clock strings into TIMESTAMP columns (007) — no conversion.
+        check_in: dp.fromDate,
+        check_out: dp.toDate,
+        subtotal: fr.money.subtotal,
+        tax_total: fr.money.taxTotal,
+        fees_total: 0,
+        grand_total: fr.money.grandTotal,
+        triply_service_fee: fr.money.serviceFee,
+        due_at_location: 0,
+        discount_amount: fr.money.discount,
+        ...(fr.money.discount > 0 && promoCode && { promo_code: promoCode }),
+        vehicle_info: dp.vehicle,
+        status: "confirmed",
+        livemode,
+        stripe_payment_intent_id: dp.stripePaymentIntentId,
+        ...(charged && {
+          protection_plan: charged.plan.name,
+          protection_plan_code: charged.plan.code,
+          protection_plan_price: charged.premium,
+          protection_plan_wholesale: charged.plan.wholesalePrice,
+        }),
+        vehicle_size: dp.vehicleSize,
+        vehicle_size_label: dp.vehicleSizeLabel,
+        vehicle_surcharge_cents: dp.vehicleSurchargeCents,
+        vehicle_surcharge_tax_cents: dp.vehicleSurchargeTaxCents,
+        vehicle_size_source: dp.vehicleSizeSource,
+      })
+      .select("id")
+      .single();
+
+    if (bookingError) {
+      const code = bookingError.code;
+      if (code === "23505") return { kind: "unique_violation" };
+      captureBookingError(new Error(`Direct booking insert failed: ${bookingError.message}`), {
+        step: "checkout",
+        airportCode: s.airportCode,
+        confirmationNumber: fr.number,
+      });
+      return { kind: "failed", permanent: !!code && /^23\d{3}$/.test(code) };
+    }
+
+    if (!charged) return { kind: "inserted", bookingId: bookingRow.id, pgIdentifier: null, pgSyncStatus: null };
+    const pg = await enrolParkGuard(
+      { fromDate: dp.fromDate, toDate: dp.toDate, customer: dp.customer, vehicle: dp.vehicle, locationAddress: addressLine },
+      fr,
+      bookingRow.id,
+      supabase,
+      charged
+    );
+    return { kind: "inserted", bookingId: bookingRow.id, pgIdentifier: pg.pgIdentifier, pgSyncStatus: pg.pgSyncStatus };
+  } catch (err) {
+    captureBookingError(err instanceof Error ? err : new Error(String(err)), {
+      step: "checkout",
+      airportCode: s.airportCode,
+      confirmationNumber: fr.number,
+    });
+    return { kind: "failed", permanent: false };
+  }
+}
+
+/** What the customer paid online for a direct booking, in dollars (= pi.amount / 100). */
+export function directPaidOnline(fr: DirectFulfilledReservation): number {
+  return fr.money.chargedOnline;
+}
+
+/** The at-lot vehicle estimate (surcharge + its tax) in dollars; null when there is none. */
+export function directAtLotEstimate(fr: DirectFulfilledReservation): number | null {
+  const cents = fr.atLot.surchargeCents + fr.atLot.surchargeTaxCents;
+  return cents > 0 ? cents / 100 : null;
+}
+
+const DIRECT_CONFIRMATION_TIMEOUT_MS = 5_000;
+
+/**
+ * The customer confirmation for a DIRECT booking. Returns whether Resend
+ * ACCEPTED it (`{ success: true }`); never throws. The caller owns the
+ * claim-before-send on `pending_bookings.email_sent` (§10 F-1) and hands the
+ * claim back on `false`.
+ *
+ * Bounded at 5 s: an unbounded send that hung to maxDuration would kill the
+ * function after the claim, leaving `email_sent` true and the customer with no
+ * confirmation and nothing to re-send it. The Resend idempotency key makes
+ * handing the claim back safe even after a timeout (Resend may have delivered
+ * it): the retry is then answered from Resend's record, not sent twice.
+ */
+export async function sendDirectCustomerConfirmation(
+  dp: DirectBookingPayload,
+  fr: DirectFulfilledReservation,
+  pgSyncStatus: PgSyncStatus,
+  charged: ChargedProtection | null
+): Promise<boolean> {
+  const totalAmount = directPaidOnline(fr);
+  const [checkInDate, checkInTime24] = dp.fromDate.split(" ");
+  const [checkOutDate, checkOutTime24] = dp.toDate.split(" ");
+  const v = dp.vehicle;
+  try {
+    const sent = await sendBookingConfirmation({
+      to: dp.customer.email,
+      customerName: `${dp.customer.firstName} ${dp.customer.lastName}`,
+      confirmationNumber: fr.number,
+      lotName: fr.snapshot.name,
+      lotAddress: snapshotAddressLine(fr.snapshot),
+      checkInDate,
+      checkOutDate,
+      checkInTime: convertTo12Hour(checkInTime24),
+      checkOutTime: convertTo12Hour(checkOutTime24),
+      totalAmount,
+      dueAtLocation: 0,
+      vehicleInfo: `${v.make} ${v.model} (${v.color}) - ${v.licensePlate}`,
+      shuttleDetails: stripHtml(fr.location.shuttleDetailsHtml ?? null) || undefined,
+      specialConditions: stripHtml(fr.location.specialConditionsHtml ?? null) || undefined,
+      ...(charged && { protectionPlan: charged.plan.name, protectionPlanPrice: charged.premium }),
+      pgSyncStatus,
+      direct: {
+        shuttlePhone: fr.snapshot.shuttlePhone ?? undefined,
+        vehicleSizeLabel: fr.atLot.vehicleSizeLabel,
+        atLotEstimate: directAtLotEstimate(fr),
+      },
+      idempotencyKey: `direct-confirmation/${dp.stripePaymentIntentId}`,
+      timeoutMs: DIRECT_CONFIRMATION_TIMEOUT_MS,
+    });
+    if (sent.success) return true;
+    capturePaymentError(
+      new Error(
+        `Customer paid but confirmation email ${sent.uncertain ? "did not answer in time (Resend may still deliver it)" : "did not send"} (direct booking ${fr.number}) — handed back for a re-send`
+      ),
+      { stripePaymentIntentId: dp.stripePaymentIntentId, amount: totalAmount }
+    );
+    return false;
+  } catch (err) {
+    capturePaymentError(
+      new Error(
+        `Customer paid but confirmation email did not send (direct booking ${fr.number}): ${err instanceof Error ? err.message : String(err)}`
+      ),
+      { stripePaymentIntentId: dp.stripePaymentIntentId, amount: totalAmount }
+    );
+    return false;
+  }
+}
+
+/** Internal admin notification for a DIRECT booking. Never throws, never a money event. */
+export async function sendDirectAdminNotification(
+  dp: DirectBookingPayload,
+  fr: DirectFulfilledReservation,
+  charged: ChargedProtection | null
+): Promise<void> {
+  const v = dp.vehicle;
+  const atLot = directAtLotEstimate(fr);
+  try {
+    await sendAdminBookingNotification({
+      confirmationNumber: fr.number,
+      customerName: `${dp.customer.firstName} ${dp.customer.lastName}`,
+      customerEmail: dp.customer.email,
+      customerPhone: dp.customer.phone,
+      lotName: fr.snapshot.name,
+      lotAddress: snapshotAddressLine(fr.snapshot),
+      checkInDate: dp.fromDate.split(" ")[0],
+      checkOutDate: dp.toDate.split(" ")[0],
+      totalAmount: directPaidOnline(fr),
+      dueAtLocation: 0,
+      vehicleInfo: `${v.make} ${v.model} (${v.color}) - ${v.licensePlate}`,
+      airportCode: fr.snapshot.airportCode,
+      ...(charged && { protectionPlan: charged.plan.name, protectionPlanPrice: charged.premium }),
+      sourceLine: "Direct lot (Triply number — no Reservations Lab reservation)",
+      vehicleDeclaration: `${fr.atLot.vehicleSizeLabel}${atLot !== null ? ` — $${atLot.toFixed(2)} est. collected at the lot` : ""}`,
+    });
+  } catch (err) {
+    captureBookingError(
+      new Error(`Admin notification email failed for ${fr.number}: ${err instanceof Error ? err.message : String(err)}`),
+      { step: "checkout", airportCode: fr.snapshot.airportCode }
+    );
+  }
+}
+
+/** The `reservation` object POST /api/reservations returns for a created DIRECT booking. */
+export function buildDirectReservationResponse(
+  dp: DirectBookingPayload,
+  fr: DirectFulfilledReservation,
+  pgIdentifier: string | null,
+  charged: ChargedProtection | null
+): ReservationResponse {
+  const protectionPremium = charged?.premium ?? 0;
+  return {
+    id: fr.number,
+    reservationNumber: fr.number,
+    status: "confirmed",
+    grandTotal: fr.money.grandTotal + fr.money.serviceFee + protectionPremium,
+    serviceFee: fr.money.serviceFee,
+    protectionPlan: charged?.plan.name ?? null,
+    protectionPlanPrice: protectionPremium,
+    pgIdentifier,
+    // The card charge. The at-lot vehicle estimate is NEVER part of this (R1).
+    dueNow: directPaidOnline(fr),
+    dueAtLocation: 0,
+    customer: { ...dp.customer },
+    items: fr.dates.map((d) => ({ type: "parking", fromDate: d.fromDate, toDate: d.toDate, numberOfDays: null, numberOfSpots: 1 })),
+    location: {
+      id: null,
+      name: fr.location.name,
+      address: fr.location.address,
+      city: fr.location.city,
+      state: fr.location.stateCode,
+      zipCode: fr.location.zip,
+      phone: fr.location.phone,
+      shuttleDetails: stripHtml(fr.location.shuttleDetailsHtml ?? null) || undefined,
+      specialConditions: stripHtml(fr.location.specialConditionsHtml ?? null) || undefined,
+    },
   };
 }

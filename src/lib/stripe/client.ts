@@ -122,9 +122,15 @@ export async function createRefundCents(
  * Valid ONLY from status `requires_capture`. This is the moment the customer's
  * money actually moves — it must never run before a ResLab reservation exists.
  */
-export async function capturePaymentIntent(paymentIntentId: string) {
+/**
+ * `attempt` (direct lots, §10 F-4): Stripe replays a key's FIRST result for
+ * 24 h, a 5xx included, so a bounded retry needs a fresh key per attempt.
+ * Attempt 0 keeps the original key. Safe: a PaymentIntent captures once; a
+ * second capture errors and the caller re-reads the PaymentIntent.
+ */
+export async function capturePaymentIntent(paymentIntentId: string, attempt = 0) {
   return stripe.paymentIntents.capture(paymentIntentId, undefined, {
-    idempotencyKey: `capture:${paymentIntentId}`,
+    idempotencyKey: attempt > 0 ? `capture:${paymentIntentId}:${attempt}` : `capture:${paymentIntentId}`,
   });
 }
 

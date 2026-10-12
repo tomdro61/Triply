@@ -56,6 +56,10 @@ vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
 }));
 
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 
 const { reconcileStuckCancellations, recoverOne } = await import("../reconcile");
 const { createAdminClient } = await import("@/lib/supabase/server");
@@ -136,6 +140,7 @@ beforeEach(() => {
   db.tables.bookings = [];
   db.tables.customers = [];
   db.log = [];
+  lotNotice.sendLotCancelNotice.mockClear();
   for (const m of [
     stripeMock.paymentIntents.retrieve,
     createRefundCents,
@@ -541,6 +546,70 @@ describe("reconcile — direct lots + environment (plan 4b §9 H-C/H-D)", () => 
     expect(reslabMock.getReservation).not.toHaveBeenCalled();
     expect(createRefundCents).toHaveBeenCalledWith("pi_1", 10_000, "selfcancel:pi_1");
     expect(db.tables.bookings[0]).toMatchObject({ status: "refunded", cancel_state: "refund_issued" });
+  });
+
+  it("recovering a direct row tells the lot AFTER the terminal status write (the notice reads a terminal row)", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      cancel_state: "reslab_cancelled_refund_pending",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    const r = await reconcileStuckCancellations(NOW);
+    expect(r.recovered).toBe(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+    expect(seenStatus).toHaveLength(1);
+    expect(["cancelled", "refunded"]).toContain(seenStatus[0]);
+  });
+
+  it("a direct row whose terminal write was stolen (another owner already cancelled it) STILL gets the lot notice", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      cancel_state: "reslab_cancelled_refund_pending",
+    });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    let stolen = false;
+    db.failWhen(
+      "bookings",
+      "update",
+      (p) => {
+        if (!stolen && p?.cancel_state === "refund_issued") {
+          stolen = true;
+          Object.assign(db.tables.bookings[0], {
+            status: "refunded",
+            cancel_state: "refund_issued",
+            cancel_claimed_at: iso(NOW + 1),
+          });
+        }
+        return false;
+      },
+      "unused",
+    );
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    try {
+      await reconcileStuckCancellations(NOW);
+      expect(stolen).toBe(true);
+      expect(sentry.captureAPIError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/terminal write no-op/) }),
+        expect.anything(),
+      );
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+      expect(seenStatus).toEqual(["refunded"]);
+    } finally {
+      db.clearFailures();
+    }
   });
 
   it("a ResLab held_reslab_ambiguous row whose inventory_source is absent STILL calls ResLab", async () => {

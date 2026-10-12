@@ -11,10 +11,12 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { reservationSchema } from "@/lib/validation/schemas";
 import {
   createBooking,
   PaymentNotConfirmedError,
+  type CreateBookingResult,
 } from "@/lib/booking/create-booking";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
 import { STALE_CHECKOUT_MESSAGE } from "@/lib/parkguard/client";
@@ -32,6 +34,9 @@ const DEV_SKIP_PAYMENT =
   process.env.NODE_ENV === "development" &&
   process.env.NEXT_PUBLIC_DEV_SKIP_PAYMENT === "true";
 
+/** The only field a direct request contributes (§9 H-A). */
+const directReservationIdSchema = z.object({ stripePaymentIntentId: z.string().startsWith("pi_").max(255) }).passthrough();
+
 export async function POST(request: NextRequest) {
   let stripePaymentIntentId: string | undefined;
 
@@ -43,6 +48,29 @@ export async function POST(request: NextRequest) {
     // staged row regardless, so the customer is not stranded).
     if (body && typeof body === "object" && "hasProtectionPlan" in body) {
       return NextResponse.json({ error: STALE_CHECKOUT_MESSAGE }, { status: 400 });
+    }
+
+    // DIRECT lot (4b plan §3.2, §9 H-A): ONLY the PaymentIntent id is read —
+    // the engine fulfils a direct booking from the row staged before the
+    // charge, never from this request. This runs AFTER the card was
+    // authorized, so a malformed body must not echo a raw validation message
+    // to a customer whose booking the webhook is completing anyway.
+    if (body && typeof body === "object" && (body as Record<string, unknown>).inventorySource === "direct") {
+      const direct = directReservationIdSchema.safeParse(body);
+      if (!direct.success) {
+        captureBookingError(new Error("POST /api/reservations: direct body without a usable PaymentIntent id"), { step: "checkout", inventorySource: "direct" });
+        return NextResponse.json(
+          { error: "We're finishing your booking — your confirmation email will follow shortly. Please don't pay again." },
+          { status: 400 }
+        );
+      }
+      stripePaymentIntentId = direct.data.stripePaymentIntentId;
+      const directOutcome = await createBooking({
+        source: "client",
+        stripePaymentIntentId,
+        attribution: readAttributionFromRequest(request, { stripePaymentIntentId }),
+      });
+      return outcomeResponse(directOutcome);
     }
 
     const result = reservationSchema.safeParse(body);
@@ -100,90 +128,7 @@ export async function POST(request: NextRequest) {
       attribution,
     });
 
-    switch (outcome.kind) {
-      case "created":
-        return NextResponse.json({
-          success: true,
-          reservation: outcome.reservation,
-        });
-
-      case "already_exists":
-        // Previously a 409. A replay is not an error — the customer has a
-        // reservation and needs to be sent to it, not shown a failure.
-        return NextResponse.json({
-          success: true,
-          reservation: { reservationNumber: outcome.reservationNumber },
-        });
-
-      case "in_progress":
-      case "deferred":
-        // Another path (usually the webhook) is completing this booking, or the
-        // payment is still settling. The client sends the customer to
-        // /checkout/complete, which polls until the reservation appears.
-        return NextResponse.json(
-          {
-            pending: true,
-            message: "We're finalising your booking.",
-          },
-          { status: 202 }
-        );
-
-      case "sold_out":
-        return NextResponse.json(
-          {
-            error:
-              "This parking option sold out while you were checking out. You have not been charged.",
-          },
-          { status: 409 }
-        );
-
-      case "suspected_duplicate":
-        return NextResponse.json(
-          {
-            error:
-              "It looks like this booking was already submitted. We've cancelled the duplicate payment — check your email for the original confirmation.",
-          },
-          { status: 409 }
-        );
-
-      case "already_refunded":
-        return NextResponse.json(
-          {
-            error:
-              "This payment was refunded and can't be used for a booking. Please start a new search.",
-          },
-          { status: 409 }
-        );
-
-      case "needs_reconciliation":
-        // Money is held or taken and the booking state is genuinely unknown.
-        // Never tell the customer "not charged" here — that's the one claim we
-        // cannot make. Ops has a loud Sentry alert with the details.
-        return NextResponse.json(
-          {
-            error:
-              "We're confirming your reservation with the parking facility. Our team will email you shortly — please don't rebook.",
-            needsSupport: true,
-          },
-          { status: 502 }
-        );
-
-      case "failed":
-        return NextResponse.json(
-          { error: outcome.userMessage },
-          { status: 409 }
-        );
-
-      default: {
-        // Exhaustiveness guard. Without it, adding a variant to
-        // CreateBookingResult silently falls through and returns undefined —
-        // a 500 with no body on a path where the customer has already paid.
-        const unhandled: never = outcome;
-        throw new Error(
-          `Unhandled createBooking outcome: ${JSON.stringify(unhandled)}`
-        );
-      }
-    }
+    return outcomeResponse(outcome);
   } catch (error) {
     if (error instanceof PaymentNotConfirmedError) {
       capturePaymentError(error, {
@@ -204,5 +149,93 @@ export async function POST(request: NextRequest) {
       { error: "Failed to create reservation. Please try again." },
       { status: 500 }
     );
+  }
+}
+
+/** The engine's outcome → the HTTP response the checkout client acts on. */
+function outcomeResponse(outcome: CreateBookingResult): NextResponse {
+  switch (outcome.kind) {
+    case "created":
+      return NextResponse.json({
+        success: true,
+        reservation: outcome.reservation,
+      });
+
+    case "already_exists":
+      // Previously a 409. A replay is not an error — the customer has a
+      // reservation and needs to be sent to it, not shown a failure.
+      return NextResponse.json({
+        success: true,
+        reservation: { reservationNumber: outcome.reservationNumber },
+      });
+
+    case "in_progress":
+    case "deferred":
+      // Another path (usually the webhook) is completing this booking, or the
+      // payment is still settling. The client sends the customer to
+      // /checkout/complete, which polls until the reservation appears.
+      return NextResponse.json(
+        {
+          pending: true,
+          message: "We're finalising your booking.",
+        },
+        { status: 202 }
+      );
+
+    case "sold_out":
+      return NextResponse.json(
+        {
+          error:
+            "This parking option sold out while you were checking out. You have not been charged.",
+        },
+        { status: 409 }
+      );
+
+    case "suspected_duplicate":
+      return NextResponse.json(
+        {
+          error:
+            "It looks like this booking was already submitted. We've cancelled the duplicate payment — check your email for the original confirmation.",
+        },
+        { status: 409 }
+      );
+
+    case "already_refunded":
+      return NextResponse.json(
+        {
+          error:
+            "This payment was refunded and can't be used for a booking. Please start a new search.",
+        },
+        { status: 409 }
+      );
+
+    case "needs_reconciliation":
+      // Money is held or taken and the booking state is genuinely unknown.
+      // Never tell the customer "not charged" here — that's the one claim we
+      // cannot make. Ops has a loud Sentry alert with the details.
+      return NextResponse.json(
+        {
+          error:
+            "We're confirming your reservation with the parking facility. Our team will email you shortly — please don't rebook.",
+          needsSupport: true,
+        },
+        { status: 502 }
+      );
+
+    case "failed":
+      return NextResponse.json(
+        { error: outcome.userMessage },
+        { status: 409 }
+      );
+
+    default: {
+      // Exhaustiveness guard. Without it, adding a variant to
+      // CreateBookingResult silently falls through and returns undefined —
+      // a 500 with no body on a path where the customer has already paid.
+      const unhandled: never = outcome;
+      throw new Error(
+        `Unhandled createBooking outcome: ${JSON.stringify(unhandled)}`
+      );
+    }
   }
 }

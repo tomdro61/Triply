@@ -909,6 +909,19 @@ export function CheckoutForm({
 
     if (!response.ok) {
       const detail = await response.json().catch(() => null);
+      // Pay pressed again on a payment that is ALREADY authorized (the first
+      // attempt's finish failed): the booking is under way. Hand off to the
+      // finishing page, and still throw so confirmPayment never runs again
+      // (4b plan §9 M-A, §10 F-9). Never "you have not been charged" here.
+      if (response.status === 409 && detail?.code === "already_authorized") {
+        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+        router.push(
+          `/checkout/complete?payment_intent=${encodeURIComponent(
+            stripePaymentIntentId
+          )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+        );
+        throw new Error(detail.error || "Your payment is authorized — we're finishing your booking.");
+      }
       throw new Error(
         detail?.error ||
           "We couldn't prepare your booking. Please try again — you have not been charged."

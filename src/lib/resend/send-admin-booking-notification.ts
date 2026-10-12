@@ -1,6 +1,7 @@
 import { resend, FROM_EMAIL } from "./client";
 import { ADMIN_EMAILS } from "@/config/admin";
 import { captureBookingError } from "@/lib/sentry";
+import { escapeHtml } from "@/lib/validation/schemas";
 
 interface AdminBookingNotificationParams {
   confirmationNumber: string;
@@ -19,8 +20,17 @@ interface AdminBookingNotificationParams {
   // The call site always passes them together via spread.
   protectionPlan?: string;
   protectionPlanPrice?: number;
+  /** Direct lots only: where the booking lives ("Direct lot (Triply number …)"). */
+  sourceLine?: string;
+  /** Direct lots only: the declared vehicle size + at-lot estimate. */
+  vehicleDeclaration?: string;
 }
 
+/**
+ * Every customer- or lot-supplied value is HTML-escaped (the email's mailto is
+ * URL-encoded): customer names, plates and makes are free text, and this email
+ * goes to the team's inbox with a "View in Dashboard" link worth faking.
+ */
 export async function sendAdminBookingNotification({
   confirmationNumber,
   customerName,
@@ -36,6 +46,8 @@ export async function sendAdminBookingNotification({
   airportCode,
   protectionPlan,
   protectionPlanPrice,
+  sourceLine,
+  vehicleDeclaration,
 }: AdminBookingNotificationParams) {
   try {
     const paidOnline = dueAtLocation ? totalAmount - dueAtLocation : totalAmount;
@@ -60,7 +72,7 @@ export async function sendAdminBookingNotification({
           </div>
           <div style="padding: 40px;">
             <div style="background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; margin-bottom: 24px; text-align: center;">
-              <p style="margin: 0; color: #065f46; font-size: 16px; font-weight: 700;">Confirmation #${confirmationNumber}</p>
+              <p style="margin: 0; color: #065f46; font-size: 16px; font-weight: 700;">Confirmation #${escapeHtml(confirmationNumber)}</p>
             </div>
 
             <h2 style="margin: 0 0 16px; color: #111827; font-size: 18px; font-weight: 700;">Booking Details</h2>
@@ -68,19 +80,19 @@ export async function sendAdminBookingNotification({
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; width: 140px;">Location</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${lotName}${airportCode ? ` (${airportCode})` : ""}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(lotName)}${airportCode ? ` (${escapeHtml(airportCode)})` : ""}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Address</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${lotAddress}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${escapeHtml(lotAddress)}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Check-in</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${checkInDate}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(checkInDate)}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Check-out</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${checkOutDate}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(checkOutDate)}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Total</td>
@@ -89,7 +101,7 @@ export async function sendAdminBookingNotification({
               ${hasProtection ? `
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Parking Protection</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${protectionPlan} — $${protectionPriceText}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(protectionPlan ?? "")} — $${protectionPriceText}</td>
               </tr>
               ` : ""}
               ${dueAtLocation && dueAtLocation > 0 ? `
@@ -109,20 +121,32 @@ export async function sendAdminBookingNotification({
             <table style="width: 100%; border-collapse: collapse; margin-bottom: 24px;">
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px; width: 140px;">Name</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${customerName}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(customerName)}</td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Email</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;"><a href="mailto:${customerEmail}" style="color: #f87356; text-decoration: none;">${customerEmail}</a></td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;"><a href="mailto:${encodeURIComponent(customerEmail)}" style="color: #f87356; text-decoration: none;">${escapeHtml(customerEmail)}</a></td>
               </tr>
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Phone</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${customerPhone}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${escapeHtml(customerPhone)}</td>
               </tr>
               ${vehicleInfo ? `
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Vehicle</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${vehicleInfo}</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${escapeHtml(vehicleInfo)}</td>
+              </tr>
+              ` : ""}
+              ${vehicleDeclaration ? `
+              <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Vehicle size</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">${escapeHtml(vehicleDeclaration)}</td>
+              </tr>
+              ` : ""}
+              ${sourceLine ? `
+              <tr>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Source</td>
+                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(sourceLine)}</td>
               </tr>
               ` : ""}
             </table>

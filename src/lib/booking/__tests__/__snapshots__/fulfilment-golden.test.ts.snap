@@ -1464,6 +1464,231 @@ exports[`golden — failure paths > admin notification email rejects 1`] = `
 }
 `;
 
+exports[`golden — failure paths > bookings insert 23505 with NO row for this payment (another booking holds the number) → needs_reconciliation 1`] = `
+{
+  "dbLog": [
+    {
+      "op": "select",
+      "table": "bookings",
+    },
+    {
+      "op": "select",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "select",
+      "table": "cart_claims",
+    },
+    {
+      "op": "insert",
+      "table": "cart_claims",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "select",
+      "table": "customers",
+    },
+    {
+      "op": "insert",
+      "table": "customers",
+    },
+    {
+      "op": "insert",
+      "table": "bookings",
+    },
+    {
+      "op": "select",
+      "table": "bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "cart_claims",
+    },
+  ],
+  "emails": {
+    "admin": [],
+    "customer": [],
+  },
+  "outcome": {
+    "kind": "needs_reconciliation",
+    "reason": "booking insert hit another booking's reservation number",
+    "retryable": false,
+  },
+  "outcomeJson": "{"kind":"needs_reconciliation","reason":"booking insert hit another booking's reservation number","retryable":false}",
+  "parkGuard": {
+    "captureReservation": [],
+    "updateReservation": [],
+  },
+  "reslab": {
+    "createReservation": [
+      [
+        {
+          "car_color": "Blue",
+          "car_make": "Volvo",
+          "car_makemodel": "Volvo XC60",
+          "car_model": "XC60",
+          "costs_token": "tok_2",
+          "email": "Ada.Lovelace@Example.com",
+          "items": [
+            {
+              "from_date": "2026-08-14 10:00:00",
+              "number_of_spots": 1,
+              "reservation_type": "parking",
+              "to_date": "2026-08-18 14:00:00",
+              "type": "parking",
+              "type_id": 7,
+            },
+          ],
+          "license_plate": "ABC123",
+          "license_plate_state": "NY",
+          "location_id": 42,
+          "phone": "555-0100",
+          "reserved_by": "Ada Lovelace",
+          "reserved_for": "Ada Lovelace",
+        },
+      ],
+    ],
+    "getCost": [
+      [
+        42,
+        [
+          {
+            "from_date": "2026-08-14 10:00:00",
+            "number_of_spots": 1,
+            "reservation_type": "parking",
+            "to_date": "2026-08-18 14:00:00",
+            "type": "parking",
+            "type_id": 7,
+          },
+        ],
+      ],
+    ],
+    "getLocation": [],
+    "getReservation": [],
+  },
+  "sentry": {
+    "captureAPIError": [],
+    "captureBookingError": [],
+    "captureParkGuardError": [],
+    "capturePaymentError": [
+      [
+        {
+          "error": "Error",
+          "message": "CHARGED with a live ResLab reservation (RTL900) but the booking insert hit a UNIQUE that is not this payment's (pi_golden_1) — reservation number already stored on another booking. Repair manually.",
+        },
+        {
+          "amount": 94,
+          "stripePaymentIntentId": "pi_golden_1",
+        },
+      ],
+    ],
+  },
+  "stripe": {
+    "cancelPaymentIntent": [],
+    "capturePaymentIntent": [
+      [
+        "pi_golden_1",
+      ],
+    ],
+    "createRefund": [],
+    "retrieve": [
+      [
+        "pi_golden_1",
+        {
+          "expand": [
+            "latest_charge",
+          ],
+        },
+      ],
+    ],
+  },
+  "tables": {
+    "bookings": [],
+    "cart_claims": [
+      {
+        "cart_key": "test|ada.lovelace@example.com|42|2026-08-14 10:00:00|2026-08-18 14:00:00|7",
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "id": "row_1",
+        "livemode": false,
+        "released_at": "2026-08-01T12:00:00.000Z",
+        "stripe_payment_intent_id": "pi_golden_1",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+      },
+    ],
+    "customers": [
+      {
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "email": "Ada.Lovelace@Example.com",
+        "first_name": "Ada",
+        "id": "row_1",
+        "last_name": "Lovelace",
+        "phone": "555-0100",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+      },
+    ],
+    "pending_bookings": [
+      {
+        "airport_code": "JFK",
+        "claimed_at": "2026-08-01T12:00:00.000Z",
+        "costs_token": "tok_1",
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "customer": {
+          "email": "Ada.Lovelace@Example.com",
+          "firstName": "Ada",
+          "lastName": "Lovelace",
+          "phone": "555-0100",
+        },
+        "email_sent": false,
+        "extra_fields": null,
+        "fees_total": "3.00",
+        "from_date": "2026-08-14 10:00:00",
+        "grand_total": "88.00",
+        "has_protection_plan": false,
+        "last_error": "bookings insert 23505 with no row for this PaymentIntent",
+        "livemode": false,
+        "location_address": "1 Payload Road",
+        "location_id": 42,
+        "location_name": "Payload Lot Name",
+        "parking_type_id": 7,
+        "protection_plan_code": null,
+        "reslab_attempt_started_at": "2026-08-01T12:00:00.000Z",
+        "reslab_reservation_number": "RTL900",
+        "status": "needs_reconciliation",
+        "stripe_payment_intent_id": "pi_golden_1",
+        "subtotal": "80.00",
+        "tax_total": "5.00",
+        "to_date": "2026-08-18 14:00:00",
+        "triply_service_fee": "6.00",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+        "user_id": null,
+        "vehicle": {
+          "color": "Blue",
+          "licensePlate": "ABC123",
+          "make": "Volvo",
+          "model": "XC60",
+          "state": "NY",
+        },
+      },
+    ],
+  },
+}
+`;
+
 exports[`golden — failure paths > bookings insert duplicate PaymentIntent (23505) → already_exists 1`] = `
 {
   "dbLog": [
@@ -1508,6 +1733,10 @@ exports[`golden — failure paths > bookings insert duplicate PaymentIntent (235
       "table": "bookings",
     },
     {
+      "op": "select",
+      "table": "bookings",
+    },
+    {
       "op": "update",
       "table": "pending_bookings",
     },
@@ -1522,9 +1751,9 @@ exports[`golden — failure paths > bookings insert duplicate PaymentIntent (235
   },
   "outcome": {
     "kind": "already_exists",
-    "reservationNumber": "RTL900",
+    "reservationNumber": "RTL-CONCURRENT-WINNER",
   },
-  "outcomeJson": "{"kind":"already_exists","reservationNumber":"RTL900"}",
+  "outcomeJson": "{"kind":"already_exists","reservationNumber":"RTL-CONCURRENT-WINNER"}",
   "parkGuard": {
     "captureReservation": [],
     "updateReservation": [],
@@ -1602,7 +1831,12 @@ exports[`golden — failure paths > bookings insert duplicate PaymentIntent (235
     ],
   },
   "tables": {
-    "bookings": [],
+    "bookings": [
+      {
+        "reslab_reservation_number": "RTL-CONCURRENT-WINNER",
+        "stripe_payment_intent_id": "pi_golden_1",
+      },
+    ],
     "cart_claims": [
       {
         "cart_key": "test|ada.lovelace@example.com|42|2026-08-14 10:00:00|2026-08-18 14:00:00|7",

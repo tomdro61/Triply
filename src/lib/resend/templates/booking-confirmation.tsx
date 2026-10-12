@@ -1,5 +1,19 @@
 import * as React from "react";
 import { formatDate } from "@/lib/utils";
+import { bulletLines } from "@/lib/utils/bullet-lines";
+
+/**
+ * A Triply DIRECT-lot booking (4b plan §3.4). Absent for every ResLab booking,
+ * which renders exactly as before. The at-lot estimate is DISPLAY ONLY: it is
+ * never part of `totalAmount` (what was charged) or `dueAtLocation` (R1).
+ */
+export interface DirectLotEmailDetails {
+  shuttlePhone?: string;
+  /** "No oversized vehicle", "Large SUV / truck", … */
+  vehicleSizeLabel: string;
+  /** Oversized-vehicle surcharge + tax the lot collects at drop-off, in dollars; null = none. */
+  atLotEstimate: number | null;
+}
 
 interface BookingConfirmationEmailProps {
   customerName: string;
@@ -25,6 +39,7 @@ interface BookingConfirmationEmailProps {
   // (skipped_missing_data) MUST NOT render "Active" / "Start a Claim";
   // PG has no record so the claim link would 404 on them.
   pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
+  direct?: DirectLotEmailDetails;
 }
 
 // Triply-controlled redirect (next.config.mjs /claims) → Park Guard claim
@@ -53,7 +68,12 @@ export function BookingConfirmationEmail({
   protectionPlan,
   protectionPlanPrice,
   pgSyncStatus,
+  direct,
 }: BookingConfirmationEmailProps) {
+  // A direct lot's shuttle phone comes from its snapshot; ResLab never passes one.
+  shuttlePhone = direct?.shuttlePhone ?? shuttlePhone;
+  // Lot notes written as "- " lines render as a list (same rule as the lot page).
+  const conditionBullets = bulletLines(specialConditions);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
@@ -94,15 +114,17 @@ export function BookingConfirmationEmail({
             <td style={{ textAlign: "left" }}>
               <span style={{ color: "#f87356", fontSize: "24px", fontWeight: "700" }}>Triply</span>
             </td>
-            <td style={{ textAlign: "right", verticalAlign: "middle" }}>
-              <p style={{ color: "#94a3b8", fontSize: "9px", margin: "0 0 2px", textAlign: "right" }}>Powered by</p>
-              <img
-                src={`${appUrl}/reslab-logo.png`}
-                alt="Reservations Lab"
-                width="90"
-                style={{ maxWidth: "90px", height: "auto" }}
-              />
-            </td>
+            {!direct && (
+              <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+                <p style={{ color: "#94a3b8", fontSize: "9px", margin: "0 0 2px", textAlign: "right" }}>Powered by</p>
+                <img
+                  src={`${appUrl}/reslab-logo.png`}
+                  alt="Reservations Lab"
+                  width="90"
+                  style={{ maxWidth: "90px", height: "auto" }}
+                />
+              </td>
+            )}
           </tr>
         </tbody>
       </table>
@@ -163,7 +185,15 @@ export function BookingConfirmationEmail({
         {specialConditions && (
           <div style={{ backgroundColor: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
             <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#9888; Important Information</p>
-            <p style={{ color: "#78350f", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{specialConditions}</p>
+            {conditionBullets ? (
+              <ul style={{ color: "#78350f", fontSize: "13px", margin: "0", paddingLeft: "18px", lineHeight: "1.6" }}>
+                {conditionBullets.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ color: "#78350f", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{specialConditions}</p>
+            )}
           </div>
         )}
 
@@ -198,6 +228,12 @@ export function BookingConfirmationEmail({
               <hr style={{ border: "none", borderTop: "1px solid #e2e8f0", margin: "14px 0" }} />
               <p style={labelStyle}>Vehicle</p>
               <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{vehicleInfo}</p>
+            </>
+          )}
+          {direct && (
+            <>
+              <p style={{ ...labelStyle, marginTop: "12px" }}>Vehicle size</p>
+              <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{direct.vehicleSizeLabel}</p>
             </>
           )}
         </div>
@@ -279,6 +315,16 @@ export function BookingConfirmationEmail({
             </tbody>
           </table>
         </div>
+
+        {direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 && (
+          <div style={{ backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
+            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>Estimated due at the lot</p>
+            <p style={{ color: "#78350f", fontSize: "14px", margin: "0", lineHeight: "1.6" }}>
+              <strong>${direct.atLotEstimate.toFixed(2)}</strong> oversized-vehicle surcharge for a {direct.vehicleSizeLabel} (incl. tax),
+              paid at the lot when you drop off. It is not part of what you paid online, and the lot confirms your vehicle&rsquo;s size at the gate.
+            </p>
+          </div>
+        )}
 
         {/* CTA Button — email param lets guest customers (not logged in) view their booking */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>

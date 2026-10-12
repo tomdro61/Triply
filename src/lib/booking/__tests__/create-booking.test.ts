@@ -1591,11 +1591,42 @@ describe("inventory source guard (direct lots, A-29/A-31)", () => {
 
     const out = await createBooking({ source: "client", stripePaymentIntentId: PI, payload: resLabPayload() });
 
-    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    // 4b-2 (§9 H-A, §10 F-10): the payload is ignored, nothing is self-created,
+    // and with no staged row the authorization is RELEASED — the customer is
+    // told "not charged", which is now true.
+    expect(out).toMatchObject({ kind: "failed", reason: "direct booking was never staged" });
     expect(db.tables.pending_bookings).toHaveLength(0);
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(capturePaymentIntent).not.toHaveBeenCalled();
-    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+    expect(cancelPaymentIntent).toHaveBeenCalledWith(PI);
+    expect(capturePaymentError).toHaveBeenCalled();
+  });
+
+  it("…and if that release throws, it is needs_reconciliation — never 'not charged' (§10 F-10)", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ metadata: { customerEmail: "Ada.Lovelace@Example.com", inventorySource: "direct", lotId: "direct-1" } })
+    );
+    cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe 500"));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+  });
+
+  it("a direct PaymentIntent whose staged row says ResLab is refused after the claim, with no money moved", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ metadata: { inventorySource: "direct" } }));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it("an unknown inventory source is refused before any write", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ metadata: { inventorySource: "hotel" } }));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("pending");
   });
 
   it("the webhook path refuses a direct PaymentIntent too", async () => {
@@ -1782,5 +1813,47 @@ describe("a declined card, then a retry on the SAME PaymentIntent (fixed 2026-10
     expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: true });
     expect(db.tables.pending_bookings[0].status).toBe("failed");
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+});
+
+describe("recordReslabNumber hits 23505 — the number is already on another pending row (034)", () => {
+  it("needs_reconciliation, NOT retryable: no capture, no second reservation, the authorization left intact", async () => {
+    db.seed("pending_bookings", [
+      pendingRow(),
+      // Another PaymentIntent's row already holds the number ResLab just returned.
+      pendingRow({ stripe_payment_intent_id: "pi_other", status: "completed", reslab_reservation_number: "RTL900" }),
+    ]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.createReservation.mockResolvedValue(reslabReservation("RTL900"));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(shouldStripeRedeliver(out)).toBe(false);
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(createRefund).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(0);
+    const ours = db.tables.pending_bookings.find((r) => r.stripe_payment_intent_id === PI)!;
+    expect(ours.status).toBe("needs_reconciliation");
+    expect(ours.reslab_reservation_number).toBeNull();
+    expect(String(ours.last_error)).toMatch(/RTL900/);
+    // The other row is untouched.
+    expect(db.tables.pending_bookings.find((r) => r.stripe_payment_intent_id === "pi_other")).toMatchObject({
+      status: "completed",
+      reslab_reservation_number: "RTL900",
+    });
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/RTL900.*already recorded on another pending row/) }),
+      expect.anything()
+    );
+
+    // A redelivery must not book a SECOND reservation either.
+    const again = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(again.kind).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
   });
 });

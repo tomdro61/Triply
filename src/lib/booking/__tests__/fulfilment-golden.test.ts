@@ -539,8 +539,25 @@ describe("golden — failure paths", () => {
   });
 
   it("bookings insert duplicate PaymentIntent (23505) → already_exists", async () => {
-    db.failOnce("bookings", "insert", "duplicate key value", "23505");
+    // A concurrent caller inserted THIS payment's booking between our Step-3
+    // read and our insert: the insert's failure is where its row appears. The
+    // engine reports the winner's number (4b plan §3.3 B7), not its own.
+    db.failWhen(
+      "bookings",
+      "insert",
+      () => {
+        db.tables.bookings.push({ stripe_payment_intent_id: PI, reslab_reservation_number: "RTL-CONCURRENT-WINNER" });
+        return true;
+      },
+      "duplicate key value violates unique constraint \"bookings_stripe_payment_intent_id_key\"",
+      "23505"
+    );
     expect(await run({ expectKind: "already_exists" })).toMatchSnapshot();
+  });
+
+  it("bookings insert 23505 with NO row for this payment (another booking holds the number) → needs_reconciliation", async () => {
+    db.failOnce("bookings", "insert", "duplicate key value violates unique constraint \"bookings_reslab_reservation_number_key\"", "23505");
+    expect(await run({ expectKind: "needs_reconciliation" })).toMatchSnapshot();
   });
 
   it("customers insert fails with Park Guard opted in", async () => {

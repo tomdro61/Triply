@@ -1,19 +1,24 @@
 /**
  * createBooking — the single idempotent engine that turns a paid-for cart into
- * a booking, driven by three entry points:
+ * a booking, driven by four entry points:
  *
  *   1. the browser        (POST /api/reservations)
  *   2. the return page    (/checkout/complete, after a 3-D Secure or BNPL redirect)
  *   3. the Stripe webhook (the guarantee — fires even if the browser never comes back)
+ *   4. the sweep cron     (/api/cron/sweep-pending-bookings — the caller of last resort)
  *
  * THE ORDER OF OPERATIONS IS THE WHOLE POINT.
  *
  *   before:  charge -> hope the browser survives -> create booking
  *   now:     stage the intent -> authorize -> create the ResLab reservation -> CAPTURE
  *
- * Money moves at step 7, and only after ResLab has confirmed a reservation
- * exists. Every earlier exit releases the authorization; the customer is never
- * charged for a booking that does not exist.
+ * Money moves at capture (Step 10), and only after ResLab has confirmed a
+ * reservation exists. Every earlier exit releases the authorization; the
+ * customer is never charged for a booking that does not exist.
+ *
+ * For a DIRECT lot (4b-2) "reserve" is issuing and recording our own TRP-
+ * number (`fulfilClaimedDirect`): there is no vendor call and so no ambiguous
+ * path below.
  *
  * THE ONE ACCEPTED AMBIGUOUS PATH: ResLab's createReservation is a plain POST
  * with no idempotency key, so a 5xx or a timeout leaves us genuinely unable to
@@ -52,11 +57,26 @@ import {
   persistBooking,
   sendBookingEmails,
   buildReservationResponse,
+  persistDirectBooking,
+  sendDirectCustomerConfirmation,
+  sendDirectAdminNotification,
+  buildDirectReservationResponse,
   type BookingPayload,
   type ChargedProtection,
+  type PgSyncStatus,
   type ReservationResponse,
 } from "./fulfill";
-import { fromReslab } from "./fulfilled-reservation";
+import { fromReslab, fromSnapshot, type DirectFulfilledReservation } from "./fulfilled-reservation";
+import { DIRECT_ENGINE_READY } from "@/lib/direct/flag";
+import { issueConfirmationNumber } from "@/lib/direct/confirmation-number";
+import { readDirectMetadataMoney, type DirectMetadataMoney } from "@/lib/direct/metadata-money";
+import {
+  directCartKey,
+  directPayloadFromRow,
+  directStaleness,
+  type DirectBookingPayload,
+} from "@/lib/direct/fulfilment";
+import { sendLotBookingNotice, type LotBookingNoticeContent } from "@/lib/direct/lot-notice";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -392,7 +412,7 @@ export class DurableStateError extends Error {
   }
 }
 
-interface PendingRow {
+interface PendingRow extends DirectPendingColumns {
   stripe_payment_intent_id: string;
   status: PendingStatus;
   reslab_reservation_number: string | null;
@@ -401,12 +421,13 @@ interface PendingRow {
   reslab_attempt_started_at?: string | null;
   email_sent: boolean;
   livemode: boolean;
-  // Fulfilment payload columns
-  location_id: number;
+  // Fulfilment payload columns. The ResLab ids are NULL on a direct row (034
+  // CHECK); payloadFromPendingRow Zod-validates them, so a null is refused there.
+  location_id: number | null;
   costs_token: string | null;
   from_date: string;
   to_date: string;
-  parking_type_id: number;
+  parking_type_id: number | null;
   customer: BookingPayload["customer"];
   vehicle: BookingPayload["vehicle"];
   extra_fields: Record<string, string> | null;
@@ -545,7 +566,7 @@ function resolvePendingTier(row: PendingRow): ProtectionPlanCode | null {
  */
 function resolveChargedProtection(
   pi: Stripe.PaymentIntent,
-  payload: BookingPayload
+  payload: Pick<BookingPayload, "protectionPlanCode">
 ): { ok: true; charged: ChargedProtection | null } | { ok: false; detail: string } {
   const meta = readProtectionMetadata(pi.metadata);
   let charged: ChargedProtection | null;
@@ -901,7 +922,14 @@ async function recordReslabNumber(pi: string, reservationNumber: string) {
   // reservation number, a later caller steals the stale claim, sees no
   // reservation, and creates a SECOND one at the lot — ResLab has no idempotency
   // key, so that duplicate is real and billable.
-  if (error) throw new DurableStateError("recordReslabNumber", error.message);
+  if (error) {
+    // 23505: another row already holds this number (partial UNIQUE, 034).
+    // Retrying cannot help and the reservation is live — reconcile by hand.
+    if ((error as { code?: string }).code === "23505") {
+      throw new Error(`ResLab reservation ${reservationNumber} is already recorded on another pending row (${pi}) — reconcile manually`);
+    }
+    throw new DurableStateError("recordReslabNumber", error.message);
+  }
 }
 
 /** Claim the cart. Returns false when another PaymentIntent already owns it. */
@@ -1101,26 +1129,36 @@ async function createBookingInner(
     expand: ["latest_charge"],
   });
 
-  // --- Step 0b: inventory source (direct lots, A-29/A-31) --------------------
-  // This engine fulfils ResLab bookings only. A direct-lot PaymentIntent must
-  // never reach the self-create path below with a ResLab-shaped payload (a
-  // client that confirmed the card without staging, then posted a ResLab body),
-  // nor be fulfilled from a row. Refuse before any write; the hold stays for
-  // reconciliation. Phase 4b replaces this with source-based routing (A-33).
-  const piSource = pi.metadata?.inventorySource;
-  if (piSource !== undefined && piSource !== "reslab") {
+  // --- Step 0b: route by inventory source (4b plan §3.2, §9 H-A, §9.3) -------
+  // Decided from the PaymentIntent — the money authority — never the client
+  // payload; the claimed row must agree (checked after the claim). A source
+  // this engine does not know is refused before any write.
+  const piSource = pi.metadata?.inventorySource ?? "reslab";
+  if ((piSource !== "reslab" && piSource !== "direct") || (piSource === "direct" && !DIRECT_ENGINE_READY)) {
     capturePaymentError(
       new Error(
-        `createBooking refused PaymentIntent ${stripePaymentIntentId} with inventorySource=${JSON.stringify(piSource)} (source=${source}) — the engine fulfils ResLab bookings only`
+        `createBooking refused PaymentIntent ${stripePaymentIntentId} with inventorySource=${JSON.stringify(piSource)} (source=${source}) — ${
+          piSource === "direct" ? "the direct-lot engine is not enabled" : "unknown inventory source"
+        }`
       ),
       { stripePaymentIntentId, amount: pi.amount / 100 }
     );
     return {
       kind: "needs_reconciliation",
-      reason: "PaymentIntent is not a ResLab booking",
+      reason: `PaymentIntent inventory source ${piSource} is not fulfillable here`,
       retryable: false,
     };
   }
+  const isDirect = piSource === "direct";
+  if (isDirect && input.payload) {
+    // H-A: a direct booking is fulfilled ONLY from its staged row. A payload
+    // here is a client posting a ResLab-shaped body for a direct payment.
+    capturePaymentError(
+      new Error(`createBooking ignored a client payload for direct PaymentIntent ${stripePaymentIntentId} (source=${source})`),
+      { stripePaymentIntentId, amount: pi.amount / 100 }
+    );
+  }
+  const clientPayload = isDirect ? undefined : input.payload;
 
   // --- Step 1: refund gate (G1) ---------------------------------------------
   // A refund can succeed and the process die before the terminal DB write lands.
@@ -1180,6 +1218,16 @@ async function createBookingInner(
   }
 
   if (existing) {
+    // A direct booking's lot notice and customer email are re-driven here: a
+    // function that died between the insert and the sends would otherwise
+    // lose them for good (§9 H-B). But while the main path still holds a fresh
+    // claim it is mid-send: leave the sends — and the terminal write — to it.
+    // ResLab is unchanged.
+    if (isDirect) {
+      const live = await readPendingRow(stripePaymentIntentId);
+      if (heldByLiveFulfilment(live)) return { kind: "in_progress" };
+      await redriveDirectSends(pi, live);
+    }
     // Backfill the reservation number as we close the row out. Without it a
     // concurrent caller reaching Step 5 finds `completed` with a NULL number and
     // has to go re-read bookings itself.
@@ -1203,8 +1251,43 @@ async function createBookingInner(
   // --- Step 4: locate or self-create the durable pending row -----------------
   let row = await readPendingRow(stripePaymentIntentId);
 
+  if (!row && isDirect) {
+    // Step-4 self-create is REFUSED for a direct payment (§9 H-A, §10 F-10):
+    // the staged row is its only source, and the card was confirmed without
+    // one (a tampered or broken client). No number exists; release the hold.
+    // Alert AFTER the release, saying what actually happened: nothing else will
+    // ever look at this payment (no row for the sweep; the webhook's no-row
+    // branch never calls the engine).
+    let release: ReleaseOutcome;
+    try {
+      release = await releasePayment(pi);
+    } catch (releaseError) {
+      const detail = releaseError instanceof Error ? releaseError.message : String(releaseError);
+      capturePaymentError(
+        new Error(
+          `No pending_bookings row for direct PaymentIntent ${stripePaymentIntentId} (source=${source}) and the payment could NOT be released: ${detail} — release or refund it by hand`
+        ),
+        { stripePaymentIntentId, amount: pi.amount / 100, inventorySource: "direct" }
+      );
+      return { kind: "needs_reconciliation", reason: `direct payment with no staged row could not be released: ${detail}`, retryable: false };
+    }
+    if (release.released === "deferred") return { kind: "deferred" };
+    capturePaymentError(
+      new Error(`No pending_bookings row for direct PaymentIntent ${stripePaymentIntentId} (source=${source}) — payment ${release.released}`),
+      { stripePaymentIntentId, amount: pi.amount / 100, inventorySource: "direct" }
+    );
+    return {
+      kind: "failed",
+      reason: "direct booking was never staged",
+      userMessage:
+        release.released === "refunded"
+          ? REFUNDED_MESSAGE
+          : "We couldn't complete this booking and have released your payment — you have not been charged. Please try again.",
+    };
+  }
+
   if (!row) {
-    if (!input.payload) {
+    if (!clientPayload) {
       // Nothing to fulfil from. The customer's card is authorized (or charged)
       // and we cannot reconstruct the reservation: PI metadata carries no
       // vehicle, name, or phone. Escalate loudly rather than guess.
@@ -1222,27 +1305,28 @@ async function createBookingInner(
     }
     // Client path with an older bundle that never staged the row. Self-create so
     // the mutex and resume logic still apply.
+    const payloadToStage = clientPayload;
     const { error: selfCreateError } = await supabase.from("pending_bookings").insert({
       stripe_payment_intent_id: stripePaymentIntentId,
-      location_id: input.payload.locationId,
-      costs_token: input.payload.costsToken,
-      from_date: input.payload.fromDate,
-      to_date: input.payload.toDate,
-      parking_type_id: input.payload.parkingTypeId,
-      customer: input.payload.customer,
-      vehicle: input.payload.vehicle,
-      extra_fields: input.payload.extraFields ?? null,
-      location_name: input.payload.locationName ?? null,
-      location_address: input.payload.locationAddress ?? null,
-      airport_code: input.payload.airportCode ?? null,
-      subtotal: input.payload.subtotal ?? null,
-      tax_total: input.payload.taxTotal ?? null,
-      fees_total: input.payload.feesTotal ?? null,
-      grand_total: input.payload.grandTotal ?? null,
-      triply_service_fee: input.payload.triplyServiceFee ?? null,
-      user_id: input.payload.userId ?? null,
-      has_protection_plan: input.payload.protectionPlanCode !== null,
-      protection_plan_code: input.payload.protectionPlanCode,
+      location_id: payloadToStage.locationId,
+      costs_token: payloadToStage.costsToken,
+      from_date: payloadToStage.fromDate,
+      to_date: payloadToStage.toDate,
+      parking_type_id: payloadToStage.parkingTypeId,
+      customer: payloadToStage.customer,
+      vehicle: payloadToStage.vehicle,
+      extra_fields: payloadToStage.extraFields ?? null,
+      location_name: payloadToStage.locationName ?? null,
+      location_address: payloadToStage.locationAddress ?? null,
+      airport_code: payloadToStage.airportCode ?? null,
+      subtotal: payloadToStage.subtotal ?? null,
+      tax_total: payloadToStage.taxTotal ?? null,
+      fees_total: payloadToStage.feesTotal ?? null,
+      grand_total: payloadToStage.grandTotal ?? null,
+      triply_service_fee: payloadToStage.triplyServiceFee ?? null,
+      user_id: payloadToStage.userId ?? null,
+      has_protection_plan: payloadToStage.protectionPlanCode !== null,
+      protection_plan_code: payloadToStage.protectionPlanCode,
       attribution: input.attribution ?? null,
       livemode: pi.livemode,
       status: "pending",
@@ -1432,14 +1516,29 @@ async function createBookingInner(
     return { kind: "in_progress" };
   }
 
+  // The row and the PaymentIntent must name the same source. The column is
+  // NOT NULL DEFAULT 'reslab' since 034; `undefined` only arises from a row
+  // object without it (test fakes / a partial select).
+  const rowSource = claimed.inventory_source ?? "reslab";
+  if (rowSource !== piSource) {
+    const reason = `pending row inventory_source=${rowSource} but the PaymentIntent says ${piSource}`;
+    capturePaymentError(new Error(`Fulfilment refused for ${stripePaymentIntentId}: ${reason}`), {
+      stripePaymentIntentId,
+      amount: pi.amount / 100,
+    });
+    await markTerminal(stripePaymentIntentId, "needs_reconciliation", reason);
+    return { kind: "needs_reconciliation", reason, retryable: false };
+  }
+
   try {
+    if (isDirect) return await fulfilClaimedDirect(pi, claimed, source);
     // Inside the try: a client payload is already Zod-validated, but a payload
     // reconstructed from the pending row may be invalid (corrupt JSONB, drifted
     // dates). A throw here lands in the catch below and, being neither a
     // DurableStateError nor otherwise self-healing, is marked terminal
     // needs_reconciliation (non-retryable) — the correct outcome for a row that
     // will never parse.
-    const payload = input.payload ?? payloadFromPendingRow(claimed);
+    const payload = clientPayload ?? payloadFromPendingRow(claimed);
     // Both ids are SERVER-derived (the routes overwrite the client's userId
     // from the session, and the row was staged from the session too). Prefer
     // whichever one actually saw a session: a lapse between staging and
@@ -1569,33 +1668,7 @@ async function fulfilClaimed(
   // for this PaymentIntent until it settles. It expires on its own after
   // CART_CLAIM_WINDOW_MS, and `payment_intent.canceled` / `payment_failed`
   // release it explicitly.
-  if (pi.status === "processing") {
-    // Hand the pending-row mutex back, though. Nothing irreversible has happened,
-    // so there is no reason to make the next caller wait out the full
-    // STALE_CLAIM_MS (90s) to steal a claim we are no longer using — that stalled
-    // every async-payment booking and burned a webhook redelivery.
-    const supabase = await createAdminClient();
-    let handBack = supabase
-      .from("pending_bookings")
-      .update({ status: "pending", claimed_at: null })
-      .eq("stripe_payment_intent_id", piId)
-      .eq("status", "processing");
-
-    // Pin to the claim WE took, so we cannot hand back a claim another caller
-    // legitimately stole in the meantime. That requires an invocation to outlive
-    // STALE_CLAIM_MS (90s), which every route's maxDuration=60 prevents — but the
-    // guarantee belongs in the query, not in an undocumented coupling between two
-    // constants in different files. claimPendingRow always sets claimed_at, so
-    // the null branch is unreachable; it degrades to the status-only guard rather
-    // than sending an empty string to a timestamptz column.
-    if (row.claimed_at) {
-      handBack = handBack.eq("claimed_at", row.claimed_at);
-    }
-
-    const { error } = await handBack;
-    if (error) throw new DurableStateError("defer claim release", error.message);
-    return { kind: "deferred" };
-  }
+  if (pi.status === "processing") return handBackWhileSettling(piId, row);
 
   // NOTE — no timing-independent "already booked this cart?" auto-refund here.
   //
@@ -1892,12 +1965,25 @@ async function fulfilClaimed(
   const persisted = await persistBooking(payload, fr, charged, pi.livemode, promo, attribution);
 
   if (persisted.duplicatePaymentIntent) {
-    await markTerminal(piId, "completed");
+    // 23505 on the insert. Look the booking up by PaymentIntent: a row for THIS
+    // payment is a concurrent caller's success — report ITS number. No row means
+    // a different UNIQUE fired (the reservation number on another booking):
+    // money is captured and the reservation is live, so reconcile by hand.
+    const existingNumber = await bookingNumberForPi(piId);
+    if (existingNumber) {
+      await markTerminal(piId, "completed");
+      await releaseCart(piId);
+      return { kind: "already_exists", reservationNumber: existingNumber };
+    }
+    capturePaymentError(
+      new Error(
+        `CHARGED with a live ResLab reservation (${fr.number}) but the booking insert hit a UNIQUE that is not this payment's (${piId}) — reservation number already stored on another booking. Repair manually.`
+      ),
+      { stripePaymentIntentId: piId, amount: pi.amount / 100 }
+    );
+    await markTerminal(piId, "needs_reconciliation", "bookings insert 23505 with no row for this PaymentIntent");
     await releaseCart(piId);
-    return {
-      kind: "already_exists",
-      reservationNumber: fr.number,
-    };
+    return { kind: "needs_reconciliation", reason: "booking insert hit another booking's reservation number", retryable: false };
   }
 
   if (persisted.bookingInsertFailed) {
@@ -1969,6 +2055,40 @@ async function fulfilClaimed(
       charged
     ),
   };
+}
+
+/**
+ * Step 7.5: the payment is still settling. Hand the pending-row mutex back —
+ * nothing irreversible has happened, so the next caller must not wait out
+ * STALE_CLAIM_MS — and keep the cart claim, which reserves this cart for this
+ * PaymentIntent until it settles.
+ */
+async function handBackWhileSettling(piId: string, row: PendingRow): Promise<CreateBookingResult> {
+  // Hand the pending-row mutex back, though. Nothing irreversible has happened,
+  // so there is no reason to make the next caller wait out the full
+  // STALE_CLAIM_MS (90s) to steal a claim we are no longer using — that stalled
+  // every async-payment booking and burned a webhook redelivery.
+  const supabase = await createAdminClient();
+  let handBack = supabase
+    .from("pending_bookings")
+    .update({ status: "pending", claimed_at: null })
+    .eq("stripe_payment_intent_id", piId)
+    .eq("status", "processing");
+
+  // Pin to the claim WE took, so we cannot hand back a claim another caller
+  // legitimately stole in the meantime. That requires an invocation to outlive
+  // STALE_CLAIM_MS (90s), which every route's maxDuration=60 prevents — but the
+  // guarantee belongs in the query, not in an undocumented coupling between two
+  // constants in different files. claimPendingRow always sets claimed_at, so
+  // the null branch is unreachable; it degrades to the status-only guard rather
+  // than sending an empty string to a timestamptz column.
+  if (row.claimed_at) {
+    handBack = handBack.eq("claimed_at", row.claimed_at);
+  }
+
+  const { error } = await handBack;
+  if (error) throw new DurableStateError("defer claim release", error.message);
+  return { kind: "deferred" };
 }
 
 /**
@@ -2129,4 +2249,595 @@ function captureBookingSuccessBreadcrumb(
       { step: "checkout" }
     );
   }
+}
+
+// =============================================================================
+// Direct lots (4b plan §3.2) — the engine path for a Triply-owned lot.
+//
+// Same order of operations as ResLab (stage → authorize → reserve → CAPTURE),
+// where "reserve" is issuing and recording our own TRP- number. Fulfilled ONLY
+// from the claimed pending row + the PaymentIntent (§9 H-A): no client payload,
+// no CMS read (B9), no vendor call. Nothing external exists until capture, so a
+// block before capture releases the payment: it cancels the authorization, or —
+// on a resume that finds the PaymentIntent already captured — refunds it.
+// =============================================================================
+
+const MAX_NUMBER_ATTEMPTS = 3;
+const MAX_DIRECT_CAPTURE_ATTEMPTS = 3;
+
+/**
+ * Pending-row columns a direct booking adds (migrations 034/036/038). Only
+ * `inventory_source` and `capture_attempts` are trusted as typed; everything
+ * else is re-validated from `unknown` by `directPayloadFromRow`.
+ */
+interface DirectPendingColumns {
+  /** NOT NULL DEFAULT 'reslab' since 034; absent only on a fake / partial row object. */
+  inventory_source?: "reslab" | "direct";
+  direct_lot_id?: string | null;
+  lot_snapshot?: unknown;
+  vehicle_size?: string | null;
+  vehicle_size_label?: string | null;
+  vehicle_surcharge_cents?: number | null;
+  vehicle_surcharge_tax_cents?: number | null;
+  vehicle_size_source?: string | null;
+  capture_attempts?: number;
+}
+
+/** Sentry context for every direct-engine alert (§9.3: tagged `inventory_source:direct`). */
+function directAlert(pi: { id: string; amount?: number }) {
+  return {
+    stripePaymentIntentId: pi.id,
+    ...(pi.amount !== undefined && { amount: pi.amount / 100 }),
+    inventorySource: "direct" as const,
+  };
+}
+
+/**
+ * Issue a TRP- number and record it on the claimed row BEFORE capture (D6).
+ * Conditional on the column still being NULL, so a re-drive can never replace
+ * a number another attempt recorded. 23505 = a collision with another row's
+ * number (partial UNIQUE, migration 034) → regenerate.
+ */
+async function issueAndRecordNumber(piId: string): Promise<{ ok: true; number: string } | { ok: false }> {
+  const supabase = await createAdminClient();
+  for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+    const number = issueConfirmationNumber();
+    const { data, error } = await supabase
+      .from("pending_bookings")
+      .update({ reslab_reservation_number: number })
+      .eq("stripe_payment_intent_id", piId)
+      .is("reslab_reservation_number", null)
+      .select("stripe_payment_intent_id")
+      .maybeSingle();
+    if (error) {
+      if (error.code === "23505") continue;
+      throw new DurableStateError("issue direct number", error.message);
+    }
+    if (data) return { ok: true, number };
+    // Matched nothing: a number is already recorded (a stale-claim thief got
+    // there first). Adopt it — never issue a second one.
+    const row = await readPendingRow(piId);
+    if (row?.reslab_reservation_number) return { ok: true, number: row.reslab_reservation_number };
+    throw new DurableStateError("issue direct number", "the conditional update matched no row");
+  }
+  return { ok: false };
+}
+
+/**
+ * A recorded number collided with an existing BOOKING (bookings UNIQUE) — swap
+ * it for a fresh one with a conditional replace, never clear-then-set (§9.3).
+ */
+async function replaceDirectNumber(piId: string, current: string): Promise<string | null> {
+  const supabase = await createAdminClient();
+  for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+    const next = issueConfirmationNumber();
+    const { data, error } = await supabase
+      .from("pending_bookings")
+      .update({ reslab_reservation_number: next })
+      .eq("stripe_payment_intent_id", piId)
+      .eq("reslab_reservation_number", current)
+      .select("stripe_payment_intent_id")
+      .maybeSingle();
+    if (error) {
+      if (error.code === "23505") continue;
+      throw new DurableStateError("replace direct number", error.message);
+    }
+    if (data) return next;
+    throw new DurableStateError("replace direct number", "the recorded number changed underneath us");
+  }
+  return null;
+}
+
+/** The confirmation number of the booking already stored for this PaymentIntent, if any. */
+async function bookingNumberForPi(piId: string): Promise<string | null> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("reslab_reservation_number")
+    .eq("stripe_payment_intent_id", piId)
+    .maybeSingle();
+  if (error) throw new DurableStateError("bookings lookup by PaymentIntent", error.message);
+  return (data as { reslab_reservation_number: string } | null)?.reslab_reservation_number ?? null;
+}
+
+/**
+ * Claim the customer email (§10 F-1): flip `email_sent` false→true atomically
+ * BEFORE sending, so concurrent re-drives (webhook, /checkout/complete polling,
+ * the sweep) send at most once. "error" is a database fault — NOT "someone
+ * else has it": nothing was sent, `email_sent` stays false, and the sweep's
+ * direct backstop re-sends it.
+ */
+async function claimCustomerEmail(piId: string): Promise<"claimed" | "taken" | "error"> {
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("pending_bookings")
+    .update({ email_sent: true })
+    .eq("stripe_payment_intent_id", piId)
+    .eq("email_sent", false)
+    .select("stripe_payment_intent_id")
+    .maybeSingle();
+  if (error) {
+    capturePaymentError(
+      new Error(`Customer paid but the confirmation-email claim failed for ${piId} (${error.message}) — not sent now; the sweep re-sends it`),
+      directAlert({ id: piId })
+    );
+    return "error";
+  }
+  return data ? "claimed" : "taken";
+}
+
+async function unclaimCustomerEmail(piId: string): Promise<void> {
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("pending_bookings").update({ email_sent: false }).eq("stripe_payment_intent_id", piId);
+  if (error) {
+    // The customer's email failed AND the flag says it went: nothing will re-send it.
+    capturePaymentError(
+      new Error(`Confirmation email failed for ${piId} and email_sent could not be reset (${error.message}) — resend it by hand`),
+      directAlert({ id: piId })
+    );
+  }
+}
+
+/** Claim, send, and hand the claim back if the send did not go (F-1). */
+async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<void> {
+  if ((await claimCustomerEmail(piId)) !== "claimed") return;
+  if (!(await send())) await unclaimCustomerEmail(piId);
+}
+
+/** The one place a direct booking's FulfilledReservation is built. */
+function directFulfilled(dp: DirectBookingPayload, number: string, money: DirectMetadataMoney): DirectFulfilledReservation {
+  return fromSnapshot({
+    number,
+    directLotId: dp.directLotId,
+    snapshot: dp.snapshot,
+    money,
+    fromDate: dp.fromDate,
+    toDate: dp.toDate,
+    vehicleSize: dp.vehicleSize,
+    vehicleSizeLabel: dp.vehicleSizeLabel,
+    vehicleSurchargeCents: dp.vehicleSurchargeCents,
+    vehicleSurchargeTaxCents: dp.vehicleSurchargeTaxCents,
+  });
+}
+
+/** The direct booking's view, from the row + the PaymentIntent. */
+function directViewFromRow(
+  pi: Stripe.PaymentIntent,
+  row: PendingRow,
+  number: string
+): { ok: true; dp: DirectBookingPayload; fr: DirectFulfilledReservation } | { ok: false; error: string } {
+  const parsed = directPayloadFromRow(row);
+  if (!parsed.ok) return { ok: false, error: `pending row is not a valid direct booking: ${parsed.detail}` };
+  const money = readDirectMetadataMoney(pi.metadata ?? {}, pi.amount);
+  if (!money.ok) return { ok: false, error: `PaymentIntent money metadata: ${money.detail}` };
+  return { ok: true, dp: parsed.payload, fr: directFulfilled(parsed.payload, number, money.money) };
+}
+
+function lotNoticeContent(
+  dp: DirectBookingPayload,
+  fr: DirectFulfilledReservation,
+  charged: ChargedProtection | null,
+  urgent: boolean
+): LotBookingNoticeContent {
+  return {
+    number: fr.number,
+    lotName: fr.snapshot.name,
+    customerName: `${dp.customer.firstName} ${dp.customer.lastName}`,
+    customerPhone: dp.customer.phone,
+    vehicle: dp.vehicle,
+    vehicleSizeLabel: dp.vehicleSizeLabel,
+    atLotCents: dp.vehicleSurchargeCents + dp.vehicleSurchargeTaxCents,
+    fromDate: dp.fromDate,
+    toDate: dp.toDate,
+    parkGuard: charged !== null,
+    urgent,
+  };
+}
+
+/**
+ * When the card was authorized: the latest charge's creation time (expanded at
+ * Step 0). Falls back to the PaymentIntent's creation — always EARLIER — which
+ * can only make the "authorized after check-in" release less likely, never
+ * invent one.
+ */
+function authorizedAtMs(pi: Stripe.PaymentIntent): number {
+  const charge = pi.latest_charge;
+  if (charge && typeof charge === "object" && typeof charge.created === "number") return charge.created * 1000;
+  return pi.created * 1000;
+}
+
+function stalenessFor(dp: DirectBookingPayload, pi: Stripe.PaymentIntent, nowMs: number = Date.now()) {
+  return directStaleness({
+    fromDate: dp.fromDate,
+    toDate: dp.toDate,
+    timezone: dp.snapshot.timezone,
+    authorizedAtMs: authorizedAtMs(pi),
+    nowMs,
+  });
+}
+
+/**
+ * Is a direct booking's main fulfilment path still running? Its claim is fresh:
+ * Step 3 must then leave the sends (and the terminal write) to it — a re-send
+ * racing it would win the customer email with a Park Guard status read before
+ * enrolment finished (pass-1 review).
+ */
+function heldByLiveFulfilment(row: PendingRow | null): boolean {
+  return (
+    row?.status === "processing" &&
+    !!row.claimed_at &&
+    Date.now() - Date.parse(row.claimed_at) < STALE_CLAIM_MS
+  );
+}
+
+/**
+ * Step 3 for a DIRECT booking that already exists (§9 H-B): a function that
+ * died between the booking insert and the sends must not lose the lot's only
+ * notice or the customer's confirmation for good. Runs the outstanding sends —
+ * lot notice FIRST — each behind its own claim, and only while the booking is
+ * still `confirmed`. Never throws; a send that fails here is picked up again by
+ * the sweep's direct backstop.
+ */
+async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | null): Promise<void> {
+  const piId = pi.id;
+  try {
+    if (!row?.reslab_reservation_number) return;
+    const view = directViewFromRow(pi, row, row.reslab_reservation_number);
+    if (!view.ok) {
+      capturePaymentError(new Error(`Direct re-send skipped for ${piId}: ${view.error}`), directAlert({ id: piId }));
+      return;
+    }
+    const { dp, fr } = view;
+    const resolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
+    const charged = resolution.ok ? resolution.charged : null;
+
+    // The booking as it stands NOW: no notice or confirmation for one that has
+    // since been cancelled, and the Park Guard line as enrolment recorded it.
+    const supabase = await createAdminClient();
+    const { data, error } = await supabase
+      .from("bookings")
+      .select("status, pg_sync_status, created_at, cancel_state, cancel_claimed_at")
+      .eq("stripe_payment_intent_id", piId)
+      .maybeSingle();
+    if (error || !data) {
+      capturePaymentError(
+        new Error(`Direct re-send skipped for ${piId}: could not read the booking (${error?.message ?? "no row"}) — the sweep retries`),
+        directAlert({ id: piId })
+      );
+      return;
+    }
+    const booked = data as {
+      status: string;
+      pg_sync_status: PgSyncStatus;
+      created_at: string;
+      cancel_state: string | null;
+      cancel_claimed_at: string | null;
+    };
+    // Not for a booking that is no longer — or is in the middle of no longer
+    // being — a booking: a cancel in progress, or one whose status write
+    // failed after the refund, still reads `confirmed`.
+    if (booked.status !== "confirmed" || booked.cancel_state || booked.cancel_claimed_at) return;
+
+    // URGENT is judged as of when the booking was STORED, not now: a re-send
+    // must rebuild the identical notice (same Resend key, same body), never a
+    // second one that turned urgent while it waited.
+    const storedAt = Date.parse(booked.created_at);
+    const urgent = stalenessFor(dp, pi, Number.isFinite(storedAt) ? storedAt : Date.now()).kind === "late";
+    await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
+    if (!row.email_sent) {
+      await sendCustomerEmailOnce(piId, () => sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged));
+    }
+  } catch (err) {
+    captureBookingError(
+      new Error(`Direct re-send for ${piId} failed: ${err instanceof Error ? err.message : String(err)}`),
+      { step: "checkout", inventorySource: "direct" }
+    );
+  }
+}
+
+/**
+ * The sweep's direct backstop (4b plan §9 H-B): re-run ONLY the outstanding
+ * sends for an existing direct booking — not the whole engine, whose refund
+ * gate (Step 1) would skip a booking that merely had a partial goodwill
+ * refund and is still `confirmed`. Leaves a booking whose main path still
+ * holds a fresh claim alone. Throws on a Stripe or database read failure (the
+ * sweep counts and reports it).
+ */
+export async function redriveDirectBookingSends(piId: string): Promise<void> {
+  const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+  if (pi.metadata?.inventorySource !== "direct") return;
+  // A FULL refund means the booking is over even if its row has not caught
+  // up yet; a partial (goodwill) refund leaves it standing and still sends.
+  const charge = pi.latest_charge;
+  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) return;
+  const row = await readPendingRow(piId);
+  if (heldByLiveFulfilment(row)) return;
+  await redriveDirectSends(pi, row);
+}
+
+const NOT_CHARGED_RETRY = "We couldn't complete this booking and have released your payment — you have not been charged. Please try again.";
+const REFUNDED_MESSAGE =
+  "We couldn't complete this booking and have refunded your payment in full. Refunds take 5–10 business days to appear on your statement.";
+
+/**
+ * Release the payment and finish the row as failed: cancel the authorization,
+ * or refund it if a resumed attempt finds it already captured — the customer
+ * is then told "refunded", never "not charged". A release that throws (a
+ * transient Stripe error) hands the row back so the next caller retries it.
+ */
+async function blockDirect(pi: Stripe.PaymentIntent, reason: string, userMessage: string): Promise<CreateBookingResult> {
+  let release: ReleaseOutcome;
+  try {
+    release = await releasePayment(pi);
+  } catch (releaseError) {
+    const detail = releaseError instanceof Error ? releaseError.message : String(releaseError);
+    capturePaymentError(
+      new Error(`Direct fulfilment blocked (${reason}) but the payment could not be released (${detail}) — handed back for a retry`),
+      directAlert(pi)
+    );
+    return releaseForRetry(pi.id, `${reason}; release failed: ${detail}`);
+  }
+  if (release.released === "deferred") return releaseForRetry(pi.id, `${reason} (release deferred: PaymentIntent settling)`);
+  // Alert first, then write: markTerminal can throw DurableStateError.
+  capturePaymentError(new Error(`Direct fulfilment blocked before booking (${release.released}): ${reason}`), directAlert(pi));
+  await markTerminal(pi.id, release.released === "refunded" ? "refunded_failed" : "released_failed", reason);
+  await releaseCart(pi.id);
+  return { kind: "failed", reason, userMessage: release.released === "refunded" ? REFUNDED_MESSAGE : userMessage };
+}
+
+/** A Stripe error that will fail identically on every retry (§10 F-4). */
+function isTerminalCaptureError(err: unknown): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  if ("type" in err && err.type === "StripeCardError") return true;
+  const code = "statusCode" in err && typeof err.statusCode === "number" ? err.statusCode : null;
+  return code !== null && code >= 400 && code < 500 && code !== 409 && code !== 429;
+}
+
+async function bumpCaptureAttempts(piId: string, current: number): Promise<number> {
+  const next = current + 1;
+  const supabase = await createAdminClient();
+  const { error } = await supabase.from("pending_bookings").update({ capture_attempts: next }).eq("stripe_payment_intent_id", piId);
+  if (error) throw new DurableStateError("capture_attempts", error.message);
+  return next;
+}
+
+async function fulfilClaimedDirect(
+  pi: Stripe.PaymentIntent,
+  row: PendingRow,
+  source: BookingSource
+): Promise<CreateBookingResult> {
+  const piId = pi.id;
+  const parsed = directPayloadFromRow(row);
+  if (!parsed.ok) {
+    // Nothing external exists before capture: release, don't hold it for ops.
+    return blockDirect(pi, `pending row is not a valid direct booking: ${parsed.detail}`, NOT_CHARGED_RETRY);
+  }
+  const dp = parsed.payload;
+  const resuming = !!row.reslab_reservation_number;
+
+  // --- Cart claim (B6) — before the settlement deferral, as for ResLab --------
+  if (!resuming) {
+    const gotCart = await claimCart(directCartKey(dp, pi.livemode), piId, pi.livemode);
+    if (!gotCart) {
+      let release: ReleaseOutcome;
+      try {
+        release = await releasePayment(pi);
+      } catch (releaseError) {
+        const detail = releaseError instanceof Error ? releaseError.message : String(releaseError);
+        capturePaymentError(
+          new Error(`Duplicate direct cart for ${piId}, but the payment could not be released (${detail}) — handed back for a retry`),
+          directAlert(pi)
+        );
+        return releaseForRetry(piId, `duplicate cart; release failed: ${detail}`);
+      }
+      if (release.released === "deferred") {
+        return releaseForRetry(piId, "lost the cart-claim race while still settling; will re-resolve on settlement");
+      }
+      await markTerminal(piId, "suspected_duplicate", "another PaymentIntent already owns this cart");
+      capturePaymentError(
+        new Error(`Duplicate direct cart detected — ${piId} ${release.released} (customer: ${dp.customer.email})`),
+        directAlert(pi)
+      );
+      return { kind: "suspected_duplicate" };
+    }
+  }
+
+  if (pi.status === "processing") return handBackWhileSettling(piId, row);
+
+  // --- Protection: what the PaymentIntent charged ---------------------------
+  const chargedResolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
+  if (!chargedResolution.ok) {
+    return blockDirect(
+      pi,
+      `PaymentIntent protection metadata is inconsistent: ${chargedResolution.detail}`,
+      "We couldn't verify your protection selection. You have not been charged — please start your booking again."
+    );
+  }
+  const charged = chargedResolution.charged;
+
+  // --- Integrity (Step 8 for direct): arithmetic re-check, no CMS read (B9) --
+  const money = readDirectMetadataMoney(pi.metadata ?? {}, pi.amount);
+  if (!money.ok) return blockDirect(pi, `direct money metadata: ${money.detail}`, NOT_CHARGED_RETRY);
+  if (pi.metadata?.directLotId !== String(dp.directLotId)) {
+    return blockDirect(pi, `PaymentIntent directLotId ${pi.metadata?.directLotId} != row ${dp.directLotId}`, NOT_CHARGED_RETRY);
+  }
+
+  // --- The lot's terms must exist before money moves (§9 M-C) ---------------
+  const supabase = await createAdminClient();
+  const { data: termsData, error: termsError } = await supabase
+    .from("direct_booking_terms")
+    .select("direct_lot_id, livemode, lot_recipients")
+    .eq("stripe_payment_intent_id", piId)
+    .maybeSingle();
+  if (termsError) throw new DurableStateError("direct terms read", termsError.message);
+  const terms = termsData as { direct_lot_id: string; livemode: boolean; lot_recipients: string[] | null } | null;
+  if (
+    !terms ||
+    terms.direct_lot_id !== String(dp.directLotId) ||
+    terms.livemode !== pi.livemode ||
+    !Array.isArray(terms.lot_recipients) ||
+    terms.lot_recipients.length === 0
+  ) {
+    return blockDirect(pi, "no matching direct_booking_terms row — the lot could not be paid or told", NOT_CHARGED_RETRY);
+  }
+
+  // --- Staleness (§9 M-B) ----------------------------------------------------
+  const staleness = stalenessFor(dp, pi);
+  if (staleness.kind === "unknown") {
+    return blockDirect(pi, `staleness undeterminable: ${staleness.detail}`, NOT_CHARGED_RETRY);
+  }
+  if (staleness.kind === "release") {
+    return blockDirect(
+      pi,
+      `stale direct booking: ${staleness.reason}`,
+      "This booking's dates have already passed, so we released your payment — you have not been charged."
+    );
+  }
+
+  // --- Issue + record our number BEFORE capture (D6) ------------------------
+  let number = row.reslab_reservation_number;
+  if (!number) {
+    const issued = await issueAndRecordNumber(piId);
+    if (!issued.ok) {
+      // Three collisions in a row is not chance; nothing external exists yet.
+      return blockDirect(pi, "could not issue a unique confirmation number", NOT_CHARGED_RETRY);
+    }
+    number = issued.number;
+  }
+  let fr = directFulfilled(dp, number, money.money);
+
+  // --- CAPTURE (§10 F-4: classified; no vendor state, only our number) ------
+  if (pi.status === "requires_capture") {
+    const attemptsSoFar = row.capture_attempts ?? 0;
+    try {
+      // A fresh idempotency key per attempt: Stripe replays a key's FIRST
+      // result for 24 h — a 500 included — so retrying under one key can never
+      // recover. A second capture of a captured PaymentIntent errors, and the
+      // re-read below sees `succeeded`.
+      await capturePaymentIntent(piId, attemptsSoFar);
+    } catch (captureError) {
+      const fresh = await stripe.paymentIntents.retrieve(piId).catch(() => null);
+      if (fresh?.status === "succeeded") {
+        // Captured after all. Carry on.
+      } else if (fresh?.status === "canceled") {
+        await markTerminal(piId, "released_failed", "authorization was cancelled before capture");
+        await releaseCart(piId);
+        return { kind: "failed", reason: "authorization cancelled", userMessage: NOT_CHARGED_RETRY };
+      } else if (isTerminalCaptureError(captureError) && fresh?.status === "requires_capture") {
+        return blockDirect(
+          fresh,
+          `capture refused: ${captureError instanceof Error ? captureError.message : String(captureError)}`,
+          "Your card could not be charged, so the booking was not completed. You have not been charged."
+        );
+      } else if (fresh === null || fresh.status === "requires_capture") {
+        // Transient (network / timeout / 5xx), or unknown after a failed
+        // re-read — bounded, well inside the 7-day authorization.
+        const attempts = await bumpCaptureAttempts(piId, attemptsSoFar);
+        const detail = captureError instanceof Error ? captureError.message : String(captureError);
+        if (attempts >= MAX_DIRECT_CAPTURE_ATTEMPTS) {
+          await markTerminal(piId, "capture_ambiguous", `direct capture failed ${attempts} times: ${detail}`);
+          capturePaymentError(
+            new Error(
+              `DIRECT CAPTURE FAILED ${attempts} times for ${piId} (Triply number ${fr.number}; no vendor reservation; last re-read ${
+                fresh ? fresh.status : "FAILED"
+              }). The authorization may still be held — or captured, if the re-read failed. Check Stripe, then capture or release it by hand.`
+            ),
+            directAlert(pi)
+          );
+          return { kind: "needs_reconciliation", reason: "direct capture failed repeatedly", retryable: false };
+        }
+        return releaseForRetry(piId, `direct capture attempt ${attempts} failed: ${detail}`);
+      } else {
+        await markTerminal(piId, "capture_ambiguous", `direct capture result unknown (PaymentIntent ${fresh.status})`);
+        capturePaymentError(
+          new Error(`DIRECT CAPTURE RESULT UNKNOWN for ${piId} (Triply number ${fr.number}; PaymentIntent ${fresh.status}). Check Stripe before acting.`),
+          directAlert(pi)
+        );
+        return { kind: "needs_reconciliation", reason: "direct capture result unknown", retryable: false };
+      }
+    }
+  }
+
+  // --- Persist (§3.3), with the 23505 rule (B7) ------------------------------
+  const promoCode = pi.metadata?.promoCode ? pi.metadata.promoCode.trim().toUpperCase() : null;
+  const attribution: Attribution | null = row.attribution ?? null;
+  let persisted = await persistDirectBooking(dp, fr, charged, pi.livemode, promoCode, attribution);
+  for (let attempt = 0; persisted.kind === "unique_violation"; attempt++) {
+    // Look up by PaymentIntent FIRST: a row for THIS payment is a genuine
+    // duplicate (a concurrent caller won) — report ITS number.
+    const existingNumber = await bookingNumberForPi(piId);
+    if (existingNumber) {
+      await markTerminal(piId, "completed");
+      await releaseCart(piId);
+      return { kind: "already_exists", reservationNumber: existingNumber };
+    }
+    // No row for this payment: our number collided with another booking's.
+    const next = attempt < MAX_NUMBER_ATTEMPTS ? await replaceDirectNumber(piId, fr.number) : null;
+    if (!next) {
+      await markTerminal(piId, "needs_reconciliation", "direct booking insert kept colliding on the confirmation number after capture");
+      capturePaymentError(
+        new Error(`CHARGED for direct booking ${piId} but the booking row could not be stored (number collisions). Create it by hand.`),
+        directAlert(pi)
+      );
+      return { kind: "needs_reconciliation", reason: "direct booking insert collided repeatedly", retryable: false };
+    }
+    fr = { ...fr, number: next };
+    persisted = await persistDirectBooking(dp, fr, charged, pi.livemode, promoCode, attribution);
+  }
+
+  if (persisted.kind !== "inserted") {
+    const permanent = persisted.kind === "failed" && persisted.permanent;
+    capturePaymentError(
+      new Error(
+        `CHARGED for direct booking ${fr.number} (no vendor reservation) but no bookings row for ${piId}. The lot has NOT been told. ${
+          permanent ? "Rejected permanently — create it by hand." : "Retrying; repair manually if it does not clear."
+        }`
+      ),
+      directAlert(pi)
+    );
+    if (permanent) {
+      await markTerminal(piId, "needs_reconciliation", "direct booking row insert rejected permanently (constraint violation) after capture");
+      await releaseCart(piId);
+      return { kind: "needs_reconciliation", reason: "direct booking insert rejected permanently after capture", retryable: false };
+    }
+    return releaseForRetry(piId, "direct booking row insert failed after capture");
+  }
+  const stored = persisted;
+
+  // --- Sends: the LOT first (its only channel), then the customer (§9 H-B) --
+  await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, staleness.kind === "late"));
+  if (!row.email_sent) {
+    await sendCustomerEmailOnce(piId, () => sendDirectCustomerConfirmation(dp, fr, stored.pgSyncStatus, charged));
+  }
+  await sendDirectAdminNotification(dp, fr, charged);
+
+  await markTerminal(piId, "completed");
+  await releaseCart(piId);
+  captureBookingSuccessBreadcrumb(source, fr.number);
+
+  return {
+    kind: "created",
+    reservationNumber: fr.number,
+    reservation: buildDirectReservationResponse(dp, fr, stored.pgIdentifier, charged),
+  };
 }

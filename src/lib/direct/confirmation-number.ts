@@ -25,3 +25,15 @@ export function issueConfirmationNumber(bytes: (n: number) => Uint8Array = (n) =
 
 export const isTriplyConfirmationNumber = (value: string): boolean => TRIPLY_CONFIRMATION_RE.test(value);
 export const isReslabConfirmationNumber = (value: string): boolean => RESLAB_CONFIRMATION_RE.test(value);
+
+/**
+ * How an ops alert should describe a reservation number already recorded on a
+ * pending row: a ResLab number is a live reservation at a lot that must be
+ * released by hand; a Triply TRP- number is only our own record (no vendor
+ * reservation exists), so there is nothing to release at the lot.
+ */
+export function describeRecordedNumber(value: string): string {
+  return isTriplyConfirmationNumber(value)
+    ? `Triply number ${value} was issued (direct lot, no vendor reservation — nothing to release at the lot; settle the row and tell the lot if it was notified)`
+    : `ResLab reservation ${value} exists — release the spot manually`;
+}

@@ -17,6 +17,9 @@ import { DIRECT_LOT_VISIBILITIES } from "./visibility";
  * notice recipients live in the service-role-only `direct_booking_terms` table
  * (migration 038), and a bookings snapshot may not carry `notificationEmails`
  * (DB CHECK) — the v2 snapshot written in Phase 4b drops it.
+ *
+ * v1 was never written to any row (no direct booking existed before 4b-2); it
+ * is kept as the base the v2 schema is derived from.
  */
 export const lotSnapshotSchema = z.object({
   v: z.literal(1),
@@ -47,7 +50,7 @@ export const lotSnapshotSchema = z.object({
   taxCollectedBy: z.enum(["triply", "lot"]),
   minStayDays: z.number().int().min(1),
   minLeadHours: z.number().min(0),
-  /** Fallback recipients only; the live CMS value is preferred at send time (C7). */
+  /** v1 only (never written). Recipients live in direct_booking_terms.lot_recipients, captured at staging. */
   notificationEmails: z.array(z.string().email()).min(1),
 }).strict(); // unknown keys are refused, not stripped: a snapshot with extra data is a bug
 
@@ -57,4 +60,41 @@ export type LotSnapshot = z.infer<typeof lotSnapshotSchema>;
 export function parseLotSnapshot(value: unknown): LotSnapshot | null {
   const r = lotSnapshotSchema.safeParse(value);
   return r.success ? r.data : null;
+}
+
+/**
+ * v2 — what 4b-2 writes (stageDirect → pending_bookings → bookings). The
+ * CUSTOMER-SAFE subset of v1: the bookings row is customer-readable (RLS), so
+ * v2 carries only what the booking displays. Dropped: `notificationEmails`
+ * (recipients live ONLY in the service-role-only `direct_booking_terms` row;
+ * the bookings CHECK refuses a snapshot that carries them, migration 038) and
+ * the lot's commercial terms — rate, tax rate, who collects tax, minimum stay,
+ * lead time, visibility (4b plan §2.1 / APB #1; the charged numbers live in
+ * PaymentIntent metadata, the tax terms in `direct_booking_terms`).
+ * `.strict()` like v1. The live reader (reservation-view) accepts v1 and v2.
+ */
+export const lotSnapshotV2Schema = lotSnapshotSchema
+  .omit({
+    notificationEmails: true,
+    visibility: true,
+    rateCents: true,
+    taxRatePercent: true,
+    taxCollectedBy: true,
+    minStayDays: true,
+    minLeadHours: true,
+  })
+  .extend({ v: z.literal(2) })
+  .strict();
+export type LotSnapshotV2 = z.infer<typeof lotSnapshotV2Schema>;
+
+/** Parse a stored v2 snapshot; returns null (never throws) on any shape mismatch. */
+export function parseLotSnapshotV2(value: unknown): LotSnapshotV2 | null {
+  const r = lotSnapshotV2Schema.safeParse(value);
+  return r.success ? r.data : null;
+}
+
+
+/** One-line street address for a snapshot (rows, emails, Park Guard fallback). */
+export function snapshotAddressLine(s: Pick<LotSnapshotV2, "address">): string {
+  return `${s.address.street}, ${s.address.city}, ${s.address.state} ${s.address.zip}`;
 }
