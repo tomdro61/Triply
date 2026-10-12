@@ -5,9 +5,10 @@ import { ShieldCheck, ShieldAlert, FileText } from "lucide-react";
 
 export type PgSyncStatus = "pending" | "synced" | "skipped_missing_data" | null;
 
+// No price here: the premium is a line of the Payment summary (BookingDetails),
+// so the page never shows it as a standalone amount next to the total.
 interface ProtectionPlanStatusProps {
   planName: string;
-  price: number;
   pgSyncStatus: PgSyncStatus;
   pgIdentifier: string | null;
 }
@@ -31,7 +32,6 @@ const TERMS_URL = "https://www.parkguard.com/terms-of-use-triplypro";
 //                                would 404 — route the customer to support.
 export function ProtectionPlanStatus({
   planName,
-  price,
   pgSyncStatus,
   pgIdentifier,
 }: ProtectionPlanStatusProps) {
@@ -50,9 +50,6 @@ export function ProtectionPlanStatus({
             <h3 className="font-semibold text-gray-900">
               {isUnconfirmed ? "Parking Protection — Confirming" : "Parking Protection Active"}
             </h3>
-            <span className="text-sm font-medium text-gray-700">
-              ${price.toFixed(2)}
-            </span>
           </div>
           <p className="text-sm text-gray-600 mt-1">
             {isUnconfirmed ? (

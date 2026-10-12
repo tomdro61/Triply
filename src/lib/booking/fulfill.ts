@@ -26,6 +26,15 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { linkableUserIdForEmail, sameEmail } from "@/lib/booking/customer-link";
 import { sendBookingConfirmation } from "@/lib/resend/send-booking-confirmation";
 import { sendAdminBookingNotification } from "@/lib/resend/send-admin-booking-notification";
+import {
+  buildCostBreakdown,
+  fallbackDue,
+  toCents,
+  type CostBreakdownResult,
+  type ProtectionInput,
+} from "@/lib/booking/cost-breakdown";
+import { directDays } from "@/lib/direct/pricing";
+import { anchoredFallback, type AnchoredFallback } from "@/lib/resend/anchored-fallback";
 import type { reservationSchema } from "@/lib/validation/schemas";
 import {
   capturePaymentError,
@@ -152,6 +161,47 @@ export interface AppliedPromo {
   chargedCents: number;
 }
 
+/**
+ * The promo discount actually taken off a ResLab booking's online charge, in
+ * dollars (0 when none), and the code to record (only when a discount
+ * applied). Pure — the ONE derivation shared by `persistBooking` (the stored
+ * `discount_amount`) and the booking emails, which take it from here rather
+ * than from persistence: a persistence failure must never zero the discount
+ * in a permanent email (cost-breakdown plan v2 §3).
+ *
+ * Derived from the ACTUAL Stripe charge (`chargedCents`) rather than
+ * re-computing percent × subtotal. Re-rounding the discount by itself drifted
+ * 1¢ vs Stripe on ~19% of promos (half-cent-boundary subtotals like ".95" at
+ * 10%): Stripe subtracts an UNROUNDED discount and rounds the whole total
+ * once. Deriving from what was actually charged makes admin "Paid online"
+ * (= booking total − due − discount) reconcile to Stripe EXACTLY.
+ */
+export function appliedPromoDiscount(
+  payload: Pick<BookingPayload, "grandTotal" | "triplyServiceFee">,
+  fr: ReslabFulfilledReservation,
+  charged: ChargedProtection | null,
+  promo?: AppliedPromo
+): { discountAmount: number; promoCode: string | null } {
+  const protectionPremium = charged?.premium ?? 0;
+  const discountPercent = promo?.discountPercent ?? 0;
+  let discountAmount = 0;
+  if (discountPercent > 0 && promo) {
+    const preDiscountOnlineCents = Math.round(
+      ((fr.money.grandTotal ?? payload.grandTotal ?? 0) +
+        (payload.triplyServiceFee || 0) +
+        protectionPremium -
+        (fr.money.dueAtLocation || 0)) *
+        100
+    );
+    discountAmount =
+      Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
+  }
+  // Only record the code when a discount was actually applied (an invalid code
+  // that was typed but not honored leaves no discount and isn't "used").
+  const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
+  return { discountAmount, promoCode };
+}
+
 export async function persistBooking(
   payload: BookingPayload,
   fr: ReslabFulfilledReservation,
@@ -210,29 +260,9 @@ export async function persistBooking(
     const storedSubtotal = subtotal || fr.money.subtotal || 0;
 
     // Discount taken off the online charge by the promo, derived from the ACTUAL
-    // Stripe charge (`chargedCents`) rather than re-computing percent × subtotal.
-    // Re-rounding the discount by itself drifted 1¢ vs Stripe on ~19% of promos
-    // (half-cent-boundary subtotals like ".95" at 10%): Stripe subtracts an
-    // UNROUNDED discount and rounds the whole total once. Deriving from what was
-    // actually charged makes admin "Paid online" (= booking total − due −
-    // discount) reconcile to Stripe EXACTLY, by construction.
-    const discountPercent = promo?.discountPercent ?? 0;
-    let discountAmount = 0;
-    if (discountPercent > 0 && promo) {
-      const preDiscountOnlineCents = Math.round(
-        ((fr.money.grandTotal ?? grandTotal ?? 0) +
-          (triplyServiceFee || 0) +
-          protectionPremium -
-          (fr.money.dueAtLocation || 0)) *
-          100
-      );
-      discountAmount =
-        Math.max(0, preDiscountOnlineCents - promo.chargedCents) / 100;
-    }
+    // Stripe charge — see appliedPromoDiscount (shared with the emails).
+    const { discountAmount, promoCode } = appliedPromoDiscount(payload, fr, charged, promo);
     result.discountAmount = discountAmount;
-    // Only record the code when a discount was actually applied (an invalid code
-    // that was typed but not honored leaves no discount and isn't "used").
-    const promoCode = discountAmount > 0 ? promo?.code ?? null : null;
 
     // The lot's IANA timezone for the self-cancel 24h gate. Primary source is
     // the ResLab reservation's embedded location; airport_code is NOT usable
@@ -776,13 +806,201 @@ async function enrolParkGuard(
  * a customer who paid and never got their confirmation is a support incident,
  * and it was previously invisible outside Vercel logs.
  */
+/**
+ * The money context the ResLab booking emails need from `createBooking` —
+ * deliberately NOT from `persistBooking`'s result (cost-breakdown plan v2 §3):
+ * a persistence failure must not zero the discount in a permanent email.
+ */
+export interface ReslabEmailMoney {
+  /** What Stripe charged (`pi.amount`), in cents — the breakdown's anchor.
+   *  null on the dev path (no PaymentIntent): the emails then fall back. */
+  anchorChargedCents: number | null;
+  /** Promo discount taken off the charge, in dollars (0 = none) — appliedPromoDiscount. */
+  promoDiscount: number;
+  /** The redeemed code; set only when promoDiscount > 0. */
+  promoCode: string | null;
+  /** The applied percent stamped on the PaymentIntent (`discountPercent`, 0 = none) —
+   *  the independent check on promoDiscount (expectedPromoCents). */
+  discountPercent: number;
+}
+
+/** The promo on a DIRECT booking's PaymentIntent: the redeemed code and the applied percent (0 = none). */
+export interface DirectEmailPromo {
+  code: string | null;
+  percent: number;
+}
+
+/**
+ * What the code's PERCENT gives on the base checkout applied it to, in cents —
+ * worked out WITHOUT the charge, so a discount derived as "would-have-charged
+ * − pi.amount" cannot absorb a moved price or a missing due-at-location
+ * amount (core rule: within 1¢, else fallback). null when there is no percent
+ * or no base → the breakdown falls back if a discount was taken.
+ *
+ *   ResLab  /api/checkout/lot: discount = reservation.sub_total × pct / 100
+ *           (unrounded; Stripe rounds the whole charge) — ResLab's subtotal.
+ *   Direct  readDirectMetadataMoney: min(grand, round(subtotal × pct / 100)).
+ */
+export function expectedPromoCents(
+  percent: number,
+  subtotal: number | null | undefined,
+  capCents: number | null = null
+): number | null {
+  if (!(Number.isFinite(percent) && percent > 0 && percent <= 100)) return null;
+  const base = toCents(subtotal);
+  if (base === null) return null;
+  const cents = Math.round((base * percent) / 100);
+  return capCents === null ? cents : Math.min(capCents, cents);
+}
+
+/** "Plan A" — the plan as the customer chose it (never the tier's display name). */
+function protectionInput(charged: ChargedProtection | null): ProtectionInput | null {
+  return charged ? { name: `Plan ${charged.plan.code}`, premium: charged.premium } : null;
+}
+
+/**
+ * The cost breakdown for a ResLab booking's emails. `fr.money` values are
+ * passed as-is (never `?? 0`): a missing one makes it `{ ok: false }` and the
+ * email shows the fallback layout. Days are null ("Parking"): ResLab bills
+ * per lot (calendar days or 24-hour periods) and its reservation carries no
+ * day count, so any count we derived could contradict the lot's own.
+ */
+export function reslabEmailBreakdown(
+  payload: BookingPayload,
+  fr: ReslabFulfilledReservation,
+  charged: ChargedProtection | null,
+  money: ReslabEmailMoney
+): CostBreakdownResult {
+  return safeBreakdown(fr.number, "reslab", () => buildCostBreakdown({
+    source: "reslab",
+    subtotal: fr.money.subtotal,
+    fees: fr.money.feesTotal,
+    longTermDiscount: fr.money.longTermDiscount,
+    tax: fr.money.taxTotal,
+    grandTotal: fr.money.grandTotal,
+    dueAtLocation: fr.money.dueAtLocation,
+    days: null,
+    serviceFee: payload.triplyServiceFee,
+    promoDiscount: money.promoDiscount,
+    promoCode: money.promoDiscount > 0 ? money.promoCode : null,
+    expectedPromoCents: expectedPromoCents(money.discountPercent, fr.money.subtotal),
+    protection: protectionInput(charged),
+    anchorChargedCents: money.anchorChargedCents,
+    refundedCents: 0,
+    cancelled: false,
+  }));
+}
+
+/**
+ * The emails run on the money path after capture; ResLab's body is cast, not
+ * validated, so a value of an unexpected type (an object where a number was
+ * promised) must not throw out of the send and cost the customer their
+ * confirmation. Any throw is a fallback, never an exception — and is reported
+ * WITH the error, so it can be diagnosed.
+ */
+export function safeBreakdown(
+  confirmationNumber: string,
+  inventorySource: "reslab" | "direct",
+  build: () => CostBreakdownResult
+): CostBreakdownResult {
+  try {
+    return build();
+  } catch (err) {
+    captureBookingError(err instanceof Error ? err : new Error(`cost breakdown threw: ${String(err)}`), {
+      step: "confirmation",
+      fingerprint: ["email-cost-breakdown-threw"],
+      confirmationNumber,
+      inventorySource,
+    });
+    return { ok: false, reason: "cost breakdown could not be built (unexpected input)" };
+  }
+}
+
+/**
+ * The cost breakdown for a DIRECT booking's emails. The anchor is the checked
+ * charge (`chargedOnline` = chargeCents / 100, already verified against
+ * `pi.amount` by readDirectMetadataMoney); the at-lot surcharge stays outside it.
+ */
+export function directEmailBreakdown(
+  fr: DirectFulfilledReservation,
+  charged: ChargedProtection | null,
+  promo: DirectEmailPromo
+): CostBreakdownResult {
+  const stay = fr.dates[0];
+  const range = stay ? directDays(stay.fromDate, stay.toDate) : null;
+  return safeBreakdown(fr.number, "direct", () => buildCostBreakdown({
+    source: "direct",
+    subtotal: fr.money.subtotal,
+    tax: fr.money.taxTotal,
+    atLot: {
+      surchargeCents: fr.atLot.surchargeCents,
+      surchargeTaxCents: fr.atLot.surchargeTaxCents,
+      vehicleSizeLabel: fr.atLot.vehicleSizeLabel,
+    },
+    days: range?.ok ? range.days : null,
+    serviceFee: fr.money.serviceFee,
+    promoDiscount: fr.money.discount,
+    promoCode: fr.money.discount > 0 ? promo.code : null,
+    expectedPromoCents: expectedPromoCents(promo.percent, fr.money.subtotal, toCents(fr.money.grandTotal)),
+    protection: protectionInput(charged),
+    anchorChargedCents: directAnchorCents(fr),
+    refundedCents: 0,
+    cancelled: false,
+  }));
+}
+
+/** The charged plan for the anchored fallback — labelled `Plan ${code}`, like the breakdown. */
+function chargedPlan(charged: ChargedProtection | null): { code: string; premium: number } | null {
+  return charged ? { code: charged.plan.code, premium: charged.premium } : null;
+}
+
+/** Direct: the "due" is the at-lot surcharge estimate (surcharge + tax, in dollars; null = none) — shown unless unreadable. */
+function directAnchoredFallback(
+  breakdown: CostBreakdownResult,
+  fr: DirectFulfilledReservation,
+  charged: ChargedProtection | null
+): AnchoredFallback | undefined {
+  return anchoredFallback(
+    breakdown,
+    directAnchorCents(fr),
+    (refusal) => fallbackDue({ source: "direct", recordedDue: directAtLotEstimate(fr), refusal, cancelled: false }),
+    chargedPlan(charged)
+  );
+}
+
+/** A direct booking's card charge in cents (= chargeCents = pi.amount, checked by readDirectMetadataMoney). */
+function directAnchorCents(fr: DirectFulfilledReservation): number {
+  return Math.round(fr.money.chargedOnline * 100);
+}
+
+/**
+ * A breakdown that did not add up is reported — one Sentry issue per REASON
+ * CLASS (fingerprint), the booking in the event's context — and the emails
+ * show the anchored fallback. Not when the anchor is simply unknown (the dev
+ * path, which has no PaymentIntent).
+ */
+function reportEmailBreakdownFallback(
+  breakdown: CostBreakdownResult,
+  confirmationNumber: string,
+  inventorySource: "reslab" | "direct",
+  airportCode: string | undefined
+): void {
+  if (breakdown.ok || breakdown.reason === "what the card was charged is unknown") return;
+  captureBookingError(new Error(`Booking email cost breakdown fell back: ${breakdown.reason}`), {
+    step: "confirmation",
+    fingerprint: ["email-cost-breakdown-fallback", breakdown.reason],
+    confirmationNumber,
+    inventorySource,
+    ...(airportCode && { airportCode }),
+  });
+}
+
 export async function sendBookingEmails(
   payload: BookingPayload,
   fr: ReslabFulfilledReservation,
   pgSyncStatus: PgSyncStatus,
   charged: ChargedProtection | null,
-  /** Promo discount in dollars (PersistResult.discountAmount); 0 when none. */
-  discountAmount: number
+  money: ReslabEmailMoney
 ): Promise<{ customerEmailSent: boolean }> {
   const {
     locationId,
@@ -805,11 +1023,36 @@ export async function sendBookingEmails(
     stripHtml(resLocation?.specialConditionsHtml ?? null) || undefined;
 
   const protectionPremium = charged?.premium ?? 0;
+  // The fallback layout's total (used only when the breakdown is not ok) —
+  // net of the promo discount, so it is never a pre-discount amount labelled paid.
   const totalAmount =
     (fr.money.grandTotal ?? grandTotal ?? 0) +
     (triplyServiceFee || 0) +
     protectionPremium -
-    discountAmount;
+    money.promoDiscount;
+  const breakdown = reslabEmailBreakdown(payload, fr, charged, money);
+  reportEmailBreakdownFallback(breakdown, fr.number, "reslab", airportCode || undefined);
+  // The recorded due amount AS RECEIVED (null stays null): the fallback never
+  // states a missing or distrusted one as fact.
+  const fallback = anchoredFallback(
+    breakdown,
+    money.anchorChargedCents,
+    (refusal) =>
+      fallbackDue({
+        source: "reslab",
+        recordedDue: fr.money.dueAtLocation,
+        grandTotal: fr.money.grandTotal,
+        parts: {
+          subtotal: fr.money.subtotal,
+          fees: fr.money.feesTotal,
+          longTermDiscount: fr.money.longTermDiscount ?? 0,
+          tax: fr.money.taxTotal,
+        },
+        refusal,
+        cancelled: false,
+      }),
+    chargedPlan(charged)
+  );
 
   const fullName = `${customer.firstName} ${customer.lastName}`;
   const vehicleInfo = `${vehicle.make} ${vehicle.model} (${vehicle.color}) - ${vehicle.licensePlate}`;
@@ -839,6 +1082,8 @@ export async function sendBookingEmails(
         protectionPlanPrice: charged.premium,
       }),
       pgSyncStatus,
+      breakdown,
+      ...(fallback && { anchoredFallback: fallback }),
     });
     // The sender never throws on a Resend error — it RETURNS { success: false }
     // (and reports it). Only a real acceptance counts as sent; marking a failed
@@ -887,6 +1132,8 @@ export async function sendBookingEmails(
         protectionPlan: charged.plan.name,
         protectionPlanPrice: charged.premium,
       }),
+      breakdown,
+      ...(fallback && { anchoredFallback: fallback }),
     });
   } catch (adminEmailError) {
     // Internal notification only — never escalated to a money event.
@@ -945,7 +1192,10 @@ export function buildReservationResponse(
   payload: BookingPayload,
   fr: ReslabFulfilledReservation,
   pgIdentifier: string | null,
-  charged: ChargedProtection | null
+  charged: ChargedProtection | null,
+  /** Promo discount taken off the card charge, in dollars (0 = none) — appliedPromoDiscount.
+   *  `dueNow` is what the card was charged, so it is net of it (cost-breakdown plan §4). */
+  promoDiscount: number
 ): ReservationResponse {
   const resLocation = fr.location;
   const protectionPremium = charged?.premium ?? 0;
@@ -970,7 +1220,8 @@ export function buildReservationResponse(
       (fr.money.grandTotal || 0) +
       (payload.triplyServiceFee || 0) +
       protectionPremium -
-      (fr.money.dueAtLocation || 0),
+      (fr.money.dueAtLocation || 0) -
+      promoDiscount,
     dueAtLocation: fr.money.dueAtLocation || 0,
     customer: {
       firstName: payload.customer.firstName,
@@ -1147,9 +1398,14 @@ export async function sendDirectCustomerConfirmation(
   dp: DirectBookingPayload,
   fr: DirectFulfilledReservation,
   pgSyncStatus: PgSyncStatus,
-  charged: ChargedProtection | null
+  charged: ChargedProtection | null,
+  /** The promo on the PaymentIntent: code (trimmed + upper-cased; shown only when a discount applied) + percent. */
+  promo: DirectEmailPromo
 ): Promise<boolean> {
   const totalAmount = directPaidOnline(fr);
+  const breakdown = directEmailBreakdown(fr, charged, promo);
+  const fallback = directAnchoredFallback(breakdown, fr, charged);
+  reportEmailBreakdownFallback(breakdown, fr.number, "direct", fr.snapshot.airportCode);
   const [checkInDate, checkInTime24] = dp.fromDate.split(" ");
   const [checkOutDate, checkOutTime24] = dp.toDate.split(" ");
   const v = dp.vehicle;
@@ -1177,6 +1433,8 @@ export async function sendDirectCustomerConfirmation(
         atLotEstimate: directAtLotEstimate(fr),
         discount: fr.money.discount,
       },
+      breakdown,
+      ...(fallback && { anchoredFallback: fallback }),
       idempotencyKey: `direct-confirmation/${dp.stripePaymentIntentId}`,
       timeoutMs: DIRECT_CONFIRMATION_TIMEOUT_MS,
     });
@@ -1203,10 +1461,15 @@ export async function sendDirectCustomerConfirmation(
 export async function sendDirectAdminNotification(
   dp: DirectBookingPayload,
   fr: DirectFulfilledReservation,
-  charged: ChargedProtection | null
+  charged: ChargedProtection | null,
+  /** As for sendDirectCustomerConfirmation. */
+  promo: DirectEmailPromo
 ): Promise<void> {
   const v = dp.vehicle;
   const atLot = directAtLotEstimate(fr);
+  // Not reported again here: the customer email reports the same breakdown.
+  const breakdown = directEmailBreakdown(fr, charged, promo);
+  const fallback = directAnchoredFallback(breakdown, fr, charged);
   try {
     await sendAdminBookingNotification({
       confirmationNumber: fr.number,
@@ -1224,6 +1487,8 @@ export async function sendDirectAdminNotification(
       ...(charged && { protectionPlan: charged.plan.name, protectionPlanPrice: charged.premium }),
       sourceLine: "Direct lot (Triply number — no Reservations Lab reservation)",
       vehicleDeclaration: `${fr.atLot.vehicleSizeLabel}${atLot !== null ? ` — $${atLot.toFixed(2)} est. collected at the lot` : ""}`,
+      breakdown,
+      ...(fallback && { anchoredFallback: fallback }),
     });
   } catch (err) {
     captureBookingError(

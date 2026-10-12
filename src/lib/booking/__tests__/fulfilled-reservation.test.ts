@@ -81,7 +81,13 @@ describe("fromReslab — mapping", () => {
   );
 
   it("carries money raw, keeping 0 as 0 (callers' ?? and || then behave as before)", () => {
-    expect(full.money).toEqual({ subtotal: 81, taxTotal: 6.5, feesTotal: 2.25, grandTotal: 89.75, dueAtLocation: 0 });
+    expect(full.money).toEqual({ subtotal: 81, taxTotal: 6.5, feesTotal: 2.25, grandTotal: 89.75, dueAtLocation: 0, longTermDiscount: null });
+  });
+
+  it("carries ResLab's long-stay discount raw (display only — the email cost breakdown reads it)", () => {
+    const withLtd = wire('{"reservation_number":"R","history":[{"subtotal":90,"long_term_discount":9,"grand_total":90}]}');
+    expect(withLtd.money.longTermDiscount).toBe(9);
+    expect(wire('{"reservation_number":"R","history":[{"long_term_discount":0}]}').money.longTermDiscount).toBe(0);
   });
 
   it("cancelled follows ResLab's 0/1 numbers", () => {

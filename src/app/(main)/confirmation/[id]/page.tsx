@@ -21,6 +21,9 @@ import { trackPurchase } from "@/lib/analytics/gtag";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
 import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
+import type { CostBreakdownResult, FallbackDue } from "@/lib/booking/cost-breakdown";
+import type { CardSummary } from "@/lib/booking/confirmation-payment";
+import type { PaymentFallback } from "@/components/confirmation/booking-details";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
@@ -37,6 +40,15 @@ interface ReservationDataBase {
   /** What was charged online: grandTotal − dueAtLocation (− promo discount on a direct booking). */
   dueNow: number;
   dueAtLocation: number;
+  /**
+   * The Payment summary, built and checked server-side (plan 2026-10-12).
+   * The ONLY source of the money this page shows.
+   */
+  costBreakdown: CostBreakdownResult;
+  /** The fallback's card side as Stripe reports it — never grandTotal, never a row-computed "charged". */
+  cardPayment: CardSummary;
+  /** What the fallback may say is due at the location / lot — never a guessed 0. */
+  fallbackDue: FallbackDue;
   protectionPlan: string | null;
   protectionPlanPrice: number;
   pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
@@ -288,33 +300,22 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkInTime = convertTo12Hour(reservationCheckInTime24 || "");
   const checkOutTime = convertTo12Hour(reservationCheckOutTime24 || "");
 
-  // Calculate days and total
-  const { days, total } = useMemo(() => {
-    if (reservation) {
-      return {
-        days: reservation.items[0]?.numberOfDays || 1,
-        // Direct: BookingDetails labels this "Total Paid" (dueAtLocation is
-        // 0), so it must be what was charged online — `dueNow`, which nets a
-        // promo discount; grandTotal is pre-discount. ResLab: unchanged.
-        total:
-          reservation.inventorySource === "direct"
-            ? reservation.dueNow
-            : reservation.grandTotal,
-      };
-    }
+  // Duration from the reservation. Money comes ONLY from the API's
+  // costBreakdown / cardPayment — the page never invents a total.
+  const days = reservation?.items[0]?.numberOfDays || 1;
 
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const numDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    const dailyRate = lot?.pricing?.minPrice ?? 15;
-    const subtotal = dailyRate * numDays;
-    const taxes = Math.round(subtotal * 0.08 * 100) / 100;
-    return {
-      days: numDays,
-      total: subtotal + taxes,
-    };
-  }, [checkIn, checkOut, lot, reservation]);
+  // The plain fallback's figures when the breakdown was refused — both decided
+  // server-side (a missing or doubted due amount is "untrusted", never 0).
+  const paymentFallback: PaymentFallback | null = reservation
+    ? {
+        card: reservation.cardPayment,
+        due: reservation.fallbackDue,
+        dueContext:
+          reservation.inventorySource === "direct"
+            ? { source: "direct", estimate: reservation.atLotEstimate }
+            : { source: "reslab" },
+      }
+    : null;
 
   // Get customer and vehicle info
   const customerName = reservation
@@ -382,9 +383,10 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   }
 
   // Fetch succeeded but we still have no lot data (e.g., reservation has no
-  // location, or sessionStorage was empty on a re-visit) — fall back to the
-  // generic not-found screen rather than rendering placeholders.
-  if (!lot) {
+  // location, or sessionStorage was empty on a re-visit) — or no reservation
+  // at all (a lot from sessionStorage alone has no booking money to show) —
+  // fall back to the generic not-found screen rather than rendering placeholders.
+  if (!lot || !reservation || !paymentFallback) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar forceSolid />
@@ -440,22 +442,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 checkInTime={checkInTime}
                 checkOutTime={checkOutTime}
                 days={days}
-                total={total}
                 customerName={customerName}
                 customerEmail={customerEmail}
                 customerPhone={customerPhone}
                 vehicleInfo={vehicleInfo}
-                dueAtLocation={reservation?.dueAtLocation}
-                // Direct lots: the oversized-vehicle surcharge paid AT THE LOT,
-                // a line item under the card charge — never added to `total`.
-                atLot={reservation?.inventorySource === "direct" ? reservation.atLotEstimate ?? null : null}
+                costBreakdown={reservation.costBreakdown}
+                fallback={paymentFallback}
                 cancelled={isCancelled}
               />
 
-              {!isCancelled && reservation?.protectionPlan && (
+              {!isCancelled && reservation.protectionPlan && (
                 <ProtectionPlanStatus
                   planName={reservation.protectionPlan}
-                  price={reservation.protectionPlanPrice}
                   pgSyncStatus={reservation.pgSyncStatus}
                   pgIdentifier={reservation.pgIdentifier}
                 />

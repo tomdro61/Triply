@@ -446,6 +446,11 @@ describe("golden — reservation shapes", () => {
     ).toMatchSnapshot();
   });
 
+  it("charge consistent with the reservation (74.25 online) — the email cost breakdown is ok", async () => {
+    // 89.75 grand + 6 fee − 21.50 due at the lot = 74.25 = pi.amount
+    expect(await run({ pi: { amount: 7425 } })).toMatchSnapshot();
+  });
+
   it("wallet auto-capture (PI already succeeded)", async () => {
     expect(await run({ pi: { status: "succeeded", latest_charge: { amount_refunded: 0 } } })).toMatchSnapshot();
   });

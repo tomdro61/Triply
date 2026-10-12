@@ -1124,3 +1124,81 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
     });
   });
 });
+
+describe("direct fulfilment — the emails' cost breakdown (plan 2026-10-12)", () => {
+  // Fixture: 5 days × $9.95 = 49.75, tax 16 % = 7.96, fee 5.95 → card 63.66;
+  // Large SUV / truck $50.00 + $8.00 tax collected at the lot.
+  it("both emails get an ok breakdown anchored to the charge, the at-lot surcharge outside it", async () => {
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b).toMatchObject({
+      ok: true,
+      source: "direct",
+      totalLabel: "Charged to card",
+      totalCents: 6366, // = pi.amount — the anchor
+      atLot: { cents: 5800, surchargeCents: 5000, surchargeTaxCents: 800, vehicleSizeLabel: "Large SUV / truck" },
+      tripTotalCents: 12166,
+      tripTotalIsEstimate: true,
+    });
+    if (!b?.ok) return;
+    expect(b.lines.map((l) => [l.label, l.cents])).toEqual([
+      ["Parking — 5 days", 4975],
+      ["Taxes", 796],
+      ["Triply service fee", 595],
+    ]);
+    expect(vi.mocked(sendAdminBookingNotification).mock.calls[0][0].breakdown).toEqual(b);
+    // An ok breakdown needs no anchored fallback.
+    expect(vi.mocked(sendBookingConfirmation).mock.calls[0][0]).not.toHaveProperty("anchoredFallback");
+    expect(vi.mocked(sendAdminBookingNotification).mock.calls[0][0]).not.toHaveProperty("anchoredFallback");
+  });
+
+  it("Park Guard: the plan line reads 'Plan A' and the charge includes it", async () => {
+    const meta = { ...META, ...protectionMetadataPatch(getProtectionPlan("A")!) };
+    seed({ has_protection_plan: true, protection_plan_code: "A" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ amount: 6366 + 1299, metadata: meta }));
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b).toMatchObject({ ok: true, totalCents: 7665 });
+    expect(b?.ok && b.lines.find((l) => l.key === "protection")?.label).toBe("Parking Protection — Plan A");
+  });
+
+  it("a promo: the code from the payment (trimmed, upper-cased) labels the discount line", async () => {
+    const meta = { ...META, discountPercent: "10", promoCode: " welcome10 ", directDiscountCents: "498", parkingOnlyChargeAmountCents: "5868" };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ amount: 5868, metadata: meta }));
+    expect((await createBooking({ source: "webhook", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b).toMatchObject({ ok: true, totalCents: 5868 });
+    if (!b?.ok) return;
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (WELCOME10)", cents: 498, credit: true });
+    const admin = vi.mocked(sendAdminBookingNotification).mock.calls[0][0].breakdown;
+    expect(admin?.ok && admin.lines.find((l) => l.key === "promo")?.label).toBe("Promo discount (WELCOME10)");
+  });
+
+  it("the sweep's re-send carries the promo code too", async () => {
+    seed({ reslab_reservation_number: "TRP-AAAA1111", status: "completed" });
+    db.tables.bookings = [
+      {
+        id: "b1",
+        stripe_payment_intent_id: PI,
+        reslab_reservation_number: "TRP-AAAA1111",
+        inventory_source: "direct",
+        status: "confirmed",
+        lot_notified_at: null,
+        lot_notice_claimed_at: null,
+        pg_sync_status: null,
+        created_at: "2026-10-12T15:40:00.000Z",
+      },
+    ];
+    const meta = { ...META, discountPercent: "10", promoCode: "welcome10", directDiscountCents: "498", parkingOnlyChargeAmountCents: "5868" };
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ status: "succeeded", amount: 5868, metadata: meta }));
+
+    await redriveDirectBookingSends(PI);
+
+    expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b?.ok && b.lines.find((l) => l.key === "promo")?.label).toBe("Promo discount (WELCOME10)");
+  });
+});

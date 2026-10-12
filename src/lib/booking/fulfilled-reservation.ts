@@ -59,6 +59,10 @@ export interface ReslabFulfilledReservation {
     feesTotal: number | null;
     grandTotal: number | null;
     dueAtLocation: number | null;
+    /** ResLab's long-stay discount (`history[0].long_term_discount`), already
+     *  inside its grand_total. Display only — the cost breakdown in the emails
+     *  reads it; nothing persists it. */
+    longTermDiscount: number | null;
   };
   /** null when the source sent no date list. */
   dates: { fromDate: string | undefined; toDate: string | undefined }[] | null;
@@ -141,6 +145,7 @@ export function fromReslab(r: ReslabReservation): ReslabFulfilledReservation {
       feesTotal: h?.total_fees ?? null,
       grandTotal: h?.grand_total ?? null,
       dueAtLocation: h?.due_at_location_total ?? null,
+      longTermDiscount: h?.long_term_discount ?? null,
     },
     dates: Array.isArray(dates)
       ? dates.map((d) => ({ fromDate: d?.from_date, toDate: d?.to_date }))

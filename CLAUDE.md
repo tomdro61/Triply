@@ -143,6 +143,10 @@ One-time setup per machine (each dev, in Claude Code):
   `~/.codex/config.toml`. Without it Codex can't run any command, reads
   nothing, and returns "No material findings" — an empty review that looks
   clean. Add `model_reasoning_effort = "high"` (top level) for reviews.
+- **Model:** reviews use **`gpt-6-astra`** (needs ChatGPT Plus or higher) —
+  `model = "gpt-6-astra"` at the top of `~/.codex/config.toml`. List what your
+  account can use with `codex debug models`; confirm with
+  `codex exec "Reply OK" < /dev/null` (the header shows `model:`).
 - No plugin? `/scoped-review` still runs, and says plainly that Codex was skipped.
 - Leave the plugin's **review gate OFF** (it loops and drains usage limits).
 - Reviews spend the signed-in ChatGPT account's Codex allowance.

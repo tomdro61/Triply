@@ -18,6 +18,8 @@ const common = (overrides: Partial<DirectReservationCommon> = {}): DirectReserva
   pgSyncStatus: null,
   fromDate: "2026-11-02 08:00:00",
   toDate: "2026-11-05 07:00:00", // 71 h → 3 billed days
+  // What Stripe took: 29.85 + 4.78 + 5.95 (the at-lot surcharge is not charged online).
+  payment: { ok: true, chargedCents: 4058, refundedCents: 0, discountPercent: null },
   ...overrides,
 });
 
@@ -43,6 +45,27 @@ describe("buildDirectReservation", () => {
       dueNow: 40.58,
       dueAtLocation: 0,
       atLotEstimate: { vehicleSize: "suv", vehicleSizeLabel: "SUV / Van", surcharge: 30, surchargeTax: 4.8, total: 34.8 },
+      costBreakdown: {
+        ok: true,
+        source: "direct",
+        lines: [
+          { key: "parking", label: "Parking — 3 days", cents: 2985, credit: false },
+          { key: "taxes", label: "Taxes", cents: 478, credit: false },
+          { key: "service_fee", label: "Triply service fee", cents: 595, credit: false },
+        ],
+        totalLabel: "Charged to card",
+        totalCents: 4058,
+        paidOnlineCents: 4058,
+        dueAtLocationCents: 0,
+        atLot: { cents: 3480, surchargeCents: 3000, surchargeTaxCents: 480, vehicleSizeLabel: "SUV / Van" },
+        tripTotalCents: 7538,
+        tripTotalIsEstimate: true,
+        refundedCents: 0,
+        netPaidCents: null,
+        cancelled: false,
+      },
+      cardPayment: { status: "charged", chargedCents: 4058, refundedCents: 0, netPaidCents: null },
+      fallbackDue: { kind: "amount", cents: 3480 },
       airportCode: "JFK",
       timezone: "America/New_York",
       customer: { firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" },
@@ -216,6 +239,160 @@ describe("atLotEstimateFromRow", () => {
     ).toEqual({
       ok: true,
       estimate: { vehicleSize: "oversized", vehicleSizeLabel: "Oversized", surcharge: 19.99, surchargeTax: 3.2, total: 23.19 },
+    });
+  });
+});
+
+describe("buildDirectReservation — Payment summary (plan 2026-10-12)", () => {
+  // 10 % of the 29.85 subtotal = 2.985 → 2.99 (the direct quote's rounding).
+  const promoRow = () => directRow({ discount_amount: "2.99", promo_code: "SAVE10" });
+  const charged = (chargedCents: number, extra: { refundedCents?: number; discountPercent?: number | null } = {}) => ({
+    payment: {
+      ok: true as const,
+      chargedCents,
+      refundedCents: extra.refundedCents ?? 0,
+      discountPercent: extra.discountPercent ?? null,
+    },
+  });
+
+  it("promo: a credit line with the code, checked against the code's percent; the card line is net of it", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", promoRow(), common(charged(3759, { discountPercent: 10 })));
+    if (!r.ok) throw new Error(r.detail);
+    const b = r.reservation.costBreakdown;
+    if (!b.ok) throw new Error(b.reason);
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (SAVE10)", cents: 299, credit: true });
+    expect(b.totalCents).toBe(3759);
+  });
+
+  it("promo whose percent is not on the PaymentIntent → refused (cannot be checked)", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", promoRow(), common(charged(3759)));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "promo discount cannot be checked against the code's percent" });
+  });
+
+  it("promo that disagrees with the code's percent → refused", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", promoRow(), common(charged(3759, { discountPercent: 20 })));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "promo discount does not match the code's percent" });
+  });
+
+  it("the protection line is named from protection_plan_code", () => {
+    const r = buildDirectReservation(
+      "TRP-7K3M9QXA",
+      directRow({ protection_plan: "Plan B — $500", protection_plan_code: "B", protection_plan_price: "7.99" }),
+      common(charged(4857))
+    );
+    if (!r.ok) throw new Error(r.detail);
+    const b = r.reservation.costBreakdown;
+    if (!b.ok) throw new Error(b.reason);
+    expect(b.lines.find((l) => l.key === "protection")?.label).toBe("Parking Protection — Plan B");
+  });
+
+  it("Stripe unknown → refused with Stripe's reason; the card side is unknown (no row-computed 'charged')", () => {
+    const r = buildDirectReservation(
+      "TRP-7K3M9QXA",
+      promoRow(),
+      common({
+        payment: {
+          ok: false,
+          reasonClass: "stripe_read_failed",
+          reason: "Stripe PaymentIntent read failed (StripeConnectionError)",
+          status: null,
+          amountReceived: null,
+          discountPercent: null,
+        },
+      })
+    );
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "Stripe PaymentIntent read failed (StripeConnectionError)" });
+    expect(r.reservation.cardPayment).toEqual({ status: "unknown" });
+  });
+
+  it("a released hold on a cancelled booking → 'released', no amount", () => {
+    const r = buildDirectReservation(
+      "TRP-7K3M9QXA",
+      directRow({ status: "cancelled" }),
+      common({
+        payment: {
+          ok: false,
+          reasonClass: "released",
+          reason: "PaymentIntent is canceled (hold released)",
+          status: "canceled",
+          amountReceived: 0,
+          discountPercent: null,
+        },
+      })
+    );
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown.ok).toBe(false);
+    expect(r.reservation.cardPayment).toEqual({ status: "released" });
+  });
+
+  it("the parts do not match what Stripe took → refused; the card side is Stripe's amount", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow(), common(charged(4100)));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown.ok).toBe(false);
+    expect(r.reservation.cardPayment).toEqual({ status: "charged", chargedCents: 4100, refundedCents: 0, netPaidCents: null });
+  });
+
+  it("a cancelled, refunded booking keeps the record and shows the refund, nothing due at the lot", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow({ status: "refunded" }), common(charged(4058, { refundedCents: 3463 })));
+    if (!r.ok) throw new Error(r.detail);
+    const b = r.reservation.costBreakdown;
+    if (!b.ok) throw new Error(b.reason);
+    expect(b.cancelled).toBe(true);
+    expect(b.atLot).toBeNull();
+    expect(b.refundedCents).toBe(3463);
+    expect(b.netPaidCents).toBe(595);
+    expect(r.reservation.cardPayment).toEqual({ status: "charged", chargedCents: 4058, refundedCents: 3463, netPaidCents: 595 });
+  });
+
+  it.each(["promo_code", "protection_plan_code"])("a row without %s (column not selected) does not parse", (col) => {
+    const row = directRow();
+    delete row[col];
+    expect(buildDirectReservation("TRP-7K3M9QXA", row, common()).ok).toBe(false);
+  });
+
+  it("fallbackDue: none without an oversized vehicle; the at-lot surcharge (outside the charge) still shown after an anchor mismatch", () => {
+    const none = buildDirectReservation(
+      "TRP-7K3M9QXA",
+      directRow({ vehicle_size: "none", vehicle_size_label: "None", vehicle_surcharge_cents: 0, vehicle_surcharge_tax_cents: 0 }),
+      common()
+    );
+    if (!none.ok) throw new Error(none.detail);
+    expect(none.reservation.fallbackDue).toEqual({ kind: "none" });
+    const drift = buildDirectReservation("TRP-7K3M9QXA", directRow(), common(charged(4100)));
+    if (!drift.ok) throw new Error(drift.detail);
+    expect(drift.reservation.costBreakdown).toEqual({ ok: false, reason: "the parts do not add up to what the card was charged" });
+    expect(drift.reservation.fallbackDue).toEqual({ kind: "amount", cents: 3480 });
+  });
+
+  it("a promo percent on the PaymentIntent with NO recorded discount → refused (checked whenever either side has one)", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow(), common(charged(4058, { discountPercent: 10 })));
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.costBreakdown).toEqual({ ok: false, reason: "promo discount does not match the code's percent" });
+  });
+
+  it("a requires_capture PaymentIntent on a cancelled booking is a live hold → unknown, not 'released'", () => {
+    const r = buildDirectReservation(
+      "TRP-7K3M9QXA",
+      directRow({ status: "cancelled" }),
+      common({
+        payment: {
+          ok: false,
+          reasonClass: "not_settled",
+          reason: "PaymentIntent is requires_capture, not succeeded",
+          status: "requires_capture",
+          amountReceived: 0,
+          discountPercent: null,
+        },
+      })
+    );
+    if (!r.ok) throw new Error(r.detail);
+    expect(r.reservation.cardPayment).toEqual({ status: "unknown" });
+    expect(r.reservation.costBreakdown).toEqual({
+      ok: false,
+      reason: "PaymentIntent is requires_capture, not succeeded on a cancelled booking — a live hold remains",
     });
   });
 });
