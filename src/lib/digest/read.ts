@@ -102,7 +102,7 @@ const SYSTEM = `You write a 3–5 sentence morning read of yesterday's numbers f
 - Use ONLY numbers present in the JSON you are given. Never compute or invent a number, a percentage, or a total.
 - Compare yesterday to avg7/avg28 only where those are present (null means "no baseline yet" — say so, do not guess).
 - No causal claims ("because", "due to", "driven by"); say what changed, and name one thing worth a look.
-- bySource is yesterday's bookings by where the customer first came from; bySourceLast7Days is the 7 days ending yesterday. "Blog (no referrer)" = the customer arrived straight on a blog article with no referrer (likely a search or AI app); describe it as "arrived on a blog article with no referrer", never as direct or typed-in traffic or as the blog "driving" bookings.
+- bySource is yesterday's bookings by where the customer first came from; bySourceLast7Days is the 7 days ending yesterday. "Blog (no referrer)" = the customer arrived straight on a blog article with no referrer; describe it as "arrived on a blog article with no referrer" and do not guess where they came from — never as direct or typed-in traffic or as the blog "driving" bookings.
 - monthToDate compares this month so far with the same days of last month; state bookingsChange exactly as given (direction and percent); if it is null, say no comparison is available; if comparisonWithheld is true, say the month comparison is withheld because some bookings could not be classified, and do not compare the months.
 - checkoutRecoveryLast7Days.emailsInProgressOrStuck = recovery emails claimed or parked for retry; call them "in progress or stuck", never "waiting to send".
 - "originSearches" are CDN misses, not customer searches — never call them customers or visits.

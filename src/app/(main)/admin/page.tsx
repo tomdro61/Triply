@@ -481,7 +481,7 @@ export default function AdminDashboard() {
             )}
             <p className="mt-3 text-xs text-gray-400">
               Where the customer first came from. &ldquo;Blog (no referrer)&rdquo; = arrived straight on a blog
-              article with no referrer (almost always a search or AI app). &ldquo;No data&rdquo; = booked before
+              article with no referrer (often a search or AI app, but the data can&rsquo;t tell which). &ldquo;No data&rdquo; = booked before
               capture existed or with no cookie; &ldquo;Invalid cookie&rdquo; = present but unreadable (a bug —
               check Sentry).
             </p>

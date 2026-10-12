@@ -189,6 +189,45 @@ Each agent prompt must include:
 - Instruction to report **high-confidence findings only** with severity (Critical/High/Medium), file:line, and suggested fix
 - Pre-existing issues outside the diff scope should NOT be flagged (the standard list: `Date.now` purity warnings, unused legacy props, unescaped apostrophes, the `let [hours, minutes]` destructuring in `convertTo24Hour`)
 
+## Step 4.5 — Codex second opinion (OpenAI, a different model)
+
+Since 2026-10-12 every qualifying review also gets an **adversarial review from OpenAI's Codex**, through the official Codex plugin for Claude Code (`openai/codex-plugin-cc`). It is a second model that was not primed by our reasoning, so it catches assumptions the Claude agents share. On its first run (PR #80, already through 3 Claude passes) it found a real issue none of them flagged: the digest prompt told the AI a "likely" traffic source the data could not show.
+
+### When to run it
+
+Run Codex alongside the Claude agents (start it first — it is the slowest) when ANY of these hold:
+- `/scoped-review merge` (always)
+- The diff touches money, checkout, reservations, webhooks, auth, or `supabase/migrations/`
+- The diff changes what an AI/LLM is told or allowed to say (digest read, AI chat prompts)
+- The diff is > ~200 lines
+
+Skip it for small, low-risk diffs (it spends Tom's ChatGPT usage allowance).
+
+### How to run it
+
+1. **Find the plugin and check it is ready** (from `triply/` or the worktree):
+   ```bash
+   CODEX=$(ls ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)
+   node "$CODEX" setup --json   # need "ready": true
+   ```
+   If `$CODEX` is empty or `ready` is false, **do not block the review** — say plainly in the report "Codex review SKIPPED: plugin not installed / not signed in" and tell the user the fix (`/plugin marketplace add openai/codex-plugin-cc`, `/plugin install codex@openai-codex`, `/codex:setup`, `! codex login`). Never present the review as including Codex when it didn't run.
+2. **Run it in the background** (`run_in_background: true`), from the repo/worktree directory:
+   ```bash
+   node "$CODEX" adversarial-review "--wait --base <base-ref> <focus text>"
+   ```
+   - Base: `main` (or `origin/main`) for `feature` / `merge`; for an uncommitted-only review use `--scope working-tree` instead of `--base`.
+   - Focus text: 2–4 sentences naming what the change does and the specific risks from the matrix above (e.g. money math, ET/DST windows, silent defaults, partial data shown as complete). It is self-contained: Codex has no conversation context.
+   - It is read-only (it cannot edit files). Typical run: 3–6 minutes.
+3. **Check it actually read the code.** A healthy run logs `[codex] Running command: ...` lines before its verdict. If it reports it could not read the diff / "blocked by policy", or says "No material findings" without having run any command, that is a **failed** review, not a clean one. On Windows the cause is a missing `[windows] sandbox = "unelevated"` (or `"elevated"`) in `~/.codex/config.toml`. Fix and re-run; never report it as clean.
+
+### Triage — Codex findings are input, not truth
+
+- Verify every Codex finding against the actual code before acting on it, exactly as with the Claude agents. Mark each one **confirmed** / **false alarm** (with a one-line reason) / **pre-existing**.
+- In the Step 5 report, tag Codex findings `[codex]`, and say when Codex caught something no Claude agent did (and vice versa) — that comparison is how we judge whether it earns its cost.
+- A confirmed Codex Critical/High counts toward the merge gate and gets a `REVIEW-FINDINGS.md` entry like any other.
+- On pass 2+ re-run Codex only if it raised a confirmed Critical/High on the previous pass (to check the fix); otherwise pass 2 stays silent-failure-hunter only.
+- **Never** enable the plugin's review gate (`/codex:setup --enable-review-gate`): OpenAI warns it loops and drains usage limits.
+
 ---
 
 ## Step 5 — Consolidate
@@ -196,7 +235,7 @@ Each agent prompt must include:
 As each agent reports back, keep a running consolidated list. When all are in:
 
 1. Group findings by severity (Critical / High / Medium)
-2. Deduplicate (same file:line from multiple agents → one entry, note all sources)
+2. Deduplicate (same file:line from multiple agents → one entry, note all sources). Include the Codex findings from Step 4.5 with their confirmed / false-alarm verdicts, or state that Codex was skipped and why
 3. Recommended fix order (top 5-10)
 4. End with a one-line verdict: "Ready to merge" / "Fix N criticals before merge" / "Significant rework needed"
 
@@ -253,6 +292,7 @@ For `/scoped-review merge`, if ANY Critical is found, do not let the merge proce
 - **Don't skip Step 1.5 (scope expansion).** A diff-only scope is the single biggest source of missed findings on this codebase. If a migration is in the diff or money-handling code is touched, expand scope per the rules even if the user just wanted a "quick check."
 - **Don't skip Step 6 (multi-pass discipline).** A single review pass is incomplete. The expectation is 2-4 passes for any non-trivial change.
 - **Don't tell the user "all clean" after pass 1 if any Critical or High was found.** They need pass 2. Tell them so.
+- **Don't report a Codex run that never read the code as a clean review** (Step 4.5 item 3), and don't act on a Codex finding you haven't verified against the code.
 
 ---
 
@@ -380,3 +420,4 @@ These are the gap categories that cost the most time to discover. Treat them as 
 Treat this skill itself as code subject to the same discipline. When a multi-pass review of this codebase turns up a gap that would have been caught earlier had the skill been more thorough, **update the skill before declaring the review done**. Record what gap was added below and the date.
 
 - **2026-05-08** — Added Step 1.5 (scope expansion), elevated multi-pass to Step 6 hard requirement, added money-feature completeness checklist, and added "Common gaps" appendix. Driven by 6-pass review of the Park Guard feature where pass 3 found 4 Critical/High in files outside diff scope and pass 6 found a fix-introduced UI state bug.
+- **2026-10-12** — Added Step 4.5: OpenAI Codex adversarial review as a second-model reviewer (plugin `openai/codex-plugin-cc`) for merge sweeps and money/auth/migration/AI-prompt diffs, with a skip-don't-block rule when the plugin is absent and a check that the run actually read the code (the Windows sandbox gotcha made the first run silently empty). First run found a real AI-prompt overclaim in PR #80 that 3 Claude passes missed.
