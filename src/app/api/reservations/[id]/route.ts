@@ -5,6 +5,14 @@ import { captureBookingError } from "@/lib/sentry";
 import { isAdminEmail } from "@/config/admin";
 import { cancelSource } from "@/lib/cancellation/source-guard";
 import { buildDirectReservation } from "@/lib/direct/reservation-view";
+import { buildCostBreakdown, fallbackDue, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import {
+  cardSummary,
+  describeFallback,
+  expectedPromoCents,
+  protectionPlanName,
+} from "@/lib/booking/confirmation-payment";
+import { readCardPayment, reportCostBreakdownFallback } from "@/lib/booking/read-card-payment";
 
 export async function GET(
   request: NextRequest,
@@ -131,9 +139,10 @@ export async function GET(
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
       .select(`
-        vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_price, pg_identifier, pg_sync_status,
+        vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_code, protection_plan_price, pg_identifier, pg_sync_status,
         inventory_source, direct_lot_id, lot_snapshot, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents,
-        status, subtotal, tax_total, fees_total, grand_total, discount_amount, due_at_location, cancel_state,
+        status, subtotal, tax_total, fees_total, grand_total, discount_amount, promo_code, due_at_location, cancel_state,
+        stripe_payment_intent_id,
         customers(first_name, last_name, email, phone)
       `)
       .eq("reslab_reservation_number", id)
@@ -194,11 +203,15 @@ export async function GET(
       // The service fee and Park Guard premium are parsed from the row by the
       // direct view itself, strictly (a NULL fee or a plan without a positive
       // premium is a 500), never the lenient ResLab-path coercion below.
+      // The Payment summary's anchor: what Stripe actually took (plan
+      // 2026-10-12 §2). Never throws; an unknown charge → the plain fallback.
+      const payment = await readCardPayment(bookingData?.stripe_payment_intent_id);
       const direct = buildDirectReservation(id, bookingData, {
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
         fromDate: supabaseFromDate,
         toDate: supabaseToDate,
+        payment,
       });
       if (!direct.ok) {
         captureBookingError(
@@ -206,6 +219,20 @@ export async function GET(
           { step: "confirmation", confirmationNumber: id }
         );
         return NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
+      }
+      if (!direct.reservation.costBreakdown.ok) {
+        const { report } = describeFallback({
+          rowReadFailed: false,
+          payment,
+          cancelled: direct.reservation.status === "cancelled",
+          coreReason: direct.reservation.costBreakdown.reason,
+        });
+        if (report) {
+          reportCostBreakdownFallback(id, report, {
+            inventorySource: "direct",
+            stripePaymentIntentId: bookingData?.stripe_payment_intent_id,
+          });
+        }
       }
       return NextResponse.json({ reservation: direct.reservation });
     }
@@ -236,8 +263,13 @@ export async function GET(
     }
     const protectionPlanPrice = resolvedProtectionPlanPrice;
 
-    // Fetch reservation from ResLab API
-    const reservation = await reslab.getReservation(id);
+    // Fetch reservation from ResLab API — and, alongside it, what Stripe took
+    // on the booking's PaymentIntent (the Payment summary's anchor; never
+    // throws, bounded). A failed row read has no PaymentIntent id → unknown.
+    const [reservation, payment] = await Promise.all([
+      reslab.getReservation(id),
+      readCardPayment(bookingData?.stripe_payment_intent_id),
+    ]);
 
     // ResLab returns data nested in history[0]
     const history = reservation.history?.[0];
@@ -282,12 +314,108 @@ export async function GET(
     const dates = history?.dates?.[0] as any;
     const parkingRates = dates?.parking_rates?.[0];
 
+    // --- Payment summary (plan notes/2026-10-12-cost-breakdown-plan.md) ---
+    // Built from ResLab's history + the row + Stripe, ALL sums in
+    // buildCostBreakdown. Every input we could not read is passed as null so
+    // the breakdown is refused (ok:false → plain fallback) — never a $0 line:
+    // a failed row read (fee / discount / plan unknown), a plan whose premium
+    // is unreadable (suppressed above), a NULL fee on a legacy row, a Stripe
+    // read that failed or a PaymentIntent that isn't settled.
+    const rowRead = bookingData ?? null;
+    const rowPlan: string | null = rowRead ? rowRead.protection_plan || null : null;
+    const billedDaysRaw: unknown = parkingRates?.number_of_days ?? dates?.number_of_days;
+    const billedDays = typeof billedDaysRaw === "number" && Number.isInteger(billedDaysRaw) ? billedDaysRaw : null;
+    const cancelled = reslabCancelled || rowCancelled;
+    // Guarded: ResLab's history is untyped JSON. Whatever it holds, a throw
+    // in the breakdown becomes a refused breakdown (its own reason class, the
+    // original exception to Sentry) — never a 500 for the whole page.
+    let built: CostBreakdownResult;
+    let breakdownError: unknown = null;
+    try {
+    built = buildCostBreakdown({
+      source: "reslab",
+      days: billedDays,
+      subtotal: history?.subtotal,
+      fees: history?.total_fees,
+      longTermDiscount: history?.long_term_discount,
+      tax: history?.total_tax,
+      grandTotal: history?.grand_total,
+      // As read: a missing due-at-location is unknown, never "nothing due".
+      dueAtLocation: history?.due_at_location_total,
+      storedGrandTotal: rowRead ? rowRead.grand_total : null,
+      serviceFee: rowRead ? rowRead.triply_service_fee : null,
+      promoDiscount: rowRead ? (rowRead.discount_amount ?? 0) : null,
+      promoCode: rowRead?.promo_code || null,
+      // The code's percent (stamped on the PaymentIntent by checkout) on the
+      // base checkout used: ResLab's sub_total (/api/checkout/lot).
+      expectedPromoCents: rowRead
+        ? expectedPromoCents({
+            discountPercent: payment.discountPercent,
+            base: history?.subtotal,
+          })
+        : null,
+      protection: rowPlan
+        ? { name: protectionPlanName(rowRead?.protection_plan_code, rowPlan), premium: rowRead?.protection_plan_price }
+        : null,
+      anchorChargedCents: payment.ok ? payment.chargedCents : null,
+      refundedCents: payment.ok ? payment.refundedCents : 0,
+      cancelled,
+    });
+    } catch (error) {
+      breakdownError = error;
+      built = { ok: false, reason: "breakdown threw" };
+    }
+    let costBreakdown: CostBreakdownResult = built;
+    if (breakdownError !== null) {
+      costBreakdown = { ok: false, reason: "breakdown threw" };
+      reportCostBreakdownFallback(
+        id,
+        { reasonClass: "breakdown_threw", reason: "breakdown threw", level: "error" },
+        { inventorySource: "reslab", stripePaymentIntentId: rowRead?.stripe_payment_intent_id },
+        breakdownError
+      );
+    } else if (!built.ok) {
+      const { reason, report } = describeFallback({
+        rowReadFailed: !rowRead,
+        payment,
+        cancelled,
+        coreReason: built.reason,
+      });
+      costBreakdown = { ok: false, reason };
+      if (report) {
+        reportCostBreakdownFallback(id, report, {
+          inventorySource: "reslab",
+          stripePaymentIntentId: rowRead?.stripe_payment_intent_id,
+        });
+      }
+    }
+    // The fallback's card side: Stripe's own amount (+ refunds), a released
+    // hold, or unknown — never an amount computed from the row and called
+    // "charged".
+    const cardPayment = cardSummary(payment);
+    // What the fallback may say is due at the location (core rule): ResLab's
+    // figure as read — a missing one, one above the grand total, or a $0 whose
+    // split the refusal puts in doubt is "unconfirmed", never silently 0.
+    const dueForFallback = fallbackDue({
+      source: "reslab",
+      recordedDue: history?.due_at_location_total,
+      grandTotal: history?.grand_total,
+      parts: {
+        subtotal: history?.subtotal,
+        fees: history?.total_fees,
+        longTermDiscount: history?.long_term_discount ?? 0,
+        tax: history?.total_tax,
+      },
+      refusal: built.ok ? null : built.reason,
+      cancelled,
+    });
+
     return NextResponse.json({
       reservation: {
         id: history?.id || reservation.reservation_number,
         reservationNumber: reservation.reservation_number,
         inventorySource: "reslab",
-        status: reslabCancelled || rowCancelled ? "cancelled" : "confirmed",
+        status: cancelled ? "cancelled" : "confirmed",
         grandTotal: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice,
         subtotal: history?.subtotal || 0,
         taxTotal: history?.total_tax || 0,
@@ -299,6 +427,9 @@ export async function GET(
         pgSyncStatus: bookingData?.pg_sync_status || null,
         dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
+        costBreakdown,
+        cardPayment,
+        fallbackDue: dueForFallback,
         customer: {
           firstName,
           lastName,

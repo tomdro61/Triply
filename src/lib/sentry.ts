@@ -8,6 +8,8 @@ type BookingErrorContext = {
   confirmationNumber?: string;
   /** Tag `inventory_source` (direct lots, 4b plan §9.3). */
   inventorySource?: "reslab" | "direct";
+  /** Group events by this instead of the stack trace (one Sentry issue per key). */
+  fingerprint?: string[];
 };
 
 export function captureBookingError(
@@ -16,6 +18,7 @@ export function captureBookingError(
 ) {
   Sentry.withScope((scope) => {
     scope.setTag("booking.step", context.step);
+    if (context.fingerprint) scope.setFingerprint(context.fingerprint);
     if (context.inventorySource) scope.setTag("inventory_source", context.inventorySource);
     if (context.lotId) scope.setTag("booking.lotId", context.lotId);
     if (context.airportCode) scope.setTag("booking.airport", context.airportCode);

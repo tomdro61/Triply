@@ -210,6 +210,7 @@ Skip it for small, low-risk diffs (it spends Tom's ChatGPT usage allowance).
    CODEX=$(ls ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs 2>/dev/null | sort -V | tail -1)
    node "$CODEX" setup --json   # need "ready": true
    ```
+   The model comes from `~/.codex/config.toml` — the team uses `model = "gpt-6-astra"` (since 2026-10-12). If a run reports a different model, say so in the report.
    If `$CODEX` is empty or `ready` is false, **do not block the review** — say plainly in the report "Codex review SKIPPED: plugin not installed / not signed in" and tell the user the fix (`/plugin marketplace add openai/codex-plugin-cc`, `/plugin install codex@openai-codex`, `/codex:setup`, `! codex login`). Never present the review as including Codex when it didn't run.
 2. **Run it in the background** (`run_in_background: true`), from the repo/worktree directory:
    ```bash

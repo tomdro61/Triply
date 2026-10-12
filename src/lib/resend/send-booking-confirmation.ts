@@ -1,6 +1,8 @@
 import { render } from "@react-email/render";
 import { resend, FROM_EMAIL } from "./client";
 import { BookingConfirmationEmail, type DirectLotEmailDetails } from "./templates/booking-confirmation";
+import type { CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import type { AnchoredFallback } from "./anchored-fallback";
 import { captureBookingError } from "@/lib/sentry";
 import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
 
@@ -25,6 +27,15 @@ interface SendBookingConfirmationParams {
   pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
   /** Set ONLY for a Triply direct-lot booking (4b plan §3.4). */
   direct?: DirectLotEmailDetails;
+  /**
+   * The cost breakdown (plan notes/2026-10-12-cost-breakdown-plan.md). When
+   * `ok`, the Payment Summary renders it; absent or `ok: false` → the fallback
+   * layout from `totalAmount` / `dueAtLocation` (scripts/resend-confirmation.ts
+   * and the dev path pass none).
+   */
+  breakdown?: CostBreakdownResult;
+  /** With an `ok: false` breakdown and a known charge: what the email states instead (anchored-fallback.ts). */
+  anchoredFallback?: AnchoredFallback;
   /**
    * Resend idempotency key. A retry after a lost response is then never a
    * second email; a retry with a different body (the Park Guard line changed)
@@ -60,6 +71,8 @@ export async function sendBookingConfirmation({
   protectionPlanPrice,
   pgSyncStatus,
   direct,
+  breakdown,
+  anchoredFallback,
   idempotencyKey,
   timeoutMs,
 }: SendBookingConfirmationParams): Promise<SendBookingConfirmationResult> {
@@ -85,6 +98,8 @@ export async function sendBookingConfirmation({
         protectionPlanPrice,
         pgSyncStatus,
         direct,
+        breakdown,
+        anchoredFallback,
       })
     );
 

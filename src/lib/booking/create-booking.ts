@@ -55,6 +55,7 @@ import {
 import {
   createReslabReservation,
   persistBooking,
+  appliedPromoDiscount,
   sendBookingEmails,
   buildReservationResponse,
   persistDirectBooking,
@@ -63,6 +64,7 @@ import {
   buildDirectReservationResponse,
   type BookingPayload,
   type ChargedProtection,
+  type DirectEmailPromo,
   type PgSyncStatus,
   type ReservationResponse,
 } from "./fulfill";
@@ -1949,9 +1951,7 @@ async function fulfilClaimed(
   // a valid, applied promo — clamp defensively.
   const rawDiscountPercent = parseFloat(pi.metadata?.discountPercent ?? "0");
   const promo = {
-    code: pi.metadata?.promoCode
-      ? pi.metadata.promoCode.trim().toUpperCase()
-      : null,
+    code: redeemedPromoCode(pi),
     discountPercent:
       Number.isFinite(rawDiscountPercent) &&
       rawDiscountPercent > 0 &&
@@ -1963,6 +1963,10 @@ async function fulfilClaimed(
     chargedCents: pi.amount,
   };
   const persisted = await persistBooking(payload, fr, charged, pi.livemode, promo, attribution);
+  // The emails' (and the response's) discount comes from the same pure
+  // derivation persistBooking uses — NOT from its result: a persistence failure
+  // must never zero the discount in a permanent email (cost-breakdown plan v2 §3).
+  const appliedDiscount = appliedPromoDiscount(payload, fr, charged, promo);
 
   if (persisted.duplicatePaymentIntent) {
     // 23505 on the insert. Look the booking up by PaymentIntent: a row for THIS
@@ -2035,7 +2039,13 @@ async function fulfilClaimed(
       fr,
       persisted.pgSyncStatus,
       charged,
-      persisted.discountAmount
+      {
+        // What Stripe charged — the anchor the email's breakdown must add up to.
+        anchorChargedCents: promo.chargedCents,
+        promoDiscount: appliedDiscount.discountAmount,
+        promoCode: appliedDiscount.promoCode,
+        discountPercent: promo.discountPercent,
+      }
     );
     if (customerEmailSent) await markEmailSent(piId);
   }
@@ -2052,7 +2062,8 @@ async function fulfilClaimed(
       payload,
       fr,
       persisted.pgIdentifier,
-      charged
+      charged,
+      appliedDiscount.discountAmount
     ),
   };
 }
@@ -2219,7 +2230,13 @@ async function fulfilOnly(
   // livemode false: no charge exists on this dev-only path, but the row lands in
   // the shared prod table, so it must not count as live revenue.
   const persisted = await persistBooking(payload, fr, charged, false);
-  await sendBookingEmails(payload, fr, persisted.pgSyncStatus, charged, persisted.discountAmount);
+  // No PaymentIntent: no anchor and no promo, so the emails use the fallback layout.
+  await sendBookingEmails(payload, fr, persisted.pgSyncStatus, charged, {
+    anchorChargedCents: null,
+    promoDiscount: 0,
+    promoCode: null,
+    discountPercent: 0,
+  });
   return {
     kind: "created",
     reservationNumber: fr.number,
@@ -2227,7 +2244,8 @@ async function fulfilOnly(
       payload,
       fr,
       persisted.pgIdentifier,
-      charged
+      charged,
+      0 // no PaymentIntent, no promo
     ),
   };
 }
@@ -2433,6 +2451,29 @@ function directViewFromRow(
   return { ok: true, dp: parsed.payload, fr: directFulfilled(parsed.payload, number, money.money) };
 }
 
+/**
+ * The promo code the customer redeemed, as stamped on the PaymentIntent
+ * (typed by the customer), trimmed and upper-cased to match promo_codes.code.
+ * Callers record / show it only when a discount actually applied.
+ */
+function redeemedPromoCode(pi: Stripe.PaymentIntent): string | null {
+  return pi.metadata?.promoCode ? pi.metadata.promoCode.trim().toUpperCase() : null;
+}
+
+/**
+ * A direct booking's promo for its emails: the code, and the percent stamped
+ * on the PaymentIntent (0 when absent or unusable — the email breakdown then
+ * falls back if a discount was taken). readDirectMetadataMoney has already
+ * refused a malformed or out-of-range percent before anything was booked.
+ */
+function directEmailPromo(pi: Stripe.PaymentIntent): DirectEmailPromo {
+  const percent = Number(pi.metadata?.discountPercent ?? "");
+  return {
+    code: redeemedPromoCode(pi),
+    percent: Number.isFinite(percent) && percent > 0 && percent <= 100 ? percent : 0,
+  };
+}
+
 function lotNoticeContent(
   dp: DirectBookingPayload,
   fr: DirectFulfilledReservation,
@@ -2545,7 +2586,9 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
     const urgent = stalenessFor(dp, pi, Number.isFinite(storedAt) ? storedAt : Date.now()).kind === "late";
     await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
     if (!row.email_sent) {
-      await sendCustomerEmailOnce(piId, () => sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged));
+      await sendCustomerEmailOnce(piId, () =>
+        sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
+      );
     }
   } catch (err) {
     captureBookingError(
@@ -2779,7 +2822,7 @@ async function fulfilClaimedDirect(
   }
 
   // --- Persist (§3.3), with the 23505 rule (B7) ------------------------------
-  const promoCode = pi.metadata?.promoCode ? pi.metadata.promoCode.trim().toUpperCase() : null;
+  const promoCode = redeemedPromoCode(pi);
   const attribution: Attribution | null = row.attribution ?? null;
   let persisted = await persistDirectBooking(dp, fr, charged, pi.livemode, promoCode, attribution);
   for (let attempt = 0; persisted.kind === "unique_violation"; attempt++) {
@@ -2827,9 +2870,9 @@ async function fulfilClaimedDirect(
   // --- Sends: the LOT first (its only channel), then the customer (§9 H-B) --
   await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, staleness.kind === "late"));
   if (!row.email_sent) {
-    await sendCustomerEmailOnce(piId, () => sendDirectCustomerConfirmation(dp, fr, stored.pgSyncStatus, charged));
+    await sendCustomerEmailOnce(piId, () => sendDirectCustomerConfirmation(dp, fr, stored.pgSyncStatus, charged, directEmailPromo(pi)));
   }
-  await sendDirectAdminNotification(dp, fr, charged);
+  await sendDirectAdminNotification(dp, fr, charged, directEmailPromo(pi));
 
   await markTerminal(piId, "completed");
   await releaseCart(piId);

@@ -61,6 +61,22 @@ exports[`golden — failure paths > Park Guard capture throws a ParkGuardError 1
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -80,6 +96,22 @@ exports[`golden — failure paths > Park Guard capture throws a ParkGuardError 1
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -222,6 +254,22 @@ exports[`golden — failure paths > Park Guard capture throws a ParkGuardError 1
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -441,6 +489,22 @@ exports[`golden — failure paths > Park Guard captured but the local pg_identif
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -460,6 +524,22 @@ exports[`golden — failure paths > Park Guard captured but the local pg_identif
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -602,6 +682,22 @@ exports[`golden — failure paths > Park Guard captured but the local pg_identif
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -821,6 +917,22 @@ exports[`golden — failure paths > Park Guard skipped for missing data and the 
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL914",
@@ -840,6 +952,22 @@ exports[`golden — failure paths > Park Guard skipped for missing data and the 
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -958,6 +1086,22 @@ exports[`golden — failure paths > Park Guard skipped for missing data and the 
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL914",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -1184,6 +1328,19 @@ exports[`golden — failure paths > admin notification email rejects 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -1201,6 +1358,19 @@ exports[`golden — failure paths > admin notification email rejects 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -1317,6 +1487,22 @@ exports[`golden — failure paths > admin notification email rejects 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -2589,6 +2775,19 @@ exports[`golden — failure paths > customer confirmation email rejects 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -2606,6 +2805,19 @@ exports[`golden — failure paths > customer confirmation email rejects 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -2722,6 +2934,22 @@ exports[`golden — failure paths > customer confirmation email rejects 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -3175,6 +3403,19 @@ exports[`golden — reservation shapes > cancelled: 1 (ResLab sends a number) 1`
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL912",
@@ -3192,6 +3433,19 @@ exports[`golden — reservation shapes > cancelled: 1 (ResLab sends a number) 1`
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -3308,6 +3562,22 @@ exports[`golden — reservation shapes > cancelled: 1 (ResLab sends a number) 1`
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL912",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -3445,6 +3715,405 @@ exports[`golden — reservation shapes > cancelled: 1 (ResLab sends a number) 1`
 }
 `;
 
+exports[`golden — reservation shapes > charge consistent with the reservation (74.25 online) — the email cost breakdown is ok 1`] = `
+{
+  "dbLog": [
+    {
+      "op": "select",
+      "table": "bookings",
+    },
+    {
+      "op": "select",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "select",
+      "table": "cart_claims",
+    },
+    {
+      "op": "insert",
+      "table": "cart_claims",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "select",
+      "table": "customers",
+    },
+    {
+      "op": "insert",
+      "table": "customers",
+    },
+    {
+      "op": "insert",
+      "table": "bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "pending_bookings",
+    },
+    {
+      "op": "update",
+      "table": "cart_claims",
+    },
+  ],
+  "emails": {
+    "admin": [
+      [
+        {
+          "airportCode": "JFK",
+          "breakdown": {
+            "atLot": null,
+            "cancelled": false,
+            "dueAtLocationCents": 2150,
+            "lines": [
+              {
+                "cents": 8325,
+                "credit": false,
+                "key": "parking",
+                "label": "Parking",
+              },
+              {
+                "cents": 650,
+                "credit": false,
+                "key": "taxes",
+                "label": "Taxes",
+              },
+              {
+                "cents": 600,
+                "credit": false,
+                "key": "service_fee",
+                "label": "Triply service fee",
+              },
+            ],
+            "netPaidCents": null,
+            "ok": true,
+            "paidOnlineCents": 7425,
+            "refundedCents": 0,
+            "source": "reslab",
+            "totalCents": 9575,
+            "totalLabel": "Total",
+            "tripTotalCents": null,
+            "tripTotalIsEstimate": false,
+          },
+          "checkInDate": "2026-08-14",
+          "checkOutDate": "2026-08-18",
+          "confirmationNumber": "RTL900",
+          "customerEmail": "Ada.Lovelace@Example.com",
+          "customerName": "Ada Lovelace",
+          "customerPhone": "555-0100",
+          "dueAtLocation": 21.5,
+          "lotAddress": "1 Payload Road",
+          "lotName": "Payload Lot Name",
+          "totalAmount": 95.75,
+          "vehicleInfo": "Volvo XC60 (Blue) - ABC123",
+        },
+      ],
+    ],
+    "customer": [
+      [
+        {
+          "breakdown": {
+            "atLot": null,
+            "cancelled": false,
+            "dueAtLocationCents": 2150,
+            "lines": [
+              {
+                "cents": 8325,
+                "credit": false,
+                "key": "parking",
+                "label": "Parking",
+              },
+              {
+                "cents": 650,
+                "credit": false,
+                "key": "taxes",
+                "label": "Taxes",
+              },
+              {
+                "cents": 600,
+                "credit": false,
+                "key": "service_fee",
+                "label": "Triply service fee",
+              },
+            ],
+            "netPaidCents": null,
+            "ok": true,
+            "paidOnlineCents": 7425,
+            "refundedCents": 0,
+            "source": "reslab",
+            "totalCents": 9575,
+            "totalLabel": "Total",
+            "tripTotalCents": null,
+            "tripTotalIsEstimate": false,
+          },
+          "checkInDate": "2026-08-14",
+          "checkInTime": "10:00 AM",
+          "checkOutDate": "2026-08-18",
+          "checkOutTime": "2:00 PM",
+          "confirmationNumber": "RTL900",
+          "customerName": "Ada Lovelace",
+          "dueAtLocation": 21.5,
+          "lotAddress": "1 Payload Road",
+          "lotName": "Payload Lot Name",
+          "pgSyncStatus": null,
+          "shuttleDetails": "Shuttle every 15 minutes & on request",
+          "specialConditions": "No oversized vans",
+          "to": "Ada.Lovelace@Example.com",
+          "totalAmount": 95.75,
+          "vehicleInfo": "Volvo XC60 (Blue) - ABC123",
+        },
+      ],
+    ],
+  },
+  "outcome": {
+    "kind": "created",
+    "reservation": {
+      "customer": {
+        "email": "Ada.Lovelace@Example.com",
+        "firstName": "Ada",
+        "lastName": "Lovelace",
+        "phone": "555-0100",
+      },
+      "dueAtLocation": 21.5,
+      "dueNow": 74.25,
+      "grandTotal": 95.75,
+      "id": 777,
+      "items": [
+        {
+          "fromDate": "2026-08-14 10:00:00",
+          "numberOfDays": null,
+          "numberOfSpots": 1,
+          "toDate": "2026-08-18 14:00:00",
+          "type": "parking",
+        },
+      ],
+      "location": {
+        "address": "99 ResLab Avenue",
+        "city": "Jamaica",
+        "id": 4242,
+        "name": "ResLab Lot Name",
+        "phone": "+17185550199",
+        "shuttleDetails": "Shuttle every 15 minutes & on request",
+        "specialConditions": "No oversized vans",
+        "state": "NY",
+        "zipCode": "11430",
+      },
+      "pgIdentifier": null,
+      "protectionPlan": null,
+      "protectionPlanPrice": 0,
+      "reservationNumber": "RTL900",
+      "serviceFee": 6,
+      "status": "confirmed",
+    },
+    "reservationNumber": "RTL900",
+  },
+  "outcomeJson": "{"kind":"created","reservationNumber":"RTL900","reservation":{"id":777,"reservationNumber":"RTL900","status":"confirmed","grandTotal":95.75,"serviceFee":6,"protectionPlan":null,"protectionPlanPrice":0,"pgIdentifier":null,"dueNow":74.25,"dueAtLocation":21.5,"customer":{"firstName":"Ada","lastName":"Lovelace","email":"Ada.Lovelace@Example.com","phone":"555-0100"},"items":[{"type":"parking","fromDate":"2026-08-14 10:00:00","toDate":"2026-08-18 14:00:00","numberOfDays":null,"numberOfSpots":1}],"location":{"id":4242,"name":"ResLab Lot Name","address":"99 ResLab Avenue","city":"Jamaica","state":"NY","zipCode":"11430","phone":"+17185550199","shuttleDetails":"Shuttle every 15 minutes & on request","specialConditions":"No oversized vans"}}}",
+  "parkGuard": {
+    "captureReservation": [],
+    "updateReservation": [],
+  },
+  "reslab": {
+    "createReservation": [
+      [
+        {
+          "car_color": "Blue",
+          "car_make": "Volvo",
+          "car_makemodel": "Volvo XC60",
+          "car_model": "XC60",
+          "costs_token": "tok_2",
+          "email": "Ada.Lovelace@Example.com",
+          "items": [
+            {
+              "from_date": "2026-08-14 10:00:00",
+              "number_of_spots": 1,
+              "reservation_type": "parking",
+              "to_date": "2026-08-18 14:00:00",
+              "type": "parking",
+              "type_id": 7,
+            },
+          ],
+          "license_plate": "ABC123",
+          "license_plate_state": "NY",
+          "location_id": 42,
+          "phone": "555-0100",
+          "reserved_by": "Ada Lovelace",
+          "reserved_for": "Ada Lovelace",
+        },
+      ],
+    ],
+    "getCost": [
+      [
+        42,
+        [
+          {
+            "from_date": "2026-08-14 10:00:00",
+            "number_of_spots": 1,
+            "reservation_type": "parking",
+            "to_date": "2026-08-18 14:00:00",
+            "type": "parking",
+            "type_id": 7,
+          },
+        ],
+      ],
+    ],
+    "getLocation": [],
+    "getReservation": [],
+  },
+  "sentry": {
+    "captureAPIError": [],
+    "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking RTL900 completed via webhook path (browser did not finish it)",
+        },
+        {
+          "step": "checkout",
+        },
+      ],
+    ],
+    "captureParkGuardError": [],
+    "capturePaymentError": [],
+  },
+  "stripe": {
+    "cancelPaymentIntent": [],
+    "capturePaymentIntent": [
+      [
+        "pi_golden_1",
+      ],
+    ],
+    "createRefund": [],
+    "retrieve": [
+      [
+        "pi_golden_1",
+        {
+          "expand": [
+            "latest_charge",
+          ],
+        },
+      ],
+    ],
+  },
+  "tables": {
+    "bookings": [
+      {
+        "airport_code": "JFK",
+        "attribution": null,
+        "channel": null,
+        "check_in": "2026-08-14 10:00:00",
+        "check_out": "2026-08-18 14:00:00",
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "customer_id": "row_1",
+        "discount_amount": 0,
+        "due_at_location": 21.5,
+        "fees_total": 3,
+        "grand_total": 89.75,
+        "id": "row_1",
+        "livemode": false,
+        "location_address": "1 Payload Road",
+        "location_name": "Payload Lot Name",
+        "location_timezone": "America/New_York",
+        "reslab_location_id": 42,
+        "reslab_reservation_number": "RTL900",
+        "status": "confirmed",
+        "stripe_payment_intent_id": "pi_golden_1",
+        "subtotal": 80,
+        "tax_total": 5,
+        "triply_service_fee": 6,
+        "updated_at": "2026-08-01T12:00:00.000Z",
+        "vehicle_info": {
+          "color": "Blue",
+          "licensePlate": "ABC123",
+          "make": "Volvo",
+          "model": "XC60",
+          "state": "NY",
+        },
+      },
+    ],
+    "cart_claims": [
+      {
+        "cart_key": "test|ada.lovelace@example.com|42|2026-08-14 10:00:00|2026-08-18 14:00:00|7",
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "id": "row_1",
+        "livemode": false,
+        "released_at": "2026-08-01T12:00:00.000Z",
+        "stripe_payment_intent_id": "pi_golden_1",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+      },
+    ],
+    "customers": [
+      {
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "email": "Ada.Lovelace@Example.com",
+        "first_name": "Ada",
+        "id": "row_1",
+        "last_name": "Lovelace",
+        "phone": "555-0100",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+      },
+    ],
+    "pending_bookings": [
+      {
+        "airport_code": "JFK",
+        "claimed_at": "2026-08-01T12:00:00.000Z",
+        "costs_token": "tok_1",
+        "created_at": "2026-08-01T12:00:00.000Z",
+        "customer": {
+          "email": "Ada.Lovelace@Example.com",
+          "firstName": "Ada",
+          "lastName": "Lovelace",
+          "phone": "555-0100",
+        },
+        "email_sent": true,
+        "extra_fields": null,
+        "fees_total": "3.00",
+        "from_date": "2026-08-14 10:00:00",
+        "grand_total": "88.00",
+        "has_protection_plan": false,
+        "livemode": false,
+        "location_address": "1 Payload Road",
+        "location_id": 42,
+        "location_name": "Payload Lot Name",
+        "parking_type_id": 7,
+        "protection_plan_code": null,
+        "reslab_attempt_started_at": "2026-08-01T12:00:00.000Z",
+        "reslab_reservation_number": "RTL900",
+        "status": "completed",
+        "stripe_payment_intent_id": "pi_golden_1",
+        "subtotal": "80.00",
+        "tax_total": "5.00",
+        "to_date": "2026-08-18 14:00:00",
+        "triply_service_fee": "6.00",
+        "updated_at": "2026-08-01T12:00:00.000Z",
+        "user_id": null,
+        "vehicle": {
+          "color": "Blue",
+          "licensePlate": "ABC123",
+          "make": "Volvo",
+          "model": "XC60",
+          "state": "NY",
+        },
+      },
+    ],
+  },
+}
+`;
+
 exports[`golden — reservation shapes > dates absent 1`] = `
 {
   "dbLog": [
@@ -3506,6 +4175,19 @@ exports[`golden — reservation shapes > dates absent 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL913",
@@ -3523,6 +4205,19 @@ exports[`golden — reservation shapes > dates absent 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -3631,6 +4326,22 @@ exports[`golden — reservation shapes > dates absent 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL913",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -3833,6 +4544,22 @@ exports[`golden — reservation shapes > full reservation, Plan A, webhook 1`] =
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -3852,6 +4579,22 @@ exports[`golden — reservation shapes > full reservation, Plan A, webhook 1`] =
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -3994,6 +4737,22 @@ exports[`golden — reservation shapes > full reservation, Plan A, webhook 1`] =
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -4198,6 +4957,19 @@ exports[`golden — reservation shapes > full reservation, no protection, client
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -4215,6 +4987,19 @@ exports[`golden — reservation shapes > full reservation, no protection, client
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -4330,7 +5115,24 @@ exports[`golden — reservation shapes > full reservation, no protection, client
   },
   "sentry": {
     "captureAPIError": [],
-    "captureBookingError": [],
+    "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
+    ],
     "captureParkGuardError": [],
     "capturePaymentError": [],
   },
@@ -4519,6 +5321,18 @@ exports[`golden — reservation shapes > grand_total absent (falls back to the p
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "grand total missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "grand total missing",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL902",
@@ -4536,6 +5350,18 @@ exports[`golden — reservation shapes > grand_total absent (falls back to the p
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "grand total missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "grand total missing",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -4652,6 +5478,22 @@ exports[`golden — reservation shapes > grand_total absent (falls back to the p
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: grand total missing",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL902",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "grand total missing",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -4854,6 +5696,21 @@ exports[`golden — reservation shapes > history is an empty array (all fallback
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL907",
@@ -4873,6 +5730,21 @@ exports[`golden — reservation shapes > history is an empty array (all fallback
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -4985,6 +5857,22 @@ exports[`golden — reservation shapes > history is an empty array (all fallback
         {
           "confirmationNumber": "RTL907",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: subtotal missing",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL907",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "subtotal missing",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -5203,6 +6091,18 @@ exports[`golden — reservation shapes > history is null 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL909",
@@ -5220,6 +6120,18 @@ exports[`golden — reservation shapes > history is null 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -5330,6 +6242,22 @@ exports[`golden — reservation shapes > history is null 1`] = `
         {
           "confirmationNumber": "RTL909",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: subtotal missing",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL909",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "subtotal missing",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -5530,6 +6458,18 @@ exports[`golden — reservation shapes > history key absent 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL908",
@@ -5547,6 +6487,18 @@ exports[`golden — reservation shapes > history key absent 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -5657,6 +6609,22 @@ exports[`golden — reservation shapes > history key absent 1`] = `
         {
           "confirmationNumber": "RTL908",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: subtotal missing",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL908",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "subtotal missing",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -5857,6 +6825,19 @@ exports[`golden — reservation shapes > history[0].id is 0 (the response id fal
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL911",
@@ -5874,6 +6855,19 @@ exports[`golden — reservation shapes > history[0].id is 0 (the response id fal
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -5990,6 +6984,22 @@ exports[`golden — reservation shapes > history[0].id is 0 (the response id fal
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL911",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -6192,6 +7202,22 @@ exports[`golden — reservation shapes > history[0].location absent 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL910",
@@ -6211,6 +7237,22 @@ exports[`golden — reservation shapes > history[0].location absent 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -6331,6 +7373,22 @@ exports[`golden — reservation shapes > history[0].location absent 1`] = `
         {
           "confirmationNumber": "RTL910",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL910",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -6553,6 +7611,22 @@ exports[`golden — reservation shapes > location missing city and zip — Park 
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL903",
@@ -6572,6 +7646,22 @@ exports[`golden — reservation shapes > location missing city and zip — Park 
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -6690,6 +7780,22 @@ exports[`golden — reservation shapes > location missing city and zip — Park 
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL903",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -6906,6 +8012,19 @@ exports[`golden — reservation shapes > location sparse — no phone, no state,
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL904",
@@ -6923,6 +8042,19 @@ exports[`golden — reservation shapes > location sparse — no phone, no state,
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -7039,6 +8171,22 @@ exports[`golden — reservation shapes > location sparse — no phone, no state,
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL904",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -7237,6 +8385,19 @@ exports[`golden — reservation shapes > no timezone or coordinates and getLocat
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL906",
@@ -7254,6 +8415,19 @@ exports[`golden — reservation shapes > no timezone or coordinates and getLocat
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -7392,6 +8566,22 @@ exports[`golden — reservation shapes > no timezone or coordinates and getLocat
         {
           "confirmationNumber": "RTL906",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL906",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -7592,6 +8782,19 @@ exports[`golden — reservation shapes > no timezone or coordinates — the getL
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL905",
@@ -7609,6 +8812,19 @@ exports[`golden — reservation shapes > no timezone or coordinates — the getL
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -7729,6 +8945,22 @@ exports[`golden — reservation shapes > no timezone or coordinates — the getL
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL905",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -7931,6 +9163,22 @@ exports[`golden — reservation shapes > payload money and name fields empty —
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -7950,6 +9198,22 @@ exports[`golden — reservation shapes > payload money and name fields empty —
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -8092,6 +9356,22 @@ exports[`golden — reservation shapes > payload money and name fields empty —
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -8307,6 +9587,19 @@ exports[`golden — reservation shapes > promo applied, money due at the lot 1`]
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 6600,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "promo discount does not match the code's percent",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "promo discount does not match the code's percent",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -8324,6 +9617,19 @@ exports[`golden — reservation shapes > promo applied, money due at the lot 1`]
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 6600,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "promo discount does not match the code's percent",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "promo discount does not match the code's percent",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -8353,7 +9659,7 @@ exports[`golden — reservation shapes > promo applied, money due at the lot 1`]
         "phone": "555-0100",
       },
       "dueAtLocation": 21.5,
-      "dueNow": 74.25,
+      "dueNow": 66,
       "grandTotal": 95.75,
       "id": 777,
       "items": [
@@ -8385,7 +9691,7 @@ exports[`golden — reservation shapes > promo applied, money due at the lot 1`]
     },
     "reservationNumber": "RTL900",
   },
-  "outcomeJson": "{"kind":"created","reservationNumber":"RTL900","reservation":{"id":777,"reservationNumber":"RTL900","status":"confirmed","grandTotal":95.75,"serviceFee":6,"protectionPlan":null,"protectionPlanPrice":0,"pgIdentifier":null,"dueNow":74.25,"dueAtLocation":21.5,"customer":{"firstName":"Ada","lastName":"Lovelace","email":"Ada.Lovelace@Example.com","phone":"555-0100"},"items":[{"type":"parking","fromDate":"2026-08-14 10:00:00","toDate":"2026-08-18 14:00:00","numberOfDays":null,"numberOfSpots":1}],"location":{"id":4242,"name":"ResLab Lot Name","address":"99 ResLab Avenue","city":"Jamaica","state":"NY","zipCode":"11430","phone":"+17185550199","shuttleDetails":"Shuttle every 15 minutes & on request","specialConditions":"No oversized vans"}}}",
+  "outcomeJson": "{"kind":"created","reservationNumber":"RTL900","reservation":{"id":777,"reservationNumber":"RTL900","status":"confirmed","grandTotal":95.75,"serviceFee":6,"protectionPlan":null,"protectionPlanPrice":0,"pgIdentifier":null,"dueNow":66,"dueAtLocation":21.5,"customer":{"firstName":"Ada","lastName":"Lovelace","email":"Ada.Lovelace@Example.com","phone":"555-0100"},"items":[{"type":"parking","fromDate":"2026-08-14 10:00:00","toDate":"2026-08-18 14:00:00","numberOfDays":null,"numberOfSpots":1}],"location":{"id":4242,"name":"ResLab Lot Name","address":"99 ResLab Avenue","city":"Jamaica","state":"NY","zipCode":"11430","phone":"+17185550199","shuttleDetails":"Shuttle every 15 minutes & on request","specialConditions":"No oversized vans"}}}",
   "parkGuard": {
     "captureReservation": [],
     "updateReservation": [],
@@ -8440,6 +9746,22 @@ exports[`golden — reservation shapes > promo applied, money due at the lot 1`]
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: promo discount does not match the code's percent",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "promo discount does not match the code's percent",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -8639,6 +9961,19 @@ exports[`golden — reservation shapes > wallet auto-capture (PI already succeed
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -8656,6 +9991,19 @@ exports[`golden — reservation shapes > wallet auto-capture (PI already succeed
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -8772,6 +10120,22 @@ exports[`golden — reservation shapes > wallet auto-capture (PI already succeed
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -8970,6 +10334,21 @@ exports[`golden — reservation shapes > zero money from ResLab (exercises ?? vs
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL901",
@@ -8989,6 +10368,21 @@ exports[`golden — reservation shapes > zero money from ResLab (exercises ?? vs
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -9131,6 +10525,22 @@ exports[`golden — reservation shapes > zero money from ResLab (exercises ?? vs
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL901",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -9319,6 +10729,18 @@ exports[`golden — resume > adopts a reservation whose re-read has no history 1
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL556",
@@ -9336,6 +10758,18 @@ exports[`golden — resume > adopts a reservation whose re-read has no history 1
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "kind": "unconfirmed",
+            },
+            "protection": null,
+            "reason": "subtotal missing",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "subtotal missing",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -9409,6 +10843,22 @@ exports[`golden — resume > adopts a reservation whose re-read has no history 1
         {
           "confirmationNumber": "RTL556",
           "step": "checkout",
+        },
+      ],
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: subtotal missing",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL556",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "subtotal missing",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
         },
       ],
       [
@@ -9586,6 +11036,22 @@ exports[`golden — resume > adopts the recorded reservation (full body) 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL555",
@@ -9605,6 +11071,22 @@ exports[`golden — resume > adopts the recorded reservation (full body) 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": {
+              "label": "Plan A",
+              "premiumCents": 1299,
+            },
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -9710,6 +11192,22 @@ exports[`golden — resume > adopts the recorded reservation (full body) 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL555",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -10378,6 +11876,19 @@ exports[`golden — resume > insert fails after capture, then a re-drive resumes
         [
           {
             "airportCode": "JFK",
+            "anchoredFallback": {
+              "chargedCents": 9400,
+              "due": {
+                "cents": 2150,
+                "kind": "amount",
+              },
+              "protection": null,
+              "reason": "the parts do not add up to what the card was charged",
+            },
+            "breakdown": {
+              "ok": false,
+              "reason": "the parts do not add up to what the card was charged",
+            },
             "checkInDate": "2026-08-14",
             "checkOutDate": "2026-08-18",
             "confirmationNumber": "RTL900",
@@ -10395,6 +11906,19 @@ exports[`golden — resume > insert fails after capture, then a re-drive resumes
       "customer": [
         [
           {
+            "anchoredFallback": {
+              "chargedCents": 9400,
+              "due": {
+                "cents": 2150,
+                "kind": "amount",
+              },
+              "protection": null,
+              "reason": "the parts do not add up to what the card was charged",
+            },
+            "breakdown": {
+              "ok": false,
+              "reason": "the parts do not add up to what the card was charged",
+            },
             "checkInDate": "2026-08-14",
             "checkInTime": "10:00 AM",
             "checkOutDate": "2026-08-18",
@@ -10523,6 +12047,22 @@ exports[`golden — resume > insert fails after capture, then a re-drive resumes
           {
             "airportCode": "JFK",
             "step": "checkout",
+          },
+        ],
+        [
+          {
+            "error": "Error",
+            "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+          },
+          {
+            "airportCode": "JFK",
+            "confirmationNumber": "RTL900",
+            "fingerprint": [
+              "email-cost-breakdown-fallback",
+              "the parts do not add up to what the card was charged",
+            ],
+            "inventorySource": "reslab",
+            "step": "confirmation",
           },
         ],
         [
@@ -10704,6 +12244,10 @@ exports[`golden — sources > dev path (fulfilOnly, no PaymentIntent) 1`] = `
       [
         {
           "airportCode": "RESLAB",
+          "breakdown": {
+            "ok": false,
+            "reason": "what the card was charged is unknown",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -10721,6 +12265,10 @@ exports[`golden — sources > dev path (fulfilOnly, no PaymentIntent) 1`] = `
     "customer": [
       [
         {
+          "breakdown": {
+            "ok": false,
+            "reason": "what the card was charged is unknown",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -10945,6 +12493,19 @@ exports[`golden — sources > full reservation via complete 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -10962,6 +12523,19 @@ exports[`golden — sources > full reservation via complete 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -11078,6 +12652,22 @@ exports[`golden — sources > full reservation via complete 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",
@@ -11276,6 +12866,19 @@ exports[`golden — sources > full reservation via sweep 1`] = `
       [
         {
           "airportCode": "JFK",
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkOutDate": "2026-08-18",
           "confirmationNumber": "RTL900",
@@ -11293,6 +12896,19 @@ exports[`golden — sources > full reservation via sweep 1`] = `
     "customer": [
       [
         {
+          "anchoredFallback": {
+            "chargedCents": 9400,
+            "due": {
+              "cents": 2150,
+              "kind": "amount",
+            },
+            "protection": null,
+            "reason": "the parts do not add up to what the card was charged",
+          },
+          "breakdown": {
+            "ok": false,
+            "reason": "the parts do not add up to what the card was charged",
+          },
           "checkInDate": "2026-08-14",
           "checkInTime": "10:00 AM",
           "checkOutDate": "2026-08-18",
@@ -11409,6 +13025,22 @@ exports[`golden — sources > full reservation via sweep 1`] = `
   "sentry": {
     "captureAPIError": [],
     "captureBookingError": [
+      [
+        {
+          "error": "Error",
+          "message": "Booking email cost breakdown fell back: the parts do not add up to what the card was charged",
+        },
+        {
+          "airportCode": "JFK",
+          "confirmationNumber": "RTL900",
+          "fingerprint": [
+            "email-cost-breakdown-fallback",
+            "the parts do not add up to what the card was charged",
+          ],
+          "inventorySource": "reslab",
+          "step": "confirmation",
+        },
+      ],
       [
         {
           "error": "Error",

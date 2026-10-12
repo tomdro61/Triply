@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { directDays } from "./pricing";
 import { NO_OVERSIZED_VEHICLE } from "./vehicle-size";
+import { buildCostBreakdown, fallbackDue, type CostBreakdownResult, type FallbackDue } from "@/lib/booking/cost-breakdown";
+import {
+  cardSummary,
+  describeFallback,
+  expectedPromoCents,
+  protectionPlanName,
+  type CardPayment,
+  type CardSummary,
+} from "@/lib/booking/confirmation-payment";
 
 /**
  * The confirmation-page view of a DIRECT booking (direct-lots plan 4b §2.2 /
@@ -107,6 +116,8 @@ const directRowSchema = z.object({
   grand_total: moneyColumn,
   // NULL = no promo on this booking (the column is nullable by design, 016).
   discount_amount: moneyColumn.nullable(),
+  // NULL = no promo; the code labels the breakdown's promo line.
+  promo_code: z.string().min(1).nullable(),
   due_at_location: moneyColumn,
   // Part of the online charge on every direct booking: a NULL / garbled fee
   // is an integrity error, never a silent $0 (which would understate the
@@ -116,6 +127,8 @@ const directRowSchema = z.object({
   // (checked in the builder); when not set, the price is ignored (reconcile).
   protection_plan: z.string().min(1).nullable(),
   protection_plan_price: moneyColumn.nullable(),
+  // "A" / "B" / "C" (migration 021) — names the plan "Plan A" in the breakdown.
+  protection_plan_code: z.string().min(1).nullable(),
   vehicle_size: z.string().min(1),
   vehicle_size_label: z.string().min(1),
   vehicle_surcharge_cents: centsColumn,
@@ -157,6 +170,18 @@ export interface DirectReservationView {
   /** The stored `due_at_location` (0 for a direct row). Never includes the at-lot vehicle estimate. */
   dueAtLocation: number;
   atLotEstimate: AtLotEstimateView | null;
+  /**
+   * The Payment summary (plan 2026-10-12): built from the row and checked
+   * against what Stripe took; `ok: false` → the page shows the plain fallback.
+   */
+  costBreakdown: CostBreakdownResult;
+  /**
+   * The card side for the plain fallback: Stripe's own amount (+ refunds), a
+   * released hold, or unknown — never an amount computed from the row.
+   */
+  cardPayment: CardSummary;
+  /** What the fallback may say is due at the lot (core `fallbackDue`: amount / unconfirmed / none). */
+  fallbackDue: FallbackDue;
   airportCode: string;
   timezone: string;
   customer: { firstName: string; lastName: string; email: string; phone: string };
@@ -200,6 +225,8 @@ export interface DirectReservationCommon {
   /** "YYYY-MM-DD HH:mm:ss" airport-local, exactly as stored. null = missing (an error for a direct row). */
   fromDate: string | null;
   toDate: string | null;
+  /** What Stripe took on the booking's PaymentIntent — the breakdown's anchor. */
+  payment: CardPayment;
 }
 
 const toCents = (dollars: number): number => Math.round(dollars * 100);
@@ -298,6 +325,39 @@ export function buildDirectReservation(
   const discountCents = toCents(row.discount_amount ?? 0);
   const dueAtLocationCents = toCents(row.due_at_location);
 
+  const dueNowCents = grandCents - discountCents - dueAtLocationCents;
+  const costBreakdown = buildCostBreakdown({
+    source: "direct",
+    days: days.days,
+    subtotal: row.subtotal,
+    tax: row.tax_total,
+    serviceFee: row.triply_service_fee,
+    promoDiscount: row.discount_amount ?? 0,
+    promoCode: row.promo_code,
+    // The code's percent (stamped on the PaymentIntent) on the same base the
+    // direct quote used: min(grand, round(subtotal × pct / 100)).
+    expectedPromoCents: expectedPromoCents({
+      discountPercent: common.payment.discountPercent,
+      base: row.subtotal,
+      cap: row.grand_total,
+    }),
+    protection:
+      row.protection_plan !== null
+        ? { name: protectionPlanName(row.protection_plan_code, row.protection_plan), premium: protectionPlanPrice }
+        : null,
+    // An unknown charge or refund → null anchor → the breakdown is refused.
+    anchorChargedCents: common.payment.ok ? common.payment.chargedCents : null,
+    refundedCents: common.payment.ok ? common.payment.refundedCents : 0,
+    cancelled: status === "cancelled",
+    atLot: estimate.estimate
+      ? {
+          surchargeCents: row.vehicle_surcharge_cents,
+          surchargeTaxCents: row.vehicle_surcharge_tax_cents,
+          vehicleSizeLabel: estimate.estimate.vehicleSizeLabel,
+        }
+      : null,
+  });
+
   const instructions = snap.bookingInstructions;
   const specialConditions = [instructions.importantNotes, instructions.whenYouArrive]
     .filter((s): s is string => !!s)
@@ -320,9 +380,31 @@ export function buildDirectReservation(
       protectionPlanPrice,
       pgIdentifier: common.pgIdentifier,
       pgSyncStatus: common.pgSyncStatus,
-      dueNow: fromCents(grandCents - discountCents - dueAtLocationCents),
+      dueNow: fromCents(dueNowCents),
       dueAtLocation: fromCents(dueAtLocationCents),
       atLotEstimate: estimate.estimate,
+      costBreakdown: costBreakdown.ok
+        ? costBreakdown
+        : {
+            ok: false,
+            reason: describeFallback({
+              rowReadFailed: false,
+              payment: common.payment,
+              cancelled: status === "cancelled",
+              coreReason: costBreakdown.reason,
+            }).reason,
+          },
+      cardPayment: cardSummary(common.payment),
+      // What the fallback may say is due at the lot: the row's own estimate,
+      // unless the refused breakdown puts it in doubt.
+      fallbackDue: fallbackDue({
+        source: "direct",
+        // The surcharge is OUTSIDE the card charge, so an anchor refusal does
+        // not put it in doubt (the core decides).
+        recordedDue: (row.vehicle_surcharge_cents + row.vehicle_surcharge_tax_cents) / 100,
+        refusal: costBreakdown.ok ? null : costBreakdown.reason,
+        cancelled: status === "cancelled",
+      }),
       airportCode: snap.airportCode,
       timezone: snap.timezone,
       customer: {

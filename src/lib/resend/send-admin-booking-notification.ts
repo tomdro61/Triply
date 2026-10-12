@@ -2,6 +2,8 @@ import { resend, FROM_EMAIL } from "./client";
 import { ADMIN_EMAILS } from "@/config/admin";
 import { captureBookingError } from "@/lib/sentry";
 import { escapeHtml } from "@/lib/validation/schemas";
+import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import type { AnchoredFallback } from "./anchored-fallback";
 
 interface AdminBookingNotificationParams {
   confirmationNumber: string;
@@ -24,6 +26,65 @@ interface AdminBookingNotificationParams {
   sourceLine?: string;
   /** Direct lots only: the declared vehicle size + at-lot estimate. */
   vehicleDeclaration?: string;
+  /**
+   * The cost breakdown (plan notes/2026-10-12-cost-breakdown-plan.md). When
+   * `ok`, the money rows are a compact copy of the customer email's table;
+   * absent or `ok: false` → the fallback rows (Total / Protection / Paid
+   * Online / Due at Location).
+   */
+  breakdown?: CostBreakdownResult;
+  /** With an `ok: false` breakdown and a known charge: what the email states instead (anchored-fallback.ts). */
+  anchoredFallback?: AnchoredFallback;
+}
+
+const LABEL_TD = "padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;";
+const VALUE_TD = "padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;";
+
+function moneyRow(label: string, value: string, valueStyle = ""): string {
+  return `
+              <tr>
+                <td style="${LABEL_TD}">${escapeHtml(label)}</td>
+                <td style="${VALUE_TD}${valueStyle}">${escapeHtml(value)}</td>
+              </tr>`;
+}
+
+/**
+ * A breakdown was attempted and did not add up, but the charge is known: the
+ * charge, the protection in it, the due-at-location amount only when it can
+ * be stated, plus WHY the breakdown was withheld — never a total re-added from
+ * the rejected parts.
+ */
+function anchoredFallbackRows(f: AnchoredFallback, direct: boolean): string {
+  const rows = [moneyRow("Charged to card", formatUsd(f.chargedCents), " color: #f87356; font-size: 16px; font-weight: 700;")];
+  if (f.protection) rows.push(moneyRow(`Parking Protection — ${f.protection.label} (incl.)`, formatUsd(f.protection.premiumCents)));
+  const dueLabel = direct ? "Due at the lot (est.)" : "Due at location";
+  if (f.due.kind === "amount") {
+    rows.push(moneyRow(dueLabel, formatUsd(f.due.cents), " color: #d97706; font-weight: 600;"));
+  } else if (f.due.kind === "unconfirmed") {
+    rows.push(moneyRow(dueLabel, "Unconfirmed — check the reservation", " color: #d97706; font-weight: 600;"));
+  }
+  rows.push(moneyRow("Breakdown withheld", f.reason, " color: #6b7280;"));
+  return rows.join("");
+}
+
+/** The money rows from a cost breakdown — every amount from buildCostBreakdown, none computed here. */
+function breakdownRows(b: CostBreakdown): string {
+  const rows = b.lines.map((line) => moneyRow(line.label, formatUsd(line.cents, line.credit), line.credit ? " color: #15803d;" : ""));
+  const strong = " color: #f87356; font-size: 16px; font-weight: 700;";
+  rows.push(moneyRow(b.totalLabel, formatUsd(b.totalCents), strong));
+  if (b.dueAtLocationCents > 0) {
+    rows.push(moneyRow("Paid online (card)", formatUsd(b.paidOnlineCents)));
+    rows.push(moneyRow("Due at location", formatUsd(b.dueAtLocationCents), " color: #d97706; font-weight: 600;"));
+  }
+  if (b.atLot !== null) {
+    rows.push(moneyRow(`Due at the lot (est., ${b.atLot.vehicleSizeLabel})`, formatUsd(b.atLot.cents), " color: #d97706; font-weight: 600;"));
+    if (b.tripTotalCents !== null) rows.push(moneyRow("Trip total (est.)", formatUsd(b.tripTotalCents)));
+  }
+  if (b.netPaidCents !== null) {
+    rows.push(moneyRow("Refunded", formatUsd(b.refundedCents, true)));
+    rows.push(moneyRow("Net paid", formatUsd(b.netPaidCents)));
+  }
+  return rows.join("");
 }
 
 /**
@@ -48,6 +109,8 @@ export async function sendAdminBookingNotification({
   protectionPlanPrice,
   sourceLine,
   vehicleDeclaration,
+  breakdown,
+  anchoredFallback,
 }: AdminBookingNotificationParams) {
   try {
     const paidOnline = dueAtLocation ? totalAmount - dueAtLocation : totalAmount;
@@ -94,6 +157,7 @@ export async function sendAdminBookingNotification({
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Check-out</td>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(checkOutDate)}</td>
               </tr>
+              ${breakdown?.ok ? breakdownRows(breakdown) : breakdown && anchoredFallback ? anchoredFallbackRows(anchoredFallback, sourceLine !== undefined) : `
               <tr>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Total</td>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #f87356; font-size: 16px; font-weight: 700;">$${totalAmount.toFixed(2)}</td>
@@ -114,6 +178,7 @@ export async function sendAdminBookingNotification({
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #d97706; font-size: 14px; font-weight: 600;">$${dueAtLocation.toFixed(2)}</td>
               </tr>
               ` : ""}
+              `}
             </table>
 
             <h2 style="margin: 0 0 16px; color: #111827; font-size: 18px; font-weight: 700;">Customer</h2>

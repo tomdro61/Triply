@@ -1,6 +1,8 @@
 import * as React from "react";
 import { formatDate } from "@/lib/utils";
 import { bulletLines } from "@/lib/utils/bullet-lines";
+import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
+import type { AnchoredFallback } from "../anchored-fallback";
 
 /**
  * A Triply DIRECT-lot booking (4b plan §3.4). Absent for every ResLab booking,
@@ -42,6 +44,141 @@ interface BookingConfirmationEmailProps {
   // PG has no record so the claim link would 404 on them.
   pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
   direct?: DirectLotEmailDetails;
+  /**
+   * The cost breakdown (plan notes/2026-10-12-cost-breakdown-plan.md). When
+   * `ok`, the Payment Summary renders it line by line; absent or `ok: false`,
+   * the fallback layout below renders from totalAmount / dueAtLocation.
+   */
+  breakdown?: CostBreakdownResult;
+  /**
+   * Set (by fulfilment) when `breakdown` is `ok: false` and the card charge is
+   * known: the Payment Summary then states the charge itself — never a total
+   * re-added from the parts the breakdown just rejected. Absent: the legacy
+   * layout, unchanged (scripts/resend-confirmation.ts, the dev path).
+   */
+  anchoredFallback?: AnchoredFallback;
+}
+
+const rowCell = { padding: "3px 0", color: "#1e293b", fontSize: "14px" } as const;
+const ruleCell = { padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #fed7ca" } as const;
+const totalCell = { padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" } as const;
+const subCell = { padding: "3px 0", color: "#64748b", fontSize: "13px" } as const;
+
+function AmountRow({ label, value, style }: { label: React.ReactNode; value: string; style: React.CSSProperties }) {
+  return (
+    <tr>
+      <td style={style}>{label}</td>
+      <td style={{ ...style, textAlign: "right" }}>{value}</td>
+    </tr>
+  );
+}
+
+/**
+ * The fallback when a breakdown was attempted and did not add up, but the
+ * card charge is known: only what can be stated — the charge, the protection
+ * in it, and what is due at the location / lot when the core `fallbackDue`
+ * says it can be stated (otherwise: the lot confirms it on arrival). No total.
+ */
+function AnchoredFallbackRows({ f, directVehicleSizeLabel }: { f: AnchoredFallback; directVehicleSizeLabel: string | null }) {
+  const dueStyle = { padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" } as const;
+  return (
+    <>
+      <AmountRow label="Charged to card" value={formatUsd(f.chargedCents)} style={f.due.kind !== "none" ? ruleCell : totalCell} />
+      {f.protection && (
+        <AmountRow label={`Includes Parking Protection — ${f.protection.label}`} value={formatUsd(f.protection.premiumCents)} style={subCell} />
+      )}
+      {f.due.kind === "amount" && directVehicleSizeLabel === null && (
+        <AmountRow label="Due at location (as recorded)" value={formatUsd(f.due.cents)} style={dueStyle} />
+      )}
+      {f.due.kind === "amount" && directVehicleSizeLabel !== null && (
+        <>
+          <AmountRow label="Due at the lot (est.)" value={formatUsd(f.due.cents)} style={dueStyle} />
+          <tr>
+            <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
+              {directVehicleSizeLabel} surcharge incl. tax, paid at drop-off. The lot confirms your vehicle&rsquo;s size at the gate.
+            </td>
+          </tr>
+        </>
+      )}
+      {f.due.kind === "unconfirmed" && (
+        <tr>
+          <td colSpan={2} style={{ padding: "6px 0 0", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
+            The lot will confirm any amount due when you arrive. Questions?{" "}
+            <a href="mailto:support@triplypro.com" style={{ color: "#f87356", textDecoration: "none" }}>support@triplypro.com</a>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/**
+ * The Payment Summary rows from a cost breakdown — every amount computed by
+ * buildCostBreakdown, none here. ResLab: lines → Total (→ Paid online + Due at
+ * location when something is due there). Direct: lines → Charged today (this
+ * email is sent at booking) → Due at the lot (est.) → Trip total (est.).
+ */
+function BreakdownRows({ b }: { b: CostBreakdown }) {
+  const cardLabel = b.totalLabel === "Charged to card" ? "Charged today" : b.totalLabel;
+  const hasSecondStep = b.dueAtLocationCents > 0 || b.atLot !== null;
+  return (
+    <>
+      {b.lines.map((line) => (
+        <AmountRow
+          key={line.key}
+          label={line.label}
+          value={formatUsd(line.cents, line.credit)}
+          style={line.credit ? { ...rowCell, color: "#15803d" } : rowCell}
+        />
+      ))}
+      <AmountRow
+        label={
+          cardLabel === "Charged today" ? (
+            <>
+              Charged today <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "400" }}>(card)</span>
+            </>
+          ) : (
+            cardLabel
+          )
+        }
+        value={formatUsd(b.totalCents)}
+        style={hasSecondStep ? ruleCell : totalCell}
+      />
+      {b.dueAtLocationCents > 0 && (
+        <>
+          <AmountRow label="Paid online (card)" value={formatUsd(b.paidOnlineCents)} style={subCell} />
+          <AmountRow
+            label="Due at location"
+            value={formatUsd(b.dueAtLocationCents)}
+            style={{ ...rowCell, color: "#b45309", fontWeight: "600" }}
+          />
+        </>
+      )}
+      {b.atLot !== null && (
+        <>
+          <AmountRow
+            label="Due at the lot (est.)"
+            value={formatUsd(b.atLot.cents)}
+            style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" }}
+          />
+          <tr>
+            <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
+              {b.atLot.vehicleSizeLabel} surcharge incl. tax, paid at drop-off. The lot confirms your vehicle&rsquo;s size at the gate.
+            </td>
+          </tr>
+          {b.tripTotalCents !== null && (
+            <AmountRow label="Trip total (est.)" value={formatUsd(b.tripTotalCents)} style={totalCell} />
+          )}
+        </>
+      )}
+      {b.netPaidCents !== null && (
+        <>
+          <AmountRow label="Refunded" value={formatUsd(b.refundedCents, true)} style={{ ...rowCell, color: "#15803d" }} />
+          <AmountRow label="Net paid" value={formatUsd(b.netPaidCents)} style={totalCell} />
+        </>
+      )}
+    </>
+  );
 }
 
 // Triply-controlled redirect (next.config.mjs /claims) → Park Guard claim
@@ -71,6 +208,8 @@ export function BookingConfirmationEmail({
   protectionPlanPrice,
   pgSyncStatus,
   direct,
+  breakdown,
+  anchoredFallback,
 }: BookingConfirmationEmailProps) {
   // A direct lot's shuttle phone comes from its snapshot; ResLab never passes one.
   shuttlePhone = direct?.shuttlePhone ?? shuttlePhone;
@@ -271,7 +410,11 @@ export function BookingConfirmationEmail({
           <p style={{ ...labelStyle, color: "#c2410c", marginBottom: "10px" }}>Payment Summary</p>
           <table style={{ width: "100%" }}>
             <tbody>
-              {direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 ? (
+              {breakdown?.ok ? (
+                <BreakdownRows b={breakdown} />
+              ) : breakdown && anchoredFallback ? (
+                <AnchoredFallbackRows f={anchoredFallback} directVehicleSizeLabel={direct ? direct.vehicleSizeLabel : null} />
+              ) : direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 ? (
                 <>
                   {/* Direct lot with an oversized vehicle: money changes hands
                       twice, so the card charge is "Charged today", the lot's
