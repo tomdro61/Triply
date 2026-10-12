@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { capturePaymentError, captureParkGuardError, captureNonCheckoutPayment } from "@/lib/sentry";
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
 
       const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
-        .select("id, status")
+        .select("id, status, inventory_source")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .maybeSingle();
 
@@ -85,6 +87,26 @@ export async function POST(request: NextRequest) {
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
+        } else if (booking.inventory_source === "direct") {
+          // A DIRECT booking's lot notice and customer email are sent after the
+          // insert; a function that died in between left them unsent. The
+          // engine's Step 3 re-runs exactly those (each behind its own claim)
+          // — or answers in_progress while the main path is still sending,
+          // which asks Stripe to redeliver (4b §9 H-B). A send that fails here
+          // is picked up by the sweep's direct backstop.
+          try {
+            const outcome = await createBooking({ source: "webhook", stripePaymentIntentId: paymentIntent.id });
+            retryable = shouldStripeRedeliver(outcome);
+          } catch (redriveError) {
+            capturePaymentError(
+              new Error(
+                `Webhook ${event.type}: direct-booking re-send failed: ${
+                  redriveError instanceof Error ? redriveError.message : String(redriveError)
+                }`
+              ),
+              { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+            );
+          }
         }
         break;
       }
@@ -187,7 +209,7 @@ export async function POST(request: NextRequest) {
         if (pending.reslab_reservation_number) {
           capturePaymentError(
             new Error(
-              `PaymentIntent ${paymentIntent.id} was canceled but ResLab reservation ${pending.reslab_reservation_number} exists — release the spot manually.`
+              `PaymentIntent ${paymentIntent.id} was canceled but ${describeRecordedNumber(pending.reslab_reservation_number)}.`
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
@@ -346,7 +368,7 @@ export async function POST(request: NextRequest) {
         if (failedPending.reslab_reservation_number) {
           capturePaymentError(
             new Error(
-              `PaymentIntent ${paymentIntent.id} failed but ResLab reservation ${failedPending.reslab_reservation_number} exists — release the spot manually.`
+              `PaymentIntent ${paymentIntent.id} failed but ${describeRecordedNumber(failedPending.reslab_reservation_number)}.`
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
@@ -422,7 +444,7 @@ export async function POST(request: NextRequest) {
       if (paymentIntentId) {
         const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
-          .select("id, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
+          .select("id, protection_plan, protection_plan_price, pg_identifier, pg_sync_status, inventory_source")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
@@ -542,6 +564,13 @@ export async function POST(request: NextRequest) {
               ),
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
+          }
+
+          // Any full refund that left a DIRECT row refunded — including one the
+          // app issued itself — gets the lot cancel notice. The claim sends it
+          // at most once across this webhook, the cancel routes and the sweep.
+          if (statusAdvanced && booking.inventory_source === "direct") {
+            await sendLotCancelNotice(paymentIntentId);
           }
 
           // Attribute it (migration 032) ONLY if no cancel path already did.

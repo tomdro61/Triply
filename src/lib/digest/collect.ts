@@ -785,6 +785,7 @@ export async function collectHealth(sb: Client, w: DigestWindow, now: Date): Pro
       stuckPending = { kind: "error", message: err instanceof Error ? err.message : String(err) };
     }
     const emailNotSent = await unsentConfirmationEmails(sb, now);
+    const lotNotNotified = await directLotsNotNotified(sb, now);
     // A posted_partial digest WAS posted; only could_not_run / post_failed are gaps.
     const last = await sb
       .from("digest_runs")
@@ -803,7 +804,7 @@ export async function collectHealth(sb: Client, w: DigestWindow, now: Date): Pro
       const [y1, m1, d1] = w.dateEt.split("-").map(Number);
       lastDigest = { kind: "days", n: Math.round((Date.UTC(y1, m1 - 1, d1) - Date.UTC(y, m - 1, d)) / 86_400_000) };
     }
-    return ok({ telemetry, snapshot, stuckPending, emailNotSent, lastDigest });
+    return ok({ telemetry, snapshot, stuckPending, emailNotSent, lotNotNotified, lastDigest });
   } catch (err) {
     return fail(err);
   }
@@ -849,6 +850,81 @@ async function unsentConfirmationEmails(sb: Client, now: Date): Promise<HealthSe
         return isReslabConfirmationNumber(n) || isTriplyConfirmationNumber(n) ? n : "(unrecognised number)";
       });
     return { kind: "n", n: numbers.length, capped, numbers, lookbackDays: EMAIL_UNSENT_LOOKBACK_DAYS };
+  } catch (err) {
+    return { kind: "error", message: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Most TRP- numbers fetched for the lot-notice check. */
+export const LOT_NOTICE_CAP = 25;
+
+/**
+ * Live direct bookings whose LOT was never told (4b plan §9 H-B), older than an
+ * hour and inside the email lookback:
+ *   - bookings: `confirmed`, no `lot_notified_at`;
+ *   - cancellations: cancelled/refunded, the stay not yet over, the lot WAS
+ *     told of the booking (or may have been: claimed), but no
+ *     `lot_cancel_notified_at`.
+ * The sweep re-drives both every 10 minutes and each failure is a Sentry
+ * event; this is the daily view of what is still outstanding. Live mode only.
+ * Fetches cap + 1 so a backlog shows as "25+", never as exactly 25.
+ */
+async function directLotsNotNotified(sb: Client, now: Date): Promise<HealthSection["lotNotNotified"]> {
+  try {
+    const since = new Date(now.getTime() - EMAIL_UNSENT_LOOKBACK_DAYS * 86_400_000).toISOString();
+    const hourAgo = new Date(now.getTime() - 3_600_000).toISOString();
+    const toNumbers = (rows: unknown) =>
+      ((rows ?? []) as Array<{ reslab_reservation_number: string | null }>).map((r) => {
+        const n = r.reslab_reservation_number;
+        return n && isTriplyConfirmationNumber(n) ? n : "(unrecognised number)";
+      });
+
+    const { data, error } = await sb
+      .from("bookings")
+      .select("reslab_reservation_number")
+      .eq("inventory_source", "direct")
+      .eq("livemode", true)
+      .eq("status", "confirmed")
+      .is("lot_notified_at", null)
+      .gte("created_at", since)
+      .lt("created_at", hourAgo)
+      .order("created_at")
+      .limit(LOT_NOTICE_CAP + 1)
+      .abortSignal(sig());
+    if (error) throw new Error(`bookings(lot_notified_at): ${error.code ?? "?"} ${error.message}`);
+
+    // Bounded by the STAY, not `updated_at`: every retry's claim bumps
+    // updated_at, which would hide exactly the notice that keeps failing.
+    // check_out is a literal wall-clock TIMESTAMP — compared to a date a day
+    // back, timezone-free. The sweep re-sends these every 10 minutes, so one
+    // still here at digest time is a real failure. `.or()` is a SELECT here —
+    // PostgREST accepts it (it rejects it only on UPDATE).
+    const dayBack = new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10);
+    const { data: cancels, error: cancelError } = await sb
+      .from("bookings")
+      .select("reslab_reservation_number")
+      .eq("inventory_source", "direct")
+      .eq("livemode", true)
+      .in("status", ["cancelled", "refunded"])
+      .is("lot_cancel_notified_at", null)
+      .or("lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null")
+      .gte("check_out", dayBack)
+      .order("check_out")
+      .limit(LOT_NOTICE_CAP + 1)
+      .abortSignal(sig());
+    if (cancelError) throw new Error(`bookings(lot_cancel_notified_at): ${cancelError.code ?? "?"} ${cancelError.message}`);
+
+    const numbers = toNumbers(data);
+    const cancelNumbers = toNumbers(cancels);
+    return {
+      kind: "n",
+      n: Math.min(numbers.length, LOT_NOTICE_CAP),
+      numbers: numbers.slice(0, LOT_NOTICE_CAP),
+      capped: numbers.length > LOT_NOTICE_CAP,
+      cancelN: Math.min(cancelNumbers.length, LOT_NOTICE_CAP),
+      cancelNumbers: cancelNumbers.slice(0, LOT_NOTICE_CAP),
+      cancelCapped: cancelNumbers.length > LOT_NOTICE_CAP,
+    };
   } catch (err) {
     return { kind: "error", message: err instanceof Error ? err.message : String(err) };
   }

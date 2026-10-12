@@ -8,10 +8,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 type Answer = { data?: unknown; error?: { code?: string; message: string } | null; count?: number | null };
 const answers = vi.hoisted(() => ({
   byTable: new Map<string, Answer[]>(),
-  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null; eqs: Array<[string, unknown]>; gte?: string; lt?: string }>,
+  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null; eqs: Array<[string, unknown]>; gte?: string; lt?: string; is: Array<[string, unknown]>; or: string[] }>,
 }));
 const COLUMNS: Record<string, string[]> = {
-  bookings: ["id", "created_at", "status", "check_in", "location_timezone", "reslab_location_id", "stripe_payment_intent_id", "livemode", "customer_id", "airport_code", "promo_code", "discount_amount", "grand_total", "triply_service_fee", "due_at_location", "protection_plan", "protection_plan_price", "protection_plan_wholesale", "channel", "attribution", "customers(email)"],
+  bookings: ["id", "created_at", "status", "check_in", "location_timezone", "reslab_location_id", "stripe_payment_intent_id", "livemode", "customer_id", "airport_code", "promo_code", "discount_amount", "grand_total", "triply_service_fee", "due_at_location", "protection_plan", "protection_plan_price", "protection_plan_wholesale", "channel", "attribution", "customers(email)", "reslab_reservation_number"],
   pending_bookings: ["stripe_payment_intent_id", "livemode", "status", "last_error", "airport_code", "location_name", "location_id", "created_at", "reslab_reservation_number", "email_sent"],
   customers: ["id", "email"],
   search_events: ["id", "airport_code", "dates_defaulted", "results_count", "sold_out_count", "degraded"],
@@ -34,7 +34,9 @@ vi.mock("@/lib/supabase/server", () => ({
       const eqs: Array<[string, unknown]> = [];
       let gte: string | undefined;
       let lt: string | undefined;
-      for (const m of ["select", "eq", "in", "gte", "lt", "like", "not", "order", "limit", "range", "abortSignal"]) {
+      const is: Array<[string, unknown]> = [];
+      const or: string[] = [];
+      for (const m of ["select", "eq", "in", "is", "or", "gte", "lt", "like", "not", "order", "limit", "range", "abortSignal"]) {
         chain[m] = (...args: unknown[]) => {
           if (m === "select") {
             select = String(args[0]);
@@ -42,13 +44,15 @@ vi.mock("@/lib/supabase/server", () => ({
           }
           if (m === "range") range = [Number(args[0]), Number(args[1])];
           if (m === "eq") eqs.push([String(args[0]), args[1]]);
+          if (m === "is") is.push([String(args[0]), args[1]]);
+          if (m === "or") or.push(String(args[0]));
           if (m === "gte") gte = String(args[1]);
           if (m === "lt") lt = String(args[1]);
           return chain;
         };
       }
       const resolve = () => {
-        answers.calls.push({ table, head, select, range, eqs, gte, lt });
+        answers.calls.push({ table, head, select, range, eqs, gte, lt, is, or });
         const unknown = select.split(",").map((c) => c.trim()).filter((c) => c && !(COLUMNS[table] ?? []).includes(c));
         if (unknown.length) return { data: null, error: { code: "42703", message: `column ${table}.${unknown[0]} does not exist` }, count: null };
         const q = answers.byTable.get(table) ?? [];
@@ -72,8 +76,9 @@ vi.mock("@/lib/reslab/location-snapshot", () => ({
   SNAPSHOT_MAX_AGE_MS: 24 * 3_600_000,
 }));
 
-import { partitionBookings, leadDays, collectDigest, collectPace, collectRecovery, collectWeek, paceWindows, weekEndingOn, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS } from "../collect";
+import { partitionBookings, leadDays, collectDigest, collectHealth, collectPace, collectRecovery, collectWeek, paceWindows, weekEndingOn, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS, LOT_NOTICE_CAP } from "../collect";
 import { createAdminClient } from "@/lib/supabase/server";
+import { FakeSupabase } from "@/lib/booking/__tests__/supabase-fake";
 import { windowForEtDay } from "../window";
 
 const set = (table: string, ...a: Answer[]) => answers.byTable.set(table, a);
@@ -448,6 +453,134 @@ describe("collectDigest — sections, baselines, isolation", () => {
     for (const s of ["bookings", "funnel", "lostSales", "engagement", "health", "pace", "recovery"] as const) {
       expect(d[s].ok, `${s}: ${JSON.stringify(d[s])}`).toBe(true);
     }
+    // a health sub-check that swallows its own error must not hide a bad column either
+    expect(d.health.ok && d.health.data.lotNotNotified).toMatchObject({ kind: "n", n: 0, cancelN: 0 });
+    expect(d.health.ok && d.health.data.emailNotSent).toMatchObject({ kind: "n" });
+  });
+});
+
+describe("health — direct lots the lot was never told about (4b plan §9 H-B)", () => {
+  const w = windowForEtDay("2026-09-27");
+  const HOUR = 3_600_000;
+  const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+  const direct = (over: Record<string, unknown>) => {
+    const created = (over.created_at as string | undefined) ?? ago(2 * HOUR);
+    return {
+      id: `b_${String(over.reslab_reservation_number ?? "x")}`,
+      reslab_reservation_number: "TRP-7K2M9QXA",
+      inventory_source: "direct",
+      livemode: true,
+      status: "confirmed",
+      lot_notified_at: null,
+      lot_notice_claimed_at: null,
+      lot_cancel_notified_at: null,
+      check_out: "2026-10-02T10:00:00", // literal wall-clock TIMESTAMP; the stay is still ahead of NOW
+      created_at: created,
+      updated_at: created,
+      ...over,
+    };
+  };
+  /** A real filtering fake (the queue fake above answers regardless of filters). */
+  const health = async (rows: Array<Record<string, unknown>>, prep?: (db: FakeSupabase) => void) => {
+    const db = new FakeSupabase().seed("bookings", rows);
+    prep?.(db);
+    const r = await collectHealth(db as never, w, NOW);
+    if (!r.ok) throw new Error(r.error);
+    return r.data.lotNotNotified;
+  };
+
+  it("lists only live, confirmed, un-notified direct bookings older than an hour and inside the lookback", async () => {
+    const r = await health([
+      direct({ reslab_reservation_number: "TRP-7K2M9QXA" }), // included
+      direct({ reslab_reservation_number: "RTL854206", inventory_source: "reslab" }),
+      direct({ reslab_reservation_number: "TRP-TESTMD00", livemode: false }),
+      direct({ reslab_reservation_number: "TRP-Y0VNG000", created_at: ago(30 * 60_000) }),
+      direct({ reslab_reservation_number: "TRP-N0T1F1ED", lot_notified_at: ago(HOUR) }),
+      direct({ reslab_reservation_number: "TRP-CANCE11D", status: "cancelled" }), // never told ⇒ neither list
+      direct({ reslab_reservation_number: "TRP-0LDR0WAA", created_at: ago(8 * 24 * HOUR) }),
+    ]);
+    expect(r).toEqual({ kind: "n", n: 1, numbers: ["TRP-7K2M9QXA"], capped: false, cancelN: 0, cancelNumbers: [], cancelCapped: false });
+  });
+
+  it("a cancellation the lot was told (or may have been told) of, whose stay is not over and whose cancel notice never went, is in cancelNumbers (by check-out)", async () => {
+    // NOW = 2026-09-28T13:05Z ⇒ the bound is check_out >= "2026-09-27"; updated_at plays no part
+    const r = await health([
+      direct({ reslab_reservation_number: "TRP-CANC1111", status: "cancelled", lot_notified_at: ago(5 * HOUR), check_out: "2026-10-03T10:00:00" }),
+      direct({ reslab_reservation_number: "TRP-REFD2222", status: "refunded", lot_notice_claimed_at: ago(5 * HOUR), check_out: "2026-10-01T10:00:00" }),
+      // just cancelled (updated 10 min ago) — no "older than an hour" bound any more
+      direct({ reslab_reservation_number: "TRP-Y0VNG444", status: "cancelled", lot_notified_at: ago(5 * HOUR), updated_at: ago(10 * 60_000), check_out: "2026-10-02T10:00:00" }),
+      // touched 10 days ago but the stay is still ahead — a claim-bumped updated_at must not hide it either way
+      direct({ reslab_reservation_number: "TRP-0XDT0VCH", status: "cancelled", lot_notified_at: ago(10 * 24 * HOUR), updated_at: ago(10 * 24 * HOUR), check_out: "2026-10-30T10:00:00" }),
+      // checks out on the bound day itself (a day back) ⇒ still listed
+      direct({ reslab_reservation_number: "TRP-B0VND777", status: "cancelled", lot_notified_at: ago(5 * HOUR), check_out: "2026-09-27T08:00:00" }),
+      // stay ended days ago ⇒ out
+      direct({ reslab_reservation_number: "TRP-0VER8888", status: "cancelled", lot_notified_at: ago(5 * 24 * HOUR), check_out: "2026-09-25T10:00:00" }),
+      direct({ reslab_reservation_number: "TRP-D0NE3333", status: "cancelled", lot_notified_at: ago(5 * HOUR), lot_cancel_notified_at: ago(HOUR) }),
+      direct({ reslab_reservation_number: "TRP-TEST5555", status: "cancelled", lot_notified_at: ago(5 * HOUR), livemode: false }),
+      direct({ reslab_reservation_number: "RTL777", status: "cancelled", inventory_source: "reslab", lot_notified_at: ago(5 * HOUR) }),
+      direct({ reslab_reservation_number: "TRP-NEVER666", status: "cancelled" }),
+    ]);
+    expect(r).toMatchObject({ kind: "n", n: 0, cancelN: 5, cancelCapped: false });
+    if (r.kind !== "n") return;
+    expect(r.cancelNumbers).toEqual(["TRP-B0VND777", "TRP-REFD2222", "TRP-Y0VNG444", "TRP-CANC1111", "TRP-0XDT0VCH"]);
+  });
+
+  it(`${LOT_NOTICE_CAP + 1} outstanding rows ⇒ n ${LOT_NOTICE_CAP} and capped; exactly ${LOT_NOTICE_CAP} is not capped`, async () => {
+    const many = (k: number, over: Record<string, unknown> = {}) =>
+      Array.from({ length: k }, (_, i) => direct({ id: `r${over.status ?? ""}${i}`, created_at: ago((2 + i) * HOUR), ...over }));
+    const cancelled = { status: "cancelled", lot_notified_at: ago(HOUR) };
+    const capped = await health([...many(LOT_NOTICE_CAP + 1), ...many(LOT_NOTICE_CAP + 1, cancelled)]);
+    expect(capped).toMatchObject({ kind: "n", n: 25, capped: true, cancelN: 25, cancelCapped: true });
+    if (capped.kind === "n") expect(capped.numbers).toHaveLength(25);
+    // exactly 25 of each (plus a 26th cancellation whose stay is over, which does not count) ⇒ not capped
+    const exact = await health([
+      ...many(LOT_NOTICE_CAP),
+      ...many(LOT_NOTICE_CAP, cancelled),
+      direct({ id: "ended", ...cancelled, check_out: "2026-09-20T10:00:00" }),
+    ]);
+    expect(exact).toMatchObject({ kind: "n", n: 25, capped: false, cancelN: 25, cancelCapped: false });
+  });
+
+  it("an odd number on a direct row is never printed raw", async () => {
+    const r = await health([direct({ reslab_reservation_number: "ada@example.com" })]);
+    expect(r).toMatchObject({ kind: "n", numbers: ["(unrecognised number)"] });
+  });
+
+  it("the booking query failing is an error state, never 'none'; the rest of health stands", async () => {
+    const db = new FakeSupabase().seed("bookings", [direct({})]);
+    db.failOnce("bookings", "select", "statement timeout", "57014"); // collectHealth's first bookings read is this check
+    const r = await collectHealth(db as never, w, NOW);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.data.lotNotNotified).toEqual({ kind: "error", message: expect.stringMatching(/bookings\(lot_notified_at\): 57014 statement timeout/) });
+    expect(r.data.stuckPending).toEqual({ kind: "n", n: 0 });
+  });
+
+  it("the cancel query failing is an error state too, not a booking-only count", async () => {
+    const sb = await createAdminClient();
+    set("bookings", { data: [{ reslab_reservation_number: "TRP-7K2M9QXA" }] }, { error: { code: "57014", message: "statement timeout" } });
+    const r = await collectHealth(sb as never, w, NOW);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.data.lotNotNotified).toEqual({ kind: "error", message: expect.stringMatching(/bookings\(lot_cancel_notified_at\): 57014 statement timeout/) });
+  });
+
+  it("collectDigest wires it through: live direct filters reach the database, numbers reach the section", async () => {
+    // bookings answers: day list → 28-day baseline → lot-notice check → cancel check → (week, pace)
+    set("bookings", { data: [] }, { data: [] }, { data: [{ reslab_reservation_number: "TRP-7K2M9QXA" }] }, { data: [{ reslab_reservation_number: "TRP-CANC1111" }] }, { data: [] });
+    quietOthers();
+    const d = await collectDigest(w, NOW);
+    expect(d.health.ok && d.health.data.lotNotNotified).toEqual({
+      kind: "n", n: 1, numbers: ["TRP-7K2M9QXA"], capped: false, cancelN: 1, cancelNumbers: ["TRP-CANC1111"], cancelCapped: false,
+    });
+    const lotCalls = answers.calls.filter((c) => c.table === "bookings" && c.select === "reslab_reservation_number");
+    expect(lotCalls).toHaveLength(2);
+    expect(lotCalls[0].eqs).toEqual(expect.arrayContaining([["inventory_source", "direct"], ["livemode", true], ["status", "confirmed"]]));
+    expect(lotCalls[0].is).toEqual([["lot_notified_at", null]]);
+    expect(lotCalls[1].eqs).toEqual(expect.arrayContaining([["inventory_source", "direct"], ["livemode", true]]));
+    expect(lotCalls[1].is).toEqual([["lot_cancel_notified_at", null]]);
+    expect(lotCalls[1].or).toEqual(["lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null"]);
+    // bounded by the stay (check_out on or after a day back, as a date), never by updated_at
+    expect(lotCalls[1].gte).toBe("2026-09-27");
+    expect(lotCalls[1].lt).toBeUndefined();
   });
 });
 

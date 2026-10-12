@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
   createRefundCents,
@@ -299,6 +300,16 @@ export async function finalizeCancelledReservation(
         ...(pgError instanceof ParkGuardError && { statusCode: pgError.statusCode }),
       });
     }
+  }
+
+  // Tell a DIRECT lot (4b plan §3.4): it has no system of ours to look at.
+  // Status-driven and claim-guarded — the claim matches only a row that IS
+  // cancelled/refunded and whose lot heard of the booking (§10 F-2), and only
+  // the caller that wins it sends. So it is not gated on persistedByUs: a
+  // re-drive after a crash between the status write and here must still send.
+  // Never throws.
+  if (booking.inventory_source === "direct") {
+    await sendLotCancelNotice(piId);
   }
 
   // 5. Cancellation email (best-effort). Refund figure = TOTAL on the PI (prior +

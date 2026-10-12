@@ -36,6 +36,10 @@ vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
   sendCancellationConfirmation: sendEmail,
 }));
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 vi.mock("@/lib/parkguard/client", () => ({
   parkGuard: parkGuardMock,
   ParkGuardError: class extends Error {},
@@ -92,6 +96,7 @@ beforeEach(() => {
   seed();
   db.clearFailures();
   db.log = [];
+  lotNotice.sendLotCancelNotice.mockClear();
   order.length = 0;
   reslabMock.cancelReservation.mockReset().mockImplementation(async () => {
     order.push(`reslab:reason=${String(row().cancellation_reason)}`);
@@ -296,11 +301,40 @@ describe("POST /api/admin/bookings/cancel — direct lots + environment guards (
       }),
     );
     expect((await res.json()).results.email).toBe(true);
+    // The lot is told, once, after the status write (4b plan §3.4).
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
   });
 
-  it("a ResLab row read without inventory_source still calls ResLab", async () => {
+  it("the lot notice runs AFTER the status write — the row it reads is already terminal", async () => {
+    seed({
+      reslab_reservation_number: "TRP-AB12CD34",
+      inventory_source: "direct",
+      livemode: false,
+    });
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(row().status);
+      return "not_claimed";
+    });
+    const res = await POST(
+      new NextRequest("https://x.test/api/admin/bookings/cancel", {
+        method: "POST",
+        body: JSON.stringify({ reservationNumber: "TRP-AB12CD34", reason: "found_cheaper" }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+    expect(seenStatus).toHaveLength(1);
+    expect(["cancelled", "refunded"]).toContain(seenStatus[0]);
+  });
+
+  it("a ResLab row read without inventory_source still calls ResLab (and never a lot notice)", async () => {
     await POST(req({ reason: "found_cheaper" }));
     expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+    expect(lotNotice.sendLotCancelNotice).not.toHaveBeenCalled();
   });
 
   it("a booking paid in the other Stripe mode is refused before any side effect", async () => {

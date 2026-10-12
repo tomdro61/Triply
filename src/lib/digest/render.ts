@@ -118,6 +118,15 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
       flags.push({ text: `${e.n}${e.capped ? "+" : ""} completed booking(s) in the last ${e.lookbackDays} days with no confirmation email sent: ${shown}${more}` });
     }
     if (h.emailNotSent.kind === "error") flags.push({ text: "confirmation-email check unavailable (a customer could be missing their confirmation unseen)" });
+    // Direct lots: the notice email is the lot's ONLY channel (4b plan §9 H-B).
+    const lot = h.lotNotNotified;
+    if (lot.kind === "n" && lot.n > 0) {
+      flags.push({ text: `${lot.n}${lot.capped ? "+" : ""} direct-lot booking(s) whose LOT was never notified (> 1 h): ${lot.numbers.join(", ")} — tell the lot by hand` });
+    }
+    if (lot.kind === "n" && lot.cancelN > 0) {
+      flags.push({ text: `${lot.cancelN}${lot.cancelCapped ? "+" : ""} cancelled direct-lot booking(s) whose LOT was never told of the cancellation (stay not over; the sweep retries every 10 min): ${lot.cancelNumbers.join(", ")} — tell the lot by hand` });
+    }
+    if (h.lotNotNotified.kind === "error") flags.push({ text: "direct-lot notice check unavailable (a lot could be missing a booking unseen)" });
   }
   return flags;
 }

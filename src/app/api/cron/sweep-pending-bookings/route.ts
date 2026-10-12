@@ -23,9 +23,11 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
-import { createBooking } from "@/lib/booking/create-booking";
+import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
@@ -63,6 +65,17 @@ const CROSS_MODE_CLEANUP_MS = 60 * 60_000;
  *  authorized (a declined card, then a retry on the same PaymentIntent). A card
  *  authorization lasts ~7 days; past that there is nothing left to capture. */
 const DECLINED_RETRY_WINDOW_MS = 8 * 24 * 60 * 60_000;
+
+/** Direct-lot sends (lot notice, customer email, lot cancel notice) still
+ *  outstanding this long after the booking / cancellation are re-driven. Past
+ *  the lot-notice claim's 5-minute staleness, so a send whose outcome was
+ *  unknown (a timeout keeps its claim) is retried rather than skipped. */
+const DIRECT_SEND_DUE_MS = 6 * 60_000;
+
+/** How far back the booking-notice / email backstop looks (by CREATION time —
+ *  `updated_at` is bumped by every claim, so it would never age out). The
+ *  daily digest lists what is still outstanding after that. */
+const DIRECT_SEND_WINDOW_MS = 3 * 24 * 60 * 60_000;
 
 /** Prefix stamped into `last_error` once an opposite-mode held row has been
  *  reported, so it is reported once rather than every tick. No dots: it is
@@ -238,6 +251,10 @@ export async function GET(request: NextRequest) {
       declinedScanned: 0,
       /** Of those, PaymentIntents that now hold money — re-driven through the engine. */
       declinedRedriven: 0,
+      /** Direct bookings re-driven for an outstanding lot notice / customer email. */
+      directSendsRedriven: 0,
+      /** Direct cancellations whose lot cancel notice was (re)attempted. */
+      directCancelNoticesAttempted: 0,
     };
 
     for (const row of stuck ?? []) {
@@ -358,10 +375,8 @@ export async function GET(request: NextRequest) {
           new Error(
             `Pending booking ${piId} unresolved after ${Math.round(
               age / 86_400_000
-            )} days (PI ${pi.status}${
-              row.reslab_reservation_number
-                ? `, ResLab ${row.reslab_reservation_number} EXISTS`
-                : ", no reservation"
+            )} days (PI ${pi.status}; ${
+              row.reslab_reservation_number ? describeRecordedNumber(row.reslab_reservation_number) : "no reservation"
             }). Manual recovery required.`
           ),
           { stripePaymentIntentId: piId, amount: pi.amount / 100 }
@@ -432,6 +447,95 @@ export async function GET(request: NextRequest) {
         else if (outcome.kind === "in_progress" || outcome.kind === "deferred") result.stillPending++;
         else if (outcome.kind === "needs_reconciliation") result.escalated++;
       }
+    }
+
+    // --- Backstop: direct-lot sends (4b plan §9 H-B; pass-1 review) -----------
+    // The lot notice is the lot's ONLY channel and the confirmation is the
+    // customer's. Either can fail after the booking is stored (Resend down, or
+    // a timeout that kept its claim because Resend may have delivered). The
+    // engine's Step 3 re-sends both behind their claims — but only when
+    // something calls it. This is the caller of last resort. Each send is
+    // claim-guarded, so a re-drive never mails twice.
+    const directDueBefore = new Date(Date.now() - DIRECT_SEND_DUE_MS).toISOString();
+    const directSince = new Date(Date.now() - DIRECT_SEND_WINDOW_MS).toISOString();
+    const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("stripe_payment_intent_id")
+        .eq("inventory_source", "direct")
+        .eq("livemode", livemode)
+        .eq("status", "confirmed")
+        .is("lot_notified_at", null)
+        .lt("created_at", directDueBefore)
+        .gte("created_at", directSince)
+        .limit(MAX_PER_RUN),
+      supabase
+        .from("pending_bookings")
+        .select("stripe_payment_intent_id")
+        .eq("inventory_source", "direct")
+        .eq("livemode", livemode)
+        .eq("status", "completed")
+        .eq("email_sent", false)
+        .lt("created_at", directDueBefore)
+        .gte("created_at", directSince)
+        .limit(MAX_PER_RUN),
+      // Cancellations: no stable "cancelled at" column (`updated_at` moves with
+      // every claim), so bounded by the STAY instead — a cancel notice matters
+      // until check-out. check_out is a literal wall-clock TIMESTAMP; a date a
+      // day back is a safe, timezone-free bound. The claim refuses an in-flight
+      // booking notice, so calling early is harmless. `.or()` on a SELECT is
+      // fine (PostgREST rejects it only on UPDATE).
+      supabase
+        .from("bookings")
+        .select("stripe_payment_intent_id")
+        .eq("inventory_source", "direct")
+        .eq("livemode", livemode)
+        .in("status", ["cancelled", "refunded"])
+        .is("lot_cancel_notified_at", null)
+        .or("lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null")
+        .gte("check_out", new Date(Date.now() - 86_400_000).toISOString().slice(0, 10))
+        .limit(MAX_PER_RUN),
+    ]);
+    for (const [label, scan] of [
+      ["lot notice", lotUnsent],
+      ["customer email", emailUnsent],
+      ["lot cancel notice", cancelUnsent],
+    ] as const) {
+      if (scan.error) {
+        result.failed++;
+        capturePaymentError(new Error(`direct ${label} backstop scan failed: ${scan.error.message}`), { inventorySource: "direct" });
+      }
+    }
+    const redriveIds = new Set(
+      [...(lotUnsent.data ?? []), ...(emailUnsent.data ?? [])].map((r) => (r as { stripe_payment_intent_id: string }).stripe_payment_intent_id)
+    );
+    for (const piId of redriveIds) {
+      if (Date.now() - startedAt > RUN_BUDGET_MS) {
+        result.deferredToNextRun++;
+        continue;
+      }
+      result.directSendsRedriven++;
+      // Sends only — lot notice first, then the email, each claimed — never
+      // the whole engine (its refund gate would skip a partially refunded,
+      // still-confirmed booking). One that throws must not starve the rest.
+      try {
+        await redriveDirectBookingSends(piId);
+      } catch (err) {
+        result.failed++;
+        capturePaymentError(
+          new Error(`direct send backstop re-drive threw for ${piId}: ${err instanceof Error ? err.message : String(err)}`),
+          { stripePaymentIntentId: piId, inventorySource: "direct" }
+        );
+      }
+    }
+    for (const r of cancelUnsent.data ?? []) {
+      if (Date.now() - startedAt > RUN_BUDGET_MS) {
+        result.deferredToNextRun++;
+        continue;
+      }
+      result.directCancelNoticesAttempted++;
+      // Never throws; a failure is its own Sentry event and is retried next tick.
+      await sendLotCancelNotice((r as { stripe_payment_intent_id: string }).stripe_payment_intent_id);
     }
 
     // A monitor whose failure looks like health is worse than no monitor. If any

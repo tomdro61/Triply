@@ -7,7 +7,7 @@
  * TRIPLY-24, a $4.74 Payment Link). A real checkout PaymentIntent that merely
  * lost its metadata still fulfils, because its pending row exists.
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const { db, constructEvent, retrievePi, sentry, createBooking } = await vi.hoisted(async () => {
@@ -29,6 +29,10 @@ const { db, constructEvent, retrievePi, sentry, createBooking } = await vi.hoist
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", () => ({ stripe: { webhooks: { constructEvent }, paymentIntents: { retrieve: retrievePi } } }));
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 vi.mock("@/lib/parkguard/client", () => ({
   parkGuard: { updateReservation: vi.fn() },
   ParkGuardError: class extends Error {},
@@ -39,6 +43,7 @@ vi.mock("@/lib/booking/create-booking", () => ({
 }));
 
 import { POST } from "../route";
+import { shouldStripeRedeliver } from "@/lib/booking/create-booking";
 
 const req = () =>
   new NextRequest("https://x.test/api/webhooks/stripe", {
@@ -194,5 +199,63 @@ describe("webhook — a STALE payment_failed (the retry on the same payment succ
     constructEvent.mockReturnValue(failed());
     expect((await POST(req())).status).toBeGreaterThanOrEqual(500);
     expect(db.tables.pending_bookings[0].status).toBe("pending");
+  });
+});
+
+describe("webhook — a booking that already exists (4b plan §9 H-B)", () => {
+  it("an existing confirmed DIRECT booking is re-driven through the engine (outstanding lot notice / email)", async () => {
+    db.tables.bookings = [{ id: "b1", stripe_payment_intent_id: "pi_link", status: "confirmed", inventory_source: "direct" }];
+    constructEvent.mockReturnValue(succeeded({ lotId: "direct-1", inventorySource: "direct" }));
+    const res = await POST(req());
+    expect(res.status).toBe(200);
+    expect(createBooking).toHaveBeenCalledWith({ source: "webhook", stripePaymentIntentId: "pi_link" });
+  });
+
+  it("an existing ResLab booking is NOT re-driven (unchanged)", async () => {
+    db.tables.bookings = [{ id: "b1", stripe_payment_intent_id: "pi_link", status: "confirmed", inventory_source: "reslab" }];
+    constructEvent.mockReturnValue(succeeded({ lotId: "reslab-277" }));
+    await POST(req());
+    expect(createBooking).not.toHaveBeenCalled();
+  });
+
+  describe("the engine's answer decides the HTTP status (real shouldStripeRedeliver)", () => {
+    beforeEach(async () => {
+      const actual = await vi.importActual<typeof import("@/lib/booking/create-booking")>("@/lib/booking/create-booking");
+      vi.mocked(shouldStripeRedeliver).mockImplementation(actual.shouldStripeRedeliver);
+    });
+    afterEach(() => {
+      vi.mocked(shouldStripeRedeliver).mockImplementation(() => false);
+      createBooking.mockImplementation(async () => ({ kind: "created" }));
+    });
+
+    const seedDirect = () => {
+      db.tables.bookings = [{ id: "b1", stripe_payment_intent_id: "pi_link", status: "confirmed", inventory_source: "direct" }];
+      constructEvent.mockReturnValue(succeeded({ lotId: "direct-1", inventorySource: "direct" }));
+    };
+
+    it("in_progress (the main path is still sending the notices) → a retryable 5xx so Stripe redelivers", async () => {
+      seedDirect();
+      createBooking.mockImplementation(async () => ({ kind: "in_progress" }));
+      const res = await POST(req());
+      expect(res.status).toBeGreaterThanOrEqual(500);
+      expect(await res.json()).toMatchObject({ received: true, retry: true });
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+
+    it("already_exists → 200, no redelivery", async () => {
+      seedDirect();
+      createBooking.mockImplementation(async () => ({ kind: "already_exists", reservationNumber: "TRP-AB12CD34" }));
+      const res = await POST(req());
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ received: true });
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("a cancelled direct booking is not re-driven (no notices for a booking the lot must not expect)", async () => {
+    db.tables.bookings = [{ id: "b1", stripe_payment_intent_id: "pi_link", status: "refunded", inventory_source: "direct" }];
+    constructEvent.mockReturnValue(succeeded({ lotId: "direct-1" }));
+    await POST(req());
+    expect(createBooking).not.toHaveBeenCalled();
   });
 });

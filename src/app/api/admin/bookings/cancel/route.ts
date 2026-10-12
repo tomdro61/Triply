@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
@@ -494,6 +495,13 @@ export async function POST(request: NextRequest) {
         });
         results.errors.push(`ParkGuard: cancellation not synced (${msg}) — manual reconcile`);
       }
+    }
+
+    // Tell a DIRECT lot (4b plan §3.4): it has no system of ours to look at.
+    // Status-driven and claim-guarded — only the caller that wins the claim
+    // sends, and only if the lot was told about the booking (§10 F-2). Never throws.
+    if (results.supabase && booking.inventory_source === "direct" && booking.stripe_payment_intent_id) {
+      await sendLotCancelNotice(booking.stripe_payment_intent_id);
     }
 
     // Step 4: Send cancellation email to customer

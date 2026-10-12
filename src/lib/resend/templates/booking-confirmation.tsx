@@ -1,5 +1,21 @@
 import * as React from "react";
 import { formatDate } from "@/lib/utils";
+import { bulletLines } from "@/lib/utils/bullet-lines";
+
+/**
+ * A Triply DIRECT-lot booking (4b plan §3.4). Absent for every ResLab booking,
+ * which renders exactly as before. The at-lot estimate is DISPLAY ONLY: it is
+ * never part of `totalAmount` (what was charged) or `dueAtLocation` (R1).
+ */
+export interface DirectLotEmailDetails {
+  shuttlePhone?: string;
+  /** "No oversized vehicle", "Large SUV / truck", … */
+  vehicleSizeLabel: string;
+  /** Oversized-vehicle surcharge + tax the lot collects at drop-off, in dollars; null = none. */
+  atLotEstimate: number | null;
+  /** Promo discount taken off the card charge, in dollars (0 = none) — its own line, as at checkout. */
+  discount: number;
+}
 
 interface BookingConfirmationEmailProps {
   customerName: string;
@@ -25,6 +41,7 @@ interface BookingConfirmationEmailProps {
   // (skipped_missing_data) MUST NOT render "Active" / "Start a Claim";
   // PG has no record so the claim link would 404 on them.
   pgSyncStatus?: "pending" | "synced" | "skipped_missing_data" | null;
+  direct?: DirectLotEmailDetails;
 }
 
 // Triply-controlled redirect (next.config.mjs /claims) → Park Guard claim
@@ -53,7 +70,12 @@ export function BookingConfirmationEmail({
   protectionPlan,
   protectionPlanPrice,
   pgSyncStatus,
+  direct,
 }: BookingConfirmationEmailProps) {
+  // A direct lot's shuttle phone comes from its snapshot; ResLab never passes one.
+  shuttlePhone = direct?.shuttlePhone ?? shuttlePhone;
+  // Lot notes written as "- " lines render as a list (same rule as the lot page).
+  const conditionBullets = bulletLines(specialConditions);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
@@ -94,15 +116,17 @@ export function BookingConfirmationEmail({
             <td style={{ textAlign: "left" }}>
               <span style={{ color: "#f87356", fontSize: "24px", fontWeight: "700" }}>Triply</span>
             </td>
-            <td style={{ textAlign: "right", verticalAlign: "middle" }}>
-              <p style={{ color: "#94a3b8", fontSize: "9px", margin: "0 0 2px", textAlign: "right" }}>Powered by</p>
-              <img
-                src={`${appUrl}/reslab-logo.png`}
-                alt="Reservations Lab"
-                width="90"
-                style={{ maxWidth: "90px", height: "auto" }}
-              />
-            </td>
+            {!direct && (
+              <td style={{ textAlign: "right", verticalAlign: "middle" }}>
+                <p style={{ color: "#94a3b8", fontSize: "9px", margin: "0 0 2px", textAlign: "right" }}>Powered by</p>
+                <img
+                  src={`${appUrl}/reslab-logo.png`}
+                  alt="Reservations Lab"
+                  width="90"
+                  style={{ maxWidth: "90px", height: "auto" }}
+                />
+              </td>
+            )}
           </tr>
         </tbody>
       </table>
@@ -163,7 +187,15 @@ export function BookingConfirmationEmail({
         {specialConditions && (
           <div style={{ backgroundColor: "#fefce8", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "16px" }}>
             <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>&#9888; Important Information</p>
-            <p style={{ color: "#78350f", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{specialConditions}</p>
+            {conditionBullets ? (
+              <ul style={{ color: "#78350f", fontSize: "13px", margin: "0", paddingLeft: "18px", lineHeight: "1.6" }}>
+                {conditionBullets.map((line, i) => (
+                  <li key={i}>{line}</li>
+                ))}
+              </ul>
+            ) : (
+              <p style={{ color: "#78350f", fontSize: "13px", margin: "0", lineHeight: "1.6" }}>{specialConditions}</p>
+            )}
           </div>
         )}
 
@@ -200,6 +232,12 @@ export function BookingConfirmationEmail({
               <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{vehicleInfo}</p>
             </>
           )}
+          {direct && (
+            <>
+              <p style={{ ...labelStyle, marginTop: "12px" }}>Vehicle size</p>
+              <p style={{ color: "#1e293b", fontSize: "14px", fontWeight: "600", margin: "0" }}>{direct.vehicleSizeLabel}</p>
+            </>
+          )}
         </div>
 
         {/* Parking Protection callout. Render variant depends on PG sync
@@ -233,7 +271,48 @@ export function BookingConfirmationEmail({
           <p style={{ ...labelStyle, color: "#c2410c", marginBottom: "10px" }}>Payment Summary</p>
           <table style={{ width: "100%" }}>
             <tbody>
-              {dueAtLocation && dueAtLocation > 0 ? (
+              {direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 ? (
+                <>
+                  {/* Direct lot with an oversized vehicle: money changes hands
+                      twice, so the card charge is "Charged today", the lot's
+                      share is its own line, and the trip total is their sum —
+                      the same words as checkout (order-summary). The at-lot
+                      amount is display only and never part of totalAmount. */}
+                  <tr>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking, fees &amp; taxes</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${(totalAmount - (protectionPriceText ? parseFloat(protectionPriceText) : 0) + direct.discount).toFixed(2)}</td>
+                  </tr>
+                  {direct.discount > 0 && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px" }}>Promo discount</td>
+                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px", textAlign: "right" }}>&minus;${direct.discount.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {hasProtection && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${protectionPriceText}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Charged today <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "400" }}>(card)</span></td>
+                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #fed7ca" }}>${totalAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" }}>Due at the lot (est.)</td>
+                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600", textAlign: "right" }}>${direct.atLotEstimate.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
+                      {direct.vehicleSizeLabel} surcharge incl. tax, paid at drop-off. The lot confirms your vehicle&rsquo;s size at the gate.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Trip total (est.)</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>${(Math.round((totalAmount + direct.atLotEstimate) * 100) / 100).toFixed(2)}</td>
+                  </tr>
+                </>
+              ) : dueAtLocation && dueAtLocation > 0 ? (
                 <>
                   {/* Addition-style breakdown: every line is an addend that
                       sums to Total. Subtraction-style ("Paid online incl.

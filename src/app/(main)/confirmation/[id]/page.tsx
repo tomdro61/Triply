@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect, useMemo, useRef, use } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Home, Search, AlertCircle, Wallet } from "lucide-react";
+import { Home, Search, AlertCircle } from "lucide-react";
 import { Navbar, Footer } from "@/components/shared";
 import {
   ConfirmationHeader,
@@ -446,32 +446,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 customerPhone={customerPhone}
                 vehicleInfo={vehicleInfo}
                 dueAtLocation={reservation?.dueAtLocation}
+                // Direct lots: the oversized-vehicle surcharge paid AT THE LOT,
+                // a line item under the card charge — never added to `total`.
+                atLot={reservation?.inventorySource === "direct" ? reservation.atLotEstimate ?? null : null}
                 cancelled={isCancelled}
               />
-
-              {/* Direct lots: the oversized-vehicle surcharge is paid AT THE
-                  LOT. Its own line, never added to the total above (which is
-                  what was charged online). */}
-              {!isCancelled && reservation?.inventorySource === "direct" && reservation.atLotEstimate && (
-                <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-                  <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="font-semibold text-amber-800">Estimated due at the lot</p>
-                      <p className="font-bold text-amber-800">
-                        ${reservation.atLotEstimate.total.toFixed(2)}
-                      </p>
-                    </div>
-                    <p className="text-sm text-amber-700 mt-1">
-                      Oversized vehicle ({reservation.atLotEstimate.vehicleSizeLabel}):
-                      {" "}${reservation.atLotEstimate.surcharge.toFixed(2)}
-                      {reservation.atLotEstimate.surchargeTax > 0 &&
-                        ` + $${reservation.atLotEstimate.surchargeTax.toFixed(2)} tax`}
-                      , paid at drop-off. Not charged online.
-                    </p>
-                  </div>
-                </div>
-              )}
 
               {!isCancelled && reservation?.protectionPlan && (
                 <ProtectionPlanStatus

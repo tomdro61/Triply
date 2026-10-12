@@ -29,6 +29,13 @@ interface BookingDetailsProps {
   vehicleInfo?: string;
   dueAtLocation?: number;
   /**
+   * DIRECT lots only: the oversized-vehicle surcharge PAID AT THE LOT. Shown
+   * as its own line under the card charge (never added to `total`, which is
+   * what was charged online) with the estimated trip total beneath — the same
+   * structure as the checkout summary. null = nothing due at the lot.
+   */
+  atLot: { total: number; surcharge: number; surchargeTax: number; vehicleSizeLabel: string } | null;
+  /**
    * The booking was cancelled: keep the record (lot, dates, amount) but drop
    * what only applies to a live reservation — the "Pay at Location" promise
    * and Get Directions. Required, never defaulted (see ConfirmationHeader).
@@ -49,8 +56,10 @@ export function BookingDetails({
   customerPhone,
   vehicleInfo,
   dueAtLocation,
+  atLot,
   cancelled,
 }: BookingDetailsProps) {
+  const showAtLot = !cancelled && atLot !== null && atLot.total > 0;
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
   const formatLongDate = (dateStr: string) => {
@@ -125,8 +134,10 @@ export function BookingDetails({
           </div>
         </div>
 
-        {/* Duration & Total */}
-        <div className="flex items-center justify-between p-4 bg-brand-orange/10 rounded-lg mb-6">
+        {/* Duration & Total — plus, for a direct lot with an oversized
+            vehicle, what is due at the lot and the trip total as line items */}
+        <div className="p-4 bg-brand-orange/10 rounded-lg mb-6">
+        <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Clock size={20} className="text-brand-orange mr-3" />
             <div>
@@ -142,12 +153,36 @@ export function BookingDetails({
                   has paid net of any refund. */}
               {cancelled
                 ? "Booking Total"
-                : dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
+                : showAtLot
+                  ? "Charged to card"
+                  : dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
             </p>
             <p className="text-2xl font-bold text-brand-orange">
               ${total.toFixed(2)}
             </p>
           </div>
+        </div>
+        {showAtLot && atLot && (
+          <div className="mt-4 pt-3 border-t border-brand-orange/20 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="flex items-center gap-1.5 font-medium text-amber-700">
+                <Wallet size={14} />
+                Due at the lot (est.)
+              </span>
+              <span className="font-semibold text-amber-700">${atLot.total.toFixed(2)}</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {atLot.vehicleSizeLabel}: ${atLot.surcharge.toFixed(2)}
+              {atLot.surchargeTax > 0 && ` + $${atLot.surchargeTax.toFixed(2)} tax`}, paid at drop-off. Not charged online.
+            </p>
+            <div className="flex justify-between gap-3 mt-3 pt-3 border-t border-brand-orange/20">
+              <span className="font-medium text-gray-900">Trip total (est.)</span>
+              <span className="font-semibold text-gray-900">
+                ${(Math.round((total + atLot.total) * 100) / 100).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        )}
         </div>
 
         {/* Due at Location Notice */}
