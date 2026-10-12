@@ -1175,6 +1175,7 @@ export async function sendDirectCustomerConfirmation(
         shuttlePhone: fr.snapshot.shuttlePhone ?? undefined,
         vehicleSizeLabel: fr.atLot.vehicleSizeLabel,
         atLotEstimate: directAtLotEstimate(fr),
+        discount: fr.money.discount,
       },
       idempotencyKey: `direct-confirmation/${dp.stripePaymentIntentId}`,
       timeoutMs: DIRECT_CONFIRMATION_TIMEOUT_MS,

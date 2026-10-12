@@ -13,6 +13,8 @@ export interface DirectLotEmailDetails {
   vehicleSizeLabel: string;
   /** Oversized-vehicle surcharge + tax the lot collects at drop-off, in dollars; null = none. */
   atLotEstimate: number | null;
+  /** Promo discount taken off the card charge, in dollars (0 = none) — its own line, as at checkout. */
+  discount: number;
 }
 
 interface BookingConfirmationEmailProps {
@@ -269,7 +271,48 @@ export function BookingConfirmationEmail({
           <p style={{ ...labelStyle, color: "#c2410c", marginBottom: "10px" }}>Payment Summary</p>
           <table style={{ width: "100%" }}>
             <tbody>
-              {dueAtLocation && dueAtLocation > 0 ? (
+              {direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 ? (
+                <>
+                  {/* Direct lot with an oversized vehicle: money changes hands
+                      twice, so the card charge is "Charged today", the lot's
+                      share is its own line, and the trip total is their sum —
+                      the same words as checkout (order-summary). The at-lot
+                      amount is display only and never part of totalAmount. */}
+                  <tr>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking, fees &amp; taxes</td>
+                    <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${(totalAmount - (protectionPriceText ? parseFloat(protectionPriceText) : 0) + direct.discount).toFixed(2)}</td>
+                  </tr>
+                  {direct.discount > 0 && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px" }}>Promo discount</td>
+                      <td style={{ padding: "3px 0", color: "#15803d", fontSize: "14px", textAlign: "right" }}>&minus;${direct.discount.toFixed(2)}</td>
+                    </tr>
+                  )}
+                  {hasProtection && (
+                    <tr>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px" }}>Parking Protection</td>
+                      <td style={{ padding: "3px 0", color: "#1e293b", fontSize: "14px", textAlign: "right" }}>${protectionPriceText}</td>
+                    </tr>
+                  )}
+                  <tr>
+                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Charged today <span style={{ color: "#64748b", fontSize: "12px", fontWeight: "400" }}>(card)</span></td>
+                    <td style={{ padding: "10px 0 3px", color: "#1e293b", fontSize: "15px", fontWeight: "700", textAlign: "right", borderTop: "1px solid #fed7ca" }}>${totalAmount.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600" }}>Due at the lot (est.)</td>
+                    <td style={{ padding: "6px 0 0", color: "#b45309", fontSize: "14px", fontWeight: "600", textAlign: "right" }}>${direct.atLotEstimate.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={{ padding: "0 0 4px", color: "#64748b", fontSize: "12px", lineHeight: "1.5" }}>
+                      {direct.vehicleSizeLabel} surcharge incl. tax, paid at drop-off. The lot confirms your vehicle&rsquo;s size at the gate.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>Trip total (est.)</td>
+                    <td style={{ padding: "10px 0 0", color: "#1e293b", fontSize: "17px", textAlign: "right", fontWeight: "700", borderTop: "1px solid #fed7ca" }}>${(Math.round((totalAmount + direct.atLotEstimate) * 100) / 100).toFixed(2)}</td>
+                  </tr>
+                </>
+              ) : dueAtLocation && dueAtLocation > 0 ? (
                 <>
                   {/* Addition-style breakdown: every line is an addend that
                       sums to Total. Subtraction-style ("Paid online incl.
@@ -315,16 +358,6 @@ export function BookingConfirmationEmail({
             </tbody>
           </table>
         </div>
-
-        {direct && direct.atLotEstimate !== null && direct.atLotEstimate > 0 && (
-          <div style={{ backgroundColor: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "18px", marginBottom: "24px" }}>
-            <p style={{ ...labelStyle, color: "#92400e", marginBottom: "8px" }}>Estimated due at the lot</p>
-            <p style={{ color: "#78350f", fontSize: "14px", margin: "0", lineHeight: "1.6" }}>
-              <strong>${direct.atLotEstimate.toFixed(2)}</strong> oversized-vehicle surcharge for a {direct.vehicleSizeLabel} (incl. tax),
-              paid at the lot when you drop off. It is not part of what you paid online, and the lot confirms your vehicle&rsquo;s size at the gate.
-            </p>
-          </div>
-        )}
 
         {/* CTA Button — email param lets guest customers (not logged in) view their booking */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
