@@ -7,7 +7,8 @@
  * cancellation writes `refunded` (not `cancelled`) and a chargeback writes
  * `disputed`, so a "not cancelled" filter would count both as revenue.
  */
-import { attributionSourceLabel, type AttributionRow, type AttributionSource } from "./display";
+import type { AttributionRow } from "./display";
+import { bookingSource, type BookingSource } from "./source";
 
 export interface ReportRow extends AttributionRow {
   airport_code: string | null;
@@ -51,8 +52,9 @@ export function aggregate(rows: ReportRow[], keyOf: (b: ReportRow) => string): A
   return [...map.values()].sort((x, y) => y.bookings - x.bookings);
 }
 
-export function byChannel(rows: ReportRow[]): Array<Agg & { key: AttributionSource }> {
-  return aggregate(rows, (b) => attributionSourceLabel(b)) as Array<Agg & { key: AttributionSource }>;
+/** Live bookings by reporting source (source.ts) — the AI-aware split of `channel`. */
+export function bySource(rows: ReportRow[]): Array<Agg & { key: BookingSource }> {
+  return aggregate(rows, (b) => bookingSource(b)) as Array<Agg & { key: BookingSource }>;
 }
 
 export const airportKey = (b: ReportRow) =>

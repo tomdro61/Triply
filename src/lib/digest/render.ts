@@ -5,8 +5,10 @@
  * fields are dropped first until the embed fits.
  */
 
-import type { DigestData, Flag, Metric, Baselined } from "./types";
+import { AI_SOURCES, BOOKING_SOURCE_LABELS } from "@/lib/attribution/source";
+import type { DigestData, Flag, Metric, Baselined, PaceTotals, SourceCount } from "./types";
 import type { ReadResult } from "./read";
+import { MONTHS } from "./window";
 
 export const BRAND = 0xf87356;
 export const RED = 0xdc2626;
@@ -48,6 +50,10 @@ export function verdictFor(d: DigestData): Verdict {
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const m = (v: Metric, f: (n: number) => string = String) => (v === "unavailable" ? "unavailable" : f(v));
 const pct = (v: Metric) => m(v, (n) => `${Math.round(n * 100)}%`);
+const signedPct = (share: number) => {
+  const n = Math.round(share * 100);
+  return n === 0 ? "±0%" : `${n > 0 ? "+" : "−"}${Math.abs(n)}%`;
+};
 const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s); // declared before its first caller
 
 // ── flags ──
@@ -192,6 +198,52 @@ function tiles(d: DigestData): Embed["fields"] {
   ];
 }
 
+/**
+ * "Google 3 · AI 2 (ChatGPT 1, Gemini 1) · Blog (no referrer) 2": the AI
+ * assistants fold into one entry so their total reads at a glance, largest
+ * entry first.
+ */
+export function sourceLine(rows: SourceCount[]): string {
+  const ai = rows.filter((r) => AI_SOURCES.has(r.key) && r.bookings > 0);
+  const aiTotal = ai.reduce((n, r) => n + r.bookings, 0);
+  const entries: Array<{ text: string; n: number }> = rows
+    .filter((r) => !AI_SOURCES.has(r.key) && r.bookings > 0)
+    .map((r) => ({ text: `${BOOKING_SOURCE_LABELS[r.key]} ${r.bookings}`, n: r.bookings }));
+  if (aiTotal > 0) {
+    const detail = ai.map((r) => `${BOOKING_SOURCE_LABELS[r.key]} ${r.bookings}`).join(", ");
+    entries.push({ text: ai.length === 1 ? `AI: ${detail}` : `AI ${aiTotal} (${detail})`, n: aiTotal });
+  }
+  return entries.sort((a, b) => b.n - a.n).map((e) => e.text).join(" · ") || "—";
+}
+
+const dayLabel = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8))}`;
+const dayRange = (first: string, last: string) => (first === last ? dayLabel(first) : `${dayLabel(first)}–${Number(last.slice(8))}`);
+
+function paceField(d: DigestData): string {
+  if (!d.pace.ok) return `unavailable (${clamp(d.pace.error, 80)})`;
+  const p = d.pace.data;
+  const line = (label: string, t: PaceTotals) => {
+    const caveats = [
+      t.unmatched ? `${t.unmatched} unclassified booking(s) not counted` : "",
+      t.dirtyPgRows ? `fee income excludes ${t.dirtyPgRows} Park Guard row(s) with no wholesale` : "",
+    ].filter(Boolean);
+    return `${label}: ${t.bookings} bookings · GMV ${m(t.gmv, usd)} · fee income ${m(t.feeIncome, usd)}${caveats.length ? ` (${caveats.join("; ")})` : ""}`;
+  };
+  const change =
+    p.bookingsChange !== null
+      ? `Bookings ${signedPct(p.bookingsChange)} vs the same days last month`
+      : p.mtd.unmatched || p.prior.unmatched
+        ? "Change withheld: unclassified bookings in the comparison"
+        : "No bookings in the same days last month";
+  return [line(dayRange(p.mtdFirstDay, p.mtdLastDay), p.mtd), line(dayRange(p.priorFirstDay, p.priorLastDay), p.prior), change].join("\n");
+}
+
+function recoveryField(d: DigestData): string {
+  if (!d.recovery.ok) return `unavailable (${clamp(d.recovery.error, 80)})`;
+  const r = d.recovery.data;
+  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ in progress or stuck ${r.waiting} (check the recovery cron)` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
+}
+
 function whereFromField(d: DigestData): string {
   if (!d.whereFrom.ok) return `unavailable (${d.whereFrom.error})`;
   const w = d.whereFrom.data;
@@ -204,9 +256,13 @@ function whereFromField(d: DigestData): string {
     land.none ? `no cookie ${land.none}` : "",
   ].filter(Boolean).join(" · ") || "—";
   const posts = w.topBlogPosts.map((p) => `${p.path.replace(/^\/blog\//, "")}${p.bookings > 1 ? ` (${p.bookings})` : ""}`).join(", ");
+  const week = w.bySource7d.ok
+    ? `7 days to ${dayLabel(d.dateEt)} (${w.bySource7d.data.total}): ${sourceLine(w.bySource7d.data.rows)}`
+    : `7 days to ${dayLabel(d.dateEt)}: unavailable (${clamp(w.bySource7d.error, 60)})`;
   return [
-    `${w.byChannel.slice(0, 6).map((c) => `${titleCase(c.key)} ${c.bookings}`).join(" · ") || "—"}`,
-    `Landed on: ${landed}${w.aiReferrals ? ` · AI-assistant referrals ${w.aiReferrals}` : ""}`,
+    `${dayLabel(d.dateEt)}: ${sourceLine(w.bySource)}`,
+    week,
+    `Landed on: ${landed}`,
     w.topAirports.length ? `Airports: ${w.topAirports.map((a) => `${a.key} ${a.bookings}`).join(", ")}` : "",
     posts ? `Top posts: ${posts}` : "",
   ].filter(Boolean).join("\n");
@@ -353,9 +409,11 @@ export function renderEmbed(d: DigestData, read: ReadResult | null, extraFlags: 
   const FLOOR = tileRows.length; // the tiles are never dropped
   const ranked: Ranked[] = [
     ...tileRows.map((field) => ({ field, keep: 9 })),
+    { field: { name: "Month to date", value: clamp(paceField(d), FIELD_VALUE_LIMIT) }, keep: 6.5 },
     { field: { name: "Where bookings came from", value: clamp(whereFromField(d), FIELD_VALUE_LIMIT) }, keep: 6 },
     { field: { name: "Lead time & extras", value: clamp(leadTimeField(d), FIELD_VALUE_LIMIT) }, keep: 5 },
     { field: { name: "Lost sales", value: clamp(lostSalesField(d), FIELD_VALUE_LIMIT) }, keep: 7 },
+    { field: { name: "Abandoned-checkout emails (last 7 days)", value: clamp(recoveryField(d), FIELD_VALUE_LIMIT) }, keep: 4 },
     { field: { name: "Search detail", value: clamp(searchDetailField(d), FIELD_VALUE_LIMIT) }, keep: 3 },
     { field: { name: "Engagement", value: clamp(engagementField(d), FIELD_VALUE_LIMIT) }, keep: 2 },
     { field: { name: "Health", value: clamp(healthField(d), FIELD_VALUE_LIMIT) }, keep: 8 },

@@ -19,6 +19,7 @@ import { CancellationReportPanel } from "@/components/admin/cancellation-report"
 import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
+import { bookingSourceLabelForKey } from "@/lib/attribution/source";
 
 interface Stats {
   bookings: {
@@ -52,7 +53,8 @@ interface Stats {
     margin: { total: number; today: number; thisWeek: number; thisMonth: number };
   };
   attribution?: {
-    byChannel: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
+    /** Optional on the wire: a server from before the bySource change does not send it (rollback / version skew). */
+    bySource?: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirport: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirportTotal: number;
     byPromo: Array<{
@@ -428,7 +430,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-baseline justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Bookings by channel</h3>
+              <h3 className="font-semibold text-gray-900">Bookings by source</h3>
               <span
                 className={`text-xs ${
                   (stats.attribution.invalidRate7d ?? 0) > 0 ? "text-red-600 font-medium" : "text-gray-500"
@@ -462,18 +464,26 @@ export default function AdminDashboard() {
                     : `${stats.reslabSnapshot.ageHours} h old · ${stats.reslabSnapshot.locationCount} lots · ${stats.reslabSnapshot.wireKb} KB · ${stats.reslabSnapshot.writtenBy}${stats.reslabSnapshot.stale ? " · STALE — cron failing, search on per-server fetches" : stats.reslabSnapshot.behind ? " · BEHIND — cron missed ≥ 2 runs" : ""}`}
               </p>
             )}
-            <BreakdownTable
-              rows={stats.attribution.byChannel.map((r) => ({
-                label: r.key.replace(/_/g, " "),
-                bookings: r.bookings,
-                money: r.gross,
-              }))}
-              moneyHeader="Gross"
-              emptyText="No bookings in range"
-            />
+            {stats.attribution.bySource ? (
+              <BreakdownTable
+                rows={stats.attribution.bySource.map((r) => ({
+                  label: bookingSourceLabelForKey(r.key),
+                  bookings: r.bookings,
+                  money: r.gross,
+                }))}
+                moneyHeader="Gross"
+                emptyText="No bookings in range"
+              />
+            ) : (
+              <p className="text-sm text-amber-700">
+                Source breakdown not sent by the server (version mismatch) — reload, or check the deploy.
+              </p>
+            )}
             <p className="mt-3 text-xs text-gray-400">
-              &ldquo;unknown&rdquo; = booked before capture existed or with no cookie; &ldquo;invalid&rdquo; = cookie
-              present but unreadable (a bug — check Sentry).
+              Where the customer first came from. &ldquo;Blog (no referrer)&rdquo; = arrived straight on a blog
+              article with no referrer (almost always a search or AI app). &ldquo;No data&rdquo; = booked before
+              capture existed or with no cookie; &ldquo;Invalid cookie&rdquo; = present but unreadable (a bug —
+              check Sentry).
             </p>
           </div>
 

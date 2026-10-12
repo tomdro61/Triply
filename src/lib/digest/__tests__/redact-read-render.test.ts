@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { redactForDigest } from "../redact";
 import { allowedTokens, firstUnexplainedNumber, modelInput } from "../read";
-import { renderEmbed, verdictFor, flagsFor, DISCORD_TOTAL_LIMIT } from "../render";
+import { renderEmbed, verdictFor, flagsFor, sourceLine, DISCORD_TOTAL_LIMIT } from "../render";
+import { BOOKING_SOURCES } from "@/lib/attribution/source";
 import type { DigestData, BookingsSection, FunnelSection, HealthSection } from "../types";
 
 describe("redactForDigest", () => {
@@ -71,11 +72,13 @@ function data(over: Partial<DigestData> = {}): DigestData {
     windowLabel: "Sept 27, 2026 · 00:00–24:00 ET",
     generatedAt: "2026-09-28T13:05:00.000Z",
     bookings: { ok: true, data: bookings() },
-    whereFrom: { ok: true, data: { byChannel: [{ key: "organic_search", bookings: 4 }], topAirports: [{ key: "EWR", bookings: 2 }], landing: { blog: 5, airportPage: 0, homepage: 1, other: 0, none: 0 }, aiReferrals: 1, topBlogPosts: [{ path: "/blog/x", bookings: 2 }] } },
+    whereFrom: { ok: true, data: { bySource: [{ key: "google", bookings: 4 }, { key: "chatgpt", bookings: 1 }], bySource7d: { ok: true, data: { total: 40, rows: [{ key: "google", bookings: 14 }, { key: "no_referrer_blog", bookings: 11 }, { key: "other_search", bookings: 8 }, { key: "chatgpt", bookings: 4 }, { key: "gemini", bookings: 2 }, { key: "direct", bookings: 1 }] } }, topAirports: [{ key: "EWR", bookings: 2 }], landing: { blog: 5, airportPage: 0, homepage: 1, other: 0, none: 0 }, topBlogPosts: [{ path: "/blog/x", bookings: 2 }] } },
     funnel: { ok: true, data: funnel() },
     lostSales: { ok: true, data: { byStatus: { completed: 6 }, rows: [] } },
     engagement: { ok: true, data: { newsletterBySource: { blog: 2 }, waitlistByAirport: {}, chatSessions: 3, welcomeCodesMinted: 2 } },
     health: { ok: true, data: { telemetry: { kind: "ok", lastRowAt: "2026-09-28T03:58:00Z", rows24h: 500 }, snapshot: { kind: "off" }, stuckPending: { kind: "n", n: 0 }, emailNotSent: NO_UNSENT, lastDigest: { kind: "days", n: 1 } } },
+    pace: { ok: true, data: { mtdFirstDay: "2026-09-01", mtdLastDay: "2026-09-27", priorFirstDay: "2026-08-01", priorLastDay: "2026-08-27", mtd: { bookings: 62, gmv: 5210.4, feeIncome: 431.5, unmatched: 0, dirtyPgRows: 0 }, prior: { bookings: 40, gmv: 3900, feeIncome: 290, unmatched: 0, dirtyPgRows: 0 }, bookingsChange: 0.55 } },
+    recovery: { ok: true, data: { sent: 6, failed: 0, waiting: 0, optOuts: 1, recoveredBookings: 2 } },
     ...over,
   };
 }
@@ -143,7 +146,7 @@ describe("render — verdicts, flags, limits", () => {
     expect(verdict.kind).toBe("ok");
     expect(flags).toEqual([]);
     expect(embed.color).toBe(0xf87356);
-    expect(embed.fields.map((f) => f.name)).toEqual(["Bookings", "Fee income", "GMV", "Searches (server-side)", "No lot shown", "Park Guard", "Where bookings came from", "Lead time & extras", "Lost sales", "Search detail", "Engagement", "Health"]);
+    expect(embed.fields.map((f) => f.name)).toEqual(["Bookings", "Fee income", "GMV", "Searches (server-side)", "No lot shown", "Park Guard", "Month to date", "Where bookings came from", "Lead time & extras", "Lost sales", "Abandoned-checkout emails (last 7 days)", "Search detail", "Engagement", "Health"]);
     expect(embed.fields.slice(0, 6).every((f) => f.inline)).toBe(true); // two rows of three tiles
     expect(embed.description).toBe("✅ No flags.\n\n_Read (Haiku, from the aggregates):_ Fine day."); // the read sits at the top, under the flags, attributed
     expect(embed.footer.text).toMatch(/GMV includes due-at-lot and is pre-discount/);
@@ -203,7 +206,7 @@ describe("render — verdicts, flags, limits", () => {
     const longRows = Array.from({ length: 40 }, (_, i) => ({ airport: "JFK", lot: "A very long lot name ".repeat(3), status: "released_failed", reason: "x".repeat(60) + i }));
     const d = data({
       lostSales: { ok: true, data: { byStatus: { released_failed: 40 }, rows: longRows } },
-      whereFrom: { ok: true, data: { byChannel: Array.from({ length: 30 }, (_, i) => ({ key: `channel_${i}_${"z".repeat(20)}`, bookings: 1 })), topAirports: [], landing: { blog: 0, airportPage: 0, homepage: 0, other: 0, none: 0 }, aiReferrals: 0, topBlogPosts: Array.from({ length: 30 }, (_, i) => ({ path: `/blog/${"p".repeat(40)}${i}`, bookings: 1 })) } },
+      whereFrom: { ok: true, data: { bySource: BOOKING_SOURCES.map((key, i) => ({ key, bookings: i + 1 })), bySource7d: { ok: true, data: { total: 120, rows: BOOKING_SOURCES.map((key, i) => ({ key, bookings: i + 1 })) } }, topAirports: [], landing: { blog: 0, airportPage: 0, homepage: 0, other: 0, none: 0 }, topBlogPosts: Array.from({ length: 30 }, (_, i) => ({ path: `/blog/${"p".repeat(40)}${i}`, bookings: 1 })) } },
     });
     // Many flags make the description long; with the 1,024-clamped fields the total passes 6,000.
     d.funnel = { ok: true, data: funnel({ nothingBookableByAirport: Array.from({ length: 70 }, (_, i) => ({ key: `AP${i}`, share: 0.9, priced: 10 })) }) };
@@ -325,5 +328,136 @@ describe("render — verdicts, flags, limits", () => {
     const b = renderEmbed(data(), { kind: "unavailable", reason: "timeout" }).embed;
     expect(b.description).toMatch(/_Read unavailable \(timeout\)\._/);
     expect(b.fields.some((f) => /Model read/.test(f.name))).toBe(false); // the read is never a field any more
+  });
+});
+
+describe("render — sources, month to date, abandoned-checkout emails", () => {
+  const field = (d: DigestData, name: string) => renderEmbed(d, null).embed.fields.find((f) => f.name === name)?.value ?? "";
+
+  it("folds the AI assistants into one entry and sorts by count", () => {
+    expect(
+      sourceLine([
+        { key: "google", bookings: 14 },
+        { key: "no_referrer_blog", bookings: 11 },
+        { key: "other_search", bookings: 8 },
+        { key: "chatgpt", bookings: 4 },
+        { key: "gemini", bookings: 2 },
+        { key: "direct", bookings: 1 },
+      ])
+    ).toBe("Google 14 · Blog (no referrer) 11 · Bing & other engines 8 · AI 6 (ChatGPT 4, Gemini 2) · Direct 1");
+    expect(sourceLine([{ key: "google", bookings: 2 }, { key: "chatgpt", bookings: 1 }])).toBe("Google 2 · AI: ChatGPT 1");
+    expect(sourceLine([])).toBe("—");
+  });
+
+  it("the where-from block shows the day and the 7 days to it; a failed week keeps the day's line", () => {
+    const v = field(data(), "Where bookings came from");
+    expect(v).toMatch(/^Sept 27: Google 4 · AI: ChatGPT 1$/m);
+    expect(v.split("\n")).toContain("7 days to Sept 27 (40): Google 14 · Blog (no referrer) 11 · Bing & other engines 8 · AI 6 (ChatGPT 4, Gemini 2) · Direct 1");
+    const wf = data().whereFrom;
+    if (!wf.ok) throw new Error("fixture");
+    const broken = data({ whereFrom: { ok: true, data: { ...wf.data, bySource7d: { ok: false, error: "bookings: 57014 canceling statement" } } } });
+    const b = field(broken, "Where bookings came from");
+    expect(b).toMatch(/^Sept 27: Google 4/m);
+    expect(b).toMatch(/7 days to Sept 27: unavailable \(bookings: 57014/);
+  });
+
+  const T = (bookings: number, gmv: number | "unavailable", feeIncome: number, extra: { unmatched?: number; dirtyPgRows?: number } = {}) => ({ bookings, gmv, feeIncome, unmatched: 0, dirtyPgRows: 0, ...extra });
+
+  it("month to date compares the same days of last month, with a signed change", () => {
+    const v = field(data(), "Month to date");
+    expect(v.split("\n")).toEqual([
+      "Sept 1–27: 62 bookings · GMV $5,210 · fee income $432",
+      "Aug 1–27: 40 bookings · GMV $3,900 · fee income $290",
+      "Bookings +55% vs the same days last month",
+    ]);
+    const down = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-01", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-01", mtd: T(3, "unavailable", 20), prior: T(4, 300, 25), bookingsChange: -0.25 } } });
+    expect(field(down, "Month to date").split("\n")).toEqual([
+      "Oct 1: 3 bookings · GMV unavailable · fee income $20",
+      "Sept 1: 4 bookings · GMV $300 · fee income $25",
+      "Bookings −25% vs the same days last month",
+    ]);
+    const none = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-02", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-02", mtd: T(3, 300, 20), prior: T(0, 0, 0), bookingsChange: null } } });
+    expect(field(none, "Month to date")).toMatch(/No bookings in the same days last month$/);
+  });
+
+  it("unclassified rows put a caveat on the totals and withhold the change, never a confident drop", () => {
+    const unmatched = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(30, 2000, 200, { unmatched: 9, dirtyPgRows: 2 }), prior: T(50, 4000, 300), bookingsChange: null } } });
+    const u = field(unmatched, "Month to date").split("\n");
+    expect(u[0]).toBe("Oct 1–12: 30 bookings · GMV $2,000 · fee income $200 (9 unclassified booking(s) not counted; fee income excludes 2 Park Guard row(s) with no wholesale)");
+    expect(u[2]).toBe("Change withheld: unclassified bookings in the comparison");
+    const flat = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(250, 1, 1), prior: T(251, 1, 1), bookingsChange: -1 / 251 } } });
+    expect(field(flat, "Month to date")).toMatch(/Bookings ±0% vs/);
+  });
+
+  it("the abandoned-checkout line reports sends, opt-outs and bookings through the link", () => {
+    expect(field(data(), "Abandoned-checkout emails (last 7 days)")).toBe("Sent 6 · opted out 1 · bookings through the email link 2");
+    const failedSends = data({ recovery: { ok: true, data: { sent: 2, failed: 1, waiting: 0, optOuts: 0, recoveredBookings: "unavailable" } } });
+    expect(field(failedSends, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 2 · failed 1 · opted out 0 · bookings through the email link unavailable");
+    // A Resend outage parks rows in retry: that must never read as a quiet week.
+    const stuck = data({ recovery: { ok: true, data: { sent: 0, failed: 0, waiting: 4, optOuts: 0, recoveredBookings: 0 } } });
+    expect(field(stuck, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 0 · ⚠️ in progress or stuck 4 (check the recovery cron) · opted out 0 · bookings through the email link 0");
+  });
+
+  it("pace and recovery failing never change the verdict and never raise a flag", () => {
+    const d = data({ pace: { ok: false, error: "bookings(pace 2026-09-01): row cap hit" }, recovery: { ok: false, error: "checkout_recovery_emails: 42P01 missing" } });
+    const { verdict, flags, embed } = renderEmbed(d, null);
+    expect(verdict.kind).toBe("ok");
+    expect(flags).toEqual([]);
+    expect(embed.fields.find((f) => f.name === "Month to date")?.value).toMatch(/^unavailable \(bookings\(pace/);
+    expect(embed.fields.find((f) => f.name === "Abandoned-checkout emails (last 7 days)")?.value).toMatch(/^unavailable \(checkout_recovery_emails/);
+  });
+
+  it("the model gets display labels and a pre-computed change, never enum keys", () => {
+    const input = modelInput(data());
+    const json = JSON.stringify(input);
+    expect(json).toContain('"source":"ChatGPT"');
+    expect(json).toContain('"source":"Blog (no referrer)"');
+    expect(json).not.toContain("no_referrer_blog");
+    expect(json).toContain('"bookingsChange":{"direction":"up","percent":55}');
+    expect(json).toContain('"bookingsThroughEmailLink":2');
+    const allowed = allowedTokens(input, "2026-09-27");
+    expect(firstUnexplainedNumber("Month to date (Sept 1–27) is 62 bookings, up 55% on Aug 1–27; ChatGPT sent 4 bookings over the last 7 days.", allowed)).toBeNull();
+  });
+
+  it("a down month passes the number check (the validator reads 'down 25%' as 25)", () => {
+    const d = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-10", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-10", mtd: T(30, 2000, 200), prior: T(40, 3000, 300), bookingsChange: -0.25 } } });
+    const input = modelInput(d);
+    expect(JSON.stringify(input)).toContain('"bookingsChange":{"direction":"down","percent":25}');
+    const allowed = allowedTokens(input, "2026-10-10");
+    expect(firstUnexplainedNumber("Month to date (Oct 1–10) has 30 bookings, down 25% on Sept 1–10.", allowed)).toBeNull();
+    expect(firstUnexplainedNumber("Month to date is down −25%.", allowed)).toBeNull();
+  });
+
+  it("with unclassified rows the model gets no last-month figures to compare against", () => {
+    const d = data({ pace: { ok: true, data: { mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-12", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-12", mtd: T(38, 3000, 300, { unmatched: 3 }), prior: T(41, 3100, 310), bookingsChange: null } } });
+    const mtd = modelInput(d).monthToDate as Record<string, unknown>;
+    expect(mtd.comparisonWithheld).toBe(true);
+    expect(mtd.unclassifiedBookings).toEqual({ thisMonth: 3, lastMonth: 0 });
+    expect(mtd).not.toHaveProperty("sameDaysLastMonthBookings");
+    const allowed = allowedTokens(modelInput(d), "2026-10-12");
+    expect(firstUnexplainedNumber("38 bookings so far against 41 the same days last month.", allowed)).toBe("41");
+  });
+
+  it("failed comparison sections reach the model as null, never as zeros", () => {
+    const input = modelInput(data({ pace: { ok: false, error: "x" }, recovery: { ok: false, error: "y" } }));
+    expect(input.monthToDate).toBeNull();
+    expect(input.checkoutRecoveryLast7Days).toBeNull();
+    const wf = data().whereFrom;
+    if (!wf.ok) throw new Error("fixture");
+    const noWeek = modelInput(data({ whereFrom: { ok: true, data: { ...wf.data, bySource7d: { ok: false, error: "z" } } } }));
+    expect((noWeek.whereFrom as { bySourceLast7Days: unknown }).bySourceLast7Days).toBeNull();
+  });
+
+  it("a busy but ordinary day still fits Discord without truncation", () => {
+    const rows = BOOKING_SOURCES.map((key, i) => ({ key, bookings: i + 1 }));
+    const wf = data().whereFrom;
+    if (!wf.ok) throw new Error("fixture");
+    const d = data({
+      whereFrom: { ok: true, data: { ...wf.data, bySource: rows, bySource7d: { ok: true, data: { total: 120, rows } }, topAirports: ["EWR", "JFK", "ATL", "IAD", "SFO"].map((key) => ({ key, bookings: 2 })), topBlogPosts: [1, 2, 3].map((i) => ({ path: `/blog/newark-airport-parking-guide-${i}`, bookings: 1 })) } },
+      lostSales: { ok: true, data: { byStatus: { completed: 8, released_failed: 6 }, rows: Array.from({ length: 6 }, (_, i) => ({ airport: "JFK", lot: `Lot ${i}`, status: "released_failed", reason: "Validation error" })) } },
+    });
+    const { embed, truncated } = renderEmbed(d, { kind: "ok", text: "r".repeat(700) });
+    expect(truncated).toBe(false);
+    expect(embed.fields.map((f) => f.name)).toEqual(expect.arrayContaining(["Month to date", "Abandoned-checkout emails (last 7 days)", "Health", "Lost sales"]));
   });
 });

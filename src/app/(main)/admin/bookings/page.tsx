@@ -19,7 +19,8 @@ import {
 import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 import { csvEscape } from "@/lib/utils/csv";
-import { attributionSourceLabel as sourceLabel, type AttributionRow } from "@/lib/attribution/display";
+import type { AttributionRow } from "@/lib/attribution/display";
+import { bookingSourceLabel as sourceLabel } from "@/lib/attribution/source";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
 import {
   ADMIN_CANCELLATION_REASONS,

@@ -3,6 +3,8 @@
  * uncovered query can never render as 0 (plan v2 §0).
  */
 
+import type { BookingSource } from "@/lib/attribution/source";
+
 export type Metric = number | "unavailable";
 
 /** A headline number with its trailing baselines (per-day averages). */
@@ -46,12 +48,67 @@ export interface BookingsSection {
   leadTime: { sameDay: number; d1to3: number; d4to14: number; d15plus: number; unknown: number };
 }
 
+export interface SourceCount {
+  key: BookingSource;
+  bookings: number;
+}
+
 export interface WhereFromSection {
-  byChannel: Array<{ key: string; bookings: number }>;
+  /** The day's live confirmed bookings by reporting source (attribution/source.ts). */
+  bySource: SourceCount[];
+  /**
+   * The 7 ET days ending with the digest day, same definition. One day is ~6
+   * bookings, too few to read a mix from. Its own query: a failure here leaves
+   * the day's line standing.
+   */
+  bySource7d: Section<{ total: number; rows: SourceCount[] }>;
   topAirports: Array<{ key: string; bookings: number }>;
   landing: { blog: number; airportPage: number; homepage: number; other: number; none: number };
-  aiReferrals: number;
   topBlogPosts: Array<{ path: string; bookings: number }>;
+}
+
+/** Month-to-date vs the same days of the previous month (live confirmed bookings, as they stand now). */
+export interface PaceSection {
+  /** "2026-10-01" … the digest day. */
+  mtdFirstDay: string;
+  mtdLastDay: string;
+  /** The previous month's first day … the same day number (capped at that month's length). */
+  priorFirstDay: string;
+  priorLastDay: string;
+  mtd: PaceTotals;
+  prior: PaceTotals;
+  /**
+   * (mtd − prior) ÷ prior bookings, computed once here so the embed and the
+   * model read can never state two different figures. null when there is no
+   * fair comparison: no prior bookings, or either period has unmatched rows.
+   */
+  bookingsChange: number | null;
+}
+
+export interface PaceTotals {
+  bookings: number;
+  gmv: Metric;
+  /** Service fees + Park Guard margin; PG rows with no recorded wholesale are excluded and counted in dirtyPgRows. */
+  feeIncome: Metric;
+  /** Rows partitionBookings could not classify as live or staging; they are NOT in bookings/gmv/feeIncome. */
+  unmatched: number;
+  dirtyPgRows: number;
+}
+
+/** Abandoned-checkout recovery email (#44) over the 7 ET days ending with the digest day. Live mode only. */
+export interface RecoverySection {
+  sent: number;
+  failed: number;
+  /**
+   * Rows still `claimed` or parked in `retry`. A Resend outage or config failure
+   * parks rows here; a retry older than the cron's 24 h candidate window is never
+   * re-claimed, and a claim with send_started_at set may already have gone out.
+   * So this is "in progress or stuck", not a send queue.
+   */
+  waiting: number;
+  optOuts: number;
+  /** Live confirmed bookings whose first or last touch carried utm_campaign=checkout_recovery (the email's link). */
+  recoveredBookings: Metric;
 }
 
 export interface FunnelSection {
@@ -131,6 +188,13 @@ export interface DigestData {
   lostSales: Section<LostSalesSection>;
   engagement: Section<EngagementSection>;
   health: Section<HealthSection>;
+  /**
+   * Comparison sections. NOT part of the run verdict (render.ts SECTION_NAMES):
+   * a failure renders its own line as unavailable and never turns the digest
+   * partial or could-not-run.
+   */
+  pace: Section<PaceSection>;
+  recovery: Section<RecoverySection>;
 }
 
 export interface Flag {

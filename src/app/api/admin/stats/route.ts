@@ -4,10 +4,12 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, excludeTestBookings } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
+import { attributionSourceLabel } from "@/lib/attribution/display";
 import {
+  aggregate,
   buildPromoReport,
   byAirport,
-  byChannel,
+  bySource,
   presentRate,
   type PromoMeta,
   type ReportRow,
@@ -375,7 +377,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       attribution: attrRowsComplete
         ? {
-            byChannel: byChannel(attrRows),
+            bySource: bySource(attrRows),
+            // Kept one release (remove after Oct 25, 2026): an admin tab opened before the
+            // bySource deploy still renders this field on its next refetch and crashes without it.
+            byChannel: aggregate(attrRows, attributionSourceLabel),
             byAirport: airports.rows,
             byAirportTotal: airports.total,
             byPromo: promoError ? null : buildPromoReport(attrRows, (promoRows ?? []) as PromoMeta[]),

@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 type Answer = { data?: unknown; error?: { code?: string; message: string } | null; count?: number | null };
 const answers = vi.hoisted(() => ({
   byTable: new Map<string, Answer[]>(),
-  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null; eqs: Array<[string, unknown]> }>,
+  calls: [] as Array<{ table: string; head: boolean; select: string; range: [number, number] | null; eqs: Array<[string, unknown]>; gte?: string; lt?: string }>,
 }));
 const COLUMNS: Record<string, string[]> = {
   bookings: ["id", "created_at", "status", "check_in", "location_timezone", "reslab_location_id", "stripe_payment_intent_id", "livemode", "customer_id", "airport_code", "promo_code", "discount_amount", "grand_total", "triply_service_fee", "due_at_location", "protection_plan", "protection_plan_price", "protection_plan_wholesale", "channel", "attribution", "customers(email)"],
@@ -21,6 +21,8 @@ const COLUMNS: Record<string, string[]> = {
   promo_codes: ["id"],
   search_events_writer_health: ["env", "source", "last_row_at", "rows_24h"],
   digest_runs: ["digest_date", "outcome", "posted_at"],
+  checkout_recovery_emails: ["status", "livemode", "created_at"],
+  checkout_recovery_optouts: ["email", "created_at"],
 };
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: async () => ({
@@ -30,6 +32,8 @@ vi.mock("@/lib/supabase/server", () => ({
       let select = "";
       let range: [number, number] | null = null;
       const eqs: Array<[string, unknown]> = [];
+      let gte: string | undefined;
+      let lt: string | undefined;
       for (const m of ["select", "eq", "in", "gte", "lt", "like", "not", "order", "limit", "range", "abortSignal"]) {
         chain[m] = (...args: unknown[]) => {
           if (m === "select") {
@@ -38,11 +42,13 @@ vi.mock("@/lib/supabase/server", () => ({
           }
           if (m === "range") range = [Number(args[0]), Number(args[1])];
           if (m === "eq") eqs.push([String(args[0]), args[1]]);
+          if (m === "gte") gte = String(args[1]);
+          if (m === "lt") lt = String(args[1]);
           return chain;
         };
       }
       const resolve = () => {
-        answers.calls.push({ table, head, select, range, eqs });
+        answers.calls.push({ table, head, select, range, eqs, gte, lt });
         const unknown = select.split(",").map((c) => c.trim()).filter((c) => c && !(COLUMNS[table] ?? []).includes(c));
         if (unknown.length) return { data: null, error: { code: "42703", message: `column ${table}.${unknown[0]} does not exist` }, count: null };
         const q = answers.byTable.get(table) ?? [];
@@ -66,7 +72,8 @@ vi.mock("@/lib/reslab/location-snapshot", () => ({
   SNAPSHOT_MAX_AGE_MS: 24 * 3_600_000,
 }));
 
-import { partitionBookings, leadDays, collectDigest, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS } from "../collect";
+import { partitionBookings, leadDays, collectDigest, collectPace, collectRecovery, collectWeek, paceWindows, weekEndingOn, SINCE, LIVEMODE_NULL_LEGIT_BEFORE_MS } from "../collect";
+import { createAdminClient } from "@/lib/supabase/server";
 import { windowForEtDay } from "../window";
 
 const set = (table: string, ...a: Answer[]) => answers.byTable.set(table, a);
@@ -435,9 +442,216 @@ describe("collectDigest — sections, baselines, isolation", () => {
   it("every shipped select names only real columns (the fake mirrors PostgREST 42703 for anything else)", async () => {
     set("bookings", { data: [] }, { data: [] });
     quietOthers();
+    set("checkout_recovery_emails", { data: [] });
+    set("checkout_recovery_optouts", { count: 0 });
     const d = await collectDigest(w, NOW);
-    for (const s of ["bookings", "funnel", "lostSales", "engagement", "health"] as const) {
+    for (const s of ["bookings", "funnel", "lostSales", "engagement", "health", "pace", "recovery"] as const) {
       expect(d[s].ok, `${s}: ${JSON.stringify(d[s])}`).toBe(true);
     }
+  });
+});
+
+describe("month-to-date pace", () => {
+  it("compares the 1st through the same day number of the previous month, capped at that month's length", () => {
+    expect(paceWindows("2026-10-11")).toEqual({ mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-11", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-11" });
+    expect(paceWindows("2026-10-01")).toEqual({ mtdFirstDay: "2026-10-01", mtdLastDay: "2026-10-01", priorFirstDay: "2026-09-01", priorLastDay: "2026-09-01" });
+    expect(paceWindows("2027-03-31").priorLastDay).toBe("2027-02-28"); // all of February
+    expect(paceWindows("2028-03-30").priorLastDay).toBe("2028-02-29"); // leap year
+    expect(paceWindows("2026-10-31").priorLastDay).toBe("2026-09-30");
+    expect(paceWindows("2027-01-15")).toMatchObject({ priorFirstDay: "2026-12-01", priorLastDay: "2026-12-15" }); // across the year
+  });
+
+  it("counts live confirmed bookings only and uses the digest's own GMV / fee-income definitions", async () => {
+    const sb = await createAdminClient();
+    set(
+      "bookings",
+      {
+        data: [
+          booking({ id: "a", grand_total: "100", triply_service_fee: "6", protection_plan: "Plan A", protection_plan_price: "12.99", protection_plan_wholesale: "6" }),
+          booking({ id: "b", grand_total: "50", triply_service_fee: "5.95" }),
+          booking({ id: "refunded", status: "refunded" }),
+          booking({ id: "staging", livemode: false }),
+          booking({ id: "testlot", reslab_location_id: 195 }),
+        ],
+      },
+      { data: [booking({ id: "prior", grand_total: "40", triply_service_fee: "5.95" })] }
+    );
+    const r = await collectPace(sb as never, windowForEtDay("2026-10-11"));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.data.mtd).toEqual({ bookings: 2, gmv: 174.94, feeIncome: 18.94, unmatched: 0, dirtyPgRows: 0 }); // 118.99 + 55.95 · 6 + 5.95 + (12.99 − 6)
+    expect(r.data.prior).toEqual({ bookings: 1, gmv: 45.95, feeIncome: 5.95, unmatched: 0, dirtyPgRows: 0 });
+    expect(r.data.bookingsChange).toBe(1);
+    expect(r.data.priorLastDay).toBe("2026-09-11");
+  });
+
+  it("a NULL money column makes that month's GMV unavailable, never a shorter total; a capped fetch fails the section", async () => {
+    const sb = await createAdminClient();
+    set("bookings", { data: [booking({ grand_total: null })] }, { data: [] });
+    const r = await collectPace(sb as never, windowForEtDay("2026-10-11"));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.data.mtd.gmv).toBe("unavailable");
+    expect(r.data.mtd.bookings).toBe(1);
+    set("bookings", { data: Array.from({ length: 3_001 }, (_, i) => booking({ id: `b${i}` })) });
+    const capped = await collectPace(sb as never, windowForEtDay("2026-10-11"));
+    expect(capped.ok).toBe(false);
+  });
+});
+
+describe("7-day source mix and the abandoned-checkout line", () => {
+  it("the week ends WITH the digest day (inclusive), in ET", () => {
+    const wk = weekEndingOn(windowForEtDay("2026-10-10"));
+    expect(wk.firstDay).toBe("2026-10-04");
+    expect(wk.startUtc.toISOString()).toBe("2026-10-04T04:00:00.000Z");
+    expect(wk.endUtc.toISOString()).toBe("2026-10-11T04:00:00.000Z");
+  });
+
+  it("recovered = a live confirmed booking whose first or last touch carried the email's campaign; sends are live-mode only", async () => {
+    const sb = await createAdminClient();
+    const recoveredLast = { v: 1, first: { ref: "google.com", land: "/blog/x" }, last: { src: "triply", med: "email", cmp: "checkout_recovery", land: "/checkout" } };
+    const recoveredFirst = { v: 1, first: { src: "triply", med: "email", cmp: "checkout_recovery", land: "/checkout" } };
+    set("bookings", {
+      data: [
+        booking({ id: "r1", attribution: recoveredLast }),
+        booking({ id: "r2", attribution: recoveredFirst, channel: "email" }),
+        booking({ id: "stagingRecovered", attribution: recoveredFirst, livemode: false }),
+        booking({ id: "refundedRecovered", attribution: recoveredFirst, status: "refunded" }),
+        booking({ id: "plain" }),
+      ],
+    });
+    set("checkout_recovery_emails", { data: [{ status: "sent" }, { status: "sent" }, { status: "failed" }, { status: "claimed" }, { status: "retry" }] });
+    set("checkout_recovery_optouts", { count: 1 });
+    const w10 = windowForEtDay("2026-10-10");
+    const week = await collectWeek(sb as never, w10);
+    if (!week.ok) throw new Error(week.error);
+    expect(week.data.map((r) => r.id)).toEqual(["r1", "r2", "plain"]);
+    const r = await collectRecovery(sb as never, w10, week);
+    expect(r).toEqual({ ok: true, data: { sent: 2, failed: 1, waiting: 2, optOuts: 1, recoveredBookings: 2 } });
+    // Sends, opt-outs and recovered bookings all cover the SAME week.
+    const wkCall = answers.calls.find((c) => c.table === "bookings")!;
+    for (const t of ["checkout_recovery_emails", "checkout_recovery_optouts"]) {
+      const c = answers.calls.find((x) => x.table === t)!;
+      expect([c.gte, c.lt], t).toEqual([wkCall.gte, wkCall.lt]);
+    }
+    expect(answers.calls.find((c) => c.table === "checkout_recovery_emails")?.eqs).toContainEqual(["livemode", true]);
+  });
+
+  it("a failed week leaves the sends standing with the bookings count unavailable; a missing opt-out count fails the line, never 0", async () => {
+    const sb = await createAdminClient();
+    set("checkout_recovery_emails", { data: [{ status: "sent" }] });
+    set("checkout_recovery_optouts", { count: 0 });
+    const w10 = windowForEtDay("2026-10-10");
+    const r = await collectRecovery(sb as never, w10, { ok: false, error: "7-day bookings: row cap hit" });
+    expect(r).toEqual({ ok: true, data: { sent: 1, failed: 0, waiting: 0, optOuts: 0, recoveredBookings: "unavailable" } });
+    set("checkout_recovery_optouts", { count: null });
+    const noCount = await collectRecovery(sb as never, w10, { ok: true, data: [] });
+    expect(noCount.ok).toBe(false);
+  });
+
+  it("collectDigest wires the 7-day mix into where-from by source", async () => {
+    set("bookings", {
+      data: [
+        booking({ id: "g" }),
+        booking({ id: "c", channel: "referral", attribution: { v: 1, first: { src: "chatgpt.com", land: "/blog/y" } } }),
+        booking({ id: "n", channel: "direct", attribution: { v: 1, first: { land: "/blog/z" } } }),
+      ],
+    });
+    quietOthers();
+    set("checkout_recovery_emails", { data: [] });
+    set("checkout_recovery_optouts", { count: 0 });
+    const d = await collectDigest(windowForEtDay("2026-09-27"), NOW);
+    if (!d.whereFrom.ok) throw new Error(d.whereFrom.error);
+    const keys = (rows: Array<{ key: string; bookings: number }>) => Object.fromEntries(rows.map((r) => [r.key, r.bookings]));
+    expect(keys(d.whereFrom.data.bySource)).toEqual({ google: 1, chatgpt: 1, no_referrer_blog: 1 });
+    if (!d.whereFrom.data.bySource7d.ok) throw new Error(d.whereFrom.data.bySource7d.error);
+    expect(d.whereFrom.data.bySource7d.data.total).toBe(3);
+  });
+});
+
+describe("comparison windows reach the database as the right instants (DST included)", () => {
+  const bounds = (table: string) => answers.calls.filter((c) => c.table === table).map((c) => [c.gte, c.lt]);
+
+  it.each([
+    // fall-back day (Nov 1, 2026) inside month to date
+    ["2026-11-03", ["2026-11-01T04:00:00.000Z", "2026-11-04T05:00:00.000Z"], ["2026-10-01T04:00:00.000Z", "2026-10-04T04:00:00.000Z"]],
+    // the prior window IS the fall-back day: 25 hours
+    ["2026-12-01", ["2026-12-01T05:00:00.000Z", "2026-12-02T05:00:00.000Z"], ["2026-11-01T04:00:00.000Z", "2026-11-02T05:00:00.000Z"]],
+    // spring-forward inside month to date; prior is all of February
+    ["2027-03-31", ["2027-03-01T05:00:00.000Z", "2027-04-01T04:00:00.000Z"], ["2027-02-01T05:00:00.000Z", "2027-03-01T05:00:00.000Z"]],
+  ])("pace for %s: month to date and last month are ET-midnight bounds, last day included", async (dateEt, mtd, prior) => {
+    const sb = await createAdminClient();
+    set("bookings", { data: [] });
+    const r = await collectPace(sb as never, windowForEtDay(dateEt));
+    expect(r.ok).toBe(true);
+    expect(bounds("bookings")).toEqual([mtd, prior]);
+  });
+
+  it.each([
+    ["2026-11-03", "2026-10-28T04:00:00.000Z", "2026-11-04T05:00:00.000Z"], // 7 days + 1 h
+    ["2027-03-16", "2027-03-10T05:00:00.000Z", "2027-03-17T04:00:00.000Z"], // 7 days − 1 h
+  ])("the 7-day week to %s spans DST correctly", async (dateEt, start, end) => {
+    const sb = await createAdminClient();
+    set("bookings", { data: [] });
+    await collectWeek(sb as never, windowForEtDay(dateEt));
+    expect(bounds("bookings")).toEqual([[start, end]]);
+  });
+});
+
+describe("pace — partial failure and the shared money helpers", () => {
+  it.each([
+    ["last month", [{ data: [booking()] }, { error: { code: "57014", message: "timeout" } }]],
+    ["month to date", [{ error: { code: "57014", message: "timeout" } }, { data: [booking()] }]],
+  ] as const)("only %s failing still fails the whole section, never '0 last month'", async (which, queue) => {
+    const sb = await createAdminClient();
+    set("bookings", ...(queue as unknown as Answer[]));
+    const r = await collectPace(sb as never, windowForEtDay("2026-10-11"));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(new RegExp(`^${which}:`));
+  });
+
+  it("unmatched rows are counted and the change is withheld", async () => {
+    const sb = await createAdminClient();
+    set("bookings", { data: [booking(), booking({ id: "nopi", stripe_payment_intent_id: null })] }, { data: [booking(), booking({ id: "p2" })] });
+    const r = await collectPace(sb as never, windowForEtDay("2026-10-11"));
+    if (!r.ok) throw new Error(r.error);
+    expect(r.data.mtd.unmatched).toBe(1);
+    expect(r.data.bookingsChange).toBeNull();
+  });
+
+  it("the day and pace agree on fee income, including a PG row with no wholesale and one with no price", async () => {
+    const rows = [
+      booking({ id: "clean", protection_plan: "Plan A", protection_plan_price: "12.99", protection_plan_wholesale: "6" }),
+      booking({ id: "dirty", protection_plan: "Plan B", protection_plan_price: "7.99", protection_plan_wholesale: null }),
+    ];
+    const sb = await createAdminClient();
+    set("bookings", { data: rows }, { data: [] });
+    const pace = await collectPace(sb as never, windowForEtDay("2026-09-27"));
+    if (!pace.ok) throw new Error(pace.error);
+    expect(pace.data.mtd.feeIncome).toBe(18.89); // 5.95 × 2 + (12.99 − 6); the dirty row's margin excluded
+    expect(pace.data.mtd.dirtyPgRows).toBe(1);
+
+    answers.calls.length = 0;
+    set("bookings", { data: rows });
+    quietOthers();
+    const d = await collectDigest(windowForEtDay("2026-09-27"), NOW);
+    if (!d.bookings.ok) throw new Error(d.bookings.error);
+    expect(d.bookings.data.feeIncome).toBe(18.89);
+    expect(d.bookings.data.dirtyPgRows).toBe(1);
+
+    set("bookings", { data: [booking({ protection_plan: "Plan A", protection_plan_price: null, protection_plan_wholesale: "6" })] }, { data: [] });
+    const noPrice = await collectPace(sb as never, windowForEtDay("2026-09-27"));
+    if (!noPrice.ok) throw new Error(noPrice.error);
+    expect(noPrice.data.mtd.feeIncome).toBe("unavailable");
+    expect(noPrice.data.mtd.gmv).toBe("unavailable");
+  });
+});
+
+describe("collectDigest — comparison failures stay contained", () => {
+  it("the recovery table failing leaves every verdict section and the day's sources intact", async () => {
+    set("bookings", { data: [booking()] });
+    quietOthers();
+    set("checkout_recovery_emails", { error: { code: "42P01", message: "relation does not exist" } });
+    const d = await collectDigest(windowForEtDay("2026-09-27"), NOW);
+    expect(d.recovery.ok).toBe(false);
+    for (const s of ["bookings", "whereFrom", "funnel", "lostSales", "engagement", "health"] as const) expect(d[s].ok, s).toBe(true);
   });
 });
