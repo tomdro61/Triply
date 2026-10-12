@@ -209,3 +209,56 @@ describe("GET /api/cron/sweep-pending-bookings — held opposite-mode rows are r
     errSpy.mockRestore();
   });
 });
+
+describe("GET /api/cron/sweep-pending-bookings — declined card, then an authorized retry (2026-10-11)", () => {
+  const liveFailed = (over: Record<string, unknown>) => ({
+    stripe_payment_intent_id: "pi_retry",
+    status: "failed",
+    livemode: true,
+    reslab_reservation_number: null,
+    last_error: "PaymentIntent failed: Your card was declined.",
+    created_at: ago(3 * HOUR),
+    updated_at: ago(2 * HOUR),
+    ...over,
+  });
+
+  it("re-drives a `failed` row whose PaymentIntent now holds money through the engine", async () => {
+    db.seed("pending_bookings", [liveFailed({})]);
+    retrieve.mockResolvedValue({ id: "pi_retry", status: "requires_capture", amount: 9400 });
+    createBooking.mockResolvedValue({ kind: "created", reservationNumber: "RTL1" });
+    const body = await (await GET(req())).json();
+    expect(createBooking).toHaveBeenCalledWith({ source: "sweep", stripePaymentIntentId: "pi_retry" });
+    expect(body).toMatchObject({ ok: true, declinedScanned: 1, declinedRedriven: 1, completed: 1 });
+  });
+
+  it("leaves a genuinely dead decline (PaymentIntent still requires_payment_method) alone", async () => {
+    db.seed("pending_bookings", [liveFailed({})]);
+    retrieve.mockResolvedValue({ id: "pi_retry", status: "requires_payment_method", amount: 9400 });
+    const body = await (await GET(req())).json();
+    expect(createBooking).not.toHaveBeenCalled();
+    expect(body).toMatchObject({ declinedScanned: 1, declinedRedriven: 0 });
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+  });
+
+  it.each([
+    ["with a reservation number", { reslab_reservation_number: "RTL5" }],
+    ["in the other Stripe mode", { livemode: false }],
+    ["touched in the last 15 minutes", { updated_at: ago(60_000) }],
+    ["older than the authorization window", { updated_at: ago(9 * 24 * HOUR) }],
+  ])("never looks at a `failed` row %s", async (_n, over) => {
+    db.seed("pending_bookings", [liveFailed(over)]);
+    retrieve.mockResolvedValue({ id: "pi_retry", status: "requires_capture", amount: 9400 });
+    const body = await (await GET(req())).json();
+    expect(body.declinedScanned).toBe(0);
+    expect(createBooking).not.toHaveBeenCalled();
+  });
+
+  it("a failed scan query makes the run non-ok and is reported", async () => {
+    db.failWhen("pending_bookings", "select", () => true, "connection reset");
+    // The first pending_bookings select is the held-row check; fail the declined scan too.
+    db.failWhen("pending_bookings", "select", () => true, "connection reset");
+    db.failWhen("pending_bookings", "select", () => true, "connection reset");
+    const res = await GET(req());
+    expect(res.status).toBeGreaterThanOrEqual(500);
+  });
+});

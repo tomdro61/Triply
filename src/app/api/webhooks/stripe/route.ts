@@ -206,6 +206,37 @@ export async function POST(request: NextRequest) {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.error("Payment failed:", paymentIntent.id);
 
+      // The event is a SNAPSHOT from the moment the card was declined, and
+      // Stripe guarantees neither order nor single delivery. If the customer has
+      // since retried on this same PaymentIntent and it was authorized, this
+      // event is stale — acting on it would mark a real booking payment_failed,
+      // fail its pending row, or release its cart claim (2026-10-11). Decide on
+      // the PaymentIntent as it is NOW.
+      let livePi: Stripe.PaymentIntent;
+      try {
+        livePi = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      } catch (retrieveErr) {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed: could not read the live PaymentIntent ${paymentIntent.id} — retrying rather than acting on a possibly stale event: ${
+              retrieveErr instanceof Error ? retrieveErr.message : String(retrieveErr)
+            }`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        retryable = true;
+        break;
+      }
+      if (livePi.status === "requires_capture" || livePi.status === "succeeded" || livePi.status === "processing") {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed for ${paymentIntent.id} is stale — the PaymentIntent is now ${livePi.status} (a retry on the same payment succeeded); nothing changed`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        break;
+      }
+
       const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
         .select("id")
@@ -257,11 +288,38 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      if (
-        failedPending &&
-        (failedPending.status === "pending" || failedPending.status === "processing")
-      ) {
-        await supabase
+      // A `processing` row is held by a fulfilment caller, and the engine only
+      // claims a row AFTER the payment was authorized — so a payment_failed
+      // event for it is late or a duplicate (Stripe guarantees neither order
+      // nor single delivery): an earlier declined card, before the customer's
+      // retry succeeded. Failing that row (or releasing its cart claim) under a
+      // live caller is what let a second caller re-fulfil it. Leave it alone;
+      // an async payment that genuinely fails after settling is handed back to
+      // `pending` by the engine first, so it is still caught here.
+      if (failedPending?.status === "processing") {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed for ${paymentIntent.id} arrived while a fulfilment holds the row — row and cart claim left as they are; asking Stripe to redeliver`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        // Redeliver: by then the holder has either finished (the live
+        // PaymentIntent then holds money → stale branch above) or handed the
+        // row back as `pending` after a genuinely failed async payment, which
+        // the next delivery fails and releases. The sweep is the backstop.
+        retryable = true;
+        break;
+      }
+
+      // Release the cart claim only when nothing is fulfilling this payment:
+      // no staged row, a row already finished, or a row THIS event moved to
+      // `failed`. A `pending` row the update did NOT match was claimed in the
+      // meantime by a caller that now holds the cart (2026-10-11).
+      let releaseCartClaim =
+        !failedPending || (failedPending.status !== "pending" && failedPending.status !== "processing");
+
+      if (failedPending && failedPending.status === "pending") {
+        const { data: failedRows, error: failErr } = await supabase
           .from("pending_bookings")
           .update({
             status: "failed",
@@ -270,7 +328,17 @@ export async function POST(request: NextRequest) {
             }`,
           })
           .eq("stripe_payment_intent_id", paymentIntent.id)
-          .in("status", ["pending", "processing"]);
+          .eq("status", "pending")
+          .select("stripe_payment_intent_id");
+        if (failErr) {
+          capturePaymentError(
+            new Error(`Webhook payment_failed: could not mark ${paymentIntent.id} failed: ${failErr.message}`),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+          retryable = true;
+          break;
+        }
+        releaseCartClaim = (failedRows?.length ?? 0) > 0;
 
         // A reservation with a failed payment is inventory we hold and can never
         // bill for. Should be rare — the deferral runs before ResLab — but if it
@@ -285,11 +353,13 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      await supabase
-        .from("cart_claims")
-        .update({ released_at: new Date().toISOString() })
-        .eq("stripe_payment_intent_id", paymentIntent.id)
-        .is("released_at", null);
+      if (releaseCartClaim) {
+        await supabase
+          .from("cart_claims")
+          .update({ released_at: new Date().toISOString() })
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .is("released_at", null);
+      }
 
       capturePaymentError(
         new Error(`Payment failed: ${paymentIntent.last_payment_error?.message || "unknown error"}`),

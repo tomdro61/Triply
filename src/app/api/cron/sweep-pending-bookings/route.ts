@@ -59,6 +59,11 @@ const RUN_BUDGET_MS = 45_000;
  *  call. Well past any real checkout, so an abandoned test row is unambiguous. */
 const CROSS_MODE_CLEANUP_MS = 60 * 60_000;
 
+/** How far back the sweep looks for `failed` rows whose PaymentIntent was later
+ *  authorized (a declined card, then a retry on the same PaymentIntent). A card
+ *  authorization lasts ~7 days; past that there is nothing left to capture. */
+const DECLINED_RETRY_WINDOW_MS = 8 * 24 * 60 * 60_000;
+
 /** Prefix stamped into `last_error` once an opposite-mode held row has been
  *  reported, so it is reported once rather than every tick. No dots: it is
  *  embedded in a PostgREST `or=` filter. */
@@ -229,6 +234,10 @@ export async function GET(request: NextRequest) {
       /** Of those, the ones whose "reported" stamp did not land — they will be
        *  reported again next tick. */
       crossModeHeldUnmarked,
+      /** `failed` rows (a declined card) looked at for a later authorized retry. */
+      declinedScanned: 0,
+      /** Of those, PaymentIntents that now hold money — re-driven through the engine. */
+      declinedRedriven: 0,
     };
 
     for (const row of stuck ?? []) {
@@ -375,6 +384,53 @@ export async function GET(request: NextRequest) {
         result.stillPending++;
       } else if (outcome.kind === "needs_reconciliation") {
         result.escalated++;
+      }
+    }
+
+    // --- Backstop: a declined card, then an authorized retry (2026-10-11) -------
+    // The decline webhook marks the row `failed`; the customer retries another
+    // card on the SAME PaymentIntent and it is authorized. The engine reopens
+    // such a row (Step 4.5) — but only when something calls it. If the browser
+    // is gone and every webhook delivery failed, this is the only caller left;
+    // the scan above never sees `failed` rows. Only rows with no reservation
+    // number, in this mode, inside the authorization window; anything that does
+    // not hold money is left alone.
+    const declinedSince = new Date(Date.now() - DECLINED_RETRY_WINDOW_MS).toISOString();
+    const { data: declined, error: declinedErr } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id")
+      .eq("status", "failed")
+      .is("reslab_reservation_number", null)
+      .eq("livemode", livemode)
+      .lt("updated_at", staleBefore)
+      .gte("updated_at", declinedSince)
+      .order("updated_at", { ascending: false })
+      .limit(MAX_PER_RUN);
+    if (declinedErr) {
+      result.failed++;
+      capturePaymentError(new Error(`pending_bookings declined-retry scan failed: ${declinedErr.message}`), {});
+    } else {
+      for (const row of declined ?? []) {
+        if (Date.now() - startedAt > RUN_BUDGET_MS) {
+          result.deferredToNextRun++;
+          continue;
+        }
+        result.declinedScanned++;
+        const piId = row.stripe_payment_intent_id;
+        let pi;
+        try {
+          pi = await stripe.paymentIntents.retrieve(piId);
+        } catch {
+          // Nothing is known to be wrong yet; next tick reads it again.
+          result.skipped++;
+          continue;
+        }
+        if (pi.status !== "requires_capture" && pi.status !== "succeeded" && pi.status !== "processing") continue;
+        result.declinedRedriven++;
+        const outcome = await createBooking({ source: "sweep", stripePaymentIntentId: piId });
+        if (outcome.kind === "created" || outcome.kind === "already_exists") result.completed++;
+        else if (outcome.kind === "in_progress" || outcome.kind === "deferred") result.stillPending++;
+        else if (outcome.kind === "needs_reconciliation") result.escalated++;
       }
     }
 
