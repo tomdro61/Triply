@@ -451,3 +451,29 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/reservations/pending — re-stage after a declined card (2026-10-11)", () => {
+  it("a row the decline webhook marked `failed` gets the retry's tier, so fulfilment's tier check stays quiet", async () => {
+    const { getProtectionPlan, protectionMetadataPatch } = await import("@/lib/parkguard/plans");
+    db.tables.pending_bookings = [
+      { stripe_payment_intent_id: PI, status: "failed", reslab_reservation_number: null, protection_plan_code: "A", has_protection_plan: true },
+    ];
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 9400,
+      livemode: false,
+      metadata: { customerEmail: "ada@example.com", locationId: "42", ...protectionMetadataPatch(getProtectionPlan("B")!) },
+    });
+    const res = await POST(req(body({ protectionPlanCode: "B" })));
+    expect(await res.json()).toEqual({ staged: true, reason: "already_staged" });
+    expect(db.tables.pending_bookings[0]).toMatchObject({ status: "failed", protection_plan_code: "B", has_protection_plan: true });
+  });
+
+  it("a row past `pending`/`failed` (claimed by fulfilment) is never refreshed", async () => {
+    db.tables.pending_bookings = [
+      { stripe_payment_intent_id: PI, status: "processing", reslab_reservation_number: null, protection_plan_code: "A", has_protection_plan: true },
+    ];
+    await POST(req(body()));
+    expect(db.tables.pending_bookings[0]).toMatchObject({ protection_plan_code: "A", has_protection_plan: true });
+  });
+});

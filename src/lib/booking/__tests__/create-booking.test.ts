@@ -1666,3 +1666,121 @@ describe("admin notification failure", () => {
   });
 });
 
+
+describe("a declined card, then a retry on the SAME PaymentIntent (fixed 2026-10-11)", () => {
+  // payment_intent.payment_failed marks the row `failed`; the customer then
+  // enters another card on the same PaymentIntent and it is authorized. The
+  // row must be reopened and booked — not left `failed` with a live hold.
+  const failedRow = (over: Record<string, unknown> = {}) =>
+    pendingRow({ status: "failed", last_error: "PaymentIntent failed: Your card was declined.", ...over });
+
+  it.each(["client", "webhook", "complete", "sweep"] as const)("%s: the authorized retry is booked and captured", async (source) => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source, stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "created", reservationNumber: "RTL999" });
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).toHaveBeenCalledWith(PI);
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(1);
+    expect(db.tables.pending_bookings[0]).toMatchObject({ status: "completed", reslab_reservation_number: "RTL999" });
+    expect(String(db.tables.pending_bookings[0].last_error)).toMatch(/^revived: PaymentIntent requires_capture after an earlier failed attempt \(PaymentIntent failed: Your card was declined\.\)/);
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/reopened for fulfilment/) }),
+      expect.anything()
+    );
+  });
+
+  it("three entry points at once revive it once and book it once", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const outs = await Promise.all([
+      createBooking({ source: "client", stripePaymentIntentId: PI }),
+      createBooking({ source: "webhook", stripePaymentIntentId: PI }),
+      createBooking({ source: "complete", stripePaymentIntentId: PI }),
+    ]);
+
+    expect(outs.filter((o) => o.kind === "created")).toHaveLength(1);
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(db.tables.bookings).toHaveLength(1);
+  });
+
+  it("an already-captured retry (wallet auto-capture) is booked without a second capture", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ status: "succeeded", latest_charge: { amount_refunded: 0 } })
+    );
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it("a `failed` row whose PaymentIntent is NOT authorized is still refused (nothing to book)", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ status: "requires_payment_method" }));
+    await expect(createBooking({ source: "client", stripePaymentIntentId: PI })).rejects.toThrow(PaymentNotConfirmedError);
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+
+  it("a `failed` row that already carries a reservation number is NOT reopened — and is a loud reconciliation, never a quiet 'failed'", async () => {
+    db.seed("pending_bookings", [failedRow({ reslab_reservation_number: "RTL555" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    // Moved into the reconciliation queue, so the sweep's declined-retry scan stops re-alerting.
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(String(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[0])).toMatch(/HAS paid and has no booking.*RTL555|RTL555.*HAS paid/);
+    expect(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[1]).toMatchObject({ fingerprint: ["failed-row-holds-money", PI] });
+  });
+
+  it("a `failed` row a caller is STILL working on (fresh claim — a late payment_failed flipped it) is not revived: in_progress", async () => {
+    db.seed("pending_bookings", [failedRow({ claimed_at: new Date().toISOString() })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "complete", stripePaymentIntentId: PI });
+    expect(out).toEqual({ kind: "in_progress" });
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a stale claim", { claimed_at: "2026-01-01T00:00:00.000Z" }],
+    ["a ResLab attempt that began", { reslab_attempt_started_at: "2026-01-01T00:00:00.000Z" }],
+  ])("a `failed` row with %s is never revived: loud reconciliation, money untouched", async (_n, over) => {
+    db.seed("pending_bookings", [failedRow(over)]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(String(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[0])).toMatch(/NOT reopened automatically/);
+  });
+
+  it("other terminal statuses are untouched (released_failed stays refused)", async () => {
+    db.seed("pending_bookings", [pendingRow({ status: "released_failed" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+
+  it("a DB fault while reopening is retryable — never a terminal refusal", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    db.failWhen("pending_bookings", "update", (p) => !!p && p.status === "pending" && "last_error" in p, "connection reset");
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: true });
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+});

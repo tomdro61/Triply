@@ -397,6 +397,8 @@ interface PendingRow {
   status: PendingStatus;
   reslab_reservation_number: string | null;
   claimed_at: string | null;
+  last_error?: string | null;
+  reslab_attempt_started_at?: string | null;
   email_sent: boolean;
   livemode: boolean;
   // Fulfilment payload columns
@@ -672,6 +674,72 @@ async function readPendingRow(pi: string): Promise<PendingRow | null> {
     .maybeSingle();
   if (error) throw new DurableStateError("read", error.message);
   return (data as PendingRow | null) ?? null;
+}
+
+/**
+ * Step 4.5: reopen a row a declined attempt marked `failed`, now that a retry
+ * on the same PaymentIntent was authorized. Returns the row as it now stands —
+ * revived by this call, or by a concurrent caller that got there first.
+ */
+async function reviveDeclinedRow(
+  pi: string,
+  row: PendingRow,
+  paymentIntent: Stripe.PaymentIntent
+): Promise<{ kind: "row"; row: PendingRow } | { kind: "result"; result: CreateBookingResult }> {
+  const piStatus = paymentIntent.status;
+  // Worked on by a caller (claimed) or a ResLab attempt began: not a plain
+  // decline — a late payment_failed event flipped a live row.
+  if (row.claimed_at || row.reslab_attempt_started_at) {
+    const claimAge = row.claimed_at ? Date.now() - Date.parse(row.claimed_at) : Number.POSITIVE_INFINITY;
+    if (!row.reslab_attempt_started_at && claimAge < STALE_CLAIM_MS) {
+      // A caller may still be finishing it: let it, and ask to be re-driven.
+      return { kind: "result", result: { kind: "in_progress" } };
+    }
+    const reason = `pending row is 'failed' but was claimed${
+      row.reslab_attempt_started_at ? " and a ResLab attempt began" : ""
+    } — a late payment_failed event flipped a row in fulfilment; PaymentIntent is ${piStatus}`;
+    capturePaymentError(
+      new Error(
+        `${reason}. NOT reopened automatically (a ResLab reservation may exist). Check ResLab for ${pi} and capture or release the authorization by hand.`
+      ),
+      { stripePaymentIntentId: pi, amount: paymentIntent.amount / 100, fingerprint: ["failed-row-holds-money", pi] }
+    );
+    // Alert first, then move it into the reconciliation queue — otherwise the
+    // sweep's declined-retry scan re-alerts on it every tick.
+    await markTerminal(pi, "needs_reconciliation", reason, ["failed"]);
+    return { kind: "result", result: { kind: "needs_reconciliation", reason, retryable: false } };
+  }
+
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("pending_bookings")
+    .update({
+      status: "pending",
+      last_error: `revived: PaymentIntent ${piStatus} after an earlier failed attempt (${row.last_error ?? "no detail"})`.slice(0, 2000),
+    })
+    .eq("stripe_payment_intent_id", pi)
+    .eq("status", "failed")
+    .is("reslab_reservation_number", null)
+    .is("claimed_at", null)
+    .is("reslab_attempt_started_at", null)
+    .select("*")
+    .maybeSingle();
+  if (error) throw new DurableStateError("revive declined row", error.message);
+  if (data) {
+    // Informational: how often customers succeed on a second card is worth
+    // seeing, and this path was silently losing those bookings before.
+    captureBookingError(
+      new Error(
+        `Pending row for ${pi} was 'failed' by an earlier declined attempt; the PaymentIntent is now ${piStatus} — reopened for fulfilment`
+      ),
+      { step: "checkout" }
+    );
+    return { kind: "row", row: data as PendingRow };
+  }
+  // Another caller revived (and maybe claimed) it first.
+  const current = await readPendingRow(pi);
+  if (!current) throw new DurableStateError("revive declined row", "the row disappeared");
+  return { kind: "row", row: current };
 }
 
 /**
@@ -1195,6 +1263,33 @@ async function createBookingInner(
     }
   }
 
+  // --- Step 4.5: a declined attempt on THIS PaymentIntent, now authorized ----
+  // A declined card fires payment_intent.payment_failed, which marks the row
+  // `failed`; the PaymentIntent goes back to requires_payment_method and the
+  // checkout page lets the customer try another card on the SAME
+  // PaymentIntent. When that card is authorized, `failed` is stale: no
+  // reservation was made and the customer has now paid. Short-circuiting on it
+  // left a live hold, no booking and no alert (fixed 2026-10-11). Reopen the
+  // row — only `failed`, only with no reservation number, only while the
+  // PaymentIntent holds money — and fulfil it normally. Conditional, so
+  // concurrent callers revive it once; the claim below still lets exactly one
+  // of them fulfil.
+  //
+  // A row that was ever CLAIMED is not a plain decline: the engine claims only
+  // after authorization, so a `failed` row with a claim means a late or
+  // duplicate payment_failed event flipped a row a caller was working on. A
+  // second caller reviving that could book a second ResLab reservation or
+  // release the first caller's payment. Never revive it (see reviveDeclinedRow).
+  if (
+    row.status === "failed" &&
+    !row.reslab_reservation_number &&
+    (pi.status === "requires_capture" || pi.status === "succeeded" || pi.status === "processing")
+  ) {
+    const revived = await reviveDeclinedRow(stripePaymentIntentId, row, pi);
+    if (revived.kind !== "row") return revived.result;
+    row = revived.row;
+  }
+
   // --- Step 5: terminal short-circuit ----------------------------------------
   if (TERMINAL_STATUSES.has(row.status)) {
     switch (row.status) {
@@ -1272,6 +1367,35 @@ async function createBookingInner(
           reason: "checkout expired",
           userMessage:
             "This checkout expired and was not completed. You have not been charged — please search again.",
+        };
+      }
+      case "failed": {
+        // Still `failed` after Step 4.5 while the PaymentIntent holds money:
+        // a reservation number was already recorded, or the row was worked on
+        // when a late payment_failed flipped it. Never a quiet "failed" (which
+        // stops Stripe redelivering): the customer has paid and has no booking.
+        if (pi.status === "requires_capture" || pi.status === "succeeded" || pi.status === "processing") {
+          capturePaymentError(
+            new Error(
+              `PaymentIntent ${stripePaymentIntentId} is ${pi.status} but its pending row is 'failed'${
+                row.reslab_reservation_number ? ` with ResLab reservation ${row.reslab_reservation_number} recorded` : ""
+              } — the customer HAS paid and has no booking. Recover manually (adopt or cancel the reservation, then capture or release).`
+            ),
+            { stripePaymentIntentId, amount: pi.amount / 100, fingerprint: ["failed-row-holds-money", stripePaymentIntentId] }
+          );
+          // Into the reconciliation queue (alert first: markTerminal can throw).
+          await markTerminal(stripePaymentIntentId, "needs_reconciliation", "failed row for a PaymentIntent that holds money", ["failed"]);
+          return {
+            kind: "needs_reconciliation",
+            reason: "failed row for a PaymentIntent that holds money",
+            retryable: false,
+          };
+        }
+        return {
+          kind: "failed",
+          reason: `pending row already terminal: ${row.status}`,
+          userMessage:
+            "This booking could not be completed. If you were charged, our team will contact you.",
         };
       }
       case "suspected_duplicate":

@@ -351,7 +351,11 @@ export async function POST(request: NextRequest) {
             has_protection_plan: protectionPlanCode !== null,
           })
           .eq("stripe_payment_intent_id", piId)
-          .eq("status", "pending");
+          // `failed` too: a declined card marks the row failed, and the retry
+          // on the same PaymentIntent may carry a different tier (the engine
+          // reopens that row once the retry is authorized).
+          .in("status", ["pending", "failed"])
+          .is("reslab_reservation_number", null);
         if (refreshError) {
           // Not fatal: fulfilment trusts the PaymentIntent, not this column.
           capturePaymentError(
