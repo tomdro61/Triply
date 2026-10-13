@@ -29,7 +29,7 @@ import {
   trackCheckoutStepView,
   trackCheckoutValidationError,
 } from "@/lib/analytics/gtag";
-import { bucketCheckoutFailure, fieldList } from "@/lib/analytics/checkout-funnel";
+import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -87,6 +87,9 @@ export function CheckoutForm({
   const router = useRouter();
   const supabase = createClient();
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("details");
+  // Two or more calendar days out (the visitor's date — display only; the
+  // 24 h cancellation gate is enforced server-side in the lot's time zone).
+  const [showFreeCancellation] = useState(() => (leadDays(checkIn, deviceToday()) ?? 0) >= 2);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -1123,6 +1126,7 @@ export function CheckoutForm({
               onChange={setCustomerDetails}
               onNext={handleCustomerNext}
               errors={customerErrors}
+              showFreeCancellation={showFreeCancellation}
             />
           )}
 
@@ -1258,6 +1262,7 @@ export function CheckoutForm({
           // already-frozen PI amount, so Stripe would charge the wrong total.
           promoLocked={clientSecret !== null}
           vehicleEstimate={vehicleEstimate}
+          showFreeCancellation={showFreeCancellation}
         />
       </div>
     </div>
