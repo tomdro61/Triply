@@ -16,6 +16,7 @@ import {
   Receipt,
   Percent,
 } from "lucide-react";
+import { DirectPayoutsSection } from "@/components/admin/direct-payouts-section";
 import type {
   DateField,
   BookingDetail,
@@ -369,11 +370,14 @@ export default function AccountingPage() {
             <h2 className="text-sm uppercase font-semibold text-gray-500 tracking-wider mb-3">Reporting</h2>
             {result.direct.count > 0 && (
               // Direct-lot bookings (Triply's own lots, no ResLab) are NOT in the
-              // figures below; Phase 6 adds their payout section. Never hidden.
+              // figures below; their payouts are in the Triply lots section. Never hidden.
+              // Only Stripe's own figure is called "charged"; an estimate never is.
               <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
                 <strong>Direct lots:</strong> {result.direct.count} booking{result.direct.count === 1 ? "" : "s"} ({result.direct.confirmed} confirmed
-                · {result.direct.refunded} refunded · {result.direct.cancelled} cancelled) — {usd(result.direct.grossOnlineCharge)} charged online
-                {result.direct.grossOnlineChargeIsDerived ? " (estimated from the booking rows)" : ""}. Not included in the figures below; payout detail comes in Phase 6.
+                · {result.direct.refunded} refunded · {result.direct.cancelled} cancelled) —{" "}
+                {result.direct.grossOnlineChargeIsDerived
+                  ? `about ${usd(result.direct.grossOnlineCharge)} online (estimated from the booking rows, not read from Stripe)`
+                  : `${usd(result.direct.grossOnlineCharge)} charged online`}. Not included in the figures below; lot payouts are in the Triply lots section at the bottom of this page.
                 {result.direct.stripeErrors.length > 0 && ` ${result.direct.stripeErrors.length} Stripe read error(s).`}
               </div>
             )}
@@ -966,6 +970,9 @@ export default function AccountingPage() {
             </div>
           </>
         )}
+
+        {/* Direct-lot payouts: own lot + month picker, independent of the filters above. */}
+        <DirectPayoutsSection />
       </div>
     </main>
   );

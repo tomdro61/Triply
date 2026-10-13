@@ -312,6 +312,24 @@ export class FakeSupabase {
     return new FakeQuery(this, table);
   }
 
+  /** Postgres functions a test provides by name; an unknown name is a
+   *  PGRST202 error, as PostgREST returns for a function it cannot find. */
+  rpcHandlers: Record<string, (args: Record<string, unknown>) => { data: unknown; error: unknown }> = {};
+  rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+
+  rpc(fn: string, args: Record<string, unknown> = {}) {
+    this.rpcCalls.push({ fn, args });
+    const handler = this.rpcHandlers[fn];
+    const result = handler
+      ? handler(args)
+      : { data: null, error: { message: `Could not find the function public.${fn}`, code: "PGRST202" } };
+    const call = {
+      abortSignal: (_signal: AbortSignal) => call,
+      then: <T>(onFulfilled: (r: { data: unknown; error: unknown }) => T) => Promise.resolve(result).then(onFulfilled),
+    };
+    return call;
+  }
+
   _takeConditional(
     table: string,
     op: string,
@@ -356,8 +374,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private rangeFrom: number | null = null;
   private countMode = false;
   private headOnly = false;
-  private orderCol: string | null = null;
-  private orderAsc = true;
+  /** Every `.order()` call, in order — PostgREST sorts by all of them (the first is primary). */
+  private orders: Array<{ col: string; asc: boolean }> = [];
 
   constructor(private db: FakeSupabase, private table: string) {}
 
@@ -450,8 +468,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   // insertion order regardless of what was asked for, which would pass a
   // test that got the intended row purely by luck of seed order.
   order(col: string, opts?: { ascending?: boolean }) {
-    this.orderCol = col;
-    this.orderAsc = opts?.ascending ?? true;
+    this.orders.push({ col, asc: opts?.ascending ?? true });
     return this;
   }
   limit(n: number) {
@@ -469,6 +486,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
    *  cut short. Its presence in a call chain is what lets a bounded query run
    *  under this fake at all. */
   abortSignal(_signal: AbortSignal) {
+    return this;
+  }
+  /** Type-only in supabase-js. */
+  returns() {
     return this;
   }
   maybeSingle() {
@@ -646,19 +667,20 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 
-    const ordered = this.orderCol
+    const ordered = this.orders.length
       ? [...hit].sort((a, b) => {
-          const col = this.orderCol as string;
-          const av = a[col];
-          const bv = b[col];
-          if (av == null && bv == null) return 0;
-          // Postgres: ASC => NULLS LAST, DESC => NULLS FIRST. Never the
-          // reverse — a fake that orders nulls first would bless a row
-          // PostgREST puts last.
-          if (av == null) return this.orderAsc ? 1 : -1;
-          if (bv == null) return this.orderAsc ? -1 : 1;
-          if (av < bv) return this.orderAsc ? -1 : 1;
-          if (av > bv) return this.orderAsc ? 1 : -1;
+          for (const { col, asc } of this.orders) {
+            const av = a[col];
+            const bv = b[col];
+            if (av == null && bv == null) continue;
+            // Postgres: ASC => NULLS LAST, DESC => NULLS FIRST. Never the
+            // reverse — a fake that orders nulls first would bless a row
+            // PostgREST puts last.
+            if (av == null) return asc ? 1 : -1;
+            if (bv == null) return asc ? -1 : 1;
+            if (av < bv) return asc ? -1 : 1;
+            if (av > bv) return asc ? 1 : -1;
+          }
           return 0;
         })
       : hit;

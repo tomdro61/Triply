@@ -257,3 +257,21 @@ export function captureDirectLotNotice(
     Sentry.captureException(error);
   });
 }
+
+/**
+ * Direct-lot payout statement email (Phase 6a). Sent after the month is marked
+ * paid; a skipped or failed send leaves the statement paid but un-emailed, and
+ * the admin page offers a re-send. Tagged `direct_lot_statement:<outcome>`.
+ */
+export function captureDirectLotStatement(
+  error: Error,
+  context: { statementId: string; outcome: "skipped" | "failed" | "unknown" }
+) {
+  Sentry.withScope((scope) => {
+    scope.setTag("direct_lot_statement", context.outcome);
+    scope.setTag("inventory_source", "direct");
+    scope.setContext("statement", { statementId: context.statementId });
+    scope.setLevel(context.outcome === "skipped" ? "warning" : "error");
+    Sentry.captureException(error);
+  });
+}

@@ -85,12 +85,12 @@ export interface LotBookingNoticeContent {
   urgent: boolean;
 }
 
-interface Recipients {
+export interface Recipients {
   to: string[];
   test: boolean;
 }
 
-function resolveRecipients(livemode: boolean, lotRecipients: string[]): Recipients | null {
+export function resolveLotRecipients(livemode: boolean, lotRecipients: string[]): Recipients | null {
   if (livemode && resolveEnv() === "production") return { to: lotRecipients, test: false };
   const override = (process.env.DIRECT_LOT_NOTICE_OVERRIDE_TO ?? "").trim();
   if (!override) return null;
@@ -239,7 +239,7 @@ async function claimAndSend(
       return "failed";
     }
     const t = terms as { livemode: boolean; lot_recipients: string[] };
-    const recipients = resolveRecipients(t.livemode, t.lot_recipients);
+    const recipients = resolveLotRecipients(t.livemode, t.lot_recipients);
     if (!recipients || recipients.to.length === 0) {
       report("DIRECT_LOT_NOTICE_OVERRIDE_TO is not set — a non-production notice was not sent", "skipped");
       return "skipped";
