@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
       email =
         Date.now() - startedAt > EMAIL_CUTOFF_MS
           ? { outcome: "skipped", reason: "no time left in this request — use Send statement" }
-          : await sendStatementEmail(statementId, lotInfo.value.name);
+          : await sendStatementEmail(statementId, lotInfo.value);
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       captureAPIError(e, { endpoint: "/api/admin/direct-payouts/mark-paid", method: "POST", stage: "statement_email", extra: { statementId } });

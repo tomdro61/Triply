@@ -32,7 +32,7 @@ vi.mock("@/lib/direct/store", () => ({
     id !== 1
       ? { status: "not_found" }
       : lot.status === "found"
-      ? { status: "found", lot: { name: "The Parking Point JFK", timezone: "America/New_York" } }
+      ? { status: "found", lot: { name: "The Parking Point JFK", timezone: "America/New_York", notificationEmails: ["parkingpointjfk@gmail.com"] } }
       : { status: "unavailable", kind: "unavailable", message: "down" },
 }));
 vi.mock("@/lib/direct/payout-stripe", () => ({
@@ -146,7 +146,7 @@ describe("POST /api/admin/direct-payouts/resend", () => {
     const res = await resend({ lot: "1", month: "2026-09" });
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ statementId: "st_live", email: { outcome: "sent" } });
-    expect(email.send).toHaveBeenCalledWith("st_live", "The Parking Point JFK");
+    expect(email.send).toHaveBeenCalledWith("st_live", { name: "The Parking Point JFK", timezone: "America/New_York", emails: ["parkingpointjfk@gmail.com"] });
   });
 
   it("404 for an unpaid month, 400 for a bad body, 401 before any read", async () => {

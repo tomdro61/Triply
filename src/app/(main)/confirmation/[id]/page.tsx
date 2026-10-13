@@ -321,7 +321,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const customerName = reservation
     ? `${reservation.customer.firstName} ${reservation.customer.lastName}`
     : "Customer";
-  const customerEmail = reservation?.customer.email || "customer@example.com";
+  // Never a placeholder: an unknown address hides "Confirmation sent to" (and the
+  // account prompt) rather than stating an address we never emailed.
+  const customerEmail = reservation?.customer.email ?? "";
   const customerPhone = reservation?.customer.phone || "(555) 123-4567";
   const vehicleInfo = reservation?.vehicleInfo
     ? `${reservation.vehicleInfo.make} ${reservation.vehicleInfo.model} (${reservation.vehicleInfo.color}) - ${reservation.vehicleInfo.licensePlate}`
@@ -485,7 +487,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           </div>
 
           {/* Create Account Prompt (for guests only) */}
-          {!isCancelled && !user && showAccountPrompt && (
+          {!isCancelled && !user && showAccountPrompt && customerEmail && (
             <div className="mt-8">
               <CreateAccountPrompt
                 email={customerEmail}

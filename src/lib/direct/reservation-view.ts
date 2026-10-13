@@ -227,7 +227,27 @@ export interface DirectReservationCommon {
   toDate: string | null;
   /** What Stripe took on the booking's PaymentIntent — the breakdown's anchor. */
   payment: CardPayment;
+  /**
+   * The guest as typed at checkout (`pending_bookings.customer`) — the address the
+   * confirmation went to. A signed-in customer booking for someone else is filed
+   * under their own `customers` row, so that row's email is the ACCOUNT's, not the
+   * one emailed. Field by field, this wins over the row; null = not read.
+   */
+  guest: GuestContact | null;
 }
+
+export interface GuestContact {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+}
+
+/** The typed value when there is one, else the linked customers row's. */
+const pick = (typed: string | undefined, row: string | null): string => {
+  const t = (typed ?? "").trim();
+  return t.length > 0 ? t : (row ?? "");
+};
 
 const toCents = (dollars: number): number => Math.round(dollars * 100);
 const fromCents = (cents: number): number => cents / 100;
@@ -408,10 +428,10 @@ export function buildDirectReservation(
       airportCode: snap.airportCode,
       timezone: snap.timezone,
       customer: {
-        firstName: row.customers.first_name ?? "",
-        lastName: row.customers.last_name ?? "",
-        email: row.customers.email ?? "",
-        phone: row.customers.phone ?? "",
+        firstName: pick(common.guest?.firstName, row.customers.first_name),
+        lastName: pick(common.guest?.lastName, row.customers.last_name),
+        email: pick(common.guest?.email, row.customers.email),
+        phone: pick(common.guest?.phone, row.customers.phone),
       },
       items: [
         {

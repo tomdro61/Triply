@@ -4,7 +4,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
 import { isAdminEmail } from "@/config/admin";
 import { cancelSource } from "@/lib/cancellation/source-guard";
-import { buildDirectReservation } from "@/lib/direct/reservation-view";
+import { buildDirectReservation, type GuestContact } from "@/lib/direct/reservation-view";
 import { buildCostBreakdown, fallbackDue, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import {
   cardSummary,
@@ -13,6 +13,67 @@ import {
   protectionPlanName,
 } from "@/lib/booking/confirmation-payment";
 import { readCardPayment, reportCostBreakdownFallback } from "@/lib/booking/read-card-payment";
+
+/**
+ * The guest as typed at checkout, for a direct booking's confirmation page: the
+ * name / email / phone the confirmation was sent to. Bounded and never fatal — a
+ * failed read falls back to the linked customers row (reported, because that
+ * row can be the signed-in ACCOUNT's details rather than the guest's).
+ */
+type StagedGuestRead = { ok: true; guest: GuestContact | null } | { ok: false };
+
+async function readStagedGuestResult(
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  paymentIntentId: string | null | undefined,
+  confirmationNumber: string
+): Promise<StagedGuestRead> {
+  if (!paymentIntentId) return { ok: true, guest: null };
+  try {
+    const { data, error } = await supabase
+      .from("pending_bookings")
+      .select("customer")
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .abortSignal(AbortSignal.timeout(3_000))
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    const c = (data as { customer?: unknown } | null)?.customer;
+    if (!c || typeof c !== "object") return { ok: true, guest: null };
+    const str = (v: unknown) => (typeof v === "string" ? v : undefined);
+    const r = c as Record<string, unknown>;
+    return { ok: true, guest: { firstName: str(r.firstName), lastName: str(r.lastName), email: str(r.email), phone: str(r.phone) } };
+  } catch (err) {
+    captureBookingError(
+      new Error(`staged guest read failed: ${err instanceof Error ? err.message : String(err)}`),
+      { step: "confirmation", confirmationNumber, fingerprint: ["staged-guest-read-failed"] }
+    );
+    return { ok: false };
+  }
+}
+
+/**
+ * For a DIRECT booking's page: a failed read falls back to the linked customers
+ * row (reported above). A direct booking always has a staged row with an email
+ * (staged and Zod-checked before payment, never deleted), so a missing one is
+ * reported too — the fallback can be the signed-in ACCOUNT's details.
+ */
+async function readStagedGuest(
+  supabase: Awaited<ReturnType<typeof createAdminClient>>,
+  paymentIntentId: string | null | undefined,
+  confirmationNumber: string
+): Promise<GuestContact | null> {
+  const r = await readStagedGuestResult(supabase, paymentIntentId, confirmationNumber);
+  if (!r.ok) return null;
+  if (!r.guest?.email?.trim()) {
+    captureBookingError(
+      new Error("direct booking: staged guest missing or has no email — the page shows the linked customer row"),
+      { step: "confirmation", confirmationNumber, fingerprint: ["direct-staged-guest-missing"] }
+    );
+  }
+  return r.guest;
+}
+
+const sameEmail = (a: string | null | undefined, b: string | null | undefined): boolean =>
+  !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +103,7 @@ export async function GET(
       const adminClient = await createAdminClient();
       const { data: booking, error: bookingLookupErr } = await adminClient
         .from("bookings")
-        .select("customer_id, customers(user_id, email)")
+        .select("customer_id, stripe_payment_intent_id, customers(user_id, email)")
         .eq("reslab_reservation_number", id)
         .maybeSingle();
 
@@ -69,12 +130,22 @@ export async function GET(
       // access — including this highest-PII detail surface — in one env flip.
       const fallbackEnabled =
         process.env.ENABLE_EMAIL_BOOKING_FALLBACK !== "false";
-      const ownsByEmail =
-        fallbackEnabled &&
-        !!user.email_confirmed_at &&
-        !!user.email &&
-        !!customer?.email &&
-        customer.email.toLowerCase() === user.email.toLowerCase();
+      const verifiedEmail = fallbackEnabled && !!user.email_confirmed_at ? user.email : null;
+      let ownsByEmail = !!verifiedEmail && sameEmail(customer?.email, verifiedEmail);
+      // A booking a signed-in customer made FOR someone else is filed under the
+      // booker's customers row, while the confirmation went to the address typed
+      // at checkout — the recipient (signed in with that verified address) owns it too.
+      if (booking && !ownsByUserId && !ownsByEmail && verifiedEmail) {
+        const staged = await readStagedGuestResult(
+          adminClient,
+          (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
+          id
+        );
+        if (!staged.ok) {
+          return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
+        }
+        ownsByEmail = sameEmail(staged.guest?.email, verifiedEmail);
+      }
 
       if (!booking || (!ownsByUserId && !ownsByEmail)) {
         // Check if user is admin
@@ -99,7 +170,7 @@ export async function GET(
       const adminClient = await createAdminClient();
       const { data: booking, error: bookingLookupErr } = await adminClient
         .from("bookings")
-        .select("customer_id, customers(email)")
+        .select("customer_id, stripe_payment_intent_id, customers(email)")
         .eq("reslab_reservation_number", id)
         .maybeSingle();
 
@@ -117,7 +188,23 @@ export async function GET(
       const customerEmail = (
         (booking?.customers ?? null) as { email?: string | null } | null
       )?.email;
-      if (!booking || customerEmail?.toLowerCase() !== email.toLowerCase()) {
+      // The email's "View booking" link carries the address typed at checkout.
+      // When a signed-in customer booked for someone else, the booking is filed
+      // under the booker's customers row, so also accept the typed address — the
+      // one the confirmation number was emailed to (same proof: number + inbox).
+      let emailMatches = sameEmail(customerEmail, email);
+      if (booking && !emailMatches) {
+        const staged = await readStagedGuestResult(
+          adminClient,
+          (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
+          id
+        );
+        if (!staged.ok) {
+          return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
+        }
+        emailMatches = sameEmail(staged.guest?.email, email);
+      }
+      if (!booking || !emailMatches) {
         return NextResponse.json(
           { error: "Not authorized to view this reservation" },
           { status: 403 }
@@ -206,12 +293,14 @@ export async function GET(
       // The Payment summary's anchor: what Stripe actually took (plan
       // 2026-10-12 §2). Never throws; an unknown charge → the plain fallback.
       const payment = await readCardPayment(bookingData?.stripe_payment_intent_id);
+      const guest = await readStagedGuest(adminClientForVehicle, bookingData?.stripe_payment_intent_id, id);
       const direct = buildDirectReservation(id, bookingData, {
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
         fromDate: supabaseFromDate,
         toDate: supabaseToDate,
         payment,
+        guest,
       });
       if (!direct.ok) {
         captureBookingError(
