@@ -19,7 +19,11 @@ type Lot = { id: string; name: string };
 const money = (cents: number | null) =>
   cents === null ? "—" : `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toFixed(2)}`;
 
-const CLASS_LABEL: Record<StatementItem["class"], string> = { payable: "Pay", zero: "$0", manual: "Needs a decision" };
+const CLASS_LABEL: Record<StatementItem["class"], string> = { payable: "Pay", zero: "Nothing owed", manual: "Needs your decision" };
+const TAX_TO: Record<string, string> = { lot: "passed to lot", triply: "Triply remits" };
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+/** "2026-10" → "October 2026" (string maths — no Date, no time zone). */
+const monthLabel = (m: string) => `${MONTHS[Number(m.slice(5, 7)) - 1] ?? m.slice(5, 7)} ${m.slice(0, 4)}`;
 
 const emailMessage = (e: StatementEmailResult) =>
   e.outcome === "sent"
@@ -313,8 +317,8 @@ export function DirectPayoutsSection() {
                 {view.monthClosed ? "Month is over" : "Month not over yet (lot time)"} · {view.timezone}
               </span>
               <span className="px-2 py-1 rounded bg-gray-100 text-gray-700">
-                {view.totals.payableCount} pay · {view.totals.zeroCount} $0 · {view.totals.manualCount} need a decision · {view.totals.adjustmentCount} adjustment
-                {view.totals.adjustmentCount === 1 ? "" : "s"}
+                {view.totals.payableCount} to pay · {view.totals.zeroCount} nothing owed · {view.totals.manualCount} need your decision ·{" "}
+                {view.totals.adjustmentCount} adjustment{view.totals.adjustmentCount === 1 ? "" : "s"}
               </span>
             </div>
 
@@ -353,18 +357,33 @@ export function DirectPayoutsSection() {
               </div>
             )}
 
+            {!view.paid && view.items.length > 0 && (
+              <p className="text-base text-gray-900 mb-3">
+                {prepared?.ok && prepared.totalCents < 0 ? (
+                  <>
+                    {view.lotName} owes Triply for {monthLabel(view.month)}: <strong className="font-mono">{money(-prepared.totalCents)}</strong>
+                  </>
+                ) : (
+                  <>
+                    Owed to {view.lotName} for {monthLabel(view.month)}:{" "}
+                    <strong className="font-mono">{prepared?.ok ? money(prepared.totalCents) : "decide the highlighted rows first"}</strong>
+                  </>
+                )}
+              </p>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 text-xs text-gray-600 uppercase">
                   <tr>
                     <th className="px-3 py-2 text-left">Booking</th>
                     <th className="px-3 py-2 text-left">Check-out</th>
-                    <th className="px-3 py-2 text-left">Row</th>
-                    <th className="px-3 py-2 text-right">Parking</th>
+                    <th className="px-3 py-2 text-left">Outcome</th>
+                    <th className="px-3 py-2 text-right">Parking (list price)</th>
                     <th className="px-3 py-2 text-right">Tax</th>
-                    <th className="px-3 py-2 text-right">Received / refunded</th>
-                    <th className="px-3 py-2 text-right">Rules say</th>
-                    <th className="px-3 py-2 text-right" title="Internal: received − refunded − payout − Stripe fee − PG wholesale − tax Triply owes">Margin</th>
+                    <th className="px-3 py-2 text-right">Customer paid / refunded</th>
+                    <th className="px-3 py-2 text-right">Owed to lot</th>
+                    <th className="px-3 py-2 text-right" title="Internal: received − refunded − payout − Stripe fee − PG wholesale − tax Triply owes">Triply keeps</th>
                     <th className="px-3 py-2 text-left">Decision</th>
                   </tr>
                 </thead>
@@ -385,11 +404,11 @@ export function DirectPayoutsSection() {
                         <td className="px-3 py-2 text-right font-mono">{money(i.basis.subtotalCents)}</td>
                         <td className="px-3 py-2 text-right font-mono">
                           {money(i.basis.taxCents)}
-                          <div className="text-xs text-gray-500">{i.basis.taxCollectedBy ?? "?"}</div>
+                          <div className="text-xs text-gray-500">{TAX_TO[i.basis.taxCollectedBy ?? ""] ?? "collector unknown"}</div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {money(i.basis.amountReceivedCents)}
-                          <div className="text-xs text-gray-500">{money(i.basis.amountRefundedCents)}</div>
+                          <div className="text-xs text-gray-500">refunded {money(i.basis.amountRefundedCents)}</div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono">
                           {i.lineKind === "adjustment" && i.priorLinesCents !== null && <div className="text-xs text-gray-500">paid {money(i.priorLinesCents)}</div>}
@@ -461,9 +480,9 @@ export function DirectPayoutsSection() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm text-gray-700 mb-1">
-                    Total to record:{" "}
+                    {prepared?.ok && prepared.totalCents < 0 ? "Total the lot owes Triply" : "Total owed to lot"}:{" "}
                     <strong className="font-mono">
-                      {prepared?.ok ? (prepared.totalCents < 0 ? `${money(-prepared.totalCents)} owed by the lot` : money(prepared.totalCents)) : "—"}
+                      {prepared?.ok ? money(Math.abs(prepared.totalCents)) : "—"}
                     </strong>
                   </p>
                   {prepared && !prepared.ok && <p className="text-xs text-amber-700 mb-1">{prepared.error}</p>}
