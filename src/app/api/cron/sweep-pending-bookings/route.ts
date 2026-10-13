@@ -504,14 +504,16 @@ export async function GET(request: NextRequest) {
           .lt("created_at", directDueBefore)
           .gte("to_date", stayNotOver);
       const upcoming = await rowsWhere().gte("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES);
-      if (upcoming.error) return { data: null, error: upcoming.error };
+      if (upcoming.error) return { data: null, error: { message: `pending_bookings (upcoming): ${upcoming.error.message}` } };
       let candidates = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      // A failed second read still re-drives the upcoming rows (and is counted).
+      let underwayError: { message: string } | null = null;
       if (candidates.length < CONFIRMATION_CANDIDATES) {
         const underway = await rowsWhere().lt("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES - candidates.length);
-        if (underway.error) return { data: null, error: underway.error };
-        candidates = [...candidates, ...((underway.data ?? []) as Array<{ stripe_payment_intent_id: string }>)];
+        if (underway.error) underwayError = { message: `pending_bookings (under way): ${underway.error.message}` };
+        else candidates = [...candidates, ...((underway.data ?? []) as Array<{ stripe_payment_intent_id: string }>)];
       }
-      if (candidates.length === 0) return { data: [], error: null };
+      if (candidates.length === 0) return { data: [], error: underwayError };
       const standing = await supabase
         .from("bookings")
         .select("stripe_payment_intent_id")
@@ -519,9 +521,18 @@ export async function GET(request: NextRequest) {
         .eq("status", "confirmed")
         .is("cancel_state", null)
         .is("cancel_claimed_at", null);
-      if (standing.error) return { data: null, error: standing.error };
+      if (standing.error) return { data: null, error: { message: `bookings standing check: ${standing.error.message}` } };
       const keep = new Set(((standing.data ?? []) as Array<{ stripe_payment_intent_id: string }>).map((b) => b.stripe_payment_intent_id));
-      return { data: candidates.filter((c) => keep.has(c.stripe_payment_intent_id)).slice(0, MAX_PER_RUN), error: null };
+      const live = candidates.filter((c) => keep.has(c.stripe_payment_intent_id));
+      if (candidates.length >= CONFIRMATION_CANDIDATES && live.length < MAX_PER_RUN) {
+        // The candidate read was cut short and most of it no longer stands: a standing
+        // booking further down may not be reached this run. Rare; never silent.
+        capturePaymentError(
+          new Error(`direct customer email backstop: ${CONFIRMATION_CANDIDATES} candidates read, only ${live.length} still stand — later rows may be skipped`),
+          { inventorySource: "direct" }
+        );
+      }
+      return { data: live.slice(0, MAX_PER_RUN), error: underwayError };
     };
     const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
       unsentLotNotices(),
