@@ -85,7 +85,7 @@ export class ManifestDb {
   readonly updates: Array<{ table: string; payload: Row; filters: string[] }> = [];
   /** Runs just before a mutation is applied — a test's "concurrent writer". */
   beforeMutation: ((table: string, op: "insert" | "update", payload: Row) => void) | null = null;
-  private failures: Array<{ table: string; op: string; code: string }> = [];
+  private failures: Array<{ table: string; op: string; code: string; message?: string }> = [];
 
   get tables() {
     return this.base.tables;
@@ -93,8 +93,9 @@ export class ManifestDb {
   rows(table: string): Row[] {
     return (this.base.tables[table] ??= []);
   }
-  failNext(table: string, op: "select" | "insert" | "update", code = "XXFAKE") {
-    this.failures.push({ table, op, code });
+  /** `message` lets a test reproduce a real error shape (e.g. postgrest-js's timeout: code "", the class in the message). */
+  failNext(table: string, op: "select" | "insert" | "update", code = "XXFAKE", message?: string) {
+    this.failures.push({ table, op, code, message });
   }
   takeFailure(table: string, op: string) {
     const i = this.failures.findIndex((f) => f.table === table && f.op === op);
@@ -222,7 +223,7 @@ class OwnQuery implements PromiseLike<Result> {
     // The "concurrent writer" acts first, so it can also arm a failure for THIS statement.
     if (this.op !== "select") this.db.beforeMutation?.(this.table, this.op, this.payload);
     const failure = this.db.takeFailure(this.table, this.op);
-    if (failure) return { data: null, error: { message: `injected ${this.op} failure`, code: failure.code } };
+    if (failure) return { data: null, error: { message: failure.message ?? `injected ${this.op} failure`, code: failure.code } };
     if (this.orOnUpdate) return { data: null, error: { message: `column ${this.table}.status does not exist`, code: "42703" } };
     const rows = this.db.rows(this.table);
 

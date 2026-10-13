@@ -25,8 +25,9 @@ import { buildAlertMessages, alertLine, ALERTS_USERNAME, type AlertMessage } fro
 /**
  * One tick of the direct-lot alerts cron (6b plan §5).
  *
- *   1 scan     four scans in parallel (scan.ts); one that fails is reported,
- *              counted, and the others still run.
+ *   1 scan     four scans in parallel (scan.ts). A scan that fails runs once
+ *              more while the budget allows (its reads change nothing); one that
+ *              fails again is reported, counted, and the others still run.
  *   2 state    the alert row of every item this cron owns (lot_notice,
  *              cancel_notice, manifest). An item whose row a person resolved
  *              (`resolved_at`) is closed and dropped; then each kind is capped.
@@ -68,6 +69,12 @@ const UPSERT_CONCURRENCY = 8;
 const STATE_CHUNK = 100;
 const DB_TIMEOUT_MS = 3_000;
 const dbSignal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
+/**
+ * A failed scan is retried only while this much of the budget is left: the
+ * state read, the upserts and the post (POST_RESERVE_MS) come after it. A
+ * cold-start timeout fails within a few seconds, well clear of it.
+ */
+const SCAN_RETRY_RESERVE_MS = 30_000;
 
 export interface AlertsCronOptions {
   supabase: AdminClient;
@@ -89,7 +96,8 @@ export interface AlertsCronResult {
   status: number;
   livemode: boolean;
   dry: boolean;
-  scans: Record<ScanName, { ok: boolean; shown: number; overflow: number; truncated: boolean }>;
+  /** `retried`: the scan failed once and ran again (`ok` says how the retry went). */
+  scans: Record<ScanName, { ok: boolean; retried: boolean; shown: number; overflow: number; truncated: boolean }>;
   /** Open items shown this tick (resolved ones and the overflow excluded). */
   open: number;
   /** Items closed this tick because a person marked them resolved. */
@@ -105,6 +113,10 @@ export interface AlertsCronResult {
   /** dry only: what would be posted. */
   messages?: Array<Omit<AlertMessage, "items">>;
 }
+
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** A bounded read that ran out of time (AbortSignal.timeout) — the cold-start case. */
+const isTimeout = (e: unknown) => /TimeoutError|AbortError|aborted/i.test(e instanceof Error ? `${e.name} ${e.message}` : String(e));
 
 function report(fingerprint: string[], message: string, level: "warning" | "error") {
   Sentry.withScope((scope) => {
@@ -221,18 +233,58 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
     config: () => scanConfigAlerts(sb, livemode, nowMs),
   };
   const names: ScanName[] = ["lot_notice", "cancel_notice", "manifest", "config"];
-  const settled = await Promise.allSettled(names.map((n) => scanners[n]()));
-  const notRun = { ok: false, shown: 0, overflow: 0, truncated: false };
-  const scans: AlertsCronResult["scans"] = { lot_notice: notRun, cancel_notice: notRun, manifest: notRun, config: notRun };
+  // One retry: the usual failure is the first read on a cold instance outliving
+  // its 3 s bound (TRIPLY-41), and the next tick is 10 min away. A recovered
+  // retry is a warning (one issue per scan; none when dry) so a slowdown on
+  // every tick still shows; a second failure is the scan error, naming both.
+  const retried = new Set<ScanName>();
+  // A retry may take as long as the first attempt did, so it must fit with the
+  // reserve still left after it. A recovered timeout is a warning; any other
+  // recovered failure is a real fault and gets its own error-level issue.
+  const runScan = async (name: ScanName): Promise<ScanResult> => {
+    const startedMs = Date.now();
+    try {
+      return await scanners[name]();
+    } catch (first) {
+      const leftMs = deadlineMs - Date.now();
+      if (leftMs < SCAN_RETRY_RESERVE_MS + (Date.now() - startedMs)) {
+        throw new Error(`${errorText(first)} (not retried: ${Math.round(leftMs / 1000)} s of budget left)`);
+      }
+      retried.add(name);
+      let result: ScanResult;
+      try {
+        result = await scanners[name]();
+      } catch (second) {
+        throw new Error(`${errorText(second)} (retried; first attempt: ${errorText(first)})`);
+      }
+      const cause = isTimeout(first) ? "timeout" : "other";
+      if (!dry) {
+        report(
+          ["scan-retry-recovered", name, cause],
+          `Direct lot alerts: the ${name} scan failed (${cause}), then recovered on retry: ${errorText(first)}`,
+          cause === "timeout" ? "warning" : "error"
+        );
+      }
+      return result;
+    }
+  };
+  const settled = await Promise.allSettled(names.map(runScan));
+  const notRun = (name: ScanName) => ({ ok: false, retried: retried.has(name), shown: 0, overflow: 0, truncated: false });
+  const scans: AlertsCronResult["scans"] = {
+    lot_notice: notRun("lot_notice"),
+    cancel_notice: notRun("cancel_notice"),
+    manifest: notRun("manifest"),
+    config: notRun("config"),
+  };
   const found: AlertItem[] = [];
   settled.forEach((s, i) => {
     const name = names[i];
     if (s.status === "rejected") {
       errors++;
-      report(["scan", name], `Direct lot alerts: the ${name} scan failed: ${s.reason instanceof Error ? s.reason.message : String(s.reason)}`, "error");
+      report(["scan", name], `Direct lot alerts: the ${name} scan failed: ${errorText(s.reason)}`, "error");
       return;
     }
-    scans[name] = { ok: true, shown: 0, overflow: 0, truncated: s.value.truncated };
+    scans[name] = { ok: true, retried: retried.has(name), shown: 0, overflow: 0, truncated: s.value.truncated };
     found.push(...s.value.items);
   });
 

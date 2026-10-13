@@ -210,7 +210,15 @@ export function cap(items: AlertItem[]): { shown: AlertItem[]; overflow: number 
   return { shown: sorted.slice(0, SCAN_CAP), overflow: Math.max(0, sorted.length - SCAN_CAP) };
 }
 
-const dbFail = (what: string, e: { code?: string; message: string }) => new Error(`${what} failed: ${e.code ?? "?"} ${e.message}`);
+/**
+ * A failed read as one line. postgrest-js reports a fetch-level failure with an
+ * empty code and the real cause ("Caused by: … ECONNRESET") only in `details`,
+ * so that line is kept.
+ */
+const dbFail = (what: string, e: { code?: string; message: string; details?: string | null }) => {
+  const cause = e.details?.match(/Caused by: [^\n]*/)?.[0];
+  return new Error(`${what} failed: ${e.code || "?"} ${e.message}${cause ? ` (${cause})` : ""}`);
+};
 
 // ---------------------------------------------------------------------------
 // lot_notice

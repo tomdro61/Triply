@@ -166,15 +166,26 @@ describe("GET /api/cron/direct-lot-alerts", () => {
     expect(checkIns()).toEqual(["in_progress", "error"]);
   });
 
-  it("a failed scan is a 500 with an error check-in; the other scans still post", async () => {
+  it("a scan that fails twice is a 500 with an error check-in; the other scans still post", async () => {
     addUntold("b1");
+    mdb.failNext(RUNS, "select");
     mdb.failNext(RUNS, "select");
     const res = await GET(req());
     expect(res.status).toBe(500);
     const body = await res.json();
-    expect(body.scans.manifest.ok).toBe(false);
+    expect(body.scans.manifest).toMatchObject({ ok: false, retried: true });
     expect(body.posts).toEqual([expect.objectContaining({ outcome: "posted" })]);
     expect(checkIns()).toEqual(["in_progress", "error"]);
+  });
+
+  it("TRIPLY-41: a scan that fails once and recovers on retry is a clean tick (200, ok check-in)", async () => {
+    addUntold("b1");
+    mdb.failNext(RUNS, "select");
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.scans.manifest).toMatchObject({ ok: true, retried: true });
+    expect(checkIns()).toEqual(["in_progress", "ok"]);
   });
 
   it("live Stripe key: live rows only, no [TEST], @here for an URGENT item", async () => {
