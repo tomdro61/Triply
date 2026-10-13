@@ -303,12 +303,66 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 85.05, "admin-cancel:pi_1");
   });
 
-  it("prior refunds unreadable (charge not expanded) → no refund, 207, Sentry — never a guess", async () => {
+  it("re-drive after THIS cancel's refund already landed (policy, Park Guard): no second refund, row refunded + fee flag set", async () => {
+    seed(PG_ROW);
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: { amount_refunded: 9_400 },
+    });
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect((await res.json()).message).toContain("already refunded $94.00 earlier");
+    expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: true });
+    expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
+  });
+
+  it("an earlier refund covering the standard target: no refund, row refunded, fee kept (flag false)", async () => {
+    seed(PG_ROW);
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: { amount_refunded: 8_805 },
+    });
+    const res = await POST(req({ reason: "plans_changed" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: false });
+  });
+
+  it("PaymentIntent lookup throws → no refund, 207, Sentry", async () => {
+    stripeMock.getPaymentIntentWithCharge.mockRejectedValue(new Error("stripe down"));
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(207);
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(sentry.captureAPIError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("lookup failed after ResLab release") }),
+      expect.anything()
+    );
+  });
+
+  it("refund history unreadable (charge not expanded) → 409 BEFORE any side effect: no ResLab cancel, no refund, row untouched", async () => {
     stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
       status: "succeeded",
       amount_received: 10_000,
       latest_charge: "ch_unexpanded",
     });
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(409);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "confirmed" });
+    expect(sentry.captureAPIError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("charge is unreadable") }),
+      expect.anything()
+    );
+  });
+
+  it("refund history unreadable only at the refund step (pre-check read failed) → no refund, 207, Sentry — never a guess", async () => {
+    stripeMock.getPaymentIntentWithCharge
+      .mockRejectedValueOnce(new Error("blip"))
+      .mockResolvedValueOnce({ status: "succeeded", amount_received: 10_000, latest_charge: "ch_unexpanded" });
     const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
     expect(res.status).toBe(207);
     expect(stripeMock.createRefund).not.toHaveBeenCalled();
@@ -316,7 +370,6 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
       expect.objectContaining({ message: expect.stringContaining("prior refunds unknown") }),
       expect.anything()
     );
-    expect(row()).toMatchObject({ status: "cancelled", service_fee_refunded: false });
   });
 
   it("full refund and policy refund together → 400 before any side effect", async () => {
