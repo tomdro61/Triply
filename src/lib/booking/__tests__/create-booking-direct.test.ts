@@ -53,7 +53,7 @@ vi.mock("@/lib/direct/confirmation-number", async () => {
 });
 
 const { createBooking, redriveDirectBookingSends } = await import("../create-booking");
-const { capturePaymentError, captureDirectLotNotice } = await import("@/lib/sentry");
+const { capturePaymentError, captureBookingError, captureDirectLotNotice } = await import("@/lib/sentry");
 const { sendBookingConfirmation } = await import("@/lib/resend/send-booking-confirmation");
 const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
 const { parkGuard } = await import("@/lib/parkguard/client");
@@ -988,7 +988,7 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
   it("a PARTIAL refund still gets the outstanding lot notice and customer email", async () => {
     seedCrashed();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(partlyRefundedPi());
-    await redriveDirectBookingSends(PI);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "sent", customerEmail: "sent" });
     expect(stripeMock.paymentIntents.retrieve).toHaveBeenCalledWith(PI, { expand: ["latest_charge"] });
     expect(resendSend).toHaveBeenCalledTimes(1);
     expect(db.tables.bookings[0].lot_notified_at).toBeTruthy();
@@ -1009,15 +1009,93 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
   it("the customer email already went → only the lot notice is sent", async () => {
     seedCrashed({ email_sent: true });
     stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
-    await redriveDirectBookingSends(PI);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "sent", customerEmail: "already_sent" });
     expect(resendSend).toHaveBeenCalledTimes(1);
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("6b pass 2: the lot already told, the confirmation never went → notice not_claimed, confirmation sent exactly once (a second re-drive sends nothing)", async () => {
+    seedCrashed({}, { lot_notified_at: "2026-10-02T15:41:00.000Z", lot_notice_claimed_at: "2026-10-02T15:40:30.000Z" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "not_claimed", customerEmail: "sent" });
+    expect(resendSend).not.toHaveBeenCalled(); // nothing to the lot
+    expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+    expect(db.tables.pending_bookings[0].email_sent).toBe(true);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "not_claimed", customerEmail: "already_sent" });
+    expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+  });
+
+  it("the customer email send fails → customerEmail 'failed', the claim handed back for the sweep", async () => {
+    seedCrashed();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    vi.mocked(sendBookingConfirmation).mockResolvedValueOnce({ success: false, error: new Error("422") });
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "sent", customerEmail: "failed" });
+    expect(db.tables.pending_bookings[0].email_sent).toBe(false);
+  });
+
+  it("the customer email CLAIM errors → 'failed' (a database fault), never 'not_claimed'; nothing sent to the customer", async () => {
+    seedCrashed();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    db.failWhen("pending_bookings", "update", (p) => p !== null && p.email_sent === true, "connection reset");
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "sent", customerEmail: "failed" });
+    expect(sendBookingConfirmation).not.toHaveBeenCalled();
+    expect(db.tables.pending_bookings[0].email_sent).toBe(false);
+  });
+
+  it("someone else holds the customer email claim → 'not_claimed'", async () => {
+    seedCrashed();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    // Another re-drive flips email_sent between our row read and our claim.
+    db.failWhen("bookings", "select", () => {
+      db.tables.pending_bookings[0].email_sent = true;
+      return false;
+    }, "unused");
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "sent", customerEmail: "not_claimed" });
+    expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("no confirmation number on the staged row → skipped 'no_number', nothing sent", async () => {
+    seedCrashed({ reslab_reservation_number: null });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "no_number" });
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("the booking is no longer confirmed → skipped 'not_confirmed', nothing sent", async () => {
+    seedCrashed({}, { status: "cancelled" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "not_confirmed" });
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("an unexpected throw AFTER the lot notice went → { kind: 'error' } (never 'skipped' — something was sent), reported", async () => {
+    seedCrashed();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    const from = db.from.bind(db);
+    const spy = vi.spyOn(db, "from").mockImplementation((table: string) => {
+      // The customer email's claim, once the lot notice has gone.
+      if (table === "pending_bookings" && resendSend.mock.calls.length > 0) throw new Error("client exploded");
+      return from(table);
+    });
+    try {
+      expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "error" });
+    } finally {
+      spy.mockRestore();
+    }
+    expect(resendSend).toHaveBeenCalledTimes(1); // the lot WAS told
+    expect(db.tables.bookings[0].lot_notified_at).toBeTruthy();
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/client exploded/) }),
+      expect.anything()
+    );
   });
 
   it("a FULLY refunded charge → nothing sent, and the pending row is never read", async () => {
     seedCrashed();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ status: "succeeded", latest_charge: { amount: 6366, amount_refunded: 6366 } }));
-    await redriveDirectBookingSends(PI);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "refunded" });
     expect(db.log.filter((q) => q.table === "pending_bookings")).toEqual([]);
     expect(db.log).toEqual([]);
     expect(resendSend).not.toHaveBeenCalled();
@@ -1035,7 +1113,7 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
     it.each(cases)("%s → redriveDirectBookingSends sends nothing", async (_label, over) => {
       seedCrashed({}, over);
       stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
-      await redriveDirectBookingSends(PI);
+      expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "mid_cancel" });
       expect(resendSend).not.toHaveBeenCalled();
       expect(sendBookingConfirmation).not.toHaveBeenCalled();
       expect(db.tables.pending_bookings[0].email_sent).toBe(false);
@@ -1057,7 +1135,7 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
   it("the main path holds a FRESH claim → nothing sent", async () => {
     seedCrashed({ status: "processing", claimed_at: NOW.toISOString() });
     stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
-    await redriveDirectBookingSends(PI);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "held" });
     expect(resendSend).not.toHaveBeenCalled();
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
     expect(db.tables.pending_bookings[0]).toMatchObject({ status: "processing", email_sent: false });
@@ -1076,7 +1154,7 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
     seedCrashed();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
     stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ status: "succeeded", latest_charge: { amount_refunded: 0 }, metadata: { lotId: "123" } }));
-    await redriveDirectBookingSends(PI);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "skipped", reason: "not_direct" });
     expect(db.log).toEqual([]);
     expect(resendSend).not.toHaveBeenCalled();
     expect(sendBookingConfirmation).not.toHaveBeenCalled();

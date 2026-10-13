@@ -87,6 +87,11 @@ describe("quoteDirectCheckout", () => {
     expect(await quote("2026-10-10 10:00:00", "2026-10-15 10:00:00")).toMatchObject({ ok: false, status: 404 });
   });
 
+  it("reads the lot with one retry on a transient failure (TRIPLY-40: a cold start must not fail a payment)", async () => {
+    await quote("2026-10-10 10:00:00", "2026-10-15 10:00:00");
+    expect(lookup).toHaveBeenCalledWith(1, "test", { retryTransient: true });
+  });
+
   it("an unreadable or broken lot is 503, never 404", async () => {
     lookup.mockResolvedValue({ status: "unavailable", kind: "timeout", message: "x" });
     expect(await quote("2026-10-10 10:00:00", "2026-10-15 10:00:00")).toMatchObject({ ok: false, status: 503 });

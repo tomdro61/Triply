@@ -19,6 +19,7 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot } from "@/config/admin";
 import { isReslabConfirmationNumber, isTriplyConfirmationNumber } from "@/lib/direct/confirmation-number";
+import { LOT_TOLD_OR } from "@/lib/direct/lot-told";
 import { isLive, airportKey, bySource, type ReportRow } from "@/lib/attribution/report";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { sameEmail } from "@/lib/booking/customer-link";
@@ -860,8 +861,9 @@ export const LOT_NOTICE_CAP = 25;
 
 /**
  * Live direct bookings whose LOT was never told (4b plan §9 H-B), older than an
- * hour and inside the email lookback:
- *   - bookings: `confirmed`, no `lot_notified_at`;
+ * hour:
+ *   - bookings: `confirmed`, no `lot_notified_at`, the stay not yet over (6b:
+ *     bounded by the stay, like the sweep's re-drive — not by booking age);
  *   - cancellations: cancelled/refunded, the stay not yet over, the lot WAS
  *     told of the booking (or may have been: claimed), but no
  *     `lot_cancel_notified_at`.
@@ -871,7 +873,6 @@ export const LOT_NOTICE_CAP = 25;
  */
 async function directLotsNotNotified(sb: Client, now: Date): Promise<HealthSection["lotNotNotified"]> {
   try {
-    const since = new Date(now.getTime() - EMAIL_UNSENT_LOOKBACK_DAYS * 86_400_000).toISOString();
     const hourAgo = new Date(now.getTime() - 3_600_000).toISOString();
     const toNumbers = (rows: unknown) =>
       ((rows ?? []) as Array<{ reslab_reservation_number: string | null }>).map((r) => {
@@ -886,9 +887,10 @@ async function directLotsNotNotified(sb: Client, now: Date): Promise<HealthSecti
       .eq("livemode", true)
       .eq("status", "confirmed")
       .is("lot_notified_at", null)
-      .gte("created_at", since)
+      // Bounded by the stay, like the sweep's re-drive (6b): still listed while it can matter.
+      .gte("check_out", new Date(now.getTime() - 86_400_000).toISOString().slice(0, 10))
       .lt("created_at", hourAgo)
-      .order("created_at")
+      .order("check_in")
       .limit(LOT_NOTICE_CAP + 1)
       .abortSignal(sig());
     if (error) throw new Error(`bookings(lot_notified_at): ${error.code ?? "?"} ${error.message}`);
@@ -907,7 +909,7 @@ async function directLotsNotNotified(sb: Client, now: Date): Promise<HealthSecti
       .eq("livemode", true)
       .in("status", ["cancelled", "refunded"])
       .is("lot_cancel_notified_at", null)
-      .or("lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null")
+      .or(LOT_TOLD_OR)
       .gte("check_out", dayBack)
       .order("check_out")
       .limit(LOT_NOTICE_CAP + 1)

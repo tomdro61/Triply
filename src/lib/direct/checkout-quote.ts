@@ -30,7 +30,8 @@ export interface DirectCheckoutQuoteInput {
 export async function quoteDirectCheckout(input: DirectCheckoutQuoteInput): Promise<DirectCheckoutQuote> {
   const { payloadId, fromDate, toDate, discountPercent = 0, endpoint, now = new Date() } = input;
 
-  const lookup = await fetchDirectLot(payloadId, endpoint);
+  // Retried once on a transient failure: checkout and payment must not fail on a cold start (TRIPLY-40).
+  const lookup = await fetchDirectLot(payloadId, endpoint, { retryTransient: true });
   if (lookup.status === "unavailable" || lookup.status === "invalid") {
     return { ok: false, status: 503, error: "Parking data is temporarily unavailable", code: "direct_unavailable" };
   }

@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
 import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
+import { LOT_TOLD_OR } from "@/lib/direct/lot-told";
 import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
@@ -70,12 +71,9 @@ const DECLINED_RETRY_WINDOW_MS = 8 * 24 * 60 * 60_000;
  *  outstanding this long after the booking / cancellation are re-driven. Past
  *  the lot-notice claim's 5-minute staleness, so a send whose outcome was
  *  unknown (a timeout keeps its claim) is retried rather than skipped. */
+/** Unsent-confirmation rows read before the still-standing check and the per-run cap. */
+const CONFIRMATION_CANDIDATES = 200;
 const DIRECT_SEND_DUE_MS = 6 * 60_000;
-
-/** How far back the booking-notice / email backstop looks (by CREATION time —
- *  `updated_at` is bumped by every claim, so it would never age out). The
- *  daily digest lists what is still outstanding after that. */
-const DIRECT_SEND_WINDOW_MS = 3 * 24 * 60 * 60_000;
 
 /** Prefix stamped into `last_error` once an opposite-mode held row has been
  *  reported, so it is reported once rather than every tick. No dots: it is
@@ -457,28 +455,88 @@ export async function GET(request: NextRequest) {
     // something calls it. This is the caller of last resort. Each send is
     // claim-guarded, so a re-drive never mails twice.
     const directDueBefore = new Date(Date.now() - DIRECT_SEND_DUE_MS).toISOString();
-    const directSince = new Date(Date.now() - DIRECT_SEND_WINDOW_MS).toISOString();
-    const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
-      supabase
+    // check_out (bookings, a literal wall-clock TIMESTAMP) and to_date
+    // (pending_bookings, literal "YYYY-MM-DD HH:MM:SS" TEXT, which compares
+    // lexicographically) — a date a day back is a safe, timezone-free bound.
+    const stayNotOver = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Unsent lot notices, bounded by the STAY (6b): a notice that keeps failing is
+    // retried until the stay is over (check-out a day back), not dropped after 3
+    // days. Check-ins not yet passed come first, soonest first; stays already
+    // under way only fill the slots left — so a stuck booking further out, or a
+    // backlog of passed check-ins, can't starve a sooner arrival.
+    const unsentLotNotices = async (): Promise<{ data: Array<{ stripe_payment_intent_id: string }> | null; error: { message: string } | null }> => {
+      const rowsWhere = () =>
+        supabase
+          .from("bookings")
+          .select("stripe_payment_intent_id")
+          .eq("inventory_source", "direct")
+          .eq("livemode", livemode)
+          .eq("status", "confirmed")
+          .is("lot_notified_at", null)
+          .lt("created_at", directDueBefore)
+          .gte("check_out", stayNotOver);
+      const upcoming = await rowsWhere().gte("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN);
+      if (upcoming.error) return { data: null, error: upcoming.error };
+      const first = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      if (first.length >= MAX_PER_RUN) return { data: first, error: null };
+      const passed = await rowsWhere().lt("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN - first.length);
+      if (passed.error) return { data: first, error: passed.error };
+      return { data: [...first, ...((passed.data ?? []) as Array<{ stripe_payment_intent_id: string }>)], error: null };
+    };
+    // Unsent customer confirmations, bounded by the STAY too (6b pass 2): the
+    // confirmation is the customer's only record of the booking, so it is
+    // retried until check-out (a day back), not dropped a few days after booking.
+    // `created_at` (not `updated_at`, which every claim bumps) gives the 6-minute
+    // grace. Upcoming stays first, then ones under way (6b pass 3) — and only
+    // bookings that still stand: a cancellation never touches the pending row,
+    // so a cancelled booking's unsent confirmation would otherwise sit in this
+    // scan until its check-out, taking a slot every run. Candidates are read
+    // wide (CONFIRMATION_CANDIDATES) and checked against `bookings` before the cap.
+    const unsentConfirmations = async (): Promise<{ data: Array<{ stripe_payment_intent_id: string }> | null; error: { message: string } | null }> => {
+      const rowsWhere = () =>
+        supabase
+          .from("pending_bookings")
+          .select("stripe_payment_intent_id")
+          .eq("inventory_source", "direct")
+          .eq("livemode", livemode)
+          .eq("status", "completed")
+          .eq("email_sent", false)
+          .lt("created_at", directDueBefore)
+          .gte("to_date", stayNotOver);
+      const upcoming = await rowsWhere().gte("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES);
+      if (upcoming.error) return { data: null, error: { message: `pending_bookings (upcoming): ${upcoming.error.message}` } };
+      let candidates = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      // A failed second read still re-drives the upcoming rows (and is counted).
+      let underwayError: { message: string } | null = null;
+      if (candidates.length < CONFIRMATION_CANDIDATES) {
+        const underway = await rowsWhere().lt("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES - candidates.length);
+        if (underway.error) underwayError = { message: `pending_bookings (under way): ${underway.error.message}` };
+        else candidates = [...candidates, ...((underway.data ?? []) as Array<{ stripe_payment_intent_id: string }>)];
+      }
+      if (candidates.length === 0) return { data: [], error: underwayError };
+      const standing = await supabase
         .from("bookings")
         .select("stripe_payment_intent_id")
-        .eq("inventory_source", "direct")
-        .eq("livemode", livemode)
+        .in("stripe_payment_intent_id", candidates.map((c) => c.stripe_payment_intent_id))
         .eq("status", "confirmed")
-        .is("lot_notified_at", null)
-        .lt("created_at", directDueBefore)
-        .gte("created_at", directSince)
-        .limit(MAX_PER_RUN),
-      supabase
-        .from("pending_bookings")
-        .select("stripe_payment_intent_id")
-        .eq("inventory_source", "direct")
-        .eq("livemode", livemode)
-        .eq("status", "completed")
-        .eq("email_sent", false)
-        .lt("created_at", directDueBefore)
-        .gte("created_at", directSince)
-        .limit(MAX_PER_RUN),
+        .is("cancel_state", null)
+        .is("cancel_claimed_at", null);
+      if (standing.error) return { data: null, error: { message: `bookings standing check: ${standing.error.message}` } };
+      const keep = new Set(((standing.data ?? []) as Array<{ stripe_payment_intent_id: string }>).map((b) => b.stripe_payment_intent_id));
+      const live = candidates.filter((c) => keep.has(c.stripe_payment_intent_id));
+      if (candidates.length >= CONFIRMATION_CANDIDATES && live.length < MAX_PER_RUN) {
+        // The candidate read was cut short and most of it no longer stands: a standing
+        // booking further down may not be reached this run. Rare; never silent.
+        capturePaymentError(
+          new Error(`direct customer email backstop: ${CONFIRMATION_CANDIDATES} candidates read, only ${live.length} still stand — later rows may be skipped`),
+          { inventorySource: "direct" }
+        );
+      }
+      return { data: live.slice(0, MAX_PER_RUN), error: underwayError };
+    };
+    const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
+      unsentLotNotices(),
+      unsentConfirmations(),
       // Cancellations: no stable "cancelled at" column (`updated_at` moves with
       // every claim), so bounded by the STAY instead — a cancel notice matters
       // until check-out. check_out is a literal wall-clock TIMESTAMP; a date a
@@ -492,8 +550,8 @@ export async function GET(request: NextRequest) {
         .eq("livemode", livemode)
         .in("status", ["cancelled", "refunded"])
         .is("lot_cancel_notified_at", null)
-        .or("lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null")
-        .gte("check_out", new Date(Date.now() - 86_400_000).toISOString().slice(0, 10))
+        .or(LOT_TOLD_OR)
+        .gte("check_out", stayNotOver)
         .limit(MAX_PER_RUN),
     ]);
     for (const [label, scan] of [

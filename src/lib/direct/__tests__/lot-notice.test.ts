@@ -441,3 +441,87 @@ describe("cancel notice gates and content (pass-1 review)", () => {
     expect(row().lot_cancel_notified_at).toBeNull();
   });
 });
+
+describe("recipients are read AFTER the claim (6b §4 re-point)", () => {
+  const row = () => db.tables.bookings[0];
+  const terms = () => db.tables.direct_booking_terms[0];
+  /** Run `effect` at the moment the Nth direct_booking_terms SELECT runs (observe only — the read itself goes through). */
+  const onTermsRead = (n: number, effect: () => void) => {
+    let reads = 0;
+    db.failWhen("direct_booking_terms", "select", () => {
+      reads += 1;
+      if (reads === n) effect();
+      return false;
+    }, "unused");
+  };
+  /** Fail the Nth direct_booking_terms SELECT. */
+  const failTermsRead = (n: number) => {
+    let reads = 0;
+    db.failWhen("direct_booking_terms", "select", () => ++reads === n, "connection reset");
+  };
+
+  it("a re-point that lands between the first terms read and the claim → the NEW inbox, under …/r1, recorded", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    terms().livemode = true;
+    terms().recipients_rev = 0;
+    // The re-point completes just as the sender takes its claim: it already read the OLD inbox.
+    db.failWhen("bookings", "update", (p) => {
+      if (p && typeof p.lot_notice_claimed_at === "string") {
+        terms().lot_recipients = ["new@lot.example"];
+        terms().recipients_rev = 1;
+      }
+      return false;
+    }, "unused");
+    expect(await sendLotBookingNotice(PI, content)).toBe("sent");
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    const [msg, opts] = resendSend.mock.calls[0];
+    expect(msg.to).toEqual(["new@lot.example"]);
+    expect(opts).toEqual({ idempotencyKey: "direct-lot-notice/booking/b1/live/r1" });
+    expect(terms().lot_notice_recipients).toEqual(["new@lot.example"]);
+    expect(row().lot_notified_at).toBeTruthy();
+  });
+
+  it("FRESH claim + the re-read fails → 'failed', nothing sent, the claim released", async () => {
+    failTermsRead(2);
+    expect(await sendLotBookingNotice(PI, content)).toBe("failed");
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(row().lot_notice_claimed_at).toBeNull();
+    expect(row().lot_notified_at).toBeNull();
+    expect(captureDirectLotNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/terms re-read failed: connection reset/) }),
+      expect.objectContaining({ outcome: "failed", kind: "booking" })
+    );
+  });
+
+  it("claim taken over from a STALE one + the re-read fails → 'failed', nothing sent, the claim KEPT", async () => {
+    const stale = new Date(Date.now() - 6 * 60_000).toISOString();
+    db.tables.bookings = [booking({ lot_notice_claimed_at: stale })];
+    failTermsRead(2);
+    expect(await sendLotBookingNotice(PI, content)).toBe("failed");
+    expect(resendSend).not.toHaveBeenCalled();
+    // Kept — and it is the takeover's own (newer) timestamp: an earlier attempt may have delivered.
+    expect(row().lot_notice_claimed_at).toBeTruthy();
+    expect(row().lot_notice_claimed_at).not.toBe(stale);
+    expect(row().lot_notified_at).toBeNull();
+  });
+
+  it("the re-read finds no terms row → 'failed', nothing sent, the (fresh) claim released", async () => {
+    onTermsRead(2, () => {
+      db.tables.direct_booking_terms = [];
+    });
+    expect(await sendLotBookingNotice(PI, content)).toBe("failed");
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(row().lot_notice_claimed_at).toBeNull();
+    expect(captureDirectLotNotice).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/terms re-read failed: no row/) }),
+      expect.objectContaining({ outcome: "failed" })
+    );
+  });
+
+  it("a cancel notice on a re-pointed booking (recipients_rev 1) keys WITHOUT /r", async () => {
+    db.tables.bookings = [booking({ status: "cancelled", lot_notified_at: "2026-10-12T15:00:00Z" })];
+    terms().recipients_rev = 1;
+    expect(await sendLotCancelNotice(PI)).toBe("sent");
+    expect(resendSend.mock.calls[0][1]).toEqual({ idempotencyKey: "direct-lot-notice/cancel/b1/test" });
+  });
+});

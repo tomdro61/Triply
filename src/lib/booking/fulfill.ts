@@ -1384,9 +1384,17 @@ const DIRECT_CONFIRMATION_TIMEOUT_MS = 5_000;
 
 /**
  * The customer confirmation for a DIRECT booking. Returns whether Resend
- * ACCEPTED it (`{ success: true }`); never throws. The caller owns the
- * claim-before-send on `pending_bookings.email_sent` (§10 F-1) and hands the
- * claim back on `false`.
+ * ACCEPTED it (`{ success: true }`); never throws.
+ *
+ * Two callers, two ownership rules:
+ *   - the checkout / re-drive path (no `adminResend`): the CALLER owns the
+ *     claim-before-send on `pending_bookings.email_sent` (§10 F-1,
+ *     create-booking's sendCustomerEmailOnce) and hands the claim back on
+ *     `false`, so the sweep re-sends it;
+ *   - the admin "Re-send customer confirmation" action (6b §6, `adminResend`):
+ *     never touches that claim; it is audited in `direct_lot_resends` and
+ *     sends under its own per-re-send key, so a deliberate re-send is not
+ *     swallowed as a duplicate of the original.
  *
  * Bounded at 5 s: an unbounded send that hung to maxDuration would kill the
  * function after the claim, leaving `email_sent` true and the customer with no
@@ -1400,8 +1408,11 @@ export async function sendDirectCustomerConfirmation(
   pgSyncStatus: PgSyncStatus,
   charged: ChargedProtection | null,
   /** The promo on the PaymentIntent: code (trimmed + upper-cased; shown only when a discount applied) + percent. */
-  promo: DirectEmailPromo
+  promo: DirectEmailPromo,
+  /** Set only by the admin re-send: its own Resend key, and its own failure report. Absent = the checkout path. */
+  adminResend?: { idempotencyKey: string }
 ): Promise<boolean> {
+  const idempotencyKey = adminResend?.idempotencyKey ?? `direct-confirmation/${dp.stripePaymentIntentId}`;
   const totalAmount = directPaidOnline(fr);
   const breakdown = directEmailBreakdown(fr, charged, promo);
   const fallback = directAnchoredFallback(breakdown, fr, charged);
@@ -1435,21 +1446,26 @@ export async function sendDirectCustomerConfirmation(
       },
       breakdown,
       ...(fallback && { anchoredFallback: fallback }),
-      idempotencyKey: `direct-confirmation/${dp.stripePaymentIntentId}`,
+      idempotencyKey,
       timeoutMs: DIRECT_CONFIRMATION_TIMEOUT_MS,
     });
     if (sent.success) return true;
     capturePaymentError(
       new Error(
-        `Customer paid but confirmation email ${sent.uncertain ? "did not answer in time (Resend may still deliver it)" : "did not send"} (direct booking ${fr.number}) — handed back for a re-send`
+        adminResend
+          ? `Admin re-send of the confirmation failed or timed out (direct booking ${fr.number}) — ${sent.uncertain ? "Resend did not answer in time and may still deliver it" : "Resend did not accept it"}`
+          : `Customer paid but confirmation email ${sent.uncertain ? "did not answer in time (Resend may still deliver it)" : "did not send"} (direct booking ${fr.number}) — handed back for a re-send`
       ),
       { stripePaymentIntentId: dp.stripePaymentIntentId, amount: totalAmount }
     );
     return false;
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     capturePaymentError(
       new Error(
-        `Customer paid but confirmation email did not send (direct booking ${fr.number}): ${err instanceof Error ? err.message : String(err)}`
+        adminResend
+          ? `Admin re-send of the confirmation failed or timed out (direct booking ${fr.number}): ${detail}`
+          : `Customer paid but confirmation email did not send (direct booking ${fr.number}): ${detail}`
       ),
       { stripePaymentIntentId: dp.stripePaymentIntentId, amount: totalAmount }
     );

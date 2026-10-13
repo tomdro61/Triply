@@ -22,7 +22,7 @@ function routeFiles(dir: string): string[] {
 }
 
 describe("lot-notice claim window vs route lifetimes", () => {
-  const senders = routeFiles(APP).filter((f) => /createBooking|sendLotBookingNotice/.test(readFileSync(f, "utf8")));
+  const senders = routeFiles(APP).filter((f) => /createBooking|sendLotBookingNotice|redriveDirectBookingSends/.test(readFileSync(f, "utf8")));
 
   it("finds the routes that can send a booking notice", () => {
     expect(senders.length).toBeGreaterThanOrEqual(4);

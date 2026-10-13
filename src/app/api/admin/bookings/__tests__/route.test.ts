@@ -170,3 +170,42 @@ describe("GET /api/admin/bookings — search edge cases", () => {
     expect(String(sentry.captureAPIError.mock.calls[0][0].message)).not.toMatch(/virginia/i);
   });
 });
+
+describe("GET /api/admin/bookings — ?inventory= (6b §7)", () => {
+  beforeEach(() => {
+    db.tables.customers = [];
+    db.tables.booking_cancellation_notes = [];
+    db.tables.bookings = [
+      { id: "r1", customer_id: null, status: "confirmed", created_at: "2026-10-01T00:00:00Z", inventory_source: "reslab", reslab_reservation_number: "RTL1", location_name: "Lot A" },
+      { id: "d1", customer_id: null, status: "confirmed", created_at: "2026-10-02T00:00:00Z", inventory_source: "direct", reslab_reservation_number: "TRP-ABC123", location_name: "The Parking Point" },
+    ];
+  });
+
+  const list = async (qs: string) => {
+    const res = await GET(req(qs));
+    return { status: res.status, body: await res.json() };
+  };
+
+  it("absent or 'all' → every booking", async () => {
+    for (const qs of ["", "?inventory=all"]) {
+      const r = await list(qs);
+      expect(r.status).toBe(200);
+      expect(r.body.bookings.map((b: { id: string }) => b.id).sort()).toEqual(["d1", "r1"]);
+    }
+  });
+
+  it("'reslab' and 'direct' each filter to their own rows (and combine with search)", async () => {
+    expect((await list("?inventory=reslab")).body.bookings.map((b: { id: string }) => b.id)).toEqual(["r1"]);
+    expect((await list("?inventory=direct")).body.bookings.map((b: { id: string }) => b.id)).toEqual(["d1"]);
+    expect((await list("?inventory=direct&search=RTL1")).body.bookings).toEqual([]);
+  });
+
+  it("an invalid value is a 400 — never the unfiltered list", async () => {
+    for (const qs of ["?inventory=Direct", "?inventory=", "?inventory=reslab,direct"]) {
+      const r = await list(qs);
+      expect(r.status).toBe(400);
+      expect(r.body.bookings).toBeUndefined();
+    }
+    expect(db.log.filter((l) => l.table === "bookings")).toEqual([]);
+  });
+});

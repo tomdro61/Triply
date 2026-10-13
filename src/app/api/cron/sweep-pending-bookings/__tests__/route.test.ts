@@ -279,7 +279,8 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
       lot_notified_at: null,
       lot_notice_claimed_at: null,
       lot_cancel_notified_at: null,
-      // literal wall-clock TIMESTAMP, three days out: the stay is not over
+      // literal wall-clock TIMESTAMPs, two and three days out: the stay is not over
+      check_in: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19),
       check_out: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19),
       created_at: created,
       updated_at: created,
@@ -295,6 +296,9 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
       status: "completed",
       email_sent: false,
       reslab_reservation_number: "TRP-7K2M9QXA",
+      // literal "YYYY-MM-DD HH:MM:SS" TEXT, two and three days out: the stay is not over
+      from_date: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      to_date: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
       created_at: created,
       updated_at: created,
       ...over,
@@ -329,6 +333,8 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
   });
 
   it("a completed direct checkout whose customer email is outstanding is re-driven on its own", async () => {
+    // The lot was told; only the customer confirmation is outstanding (the booking still stands).
+    db.seed("bookings", [directBooking({ stripe_payment_intent_id: "pi_email", lot_notified_at: ago(9 * MIN) })]);
     db.seed("pending_bookings", [directPending({ stripe_payment_intent_id: "pi_email" })]);
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_email");
@@ -336,17 +342,22 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
   });
 
   it("the email scan is bounded by created_at, so a row whose updated_at a retry just bumped is still re-driven", async () => {
+    db.seed("bookings", [directBooking({ stripe_payment_intent_id: "pi_bumped", lot_notified_at: ago(9 * MIN) })]);
     db.seed("pending_bookings", [directPending({ stripe_payment_intent_id: "pi_bumped", updated_at: ago(MIN) })]);
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_bumped");
     expect(body.directSendsRedriven).toBe(1);
   });
 
-  it("leaves alone: other Stripe mode, under 6 min old, older than 3 days, ResLab rows, already notified / emailed, not confirmed", async () => {
+  it("leaves alone: other Stripe mode, under 6 min old, stay over, ResLab rows, already notified / emailed, not confirmed", async () => {
     db.seed("bookings", [
       directBooking({ stripe_payment_intent_id: "pi_test_mode", livemode: false }),
       directBooking({ stripe_payment_intent_id: "pi_young", created_at: ago(3 * MIN) }),
-      directBooking({ stripe_payment_intent_id: "pi_old", created_at: ago(4 * 24 * HOUR) }),
+      directBooking({
+        stripe_payment_intent_id: "pi_stay_over",
+        created_at: ago(4 * 24 * HOUR),
+        check_out: new Date(Date.now() - 2 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
       directBooking({ stripe_payment_intent_id: "pi_reslab", inventory_source: "reslab" }),
       directBooking({ stripe_payment_intent_id: "pi_notified", lot_notified_at: ago(9 * MIN) }),
       directBooking({ stripe_payment_intent_id: "pi_failed", status: "failed" }),
@@ -354,7 +365,12 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     db.seed("pending_bookings", [
       directPending({ stripe_payment_intent_id: "pi_p_test_mode", livemode: false }),
       directPending({ stripe_payment_intent_id: "pi_p_young", created_at: ago(3 * MIN) }),
-      directPending({ stripe_payment_intent_id: "pi_p_old", created_at: ago(4 * 24 * HOUR) }),
+      directPending({
+        stripe_payment_intent_id: "pi_p_stay_over",
+        created_at: ago(4 * 24 * HOUR),
+        from_date: ago(3 * 24 * HOUR).slice(0, 19).replace("T", " "),
+        to_date: ago(2 * 24 * HOUR).slice(0, 19).replace("T", " "),
+      }),
       directPending({ stripe_payment_intent_id: "pi_p_reslab", inventory_source: "reslab", reslab_reservation_number: "RTL854206" }),
       directPending({ stripe_payment_intent_id: "pi_p_emailed", email_sent: true }),
     ]);
@@ -365,6 +381,114 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     expect(redriveDirectBookingSends).not.toHaveBeenCalled();
     expect(sendLotCancelNotice).not.toHaveBeenCalled();
     expect(body).toMatchObject({ ok: true, directSendsRedriven: 0, directCancelNoticesAttempted: 0 });
+  });
+
+  it("6b: an unsent lot notice is retried for the whole stay — booked weeks ago, arriving later — not dropped after 3 days", async () => {
+    db.seed("bookings", [
+      directBooking({
+        stripe_payment_intent_id: "pi_booked_early",
+        created_at: ago(20 * 24 * HOUR),
+        check_out: new Date(Date.now() + 10 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_booked_early");
+    expect(body.directSendsRedriven).toBe(1);
+  });
+
+  it("6b pass 2: an unsent customer confirmation is retried for the whole stay — booked 10 days ago, lot already told, arriving later", async () => {
+    db.seed("bookings", [
+      directBooking({
+        stripe_payment_intent_id: "pi_email_late",
+        created_at: ago(10 * 24 * HOUR),
+        lot_notified_at: ago(10 * 24 * HOUR),
+        check_out: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
+    ]);
+    db.seed("pending_bookings", [
+      directPending({
+        stripe_payment_intent_id: "pi_email_late",
+        created_at: ago(10 * 24 * HOUR),
+        from_date: new Date(Date.now() + 4 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).toHaveBeenCalledTimes(1);
+    expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_email_late");
+    expect(body.directSendsRedriven).toBe(1);
+  });
+
+  it("6b pass 2: an unsent confirmation whose stay is over is left alone, however recent the booking", async () => {
+    db.seed("pending_bookings", [
+      directPending({
+        stripe_payment_intent_id: "pi_email_over",
+        created_at: ago(30 * MIN),
+        from_date: ago(4 * 24 * HOUR).slice(0, 19).replace("T", " "),
+        to_date: ago(2 * 24 * HOUR).slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).not.toHaveBeenCalled();
+    expect(body.directSendsRedriven).toBe(0);
+  });
+
+  it("6b pass 3: a cancelled booking's never-sent confirmation is not re-driven and takes no slot from one that still stands", async () => {
+    const dead = Array.from({ length: 25 }, (_, i) => `pi_dead_${String(i).padStart(2, "0")}`);
+    db.seed("bookings", [
+      ...dead.map((pi) => directBooking({ stripe_payment_intent_id: pi, status: "cancelled", lot_notified_at: ago(9 * MIN) })),
+      directBooking({ stripe_payment_intent_id: "pi_live", lot_notified_at: ago(9 * MIN) }),
+    ]);
+    db.seed("pending_bookings", [
+      // The cancelled ones arrive sooner, so they would fill the 25-row cap first.
+      ...dead.map((pi) => directPending({ stripe_payment_intent_id: pi, from_date: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19).replace("T", " ") })),
+      directPending({ stripe_payment_intent_id: "pi_live", from_date: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " ") }),
+    ]);
+    await GET(req());
+    expect(redriveDirectBookingSends.mock.calls.map(([pi]) => pi)).toEqual(["pi_live"]);
+  });
+
+  it("6b pass 2: unsent confirmations come soonest stay first, so a backlog further out can't starve an imminent arrival", async () => {
+    const farRows = Array.from({ length: 25 }, (_, i) =>
+      directPending({
+        stripe_payment_intent_id: `pi_far_${String(i).padStart(2, "0")}`,
+        from_date: new Date(Date.now() + (20 + i) * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + (21 + i) * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      })
+    );
+    db.seed("bookings", [...farRows.map((r) => directBooking({ stripe_payment_intent_id: r.stripe_payment_intent_id, lot_notified_at: ago(9 * MIN) })), directBooking({ stripe_payment_intent_id: "pi_soon", lot_notified_at: ago(9 * MIN) })]);
+    db.seed("pending_bookings", [
+      ...farRows,
+      directPending({
+        stripe_payment_intent_id: "pi_soon",
+        from_date: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    await GET(req());
+    const redriven = redriveDirectBookingSends.mock.calls.map(([pi]) => pi);
+    expect(redriven[0]).toBe("pi_soon");
+    expect(redriven).toHaveLength(25);
+  });
+
+  it("6b: check-ins not yet passed come first — 25 stuck stays already under way can't starve tomorrow's arrival", async () => {
+    const passedRows = Array.from({ length: 25 }, (_, i) =>
+      directBooking({
+        stripe_payment_intent_id: `pi_passed_${String(i).padStart(2, "0")}`,
+        created_at: ago(5 * 24 * HOUR),
+        check_in: ago((3 * 24 + i) * HOUR).slice(0, 19),
+        check_out: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19),
+      })
+    );
+    db.seed("bookings", [
+      ...passedRows,
+      directBooking({ stripe_payment_intent_id: "pi_tomorrow", check_in: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19) }),
+    ]);
+    const body = await (await GET(req())).json();
+    const redriven = redriveDirectBookingSends.mock.calls.map(([pi]) => pi);
+    expect(redriven[0]).toBe("pi_tomorrow");
+    expect(redriven).toHaveLength(25); // MAX_PER_RUN: the tomorrow row + the 24 earliest passed ones
+    expect(body.directSendsRedriven).toBe(25);
   });
 
   it("a cancellation the lot was told (or may have been told) of gets its cancel notice; one the lot never heard of does not", async () => {

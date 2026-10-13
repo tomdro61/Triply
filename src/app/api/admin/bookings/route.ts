@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
+
+/**
+ * `?inventory=` (6b plan §7): which inventory system a booking came from.
+ * Absent or "all" = no filter; anything else is a 400 — a typo must never
+ * quietly show every booking as though it were filtered.
+ */
+const inventorySchema = z.enum(["all", "reslab", "direct"]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +32,11 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const inventoryParam = searchParams.get("inventory");
+    const inventory = inventoryParam === null ? null : inventorySchema.safeParse(inventoryParam);
+    if (inventory && !inventory.success) {
+      return NextResponse.json({ error: "inventory must be one of: all, reslab, direct" }, { status: 400 });
+    }
 
     const offset = (page - 1) * limit;
 
@@ -46,6 +59,11 @@ export async function GET(request: NextRequest) {
     // Filter by status
     if (status && status !== "all") {
       query = query.eq("status", status);
+    }
+
+    // Filter by inventory source (ResLab vs Triply's own direct lots).
+    if (inventory?.success && inventory.data !== "all") {
+      query = query.eq("inventory_source", inventory.data);
     }
 
     // Filter by date range

@@ -78,7 +78,8 @@ import {
   directStaleness,
   type DirectBookingPayload,
 } from "@/lib/direct/fulfilment";
-import { sendLotBookingNotice, type LotBookingNoticeContent } from "@/lib/direct/lot-notice";
+import { sendLotBookingNotice, type LotBookingNoticeContent, type LotNoticeOutcome } from "@/lib/direct/lot-notice";
+import { isOtherStripeMode } from "@/lib/cancellation/source-guard";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -2416,10 +2417,18 @@ async function unclaimCustomerEmail(piId: string): Promise<void> {
   }
 }
 
-/** Claim, send, and hand the claim back if the send did not go (F-1). */
-async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<void> {
-  if ((await claimCustomerEmail(piId)) !== "claimed") return;
-  if (!(await send())) await unclaimCustomerEmail(piId);
+/**
+ * Claim, send, and hand the claim back if the send did not go (F-1). A claim
+ * that errored is "failed" (nothing sent, a database fault — reported), never
+ * "not_claimed", which means someone else holds it or it already went.
+ */
+async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<"sent" | "not_claimed" | "failed"> {
+  const claim = await claimCustomerEmail(piId);
+  if (claim === "error") return "failed";
+  if (claim === "taken") return "not_claimed";
+  if (await send()) return "sent";
+  await unclaimCustomerEmail(piId);
+  return "failed";
 }
 
 /** The one place a direct booking's FulfilledReservation is built. */
@@ -2531,6 +2540,38 @@ function heldByLiveFulfilment(row: PendingRow | null): boolean {
   );
 }
 
+/** The customer confirmation's part in a direct re-drive. */
+export type CustomerEmailOutcome =
+  /** Sent now (it had not gone before). */
+  | "sent"
+  /** Someone else holds the email claim (it is being sent elsewhere). */
+  | "not_claimed"
+  /** The claim or the send failed; nothing confirmed sent — the sweep tries again. */
+  | "failed"
+  /** It had already gone; not sent again. */
+  | "already_sent";
+
+/** Why a direct re-drive attempted nothing. */
+export type DirectRedriveSkipReason =
+  | "not_direct"
+  | "refunded"
+  | "held"
+  | "no_number"
+  | "unreadable"
+  | "not_confirmed"
+  | "mid_cancel";
+
+/**
+ * What a direct re-drive did (6b): the sweep ignores it; the admin "Retry lot
+ * notice" action shows it. `skipped` says why nothing was attempted; `error`
+ * is an unexpected throw, which can land AFTER the lot notice was attempted —
+ * so it never claims "nothing sent".
+ */
+export type DirectRedriveResult =
+  | { kind: "attempted"; notice: LotNoticeOutcome; customerEmail: CustomerEmailOutcome }
+  | { kind: "skipped"; reason: DirectRedriveSkipReason }
+  | { kind: "error" };
+
 /**
  * Step 3 for a DIRECT booking that already exists (§9 H-B): a function that
  * died between the booking insert and the sends must not lose the lot's only
@@ -2539,14 +2580,14 @@ function heldByLiveFulfilment(row: PendingRow | null): boolean {
  * still `confirmed`. Never throws; a send that fails here is picked up again by
  * the sweep's direct backstop.
  */
-async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | null): Promise<void> {
+async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | null): Promise<DirectRedriveResult> {
   const piId = pi.id;
   try {
-    if (!row?.reslab_reservation_number) return;
+    if (!row?.reslab_reservation_number) return { kind: "skipped", reason: "no_number" };
     const view = directViewFromRow(pi, row, row.reslab_reservation_number);
     if (!view.ok) {
       capturePaymentError(new Error(`Direct re-send skipped for ${piId}: ${view.error}`), directAlert({ id: piId }));
-      return;
+      return { kind: "skipped", reason: "unreadable" };
     }
     const { dp, fr } = view;
     const resolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
@@ -2565,7 +2606,7 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
         new Error(`Direct re-send skipped for ${piId}: could not read the booking (${error?.message ?? "no row"}) — the sweep retries`),
         directAlert({ id: piId })
       );
-      return;
+      return { kind: "skipped", reason: "unreadable" };
     }
     const booked = data as {
       status: string;
@@ -2577,45 +2618,134 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
     // Not for a booking that is no longer — or is in the middle of no longer
     // being — a booking: a cancel in progress, or one whose status write
     // failed after the refund, still reads `confirmed`.
-    if (booked.status !== "confirmed" || booked.cancel_state || booked.cancel_claimed_at) return;
+    if (booked.status !== "confirmed") return { kind: "skipped", reason: "not_confirmed" };
+    if (booked.cancel_state || booked.cancel_claimed_at) return { kind: "skipped", reason: "mid_cancel" };
 
     // URGENT is judged as of when the booking was STORED, not now: a re-send
     // must rebuild the identical notice (same Resend key, same body), never a
     // second one that turned urgent while it waited.
     const storedAt = Date.parse(booked.created_at);
     const urgent = stalenessFor(dp, pi, Number.isFinite(storedAt) ? storedAt : Date.now()).kind === "late";
-    await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
-    if (!row.email_sent) {
-      await sendCustomerEmailOnce(piId, () =>
-        sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
-      );
-    }
+    const notice = await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
+    const customerEmail: CustomerEmailOutcome = row.email_sent
+      ? "already_sent"
+      : await sendCustomerEmailOnce(piId, () =>
+          sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
+        );
+    return { kind: "attempted", notice, customerEmail };
   } catch (err) {
     captureBookingError(
       new Error(`Direct re-send for ${piId} failed: ${err instanceof Error ? err.message : String(err)}`),
       { step: "checkout", inventorySource: "direct" }
     );
+    return { kind: "error" };
   }
 }
 
 /**
- * The sweep's direct backstop (4b plan §9 H-B): re-run ONLY the outstanding
- * sends for an existing direct booking — not the whole engine, whose refund
- * gate (Step 1) would skip a booking that merely had a partial goodwill
- * refund and is still `confirmed`. Leaves a booking whose main path still
- * holds a fresh claim alone. Throws on a Stripe or database read failure (the
- * sweep counts and reports it).
+ * The sweep's direct backstop (4b plan §9 H-B), and the admin "Retry lot
+ * notice" action (6b §6): re-run ONLY the outstanding sends for an existing
+ * direct booking — not the whole engine, whose refund gate (Step 1) would
+ * skip a booking that merely had a partial goodwill refund and is still
+ * `confirmed`. Leaves a booking whose main path still holds a fresh claim
+ * alone. Throws on a Stripe or database read failure before anything is sent
+ * (the sweep counts and reports it; the admin route answers 502).
  */
-export async function redriveDirectBookingSends(piId: string): Promise<void> {
+export async function redriveDirectBookingSends(piId: string): Promise<DirectRedriveResult> {
   const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
-  if (pi.metadata?.inventorySource !== "direct") return;
+  if (pi.metadata?.inventorySource !== "direct") return { kind: "skipped", reason: "not_direct" };
   // A FULL refund means the booking is over even if its row has not caught
   // up yet; a partial (goodwill) refund leaves it standing and still sends.
   const charge = pi.latest_charge;
-  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) return;
+  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) {
+    return { kind: "skipped", reason: "refunded" };
+  }
   const row = await readPendingRow(piId);
-  if (heldByLiveFulfilment(row)) return;
-  await redriveDirectSends(pi, row);
+  if (heldByLiveFulfilment(row)) return { kind: "skipped", reason: "held" };
+  return redriveDirectSends(pi, row);
+}
+
+/** What `buildDirectResendView` returns: the email's inputs, or why nothing can be re-sent. */
+export type DirectResendView =
+  | {
+      ok: true;
+      dp: DirectBookingPayload;
+      fr: DirectFulfilledReservation;
+      pgSyncStatus: PgSyncStatus;
+      charged: ChargedProtection | null;
+      promo: DirectEmailPromo;
+    }
+  | {
+      ok: false;
+      reason: "no_row" | "other_mode" | "no_number" | "not_direct" | "refunded" | "unreadable" | "not_confirmed" | "mid_cancel" | "unsent";
+    };
+
+/**
+ * Everything the admin "Re-send customer confirmation" action (6b §6) needs to
+ * rebuild a DIRECT booking's confirmation email — the same view the re-drive
+ * builds (`redriveDirectSends`), without sending anything or touching the
+ * `email_sent` claim. The Stripe mode is checked from the staged row BEFORE the
+ * PaymentIntent is retrieved: the other environment's key cannot read it (a
+ * 404), and the booking belongs to that environment's admin anyway.
+ * `ok: false` names why nothing can be re-sent — `unsent` when the original
+ * confirmation hasn't gone yet (the checkout/re-drive path still owns it and
+ * retries it; a re-send would race it); a Stripe or database READ failure
+ * throws (the caller answers 5xx — "try again", never "nothing to send").
+ */
+export async function buildDirectResendView(piId: string): Promise<DirectResendView> {
+  const row = await readPendingRow(piId);
+  if (!row) return { ok: false, reason: "no_row" };
+  if (isOtherStripeMode(row.livemode)) return { ok: false, reason: "other_mode" };
+  if (!row.reslab_reservation_number) return { ok: false, reason: "no_number" };
+
+  const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+  if (pi.metadata?.inventorySource !== "direct") return { ok: false, reason: "not_direct" };
+  const charge = pi.latest_charge;
+  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) {
+    return { ok: false, reason: "refunded" };
+  }
+  const view = directViewFromRow(pi, row, row.reslab_reservation_number);
+  if (!view.ok) {
+    capturePaymentError(new Error(`Direct confirmation re-send refused for ${piId}: ${view.error}`), directAlert({ id: piId }));
+    return { ok: false, reason: "unreadable" };
+  }
+  // An unreadable protection pair is refused, not sent as "no protection": a
+  // deliberate re-send must not tell the customer they have no cover they paid for.
+  const resolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
+  if (!resolution.ok) {
+    capturePaymentError(
+      new Error(`Direct confirmation re-send refused for ${piId}: protection metadata ${resolution.detail}`),
+      directAlert({ id: piId })
+    );
+    return { ok: false, reason: "unreadable" };
+  }
+
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("status, pg_sync_status, cancel_state, cancel_claimed_at")
+    .eq("stripe_payment_intent_id", piId)
+    .abortSignal(AbortSignal.timeout(3_000))
+    .maybeSingle();
+  if (error) throw new DurableStateError("bookings read for a confirmation re-send", error.message);
+  if (!data) return { ok: false, reason: "not_confirmed" };
+  const booked = data as {
+    status: string;
+    pg_sync_status: PgSyncStatus;
+    cancel_state: string | null;
+    cancel_claimed_at: string | null;
+  };
+  if (booked.status !== "confirmed") return { ok: false, reason: "not_confirmed" };
+  if (booked.cancel_state || booked.cancel_claimed_at) return { ok: false, reason: "mid_cancel" };
+  if (!row.email_sent) return { ok: false, reason: "unsent" };
+  return {
+    ok: true,
+    dp: view.dp,
+    fr: view.fr,
+    pgSyncStatus: booked.pg_sync_status,
+    charged: resolution.charged,
+    promo: directEmailPromo(pi),
+  };
 }
 
 const NOT_CHARGED_RETRY = "We couldn't complete this booking and have released your payment — you have not been charged. Please try again.";
