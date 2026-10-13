@@ -60,11 +60,12 @@ import {
   type DeclaredExtraField,
 } from "@/lib/booking/required-extra-fields";
 
-// Direct staging's bounded waits add up to ~33 s in the worst case (PaymentIntent
-// 4 s + lot read 4 s + session 4 s + seven DB calls at 3 s), so the function
-// limit sits above that: a slow database then fails CLOSED with our own 503,
-// never a platform 504 with nothing in Sentry (4b plan §10 F-13, pass-1 review).
-export const maxDuration = 40;
+// Direct staging's bounded waits add up to ~37 s in the worst case (PaymentIntent
+// 4 s + lot read 2 × 4 s — one retry on a transient failure, TRIPLY-40 — +
+// session 4 s + seven DB calls at 3 s), so the function limit sits above that:
+// a slow database then fails CLOSED with our own 503, never a platform 504 with
+// nothing in Sentry (4b plan §10 F-13, pass-1 review).
+export const maxDuration = 45;
 
 export async function POST(request: NextRequest) {
   try {
