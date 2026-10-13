@@ -650,14 +650,15 @@ describe("manifest", () => {
     ]);
   });
 
-  it("6b pass 2: a run that may have been delivered, still `sending` after its date has passed, is reported (follow-ups pending)", async () => {
+  it("6b pass 2/3: a run that may have been delivered, still `sending` after its date has passed, is reported — even with a fresh claim (recovery refreshes it every tick)", async () => {
     run({ manifest_date: "2026-10-30", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: "2026-10-30T03:00:00.000Z" });
-    // A fresh claim is the manifest cron at work right now: not reported.
+    // Recovery just refreshed this one's claim; it can never send again (its date has passed), so it is reported too.
     run({ manifest_date: "2026-10-29", recipients_hash: "dddddddddddddddd", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: isoAgo(0) });
     vi.setSystemTime(new Date(MORNING));
     mdb.rows(RUNS)[1].claimed_at = new Date(Date.parse(MORNING) - 60_000).toISOString();
     const r = await tick(MORNING);
     expect(r.lines.filter((l) => l.kind === "manifest").map((l) => l.text)).toEqual([
+      "[TEST] Lot 1 — manifest for 2026-10-29 may have been delivered; follow-ups pending — a cancellation since may not have reached the lot",
       "[TEST] Lot 1 — manifest for 2026-10-30 may have been delivered; follow-ups pending — a cancellation since may not have reached the lot",
     ]);
   });

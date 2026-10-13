@@ -333,6 +333,8 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
   });
 
   it("a completed direct checkout whose customer email is outstanding is re-driven on its own", async () => {
+    // The lot was told; only the customer confirmation is outstanding (the booking still stands).
+    db.seed("bookings", [directBooking({ stripe_payment_intent_id: "pi_email", lot_notified_at: ago(9 * MIN) })]);
     db.seed("pending_bookings", [directPending({ stripe_payment_intent_id: "pi_email" })]);
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_email");
@@ -340,6 +342,7 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
   });
 
   it("the email scan is bounded by created_at, so a row whose updated_at a retry just bumped is still re-driven", async () => {
+    db.seed("bookings", [directBooking({ stripe_payment_intent_id: "pi_bumped", lot_notified_at: ago(9 * MIN) })]);
     db.seed("pending_bookings", [directPending({ stripe_payment_intent_id: "pi_bumped", updated_at: ago(MIN) })]);
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_bumped");
@@ -430,6 +433,21 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     expect(body.directSendsRedriven).toBe(0);
   });
 
+  it("6b pass 3: a cancelled booking's never-sent confirmation is not re-driven and takes no slot from one that still stands", async () => {
+    const dead = Array.from({ length: 25 }, (_, i) => `pi_dead_${String(i).padStart(2, "0")}`);
+    db.seed("bookings", [
+      ...dead.map((pi) => directBooking({ stripe_payment_intent_id: pi, status: "cancelled", lot_notified_at: ago(9 * MIN) })),
+      directBooking({ stripe_payment_intent_id: "pi_live", lot_notified_at: ago(9 * MIN) }),
+    ]);
+    db.seed("pending_bookings", [
+      // The cancelled ones arrive sooner, so they would fill the 25-row cap first.
+      ...dead.map((pi) => directPending({ stripe_payment_intent_id: pi, from_date: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19).replace("T", " ") })),
+      directPending({ stripe_payment_intent_id: "pi_live", from_date: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " ") }),
+    ]);
+    await GET(req());
+    expect(redriveDirectBookingSends.mock.calls.map(([pi]) => pi)).toEqual(["pi_live"]);
+  });
+
   it("6b pass 2: unsent confirmations come soonest stay first, so a backlog further out can't starve an imminent arrival", async () => {
     const farRows = Array.from({ length: 25 }, (_, i) =>
       directPending({
@@ -438,6 +456,7 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
         to_date: new Date(Date.now() + (21 + i) * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
       })
     );
+    db.seed("bookings", [...farRows.map((r) => directBooking({ stripe_payment_intent_id: r.stripe_payment_intent_id, lot_notified_at: ago(9 * MIN) })), directBooking({ stripe_payment_intent_id: "pi_soon", lot_notified_at: ago(9 * MIN) })]);
     db.seed("pending_bookings", [
       ...farRows,
       directPending({

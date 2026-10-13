@@ -559,7 +559,9 @@ export async function scanManifests(
     // May have been delivered, and its date has passed — but still open: its
     // follow-up cancels have not all gone (6b pass 2). Recovery closes it at the
     // cutoff even with the lot's zone unknown; one that stays open is reported.
-    if (run.status === "sending" && run.had_unknown && !freshSending(run, nowMs) && datePassed) {
+    // No "fresh claim" exemption (6b pass 3): such a run never sends again, and
+    // every recovery pass refreshes claimed_at, which would hide it each tick.
+    if (run.status === "sending" && run.had_unknown && datePassed) {
       add(lotId, run.manifest_date, `manifest for ${run.manifest_date} may have been delivered; follow-ups pending — a cancellation since may not have reached the lot`);
     }
     if (datePassed) continue;
