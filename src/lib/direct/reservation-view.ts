@@ -231,7 +231,8 @@ export interface DirectReservationCommon {
    * The guest as typed at checkout (`pending_bookings.customer`) — the address the
    * confirmation went to. A signed-in customer booking for someone else is filed
    * under their own `customers` row, so that row's email is the ACCOUNT's, not the
-   * one emailed. Field by field, this wins over the row; null = not read.
+   * one emailed. A guest with an email is used WHOLE (never mixed with the row,
+   * which can be another person's); null / no email → the row.
    */
   guest: GuestContact | null;
 }
@@ -243,11 +244,7 @@ export interface GuestContact {
   phone?: string;
 }
 
-/** The typed value when there is one, else the linked customers row's. */
-const pick = (typed: string | undefined, row: string | null): string => {
-  const t = (typed ?? "").trim();
-  return t.length > 0 ? t : (row ?? "");
-};
+const trimmed = (v: string | null | undefined): string => (v ?? "").trim();
 
 const toCents = (dollars: number): number => Math.round(dollars * 100);
 const fromCents = (cents: number): number => cents / 100;
@@ -427,12 +424,19 @@ export function buildDirectReservation(
       }),
       airportCode: snap.airportCode,
       timezone: snap.timezone,
-      customer: {
-        firstName: pick(common.guest?.firstName, row.customers.first_name),
-        lastName: pick(common.guest?.lastName, row.customers.last_name),
-        email: pick(common.guest?.email, row.customers.email),
-        phone: pick(common.guest?.phone, row.customers.phone),
-      },
+      customer: trimmed(common.guest?.email)
+        ? {
+            firstName: trimmed(common.guest?.firstName),
+            lastName: trimmed(common.guest?.lastName),
+            email: trimmed(common.guest?.email),
+            phone: trimmed(common.guest?.phone),
+          }
+        : {
+            firstName: row.customers.first_name ?? "",
+            lastName: row.customers.last_name ?? "",
+            email: row.customers.email ?? "",
+            phone: row.customers.phone ?? "",
+          },
       items: [
         {
           type: "parking",

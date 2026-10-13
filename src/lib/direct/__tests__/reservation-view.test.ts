@@ -31,11 +31,15 @@ describe("buildDirectReservation — the guest's contact", () => {
     }));
     expect(r.ok && r.reservation.customer).toEqual({ firstName: "Pat", lastName: "Guest", email: "pat.guest@example.com", phone: "5559990000" });
   });
-  it("falls back field by field to the customers row (no staged guest, or a blank field)", () => {
+  it("no staged guest (or one without an email) → the customers row", () => {
     const none = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: null }));
     expect(none.ok && none.reservation.customer).toEqual({ firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" });
+    const noEmail = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: { firstName: "Pat", email: " " } }));
+    expect(noEmail.ok && noEmail.reservation.customer).toEqual({ firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" });
+  });
+  it("a staged guest with an email is used whole — never mixed with the row (another person's details)", () => {
     const partial = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: { email: "pat.guest@example.com", phone: "  " } }));
-    expect(partial.ok && partial.reservation.customer).toEqual({ firstName: "Dana", lastName: "Rivera", email: "pat.guest@example.com", phone: "5551234567" });
+    expect(partial.ok && partial.reservation.customer).toEqual({ firstName: "", lastName: "", email: "pat.guest@example.com", phone: "" });
   });
 });
 
