@@ -61,3 +61,13 @@ export function excludeTestBookings<T extends { or(filter: string): T }>(query: 
   return lot.or("livemode.is.null,livemode.eq.true");
 }
 
+/**
+ * Exactly the rows `excludeTestBookings` drops — `isTestBooking` as one
+ * PostgREST filter: at a test ResLab lot, OR paid in Stripe test mode.
+ * (`livemode.eq.false` never matches NULL, which is live.)
+ */
+export function onlyTestBookings<T extends { or(filter: string): T }>(query: T): T {
+  const ids = [...TEST_RESLAB_LOCATION_IDS];
+  return query.or(ids.length > 0 ? `livemode.eq.false,reslab_location_id.in.(${ids.join(",")})` : "livemode.eq.false");
+}
+

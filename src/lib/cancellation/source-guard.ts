@@ -37,6 +37,13 @@ export function stripeKeyIsLive(key: string = process.env.STRIPE_SECRET_KEY ?? "
   return key.startsWith("sk_live_") || key.startsWith("rk_live_");
 }
 
+/** The Stripe mode this key belongs to, or null when it is missing or not a Stripe secret key. */
+export function stripeKeyMode(key: string = process.env.STRIPE_SECRET_KEY ?? ""): "live" | "test" | null {
+  if (stripeKeyIsLive(key)) return "live";
+  if (key.startsWith("sk_test_") || key.startsWith("rk_test_")) return "test";
+  return null;
+}
+
 /**
  * A booking paid in the OTHER Stripe mode than this deployment's key — a
  * staging test booking seen by production, or a live booking seen by staging
