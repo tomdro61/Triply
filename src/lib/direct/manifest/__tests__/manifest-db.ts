@@ -11,6 +11,8 @@
  *     (exactly what the cutoff path must satisfy) and 042's `'sent' ⇒ sent_at`,
  *     `'failed' ⇒ NOT had_unknown` and the alerts' resolved_at/resolved_by pair,
  *   - a compound `onConflict` upsert that updates ONLY the columns sent,
+ *   - `.order(col, { ascending })`, both directions (a scan that must read the
+ *     NEWEST rows first is only proven by a fake that honours it),
  *   - `.or()` refused on UPDATE, as real PostgREST does,
  *   - every UPDATE's filters recorded, so a test can assert each status write
  *     is a compare-and-set on (attempt, status, claimed_at).
@@ -121,7 +123,7 @@ class OwnQuery implements PromiseLike<Result> {
   private returning = false;
   private upsertOn: string[] | null = null;
   private orOnUpdate = false;
-  private orders: string[] = [];
+  private orders: Array<{ col: string; asc: boolean }> = [];
   private limitN: number | null = null;
 
   constructor(private db: ManifestDb, private table: string) {}
@@ -170,8 +172,8 @@ class OwnQuery implements PromiseLike<Result> {
     if (this.op === "update") this.orOnUpdate = true;
     return this;
   }
-  order(col: string) {
-    this.orders.push(col);
+  order(col: string, opts?: { ascending?: boolean }) {
+    this.orders.push({ col, asc: opts?.ascending ?? true });
     return this;
   }
   limit(n: number) {
@@ -257,7 +259,9 @@ class OwnQuery implements PromiseLike<Result> {
     }
 
     let hit = rows.filter((r) => this.matches(r));
-    for (const col of [...this.orders].reverse()) hit = [...hit].sort((a, b) => String(a[col]).localeCompare(String(b[col])));
+    for (const { col, asc } of [...this.orders].reverse()) {
+      hit = [...hit].sort((a, b) => (asc ? 1 : -1) * String(a[col]).localeCompare(String(b[col])));
+    }
     if (this.limitN != null) hit = hit.slice(0, this.limitN);
     return this.out(hit);
   }

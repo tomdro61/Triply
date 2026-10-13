@@ -73,11 +73,6 @@ const DECLINED_RETRY_WINDOW_MS = 8 * 24 * 60 * 60_000;
  *  unknown (a timeout keeps its claim) is retried rather than skipped. */
 const DIRECT_SEND_DUE_MS = 6 * 60_000;
 
-/** How far back the booking-notice / email backstop looks (by CREATION time —
- *  `updated_at` is bumped by every claim, so it would never age out). The
- *  daily digest lists what is still outstanding after that. */
-const DIRECT_SEND_WINDOW_MS = 3 * 24 * 60 * 60_000;
-
 /** Prefix stamped into `last_error` once an opposite-mode held row has been
  *  reported, so it is reported once rather than every tick. No dots: it is
  *  embedded in a PostgREST `or=` filter. */
@@ -458,8 +453,9 @@ export async function GET(request: NextRequest) {
     // something calls it. This is the caller of last resort. Each send is
     // claim-guarded, so a re-drive never mails twice.
     const directDueBefore = new Date(Date.now() - DIRECT_SEND_DUE_MS).toISOString();
-    const directSince = new Date(Date.now() - DIRECT_SEND_WINDOW_MS).toISOString();
-    // check_out is a literal wall-clock TIMESTAMP; a date a day back is a safe, timezone-free bound.
+    // check_out (bookings, a literal wall-clock TIMESTAMP) and to_date
+    // (pending_bookings, literal "YYYY-MM-DD HH:MM:SS" TEXT, which compares
+    // lexicographically) — a date a day back is a safe, timezone-free bound.
     const stayNotOver = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     // Unsent lot notices, bounded by the STAY (6b): a notice that keeps failing is
     // retried until the stay is over (check-out a day back), not dropped after 3
@@ -487,6 +483,13 @@ export async function GET(request: NextRequest) {
     };
     const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
       unsentLotNotices(),
+      // Unsent customer confirmations, bounded by the STAY too (6b pass 2): the
+      // confirmation is the customer's only record of the booking, so it is
+      // retried until check-out (a day back), not dropped a few days after
+      // booking — a booking made weeks ahead would otherwise reach a dead end.
+      // `created_at` (not `updated_at`, which every claim bumps) gives the
+      // 6-minute grace. Soonest stay first, so a backlog further out can't
+      // starve an imminent arrival.
       supabase
         .from("pending_bookings")
         .select("stripe_payment_intent_id")
@@ -495,7 +498,8 @@ export async function GET(request: NextRequest) {
         .eq("status", "completed")
         .eq("email_sent", false)
         .lt("created_at", directDueBefore)
-        .gte("created_at", directSince)
+        .gte("to_date", stayNotOver)
+        .order("from_date")
         .limit(MAX_PER_RUN),
       // Cancellations: no stable "cancelled at" column (`updated_at` moves with
       // every claim), so bounded by the STAY instead — a cancel notice matters

@@ -1014,6 +1014,17 @@ describe("redriveDirectBookingSends — the sweep's direct send backstop", () =>
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
   });
 
+  it("6b pass 2: the lot already told, the confirmation never went → notice not_claimed, confirmation sent exactly once (a second re-drive sends nothing)", async () => {
+    seedCrashed({}, { lot_notified_at: "2026-10-02T15:41:00.000Z", lot_notice_claimed_at: "2026-10-02T15:40:30.000Z" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "not_claimed", customerEmail: "sent" });
+    expect(resendSend).not.toHaveBeenCalled(); // nothing to the lot
+    expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+    expect(db.tables.pending_bookings[0].email_sent).toBe(true);
+    expect(await redriveDirectBookingSends(PI)).toEqual({ kind: "attempted", notice: "not_claimed", customerEmail: "already_sent" });
+    expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+  });
+
   it("the customer email send fails → customerEmail 'failed', the claim handed back for the sweep", async () => {
     seedCrashed();
     stripeMock.paymentIntents.retrieve.mockResolvedValue(capturedPi());

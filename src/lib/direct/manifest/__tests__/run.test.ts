@@ -34,7 +34,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import { createAdminClient } from "@/lib/supabase/server";
-import { runManifestCron, CUTOFF_REASON, type RunRow } from "../run";
+import { runManifestCron, CUTOFF_REASON, CUTOFF_NOT_SENT_REASON, type RunRow } from "../run";
 import { renderManifest } from "../render";
 import { manifestLotDays } from "../schedule";
 import { recipientsHash, type ManifestRow } from "../select";
@@ -885,6 +885,102 @@ describe("kill switch, zones and follow-up alerts (review pass 1)", () => {
     expect(manifestSends().map((s) => s.key)).toEqual([keyFor(2)]);
     expect(runs()[0]).toMatchObject({ attempt: 2, status: "checked" });
     expect([...(runs()[0].ids_ever as string[])].sort()).toEqual(["b1", "b3"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("review pass 2: unknown zone past the date, refused attempts, gave-up noise", () => {
+  /** A booking whose zone disagrees with its lot snapshot: lot 1's zone is in dispute (unknown). */
+  const disputeZone = () => addBooking({ id: "dispute", over: { location_timezone: "America/Chicago" } });
+  /** Oct 29 — before UTC today − 1 (Oct 30) at EVENING: past noon on that date in every US zone. */
+  const PAST = "2026-10-29";
+
+  it("MED-1: a possibly-delivered run, zone unknown, date passed → past the cutoff: follow-ups, then checked (never `sending` for good)", async () => {
+    disputeZone();
+    addBooking({ id: "b1", checkIn: `${PAST}T09:30:00` }); // still listable: the takeover could never close it
+    addBooking({ id: "b2", checkIn: `${PAST}T10:30:00`, over: { status: "cancelled" } });
+    seedRun({ manifest_date: PAST, had_unknown: true, booking_ids: ["b1", "b2"], ids_ever: ["b1", "b2"] });
+    const r = await tick(EVENING);
+    expect(manifestSends()).toHaveLength(0);
+    expect(followUpSends().map((s) => s.key)).toEqual([`direct-lot-followup/b2/1/${PAST}/${HASH}/1`]);
+    expect(r.runs.cutoff_checked).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "checked", had_unknown: true, sent_at: null, last_error: CUTOFF_REASON });
+  });
+
+  it("MED-1: zone unknown, date passed, nothing ever reached Resend → failed (CUTOFF_NOT_SENT_REASON), no follow-up", async () => {
+    disputeZone();
+    addBooking({ id: "b1", checkIn: `${PAST}T09:30:00` });
+    seedRun({ manifest_date: PAST, had_unknown: false, booking_ids: ["b1"], ids_ever: [] });
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.failed).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, last_error: CUTOFF_NOT_SENT_REASON });
+  });
+
+  it("zone KNOWN, past the cutoff, nothing ever reached Resend → failed (CUTOFF_NOT_SENT_REASON) too — never recorded as possibly delivered", async () => {
+    addBooking({ id: "b1", checkIn: `${PAST}T09:30:00` });
+    seedRun({ manifest_date: PAST, had_unknown: false, booking_ids: ["b1"], ids_ever: [] });
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.failed).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, last_error: CUTOFF_NOT_SENT_REASON });
+  });
+
+  it("MED-1: zone unknown, date not yet before UTC today − 1 → unchanged: the run stays sending (no_zone), nothing sent", async () => {
+    disputeZone();
+    addBooking({ id: "b1", checkIn: "2026-10-30T09:30:00" });
+    seedRun({ manifest_date: "2026-10-30", had_unknown: true, booking_ids: ["b1"], ids_ever: ["b1"] });
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.no_zone).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: true });
+  });
+
+  it("MED-2: a definitely refused attempt leaves ids_ever as it was; a later attempt that died before its marker then closes `failed` — no follow-up for a list the lot never got", async () => {
+    addBooking({ id: "b1" });
+    resendSend.mockResolvedValueOnce({ data: null, error: { name: "validation_error", message: "bad", statusCode: 422 } });
+    await tick(EVENING);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, attempt: 1, ids_ever: [] });
+
+    // Attempt 2 is claimed, then its sender dies before the send-started marker lands.
+    mdb.beforeMutation = (table, op, payload) => {
+      if (table === RUNS && op === "update" && payload.had_unknown === true) {
+        mdb.beforeMutation = null;
+        mdb.failNext(RUNS, "update");
+      }
+    };
+    await tick("2026-10-31T22:40:00Z");
+    expect(manifestSends()).toHaveLength(1);
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: false, attempt: 2, ids_ever: [] });
+
+    setBooking("b1", { status: "cancelled", cancel_state: "refund_issued" });
+    const r = await tick("2026-10-31T22:50:00Z"); // the 22:40 claim is stale: takeover
+    expect(r.runs.nothing_to_list).toBe(1);
+    expect(followUpSends()).toHaveLength(0);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, last_error: expect.stringMatching(/^nothing_to_list:/) });
+  });
+
+  it("LOW-1: a gave-up follow-up is reported to Sentry once, though the run stays open across ticks; the alert row is still refreshed", async () => {
+    addBooking({ id: "b2", over: { status: "cancelled" } });
+    addBooking({ id: "b3", over: { status: "cancelled" } });
+    seedRun({ status: "sent", sent_at: "2026-10-31T22:00:05.000Z", booking_ids: ["b2", "b3"], ids_ever: ["b2", "b3"] });
+    const source = `manifest:1:${TOMORROW}:${HASH}`;
+    mdb.rows(RESENDS).push(
+      { id: "r2", booking_id: "b2", stripe_payment_intent_id: "pi_b2", livemode: false, kind: "manifest_followup_cancel", source, attempts: 3, sent_by: "manifest", outcome: "failed", updated_at: "2026-10-31T22:01:00.000Z" },
+      // Another sender is mid-send on b3: the run stays `sent` (follow-ups pending) on both ticks.
+      { id: "r3", booking_id: "b3", stripe_payment_intent_id: "pi_b3", livemode: false, kind: "manifest_followup_cancel", source, attempts: 1, sent_by: "manifest", outcome: "sending", updated_at: "2026-10-31T22:29:00.000Z" }
+    );
+    const gaveUp = () => sentry.fingerprints.filter((f) => f[1] === "followup-gave-up");
+    await tick(EVENING);
+    expect(gaveUp()).toEqual([["direct-lot-manifest", "followup-gave-up", "b2"]]);
+    const firstSeen = mdb.rows(ALERTS)[0].last_seen_at;
+
+    await tick("2026-10-31T22:32:00Z");
+    expect(runs()[0].status).toBe("sent");
+    expect(gaveUp()).toHaveLength(1);
+    expect(mdb.rows(ALERTS)).toHaveLength(1);
+    expect(mdb.rows(ALERTS)[0].last_seen_at).not.toBe(firstSeen);
+    expect(resendSend).not.toHaveBeenCalled();
   });
 });
 

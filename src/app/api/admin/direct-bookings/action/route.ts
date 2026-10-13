@@ -17,6 +17,7 @@ import {
   reservationNumberSchema,
   retryRefusal,
   type ActionRefusal,
+  type AdminClient,
 } from "@/lib/direct/admin-actions/booking";
 import { readOpenAlerts, resolveBookingAlerts, type OpenAlert } from "@/lib/direct/admin-actions/alerts";
 import { repointLotInbox } from "@/lib/direct/admin-actions/repoint";
@@ -37,7 +38,10 @@ import {
  *                                   open alerts.
  *   POST { reservationNumber, action }
  *     retry_lot_notice              re-drive the unsent booking notice (and the
- *                                   customer confirmation if that is unsent too)
+ *                                   customer confirmation if that is unsent too);
+ *                                   once the lot is told, still sends a customer
+ *                                   confirmation that never went ("Send
+ *                                   confirmation now")
  *     repoint_lot_inbox             copy the lot's current CMS inbox onto an
  *                                   UNSENT notice (takes the notice claim as its lock)
  *     resend_lot_cancellation       remind the lot of a cancellation it was sent
@@ -73,6 +77,25 @@ const confirmationResender: ConfirmationResender<ReadyView> = {
     sendDirectCustomerConfirmation(v.dp, v.fr, v.pgSyncStatus, v.charged, v.promo, { idempotencyKey }),
 };
 
+/**
+ * Has the original customer confirmation gone (`pending_bookings.email_sent`)?
+ * `sent` null = no staged row or an unreadable value; `error` = the read failed.
+ */
+async function readCustomerEmailSent(
+  supabase: AdminClient,
+  piId: string
+): Promise<{ sent: boolean | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from("pending_bookings")
+    .select("email_sent")
+    .eq("stripe_payment_intent_id", piId)
+    .abortSignal(dbSignal())
+    .maybeSingle();
+  if (error) return { sent: null, error: error.message };
+  const emailSent = (data as { email_sent?: unknown } | null)?.email_sent;
+  return { sent: typeof emailSent === "boolean" ? emailSent : null, error: null };
+}
+
 const refusal = (r: ActionRefusal) => NextResponse.json({ error: r.error }, { status: r.status });
 
 const fail = (method: "GET" | "POST", stage: string, err: unknown) => {
@@ -100,19 +123,14 @@ export async function GET(request: NextRequest) {
     if (error) return NextResponse.json({ error: "Couldn't read this booking's lot inbox — try again." }, { status: 503 });
     const terms = data as { lot_recipients: string[] | null; recipients_rev: number | null } | null;
     // Has the original customer confirmation gone? Until it has, the re-send is
-    // refused (the checkout/re-drive path retries it). null = couldn't read —
-    // the panel then offers the button and the POST re-checks.
-    const { data: staged, error: stagedError } = await supabase
-      .from("pending_bookings")
-      .select("email_sent")
-      .eq("stripe_payment_intent_id", booking.stripe_payment_intent_id)
-      .abortSignal(dbSignal())
-      .maybeSingle();
-    if (stagedError) {
-      captureAPIError(new Error(`email_sent read failed: ${stagedError.message}`), { endpoint: ENDPOINT, method: "GET", stage: "email_sent" });
+    // refused and "Send confirmation now" (retry_lot_notice) sends the original
+    // instead; the sweep also retries it until check-out. null = couldn't read —
+    // the panel then offers the re-send button and the POST re-checks.
+    const staged = await readCustomerEmailSent(supabase, booking.stripe_payment_intent_id);
+    if (staged.error) {
+      captureAPIError(new Error(`email_sent read failed: ${staged.error}`), { endpoint: ENDPOINT, method: "GET", stage: "email_sent" });
     }
-    const emailSent = (staged as { email_sent?: unknown } | null)?.email_sent;
-    const customerEmailSent = !stagedError && typeof emailSent === "boolean" ? emailSent : null;
+    const customerEmailSent = staged.sent;
     // Open alerts: shown only. null = couldn't read (the panel says so).
     let openAlerts: OpenAlert[] | null;
     try {
@@ -162,7 +180,18 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case "retry_lot_notice": {
-        const pre = retryRefusal(booking);
+        // Once the lot is told, this action is still the way to send a customer
+        // confirmation that never went — so read whether it has.
+        let customerEmailSent: boolean | null = null;
+        if (booking.lot_notified_at) {
+          const staged = await readCustomerEmailSent(supabase, booking.stripe_payment_intent_id);
+          if (staged.error) {
+            captureAPIError(new Error(`email_sent read failed: ${staged.error}`), { endpoint: ENDPOINT, method: "POST", stage: "email_sent" });
+            return NextResponse.json({ error: "Couldn't check whether the customer confirmation has gone — nothing was sent. Try again." }, { status: 503 });
+          }
+          customerEmailSent = staged.sent;
+        }
+        const pre = retryRefusal(booking, customerEmailSent);
         if (pre) return refusal(pre);
         let result: DirectRedriveResult;
         try {

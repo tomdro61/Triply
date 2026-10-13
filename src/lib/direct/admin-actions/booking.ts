@@ -152,15 +152,28 @@ export function noticeClaimIsLive(claimedAt: string | null, nowMs: number = Date
 /**
  * Retry lot notice (§6): these mirror the lot-notice gates — confirmed, not
  * told, no live claim, not mid-cancel — so a refusal here is never "it would
- * have done nothing anyway" in disguise. A notice already stamped is refused
- * even when the customer confirmation is still unsent: that one is retried
- * automatically (the sweep), and this action is about the lot.
+ * have done nothing anyway" in disguise.
+ *
+ * One exception (6b pass 2): the lot WAS told but the original customer
+ * confirmation never went (`customerEmailSent === false`). The re-drive then
+ * answers `not_claimed` for the notice and sends the confirmation under its own
+ * claim — the original, claim-guarded path, so never twice. Without this the
+ * admin had no button that sends it ("Re-send customer confirmation" is refused
+ * until the original has gone). `customerEmailSent` null = unknown → refused as
+ * before.
  */
-export function retryRefusal(b: DirectBookingRow, nowMs: number = Date.now()): ActionRefusal | null {
+export function retryRefusal(
+  b: DirectBookingRow,
+  customerEmailSent: boolean | null,
+  nowMs: number = Date.now()
+): ActionRefusal | null {
   if (b.status !== "confirmed") return refuse(409, `This booking is ${b.status} — there is no booking notice to send.`);
-  if (b.lot_notified_at) return refuse(409, "The lot was already told about this booking.");
+  const confirmationOnly = !!b.lot_notified_at && customerEmailSent === false;
+  if (b.lot_notified_at && !confirmationOnly) return refuse(409, "The lot was already told about this booking.");
   if (midCancel(b)) return refuse(409, "A cancellation of this booking is in progress — no booking notice will be sent.");
-  if (noticeClaimIsLive(b.lot_notice_claimed_at, nowMs)) {
+  // A live notice claim only matters while the notice itself is outstanding;
+  // once the lot is told, the re-drive sends nothing to it.
+  if (!confirmationOnly && noticeClaimIsLive(b.lot_notice_claimed_at, nowMs)) {
     return refuse(409, "A booking notice is being sent right now — wait a few minutes and refresh.");
   }
   return null;

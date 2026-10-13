@@ -291,6 +291,66 @@ describe("retry_lot_notice", () => {
     expect(redrive).not.toHaveBeenCalled();
   });
 
+  describe("6b pass 2: the lot was told, but the customer confirmation never went ('Send confirmation now')", () => {
+    const told = { lot_notified_at: ago(2 * 24 * 60 * 60_000), lot_notice_claimed_at: ago(2 * 24 * 60 * 60_000) };
+
+    it("re-drives: the notice answers not_claimed, the confirmation is sent once", async () => {
+      db.tables.bookings = [booking(told)];
+      db.tables.pending_bookings[0].email_sent = false;
+      redrive.mockResolvedValue({ kind: "attempted", notice: "not_claimed", customerEmail: "sent" });
+      const res = await act("retry_lot_notice");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        ok: true,
+        action: "retry_lot_notice",
+        result: { kind: "attempted", notice: "not_claimed", customerEmail: "sent" },
+      });
+      expect(redrive).toHaveBeenCalledTimes(1);
+      expect(redrive).toHaveBeenCalledWith(PI);
+    });
+
+    it("a notice claim still fresh from the (already stamped) send does not block it", async () => {
+      db.tables.bookings = [booking({ lot_notified_at: ago(60_000), lot_notice_claimed_at: ago(90_000) })];
+      db.tables.pending_bookings[0].email_sent = false;
+      redrive.mockResolvedValue({ kind: "attempted", notice: "not_claimed", customerEmail: "sent" });
+      expect((await act("retry_lot_notice")).status).toBe(200);
+      expect(redrive).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([
+      ["both done (lot told, confirmation sent)", true],
+      ["no checkout record to say the confirmation is unsent", null],
+    ])("still 409 'already told' when %s — nothing re-driven", async (_label, emailSent) => {
+      db.tables.bookings = [booking(told)];
+      if (emailSent === null) db.tables.pending_bookings = [];
+      else db.tables.pending_bookings[0].email_sent = emailSent;
+      const res = await act("retry_lot_notice");
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toMatch(/already told/);
+      expect(redrive).not.toHaveBeenCalled();
+    });
+
+    it("still refused while cancelled or mid-cancel", async () => {
+      db.tables.pending_bookings[0].email_sent = false;
+      for (const over of [{ status: "cancelled" }, { cancel_state: "claimed" }]) {
+        db.tables.bookings = [booking({ ...told, ...over })];
+        expect((await act("retry_lot_notice")).status).toBe(409);
+      }
+      expect(redrive).not.toHaveBeenCalled();
+    });
+
+    it("the email_sent read failing is a 503 'nothing was sent' — never a guess", async () => {
+      db.tables.bookings = [booking(told)];
+      db.tables.pending_bookings[0].email_sent = false;
+      db.failOnce("pending_bookings", "select", "connection reset");
+      const res = await act("retry_lot_notice");
+      expect(res.status).toBe(503);
+      expect((await res.json()).error).toMatch(/nothing was sent/);
+      expect(redrive).not.toHaveBeenCalled();
+      expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("a Stripe/database read failure inside the re-drive is a 502 'nothing was sent'", async () => {
     redrive.mockRejectedValue(new Error("stripe down"));
     const res = await act("retry_lot_notice");
@@ -586,7 +646,7 @@ describe("resend_customer_confirmation", () => {
     const res = await act("resend_customer_confirmation");
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe(
-      "The original confirmation hasn't gone yet — it is retried automatically; use Retry lot notice to push it now."
+      "The original confirmation hasn't gone yet — press 'Send confirmation now' (retried automatically until check-out too)."
     );
     expect(sendConfirmation).not.toHaveBeenCalled();
     expect(db.tables.direct_lot_resends).toEqual([]);

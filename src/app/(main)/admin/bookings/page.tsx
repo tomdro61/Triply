@@ -155,6 +155,17 @@ const DIRECT_ACTION_LABELS: Record<DirectAction, string> = {
   resolve_alerts: "Lot phoned — mark resolved",
 };
 
+/**
+ * The lot was told, but the customer's original confirmation never went:
+ * `retry_lot_notice` then sends only that confirmation (the notice answers
+ * not_claimed), so the button reads "Send confirmation now".
+ */
+const confirmationOnly = (status: string, data: DirectLotInfo) =>
+  status === "confirmed" && !!data.lotNotifiedAt && data.customerEmailSent === false;
+
+const actionLabel = (action: DirectAction, status: string, data: DirectLotInfo) =>
+  action === "retry_lot_notice" && confirmationOnly(status, data) ? "Send confirmation now" : DIRECT_ACTION_LABELS[action];
+
 const ALERT_KIND_LABELS: Record<BookingAlertKind, string> = {
   lot_notice: "Lot not told about the booking",
   cancel_notice: "Lot not told about the cancellation",
@@ -218,10 +229,25 @@ const CUSTOMER_EMAIL_OUTCOMES: Record<CustomerEmailOutcome, string | null> = {
   already_sent: null,
 };
 
+/** "Send confirmation now" (the lot already told): only the confirmation's outcome matters. */
+const CONFIRMATION_ONLY_OUTCOMES: Record<CustomerEmailOutcome, { ok: boolean; message: string }> = {
+  sent: { ok: true, message: "Customer confirmation sent." },
+  failed: {
+    ok: false,
+    message: "The customer's confirmation didn't go — see Sentry; it is retried automatically until check-out.",
+  },
+  not_claimed: { ok: false, message: "The confirmation was already sent or is being sent elsewhere — refresh in a few minutes." },
+  already_sent: { ok: true, message: "The confirmation had already gone — nothing sent." },
+};
+
 const UNEXPECTED_REPLY = { ok: false, message: "Unexpected reply — refresh and check before trying again." };
 
 /** The outcome line for a 2xx action response. Reads the body defensively — never claims more than it says. */
-function describeDirectOutcome(action: DirectAction, body: Record<string, unknown>): { ok: boolean; message: string } {
+function describeDirectOutcome(
+  action: DirectAction,
+  body: Record<string, unknown>,
+  onlyConfirmation: boolean
+): { ok: boolean; message: string } {
   if (action === "retry_lot_notice") {
     const r = (typeof body.result === "object" && body.result !== null ? body.result : {}) as Record<string, unknown>;
     if (r.kind === "skipped") {
@@ -230,12 +256,14 @@ function describeDirectOutcome(action: DirectAction, body: Record<string, unknow
     if (r.kind === "error") {
       return {
         ok: false,
-        message: "The retry hit an unexpected error — the lot notice may or may not have gone. See Sentry and refresh before trying again.",
+        message: `The retry hit an unexpected error — the ${onlyConfirmation ? "confirmation" : "lot notice"} may or may not have gone. See Sentry and refresh before trying again.`,
       };
     }
     if (r.kind !== "attempted" || !hasKey(NOTICE_OUTCOMES, r.notice) || !hasKey(CUSTOMER_EMAIL_OUTCOMES, r.customerEmail)) {
       return UNEXPECTED_REPLY;
     }
+    // The lot was already told: its notice answers not_claimed by design.
+    if (onlyConfirmation) return CONFIRMATION_ONLY_OUTCOMES[r.customerEmail];
     const parts = [NOTICE_OUTCOMES[r.notice]];
     const customer = CUSTOMER_EMAIL_OUTCOMES[r.customerEmail];
     if (customer) parts.push(customer);
@@ -291,6 +319,8 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
   const inFlight = useRef(false);
   const [outcome, setOutcome] = useState<{ ok: boolean; message: string } | null>(null);
   const number = booking.reslab_reservation_number;
+  const status = booking.status;
+  const cancelled = status === "cancelled" || status === "refunded";
 
   async function loadInfo() {
     try {
@@ -316,6 +346,9 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
     const onFile = data.lotRecipients?.join(", ") ?? "(none on file)";
     switch (action) {
       case "retry_lot_notice":
+        if (confirmationOnly(status, data)) {
+          return `Send the customer's booking confirmation for ${number} now? It never went. The lot was already told — nothing is sent to the lot.`;
+        }
         return `Send the lot its booking notice for ${number} now (to ${onFile})? If the customer's confirmation never went, it is sent too.`;
       case "repoint_lot_inbox":
         return `Re-point ${number}'s unsent lot notice?\n\nFrom: ${onFile}\nTo: ${data.cmsInbox?.join(", ") ?? "the lot's current CMS inbox"}\n\nNothing is sent — press "Retry lot notice" afterwards.`;
@@ -331,6 +364,7 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
   async function run(action: DirectAction, data: DirectLotInfo) {
     if (inFlight.current) return;
     if (!confirm(confirmText(action, data))) return;
+    const onlyConfirmation = action === "retry_lot_notice" && confirmationOnly(status, data);
     inFlight.current = true;
     setBusy(action);
     setOutcome(null);
@@ -344,7 +378,7 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
       if (!res.ok) {
         setOutcome({ ok: false, message: typeof body.error === "string" ? body.error : `Failed (HTTP ${res.status})` });
       } else {
-        setOutcome(describeDirectOutcome(action, body));
+        setOutcome(describeDirectOutcome(action, body, onlyConfirmation));
         await loadInfo();
         onChanged();
       }
@@ -356,8 +390,6 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
     }
   }
 
-  const status = booking.status;
-  const cancelled = status === "cancelled" || status === "refunded";
 
   return (
     <div>
@@ -396,7 +428,7 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
                 ) : info.data.customerEmailSent ? (
                   "sent"
                 ) : (
-                  <span className="text-amber-700 font-medium">not yet — retried automatically</span>
+                  <span className="text-amber-700 font-medium">not yet — retried automatically until check-out</span>
                 )}
               </p>
             )}
@@ -433,12 +465,16 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
               <div className="flex flex-wrap gap-2 pt-2">
                 {(
                   [
-                    status === "confirmed" && !info.data.lotNotifiedAt ? "retry_lot_notice" : null,
+                    // "Retry lot notice" while the lot isn't told; "Send confirmation now"
+                    // once it is but the customer's original confirmation never went.
+                    status === "confirmed" && (!info.data.lotNotifiedAt || confirmationOnly(status, info.data))
+                      ? "retry_lot_notice"
+                      : null,
                     status === "confirmed" && !info.data.lotNotifiedAt && !info.data.lotNoticeClaimedAt
                       ? "repoint_lot_inbox"
                       : null,
                     cancelled && info.data.lotCancelNotifiedAt ? "resend_lot_cancellation" : null,
-                    // Not while the original hasn't gone: it is retried automatically (the POST refuses too).
+                    // Not while the original hasn't gone: "Send confirmation now" sends it (the POST refuses this too).
                     status === "confirmed" && info.data.customerEmailSent !== false ? "resend_customer_confirmation" : null,
                     info.data.openAlerts === null || info.data.openAlerts.length > 0 ? "resolve_alerts" : null,
                   ] as Array<DirectAction | null>
@@ -451,7 +487,7 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
                       disabled={busy !== null}
                       className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {busy === a ? "Working…" : DIRECT_ACTION_LABELS[a]}
+                      {busy === a ? "Working…" : actionLabel(a, status, info.data)}
                     </button>
                   ))}
               </div>

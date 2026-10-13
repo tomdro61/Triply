@@ -42,7 +42,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { runAlertsCron } from "../run";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { recipientsHash } from "@/lib/direct/manifest/select";
-import { CUTOFF_REASON } from "@/lib/direct/manifest/run";
+import { CUTOFF_NOT_SENT_REASON, CUTOFF_REASON } from "@/lib/direct/manifest/run";
 import { RUNS, ALERTS } from "@/lib/direct/manifest/__tests__/manifest-db";
 import type { Row } from "@/lib/booking/__tests__/supabase-fake";
 import type { Embed } from "@/lib/digest/render";
@@ -637,8 +637,8 @@ describe("manifest", () => {
     // No listed booking: only the past-cutoff rule can see it.
     run({ manifest_date: "2026-10-31", status: "sending", sent_at: null, first_sent_at: null, had_unknown: false, claimed_at: "2026-10-31T03:00:00.000Z" });
     run({ manifest_date: "2026-10-30", recipients_hash: "bbbbbbbbbbbbbbbb", status: "sending", sent_at: null, first_sent_at: null, had_unknown: false, claimed_at: "2026-10-30T03:00:00.000Z" });
-    // Started a send (may have been delivered): the manifest cron's cutoff path owns it, not this rule.
-    run({ manifest_date: "2026-10-30", recipients_hash: "cccccccccccccccc", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: "2026-10-30T03:00:00.000Z" });
+    // Started a send (may have been delivered), its date not yet passed: the manifest cron's cutoff path owns it, not this rule.
+    run({ manifest_date: "2026-10-31", recipients_hash: "cccccccccccccccc", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: "2026-10-30T03:00:00.000Z" });
     const morning = await tick(MORNING); // 10:00 EDT: today's run is before its cutoff
     expect(morning.lines.filter((l) => l.kind === "manifest").map((l) => l.text)).toEqual([
       "[TEST] Lot 1 — manifest for 2026-10-30 not sent — the run stalled before reaching Resend (attempt 1)",
@@ -647,6 +647,26 @@ describe("manifest", () => {
     expect(noon.lines.filter((l) => l.kind === "manifest").map((l) => l.text)).toEqual([
       "[TEST] Lot 1 — manifest for 2026-10-30 not sent — the run stalled before reaching Resend (attempt 1)",
       "[TEST] Lot 1 — manifest for 2026-10-31 not sent — the run stalled before reaching Resend (attempt 1)",
+    ]);
+  });
+
+  it("6b pass 2: a run that may have been delivered, still `sending` after its date has passed, is reported (follow-ups pending)", async () => {
+    run({ manifest_date: "2026-10-30", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: "2026-10-30T03:00:00.000Z" });
+    // A fresh claim is the manifest cron at work right now: not reported.
+    run({ manifest_date: "2026-10-29", recipients_hash: "dddddddddddddddd", status: "sending", sent_at: null, first_sent_at: null, had_unknown: true, claimed_at: isoAgo(0) });
+    vi.setSystemTime(new Date(MORNING));
+    mdb.rows(RUNS)[1].claimed_at = new Date(Date.parse(MORNING) - 60_000).toISOString();
+    const r = await tick(MORNING);
+    expect(r.lines.filter((l) => l.kind === "manifest").map((l) => l.text)).toEqual([
+      "[TEST] Lot 1 — manifest for 2026-10-30 may have been delivered; follow-ups pending — a cancellation since may not have reached the lot",
+    ]);
+  });
+
+  it("6b pass 2: a run the manifest cron closed `failed` past the date with the lot's zone unknown (never reached Resend) is still 'not sent'", async () => {
+    run({ manifest_date: "2026-10-30", status: "failed", sent_at: null, first_sent_at: null, had_unknown: false, last_error: CUTOFF_NOT_SENT_REASON });
+    const r = await tick(MORNING);
+    expect(r.lines.filter((l) => l.kind === "manifest").map((l) => l.text)).toEqual([
+      "[TEST] Lot 1 — manifest for 2026-10-30 not sent — the run stalled before reaching Resend (attempt 1)",
     ]);
   });
 
@@ -725,6 +745,24 @@ describe("lot_config / followup (the manifest cron's rows)", () => {
     Object.assign(alertRow("followup", "b-1:manifest:1:2026-10-31:abc") ?? {}, { resolved_at: isoAgo(1), resolved_by: "tom@triplypro.com" });
     const after = await tick(plusMin(MORNING, 13 * 60));
     expect(after.lines.map((l) => l.text.match(/TRP-\w+/)?.[0])).toEqual(["TRP-F3"]);
+  });
+
+  it("6b pass 2: newest first — 200 open-but-expired rows can't starve a current failure out of the read limit", async () => {
+    vi.setSystemTime(new Date(MORNING));
+    for (let i = 0; i < 200; i++) {
+      // Unresolved, but the stay ended Oct 21: closed by the stay filter. Older last_seen_at than the current one.
+      mdb.rows(ALERTS).push({
+        subject: `old-${i}:manifest:1:2026-10-20:abc`, kind: "followup", livemode: false,
+        first_seen_at: isoAgo(16_000 + i), last_seen_at: isoAgo(15_000 + i), alerted_at: isoAgo(15_000 + i),
+        detail: { trp: `TRP-OLD${i}`, manifestDate: "2026-10-20", stayEnds: "2026-10-21 10:00:00", reason: "x" },
+      });
+    }
+    mdb.rows(ALERTS).push({
+      subject: "now-1:manifest:1:2026-10-31:abc", kind: "followup", livemode: false, first_seen_at: isoAgo(20), last_seen_at: isoAgo(10), alerted_at: null,
+      detail: { trp: "TRP-NOW", manifestDate: "2026-10-31", stayEnds: "2026-11-05 10:00:00", reason: "no confirmed send after 3 attempts" },
+    });
+    const r = await tick(MORNING);
+    expect(r.lines.map((l) => l.text.match(/TRP-\w+/)?.[0])).toEqual(["TRP-NOW"]);
   });
 
   it("a followup whose stay ends with the lot-local day (the booking's zone), not the UTC one", async () => {

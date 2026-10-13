@@ -296,6 +296,9 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
       status: "completed",
       email_sent: false,
       reslab_reservation_number: "TRP-7K2M9QXA",
+      // literal "YYYY-MM-DD HH:MM:SS" TEXT, two and three days out: the stay is not over
+      from_date: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      to_date: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
       created_at: created,
       updated_at: created,
       ...over,
@@ -359,7 +362,12 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     db.seed("pending_bookings", [
       directPending({ stripe_payment_intent_id: "pi_p_test_mode", livemode: false }),
       directPending({ stripe_payment_intent_id: "pi_p_young", created_at: ago(3 * MIN) }),
-      directPending({ stripe_payment_intent_id: "pi_p_old", created_at: ago(4 * 24 * HOUR) }),
+      directPending({
+        stripe_payment_intent_id: "pi_p_stay_over",
+        created_at: ago(4 * 24 * HOUR),
+        from_date: ago(3 * 24 * HOUR).slice(0, 19).replace("T", " "),
+        to_date: ago(2 * 24 * HOUR).slice(0, 19).replace("T", " "),
+      }),
       directPending({ stripe_payment_intent_id: "pi_p_reslab", inventory_source: "reslab", reslab_reservation_number: "RTL854206" }),
       directPending({ stripe_payment_intent_id: "pi_p_emailed", email_sent: true }),
     ]);
@@ -383,6 +391,65 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_booked_early");
     expect(body.directSendsRedriven).toBe(1);
+  });
+
+  it("6b pass 2: an unsent customer confirmation is retried for the whole stay — booked 10 days ago, lot already told, arriving later", async () => {
+    db.seed("bookings", [
+      directBooking({
+        stripe_payment_intent_id: "pi_email_late",
+        created_at: ago(10 * 24 * HOUR),
+        lot_notified_at: ago(10 * 24 * HOUR),
+        check_out: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
+    ]);
+    db.seed("pending_bookings", [
+      directPending({
+        stripe_payment_intent_id: "pi_email_late",
+        created_at: ago(10 * 24 * HOUR),
+        from_date: new Date(Date.now() + 4 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + 5 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).toHaveBeenCalledTimes(1);
+    expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_email_late");
+    expect(body.directSendsRedriven).toBe(1);
+  });
+
+  it("6b pass 2: an unsent confirmation whose stay is over is left alone, however recent the booking", async () => {
+    db.seed("pending_bookings", [
+      directPending({
+        stripe_payment_intent_id: "pi_email_over",
+        created_at: ago(30 * MIN),
+        from_date: ago(4 * 24 * HOUR).slice(0, 19).replace("T", " "),
+        to_date: ago(2 * 24 * HOUR).slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).not.toHaveBeenCalled();
+    expect(body.directSendsRedriven).toBe(0);
+  });
+
+  it("6b pass 2: unsent confirmations come soonest stay first, so a backlog further out can't starve an imminent arrival", async () => {
+    const farRows = Array.from({ length: 25 }, (_, i) =>
+      directPending({
+        stripe_payment_intent_id: `pi_far_${String(i).padStart(2, "0")}`,
+        from_date: new Date(Date.now() + (20 + i) * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + (21 + i) * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      })
+    );
+    db.seed("pending_bookings", [
+      ...farRows,
+      directPending({
+        stripe_payment_intent_id: "pi_soon",
+        from_date: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+        to_date: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19).replace("T", " "),
+      }),
+    ]);
+    await GET(req());
+    const redriven = redriveDirectBookingSends.mock.calls.map(([pi]) => pi);
+    expect(redriven[0]).toBe("pi_soon");
+    expect(redriven).toHaveLength(25);
   });
 
   it("6b: check-ins not yet passed come first — 25 stuck stays already under way can't starve tomorrow's arrival", async () => {

@@ -57,8 +57,9 @@ import { renderManifest, renderFollowUpCancel, type RenderedEmail } from "./rend
  *               Accepted, or `invalid_idempotent_request` (an earlier request
  *               with this key was ACCEPTED) → `sent`. Unknown → stays `sending`
  *               (the takeover repeats the same key). Definite refusal → `failed`
- *               with had_unknown cleared when THIS attempt set the marker;
- *               otherwise stays `sending` (an earlier request may have landed).
+ *               with had_unknown cleared and ids_ever restored to its
+ *               pre-marker value when THIS attempt set the marker; otherwise
+ *               stays `sending` (an earlier request may have landed).
  *   5 follow-up only once no more sends can happen (`sent`, nothing left to
  *               list, or a stale `sending` past the cutoff): every id in
  *               ids_ever now cancelled gets a cancel reminder (claimed once per
@@ -67,13 +68,18 @@ import { renderManifest, renderFollowUpCancel, type RenderedEmail } from "./rend
  *               alert; a gave-up booking counts as done only once that alert
  *               row is written). All done → `checked`.
  *   6 cutoff    no MANIFEST send at/after 12:00 lot-local on the manifest date
- *               (follow-up cancels still go); a stale `sending` there counts as
- *               possibly delivered: had_unknown = true → step 5 → `checked`.
+ *               (follow-up cancels still go). A stale `sending` run there that
+ *               may have been delivered (marker set, or an earlier list) →
+ *               had_unknown = true → step 5 → `checked`; one that never reached
+ *               Resend (no marker, empty ids_ever) → `failed`
+ *               (CUTOFF_NOT_SENT_REASON, which the alerts cron reports). Lot
+ *               zone unknown: a manifest date before UTC today − 1 is past the
+ *               cutoff in every US zone — same rule.
  *
  * Recovery runs every tick, at any hour. Already-sent work needs no lot zone:
  * `sent` runs (manifest dates up to 3 days back) get their follow-ups, and a
  * takeover whose re-check leaves nothing closes through step 5; only a send
- * and the cutoff need the zone.
+ * and the cutoff on the manifest date itself need the zone.
  *
  * DIRECT_LOT_MANIFEST_DISABLED stops every manifest that has not reached
  * Resend: no claims, no attempt + 1, no force, and a stale `sending` run with
@@ -113,6 +119,8 @@ export const CUTOFF_REASON = "cutoff: no confirmed send by 12:00 lot time on the
 export const NOTHING_TO_LIST_REASON = "nothing_to_list: every booking on the list was cancelled before the send";
 export const SUPERSEDED_REASON = "superseded: the lot has a booking for this date now; the empty-day reminder was not sent";
 export const KILL_SWITCH_REASON = "kill switch: not sent — DIRECT_LOT_MANIFEST_DISABLED stopped a manifest that never reached Resend";
+/** Past the cutoff with the lot's zone unknown, and nothing ever handed to Resend: the lot got nothing. */
+export const CUTOFF_NOT_SENT_REASON = "cutoff: not sent — the cutoff passed and no attempt ever reached Resend";
 
 const RUN_COLS =
   "direct_lot_id, manifest_date, livemode, recipients_hash, status, attempt, claimed_at, had_unknown, booking_ids, ids_ever, recipients, test, first_sent_at, sent_at, email_id, last_error";
@@ -230,8 +238,17 @@ const transition = {
   },
   /** Outcome unknown, or refused after an earlier request may have landed: stays `sending` under the same key. */
   note: (detail: string) => ({ last_error: redact(detail) }),
-  /** Nothing was (or can have been) delivered by this run: refused first send, nothing left to list, kill switch. */
-  notSent: (reason: string) => ({ status: "failed" as const, had_unknown: false, last_error: redact(reason) }),
+  /**
+   * Nothing was (or can have been) delivered by this run: refused first send, nothing left to list, kill switch.
+   * A refused send passes `idsEverBefore` — ids_ever as it was BEFORE its marker unioned this attempt's list in —
+   * so a list the lot never got can't later be treated as possibly delivered (follow-ups, "closed_checked").
+   */
+  notSent: (reason: string, idsEverBefore?: string[]) => ({
+    status: "failed" as const,
+    had_unknown: false,
+    last_error: redact(reason),
+    ...(idsEverBefore ? { ids_ever: idsEverBefore } : {}),
+  }),
   checked: () => ({ status: "checked" as const }),
   /** No more sends can happen and an attempt may have been delivered; the follow-ups ran. */
   closedWithoutSend: (reason: string) => ({ status: "checked" as const, had_unknown: true, last_error: redact(reason) }),
@@ -558,6 +575,7 @@ async function attemptSend(t: Tick, run: RunRow, zone: string | null): Promise<R
   // The send-started marker. From here on this attempt may be delivered: no
   // marker, no send.
   const wasUnknown = run.had_unknown;
+  const idsEverBefore = run.ids_ever;
   const trimmed = rows.map((r) => r.bookingId);
   const marked = await casRun(t, run, leaseOf(run), transition.sendStarted(trimmed, [...new Set([...run.ids_ever, ...trimmed])]));
   if (marked.kind !== "ok") return marked.kind === "lost" ? "lost_lease" : "error";
@@ -586,8 +604,9 @@ async function attemptSend(t: Tick, run: RunRow, zone: string | null): Promise<R
   report(["failed", lotId], `Direct lot manifest ${label}: send failed (${result.detail})`, "error");
   if (!wasUnknown) {
     // The only request under this key was definitely refused: nothing was
-    // delivered, so the next tick may start attempt + 1 under a new key.
-    return casOutcome(await casRun(t, current, leaseOf(current), transition.notSent(result.detail)), "failed");
+    // delivered, so the next tick may start attempt + 1 under a new key. The
+    // marker's ids go back out of ids_ever: the lot never got this list.
+    return casOutcome(await casRun(t, current, leaseOf(current), transition.notSent(result.detail, idsEverBefore)), "failed");
   }
   // An earlier request under this key may have been delivered: stay `sending`, never a new key.
   return casOutcome(await casRun(t, current, leaseOf(current), transition.note(result.detail)), "failed");
@@ -754,12 +773,29 @@ async function followUpOne(t: Tick, run: RunRow, row: FollowUpRow): Promise<Foll
  * written. Detail carries no PII: TRP number, lot, date, stay end, reason.
  */
 async function raiseFollowUpAlert(t: Tick, run: RunRow, row: FollowUpRow, attempts: number, reason: string): Promise<boolean> {
-  report(
-    ["followup-gave-up", row.bookingId],
-    `Direct lot manifest follow-up gave up: ${row.number} (lot ${run.direct_lot_id}, ${run.manifest_date}) — ${reason}`,
-    "error"
-  );
-  return upsertAlert(t, `${row.bookingId}:manifest:${run.direct_lot_id}:${run.manifest_date}:${run.recipients_hash}`, "followup", {
+  const subject = `${row.bookingId}:manifest:${run.direct_lot_id}:${run.manifest_date}:${run.recipients_hash}`;
+  // Sentry once, on the first give-up: while the run stays open this is reached
+  // every tick, and the alert row (refreshed below) carries it from then on.
+  const existing = await t.sb
+    .from(ALERTS_TABLE)
+    .select("subject")
+    .eq("subject", subject)
+    .eq("kind", "followup")
+    .eq("livemode", t.livemode)
+    .abortSignal(dbSignal())
+    .maybeSingle();
+  if (existing.error) {
+    t.dbError("alert read", `followup ${subject}: ${existing.error.code ?? "?"} ${existing.error.message}`);
+    return false;
+  }
+  if (!existing.data) {
+    report(
+      ["followup-gave-up", row.bookingId],
+      `Direct lot manifest follow-up gave up: ${row.number} (lot ${run.direct_lot_id}, ${run.manifest_date}) — ${reason}`,
+      "error"
+    );
+  }
+  return upsertAlert(t, subject, "followup", {
     trp: row.number,
     number: row.number,
     lotId: run.direct_lot_id,
@@ -935,14 +971,27 @@ async function recover(t: Tick): Promise<void> {
     // The cutoff needs the lot's zone; without it the takeover can still close
     // the run (nothing left to list) but never sends.
     const zone = await zoneForRun(t, run);
-    if (zone) {
-      const { localDate, localMinutes } = lotWallClock(zone, t.nowMs);
-      if (pastCutoff(run.manifest_date, localDate, localMinutes)) {
-        // Possibly delivered: mark it so BEFORE the follow-up, then check it off.
-        const taken = await casRun(t, run, leaseOf(run), transition.cutoff());
-        t.count(taken.kind === "ok" ? await followUpAndCheck(t, taken.run, { reason: CUTOFF_REASON, outcome: "cutoff_checked" }) : casOutcome(taken, "error"));
+    // Unknown zone: a manifest date before UTC today − 1 is past noon there in
+    // every US zone, so the cutoff has passed whatever the zone (6b pass 2) —
+    // otherwise a possibly-delivered run would stay `sending` for good.
+    const cutoffPassed = zone
+      ? (() => {
+          const { localDate, localMinutes } = lotWallClock(zone, t.nowMs);
+          return pastCutoff(run.manifest_date, localDate, localMinutes);
+        })()
+      : run.manifest_date < shiftIsoDate(calendarDayIn("UTC", new Date(t.nowMs)), -1);
+    if (cutoffPassed) {
+      if (!run.had_unknown && run.ids_ever.length === 0) {
+        // Nothing ever reached Resend (the send-started marker is written before
+        // every send, and there is no earlier list): nothing was delivered and
+        // there is nothing to follow up. The alerts cron reports this reason.
+        t.count(casOutcome(await casRun(t, run, leaseOf(run), transition.notSent(CUTOFF_NOT_SENT_REASON)), "failed"));
         continue;
       }
+      // Possibly delivered: mark it so BEFORE the follow-up, then check it off.
+      const taken = await casRun(t, run, leaseOf(run), transition.cutoff());
+      t.count(taken.kind === "ok" ? await followUpAndCheck(t, taken.run, { reason: CUTOFF_REASON, outcome: "cutoff_checked" }) : casOutcome(taken, "error"));
+      continue;
     }
     if (!t.hasSendBudget()) {
       t.count("out_of_budget");

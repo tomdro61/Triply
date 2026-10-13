@@ -3,7 +3,7 @@ import { calendarDayIn, shiftIsoDate } from "@/lib/digest/window";
 import { checkInInstantMs } from "@/lib/cancellation/eligibility";
 import { LOT_TOLD_OR } from "@/lib/direct/lot-told";
 import { readManifestSchedule, wallDate, lotWallClock, pastCutoff, type AdminClient } from "@/lib/direct/manifest/schedule";
-import { MANIFEST_RUNS_TABLE, STALE_RUN_MS, type RunRow } from "@/lib/direct/manifest/run";
+import { CUTOFF_NOT_SENT_REASON, MANIFEST_RUNS_TABLE, STALE_RUN_MS, type RunRow } from "@/lib/direct/manifest/run";
 import { normaliseRecipients, recipientsHash } from "@/lib/direct/manifest/select";
 
 /**
@@ -547,9 +547,20 @@ export async function scanManifests(
     if (run.status === "sent" && datePassed) {
       add(lotId, run.manifest_date, `manifest for ${run.manifest_date} was sent, but its follow-up check never completed — a cancellation since may not have reached the lot`);
     }
-    // Never reached Resend and can no longer be sent: the lot got nothing.
-    if (run.status === "sending" && !run.had_unknown && !freshSending(run, nowMs) && cutoffPassed) {
-      add(lotId, run.manifest_date, stalledReason(run));
+    // Never reached Resend and can no longer be sent: the lot got nothing. Once
+    // the date has passed with the lot's zone unknown, recovery closes such a
+    // run `failed` with CUTOFF_NOT_SENT_REASON — still reported, in the same words.
+    if (
+      (run.status === "sending" && !run.had_unknown && !freshSending(run, nowMs) && cutoffPassed) ||
+      (run.status === "failed" && (run.last_error ?? "").startsWith(CUTOFF_NOT_SENT_REASON))
+    ) {
+      add(lotId, run.manifest_date, stalledReason({ ...run, had_unknown: false }));
+    }
+    // May have been delivered, and its date has passed — but still open: its
+    // follow-up cancels have not all gone (6b pass 2). Recovery closes it at the
+    // cutoff even with the lot's zone unknown; one that stays open is reported.
+    if (run.status === "sending" && run.had_unknown && !freshSending(run, nowMs) && datePassed) {
+      add(lotId, run.manifest_date, `manifest for ${run.manifest_date} may have been delivered; follow-ups pending — a cancellation since may not have reached the lot`);
     }
     if (datePassed) continue;
     if (run.status === "checked" && run.sent_at == null) {
@@ -609,7 +620,10 @@ export async function scanConfigAlerts(sb: AdminClient, livemode: boolean, nowMs
       .order("last_seen_at")
       .limit(SCAN_ROW_LIMIT)
       .abortSignal(dbSignal()),
-    // Written once, when a follow-up cancel gave up: open until resolved, while the stay lasts.
+    // Written when a follow-up cancel gave up: open until resolved, while the stay lasts.
+    // NEWEST first (6b pass 2): unresolved rows whose stay is over stay in the table
+    // for the whole lookback, and reading the oldest first would let 200 of them
+    // fill the limit before the stay filter below — starving a current failure.
     sb
       .from(ALERTS_TABLE)
       .select(cols)
@@ -617,7 +631,7 @@ export async function scanConfigAlerts(sb: AdminClient, livemode: boolean, nowMs
       .eq("kind", "followup")
       .is("resolved_at", null)
       .gte("last_seen_at", new Date(nowMs - FOLLOWUP_LOOKBACK_MS).toISOString())
-      .order("last_seen_at")
+      .order("last_seen_at", { ascending: false })
       .limit(SCAN_ROW_LIMIT)
       .abortSignal(dbSignal()),
   ]);

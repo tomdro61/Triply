@@ -318,9 +318,10 @@ const VIEW_REFUSALS: Record<ConfirmationViewRefusal, ActionRefusal> = {
   mid_cancel: refuse(409, "A cancellation of this booking is in progress."),
   // The checkout/re-drive path still owns that email (pending_bookings.email_sent
   // = false): a re-send now would race its automatic retry and could arrive twice.
+  // "Send confirmation now" (retry_lot_notice) sends the original under its claim.
   unsent: refuse(
     409,
-    "The original confirmation hasn't gone yet — it is retried automatically; use Retry lot notice to push it now."
+    "The original confirmation hasn't gone yet — press 'Send confirmation now' (retried automatically until check-out too)."
   ),
 };
 
