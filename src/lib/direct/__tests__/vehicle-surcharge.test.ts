@@ -18,7 +18,7 @@ import {
 import { directVehicleEstimate } from "../vehicle-estimate";
 import { directLotFromRow } from "../store";
 import { directLotToUnified } from "../adapter";
-import { isDirectCheckoutOpen } from "../flag";
+import { DIRECT_BOOKING_OPEN, checkoutOpenFor, isDirectCheckoutOpen } from "../flag";
 import { directLotRow } from "./fixtures";
 
 const LOT1 = [
@@ -196,29 +196,41 @@ describe("adapter", () => {
   });
 });
 
-describe("isDirectCheckoutOpen (R11) — an allowlist", () => {
+describe("checkoutOpenFor before go-live (R11) — the preview flag is an allowlist", () => {
   const env = (o: Record<string, string>) => ({ NODE_ENV: "production", ...o }) as NodeJS.ProcessEnv;
+  // The rules a rollback (DIRECT_BOOKING_OPEN back to false) returns to.
+  const open = (e: NodeJS.ProcessEnv) => checkoutOpenFor(e, false);
   it("is closed by default", () => {
-    expect(isDirectCheckoutOpen(env({ VERCEL_ENV: "preview" }))).toBe(false);
+    expect(open(env({ VERCEL_ENV: "preview" }))).toBe(false);
   });
   it("opens on preview / staging / local development with DIRECT_CHECKOUT_PREVIEW=true", () => {
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "preview" }))).toBe(true);
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "staging", VERCEL_ENV: "preview" }))).toBe(true);
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", NODE_ENV: "development" }))).toBe(true);
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: " TRUE ", VERCEL_ENV: "preview" }))).toBe(true);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "preview" }))).toBe(true);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "staging", VERCEL_ENV: "preview" }))).toBe(true);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", NODE_ENV: "development" }))).toBe(true);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: " TRUE ", VERCEL_ENV: "preview" }))).toBe(true);
   });
   it("IGNORES the flag in production, by either signal", () => {
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "production" }))).toBe(false);
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "production" }))).toBe(false);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "production" }))).toBe(false);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "production" }))).toBe(false);
     // A mislabelled app env never overrides Vercel's own production signal.
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "production", NEXT_PUBLIC_APP_ENV: "staging" }))).toBe(false);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", VERCEL_ENV: "production", NEXT_PUBLIC_APP_ENV: "staging" }))).toBe(false);
   });
   it("an UNKNOWN environment is closed (self-hosted next start, a typo)", () => {
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true" }))).toBe(false);
-    expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "prod" }))).toBe(false);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true" }))).toBe(false);
+    expect(open(env({ DIRECT_CHECKOUT_PREVIEW: "true", NEXT_PUBLIC_APP_ENV: "prod" }))).toBe(false);
   });
   it("only 'true' opens it", () => {
-    for (const v of ["1", "yes", "on", ""]) expect(isDirectCheckoutOpen(env({ DIRECT_CHECKOUT_PREVIEW: v, VERCEL_ENV: "preview" }))).toBe(false);
+    for (const v of ["1", "yes", "on", ""]) expect(open(env({ DIRECT_CHECKOUT_PREVIEW: v, VERCEL_ENV: "preview" }))).toBe(false);
+  });
+});
+
+describe("go-live (2026-10-13): DIRECT_BOOKING_OPEN", () => {
+  it("is true, and opens checkout everywhere — production included, preview flag or not", () => {
+    expect(DIRECT_BOOKING_OPEN).toBe(true);
+    const env = (o: Record<string, string>) => ({ NODE_ENV: "production", ...o }) as NodeJS.ProcessEnv;
+    expect(isDirectCheckoutOpen(env({ VERCEL_ENV: "production" }))).toBe(true);
+    expect(isDirectCheckoutOpen(env({ NEXT_PUBLIC_APP_ENV: "production" }))).toBe(true);
+    expect(isDirectCheckoutOpen(env({ VERCEL_ENV: "preview" }))).toBe(true);
   });
 });
 

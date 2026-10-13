@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import type { UnifiedLot } from "@/types/lot";
 import {
   compareByTotal,
@@ -9,6 +9,17 @@ import {
   rankRecommended,
 } from "../ranking";
 import { sortLots } from "@/lib/reslab/search";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
+
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 
 // Prices mirror the live JFK search for a 7-day stay (2026-10-08).
 function lot(id: number, grandTotal: number | undefined, distance: number, extra: Partial<UnifiedLot> = {}): UnifiedLot {
@@ -164,5 +175,11 @@ describe("lowestTotalLot", () => {
   it("never a direct lot that can't be booked yet", () => {
     const direct = { ...lot(900, 10, 1), id: "direct-1", source: "direct" as const };
     expect(lowestTotalLot([...JFK, direct], { resultComplete: true })?.reslabLocationId).toBe(275);
+  });
+
+  it("go-live: a bookable direct lot can be the lowest total", () => {
+    flagSwitch.open = true;
+    const direct = { ...lot(900, 10, 1), id: "direct-1", source: "direct" as const };
+    expect(lowestTotalLot([...JFK, direct], { resultComplete: true })?.id).toBe("direct-1");
   });
 });

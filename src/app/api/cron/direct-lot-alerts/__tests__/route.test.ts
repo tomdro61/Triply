@@ -12,6 +12,9 @@ const { mdb, sentry } = await vi.hoisted(async () => {
   return { mdb: new ManifestDb(), sentry: { captureMessage: vi.fn(), captureException: vi.fn(), captureCheckIn: vi.fn() } };
 });
 
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => mdb.client }));
 vi.mock("@/lib/resend/client", () => ({ resend: { emails: { send: vi.fn() } }, FROM_EMAIL: "Triply <bookings@triplypro.com>" }));
 vi.mock("@sentry/nextjs", () => ({
@@ -26,6 +29,13 @@ vi.mock("@sentry/nextjs", () => ({
 import { GET } from "../route";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { ALERTS, RUNS } from "@/lib/direct/manifest/__tests__/manifest-db";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
 
 const CRON_SECRET = process.env.CRON_SECRET as string;
 const MORNING = "2026-10-31T14:00:00Z"; // 10:00 EDT

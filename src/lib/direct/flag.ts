@@ -29,7 +29,7 @@ export function isDirectLotsEnabled(env: NodeJS.ProcessEnv = process.env): boole
  * A compile-time constant, not an env var: it must flip with the code that
  * makes it true, never ahead of it.
  */
-export const DIRECT_BOOKING_OPEN = false as boolean;
+export const DIRECT_BOOKING_OPEN = true as boolean;
 
 /**
  * Whether a direct lot's CHECKOUT is open in this deployment (review R11):
@@ -44,7 +44,12 @@ export const DIRECT_BOOKING_OPEN = false as boolean;
 const PREVIEW_CHECKOUT_ENVS = new Set(["preview", "staging", "development"]);
 
 export function isDirectCheckoutOpen(env: NodeJS.ProcessEnv = process.env): boolean {
-  if (DIRECT_BOOKING_OPEN) return true;
+  return checkoutOpenFor(env, DIRECT_BOOKING_OPEN);
+}
+
+/** `isDirectCheckoutOpen` with the go-live switch passed in — so tests can pin either state. */
+export function checkoutOpenFor(env: NodeJS.ProcessEnv, bookingOpen: boolean): boolean {
+  if (bookingOpen) return true;
   if ((env.DIRECT_CHECKOUT_PREVIEW ?? "").trim().toLowerCase() !== "true") return false;
   // An ALLOWLIST, not "anything but production": an unknown environment is the
   // most restrictive case (lib/env.ts). Production by either signal is closed.

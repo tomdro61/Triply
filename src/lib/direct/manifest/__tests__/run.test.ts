@@ -15,6 +15,9 @@ const { mdb, resendSend, sentry } = await vi.hoisted(async () => {
   };
 });
 
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => mdb.client }));
 vi.mock("@/lib/resend/client", () => ({ resend: { emails: { send: resendSend } }, FROM_EMAIL: "Triply <bookings@triplypro.com>" }));
 vi.mock("@sentry/nextjs", () => ({
@@ -42,6 +45,13 @@ import { BoundedTimeoutError } from "@/lib/utils/bounded";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { RUNS, ALERTS, RESENDS } from "./manifest-db";
 import type { Row } from "@/lib/booking/__tests__/supabase-fake";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
 
 const LOT_INBOX = ["Desk@ParkingPoint.example", "owner@parkingpoint.example"];
 const OVERRIDE = "ops@triplypro.com";
@@ -382,6 +392,18 @@ describe("empty day (§3.1, E1)", () => {
     const r = await tick(EVENING, { livemode: true });
     expect(resendSend).not.toHaveBeenCalled();
     expect(r.lots).toEqual([]);
+  });
+
+  it("go-live (DIRECT_BOOKING_OPEN): production sends the empty reminder to the lot's own inbox, no [TEST]", async () => {
+    flagSwitch.open = true;
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    vi.stubEnv("VERCEL_ENV", "production");
+    cmsLots([directLotRow({ notification_emails: LOT_INBOX, visibility: "production" })]);
+    await tick(EVENING, { livemode: true });
+    const [m] = manifestSends();
+    expect(m.to).toEqual(LOT_INBOX.map((e) => e.toLowerCase()));
+    expect(m.subject).not.toContain("[TEST]");
+    expect(m.text).toContain("Nothing in this reminder");
   });
 
   it("a booking that appears before the send supersedes the empty reminder", async () => {
