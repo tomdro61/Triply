@@ -1262,6 +1262,7 @@ export function CheckoutForm({
           // already-frozen PI amount, so Stripe would charge the wrong total.
           promoLocked={clientSecret !== null}
           vehicleEstimate={vehicleEstimate}
+          showFreeCancellation={showFreeCancellation}
         />
       </div>
     </div>

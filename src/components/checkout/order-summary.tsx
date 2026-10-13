@@ -35,6 +35,9 @@ interface OrderSummaryProps {
     /** priceBreakdown.total (online) + atLotCents, in cents. */
     tripTotalCents: number;
   } | null;
+  /** Same gate as the details step's line (checkout-form `showFreeCancellation`):
+   *  a same-day or next-day booking can't be cancelled online, so no badge. */
+  showFreeCancellation: boolean;
 }
 
 export function OrderSummary({
@@ -47,6 +50,7 @@ export function OrderSummary({
   onRemovePromo,
   promoLocked = false,
   vehicleEstimate = null,
+  showFreeCancellation,
 }: OrderSummaryProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -261,15 +265,17 @@ export function OrderSummary({
       </div>
 
       {/* Trust Badges */}
-      <div className="px-4 pb-4">
-        <div className="bg-green-50 rounded-lg p-3 flex items-center gap-2">
-          <Shield size={18} className="text-green-600" />
-          <div className="text-sm">
-            <p className="font-medium text-green-800">Free Cancellation</p>
-            <p className="text-green-600 text-xs">Up to 24 hours before check-in</p>
+      {showFreeCancellation && (
+        <div className="px-4 pb-4">
+          <div className="bg-green-50 rounded-lg p-3 flex items-center gap-2">
+            <Shield size={18} className="text-green-600" />
+            <div className="text-sm">
+              <p className="font-medium text-green-800">Free Cancellation</p>
+              <p className="text-green-600 text-xs">Up to 24 hours before check-in · Park Guard plans partly non-refundable</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

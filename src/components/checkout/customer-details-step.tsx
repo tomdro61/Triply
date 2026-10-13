@@ -170,10 +170,20 @@ export function CustomerDetailsStep({
           <li className="flex items-start gap-2">
             <CalendarX className="w-4 h-4 mt-0.5 text-green-600 shrink-0" aria-hidden="true" />
             <span>
-              Free cancellation up to 24 hours before check-in{" "}
-              <Link href="/terms#cancellation" target="_blank" className="underline text-gray-500 hover:text-gray-700">
-                (policy)
-              </Link>
+              Free cancellation up to 24 hours before check-in
+              <span className="block text-xs text-gray-500">
+                Cancel online from your Triply account (booking as a guest? sign up later with this email). Park
+                Guard protection plans are partly non-refundable.{" "}
+                <Link
+                  href="/terms#cancellation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Cancellation policy (opens in a new tab)"
+                  className="underline hover:text-gray-700"
+                >
+                  Policy
+                </Link>
+              </span>
             </span>
           </li>
         )}
