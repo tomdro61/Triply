@@ -20,7 +20,27 @@ const common = (overrides: Partial<DirectReservationCommon> = {}): DirectReserva
   toDate: "2026-11-05 07:00:00", // 71 h → 3 billed days
   // What Stripe took: 29.85 + 4.78 + 5.95 (the at-lot surcharge is not charged online).
   payment: { ok: true, chargedCents: 4058, refundedCents: 0, discountPercent: null },
+  guest: null,
   ...overrides,
+});
+
+describe("buildDirectReservation — the guest's contact", () => {
+  it("shows the details typed at checkout (the address emailed), not the signed-in account's customers row", () => {
+    const r = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({
+      guest: { firstName: "Pat", lastName: "Guest", email: "pat.guest@example.com", phone: "5559990000" },
+    }));
+    expect(r.ok && r.reservation.customer).toEqual({ firstName: "Pat", lastName: "Guest", email: "pat.guest@example.com", phone: "5559990000" });
+  });
+  it("no staged guest (or one without an email) → the customers row", () => {
+    const none = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: null }));
+    expect(none.ok && none.reservation.customer).toEqual({ firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" });
+    const noEmail = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: { firstName: "Pat", email: " " } }));
+    expect(noEmail.ok && noEmail.reservation.customer).toEqual({ firstName: "Dana", lastName: "Rivera", email: "dana@example.com", phone: "5551234567" });
+  });
+  it("a staged guest with an email is used whole — never mixed with the row (another person's details)", () => {
+    const partial = buildDirectReservation("TRP-7K3M9QXA", directRow(), common({ guest: { email: "pat.guest@example.com", phone: "  " } }));
+    expect(partial.ok && partial.reservation.customer).toEqual({ firstName: "", lastName: "", email: "pat.guest@example.com", phone: "" });
+  });
 });
 
 describe("buildDirectReservation", () => {

@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     if (error) throw new Error(`statement read failed: ${error.message}`);
     if (!data) return NextResponse.json({ error: "This month has not been marked paid." }, { status: 404 });
 
-    const email = await sendStatementEmail(data.id, lotInfo.value.name);
+    const email = await sendStatementEmail(data.id, lotInfo.value);
     return NextResponse.json({ statementId: data.id, email });
   } catch (err) {
     captureAPIError(err instanceof Error ? err : new Error(String(err)), {

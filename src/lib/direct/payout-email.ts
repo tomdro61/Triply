@@ -11,11 +11,12 @@ import { lotStatementCsv, type PaidLineRow } from "./payout-csv";
  * the month is marked paid, as its own retryable step: the ledger is the
  * record, the email only tells the lot about it.
  *
- * RECIPIENTS — the lot's billing inbox for a live statement on the production
- * deployment; the override inbox with "[TEST]" everywhere else (the same rule
- * as the lot notices, `resolveLotRecipients`). The billing-email CMS field
- * (plan Q12) does not exist yet, so a production statement is marked paid but
- * NOT emailed, and the admin page says so.
+ * RECIPIENTS — the lot's CMS notification inbox for a live statement on the
+ * production deployment; the override inbox with "[TEST]" everywhere else (the
+ * same rule as the lot notices, `resolveLotRecipients`). Plan Q12 planned a
+ * separate billing-email field; The Parking Point uses one address for bookings
+ * and billing (Tom, 2026-10-13), so the statement goes to the lot's inbox. Add a
+ * billing field only when a lot needs statements to go elsewhere.
  *
  * ONE EMAIL PER ATTEMPT — each send claims the next `statement_attempts`
  * value with a compare-and-set, and that number is part of the Resend
@@ -23,9 +24,6 @@ import { lotStatementCsv, type PaidLineRow } from "./payout-csv";
  * gets "busy"), and every completed claim is a new email. The key only covers
  * the SDK's own retry; the page's busy guard and confirm prevent repeats.
  */
-
-/** Lot billing inboxes — none until the CMS field exists (plan Q12). */
-const BILLING_EMAILS_NOT_YET_IN_CMS: string[] = [];
 
 const SEND_TIMEOUT_MS = 10_000;
 const DB_TIMEOUT_MS = 3_000;
@@ -115,7 +113,14 @@ function statementEmail(lotName: string, periodMonth: string, totalCents: number
   return { subject, html, text };
 }
 
-export async function sendStatementEmail(statementId: string, lotName: string): Promise<StatementEmailResult> {
+/** The lot as the caller read it from the CMS: its name and its notification inbox. */
+export interface StatementLot {
+  name: string;
+  emails: string[];
+}
+
+export async function sendStatementEmail(statementId: string, lot: StatementLot): Promise<StatementEmailResult> {
+  const lotName = lot.name;
   const report = (outcome: "skipped" | "failed" | "unknown", reason: string) =>
     captureDirectLotStatement(new Error(`Direct lot statement ${statementId}: ${reason}`), { statementId, outcome });
 
@@ -129,14 +134,14 @@ export async function sendStatementEmail(statementId: string, lotName: string): 
   if (stError) throw new Error(`statement read failed: ${stError.message}`);
   if (!st) throw new Error(`statement ${statementId} not found`);
 
-  const recipients = resolveLotRecipients(st.livemode, BILLING_EMAILS_NOT_YET_IN_CMS);
+  const recipients = resolveLotRecipients(st.livemode, lot.emails);
   if (!recipients) {
     const reason = "DIRECT_LOT_NOTICE_OVERRIDE_TO is not set — a non-production statement was not sent";
     report("skipped", reason);
     return { outcome: "skipped", reason };
   }
   if (recipients.to.length === 0) {
-    const reason = "the lot has no billing email on file yet (CMS field pending) — statement not emailed";
+    const reason = "the lot has no email on file in the CMS — statement not emailed";
     report("skipped", reason);
     return { outcome: "skipped", reason };
   }

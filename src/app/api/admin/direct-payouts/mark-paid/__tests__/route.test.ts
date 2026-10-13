@@ -28,7 +28,7 @@ vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/cancellation/source-guard", () => ({ stripeKeyIsLive: () => env.live }));
 vi.mock("@/lib/direct/store", () => ({
   fetchDirectLot: async (id: number) =>
-    id === 1 ? { status: "found", lot: { name: "The Parking Point JFK", timezone: "America/New_York" } } : { status: "not_found" },
+    id === 1 ? { status: "found", lot: { name: "The Parking Point JFK", timezone: "America/New_York", notificationEmails: ["parkingpointjfk@gmail.com"] } } : { status: "not_found" },
 }));
 vi.mock("@/lib/direct/payout-stripe", () => ({
   readPayoutStripeMany: async (ids: string[]) => new Map(ids.map((id) => [id, stripeReads.get(id)])),
@@ -78,7 +78,7 @@ beforeEach(() => {
   db.rpcHandlers = { mark_direct_lot_statement_paid: () => ({ data: "st_new", error: null }) };
   stripeReads.clear();
   sentry.captureAPIError.mockReset();
-  email.send.mockReset().mockResolvedValue({ outcome: "skipped", reason: "the lot has no billing email on file yet" });
+  email.send.mockReset().mockResolvedValue({ outcome: "skipped", reason: "the lot has no email on file in the CMS" });
   env.live = true;
   user.current = { email: "tom@triplypro.com" };
   user.admin = true;
@@ -100,7 +100,7 @@ describe("POST /api/admin/direct-payouts/mark-paid", () => {
       expect.objectContaining({ stripe_payment_intent_id: "pi_a", amount_cents: 3821, decision: "auto" }),
       expect.objectContaining({ stripe_payment_intent_id: "pi_m", amount_cents: 1500, decision: "manual", note: "dispute won" }),
     ]);
-    expect(email.send).toHaveBeenCalledWith("st_new", "The Parking Point JFK");
+    expect(email.send).toHaveBeenCalledWith("st_new", { name: "The Parking Point JFK", timezone: "America/New_York", emails: ["parkingpointjfk@gmail.com"] });
   });
 
   it("refuses when the statement changed since it was shown (a refund landed)", async () => {

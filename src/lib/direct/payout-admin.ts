@@ -31,9 +31,11 @@ export async function requireAdmin(): Promise<Gate<{ email: string }>> {
   return { ok: true, value: { email: user.email } };
 }
 
-export async function requireLot(lotId: string): Promise<Gate<{ name: string; timezone: string }>> {
+export async function requireLot(lotId: string): Promise<Gate<{ name: string; timezone: string; emails: string[] }>> {
   const r = await fetchDirectLot(Number(lotId));
-  if (r.status === "found") return { ok: true, value: { name: r.lot.name, timezone: r.lot.timezone } };
+  if (r.status === "found") {
+    return { ok: true, value: { name: r.lot.name, timezone: r.lot.timezone, emails: r.lot.notificationEmails } };
+  }
   if (r.status === "not_found") return { ok: false, response: NextResponse.json({ error: "No such lot" }, { status: 404 }) };
   // A broken CMS row or an unreachable store is never "no such lot".
   return { ok: false, response: NextResponse.json({ error: "Lot details unavailable — try again" }, { status: 503 }) };

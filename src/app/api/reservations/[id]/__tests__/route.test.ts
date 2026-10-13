@@ -24,13 +24,34 @@ const h = vi.hoisted(() => {
     /** The detail read (`.single()`). */
     detailRow: { data: unknown; error: { message: string; code?: string } | null };
     detailSelect: string | null;
+    /** The staged checkout row (`pending_bookings.customer`) a direct confirmation reads the guest from. */
+    pendingRow: { data: unknown; error: { message: string; code?: string } | null };
+    /** The `.eq()` the staged read used (column, value). */
+    pendingEq: Array<[string, unknown]>;
+    /** The signed-in user (null = guest, ownership proven by ?email=). */
+    user: { id: string; email: string; email_confirmed_at: string | null } | null;
   } = {
     authRow: { data: null, error: null },
     detailRow: { data: null, error: null },
     detailSelect: null,
+    pendingRow: { data: null, error: null },
+    pendingEq: [],
+    user: null,
   };
   const adminClient = {
     from: (table: string) => {
+      if (table === "pending_bookings") {
+        const p = {
+          select: () => p,
+          eq: (col: string, val: unknown) => {
+            state.pendingEq.push([col, val]);
+            return p;
+          },
+          abortSignal: () => p,
+          maybeSingle: async () => state.pendingRow,
+        };
+        return p;
+      }
       if (table !== "bookings") throw new Error(`unexpected table ${table}`);
       let selected = "";
       const q = {
@@ -72,7 +93,7 @@ interface SentryEvent {
 
 vi.mock("@/lib/supabase/server", () => ({
   // Guest (no session) — ownership is proven by ?email=.
-  createClient: async () => ({ auth: { getUser: async () => ({ data: { user: null } }) } }),
+  createClient: async () => ({ auth: { getUser: async () => ({ data: { user: h.state.user } }) } }),
   createAdminClient: async () => h.adminClient,
 }));
 vi.mock("@/lib/reslab/client", () => ({ reslab: { getReservation: h.getReservation } }));
@@ -147,6 +168,10 @@ beforeEach(() => {
   h.state.authRow = ownedBy(EMAIL);
   h.state.detailRow = { data: null, error: null };
   h.state.detailSelect = null;
+  // What a direct booking always has: the guest as typed at checkout (here the same as the customers row).
+  h.state.pendingRow = { data: { customer: { firstName: "Dana", lastName: "Rivera", email: EMAIL, phone: "5551234567" } }, error: null };
+  h.state.pendingEq = [];
+  h.state.user = null;
 });
 
 describe("direct booking", () => {
@@ -213,6 +238,27 @@ describe("direct booking", () => {
     expect(h.retrievePi).toHaveBeenCalledWith("pi_direct", { expand: ["latest_charge"] }, PI_READ_OPTIONS);
     expect(h.captureBookingError).not.toHaveBeenCalled();
     expect(h.sentryEvents).toEqual([]);
+  });
+
+  it("shows the guest typed at checkout — the address the confirmation went to — not the account's customers row", async () => {
+    h.state.detailRow = { data: row(), error: null };
+    h.state.pendingRow = {
+      data: { customer: { firstName: "Pat", lastName: "Guest", email: "pat.guest@example.com", phone: "5559990000" } },
+      error: null,
+    };
+    const { reservation } = await (await call(TRP)).json();
+    expect(reservation.customer).toEqual({ firstName: "Pat", lastName: "Guest", email: "pat.guest@example.com", phone: "5559990000" });
+    expect(h.captureBookingError).not.toHaveBeenCalled();
+  });
+
+  it("a failed staged-guest read still answers (customers row) and is reported", async () => {
+    h.state.detailRow = { data: row(), error: null };
+    h.state.pendingRow = { data: null, error: { message: "timeout" } };
+    const res = await call(TRP);
+    expect(res.status).toBe(200);
+    expect((await res.json()).reservation.customer.email).toBe("dana@example.com");
+    expect(h.captureBookingError).toHaveBeenCalledTimes(1);
+    expect(String(h.captureBookingError.mock.calls[0][0].message)).toMatch(/staged guest read failed/);
   });
 
   it("reads promo_code, protection_plan_code and stripe_payment_intent_id in the detail select", async () => {
@@ -401,9 +447,120 @@ describe("direct booking", () => {
 
   it("guest with the wrong email → 403 before anything is read", async () => {
     h.state.authRow = ownedBy("someone-else@example.com");
+    h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
     const res = await call(TRP);
     expect(res.status).toBe(403);
     expect(h.state.detailSelect).toBeNull();
+  });
+
+  describe("booked by a signed-in customer FOR someone else (filed under the booker's customers row)", () => {
+    const ACCOUNT = "booker@example.com";
+    const withPi = (email: string): Result => ({ data: { customer_id: "c1", stripe_payment_intent_id: "pi_direct", customers: { email, user_id: "u_booker" } }, error: null });
+
+    it("the guest's emailed link (?email=<typed>) opens the booking", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      const res = await call(TRP);
+      expect(res.status).toBe(200);
+      expect(h.state.pendingEq[0]).toEqual(["stripe_payment_intent_id", "pi_direct"]);
+    });
+
+    it("a guest let in by the typed email never sees the account holder's details, even if a later read fails (Codex)", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null }; // customers row = Dana Rivera (the account holder here)
+      const typed = { firstName: "Pat", lastName: "Guest", email: EMAIL, phone: "5559990000" };
+      let reads = 0;
+      h.state.pendingRow = { data: { customer: typed }, error: null };
+      const original = h.adminClient.from;
+      h.adminClient.from = (table: string) => {
+        if (table === "pending_bookings" && ++reads > 1) {
+          // Any second read fails — the page must not need one.
+          h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        }
+        return original(table);
+      };
+      try {
+        const res = await call(TRP);
+        expect(res.status).toBe(200);
+        expect((await res.json()).reservation.customer).toEqual(typed);
+        expect(reads).toBe(1);
+      } finally {
+        h.adminClient.from = original;
+      }
+    });
+
+    it("same for a guest SIGNED IN with the typed (verified) address — one read, never the account holder's details", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.user = { id: "u_guest", email: EMAIL, email_confirmed_at: "2026-10-01T00:00:00Z" };
+      const typed = { firstName: "Pat", lastName: "Guest", email: EMAIL, phone: "5559990000" };
+      let reads = 0;
+      h.state.pendingRow = { data: { customer: typed }, error: null };
+      const original = h.adminClient.from;
+      h.adminClient.from = (table: string) => {
+        if (table === "pending_bookings" && ++reads > 1) h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        return original(table);
+      };
+      try {
+        const res = await call(TRP);
+        expect(res.status).toBe(200);
+        expect((await res.json()).reservation.customer).toEqual(typed);
+        expect(reads).toBe(1);
+      } finally {
+        h.adminClient.from = original;
+      }
+    });
+
+    it("an email that is neither the account's nor the typed one → 403", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.pendingRow = { data: { customer: { email: "typed@example.com" } }, error: null };
+      expect((await call(TRP)).status).toBe(403);
+    });
+
+    it("a failed staged read during the access check → 500 'try again', never a 403", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.pendingRow = { data: null, error: { message: "timeout" } };
+      const res = await call(TRP);
+      expect(res.status).toBe(500);
+      expect(h.state.detailSelect).toBeNull();
+    });
+
+    it("the guest signed in with that verified address owns it too; unverified does not", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.user = { id: "u_guest", email: EMAIL, email_confirmed_at: "2026-10-01T00:00:00Z" };
+      expect((await call(TRP)).status).toBe(200);
+      h.state.user = { id: "u_guest", email: EMAIL, email_confirmed_at: null };
+      expect((await call(TRP)).status).toBe(403);
+    });
+
+    it("an admin viewing someone else's booking never depends on the staged read (a failing read is not a 500)", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.pendingRow = { data: null, error: { message: "timeout" } };
+      h.state.user = { id: "u_admin", email: "tom@triplypro.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
+      expect((await call(TRP)).status).toBe(200);
+      // Only the page's guest read ran (and failed → customers row); none for the access check.
+      expect(h.state.pendingEq).toHaveLength(1);
+    });
+
+    it("the account holder's own email still works without reading the staged row", async () => {
+      h.state.authRow = withPi(EMAIL);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.pendingRow = { data: { customer: { firstName: "Pat", lastName: "Guest", email: "pat@example.com", phone: "5559990000" } }, error: null };
+      expect((await call(TRP)).status).toBe(200);
+      // One staged read — the page's guest details — none for the access check.
+      expect(h.state.pendingEq).toHaveLength(1);
+    });
+  });
+
+  it("a direct booking with no staged guest is reported (the page may show the account's details)", async () => {
+    h.state.detailRow = { data: row(), error: null };
+    h.state.pendingRow = { data: null, error: null };
+    const res = await call(TRP);
+    expect(res.status).toBe(200);
+    expect(h.captureBookingError).toHaveBeenCalledTimes(1);
+    expect(String(h.captureBookingError.mock.calls[0][0].message)).toMatch(/staged guest missing/);
   });
 });
 

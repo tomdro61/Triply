@@ -227,7 +227,24 @@ export interface DirectReservationCommon {
   toDate: string | null;
   /** What Stripe took on the booking's PaymentIntent — the breakdown's anchor. */
   payment: CardPayment;
+  /**
+   * The guest as typed at checkout (`pending_bookings.customer`) — the address the
+   * confirmation went to. A signed-in customer booking for someone else is filed
+   * under their own `customers` row, so that row's email is the ACCOUNT's, not the
+   * one emailed. A guest with an email is used WHOLE (never mixed with the row,
+   * which can be another person's); null / no email → the row.
+   */
+  guest: GuestContact | null;
 }
+
+export interface GuestContact {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+}
+
+const trimmed = (v: string | null | undefined): string => (v ?? "").trim();
 
 const toCents = (dollars: number): number => Math.round(dollars * 100);
 const fromCents = (cents: number): number => cents / 100;
@@ -407,12 +424,19 @@ export function buildDirectReservation(
       }),
       airportCode: snap.airportCode,
       timezone: snap.timezone,
-      customer: {
-        firstName: row.customers.first_name ?? "",
-        lastName: row.customers.last_name ?? "",
-        email: row.customers.email ?? "",
-        phone: row.customers.phone ?? "",
-      },
+      customer: trimmed(common.guest?.email)
+        ? {
+            firstName: trimmed(common.guest?.firstName),
+            lastName: trimmed(common.guest?.lastName),
+            email: trimmed(common.guest?.email),
+            phone: trimmed(common.guest?.phone),
+          }
+        : {
+            firstName: row.customers.first_name ?? "",
+            lastName: row.customers.last_name ?? "",
+            email: row.customers.email ?? "",
+            phone: row.customers.phone ?? "",
+          },
       items: [
         {
           type: "parking",
