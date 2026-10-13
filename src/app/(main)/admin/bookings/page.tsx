@@ -544,10 +544,12 @@ export default function AdminBookingsPage() {
   // Required reason + optional admin note for the cancel (migration 032).
   const [cancelReason, setCancelReason] = useState<AdminCancellationReason | "">("");
   const [cancelNote, setCancelNote] = useState("");
-  // Standard cancel: refund the service fee too ("policy refund")? Defaults to
-  // the free-cancellation rule (more than 24 h before check-in, lot time — the
-  // self-cancel's own check), so a guest who cancels by email gets what one who
-  // cancels online gets. Staff can untick it; the choice is kept per booking.
+  // Standard cancel: refund the service fee too ("policy refund")? Decided ONCE
+  // when the dialog opens, by the free-cancellation rule (more than 24 h before
+  // check-in, lot time — the self-cancel's own check), so a guest who cancels by
+  // email gets what one who cancels online gets. Fixed for the dialog's life: a
+  // retry that crosses the 24 h mark must not flip the refund (Codex review).
+  // Staff can untick it.
   const [feeChoice, setFeeChoice] = useState<{ bookingId: string; refund: boolean } | null>(null);
   const policyRefundDefault = (b: Booking) => isCancellable(b.check_in, b.location_timezone).cancellable;
   const refundFeeOnStandard = (b: Booking) =>
@@ -985,7 +987,7 @@ export default function AdminBookingsPage() {
               {bookings.map((booking) => (
                 <button
                   key={booking.id}
-                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                   className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -1146,7 +1148,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >

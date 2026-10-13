@@ -845,7 +845,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
       triplyKeeps = feeKept + (hasPG ? pgRetained - pgWholesale : 0);
       triplyTotal = triplyKeeps;
       note = b.service_fee_refunded
-        ? "full refund — service fee returned"
+        ? "service fee returned"
         : "service fee retained";
       if (hasPG) {
         note += `; PG kept $${pgRetained.toFixed(2)}/$${pgPremium.toFixed(2)}, owe $${pgWholesale.toFixed(2)}`;

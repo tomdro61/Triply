@@ -15,7 +15,7 @@ const { db, reslabMock, stripeMock, parkGuardMock, sentry, order, sendEmail } = 
   return {
     db: new FakeSupabase(),
     reslabMock: { cancelReservation: vi.fn() },
-    stripeMock: { getPaymentIntent: vi.fn(), createRefund: vi.fn(), cancelPaymentIntent: vi.fn() },
+    stripeMock: { getPaymentIntent: vi.fn(), getPaymentIntentWithCharge: vi.fn(), createRefund: vi.fn(), cancelPaymentIntent: vi.fn() },
     parkGuardMock: { updateReservation: vi.fn() },
     sentry: { captureAPIError: vi.fn(), captureParkGuardError: vi.fn() },
     order: [] as string[],
@@ -103,6 +103,9 @@ beforeEach(() => {
     return { cancelled: true };
   });
   stripeMock.getPaymentIntent.mockReset().mockResolvedValue({ status: "succeeded", amount_received: 10_000 });
+  stripeMock.getPaymentIntentWithCharge
+    .mockReset()
+    .mockResolvedValue({ status: "succeeded", amount_received: 10_000, latest_charge: { amount_refunded: 0 } });
   stripeMock.createRefund.mockReset().mockImplementation(async () => {
     order.push(`refund:by=${String(row().cancelled_by)}`);
     return { id: "re_1" };
@@ -119,6 +122,7 @@ function expectNoSideEffects() {
   expect(db.log).toEqual([]);
   expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
   expect(stripeMock.getPaymentIntent).not.toHaveBeenCalled();
+  expect(stripeMock.getPaymentIntentWithCharge).not.toHaveBeenCalled();
   expect(stripeMock.createRefund).not.toHaveBeenCalled();
   expect(parkGuardMock.updateReservation).not.toHaveBeenCalled();
   expect(row().cancel_claimed_at).toBeNull();
@@ -276,6 +280,45 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: true });
   });
 
+  it("an earlier partial refund is netted out (policy refund, no Park Guard): $100 paid, $20 already back → refund 80.00", async () => {
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: { amount_refunded: 2_000 },
+    });
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 80, "admin-cancel:pi_1");
+  });
+
+  it("an earlier partial refund is netted out (standard cancel with Park Guard): 100 − 5.95 − 6 − 3 → 85.05", async () => {
+    seed(PG_ROW);
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: { amount_refunded: 300 },
+    });
+    const res = await POST(req({ reason: "plans_changed" }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 85.05, "admin-cancel:pi_1");
+  });
+
+  it("prior refunds unreadable (charge not expanded) → no refund, 207, Sentry — never a guess", async () => {
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: "ch_unexpanded",
+    });
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(207);
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(sentry.captureAPIError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("prior refunds unknown") }),
+      expect.anything()
+    );
+    expect(row()).toMatchObject({ status: "cancelled", service_fee_refunded: false });
+  });
+
   it("full refund and policy refund together → 400 before any side effect", async () => {
     const res = await POST(req({ reason: "plans_changed", refundServiceFee: true, refundServiceFeeOnly: true }));
     expect(res.status).toBe(400);
@@ -376,6 +419,7 @@ describe("POST /api/admin/bookings/cancel — direct lots + environment guards (
     expect(res.status).toBe(409);
     expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
     expect(stripeMock.getPaymentIntent).not.toHaveBeenCalled();
+  expect(stripeMock.getPaymentIntentWithCharge).not.toHaveBeenCalled();
     expect(row().cancel_claimed_at).toBeNull();
   });
 
@@ -393,6 +437,7 @@ describe("POST /api/admin/bookings/cancel — direct lots + environment guards (
       expect(res.status).toBe(409);
       expect((await res.json()).error).toMatch(/other environment/);
       expect(stripeMock.getPaymentIntent).not.toHaveBeenCalled();
+  expect(stripeMock.getPaymentIntentWithCharge).not.toHaveBeenCalled();
       expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
       expect(stripeMock.createRefund).not.toHaveBeenCalled();
       expect(sendEmail).not.toHaveBeenCalled();

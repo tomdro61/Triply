@@ -7,6 +7,7 @@ import { reslab } from "@/lib/reslab/client";
 import {
   createRefund,
   getPaymentIntent,
+  getPaymentIntentWithCharge,
   cancelPaymentIntent,
 } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
@@ -326,7 +327,9 @@ export async function POST(request: NextRequest) {
     let holdReleased = false;
     if (refundPaymentIntentId) {
       try {
-        const pi = await getPaymentIntent(refundPaymentIntentId);
+        // Charge expanded: the refund must net out what was ALREADY refunded
+        // (a goodwill or price-drop refund), exactly as the self-cancel does.
+        const pi = await getPaymentIntentWithCharge(refundPaymentIntentId);
         if (pi.status === "requires_capture") {
           // Authorized but NEVER captured — under the manual-capture model this
           // is a normal state, and there is nothing to refund because no money
@@ -381,7 +384,30 @@ export async function POST(request: NextRequest) {
           piLookupFailed = true; // keeps results.stripe=false → allSucceeded=false → 207, not a false 200
         } else {
           const amountReceived = (pi.amount_received || 0) / 100;
-          refundAmount = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+          // Already refunded, in dollars. A captured payment always has a charge;
+          // if Stripe gave none, or didn't expand it, the prior refunds are
+          // UNKNOWN — refuse the refund rather than risk refunding twice (the
+          // policy refund leaves little or no withheld margin to absorb it).
+          const charge = pi.latest_charge;
+          if (amountReceived > 0 && (!charge || typeof charge === "string")) {
+            piLookupFailed = true; // 207, never a false 200
+            results.errors.push(
+              "Stripe: couldn't read earlier refunds on this payment — refund NOT issued; refund manually in Stripe"
+            );
+            captureAPIError(
+              new Error(
+                `Admin cancel: PI ${refundPaymentIntentId} has no readable charge (prior refunds unknown); ResLab already released, refund NOT issued — refund manually`
+              ),
+              { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+            );
+          } else {
+            const priorRefunded =
+              charge && typeof charge !== "string" ? (charge.amount_refunded ?? 0) / 100 : 0;
+            refundAmount = Math.max(
+              0,
+              Math.round((amountReceived - feeWithheld - priorRefunded) * 100) / 100
+            );
+          }
         }
       } catch (error) {
         piLookupFailed = true;
@@ -439,9 +465,11 @@ export async function POST(request: NextRequest) {
     // Persist booking state from the ACTUAL refund outcome.
     const wasRefunded = intendToRefund && results.stripe;
     const newStatus = wasRefunded ? "refunded" : "cancelled";
-    // The fee was returned only if a full-refund refund actually fulfilled on a
-    // booking that had a fee. This is what the accounting reconciler reads to
-    // exclude the fee from kept revenue (migration 013).
+    // The fee was returned if a full OR policy refund actually went through on a
+    // booking that had a fee. NOT the same as "full refund": a policy refund (and
+    // every self-cancel) returns the fee but still withholds the Park Guard
+    // wholesale. The accounting reconciler reads this to exclude the fee from
+    // kept revenue (migration 013); PG retention comes from Stripe's actual refund.
     const serviceFeeRefunded = feeRefunded && wasRefunded && serviceFee > 0;
 
     const { error: bookingUpdateError } = await supabase
