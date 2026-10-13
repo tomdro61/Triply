@@ -489,6 +489,28 @@ describe("direct booking", () => {
       }
     });
 
+    it("same for a guest SIGNED IN with the typed (verified) address — one read, never the account holder's details", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.user = { id: "u_guest", email: EMAIL, email_confirmed_at: "2026-10-01T00:00:00Z" };
+      const typed = { firstName: "Pat", lastName: "Guest", email: EMAIL, phone: "5559990000" };
+      let reads = 0;
+      h.state.pendingRow = { data: { customer: typed }, error: null };
+      const original = h.adminClient.from;
+      h.adminClient.from = (table: string) => {
+        if (table === "pending_bookings" && ++reads > 1) h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        return original(table);
+      };
+      try {
+        const res = await call(TRP);
+        expect(res.status).toBe(200);
+        expect((await res.json()).reservation.customer).toEqual(typed);
+        expect(reads).toBe(1);
+      } finally {
+        h.adminClient.from = original;
+      }
+    });
+
     it("an email that is neither the account's nor the typed one → 403", async () => {
       h.state.authRow = withPi(ACCOUNT);
       h.state.pendingRow = { data: { customer: { email: "typed@example.com" } }, error: null };
