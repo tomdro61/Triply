@@ -90,6 +90,13 @@ export async function getPaymentIntent(paymentIntentId: string) {
   return stripe.paymentIntents.retrieve(paymentIntentId);
 }
 
+/** A PaymentIntent with its charge expanded — for anything that must know what
+ *  was ALREADY refunded (`latest_charge.amount_refunded`; there is no
+ *  `pi.amount_refunded`). */
+export async function getPaymentIntentWithCharge(paymentIntentId: string) {
+  return stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge"] });
+}
+
 /**
  * Create a refund
  *

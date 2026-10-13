@@ -22,6 +22,7 @@ import { csvEscape } from "@/lib/utils/csv";
 import type { AttributionRow } from "@/lib/attribution/display";
 import { bookingSourceLabel as sourceLabel } from "@/lib/attribution/source";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
+import { isCancellable } from "@/lib/cancellation/eligibility";
 import {
   ADMIN_CANCELLATION_REASONS,
   CANCELLATION_REASON_LABELS,
@@ -53,6 +54,8 @@ interface Booking {
   vehicle_surcharge_cents?: number | null;
   vehicle_surcharge_tax_cents?: number | null;
   location_name: string;
+  /** The lot's IANA zone — the 24 h free-cancellation rule is judged in it. */
+  location_timezone?: string | null;
   check_in: string;
   check_out: string;
   subtotal: string;
@@ -541,6 +544,16 @@ export default function AdminBookingsPage() {
   // Required reason + optional admin note for the cancel (migration 032).
   const [cancelReason, setCancelReason] = useState<AdminCancellationReason | "">("");
   const [cancelNote, setCancelNote] = useState("");
+  // Standard cancel: refund the service fee too ("policy refund")? Decided ONCE
+  // when the dialog opens, by the free-cancellation rule (more than 24 h before
+  // check-in, lot time — the self-cancel's own check), so a guest who cancels by
+  // email gets what one who cancels online gets. Fixed for the dialog's life: a
+  // retry that crosses the 24 h mark must not flip the refund (Codex review).
+  // Staff can untick it.
+  const [feeChoice, setFeeChoice] = useState<{ bookingId: string; refund: boolean } | null>(null);
+  const policyRefundDefault = (b: Booking) => isCancellable(b.check_in, b.location_timezone).cancellable;
+  const refundFeeOnStandard = (b: Booking) =>
+    feeChoice?.bookingId === b.id ? feeChoice.refund : policyRefundDefault(b);
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
@@ -552,6 +565,8 @@ export default function AdminBookingsPage() {
   } | null>(null);
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
+    // Standard path only: the fee comes back under the free-cancellation policy.
+    const refundServiceFeeOnly = !refundServiceFee && refundFeeOnStandard(booking);
     if (!cancelReason) {
       setCancelResult({ success: false, message: "Pick a cancellation reason first." });
       return;
@@ -569,6 +584,8 @@ export default function AdminBookingsPage() {
     const pgWithheld = hasPG ? pgWholesaleWithheld(pgPremium, pgWholesale) : 0;
     const confirmMsg = refundServiceFee
       ? `FULL refund for ${booking.reslab_reservation_number} — refunds everything the customer paid Triply online, INCLUDING the $${fee.toFixed(2)} service fee${hasPG ? ` and the full $${pgPremium.toFixed(2)} Park Guard premium` : ""}. Use this when the lot turned the customer away. This cannot be undone.`
+      : refundServiceFeeOnly
+      ? `Cancel ${booking.reslab_reservation_number} under the FREE-CANCELLATION policy — refunds everything the customer paid Triply online INCLUDING the $${fee.toFixed(2)} service fee${hasPG ? `, except $${pgWithheld.toFixed(2)} of the $${pgPremium.toFixed(2)} Park Guard premium (its non-refundable wholesale)` : ""}. Same as an online cancellation. This cannot be undone.`
       : `Cancel ${booking.reslab_reservation_number} and refund the customer, RETAINING the $${fee.toFixed(2)} Triply service fee${hasPG ? ` and $${pgWithheld.toFixed(2)} of the $${pgPremium.toFixed(2)} Park Guard premium (its non-refundable wholesale — customer gets $${(pgPremium - pgWithheld).toFixed(2)} back)` : ""} (standard cancellation). This cannot be undone.`;
     if (!confirm(confirmMsg)) {
       return;
@@ -584,6 +601,7 @@ export default function AdminBookingsPage() {
           reservationNumber: booking.reslab_reservation_number,
           stripePaymentIntentId: booking.stripe_payment_intent_id,
           refundServiceFee,
+          refundServiceFeeOnly,
           reason: cancelReason,
           note: cancelNote.trim() || undefined,
         }),
@@ -969,7 +987,7 @@ export default function AdminBookingsPage() {
               {bookings.map((booking) => (
                 <button
                   key={booking.id}
-                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                   className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -1130,7 +1148,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >
@@ -1475,6 +1493,23 @@ export default function AdminBookingsPage() {
                     placeholder="Note (optional, staff only — stored apart from the booking, not readable by the customer)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
+                  <label className="flex items-start gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={refundFeeOnStandard(selectedBooking)}
+                      onChange={(e) => setFeeChoice({ bookingId: selectedBooking.id, refund: e.target.checked })}
+                      disabled={cancelling}
+                    />
+                    <span>
+                      &quot;Cancel &amp; Refund&quot; also refunds the ${(parseFloat(selectedBooking.triply_service_fee) || 0).toFixed(2)} service fee
+                      <span className="block text-xs text-gray-500">
+                        {policyRefundDefault(selectedBooking)
+                          ? "Pre-ticked: more than 24 h before check-in, so free cancellation applies (same as an online cancel; the Park Guard wholesale is still kept)."
+                          : "Within 24 h of check-in (or the lot's time zone is unknown) — the fee is normally kept."}
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
 
@@ -1523,13 +1558,15 @@ export default function AdminBookingsPage() {
                 </Link>
                 {selectedBooking.status === "confirmed" && (
                   <>
-                    {/* Standard cancel: refunds the customer but RETAINS the
-                        Triply service fee + the per-row Park Guard wholesale
-                        (a partial protection refund on PG bookings). */}
+                    {/* Standard cancel: refunds the customer, RETAINS the per-row
+                        Park Guard wholesale, and retains the Triply service fee
+                        unless the free-cancellation box above is ticked. */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, false)}
                       disabled={cancelling || !cancelReason}
-                      title={`Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
+                      title={refundFeeOnStandard(selectedBooking)
+                        ? `Free cancellation: refunds everything incl. the Triply service fee; on Park Guard bookings keeps the non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`
+                        : `Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
                       {cancelling && cancellingMode === "standard" ? "Cancelling..." : "Cancel & Refund"}
