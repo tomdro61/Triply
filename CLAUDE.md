@@ -143,8 +143,9 @@ One-time setup per machine (each dev, in Claude Code):
   `~/.codex/config.toml`. Without it Codex can't run any command, reads
   nothing, and returns "No material findings" — an empty review that looks
   clean. Add `model_reasoning_effort = "high"` (top level) for reviews.
-- **Model:** reviews use **`gpt-6-astra`** (needs ChatGPT Plus or higher) —
-  `model = "gpt-6-astra"` at the top of `~/.codex/config.toml`. List what your
+- **Model:** reviews use **`gpt-6.1-sol`** at high effort (ChatGPT Plus) —
+  `model = "gpt-6.1-sol"` at the top of `~/.codex/config.toml`. Not `gpt-6-astra`:
+  it drained the Plus weekly allowance in a day (all models share it). List what your
   account can use with `codex debug models`; confirm with
   `codex exec "Reply OK" < /dev/null` (the header shows `model:`).
 - No plugin? `/scoped-review` still runs, and says plainly that Codex was skipped.
@@ -204,4 +205,4 @@ npm run publish          # promote draft/review posts to published
 
 *Shared team CLAUDE.md — committed to the `triply` repo so every contributor's
 Claude Code reads the same rules. Personal/ops notes stay in each dev's own
-environment, not here. Last updated: October 12, 2026 — Codex (OpenAI) added to code review.*
+environment, not here. Last updated: October 12, 2026 — Codex reviews moved to `gpt-6.1-sol` (Astra drained the Plus allowance).*
