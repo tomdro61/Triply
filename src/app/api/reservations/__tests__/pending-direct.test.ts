@@ -20,6 +20,9 @@ const { db, stripeMock, quoteMock, identityMock } = await vi.hoisted(async () =>
   };
 });
 
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", () => ({ stripe: stripeMock }));
 vi.mock("@/lib/reslab/client", async (importOriginal) => ({
@@ -42,6 +45,13 @@ import { encodeSurchargeRates } from "@/lib/direct/vehicle-surcharge-metadata";
 import { directLotFromRow, type DirectLot } from "@/lib/direct/store";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { parseLotSnapshotV2 } from "@/lib/direct/lot-snapshot";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
 
 /** What Stripe stores: a key sent with an empty value is UNSET (also on create). */
 const asStripeStores = (meta: Record<string, string | undefined>) =>
@@ -245,6 +255,16 @@ describe("POST /api/reservations/pending — direct, refused before any write", 
     vi.stubEnv("DIRECT_CHECKOUT_PREVIEW", "");
     expect((await post(directBody())).status).toBe(503);
     nothingWritten();
+  });
+
+  it("go-live (DIRECT_BOOKING_OPEN): production with no preview flag is not refused as closed", async () => {
+    flagSwitch.open = true;
+    vi.stubEnv("DIRECT_CHECKOUT_PREVIEW", "");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    const res = await post(directBody());
+    expect(res.status).not.toBe(503);
+    expect(await res.json()).not.toMatchObject({ code: "direct_not_bookable_yet" });
   });
 
   it.each([{ VERCEL_ENV: "production" }, { NEXT_PUBLIC_APP_ENV: "production" }])(

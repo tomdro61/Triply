@@ -20,6 +20,9 @@ const { mdb, sentry } = await vi.hoisted(async () => {
   };
 });
 
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => mdb.client }));
 vi.mock("@/lib/resend/client", () => ({ resend: { emails: { send: vi.fn() } }, FROM_EMAIL: "Triply <bookings@triplypro.com>" }));
 vi.mock("@sentry/nextjs", () => ({
@@ -46,6 +49,13 @@ import { CUTOFF_NOT_SENT_REASON, CUTOFF_REASON } from "@/lib/direct/manifest/run
 import { RUNS, ALERTS } from "@/lib/direct/manifest/__tests__/manifest-db";
 import type { Row } from "@/lib/booking/__tests__/supabase-fake";
 import type { Embed } from "@/lib/digest/render";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
 
 /** Oct 31 2026, 10:00 EDT. */
 const MORNING = "2026-10-31T14:00:00Z";
