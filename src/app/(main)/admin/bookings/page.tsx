@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -118,6 +118,266 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** ResLab vs Triply's own (direct) lots — the list column, filter and CSV. */
+const inventoryLabel = (b: Pick<Booking, "inventory_source">) =>
+  b.inventory_source === "direct" ? "Triply lot" : "ResLab";
+
+type InventoryFilter = "all" | "reslab" | "direct";
+
+/** GET /api/admin/direct-bookings/action — what the direct-lot panel shows. */
+interface DirectLotInfo {
+  lotRecipients: string[] | null;
+  cmsInbox: string[] | null;
+  recipientsRev: number | null;
+  lotNotifiedAt: string | null;
+  lotNoticeClaimedAt: string | null;
+  lotCancelNotifiedAt: string | null;
+  otherEnvironment: boolean;
+}
+
+type DirectAction =
+  | "retry_lot_notice"
+  | "repoint_lot_inbox"
+  | "resend_lot_cancellation"
+  | "resend_customer_confirmation";
+
+const DIRECT_ACTION_LABELS: Record<DirectAction, string> = {
+  retry_lot_notice: "Retry lot notice",
+  repoint_lot_inbox: "Re-point to current CMS inbox",
+  resend_lot_cancellation: "Re-send lot cancellation",
+  resend_customer_confirmation: "Re-send customer confirmation",
+};
+
+const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+function parseDirectLotInfo(body: Record<string, unknown>): DirectLotInfo {
+  return {
+    lotRecipients: isStringArray(body.lotRecipients) ? body.lotRecipients : null,
+    cmsInbox: isStringArray(body.cmsInbox) ? body.cmsInbox : null,
+    recipientsRev: typeof body.recipientsRev === "number" ? body.recipientsRev : null,
+    lotNotifiedAt: strOrNull(body.lotNotifiedAt),
+    lotNoticeClaimedAt: strOrNull(body.lotNoticeClaimedAt),
+    lotCancelNotifiedAt: strOrNull(body.lotCancelNotifiedAt),
+    otherEnvironment: body.otherEnvironment === true,
+  };
+}
+
+const RETRY_SKIP_REASONS: Record<string, string> = {
+  not_direct: "Stripe doesn't record this as a Triply-lot booking — nothing sent.",
+  refunded: "The payment was refunded in full — nothing sent.",
+  held: "The booking's own checkout is still finishing — nothing sent. Try again in a couple of minutes.",
+  no_number: "The checkout record has no confirmation number — nothing sent. Handle it by hand.",
+  unreadable: "The booking couldn't be read back — nothing sent. See Sentry.",
+  not_confirmed: "The booking is no longer confirmed — nothing sent.",
+  mid_cancel: "A cancellation is in progress — nothing sent.",
+  error: "The re-send failed — see Sentry.",
+};
+
+const NOTICE_OUTCOMES: Record<string, string> = {
+  sent: "Lot notice sent.",
+  not_claimed: "Nothing sent — the notice was already sent or another send holds it. Refresh in a few minutes.",
+  skipped: "Not sent — no test inbox is configured here (DIRECT_LOT_NOTICE_OVERRIDE_TO).",
+  failed:
+    "The lot notice failed or Resend didn't answer — see Sentry. If it didn't answer it may still arrive; don't retry for 5 minutes.",
+};
+
+/** The outcome line for a 2xx action response. Reads the body defensively — never claims more than it says. */
+function describeDirectOutcome(action: DirectAction, body: Record<string, unknown>): { ok: boolean; message: string } {
+  if (action === "retry_lot_notice") {
+    const r = (typeof body.result === "object" && body.result !== null ? body.result : {}) as Record<string, unknown>;
+    if (r.kind === "skipped") return { ok: false, message: RETRY_SKIP_REASONS[String(r.reason)] ?? "Nothing sent." };
+    if (r.kind !== "attempted") return { ok: false, message: "Unexpected reply — refresh and check before trying again." };
+    const parts = [NOTICE_OUTCOMES[String(r.notice)] ?? `Lot notice: ${String(r.notice)}.`];
+    if (r.customerEmail === "sent") parts.push("The customer's confirmation (unsent until now) was also sent.");
+    if (r.customerEmail === "failed") parts.push("The customer's confirmation (also unsent) failed again — see Sentry.");
+    parts.push("The retried notice keeps its original URGENT flag — phone the lot if check-in is close.");
+    return { ok: r.notice === "sent", message: parts.join(" ") };
+  }
+  if (action === "repoint_lot_inbox") {
+    const from = isStringArray(body.from) ? body.from.join(", ") : "?";
+    const to = isStringArray(body.to) ? body.to.join(", ") : "?";
+    return { ok: true, message: `Re-pointed: ${from} → ${to}. Now press "Retry lot notice" to send it there.` };
+  }
+  const n = typeof body.n === "number" ? body.n : null;
+  const to = isStringArray(body.recipients) ? body.recipients.join(", ") : "?";
+  const label = `re-send${n ? ` #${n}` : ""}`;
+  if (body.outcome === "sent") return { ok: true, message: `Sent (${label}) to ${to}.` };
+  if (body.outcome === "unknown") {
+    return { ok: false, message: `Resend didn't confirm the ${label} — it may still arrive. Check Sentry before sending again.` };
+  }
+  return {
+    ok: false,
+    message: `The ${label} didn't go (or Resend didn't answer in time and it may still arrive) — check Sentry before sending again.`,
+  };
+}
+
+type DirectLotInfoState =
+  | { state: "loading" }
+  | { state: "error"; message: string }
+  | { state: "ready"; data: DirectLotInfo };
+
+/**
+ * Direct-lot (Triply-owned lot) panel in the booking modal (6b plan §6):
+ * what the lot was told, the inbox on file, and the four admin actions.
+ *
+ * State: `info` (loading | error | ready) from the GET; `busy` = the one
+ * action in flight. A ref is the synchronous double-click guard (state lands
+ * a render later); `busy` disables every button while anything runs. A 2xx
+ * shows the outcome (green only when it definitely went), a 4xx/5xx its
+ * `error`; a 2xx then re-reads the panel and refreshes the list. The parent
+ * keys it by booking id, so opening another booking starts clean.
+ */
+function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: () => void }) {
+  const [info, setInfo] = useState<DirectLotInfoState>({ state: "loading" });
+  const [busy, setBusy] = useState<DirectAction | null>(null);
+  const inFlight = useRef(false);
+  const [outcome, setOutcome] = useState<{ ok: boolean; message: string } | null>(null);
+  const number = booking.reslab_reservation_number;
+
+  async function loadInfo() {
+    try {
+      const res = await fetch(`/api/admin/direct-bookings/action?reservationNumber=${encodeURIComponent(number)}`);
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        setInfo({ state: "error", message: typeof body.error === "string" ? body.error : `Couldn't load (HTTP ${res.status})` });
+        return;
+      }
+      setInfo({ state: "ready", data: parseDirectLotInfo(body) });
+    } catch {
+      setInfo({ state: "error", message: "Network error — couldn't load the lot details." });
+    }
+  }
+
+  useEffect(() => {
+    void loadInfo();
+    // Keyed by booking id by the parent: load once per booking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function confirmText(action: DirectAction, data: DirectLotInfo): string {
+    const onFile = data.lotRecipients?.join(", ") ?? "(none on file)";
+    switch (action) {
+      case "retry_lot_notice":
+        return `Send the lot its booking notice for ${number} now (to ${onFile})? If the customer's confirmation never went, it is sent too.`;
+      case "repoint_lot_inbox":
+        return `Re-point ${number}'s unsent lot notice?\n\nFrom: ${onFile}\nTo: ${data.cmsInbox?.join(", ") ?? "the lot's current CMS inbox"}\n\nNothing is sent — press "Retry lot notice" afterwards.`;
+      case "resend_lot_cancellation":
+        return `Re-send the cancellation of ${number} to the lot (${onFile}) as a reminder?`;
+      case "resend_customer_confirmation":
+        return `Re-send the booking confirmation for ${number} to the guest's email?`;
+    }
+  }
+
+  async function run(action: DirectAction, data: DirectLotInfo) {
+    if (inFlight.current) return;
+    if (!confirm(confirmText(action, data))) return;
+    inFlight.current = true;
+    setBusy(action);
+    setOutcome(null);
+    try {
+      const res = await fetch("/api/admin/direct-bookings/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationNumber: number, action }),
+      });
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        setOutcome({ ok: false, message: typeof body.error === "string" ? body.error : `Failed (HTTP ${res.status})` });
+      } else {
+        setOutcome(describeDirectOutcome(action, body));
+        await loadInfo();
+        onChanged();
+      }
+    } catch {
+      setOutcome({ ok: false, message: "Network error — it may or may not have run. Refresh and check before trying again." });
+    } finally {
+      inFlight.current = false;
+      setBusy(null);
+    }
+  }
+
+  const status = booking.status;
+  const cancelled = status === "cancelled" || status === "refunded";
+
+  return (
+    <div>
+      <h3 className="font-semibold text-gray-900 mb-2">Triply lot — notices</h3>
+      <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+        {info.state === "loading" && (
+          <p className="flex items-center gap-2 text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </p>
+        )}
+        {info.state === "error" && <p className="text-red-700">{info.message}</p>}
+        {info.state === "ready" && (
+          <>
+            <p>
+              <span className="text-gray-500">Lot told:</span>{" "}
+              {info.data.lotNotifiedAt ? (
+                formatDateTime(info.data.lotNotifiedAt)
+              ) : (
+                <span className="text-amber-700 font-medium">
+                  not yet
+                  {info.data.lotNoticeClaimedAt ? ` (a send started ${formatDateTime(info.data.lotNoticeClaimedAt)})` : ""}
+                </span>
+              )}
+            </p>
+            {cancelled && (
+              <p>
+                <span className="text-gray-500">Cancellation sent:</span>{" "}
+                {info.data.lotCancelNotifiedAt ? formatDateTime(info.data.lotCancelNotifiedAt) : "not sent"}
+              </p>
+            )}
+            <p>
+              <span className="text-gray-500">Lot inbox on file:</span>{" "}
+              {info.data.lotRecipients?.join(", ") ?? "none"}
+              {(info.data.recipientsRev ?? 0) > 0 && (
+                <span className="ml-1 text-xs text-gray-400">(re-pointed ×{info.data.recipientsRev})</span>
+              )}
+            </p>
+            {info.data.otherEnvironment ? (
+              <p className="text-amber-800">
+                This booking was made in the other environment (staging vs production) — manage it from that
+                environment&apos;s admin.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {(
+                  [
+                    status === "confirmed" && !info.data.lotNotifiedAt ? "retry_lot_notice" : null,
+                    status === "confirmed" && !info.data.lotNotifiedAt && !info.data.lotNoticeClaimedAt
+                      ? "repoint_lot_inbox"
+                      : null,
+                    cancelled && info.data.lotCancelNotifiedAt ? "resend_lot_cancellation" : null,
+                    status === "confirmed" ? "resend_customer_confirmation" : null,
+                  ] as Array<DirectAction | null>
+                )
+                  .filter((a): a is DirectAction => a !== null)
+                  .map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => void run(a, info.data)}
+                      disabled={busy !== null}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy === a ? "Working…" : DIRECT_ACTION_LABELS[a]}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </>
+        )}
+        {outcome && (
+          <div className={`p-3 rounded-lg ${outcome.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}>
+            {outcome.message}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -131,6 +391,7 @@ export default function AdminBookingsPage() {
   // Degraded-search notices from the API (customer lookup failed / truncated).
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("all");
+  const [inventory, setInventory] = useState<InventoryFilter>("all");
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -243,6 +504,10 @@ export default function AdminBookingsPage() {
         params.set("status", status);
       }
 
+      if (inventory !== "all") {
+        params.set("inventory", inventory);
+      }
+
       if (search) {
         params.set("search", search);
       }
@@ -290,7 +555,7 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     fetchBookings(1);
-  }, [status, dateRange, customStartDate, customEndDate]);
+  }, [status, inventory, dateRange, customStartDate, customEndDate]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -308,6 +573,7 @@ export default function AdminBookingsPage() {
       "Email",
       "Phone",
       "Location",
+      "Inventory",
       "Check In",
       "Check Out",
       "Booking Total",
@@ -340,6 +606,7 @@ export default function AdminBookingsPage() {
         b.customers?.email,
         b.customers?.phone,
         b.location_name,
+        inventoryLabel(b),
         formatDateTime(b.check_in),
         formatDateTime(b.check_out),
         bookingTotal.toFixed(2),
@@ -422,6 +689,19 @@ export default function AdminBookingsPage() {
               <option value="confirmed">Confirmed</option>
               <option value="cancelled">Cancelled</option>
               <option value="completed">Completed</option>
+            </select>
+            <select
+              value={inventory}
+              onChange={(e) => {
+                const v = e.target.value;
+                setInventory(v === "reslab" || v === "direct" ? v : "all");
+              }}
+              aria-label="Inventory"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none bg-white"
+            >
+              <option value="all">All Inventory</option>
+              <option value="reslab">ResLab</option>
+              <option value="direct">Triply lots</option>
             </select>
           </div>
 
@@ -529,6 +809,7 @@ export default function AdminBookingsPage() {
                   <div className="flex items-center gap-1 text-sm text-gray-600 mt-2">
                     <MapPin size={14} className="text-gray-400 flex-shrink-0" />
                     <span className="truncate">{booking.location_name}</span>
+                    <span className="flex-shrink-0 text-xs text-gray-400">· {inventoryLabel(booking)}</span>
                   </div>
                   <div className="flex items-center justify-between mt-2 gap-2">
                     <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
@@ -565,6 +846,9 @@ export default function AdminBookingsPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Inventory
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dates
@@ -614,6 +898,9 @@ export default function AdminBookingsPage() {
                             {booking.location_name}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {inventoryLabel(booking)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm">
@@ -948,6 +1235,15 @@ export default function AdminBookingsPage() {
                     </p>
                   </div>
                 </div>
+              )}
+
+              {/* Triply-lot notices + admin actions (6b §6) — direct bookings only */}
+              {selectedBooking.inventory_source === "direct" && (
+                <DirectLotPanel
+                  key={selectedBooking.id}
+                  booking={selectedBooking}
+                  onChanged={() => void fetchBookings(pagination.page)}
+                />
               )}
 
               {/* Recorded cancellation reason (migration 032) */}

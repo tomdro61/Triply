@@ -79,6 +79,7 @@ import {
   type DirectBookingPayload,
 } from "@/lib/direct/fulfilment";
 import { sendLotBookingNotice, type LotBookingNoticeContent, type LotNoticeOutcome } from "@/lib/direct/lot-notice";
+import { isOtherStripeMode } from "@/lib/cancellation/source-guard";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -2631,6 +2632,85 @@ export async function redriveDirectBookingSends(piId: string): Promise<DirectRed
   const row = await readPendingRow(piId);
   if (heldByLiveFulfilment(row)) return { kind: "skipped", reason: "held" };
   return redriveDirectSends(pi, row);
+}
+
+/**
+ * Everything the admin "Re-send customer confirmation" action (6b §6) needs to
+ * rebuild a DIRECT booking's confirmation email — the same view the re-drive
+ * builds (`redriveDirectSends`), without sending anything or touching the
+ * `email_sent` claim. The Stripe mode is checked from the staged row BEFORE the
+ * PaymentIntent is retrieved: the other environment's key cannot read it (a
+ * 404), and the booking belongs to that environment's admin anyway.
+ * `ok: false` names why nothing can be re-sent; a Stripe or database READ
+ * failure throws (the caller answers 5xx — "try again", never "nothing to send").
+ */
+export type DirectResendView =
+  | {
+      ok: true;
+      dp: DirectBookingPayload;
+      fr: DirectFulfilledReservation;
+      pgSyncStatus: PgSyncStatus;
+      charged: ChargedProtection | null;
+      promo: DirectEmailPromo;
+    }
+  | {
+      ok: false;
+      reason: "no_row" | "other_mode" | "no_number" | "not_direct" | "refunded" | "unreadable" | "not_confirmed" | "mid_cancel";
+    };
+
+export async function buildDirectResendView(piId: string): Promise<DirectResendView> {
+  const row = await readPendingRow(piId);
+  if (!row) return { ok: false, reason: "no_row" };
+  if (isOtherStripeMode(row.livemode)) return { ok: false, reason: "other_mode" };
+  if (!row.reslab_reservation_number) return { ok: false, reason: "no_number" };
+
+  const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
+  if (pi.metadata?.inventorySource !== "direct") return { ok: false, reason: "not_direct" };
+  const charge = pi.latest_charge;
+  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) {
+    return { ok: false, reason: "refunded" };
+  }
+  const view = directViewFromRow(pi, row, row.reslab_reservation_number);
+  if (!view.ok) {
+    capturePaymentError(new Error(`Direct confirmation re-send refused for ${piId}: ${view.error}`), directAlert({ id: piId }));
+    return { ok: false, reason: "unreadable" };
+  }
+  // An unreadable protection pair is refused, not sent as "no protection": a
+  // deliberate re-send must not tell the customer they have no cover they paid for.
+  const resolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
+  if (!resolution.ok) {
+    capturePaymentError(
+      new Error(`Direct confirmation re-send refused for ${piId}: protection metadata ${resolution.detail}`),
+      directAlert({ id: piId })
+    );
+    return { ok: false, reason: "unreadable" };
+  }
+
+  const supabase = await createAdminClient();
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("status, pg_sync_status, cancel_state, cancel_claimed_at")
+    .eq("stripe_payment_intent_id", piId)
+    .abortSignal(AbortSignal.timeout(3_000))
+    .maybeSingle();
+  if (error) throw new DurableStateError("bookings read for a confirmation re-send", error.message);
+  if (!data) return { ok: false, reason: "not_confirmed" };
+  const booked = data as {
+    status: string;
+    pg_sync_status: PgSyncStatus;
+    cancel_state: string | null;
+    cancel_claimed_at: string | null;
+  };
+  if (booked.status !== "confirmed") return { ok: false, reason: "not_confirmed" };
+  if (booked.cancel_state || booked.cancel_claimed_at) return { ok: false, reason: "mid_cancel" };
+  return {
+    ok: true,
+    dp: view.dp,
+    fr: view.fr,
+    pgSyncStatus: booked.pg_sync_status,
+    charged: resolution.charged,
+    promo: directEmailPromo(pi),
+  };
 }
 
 const NOT_CHARGED_RETRY = "We couldn't complete this booking and have released your payment — you have not been charged. Please try again.";

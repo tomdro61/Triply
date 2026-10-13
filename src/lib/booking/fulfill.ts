@@ -1400,7 +1400,13 @@ export async function sendDirectCustomerConfirmation(
   pgSyncStatus: PgSyncStatus,
   charged: ChargedProtection | null,
   /** The promo on the PaymentIntent: code (trimmed + upper-cased; shown only when a discount applied) + percent. */
-  promo: DirectEmailPromo
+  promo: DirectEmailPromo,
+  /**
+   * Resend idempotency key. Default = the booking's one confirmation key; the
+   * admin "re-send customer confirmation" action (6b §6) passes its own
+   * per-re-send key so a deliberate re-send is not swallowed as a duplicate.
+   */
+  idempotencyKey: string = `direct-confirmation/${dp.stripePaymentIntentId}`
 ): Promise<boolean> {
   const totalAmount = directPaidOnline(fr);
   const breakdown = directEmailBreakdown(fr, charged, promo);
@@ -1435,7 +1441,7 @@ export async function sendDirectCustomerConfirmation(
       },
       breakdown,
       ...(fallback && { anchoredFallback: fallback }),
-      idempotencyKey: `direct-confirmation/${dp.stripePaymentIntentId}`,
+      idempotencyKey,
       timeoutMs: DIRECT_CONFIRMATION_TIMEOUT_MS,
     });
     if (sent.success) return true;

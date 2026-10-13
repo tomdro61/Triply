@@ -68,6 +68,11 @@ export async function GET(request: NextRequest) {
         { count: "exact" }
       )
       .eq("reslab_location_id", partner.reslab_location_id)
+      // Live bookings only (6b plan D7): staging writes real rows to this
+      // shared database, and a lot operator must never see a test booking as
+      // a car to expect. NULL = a pre-015 row, which is always live. One
+      // condition — the search below already uses the query's `.or()`.
+      .not("livemode", "is", false)
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 

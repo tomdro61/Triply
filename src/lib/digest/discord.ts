@@ -24,15 +24,33 @@ function retryAfterMs(res: Response, bodyText: string): number | null {
   return null;
 }
 
-export async function postToDiscord(
-  webhookUrl: string,
-  embed: Embed,
-  opts: { remainingBudgetMs: number; fetchImpl?: typeof fetch; sleep?: (ms: number) => Promise<void> }
-): Promise<PostResult> {
+export interface PostOptions {
+  remainingBudgetMs: number;
+  fetchImpl?: typeof fetch;
+  sleep?: (ms: number) => Promise<void>;
+  /** The webhook's display name for this post. Default: DISCORD_USERNAME. */
+  username?: string;
+  /**
+   * Plain message text sent beside the embed. A mention only pings from here —
+   * one inside an embed never does (the direct-lot alerts put "@here" here).
+   */
+  content?: string;
+  /** Which mentions in `content` may ping, e.g. { parse: ["everyone"] } for "@here". */
+  allowedMentions?: { parse: Array<"everyone" | "users" | "roles"> };
+}
+
+export async function postToDiscord(webhookUrl: string, embed: Embed, opts: PostOptions): Promise<PostResult> {
   const f = opts.fetchImpl ?? fetch;
   const sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
   const started = Date.now();
-  const body = JSON.stringify({ username: DISCORD_USERNAME, embeds: [embed] });
+  // Optional keys are added only when given, so a caller passing none (the daily
+  // digest) sends exactly the body it always did. Pinned by discord.test.ts.
+  const body = JSON.stringify({
+    username: opts.username ?? DISCORD_USERNAME,
+    ...(opts.content !== undefined ? { content: opts.content } : {}),
+    ...(opts.allowedMentions !== undefined ? { allowed_mentions: { parse: [...opts.allowedMentions.parse] } } : {}),
+    embeds: [embed],
+  });
 
   const attempt = async (): Promise<{ res: Response; text: string } | { error: string }> => {
     try {
