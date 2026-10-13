@@ -465,6 +465,30 @@ describe("direct booking", () => {
       expect(h.state.pendingEq[0]).toEqual(["stripe_payment_intent_id", "pi_direct"]);
     });
 
+    it("a guest let in by the typed email never sees the account holder's details, even if a later read fails (Codex)", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null }; // customers row = Dana Rivera (the account holder here)
+      const typed = { firstName: "Pat", lastName: "Guest", email: EMAIL, phone: "5559990000" };
+      let reads = 0;
+      h.state.pendingRow = { data: { customer: typed }, error: null };
+      const original = h.adminClient.from;
+      h.adminClient.from = (table: string) => {
+        if (table === "pending_bookings" && ++reads > 1) {
+          // Any second read fails — the page must not need one.
+          h.state.pendingRow = { data: null, error: { message: "timeout" } };
+        }
+        return original(table);
+      };
+      try {
+        const res = await call(TRP);
+        expect(res.status).toBe(200);
+        expect((await res.json()).reservation.customer).toEqual(typed);
+        expect(reads).toBe(1);
+      } finally {
+        h.adminClient.from = original;
+      }
+    });
+
     it("an email that is neither the account's nor the typed one → 403", async () => {
       h.state.authRow = withPi(ACCOUNT);
       h.state.pendingRow = { data: { customer: { email: "typed@example.com" } }, error: null };

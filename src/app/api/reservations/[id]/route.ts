@@ -89,6 +89,11 @@ export async function GET(
   }
 
   try {
+    // Set when access was granted ONLY through the staged (typed-at-checkout)
+    // email: the viewer is the guest, not the account holder, so the page must
+    // show exactly this guest and never fall back to the account's customers row.
+    let guestViaStaged: GuestContact | null = null;
+
     // --- Auth check (R1: IDOR protection) ---
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -148,6 +153,7 @@ export async function GET(
           return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
         }
         ownsByEmail = sameEmail(staged.guest?.email, verifiedEmail);
+        if (ownsByEmail) guestViaStaged = staged.guest;
       }
 
       if (!booking || (!ownsByUserId && !ownsByEmail)) {
@@ -205,6 +211,7 @@ export async function GET(
           return NextResponse.json({ error: "Unable to verify reservation. Please try again." }, { status: 500 });
         }
         emailMatches = sameEmail(staged.guest?.email, email);
+        if (emailMatches) guestViaStaged = staged.guest;
       }
       if (!booking || !emailMatches) {
         return NextResponse.json(
@@ -295,7 +302,10 @@ export async function GET(
       // The Payment summary's anchor: what Stripe actually took (plan
       // 2026-10-12 §2). Never throws; an unknown charge → the plain fallback.
       const payment = await readCardPayment(bookingData?.stripe_payment_intent_id);
-      const guest = await readStagedGuest(adminClientForVehicle, bookingData?.stripe_payment_intent_id, id);
+      // A guest let in by the staged email gets the guest already read (no second
+      // read that could fail over to the ACCOUNT holder's details); the account
+      // holder or an admin may fall back to the customers row.
+      const guest = guestViaStaged ?? (await readStagedGuest(adminClientForVehicle, bookingData?.stripe_payment_intent_id, id));
       const direct = buildDirectReservation(id, bookingData, {
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
