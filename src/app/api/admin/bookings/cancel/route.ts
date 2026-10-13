@@ -338,6 +338,9 @@ export async function POST(request: NextRequest) {
     // Already refunded before this request (latest_charge.amount_refunded), in
     // dollars — a goodwill refund, or THIS cancel's own refund on a re-drive.
     let priorRefundedDollars = 0;
+    // What this cancel should leave the customer with refunded in total
+    // (amount_received − withheld); 0 when nothing was captured.
+    let refundTarget = 0;
     let piLookupFailed = false;
     // Set when the payment was an uncaptured AUTHORIZATION that we released
     // rather than refunded. Keeps the $0-refund branch below from also firing and
@@ -408,6 +411,7 @@ export async function POST(request: NextRequest) {
           // policy refund leaves little or no withheld margin to absorb it).
           const charge = pi.latest_charge;
           const target = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+          refundTarget = target;
           if (amountReceived > 0 && (!charge || typeof charge === "string")) {
             piLookupFailed = true; // 207, never a false 200
             const how = `refund $${target.toFixed(2)} less anything already refunded${feeRefunded ? " (service fee included)" : ""}`;
@@ -421,8 +425,14 @@ export async function POST(request: NextRequest) {
               { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
             );
           } else {
+            // Only CAPTURED money counts. A released / expired authorization
+            // also shows `amount_refunded == amount` on its charge although no
+            // money moved — never read that as a refund (pass-3 review). And a
+            // partial capture's released remainder is in amount_refunded too.
             priorRefundedDollars =
-              charge && typeof charge !== "string" ? (charge.amount_refunded ?? 0) / 100 : 0;
+              pi.status === "succeeded" && amountReceived > 0 && charge && typeof charge !== "string"
+                ? Math.max(0, (charge.amount_refunded ?? 0) - ((charge.amount ?? 0) - (charge.amount_captured ?? 0))) / 100
+                : 0;
             refundAmount = Math.max(0, Math.round((target - priorRefundedDollars) * 100) / 100);
           }
         }
@@ -480,7 +490,7 @@ export async function POST(request: NextRequest) {
       if (refundPaymentIntentId && refundAmount <= 0) {
         results.errors.push(
           priorRefundedDollars > 0
-            ? `Stripe: already refunded $${priorRefundedDollars.toFixed(2)} earlier — no further refund issued`
+            ? `Stripe: $${priorRefundedDollars.toFixed(2)} was refunded earlier — no further refund issued`
             : `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheldDollars})`
         );
       }
@@ -493,7 +503,11 @@ export async function POST(request: NextRequest) {
     // self-cancel's rule (finalize.ts). Otherwise a re-drive would write
     // "cancelled, no refund" on a refunded booking.
     const alreadyRefunded =
-      !intendToRefund && priorRefundedDollars > 0 && !piLookupFailed && !holdReleased;
+      !intendToRefund &&
+      refundTarget > 0 &&
+      priorRefundedDollars >= refundTarget &&
+      !piLookupFailed &&
+      !holdReleased;
     const wasRefunded = (intendToRefund && results.stripe) || alreadyRefunded;
     // What the customer has got back in total (for the email / response).
     const totalRefunded =

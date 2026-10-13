@@ -105,7 +105,11 @@ beforeEach(() => {
   stripeMock.getPaymentIntent.mockReset().mockResolvedValue({ status: "succeeded", amount_received: 10_000 });
   stripeMock.getPaymentIntentWithCharge
     .mockReset()
-    .mockResolvedValue({ status: "succeeded", amount_received: 10_000, latest_charge: { amount_refunded: 0 } });
+    .mockResolvedValue({
+      status: "succeeded",
+      amount_received: 10_000,
+      latest_charge: { amount: 10_000, amount_captured: 10_000, amount_refunded: 0 },
+    });
   stripeMock.createRefund.mockReset().mockImplementation(async () => {
     order.push(`refund:by=${String(row().cancelled_by)}`);
     return { id: "re_1" };
@@ -284,7 +288,7 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
       status: "succeeded",
       amount_received: 10_000,
-      latest_charge: { amount_refunded: 2_000 },
+      latest_charge: { amount: 10_000, amount_captured: 10_000, amount_refunded: 2_000 },
     });
     const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
     expect(res.status).toBe(200);
@@ -296,7 +300,7 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
       status: "succeeded",
       amount_received: 10_000,
-      latest_charge: { amount_refunded: 300 },
+      latest_charge: { amount: 10_000, amount_captured: 10_000, amount_refunded: 300 },
     });
     const res = await POST(req({ reason: "plans_changed" }));
     expect(res.status).toBe(200);
@@ -308,7 +312,7 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
       status: "succeeded",
       amount_received: 10_000,
-      latest_charge: { amount_refunded: 9_400 },
+      latest_charge: { amount: 10_000, amount_captured: 10_000, amount_refunded: 9_400 },
     });
     const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
     expect(res.status).toBe(200);
@@ -323,12 +327,38 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
       status: "succeeded",
       amount_received: 10_000,
-      latest_charge: { amount_refunded: 8_805 },
+      latest_charge: { amount: 10_000, amount_captured: 10_000, amount_refunded: 8_805 },
     });
     const res = await POST(req({ reason: "plans_changed" }));
     expect(res.status).toBe(200);
     expect(stripeMock.createRefund).not.toHaveBeenCalled();
     expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: false });
+  });
+
+  it("a released / expired authorization (canceled PI, charge shows amount_refunded == amount) is NOT a refund: cancelled, no refund claim", async () => {
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "canceled",
+      amount_received: 0,
+      latest_charge: { amount: 10_000, amount_captured: 0, amount_refunded: 10_000 },
+    });
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    const body = await res.json();
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(body.message).not.toContain("already refunded");
+    expect(row()).toMatchObject({ status: "cancelled", service_fee_refunded: false });
+  });
+
+  it("a $0 target (fee + PG wholesale ≥ captured) with an unrelated earlier refund stays 'cancelled — no refund was due'", async () => {
+    seed(PG_ROW);
+    stripeMock.getPaymentIntentWithCharge.mockResolvedValue({
+      status: "succeeded",
+      amount_received: 1_000,
+      latest_charge: { amount: 1_000, amount_captured: 1_000, amount_refunded: 200 },
+    });
+    const res = await POST(req({ reason: "plans_changed" }));
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "cancelled" });
+    expect((await res.json()).message).not.toContain("already refunded");
   });
 
   it("PaymentIntent lookup throws → no refund, 207, Sentry", async () => {
