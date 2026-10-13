@@ -7,9 +7,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { db, sentry } = await vi.hoisted(async () => {
+const { db, sentry, key } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
-  return { db: new FakeSupabase(), sentry: { captureAPIError: vi.fn() } };
+  return { db: new FakeSupabase(), sentry: { captureAPIError: vi.fn() }, key: { mode: "live" as "live" | "test" | null } };
 });
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -18,7 +18,11 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
   createAdminClient: async () => db,
 }));
-vi.mock("@/config/admin", () => ({ isAdminEmail: () => true }));
+vi.mock("@/config/admin", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/config/admin")>()),
+  isAdminEmail: () => true,
+}));
+vi.mock("@/lib/cancellation/source-guard", () => ({ stripeKeyMode: () => key.mode }));
 vi.mock("@/lib/sentry", () => sentry);
 
 import { GET } from "../route";
@@ -26,6 +30,7 @@ import { GET } from "../route";
 const req = (qs = "") => new NextRequest(`https://x.test/api/admin/bookings${qs}`);
 
 beforeEach(() => {
+  key.mode = "live";
   db.clearFailures();
   db.log = [];
   sentry.captureAPIError.mockReset();
@@ -71,6 +76,8 @@ describe("GET /api/admin/bookings — cancellation notes", () => {
     const res = await GET(req());
     expect(res.status).toBe(500);
     expect(db.log.filter((l) => l.table === "booking_cancellation_notes")).toEqual([]);
+    // Reported, not just logged: the page would otherwise show only an error with nothing in Sentry.
+    expect(String(sentry.captureAPIError.mock.calls[0][0].message)).toMatch(/Admin bookings query failed \(mode live\): boom/);
   });
 });
 
@@ -205,6 +212,77 @@ describe("GET /api/admin/bookings — ?inventory= (6b §7)", () => {
       const r = await list(qs);
       expect(r.status).toBe(400);
       expect(r.body.bookings).toBeUndefined();
+    }
+    expect(db.log.filter((l) => l.table === "bookings")).toEqual([]);
+  });
+});
+
+describe("GET /api/admin/bookings — ?mode= live / test (shared database)", () => {
+  beforeEach(() => {
+    db.tables.customers = [];
+    db.tables.booking_cancellation_notes = [];
+    db.tables.bookings = [
+      // live: pre-015 NULL livemode, explicit true, and a live direct booking
+      { id: "old", customer_id: null, status: "confirmed", created_at: "2026-05-01T00:00:00Z", livemode: null, reslab_location_id: 412 },
+      { id: "live", customer_id: null, status: "confirmed", created_at: "2026-10-01T00:00:00Z", livemode: true, reslab_location_id: 412 },
+      { id: "liveDirect", customer_id: null, status: "confirmed", created_at: "2026-10-02T00:00:00Z", livemode: true, reslab_location_id: null, inventory_source: "direct" },
+      // test: staging (test-mode) rows, and a live-mode booking at a test ResLab lot
+      { id: "stagingDirect", customer_id: null, status: "confirmed", created_at: "2026-10-03T00:00:00Z", livemode: false, reslab_location_id: null, inventory_source: "direct", reslab_reservation_number: "TRP-D0K1KGXC" },
+      { id: "stagingReslab", customer_id: null, status: "confirmed", created_at: "2026-10-04T00:00:00Z", livemode: false, reslab_location_id: 412 },
+      { id: "testLot", customer_id: null, status: "confirmed", created_at: "2026-10-05T00:00:00Z", livemode: true, reslab_location_id: 194 },
+      // NULL edges: no lot id + NULL livemode is live; a test lot with NULL livemode is test.
+      { id: "nullBoth", customer_id: null, status: "confirmed", created_at: "2026-04-01T00:00:00Z", livemode: null, reslab_location_id: null },
+      { id: "testLotNull", customer_id: null, status: "confirmed", created_at: "2026-04-02T00:00:00Z", livemode: null, reslab_location_id: 195 },
+    ];
+  });
+
+  const ids = async (qs: string) => {
+    const res = await GET(req(qs));
+    const body = await res.json();
+    return { status: res.status, mode: body.mode, ids: (body.bookings ?? []).map((b: { id: string }) => b.id).sort() };
+  };
+  const LIVE = ["live", "liveDirect", "nullBoth", "old"];
+  const TEST = ["stagingDirect", "stagingReslab", "testLot", "testLotNull"];
+
+  it("production (live key) defaults to live bookings only — no staging test rows", async () => {
+    expect(await ids("")).toEqual({ status: 200, mode: "live", ids: LIVE });
+  });
+
+  it("staging (test key) defaults to test bookings only", async () => {
+    key.mode = "test";
+    expect(await ids("")).toEqual({ status: 200, mode: "test", ids: TEST });
+  });
+
+  it("an unrecognised Stripe key shows live + test with a warning and a Sentry event — never a silent guess", async () => {
+    key.mode = null;
+    const res = await GET(req(""));
+    const body = await res.json();
+    expect(body.mode).toBe("all");
+    expect(body.warnings).toContain("mode_default_unknown");
+    expect(body.bookings.map((b: { id: string }) => b.id).sort()).toEqual([...LIVE, ...TEST].sort());
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+
+  it("explicit live / test / all, whichever key; live and test partition every row", async () => {
+    for (const k of ["live", "test"] as const) {
+      key.mode = k;
+      expect((await ids("?mode=live")).ids).toEqual(LIVE);
+      expect((await ids("?mode=test")).ids).toEqual(TEST);
+      expect((await ids("?mode=all")).ids).toEqual([...LIVE, ...TEST].sort());
+    }
+  });
+
+  it("combines with inventory and search", async () => {
+    expect((await ids("?inventory=direct")).ids).toEqual(["liveDirect"]);
+    expect((await ids("?mode=test&inventory=direct")).ids).toEqual(["stagingDirect"]);
+    expect((await ids("?search=TRP-D0K1")).ids).toEqual([]);
+    expect((await ids("?mode=test&search=TRP-D0K1")).ids).toEqual(["stagingDirect"]);
+  });
+
+  it("an invalid mode is a 400 — never an unfiltered list", async () => {
+    for (const qs of ["?mode=Live", "?mode=", "?mode=both"]) {
+      const r = await ids(qs);
+      expect(r.status).toBe(400);
     }
     expect(db.log.filter((l) => l.table === "bookings")).toEqual([]);
   });

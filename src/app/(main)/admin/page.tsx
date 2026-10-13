@@ -223,7 +223,9 @@ export default function AdminDashboard() {
     async function fetchData() {
       try {
         const params = new URLSearchParams();
-        const bookingParams = new URLSearchParams({ limit: "5" });
+        // Live bookings, like the stat cards above (/api/admin/stats excludes test
+        // rows on every deployment) — the list's own default follows the Stripe key.
+        const bookingParams = new URLSearchParams({ limit: "5", mode: "live" });
 
         // Date range filtering
         if (dateRange !== "all") {

@@ -129,6 +129,9 @@ const inventoryLabel = (b: Pick<Booking, "inventory_source">) =>
   b.inventory_source === "direct" ? "Triply lot" : "ResLab";
 
 type InventoryFilter = "all" | "reslab" | "direct";
+/** Live vs test bookings (staging and production share one database). */
+type ModeFilter = "live" | "test" | "all";
+const asModeFilter = (v: unknown): ModeFilter | null => (v === "live" || v === "test" || v === "all" ? v : null);
 
 /** GET /api/admin/direct-bookings/action — what the direct-lot panel shows. */
 interface DirectLotInfo {
@@ -518,6 +521,14 @@ export default function AdminBookingsPage() {
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("all");
   const [inventory, setInventory] = useState<InventoryFilter>("all");
+  // null = the API's default (this deployment's own mode); `appliedMode` is what it applied.
+  const [mode, setMode] = useState<ModeFilter | null>(null);
+  const [appliedMode, setAppliedMode] = useState<ModeFilter | null>(null);
+  // A failed load is shown as an error, never as "No bookings found" or as the previous rows.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Only the latest request may update the list: switching filters quickly must not leave
+  // one mode's rows under another mode's label.
+  const fetchSeq = useRef(0);
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -619,6 +630,7 @@ export default function AdminBookingsPage() {
   }
 
   async function fetchBookings(page = 1) {
+    const seq = ++fetchSeq.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -632,6 +644,10 @@ export default function AdminBookingsPage() {
 
       if (inventory !== "all") {
         params.set("inventory", inventory);
+      }
+
+      if (mode) {
+        params.set("mode", mode);
       }
 
       if (search) {
@@ -666,22 +682,30 @@ export default function AdminBookingsPage() {
       }
 
       const res = await fetch(`/api/admin/bookings?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (seq !== fetchSeq.current) return;
 
       setBookings(data.bookings || []);
       setPagination(data.pagination);
       setSearchWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setAppliedMode(asModeFilter(data.mode));
+      setLoadError(null);
     } catch (error) {
+      if (seq !== fetchSeq.current) return;
       console.error("Failed to fetch bookings:", error);
+      setBookings([]);
+      setAppliedMode(null);
       setSearchWarnings([]);
+      setLoadError(`Bookings failed to load (${error instanceof Error ? error.message : "network error"}). Refresh to try again.`);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     fetchBookings(1);
-  }, [status, inventory, dateRange, customStartDate, customEndDate]);
+  }, [status, inventory, mode, dateRange, customStartDate, customEndDate]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -693,6 +717,7 @@ export default function AdminBookingsPage() {
   };
 
   const exportCSV = () => {
+    if (loadError || !appliedMode) return;
     const headers = [
       "Confirmation #",
       "Customer Name",
@@ -761,7 +786,8 @@ export default function AdminBookingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `triply-bookings-${new Date().toISOString().split("T")[0]}.csv`;
+    // The applied mode is in the name: a test-only export must never pass for real revenue.
+    a.download = `triply-bookings-${appliedMode}-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
   };
 
@@ -779,6 +805,12 @@ export default function AdminBookingsPage() {
             <p>
               <strong>Name/email search is unavailable right now</strong> — results below match only
               the confirmation number and lot name. Check Sentry.
+            </p>
+          )}
+          {searchWarnings.includes("mode_default_unknown") && (
+            <p>
+              <strong>This site&apos;s Stripe key wasn&apos;t recognised</strong> — showing live and test
+              bookings together. Check STRIPE_SECRET_KEY.
             </p>
           )}
           {searchWarnings.includes("customer_search_truncated") && (
@@ -828,6 +860,17 @@ export default function AdminBookingsPage() {
               <option value="all">All Inventory</option>
               <option value="reslab">ResLab</option>
               <option value="direct">Triply lots</option>
+            </select>
+            <select
+              value={mode ?? appliedMode ?? ""}
+              onChange={(e) => setMode(asModeFilter(e.target.value))}
+              aria-label="Live or test bookings"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none bg-white"
+            >
+              {!mode && !appliedMode && <option value="">{loading ? "Loading…" : "Default"}</option>}
+              <option value="live">Live bookings</option>
+              <option value="test">Test bookings</option>
+              <option value="all">Live + test</option>
             </select>
           </div>
 
@@ -887,7 +930,8 @@ export default function AdminBookingsPage() {
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            disabled={loading || !!loadError || !appliedMode}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={18} />
             Export CSV
@@ -901,9 +945,22 @@ export default function AdminBookingsPage() {
           <div className="p-8 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
           </div>
+        ) : loadError ? (
+          <div role="alert" className="p-8 text-center text-red-700">
+            {loadError}
+          </div>
         ) : bookings.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No bookings found
+            {appliedMode === "live" || appliedMode === "test" ? (
+              <>
+                No {appliedMode} bookings found.{" "}
+                <button type="button" onClick={() => setMode("all")} className="text-brand-orange underline">
+                  Look in live + test
+                </button>
+              </>
+            ) : (
+              "No bookings found"
+            )}
           </div>
         ) : (
           <>
