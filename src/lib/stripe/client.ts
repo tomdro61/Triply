@@ -35,6 +35,14 @@ const MANUAL_CAPTURE_DISABLED = process.env.DISABLE_MANUAL_CAPTURE === "true";
  *
  * `card` includes Apple Pay and Google Pay (wallets are card payments). Adding
  * a method here needs a staging test of its whole flow first.
+ *
+ * NOT covered by this list: what LINK offers inside itself. Link turns on
+ * "Pay later with Klarna" and Instant Bank Payments (the "Bank — $5 back" tab)
+ * automatically; those are controlled ONLY in Dashboard → Settings → Link. That
+ * is where the Klarna/Bank tabs seen on 2026-10-13 came from (the standalone
+ * Klarna and ACH rows were already Disabled). Link payments confirm instantly
+ * whatever funds them, so they are safe for authorize → book → capture; Klarna
+ * on Link is switched off there by policy (runbook: no buy-now-pay-later).
  */
 export const CHECKOUT_PAYMENT_METHOD_TYPES = ["card", "link"] as const;
 
