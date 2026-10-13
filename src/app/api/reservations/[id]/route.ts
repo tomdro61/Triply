@@ -135,7 +135,10 @@ export async function GET(
       // A booking a signed-in customer made FOR someone else is filed under the
       // booker's customers row, while the confirmation went to the address typed
       // at checkout — the recipient (signed in with that verified address) owns it too.
-      if (booking && !ownsByUserId && !ownsByEmail && verifiedEmail) {
+      // Admins see every booking: work that out first, so an admin never waits on
+      // (or is failed by) a staged read whose answer can't change the outcome.
+      const isAdmin = isAdminEmail(user.email);
+      if (booking && !ownsByUserId && !ownsByEmail && verifiedEmail && !isAdmin) {
         const staged = await readStagedGuestResult(
           adminClient,
           (booking as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id,
@@ -148,8 +151,7 @@ export async function GET(
       }
 
       if (!booking || (!ownsByUserId && !ownsByEmail)) {
-        // Check if user is admin
-        if (!isAdminEmail(user.email)) {
+        if (!isAdmin) {
           return NextResponse.json(
             { error: "Not authorized to view this reservation" },
             { status: 403 }

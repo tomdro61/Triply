@@ -488,6 +488,16 @@ describe("direct booking", () => {
       expect((await call(TRP)).status).toBe(403);
     });
 
+    it("an admin viewing someone else's booking never depends on the staged read (a failing read is not a 500)", async () => {
+      h.state.authRow = withPi(ACCOUNT);
+      h.state.detailRow = { data: row(), error: null };
+      h.state.pendingRow = { data: null, error: { message: "timeout" } };
+      h.state.user = { id: "u_admin", email: "tom@triplypro.com", email_confirmed_at: "2026-01-01T00:00:00Z" };
+      expect((await call(TRP)).status).toBe(200);
+      // Only the page's guest read ran (and failed → customers row); none for the access check.
+      expect(h.state.pendingEq).toHaveLength(1);
+    });
+
     it("the account holder's own email still works without reading the staged row", async () => {
       h.state.authRow = withPi(EMAIL);
       h.state.detailRow = { data: row(), error: null };
