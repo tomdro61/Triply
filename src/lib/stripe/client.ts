@@ -24,6 +24,29 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
 const MANUAL_CAPTURE_DISABLED = process.env.DISABLE_MANUAL_CAPTURE === "true";
 
 /**
+ * The ONLY payment methods checkout offers — set in code, never left to the
+ * Stripe Dashboard. The booking engine authorizes, books, then captures, which
+ * is only safe for methods that confirm instantly (runbook § "only instant
+ * methods"). Klarna and other buy-now-pay-later methods redirect away; bank
+ * debits can sit `processing` for days. Tom turned those off in the Dashboard on
+ * 2026-07-06, yet on 2026-10-13 production checkout offered Klarna and a "Bank"
+ * tab again — `automatic_payment_methods` shows whatever the Dashboard has on,
+ * so the toggle drifted with nothing to notice it.
+ *
+ * `card` includes Apple Pay and Google Pay (wallets are card payments). Adding
+ * a method here needs a staging test of its whole flow first.
+ *
+ * NOT covered by this list: what LINK offers inside itself. Link turns on
+ * "Pay later with Klarna" and Instant Bank Payments (the "Bank — $5 back" tab)
+ * automatically; those are controlled ONLY in Dashboard → Settings → Link. That
+ * is where the Klarna/Bank tabs seen on 2026-10-13 came from (the standalone
+ * Klarna and ACH rows were already Disabled). Link payments confirm instantly
+ * whatever funds them, so they are safe for authorize → book → capture; Klarna
+ * on Link is switched off there by policy (runbook: no buy-now-pay-later).
+ */
+export const CHECKOUT_PAYMENT_METHOD_TYPES = ["card", "link"] as const;
+
+/**
  * Create a PaymentIntent for a booking.
  *
  * CARDS ARE AUTHORIZED, NOT CHARGED. `payment_method_options.card.capture_method`
@@ -36,11 +59,10 @@ const MANUAL_CAPTURE_DISABLED = process.env.DISABLE_MANUAL_CAPTURE === "true";
  * Scoped to CARD rather than set top-level, deliberately:
  *   - Cards are where the orphan charges come from (3-D Secure redirects), so
  *     they get the full guarantee.
- *   - Link and the wallets keep their current behaviour exactly, with no
- *     rendering or compatibility risk on channels that are working today. They
- *     auto-capture, so their teardown is a refund rather than a cancelled hold —
- *     the engine handles both. Widening to a top-level manual capture is a
- *     follow-up, gated on testing each wallet in a real browser.
+ *   - Apple Pay and Google Pay are card payments (`card.wallet`), so this
+ *     option applies to them too.
+ *   - Link (its own type) keeps automatic capture, so its teardown is a refund
+ *     rather than a cancelled hold — the engine handles both.
  *
  * NOTE: with this option the PaymentIntent's TOP-LEVEL `capture_method` still
  * reads "automatic_async" even for a card that lands in `requires_capture`.
@@ -53,7 +75,7 @@ export async function createPaymentIntent(
   return stripe.paymentIntents.create({
     amount: Math.round(amount * 100), // Convert to cents
     currency: "usd",
-    automatic_payment_methods: { enabled: true },
+    payment_method_types: [...CHECKOUT_PAYMENT_METHOD_TYPES],
     ...(MANUAL_CAPTURE_DISABLED
       ? {}
       : { payment_method_options: { card: { capture_method: "manual" as const } } }),
