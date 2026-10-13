@@ -2417,9 +2417,15 @@ async function unclaimCustomerEmail(piId: string): Promise<void> {
   }
 }
 
-/** Claim, send, and hand the claim back if the send did not go (F-1). */
+/**
+ * Claim, send, and hand the claim back if the send did not go (F-1). A claim
+ * that errored is "failed" (nothing sent, a database fault — reported), never
+ * "not_claimed", which means someone else holds it or it already went.
+ */
 async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<"sent" | "not_claimed" | "failed"> {
-  if ((await claimCustomerEmail(piId)) !== "claimed") return "not_claimed";
+  const claim = await claimCustomerEmail(piId);
+  if (claim === "error") return "failed";
+  if (claim === "taken") return "not_claimed";
   if (await send()) return "sent";
   await unclaimCustomerEmail(piId);
   return "failed";
@@ -2534,13 +2540,37 @@ function heldByLiveFulfilment(row: PendingRow | null): boolean {
   );
 }
 
+/** The customer confirmation's part in a direct re-drive. */
+export type CustomerEmailOutcome =
+  /** Sent now (it had not gone before). */
+  | "sent"
+  /** Someone else holds the email claim (it is being sent elsewhere). */
+  | "not_claimed"
+  /** The claim or the send failed; nothing confirmed sent — the sweep tries again. */
+  | "failed"
+  /** It had already gone; not sent again. */
+  | "already_sent";
+
+/** Why a direct re-drive attempted nothing. */
+export type DirectRedriveSkipReason =
+  | "not_direct"
+  | "refunded"
+  | "held"
+  | "no_number"
+  | "unreadable"
+  | "not_confirmed"
+  | "mid_cancel";
+
 /**
  * What a direct re-drive did (6b): the sweep ignores it; the admin "Retry lot
- * notice" action shows it. `skipped` says why nothing was attempted.
+ * notice" action shows it. `skipped` says why nothing was attempted; `error`
+ * is an unexpected throw, which can land AFTER the lot notice was attempted —
+ * so it never claims "nothing sent".
  */
 export type DirectRedriveResult =
-  | { kind: "attempted"; notice: LotNoticeOutcome; customerEmail: "sent" | "not_claimed" | "failed" | "already_sent" }
-  | { kind: "skipped"; reason: "not_direct" | "refunded" | "held" | "no_number" | "unreadable" | "not_confirmed" | "mid_cancel" | "error" };
+  | { kind: "attempted"; notice: LotNoticeOutcome; customerEmail: CustomerEmailOutcome }
+  | { kind: "skipped"; reason: DirectRedriveSkipReason }
+  | { kind: "error" };
 
 /**
  * Step 3 for a DIRECT booking that already exists (§9 H-B): a function that
@@ -2597,7 +2627,7 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
     const storedAt = Date.parse(booked.created_at);
     const urgent = stalenessFor(dp, pi, Number.isFinite(storedAt) ? storedAt : Date.now()).kind === "late";
     const notice = await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
-    const customerEmail = row.email_sent
+    const customerEmail: CustomerEmailOutcome = row.email_sent
       ? "already_sent"
       : await sendCustomerEmailOnce(piId, () =>
           sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
@@ -2608,17 +2638,18 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
       new Error(`Direct re-send for ${piId} failed: ${err instanceof Error ? err.message : String(err)}`),
       { step: "checkout", inventorySource: "direct" }
     );
-    return { kind: "skipped", reason: "error" };
+    return { kind: "error" };
   }
 }
 
 /**
- * The sweep's direct backstop (4b plan §9 H-B): re-run ONLY the outstanding
- * sends for an existing direct booking — not the whole engine, whose refund
- * gate (Step 1) would skip a booking that merely had a partial goodwill
- * refund and is still `confirmed`. Leaves a booking whose main path still
- * holds a fresh claim alone. Throws on a Stripe or database read failure (the
- * sweep counts and reports it).
+ * The sweep's direct backstop (4b plan §9 H-B), and the admin "Retry lot
+ * notice" action (6b §6): re-run ONLY the outstanding sends for an existing
+ * direct booking — not the whole engine, whose refund gate (Step 1) would
+ * skip a booking that merely had a partial goodwill refund and is still
+ * `confirmed`. Leaves a booking whose main path still holds a fresh claim
+ * alone. Throws on a Stripe or database read failure before anything is sent
+ * (the sweep counts and reports it; the admin route answers 502).
  */
 export async function redriveDirectBookingSends(piId: string): Promise<DirectRedriveResult> {
   const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
@@ -2634,16 +2665,7 @@ export async function redriveDirectBookingSends(piId: string): Promise<DirectRed
   return redriveDirectSends(pi, row);
 }
 
-/**
- * Everything the admin "Re-send customer confirmation" action (6b §6) needs to
- * rebuild a DIRECT booking's confirmation email — the same view the re-drive
- * builds (`redriveDirectSends`), without sending anything or touching the
- * `email_sent` claim. The Stripe mode is checked from the staged row BEFORE the
- * PaymentIntent is retrieved: the other environment's key cannot read it (a
- * 404), and the booking belongs to that environment's admin anyway.
- * `ok: false` names why nothing can be re-sent; a Stripe or database READ
- * failure throws (the caller answers 5xx — "try again", never "nothing to send").
- */
+/** What `buildDirectResendView` returns: the email's inputs, or why nothing can be re-sent. */
 export type DirectResendView =
   | {
       ok: true;
@@ -2655,9 +2677,21 @@ export type DirectResendView =
     }
   | {
       ok: false;
-      reason: "no_row" | "other_mode" | "no_number" | "not_direct" | "refunded" | "unreadable" | "not_confirmed" | "mid_cancel";
+      reason: "no_row" | "other_mode" | "no_number" | "not_direct" | "refunded" | "unreadable" | "not_confirmed" | "mid_cancel" | "unsent";
     };
 
+/**
+ * Everything the admin "Re-send customer confirmation" action (6b §6) needs to
+ * rebuild a DIRECT booking's confirmation email — the same view the re-drive
+ * builds (`redriveDirectSends`), without sending anything or touching the
+ * `email_sent` claim. The Stripe mode is checked from the staged row BEFORE the
+ * PaymentIntent is retrieved: the other environment's key cannot read it (a
+ * 404), and the booking belongs to that environment's admin anyway.
+ * `ok: false` names why nothing can be re-sent — `unsent` when the original
+ * confirmation hasn't gone yet (the checkout/re-drive path still owns it and
+ * retries it; a re-send would race it); a Stripe or database READ failure
+ * throws (the caller answers 5xx — "try again", never "nothing to send").
+ */
 export async function buildDirectResendView(piId: string): Promise<DirectResendView> {
   const row = await readPendingRow(piId);
   if (!row) return { ok: false, reason: "no_row" };
@@ -2703,6 +2737,7 @@ export async function buildDirectResendView(piId: string): Promise<DirectResendV
   };
   if (booked.status !== "confirmed") return { ok: false, reason: "not_confirmed" };
   if (booked.cancel_state || booked.cancel_claimed_at) return { ok: false, reason: "mid_cancel" };
+  if (!row.email_sent) return { ok: false, reason: "unsent" };
   return {
     ok: true,
     dp: view.dp,

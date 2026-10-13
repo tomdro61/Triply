@@ -30,39 +30,62 @@ import { renderManifest, renderFollowUpCancel, type RenderedEmail } from "./rend
  * The evening manifest's send-once state machine (6b plan §3.4–§3.5).
  *
  * One `direct_lot_manifest_runs` row per (lot, date, Stripe mode, recipient
- * set). Every status write is a compare-and-set on (attempt, status,
- * claimed_at) — `claimed_at` is the lease: a fresh claim or a takeover writes
- * a new one, and a writer whose lease moved on matches no row and stops.
+ * set). Every write is a compare-and-set on the lease (attempt, status,
+ * claimed_at, had_unknown) — a fresh claim or a takeover writes a new
+ * `claimed_at`, and a writer whose lease moved on matches no row and stops.
+ *
+ * `had_unknown` is the SEND-STARTED marker: it is written true (together with
+ * the re-checked list) immediately BEFORE an attempt is handed to Resend, and
+ * stays true when the outcome is unknown. Once true the attempt may have been
+ * delivered, so the run never moves to a new idempotency key and its follow-up
+ * cancels always run. Only a definite refusal of the request that set it
+ * clears it (→ `failed`); a deliberate force starts a new attempt with it
+ * false. A stale `sending` run with had_unknown = false never reached Resend.
  *
  *   1 claim     INSERT `sending`. 23505 → `sent` (follow up) / `checked` skip;
  *               fresh `sending` skip; stale `sending` (5 min) take over, SAME
- *               attempt; `failed` (no unknown, before the cutoff) attempt + 1.
+ *               attempt; `failed` (never possibly delivered) attempt + 1.
  *   2 re-check  before EVERY send, takeovers too: re-read the run's ids, drop
- *               any no longer listed, CAS the trimmed list into booking_ids and
- *               union it into ids_ever (everything the run may have sent).
- *   3 send      key direct-lot-manifest/{lot}/{date}/{live|test}/{hash}/{attempt}.
- *               Unknown → had_unknown, stay `sending` (the next takeover
- *               repeats the same key). `invalid_idempotent_request` = an earlier
- *               request with this key was ACCEPTED. Definite failure → `failed`,
- *               or stay `sending` once anything was unknown (never a new key).
- *   4 accepted  → `sent`.
- *   5 follow-up only once no more sends can happen (`sent`, or a stale
- *               `sending` past the cutoff): every id in ids_ever now cancelled
- *               gets a cancel reminder (once per booking per run, claimed in
- *               direct_lot_resends, ≤ 3 attempts then a `followup` alert); all
- *               done → `checked`.
- *   6 cutoff    no manifest send at/after 12:00 lot-local on the manifest date;
- *               a stale `sending` there counts as possibly delivered:
- *               had_unknown = true → step 5 → `checked`.
+ *               any no longer listed. Nothing left (or an empty-day reminder a
+ *               booking superseded) = no more sends: if anything may have been
+ *               delivered (had_unknown, or ids_ever non-empty) → step 5 then
+ *               `checked`; otherwise `failed` ("nothing_to_list:"/"superseded:").
+ *   3 marker    CAS had_unknown = true + the trimmed booking_ids + ids_ever ∪
+ *               trimmed (everything the run may have sent). If that write
+ *               fails, nothing is sent.
+ *   4 send      key direct-lot-manifest/{lot}/{date}/{live|test}/{hash}/{attempt}.
+ *               Accepted, or `invalid_idempotent_request` (an earlier request
+ *               with this key was ACCEPTED) → `sent`. Unknown → stays `sending`
+ *               (the takeover repeats the same key). Definite refusal → `failed`
+ *               with had_unknown cleared when THIS attempt set the marker;
+ *               otherwise stays `sending` (an earlier request may have landed).
+ *   5 follow-up only once no more sends can happen (`sent`, nothing left to
+ *               list, or a stale `sending` past the cutoff): every id in
+ *               ids_ever now cancelled gets a cancel reminder (claimed once per
+ *               booking per run in direct_lot_resends; ≤ 3 attempts, each its
+ *               own key — the lot can get up to 3 copies — then a `followup`
+ *               alert; a gave-up booking counts as done only once that alert
+ *               row is written). All done → `checked`.
+ *   6 cutoff    no MANIFEST send at/after 12:00 lot-local on the manifest date
+ *               (follow-up cancels still go); a stale `sending` there counts as
+ *               possibly delivered: had_unknown = true → step 5 → `checked`.
  *
- * Recovery (takeovers, follow-ups, cutoff) runs every tick regardless of the
- * send window and of DIRECT_LOT_MANIFEST_DISABLED; the kill switch stops NEW
- * manifests (claims, attempt + 1, force) only.
+ * Recovery runs every tick, at any hour. Already-sent work needs no lot zone:
+ * `sent` runs (manifest dates up to 3 days back) get their follow-ups, and a
+ * takeover whose re-check leaves nothing closes through step 5; only a send
+ * and the cutoff need the zone.
  *
- * Terminal markers for the alerts cron: a run checked at the cutoff without a
- * confirmed send has `sent_at IS NULL` (had_unknown = true); a `failed` run
- * whose last_error starts "nothing_to_list:" or "superseded:" sent nothing
- * because nothing was left to list (all cancelled / the lot got a booking).
+ * DIRECT_LOT_MANIFEST_DISABLED stops every manifest that has not reached
+ * Resend: no claims, no attempt + 1, no force, and a stale `sending` run with
+ * had_unknown = false is closed `failed` ("kill switch: not sent"). A run that
+ * may already have been delivered (had_unknown = true) is still retried under
+ * its SAME key (Resend answers it without a second email), and follow-ups run.
+ *
+ * Terminal markers for the alerts cron: a run checked without a confirmed send
+ * has `sent_at IS NULL` (had_unknown = true); last_error starting
+ * "nothing_to_list:" or "superseded:" means nothing was left to list (all
+ * cancelled / the lot got a booking) — on a `failed` run nothing was ever
+ * sent; "kill switch: not sent" is a manifest the kill switch stopped.
  *
  * No PII leaves this module except in the emails themselves: Sentry messages,
  * alert details and last_error carry lot ids, dates and TRP numbers only.
@@ -79,17 +102,23 @@ export const MANIFEST_SEND_TIMEOUT_MS = 10_000;
 /** A send is started only with this much budget left: the send itself plus its DB writes. */
 const SEND_RESERVE_MS = MANIFEST_SEND_TIMEOUT_MS + 4_000;
 export const MAX_FOLLOWUP_ATTEMPTS = 3;
+/** Recovery reads runs back to UTC today − this many days: a pending follow-up is never silently abandoned. */
+export const RECOVERY_DAYS = 3;
 const DB_TIMEOUT_MS = 3_000;
 const RECOVERY_LIMIT = 500;
 const dbSignal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
 const iso = () => new Date().toISOString();
 
 export const CUTOFF_REASON = "cutoff: no confirmed send by 12:00 lot time on the manifest date — treated as possibly delivered";
+export const NOTHING_TO_LIST_REASON = "nothing_to_list: every booking on the list was cancelled before the send";
+export const SUPERSEDED_REASON = "superseded: the lot has a booking for this date now; the empty-day reminder was not sent";
+export const KILL_SWITCH_REASON = "kill switch: not sent — DIRECT_LOT_MANIFEST_DISABLED stopped a manifest that never reached Resend";
 
 const RUN_COLS =
   "direct_lot_id, manifest_date, livemode, recipients_hash, status, attempt, claimed_at, had_unknown, booking_ids, ids_ever, recipients, test, first_sent_at, sent_at, email_id, last_error";
 
 export type RunStatus = "sending" | "sent" | "checked" | "failed";
+const RUN_STATUSES: readonly RunStatus[] = ["sending", "sent", "checked", "failed"];
 
 export interface RunRow {
   direct_lot_id: string;
@@ -99,6 +128,7 @@ export interface RunRow {
   status: RunStatus;
   attempt: number;
   claimed_at: string;
+  /** The send-started marker (see the header): true = an attempt may have been delivered. */
   had_unknown: boolean;
   booking_ids: string[];
   ids_ever: string[];
@@ -110,16 +140,137 @@ export interface RunRow {
   last_error: string | null;
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const isRunStatus = (v: unknown): v is RunStatus => RUN_STATUSES.some((s) => s === v);
+
+function stringArray(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out = v.filter((x): x is string => typeof x === "string");
+  return out.length === v.length ? out : null;
+}
+
+function nullableString(v: unknown): string | null | undefined {
+  if (v === null) return null;
+  return typeof v === "string" ? v : undefined;
+}
+
+/** A run row as read from the DB, or null when any column has the wrong shape (the caller reports it). */
+export function parseRunRow(v: unknown): RunRow | null {
+  if (!isRecord(v)) return null;
+  const booking_ids = stringArray(v.booking_ids);
+  const ids_ever = stringArray(v.ids_ever);
+  const recipients = stringArray(v.recipients);
+  const first_sent_at = nullableString(v.first_sent_at);
+  const sent_at = nullableString(v.sent_at);
+  const email_id = nullableString(v.email_id);
+  const last_error = nullableString(v.last_error);
+  const { direct_lot_id, manifest_date, livemode, recipients_hash, status, attempt, claimed_at, had_unknown, test } = v;
+  if (
+    typeof direct_lot_id !== "string" ||
+    typeof manifest_date !== "string" ||
+    typeof livemode !== "boolean" ||
+    typeof recipients_hash !== "string" ||
+    !isRunStatus(status) ||
+    typeof attempt !== "number" ||
+    !Number.isInteger(attempt) ||
+    attempt < 1 ||
+    typeof claimed_at !== "string" ||
+    typeof had_unknown !== "boolean" ||
+    typeof test !== "boolean" ||
+    !booking_ids ||
+    !ids_ever ||
+    !recipients ||
+    first_sent_at === undefined ||
+    sent_at === undefined ||
+    email_id === undefined ||
+    last_error === undefined
+  ) {
+    return null;
+  }
+  return {
+    direct_lot_id,
+    manifest_date,
+    livemode,
+    recipients_hash,
+    status,
+    attempt,
+    claimed_at,
+    had_unknown,
+    booking_ids,
+    ids_ever,
+    recipients,
+    test,
+    first_sent_at,
+    sent_at,
+    email_id,
+    last_error,
+  };
+}
+
 interface Lease {
   attempt: number;
   status: RunStatus;
   claimedAt: string;
+  hadUnknown: boolean;
 }
-const leaseOf = (run: RunRow): Lease => ({ attempt: run.attempt, status: run.status, claimedAt: run.claimed_at });
+const leaseOf = (run: RunRow): Lease => ({ attempt: run.attempt, status: run.status, claimedAt: run.claimed_at, hadUnknown: run.had_unknown });
 
-type RunPatch = Partial<Omit<RunRow, "direct_lot_id" | "manifest_date" | "livemode" | "recipients_hash">> & {
-  attempt_claimed_at?: string;
+/**
+ * Every write a run can get, by name. `casRun` takes only these, so a status
+ * change can't be assembled ad hoc somewhere else.
+ */
+const transition = {
+  /** A stale claim taken over: same attempt, new lease. */
+  takeover: () => ({ claimed_at: iso() }),
+  /** The send-started marker, with the re-checked list — written immediately before the attempt goes to Resend. */
+  sendStarted: (bookingIds: string[], idsEver: string[]) => ({ booking_ids: bookingIds, ids_ever: idsEver, had_unknown: true }),
+  sent: (firstSentAt: string | null, emailId: string | null) => {
+    const now = iso();
+    return { status: "sent" as const, sent_at: now, first_sent_at: firstSentAt ?? now, email_id: emailId, last_error: null };
+  },
+  /** Outcome unknown, or refused after an earlier request may have landed: stays `sending` under the same key. */
+  note: (detail: string) => ({ last_error: redact(detail) }),
+  /** Nothing was (or can have been) delivered by this run: refused first send, nothing left to list, kill switch. */
+  notSent: (reason: string) => ({ status: "failed" as const, had_unknown: false, last_error: redact(reason) }),
+  checked: () => ({ status: "checked" as const }),
+  /** No more sends can happen and an attempt may have been delivered; the follow-ups ran. */
+  closedWithoutSend: (reason: string) => ({ status: "checked" as const, had_unknown: true, last_error: redact(reason) }),
+  /** Past the cutoff: a stale claim counts as possibly delivered before its follow-ups run. */
+  cutoff: () => ({ claimed_at: iso(), had_unknown: true, last_error: CUTOFF_REASON }),
+  /** From `failed` (nothing delivered): attempt + 1 under a new key. had_unknown is already false (CHECK). */
+  nextAttempt: (run: RunRow, bookingIds: string[], to: { to: string[]; test: boolean }) => {
+    const now = iso();
+    return {
+      attempt: run.attempt + 1,
+      status: "sending" as const,
+      claimed_at: now,
+      attempt_claimed_at: now,
+      booking_ids: bookingIds,
+      last_error: null,
+      email_id: null,
+      recipients: to.to,
+      test: to.test,
+    };
+  },
+  /** A deliberate force (§3.5): attempt + 1, a fresh list; ids_ever keeps growing. */
+  forced: (run: RunRow, bookingIds: string[], to: { to: string[]; test: boolean }) => {
+    const now = iso();
+    return {
+      attempt: run.attempt + 1,
+      status: "sending" as const,
+      claimed_at: now,
+      attempt_claimed_at: now,
+      booking_ids: bookingIds,
+      had_unknown: false,
+      sent_at: null,
+      email_id: null,
+      last_error: null,
+      recipients: to.to,
+      test: to.test,
+    };
+  },
 };
+type RunPatch = ReturnType<(typeof transition)[keyof typeof transition]>;
 
 export type RunOutcome =
   | "sent"
@@ -127,6 +278,7 @@ export type RunOutcome =
   | "failed"
   | "checked"
   | "cutoff_checked"
+  | "closed_checked"
   | "followup_pending"
   | "already_done"
   | "in_flight"
@@ -134,6 +286,7 @@ export type RunOutcome =
   | "no_recipients"
   | "nothing_to_list"
   | "superseded"
+  | "kill_switch"
   | "out_of_budget"
   | "no_zone"
   | "not_forceable"
@@ -209,7 +362,9 @@ class Tick {
     readonly livemode: boolean,
     readonly nowMs: number,
     readonly deadlineMs: number,
-    readonly schedule: ManifestSchedule
+    readonly schedule: ManifestSchedule,
+    /** DIRECT_LOT_MANIFEST_DISABLED: nothing that has not reached Resend is sent. */
+    readonly disabled: boolean
   ) {}
 
   count(o: RunOutcome) {
@@ -282,14 +437,22 @@ async function casRun(t: Tick, run: RunRow, lease: Lease, patch: RunPatch): Prom
     .eq("attempt", lease.attempt)
     .eq("status", lease.status)
     .eq("claimed_at", lease.claimedAt)
+    .eq("had_unknown", lease.hadUnknown)
     .select(RUN_COLS)
     .abortSignal(dbSignal())
     .maybeSingle();
+  const label = `${run.direct_lot_id} ${run.manifest_date} ${run.recipients_hash}`;
   if (error) {
-    t.dbError("run update", `${run.direct_lot_id} ${run.manifest_date} ${run.recipients_hash}: ${error.code ?? "?"} ${error.message}`);
+    t.dbError("run update", `${label}: ${error.code ?? "?"} ${error.message}`);
     return { kind: "error" };
   }
-  return data ? { kind: "ok", run: data as RunRow } : { kind: "lost" };
+  if (!data) return { kind: "lost" };
+  const parsed = parseRunRow(data);
+  if (!parsed) {
+    t.dbError("run parse", `${label}: the updated row did not parse`);
+    return { kind: "error" };
+  }
+  return { kind: "ok", run: parsed };
 }
 
 const casOutcome = (r: CasResult, ok: RunOutcome): RunOutcome => (r.kind === "ok" ? ok : r.kind === "lost" ? "lost_lease" : "error");
@@ -308,7 +471,13 @@ async function readRun(t: Tick, lotId: string, date: string, hash: string): Prom
     t.dbError("run read", `${lotId} ${date} ${hash}: ${error.code ?? "?"} ${error.message}`);
     return "error";
   }
-  return (data as RunRow | null) ?? null;
+  if (data == null) return null;
+  const parsed = parseRunRow(data);
+  if (!parsed) {
+    t.dbError("run parse", `${lotId} ${date} ${hash}: the row did not parse`);
+    return "error";
+  }
+  return parsed;
 }
 
 const isStale = (run: RunRow, nowMs: number) => {
@@ -342,94 +511,108 @@ function lotNameFor(t: Tick, lotId: string, rows: ManifestRow[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Steps 2–4: re-check, send, record
+// Steps 2–4: re-check, marker, send, record
 
-async function attemptSend(t: Tick, run: RunRow, zone: string): Promise<RunOutcome> {
+/**
+ * Re-check, then send this run's current attempt. `zone` is needed only for an
+ * actual send (the email's "as of" time); the no-more-sends exits run without it.
+ */
+async function attemptSend(t: Tick, run: RunRow, zone: string | null): Promise<RunOutcome> {
   if (!t.hasSendBudget()) return "out_of_budget"; // the claim goes stale and the next tick takes it over
   const lotId = run.direct_lot_id;
   const date = run.manifest_date;
   // Only an empty-day claim (or attempt) is ever written with an empty list: a
-  // booked run whose re-check leaves nothing returns below without a CAS.
+  // booked run whose re-check leaves nothing closes below without a send.
   const emptyDay = run.booking_ids.length === 0;
   let rows: ManifestRow[] = [];
   try {
     if (emptyDay) {
       // An empty-day reminder never goes to a lot that has a booking that day, listed or not.
-      if (await lotHasConfirmedBookingOn(t.sb, t.livemode, lotId, date)) {
-        const reason = "superseded: the lot has a booking for this date now; the empty-day reminder was not sent";
-        if (run.had_unknown) return finishWithoutSend(t, run, reason);
-        return casOutcome(await casRun(t, run, leaseOf(run), { status: "failed", last_error: reason }), "superseded");
-      }
+      if (await lotHasConfirmedBookingOn(t.sb, t.livemode, lotId, date)) return noMoreSends(t, run, SUPERSEDED_REASON, "superseded");
     } else {
       rows = await recheckManifestRows(t.sb, t.livemode, lotId, date, run.booking_ids);
-      if (rows.length === 0) {
-        // The list only ever shrinks, so no send can happen for this run any more.
-        const reason = "nothing_to_list: every booking on the list was cancelled before the send";
-        if (run.had_unknown) return finishWithoutSend(t, run, reason);
-        return casOutcome(await casRun(t, run, leaseOf(run), { status: "failed", last_error: reason }), "nothing_to_list");
-      }
+      // The list only ever shrinks, so no send can happen for this run any more.
+      if (rows.length === 0) return noMoreSends(t, run, NOTHING_TO_LIST_REASON, "nothing_to_list");
     }
   } catch (err) {
     t.dbError("re-check", `${lotId} ${date}: ${err instanceof Error ? err.message : String(err)}`);
     return "error"; // the claim stays; a takeover repeats this attempt
   }
 
-  const trimmed = rows.map((r) => r.bookingId);
-  const recheck = await casRun(t, run, leaseOf(run), {
-    booking_ids: trimmed,
-    ids_ever: [...new Set([...run.ids_ever, ...trimmed])],
-  });
-  if (recheck.kind !== "ok") return casOutcome(recheck, "error");
-  const current = recheck.run;
-
+  if (!zone) {
+    report(["no-zone", lotId], `Direct lot manifest: no agreed zone for lot ${lotId}; run ${date} ${run.recipients_hash} not sent this tick`, "warning");
+    return "no_zone";
+  }
+  for (const r of rows) {
+    if (r.guestMissing) report(["guest-missing", r.number], `Direct lot manifest: booking ${r.number} (lot ${lotId}, ${date}) has no guest name or phone in the checkout payload or the customers row — listed with a placeholder`, "warning");
+  }
   const email = renderManifest({
     lotName: lotNameFor(t, lotId, rows),
     manifestDate: date,
     rows,
     asOfMinutes: lotWallClock(zone, t.nowMs).localMinutes,
-    test: current.test,
+    test: run.test,
   });
+  if (!t.hasSendBudget()) return "out_of_budget"; // before the marker: nothing is handed to Resend
+
+  // The send-started marker. From here on this attempt may be delivered: no
+  // marker, no send.
+  const wasUnknown = run.had_unknown;
+  const trimmed = rows.map((r) => r.bookingId);
+  const marked = await casRun(t, run, leaseOf(run), transition.sendStarted(trimmed, [...new Set([...run.ids_ever, ...trimmed])]));
+  if (marked.kind !== "ok") return marked.kind === "lost" ? "lost_lease" : "error";
+  const current = marked.run;
+
   const key = `direct-lot-manifest/${lotId}/${date}/${current.livemode ? "live" : "test"}/${current.recipients_hash}/${current.attempt}`;
   const result = await sendEmail(current.recipients, email, key);
   const label = `lot ${lotId} ${date} set ${current.recipients_hash} attempt ${current.attempt}`;
 
   if (result.kind === "accepted") {
-    const now = iso();
-    const marked = await casRun(t, current, leaseOf(current), {
-      status: "sent",
-      sent_at: now,
-      first_sent_at: current.first_sent_at ?? now,
-      email_id: result.emailId,
-      last_error: null,
-    });
-    if (marked.kind !== "ok") {
-      // Delivered, not recorded: the claim stays `sending`, and the takeover
-      // repeats the SAME key — Resend answers it without a second email.
-      report(["unrecorded", lotId], `Direct lot manifest ${label}: accepted by Resend but not marked sent (${marked.kind}); a takeover repeats the same key`, "error");
-      return marked.kind === "lost" ? "lost_lease" : "error";
+    const marked2 = await casRun(t, current, leaseOf(current), transition.sent(current.first_sent_at, result.emailId));
+    if (marked2.kind !== "ok") {
+      // Delivered, not recorded: the claim stays `sending` with the marker set,
+      // and the takeover repeats the SAME key — Resend answers it without a
+      // second email (or, if every booking is cancelled by then, follows up).
+      report(["unrecorded", lotId], `Direct lot manifest ${label}: accepted by Resend but not marked sent (${marked2.kind}); a takeover repeats the same key`, "error");
+      return marked2.kind === "lost" ? "lost_lease" : "error";
     }
-    t.count(await followUpAndCheck(t, marked.run, "sent"));
+    t.count(await followUpAndCheck(t, marked2.run, null));
     return "sent";
   }
   if (result.kind === "unknown") {
     report(["unknown", lotId], `Direct lot manifest ${label}: outcome unknown (${result.detail}); stays sending, the takeover repeats the same key`, "warning");
-    return casOutcome(await casRun(t, current, leaseOf(current), { had_unknown: true, last_error: redact(result.detail) }), "unknown");
+    return casOutcome(await casRun(t, current, leaseOf(current), transition.note(result.detail)), "unknown");
   }
   report(["failed", lotId], `Direct lot manifest ${label}: send failed (${result.detail})`, "error");
-  // Once an attempt was unknown the run never moves to a new key: it stays `sending` and is retried as is.
-  const patch: RunPatch = current.had_unknown ? { last_error: redact(result.detail) } : { status: "failed", last_error: redact(result.detail) };
-  return casOutcome(await casRun(t, current, leaseOf(current), patch), "failed");
+  if (!wasUnknown) {
+    // The only request under this key was definitely refused: nothing was
+    // delivered, so the next tick may start attempt + 1 under a new key.
+    return casOutcome(await casRun(t, current, leaseOf(current), transition.notSent(result.detail)), "failed");
+  }
+  // An earlier request under this key may have been delivered: stay `sending`, never a new key.
+  return casOutcome(await casRun(t, current, leaseOf(current), transition.note(result.detail)), "failed");
 }
 
-/** No more sends can happen and an earlier attempt may have delivered: follow up, then `checked`. */
-function finishWithoutSend(t: Tick, run: RunRow, reason: string): Promise<RunOutcome> {
-  return followUpAndCheck(t, run, "no_more_sends", reason);
+/**
+ * Nothing left to send for this run. If any attempt may have been delivered
+ * (the marker, or an earlier list) the lot may hold a list naming bookings
+ * since cancelled: follow up, then `checked`. Otherwise nothing ever reached
+ * the lot: `failed` with the reason.
+ */
+async function noMoreSends(t: Tick, run: RunRow, reason: string, outcome: "nothing_to_list" | "superseded"): Promise<RunOutcome> {
+  if (run.had_unknown || run.ids_ever.length > 0) return followUpAndCheck(t, run, { reason, outcome: "closed_checked" });
+  return casOutcome(await casRun(t, run, leaseOf(run), transition.notSent(reason)), outcome);
 }
 
 // ---------------------------------------------------------------------------
 // Step 5: follow-up
 
-async function followUpAndCheck(t: Tick, run: RunRow, mode: "sent" | "no_more_sends", reason?: string): Promise<RunOutcome> {
+/**
+ * Follow up every booking in ids_ever that is now cancelled, then mark the run
+ * `checked`. `close` = null for a `sent` run; otherwise the run is closed
+ * without a confirmed send (reason + the outcome to count).
+ */
+async function followUpAndCheck(t: Tick, run: RunRow, close: { reason: string; outcome: "cutoff_checked" | "closed_checked" } | null): Promise<RunOutcome> {
   let rows: FollowUpRow[];
   try {
     rows = await readFollowUpRows(t.sb, run.ids_ever);
@@ -445,9 +628,8 @@ async function followUpAndCheck(t: Tick, run: RunRow, mode: "sent" | "no_more_se
     if (o !== "sent" && o !== "already_sent" && o !== "gave_up") done = false;
   }
   if (!done) return "followup_pending";
-  const patch: RunPatch =
-    mode === "sent" ? { status: "checked" } : { status: "checked", had_unknown: true, last_error: redact(reason ?? CUTOFF_REASON) };
-  return casOutcome(await casRun(t, run, leaseOf(run), patch), mode === "sent" ? "checked" : "cutoff_checked");
+  if (!close) return casOutcome(await casRun(t, run, leaseOf(run), transition.checked()), "checked");
+  return casOutcome(await casRun(t, run, leaseOf(run), transition.closedWithoutSend(close.reason)), close.outcome);
 }
 
 interface ResendRow {
@@ -457,6 +639,7 @@ interface ResendRow {
   updated_at: string;
 }
 
+/** One booking's follow-up cancel: ≤ MAX_FOLLOWUP_ATTEMPTS sends, each under its own key (so up to that many copies). */
 async function followUpOne(t: Tick, run: RunRow, row: FollowUpRow): Promise<FollowUpOutcome> {
   const source = `manifest:${run.direct_lot_id}:${run.manifest_date}:${run.recipients_hash}`;
   if (!row.piId) {
@@ -508,8 +691,8 @@ async function followUpOne(t: Tick, run: RunRow, row: FollowUpRow): Promise<Foll
     const updatedAt = Date.parse(e.updated_at);
     if (e.outcome === "sending" && !Number.isNaN(updatedAt) && updatedAt >= t.nowMs - STALE_RUN_MS) return "in_flight";
     if (e.attempts >= MAX_FOLLOWUP_ATTEMPTS) {
-      await raiseFollowUpAlert(t, run, row, source, e.attempts, `no confirmed send after ${e.attempts} attempts (last: ${e.outcome})`);
-      return "gave_up";
+      // Gave up — done only once the alert row exists; otherwise the next tick retries the alert write.
+      return (await raiseFollowUpAlert(t, run, row, e.attempts, `no confirmed send after ${e.attempts} attempts (last: ${e.outcome})`)) ? "gave_up" : "error";
     }
     const next = await t.sb
       .from(RESENDS_TABLE)
@@ -560,37 +743,48 @@ async function followUpOne(t: Tick, run: RunRow, row: FollowUpRow): Promise<Foll
   if (result.kind === "accepted") return "sent";
   report(["followup", row.bookingId], `Direct lot manifest follow-up for ${row.number} attempt ${attempt}: ${result.kind} (${result.detail})`, "warning");
   if (attempt >= MAX_FOLLOWUP_ATTEMPTS) {
-    await raiseFollowUpAlert(t, run, row, source, attempt, `no confirmed send after ${attempt} attempts (last: ${result.kind})`);
-    return "gave_up";
+    return (await raiseFollowUpAlert(t, run, row, attempt, `no confirmed send after ${attempt} attempts (last: ${result.kind})`)) ? "gave_up" : "error";
   }
   return result.kind;
 }
 
-async function raiseFollowUpAlert(t: Tick, run: RunRow, row: FollowUpRow, source: string, attempts: number, reason: string) {
+/**
+ * The follow-up gave up: a `followup` alert the alerts cron keeps open until a
+ * person resolves it or the stay ends. Returns whether the alert row was
+ * written. Detail carries no PII: TRP number, lot, date, stay end, reason.
+ */
+async function raiseFollowUpAlert(t: Tick, run: RunRow, row: FollowUpRow, attempts: number, reason: string): Promise<boolean> {
   report(
     ["followup-gave-up", row.bookingId],
     `Direct lot manifest follow-up gave up: ${row.number} (lot ${run.direct_lot_id}, ${run.manifest_date}) — ${reason}`,
     "error"
   );
-  await upsertAlert(t, `${row.bookingId}:${source}`, "followup", {
+  return upsertAlert(t, `${row.bookingId}:manifest:${run.direct_lot_id}:${run.manifest_date}:${run.recipients_hash}`, "followup", {
+    trp: row.number,
     number: row.number,
     lotId: run.direct_lot_id,
     manifestDate: run.manifest_date,
+    stayEnds: row.toDate,
     attempts,
     reason: redact(reason),
   });
 }
 
-/** Writers touch ONLY last_seen_at + detail (first_seen_at defaults on insert; alerted_at is the alerts cron's). */
-async function upsertAlert(t: Tick, subject: string, kind: "lot_config" | "followup", detail: Record<string, string | number>) {
+/**
+ * Writers touch ONLY last_seen_at + detail (first_seen_at defaults on insert;
+ * alerted_at is the alerts cron's; resolved_* a person's). Returns whether the
+ * row was written; the caller counts a failure.
+ */
+async function upsertAlert(t: Tick, subject: string, kind: "lot_config" | "followup", detail: Record<string, string | number>): Promise<boolean> {
   const { error } = await t.sb
     .from(ALERTS_TABLE)
     .upsert({ subject, kind, livemode: t.livemode, last_seen_at: iso(), detail }, { onConflict: "subject,kind,livemode" })
     .abortSignal(dbSignal());
   if (error) {
-    t.errors++;
     t.dbError("alert write", `${kind} ${subject}: ${error.code ?? "?"} ${error.message}`);
+    return false;
   }
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -626,7 +820,14 @@ async function claimGroup(t: Tick, lotId: string, date: string, zone: string, gr
     .select(RUN_COLS)
     .abortSignal(dbSignal())
     .maybeSingle();
-  if (!ins.error && ins.data) return attemptSend(t, ins.data as RunRow, zone);
+  if (!ins.error && ins.data) {
+    const claimed = parseRunRow(ins.data);
+    if (!claimed) {
+      t.dbError("run parse", `${lotId} ${date} ${group.hash}: the claimed row did not parse`);
+      return "error";
+    }
+    return attemptSend(t, claimed, zone);
+  }
   if (ins.error && ins.error.code !== "23505") {
     t.dbError("run claim", `${lotId} ${date} ${group.hash}: ${ins.error.code ?? "?"} ${ins.error.message}`);
     return "error";
@@ -642,34 +843,29 @@ async function claimGroup(t: Tick, lotId: string, date: string, zone: string, gr
     case "checked":
       return "already_done";
     case "sent":
-      return followUpAndCheck(t, existing, "sent");
+      return followUpAndCheck(t, existing, null);
     case "sending": {
       if (!isStale(existing, t.nowMs)) return "in_flight";
-      const taken = await casRun(t, existing, leaseOf(existing), { claimed_at: iso() });
+      const taken = await casRun(t, existing, leaseOf(existing), transition.takeover());
       return taken.kind === "ok" ? attemptSend(t, taken.run, zone) : casOutcome(taken, "error");
     }
     case "failed": {
-      // A definite failure on every attempt so far: nothing was delivered, so a new key is safe.
+      // Every attempt so far was definitely not delivered (a `failed` run never
+      // has had_unknown — migration 042's CHECK), so a new key is safe.
       if (existing.had_unknown) return "already_done";
-      const now2 = iso();
-      const next = await casRun(t, existing, leaseOf(existing), {
-        attempt: existing.attempt + 1,
-        status: "sending",
-        claimed_at: now2,
-        attempt_claimed_at: now2,
-        booking_ids: ids,
-        last_error: null,
-        email_id: null,
-        recipients: to.to,
-        test: to.test,
-      });
+      const next = await casRun(t, existing, leaseOf(existing), transition.nextAttempt(existing, ids, to));
       return next.kind === "ok" ? attemptSend(t, next.run, zone) : casOutcome(next, "error");
+    }
+    default: {
+      const unreachable: never = existing.status;
+      t.dbError("run claim", `${lotId} ${date} ${group.hash}: unexpected status ${String(unreachable)}`);
+      return "error";
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Recovery: takeovers, follow-ups and the cutoff — every tick, any hour, kill switch or not
+// Recovery: sent runs, takeovers and the cutoff — every tick, any hour
 
 async function zoneForRun(t: Tick, run: RunRow): Promise<string | null> {
   const known = t.schedule.zones.get(run.direct_lot_id);
@@ -695,8 +891,8 @@ async function zoneForRun(t: Tick, run: RunRow): Promise<string | null> {
 }
 
 async function recover(t: Tick): Promise<void> {
-  // Wide enough for "manifest date ≥ lot-local today − 1" in every US zone; filtered per lot below.
-  const floor = shiftIsoDate(calendarDayIn("UTC", new Date(t.nowMs)), -2);
+  // Zone-free date bound (UTC today − 3 days): a `sent` run's follow-ups need no lot zone.
+  const floor = shiftIsoDate(calendarDayIn("UTC", new Date(t.nowMs)), -RECOVERY_DAYS);
   const { data, error } = await t.sb
     .from(MANIFEST_RUNS_TABLE)
     .select(RUN_COLS)
@@ -711,37 +907,48 @@ async function recover(t: Tick): Promise<void> {
     t.dbError("recovery read", `${error.code ?? "?"} ${error.message}`);
     return;
   }
-  for (const run of (data ?? []) as RunRow[]) {
+  for (const raw of data ?? []) {
+    const run = parseRunRow(raw);
+    if (!run) {
+      t.count("error");
+      t.dbError("run parse", "a recovery row did not parse");
+      continue;
+    }
     const key = runKey(run.direct_lot_id, run.manifest_date, run.livemode, run.recipients_hash);
     if (t.handled.has(key)) continue;
     t.handled.add(key);
-    const zone = await zoneForRun(t, run);
-    if (!zone) {
-      report(["no-zone", run.direct_lot_id], `Direct lot manifest: no agreed zone for lot ${run.direct_lot_id}; run ${run.manifest_date} ${run.recipients_hash} not recovered this tick`, "warning");
-      t.count("no_zone");
-      continue;
-    }
-    const { localDate, localMinutes } = lotWallClock(zone, t.nowMs);
-    if (run.manifest_date < shiftIsoDate(localDate, -1)) continue;
+
+    // Already sent: follow up, then `checked` — no zone, no window, no kill switch.
     if (run.status === "sent") {
-      t.count(await followUpAndCheck(t, run, "sent"));
+      t.count(await followUpAndCheck(t, run, null));
       continue;
     }
     if (!isStale(run, t.nowMs)) {
       t.count("in_flight");
       continue;
     }
-    if (pastCutoff(run.manifest_date, localDate, localMinutes)) {
-      // Possibly delivered: mark it so BEFORE the follow-up, then check it off.
-      const taken = await casRun(t, run, leaseOf(run), { claimed_at: iso(), had_unknown: true, last_error: CUTOFF_REASON });
-      t.count(taken.kind === "ok" ? await followUpAndCheck(t, taken.run, "no_more_sends", CUTOFF_REASON) : casOutcome(taken, "error"));
+    // Never reached Resend: under the kill switch it is not sent at all.
+    if (t.disabled && !run.had_unknown) {
+      t.count(casOutcome(await casRun(t, run, leaseOf(run), transition.notSent(KILL_SWITCH_REASON)), "kill_switch"));
       continue;
+    }
+    // The cutoff needs the lot's zone; without it the takeover can still close
+    // the run (nothing left to list) but never sends.
+    const zone = await zoneForRun(t, run);
+    if (zone) {
+      const { localDate, localMinutes } = lotWallClock(zone, t.nowMs);
+      if (pastCutoff(run.manifest_date, localDate, localMinutes)) {
+        // Possibly delivered: mark it so BEFORE the follow-up, then check it off.
+        const taken = await casRun(t, run, leaseOf(run), transition.cutoff());
+        t.count(taken.kind === "ok" ? await followUpAndCheck(t, taken.run, { reason: CUTOFF_REASON, outcome: "cutoff_checked" }) : casOutcome(taken, "error"));
+        continue;
+      }
     }
     if (!t.hasSendBudget()) {
       t.count("out_of_budget");
       continue;
     }
-    const taken = await casRun(t, run, leaseOf(run), { claimed_at: iso() });
+    const taken = await casRun(t, run, leaseOf(run), transition.takeover());
     t.count(taken.kind === "ok" ? await attemptSend(t, taken.run, zone) : casOutcome(taken, "error"));
   }
 }
@@ -766,7 +973,16 @@ async function forceRuns(t: Tick, lotId: string, date: string): Promise<{ refuse
     t.dbError("force read", `${lotId} ${date}: ${error.code ?? "?"} ${error.message}`);
     return { refused: "run read failed", status: 500, runs: [] };
   }
-  const runs = (data ?? []) as RunRow[];
+  const runs: RunRow[] = [];
+  for (const raw of data ?? []) {
+    const run = parseRunRow(raw);
+    if (!run) {
+      t.count("error");
+      t.dbError("run parse", `${lotId} ${date}: a force row did not parse`);
+      return { refused: "run read failed", status: 500, runs: [] };
+    }
+    runs.push(run);
+  }
   if (runs.length === 0) return { refused: "no manifest run for this lot and date", status: 404, runs: [] };
   let groups: ManifestGroup[];
   try {
@@ -801,21 +1017,8 @@ async function forceRuns(t: Tick, lotId: string, date: string): Promise<{ refuse
       record("out_of_budget");
       continue;
     }
-    const now = iso();
-    // A deliberate new attempt under a NEW key with a fresh list; ids_ever keeps growing.
-    const next = await casRun(t, run, leaseOf(run), {
-      attempt: run.attempt + 1,
-      status: "sending",
-      claimed_at: now,
-      attempt_claimed_at: now,
-      booking_ids: group.rows.map((r) => r.bookingId),
-      had_unknown: false,
-      sent_at: null,
-      email_id: null,
-      last_error: null,
-      recipients: to.to,
-      test: to.test,
-    });
+    // A deliberate new attempt under a NEW key with a fresh list; the marker adds it to ids_ever.
+    const next = await casRun(t, run, leaseOf(run), transition.forced(run, group.rows.map((r) => r.bookingId), to));
     record(next.kind === "ok" ? await attemptSend(t, next.run, zone) : casOutcome(next, "error"));
   }
   return { status: 200, runs: out };
@@ -831,7 +1034,12 @@ export interface ManifestCronOptions {
   /** Wall-clock (Date.now()) deadline; no send starts without SEND_RESERVE_MS left. */
   deadlineMs: number;
   dry: boolean;
-  /** DIRECT_LOT_MANIFEST_DISABLED: no NEW manifests (recovery and follow-ups still run). */
+  /**
+   * DIRECT_LOT_MANIFEST_DISABLED: nothing that has not reached Resend is sent
+   * (no claims, attempt + 1 or force; a never-sent stale run is closed
+   * `failed`). Possibly-delivered runs retry under their same key, and
+   * follow-ups run.
+   */
   disabled: boolean;
   /** `?lot&date` — with `force` a forced re-send (§3.5); with `dry` the preview target. */
   target: { lotId: string; date: string } | null;
@@ -853,7 +1061,7 @@ function mergeProblems(problems: LotProblem[]): LotProblem[] {
 export async function runManifestCron(opts: ManifestCronOptions): Promise<ManifestCronResult> {
   const { supabase, livemode, nowMs, deadlineMs, dry, disabled, target, force } = opts;
   const schedule = await readManifestSchedule(supabase, livemode, nowMs);
-  const t = new Tick(supabase, livemode, nowMs, deadlineMs, schedule);
+  const t = new Tick(supabase, livemode, nowMs, deadlineMs, schedule, disabled);
   const problems = mergeProblems(schedule.problems);
   const lots = schedule.lots.map((d) => ({
     lotId: d.lotId,
@@ -926,7 +1134,7 @@ export async function runManifestCron(opts: ManifestCronOptions): Promise<Manife
   }
 
   for (const p of problems) {
-    await upsertAlert(t, `${p.lotId}:${p.kind}`, "lot_config", { lotId: p.lotId, problem: p.kind, reason: redact(p.detail) });
+    if (!(await upsertAlert(t, `${p.lotId}:${p.kind}`, "lot_config", { lotId: p.lotId, problem: p.kind, reason: redact(p.detail) }))) t.errors++;
   }
 
   let forceResult: ManifestCronResult["force"];

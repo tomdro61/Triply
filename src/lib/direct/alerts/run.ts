@@ -3,47 +3,71 @@ import { postToDiscord } from "@/lib/digest/discord";
 import type { AdminClient } from "@/lib/direct/manifest/schedule";
 import {
   ALERTS_TABLE,
+  ALERT_KINDS,
+  OWNED_KINDS,
+  SCAN_KINDS,
   scanLotNotices,
   scanCancelNotices,
   scanManifests,
   scanConfigAlerts,
+  cap,
+  isOwnedKind,
   redact,
+  type AlertDetail,
   type AlertItem,
   type AlertKind,
   type AlertState,
   type ScanName,
   type ScanResult,
 } from "./scan";
-import { buildAlertMessages, alertLine, ALERTS_USERNAME, KIND_ORDER, type AlertMessage } from "./message";
+import { buildAlertMessages, alertLine, ALERTS_USERNAME, type AlertMessage } from "./message";
 
 /**
  * One tick of the direct-lot alerts cron (6b plan §5).
  *
  *   1 scan     four scans in parallel (scan.ts); one that fails is reported,
  *              counted, and the others still run.
- *   2 record   every item this cron owns is upserted — ONLY last_seen_at and
- *              detail, so first_seen_at (insert default) and alerted_at are
- *              never reset. lot_config / followup rows are the manifest cron's.
- *   3 due      alerted_at NULL (and first_seen_at past the item's grace), or
- *              alerted_at older than 1 h (URGENT) / 6 h (others), or the item
- *              just turned URGENT. The condition still holds: it was found now.
- *   4 Sentry   every due URGENT item → an error fingerprinted per item + kind
+ *   2 state    the alert row of every item this cron owns (lot_notice,
+ *              cancel_notice, manifest). An item whose row a person resolved
+ *              (`resolved_at`) is closed and dropped; then each kind is capped.
+ *              A row not seen for EPISODE_GAP_MS is a new episode: treated as
+ *              never alerted, and its first_seen_at reset (compare-and-set on
+ *              the last_seen_at read). If the read fails, every item is treated
+ *              as never alerted: lot_notice, manifest and phone-the-lot items
+ *              post now; a told-lot cancel waits its grace.
+ *   3 record   every shown item this cron owns is upserted — ONLY last_seen_at
+ *              and detail, so first_seen_at (insert default) and alerted_at are
+ *              never reset here. lot_config / followup rows are the manifest
+ *              cron's.
+ *   4 due      not alerted this episode (and first_seen_at past the item's
+ *              grace), or alerted ≥ 1 h ago (URGENT) / 6 h (others), or URGENT
+ *              now but not on the last post Discord accepted. The condition
+ *              still holds: it was found now.
+ *   5 Sentry   every due URGENT item → an error fingerprinted per item + kind
  *              (a new issue = Sentry's real-time email), whatever Discord does.
- *   5 post     one Discord message (split only past Discord's limits), URGENT
- *              first; alerted_at is set ONLY for the items of a post Discord
- *              accepted, so a failed post re-alerts on the next tick.
+ *   6 post     one Discord message (split only past Discord's limits), URGENT
+ *              first; alerted_at (= this tick's time) and detail.alertedUrgent
+ *              are written ONLY for the items of a post Discord accepted, so a
+ *              failed post re-alerts on the next tick and never uses up an
+ *              URGENT escalation.
  *
  * `dry` reads and renders only: no row written, nothing posted, no Sentry event.
  */
 
 export const URGENT_REALERT_MS = 3_600_000;
 export const REALERT_MS = 6 * 3_600_000;
+/**
+ * An owned row whose last_seen_at is older than this was missed by at least
+ * two ticks (`*\/10`; one skipped tick — a notice mid-send — is 20 min): the
+ * problem went away and came back, a new episode.
+ */
+export const EPISODE_GAP_MS = 25 * 60_000;
 /** No more upserts start with less than this left: the post (8 s + one retry) needs the rest. */
 const POST_RESERVE_MS = 20_000;
 const UPSERT_CONCURRENCY = 8;
+const STATE_CHUNK = 100;
 const DB_TIMEOUT_MS = 3_000;
 const dbSignal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
-const OWNED_KINDS: AlertKind[] = ["lot_notice", "cancel_notice", "manifest"];
 
 export interface AlertsCronOptions {
   supabase: AdminClient;
@@ -66,11 +90,14 @@ export interface AlertsCronResult {
   livemode: boolean;
   dry: boolean;
   scans: Record<ScanName, { ok: boolean; shown: number; overflow: number; truncated: boolean }>;
+  /** Open items shown this tick (resolved ones and the overflow excluded). */
   open: number;
+  /** Items closed this tick because a person marked them resolved. */
+  resolved: number;
   due: number;
   urgentDue: number;
   posts: Array<{ items: number; urgent: number; outcome: "posted" | "failed"; status: number | null }>;
-  /** Scan failures + DB write failures (a Discord failure is in `posts`). */
+  /** Scan failures + DB read/write failures (a Discord failure is in `posts`). */
   errors: number;
   budgetExhausted: boolean;
   /** Every open item this tick (TRP numbers / lot ids only), due ones flagged. */
@@ -100,18 +127,84 @@ function reportUrgent(item: AlertItem, livemode: boolean) {
 
 export function isDue(item: AlertItem, state: AlertState, nowMs: number): boolean {
   if (state.alertedMs === null) return nowMs - state.firstSeenMs >= item.graceMs;
-  if (item.urgent && !state.prevUrgent) return true;
+  if (item.urgent && !state.alertedUrgent) return true;
   return nowMs - state.alertedMs >= (item.urgent ? URGENT_REALERT_MS : REALERT_MS);
 }
 
+const NEVER_ALERTED: AlertState = { firstSeenMs: 0, alertedMs: null, alertedUrgent: false, everAlerted: false, newEpisodeFrom: null };
 const stateKey = (kind: AlertKind, subject: string) => `${kind}\u0000${subject}`;
+
+/**
+ * The one place an alert row's `detail` is built: the item's detail, whether
+ * it is URGENT now, and the posting facts carried across writes (a write
+ * replaces the whole JSON). `alertedUrgent` is set only by the post-accepted
+ * write, so writing `urgent` before posting never uses up an escalation.
+ */
+function rowDetail(item: AlertItem, carried: { alertedUrgent: boolean; everAlerted: boolean }): AlertDetail {
+  return {
+    ...item.detail,
+    urgent: item.urgent,
+    ...(carried.alertedUrgent ? { alertedUrgent: true } : {}),
+    ...(carried.everAlerted ? { everAlerted: true } : {}),
+  };
+}
 
 interface StateRow {
   subject: string;
   kind: AlertKind;
   first_seen_at: string;
+  last_seen_at: string;
   alerted_at: string | null;
+  resolved_at: string | null;
   detail: Record<string, unknown> | null;
+}
+
+function stateOf(r: StateRow, nowMs: number): AlertState {
+  const everAlerted = r.alerted_at != null || r.detail?.everAlerted === true;
+  const lastSeen = Date.parse(r.last_seen_at);
+  if (!Number.isNaN(lastSeen) && nowMs - lastSeen > EPISODE_GAP_MS) {
+    return { firstSeenMs: nowMs, alertedMs: null, alertedUrgent: false, everAlerted, newEpisodeFrom: r.last_seen_at };
+  }
+  const first = Date.parse(r.first_seen_at);
+  const alerted = r.alerted_at ? Date.parse(r.alerted_at) : NaN;
+  return {
+    firstSeenMs: Number.isNaN(first) ? nowMs : first,
+    alertedMs: Number.isNaN(alerted) ? null : alerted,
+    alertedUrgent: r.detail?.alertedUrgent === true,
+    everAlerted,
+    newEpisodeFrom: null,
+  };
+}
+
+/** The rows of the owned items: state per item, and the items a person resolved. A failed chunk leaves its items unknown. */
+async function readOwnedStates(sb: AdminClient, livemode: boolean, items: AlertItem[], nowMs: number) {
+  const states = new Map<string, AlertState>();
+  const resolved = new Set<string>();
+  const failures: string[] = [];
+  const subjects = [...new Set(items.filter((i) => isOwnedKind(i.kind)).map((i) => i.subject))];
+  const chunks: string[][] = [];
+  for (let i = 0; i < subjects.length; i += STATE_CHUNK) chunks.push(subjects.slice(i, i + STATE_CHUNK));
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await sb
+        .from(ALERTS_TABLE)
+        .select("subject, kind, first_seen_at, last_seen_at, alerted_at, resolved_at, detail")
+        .eq("livemode", livemode)
+        .in("kind", [...OWNED_KINDS])
+        .in("subject", chunk)
+        .abortSignal(dbSignal());
+      if (error) {
+        failures.push(`${error.code ?? "?"} ${error.message}`);
+        return;
+      }
+      for (const r of (data ?? []) as StateRow[]) {
+        const key = stateKey(r.kind, r.subject);
+        if (r.resolved_at != null) resolved.add(key);
+        else states.set(key, stateOf(r, nowMs));
+      }
+    })
+  );
+  return { states, resolved, failures };
 }
 
 export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCronResult> {
@@ -131,8 +224,7 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
   const settled = await Promise.allSettled(names.map((n) => scanners[n]()));
   const notRun = { ok: false, shown: 0, overflow: 0, truncated: false };
   const scans: AlertsCronResult["scans"] = { lot_notice: notRun, cancel_notice: notRun, manifest: notRun, config: notRun };
-  const items: AlertItem[] = [];
-  const overflow: Partial<Record<AlertKind, number>> = {};
+  const found: AlertItem[] = [];
   settled.forEach((s, i) => {
     const name = names[i];
     if (s.status === "rejected") {
@@ -140,74 +232,98 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
       report(["scan", name], `Direct lot alerts: the ${name} scan failed: ${s.reason instanceof Error ? s.reason.message : String(s.reason)}`, "error");
       return;
     }
-    scans[name] = { ok: true, shown: s.value.items.length, overflow: s.value.overflow, truncated: s.value.truncated };
-    items.push(...s.value.items);
-    if (s.value.overflow > 0) {
-      const kind = name === "config" ? "lot_config" : name;
-      overflow[kind] = (overflow[kind] ?? 0) + s.value.overflow;
-    }
+    scans[name] = { ok: true, shown: 0, overflow: 0, truncated: s.value.truncated };
+    found.push(...s.value.items);
   });
 
-  // 2. State of the items this cron owns, then record them ----------------------
-  const owned = items.filter((i) => i.owned);
+  // 2. State: drop resolved items, then cap each kind ---------------------------
   const states = new Map<string, AlertState>();
-  for (const item of items) if (item.state) states.set(stateKey(item.kind, item.subject), item.state);
-  for (let i = 0; i < owned.length; i += 100) {
-    const chunk = owned.slice(i, i + 100);
-    const { data, error } = await sb
-      .from(ALERTS_TABLE)
-      .select("subject, kind, first_seen_at, alerted_at, detail")
-      .eq("livemode", livemode)
-      .in("kind", OWNED_KINDS)
-      .in("subject", [...new Set(chunk.map((c) => c.subject))])
-      .abortSignal(dbSignal());
-    if (error) {
-      // Unknown state: the items are treated as new (lot_notice alerts at once; cancel waits its grace).
-      errors++;
-      report(["db", "state read"], `Direct lot alerts: alert state read failed: ${error.code ?? "?"} ${error.message}`, "error");
-      continue;
-    }
-    for (const r of (data ?? []) as StateRow[]) {
-      const first = Date.parse(r.first_seen_at);
-      const alerted = r.alerted_at ? Date.parse(r.alerted_at) : NaN;
-      states.set(stateKey(r.kind, r.subject), {
-        firstSeenMs: Number.isNaN(first) ? nowMs : first,
-        alertedMs: Number.isNaN(alerted) ? null : alerted,
-        prevUrgent: r.detail?.urgent === true,
-      });
-    }
+  for (const item of found) if (item.state) states.set(stateKey(item.kind, item.subject), item.state);
+  const owned = await readOwnedStates(sb, livemode, found, nowMs);
+  for (const [key, state] of owned.states) states.set(key, state);
+  if (owned.failures.length > 0) {
+    // Unknown state: every item treated as never alerted — lot_notice, manifest and phone-the-lot post now; a told-lot cancel waits its grace.
+    errors++;
+    report(["db", "state read"], `Direct lot alerts: alert state read failed (${owned.failures.length} chunk(s)): ${owned.failures[0]}`, "error");
   }
+  const open = found.filter((i) => !owned.resolved.has(stateKey(i.kind, i.subject)));
+  const items: AlertItem[] = [];
+  const overflow: Partial<Record<AlertKind, number>> = {};
+  for (const kind of ALERT_KINDS) {
+    const c = cap(open.filter((i) => i.kind === kind));
+    items.push(...c.shown);
+    if (c.overflow > 0) overflow[kind] = c.overflow;
+  }
+  for (const name of names) {
+    if (!scans[name].ok) continue;
+    const kinds = SCAN_KINDS[name];
+    scans[name] = {
+      ...scans[name],
+      shown: items.filter((i) => kinds.includes(i.kind)).length,
+      overflow: kinds.reduce((n, k) => n + (overflow[k] ?? 0), 0),
+    };
+  }
+  const stateFor = (item: AlertItem) => states.get(stateKey(item.kind, item.subject));
 
+  // 3. Record the items this cron owns -------------------------------------------
   if (!dry) {
-    for (let i = 0; i < owned.length; i += UPSERT_CONCURRENCY) {
+    const toRecord = items.filter((i) => isOwnedKind(i.kind));
+    for (let i = 0; i < toRecord.length; i += UPSERT_CONCURRENCY) {
       if (Date.now() + POST_RESERVE_MS > deadlineMs) {
         budgetExhausted = true;
         break;
       }
       await Promise.all(
-        owned.slice(i, i + UPSERT_CONCURRENCY).map(async (item) => {
-          // ONLY last_seen_at + detail: first_seen_at and alerted_at are never reset.
+        toRecord.slice(i, i + UPSERT_CONCURRENCY).map(async (item) => {
+          const state = stateFor(item);
+          const label = String(item.detail.number ?? item.subject);
+          if (state?.newEpisodeFrom) {
+            // A new episode: first_seen_at restarts (so a grace period applies again), and the old
+            // alerted_at no longer counts. Compare-and-set on the last_seen_at read: a tick that
+            // got here first already did it, and this matches nothing.
+            const { error } = await sb
+              .from(ALERTS_TABLE)
+              .update({ first_seen_at: nowIso, alerted_at: null })
+              .eq("subject", item.subject)
+              .eq("kind", item.kind)
+              .eq("livemode", livemode)
+              .eq("last_seen_at", state.newEpisodeFrom)
+              .abortSignal(dbSignal());
+            if (error) {
+              errors++;
+              report(["db", "episode reset", item.kind], `Direct lot alerts: ${item.kind} episode reset failed (${label}): ${error.code ?? "?"} ${error.message}`, "error");
+            }
+          }
+          // ONLY last_seen_at + detail: first_seen_at and alerted_at are never reset here.
           const { error } = await sb
             .from(ALERTS_TABLE)
-            .upsert({ subject: item.subject, kind: item.kind, livemode, last_seen_at: nowIso, detail: item.detail }, { onConflict: "subject,kind,livemode" })
+            .upsert(
+              {
+                subject: item.subject,
+                kind: item.kind,
+                livemode,
+                last_seen_at: nowIso,
+                detail: rowDetail(item, { alertedUrgent: state?.alertedUrgent ?? false, everAlerted: state?.everAlerted ?? false }),
+              },
+              { onConflict: "subject,kind,livemode" }
+            )
             .abortSignal(dbSignal());
           if (error) {
             errors++;
-            report(["db", "alert write", item.kind], `Direct lot alerts: ${item.kind} row write failed (${String(item.detail.number ?? item.subject)}): ${error.code ?? "?"} ${error.message}`, "error");
+            report(["db", "alert write", item.kind], `Direct lot alerts: ${item.kind} row write failed (${label}): ${error.code ?? "?"} ${error.message}`, "error");
           }
         })
       );
     }
   }
 
-  // 3. Due ---------------------------------------------------------------------
+  // 4. Due ---------------------------------------------------------------------
   const ordered = [...items].sort(
-    (a, b) => Number(b.urgent) - Number(a.urgent) || KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || a.sortKey.localeCompare(b.sortKey)
+    (a, b) => Number(b.urgent) - Number(a.urgent) || ALERT_KINDS.indexOf(a.kind) - ALERT_KINDS.indexOf(b.kind) || a.sortKey.localeCompare(b.sortKey)
   );
   const dueSet = new Set<AlertItem>();
   for (const item of ordered) {
-    const state = states.get(stateKey(item.kind, item.subject)) ?? { firstSeenMs: nowMs, alertedMs: null, prevUrgent: false };
-    if (isDue(item, state, nowMs)) dueSet.add(item);
+    if (isDue(item, stateFor(item) ?? { ...NEVER_ALERTED, firstSeenMs: nowMs }, nowMs)) dueSet.add(item);
   }
   const due = ordered.filter((i) => dueSet.has(i));
   const messages = buildAlertMessages(due, { livemode, overflow });
@@ -217,6 +333,7 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
     dry,
     scans,
     open: items.length,
+    resolved: found.length - open.length,
     due: due.length,
     urgentDue: due.filter((i) => i.urgent).length,
     lines: ordered.map((i) => ({ kind: i.kind, urgent: i.urgent, due: dueSet.has(i), text: alertLine(i, livemode) })),
@@ -235,10 +352,10 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
     };
   }
 
-  // 4. Sentry, per URGENT item -------------------------------------------------
+  // 5. Sentry, per URGENT item -------------------------------------------------
   for (const item of due) if (item.urgent) reportUrgent(item, livemode);
 
-  // 5. Post ---------------------------------------------------------------------
+  // 6. Post ---------------------------------------------------------------------
   const posts: AlertsCronResult["posts"] = [];
   let postFailed = false;
   const webhook = opts.webhookUrl ?? "";
@@ -259,30 +376,72 @@ export async function runAlertsCron(opts: AlertsCronOptions): Promise<AlertsCron
       break; // the rest stay due; the next tick tries again
     }
     posts.push({ items: msg.items.length, urgent, outcome: "posted", status: res.status });
-    errors += await markAlerted(sb, livemode, msg.items);
+    errors += await markAlerted(sb, livemode, msg.items, nowIso);
   }
 
   const status = errors > 0 ? 500 : postFailed ? 502 : 200;
   return { ...base, ok: status === 200, status, posts, errors, budgetExhausted };
 }
 
-/** alerted_at for exactly the items of an accepted post. Single-condition filters (no `.or()` on UPDATE). Returns the error count. */
-async function markAlerted(sb: AdminClient, livemode: boolean, items: AlertItem[]): Promise<number> {
-  const at = new Date().toISOString();
+/**
+ * Record that Discord accepted a post with exactly these items, at the tick's
+ * time (so "hourly" counts from the tick). Never a silent zero-row write:
+ *
+ *   owned kinds    an upsert per item (inserts the row if its record write
+ *                  failed or was cut by the budget), with the full detail plus
+ *                  alertedUrgent (this post showed it URGENT) and everAlerted.
+ *   lot_config /   the manifest cron's rows (their detail is not ours to
+ *   followup       rewrite): alerted_at only, and every subject the UPDATE did
+ *                  not match is reported.
+ *
+ * Single-condition filters (no `.or()` on UPDATE). Returns the error count.
+ */
+async function markAlerted(sb: AdminClient, livemode: boolean, items: AlertItem[], nowIso: string): Promise<number> {
   let errors = 0;
-  for (const kind of KIND_ORDER) {
-    const subjects = items.filter((i) => i.kind === kind).map((i) => i.subject);
-    if (subjects.length === 0) continue;
-    const { error } = await sb
+  const kinds = [...new Set(items.map((i) => i.kind))];
+  for (const kind of kinds) {
+    const ofKind = items.filter((i) => i.kind === kind);
+    if (isOwnedKind(kind)) {
+      const failed: string[] = [];
+      for (let i = 0; i < ofKind.length; i += UPSERT_CONCURRENCY) {
+        await Promise.all(
+          ofKind.slice(i, i + UPSERT_CONCURRENCY).map(async (item) => {
+            const { error } = await sb
+              .from(ALERTS_TABLE)
+              .upsert(
+                { subject: item.subject, kind, livemode, alerted_at: nowIso, detail: rowDetail(item, { alertedUrgent: item.urgent, everAlerted: true }) },
+                { onConflict: "subject,kind,livemode" }
+              )
+              .abortSignal(dbSignal());
+            if (error) failed.push(`${error.code ?? "?"} ${error.message}`);
+          })
+        );
+      }
+      if (failed.length > 0) {
+        errors++;
+        report(["db", "alerted_at", kind], `Direct lot alerts: posted, but alerted_at not recorded for ${failed.length} of ${ofKind.length} ${kind} item(s) — they will be posted again: ${failed[0]}`, "error");
+      }
+      continue;
+    }
+    const subjects = ofKind.map((i) => i.subject);
+    const { data, error } = await sb
       .from(ALERTS_TABLE)
-      .update({ alerted_at: at })
+      .update({ alerted_at: nowIso })
       .eq("kind", kind)
       .eq("livemode", livemode)
       .in("subject", subjects)
+      .select("subject")
       .abortSignal(dbSignal());
     if (error) {
       errors++;
       report(["db", "alerted_at", kind], `Direct lot alerts: posted, but alerted_at not recorded for ${subjects.length} ${kind} item(s) — they will be posted again: ${error.code ?? "?"} ${error.message}`, "error");
+      continue;
+    }
+    const matched = new Set(((data ?? []) as Array<{ subject: string }>).map((r) => r.subject));
+    const missing = subjects.filter((s) => !matched.has(s));
+    if (missing.length > 0) {
+      errors++;
+      report(["db", "alerted_at missing", kind], `Direct lot alerts: posted, but ${missing.length} ${kind} row(s) were not found to record alerted_at — they will be posted again (${missing.slice(0, 3).join(", ")})`, "error");
     }
   }
   return errors;

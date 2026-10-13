@@ -35,7 +35,11 @@ export interface PostOptions {
    * one inside an embed never does (the direct-lot alerts put "@here" here).
    */
   content?: string;
-  /** Which mentions in `content` may ping, e.g. { parse: ["everyone"] } for "@here". */
+  /**
+   * Which mentions in `content` may ping, e.g. { parse: ["everyone"] } for
+   * "@here". Whenever `content` is sent this is too — default { parse: [] },
+   * nothing pings — so a caller can never ping by accident.
+   */
   allowedMentions?: { parse: Array<"everyone" | "users" | "roles"> };
 }
 
@@ -45,10 +49,12 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
   const started = Date.now();
   // Optional keys are added only when given, so a caller passing none (the daily
   // digest) sends exactly the body it always did. Pinned by discord.test.ts.
+  // Any `content` goes out with allowed_mentions (default: none may ping).
+  const mentions = opts.allowedMentions ?? (opts.content !== undefined ? { parse: [] } : undefined);
   const body = JSON.stringify({
     username: opts.username ?? DISCORD_USERNAME,
     ...(opts.content !== undefined ? { content: opts.content } : {}),
-    ...(opts.allowedMentions !== undefined ? { allowed_mentions: { parse: [...opts.allowedMentions.parse] } } : {}),
+    ...(mentions !== undefined ? { allowed_mentions: { parse: [...mentions.parse] } } : {}),
     embeds: [embed],
   });
 

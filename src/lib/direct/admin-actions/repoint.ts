@@ -102,7 +102,13 @@ export async function repointLotInbox(
     .select("id")
     .abortSignal(dbSignal())
     .maybeSingle();
-  if (lockError) return refuse(503, "Couldn't lock this booking's notice — try again.");
+  if (lockError) {
+    // A timed-out UPDATE may still have committed: hand back anything that
+    // carries OUR timestamp, or it would sit for 5 min and then count as a
+    // possibly delivered notice. Usually nothing was taken — expected here.
+    await releaseLock(supabase, booking, lockAt, { lockUncertain: true });
+    return refuse(503, "Couldn't lock this booking's notice — refresh and try again.");
+  }
   if (!locked) return refuse(409, "A notice is being sent or was already sent — it can no longer be re-pointed. Refresh.");
 
   let outcome: RepointResult | ActionRefusal;
@@ -133,8 +139,18 @@ export async function repointLotInbox(
   return outcome;
 }
 
-/** Release the lock with a compare-and-set on our own timestamp. Never throws. */
-async function releaseLock(supabase: AdminClient, booking: DirectBookingRow, lockAt: string): Promise<void> {
+/**
+ * Release the lock with a compare-and-set on our own timestamp. Never throws.
+ * `lockUncertain`: the lock write itself errored, so it may never have
+ * landed — finding no row carrying our timestamp is then the expected answer,
+ * not a failure.
+ */
+async function releaseLock(
+  supabase: AdminClient,
+  booking: DirectBookingRow,
+  lockAt: string,
+  { lockUncertain = false }: { lockUncertain?: boolean } = {}
+): Promise<void> {
   const report = (detail: string) =>
     captureAPIError(
       new Error(
@@ -151,8 +167,8 @@ async function releaseLock(supabase: AdminClient, booking: DirectBookingRow, loc
       .select("id")
       .abortSignal(dbSignal())
       .maybeSingle();
-    if (error) report(error.message);
-    else if (!data) report("the claim no longer carries our timestamp");
+    if (error) report(lockUncertain ? `the lock write's outcome was unknown, and the release failed: ${error.message}` : error.message);
+    else if (!data && !lockUncertain) report("the claim no longer carries our timestamp");
   } catch (err) {
     report(err instanceof Error ? err.message : String(err));
   }

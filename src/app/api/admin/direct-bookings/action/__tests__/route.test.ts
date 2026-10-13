@@ -96,6 +96,20 @@ const get = (qs: string) => GET(new NextRequest(`https://x.test/api/admin/direct
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 
+/** A direct_lot_alerts row (041 + 042's resolved_* columns). */
+const alert = (over: Record<string, unknown> = {}) => ({
+  subject: PI,
+  kind: "lot_notice",
+  livemode: false,
+  first_seen_at: "2026-10-13T08:00:00Z",
+  last_seen_at: "2026-10-13T09:00:00Z",
+  alerted_at: "2026-10-13T08:01:00Z",
+  detail: { number: TRP, urgent: true },
+  resolved_at: null,
+  resolved_by: null,
+  ...over,
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   db.clearFailures();
@@ -105,9 +119,12 @@ beforeEach(() => {
   db.tables = {
     bookings: [booking()],
     customers: [{ id: "c1", first_name: "Account", last_name: "Holder" }],
-    pending_bookings: [{ stripe_payment_intent_id: PI, customer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" } }],
+    pending_bookings: [
+      { stripe_payment_intent_id: PI, email_sent: true, customer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" } },
+    ],
     direct_booking_terms: [terms()],
     direct_lot_resends: [],
+    direct_lot_alerts: [],
   };
   vi.stubEnv("STRIPE_SECRET_KEY", "sk_test_x");
   vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
@@ -146,7 +163,8 @@ describe("auth, body and booking guards", () => {
 
   it("409 for a booking paid in the other Stripe mode — before any side effect, for every action", async () => {
     db.tables.bookings = [booking({ livemode: true })];
-    for (const a of ["retry_lot_notice", "repoint_lot_inbox", "resend_lot_cancellation", "resend_customer_confirmation"]) {
+    db.tables.direct_lot_alerts = [alert({ livemode: true })];
+    for (const a of ["retry_lot_notice", "repoint_lot_inbox", "resend_lot_cancellation", "resend_customer_confirmation", "resolve_alerts"]) {
       const res = await act(a);
       expect(res.status).toBe(409);
       expect((await res.json()).error).toMatch(/other environment/);
@@ -155,6 +173,7 @@ describe("auth, body and booking guards", () => {
     expect(resendSend).not.toHaveBeenCalled();
     expect(fetchLot).not.toHaveBeenCalled();
     expect(db.log.filter((l) => l.op !== "select")).toEqual([]);
+    expect(db.tables.direct_lot_alerts[0].resolved_at).toBeNull();
   });
 
   it("a direct row missing livemode is refused as broken (500), never treated as live", async () => {
@@ -183,8 +202,39 @@ describe("GET — what the modal shows", () => {
       lotNotifiedAt: "2026-10-12T15:00:00Z",
       lotNoticeClaimedAt: null,
       lotCancelNotifiedAt: null,
+      customerEmailSent: true,
+      openAlerts: [],
       otherEnvironment: false,
     });
+  });
+
+  it("returns this booking's OPEN alerts in its own mode — kind and times only, never the detail", async () => {
+    db.tables.direct_lot_alerts = [
+      alert({ kind: "cancel_notice", first_seen_at: "2026-10-13T07:00:00Z" }),
+      alert({ subject: "b1:manifest:1:2026-10-14:abcdef0123456789", kind: "followup", alerted_at: null }),
+      alert({ kind: "lot_notice", resolved_at: "2026-10-13T09:30:00Z", resolved_by: "vin@triplypro.com" }), // resolved
+      alert({ livemode: true }), // the other environment's
+      alert({ subject: "pi_other" }), // another booking
+      alert({ subject: "b2:manifest:1:2026-10-14:abcdef0123456789", kind: "followup" }), // another booking's follow-up
+      alert({ subject: "1:2026-10-14", kind: "manifest" }), // a lot-level alert
+    ];
+    const body = await (await get(`?reservationNumber=${TRP}`)).json();
+    expect(body.openAlerts).toEqual([
+      { kind: "cancel_notice", first_seen_at: "2026-10-13T07:00:00Z", alerted_at: "2026-10-13T08:01:00Z" },
+      { kind: "followup", first_seen_at: "2026-10-13T08:00:00Z", alerted_at: null },
+    ]);
+    expect(JSON.stringify(body.openAlerts)).not.toMatch(/urgent|TRP-/);
+  });
+
+  it("an unsent customer confirmation reads false; an alerts read failure is null (shown, reported), not a failed GET", async () => {
+    db.tables.pending_bookings[0].email_sent = false;
+    db.failOnce("direct_lot_alerts", "select", "boom");
+    const res = await get(`?reservationNumber=${TRP}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.customerEmailSent).toBe(false);
+    expect(body.openAlerts).toBeNull();
+    expect(sentry.captureAPIError).toHaveBeenCalledWith(expect.any(Error), expect.objectContaining({ stage: "open_alerts" }));
   });
 
   it("the other environment's booking is shown (flagged), not refused", async () => {
@@ -361,6 +411,29 @@ describe("repoint_lot_inbox", () => {
     db.failOnce("bookings", "update", "boom");
     expect((await act("repoint_lot_inbox")).status).toBe(503);
     expect(db.tables.direct_booking_terms[0].recipients_rev).toBe(0);
+    // The release ran and found nothing of ours — expected on this path, not reported.
+    expect(sentry.captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("a lock write that COMMITTED but answered with an error → the claim is still handed back; 503, terms untouched", async () => {
+    db.failAfterCommitWhen("bookings", "update", (p) => p !== null && typeof p.lot_notice_claimed_at === "string", "statement timeout");
+    const res = await act("repoint_lot_inbox");
+    expect(res.status).toBe(503);
+    expect(db.tables.bookings[0].lot_notice_claimed_at).toBeNull(); // released by our own timestamp
+    expect(db.tables.direct_booking_terms[0]).toMatchObject({ lot_recipients: LOT_INBOX, recipients_rev: 0 });
+    expect(sentry.captureAPIError).not.toHaveBeenCalled();
+    // …so a Retry can claim the notice straight away.
+    redrive.mockResolvedValue({ kind: "attempted", notice: "sent", customerEmail: "already_sent" });
+    expect((await act("retry_lot_notice")).status).toBe(200);
+  });
+
+  it("lock write errored AND the release failed → 503, and the release failure is reported", async () => {
+    db.failAfterCommitWhen("bookings", "update", (p) => p !== null && typeof p.lot_notice_claimed_at === "string", "statement timeout");
+    db.failWhen("bookings", "update", (p) => p !== null && p.lot_notice_claimed_at === null, "boom");
+    expect((await act("repoint_lot_inbox")).status).toBe(503);
+    expect(db.tables.bookings[0].lot_notice_claimed_at).not.toBeNull(); // goes stale
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(String(sentry.captureAPIError.mock.calls[0][0].message)).toMatch(/outcome was unknown/);
   });
 
   it.each([
@@ -427,6 +500,16 @@ describe("resend_lot_cancellation", () => {
     expect(db.tables.direct_lot_resends.map((r) => r.source)).toEqual(["admin:1", "admin:2"]);
   });
 
+  it("two re-sends racing on the same n (two admins at once) → ONE email, the other 409 (the real UNIQUE)", async () => {
+    const [a, b] = await Promise.all([act("resend_lot_cancellation"), act("resend_lot_cancellation")]);
+    expect([a.status, b.status].sort()).toEqual([200, 409]);
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.direct_lot_resends).toHaveLength(1);
+    expect(db.tables.direct_lot_resends[0]).toMatchObject({ source: "admin:1", outcome: "sent" });
+    const loser = a.status === 409 ? a : b;
+    expect((await loser.json()).error).toMatch(/another re-send/i);
+  });
+
   it("a concurrent re-send (UNIQUE 23505 on the audit row) → 409, nothing sent", async () => {
     db.failOnce("direct_lot_resends", "insert", "duplicate key value violates unique constraint", "23505");
     const res = await act("resend_lot_cancellation");
@@ -485,15 +568,28 @@ describe("resend_customer_confirmation", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, outcome: "sent", n: 1, recipients: ["ada@example.com"] });
     expect(buildView).toHaveBeenCalledWith(PI);
-    expect(sendConfirmation).toHaveBeenCalledWith(view.dp, view.fr, view.pgSyncStatus, null, view.promo, "direct-confirmation/resend/b1/1");
+    expect(sendConfirmation).toHaveBeenCalledWith(view.dp, view.fr, view.pgSyncStatus, null, view.promo, {
+      idempotencyKey: "direct-confirmation/resend/b1/1",
+    });
     expect(db.tables.direct_lot_resends[0]).toMatchObject({ kind: "customer_confirmation", source: "admin:1", outcome: "sent", recipients: ["ada@example.com"] });
   });
 
-  it("a send that did not go is recorded 'failed'", async () => {
+  it("a send that was not confirmed is recorded 'unknown' (a timeout returns false too — it may have been delivered)", async () => {
     buildView.mockResolvedValue(view);
     sendConfirmation.mockResolvedValue(false);
-    expect((await (await act("resend_customer_confirmation")).json()).outcome).toBe("failed");
-    expect(db.tables.direct_lot_resends[0].outcome).toBe("failed");
+    expect((await (await act("resend_customer_confirmation")).json()).outcome).toBe("unknown");
+    expect(db.tables.direct_lot_resends[0]).toMatchObject({ outcome: "unknown", last_error: expect.stringMatching(/may have been delivered/) });
+  });
+
+  it("refused (409) while the ORIGINAL confirmation hasn't gone — it is retried automatically; nothing sent or audited", async () => {
+    buildView.mockResolvedValue({ ok: false, reason: "unsent" });
+    const res = await act("resend_customer_confirmation");
+    expect(res.status).toBe(409);
+    expect((await res.json()).error).toBe(
+      "The original confirmation hasn't gone yet — it is retried automatically; use Retry lot notice to push it now."
+    );
+    expect(sendConfirmation).not.toHaveBeenCalled();
+    expect(db.tables.direct_lot_resends).toEqual([]);
   });
 
   it.each([
@@ -501,6 +597,7 @@ describe("resend_customer_confirmation", () => {
     ["not_confirmed", 409],
     ["unreadable", 500],
     ["other_mode", 409],
+    ["unsent", 409],
   ])("view refusal %s → %i, no audit row, nothing sent", async (reason, status) => {
     buildView.mockResolvedValue({ ok: false, reason });
     expect((await act("resend_customer_confirmation")).status).toBe(status);
@@ -527,5 +624,66 @@ describe("resend_customer_confirmation", () => {
     db.tables.bookings = [booking({ cancel_claimed_at: ago(1000) })];
     expect((await act("resend_customer_confirmation")).status).toBe(409);
     expect(buildView).not.toHaveBeenCalled();
+  });
+});
+
+describe("resolve_alerts — \"lot phoned\"", () => {
+  const FOLLOWUP = "b1:manifest:1:2026-10-14:abcdef0123456789";
+  beforeEach(() => {
+    db.tables.direct_lot_alerts = [
+      alert(),
+      alert({ kind: "cancel_notice" }),
+      alert({ subject: FOLLOWUP, kind: "followup" }),
+      alert({ kind: "lot_notice", subject: PI, livemode: true }), // the other environment's row for the same PI
+      alert({ subject: "pi_other" }), // another booking
+      alert({ subject: "b2:manifest:1:2026-10-14:abcdef0123456789", kind: "followup" }), // another booking's follow-up
+      alert({ subject: "1:2026-10-14", kind: "manifest" }), // lot-level — never a booking's to resolve
+    ];
+  });
+  const resolvedRows = () => db.tables.direct_lot_alerts.filter((r) => r.resolved_at !== null);
+
+  it("resolves this booking's open lot_notice / cancel_notice / followup rows in its own mode, by this admin", async () => {
+    const res = await act("resolve_alerts");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, action: "resolve_alerts", resolved: 3 });
+    expect(resolvedRows().map((r) => [r.subject, r.kind, r.livemode])).toEqual([
+      [PI, "lot_notice", false],
+      [PI, "cancel_notice", false],
+      [FOLLOWUP, "followup", false],
+    ]);
+    for (const r of resolvedRows()) {
+      expect(r.resolved_by).toBe("tom@triplypro.com");
+      expect(typeof r.resolved_at).toBe("string");
+    }
+    // Nothing else touched; the alerts' own cadence columns untouched.
+    expect(db.tables.direct_lot_alerts[0]).toMatchObject({ alerted_at: "2026-10-13T08:01:00Z", first_seen_at: "2026-10-13T08:00:00Z" });
+    expect(db.log.filter((l) => l.op !== "select").every((l) => l.table === "direct_lot_alerts")).toBe(true);
+  });
+
+  it("an already-resolved row is left as it was; pressing it again resolves nothing (0)", async () => {
+    db.tables.direct_lot_alerts[0].resolved_at = "2026-10-13T09:30:00Z";
+    db.tables.direct_lot_alerts[0].resolved_by = "vin@triplypro.com";
+    expect((await (await act("resolve_alerts")).json()).resolved).toBe(2);
+    expect(db.tables.direct_lot_alerts[0]).toMatchObject({ resolved_at: "2026-10-13T09:30:00Z", resolved_by: "vin@triplypro.com" });
+    expect((await (await act("resolve_alerts")).json()).resolved).toBe(0);
+  });
+
+  it("works on a cancelled booking too (the \"phone the lot to cancel\" alert)", async () => {
+    db.tables.bookings = [booking({ status: "cancelled", lot_notified_at: "2026-10-12T15:00:00Z" })];
+    expect((await (await act("resolve_alerts")).json()).resolved).toBe(3);
+  });
+
+  it("a write failure is a 503 — pressing it again is safe", async () => {
+    db.failOnce("direct_lot_alerts", "update", "boom");
+    const res = await act("resolve_alerts");
+    expect(res.status).toBe(503);
+    expect(resolvedRows()).toEqual([]);
+    expect((await (await act("resolve_alerts")).json()).resolved).toBe(3);
+  });
+
+  it("admin only", async () => {
+    h.isAdmin.current = false;
+    expect((await act("resolve_alerts")).status).toBe(403);
+    expect(resolvedRows()).toEqual([]);
   });
 });

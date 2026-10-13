@@ -17,7 +17,7 @@
 export type Row = Record<string, unknown>;
 
 interface Filter {
-  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "ilike" | "or" | "not";
+  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "like" | "ilike" | "or" | "not";
   col: string;
   val: unknown;
 }
@@ -73,14 +73,14 @@ function leaf(expr: string): (row: Row) => boolean {
  * that must match one exact address has to use `.eq`, and this is what makes
  * a test prove it.
  */
-function likeRegex(pattern: string): RegExp {
+function likeRegex(pattern: string, caseInsensitive = true): RegExp {
   let out = "";
   for (const ch of pattern) {
     if (ch === "%") out += "[\\s\\S]*";
     else if (ch === "_") out += "[\\s\\S]";
     else out += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${out}$`, "i");
+  return new RegExp(`^${out}$`, caseInsensitive ? "i" : "");
 }
 
 /** Split on commas that are NOT inside parentheses. */
@@ -202,6 +202,11 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
     case "checkout_recovery_optouts":
       // 031: the opt-out table's PK.
       return rows.some((r) => r.email === row.email) ? "checkout_recovery_optouts_pkey" : null;
+    case "direct_lot_resends":
+      // 041: UNIQUE (booking_id, kind, source) — the admin re-send / follow-up once-only claim.
+      return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind && r.source === row.source)
+        ? "direct_lot_resends_booking_id_kind_source_key"
+        : null;
     default:
       return null;
   }
@@ -236,6 +241,9 @@ export class FakeSupabase {
     predicate: (payload: Row | null) => boolean;
     message: string;
     code: string;
+    /** The write is APPLIED, then the error is returned (a statement that
+     *  committed but whose answer was lost — a timeout, a dropped connection). */
+    afterCommit: boolean;
   }> = [];
 
   /** Every query executed, for assertions like "createReservation was skipped". */
@@ -304,7 +312,22 @@ export class FakeSupabase {
     message: string,
     code = "XXFAKE"
   ) {
-    this.conditional.push({ table, op, predicate, message, code });
+    this.conditional.push({ table, op, predicate, message, code, afterCommit: false });
+    return this;
+  }
+
+  /** Like `failWhen`, but the write IS applied before the error comes back:
+   *  the statement committed and only its answer was lost (a client-side
+   *  timeout, a dropped connection). Code that treats every write error as
+   *  "nothing changed" fails a test under this. */
+  failAfterCommitWhen(
+    table: string,
+    op: "insert" | "update" | "delete",
+    predicate: (payload: Row | null) => boolean,
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.conditional.push({ table, op, predicate, message, code, afterCommit: true });
     return this;
   }
 
@@ -334,13 +357,13 @@ export class FakeSupabase {
     table: string,
     op: string,
     payload: Row | null
-  ): { message: string; code: string } | null {
+  ): { message: string; code: string; afterCommit: boolean } | null {
     const idx = this.conditional.findIndex(
       (c) => c.table === table && c.op === op && c.predicate(payload)
     );
     if (idx >= 0) {
       const [c] = this.conditional.splice(idx, 1);
-      return { message: c.message, code: c.code };
+      return { message: c.message, code: c.code, afterCommit: c.afterCommit };
     }
     return null;
   }
@@ -448,6 +471,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     this.filters.push({ op: "gte", col, val });
     return this;
   }
+  like(col: string, val: unknown) {
+    this.filters.push({ op: "like", col, val });
+    return this;
+  }
   ilike(col: string, val: unknown) {
     this.filters.push({ op: "ilike", col, val });
     return this;
@@ -541,6 +568,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           return actual != null && String(actual) <= String(f.val);
         case "gte":
           return actual != null && String(actual) >= String(f.val);
+        case "like":
+          return actual != null && likeRegex(String(f.val), false).test(String(actual));
         case "ilike":
           // A real LIKE pattern match — see likeRegex. Never equality.
           return actual != null && likeRegex(String(f.val)).test(String(actual));
@@ -582,9 +611,15 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       this.payload
     );
     if (conditional) {
-      return { data: null, error: conditional };
+      const error = { message: conditional.message, code: conditional.code };
+      if (!conditional.afterCommit) return { data: null, error };
+      this.execute(); // applied — only the answer is lost
+      return { data: null, error };
     }
+    return this.execute();
+  }
 
+  private execute(): { data: unknown; error: unknown; count?: number } {
     const injected = this.db._take(this.table, this.op);
     if (injected) {
       return { data: null, error: injected };

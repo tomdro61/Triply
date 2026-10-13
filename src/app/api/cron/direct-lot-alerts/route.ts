@@ -1,12 +1,15 @@
 /**
  * GET /api/cron/direct-lot-alerts — tells Triply, loudly, when a direct lot
  * was not told about a booking or a cancellation, or did not get its evening
- * manifest (6b plan §5). Vercel cron `*\/10`.
+ * manifest (6b plan §5). Vercel cron `*\/10` — Vercel runs crons only on
+ * Production; on staging this runs only when called by hand (with CRON_SECRET).
  *
  * Posts to DISCORD_DAILY_DIGEST_WEBHOOK_URL as "Triply Alerts" (no fallback to
  * the session webhook: unset is a Sentry error and a 500). URGENT items carry
  * `@here` in production and each raises its own Sentry issue (the real-time
- * email). Staging (test-mode Stripe) posts "[TEST]" lines and never pings.
+ * email). A staging call (test-mode Stripe) posts "[TEST]" lines and never pings.
+ * Lines carry TRP numbers and lot ids only (no customer details). An item a
+ * person marked resolved (direct_lot_alerts.resolved_at) is not posted again.
  * The scans and the posting rules live in src/lib/direct/alerts/.
  *
  *   ?dry=1   compute and return what would be posted; writes, posts and

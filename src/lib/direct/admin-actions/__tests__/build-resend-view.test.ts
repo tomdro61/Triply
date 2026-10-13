@@ -31,6 +31,7 @@ vi.mock("@/lib/sentry", () => ({
 const { buildDirectResendView } = await import("@/lib/booking/create-booking");
 const { sendDirectCustomerConfirmation } = await import("@/lib/booking/fulfill");
 const { sendBookingConfirmation } = await import("@/lib/resend/send-booking-confirmation");
+const { capturePaymentError } = await import("@/lib/sentry");
 const { buildLotSnapshotV2 } = await import("@/lib/direct/lot-snapshot-build");
 const { directLotFromRow } = await import("@/lib/direct/store");
 const { directLotRow } = await import("@/lib/direct/__tests__/fixtures");
@@ -177,6 +178,8 @@ describe("buildDirectResendView", () => {
     ["not_confirmed", () => (db.tables.bookings = [bookingRow({ status: "refunded" })])],
     ["mid_cancel", () => (db.tables.bookings = [bookingRow({ cancel_claimed_at: "2026-10-12T15:00:00Z" })])],
     ["unreadable", () => stripeMock.paymentIntents.retrieve.mockResolvedValue(pi({ metadata: { ...META, directGrandTotalCents: "x" } }))],
+    // The original confirmation hasn't gone: the checkout/re-drive path still owns it and retries it.
+    ["unsent", () => (db.tables.pending_bookings = [directRow({ email_sent: false })])],
   ] as const)("refuses: %s", async (reason, arrange) => {
     arrange();
     expect(await buildDirectResendView(PI)).toEqual({ ok: false, reason });
@@ -194,10 +197,34 @@ describe("sendDirectCustomerConfirmation idempotency key", () => {
     if (!view.ok) throw new Error("view did not build");
     expect(await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo)).toBe(true);
     expect(
-      await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo, "direct-confirmation/resend/b1/1")
+      await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo, {
+        idempotencyKey: "direct-confirmation/resend/b1/1",
+      })
     ).toBe(true);
     const keys = vi.mocked(sendBookingConfirmation).mock.calls.map((c) => c[0].idempotencyKey);
     expect(keys).toEqual([`direct-confirmation/${PI}`, "direct-confirmation/resend/b1/1"]);
     expect(vi.mocked(sendBookingConfirmation).mock.calls[1][0].to).toBe("ada@example.com");
+  });
+});
+
+describe("sendDirectCustomerConfirmation failure reports", () => {
+  it("the checkout path says 'handed back for a re-send'; the admin re-send never does", async () => {
+    const view = await buildDirectResendView(PI);
+    if (!view.ok) throw new Error("view did not build");
+    const timedOut = { success: false as const, error: new Error("timeout"), uncertain: true };
+    vi.mocked(sendBookingConfirmation).mockResolvedValueOnce(timedOut).mockResolvedValueOnce(timedOut);
+    expect(await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo)).toBe(false);
+    expect(
+      await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo, { idempotencyKey: "k/1" })
+    ).toBe(false);
+    vi.mocked(sendBookingConfirmation).mockRejectedValueOnce(new Error("socket hang up"));
+    expect(
+      await sendDirectCustomerConfirmation(view.dp, view.fr, view.pgSyncStatus, view.charged, view.promo, { idempotencyKey: "k/2" })
+    ).toBe(false);
+    const messages = vi.mocked(capturePaymentError).mock.calls.map((c) => (c[0] as Error).message);
+    expect(messages[0]).toMatch(/handed back for a re-send/);
+    expect(messages[1]).toMatch(/^Admin re-send of the confirmation failed or timed out/);
+    expect(messages[1]).not.toMatch(/handed back/);
+    expect(messages[2]).toMatch(/^Admin re-send of the confirmation failed or timed out.*socket hang up/);
   });
 });

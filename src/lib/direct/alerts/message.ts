@@ -1,5 +1,5 @@
 import { DISCORD_TOTAL_LIMIT, RED, type Embed } from "@/lib/digest/render";
-import type { AlertItem, AlertKind } from "./scan";
+import { ALERT_KINDS, type AlertItem, type AlertKind } from "./scan";
 
 /**
  * The Discord message(s) for one alerts tick (6b plan §5, E3): normally ONE
@@ -10,7 +10,8 @@ import type { AlertItem, AlertKind } from "./scan";
  *
  * Test mode (`livemode = false`, staging): every title and line is prefixed
  * "[TEST]" and nothing pings. Live with an URGENT item: `content: "@here"` with
- * `allowed_mentions: everyone` — a mention inside an embed never pings.
+ * `allowed_mentions: everyone` — a mention inside an embed never pings. Lines
+ * carry TRP numbers and lot ids only (no customer details).
  */
 
 export const ALERTS_USERNAME = "Triply Alerts";
@@ -22,11 +23,9 @@ const LINE_LIMIT = 400;
 const HEADER_RESERVE = 900;
 const BODY_LIMIT = DISCORD_TOTAL_LIMIT - HEADER_RESERVE;
 
-/** The order kinds are listed in, within an urgency tier. */
-export const KIND_ORDER: AlertKind[] = ["lot_notice", "cancel_notice", "manifest", "followup", "lot_config"];
-
+/** Kinds are listed in ALERT_KINDS order within an urgency tier. */
 export const KIND_LABEL: Record<AlertKind, string> = {
-  lot_notice: "Lot not told of a booking",
+  lot_notice: "Lot notice not confirmed — it may not have arrived",
   cancel_notice: "Lot not told of a cancellation",
   manifest: "Evening manifest",
   followup: "Manifest follow-up",
@@ -84,7 +83,7 @@ export function buildAlertMessages(due: AlertItem[], o: { livemode: boolean; ove
   }
   drafts.push(cur);
 
-  const overflow = KIND_ORDER.filter((k) => (o.overflow[k] ?? 0) > 0).map((k) => `${KIND_LABEL[k]} +${o.overflow[k]}`);
+  const overflow = ALERT_KINDS.filter((k) => (o.overflow[k] ?? 0) > 0).map((k) => `${KIND_LABEL[k]} +${o.overflow[k]}`);
   const total = due.length;
   const urgentTotal = due.filter((i) => i.urgent).length;
 
@@ -93,7 +92,7 @@ export function buildAlertMessages(due: AlertItem[], o: { livemode: boolean; ove
     const part = drafts.length > 1 ? ` — part ${i + 1}/${drafts.length}` : "";
     const title = `${prefix}${urgentTotal > 0 ? "🚨" : "⚠️"} Direct lots — ${total} alert${total === 1 ? "" : "s"}${urgentTotal > 0 ? ` (${urgentTotal} URGENT)` : ""}${part}`;
     const description =
-      `${prefix}Open problems with direct-lot bookings — TRP numbers only; look them up in /admin/bookings. ` +
+      `${prefix}Open problems with direct-lot bookings — TRP numbers and lot ids only (no customer details); look them up in /admin/bookings. ` +
       `URGENT items repeat hourly, the rest every 6 h, until fixed.` +
       (i === 0 && overflow.length > 0 ? ` Not shown this time: ${overflow.join(", ")}.` : "");
     const embed: Embed = {

@@ -188,7 +188,7 @@ describe("GET /api/cron/direct-lot-alerts", () => {
     expect(sent.content).toBe("@here");
     expect(sent.allowed_mentions).toEqual({ parse: ["everyone"] });
     expect(sent.embeds[0].fields[0].value).toBe(
-      "🚨 URGENT TRP-LIVE1 — the lot was never told of this booking; check-in 2026-10-31 12:00 lot time (check-in in 2 h)"
+      "🚨 URGENT TRP-LIVE1 — lot notice not confirmed, it may not have arrived; check-in 2026-10-31 12:00 lot time (check-in in 2 h)"
     );
     expect(mdb.rows(ALERTS).map((a) => [a.subject, a.livemode])).toEqual([["pi_live1", true]]);
   });

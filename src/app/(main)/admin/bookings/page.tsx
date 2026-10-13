@@ -29,6 +29,12 @@ import {
   type AdminCancellationReason,
   type CancellationReason,
 } from "@/lib/cancellation/reason-codes";
+// Type-only (erased at build): the server's own unions, so a new action, skip
+// reason or outcome fails the build here instead of rendering a generic line.
+import type { DirectAdminAction } from "@/lib/direct/admin-actions/booking";
+import type { BookingAlertKind, OpenAlert } from "@/lib/direct/admin-actions/alerts";
+import type { CustomerEmailOutcome, DirectRedriveSkipReason } from "@/lib/booking/create-booking";
+import type { LotNoticeOutcome } from "@/lib/direct/lot-notice";
 
 interface Booking {
   id: string;
@@ -132,24 +138,45 @@ interface DirectLotInfo {
   lotNotifiedAt: string | null;
   lotNoticeClaimedAt: string | null;
   lotCancelNotifiedAt: string | null;
+  /** Has the original customer confirmation gone? null = couldn't read. */
+  customerEmailSent: boolean | null;
+  /** null = couldn't read. */
+  openAlerts: OpenAlert[] | null;
   otherEnvironment: boolean;
 }
 
-type DirectAction =
-  | "retry_lot_notice"
-  | "repoint_lot_inbox"
-  | "resend_lot_cancellation"
-  | "resend_customer_confirmation";
+type DirectAction = DirectAdminAction;
 
 const DIRECT_ACTION_LABELS: Record<DirectAction, string> = {
   retry_lot_notice: "Retry lot notice",
   repoint_lot_inbox: "Re-point to current CMS inbox",
   resend_lot_cancellation: "Re-send lot cancellation",
   resend_customer_confirmation: "Re-send customer confirmation",
+  resolve_alerts: "Lot phoned — mark resolved",
+};
+
+const ALERT_KIND_LABELS: Record<BookingAlertKind, string> = {
+  lot_notice: "Lot not told about the booking",
+  cancel_notice: "Lot not told about the cancellation",
+  followup: "Manifest follow-up cancel failed",
 };
 
 const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
 const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const hasKey = <K extends string>(map: Record<K, unknown>, v: unknown): v is K =>
+  typeof v === "string" && Object.prototype.hasOwnProperty.call(map, v);
+
+function parseOpenAlerts(v: unknown): OpenAlert[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: OpenAlert[] = [];
+  for (const item of v) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    if (!hasKey(ALERT_KIND_LABELS, r.kind) || typeof r.first_seen_at !== "string") continue;
+    out.push({ kind: r.kind, first_seen_at: r.first_seen_at, alerted_at: strOrNull(r.alerted_at) });
+  }
+  return out;
+}
 
 function parseDirectLotInfo(body: Record<string, unknown>): DirectLotInfo {
   return {
@@ -159,11 +186,13 @@ function parseDirectLotInfo(body: Record<string, unknown>): DirectLotInfo {
     lotNotifiedAt: strOrNull(body.lotNotifiedAt),
     lotNoticeClaimedAt: strOrNull(body.lotNoticeClaimedAt),
     lotCancelNotifiedAt: strOrNull(body.lotCancelNotifiedAt),
+    customerEmailSent: typeof body.customerEmailSent === "boolean" ? body.customerEmailSent : null,
+    openAlerts: parseOpenAlerts(body.openAlerts),
     otherEnvironment: body.otherEnvironment === true,
   };
 }
 
-const RETRY_SKIP_REASONS: Record<string, string> = {
+const RETRY_SKIP_REASONS: Record<DirectRedriveSkipReason, string> = {
   not_direct: "Stripe doesn't record this as a Triply-lot booking — nothing sent.",
   refunded: "The payment was refunded in full — nothing sent.",
   held: "The booking's own checkout is still finishing — nothing sent. Try again in a couple of minutes.",
@@ -171,10 +200,9 @@ const RETRY_SKIP_REASONS: Record<string, string> = {
   unreadable: "The booking couldn't be read back — nothing sent. See Sentry.",
   not_confirmed: "The booking is no longer confirmed — nothing sent.",
   mid_cancel: "A cancellation is in progress — nothing sent.",
-  error: "The re-send failed — see Sentry.",
 };
 
-const NOTICE_OUTCOMES: Record<string, string> = {
+const NOTICE_OUTCOMES: Record<LotNoticeOutcome, string> = {
   sent: "Lot notice sent.",
   not_claimed: "Nothing sent — the notice was already sent or another send holds it. Refresh in a few minutes.",
   skipped: "Not sent — no test inbox is configured here (DIRECT_LOT_NOTICE_OVERRIDE_TO).",
@@ -182,15 +210,35 @@ const NOTICE_OUTCOMES: Record<string, string> = {
     "The lot notice failed or Resend didn't answer — see Sentry. If it didn't answer it may still arrive; don't retry for 5 minutes.",
 };
 
+/** null = nothing worth saying (it had already gone). */
+const CUSTOMER_EMAIL_OUTCOMES: Record<CustomerEmailOutcome, string | null> = {
+  sent: "The customer's confirmation (unsent until now) was also sent.",
+  failed: "The customer's confirmation (also unsent) didn't go — see Sentry; it is retried automatically.",
+  not_claimed: "The customer's confirmation was already sent or is being sent elsewhere.",
+  already_sent: null,
+};
+
+const UNEXPECTED_REPLY = { ok: false, message: "Unexpected reply — refresh and check before trying again." };
+
 /** The outcome line for a 2xx action response. Reads the body defensively — never claims more than it says. */
 function describeDirectOutcome(action: DirectAction, body: Record<string, unknown>): { ok: boolean; message: string } {
   if (action === "retry_lot_notice") {
     const r = (typeof body.result === "object" && body.result !== null ? body.result : {}) as Record<string, unknown>;
-    if (r.kind === "skipped") return { ok: false, message: RETRY_SKIP_REASONS[String(r.reason)] ?? "Nothing sent." };
-    if (r.kind !== "attempted") return { ok: false, message: "Unexpected reply — refresh and check before trying again." };
-    const parts = [NOTICE_OUTCOMES[String(r.notice)] ?? `Lot notice: ${String(r.notice)}.`];
-    if (r.customerEmail === "sent") parts.push("The customer's confirmation (unsent until now) was also sent.");
-    if (r.customerEmail === "failed") parts.push("The customer's confirmation (also unsent) failed again — see Sentry.");
+    if (r.kind === "skipped") {
+      return hasKey(RETRY_SKIP_REASONS, r.reason) ? { ok: false, message: RETRY_SKIP_REASONS[r.reason] } : UNEXPECTED_REPLY;
+    }
+    if (r.kind === "error") {
+      return {
+        ok: false,
+        message: "The retry hit an unexpected error — the lot notice may or may not have gone. See Sentry and refresh before trying again.",
+      };
+    }
+    if (r.kind !== "attempted" || !hasKey(NOTICE_OUTCOMES, r.notice) || !hasKey(CUSTOMER_EMAIL_OUTCOMES, r.customerEmail)) {
+      return UNEXPECTED_REPLY;
+    }
+    const parts = [NOTICE_OUTCOMES[r.notice]];
+    const customer = CUSTOMER_EMAIL_OUTCOMES[r.customerEmail];
+    if (customer) parts.push(customer);
     parts.push("The retried notice keeps its original URGENT flag — phone the lot if check-in is close.");
     return { ok: r.notice === "sent", message: parts.join(" ") };
   }
@@ -199,12 +247,20 @@ function describeDirectOutcome(action: DirectAction, body: Record<string, unknow
     const to = isStringArray(body.to) ? body.to.join(", ") : "?";
     return { ok: true, message: `Re-pointed: ${from} → ${to}. Now press "Retry lot notice" to send it there.` };
   }
+  if (action === "resolve_alerts") {
+    if (typeof body.resolved !== "number") return UNEXPECTED_REPLY;
+    if (body.resolved === 0) return { ok: true, message: "No open alerts for this booking — nothing to resolve." };
+    return { ok: true, message: `Marked ${body.resolved} alert${body.resolved === 1 ? "" : "s"} resolved — they stop now.` };
+  }
   const n = typeof body.n === "number" ? body.n : null;
   const to = isStringArray(body.recipients) ? body.recipients.join(", ") : "?";
   const label = `re-send${n ? ` #${n}` : ""}`;
   if (body.outcome === "sent") return { ok: true, message: `Sent (${label}) to ${to}.` };
   if (body.outcome === "unknown") {
-    return { ok: false, message: `Resend didn't confirm the ${label} — it may still arrive. Check Sentry before sending again.` };
+    return {
+      ok: false,
+      message: `Resend didn't confirm the ${label} — it may have been sent (or may still arrive). Check Sentry before sending again.`,
+    };
   }
   return {
     ok: false,
@@ -219,7 +275,8 @@ type DirectLotInfoState =
 
 /**
  * Direct-lot (Triply-owned lot) panel in the booking modal (6b plan §6):
- * what the lot was told, the inbox on file, and the four admin actions.
+ * what the lot was told, the inbox on file, the open alerts, and the admin
+ * actions.
  *
  * State: `info` (loading | error | ready) from the GET; `busy` = the one
  * action in flight. A ref is the synchronous double-click guard (state lands
@@ -266,6 +323,8 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
         return `Re-send the cancellation of ${number} to the lot (${onFile}) as a reminder?`;
       case "resend_customer_confirmation":
         return `Re-send the booking confirmation for ${number} to the guest's email?`;
+      case "resolve_alerts":
+        return `Record that you phoned the lot about ${number}? Its open alerts stop.`;
     }
   }
 
@@ -329,6 +388,35 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
                 {info.data.lotCancelNotifiedAt ? formatDateTime(info.data.lotCancelNotifiedAt) : "not sent"}
               </p>
             )}
+            {status === "confirmed" && (
+              <p>
+                <span className="text-gray-500">Customer confirmation:</span>{" "}
+                {info.data.customerEmailSent === null ? (
+                  "couldn't check"
+                ) : info.data.customerEmailSent ? (
+                  "sent"
+                ) : (
+                  <span className="text-amber-700 font-medium">not yet — retried automatically</span>
+                )}
+              </p>
+            )}
+            <div>
+              <span className="text-gray-500">Open alerts:</span>{" "}
+              {info.data.openAlerts === null ? (
+                <span className="text-amber-700">couldn&apos;t read them</span>
+              ) : info.data.openAlerts.length === 0 ? (
+                "none"
+              ) : (
+                <ul className="mt-1 ml-4 list-disc text-amber-800">
+                  {info.data.openAlerts.map((a) => (
+                    <li key={`${a.kind}-${a.first_seen_at}`}>
+                      {ALERT_KIND_LABELS[a.kind]} — since {formatDateTime(a.first_seen_at)}
+                      {a.alerted_at ? `, last posted ${formatDateTime(a.alerted_at)}` : ", not posted yet"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
             <p>
               <span className="text-gray-500">Lot inbox on file:</span>{" "}
               {info.data.lotRecipients?.join(", ") ?? "none"}
@@ -350,7 +438,9 @@ function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: (
                       ? "repoint_lot_inbox"
                       : null,
                     cancelled && info.data.lotCancelNotifiedAt ? "resend_lot_cancellation" : null,
-                    status === "confirmed" ? "resend_customer_confirmation" : null,
+                    // Not while the original hasn't gone: it is retried automatically (the POST refuses too).
+                    status === "confirmed" && info.data.customerEmailSent !== false ? "resend_customer_confirmation" : null,
+                    info.data.openAlerts === null || info.data.openAlerts.length > 0 ? "resolve_alerts" : null,
                   ] as Array<DirectAction | null>
                 )
                   .filter((a): a is DirectAction => a !== null)

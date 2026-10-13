@@ -70,6 +70,12 @@ describe("postToDiscord — body", () => {
     expect(JSON.parse(sentBody(f))).toEqual({ username: "Triply Alerts", content: "@here", allowed_mentions: { parse: ["everyone"] }, embeds: [embed] });
   });
 
+  it("content without allowedMentions still sends allowed_mentions { parse: [] } — nothing can ping by accident", async () => {
+    const f = hook();
+    await postToDiscord("https://hook", embed, { remainingBudgetMs: 50_000, fetchImpl: f, username: "Triply Alerts", content: "@here" });
+    expect(sentBody(f)).toBe(JSON.stringify({ username: "Triply Alerts", content: "@here", allowed_mentions: { parse: [] }, embeds: [embed] }));
+  });
+
   it("a username alone adds no content and no allowed_mentions", async () => {
     const f = hook();
     await postToDiscord("https://hook", embed, { remainingBudgetMs: 50_000, fetchImpl: f, username: "Triply Alerts" });

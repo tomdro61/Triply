@@ -9,7 +9,9 @@ import type { ManifestRow } from "./select";
  * escaped; times are the literal wall-clock strings, never re-zoned.
  *
  * The manifest is a REMINDER of bookings the lot was already emailed. It never
- * says "no arrivals": an empty-day email says only that nothing is in it.
+ * says "no arrivals": an empty-day email says only that nothing is in it. It
+ * never says "tomorrow" either — a recovered or forced manifest can go out on
+ * the day itself — the heading names the date.
  */
 
 export interface RenderedEmail {
@@ -50,19 +52,28 @@ function atLotLine(cents: number | null): string {
   return cents > 0 ? `${usd(cents)} (oversized-vehicle surcharge incl. tax)` : "Nothing";
 }
 
-const COLUMNS = ["Time", "Confirmation", "Guest", "Phone", "Vehicle", "Size", "Collect at the lot (est.)", "Park Guard"] as const;
-
-function cells(r: ManifestRow, wallClock: string): string[] {
-  return [timeOf(wallClock), r.number, r.guestName, r.guestPhone, vehicleLine(r.vehicle), r.sizeLabel, atLotLine(r.atLotCents), r.parkGuard ? "Yes" : "No"];
+/** A departing car paid any at-lot surcharge when it was dropped off: nothing is collected again. */
+function departureAtLotLine(cents: number | null): string {
+  return cents === 0 ? "Nothing" : "Collected at drop-off";
 }
 
-function section(title: string, rows: Array<{ row: ManifestRow; at: string }>): { html: string; text: string } {
+const ARRIVAL_COLUMNS = ["Time", "Confirmation", "Guest", "Phone", "Vehicle", "Size", "Collect at the lot (est.)", "Park Guard"] as const;
+const DEPARTURE_COLUMNS = ["Time", "Confirmation", "Guest", "Phone", "Vehicle", "Size", "At the lot", "Park Guard"] as const;
+type Kind = "arrival" | "departure";
+
+function cells(r: ManifestRow, wallClock: string, kind: Kind): string[] {
+  const atLot = kind === "arrival" ? atLotLine(r.atLotCents) : departureAtLotLine(r.atLotCents);
+  return [timeOf(wallClock), r.number, r.guestName, r.guestPhone, vehicleLine(r.vehicle), r.sizeLabel, atLot, r.parkGuard ? "Yes" : "No"];
+}
+
+function section(title: string, kind: Kind, rows: Array<{ row: ManifestRow; at: string }>): { html: string; text: string } {
   if (rows.length === 0) return { html: "", text: "" };
-  const th = COLUMNS.map((c) => `<th style="text-align:left;padding:6px 8px;color:#64748b;border-bottom:2px solid #e5e7eb;white-space:nowrap;">${escapeHtml(c)}</th>`).join("");
+  const columns = kind === "arrival" ? ARRIVAL_COLUMNS : DEPARTURE_COLUMNS;
+  const th = columns.map((c) => `<th style="text-align:left;padding:6px 8px;color:#64748b;border-bottom:2px solid #e5e7eb;white-space:nowrap;">${escapeHtml(c)}</th>`).join("");
   const body = rows
     .map(
       ({ row, at }) =>
-        `<tr>${cells(row, at)
+        `<tr>${cells(row, at, kind)
           .map((c) => `<td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;">${escapeHtml(c)}</td>`)
           .join("")}</tr>`
     )
@@ -70,8 +81,13 @@ function section(title: string, rows: Array<{ row: ManifestRow; at: string }>): 
   const html = `
       <h3 style="margin:20px 0 8px;">${escapeHtml(title)}</h3>
       <table style="border-collapse:collapse;width:100%;font-size:14px;"><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>`;
-  const text = [`${title}`, ...rows.map(({ row, at }) => `- ${cells(row, at).map((c, i) => `${COLUMNS[i]}: ${c}`).join(" | ")}`)].join("\n");
+  const text = [`${title}`, ...rows.map(({ row, at }) => `- ${cells(row, at, kind).map((c, i) => `${columns[i]}: ${c}`).join(" | ")}`)].join("\n");
   return { html, text };
+}
+
+/** "Arrivals and departures at {lot} — Sun, Nov 1": the date, never "tomorrow". `manifestDate` is a literal "YYYY-MM-DD". */
+export function manifestHeading(lotName: string, manifestDate: string): string {
+  return `Arrivals and departures at ${lotName} — ${formatDate(manifestDate, { weekday: "short", month: "short", day: "numeric" })}`;
 }
 
 export function renderManifest(input: ManifestEmailInput): RenderedEmail {
@@ -91,18 +107,19 @@ export function renderManifest(input: ManifestEmailInput): RenderedEmail {
     ? `${prefix}Reminder — Triply, ${day} at ${lotName}: nothing in this reminder`
     : `${prefix}Reminder — Triply bookings for ${day} at ${lotName} (${plural(arrivals.length, "arrival", "arrivals")}, ${plural(departures.length, "departure", "departures")})`;
   const footer = manifestFooter(asOfMinutes);
-  const a = section(`Arrivals — ${day}`, arrivals);
-  const d = section(`Departures — ${day}`, departures);
+  const a = section(`Arrivals — ${day}`, "arrival", arrivals);
+  const d = section(`Departures — ${day}`, "departure", departures);
+  const heading = manifestHeading(lotName, manifestDate);
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 760px;">
       ${test ? `<p style="background:#fef3c7;padding:8px 12px;border-radius:6px;color:#92400e;"><strong>TEST</strong> — not real customers. Sent to the override inbox, not the lot.</p>` : ""}
-      <h2 style="margin:0 0 8px;">Tomorrow at ${escapeHtml(lotName)} — ${escapeHtml(day)}</h2>
+      <h2 style="margin:0 0 8px;">${escapeHtml(heading)}</h2>
       <p style="margin:0 0 12px;">${escapeHtml(MANIFEST_HEADER)}</p>
       ${empty ? `<p style="margin:12px 0;font-weight:600;">${escapeHtml(MANIFEST_EMPTY_LINE)}</p>` : `${a.html}${d.html}`}
       <p style="color:#64748b;font-size:12px;margin-top:16px;">${escapeHtml(footer)}</p>
     </div>`;
   const text = [
-    `${prefix}Tomorrow at ${lotName} — ${day}`,
+    `${prefix}${heading}`,
     "",
     MANIFEST_HEADER,
     "",

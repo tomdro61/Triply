@@ -21,6 +21,7 @@ export const DIRECT_ADMIN_ACTIONS = [
   "repoint_lot_inbox",
   "resend_lot_cancellation",
   "resend_customer_confirmation",
+  "resolve_alerts",
 ] as const;
 export type DirectAdminAction = (typeof DIRECT_ADMIN_ACTIONS)[number];
 
@@ -149,9 +150,11 @@ export function noticeClaimIsLive(claimedAt: string | null, nowMs: number = Date
 }
 
 /**
- * Retry lot notice (§6): the route's preconditions are the re-drive's own
- * internal checks — confirmed, not told, no live claim, not mid-cancel — so a
- * refusal here is never "it would have done nothing anyway" in disguise.
+ * Retry lot notice (§6): these mirror the lot-notice gates — confirmed, not
+ * told, no live claim, not mid-cancel — so a refusal here is never "it would
+ * have done nothing anyway" in disguise. A notice already stamped is refused
+ * even when the customer confirmation is still unsent: that one is retried
+ * automatically (the sweep), and this action is about the lot.
  */
 export function retryRefusal(b: DirectBookingRow, nowMs: number = Date.now()): ActionRefusal | null {
   if (b.status !== "confirmed") return refuse(409, `This booking is ${b.status} — there is no booking notice to send.`);

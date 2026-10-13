@@ -24,7 +24,8 @@ import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
  * re-drive can try again; a TIMEOUT keeps it (Resend may have delivered) until
  * it goes stale after STALE_NOTICE_CLAIM_MS, and the re-drive then repeats the
  * same request under the same Resend idempotency key (kind + booking +
- * test/live — deliberately NOT the URGENT flag, which a later re-drive can
+ * test/live, plus `/r{rev}` for a booking notice an admin re-pointed to a new
+ * inbox — deliberately NOT the URGENT flag, which a later re-drive can
  * compute differently). A retry whose body changed (it became URGENT) is then
  * refused by Resend as `invalid_idempotent_request`, which means the key
  * already carried an ACCEPTED send: treated as sent, never a second notice.
@@ -37,7 +38,8 @@ import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
  * case is caught by the booking sender, which re-reads the status as it stamps
  * and sends the cancel notice itself. A booking cancelled before its notice
  * was claimed produces neither: the lot never heard of it. Re-drives: the
- * engine's Step 3 and the sweep's direct backstop.
+ * engine's Step 3, the sweep's direct backstop and the admin "Retry lot
+ * notice" action.
  */
 
 export type LotNoticeKind = "booking" | "cancel";
@@ -48,7 +50,12 @@ export type LotNoticeOutcome =
   | "not_claimed"
   /** No recipient configured for a non-production send (override inbox unset). */
   | "skipped"
-  /** The send or a read failed; the claim was released for a later re-drive. */
+  /**
+   * The send or a read failed. A DEFINITE failure released the claim for a
+   * later re-drive; a timeout or an unknown outcome (it may have been
+   * delivered) keeps it until it goes stale — as does any failure on a claim
+   * taken over from a stale one.
+   */
   | "failed";
 
 const SEND_TIMEOUT_MS = 5_000;
@@ -138,6 +145,11 @@ function bookingNoticeEmail(c: LotBookingNoticeContent, test: boolean): { subjec
   return { subject, html, text: `${prefix}New booking at ${c.lotName}\n\n${text}` };
 }
 
+/**
+ * Two copies of this email must keep the same wording: the manifest follow-up
+ * (manifest/render.ts renderFollowUpCancel) and the admin reminder
+ * (admin-actions/resends.ts lotCancelReminderEmail).
+ */
 function cancelNoticeEmail(
   c: { number: string; lotName: string; customerName: string; fromDate: string; toDate: string; vehicleLine: string },
   test: boolean

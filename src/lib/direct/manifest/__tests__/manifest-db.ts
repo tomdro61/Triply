@@ -2,13 +2,14 @@
  * Test database for the manifest cron: the shared booking-engine fake
  * (supabase-fake.ts) for bookings / pending_bookings / direct_booking_terms /
  * customers / the direct_lots_v2() RPC, plus a strict fake of migration 041's
- * three tables, which the shared fake does not model:
+ * three tables (+ migration 042), which the shared fake does not model:
  *
  *   - PRIMARY KEY / UNIQUE → 23505 on INSERT (the manifest claim and the
  *     follow-up's once-only claim live entirely in them),
- *   - the CHECKs, evaluated on INSERT AND UPDATE against the merged row (the
- *     run CHECK `status NOT IN ('sent','checked') OR sent_at IS NOT NULL OR
- *     had_unknown` is exactly what the cutoff path must satisfy),
+ *   - the CHECKs, evaluated on INSERT AND UPDATE against the merged row: 041's
+ *     `status NOT IN ('sent','checked') OR sent_at IS NOT NULL OR had_unknown`
+ *     (exactly what the cutoff path must satisfy) and 042's `'sent' ⇒ sent_at`,
+ *     `'failed' ⇒ NOT had_unknown` and the alerts' resolved_at/resolved_by pair,
  *   - a compound `onConflict` upsert that updates ONLY the columns sent,
  *   - `.or()` refused on UPDATE, as real PostgREST does,
  *   - every UPDATE's filters recorded, so a test can assert each status write
@@ -36,7 +37,7 @@ function defaults(table: string): Row {
   if (table === RUNS) {
     return { attempt: 1, had_unknown: false, claimed_at: t, attempt_claimed_at: t, first_sent_at: null, sent_at: null, email_id: null, last_error: null, created_at: t, updated_at: t };
   }
-  if (table === ALERTS) return { first_seen_at: t, last_seen_at: t, alerted_at: null, detail: {}, created_at: t, updated_at: t };
+  if (table === ALERTS) return { first_seen_at: t, last_seen_at: t, alerted_at: null, detail: {}, resolved_at: null, resolved_by: null, created_at: t, updated_at: t };
   seq++;
   return { id: `00000000-0000-4000-8000-${String(seq).padStart(12, "0")}`, attempts: 0, outcome: "sending", recipients: null, email_id: null, last_error: null, created_at: t, updated_at: t };
 }
@@ -45,6 +46,9 @@ function violated(table: string, r: Row): string | null {
   if (table === RUNS) {
     if (!["sending", "sent", "checked", "failed"].includes(String(r.status))) return "direct_lot_manifest_runs_status_check";
     if ((r.status === "sent" || r.status === "checked") && r.sent_at == null && r.had_unknown !== true) return "direct_lot_manifest_runs_check";
+    // 042
+    if (r.status === "sent" && r.sent_at == null) return "direct_lot_manifest_runs_sent_has_time";
+    if (r.status === "failed" && r.had_unknown !== false) return "direct_lot_manifest_runs_failed_not_unknown";
     if (!/^[0-9]+$/.test(String(r.direct_lot_id))) return "direct_lot_manifest_runs_direct_lot_id_check";
     if (!/^[0-9a-f]{16}$/.test(String(r.recipients_hash))) return "direct_lot_manifest_runs_recipients_hash_check";
     if (!(Number(r.attempt) >= 1)) return "direct_lot_manifest_runs_attempt_check";
@@ -56,6 +60,9 @@ function violated(table: string, r: Row): string | null {
     if (!["lot_notice", "cancel_notice", "manifest", "lot_config", "followup"].includes(String(r.kind))) return "direct_lot_alerts_kind_check";
     if (!String(r.subject ?? "").trim()) return "direct_lot_alerts_subject_check";
     if (r.detail == null || typeof r.detail !== "object" || Array.isArray(r.detail)) return "direct_lot_alerts_detail_check";
+    // 042: resolved_at and resolved_by together, and a non-blank resolver.
+    if ((r.resolved_at == null) !== (r.resolved_by == null)) return "direct_lot_alerts_resolved_check";
+    if (r.resolved_by != null && !String(r.resolved_by).trim()) return "direct_lot_alerts_resolved_check";
   }
   if (table === RESENDS) {
     if (!["lot_cancel_reminder", "customer_confirmation", "manifest_followup_cancel"].includes(String(r.kind))) return "direct_lot_resends_kind_check";

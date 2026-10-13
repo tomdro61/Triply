@@ -55,6 +55,8 @@ export interface ManifestRow {
   checkOut: string;
   guestName: string;
   guestPhone: string;
+  /** No guest name or phone in the staged payload NOR the customers row — the caller reports the TRP number. */
+  guestMissing: boolean;
   vehicle: { make: string; model: string; color: string; licensePlate: string; state: string };
   sizeLabel: string;
   /** Surcharge + its tax, collected at the lot. NULL when the row does not say — never shown as $0. */
@@ -100,26 +102,65 @@ function onDateOr(date: string): string {
 
 const literal = (ts: string) => String(ts).replace("T", " ").slice(0, 19);
 
-async function guestsByPi(supabase: AdminClient, piIds: string[]): Promise<Map<string, { name: string; phone: string }>> {
-  const out = new Map<string, { name: string; phone: string }>();
-  if (piIds.length === 0) return out;
-  const { data, error } = await supabase
-    .from("pending_bookings")
-    .select("stripe_payment_intent_id, customer")
-    .in("stripe_payment_intent_id", piIds)
-    .abortSignal(dbSignal());
-  if (error) throw new Error(`manifest: guest read failed: ${error.code ?? "?"} ${error.message}`);
-  for (const r of (data ?? []) as Array<{ stripe_payment_intent_id: string; customer: { firstName?: string; lastName?: string; phone?: string } | null }>) {
-    const c = r.customer;
-    out.set(r.stripe_payment_intent_id, {
-      name: `${c?.firstName ?? ""} ${c?.lastName ?? ""}`.trim(),
-      phone: (c?.phone ?? "").trim(),
-    });
+interface Guest {
+  name: string;
+  phone: string;
+}
+
+/**
+ * Guest name + phone per booking id: the staged checkout payload
+ * (`pending_bookings.customer` — what the booking notice named, as lot-notice
+ * does), field by field falling back to the `customers` row the booking links
+ * (`bookings.customer_id` → first_name, last_name, phone). A field still empty
+ * after both stays "" — the caller shows a placeholder and reports the TRP number.
+ */
+async function guestsFor(supabase: AdminClient, bookings: readonly BookingRow[]): Promise<Map<string, Guest>> {
+  const out = new Map<string, Guest>();
+  if (bookings.length === 0) return out;
+  const piIds = bookings.map((b) => b.stripe_payment_intent_id).filter((p): p is string => !!p);
+  const staged = new Map<string, Guest>();
+  if (piIds.length > 0) {
+    const { data, error } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id, customer")
+      .in("stripe_payment_intent_id", piIds)
+      .abortSignal(dbSignal());
+    if (error) throw new Error(`manifest: guest read failed: ${error.code ?? "?"} ${error.message}`);
+    for (const r of (data ?? []) as Array<{ stripe_payment_intent_id: string; customer: { firstName?: string; lastName?: string; phone?: string } | null }>) {
+      const c = r.customer;
+      staged.set(r.stripe_payment_intent_id, {
+        name: `${c?.firstName ?? ""} ${c?.lastName ?? ""}`.trim(),
+        phone: (c?.phone ?? "").trim(),
+      });
+    }
+  }
+
+  const incomplete = bookings.filter((b) => {
+    const g = staged.get(b.stripe_payment_intent_id ?? "");
+    return (!g?.name || !g.phone) && !!b.customer_id;
+  });
+  const customers = new Map<string, Guest>();
+  if (incomplete.length > 0) {
+    const { data, error } = await supabase
+      .from("customers")
+      .select("id, first_name, last_name, phone")
+      .in("id", [...new Set(incomplete.map((b) => b.customer_id).filter((id): id is string => !!id))])
+      .abortSignal(dbSignal());
+    if (error) throw new Error(`manifest: customer read failed: ${error.code ?? "?"} ${error.message}`);
+    for (const c of (data ?? []) as Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>) {
+      customers.set(c.id, { name: `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim(), phone: (c.phone ?? "").trim() });
+    }
+  }
+
+  for (const b of bookings) {
+    const s = staged.get(b.stripe_payment_intent_id ?? "");
+    const c = b.customer_id ? customers.get(b.customer_id) : undefined;
+    out.set(b.id, { name: s?.name || c?.name || "", phone: s?.phone || c?.phone || "" });
   }
   return out;
 }
 
-function toManifestRow(b: BookingRow, guest: { name: string; phone: string } | undefined): ManifestRow {
+function toManifestRow(b: BookingRow, guest: Guest | undefined): ManifestRow {
   const v = b.vehicle_info ?? {};
   const snapshotName = b.lot_snapshot && typeof b.lot_snapshot.name === "string" ? b.lot_snapshot.name : null;
   const surcharge = b.vehicle_surcharge_cents;
@@ -131,9 +172,9 @@ function toManifestRow(b: BookingRow, guest: { name: string; phone: string } | u
     lotName: b.location_name || snapshotName || "",
     checkIn: literal(b.check_in),
     checkOut: literal(b.check_out),
-    // The guest the booking notice named (the staged payload), as lot-notice does.
     guestName: guest?.name || "(see admin)",
     guestPhone: guest?.phone || "—",
+    guestMissing: !guest?.name || !guest.phone,
     vehicle: { make: v.make ?? "", model: v.model ?? "", color: v.color ?? "", licensePlate: v.licensePlate ?? "", state: v.state ?? "" },
     sizeLabel: b.vehicle_size_label ?? "—",
     atLotCents: surcharge != null && tax != null ? Number(surcharge) + Number(tax) : null,
@@ -180,7 +221,7 @@ export async function selectManifestGroups(
     const set = normaliseRecipients(t.lot_recipients ?? []);
     if (set.length > 0) recipientsByPi.set(t.stripe_payment_intent_id, set);
   }
-  const guests = await guestsByPi(supabase, piIds);
+  const guests = await guestsFor(supabase, listed);
 
   const groups = new Map<string, ManifestGroup>();
   const unroutable: string[] = [];
@@ -193,7 +234,7 @@ export async function selectManifestGroups(
     }
     const hash = recipientsHash(set);
     const group = groups.get(hash) ?? { recipients: set, hash, rows: [] };
-    group.rows.push(toManifestRow(b, guests.get(pi)));
+    group.rows.push(toManifestRow(b, guests.get(b.id)));
     groups.set(hash, group);
   }
   return { groups: [...groups.values()].sort((a, b) => a.hash.localeCompare(b.hash)), unroutable };
@@ -214,8 +255,8 @@ export async function recheckManifestRows(
   const { data, error } = await supabase.from("bookings").select(BOOKING_COLS).in("id", ids).abortSignal(dbSignal());
   if (error) throw new Error(`manifest: re-check read failed: ${error.code ?? "?"} ${error.message}`);
   const still = ((data ?? []) as BookingRow[]).filter((b) => isListedOn(b, livemode, lotId, date) && !!b.stripe_payment_intent_id);
-  const guests = await guestsByPi(supabase, still.map((b) => b.stripe_payment_intent_id as string));
-  return still.map((b) => toManifestRow(b, guests.get(b.stripe_payment_intent_id as string)));
+  const guests = await guestsFor(supabase, still);
+  return still.map((b) => toManifestRow(b, guests.get(b.id)));
 }
 
 /** Any confirmed booking (listed or not) arriving or departing at the lot on `date`. */
@@ -257,25 +298,10 @@ export async function readFollowUpRows(supabase: AdminClient, ids: string[]): Pr
   const { data, error } = await supabase.from("bookings").select(BOOKING_COLS).in("id", ids).abortSignal(dbSignal());
   if (error) throw new Error(`manifest follow-up: bookings read failed: ${error.code ?? "?"} ${error.message}`);
   const rows = (data ?? []) as BookingRow[];
-  const cancelled = rows.filter((b) => b.status === "cancelled" || b.status === "refunded");
-  const piIds = cancelled.map((b) => b.stripe_payment_intent_id).filter((p): p is string => !!p);
-  const guests = await guestsByPi(supabase, piIds);
-  const needCustomer = cancelled.filter((b) => !guests.get(b.stripe_payment_intent_id ?? "")?.name && b.customer_id);
-  const customers = new Map<string, string>();
-  if (needCustomer.length > 0) {
-    const { data: cust, error: custError } = await supabase
-      .from("customers")
-      .select("id, first_name, last_name")
-      .in("id", needCustomer.map((b) => b.customer_id as string))
-      .abortSignal(dbSignal());
-    if (custError) throw new Error(`manifest follow-up: customer read failed: ${custError.code ?? "?"} ${custError.message}`);
-    for (const c of (cust ?? []) as Array<{ id: string; first_name?: string | null; last_name?: string | null }>) {
-      customers.set(c.id, `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim());
-    }
-  }
+  const guests = await guestsFor(supabase, rows.filter((b) => b.status === "cancelled" || b.status === "refunded"));
   return rows.map((b) => {
     const v = b.vehicle_info ?? {};
-    const name = guests.get(b.stripe_payment_intent_id ?? "")?.name || (b.customer_id ? customers.get(b.customer_id) : "") || "(see admin)";
+    const name = guests.get(b.id)?.name || "(see admin)";
     const snapshotName = b.lot_snapshot && typeof b.lot_snapshot.name === "string" ? b.lot_snapshot.name : "";
     return {
       bookingId: b.id,

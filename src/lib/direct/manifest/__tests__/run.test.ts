@@ -35,8 +35,9 @@ vi.mock("@sentry/nextjs", () => ({
 
 import { createAdminClient } from "@/lib/supabase/server";
 import { runManifestCron, CUTOFF_REASON, type RunRow } from "../run";
+import { renderManifest } from "../render";
 import { manifestLotDays } from "../schedule";
-import { recipientsHash } from "../select";
+import { recipientsHash, type ManifestRow } from "../select";
 import { BoundedTimeoutError } from "@/lib/utils/bounded";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { RUNS, ALERTS, RESENDS } from "./manifest-db";
@@ -162,6 +163,8 @@ beforeEach(() => {
   resendSend.mockResolvedValue({ data: { id: "em_1" }, error: null });
 });
 afterEach(() => {
+  // The manifest can be recovered or forced on the day itself: it never says "tomorrow".
+  for (const m of manifestSends()) expect([m.subject, m.text, m.html].join(" ")).not.toMatch(/tomorrow/i);
   vi.useRealTimers();
   vi.unstubAllEnvs();
 });
@@ -294,8 +297,11 @@ describe("rows and content (§3.2, §3.3)", () => {
     expect(arrivals.indexOf("TRP-BOTH")).toBeLessThan(arrivals.indexOf("TRP-A1"));
     expect(arrivals).toContain("Time: 2:05 PM | Confirmation: TRP-A1 | Guest: Ada Lovelace | Phone: 555-0100 | Vehicle: Black Ford F-150 — plate ABC123 (NY) | Size: Large SUV / truck | Collect at the lot (est.): $55.19 (oversized-vehicle surcharge incl. tax) | Park Guard: Yes");
     expect(departures).toContain("Time: 11:45 PM | Confirmation: TRP-D1 | Guest: Grace Hopper | Phone: 555-0199");
-    expect(departures).toContain("Collect at the lot (est.): Nothing | Park Guard: No");
-    expect(departures).toContain("TRP-BOTH");
+    expect(departures).toContain("At the lot: Nothing | Park Guard: No");
+    // A departing car paid its surcharge at drop-off: never "collect" again.
+    expect(departures).toContain("Confirmation: TRP-BOTH | Guest: Ada Lovelace | Phone: 555-0100 | Vehicle: Black Ford F-150 — plate ABC123 (NY) | Size: Large SUV / truck | At the lot: Collected at drop-off | Park Guard: Yes");
+    expect(departures).not.toContain("Collect at the lot");
+    expect(m.html).toContain("Arrivals and departures at The Parking Point JFK — Sun, Nov 1");
     expect(m.text).not.toMatch(/no arrivals/i);
   });
 
@@ -464,6 +470,8 @@ describe("send once (§3.4)", () => {
     addBooking({ id: "b1" });
     resendSend.mockResolvedValueOnce({ data: null, error: { name: "validation_error", message: "bad", statusCode: 422 } });
     await tick(EVENING);
+    // The send-started marker went down before the request, and the refusal cleared it.
+    expect(mdb.updates.filter((u) => u.table === RUNS)[0].payload).toMatchObject({ had_unknown: true, booking_ids: ["b1"], ids_ever: ["b1"] });
     expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, attempt: 1 });
     await tick("2026-10-31T22:40:00Z");
     expect(manifestSends().map((s) => s.key)).toEqual([keyFor(1), keyFor(2)]);
@@ -604,12 +612,17 @@ describe("follow-up and cutoff (§3.4 steps 5–6)", () => {
     expect(runs().map((x) => x.manifest_date)).toEqual(["2026-10-31"]);
   });
 
-  it("recovery ignores runs older than lot-local today − 1", async () => {
+  it("recovery keeps following up sent runs up to 3 days back, and ignores older ones", async () => {
     addBooking({ id: "b2", over: { status: "cancelled" } });
-    seedRun({ manifest_date: "2026-10-29", status: "sent", sent_at: "2026-10-28T22:00:05.000Z", booking_ids: ["b2"], ids_ever: ["b2"] });
-    await tick(EVENING);
-    expect(resendSend).not.toHaveBeenCalled();
-    expect(runs()[0].status).toBe("sent");
+    addBooking({ id: "b3", over: { status: "cancelled" } });
+    seedRun({ manifest_date: "2026-10-28", status: "sent", sent_at: "2026-10-27T22:00:05.000Z", booking_ids: ["b2"], ids_ever: ["b2"] });
+    seedRun({ manifest_date: "2026-10-27", status: "sent", sent_at: "2026-10-26T22:00:05.000Z", booking_ids: ["b3"], ids_ever: ["b3"] });
+    await tick(EVENING); // UTC Oct 31: floor Oct 28
+    expect(followUpSends().map((s) => s.key)).toEqual([`direct-lot-followup/b2/1/2026-10-28/${HASH}/1`]);
+    expect(runs().map((r) => [r.manifest_date, r.status])).toEqual([
+      ["2026-10-28", "checked"],
+      ["2026-10-27", "sent"],
+    ]);
   });
 });
 
@@ -640,5 +653,279 @@ describe("force (§3.5)", () => {
     expect(late.status).toBe(409);
     expect(late.force?.refused).toMatch(/cutoff/);
     expect(manifestSends()).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("the send-started marker (had_unknown)", () => {
+  /** Make the `sent` write fail once: Resend accepted, the run was not recorded (the sender "crashed"). */
+  function failSentWriteOnce() {
+    mdb.beforeMutation = (table, op, payload) => {
+      if (table === RUNS && op === "update" && payload.status === "sent") {
+        mdb.beforeMutation = null;
+        mdb.failNext(RUNS, "update");
+      }
+    };
+  }
+
+  it("accepted but not recorded, then every listed booking cancelled → the takeover follows up and checks the run, never 'failed'", async () => {
+    addBooking({ id: "b1" });
+    failSentWriteOnce();
+    await tick(EVENING);
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: true, ids_ever: ["b1"], sent_at: null });
+    setBooking("b1", { status: "cancelled", cancel_state: "refund_issued" });
+
+    const r = await tick("2026-10-31T22:40:00Z");
+    expect(manifestSends()).toHaveLength(1);
+    expect(followUpSends().map((s) => s.key)).toEqual([`direct-lot-followup/b1/1/${TOMORROW}/${HASH}/1`]);
+    expect(r.runs.closed_checked).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "checked", had_unknown: true, sent_at: null, last_error: expect.stringMatching(/^nothing_to_list:/) });
+  });
+
+  it("a takeover refused (429) after a possibly-delivered attempt stays sending — never attempt 2", async () => {
+    addBooking({ id: "b1" });
+    failSentWriteOnce();
+    await tick(EVENING);
+    resendSend.mockResolvedValueOnce({ data: null, error: { name: "rate_limit_exceeded", message: "429", statusCode: 429 } });
+    await tick("2026-10-31T22:40:00Z");
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: true, attempt: 1 });
+    await tick("2026-10-31T22:50:00Z");
+    expect(manifestSends().map((s) => s.key)).toEqual([keyFor(1), keyFor(1), keyFor(1)]);
+    expect(runs()[0]).toMatchObject({ status: "checked", attempt: 1, sent_at: expect.any(String) });
+  });
+
+  it("the marker write fails → nothing is sent; the takeover sends attempt 1", async () => {
+    addBooking({ id: "b1" });
+    mdb.failNext(RUNS, "update"); // the first run UPDATE after the claim is the marker
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.errors).toBeGreaterThan(0);
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: false, ids_ever: [] });
+
+    await tick("2026-10-31T22:40:00Z");
+    expect(manifestSends().map((s) => s.key)).toEqual([keyFor(1)]);
+    expect(runs()[0]).toMatchObject({ status: "checked", attempt: 1 });
+  });
+
+  it("nothing_to_list with an attempt possibly delivered → follow-ups, then checked (marker set, or ids_ever from an earlier attempt)", async () => {
+    addBooking({ id: "b1", over: { status: "cancelled" } });
+    addBooking({ id: "b2", over: { status: "refunded" } });
+    seedRun({ had_unknown: true, booking_ids: ["b1"], ids_ever: ["b1"] });
+    const h2 = recipientsHash(["other@lot.example"]);
+    seedRun({ recipients_hash: h2, attempt: 2, had_unknown: false, booking_ids: ["b2"], ids_ever: ["b2"] });
+    const r = await tick(EVENING);
+    expect(manifestSends()).toHaveLength(0);
+    expect(followUpSends().map((s) => s.key).sort()).toEqual([`direct-lot-followup/b1/1/${TOMORROW}/${HASH}/1`, `direct-lot-followup/b2/1/${TOMORROW}/${h2}/1`].sort());
+    expect(r.runs.closed_checked).toBe(2);
+    for (const run of runs()) expect(run).toMatchObject({ status: "checked", had_unknown: true, last_error: expect.stringMatching(/^nothing_to_list:/) });
+  });
+
+  it("nothing_to_list with nothing ever handed to Resend → failed (no follow-up)", async () => {
+    addBooking({ id: "b1", over: { status: "cancelled" } });
+    seedRun({ had_unknown: false, booking_ids: ["b1"], ids_ever: [] });
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.nothing_to_list).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, last_error: expect.stringMatching(/^nothing_to_list:/) });
+  });
+
+  it("superseded with an attempt possibly delivered → follow-ups for ids_ever, then checked", async () => {
+    // A forced empty-day attempt of a run whose earlier (booked) attempt listed b1, since cancelled.
+    addBooking({ id: "b1", over: { status: "cancelled" } });
+    addBooking({ id: "late", over: { lot_notified_at: null } }); // a booking the lot has now — supersedes the empty reminder
+    seedRun({ had_unknown: true, booking_ids: [], ids_ever: ["b1"] });
+    const r = await tick(EVENING);
+    expect(manifestSends()).toHaveLength(0);
+    expect(followUpSends().map((s) => s.key)).toEqual([`direct-lot-followup/b1/1/${TOMORROW}/${HASH}/1`]);
+    expect(r.runs.closed_checked).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "checked", had_unknown: true, last_error: expect.stringMatching(/^superseded:/) });
+  });
+
+  it("a double-fired cron: the second tick finds the first mid-send (in_flight) or done (already_done); one manifest", async () => {
+    addBooking({ id: "b1" });
+    vi.setSystemTime(new Date(EVENING));
+    const nowMs = Date.now();
+    const opts = { livemode: false, nowMs, deadlineMs: nowMs + 45_000, dry: false, disabled: false, target: null, force: false };
+    let reached: () => void = () => {};
+    let release: () => void = () => {};
+    const atResend = new Promise<void>((r) => (reached = r));
+    const gate = new Promise<void>((r) => (release = r));
+    resendSend.mockImplementationOnce(async () => {
+      reached();
+      await gate;
+      return { data: { id: "em_a" }, error: null };
+    });
+    const first = runManifestCron({ ...opts, supabase: await createAdminClient() });
+    await atResend; // A holds the claim, the marker is down, its request is in Resend
+    const second = await runManifestCron({ ...opts, supabase: await createAdminClient() });
+    release();
+    const a = await first;
+    expect(a.runs).toEqual({ sent: 1, checked: 1 });
+    expect(second.runs).toEqual({ in_flight: 1 });
+
+    const third = await runManifestCron({ ...opts, supabase: await createAdminClient() });
+    expect(third.runs).toEqual({ already_done: 1 });
+    expect(manifestSends()).toHaveLength(1);
+    expect(runs()).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("kill switch, zones and follow-up alerts (review pass 1)", () => {
+  it("kill switch: a stale claim that never reached Resend is closed failed — no email", async () => {
+    addBooking({ id: "b1" });
+    seedRun({ had_unknown: false, booking_ids: ["b1"], ids_ever: [] });
+    const r = await tick(EVENING, { disabled: true });
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.kill_switch).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "failed", had_unknown: false, last_error: expect.stringMatching(/^kill switch: not sent/) });
+  });
+
+  it("kill switch: a possibly-delivered run is retried under the SAME key and its follow-ups go", async () => {
+    addBooking({ id: "b1" });
+    addBooking({ id: "b2", over: { status: "cancelled" } });
+    seedRun({ had_unknown: true, booking_ids: ["b1", "b2"], ids_ever: ["b1", "b2"] });
+    await tick(EVENING, { disabled: true });
+    expect(manifestSends().map((s) => s.key)).toEqual([keyFor(1)]);
+    expect(manifestSends()[0].text).toContain("TRP-B1");
+    expect(manifestSends()[0].text).not.toContain("TRP-B2");
+    expect(followUpSends().map((s) => s.key)).toEqual([`direct-lot-followup/b2/1/${TOMORROW}/${HASH}/1`]);
+    expect(runs()[0]).toMatchObject({ status: "checked", attempt: 1 });
+  });
+
+  it("a zone dispute does not hold up already-sent work: a sent run and a possibly-delivered emptied run still get their follow-ups", async () => {
+    addBooking({ id: "dispute", over: { location_timezone: "America/Chicago" } }); // lot 1's zone is now in dispute
+    addBooking({ id: "b2", over: { status: "cancelled" } });
+    addBooking({ id: "b3", over: { status: "cancelled" } });
+    seedRun({ status: "sent", sent_at: "2026-10-31T22:00:05.000Z", booking_ids: ["b2"], ids_ever: ["b2"] });
+    const h2 = recipientsHash(["other@lot.example"]);
+    seedRun({ recipients_hash: h2, had_unknown: true, booking_ids: ["b3"], ids_ever: ["b3"] });
+    const r = await tick(EVENING);
+    expect(r.lots).toEqual([]);
+    expect(manifestSends()).toHaveLength(0);
+    expect(followUpSends().map((s) => s.key).sort()).toEqual([`direct-lot-followup/b2/1/${TOMORROW}/${HASH}/1`, `direct-lot-followup/b3/1/${TOMORROW}/${h2}/1`].sort());
+    expect(runs().map((x) => x.status)).toEqual(["checked", "checked"]);
+  });
+
+  it("a zone dispute with a booking still to list: no send, the run stays sending (no_zone)", async () => {
+    addBooking({ id: "b1", over: { location_timezone: "America/Chicago" } });
+    seedRun({ had_unknown: true, booking_ids: ["b1"], ids_ever: ["b1"] });
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.runs.no_zone).toBe(1);
+    expect(runs()[0]).toMatchObject({ status: "sending", had_unknown: true });
+  });
+
+  it("a gave-up follow-up counts as done only once its alert row is written; detail has the TRP number, date and reason — no PII", async () => {
+    addBooking({ id: "b2", over: { status: "cancelled" } });
+    seedRun({ status: "sent", sent_at: "2026-10-31T22:00:05.000Z", booking_ids: ["b2"], ids_ever: ["b2"] });
+    mdb.rows(RESENDS).push({ id: "r1", booking_id: "b2", stripe_payment_intent_id: "pi_b2", livemode: false, kind: "manifest_followup_cancel", source: `manifest:1:${TOMORROW}:${HASH}`, attempts: 3, sent_by: "manifest", outcome: "failed", updated_at: "2026-10-31T22:01:00.000Z" });
+    mdb.failNext(ALERTS, "insert");
+    const r = await tick(EVENING);
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(r.errors).toBeGreaterThan(0);
+    expect(mdb.rows(ALERTS)).toEqual([]);
+    expect(runs()[0].status).toBe("sent");
+
+    await tick("2026-10-31T22:40:00Z");
+    const [alert] = mdb.rows(ALERTS);
+    expect(alert).toMatchObject({
+      subject: `b2:manifest:1:${TOMORROW}:${HASH}`,
+      kind: "followup",
+      resolved_at: null,
+      detail: expect.objectContaining({ trp: "TRP-B2", manifestDate: TOMORROW, reason: expect.stringContaining("3 attempts") }),
+    });
+    expect(JSON.stringify(alert.detail)).not.toMatch(/Ada|Lovelace|555-0100|@/);
+    expect(runs()[0].status).toBe("checked");
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["America/Los_Angeles", "LAX", "2026-11-01T05:30:00Z"], // Oct 31 22:30 PDT
+    ["Pacific/Honolulu", null, "2026-11-01T08:30:00Z"], // Oct 31 22:30 HST
+  ])("%s at 22:30 local: manifest for lot-local tomorrow and its rows found", async (zone, airport, at) => {
+    cmsLots(airport ? [directLotRow({ notification_emails: LOT_INBOX, airport_code: airport })] : []);
+    const tz = { location_timezone: zone, lot_snapshot: { name: "West Lot", timezone: zone } };
+    addBooking({ id: "arr", checkIn: `${TOMORROW}T07:15:00`, over: tz });
+    addBooking({ id: "dep", checkIn: "2026-10-28T08:00:00", checkOut: `${TOMORROW}T21:00:00`, over: tz });
+    addBooking({ id: "later", checkIn: "2026-11-02T07:15:00", over: tz });
+    const r = await tick(at);
+    expect(r.lots).toEqual([expect.objectContaining({ lotId: "1", timezone: zone, localDate: "2026-10-31", localMinutes: 22 * 60 + 30, manifestDate: TOMORROW, inWindow: true })]);
+    const [m] = manifestSends();
+    expect(m.key).toBe(keyFor(1));
+    expect(m.text).toContain("Time: 7:15 AM | Confirmation: TRP-ARR");
+    expect(m.text).toContain("Time: 9:00 PM | Confirmation: TRP-DEP");
+    expect(m.text).not.toContain("TRP-LATER");
+    expect(m.text).toContain("As of 10:30 PM lot time.");
+  });
+
+  it("a guest missing from the checkout payload falls back to the customers row; still missing → placeholder + Sentry with the TRP number only", async () => {
+    mdb.rows("customers").push({ id: "cust1", email: "kj@example.com", first_name: "Katherine", last_name: "Johnson", phone: "555-0123" });
+    addBooking({ id: "nopending", guest: null, over: { customer_id: "cust1" } });
+    addBooking({ id: "nophone", guest: { firstName: "Mary", lastName: "Jackson", phone: "" }, over: { customer_id: "cust1" } });
+    addBooking({ id: "nobody", guest: null });
+    await tick(EVENING);
+    const [m] = manifestSends();
+    expect(m.text).toContain("Confirmation: TRP-NOPENDING | Guest: Katherine Johnson | Phone: 555-0123");
+    expect(m.text).toContain("Confirmation: TRP-NOPHONE | Guest: Mary Jackson | Phone: 555-0123");
+    expect(m.text).toContain("Confirmation: TRP-NOBODY | Guest: (see admin) | Phone: —");
+    const guestReports = sentry.captureMessage.mock.calls.map((c) => String(c[0])).filter((msg) => msg.includes("no guest name or phone"));
+    expect(guestReports).toHaveLength(1);
+    expect(guestReports[0]).toContain("TRP-NOBODY");
+    expect(guestReports[0]).not.toMatch(/Katherine|Mary|555-|@/);
+    expect(sentry.fingerprints).toContainEqual(["direct-lot-manifest", "guest-missing", "TRP-NOBODY"]);
+  });
+
+  it("force from failed → attempt + 1, and ids_ever gains the forced list", async () => {
+    addBooking({ id: "b1" });
+    addBooking({ id: "b3" });
+    seedRun({ status: "failed", had_unknown: false, booking_ids: ["b1"], ids_ever: ["b1"], last_error: "Resend validation_error 422: bad" });
+    const r = await tick("2026-11-01T04:00:00Z", { force: true, target: { lotId: "1", date: TOMORROW } }); // 00:00 EDT, before the cutoff
+    expect(r.force?.runs).toEqual([{ recipientsHash: HASH, outcome: "sent" }]);
+    expect(manifestSends().map((s) => s.key)).toEqual([keyFor(2)]);
+    expect(runs()[0]).toMatchObject({ attempt: 2, status: "checked" });
+    expect([...(runs()[0].ids_ever as string[])].sort()).toEqual(["b1", "b3"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe("render", () => {
+  const row = (over: Partial<ManifestRow>): ManifestRow => ({
+    bookingId: "b",
+    piId: "pi_b",
+    number: "TRP-X",
+    lotName: "The Parking Point JFK",
+    checkIn: `${TOMORROW} 09:30:00`,
+    checkOut: "2026-11-05 17:00:00",
+    guestName: "Ada Lovelace",
+    guestPhone: "555-0100",
+    guestMissing: false,
+    vehicle: { make: "Ford", model: "F-150", color: "Black", licensePlate: "ABC123", state: "NY" },
+    sizeLabel: "Large SUV / truck",
+    atLotCents: 5519,
+    parkGuard: false,
+    ...over,
+  });
+
+  it("heads every manifest with the date, never 'tomorrow'; departures say the surcharge was collected at drop-off", () => {
+    const full = renderManifest({
+      lotName: "The Parking Point JFK",
+      manifestDate: TOMORROW,
+      rows: [row({ number: "TRP-A" }), row({ number: "TRP-D", checkIn: "2026-10-28 08:00:00", checkOut: `${TOMORROW} 23:45:00`, atLotCents: null })],
+      asOfMinutes: 18 * 60 + 30,
+      test: false,
+    });
+    const empty = renderManifest({ lotName: "The Parking Point JFK", manifestDate: TOMORROW, rows: [], asOfMinutes: 18 * 60, test: true });
+    for (const e of [full, empty]) {
+      expect([e.subject, e.text, e.html].join(" ")).not.toMatch(/tomorrow/i);
+      expect(e.text).toContain("Arrivals and departures at The Parking Point JFK — Sun, Nov 1");
+      expect(e.html).toContain("Arrivals and departures at The Parking Point JFK — Sun, Nov 1");
+    }
+    const departures = full.text.slice(full.text.indexOf("Departures"));
+    expect(departures).toContain("Confirmation: TRP-D");
+    expect(departures).toContain("At the lot: Collected at drop-off");
+    expect(departures).not.toContain("Collect at the lot");
+    expect(full.html.slice(full.html.indexOf("Departures"))).toContain("Collected at drop-off");
+    expect(full.text.slice(0, full.text.indexOf("Departures"))).toContain("Collect at the lot (est.): $55.19");
   });
 });

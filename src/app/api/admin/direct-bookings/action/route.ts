@@ -18,6 +18,7 @@ import {
   retryRefusal,
   type ActionRefusal,
 } from "@/lib/direct/admin-actions/booking";
+import { readOpenAlerts, resolveBookingAlerts, type OpenAlert } from "@/lib/direct/admin-actions/alerts";
 import { repointLotInbox } from "@/lib/direct/admin-actions/repoint";
 import {
   resendCustomerConfirmation,
@@ -30,8 +31,10 @@ import {
  *
  *   GET  ?reservationNumber=TRP-…   what the booking modal shows: the lot inbox
  *                                   on file (and the lot's current CMS inbox),
- *                                   and when the lot was told / sent the
- *                                   cancellation.
+ *                                   when the lot was told / sent the
+ *                                   cancellation, whether the customer
+ *                                   confirmation has gone, and the booking's
+ *                                   open alerts.
  *   POST { reservationNumber, action }
  *     retry_lot_notice              re-drive the unsent booking notice (and the
  *                                   customer confirmation if that is unsent too)
@@ -39,6 +42,9 @@ import {
  *                                   UNSENT notice (takes the notice claim as its lock)
  *     resend_lot_cancellation       remind the lot of a cancellation it was sent
  *     resend_customer_confirmation  re-send the guest's confirmation email
+ *                                   (only once the original has gone)
+ *     resolve_alerts                "lot phoned": mark the booking's open
+ *                                   alerts resolved by this admin
  *
  * Admin only. Direct rows only. A booking paid in the other Stripe mode is
  * refused (409) before any side effect: staging and production share one
@@ -63,7 +69,8 @@ const confirmationResender: ConfirmationResender<ReadyView> = {
     const v = await buildDirectResendView(piId);
     return v.ok ? { ok: true, view: v, guestEmail: v.dp.customer.email } : v;
   },
-  send: (v, idempotencyKey) => sendDirectCustomerConfirmation(v.dp, v.fr, v.pgSyncStatus, v.charged, v.promo, idempotencyKey),
+  send: (v, idempotencyKey) =>
+    sendDirectCustomerConfirmation(v.dp, v.fr, v.pgSyncStatus, v.charged, v.promo, { idempotencyKey }),
 };
 
 const refusal = (r: ActionRefusal) => NextResponse.json({ error: r.error }, { status: r.status });
@@ -92,6 +99,28 @@ export async function GET(request: NextRequest) {
       .maybeSingle();
     if (error) return NextResponse.json({ error: "Couldn't read this booking's lot inbox — try again." }, { status: 503 });
     const terms = data as { lot_recipients: string[] | null; recipients_rev: number | null } | null;
+    // Has the original customer confirmation gone? Until it has, the re-send is
+    // refused (the checkout/re-drive path retries it). null = couldn't read —
+    // the panel then offers the button and the POST re-checks.
+    const { data: staged, error: stagedError } = await supabase
+      .from("pending_bookings")
+      .select("email_sent")
+      .eq("stripe_payment_intent_id", booking.stripe_payment_intent_id)
+      .abortSignal(dbSignal())
+      .maybeSingle();
+    if (stagedError) {
+      captureAPIError(new Error(`email_sent read failed: ${stagedError.message}`), { endpoint: ENDPOINT, method: "GET", stage: "email_sent" });
+    }
+    const emailSent = (staged as { email_sent?: unknown } | null)?.email_sent;
+    const customerEmailSent = !stagedError && typeof emailSent === "boolean" ? emailSent : null;
+    // Open alerts: shown only. null = couldn't read (the panel says so).
+    let openAlerts: OpenAlert[] | null;
+    try {
+      openAlerts = await readOpenAlerts(supabase, booking);
+    } catch (err) {
+      openAlerts = null;
+      captureAPIError(err instanceof Error ? err : new Error(String(err)), { endpoint: ENDPOINT, method: "GET", stage: "open_alerts" });
+    }
     // The lot's CURRENT CMS inbox, for the re-point confirm (old → new). Shown
     // only; the action re-reads it. null = the CMS couldn't say right now.
     const lot = await fetchDirectLot(Number(booking.direct_lot_id));
@@ -102,6 +131,8 @@ export async function GET(request: NextRequest) {
       lotNotifiedAt: booking.lot_notified_at,
       lotNoticeClaimedAt: booking.lot_notice_claimed_at,
       lotCancelNotifiedAt: booking.lot_cancel_notified_at,
+      customerEmailSent,
+      openAlerts,
       // The other environment's booking: shown, but every action is refused here.
       otherEnvironment: otherMode,
     });
@@ -156,6 +187,10 @@ export async function POST(request: NextRequest) {
       }
       case "resend_customer_confirmation": {
         const r = await resendCustomerConfirmation(supabase, booking, admin.value.email, confirmationResender);
+        return r.ok ? NextResponse.json({ ...r, action }) : refusal(r);
+      }
+      case "resolve_alerts": {
+        const r = await resolveBookingAlerts(supabase, booking, admin.value.email);
         return r.ok ? NextResponse.json({ ...r, action }) : refusal(r);
       }
     }

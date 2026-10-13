@@ -279,7 +279,8 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
       lot_notified_at: null,
       lot_notice_claimed_at: null,
       lot_cancel_notified_at: null,
-      // literal wall-clock TIMESTAMP, three days out: the stay is not over
+      // literal wall-clock TIMESTAMPs, two and three days out: the stay is not over
+      check_in: new Date(Date.now() + 2 * 24 * HOUR).toISOString().slice(0, 19),
       check_out: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19),
       created_at: created,
       updated_at: created,
@@ -382,6 +383,26 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     const body = await (await GET(req())).json();
     expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_booked_early");
     expect(body.directSendsRedriven).toBe(1);
+  });
+
+  it("6b: check-ins not yet passed come first — 25 stuck stays already under way can't starve tomorrow's arrival", async () => {
+    const passedRows = Array.from({ length: 25 }, (_, i) =>
+      directBooking({
+        stripe_payment_intent_id: `pi_passed_${String(i).padStart(2, "0")}`,
+        created_at: ago(5 * 24 * HOUR),
+        check_in: ago((3 * 24 + i) * HOUR).slice(0, 19),
+        check_out: new Date(Date.now() + 3 * 24 * HOUR).toISOString().slice(0, 19),
+      })
+    );
+    db.seed("bookings", [
+      ...passedRows,
+      directBooking({ stripe_payment_intent_id: "pi_tomorrow", check_in: new Date(Date.now() + 24 * HOUR).toISOString().slice(0, 19) }),
+    ]);
+    const body = await (await GET(req())).json();
+    const redriven = redriveDirectBookingSends.mock.calls.map(([pi]) => pi);
+    expect(redriven[0]).toBe("pi_tomorrow");
+    expect(redriven).toHaveLength(25); // MAX_PER_RUN: the tomorrow row + the 24 earliest passed ones
+    expect(body.directSendsRedriven).toBe(25);
   });
 
   it("a cancellation the lot was told (or may have been told) of gets its cancel notice; one the lot never heard of does not", async () => {

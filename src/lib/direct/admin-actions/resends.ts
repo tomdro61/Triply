@@ -21,12 +21,13 @@ import {
  * cancellation the lot was already sent) and "Re-send customer confirmation".
  *
  * Each is claimed and audited as a `direct_lot_resends` row — source
- * `admin:{n}`, n = 1 + the re-sends of that kind this booking already has —
- * whose UNIQUE (booking, kind, source) makes a double-click (or two admins at
- * once) send ONCE: the loser's INSERT is a 23505 → 409. The Resend key carries
- * n, so a deliberate later re-send is a new email, never swallowed as a
- * duplicate of the first. These never touch a bookings claim or stamp column:
- * the 4b-2 notice machinery is not involved.
+ * `admin:{n}`, n = 1 + the re-sends of that kind this booking already has.
+ * The UNIQUE (booking, kind, source) only stops two requests that race on the
+ * SAME n (two admins at once): the loser's INSERT is a 23505 → 409. A
+ * double-click is stopped by the panel's busy-disabled buttons, not by this.
+ * Any later re-send is n+1 — a NEW email under its own Resend key, never
+ * swallowed as a duplicate of the first. These never touch a bookings claim
+ * or stamp column: the 4b-2 notice machinery is not involved.
  */
 
 const ENDPOINT = "/api/admin/direct-bookings/action";
@@ -133,7 +134,11 @@ const fmtWhen = (wallClock: string) => {
   return `${formatDate(date)} at ${convertTo12Hour(time)}`;
 };
 
-/** The 4b-2 cancel notice (lot-notice.ts cancelNoticeEmail): same subject and fields, plus one "re-sent" line. */
+/**
+ * The 4b-2 cancel notice (lot-notice.ts cancelNoticeEmail): same subject and
+ * fields, plus one "re-sent" line. Keep the wording in step with that one and
+ * with manifest/render.ts renderFollowUpCancel.
+ */
 export function lotCancelReminderEmail(
   c: { number: string; lotName: string; customerName: string; fromDate: string; toDate: string; vehicleLine: string },
   test: boolean
@@ -283,7 +288,8 @@ export type ConfirmationViewRefusal =
   | "refunded"
   | "unreadable"
   | "not_confirmed"
-  | "mid_cancel";
+  | "mid_cancel"
+  | "unsent";
 
 /**
  * The booking engine's two halves of a confirmation re-send, INJECTED by the
@@ -293,7 +299,8 @@ export type ConfirmationViewRefusal =
  * adapter is type-checked against the engine's own result type, so a new
  * refusal reason there fails the build until it is mapped here.
  *   build — reads only; throws on a Stripe or database READ failure.
- *   send  — never throws; false = not confirmed sent (refused, or no answer in time).
+ *   send  — never throws; false = not confirmed sent (refused, or no answer in
+ *           time — it may still have been delivered).
  */
 export interface ConfirmationResender<View> {
   build(piId: string): Promise<{ ok: true; view: View; guestEmail: string } | { ok: false; reason: ConfirmationViewRefusal }>;
@@ -309,6 +316,12 @@ const VIEW_REFUSALS: Record<ConfirmationViewRefusal, ActionRefusal> = {
   unreadable: refuse(500, "This booking's details couldn't be rebuilt for the email — handle it by hand (see Sentry)."),
   not_confirmed: refuse(409, "This booking is no longer confirmed — no confirmation is re-sent."),
   mid_cancel: refuse(409, "A cancellation of this booking is in progress."),
+  // The checkout/re-drive path still owns that email (pending_bookings.email_sent
+  // = false): a re-send now would race its automatic retry and could arrive twice.
+  unsent: refuse(
+    409,
+    "The original confirmation hasn't gone yet — it is retried automatically; use Retry lot notice to push it now."
+  ),
 };
 
 export async function resendCustomerConfirmation<View>(
@@ -337,15 +350,17 @@ export async function resendCustomerConfirmation<View>(
   const claimed = await claimResend(supabase, booking, "customer_confirmation", booking.livemode, sentBy, to);
   if (!claimed.ok) return claimed;
 
-  // The send never throws and reports its own failure to Sentry; `false`
-  // covers both a refusal and no answer in time — recorded as failed, and the
-  // UI says it may still arrive.
+  // The send never throws and reports its own failure to Sentry. `false`
+  // covers both a refusal and no answer in time, and the two can't be told
+  // apart here — so it is recorded "unknown" (it may have been delivered),
+  // never "failed", and the UI says it may have been sent.
   const sent = await resender.send(built.view, `direct-confirmation/resend/${booking.id}/${claimed.n}`);
+  const outcome: ResendOutcome = sent ? "sent" : "unknown";
   await recordResend(supabase, claimed.id, booking.reslab_reservation_number, {
-    outcome: sent ? "sent" : "failed",
+    outcome,
     email_id: null,
     recipients: to,
-    last_error: sent ? null : "not confirmed sent (Resend refused it or did not answer in time — see Sentry)",
+    last_error: sent ? null : "not confirmed sent (Resend refused it or did not answer in time — it may have been delivered; see Sentry)",
   });
-  return { ok: true, outcome: sent ? "sent" : "failed", n: claimed.n, recipients: to, test: !booking.livemode };
+  return { ok: true, outcome, n: claimed.n, recipients: to, test: !booking.livemode };
 }

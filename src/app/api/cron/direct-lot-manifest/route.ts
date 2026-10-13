@@ -3,10 +3,15 @@
  * of tomorrow's arrivals and departures (6b plan §3). Vercel cron `*\/10`.
  *
  * Every tick: lot_config problems → alert rows; NEW manifests for lots in their
- * 18:00–23:00 lot-local window (unless DIRECT_LOT_MANIFEST_DISABLED=true);
- * then recovery — takeovers, follow-up cancel reminders and the noon cutoff —
- * at any hour and whatever the kill switch says. The state machine lives in
+ * 18:00–23:00 lot-local window; then recovery — follow-up cancel reminders,
+ * takeovers and the noon cutoff — at any hour. The state machine lives in
  * src/lib/direct/manifest/run.ts.
+ *
+ * DIRECT_LOT_MANIFEST_DISABLED=true stops every manifest that has not reached
+ * Resend: no new claims, no attempt + 1, no force, and a stale claim that never
+ * reached Resend is closed `failed`. A manifest that may already have been
+ * delivered is still retried under its SAME idempotency key (Resend answers
+ * without a second email), and follow-up cancel reminders keep going.
  *
  *   ?dry=1                    render what would be sent now; sends and writes nothing
  *   ?dry=1&lot=1&date=D       render lot 1's manifest(s) for D

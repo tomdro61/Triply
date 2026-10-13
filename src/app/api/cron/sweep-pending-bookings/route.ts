@@ -461,21 +461,32 @@ export async function GET(request: NextRequest) {
     const directSince = new Date(Date.now() - DIRECT_SEND_WINDOW_MS).toISOString();
     // check_out is a literal wall-clock TIMESTAMP; a date a day back is a safe, timezone-free bound.
     const stayNotOver = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Unsent lot notices, bounded by the STAY (6b): a notice that keeps failing is
+    // retried until the stay is over (check-out a day back), not dropped after 3
+    // days. Check-ins not yet passed come first, soonest first; stays already
+    // under way only fill the slots left — so a stuck booking further out, or a
+    // backlog of passed check-ins, can't starve a sooner arrival.
+    const unsentLotNotices = async (): Promise<{ data: Array<{ stripe_payment_intent_id: string }> | null; error: { message: string } | null }> => {
+      const rowsWhere = () =>
+        supabase
+          .from("bookings")
+          .select("stripe_payment_intent_id")
+          .eq("inventory_source", "direct")
+          .eq("livemode", livemode)
+          .eq("status", "confirmed")
+          .is("lot_notified_at", null)
+          .lt("created_at", directDueBefore)
+          .gte("check_out", stayNotOver);
+      const upcoming = await rowsWhere().gte("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN);
+      if (upcoming.error) return { data: null, error: upcoming.error };
+      const first = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      if (first.length >= MAX_PER_RUN) return { data: first, error: null };
+      const passed = await rowsWhere().lt("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN - first.length);
+      if (passed.error) return { data: first, error: passed.error };
+      return { data: [...first, ...((passed.data ?? []) as Array<{ stripe_payment_intent_id: string }>)], error: null };
+    };
     const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
-      supabase
-        .from("bookings")
-        .select("stripe_payment_intent_id")
-        .eq("inventory_source", "direct")
-        .eq("livemode", livemode)
-        .eq("status", "confirmed")
-        .is("lot_notified_at", null)
-        .lt("created_at", directDueBefore)
-        // Bounded by the STAY (6b): a booking made weeks ahead whose notice keeps
-        // failing is retried until the car is due, not dropped after 3 days. Soonest
-        // arrival first, so stuck rows can never starve an imminent one.
-        .gte("check_out", stayNotOver)
-        .order("check_in")
-        .limit(MAX_PER_RUN),
+      unsentLotNotices(),
       supabase
         .from("pending_bookings")
         .select("stripe_payment_intent_id")

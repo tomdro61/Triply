@@ -9,8 +9,9 @@ import { isDirectCheckoutOpen } from "@/lib/direct/flag";
  *
  * Pure time arithmetic on wall clocks: a lot's "today" is `zonedWallClock` in
  * its IANA zone, the manifest is for lot-local today + 1, new manifests go out
- * 18:00–23:00 lot-local, and nothing is sent after 12:00 lot-local ON the
- * manifest date. Booking times are TIMESTAMP literals ("YYYY-MM-DDTHH:MM:SS")
+ * 18:00–23:00 lot-local, and no MANIFEST is sent after 12:00 lot-local ON the
+ * manifest date (follow-up cancel reminders still are — run.ts step 5).
+ * Booking times are TIMESTAMP literals ("YYYY-MM-DDTHH:MM:SS")
  * and are only ever compared as strings — never turned into instants.
  *
  *   booked lots     confirmed direct bookings of this Stripe mode arriving or
@@ -82,7 +83,7 @@ export function inSendWindow(localMinutes: number): boolean {
   return localMinutes >= MANIFEST_SEND_FROM_MIN && localMinutes < MANIFEST_SEND_UNTIL_MIN;
 }
 
-/** At or after 12:00 lot-local on the manifest date (or any later day): no more manifest sends. */
+/** At or after 12:00 lot-local on the manifest date (or any later day): no more manifest sends (follow-ups still go). */
 export function pastCutoff(manifestDate: string, localDate: string, localMinutes: number): boolean {
   return localDate > manifestDate || (localDate === manifestDate && localMinutes >= MANIFEST_CUTOFF_MIN);
 }
@@ -212,8 +213,10 @@ export async function readManifestSchedule(supabase: AdminClient, livemode: bool
 }
 
 /**
- * The per-lot view the alerts cron imports: which lots should have a manifest
- * for tomorrow, and the zone/CMS problems found while deciding.
+ * The per-lot view of `readManifestSchedule` (lots that should have a manifest
+ * for tomorrow + the zone/CMS problems found while deciding), without the
+ * internals. Used by the tests; the alerts cron calls `readManifestSchedule`
+ * directly because it needs the zones too.
  */
 export async function manifestLotDays(
   supabase: AdminClient,
