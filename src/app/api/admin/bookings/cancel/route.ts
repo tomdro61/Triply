@@ -41,6 +41,12 @@ const cancelSchema = z.object({
   // when a lot turns the customer away — Triply returns its own fee as goodwill.
   // Defaults false: the standard path retains the non-refundable service fee.
   refundServiceFee: z.boolean().optional().default(false),
+  // The POLICY refund (Terms §5.2, 2026-10-13): refunds the service fee but,
+  // like the self-cancel, still withholds the Park Guard wholesale. The admin
+  // dialog pre-ticks it when check-in is more than 24 h away, so a guest who
+  // cancels by email gets the same "free cancellation" as one who cancels
+  // online. Exclusive with refundServiceFee (the full / goodwill refund).
+  refundServiceFeeOnly: z.boolean().optional().default(false),
   // Why (migration 032). REQUIRED for an admin cancel — the admin always knows
   // (or picks "other" + a note). `unknown` is deliberately not accepted here.
   reason: z.enum(ADMIN_CANCELLATION_REASONS, {
@@ -73,8 +79,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { reservationNumber, stripePaymentIntentId, refundServiceFee, reason, note } =
+    const { reservationNumber, stripePaymentIntentId, refundServiceFee, refundServiceFeeOnly, reason, note } =
       parsed.data;
+    if (refundServiceFee && refundServiceFeeOnly) {
+      return NextResponse.json(
+        { error: "Choose either the full refund or the policy refund, not both" },
+        { status: 400 }
+      );
+    }
 
     // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
@@ -303,7 +315,9 @@ export async function POST(request: NextRequest) {
       !refundServiceFee && booking.protection_plan
         ? pgWholesaleWithheld(pgPremium, pgRow.wholesaleDollars)
         : 0;
-    const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheldDollars;
+    // The service fee comes back on the full refund AND on the policy refund.
+    const feeRefunded = refundServiceFee || refundServiceFeeOnly;
+    const feeWithheld = (feeRefunded ? 0 : serviceFee) + pgWholesaleWithheldDollars;
     let refundAmount = 0;
     let piLookupFailed = false;
     // Set when the payment was an uncaptured AUTHORIZATION that we released
@@ -428,7 +442,7 @@ export async function POST(request: NextRequest) {
     // The fee was returned only if a full-refund refund actually fulfilled on a
     // booking that had a fee. This is what the accounting reconciler reads to
     // exclude the fee from kept revenue (migration 013).
-    const serviceFeeRefunded = refundServiceFee && wasRefunded && serviceFee > 0;
+    const serviceFeeRefunded = feeRefunded && wasRefunded && serviceFee > 0;
 
     const { error: bookingUpdateError } = await supabase
       .from("bookings")

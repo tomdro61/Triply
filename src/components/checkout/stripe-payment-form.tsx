@@ -237,8 +237,10 @@ export function StripePaymentForm({
               Privacy Policy
             </a>
             . I understand that my reservation is subject to the parking
-            facility's policies and that cancellations made within 24 hours of
-            check-in may be subject to fees.
+            facility&apos;s policies, that I can cancel for free up to 24 hours
+            before check-in (Park Guard protection plans are partly
+            non-refundable), and that later cancellations and no-shows may not
+            be refunded.
           </span>
         </label>
       </div>

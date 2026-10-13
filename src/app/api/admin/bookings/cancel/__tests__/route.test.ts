@@ -259,6 +259,30 @@ describe("POST /api/admin/bookings/cancel — money is unchanged by the reason f
     expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: true, pg_identifier: null });
   });
 
+  it("policy refund (free cancellation) with Park Guard: refund 94.00 — fee refunded, PG wholesale still withheld", async () => {
+    seed(PG_ROW);
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).toHaveBeenCalledTimes(1);
+    expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 94, "admin-cancel:pi_1");
+    expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
+    expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: true });
+  });
+
+  it("policy refund without Park Guard: refund 100.00, fee refunded", async () => {
+    const res = await POST(req({ reason: "plans_changed", refundServiceFeeOnly: true }));
+    expect(res.status).toBe(200);
+    expect(stripeMock.createRefund).toHaveBeenCalledWith("pi_1", 100, "admin-cancel:pi_1");
+    expect(row()).toMatchObject({ status: "refunded", service_fee_refunded: true });
+  });
+
+  it("full refund and policy refund together → 400 before any side effect", async () => {
+    const res = await POST(req({ reason: "plans_changed", refundServiceFee: true, refundServiceFeeOnly: true }));
+    expect(res.status).toBe(400);
+    expect(stripeMock.createRefund).not.toHaveBeenCalled();
+    expect(row()).toMatchObject({ status: "confirmed" });
+  });
+
   it("standard cancel without Park Guard: refund 94.05 (fee retained), PG never called", async () => {
     const res = await POST(req({ reason: "found_cheaper" }));
     expect(res.status).toBe(200);
