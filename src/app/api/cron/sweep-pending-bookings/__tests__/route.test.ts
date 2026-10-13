@@ -342,11 +342,15 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     expect(body.directSendsRedriven).toBe(1);
   });
 
-  it("leaves alone: other Stripe mode, under 6 min old, older than 3 days, ResLab rows, already notified / emailed, not confirmed", async () => {
+  it("leaves alone: other Stripe mode, under 6 min old, stay over, ResLab rows, already notified / emailed, not confirmed", async () => {
     db.seed("bookings", [
       directBooking({ stripe_payment_intent_id: "pi_test_mode", livemode: false }),
       directBooking({ stripe_payment_intent_id: "pi_young", created_at: ago(3 * MIN) }),
-      directBooking({ stripe_payment_intent_id: "pi_old", created_at: ago(4 * 24 * HOUR) }),
+      directBooking({
+        stripe_payment_intent_id: "pi_stay_over",
+        created_at: ago(4 * 24 * HOUR),
+        check_out: new Date(Date.now() - 2 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
       directBooking({ stripe_payment_intent_id: "pi_reslab", inventory_source: "reslab" }),
       directBooking({ stripe_payment_intent_id: "pi_notified", lot_notified_at: ago(9 * MIN) }),
       directBooking({ stripe_payment_intent_id: "pi_failed", status: "failed" }),
@@ -365,6 +369,19 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
     expect(redriveDirectBookingSends).not.toHaveBeenCalled();
     expect(sendLotCancelNotice).not.toHaveBeenCalled();
     expect(body).toMatchObject({ ok: true, directSendsRedriven: 0, directCancelNoticesAttempted: 0 });
+  });
+
+  it("6b: an unsent lot notice is retried for the whole stay — booked weeks ago, arriving later — not dropped after 3 days", async () => {
+    db.seed("bookings", [
+      directBooking({
+        stripe_payment_intent_id: "pi_booked_early",
+        created_at: ago(20 * 24 * HOUR),
+        check_out: new Date(Date.now() + 10 * 24 * HOUR).toISOString().slice(0, 19),
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(redriveDirectBookingSends).toHaveBeenCalledWith("pi_booked_early");
+    expect(body.directSendsRedriven).toBe(1);
   });
 
   it("a cancellation the lot was told (or may have been told) of gets its cancel notice; one the lot never heard of does not", async () => {

@@ -489,7 +489,7 @@ describe("health — direct lots the lot was never told about (4b plan §9 H-B)"
     return r.data.lotNotNotified;
   };
 
-  it("lists only live, confirmed, un-notified direct bookings older than an hour and inside the lookback", async () => {
+  it("lists only live, confirmed, un-notified direct bookings older than an hour whose stay is not over", async () => {
     const r = await health([
       direct({ reslab_reservation_number: "TRP-7K2M9QXA" }), // included
       direct({ reslab_reservation_number: "RTL854206", inventory_source: "reslab" }),
@@ -497,9 +497,20 @@ describe("health — direct lots the lot was never told about (4b plan §9 H-B)"
       direct({ reslab_reservation_number: "TRP-Y0VNG000", created_at: ago(30 * 60_000) }),
       direct({ reslab_reservation_number: "TRP-N0T1F1ED", lot_notified_at: ago(HOUR) }),
       direct({ reslab_reservation_number: "TRP-CANCE11D", status: "cancelled" }), // never told ⇒ neither list
-      direct({ reslab_reservation_number: "TRP-0LDR0WAA", created_at: ago(8 * 24 * HOUR) }),
+      // 6b: booked 8 days ago, still arriving ⇒ still listed (bounded by the stay, not booking age)
+      direct({ reslab_reservation_number: "TRP-B0VND778", created_at: ago(8 * 24 * HOUR), check_out: "2026-10-20T10:00:00" }),
+      // stay over ⇒ out
+      direct({ reslab_reservation_number: "TRP-G0NE0000", check_out: "2026-09-25T10:00:00" }),
     ]);
-    expect(r).toEqual({ kind: "n", n: 1, numbers: ["TRP-7K2M9QXA"], capped: false, cancelN: 0, cancelNumbers: [], cancelCapped: false });
+    expect(r).toEqual({
+      kind: "n",
+      n: 2,
+      numbers: expect.arrayContaining(["TRP-7K2M9QXA", "TRP-B0VND778"]),
+      capped: false,
+      cancelN: 0,
+      cancelNumbers: [],
+      cancelCapped: false,
+    });
   });
 
   it("a cancellation the lot was told (or may have been told) of, whose stay is not over and whose cancel notice never went, is in cancelNumbers (by check-out)", async () => {

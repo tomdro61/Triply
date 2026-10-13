@@ -25,6 +25,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
 import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
+import { LOT_TOLD_OR } from "@/lib/direct/lot-told";
 import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
@@ -458,6 +459,8 @@ export async function GET(request: NextRequest) {
     // claim-guarded, so a re-drive never mails twice.
     const directDueBefore = new Date(Date.now() - DIRECT_SEND_DUE_MS).toISOString();
     const directSince = new Date(Date.now() - DIRECT_SEND_WINDOW_MS).toISOString();
+    // check_out is a literal wall-clock TIMESTAMP; a date a day back is a safe, timezone-free bound.
+    const stayNotOver = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
     const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
       supabase
         .from("bookings")
@@ -467,7 +470,11 @@ export async function GET(request: NextRequest) {
         .eq("status", "confirmed")
         .is("lot_notified_at", null)
         .lt("created_at", directDueBefore)
-        .gte("created_at", directSince)
+        // Bounded by the STAY (6b): a booking made weeks ahead whose notice keeps
+        // failing is retried until the car is due, not dropped after 3 days. Soonest
+        // arrival first, so stuck rows can never starve an imminent one.
+        .gte("check_out", stayNotOver)
+        .order("check_in")
         .limit(MAX_PER_RUN),
       supabase
         .from("pending_bookings")
@@ -492,8 +499,8 @@ export async function GET(request: NextRequest) {
         .eq("livemode", livemode)
         .in("status", ["cancelled", "refunded"])
         .is("lot_cancel_notified_at", null)
-        .or("lot_notified_at.not.is.null,lot_notice_claimed_at.not.is.null")
-        .gte("check_out", new Date(Date.now() - 86_400_000).toISOString().slice(0, 10))
+        .or(LOT_TOLD_OR)
+        .gte("check_out", stayNotOver)
         .limit(MAX_PER_RUN),
     ]);
     for (const [label, scan] of [

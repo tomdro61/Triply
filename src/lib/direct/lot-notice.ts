@@ -247,20 +247,35 @@ async function claimAndSend(
 
     const claimed = await claim(supabase, kind, piId);
     if (!claimed) return "not_claimed";
+    // Recipients are read again AFTER the claim (6b plan §4): the admin
+    // "re-point" action holds this same claim while it rewrites them, so a
+    // sender can never mail the old inbox after a re-point.
+    const { data: current, error: currentError } = await supabase
+      .from("direct_booking_terms")
+      .select("lot_recipients, recipients_rev")
+      .eq("stripe_payment_intent_id", piId)
+      .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS))
+      .maybeSingle();
     // A claim taken over from a STALE one: an earlier attempt's outcome was
     // unknown and it may have DELIVERED. Never hand that claim back on a
     // failure (a 429, a quota reply …) — it is the only record that the lot
     // may know of the booking, and the cancel claim's second gate needs it.
     bookingId = claimed.fromStale ? null : claimed.bookingId;
     const claimedId = claimed.bookingId;
+    if (currentError || !current) throw new Error(`terms re-read failed: ${currentError?.message ?? "no row"}`);
+    const cur = current as { lot_recipients: string[]; recipients_rev: number | null };
+    const sendTo = resolveLotRecipients(t.livemode, cur.lot_recipients);
+    if (!sendTo || sendTo.to.length === 0) throw new Error("no recipients after re-read");
+    // A re-pointed booking notice is a NEW request (new inbox) — its own key. rev 0 keeps the 4b-2 key.
+    const rev = kind === "booking" && (cur.recipients_rev ?? 0) > 0 ? `/r${cur.recipients_rev}` : "";
 
-    const { subject, html, text, variant } = await build(recipients.test);
+    const { subject, html, text, variant } = await build(sendTo.test);
     let sent: Awaited<ReturnType<typeof resend.emails.send>>;
     try {
       sent = await bounded(
         resend.emails.send(
-          { from: FROM_EMAIL, to: recipients.to, subject, html, text },
-          { idempotencyKey: `direct-lot-notice/${kind}/${claimedId}/${variant}` }
+          { from: FROM_EMAIL, to: sendTo.to, subject, html, text },
+          { idempotencyKey: `direct-lot-notice/${kind}/${claimedId}/${variant}${rev}` }
         ),
         SEND_TIMEOUT_MS,
         "Resend"
@@ -324,7 +339,7 @@ async function claimAndSend(
       .from("direct_booking_terms")
       .update(
         kind === "booking"
-          ? { [col.emailId]: data?.id ?? null, lot_notice_recipients: recipients.to }
+          ? { [col.emailId]: data?.id ?? null, lot_notice_recipients: sendTo.to }
           : { [col.emailId]: data?.id ?? null }
       )
       .eq("stripe_payment_intent_id", piId)

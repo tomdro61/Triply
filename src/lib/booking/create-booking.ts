@@ -78,7 +78,7 @@ import {
   directStaleness,
   type DirectBookingPayload,
 } from "@/lib/direct/fulfilment";
-import { sendLotBookingNotice, type LotBookingNoticeContent } from "@/lib/direct/lot-notice";
+import { sendLotBookingNotice, type LotBookingNoticeContent, type LotNoticeOutcome } from "@/lib/direct/lot-notice";
 
 // =============================================================================
 // Tunables — three DISTINCT durations. They are not interchangeable.
@@ -2417,9 +2417,11 @@ async function unclaimCustomerEmail(piId: string): Promise<void> {
 }
 
 /** Claim, send, and hand the claim back if the send did not go (F-1). */
-async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<void> {
-  if ((await claimCustomerEmail(piId)) !== "claimed") return;
-  if (!(await send())) await unclaimCustomerEmail(piId);
+async function sendCustomerEmailOnce(piId: string, send: () => Promise<boolean>): Promise<"sent" | "not_claimed" | "failed"> {
+  if ((await claimCustomerEmail(piId)) !== "claimed") return "not_claimed";
+  if (await send()) return "sent";
+  await unclaimCustomerEmail(piId);
+  return "failed";
 }
 
 /** The one place a direct booking's FulfilledReservation is built. */
@@ -2532,6 +2534,14 @@ function heldByLiveFulfilment(row: PendingRow | null): boolean {
 }
 
 /**
+ * What a direct re-drive did (6b): the sweep ignores it; the admin "Retry lot
+ * notice" action shows it. `skipped` says why nothing was attempted.
+ */
+export type DirectRedriveResult =
+  | { kind: "attempted"; notice: LotNoticeOutcome; customerEmail: "sent" | "not_claimed" | "failed" | "already_sent" }
+  | { kind: "skipped"; reason: "not_direct" | "refunded" | "held" | "no_number" | "unreadable" | "not_confirmed" | "mid_cancel" | "error" };
+
+/**
  * Step 3 for a DIRECT booking that already exists (§9 H-B): a function that
  * died between the booking insert and the sends must not lose the lot's only
  * notice or the customer's confirmation for good. Runs the outstanding sends —
@@ -2539,14 +2549,14 @@ function heldByLiveFulfilment(row: PendingRow | null): boolean {
  * still `confirmed`. Never throws; a send that fails here is picked up again by
  * the sweep's direct backstop.
  */
-async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | null): Promise<void> {
+async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | null): Promise<DirectRedriveResult> {
   const piId = pi.id;
   try {
-    if (!row?.reslab_reservation_number) return;
+    if (!row?.reslab_reservation_number) return { kind: "skipped", reason: "no_number" };
     const view = directViewFromRow(pi, row, row.reslab_reservation_number);
     if (!view.ok) {
       capturePaymentError(new Error(`Direct re-send skipped for ${piId}: ${view.error}`), directAlert({ id: piId }));
-      return;
+      return { kind: "skipped", reason: "unreadable" };
     }
     const { dp, fr } = view;
     const resolution = resolveChargedProtection(pi, { protectionPlanCode: resolvePendingTier(row) });
@@ -2565,7 +2575,7 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
         new Error(`Direct re-send skipped for ${piId}: could not read the booking (${error?.message ?? "no row"}) — the sweep retries`),
         directAlert({ id: piId })
       );
-      return;
+      return { kind: "skipped", reason: "unreadable" };
     }
     const booked = data as {
       status: string;
@@ -2577,24 +2587,27 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
     // Not for a booking that is no longer — or is in the middle of no longer
     // being — a booking: a cancel in progress, or one whose status write
     // failed after the refund, still reads `confirmed`.
-    if (booked.status !== "confirmed" || booked.cancel_state || booked.cancel_claimed_at) return;
+    if (booked.status !== "confirmed") return { kind: "skipped", reason: "not_confirmed" };
+    if (booked.cancel_state || booked.cancel_claimed_at) return { kind: "skipped", reason: "mid_cancel" };
 
     // URGENT is judged as of when the booking was STORED, not now: a re-send
     // must rebuild the identical notice (same Resend key, same body), never a
     // second one that turned urgent while it waited.
     const storedAt = Date.parse(booked.created_at);
     const urgent = stalenessFor(dp, pi, Number.isFinite(storedAt) ? storedAt : Date.now()).kind === "late";
-    await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
-    if (!row.email_sent) {
-      await sendCustomerEmailOnce(piId, () =>
-        sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
-      );
-    }
+    const notice = await sendLotBookingNotice(piId, lotNoticeContent(dp, fr, charged, urgent));
+    const customerEmail = row.email_sent
+      ? "already_sent"
+      : await sendCustomerEmailOnce(piId, () =>
+          sendDirectCustomerConfirmation(dp, fr, booked.pg_sync_status, charged, directEmailPromo(pi))
+        );
+    return { kind: "attempted", notice, customerEmail };
   } catch (err) {
     captureBookingError(
       new Error(`Direct re-send for ${piId} failed: ${err instanceof Error ? err.message : String(err)}`),
       { step: "checkout", inventorySource: "direct" }
     );
+    return { kind: "skipped", reason: "error" };
   }
 }
 
@@ -2606,16 +2619,18 @@ async function redriveDirectSends(pi: Stripe.PaymentIntent, row: PendingRow | nu
  * holds a fresh claim alone. Throws on a Stripe or database read failure (the
  * sweep counts and reports it).
  */
-export async function redriveDirectBookingSends(piId: string): Promise<void> {
+export async function redriveDirectBookingSends(piId: string): Promise<DirectRedriveResult> {
   const pi = await stripe.paymentIntents.retrieve(piId, { expand: ["latest_charge"] });
-  if (pi.metadata?.inventorySource !== "direct") return;
+  if (pi.metadata?.inventorySource !== "direct") return { kind: "skipped", reason: "not_direct" };
   // A FULL refund means the booking is over even if its row has not caught
   // up yet; a partial (goodwill) refund leaves it standing and still sends.
   const charge = pi.latest_charge;
-  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) return;
+  if (charge && typeof charge === "object" && charge.amount > 0 && charge.amount_refunded >= charge.amount) {
+    return { kind: "skipped", reason: "refunded" };
+  }
   const row = await readPendingRow(piId);
-  if (heldByLiveFulfilment(row)) return;
-  await redriveDirectSends(pi, row);
+  if (heldByLiveFulfilment(row)) return { kind: "skipped", reason: "held" };
+  return redriveDirectSends(pi, row);
 }
 
 const NOT_CHARGED_RETRY = "We couldn't complete this booking and have released your payment — you have not been charged. Please try again.";
