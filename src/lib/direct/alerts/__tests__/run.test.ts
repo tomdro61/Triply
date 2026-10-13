@@ -139,7 +139,7 @@ function run(over: Row) {
   });
 }
 
-type TickOptions = Partial<{ livemode: boolean; dry: boolean; manifestsDisabled: boolean }>;
+type TickOptions = Partial<{ livemode: boolean; dry: boolean; manifestsDisabled: boolean; budgetMs: number }>;
 async function tick(atIso: string, o: TickOptions = {}) {
   vi.setSystemTime(new Date(atIso));
   const nowMs = Date.now();
@@ -147,7 +147,7 @@ async function tick(atIso: string, o: TickOptions = {}) {
     supabase: await createAdminClient(),
     livemode: o.livemode ?? false,
     nowMs,
-    deadlineMs: nowMs + 45_000,
+    deadlineMs: nowMs + (o.budgetMs ?? 45_000),
     dry: o.dry ?? false,
     webhookUrl: HOOK,
     manifestsDisabled: o.manifestsDisabled ?? false,
@@ -829,15 +829,72 @@ describe("starvation", () => {
 
 // ---------------------------------------------------------------------------
 describe("failures and dry run", () => {
-  it("a failed scan is reported and counted (500); the other scans still post", async () => {
+  it("a scan that fails twice is reported (naming both attempts) and counted (500); the other scans still post", async () => {
     booking("b1");
-    mdb.failNext(RUNS, "select");
+    mdb.failNext(RUNS, "select", "XXONE");
+    mdb.failNext(RUNS, "select", "XXTWO");
     const r = await tick(MORNING);
     expect(r.status).toBe(500);
-    expect(r.scans.manifest.ok).toBe(false);
-    expect(r.scans.lot_notice.ok).toBe(true);
+    expect(r.errors).toBe(1);
+    expect(r.scans.manifest).toMatchObject({ ok: false, retried: true });
+    expect(r.scans.lot_notice).toMatchObject({ ok: true, retried: false });
     expect(postedLines(posted()[0])[0]).toContain("TRP-B1");
     expect(sentry.fingerprints).toContainEqual(["direct-lot-alerts", "scan", "manifest"]);
+    expect(sentry.fingerprints).not.toContainEqual(["direct-lot-alerts", "scan-retry-recovered", "manifest"]);
+    const msg = String(sentry.captureMessage.mock.calls.find((c) => String(c[0]).includes("manifest scan failed:"))?.[0]);
+    expect(msg).toContain("XXTWO");
+    expect(msg).toContain("retried; first attempt");
+    expect(msg).toContain("XXONE");
+  });
+
+  it("TRIPLY-41: a scan that times out once (a cold start) runs again — a clean tick, one warning, no error", async () => {
+    booking("b1");
+    // The production shape (TRIPLY-41): postgrest-js turns the abort into code "" + this message.
+    mdb.failNext(RUNS, "select", "", "TimeoutError: The operation was aborted due to timeout");
+    const r = await tick(MORNING);
+    expect(r.ok).toBe(true);
+    expect(r.status).toBe(200);
+    expect(r.errors).toBe(0);
+    expect(r.scans.manifest).toMatchObject({ ok: true, retried: true });
+    expect(postedLines(posted()[0])[0]).toContain("TRP-B1");
+    expect(sentry.fingerprints).toContainEqual(["direct-lot-alerts", "scan-retry-recovered", "manifest", "timeout"]);
+    expect(sentry.fingerprints).not.toContainEqual(["direct-lot-alerts", "scan", "manifest"]);
+    const call = sentry.captureMessage.mock.calls.find((c) => String(c[0]).includes("recovered on retry"));
+    expect(call?.[1]).toBe("warning");
+    expect(String(call?.[0])).toContain("manifest runs read failed: ? TimeoutError: The operation was aborted due to timeout");
+  });
+
+  it("a non-timeout failure that recovers on retry is still a real fault: its own error-level issue (the tick stays clean)", async () => {
+    booking("b1");
+    mdb.failNext(RUNS, "select", "", "TypeError: fetch failed");
+    const r = await tick(MORNING);
+    expect(r.status).toBe(200);
+    expect(r.scans.manifest).toMatchObject({ ok: true, retried: true });
+    expect(sentry.fingerprints).toContainEqual(["direct-lot-alerts", "scan-retry-recovered", "manifest", "other"]);
+    const call = sentry.captureMessage.mock.calls.find((c) => String(c[0]).includes("recovered on retry"));
+    expect(call?.[1]).toBe("error");
+    expect(String(call?.[0])).toContain("TypeError: fetch failed");
+  });
+
+  it("dry: a recovered retry still shows in the result, but no Sentry warning is sent", async () => {
+    booking("b1");
+    mdb.failNext(RUNS, "select");
+    const r = await tick(MORNING, { dry: true });
+    expect(r.scans.manifest).toMatchObject({ ok: true, retried: true });
+    expect(sentry.captureMessage).not.toHaveBeenCalled();
+  });
+
+  it("no retry once the budget can't spare it: the first failure is the scan error", async () => {
+    booking("b1");
+    mdb.failNext(RUNS, "select", "XXLATE");
+    const r = await tick(MORNING, { budgetMs: 25_000 });
+    expect(r.status).toBe(500);
+    expect(r.scans.manifest).toMatchObject({ ok: false, retried: false });
+    expect(sentry.fingerprints).toContainEqual(["direct-lot-alerts", "scan", "manifest"]);
+    const msg = String(sentry.captureMessage.mock.calls.find((c) => String(c[0]).includes("manifest scan failed:"))?.[0]);
+    expect(msg).toContain("XXLATE");
+    expect(msg).toContain("not retried: 25 s of budget left");
+    expect(msg).not.toContain("retried;");
   });
 
   it("dry: computes what would be posted, writes, posts and reports nothing", async () => {
