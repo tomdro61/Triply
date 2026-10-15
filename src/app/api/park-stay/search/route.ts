@@ -284,8 +284,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     if (error instanceof LiteApiBudgetError) {
-      // Daily budget spent or unreadable — budget.ts already reported it (once
-      // per day for "exhausted"). Same 503 + no-store as any supplier failure.
+      // Daily budget spent or unreadable — budget.ts already reported it (on its
+      // refusal ladder for "exhausted"). Same 503 + no-store as any supplier failure.
       return NextResponse.json({ error: "Hotel search is temporarily unavailable" }, { status: 503, headers: NO_STORE });
     }
     const err = error instanceof Error ? error : new Error(String(error));
@@ -361,7 +361,8 @@ export async function GET(request: NextRequest) {
       cached: false,
     },
   };
-  // Only a non-empty, clean result is worth a 60 s reuse (an empty one may be a blip).
-  if (offers.length > 0) cacheSet(cacheKey, body, now);
+  // Only a non-empty, clean result is worth a 60 s reuse (an empty one may be a
+  // blip; a degraded parking result may have paired a pricier lot).
+  if (offers.length > 0 && !lotResult.degraded) cacheSet(cacheKey, body, now);
   return NextResponse.json(body, { headers: NO_STORE });
 }
