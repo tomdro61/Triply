@@ -39,6 +39,11 @@ export function loadAirportData(code: string): AirportData | null {
   // Writers only see lots we can sell — unsellable lots ended up recommended in new articles (PHX, 13 Oct 2026)
   if (Array.isArray(data.parkingLots)) data.parkingLots = data.parkingLots.filter((l) => l.sellable !== false)
 
+  // Cruise ports (POE) list cruiseLines per terminal instead of airlines
+  for (const t of data.terminals as ({ airlines?: string[]; cruiseLines?: string[] } & AirportData['terminals'][number])[]) {
+    if (!Array.isArray(t.airlines)) t.airlines = Array.isArray(t.cruiseLines) ? t.cruiseLines : []
+  }
+
   // Warn if data is stale (>90 days old)
   const lastVerified = new Date(data.lastVerified)
   const daysSinceVerified = Math.floor((Date.now() - lastVerified.getTime()) / (1000 * 60 * 60 * 24))
