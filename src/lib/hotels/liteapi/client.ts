@@ -12,9 +12,14 @@
  * - `x-ratelimit-*` headers are surfaced on every result so callers can log
  *   them; a 429 is classified so the route can 503 + no-store rather than
  *   cache an empty "no hotels" body.
+ * - Every request declares `meter`. "search" takes one call from the durable
+ *   daily budget (budget.ts) BEFORE it is sent and throws LiteApiBudgetError
+ *   when refused; "unmetered" is for booking / cancel calls, which a search
+ *   budget must never block. Required, so a new call site has to choose.
  */
 
 import { resolveHotelEnv } from "./env";
+import { takeLiteApiCall } from "./budget";
 
 export const LITEAPI_TIMEOUT_MS = 10_000;
 
@@ -70,9 +75,11 @@ function extractCode(body: unknown): number | undefined {
 export async function liteApiRequest<T>(
   host: LiteApiHost,
   path: string,
-  init: { method?: "GET" | "POST" | "PUT"; body?: unknown; timeoutMs?: number } = {}
+  init: { meter: "search" | "unmetered"; method?: "GET" | "POST" | "PUT"; body?: unknown; timeoutMs?: number }
 ): Promise<LiteApiResult<T>> {
   const env = resolveHotelEnv();
+  // Outside the try below: a refusal is a LiteApiBudgetError, never a LiteApiError.
+  if (init.meter === "search") await takeLiteApiCall(env.mode, path);
   const base = host === "data" ? env.dataBaseUrl : env.bookBaseUrl;
   const url = `${base}${path}`;
   const timeoutMs = init.timeoutMs ?? LITEAPI_TIMEOUT_MS;
