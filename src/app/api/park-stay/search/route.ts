@@ -243,6 +243,16 @@ export async function GET(request: NextRequest) {
     adults: q.adults,
   };
 
+  if (!paired && (lotResult.degraded || lotResult.reslabUnavailable || lotResult.listIncomplete)) {
+    // No lot qualified, but the parking result was thin: ResLab unreachable
+    // with only direct lots shown, own lots failing to price behind the
+    // radius fallback, or a partial location list. "no_parking" would call an
+    // outage a sell-out. Conservative on purpose: a genuinely sold-out airport
+    // on a degraded night answers 503 too. searchParking already reported the
+    // ResLab side to Sentry.
+    return NextResponse.json({ error: "Parking search is temporarily unavailable" }, { status: 503, headers: NO_STORE });
+  }
+
   if (!paired) {
     // Honest empty: not cached at the CDN, not cached here either (a lot may
     // come back on the next parking-list refresh).

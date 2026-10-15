@@ -56,6 +56,15 @@ describe("pickParkingLot", () => {
     expect(rejected.not_reslab).toBe(1);
   });
 
+  it("checks each ResLab disqualifier on its own", () => {
+    // Each lot fails exactly one of the two checks.
+    const directWithId = lot(4, JFK, 20, { source: "direct" });
+    const reslabWithoutId = lot(5, JFK, 21, { reslabLocationId: undefined });
+    const { paired, rejected } = pickParkingLot([directWithId, reslabWithoutId], JFK);
+    expect(paired).toBeNull();
+    expect(rejected.not_reslab).toBe(2);
+  });
+
   it("keeps the existing prepaid / refundable / priced rules", () => {
     const { paired, rejected } = pickParkingLot(
       [
