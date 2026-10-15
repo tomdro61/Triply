@@ -264,7 +264,7 @@ export async function searchHotelsNear(
     radius: String(radiusM),
     limit: String(limit),
   });
-  const r = await liteApiRequest<LiteApiHotelsResponse>("data", `/data/hotels?${q}`);
+  const r = await liteApiRequest<LiteApiHotelsResponse>("data", `/data/hotels?${q}`, { meter: "search" });
   const hotels = (r.data.data ?? []).filter((h) => !h.deletedAt);
   return { hotels, rateLimit: r.rateLimit, durationMs: r.durationMs };
 }
@@ -276,6 +276,7 @@ export async function fetchRates(params: {
   adults: number;
 }): Promise<{ hotels: LiteApiHotelRates[]; sandbox: boolean | null; rateLimit: LiteApiRateLimit; durationMs: number }> {
   const r = await liteApiRequest<LiteApiRatesResponse>("data", "/hotels/rates", {
+    meter: "search",
     method: "POST",
     body: {
       hotelIds: params.hotelIds,

@@ -38,6 +38,7 @@ import { pickParkingLot } from "@/lib/hotels/pairing";
 import { priceHotelsNear } from "@/lib/hotels/liteapi/rates";
 import { LiteApiError } from "@/lib/hotels/liteapi/client";
 import { LiteApiConfigError } from "@/lib/hotels/liteapi/env";
+import { LiteApiBudgetError } from "@/lib/hotels/liteapi/budget";
 import { priceRoom, packagePrice, type PackagePrice } from "@/lib/hotels/pricing";
 import { roomRefundabilitySummary, type RoomRefundability } from "@/lib/hotels/refundability";
 
@@ -272,6 +273,11 @@ export async function GET(request: NextRequest) {
       adults: q.adults,
     });
   } catch (error) {
+    if (error instanceof LiteApiBudgetError) {
+      // Daily budget spent or unreadable — budget.ts already reported it (once
+      // per day for "exhausted"). Same 503 + no-store as any supplier failure.
+      return NextResponse.json({ error: "Hotel search is temporarily unavailable" }, { status: 503, headers: NO_STORE });
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     const status = error instanceof LiteApiError ? error.statusCode : undefined;
     captureAPIError(err, {
