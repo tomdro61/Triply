@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS supplier_call_budget (
   provider   TEXT NOT NULL CHECK (provider IN ('liteapi')),
   mode       TEXT NOT NULL CHECK (mode IN ('live', 'sandbox')),
   calls      INT  NOT NULL DEFAULT 0 CHECK (calls >= 0),
-  -- Refused takes; the first one of the day is what the app reports to Sentry.
+  -- Refused takes; the app reports to Sentry on a ladder of this count (1, 10, 100, every 1,000).
   denied     INT  NOT NULL DEFAULT 0 CHECK (denied >= 0),
   -- TIMESTAMPTZ is correct: a real instant, for "when did we last call".
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -37,7 +37,7 @@ GRANT SELECT, INSERT, UPDATE ON TABLE supplier_call_budget TO service_role;
 -- takes the row lock, so two instances can never both take the last call.
 --   allowed = true  → `calls` is today's count INCLUDING this take
 --   allowed = false → nothing was taken; `denied` is today's refusal count
---                     including this one (1 = the first refusal of the day)
+--                     including this one (exactly one caller sees each value)
 -- A non-positive limit refuses everything (a deliberate "off" switch).
 CREATE OR REPLACE FUNCTION supplier_call_budget_take(
   p_provider text,
