@@ -42,15 +42,19 @@ describe("takeLiteApiCall", () => {
     expect(captureAPIError).not.toHaveBeenCalled();
   });
 
-  it("refuses a spent budget and reports only the day's first refusal", async () => {
-    const first = await refusal(takeLiteApiCall("live", "/hotels/rates", rpcReturning([{ allowed: false, calls: 7, denied: 1 }]).rpc, LIMITS));
-    expect(first.reason).toBe("exhausted");
-    expect(captureAPIError).toHaveBeenCalledTimes(1);
+  it("refuses a spent budget and reports on the refusal ladder only", async () => {
+    for (const denied of [1, 2, 9, 10, 11, 100, 999, 1000, 2000, 2001]) {
+      const err = await refusal(takeLiteApiCall("live", "/hotels/rates", rpcReturning([{ allowed: false, calls: 7, denied }]).rpc, LIMITS));
+      expect(err.reason).toBe("exhausted");
+    }
+    expect(captureAPIError.mock.calls.map((c) => (c[1] as { extra: { denied: number } }).extra.denied)).toEqual([1, 10, 100, 1000, 2000]);
     expect(captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "budget_exhausted" });
+    expect(String(captureAPIError.mock.calls[0][0])).toContain("spent");
+  });
 
-    const later = await refusal(takeLiteApiCall("live", "/hotels/rates", rpcReturning([{ allowed: false, calls: 7, denied: 2 }]).rpc, LIMITS));
-    expect(later.reason).toBe("exhausted");
-    expect(captureAPIError).toHaveBeenCalledTimes(1);
+  it("names the off switch rather than calling it spent", async () => {
+    await refusal(takeLiteApiCall("live", "/hotels/rates", rpcReturning([{ allowed: false, calls: 0, denied: 1 }]).rpc, { live: 0, sandbox: 0 }));
+    expect(String(captureAPIError.mock.calls[0][0])).toContain("switched off");
   });
 
   it("fails closed on a database error", async () => {
@@ -72,5 +76,6 @@ describe("takeLiteApiCall", () => {
     const p = refusal(takeLiteApiCall("sandbox", "/data/hotels", never, LIMITS));
     await vi.advanceTimersByTimeAsync(BUDGET_RPC_TIMEOUT_MS + 1);
     expect((await p).reason).toBe("unavailable");
+    expect(captureAPIError.mock.calls[0][1]).toMatchObject({ extra: { outcomeUnknown: true } });
   });
 });
