@@ -437,7 +437,7 @@ export function getWritingRulesBlock(airportCode: string): string {
  */
 export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
   // Vin 14 Oct 2026: never name off-site lots we can't sell, even if competitor articles do
-  const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison."
+  const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison. Never name competing booking sites or apps (SpotHero, Way.com, ParkWhiz, ParkSleepFly and the like) or send readers to them for codes; if the focus keyword names one (e.g. Groupon), cover it without recommending it."
   return formatAirportData(airportData, keyword) + onlySellable
 }
 
