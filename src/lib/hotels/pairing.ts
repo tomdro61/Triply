@@ -2,6 +2,14 @@
  * Which Triply parking lot travels with a hotel in a package (plan §1):
  * the CHEAPEST available lot at the airport that is
  *   - not blocked (searchParking already drops BLOCKED_RESLAB_LOCATION_IDS),
+ *   - a ResLab lot (a package's parking leg is a ResLab reservation; direct
+ *     lots have their own checkout and are never paired),
+ *   - the searched airport's own lot — no other airport strictly closer
+ *     (Tom, 2026-10-15). Checked here even though searchParking applies the
+ *     same rule, because search falls back to the full radius list when every
+ *     own lot is sold out (and has a kill switch): right for the parking page,
+ *     wrong for a package — a JFK search once paired "Queens Crossing - LAZ
+ *     Parking (LGA)". No own lot ⇒ an honest "no_parking", not a neighbour.
  *   - not due-at-location (the package is one prepaid charge; a pay-at-lot
  *     balance would put a second number next to the headline total), and
  *   - 100 % refundable on its parking policy (the package cancels as a whole
@@ -24,6 +32,7 @@
  */
 
 import type { UnifiedLot } from "@/types/lot";
+import { lotBelongsToAirport, type OwnershipAirport } from "@/lib/search/airport-ownership";
 
 export interface PairedLot {
   lot: UnifiedLot;
@@ -44,10 +53,21 @@ function cents(amount: number | undefined): number | null {
 }
 
 /** Why a lot was passed over; surfaced in the route's diagnostics, never to customers. */
-export type PairingRejection = "unavailable" | "due_at_location" | "not_fully_refundable" | "unpriced";
+export type PairingRejection =
+  | "not_reslab"
+  | "other_airport"
+  | "unavailable"
+  | "due_at_location"
+  | "not_fully_refundable"
+  | "unpriced";
 
-export function pickParkingLot(lots: UnifiedLot[]): { paired: PairedLot | null; rejected: Record<PairingRejection, number> } {
+export function pickParkingLot(
+  lots: UnifiedLot[],
+  airport: OwnershipAirport
+): { paired: PairedLot | null; rejected: Record<PairingRejection, number> } {
   const rejected: Record<PairingRejection, number> = {
+    not_reslab: 0,
+    other_airport: 0,
     unavailable: 0,
     due_at_location: 0,
     not_fully_refundable: 0,
@@ -55,6 +75,14 @@ export function pickParkingLot(lots: UnifiedLot[]): { paired: PairedLot | null; 
   };
   let best: PairedLot | null = null;
   for (const lot of lots) {
+    if (lot.source !== "reslab" || lot.reslabLocationId === undefined) {
+      rejected.not_reslab++;
+      continue;
+    }
+    if (!lotBelongsToAirport(lot, airport)) {
+      rejected.other_airport++;
+      continue;
+    }
     if (lot.availability === "unavailable") {
       rejected.unavailable++;
       continue;

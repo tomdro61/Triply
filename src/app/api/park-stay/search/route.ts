@@ -233,7 +233,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ error: "Parking search is temporarily unavailable" }, { status: 503, headers: NO_STORE });
   }
-  const { paired, rejected } = pickParkingLot(lotResult.results);
+  const { paired, rejected } = pickParkingLot(lotResult.results, airport);
 
   const base: Omit<ParkStaySearchResponse, "offers" | "status" | "sandbox" | "diagnostics" | "lot"> = {
     airport: { code: airport.code, name: airport.name, timezone: airport.timezone },
