@@ -35,6 +35,23 @@ interface ExternalLinksDB {
 
 let _cache: ExternalLinksDB | null = null
 
+// US-only sources: never offer them for Canadian airports (YYZ articles linked the US TSA, 14 Oct 2026)
+const US_ONLY_DOMAINS = new Set(['tsa.gov', 'faa.gov', 'transtats.bts.gov', 'clearme.com'])
+
+function isCanadian(code: string): boolean {
+  try {
+    const dataPath = path.resolve(__dirname, '..', 'data', 'airports', `${code}.json`)
+    return fs.existsSync(dataPath) && JSON.parse(fs.readFileSync(dataPath, 'utf-8')).currency === 'CAD'
+  } catch {
+    return false
+  }
+}
+
+function matchesAirport(link: ExternalLink, code: string, canadian: boolean): boolean {
+  if (canadian && US_ONLY_DOMAINS.has(link.domain.replace(/^www\./, ''))) return false
+  return link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+}
+
 function loadDB(): ExternalLinksDB {
   if (_cache) return _cache
   if (!fs.existsSync(LINKS_PATH)) {
@@ -57,10 +74,11 @@ export function getExternalLinks(
 ): ExternalLink[] {
   const db = loadDB()
   const code = airportCode.toUpperCase()
+  const canadian = isCanadian(code)
 
   return db.links.filter((link) => {
     if (link.status !== 'active' && link.status !== 'cloudflare-blocked') return false
-    const airportMatch = link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+    const airportMatch = matchesAirport(link, code, canadian)
     const typeMatch = link.relevantArticleTypes.includes(articleType)
     return airportMatch && typeMatch
   })
@@ -74,11 +92,12 @@ export function getApprovedDomains(airportCode: string): Set<string> {
   const domains = new Set<string>()
   const db = loadDB()
   const code = airportCode.toUpperCase()
+  const canadian = isCanadian(code)
 
   // Add domains from external links DB
   for (const link of db.links) {
     if (link.status !== 'active' && link.status !== 'cloudflare-blocked') continue
-    const airportMatch = link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+    const airportMatch = matchesAirport(link, code, canadian)
     if (airportMatch) {
       domains.add(link.domain.replace(/^www\./, ''))
     }

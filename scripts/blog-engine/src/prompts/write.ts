@@ -114,11 +114,12 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     .slice(0, 20)
 
   if (lots.length === 0) return ''
+  const cur = data.currency === 'CAD' ? 'C$' : '$'
 
   const lines: string[] = ['\n**Off-Site Parking Lots (sorted by price — use these EXACT names and rates in tables and text, NEVER generalize into categories):**']
   for (const lot of lots) {
     const l = lot as Record<string, unknown>
-    let line = `- **${l.name}**: $${l.dailyRate}/day`
+    let line = `- **${l.name}**: ${cur}${l.dailyRate}/day`
     if (l.driveTime) line += ` | ${l.driveTime} from airport`
     if (l.parkingType) line += ` | ${l.parkingType}`
     if (l.shuttleInfo) line += ` | Shuttle: ${(l.shuttleInfo as string).slice(0, 100)}`
@@ -134,7 +135,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
 
   const cheapest = lots[0] as Record<string, unknown>
   const mostExpensive = lots[lots.length - 1] as Record<string, unknown>
-  lines.push(`\nPrice range: $${cheapest.dailyRate}/day — $${mostExpensive.dailyRate}/day across ${lots.length} verified lots.`)
+  lines.push(`\nPrice range: ${cur}${cheapest.dailyRate}/day — ${cur}${mostExpensive.dailyRate}/day across ${lots.length} verified lots.`)
 
   return lines.join('\n')
 }
@@ -142,6 +143,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
 function formatOnAirportParking(data: AirportData): string {
   if (!data.onAirportParking) return ''
   const parking = data.onAirportParking as Record<string, Record<string, unknown>>
+  const cur = data.currency === 'CAD' ? 'C$' : '$'
   const lines: string[] = ['\n**On-Airport Parking Options:**']
   for (const [key, info] of Object.entries(parking)) {
     if (typeof info === 'string') {
@@ -150,8 +152,8 @@ function formatOnAirportParking(data: AirportData): string {
     }
     const parts: string[] = [`- **${key}**`]
     if (info.rate) parts.push(`${info.rate}`)
-    if (info.dailyMax) parts.push(`max $${info.dailyMax}/day`)
-    if (info.preBookRate) parts.push(`pre-book $${info.preBookRate}/day`)
+    if (info.dailyMax) parts.push(`max ${cur}${info.dailyMax}/day`)
+    if (info.preBookRate) parts.push(`pre-book ${cur}${info.preBookRate}/day`)
     if (info.terminals) parts.push(`near ${info.terminals}`)
     if (info.location) parts.push(`at ${info.location}`)
     if (info.connection) parts.push(`(${info.connection})`)
@@ -434,7 +436,9 @@ export function getWritingRulesBlock(airportCode: string): string {
  * Get formatted airport data block for prompt caching.
  */
 export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
-  return formatAirportData(airportData, keyword)
+  // Vin 14 Oct 2026: never name off-site lots we can't sell, even if competitor articles do
+  const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison."
+  return formatAirportData(airportData, keyword) + onlySellable
 }
 
 /**

@@ -36,6 +36,9 @@ export function loadAirportData(code: string): AirportData | null {
 
   const data: AirportData = JSON.parse(fs.readFileSync(filepath, 'utf-8'))
 
+  // Writers only see lots we can sell — unsellable lots ended up recommended in new articles (PHX, 13 Oct 2026)
+  if (Array.isArray(data.parkingLots)) data.parkingLots = data.parkingLots.filter((l) => l.sellable !== false)
+
   // Warn if data is stale (>90 days old)
   const lastVerified = new Date(data.lastVerified)
   const daysSinceVerified = Math.floor((Date.now() - lastVerified.getTime()) / (1000 * 60 * 60 * 24))

@@ -120,7 +120,7 @@ Analyze the article below and the structured airport data, then create 1–2 SVG
 - All colors must be inline (fill="..." or style="..."), not via external CSS classes
 - Use data from the airport JSON — do NOT invent numbers
 - Round dollar amounts to nearest dollar for readability
-- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
+${vizData.currency === 'CAD' ? '- Prices are Canadian dollars: write every price as C$ (e.g. C$12), in the SVG and in the alt text. Never a bare $.\n' : ''}- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
 
 ## Airport Data (${airportCode})
 
@@ -283,6 +283,7 @@ export async function generateInfographics(
 ): Promise<InfographicResult> {
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
+  if (airportData.currency) vizData.currency = airportData.currency
 
   // Call Claude to generate infographic SVGs
   const prompt = buildInfographicPrompt(html, vizData, airportCode)
