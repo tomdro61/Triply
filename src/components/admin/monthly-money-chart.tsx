@@ -44,7 +44,7 @@ interface Segment {
 }
 /** What a panel draws for one loaded month: a stack, or why it can't. */
 type Column =
-  | { segments: Segment[]; marker: number | null; tooltip: Array<[string, string]> }
+  | { segments: Segment[]; marker: number | null; tooltip: Array<[string, string]>; warning: boolean }
   | { unavailable: string };
 
 function Panel({
@@ -118,6 +118,7 @@ function Panel({
                 let capY: number | null = null;
                 let capValue: number | null = null;
                 let markerY: number | null = null;
+                let warnY: number | null = null;
                 if (col && !("unavailable" in col)) {
                   const ups = col.segments.filter((s) => s.value > 0);
                   const downs = col.segments.filter((s) => s.value < 0);
@@ -150,6 +151,7 @@ function Panel({
                   capValue = col.segments.reduce((n, s) => n + s.value, 0);
                   capY = ups.length > 0 ? upTop + 6 : null;
                   markerY = col.marker !== null ? y(col.marker) : null;
+                  if (col.warning) warnY = (ups.length > 0 ? upTop : zero) + (selected ? 22 : 6);
                 }
 
                 const tooltip: Array<[string, string]> | null = !col
@@ -212,6 +214,15 @@ function Panel({
                         style={{ bottom: capY }}
                       >
                         {compactMoney(capValue)}
+                      </span>
+                    )}
+                    {/* Figures known to be overstated (Park Guard rows missing wholesale). */}
+                    {warnY !== null && (
+                      <span
+                        className="absolute left-1/2 -translate-x-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-amber-100 text-[10px] font-bold text-amber-800"
+                        style={{ bottom: warnY }}
+                      >
+                        !
                       </span>
                     )}
                     {hover === m.key && tooltip && (
@@ -283,7 +294,7 @@ export function MonthlyMoneyChart({
           <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-800">
             !
           </span>
-          Unavailable — hover for why
+          Unavailable or overstated — hover for why
         </span>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -300,6 +311,7 @@ export function MonthlyMoneyChart({
               { value: m.paid.parkGuard, color: SERIES.parkGuard.color },
             ],
             marker: null,
+            warning: false,
             tooltip: [
               ["Revenue", formatPrice(m.paid.total)],
               ["Parking", formatPrice(m.paid.parking)],
@@ -332,6 +344,7 @@ export function MonthlyMoneyChart({
                 { value: s.pgMargin, color: SERIES.parkGuard.color },
               ],
               marker: m.kept.net,
+              warning: m.pgWholesaleMissing > 0,
               tooltip: rows,
             };
           }}

@@ -72,8 +72,9 @@ function writeCachedMonthMix(monthKey: string, slice: unknown): void {
 /** What a failed accounting request means for the person looking at the page. */
 function accountingFailure(status: number, serverMessage: string | null): string {
   if (status === 401 || status === 403) return "your admin session has expired — sign in again";
-  if (status === 504 || status >= 500)
-    return `ResLab or Stripe was slow or failing${serverMessage ? ` (${serverMessage})` : ""} — refresh to try again`;
+  if (status === 504) return "the ResLab/Stripe lookups took too long — refresh to try again";
+  if (status >= 500)
+    return `the accounting query failed (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""}) — check Sentry`;
   return `the request was refused (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""})`;
 }
 
@@ -292,8 +293,20 @@ export default function AdminDashboard() {
         const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
           signal: controller.signal,
         });
-        const body: unknown = await r.json().catch(() => null);
+        // A body that isn't JSON (an HTML error page, a cut-off response) is
+        // its own failure, not a schema change.
+        let body: unknown;
+        let readable = true;
+        try {
+          body = await r.json();
+        } catch {
+          readable = false;
+        }
         if (controller.signal.aborted) return;
+        if (r.ok && !readable) {
+          setMonthMix({ error: `unreadable accounting response (HTTP ${r.status}, not JSON) — refresh to try again` });
+          return;
+        }
         if (!r.ok) {
           const serverMessage =
             typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
