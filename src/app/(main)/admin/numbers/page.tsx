@@ -25,6 +25,9 @@ import {
   type MonthWindow,
   type NetTake,
 } from "@/lib/admin/monthly-numbers";
+import { accountingMixSchema, mixFromAccounting, type MoneyMix } from "@/lib/admin/revenue-mix";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
+import { MonthlyMoneyChart, type ChartMonth } from "@/components/admin/monthly-money-chart";
 
 interface NumbersResponse {
   by: DateAxis;
@@ -42,7 +45,9 @@ interface NumbersResponse {
   warnings: string[];
 }
 
-type NetState = NetTake | "loading" | { error: string };
+/** A month's net take plus its revenue/kept breakdown (null when the chart's slice didn't parse). */
+type MonthNet = NetTake & { mix: MoneyMix | null };
+type NetState = MonthNet | "loading" | { error: string };
 
 // Closed months rarely change (a later refund can still move one), so a
 // DEFINITIVE reconcile — both figures present, i.e. Stripe fee data complete
@@ -51,15 +56,21 @@ type NetState = NetTake | "loading" | { error: string };
 // is usually a transient ResLab/Stripe miss and must be asked again. Storage
 // can be unavailable (private mode); every access is try/caught.
 // Key is versioned: the shape changed when the page adopted accounting's
-// gross/cash vocabulary, and an old cached object must not be read as new.
-const NET_CACHE_PREFIX = "admin-numbers:net:v2:";
-function readCachedNet(key: string): NetTake | null {
+// gross/cash vocabulary (v2) and again when it gained the chart breakdown
+// (v3), and an old cached object must not be read as new.
+const NET_CACHE_PREFIX = "admin-numbers:net:v3:";
+function readCachedNet(key: string): MonthNet | null {
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) return null;
-    const v = JSON.parse(raw) as Partial<NetTake>;
-    return typeof v === "object" && v !== null && typeof v.gross === "number" && typeof v.cash === "number"
-      ? (v as NetTake)
+    const v = JSON.parse(raw) as Partial<MonthNet>;
+    return typeof v === "object" &&
+      v !== null &&
+      typeof v.gross === "number" &&
+      typeof v.cash === "number" &&
+      typeof v.mix === "object" &&
+      v.mix !== null
+      ? (v as MonthNet)
       : null;
   } catch {
     return null;
@@ -67,7 +78,7 @@ function readCachedNet(key: string): NetTake | null {
 }
 function writeCachedNet(key: string, value: NetState): void {
   try {
-    if (typeof value === "object" && "gross" in value && value.gross !== null && value.cash !== null) {
+    if (typeof value === "object" && "gross" in value && value.gross !== null && value.cash !== null && value.mix !== null) {
       sessionStorage.setItem(key, JSON.stringify(value));
     }
   } catch {
@@ -179,6 +190,8 @@ export default function MonthlyNumbersPage() {
   const [error, setError] = useState<string | null>(null);
   const [net, setNet] = useState<Record<string, NetState>>({});
   const [historyRequested, setHistoryRequested] = useState(false);
+  // The month whose breakdown shows under the chart; null = the last complete one.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   // Stops state updates (and the client side of in-flight fetches) when the
   // page unmounts. NB the reconciler keeps running server-side until it
   // finishes — /api/admin/accounting does not read request.signal — so the
@@ -214,8 +227,14 @@ export default function MonthlyNumbersPage() {
               signal: controller.signal,
             });
             if (!r.ok) throw new Error(`accounting ${r.status}`);
-            const parsed = accountingSliceSchema.safeParse(await r.json());
-            state = parsed.success ? netTakeFrom(parsed.data) : { error: "unexpected accounting response shape" };
+            const body: unknown = await r.json();
+            const parsed = accountingSliceSchema.safeParse(body);
+            // The chart's slice is parsed on its own: if it fails, the table
+            // still gets its numbers and the chart says "unavailable".
+            const mix = accountingMixSchema.safeParse(body);
+            state = parsed.success
+              ? { ...netTakeFrom(parsed.data), mix: mix.success ? mixFromAccounting(mix.data) : null }
+              : { error: "unexpected accounting response shape" };
             if (!month.partial && parsed.success) writeCachedNet(cacheKey, state);
           } catch (e) {
             if (controller.signal.aborted) return;
@@ -238,6 +257,7 @@ export default function MonthlyNumbersPage() {
     setData(null);
     setNet({});
     setHistoryRequested(false);
+    setSelectedKey(null);
     setError(null);
     async function load() {
       const res = await fetch(`/api/admin/monthly-numbers?by=${by}`, { signal: controller.signal });
@@ -312,6 +332,31 @@ export default function MonthlyNumbersPage() {
   const thinAirports = lots ? lots.rows.filter((r) => r.lots <= 1) : [];
   const searchTotal = searches ? searches.days.reduce((n, d) => n + d.count, 0) : 0;
 
+  const chartMonths: ChartMonth[] = months.map((m) => {
+    const n = net[m.key];
+    return {
+      key: m.key,
+      short: short(m),
+      label: m.label + (m.partial ? " (so far)" : ""),
+      state:
+        n === undefined
+          ? "not-loaded"
+          : n === "loading"
+            ? "loading"
+            : "error" in n
+              ? { error: n.error }
+              : (n.mix ?? { error: "breakdown unavailable" }),
+    };
+  });
+  const selected = months.find((m) => m.key === (selectedKey ?? lastFull?.key)) ?? null;
+  const selectedNet = selected ? net[selected.key] : undefined;
+  const selectMonth = (key: string) => {
+    setSelectedKey(key);
+    const m = months.find((x) => x.key === key);
+    // Clicking a month that isn't loaded loads just that month.
+    if (m && needsNet(net, key)) void loadNet([m], by);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -361,6 +406,52 @@ export default function MonthlyNumbersPage() {
           ))}
         </div>
       )}
+
+      <Card
+        title="Revenue and what we kept"
+        note={`Same figures as /admin/accounting (Date field "${DATE_AXIS_LABELS[by]}"); direct-lot bookings not included yet. Click a month for its breakdown.`}
+      >
+        {!historyRequested && months.some((m) => needsNet(net, m.key)) && (
+          <p className="text-sm text-gray-600 mb-4">
+            Dashed months aren&rsquo;t loaded — each costs one ResLab and one Stripe lookup per booking. Click one, or{" "}
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="text-brand-orange font-semibold underline underline-offset-2"
+            >
+              load them all
+            </button>
+            .
+          </p>
+        )}
+        <MonthlyMoneyChart months={chartMonths} selectedKey={selected?.key ?? null} onSelect={selectMonth} />
+        {selected && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-sm font-semibold text-gray-900 mb-4">
+              {selected.label}
+              {selected.partial && <span className="font-normal text-gray-500"> (so far)</span>}
+            </p>
+            {selectedNet === undefined || selectedNet === "loading" ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
+                Loading {selected.label} from ResLab and Stripe…
+              </div>
+            ) : "error" in selectedNet ? (
+              <p className="text-sm text-amber-700 flex items-center gap-1.5">
+                <AlertTriangle size={14} /> {selected.label} failed to load ({selectedNet.error}) — click the month to retry.
+              </p>
+            ) : selectedNet.mix === null ? (
+              <Unavailable what="Breakdown" />
+            ) : (
+              <MoneyBreakdown
+                paid={selectedNet.mix.paid}
+                kept={selectedNet.mix.kept ?? { unavailable: selectedNet.mix.keptReason ?? "no total" }}
+                directConfirmed={selectedNet.mix.directConfirmed}
+              />
+            )}
+          </div>
+        )}
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card

@@ -20,6 +20,36 @@ import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
 import { bookingSourceLabelForKey } from "@/lib/attribution/source";
+import { accountingMixSchema, mixFromAccounting, paidFromStats, type MoneyMix } from "@/lib/admin/revenue-mix";
+import { MoneyBreakdown, type KeptState } from "@/components/admin/money-breakdown";
+
+type MonthMixState = MoneyMix | "loading" | { error: string };
+
+// This month's profit comes from the reconciler: one ResLab + one Stripe
+// lookup per booking this month. Cached for the tab for 10 minutes so moving
+// around the admin and back doesn't re-run it; the month is still moving, so
+// never longer. Storage can be unavailable (private mode) — try/caught.
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v1";
+const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
+function readCachedMonthMix(monthKey: string): MoneyMix | null {
+  try {
+    const raw = sessionStorage.getItem(MONTH_MIX_CACHE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as { monthKey?: string; at?: number; mix?: MoneyMix };
+    return v.monthKey === monthKey && typeof v.at === "number" && Date.now() - v.at < MONTH_MIX_TTL_MS && v.mix
+      ? v.mix
+      : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedMonthMix(monthKey: string, mix: MoneyMix): void {
+  try {
+    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), mix }));
+  } catch {
+    /* storage unavailable — the figures still render, they just aren't cached */
+  }
+}
 
 interface Stats {
   bookings: {
@@ -218,6 +248,40 @@ export default function AdminDashboard() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [monthMix, setMonthMix] = useState<MonthMixState>("loading");
+
+  // This month so far (UTC, like /api/admin/stats' thisMonth and the
+  // accounting page), independent of the date filter. Loaded once per visit.
+  useEffect(() => {
+    const controller = new AbortController();
+    const today = new Date().toISOString().slice(0, 10);
+    const monthKey = today.slice(0, 7);
+    const cached = readCachedMonthMix(monthKey);
+    if (cached) {
+      setMonthMix(cached);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
+          signal: controller.signal,
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const parsed = accountingMixSchema.safeParse(await r.json());
+        if (!parsed.success) throw new Error("unexpected accounting response shape");
+        const mix = mixFromAccounting(parsed.data);
+        if (controller.signal.aborted) return;
+        setMonthMix(mix);
+        // A month without a profit figure is usually a transient ResLab/Stripe
+        // miss — ask again next visit rather than caching it.
+        if (mix.kept) writeCachedMonthMix(monthKey, mix);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setMonthMix({ error: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -308,6 +372,13 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  const monthKept: KeptState =
+    monthMix === "loading"
+      ? "loading"
+      : "error" in monthMix
+        ? { unavailable: `couldn't load (${monthMix.error}) — refresh to try again` }
+        : (monthMix.kept ?? { unavailable: monthMix.keptReason ?? "no total" });
 
   return (
     <div>
@@ -417,6 +488,43 @@ export default function AdminDashboard() {
           subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} gross`}
           icon={TrendingUp}
           color="purple"
+        />
+      </div>
+
+      {/* This month so far: revenue (instant, from stats) + what we kept (reconciler) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              This month so far
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-500">Bookings made this month (UTC), whatever the date filter above says</p>
+          </div>
+          <Link
+            href="/admin/numbers"
+            className="text-sm text-brand-orange hover:text-orange-600 inline-flex items-center gap-1"
+          >
+            Month by month
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+        <MoneyBreakdown
+          paid={
+            stats
+              ? paidFromStats({
+                  gross: stats.revenue.gross.thisMonth,
+                  serviceFee: stats.revenue.triply.thisMonth,
+                  pgRevenue: stats.parkGuard.revenue.thisMonth,
+                  confirmed: stats.parkGuard.confirmedTotal.thisMonth,
+                  pgOptIns: stats.parkGuard.count.thisMonth,
+                })
+              : null
+          }
+          kept={monthKept}
+          directConfirmed={monthMix !== "loading" && !("error" in monthMix) ? monthMix.directConfirmed : 0}
         />
       </div>
 
