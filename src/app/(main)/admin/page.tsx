@@ -20,6 +20,63 @@ import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
 import { bookingSourceLabelForKey } from "@/lib/attribution/source";
+import {
+  accountingMixSchema,
+  isDefinitive,
+  keptStateOf,
+  mixFromAccounting,
+  paidFromStats,
+  schemaIssuePaths,
+  type KeptState,
+  type MoneyMix,
+} from "@/lib/admin/revenue-mix";
+import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
+
+type MonthMixState = MoneyMix | "loading" | { error: string };
+
+// This month's profit comes from the reconciler: one ResLab + one Stripe
+// lookup per booking this month, on every dashboard visit the cache below
+// doesn't cover. Cached for the tab for 10 minutes so moving around the admin
+// and back doesn't re-run it; the month is still moving, so never longer. The
+// cache holds the reconciler's own slice and re-parses it on read, so an
+// entry from an older shape is a miss, never misread; only a definitive result
+// (profit known, no Park Guard rows overstating it) is kept. Storage can be
+// unavailable (private mode) — try/caught.
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
+const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
+function readCachedMonthMix(monthKey: string): MoneyMix | null {
+  try {
+    const raw = sessionStorage.getItem(MONTH_MIX_CACHE_KEY);
+    if (!raw) return null;
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== "object" || v === null || !("monthKey" in v) || !("at" in v) || !("slice" in v)) return null;
+    const age = typeof v.at === "number" ? Date.now() - v.at : NaN;
+    if (v.monthKey !== monthKey || !(age >= 0 && age < MONTH_MIX_TTL_MS)) return null;
+    const parsed = accountingMixSchema.safeParse(v.slice);
+    if (!parsed.success) return null;
+    const mix = mixFromAccounting(parsed.data);
+    return isDefinitive(mix) ? mix : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedMonthMix(monthKey: string, slice: unknown): void {
+  try {
+    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), slice }));
+  } catch {
+    /* storage unavailable — the figures still render, they just aren't cached */
+  }
+}
+
+/** What a failed accounting request means for the person looking at the page. */
+function accountingFailure(status: number, serverMessage: string | null): string {
+  if (status === 401 || status === 403) return "your admin session has expired — sign in again";
+  if (status === 504) return "the ResLab/Stripe lookups took too long — refresh to try again";
+  if (status >= 500)
+    return `the accounting query failed (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""}) — check Sentry`;
+  return `the request was refused (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""})`;
+}
 
 interface Stats {
   bookings: {
@@ -218,6 +275,63 @@ export default function AdminDashboard() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [monthMix, setMonthMix] = useState<MonthMixState>("loading");
+
+  // This month so far (UTC, like /api/admin/stats' thisMonth and the
+  // accounting page), independent of the date filter. Loaded once per visit.
+  useEffect(() => {
+    const controller = new AbortController();
+    const today = new Date().toISOString().slice(0, 10);
+    const monthKey = today.slice(0, 7);
+    const cached = readCachedMonthMix(monthKey);
+    if (cached) {
+      setMonthMix(cached);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
+          signal: controller.signal,
+        });
+        // A body that isn't JSON (an HTML error page, a cut-off response) is
+        // its own failure, not a schema change.
+        let body: unknown;
+        let readable = true;
+        try {
+          body = await r.json();
+        } catch {
+          readable = false;
+        }
+        if (controller.signal.aborted) return;
+        if (r.ok && !readable) {
+          setMonthMix({ error: `unreadable accounting response (HTTP ${r.status}, not JSON) — refresh to try again` });
+          return;
+        }
+        if (!r.ok) {
+          const serverMessage =
+            typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
+              ? body.error
+              : null;
+          setMonthMix({ error: accountingFailure(r.status, serverMessage) });
+          return;
+        }
+        const parsed = accountingMixSchema.safeParse(body);
+        if (!parsed.success) {
+          const paths = schemaIssuePaths(parsed.error);
+          reportMixShape(paths, "/admin");
+          setMonthMix({ error: `the accounting response changed shape (${paths}) — reported to Sentry` });
+          return;
+        }
+        const mix = mixFromAccounting(parsed.data);
+        setMonthMix(mix);
+        if (isDefinitive(mix)) writeCachedMonthMix(monthKey, parsed.data);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setMonthMix({ error: `network error (${e instanceof Error ? e.message : String(e)}) — refresh to try again` });
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -308,6 +422,18 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  // Once the reconciler answers, BOTH sides of the card come from it, so
+  // revenue, profit and every ratio cover the same bookings. stats' figures
+  // (which include direct-lot bookings) fill the revenue side only until then.
+  const monthLoaded = monthMix !== "loading" && !("error" in monthMix) ? monthMix : null;
+  const monthKept: KeptState =
+    monthMix === "loading"
+      ? "loading"
+      : "error" in monthMix
+        ? { unavailable: monthMix.error }
+        : keptStateOf(monthMix);
+  const monthPaid = monthLoaded ? monthLoaded.paid : stats ? paidFromStats(stats) : null;
 
   return (
     <div>
@@ -417,6 +543,39 @@ export default function AdminDashboard() {
           subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} gross`}
           icon={TrendingUp}
           color="purple"
+        />
+      </div>
+
+      {/* This month so far: revenue (instant, from stats) + what we kept (reconciler) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              This month so far
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-500">Bookings made this month (UTC), whatever the date filter above says</p>
+          </div>
+          <Link
+            href="/admin/numbers"
+            className="text-sm text-brand-orange hover:text-orange-600 inline-flex items-center gap-1"
+          >
+            Month by month
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+        <MoneyBreakdown
+          paid={monthPaid}
+          kept={monthKept}
+          directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
+          pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
+          paidNote={
+            !monthLoaded && monthPaid
+              ? `Revenue is from the booking table (direct-lot bookings included)${monthMix === "loading" ? " until the accounting figures load" : ""}.`
+              : undefined
+          }
         />
       </div>
 
