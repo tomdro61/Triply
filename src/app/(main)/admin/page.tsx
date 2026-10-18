@@ -20,35 +20,61 @@ import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
 import { bookingSourceLabelForKey } from "@/lib/attribution/source";
-import { accountingMixSchema, mixFromAccounting, paidFromStats, type MoneyMix } from "@/lib/admin/revenue-mix";
-import { MoneyBreakdown, type KeptState } from "@/components/admin/money-breakdown";
+import {
+  accountingMixSchema,
+  isDefinitive,
+  keptStateOf,
+  mixFromAccounting,
+  paidFromStats,
+  schemaIssuePaths,
+  type KeptState,
+  type MoneyMix,
+} from "@/lib/admin/revenue-mix";
+import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
 
 type MonthMixState = MoneyMix | "loading" | { error: string };
 
 // This month's profit comes from the reconciler: one ResLab + one Stripe
-// lookup per booking this month. Cached for the tab for 10 minutes so moving
-// around the admin and back doesn't re-run it; the month is still moving, so
-// never longer. Storage can be unavailable (private mode) — try/caught.
-const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v1";
+// lookup per booking this month, on every dashboard visit the cache below
+// doesn't cover. Cached for the tab for 10 minutes so moving around the admin
+// and back doesn't re-run it; the month is still moving, so never longer. The
+// cache holds the reconciler's own slice and re-parses it on read, so an
+// entry from an older shape is a miss, never misread; only a definitive result
+// (profit known, no Park Guard rows overstating it) is kept. Storage can be
+// unavailable (private mode) — try/caught.
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
 const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
 function readCachedMonthMix(monthKey: string): MoneyMix | null {
   try {
     const raw = sessionStorage.getItem(MONTH_MIX_CACHE_KEY);
     if (!raw) return null;
-    const v = JSON.parse(raw) as { monthKey?: string; at?: number; mix?: MoneyMix };
-    return v.monthKey === monthKey && typeof v.at === "number" && Date.now() - v.at < MONTH_MIX_TTL_MS && v.mix
-      ? v.mix
-      : null;
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== "object" || v === null || !("monthKey" in v) || !("at" in v) || !("slice" in v)) return null;
+    const age = typeof v.at === "number" ? Date.now() - v.at : NaN;
+    if (v.monthKey !== monthKey || !(age >= 0 && age < MONTH_MIX_TTL_MS)) return null;
+    const parsed = accountingMixSchema.safeParse(v.slice);
+    if (!parsed.success) return null;
+    const mix = mixFromAccounting(parsed.data);
+    return isDefinitive(mix) ? mix : null;
   } catch {
     return null;
   }
 }
-function writeCachedMonthMix(monthKey: string, mix: MoneyMix): void {
+function writeCachedMonthMix(monthKey: string, slice: unknown): void {
   try {
-    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), mix }));
+    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), slice }));
   } catch {
     /* storage unavailable — the figures still render, they just aren't cached */
   }
+}
+
+/** What a failed accounting request means for the person looking at the page. */
+function accountingFailure(status: number, serverMessage: string | null): string {
+  if (status === 401 || status === 403) return "your admin session has expired — sign in again";
+  if (status === 504 || status >= 500)
+    return `ResLab or Stripe was slow or failing${serverMessage ? ` (${serverMessage})` : ""} — refresh to try again`;
+  return `the request was refused (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""})`;
 }
 
 interface Stats {
@@ -266,18 +292,29 @@ export default function AdminDashboard() {
         const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
           signal: controller.signal,
         });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const parsed = accountingMixSchema.safeParse(await r.json());
-        if (!parsed.success) throw new Error("unexpected accounting response shape");
-        const mix = mixFromAccounting(parsed.data);
+        const body: unknown = await r.json().catch(() => null);
         if (controller.signal.aborted) return;
+        if (!r.ok) {
+          const serverMessage =
+            typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
+              ? body.error
+              : null;
+          setMonthMix({ error: accountingFailure(r.status, serverMessage) });
+          return;
+        }
+        const parsed = accountingMixSchema.safeParse(body);
+        if (!parsed.success) {
+          const paths = schemaIssuePaths(parsed.error);
+          reportMixShape(paths, "/admin");
+          setMonthMix({ error: `the accounting response changed shape (${paths}) — reported to Sentry` });
+          return;
+        }
+        const mix = mixFromAccounting(parsed.data);
         setMonthMix(mix);
-        // A month without a profit figure is usually a transient ResLab/Stripe
-        // miss — ask again next visit rather than caching it.
-        if (mix.kept) writeCachedMonthMix(monthKey, mix);
+        if (isDefinitive(mix)) writeCachedMonthMix(monthKey, parsed.data);
       } catch (e) {
         if (controller.signal.aborted) return;
-        setMonthMix({ error: e instanceof Error ? e.message : String(e) });
+        setMonthMix({ error: `network error (${e instanceof Error ? e.message : String(e)}) — refresh to try again` });
       }
     })();
     return () => controller.abort();
@@ -373,12 +410,17 @@ export default function AdminDashboard() {
     );
   }
 
+  // Once the reconciler answers, BOTH sides of the card come from it, so
+  // revenue, profit and every ratio cover the same bookings. stats' figures
+  // (which include direct-lot bookings) fill the revenue side only until then.
+  const monthLoaded = monthMix !== "loading" && !("error" in monthMix) ? monthMix : null;
   const monthKept: KeptState =
     monthMix === "loading"
       ? "loading"
       : "error" in monthMix
-        ? { unavailable: `couldn't load (${monthMix.error}) — refresh to try again` }
-        : (monthMix.kept ?? { unavailable: monthMix.keptReason ?? "no total" });
+        ? { unavailable: monthMix.error }
+        : keptStateOf(monthMix);
+  const monthPaid = monthLoaded ? monthLoaded.paid : stats ? paidFromStats(stats) : null;
 
   return (
     <div>
@@ -512,19 +554,15 @@ export default function AdminDashboard() {
           </Link>
         </div>
         <MoneyBreakdown
-          paid={
-            stats
-              ? paidFromStats({
-                  gross: stats.revenue.gross.thisMonth,
-                  serviceFee: stats.revenue.triply.thisMonth,
-                  pgRevenue: stats.parkGuard.revenue.thisMonth,
-                  confirmed: stats.parkGuard.confirmedTotal.thisMonth,
-                  pgOptIns: stats.parkGuard.count.thisMonth,
-                })
-              : null
-          }
+          paid={monthPaid}
           kept={monthKept}
-          directConfirmed={monthMix !== "loading" && !("error" in monthMix) ? monthMix.directConfirmed : 0}
+          directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
+          pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
+          paidNote={
+            !monthLoaded && monthPaid
+              ? `Revenue is from the booking table (direct-lot bookings included)${monthMix === "loading" ? " until the accounting figures load" : ""}.`
+              : undefined
+          }
         />
       </div>
 
