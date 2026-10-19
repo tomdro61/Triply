@@ -1,7 +1,8 @@
 import crypto from "crypto";
 
 /**
- * Signed links for the post-trip review email (/review/{token}).
+ * Signed links for the post-trip review email (/review/{token}) and its
+ * unsubscribe link.
  *
  * The token carries the booking id and an expiry, and an HMAC-SHA256 over
  * both, so a review link needs no session and no lookup table — only the
@@ -121,9 +122,55 @@ function appBase(): string {
   return (process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com").replace(/\/$/, "");
 }
 
-/** `/review/{token}`, plus `?r=N` for a star link (records the tap on landing). */
+/**
+ * `/review/{token}`, plus `?r=N` for a star link. That URL is only a landing
+ * route: it moves the token into the REVIEW_COOKIE (HttpOnly) and redirects to
+ * the token-free `/review?r=N`, so analytics, session recording and Sentry
+ * never see the credential. `r` only pre-selects a star; nothing is saved until
+ * the customer presses Save.
+ */
 export function reviewUrl(token: string, rating?: number): string {
   const url = new URL(`/review/${encodeURIComponent(token)}`, appBase());
   if (rating !== undefined) url.searchParams.set("r", String(rating));
   return url.toString();
+}
+
+/** HttpOnly cookie that carries the review token from the landing route to the
+ *  /review page and POST /api/reviews. */
+export const REVIEW_COOKIE = "triply_review";
+/** A week is plenty to finish a review; the token itself still expires. */
+export const REVIEW_COOKIE_MAX_AGE_S = 7 * 86_400;
+/** The token alphabet, length-capped — anything else never reaches a cookie. */
+export const REVIEW_TOKEN_SHAPE = /^[0-9a-zA-Z._-]{1,200}$/;
+
+// --- Unsubscribe links --------------------------------------------------------
+
+const UNSUBSCRIBE_DOMAIN = "post-trip-review-unsubscribe:v1:";
+
+function unsubscribeHmac(bookingId: string): Buffer {
+  return crypto
+    .createHmac("sha256", requireSigningSecret())
+    .update(`${UNSUBSCRIBE_DOMAIN}${bookingId.toLowerCase()}`)
+    .digest();
+}
+
+/**
+ * The email's unsubscribe link, keyed on the booking (stable across retries,
+ * so the payload under the Resend idempotency key never changes). No expiry:
+ * an unsubscribe link must keep working.
+ */
+export function reviewUnsubscribeUrl(bookingId: string): string {
+  if (!UUID_RE.test(bookingId)) throw new Error("reviewUnsubscribeUrl: booking id is not a UUID");
+  const url = new URL("/api/reviews/unsubscribe", appBase());
+  url.searchParams.set("id", bookingId.toLowerCase());
+  url.searchParams.set("token", unsubscribeHmac(bookingId).toString("base64url"));
+  return url.toString();
+}
+
+/** Throws ReviewConfigError when the secret is missing (a config fault, not a bad link). */
+export function verifyReviewUnsubscribe(bookingId: string, token: string): boolean {
+  if (!UUID_RE.test(bookingId) || !/^[A-Za-z0-9_-]{43}$/.test(token)) return false;
+  const expected = unsubscribeHmac(bookingId);
+  const given = Buffer.from(token, "base64url");
+  return given.length === expected.length && crypto.timingSafeEqual(given, expected);
 }

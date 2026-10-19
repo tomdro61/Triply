@@ -42,7 +42,7 @@ const sent = (bookingId: string, kind: "initial" | "reminder", sentAt: string): 
 });
 
 function run(bookings: ReviewBookingRow[], ledger: ReviewLedgerRow[] = [], reviewed: string[] = []) {
-  return selectReviewSends(bookings, ledger, new Set(reviewed), NOW, { testLocationIds: new Set([194]) });
+  return selectReviewSends(bookings, ledger, new Set(reviewed), NOW, { live: true, testLocationIds: new Set([194]) });
 }
 
 describe("helpers", () => {
@@ -152,7 +152,7 @@ describe("initial email", () => {
       booking({ checkOut: "nonsense" }),
     ]);
     expect(r.initial).toEqual([]);
-    expect(r.skipped).toMatchObject({ cancelling: 1, testMode: 1, testLot: 1, noEmail: 2, invalidCheckout: 1 });
+    expect(r.skipped).toMatchObject({ cancelling: 1, otherMode: 1, testLot: 1, noEmail: 2, invalidCheckout: 1 });
   });
 
   it("treats a pre-034 row (livemode NULL) as live", () => {
@@ -267,5 +267,38 @@ describe("reminder", () => {
     const b = booking({ checkOut: threeDaysAgo, status: "refunded" });
     const r = run([b], [sent(b.id, "initial", sentLongAgo)]);
     expect(r.reminder).toEqual([]);
+  });
+});
+
+describe("mode, opt-outs and unconfirmed sends", () => {
+  it("a test-key (staging/local) run never selects a live or pre-034 booking", () => {
+    const r = selectReviewSends([booking(), booking({ livemode: null }), booking({ livemode: false })], [], new Set(), NOW, {
+      live: false,
+    });
+    expect(r.initial).toHaveLength(1);
+    expect(r.skipped.otherMode).toBe(2);
+  });
+
+  it("skips an opted-out address", () => {
+    const b = booking({ email: "Optout@Example.com" });
+    const r = selectReviewSends([b], [], new Set(), NOW, { live: true, suppressed: new Set(["optout@example.com"]) });
+    expect(r.initial).toEqual([]);
+    expect(r.skipped.optedOut).toBe(1);
+  });
+
+  it("never re-sends or reminds after an unconfirmed initial", () => {
+    const b = booking({ checkOut: "2026-10-06T10:00:00" });
+    const r = run([b], [{ bookingId: b.id, kind: "initial", status: "unconfirmed", sentAt: null }]);
+    expect(r.initial).toEqual([]);
+    expect(r.reminder).toEqual([]);
+    expect(r.skipped.unconfirmed).toBe(1);
+  });
+
+  it("counts a retry that aged out of the window separately, so the cron can alarm", () => {
+    const b = booking({ checkOut: "2026-10-05T10:00:00" });
+    const r = run([b], [{ bookingId: b.id, kind: "initial", status: "retry", sentAt: null }]);
+    expect(r.initial).toEqual([]);
+    expect(r.skipped.retryExpired).toBe(1);
+    expect(r.skipped.tooOldForInitial).toBe(0);
   });
 });

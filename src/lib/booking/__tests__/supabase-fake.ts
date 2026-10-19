@@ -215,6 +215,9 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
     case "booking_reviews":
       // 037: UNIQUE (booking_id), one review per booking.
       return rows.some((r) => r.booking_id === row.booking_id) ? "booking_reviews_booking_unique" : null;
+    case "review_email_optouts":
+      // 037: the opt-out table's PK.
+      return rows.some((r) => r.email === row.email) ? "review_email_optouts_pkey" : null;
     default:
       return null;
   }
@@ -541,7 +544,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   }
 
   private embeddedCustomer(row: Row): Row {
-    if (!this.selectStr.includes("customers!inner")) return row;
+    // `customers!inner(...)` and the plain left-join embed `customers(...)`.
+    if (!this.selectStr.includes("customers!inner") && !this.selectStr.includes("customers(")) return row;
     const cust = this.db.tables.customers.find((c) => c.id === row.customer_id);
     if (!cust) return { ...row, customers: null };
     // first_name only when the select asks for it (the review cron does).

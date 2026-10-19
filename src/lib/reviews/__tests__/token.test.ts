@@ -3,9 +3,11 @@ import {
   REVIEW_LINK_VALID_DAYS,
   isReviewConfigError,
   reviewLinkExpiry,
+  reviewUnsubscribeUrl,
   reviewUrl,
   signReviewToken,
   verifyReviewToken,
+  verifyReviewUnsubscribe,
 } from "../token";
 
 const BOOKING = "3f2b8c1e-9a4d-4e2b-8c7a-1d2e3f4a5b6c";
@@ -113,5 +115,21 @@ describe("reviewUrl", () => {
     const token = signReviewToken(BOOKING, exp(30));
     expect(reviewUrl(token)).toBe(`https://www.triplypro.com/review/${token}`);
     expect(reviewUrl(token, 4)).toBe(`https://www.triplypro.com/review/${token}?r=4`);
+  });
+});
+
+describe("unsubscribe links", () => {
+  it("verify for their own booking only, and never as a review token", () => {
+    const u = new URL(reviewUnsubscribeUrl(BOOKING));
+    const token = u.searchParams.get("token") ?? "";
+    expect(u.pathname).toBe("/api/reviews/unsubscribe");
+    expect(verifyReviewUnsubscribe(BOOKING, token)).toBe(true);
+    expect(verifyReviewUnsubscribe("3f2b8c1e-9a4d-4e2b-8c7a-1d2e3f4a5b6d", token)).toBe(false);
+    expect(verifyReviewUnsubscribe(BOOKING, "x".repeat(43))).toBe(false);
+    expect(verifyReviewToken(`${BOOKING}.${exp(30)}.${token}`, NOW).ok).toBe(false);
+  });
+
+  it("are stable for a booking (byte-identical email payload across retries)", () => {
+    expect(reviewUnsubscribeUrl(BOOKING)).toBe(reviewUnsubscribeUrl(BOOKING));
   });
 });

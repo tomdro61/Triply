@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 /**
- * The /api/reviews request body. Two shapes share one schema:
- *   - rating only ({ token, rating }) — the star tap from the email, recorded
- *     the moment the page loads so a single tap counts even if they leave;
- *   - rating + details — the optional form. `details` replaces every detail
- *     field at once (an omitted field inside it is stored as NULL / false),
- *     so the stored review is always exactly what the form last showed.
- * Nothing is defaulted from outside the customer's own input.
+ * The /api/reviews request body: { rating, details? }, sent when the customer
+ * presses Save (never on page load). The review token is NOT in the body — it
+ * travels in the HttpOnly review cookie (src/lib/reviews/token.ts). `details`
+ * replaces every detail field at once (an omitted field inside it is stored
+ * as NULL / false), so the stored review is always exactly what the form last
+ * showed; without `details` only the rating changes. Nothing is defaulted from
+ * outside the customer's own input.
  */
 
 export const SHUTTLE_WAIT_VALUES = ["under_5", "5_15", "over_15"] as const;
@@ -34,7 +34,6 @@ export const reviewDetailsSchema = z
 
 export const reviewSubmitSchema = z
   .object({
-    token: z.string().min(1).max(200),
     rating: ratingSchema,
     details: reviewDetailsSchema.optional(),
   })
@@ -45,7 +44,7 @@ export type ReviewDetails = z.infer<typeof reviewDetailsSchema>;
 
 /**
  * `?r=N` from a star link. Returns null for anything but a single digit 1–5:
- * a missing or garbled value means "no tap to record", never a default rating.
+ * a missing or garbled value means "nothing pre-selected", never a default rating.
  */
 export function parseRatingParam(raw: string | string[] | undefined): number | null {
   if (typeof raw !== "string" || !/^[1-5]$/.test(raw)) return null;

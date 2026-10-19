@@ -25,7 +25,13 @@ const bookingSchema = z.object({
   airport_code: z.string().nullable(),
   reslab_location_id: z.number().int().nullable(),
   direct_lot_id: z.string().nullable(),
+  stripe_payment_intent_id: z.string().nullable(),
   customers: z.union([customerSchema, z.array(customerSchema)]).nullable(),
+});
+
+/** pending_bookings.customer — the booked guest (who got the review email). */
+const guestSchema = z.object({
+  customer: z.object({ firstName: z.string().nullable().optional() }).passthrough(),
 });
 
 const reviewSchema = z.object({
@@ -66,7 +72,9 @@ export async function loadReviewContext(supabase: Supabase, bookingId: string): 
   const [b, r] = await Promise.all([
     supabase
       .from("bookings")
-      .select("id, status, cancel_state, location_name, airport_code, reslab_location_id, direct_lot_id, customers(first_name)")
+      .select(
+        "id, status, cancel_state, location_name, airport_code, reslab_location_id, direct_lot_id, stripe_payment_intent_id, customers(first_name)"
+      )
       .eq("id", bookingId)
       .abortSignal(dbSignal())
       .maybeSingle(),
@@ -99,6 +107,21 @@ export async function loadReviewContext(supabase: Supabase, bookingId: string): 
     };
   }
 
+  // The name a published review shows is the booked guest's (the person the
+  // review email went to), not the customers row's — a signed-in account can
+  // book for someone else. The customers row is the fallback.
+  let guestFirstName: string | null | undefined;
+  if (row.stripe_payment_intent_id) {
+    const g = await supabase
+      .from("pending_bookings")
+      .select("customer")
+      .eq("stripe_payment_intent_id", row.stripe_payment_intent_id)
+      .abortSignal(dbSignal())
+      .maybeSingle();
+    if (g.error) throw new Error(`pending_bookings read failed: ${g.error.message}`);
+    const p = g.data ? guestSchema.safeParse(g.data) : null;
+    if (p?.success) guestFirstName = p.data.customer.firstName?.trim() || null;
+  }
   const cust = Array.isArray(row.customers) ? (row.customers[0] ?? null) : row.customers;
   return {
     kind: "ok",
@@ -109,7 +132,7 @@ export async function loadReviewContext(supabase: Supabase, bookingId: string): 
       reslabLocationId: row.reslab_location_id,
       directLotId: row.direct_lot_id,
       lotName: row.location_name,
-      firstName: cust?.first_name?.trim() || null,
+      firstName: guestFirstName !== undefined ? guestFirstName : cust?.first_name?.trim() || null,
     },
     review,
   };

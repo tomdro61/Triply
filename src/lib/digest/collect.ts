@@ -29,7 +29,7 @@ import { redactForDigest } from "./redact";
 import { calendarDayIn, shiftIsoDate, trailingWindow, zonedMidnightUtc, DIGEST_TZ, type DigestWindow } from "./window";
 import type {
   Baselined, BookingsSection, DigestData, EngagementSection, FunnelSection, HealthSection,
-  LostSalesSection, Metric, PaceSection, PaceTotals, RecoverySection, Section, WhereFromSection,
+  LostSalesSection, Metric, PaceSection, PaceTotals, RecoverySection, ReviewEmailsSection, Section, WhereFromSection,
 } from "./types";
 
 type Client = Awaited<ReturnType<typeof createAdminClient>>;
@@ -578,6 +578,39 @@ export async function collectRecovery(sb: Client, w: DigestWindow, week: Section
   }
 }
 
+// ───────────────────────────── post-trip review email ─────────────────────────────
+
+/**
+ * The review email over the same 7 days: live sends by outcome, opt-outs, and
+ * reviews saved. Shown only while the email is switched on, so a cron that
+ * stopped sending reads as "Sent 0" in the digest instead of going unnoticed.
+ */
+export async function collectReviewEmails(sb: Client, w: DigestWindow): Promise<Section<ReviewEmailsSection>> {
+  try {
+    const wk = weekEndingOn(w);
+    const s = wk.startUtc.toISOString(), e = wk.endUtc.toISOString();
+    const CAP = 900;
+    const [emails, optouts, reviews] = await Promise.all([
+      sb.from("review_emails").select("status").eq("livemode", true).gte("created_at", s).lt("created_at", e).limit(CAP + 1).abortSignal(sig()),
+      sb.from("review_email_optouts").select("email", { count: "exact", head: true }).gte("created_at", s).lt("created_at", e).abortSignal(sig()),
+      sb.from("booking_reviews").select("id", { count: "exact", head: true }).gte("created_at", s).lt("created_at", e).abortSignal(sig()),
+    ]);
+    if (emails.error) throw new Error(`review_emails: ${emails.error.code ?? "?"} ${emails.error.message}`);
+    const rows = (emails.data ?? []) as Array<{ status: string }>;
+    if (rows.length > CAP) return fail(new Error("review_emails: row cap hit"));
+    return ok({
+      sent: rows.filter((r) => r.status === "sent").length,
+      unconfirmed: rows.filter((r) => r.status === "unconfirmed").length,
+      failed: rows.filter((r) => r.status === "failed").length,
+      waiting: rows.filter((r) => r.status === "claimed" || r.status === "retry").length,
+      optOuts: exactCount("review_email_optouts", optouts),
+      reviews: exactCount("booking_reviews", reviews),
+    });
+  } catch (err) {
+    return fail(err);
+  }
+}
+
 // ───────────────────────────── funnel ─────────────────────────────
 
 interface SearchEventRow {
@@ -960,6 +993,10 @@ export async function collectDigest(w: DigestWindow, now: Date = new Date()): Pr
     withDeadline("pace", deadlineAt, () => collectPace(sb, w)),
   ]);
   const recovery = await withDeadline("recovery", deadlineAt, () => collectRecovery(sb, w, week));
+  const reviewEmails =
+    process.env.POST_TRIP_REVIEW_EMAILS_ENABLED === "true"
+      ? await withDeadline("reviewEmails", deadlineAt, () => collectReviewEmails(sb, w))
+      : undefined;
   const whereFrom: Section<WhereFromSection> = bookings.ok ? collectWhereFrom(confirmed, week) : fail(new Error("bookings unavailable"));
   const bookingsSection: Section<BookingsSection> = bookings.ok ? { ok: true, data: bookings.data } : bookings;
   return {
@@ -972,5 +1009,6 @@ export async function collectDigest(w: DigestWindow, now: Date = new Date()): Pr
     health,
     pace,
     recovery,
+    ...(reviewEmails ? { reviewEmails } : {}),
   };
 }

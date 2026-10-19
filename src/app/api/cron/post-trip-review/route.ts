@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import { assertReviewSigningSecret, isReviewConfigError } from "@/lib/reviews/token";
 import {
   REVIEWABLE_STATUSES,
@@ -13,11 +14,11 @@ import {
   type ReviewLedgerRow,
 } from "@/lib/reviews/select";
 import {
-  isIdempotencyConflict,
-  isSendConfigFailure,
-  isTransientSendFailure,
+  classifySendFailure,
   RESEND_SEND_TIMEOUT_MS,
+  ReviewSendError,
   sendReviewEmail,
+  type ReviewEmailFooter,
 } from "@/lib/reviews/email";
 
 /**
@@ -30,17 +31,34 @@ import {
  * after check-out when no review exists. Then never again.
  *
  * LEDGER (review_emails, UNIQUE (booking_id, kind), migration 037) — the
- * checkout-recovery pattern: claimed → sent | failed | retry → (re-claimed).
+ * checkout-recovery pattern: claimed → sent | failed | retry | unconfirmed.
  * A row is INSERTed `claimed` BEFORE the send and `send_started_at` stamped
  * right before the Resend call; the send carries a Resend Idempotency-Key on
- * booking + kind with a byte-stable payload. A transient failure parks the row
- * as `retry` for the next run; a permanent one marks it `failed` (no reminder
- * ever follows). An old `claimed` row that never reached Resend is removed so
- * the booking is judged afresh; one that did is alarmed for a human. Every
- * failure mode errs toward NOT emailing.
+ * booking + kind with a byte-stable payload. A rate-limited send (429) parks
+ * the row as `retry`; a rejection marks it `failed`; a send whose outcome is
+ * unknown (timeout, 5xx, idempotency conflict) is `unconfirmed` and alarmed —
+ * never retried, because Resend keeps idempotency keys only 24 h and the next
+ * run is a day later. An old `claimed` row that never reached Resend is
+ * removed so the booking is judged afresh; one that did is alarmed with its
+ * ids. Two consecutive identical rejections stop the run (a payload bug of
+ * ours would otherwise burn every row as `failed`). Every failure mode errs
+ * toward NOT emailing.
+ *
+ * MODE: staging and production share one database. The run's mode is its
+ * Stripe key (stripeKeyIsLive): a live deployment reads live/NULL bookings, a
+ * test deployment only livemode = false ones, so a staging or local run can
+ * never email a real customer.
+ *
+ * RECIPIENT: the booked guest from the staged checkout payload
+ * (pending_bookings.customer), not the customers row — a signed-in account
+ * can book for someone else, and its row keeps the account holder's address.
+ * The customers row is the fallback for bookings without a staged payload.
+ * Opted-out addresses (review opt-outs, recovery opt-outs, unsubscribed
+ * newsletter/waitlist) are skipped; an unreadable opt-out list sends nothing.
  *
  * Gated by POST_TRIP_REVIEW_EMAILS_ENABLED=true so the code can merge dark.
- * Needs REVIEW_SIGNING_SECRET (the review links); refuses with 503 without it.
+ * Needs REVIEW_SIGNING_SECRET (links) and TRIPLY_POSTAL_ADDRESS (the footer of
+ * commercial mail); refuses with 503 without either.
  * Auth: Vercel injects `Authorization: Bearer <CRON_SECRET>`; refuse without it.
  */
 
@@ -71,9 +89,16 @@ function redact(s: string): string {
   return s.replace(/[^\s@<>()"',;]+@[^\s@<>()"',;]+/g, "[email]");
 }
 
-function alarm(fingerprint: string, message: string, level: "info" | "warning" | "error") {
+function alarm(
+  fingerprint: string,
+  message: string,
+  level: "info" | "warning" | "error",
+  extras?: Record<string, unknown>
+) {
   Sentry.withScope((scope) => {
     scope.setFingerprint([fingerprint]);
+    // Row and booking ids only — never an address.
+    if (extras) scope.setExtras(extras);
     Sentry.captureMessage(message, level);
   });
 }
@@ -110,6 +135,7 @@ const bookingRowSchema = z.object({
   direct_lot_id: z.string().nullable(),
   location_timezone: z.string().nullable(),
   livemode: z.boolean().nullable(),
+  stripe_payment_intent_id: z.string().nullable(),
   // PostgREST returns a many-to-one embed as an object; accept an array too.
   customers: z.union([customerSchema, z.array(customerSchema)]).nullable(),
 });
@@ -117,14 +143,22 @@ const bookingRowSchema = z.object({
 const ledgerRowSchema = z.object({
   booking_id: z.string(),
   kind: z.enum(["initial", "reminder"]),
-  status: z.enum(["claimed", "retry", "sent", "failed"]),
+  status: z.enum(["claimed", "retry", "sent", "failed", "unconfirmed"]),
   sent_at: z.string().nullable(),
 });
 
-const BOOKING_COLS =
-  "id, status, cancel_state, check_out, location_name, airport_code, reslab_location_id, direct_lot_id, location_timezone, livemode, customers!inner(email, first_name)";
+/** pending_bookings.customer — the guest the booking was made for. */
+const guestSchema = z.object({
+  stripe_payment_intent_id: z.string(),
+  customer: z.object({ email: z.string(), firstName: z.string().nullable().optional() }).passthrough(),
+});
 
-function toBookingRow(r: z.infer<typeof bookingRowSchema>): ReviewBookingRow {
+const BOOKING_COLS =
+  "id, status, cancel_state, check_out, location_name, airport_code, reslab_location_id, direct_lot_id, location_timezone, livemode, stripe_payment_intent_id, customers!inner(email, first_name)";
+
+type Guest = { email: string; firstName: string | null };
+
+function toBookingRow(r: z.infer<typeof bookingRowSchema>, guest: Guest | undefined): ReviewBookingRow {
   const cust = Array.isArray(r.customers) ? (r.customers[0] ?? null) : r.customers;
   return {
     id: r.id,
@@ -137,9 +171,66 @@ function toBookingRow(r: z.infer<typeof bookingRowSchema>): ReviewBookingRow {
     directLotId: r.direct_lot_id,
     locationTimezone: r.location_timezone,
     livemode: r.livemode,
-    email: cust?.email ?? null,
-    firstName: cust?.first_name ?? null,
+    // The booked guest first; the customers row only when no payload was staged.
+    email: guest?.email ?? cust?.email ?? null,
+    firstName: guest ? guest.firstName : (cust?.first_name ?? null),
   };
+}
+
+/** The booked guest per PaymentIntent, from the staged checkout payload.
+ *  Throws on a read error: without it we could email the wrong person. */
+async function readGuests(supabase: Supabase, paymentIntentIds: string[]): Promise<Map<string, Guest>> {
+  const out = new Map<string, Guest>();
+  for (const ids of chunks(paymentIntentIds, IN_CHUNK)) {
+    const { data, error } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id, customer")
+      .in("stripe_payment_intent_id", ids)
+      .abortSignal(dbSignal());
+    if (error) throw new Error(`pending_bookings read failed: ${error.message}`);
+    for (const raw of data ?? []) {
+      const p = guestSchema.safeParse(raw);
+      // A malformed snapshot falls back to the customers row, like a missing one.
+      if (!p.success) continue;
+      out.set(p.data.stripe_payment_intent_id, {
+        email: p.data.customer.email,
+        firstName: p.data.customer.firstName?.trim() || null,
+      });
+    }
+  }
+  return out;
+}
+
+/** Lowercased addresses that must not get this email: review opt-outs, the
+ *  recovery email's opt-outs, and unsubscribed newsletter / waitlist rows.
+ *  Throws on any read error (fail closed: nothing is sent). */
+async function readSuppressed(supabase: Supabase, emails: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const batch of chunks(emails, IN_CHUNK)) {
+    const [review, recovery, newsletter, waitlist] = await Promise.all([
+      supabase.from("review_email_optouts").select("email").in("email", batch).abortSignal(dbSignal()),
+      supabase.from("checkout_recovery_optouts").select("email").in("email", batch).abortSignal(dbSignal()),
+      supabase.from("newsletter_subscribers").select("email, unsubscribed_at").in("email", batch).abortSignal(dbSignal()),
+      supabase.from("booking_waitlist").select("email, unsubscribed_at").in("email", batch).abortSignal(dbSignal()),
+    ]);
+    for (const [name, res] of [
+      ["review_email_optouts", review],
+      ["checkout_recovery_optouts", recovery],
+      ["newsletter_subscribers", newsletter],
+      ["booking_waitlist", waitlist],
+    ] as const) {
+      if (res.error) throw new Error(`${name} read failed: ${res.error.message}`);
+    }
+    const optout = z.array(z.object({ email: z.string() }));
+    const unsub = z.array(z.object({ email: z.string(), unsubscribed_at: z.string().nullable() }));
+    for (const r of [...optout.parse(review.data ?? []), ...optout.parse(recovery.data ?? [])]) {
+      out.add(r.email.toLowerCase());
+    }
+    for (const r of [...unsub.parse(newsletter.data ?? []), ...unsub.parse(waitlist.data ?? [])]) {
+      if (r.unsubscribed_at) out.add(r.email.toLowerCase());
+    }
+  }
+  return out;
 }
 
 function chunks<T>(xs: readonly T[], n: number): T[][] {
@@ -186,7 +277,7 @@ async function readState(
 async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ released: number; alarmed: number }> {
   const { data, error } = await supabase
     .from("review_emails")
-    .select("id, send_started_at")
+    .select("id, booking_id, kind, send_started_at")
     .eq("status", "claimed")
     .lt("claimed_at", new Date(nowMs - STALE_CLAIM_MS).toISOString())
     .abortSignal(dbSignal());
@@ -197,7 +288,9 @@ async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ re
     });
     return { released: -1, alarmed: -1 };
   }
-  const rows = z.array(z.object({ id: z.string(), send_started_at: z.string().nullable() })).safeParse(data ?? []);
+  const rows = z
+    .array(z.object({ id: z.string(), booking_id: z.string(), kind: z.string(), send_started_at: z.string().nullable() }))
+    .safeParse(data ?? []);
   if (!rows.success) {
     captureAPIError(new Error(`post-trip-review: stale-claim rows failed validation: ${rows.error.message}`), {
       ...CTX,
@@ -225,12 +318,14 @@ async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ re
       released = Array.isArray(del.data) ? del.data.length : 0;
     }
   }
-  const alarmed = rows.data.length - unsent.length;
+  const stuck = rows.data.filter((r) => r.send_started_at);
+  const alarmed = stuck.length;
   if (alarmed > 0) {
     alarm(
       "post_trip_review_stale_claims",
-      `post-trip-review: ${alarmed} claimed row(s) reached Resend and were never marked — the email may be out. Check Resend by booking id, then set the row to sent or failed by hand.`,
-      "warning"
+      `post-trip-review: ${alarmed} claimed row(s) reached Resend and were never marked — the email may be out. Check Resend by booking id, then set each row to sent or unconfirmed by hand (until then that booking gets no reminder).`,
+      "error",
+      { rows: stuck.map((r) => ({ id: r.id, bookingId: r.booking_id, kind: r.kind })) }
     );
   }
   return { released, alarmed };
@@ -240,13 +335,16 @@ async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ re
 async function claimRow(
   supabase: Supabase,
   c: ReviewCandidate,
-  nowIso: string
+  nowIso: string,
+  live: boolean
 ): Promise<{ id: string } | "taken" | "error"> {
   const ins = await supabase
     .from("review_emails")
     .insert({
       booking_id: c.bookingId,
       kind: c.kind,
+      email: c.email,
+      livemode: live,
       status: "claimed",
       claimed_at: nowIso,
       send_started_at: null,
@@ -294,7 +392,7 @@ async function claimRow(
 async function markRow(
   supabase: Supabase,
   rowId: string,
-  patch: { status: "sent" | "failed" | "retry"; sent_at?: string; last_error?: string | null },
+  patch: { status: "sent" | "failed" | "retry" | "unconfirmed"; sent_at?: string; last_error?: string | null },
   result: { markFailed: number }
 ) {
   const { data, error } = await supabase
@@ -326,16 +424,26 @@ export async function GET(request: NextRequest) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), { ...CTX, stage: "config" });
     return respond({ ok: false, error: "review signing secret is not configured" }, 503);
   }
+  // The email has a book-again button, so it is commercial mail: a postal
+  // address in every footer (CAN-SPAM). Never send without one.
+  const postalAddress = process.env.TRIPLY_POSTAL_ADDRESS?.trim() ?? "";
+  if (!postalAddress) {
+    captureAPIError(new Error("post-trip-review: TRIPLY_POSTAL_ADDRESS is not set"), { ...CTX, stage: "config" });
+    return respond({ ok: false, error: "postal address is not configured" }, 503);
+  }
   try {
-    return await run();
+    return await run({ postalAddress });
   } catch (error) {
     return fail("unhandled", errorMessage(error));
   }
 }
 
-async function run() {
+async function run(footer: ReviewEmailFooter) {
   const nowMs = Date.now();
   const elapsed = () => Date.now() - nowMs;
+  // The deployment's mode decides which bookings it may email at all (one
+  // shared database for staging and production).
+  const live = stripeKeyIsLive();
   const supabase = await createAdminClient();
   const stale = await sweepStaleClaims(supabase, nowMs);
 
@@ -344,12 +452,15 @@ async function run() {
   // selector makes the real, airport-local decision.
   const from = new Date(nowMs - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
   const to = new Date(nowMs + 2 * 86_400_000).toISOString().slice(0, 10);
-  const { data, error } = await supabase
+  let query = supabase
     .from("bookings")
     .select(BOOKING_COLS)
     .in("status", [...REVIEWABLE_STATUSES])
     .gte("check_out", from)
-    .lt("check_out", to)
+    .lt("check_out", to);
+  // .or() is fine on a SELECT (PostgREST rejects it only on UPDATE/DELETE).
+  query = live ? query.or("livemode.is.null,livemode.eq.true") : query.eq("livemode", false);
+  const { data, error } = await query
     .order("check_out", { ascending: true })
     .limit(ROW_CAP)
     .abortSignal(dbSignal());
@@ -359,11 +470,11 @@ async function run() {
     alarm("post_trip_review_row_cap", `post-trip-review: bookings read hit the ${ROW_CAP}-row cap; some trips may be skipped`, "warning");
   }
 
-  const bookings: ReviewBookingRow[] = [];
+  const parsed: z.infer<typeof bookingRowSchema>[] = [];
   let invalidRows = 0;
   for (const raw of rawRows) {
     const p = bookingRowSchema.safeParse(raw);
-    if (p.success) bookings.push(toBookingRow(p.data));
+    if (p.success) parsed.push(p.data);
     else invalidRows++;
   }
   if (invalidRows > 0) {
@@ -372,30 +483,56 @@ async function run() {
       stage: "bookings_parse",
     });
   }
-  if (bookings.length === 0) {
-    return respond({ ok: true, scanned: rawRows.length, invalidRows, sent: 0, staleClaims: stale });
+  if (parsed.length === 0) {
+    return respond({ ok: true, live, scanned: rawRows.length, invalidRows, sent: 0, staleClaims: stale });
   }
 
+  let guests: Map<string, Guest>;
+  try {
+    const pis = [...new Set(parsed.map((r) => r.stripe_payment_intent_id).filter((v): v is string => !!v))];
+    guests = await readGuests(supabase, pis);
+  } catch (e) {
+    return fail("guests_read", errorMessage(e));
+  }
+  const bookings = parsed.map((r) =>
+    toBookingRow(r, r.stripe_payment_intent_id ? guests.get(r.stripe_payment_intent_id) : undefined)
+  );
+
   let state: { ledger: ReviewLedgerRow[]; reviewed: Set<string> };
+  let suppressed: Set<string>;
   try {
     state = await readState(supabase, bookings.map((b) => b.id));
+    const emails = [
+      ...new Set(bookings.map((b) => b.email?.trim().toLowerCase()).filter((v): v is string => !!v)),
+    ];
+    suppressed = await readSuppressed(supabase, emails);
   } catch (e) {
     return fail("state_read", errorMessage(e));
   }
 
   const { initial, reminder, skipped } = selectReviewSends(bookings, state.ledger, state.reviewed, nowMs, {
+    live,
     testLocationIds: TEST_RESLAB_LOCATION_IDS,
+    suppressed,
   });
   const toSend = [...initial, ...reminder];
+  if (skipped.retryExpired > 0) {
+    alarm(
+      "post_trip_review_retry_expired",
+      `post-trip-review: ${skipped.retryExpired} email(s) parked for retry aged out of the window and will never be sent`,
+      "warning"
+    );
+  }
 
   const result = {
+    live,
     scanned: rawRows.length,
     invalidRows,
     initialCandidates: initial.length,
     reminderCandidates: reminder.length,
     staleClaims: stale,
     sent: 0,
-    sentUnconfirmed: 0,
+    unconfirmed: 0,
     alreadyClaimed: 0,
     claimFailed: 0,
     sendFailed: 0,
@@ -404,13 +541,16 @@ async function run() {
   };
 
   let attempted = 0;
+  // Two consecutive rejections with the same status mean OUR payload or setup,
+  // not the addresses: stop before every remaining row is burned as `failed`.
+  let lastRejection: { status: number | undefined; rowId: string } | null = null;
   for (const [i, c] of toSend.entries()) {
     if (attempted >= MAX_SENDS_PER_RUN || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
       result.deferredToNextRun = toSend.length - i;
       break;
     }
 
-    const claim = await claimRow(supabase, c, new Date().toISOString());
+    const claim = await claimRow(supabase, c, new Date().toISOString(), live);
     if (claim === "taken") {
       result.alreadyClaimed++;
       continue;
@@ -429,7 +569,8 @@ async function run() {
       .select("id")
       .abortSignal(dbSignal());
     if (started.error || !Array.isArray(started.data) || started.data.length === 0) {
-      result.sendFailed++;
+      // Nothing was sent: the row goes back to `retry` for the next run.
+      result.claimFailed++;
       captureAPIError(
         new Error(`post-trip-review: send_started_at not recorded for ${rowId}: ${started.error?.message ?? "matched no rows"}`),
         { ...CTX, stage: "send_start" }
@@ -439,37 +580,55 @@ async function run() {
     }
 
     try {
-      await sendReviewEmail(c);
+      await sendReviewEmail(c, footer);
     } catch (error) {
       const message = redact(errorMessage(error)).slice(0, 500);
-      if (isIdempotencyConflict(error)) {
-        result.sentUnconfirmed++;
+      const kind = classifySendFailure(error);
+      if (kind === "uncertain") {
+        result.unconfirmed++;
         alarm(
-          "post_trip_review_idempotency_conflict",
-          `post-trip-review: Resend 409 for ${c.kind} ${c.bookingId} — recorded as sent (delivery unconfirmed)`,
-          "warning"
+          "post_trip_review_unconfirmed",
+          `post-trip-review: ${c.kind} send for booking ${c.bookingId} has an unknown outcome (the email may be out); marked unconfirmed — check Resend, it will not be retried`,
+          "warning",
+          { rowId, bookingId: c.bookingId, kind: c.kind, error: message }
         );
-        await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString(), last_error: message }, result);
-        result.sent++;
+        await markRow(supabase, rowId, { status: "unconfirmed", last_error: message }, result);
+        lastRejection = null;
         continue;
       }
       captureAPIError(new Error(`post-trip-review send failed: ${message}`), { ...CTX, stage: "send" });
       result.sendFailed++;
-      if (isReviewConfigError(error) || isSendConfigFailure(error)) {
+      if (kind === "config") {
         // Not this row's fault, and every later send would fail the same way.
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
         result.deferredToNextRun += toSend.length - i - 1;
         break;
       }
-      await markRow(
-        supabase,
-        rowId,
-        { status: isTransientSendFailure(error) ? "retry" : "failed", last_error: message },
-        result
-      );
+      if (kind === "retry") {
+        await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
+        lastRejection = null;
+        continue;
+      }
+      const status = error instanceof ReviewSendError ? error.statusCode : undefined;
+      if (lastRejection && lastRejection.status === status) {
+        // Same rejection twice in a row: put both rows back for a later run.
+        await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
+        await markRow(supabase, lastRejection.rowId, { status: "retry", last_error: message }, result);
+        result.deferredToNextRun += toSend.length - i - 1;
+        alarm(
+          "post_trip_review_systematic_rejection",
+          `post-trip-review: Resend rejected two emails in a row with status ${status ?? "?"}; run stopped and both rows set to retry — likely a problem with our payload or sender setup`,
+          "error",
+          { error: message }
+        );
+        break;
+      }
+      await markRow(supabase, rowId, { status: "failed", last_error: message }, result);
+      lastRejection = { status, rowId };
       continue;
     }
 
+    lastRejection = null;
     await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString(), last_error: null }, result);
     result.sent++;
   }
@@ -477,11 +636,11 @@ async function run() {
   if (result.deferredToNextRun > 0) {
     alarm(
       "post_trip_review_capped",
-      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${MAX_SENDS_PER_RUN} / ${RUN_DEADLINE_MS} ms deadline)`,
+      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${MAX_SENDS_PER_RUN} / ${RUN_DEADLINE_MS} ms deadline, or the run stopped early)`,
       "warning"
     );
   }
-  const allFailed = attempted + result.claimFailed > 0 && result.sent === 0;
+  const allFailed = attempted + result.claimFailed > 0 && result.sent === 0 && result.unconfirmed === 0;
   if (result.sendFailed + result.claimFailed + result.markFailed > 0) {
     alarm(
       "post_trip_review_failures",

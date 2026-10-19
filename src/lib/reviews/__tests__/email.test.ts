@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildReviewEmail, reviewIdempotencyKey } from "../email";
 import { bookAgainUrl } from "../links";
-import { verifyReviewToken } from "../token";
+import { verifyReviewToken, verifyReviewUnsubscribe } from "../token";
 import type { ReviewCandidate } from "../select";
 
 const c: ReviewCandidate = {
@@ -14,10 +14,11 @@ const c: ReviewCandidate = {
   checkoutDate: "2026-10-09",
 };
 const NOW = Date.UTC(2026, 9, 9, 23, 0);
+const FOOTER = { postalAddress: "88 Broadway, Revere, MA 02151" };
 
 describe("buildReviewEmail", () => {
   it("has the lot in the subject and five signed star links, ?r=1..5", () => {
-    const { subject, text, html } = buildReviewEmail(c);
+    const { subject, text, html } = buildReviewEmail(c, FOOTER);
     expect(subject).toBe("How was parking at Jet <Parking> JFK?");
     const links = [...text.matchAll(/https:\/\/www\.triplypro\.com\/review\/([^?\s]+)\?r=(\d)/g)];
     expect(links.map((m) => m[2])).toEqual(["1", "2", "3", "4", "5"]);
@@ -31,11 +32,11 @@ describe("buildReviewEmail", () => {
   });
 
   it("is byte-identical across rebuilds (Resend idempotency payload)", () => {
-    expect(buildReviewEmail(c)).toEqual(buildReviewEmail(c));
+    expect(buildReviewEmail(c, FOOTER)).toEqual(buildReviewEmail(c, FOOTER));
   });
 
   it("links 'book again' to the airport page with email UTMs", () => {
-    const { html } = buildReviewEmail(c);
+    const { html } = buildReviewEmail(c, FOOTER);
     const url = new URL(bookAgainUrl("JFK"));
     expect(url.pathname).toBe("/new-york-jfk/airport-parking");
     expect(url.searchParams.get("utm_medium")).toBe("email");
@@ -44,14 +45,25 @@ describe("buildReviewEmail", () => {
   });
 
   it("falls back to the home page when the airport is unknown", () => {
-    const { html } = buildReviewEmail({ ...c, airportCode: null });
+    const { html } = buildReviewEmail({ ...c, airportCode: null }, FOOTER);
     expect(new URL(bookAgainUrl(null)).pathname).toBe("/");
     expect(html).toContain("Book your next trip");
     expect(html).not.toContain("trip at");
   });
 
   it("uses its own subject for the reminder and its own idempotency key", () => {
-    expect(buildReviewEmail({ ...c, kind: "reminder" }).subject).toBe("Quick one: how was Jet <Parking> JFK?");
+    expect(buildReviewEmail({ ...c, kind: "reminder" }, FOOTER).subject).toBe("Quick one: how was Jet <Parking> JFK?");
     expect(reviewIdempotencyKey(c.bookingId, "initial")).not.toBe(reviewIdempotencyKey(c.bookingId, "reminder"));
+  });
+
+  it("carries the postal address and a working, booking-keyed unsubscribe link", () => {
+    const { text, html, unsubscribeUrl } = buildReviewEmail(c, FOOTER);
+    expect(text).toContain("Triply · 88 Broadway, Revere, MA 02151");
+    expect(html).toContain("Unsubscribe from review emails");
+    const u = new URL(unsubscribeUrl);
+    expect(u.pathname).toBe("/api/reviews/unsubscribe");
+    expect(u.searchParams.get("id")).toBe(c.bookingId);
+    expect(verifyReviewUnsubscribe(c.bookingId, u.searchParams.get("token") ?? "")).toBe(true);
+    expect(text).toContain(unsubscribeUrl);
   });
 });

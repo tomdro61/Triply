@@ -22,6 +22,7 @@ vi.mock("@sentry/nextjs", () => ({
 import { GET } from "../route";
 
 const CRON_SECRET = process.env.CRON_SECRET as string;
+const SAVED_STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
 // 2026-10-09 23:00 UTC — the scheduled run; 19:00 in New York.
 const NOW = new Date("2026-10-09T23:00:00Z");
 
@@ -48,6 +49,7 @@ function booking(o: Record<string, unknown> = {}) {
     direct_lot_id: null,
     location_timezone: "America/New_York",
     livemode: true,
+    stripe_payment_intent_id: null,
     ...o,
   };
   db.tables.bookings.push(row);
@@ -58,15 +60,31 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
   db.clearFailures();
-  db.tables = { pending_bookings: [], bookings: [], cart_claims: [], customers: [], review_emails: [], booking_reviews: [] };
+  db.tables = {
+    pending_bookings: [],
+    bookings: [],
+    cart_claims: [],
+    customers: [],
+    review_emails: [],
+    booking_reviews: [],
+    review_email_optouts: [],
+    checkout_recovery_optouts: [],
+    newsletter_subscribers: [],
+    booking_waitlist: [],
+  };
   resendSend.mockReset();
   resendSend.mockResolvedValue({ data: { id: "email_1" }, error: null });
   process.env.POST_TRIP_REVIEW_EMAILS_ENABLED = "true";
+  process.env.TRIPLY_POSTAL_ADDRESS = "88 Broadway, Revere, MA 02151";
+  // The production deployment's mode; individual tests switch to a test key.
+  process.env.STRIPE_SECRET_KEY = "sk_live_dummy_for_unit_tests";
 });
 
 afterEach(() => {
   vi.useRealTimers();
   delete process.env.POST_TRIP_REVIEW_EMAILS_ENABLED;
+  delete process.env.TRIPLY_POSTAL_ADDRESS;
+  process.env.STRIPE_SECRET_KEY = SAVED_STRIPE_KEY;
 });
 
 describe("GET /api/cron/post-trip-review", () => {
@@ -114,7 +132,11 @@ describe("GET /api/cron/post-trip-review", () => {
     expect(payload.subject).toBe("How was parking at Jet Parking JFK?");
     expect(payload.replyTo).toBe("support@triplypro.com");
     expect(opts).toEqual({ idempotencyKey: `post-trip-review/${due.id}/initial` });
-    expect(db.tables.review_emails).toMatchObject([{ booking_id: due.id, kind: "initial", status: "sent" }]);
+    expect(db.tables.review_emails).toMatchObject([
+      { booking_id: due.id, kind: "initial", status: "sent", email: cust?.email, livemode: true },
+    ]);
+    expect(payload.headers["List-Unsubscribe-Post"]).toBe("List-Unsubscribe=One-Click");
+    expect(payload.text).toContain("88 Broadway, Revere, MA 02151");
 
     const second = await GET(req());
     expect(await second.json()).toMatchObject({ ok: true, sent: 0 });
@@ -170,12 +192,27 @@ describe("GET /api/cron/post-trip-review", () => {
     expect(resendSend).toHaveBeenCalledTimes(1);
   });
 
-  it("records a Resend idempotency conflict as sent (the email may be out)", async () => {
+  it("marks a Resend idempotency conflict unconfirmed: not counted as sent, never retried or reminded", async () => {
     booking();
     resendSend.mockResolvedValueOnce({ data: null, error: { message: "conflict", statusCode: 409, name: "invalid_idempotent_request" } });
     const res = await GET(req());
-    expect(await res.json()).toMatchObject({ sent: 1, sentUnconfirmed: 1 });
-    expect(db.tables.review_emails).toMatchObject([{ status: "sent" }]);
+    expect(await res.json()).toMatchObject({ sent: 0, unconfirmed: 1 });
+    expect(db.tables.review_emails).toMatchObject([{ status: "unconfirmed" }]);
+    await GET(req());
+    expect(resendSend).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks a timeout or 5xx unconfirmed instead of retrying it next day (Resend keys expire in 24 h)", async () => {
+    booking();
+    booking();
+    resendSend
+      .mockResolvedValueOnce({ data: null, error: { message: "upstream", statusCode: 502, name: "application_error" } })
+      .mockRejectedValueOnce(new Error("socket hang up"));
+    const res = await GET(req());
+    expect(await res.json()).toMatchObject({ sent: 0, unconfirmed: 2 });
+    expect(db.tables.review_emails.map((r) => r.status)).toEqual(["unconfirmed", "unconfirmed"]);
+    await GET(req());
+    expect(resendSend).toHaveBeenCalledTimes(2);
   });
 
   it("sends nothing when the ledger cannot be read", async () => {
@@ -199,5 +236,72 @@ describe("GET /api/cron/post-trip-review", () => {
     });
     const res = await GET(req());
     expect(await res.json()).toMatchObject({ sent: 1, staleClaims: { released: 1, alarmed: 0 } });
+  });
+
+  it("refuses (503) without a postal address and sends nothing", async () => {
+    delete process.env.TRIPLY_POSTAL_ADDRESS;
+    booking();
+    const res = await GET(req());
+    expect(res.status).toBe(503);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("a staging/local run (test Stripe key) never emails a live customer", async () => {
+    process.env.STRIPE_SECRET_KEY = "sk_test_dummy_for_unit_tests";
+    booking(); // live
+    booking({ livemode: null }); // pre-034, live
+    const testRow = booking({ livemode: false });
+    const res = await GET(req());
+    expect(await res.json()).toMatchObject({ live: false, sent: 1 });
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.review_emails).toMatchObject([{ booking_id: testRow.id, livemode: false }]);
+  });
+
+  it("emails the booked guest from the staged payload, not the signed-in account's customers row", async () => {
+    const b = booking({ stripe_payment_intent_id: "pi_guest" });
+    db.tables.pending_bookings.push({
+      stripe_payment_intent_id: "pi_guest",
+      customer: { firstName: "Robin", lastName: "Lee", email: "Robin.Guest@Example.com", phone: "5550001111" },
+    });
+    await GET(req());
+    const [payload] = resendSend.mock.calls[0];
+    expect(payload.to).toEqual(["robin.guest@example.com"]);
+    expect(payload.text).toContain("Hi Robin,");
+    expect(db.tables.review_emails).toMatchObject([{ booking_id: b.id, email: "robin.guest@example.com" }]);
+  });
+
+  it("skips addresses that opted out of review, recovery, newsletter or waitlist emails", async () => {
+    const emailOf = (b: { customer_id: string }) =>
+      String(db.tables.customers.find((c) => c.id === b.customer_id)?.email);
+    const [a, b, c, d, e] = [booking(), booking(), booking(), booking(), booking()].map(emailOf);
+    db.tables.review_email_optouts.push({ email: a });
+    db.tables.checkout_recovery_optouts.push({ email: b });
+    db.tables.newsletter_subscribers.push({ email: c, unsubscribed_at: "2026-09-01T00:00:00Z" });
+    db.tables.booking_waitlist.push({ email: d, unsubscribed_at: "2026-09-01T00:00:00Z" });
+    const res = await GET(req());
+    const body = await res.json();
+    expect(body).toMatchObject({ sent: 1 });
+    expect(body.skipped.optedOut).toBe(4);
+    expect(resendSend.mock.calls[0][0].to).toEqual([e]);
+  });
+
+  it("sends nothing when an opt-out list cannot be read (fail closed)", async () => {
+    booking();
+    db.failOnce("newsletter_subscribers", "select", "boom");
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("stops the run after two identical rejections and puts both rows back to retry", async () => {
+    booking();
+    booking();
+    booking();
+    resendSend.mockResolvedValue({ data: null, error: { message: "invalid from", statusCode: 422, name: "validation_error" } });
+    const res = await GET(req());
+    const body = await res.json();
+    expect(resendSend).toHaveBeenCalledTimes(2);
+    expect(body.deferredToNextRun).toBe(1);
+    expect(db.tables.review_emails.map((r) => r.status)).toEqual(["retry", "retry"]);
   });
 });

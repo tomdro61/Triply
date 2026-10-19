@@ -2,34 +2,44 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { isSameOrigin } from "@/lib/http/origin";
-import { isReviewConfigError, verifyReviewToken } from "@/lib/reviews/token";
+import { isReviewConfigError, REVIEW_COOKIE, verifyReviewToken } from "@/lib/reviews/token";
 import { reviewSubmitSchema } from "@/lib/reviews/schema";
 import { loadReviewContext, upsertReview } from "@/lib/reviews/store";
 
 /**
- * POST /api/reviews — record a post-trip review.
+ * POST /api/reviews — record a post-trip review (the review page's Save).
  *
- * Auth is the signed link itself: the body carries the /review/{token} token,
- * which names the booking and expires (src/lib/reviews/token.ts). Nothing is
- * written unless the token verifies and the booking is still a reviewable
- * stay. Same-origin only (the review page is the one caller).
+ * Auth is the signed link itself, carried in the HttpOnly review cookie that
+ * /review/{token} sets (src/lib/reviews/token.ts): it names the booking and
+ * expires. Nothing is written unless the token verifies and the booking is
+ * still a reviewable stay. Same-origin only (the review page is the one caller).
  *
- * Body (Zod, src/lib/reviews/schema.ts): { token, rating } for a star tap, or
- * { token, rating, details } for the optional form.
+ * Body (Zod, src/lib/reviews/schema.ts): { rating, details? }.
  */
 
 export const dynamic = "force-dynamic";
 
 const CTX = { endpoint: "/api/reviews", method: "POST" as const };
+/** The form is a rating, two choices, a 500-char comment and a checkbox. */
+const MAX_BODY_BYTES = 4_096;
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const token = request.cookies.get(REVIEW_COOKIE)?.value;
+  if (!token) {
+    return NextResponse.json({ error: "Invalid link" }, { status: 401 });
+  }
+
   let body: unknown;
   try {
-    body = await request.json();
+    const raw = await request.text();
+    if (raw.length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: "Request too large" }, { status: 413 });
+    }
+    body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
@@ -37,7 +47,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid review", issues: parsed.error.issues.map((i) => i.message) }, { status: 400 });
   }
-  const { token, rating, details } = parsed.data;
+  const { rating, details } = parsed.data;
 
   let verified: ReturnType<typeof verifyReviewToken>;
   try {

@@ -1,13 +1,16 @@
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { appBase, bookAgainLabel, bookAgainUrl } from "./links";
-import { reviewLinkExpiry, reviewUrl, signReviewToken } from "./token";
+import { reviewLinkExpiry, reviewUnsubscribeUrl, reviewUrl, signReviewToken } from "./token";
 import type { ReviewCandidate } from "./select";
 
 /**
  * The post-trip review email (and its one reminder). Plain and short: five
  * tappable stars, one line on why it helps, a secondary "book your next trip"
  * button. No incentive. Styled like the other HTML emails (checkout-recovery,
- * waitlist-notify); footer wording from the booking confirmation.
+ * waitlist-notify); footer wording from the booking confirmation. Because of
+ * the book-again button it is treated as commercial mail, like the recovery
+ * email: postal address, an unsubscribe link, and List-Unsubscribe headers
+ * (one-click POST to /api/reviews/unsubscribe).
  *
  * Reply-To is the support inbox so "reply to this email" (shown on the review
  * page for a low rating) reaches a human — FROM is the bookings@ sender.
@@ -31,27 +34,34 @@ export class ReviewSendError extends Error {
   }
 }
 
-export function isTransientSendFailure(error: unknown): boolean {
-  if (error instanceof ReviewSendError) {
-    const c = error.statusCode;
-    return c === undefined || c === 429 || c >= 500;
-  }
-  return true;
-}
+/**
+ * What a failed send means for the ledger row:
+ *   retry     — Resend refused before sending (429 rate limit): safe to resend.
+ *   config    — Resend rejected OUR credentials/domain (401/403): every later
+ *               send would too; stop the run.
+ *   permanent — a 4xx about this email (bad address, validation): never resend.
+ *   uncertain — the outcome is unknown and the email may be out: a timeout (the
+ *               race does not cancel the request), a network fault, a 5xx, or
+ *               an idempotency conflict. Never retried: Resend keeps
+ *               idempotency keys only 24 h and this cron runs daily, so a retry
+ *               could email the customer twice.
+ */
+export type SendFailure = "retry" | "config" | "permanent" | "uncertain";
 
-/** Resend rejected OUR credentials or domain — every later send would too. */
-export function isSendConfigFailure(error: unknown): boolean {
-  return error instanceof ReviewSendError && (error.statusCode === 401 || error.statusCode === 403);
-}
-
-/** The idempotency key was already used: an email may already be out. */
-export function isIdempotencyConflict(error: unknown): boolean {
-  if (!(error instanceof ReviewSendError)) return false;
-  return (
-    error.statusCode === 409 ||
+export function classifySendFailure(error: unknown): SendFailure {
+  if (!(error instanceof ReviewSendError)) return "uncertain";
+  const c = error.statusCode;
+  if (
+    c === 409 ||
     error.resendName === "invalid_idempotent_request" ||
     error.resendName === "concurrent_idempotent_requests"
-  );
+  ) {
+    return "uncertain";
+  }
+  if (c === undefined || c >= 500) return "uncertain";
+  if (c === 429) return "retry";
+  if (c === 401 || c === 403) return "config";
+  return "permanent";
 }
 
 function escapeHtml(s: string): string {
@@ -63,11 +73,22 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-export function buildReviewEmail(c: ReviewCandidate): { subject: string; html: string; text: string } {
+/** The footer every send carries: CAN-SPAM postal address + the opt-out link
+ *  (the email has a "book your next trip" button, so it is treated as commercial). */
+export interface ReviewEmailFooter {
+  postalAddress: string;
+}
+
+export function buildReviewEmail(
+  c: ReviewCandidate,
+  footerInfo: ReviewEmailFooter
+): { subject: string; html: string; text: string; unsubscribeUrl: string } {
   const token = signReviewToken(c.bookingId, reviewLinkExpiry(c.checkoutDate));
   const starUrls = [1, 2, 3, 4, 5].map((n) => reviewUrl(token, n));
   const againUrl = bookAgainUrl(c.airportCode);
   const againLabel = bookAgainLabel(c.airportCode);
+  const unsubscribeUrl = reviewUnsubscribeUrl(c.bookingId);
+  const postal = footerInfo.postalAddress.trim();
   const lot = c.lotName.trim();
 
   const subject =
@@ -94,6 +115,8 @@ export function buildReviewEmail(c: ReviewCandidate): { subject: string; html: s
     `Questions? Reply to this email or visit ${appBase()}/help`,
     "",
     footer,
+    `Triply · ${postal}`,
+    `Unsubscribe from review emails: ${unsubscribeUrl}`,
   ].join("\n");
 
   const stars = starUrls
@@ -130,26 +153,41 @@ export function buildReviewEmail(c: ReviewCandidate): { subject: string; html: s
           <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.6;">
             Questions? Reply to this email or visit our <a href="${escapeHtml(appBase())}/help" style="color: #f87356; text-decoration: none;">Help Center</a>.<br>
             ${escapeHtml(footer)}<br>
-            <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a>
+            Triply · ${escapeHtml(postal)}<br>
+            <a href="https://www.triplypro.com" style="color: #f87356; text-decoration: none;">triplypro.com</a> ·
+            <a href="${escapeHtml(unsubscribeUrl)}" style="color: #9ca3af; text-decoration: underline;">Unsubscribe from review emails</a>
           </p>
         </div>
       </div>
     `;
 
-  return { subject, html, text };
+  return { subject, html, text, unsubscribeUrl };
 }
 
-/** One key per booking + kind. The payload is byte-stable across retries:
- *  the token's expiry derives from the check-out date, not from "now". */
+/** One key per booking + kind. The payload is byte-stable for a booking: the
+ *  token's expiry derives from the check-out date and the unsubscribe link
+ *  from the booking id, never from "now". */
 export const reviewIdempotencyKey = (bookingId: string, kind: ReviewCandidate["kind"]) =>
   `post-trip-review/${bookingId}/${kind}`;
 
-export async function sendReviewEmail(c: ReviewCandidate): Promise<void> {
-  const { subject, html, text } = buildReviewEmail(c);
+export async function sendReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFooter): Promise<void> {
+  const { subject, html, text, unsubscribeUrl } = buildReviewEmail(c, footerInfo);
   // resend never throws for an API-level failure — it resolves { error }. The
-  // race bounds a hung send so the row is parked, not left `claimed`.
+  // race bounds a hung send (classified "uncertain" — the request isn't
+  // cancelled, so the email may still go out).
   const send = resend.emails.send(
-    { from: FROM_EMAIL, to: [c.email], replyTo: REVIEW_REPLY_TO, subject, html, text },
+    {
+      from: FROM_EMAIL,
+      to: [c.email],
+      replyTo: REVIEW_REPLY_TO,
+      subject,
+      html,
+      text,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    },
     { idempotencyKey: reviewIdempotencyKey(c.bookingId, c.kind) }
   );
   let timer: ReturnType<typeof setTimeout> | undefined;
