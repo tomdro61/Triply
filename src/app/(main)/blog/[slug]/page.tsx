@@ -17,6 +17,7 @@ import { ArticleBookingPrompt } from '@/components/blog/ArticleBookingPrompt'
 import { ArticleCta, ArticleCtaInline } from '@/components/blog/ArticleCta'
 import { ArticleEmailCapture } from '@/components/blog/ArticleEmailCapture'
 import { getMidArticleInsertIndex } from '@/lib/blog/article-split'
+import { isPromoPost } from '@/lib/blog/promo-post'
 
 // Cache each post page for 1 hour. The biggest single source of Supabase
 // egress was crawlers walking every /blog/[slug] URL; with this directive
@@ -130,6 +131,7 @@ export default async function BlogPostPage({ params }: Props) {
   }
 
   const contentUpdatedAt = getContentUpdatedAt(post)
+  const isPromo = isPromoPost(slug)
   // Where the "Ready to Book…" block goes inside the body (~30% down). null =
   // the article is too short to split, so the full block stays at the end.
   const midCtaIndex = getMidArticleInsertIndex(post.content)
@@ -226,6 +228,12 @@ export default async function BlogPostPage({ params }: Props) {
                 </>
               )}
             </div>
+
+            {/* Promo-code posts: the 10% signup goes to the top — the reader
+                searched for a code, and this is the real one we have. */}
+            {isPromo && (
+              <ArticleEmailCapture airportCode={post.airportCode} slug={slug} placement="promo" />
+            )}
           </div>
         </header>
 
@@ -252,8 +260,11 @@ export default async function BlogPostPage({ params }: Props) {
 
             {/* Email capture — where a reader who finished the article but
                 did not book lands. One per article, after the body/FAQ and
-                before the end-of-page booking CTA. */}
-            <ArticleEmailCapture airportCode={post.airportCode} slug={slug} />
+                before the end-of-page booking CTA — except promo-code posts,
+                which show it at the top instead. */}
+            {!isPromo && (
+              <ArticleEmailCapture airportCode={post.airportCode} slug={slug} placement="end" />
+            )}
           </div>
         </div>
 

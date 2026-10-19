@@ -10,12 +10,16 @@ import { trackNewsletterSignup, markAndShouldTrackNewsletterSignup } from "@/lib
 interface ArticleEmailCaptureProps {
   airportCode?: string | null;
   slug: string;
+  /** "promo": shown at the top of promo-code posts, worded as the answer to
+   *  the reader's search. "end": the default end-of-article block. */
+  placement: "promo" | "end";
 }
 
 /**
  * Compact email capture for the end of a blog article — the reader finished
  * the piece and did not book, so this asks for the one thing we can still
- * convert later.
+ * convert later. On promo-code posts it moves to the top instead (the reader
+ * searched for a code, and this is the real one we have) — one per page.
  *
  * Deliberately not the homepage <Newsletter /> block: that one is full-bleed
  * with a background image and would blow out the max-w-3xl article column.
@@ -26,7 +30,7 @@ interface ArticleEmailCaptureProps {
  * 10% promo code, valid 30 days, emailed to the address given. No claims
  * about list size or "weekly deals" — nothing verifies those.
  */
-export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCaptureProps) {
+export function ArticleEmailCapture({ airportCode, slug, placement }: ArticleEmailCaptureProps) {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -39,6 +43,7 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
   // may be null, lowercase, or a code that is catalogued but not enabled.
   const airport = airportCode ? getAirportByCode(airportCode) : undefined;
   const code = airport?.enabled ? airport.code : "";
+  const isPromo = placement === "promo";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +114,11 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
     <aside
       id="email-capture"
       aria-labelledby="email-capture-heading"
-      className="not-prose my-10 rounded-2xl border border-gray-200 bg-gray-50 px-6 py-7"
+      className={
+        isPromo
+          ? "not-prose mt-8 rounded-2xl border border-gray-200 bg-white px-6 py-7"
+          : "not-prose my-10 rounded-2xl border border-gray-200 bg-gray-50 px-6 py-7"
+      }
     >
       <div className="flex items-start gap-3">
         <span
@@ -120,14 +129,20 @@ export function ArticleEmailCapture({ airportCode, slug }: ArticleEmailCapturePr
         </span>
 
         <div className="flex-1 min-w-0">
+          {isPromo && (
+            <p className="text-sm font-medium text-coral">
+              Looking for a {code ? `${code} ` : ""}parking promo code?
+            </p>
+          )}
           <h2
             id="email-capture-heading"
-            className="text-xl font-heading font-bold text-navy"
+            className={isPromo ? "mt-1 text-xl font-heading font-bold text-navy" : "text-xl font-heading font-bold text-navy"}
           >
             Get 10% off your first {code ? `${code} ` : ""}parking booking
           </h2>
           <p className="mt-2 text-gray-600">
             Drop your email and we&apos;ll send a one-time 10% code, good for 30 days.
+            {isPromo && " Use it at checkout on Triply (it doesn't apply at the airport's own garages)."}
           </p>
 
           {isSubmitted ? (
