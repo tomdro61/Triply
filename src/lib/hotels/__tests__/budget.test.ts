@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/server", () => ({
   },
 }));
 
-import { BUDGET_RPC_TIMEOUT_MS, LiteApiBudgetError, takeLiteApiCall, type BudgetRpc } from "@/lib/hotels/liteapi/budget";
+import { BUDGET_RPC_TIMEOUT_MS, BudgetTicket, LiteApiBudgetError, takeLiteApiCall, type BudgetRpc } from "@/lib/hotels/liteapi/budget";
 
 const LIMITS = { live: 7, sandbox: 3 };
 
@@ -35,11 +35,20 @@ beforeEach(() => captureAPIError.mockClear());
 afterEach(() => vi.useRealTimers());
 
 describe("takeLiteApiCall", () => {
-  it("takes from the mode's own budget and returns the row", async () => {
+  it("takes from the mode's own budget and returns an unspent ticket carrying the row", async () => {
     const { rpc, calls } = rpcReturning([{ allowed: true, calls: 2, denied: 0 }]);
-    await expect(takeLiteApiCall("sandbox", "/hotels/rates", rpc, LIMITS)).resolves.toEqual({ allowed: true, calls: 2, denied: 0 });
+    const ticket = await takeLiteApiCall("sandbox", "/hotels/rates", rpc, LIMITS);
+    expect(ticket).toBeInstanceOf(BudgetTicket);
+    expect(ticket.row).toEqual({ allowed: true, calls: 2, denied: 0 });
+    expect(ticket.mode).toBe("sandbox");
+    expect(ticket.spent).toBe(false);
     expect(calls).toEqual([{ p_provider: "liteapi", p_mode: "sandbox", p_limit: 3 }]);
     expect(captureAPIError).not.toHaveBeenCalled();
+  });
+
+  it("labels its Sentry events with the calling route", async () => {
+    await refusal(takeLiteApiCall("live", "/hotels/rates", rpcReturning(null, { message: "boom" }).rpc, LIMITS, "/api/park-stay/hotel"));
+    expect(captureAPIError.mock.calls[0][1]).toMatchObject({ endpoint: "/api/park-stay/hotel" });
   });
 
   it("refuses a spent budget and reports on the refusal ladder only", async () => {
@@ -77,5 +86,30 @@ describe("takeLiteApiCall", () => {
     await vi.advanceTimersByTimeAsync(BUDGET_RPC_TIMEOUT_MS + 1);
     expect((await p).reason).toBe("unavailable");
     expect(captureAPIError.mock.calls[0][1]).toMatchObject({ extra: { outcomeUnknown: true } });
+  });
+});
+
+describe("BudgetTicket — single use, minted only by takeLiteApiCall (§7.2)", () => {
+  async function ticket(): Promise<BudgetTicket> {
+    return takeLiteApiCall("sandbox", "/hotels/rates", rpcReturning([{ allowed: true, calls: 1, denied: 0 }]).rpc, LIMITS);
+  }
+
+  it("spends once; a second spend throws", async () => {
+    const t = await ticket();
+    t.spend("sandbox");
+    expect(t.spent).toBe(true);
+    expect(() => t.spend("sandbox")).toThrow(/already spent/);
+  });
+
+  it("refuses a spend for the other mode", async () => {
+    const t = await ticket();
+    expect(() => t.spend("live")).toThrow(/sandbox, not live/);
+    expect(t.spent).toBe(false);
+  });
+
+  it("cannot be constructed outside budget.ts (type and runtime)", () => {
+    const fake = Symbol("BudgetTicket.issue");
+    // @ts-expect-error — the constructor demands budget.ts's private symbol
+    expect(() => new BudgetTicket(fake, "sandbox", { allowed: true, calls: 1, denied: 0 })).toThrow(/only be issued/);
   });
 });

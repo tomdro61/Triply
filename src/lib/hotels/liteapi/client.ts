@@ -12,14 +12,20 @@
  * - `x-ratelimit-*` headers are surfaced on every result so callers can log
  *   them; a 429 is classified so the route can 503 + no-store rather than
  *   cache an empty "no hotels" body.
- * - Every request declares `meter`. "search" takes one call from the durable
- *   daily budget (budget.ts) BEFORE it is sent and throws LiteApiBudgetError
- *   when refused; "unmetered" is for booking / cancel calls, which a search
- *   budget must never block. Required, so a new call site has to choose.
+ * - Every request declares `meter`, so a new call site has to choose:
+ *     "prepaid"   spends a `BudgetTicket` the caller already took (the Park &
+ *                 Stay routes take ONE before any ResLab or LiteAPI call —
+ *                 plan v3 §7.2). Never touches the budget table itself, so
+ *                 there is no double take; the type makes the ticket
+ *                 mandatory and the ticket refuses a second spend.
+ *     "search"    takes one call from the durable daily budget (budget.ts)
+ *                 BEFORE it is sent and throws LiteApiBudgetError when
+ *                 refused — for any other metered caller.
+ *     "unmetered" booking / cancel calls, which a search budget must never block.
  */
 
 import { resolveHotelEnv } from "./env";
-import { takeLiteApiCall } from "./budget";
+import { takeLiteApiCall, type BudgetTicket } from "./budget";
 
 export const LITEAPI_TIMEOUT_MS = 10_000;
 
@@ -72,14 +78,28 @@ function extractCode(body: unknown): number | undefined {
   return undefined;
 }
 
+interface LiteApiRequestBase {
+  method?: "GET" | "POST" | "PUT";
+  body?: unknown;
+  timeoutMs?: number;
+}
+
+export type LiteApiRequestInit =
+  | (LiteApiRequestBase & { meter: "prepaid"; ticket: BudgetTicket })
+  | (LiteApiRequestBase & { meter: "search" | "unmetered" });
+
 export async function liteApiRequest<T>(
   host: LiteApiHost,
   path: string,
-  init: { meter: "search" | "unmetered"; method?: "GET" | "POST" | "PUT"; body?: unknown; timeoutMs?: number }
+  init: LiteApiRequestInit
 ): Promise<LiteApiResult<T>> {
   const env = resolveHotelEnv();
   // Outside the try below: a refusal is a LiteApiBudgetError, never a LiteApiError.
   if (init.meter === "search") await takeLiteApiCall(env.mode, path);
+  // A prepaid ticket was taken by the caller; spending it is the whole meter
+  // (no second take). Throws — before anything is sent — on reuse or a mode
+  // mismatch.
+  else if (init.meter === "prepaid") init.ticket.spend(env.mode);
   const base = host === "data" ? env.dataBaseUrl : env.bookBaseUrl;
   const url = `${base}${path}`;
   const timeoutMs = init.timeoutMs ?? LITEAPI_TIMEOUT_MS;
