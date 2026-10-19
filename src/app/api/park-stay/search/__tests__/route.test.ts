@@ -9,6 +9,7 @@ const getMinPrice = vi.fn();
 const getChannelLocationsNoSweep = vi.fn();
 const captureAPIError = vi.fn();
 const fetchMock = vi.fn();
+const fingerprint = vi.fn(() => "f5d7c11622bdb289");
 
 vi.mock("@/lib/hotels/flags", () => ({
   parkStayFlags: () => flags,
@@ -29,7 +30,7 @@ vi.mock("@/lib/hotels/liteapi/env", async (importOriginal) => {
 });
 vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
-  return { ...actual, reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
+  return { ...actual, warmReslabToken: async () => {}, reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
 });
 vi.mock("@/lib/reslab/search", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/search")>();
@@ -37,7 +38,7 @@ vi.mock("@/lib/reslab/search", async (importOriginal) => {
 });
 vi.mock("@/lib/reslab/location-snapshot", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/location-snapshot")>();
-  return { ...actual, keyFingerprint: () => "f5d7c11622bdb289" };
+  return { ...actual, keyFingerprint: () => fingerprint() };
 });
 
 import { GET, __resetParkStaySearchCacheForTests } from "@/app/api/park-stay/search/route";
@@ -69,6 +70,7 @@ beforeEach(async () => {
   __resetHotelLotResolveForTests();
   for (const m of [takeLiteApiCall, getLocation, getMinPrice, getChannelLocationsNoSweep, captureAPIError, fetchMock]) m.mockReset();
   rateLimitOk.mockReturnValue(true);
+  fingerprint.mockReturnValue("f5d7c11622bdb289");
   const actual = await vi.importActual<typeof import("@/lib/hotels/liteapi/budget")>("@/lib/hotels/liteapi/budget");
   takeLiteApiCall.mockImplementation((mode: "sandbox" | "live", path: string) =>
     actual.takeLiteApiCall(mode, path, async () => ({ data: [{ allowed: true, calls: 1, denied: 0 }], error: null }))
@@ -230,3 +232,32 @@ describe("GET /api/park-stay/search — answers and the micro-cache (§6 step 9)
     }
   });
 });
+
+describe("GET /api/park-stay/search — review pass 1", () => {
+  it("H6: an unknown ResLab account answers 503 WITHOUT taking a budget ticket", async () => {
+    fingerprint.mockReturnValue("ffffffffffffffff");
+    const res = await GET(request());
+    expect(res.status).toBe(503);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    expect(takeLiteApiCall).not.toHaveBeenCalled();
+    expect(supplierCalls()).toBe(0);
+  });
+
+  it("T4b: one lot transient + one hidden for min stay → 200 empty, partial, no reason, NOT cached", async () => {
+    getLocation.mockImplementation(async (id: number) => (id === 132 ? locationFor(doubletree) : locationFor(hampton, { parking_commission: 80, minimum_booking_days: 2 })));
+    getMinPrice.mockRejectedValue(new ReslabError(503, "down"));
+    const oneDay = { returnDate: shiftIsoDate(night, 1), returnTime: "6:00 PM" };
+    const res = await GET(request(oneDay));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ status: "empty", offers: [], partial: true, emptyReason: null });
+    await GET(request(oneDay));
+    expect(takeLiteApiCall).toHaveBeenCalledTimes(2);
+  });
+
+  it("a 200 LiteAPI body without data[] is a 503, not an empty 'sold out' (H1)", async () => {
+    fetchMock.mockImplementation(async () => new Response("{}", { status: 200 }));
+    const res = await GET(request());
+    expect(res.status).toBe(503);
+  });
+});
+

@@ -12,7 +12,7 @@
  *
  *   profit(R) = R + F + C − f·R − net − (s·(R + P + F) + x) − t·max(0, R − net)
  *   floor     = the least integer R with profit(R) ≥ m·(R + P + F)
- *   roomSell  = max(SSP ?? 0, floor)
+ *   roomSell  = max(SSP ?? 0, floor, net)   (net guard: review pass 1, M6)
  *
  * Decision D1 (19 Oct): m = 0 — the whole order never loses money; pricing
  * above SSP is always allowed.
@@ -134,7 +134,11 @@ export function orderFloorCents(o: OrderInputs, k: Readonly<OrderFloorRates> = O
   return floor;
 }
 
-export type PriceBasis = "ssp" | "floor";
+/**
+ * Which term set the room price: LiteAPI's SSP, the order floor, or the
+ * room-level net guard (see priceRoom).
+ */
+export type PriceBasis = "ssp" | "floor" | "net";
 
 export interface RoomPriceInput extends OrderInputs {
   /** LiteAPI `retailRate.suggestedSellingPrice` (USD), cents; null when absent. */
@@ -151,24 +155,36 @@ export interface RoomPrice {
   propertyFeesDueAtHotelCents: number;
   sspCents: number | null;
   floorCents: number;
-  /** "ssp" when SSP set the price (SSP ≥ floor), "floor" when the order floor did (incl. no SSP). */
   priceBasis: PriceBasis;
 }
 
+/**
+ * roomSell = max(SSP ?? 0, order floor, net).
+ *
+ * The net guard (review pass 1, M6 — orchestrator decision, conservative):
+ * the room is NEVER sold below what LiteAPI charges us for it. Without it a
+ * rate with no SSP could price below net whenever the parking commission
+ * subsidises the order (the order floor alone allows that). The guard is
+ * deliberately net only — no Stripe or LiteAPI-fee terms — because adding
+ * those at room level would lift most rooms above SSP and contradict D1;
+ * the whole-order floor already covers the fees.
+ */
 export function priceRoom(input: RoomPriceInput, k: Readonly<OrderFloorRates> = ORDER_FLOOR_RATES): RoomPrice {
   assertCents("propertyFeesDueAtHotelCents", input.propertyFeesDueAtHotelCents);
   if (input.sspCents !== null) assertCents("sspCents", input.sspCents);
   const floorCents = orderFloorCents(input, k);
   const ssp = input.sspCents;
-  const useSsp = ssp !== null && ssp >= floorCents;
+  const net = input.roomNetCents;
+  const roomSellCents = Math.max(ssp ?? 0, floorCents, net);
+  const priceBasis: PriceBasis = ssp !== null && ssp === roomSellCents ? "ssp" : floorCents === roomSellCents ? "floor" : "net";
   return {
-    roomNetCents: input.roomNetCents,
-    roomSellCents: useSsp ? ssp : floorCents,
+    roomNetCents: net,
+    roomSellCents,
     roomTaxCents: 0,
     propertyFeesDueAtHotelCents: input.propertyFeesDueAtHotelCents,
     sspCents: ssp,
     floorCents,
-    priceBasis: useSsp ? "ssp" : "floor",
+    priceBasis,
   };
 }
 

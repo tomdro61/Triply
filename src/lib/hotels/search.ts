@@ -2,8 +2,10 @@
  * Park & Stay search and hotel quote (plan v3 §6, PRD M3). Phase A:
  * read-only — nothing here can book.
  *
- * Flow per request (the route has already checked the flag, validated the
- * inputs, applied the per-IP limit and TAKEN THE ONE BUDGET TICKET):
+ * Flow per request:
+ *   0. `prepareParkStay` (BEFORE the route takes a budget ticket): the ResLab
+ *      account and this airport's ids — an unknown account or no ids fails
+ *      closed without spending a LiteAPI call;
  *   4. resolve each mapped hotel's own lot (no sweep), guard it, apply the
  *      window rules (notice period, minimum stay);
  *   5. in parallel: one LiteAPI `/hotels/rates` for the eligible hotels
@@ -13,14 +15,21 @@
  *      grand_total, service fee and the lot's commission C);
  *   8. join: a hotel shows only with a priced rate AND a valid parking quote.
  *
+ * Two kinds of hidden hotel:
+ *   - POLICY / availability (min stay, notice, sold out, due at the lot, a
+ *     non-USD hotel fee, map drift): deterministic — the answer is complete;
+ *   - DEGRADED (ResLab transient / auth / unexpected, an unreadable quote or
+ *     rates): we don't actually know — the answer is `partial` (never
+ *     cached) and, when nothing reliable remains, a 503.
+ *
  * Telemetry: none. This module never calls searchParking, logAvailability or
- * logSearchEvent (the import guard and a runtime spy test pin it).
+ * logSearchEvent (the import guard and runtime spy tests pin it).
  */
 
 import { calculateServiceFee } from "@/lib/utils/service-fee";
 import type { BudgetTicket } from "./liteapi/budget";
 import { fetchParkStayRates, type HotelContent, type HotelRatesMapped, type MappedRate } from "./liteapi/rates";
-import type { HotelLotEntry } from "./hotel-lots";
+import type { HotelLotEntry, ReslabAccount } from "./hotel-lots";
 import { reslabIdFor } from "./reslab-account";
 import {
   channelListNoSweep,
@@ -32,8 +41,12 @@ import {
   lotDisplay,
   lotWindowFacts,
   quoteLotParking,
+  reportAlways,
   reportOnce,
+  reportThrottled,
+  warmReslab,
   type LotDisplay,
+  type LotLookup,
   type ParkingQuoteOutcome,
   type ReslabLot,
 } from "./hotel-lot-resolve";
@@ -41,6 +54,7 @@ import { lotWindowVerdict, type ParkStayWindow } from "./parking-window";
 import { packagePrice, parkingCommission, priceRoom, type PackagePrice, type PriceBasis } from "./pricing";
 import type { ParkingQuote } from "./parking-quote";
 import { roomRefundabilitySummary, type RoomRefundability } from "./refundability";
+import { PARK_STAY_TRANSIENT_REPORT_INTERVAL_MS } from "./plans";
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -48,6 +62,8 @@ export type HiddenReason =
   | "no_account_id"
   | "lot_missing"
   | "lot_transient"
+  | "lot_auth"
+  | "lot_unexpected"
   | "lot_blocked"
   | "lot_wrong_id"
   | "lot_renamed"
@@ -60,19 +76,37 @@ export type HiddenReason =
   | "booking_window"
   | "parking_sold_out"
   | "parking_unknown_4xx"
-  | "parking_quote_check"
+  /** due_at_location > 0 or discount ≠ 0 on the quote — deterministic policy. */
+  | "parking_quote_policy"
+  /** identity mismatch, missing / non-numeric fields, unpriced — a DATA failure. */
+  | "parking_quote_invalid"
   | "parking_transient"
+  | "parking_auth"
+  | "parking_unexpected"
   | "no_room"
   | "non_usd_collected_fee"
+  | "rates_malformed"
   | "liteapi_mismatch";
 
+/** Hidden because we could not get a reliable answer — the result is partial. */
+export const DEGRADED_REASONS: ReadonlySet<HiddenReason> = new Set<HiddenReason>([
+  "lot_transient",
+  "lot_auth",
+  "lot_unexpected",
+  "parking_transient",
+  "parking_auth",
+  "parking_unexpected",
+  "parking_quote_invalid",
+  "rates_malformed",
+]);
+
 /** An honest-empty reason the page can name (§11: "the empty state names the reason"). */
-export type EmptyReason = "min_stay" | "booking_window" | "sold_out" | "none_available";
+export type EmptyReason = "min_stay" | "booking_window" | "sold_out" | "notice_period" | "none_available";
 
 /** 503-class conditions: the route answers "temporarily unavailable". */
 export class ParkStayUnavailableError extends Error {
   constructor(
-    public reason: "unknown_reslab_account" | "no_ids_for_account" | "all_parking_transient",
+    public reason: "unknown_reslab_account" | "no_ids_for_account" | "no_reliable_result",
     message: string
   ) {
     super(message);
@@ -127,6 +161,14 @@ export interface ParkStayCard extends ParkStayHotelSummary {
   room: ParkStayRoomOffer;
 }
 
+/** The account and ids, resolved before the budget ticket (H6). */
+export interface PreparedParkStay {
+  account: ReslabAccount;
+  items: { entry: HotelLotEntry; lotId: number }[];
+  /** Entries without an id under this account (fail closed for that hotel). */
+  noAccountId: number;
+}
+
 export interface ParkStayRunInput {
   airport: { code: string; timezone: string };
   window: ParkStayWindow;
@@ -144,8 +186,9 @@ export type ParkStaySearchOutcome =
   | {
       kind: "results";
       cards: ParkStayCard[];
-      /** Some hotels could not be checked right now (transient) — never cached. */
+      /** Some hotels could not be checked reliably right now — never cached. */
       partial: boolean;
+      /** Null when there are cards, or when the empty answer is only partial (we don't know). */
       emptyReason: EmptyReason | null;
       sandbox: boolean | null;
       hidden: HiddenCounts;
@@ -185,17 +228,21 @@ export function chooseLeadingRate<T extends PricedRate>(priced: readonly T[]): T
 
 /**
  * The hotel page's rate list: the cheapest rate per roomKey, by headline, at
- * most `max` — always including the leading refundable rate and the cheapest
- * overall (D5: "hotel page lists both").
+ * most `max` — always including the leading rate itself (D5: "hotel page
+ * lists both"). The leading rate can share its key with a cheaper rate that
+ * SHOWS non-refundable (an RFN tag whose deadline passed or couldn't be read),
+ * so the leading rate takes its key's slot.
  */
 export function hotelPageRates<T extends PricedRate>(priced: readonly T[], max: number): T[] {
   const sorted = [...priced].sort(byHeadlineThenId);
+  const leading = chooseLeadingRate(sorted);
   const perKey = new Map<string, T>();
   for (const p of sorted) if (!perKey.has(p.offer.roomKey)) perKey.set(p.offer.roomKey, p);
-  const list = [...perKey.values()].slice(0, Math.max(1, max));
-  const leading = chooseLeadingRate(sorted);
-  if (leading && !list.some((p) => p.offer.roomKey === leading.offer.roomKey)) {
-    list[list.length - 1] = perKey.get(leading.offer.roomKey) ?? leading;
+  if (leading) perKey.set(leading.offer.roomKey, leading);
+  const all = [...perKey.values()].sort(byHeadlineThenId);
+  const list = all.slice(0, Math.max(1, max));
+  if (leading && !list.includes(leading)) {
+    list[list.length - 1] = leading;
     list.sort(byHeadlineThenId);
   }
   return list;
@@ -203,10 +250,52 @@ export function hotelPageRates<T extends PricedRate>(priced: readonly T[], max: 
 
 function emptyReasonFrom(hidden: HiddenCounts): EmptyReason {
   const reasons = (Object.keys(hidden) as HiddenReason[]).filter((r) => (hidden[r] ?? 0) > 0);
-  if (reasons.length > 0 && reasons.every((r) => r === "min_stay")) return "min_stay";
-  if (reasons.length > 0 && reasons.every((r) => r === "booking_window")) return "booking_window";
-  if (reasons.length > 0 && reasons.every((r) => r === "parking_sold_out" || r === "no_room")) return "sold_out";
+  const all = (ok: (r: HiddenReason) => boolean) => reasons.length > 0 && reasons.every(ok);
+  if (all((r) => r === "notice_period")) return "notice_period";
+  if (all((r) => r === "min_stay")) return "min_stay";
+  if (all((r) => r === "booking_window")) return "booking_window";
+  if (all((r) => r === "parking_sold_out" || r === "no_room")) return "sold_out";
   return "none_available";
+}
+
+function degradedCount(hidden: HiddenCounts): number {
+  let n = 0;
+  for (const r of DEGRADED_REASONS) n += hidden[r] ?? 0;
+  return n;
+}
+
+// ───────────────────────────── step 0: account and ids (before the ticket) ─────────────────────────────
+
+/**
+ * Resolve the ResLab account and the entries' ids under it. Pure apart from
+ * the fingerprint; throws ParkStayUnavailableError (→ 503) when the account is
+ * unknown or no entry has an id under it — BEFORE any budget is spent.
+ */
+export function prepareParkStay(entries: readonly HotelLotEntry[], airportCode: string, caller: string): PreparedParkStay {
+  const account = currentReslabAccount();
+  if (!account) {
+    reportOnce("park_stay_unknown_reslab_account", "Park & Stay: unknown ResLab account fingerprint — failing closed", {
+      caller,
+      stage: "reslab_account",
+    });
+    throw new ParkStayUnavailableError("unknown_reslab_account", "ResLab account not recognised");
+  }
+  const items: PreparedParkStay["items"] = [];
+  let noAccountId = 0;
+  for (const entry of entries) {
+    const lotId = reslabIdFor(entry, account);
+    if (lotId === null) noAccountId++;
+    else items.push({ entry, lotId });
+  }
+  if (items.length === 0) {
+    reportOnce(`park_stay_no_ids:${account}:${airportCode}`, `Park & Stay: no ${account} ResLab ids for ${airportCode}`, {
+      caller,
+      stage: "reslab_account",
+      extra: { account, airport: airportCode },
+    });
+    throw new ParkStayUnavailableError("no_ids_for_account", `no ${account} ids for ${airportCode}`);
+  }
+  return { account, items, noAccountId };
 }
 
 // ───────────────────────────── the run ─────────────────────────────
@@ -219,7 +308,6 @@ interface Candidate {
 }
 
 interface HotelResult {
-  candidate: Candidate;
   summary: ParkStayHotelSummary;
   priced: PricedRate[];
 }
@@ -227,60 +315,65 @@ interface HotelResult {
 interface RunResult {
   results: HotelResult[];
   hidden: HiddenCounts;
+  /** Hotels with an id under this account. */
   considered: number;
-  transient: number;
   sandbox: boolean | null;
-  /** True when every considered hotel was hidden for the notice period alone. */
-  noticeOnly: boolean;
 }
 
 function hide(hidden: HiddenCounts, reason: HiddenReason): void {
   hidden[reason] = (hidden[reason] ?? 0) + 1;
 }
 
-async function resolveCandidates(
-  entries: readonly HotelLotEntry[],
-  input: ParkStayRunInput,
-  hidden: HiddenCounts
-): Promise<{ candidates: Candidate[]; considered: number }> {
-  const account = currentReslabAccount();
-  if (!account) {
-    reportOnce("park_stay_unknown_reslab_account", "Park & Stay: unknown ResLab account fingerprint — failing closed", {
+/** Report a degraded per-lot outcome: transient throttled per lot, auth and unexpected every time (H2). */
+function reportDegraded(
+  stage: "lot" | "parking",
+  kind: "transient" | "auth" | "unexpected",
+  detail: string,
+  c: { entry: HotelLotEntry; lotId: number },
+  input: ParkStayRunInput
+): void {
+  const extra = { hotelKey: c.entry.key, lotId: c.lotId, detail };
+  const message = `Park & Stay ${stage} ${kind} on ${c.entry.key} (lot ${c.lotId}): ${detail}`;
+  if (kind === "transient") {
+    reportThrottled(`park_stay_${stage}_transient:${c.lotId}`, PARK_STAY_TRANSIENT_REPORT_INTERVAL_MS, `Park & Stay ${stage} transient on lot ${c.lotId}`, {
       caller: input.caller,
-      stage: "reslab_account",
+      stage: `${stage}_transient`,
+      extra,
     });
-    throw new ParkStayUnavailableError("unknown_reslab_account", "ResLab account not recognised");
+  } else {
+    reportAlways(new Error(message), { caller: input.caller, stage: `${stage}_${kind}`, extra });
   }
-  const withIds: { entry: HotelLotEntry; lotId: number }[] = [];
-  for (const entry of entries) {
-    const lotId = reslabIdFor(entry, account);
-    if (lotId === null) hide(hidden, "no_account_id");
-    else withIds.push({ entry, lotId });
-  }
-  if (withIds.length === 0) {
-    reportOnce(`park_stay_no_ids:${account}:${input.airport.code}`, `Park & Stay: no ${account} ResLab ids for ${input.airport.code}`, {
-      caller: input.caller,
-      stage: "reslab_account",
-      extra: { account, airport: input.airport.code },
-    });
-    throw new ParkStayUnavailableError("no_ids_for_account", `no ${account} ids for ${input.airport.code}`);
-  }
+}
 
-  const list = await channelListNoSweep();
-  const lookups = await Promise.all(withIds.map(async (w) => ({ ...w, lookup: await lookupLot(w.lotId, list) })));
-  const candidates: Candidate[] = [];
-  for (const { entry, lotId, lookup } of lookups) {
-    if (lookup.kind === "transient") {
-      hide(hidden, "lot_transient");
-      continue;
-    }
-    if (lookup.kind === "missing") {
+function hideForLookup(lookup: Exclude<LotLookup, { kind: "found" }>, item: { entry: HotelLotEntry; lotId: number }, account: ReslabAccount, input: ParkStayRunInput, hidden: HiddenCounts): void {
+  switch (lookup.kind) {
+    case "missing":
       hide(hidden, "lot_missing");
-      reportOnce(`park_stay_map_drift:${entry.key}:missing`, `Park & Stay map drift: ResLab lot ${lotId} (${entry.key}) not found`, {
+      reportOnce(`park_stay_map_drift:${item.entry.key}:missing`, `Park & Stay map drift: ResLab lot ${item.lotId} (${item.entry.key}) not found`, {
         caller: input.caller,
         stage: "park_stay_map_drift",
-        extra: { hotelKey: entry.key, lotId, account },
+        extra: { hotelKey: item.entry.key, lotId: item.lotId, account },
       });
+      return;
+    case "transient":
+    case "auth":
+    case "unexpected":
+      hide(hidden, `lot_${lookup.kind}`);
+      reportDegraded("lot", lookup.kind, lookup.detail, item, input);
+      return;
+  }
+}
+
+async function resolveCandidates(prepared: PreparedParkStay, input: ParkStayRunInput, hidden: HiddenCounts): Promise<Candidate[]> {
+  const list = await channelListNoSweep();
+  // Preview / cold instance: authenticate once before N parallel getLocation calls (M1).
+  if (!list) await warmReslab();
+  const lookups = await Promise.all(prepared.items.map(async (item) => ({ item, lookup: await lookupLot(item.lotId, list) })));
+  const candidates: Candidate[] = [];
+  for (const { item, lookup } of lookups) {
+    const { entry, lotId } = item;
+    if (lookup.kind !== "found") {
+      hideForLookup(lookup, item, prepared.account, input, hidden);
       continue;
     }
     const g = guardLot(entry, lotId, lookup.location);
@@ -300,7 +393,7 @@ async function resolveCandidates(
     }
     candidates.push({ entry, lotId, location: lookup.location, display: lotDisplay(lookup.location) });
   }
-  return { candidates, considered: withIds.length };
+  return candidates;
 }
 
 function hideForQuote(o: ParkingQuoteOutcome, c: Candidate, input: ParkStayRunInput, hidden: HiddenCounts): ParkingQuote | null {
@@ -321,16 +414,23 @@ function hideForQuote(o: ParkingQuoteOutcome, c: Candidate, input: ParkStayRunIn
         extra: { hotelKey: c.entry.key, lotId: c.lotId },
       });
       return null;
-    case "check_failed":
-      hide(hidden, "parking_quote_check");
+    case "check_failed": {
+      // due-at-lot / discount are the lot's policy (deterministic); anything
+      // else means the quote itself can't be trusted (H5).
+      const policy = o.reason === "due_at_location" || o.reason === "discount";
+      hide(hidden, policy ? "parking_quote_policy" : "parking_quote_invalid");
       reportOnce(`park_stay_quote_check:${c.entry.key}:${o.reason}`, `Park & Stay quote check failed (${o.reason}) on ${c.entry.key}: ${o.detail}`, {
         caller: input.caller,
-        stage: "parking_quote_check",
+        stage: policy ? "parking_quote_policy" : "parking_quote_invalid",
         extra: { hotelKey: c.entry.key, lotId: c.lotId, reason: o.reason },
       });
       return null;
+    }
     case "transient":
-      hide(hidden, "parking_transient");
+    case "auth":
+    case "unexpected":
+      hide(hidden, `parking_${o.kind}`);
+      reportDegraded("parking", o.kind, o.detail, c, input);
       return null;
   }
 }
@@ -339,13 +439,7 @@ function serviceFeeCentsFor(quote: ParkingQuote): number {
   return Math.round(calculateServiceFee(quote.serviceFeeBaseCents / 100) * 100);
 }
 
-function priceHotelRates(
-  c: Candidate,
-  quote: ParkingQuote,
-  serviceFeeCents: number,
-  mapped: HotelRatesMapped,
-  input: ParkStayRunInput
-): PricedRate[] {
+function priceHotelRates(c: Candidate, quote: ParkingQuote, serviceFeeCents: number, mapped: HotelRatesMapped, input: ParkStayRunInput): PricedRate[] {
   const terms = lotCommissionTerms(c.location);
   const commission = parkingCommission({
     baseCents: quote.commissionBaseCents,
@@ -364,7 +458,7 @@ function priceHotelRates(
   const out: PricedRate[] = [];
   for (const rate of mapped.rates) {
     if (rate.sspCents === null) {
-      reportOnce(`park_stay_no_ssp:${c.entry.liteapi.hotelId}`, `Park & Stay: LiteAPI sent no SSP for hotel ${c.entry.liteapi.hotelId} — sold at the order floor`, {
+      reportOnce(`park_stay_no_ssp:${c.entry.liteapi.hotelId}`, `Park & Stay: LiteAPI sent no SSP for hotel ${c.entry.liteapi.hotelId} — sold at max(order floor, net)`, {
         caller: input.caller,
         stage: "no_ssp",
       });
@@ -435,18 +529,17 @@ function summaryFor(c: Candidate, content: HotelContent | undefined, contentFrom
   };
 }
 
-async function run(entries: readonly HotelLotEntry[], input: ParkStayRunInput, onAnomalies: (a: string[]) => void): Promise<RunResult> {
+async function run(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomalies: (a: string[]) => void): Promise<RunResult> {
   const hidden: HiddenCounts = {};
-  const { candidates, considered } = await resolveCandidates(entries, input, hidden);
-
-  const noticeOnly = candidates.length === 0 && (hidden.notice_period ?? 0) === considered;
-  if (candidates.length === 0) {
-    const transient = (hidden.lot_transient ?? 0) + (hidden.parking_transient ?? 0);
-    return { results: [], hidden, considered, transient, sandbox: null, noticeOnly };
-  }
+  if (prepared.noAccountId > 0) hidden.no_account_id = prepared.noAccountId;
+  const considered = prepared.items.length;
+  const candidates = await resolveCandidates(prepared, input, hidden);
+  if (candidates.length === 0) return { results: [], hidden, considered, sandbox: null };
 
   // Step 5: both suppliers in parallel. A LiteAPI failure propagates (503);
-  // a ResLab failure is per lot.
+  // a ResLab failure is per lot. The token is warm by now unless the list
+  // came from the snapshot — warm it once before the min-price fan-out.
+  await warmReslab();
   const [rates, quotes] = await Promise.all([
     fetchParkStayRates({
       hotelIds: candidates.map((c) => c.entry.liteapi.hotelId),
@@ -454,6 +547,7 @@ async function run(entries: readonly HotelLotEntry[], input: ParkStayRunInput, o
       checkout: input.window.departureDate,
       adults: input.adults,
       hotelTimeZone: input.airport.timezone,
+      now: input.now,
       ticket: input.ticket,
     }),
     Promise.all(candidates.map((c) => quoteLotParking(c.lotId, input.window.fromDate, input.window.toDate))),
@@ -467,6 +561,13 @@ async function run(entries: readonly HotelLotEntry[], input: ParkStayRunInput, o
     const mapped = rates.rates.get(c.entry.liteapi.hotelId);
     if (mapped?.hiddenReason) {
       hide(hidden, mapped.hiddenReason);
+      if (mapped.hiddenReason === "rates_malformed") {
+        reportOnce(`park_stay_rates_malformed:${c.entry.key}`, `Park & Stay: LiteAPI rates for ${c.entry.key} could not be read (${mapped.malformed} malformed)`, {
+          caller: input.caller,
+          stage: "liteapi_rates_malformed",
+          extra: { hotelKey: c.entry.key, liteapiHotelId: c.entry.liteapi.hotelId },
+        });
+      }
       return;
     }
     if (!mapped || mapped.rates.length === 0) {
@@ -492,44 +593,43 @@ async function run(entries: readonly HotelLotEntry[], input: ParkStayRunInput, o
       });
     }
     const serviceFeeCents = serviceFeeCentsFor(quote);
-    const priced = priceHotelRates(c, quote, serviceFeeCents, mapped, input);
     results.push({
-      candidate: c,
       summary: summaryFor(c, content, verdict.kind === "absent", quote, serviceFeeCents, input.window),
-      priced,
+      priced: priceHotelRates(c, quote, serviceFeeCents, mapped, input),
     });
   });
-
-  const transient = (hidden.lot_transient ?? 0) + (hidden.parking_transient ?? 0);
-  return { results, hidden, considered, transient, sandbox: rates.sandbox, noticeOnly: false };
+  return { results, hidden, considered, sandbox: rates.sandbox };
 }
 
-function assertNotAllTransient(r: RunResult): void {
-  if (r.considered > 0 && r.transient === r.considered) {
-    throw new ParkStayUnavailableError("all_parking_transient", `all ${r.considered} hotel lots failed transiently`);
+/** No results, and every considered hotel missed the notice period (pre-filter or ResLab's own 4xx) — M3. */
+function isNoticeOnly(r: RunResult): boolean {
+  return r.results.length === 0 && r.considered > 0 && (r.hidden.notice_period ?? 0) === r.considered;
+}
+
+function assertSomethingReliable(r: RunResult): void {
+  if (r.considered > 0 && degradedCount(r.hidden) === r.considered) {
+    throw new ParkStayUnavailableError("no_reliable_result", `all ${r.considered} hotels failed to check (${JSON.stringify(r.hidden)})`);
   }
 }
 
 /** Results for one airport: every enabled hotel with its own lot. */
-export async function searchParkStay(
-  entries: readonly HotelLotEntry[],
-  input: ParkStayRunInput,
-  onAnomalies: (a: string[]) => void
-): Promise<ParkStaySearchOutcome> {
-  const r = await run(entries, input, onAnomalies);
-  if (r.noticeOnly) return { kind: "notice_period" };
-  assertNotAllTransient(r);
+export async function searchParkStay(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomalies: (a: string[]) => void): Promise<ParkStaySearchOutcome> {
+  const r = await run(prepared, input, onAnomalies);
+  if (isNoticeOnly(r)) return { kind: "notice_period" };
+  assertSomethingReliable(r);
   const cards: ParkStayCard[] = [];
   for (const h of r.results) {
     const leading = chooseLeadingRate(h.priced);
     if (leading) cards.push({ ...h.summary, room: leading.offer });
   }
   cards.sort((a, b) => a.room.price.headlineTotalCents - b.room.price.headlineTotalCents || (a.hotelKey < b.hotelKey ? -1 : 1));
+  const partial = degradedCount(r.hidden) > 0;
   return {
     kind: "results",
     cards,
-    partial: r.transient > 0,
-    emptyReason: cards.length === 0 ? emptyReasonFrom(r.hidden) : null,
+    partial,
+    // An empty answer that is only partial is "we couldn't check", not "none available" (M2).
+    emptyReason: cards.length === 0 && !partial ? emptyReasonFrom(r.hidden) : null,
     sandbox: r.sandbox,
     hidden: r.hidden,
   };
@@ -537,14 +637,14 @@ export async function searchParkStay(
 
 /** One hotel, priced fresh (the hotel page never reuses the search's price, §8.4). */
 export async function quoteParkStayHotel(
-  entry: HotelLotEntry,
+  prepared: PreparedParkStay,
   input: ParkStayRunInput,
   maxRates: number,
   onAnomalies: (a: string[]) => void
 ): Promise<ParkStayHotelOutcome> {
-  const r = await run([entry], input, onAnomalies);
-  if (r.noticeOnly) return { kind: "notice_period" };
-  assertNotAllTransient(r);
+  const r = await run(prepared, input, onAnomalies);
+  if (isNoticeOnly(r)) return { kind: "notice_period" };
+  assertSomethingReliable(r);
   const h = r.results[0];
   if (!h) {
     const reason = (Object.keys(r.hidden) as HiddenReason[]).find((k) => (r.hidden[k] ?? 0) > 0) ?? "no_room";
@@ -560,4 +660,3 @@ export async function quoteParkStayHotel(
     sandbox: r.sandbox,
   };
 }
-

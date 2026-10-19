@@ -19,6 +19,7 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
   return {
     ...actual,
+    warmReslabToken: async () => {},
     reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) },
   };
 });
@@ -54,7 +55,7 @@ import { LiteApiError } from "../liteapi/client";
 import { HOTEL_LOTS, enabledHotelLotsFor, type HotelLotEntry } from "../hotel-lots";
 import { __resetHotelLotResolveForTests } from "../hotel-lot-resolve";
 import { validateParkStayWindow, type ParkStayWindow } from "../parking-window";
-import { ParkStayUnavailableError, quoteParkStayHotel, searchParkStay, type ParkStayRunInput } from "../search";
+import { ParkStayUnavailableError, prepareParkStay, quoteParkStayHotel, searchParkStay, type ParkStayRunInput } from "../search";
 import { PROD_FINGERPRINT, content, hotelRates, locationFor, minPrice, rate } from "./fixtures";
 import type { LiteApiHotelContentWire, LiteApiHotelRates } from "../liteapi/rates";
 
@@ -76,6 +77,8 @@ function windowOf(over: Partial<{ night: string; arrivalTime: string; returnDate
   if (!r.ok) throw new Error(r.error.code);
   return r.window;
 }
+
+const prep = (entries: readonly HotelLotEntry[] = JFK_ENTRIES) => prepareParkStay(entries, "JFK", "/api/park-stay/search");
 
 async function ticket(): Promise<BudgetTicket> {
   return takeLiteApiCall("sandbox", "/hotels/rates", async () => ({ data: [{ allowed: true, calls: 1, denied: 0 }], error: null }));
@@ -132,7 +135,7 @@ function liteBody(): { hotelIds: string[]; includeHotelData: boolean; margin: nu
 describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
   it("prices each hotel with ITS OWN lot's quote, leads with the cheapest refundable, sorts by headline", async () => {
     const i = await input();
-    const out = await searchParkStay(JFK_ENTRIES, i, () => {});
+    const out = await searchParkStay(prep(), i, () => {});
     expect(out.kind).toBe("results");
     if (out.kind !== "results") return;
     expect(out.cards.map((c) => c.hotelKey)).toEqual(["hampton-inn-jfk", "doubletree-jfk"]);
@@ -159,7 +162,7 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
   });
 
   it("asks ResLab only for the mapped lots, with the customer's own window, and LiteAPI once for the mapped hotels", async () => {
-    await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    await searchParkStay(prep(), await input(), () => {});
     expect(getMinPrice.mock.calls.map((c) => c[0]).sort()).toEqual([132, 304]);
     for (const c of getMinPrice.mock.calls) expect(c[1]).toMatchObject({ from_date: "2026-11-10 19:00:00", to_date: "2026-11-14 18:00:00" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -168,7 +171,7 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
   });
 
   it("writes no parking telemetry and never touches searchParking or the sweep (runtime spy)", async () => {
-    await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    await searchParkStay(prep(), await input(), () => {});
     expect(logAvailability).toHaveBeenCalledTimes(0);
     expect(logSearchEvent).toHaveBeenCalledTimes(0);
     expect(searchParking).not.toHaveBeenCalled();
@@ -177,13 +180,13 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
 
   it("uses the no-sweep list when warm — no getLocation calls", async () => {
     getChannelLocationsNoSweep.mockResolvedValue([locationFor(doubletree), locationFor(hampton, { minimum_booking_days: 2, parking_commission: 80 })]);
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     expect(getLocation).not.toHaveBeenCalled();
     expect(out.kind === "results" && out.cards).toHaveLength(2);
   });
 
   it("minimum stay hides Hampton JFK on a one-day trip — not a 503, and no quote is asked for it", async () => {
-    const out = await searchParkStay(JFK_ENTRIES, await input(windowOf({ returnDate: "2026-11-11", returnTime: "6:00 PM" })), () => {});
+    const out = await searchParkStay(prep(), await input(windowOf({ returnDate: "2026-11-11", returnTime: "6:00 PM" })), () => {});
     expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["doubletree-jfk"]);
     expect(out.kind === "results" && out.hidden.min_stay).toBe(1);
     expect(getMinPrice.mock.calls.map((c) => c[0])).toEqual([132]);
@@ -192,7 +195,7 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
 
   it("when every hotel misses the notice period, answers notice_period with no supplier calls", async () => {
     const tonight = windowOf({ night: "2026-10-20", arrivalTime: "12:00 PM", returnDate: "2026-10-23" });
-    const out = await searchParkStay(JFK_ENTRIES, await input(tonight), () => {});
+    const out = await searchParkStay(prep(), await input(tonight), () => {});
     expect(out).toEqual({ kind: "notice_period" });
     expect(getMinPrice).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -203,23 +206,23 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
       if (id === 304) throw new ReslabError(502, "bad gateway");
       return minPrice({ grand: 120, sub: 110, tax: 10, lc: 93.5 });
     });
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     expect(out.kind === "results" && out.partial).toBe(true);
     expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["doubletree-jfk"]);
 
     __resetHotelLotResolveForTests();
     getMinPrice.mockRejectedValue(new ReslabError(503, "down"));
-    await expect(searchParkStay(JFK_ENTRIES, await input(), () => {})).rejects.toMatchObject({ reason: "all_parking_transient" });
+    await expect(searchParkStay(prep(), await input(), () => {})).rejects.toMatchObject({ reason: "no_reliable_result" });
   });
 
   it("a LiteAPI failure propagates (the route answers 503)", async () => {
     liteResponse = { status: 500, body: { data: [], sandbox: true } };
-    await expect(searchParkStay(JFK_ENTRIES, await input(), () => {})).rejects.toBeInstanceOf(LiteApiError);
+    await expect(searchParkStay(prep(), await input(), () => {})).rejects.toBeInstanceOf(LiteApiError);
   });
 
   it("an unknown ResLab account fails closed before any ResLab call", async () => {
     fingerprint.mockReturnValue("ffffffffffffffff");
-    await expect(searchParkStay(JFK_ENTRIES, await input(), () => {})).rejects.toBeInstanceOf(ParkStayUnavailableError);
+    expect(() => prep()).toThrow(ParkStayUnavailableError);
     expect(getLocation).not.toHaveBeenCalled();
     expect(getMinPrice).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -231,18 +234,19 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
       id === 132 ? minPrice({ grand: 120, sub: 110, tax: 10, lc: 50 }) : minPrice({ grand: 90, sub: 80, tax: 10, lc: 64 })
     );
     liteResponse.body.data[0] = hotelRates("lp27fe6", [rate({ rateId: "dt", net: 200, ssp: 201, refundable: true })]);
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     const dt = out.kind === "results" ? out.cards.find((c) => c.hotelKey === "doubletree-jfk") : undefined;
     expect(dt).toBeDefined();
     expect(dt!.room.priceBasis).toBe("floor");
-    expect(dt!.room.price.roomSellCents).toBeGreaterThan(20_100);
-    await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    // C = 0, F $6.60, P $120: floor = ceil(197,371,400 / 9310) = ceil(21,199.93) = 21,200 (SSP $201 is below it).
+    expect(dt!.room.price.roomSellCents).toBe(21_200);
+    await searchParkStay(prep(), await input(), () => {});
     expect(captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "commission_unknown")).toHaveLength(1);
   });
 
   it("missing LiteAPI content: shown under the map's name with a placeholder, reported once", async () => {
     liteResponse.body.hotels = [content(hampton)];
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     const dt = out.kind === "results" ? out.cards.find((c) => c.hotelKey === "doubletree-jfk") : undefined;
     expect(dt).toMatchObject({ name: doubletree.liteapi.name, contentFromMap: true, photoUrl: null, stars: null });
     expect(captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "liteapi_content")).toHaveLength(1);
@@ -250,7 +254,7 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
 
   it("LiteAPI content for a different hotel hides it and alerts", async () => {
     liteResponse.body.hotels = [content(doubletree, { name: "Radisson Hotel JFK Airport" }), content(hampton)];
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["hampton-inn-jfk"]);
     expect(out.kind === "results" && out.hidden.liteapi_mismatch).toBe(1);
     expect(captureAPIError.mock.calls.some((c) => (c[1] as { stage: string }).stage === "park_stay_map_drift")).toBe(true);
@@ -260,14 +264,14 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
     getMinPrice.mockImplementation(async (id: number) =>
       id === 132 ? minPrice({ grand: 120, sub: 110, tax: 10, due: 20, lc: 93.5 }) : minPrice({ grand: 90, sub: 80, tax: 10, lc: 64 })
     );
-    let out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
-    expect(out.kind === "results" && out.hidden.parking_quote_check).toBe(1);
+    let out = await searchParkStay(prep(), await input(), () => {});
+    expect(out.kind === "results" && out.hidden.parking_quote_policy).toBe(1);
     expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["hampton-inn-jfk"]);
 
     __resetHotelLotResolveForTests();
     getMinPrice.mockImplementation(async (id: number) => (id === 132 ? minPrice({ grand: 120, sub: 110, tax: 10, lc: 93.5 }) : minPrice({ grand: 90, sub: 80, tax: 10, lc: 64 })));
     liteResponse.body.data[1] = hotelRates("lp3034d", [rate({ rateId: "x", net: 150, ssp: 170, atHotel: [{ amount: 10, currency: "CAD" }] })]);
-    out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    out = await searchParkStay(prep(), await input(), () => {});
     expect(out.kind === "results" && out.hidden.non_usd_collected_fee).toBe(1);
 
     __resetHotelLotResolveForTests();
@@ -276,14 +280,14 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
       if (id === 304) throw new ReslabError(404, "not found");
       return locationFor(doubletree);
     });
-    out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    out = await searchParkStay(prep(), await input(), () => {});
     expect(out.kind === "results" && out.hidden.lot_missing).toBe(1);
     expect(captureAPIError.mock.calls.some((c) => String(c[0]).includes("not found"))).toBe(true);
   });
 
   it("an honest empty names the reason when every hotel was sold out", async () => {
     getMinPrice.mockResolvedValue(minPrice({ grand: 100, sub: 100, soldOut: true }));
-    const out = await searchParkStay(JFK_ENTRIES, await input(), () => {});
+    const out = await searchParkStay(prep(), await input(), () => {});
     expect(out).toMatchObject({ kind: "results", cards: [], emptyReason: "sold_out", partial: false });
   });
 });
@@ -292,7 +296,7 @@ describe("quoteParkStayHotel — the hotel page", () => {
   it("lists the cheapest rate per room key (≤ 6), always including the leading refundable rate", async () => {
     const many = Array.from({ length: 8 }, (_, k) => rate({ rateId: `n${k}`, net: 100 + k, ssp: 120 + k, boardType: `B${k}` }));
     liteResponse.body.data[0] = hotelRates("lp27fe6", [...many, rate({ rateId: "rfn", net: 300, ssp: 330, refundable: true }), rate({ rateId: "n0-dup", net: 400, ssp: 450, boardType: "B0" })]);
-    const out = await quoteParkStayHotel(doubletree, await input(), 6, () => {});
+    const out = await quoteParkStayHotel(prep([doubletree]), await input(), 6, () => {});
     expect(out.kind).toBe("hotel");
     if (out.kind !== "hotel") return;
     expect(out.rooms).toHaveLength(6);
@@ -306,6 +310,135 @@ describe("quoteParkStayHotel — the hotel page", () => {
 
   it("an unavailable hotel says why", async () => {
     getMinPrice.mockResolvedValue(minPrice({ grand: 100, sub: 100, soldOut: true }));
-    expect(await quoteParkStayHotel(doubletree, await input(), 6, () => {})).toEqual({ kind: "unavailable", reason: "parking_sold_out" });
+    expect(await quoteParkStayHotel(prep([doubletree]), await input(), 6, () => {})).toEqual({ kind: "unavailable", reason: "parking_sold_out" });
+  });
+});
+
+describe("review pass 1 — pricing at search level (T1, M6)", () => {
+  it("SSP null + KNOWN commission: each card's room price is the hand-computed order floor, or net when the floor is below it", async () => {
+    // DoubleTree (lot keeps 85%): sub 110 + fees 5 − ltd 10 + tax 10 = grand 115; base 105; F = 6% of 115 = $6.90;
+    //   C = round(10500 × 15%) − round(10500 × 5%) = 1575 − 525 = 1050.
+    //   floor = ceil((20000·10000 − (690 + 1050)·10000 + 290·(11500 + 690) + 30·10000) / 9310) = ceil(20025.24) = 20026 ≥ net 20000.
+    // Hampton (80%): sub 80 + fees 2 − ltd 4 + tax 8 = 86; base 78; F = $5.95 (minimum); C = 1560 − 390 = 1170.
+    //   floor = ceil((15000·10000 − 1765·10000 + 290·9195 + 300000) / 9310) = ceil(14534.56) = 14535 < net 15000 → the net guard: 15000.
+    getMinPrice.mockImplementation(async (id: number) =>
+      id === 132
+        ? minPrice({ grand: 115, sub: 110, fees: 5, ltd: 10, tax: 10, lc: 89.25 })
+        : minPrice({ grand: 86, sub: 80, fees: 2, ltd: 4, tax: 8, lc: 62.4 })
+    );
+    liteResponse.body.data = [
+      hotelRates("lp27fe6", [rate({ rateId: "dt", net: 200, ssp: null, refundable: true })]),
+      hotelRates("lp3034d", [rate({ rateId: "hi", net: 150, ssp: null, refundable: true })]),
+    ];
+    const out = await searchParkStay(prep(), await input(), () => {});
+    if (out.kind !== "results") throw new Error(out.kind);
+    const dt = out.cards.find((c) => c.hotelKey === "doubletree-jfk")!;
+    const hi = out.cards.find((c) => c.hotelKey === "hampton-inn-jfk")!;
+    expect(dt.room.price).toMatchObject({ roomSellCents: 20_026, parkingOnlineCents: 11_500, serviceFeeCents: 690 });
+    expect(dt.room.priceBasis).toBe("floor");
+    expect(hi.room.price).toMatchObject({ roomSellCents: 15_000, parkingOnlineCents: 8_600, serviceFeeCents: 595 });
+    expect(hi.room.priceBasis).toBe("net");
+    expect(captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "commission_unknown")).toHaveLength(0);
+  });
+});
+
+describe("review pass 1 — degraded vs policy hides (H2, H5, M2, T4)", () => {
+  it("an identity-mismatched quote is a DATA failure: hidden, reported, and the answer is partial (H5)", async () => {
+    getMinPrice.mockImplementation(async (id: number) =>
+      id === 132 ? minPrice({ grand: 150, sub: 110, tax: 10, lc: 93.5 }) : minPrice({ grand: 90, sub: 80, tax: 10, lc: 64 })
+    );
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", partial: true, hidden: { parking_quote_invalid: 1 } });
+    expect(captureAPIError.mock.calls.some((c) => (c[1] as { stage: string }).stage === "parking_quote_invalid")).toBe(true);
+  });
+
+  it("a due-at-lot quote is POLICY: hidden, and the answer stays complete (H5)", async () => {
+    getMinPrice.mockImplementation(async (id: number) =>
+      id === 132 ? minPrice({ grand: 120, sub: 110, tax: 10, due: 20, lc: 93.5 }) : minPrice({ grand: 90, sub: 80, tax: 10, lc: 64 })
+    );
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", partial: false, hidden: { parking_quote_policy: 1 } });
+  });
+
+  it("a ResLab 401 is `auth`, reported EVERY time, and degrades the answer (H2)", async () => {
+    getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 304) throw new ReslabError(401, "API request failed: unauthorised");
+      return minPrice({ grand: 120, sub: 110, tax: 10, lc: 93.5 });
+    });
+    for (let i = 0; i < 2; i++) {
+      __resetHotelLotResolveForTests();
+      const out = await searchParkStay(prep(), await input(), () => {});
+      expect(out).toMatchObject({ kind: "results", partial: true, hidden: { parking_auth: 1 } });
+    }
+    // reset clears the once-keys, so count only the auth stage: one per request
+    expect(captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "parking_auth")).toHaveLength(2);
+  });
+
+  it("transient per-lot failures reach Sentry throttled per lot, with the detail (H2)", async () => {
+    getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 304) throw new ReslabError(502, "bad gateway");
+      return minPrice({ grand: 120, sub: 110, tax: 10, lc: 93.5 });
+    });
+    await searchParkStay(prep(), await input(), () => {});
+    await searchParkStay(prep(), await input(), () => {});
+    const transient = captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "parking_transient");
+    expect(transient).toHaveLength(1);
+    expect((transient[0][1] as { extra: { detail: string } }).extra.detail).toMatch(/502/);
+  });
+
+  it("our own throw while checking a quote is `unexpected` — reported, not 'transient' (H2)", async () => {
+    getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 304) {
+        return {
+          get reservation(): never {
+            throw new TypeError("boom");
+          },
+        };
+      }
+      return minPrice({ grand: 120, sub: 110, tax: 10, lc: 93.5 });
+    });
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", partial: true, hidden: { parking_unexpected: 1 } });
+    expect(out.kind === "results" && out.hidden.parking_transient).toBeFalsy();
+    expect(captureAPIError.mock.calls.some((c) => (c[1] as { stage: string }).stage === "parking_unexpected")).toBe(true);
+  });
+
+  it("T4a: getLocation 502 for every lot → 503 (no reliable result), LiteAPI never called, ticket unspent", async () => {
+    getLocation.mockRejectedValue(new ReslabError(502, "bad gateway"));
+    const i = await input();
+    await expect(searchParkStay(prep(), i, () => {})).rejects.toMatchObject({ reason: "no_reliable_result" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(i.ticket.spent).toBe(false);
+  });
+
+  it("T4b / M2: one lot transient + one hidden for min_stay → no cards, partial, NO 'none available' reason", async () => {
+    getMinPrice.mockImplementation(async () => {
+      throw new ReslabError(503, "down");
+    });
+    const oneDay = windowOf({ returnDate: "2026-11-11", returnTime: "6:00 PM" }); // Hampton (min 2 days) hidden
+    const out = await searchParkStay(prep(), await input(oneDay), () => {});
+    expect(out).toMatchObject({ kind: "results", cards: [], partial: true, emptyReason: null, hidden: { min_stay: 1, parking_transient: 1 } });
+  });
+
+  it("M3: ResLab's own notice-period 4xx on every lot → the 'choose a later arrival time' answer", async () => {
+    getMinPrice.mockRejectedValue(new ReslabError(400, 'API request failed: {"message":"Minimum number of hours before parking reservation is 24"}'));
+    expect(await searchParkStay(prep(), await input(), () => {})).toEqual({ kind: "notice_period" });
+    __resetHotelLotResolveForTests();
+    expect(await quoteParkStayHotel(prep([doubletree]), await input(), 6, () => {})).toEqual({ kind: "notice_period" });
+  });
+});
+
+describe("review pass 1 — hotel page list keeps the leading rate (M7)", () => {
+  it("when the leading refundable rate shares its room key with a cheaper rate that SHOWS non-refundable, the leading rate takes the slot", async () => {
+    const passed = rate({ rateId: "rfn-passed", net: 180, ssp: 190, refundable: true });
+    const passedRate = {
+      ...passed,
+      cancellationPolicies: { refundableTag: "RFN", cancelPolicyInfos: [{ cancelTime: "2026-10-01 10:00:00", amount: 180, type: "amount", timezone: "GMT" }] },
+    };
+    liteResponse.body.data[0] = hotelRates("lp27fe6", [passedRate, rate({ rateId: "rfn-live", net: 220, ssp: 240, refundable: true })]);
+    const out = await quoteParkStayHotel(prep([doubletree]), await input(), 6, () => {});
+    if (out.kind !== "hotel") throw new Error(out.kind);
+    expect(out.leading.offerRef.rateId).toBe("rfn-live");
+    expect(out.rooms.map((r) => r.offerRef.rateId)).toEqual(["rfn-live"]);
   });
 });

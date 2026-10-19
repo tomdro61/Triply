@@ -9,6 +9,7 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
   return {
     ...actual,
+    warmReslabToken: async () => {},
     reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) },
   };
 });
@@ -16,6 +17,7 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => {
 import { ReslabError } from "@/lib/reslab/client";
 import {
   __resetHotelLotResolveForTests,
+  classifyCallError,
   classifyParkingRefusal,
   guardHotelContent,
   guardLot,
@@ -23,10 +25,12 @@ import {
   lotDisplay,
   quoteLotParking,
   reportOnce,
+  reportThrottled,
 } from "../hotel-lot-resolve";
 import { HOTEL_LOTS } from "../hotel-lots";
 import { mapHotelContent } from "../liteapi/rates";
-import { RESLAB_MIN_PRICE_TIMEOUT_MS, RESLAB_LOCATION_BACKOFF_MS } from "../plans";
+import { RESLAB_MIN_PRICE_TIMEOUT_MS, RESLAB_LOCATION_BACKOFF_MS, RESLAB_LOCATION_TIMEOUT_BACKOFF_MS } from "../plans";
+import { BoundedTimeoutError } from "@/lib/utils/bounded";
 import { content, locationFor, minPrice } from "./fixtures";
 
 const doubletree = HOTEL_LOTS[0];
@@ -188,5 +192,65 @@ describe("lotDisplay and reportOnce", () => {
     reportOnce("k", "m", { caller: "/x", stage: "s" });
     reportOnce("k", "m", { caller: "/x", stage: "s" });
     expect(captureAPIError).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("review pass 1 — failure classification and the cold start (H2, M1)", () => {
+  it("classifyCallError: 401/403 auth, 404 not found, 5xx/429/timeout/network transient, anything else unexpected", () => {
+    expect(classifyCallError(new ReslabError(401, "x")).kind).toBe("auth");
+    expect(classifyCallError(new ReslabError(403, "x")).kind).toBe("auth");
+    expect(classifyCallError(new ReslabError(404, "x")).kind).toBe("not_found");
+    expect(classifyCallError(new ReslabError(422, "x")).kind).toBe("client_4xx");
+    for (const e of [new ReslabError(502, "x"), new ReslabError(429, "x"), new ReslabError(0, "x"), new TypeError("fetch failed")]) {
+      expect(classifyCallError(e)).toMatchObject({ kind: "transient", timeout: false });
+    }
+    expect(classifyCallError(new BoundedTimeoutError("x", 1))).toMatchObject({ kind: "transient", timeout: true });
+    expect(classifyCallError(new TypeError("Cannot read properties of undefined")).kind).toBe("unexpected");
+    expect(classifyCallError("a string").kind).toBe("unexpected");
+  });
+
+  it("getLocation 401 → auth (no backoff); a body for another lot → unexpected", async () => {
+    getLocation.mockRejectedValueOnce(new ReslabError(401, "unauthorised"));
+    expect((await lookupLot(132, null, 0)).kind).toBe("auth");
+    getLocation.mockResolvedValueOnce(locationFor(HOTEL_LOTS[1]));
+    expect((await lookupLot(132, null, 1)).kind).toBe("unexpected");
+  });
+
+  it("OUR 4 s bound firing backs off only 60 s, and the late answer fills the cache (M1)", async () => {
+    vi.useFakeTimers();
+    let resolveLate: (v: ReturnType<typeof locationFor>) => void = () => {};
+    getLocation.mockReturnValueOnce(new Promise((r) => (resolveLate = r)));
+    const p = lookupLot(132, null, 0);
+    await vi.advanceTimersByTimeAsync(4_001);
+    expect(await p).toMatchObject({ kind: "transient" });
+    // inside the 60 s timeout backoff: no new call
+    expect((await lookupLot(132, null, 30_000)).kind).toBe("transient");
+    expect(getLocation).toHaveBeenCalledTimes(1);
+    // the slow first call answers after all → cached, found with no new call
+    resolveLate(locationFor(doubletree));
+    await vi.advanceTimersByTimeAsync(0);
+    expect((await lookupLot(132, null, 30_001)).kind).toBe("found");
+    expect(getLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("after the 60 s timeout backoff a retry is allowed; a real 5xx still backs off 10 min", async () => {
+    vi.useFakeTimers();
+    getLocation.mockReturnValueOnce(new Promise(() => {}));
+    const p = lookupLot(132, null, 0);
+    await vi.advanceTimersByTimeAsync(4_001);
+    await p;
+    getLocation.mockResolvedValueOnce(locationFor(doubletree));
+    expect((await lookupLot(132, null, RESLAB_LOCATION_TIMEOUT_BACKOFF_MS + 1)).kind).toBe("found");
+    getLocation.mockRejectedValueOnce(new ReslabError(503, "down"));
+    expect((await lookupLot(304, null, 0)).kind).toBe("transient");
+    expect((await lookupLot(304, null, RESLAB_LOCATION_TIMEOUT_BACKOFF_MS + 1)).kind).toBe("transient");
+    expect(getLocation).toHaveBeenCalledTimes(3);
+  });
+
+  it("reportThrottled: at most one event per key per interval", () => {
+    reportThrottled("k", 600_000, "m", { caller: "/x", stage: "s" }, 0);
+    reportThrottled("k", 600_000, "m", { caller: "/x", stage: "s" }, 599_999);
+    reportThrottled("k", 600_000, "m", { caller: "/x", stage: "s" }, 600_000);
+    expect(captureAPIError).toHaveBeenCalledTimes(2);
   });
 });

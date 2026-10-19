@@ -14,7 +14,7 @@ import { z } from "zod";
 import { checkParkStayHotelRateLimit } from "@/lib/attribution/limiter";
 import { findEnabledHotelLot } from "@/lib/hotels/hotel-lots";
 import { PARK_STAY_HOTEL_PAGE_MAX_RATES } from "@/lib/hotels/plans";
-import { quoteParkStayHotel, type HiddenReason, type ParkStayHotelSummary, type ParkStayRoomOffer } from "@/lib/hotels/search";
+import { prepareParkStay, quoteParkStayHotel, type HiddenReason, type ParkStayHotelSummary, type ParkStayRoomOffer } from "@/lib/hotels/search";
 import {
   NO_STORE,
   clientKey,
@@ -61,14 +61,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Account and id before the ticket (H6) — see the search route.
+    const prepared = prepareParkStay([entry], airport.code, CALLER);
     const ticket = await takeParkStayTicket(CALLER);
     const outcome = await quoteParkStayHotel(
-      entry,
+      prepared,
       { airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
       PARK_STAY_HOTEL_PAGE_MAX_RATES,
       (a) => reportAnomaliesOnce(CALLER, a)
     );
-    if (outcome.kind === "notice_period") return noticePeriodResponse();
+    // ResLab's own notice refusal arrives as an "unavailable" reason; it gets the same answer (M3).
+    if (outcome.kind === "notice_period" || (outcome.kind === "unavailable" && outcome.reason === "notice_period")) {
+      return noticePeriodResponse();
+    }
     let body: ParkStayHotelResponse;
     if (outcome.kind === "unavailable") {
       body = { status: "unavailable", reason: outcome.reason };

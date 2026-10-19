@@ -20,11 +20,11 @@
  * here goes through `bounded()`.
  */
 
-import { reslab, ReslabError, stripHtml, type ReslabLocation } from "@/lib/reslab/client";
+import { reslab, ReslabError, stripHtml, warmReslabToken, type ReslabLocation } from "@/lib/reslab/client";
 import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
 import { keyFingerprint } from "@/lib/reslab/location-snapshot";
 import { captureAPIError } from "@/lib/sentry";
-import { bounded } from "@/lib/utils/bounded";
+import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
 import { convertTo12Hour } from "@/lib/utils/time";
 import type { HotelLotEntry, ReslabAccount } from "./hotel-lots";
 import { reslabAccountForFingerprint } from "./reslab-account";
@@ -37,7 +37,9 @@ import {
   RESLAB_GET_LOCATION_TIMEOUT_MS,
   RESLAB_LOCATION_BACKOFF_MS,
   RESLAB_LOCATION_CACHE_TTL_MS,
+  RESLAB_LOCATION_TIMEOUT_BACKOFF_MS,
   RESLAB_MIN_PRICE_TIMEOUT_MS,
+  RESLAB_TOKEN_WARM_TIMEOUT_MS,
   RESLAB_QUOTE_CACHE_TTL_MS,
 } from "./plans";
 
@@ -74,6 +76,92 @@ export function reportOnce(
   });
 }
 
+const lastReportAt = new Map<string, number>();
+const LAST_REPORT_MAX_KEYS = 1_000;
+
+/**
+ * At most one Sentry event per (key) per `intervalMs` — for recurring
+ * per-lot failures (transient ResLab trouble), so an outage is visible
+ * without one event per request.
+ */
+export function reportThrottled(
+  key: string,
+  intervalMs: number,
+  message: string,
+  context: { caller: string; stage: string; extra?: Record<string, unknown> },
+  now: number = Date.now()
+): void {
+  const last = lastReportAt.get(key);
+  if (last !== undefined && now - last < intervalMs) return;
+  lastReportAt.delete(key);
+  lastReportAt.set(key, now);
+  while (lastReportAt.size > LAST_REPORT_MAX_KEYS) {
+    const oldest = lastReportAt.keys().next().value;
+    if (oldest === undefined) break;
+    lastReportAt.delete(oldest);
+  }
+  captureAPIError(new Error(message), { endpoint: context.caller, method: "GET", stage: context.stage, extra: context.extra });
+}
+
+/** Every time (auth failures, our own defects): Sentry groups them into one issue. */
+export function reportAlways(error: Error, context: { caller: string; stage: string; extra?: Record<string, unknown> }): void {
+  captureAPIError(error, { endpoint: context.caller, method: "GET", stage: context.stage, extra: context.extra });
+}
+
+// ───────────────────────────── error classification ─────────────────────────────
+
+/**
+ * What a failed ResLab CALL means. Only genuinely unknown outcomes are
+ * "transient"; a 401/403 (after the client's own token retry) is `auth`, and
+ * anything we can't explain is `unexpected` — neither is a blip to retry
+ * quietly.
+ */
+export type CallFailure =
+  | { kind: "transient"; detail: string; timeout: boolean }
+  | { kind: "auth"; detail: string }
+  | { kind: "not_found"; detail: string }
+  | { kind: "client_4xx"; status: number; detail: string }
+  | { kind: "unexpected"; detail: string };
+
+function errorDetail(err: unknown): string {
+  if (err instanceof ReslabError) return `ResLab ${err.statusCode}: ${err.message.slice(0, 200)}`;
+  return err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : String(err).slice(0, 200);
+}
+
+export function classifyCallError(err: unknown): CallFailure {
+  const detail = errorDetail(err);
+  if (err instanceof BoundedTimeoutError) return { kind: "transient", detail, timeout: true };
+  if (err instanceof ReslabError) {
+    const s = err.statusCode;
+    if (s === 401 || s === 403) return { kind: "auth", detail };
+    if (s === 404) return { kind: "not_found", detail };
+    if (s === 0 || s === 408 || s === 429 || s >= 500) return { kind: "transient", detail, timeout: false };
+    if (s >= 400 && s < 500) return { kind: "client_4xx", status: s, detail };
+    return { kind: "unexpected", detail };
+  }
+  // reslabFetch's own abort, and undici's network failure ("fetch failed").
+  if (err instanceof Error && (err.name === "AbortError" || (err.name === "TypeError" && /fetch failed/i.test(err.message)))) {
+    return { kind: "transient", detail, timeout: err.name === "AbortError" };
+  }
+  return { kind: "unexpected", detail };
+}
+
+// ───────────────────────────── token warm-up (M1) ─────────────────────────────
+
+/**
+ * Authenticate once before a fan-out, so N parallel ResLab calls on a cold
+ * instance don't each POST /authenticate (the client's token cache has no
+ * single-flight). Bounded; a failure here is not reported — the calls that
+ * follow surface their own errors.
+ */
+export async function warmReslab(): Promise<void> {
+  try {
+    await bounded(warmReslabToken(), RESLAB_TOKEN_WARM_TIMEOUT_MS, "reslab token warm-up");
+  } catch {
+    // the per-lot calls classify and report
+  }
+}
+
 // ───────────────────────────── lot lookup ─────────────────────────────
 
 export type LotLookup =
@@ -81,7 +169,11 @@ export type LotLookup =
   /** A definite miss: absent from a complete list, or a ResLab 404 on the id. */
   | { kind: "missing" }
   /** Unknown — timeout, 5xx, 429, network, or inside the backoff window. */
-  | { kind: "transient"; detail: string };
+  | { kind: "transient"; detail: string }
+  /** ResLab refused our credentials (after the client's token retry). */
+  | { kind: "auth"; detail: string }
+  /** A failure we can't explain (an odd 4xx, a body that isn't this lot, our own throw). */
+  | { kind: "unexpected"; detail: string };
 
 interface CachedLocation {
   at: number;
@@ -91,29 +183,47 @@ const locationCache = new Map<number, CachedLocation>();
 const locationBackoffUntil = new Map<number, number>();
 const locationInflight = new Map<number, Promise<LotLookup>>();
 
-function isNotFound(err: unknown): boolean {
-  return err instanceof ReslabError && err.statusCode === 404;
-}
-
-function errorDetail(err: unknown): string {
-  if (err instanceof ReslabError) return `ResLab ${err.statusCode}: ${err.message.slice(0, 200)}`;
-  return err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : String(err).slice(0, 200);
-}
+const isThisLot = (location: ReslabLocation | null | undefined, id: number): location is ReslabLocation =>
+  !!location && typeof location === "object" && location.id === id;
 
 async function fetchLocation(id: number, now: number): Promise<LotLookup> {
+  const call = reslab.getLocation(id);
+  // A late answer (after our 4 s bound) still fills the cache, so a cold
+  // instance's slow first request doesn't cost the next one too (M1).
+  void call.then(
+    (late) => {
+      if (isThisLot(late, id)) {
+        locationCache.set(id, { at: Date.now(), location: late });
+        locationBackoffUntil.delete(id);
+      }
+    },
+    () => {}
+  );
   try {
-    const location = await bounded(reslab.getLocation(id), RESLAB_GET_LOCATION_TIMEOUT_MS, `reslab.getLocation(${id})`);
-    if (!location || typeof location !== "object" || location.id !== id) {
+    const location = await bounded(call, RESLAB_GET_LOCATION_TIMEOUT_MS, `reslab.getLocation(${id})`);
+    if (!isThisLot(location, id)) {
       locationBackoffUntil.set(id, now + RESLAB_LOCATION_BACKOFF_MS);
-      return { kind: "transient", detail: "getLocation returned an unexpected body" };
+      return { kind: "unexpected", detail: "getLocation returned a body that is not this lot" };
     }
     locationCache.set(id, { at: now, location });
     return { kind: "found", location };
   } catch (err) {
-    // A 404 is definite: no backoff, the caller hides the hotel and alerts.
-    if (isNotFound(err)) return { kind: "missing" };
-    locationBackoffUntil.set(id, now + RESLAB_LOCATION_BACKOFF_MS);
-    return { kind: "transient", detail: errorDetail(err) };
+    const f = classifyCallError(err);
+    switch (f.kind) {
+      case "not_found":
+        // Definite: no backoff; the caller hides the hotel and alerts.
+        return { kind: "missing" };
+      case "transient":
+        // Our own 4 s bound is not ResLab refusing: retry within a minute
+        // (the late answer may fill the cache first). Real 5xx / 429: 10 min.
+        locationBackoffUntil.set(id, now + (f.timeout ? RESLAB_LOCATION_TIMEOUT_BACKOFF_MS : RESLAB_LOCATION_BACKOFF_MS));
+        return { kind: "transient", detail: f.detail };
+      case "auth":
+        return { kind: "auth", detail: f.detail };
+      case "client_4xx":
+      case "unexpected":
+        return { kind: "unexpected", detail: f.detail };
+    }
   }
 }
 
@@ -274,7 +384,10 @@ export type ParkingQuoteOutcome =
   | { kind: "known_4xx"; reason: KnownParkingRefusal; message: string }
   | { kind: "unknown_4xx"; status: number; message: string }
   | { kind: "check_failed"; reason: QuoteCheckFailure; detail: string }
-  | { kind: "transient"; detail: string };
+  | { kind: "transient"; detail: string }
+  | { kind: "auth"; detail: string }
+  /** Our own throw (e.g. while checking the quote) or an inexplicable failure — reported, NOT transient. */
+  | { kind: "unexpected"; detail: string };
 
 /**
  * ResLab's min-price refusals we recognise. Patterns from messages already
@@ -314,8 +427,9 @@ const quoteInflight = new Map<string, Promise<ParkingQuoteOutcome>>();
 const QUOTE_CACHE_MAX_KEYS = 2_000;
 
 async function fetchQuote(lotId: number, fromDate: string, toDate: string): Promise<ParkingQuoteOutcome> {
+  let raw: unknown;
   try {
-    const raw = await bounded(
+    raw = await bounded(
       reslab.getMinPrice(lotId, {
         type: "parking",
         reservation_type: "parking",
@@ -326,20 +440,32 @@ async function fetchQuote(lotId: number, fromDate: string, toDate: string): Prom
       RESLAB_MIN_PRICE_TIMEOUT_MS,
       `reslab.getMinPrice(${lotId})`
     );
+  } catch (err) {
+    const f = classifyCallError(err);
+    switch (f.kind) {
+      case "transient":
+        return { kind: "transient", detail: f.detail };
+      case "auth":
+        return { kind: "auth", detail: f.detail };
+      case "not_found":
+      case "client_4xx": {
+        if (!(err instanceof ReslabError)) return { kind: "unexpected", detail: f.detail };
+        const message = reslabMessage(err);
+        const known = classifyParkingRefusal(message);
+        return known ? { kind: "known_4xx", reason: known, message } : { kind: "unknown_4xx", status: err.statusCode, message };
+      }
+      case "unexpected":
+        return { kind: "unexpected", detail: f.detail };
+    }
+  }
+  // Our own code from here on: a throw is a defect, never a "transient".
+  try {
     const checked = checkParkingQuote(raw);
     if (checked.kind === "priced") return { kind: "priced", quote: checked.quote };
     if (checked.kind === "sold_out") return { kind: "sold_out" };
     return { kind: "check_failed", reason: checked.reason, detail: checked.detail };
   } catch (err) {
-    if (err instanceof ReslabError) {
-      const s = err.statusCode;
-      if (s >= 400 && s < 500 && s !== 401 && s !== 408 && s !== 429) {
-        const message = reslabMessage(err);
-        const known = classifyParkingRefusal(message);
-        return known ? { kind: "known_4xx", reason: known, message } : { kind: "unknown_4xx", status: s, message };
-      }
-    }
-    return { kind: "transient", detail: errorDetail(err) };
+    return { kind: "unexpected", detail: `checking the quote threw: ${errorDetail(err)}` };
   }
 }
 
@@ -374,6 +500,7 @@ export async function quoteLotParking(lotId: number, fromDate: string, toDate: s
 /** Test seam. */
 export function __resetHotelLotResolveForTests(): void {
   reported.clear();
+  lastReportAt.clear();
   locationCache.clear();
   locationBackoffUntil.clear();
   locationInflight.clear();

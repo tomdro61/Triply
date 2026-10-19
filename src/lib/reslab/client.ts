@@ -397,6 +397,15 @@ async function getToken(): Promise<string> {
   }
 }
 
+/**
+ * Fetch (or reuse) the auth token without making a call — lets a caller
+ * authenticate once before fanning out N parallel requests (each would
+ * otherwise POST /authenticate on a cold instance). Added for Park & Stay.
+ */
+export async function warmReslabToken(): Promise<void> {
+  await getToken();
+}
+
 // =============================================================================
 // Error Handling
 // =============================================================================

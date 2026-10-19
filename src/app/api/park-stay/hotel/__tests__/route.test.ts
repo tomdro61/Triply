@@ -9,6 +9,7 @@ const getMinPrice = vi.fn();
 const getChannelLocationsNoSweep = vi.fn();
 const captureAPIError = vi.fn();
 const fetchMock = vi.fn();
+const fingerprint = vi.fn(() => "f5d7c11622bdb289");
 
 vi.mock("@/lib/hotels/flags", () => ({
   parkStayFlags: () => flags,
@@ -29,7 +30,7 @@ vi.mock("@/lib/hotels/liteapi/env", async (importOriginal) => {
 });
 vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
-  return { ...actual, reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
+  return { ...actual, warmReslabToken: async () => {}, reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
 });
 vi.mock("@/lib/reslab/search", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/search")>();
@@ -37,7 +38,7 @@ vi.mock("@/lib/reslab/search", async (importOriginal) => {
 });
 vi.mock("@/lib/reslab/location-snapshot", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/location-snapshot")>();
-  return { ...actual, keyFingerprint: () => "f5d7c11622bdb289" };
+  return { ...actual, keyFingerprint: () => fingerprint() };
 });
 
 import { GET } from "@/app/api/park-stay/hotel/route";
@@ -68,6 +69,7 @@ beforeEach(async () => {
   __resetHotelLotResolveForTests();
   for (const m of [takeLiteApiCall, getLocation, getMinPrice, getChannelLocationsNoSweep, captureAPIError, fetchMock]) m.mockReset();
   rateLimitOk.mockReturnValue(true);
+  fingerprint.mockReturnValue("f5d7c11622bdb289");
   const actual = await vi.importActual<typeof import("@/lib/hotels/liteapi/budget")>("@/lib/hotels/liteapi/budget");
   takeLiteApiCall.mockImplementation((mode: "sandbox" | "live", path: string) =>
     actual.takeLiteApiCall(mode, path, async () => ({ data: [{ allowed: true, calls: 1, denied: 0 }], error: null }))
@@ -136,3 +138,19 @@ describe("GET /api/park-stay/hotel", () => {
     expect((await GET(request())).status).toBe(503);
   });
 });
+
+describe("GET /api/park-stay/hotel — review pass 1", () => {
+  it("M3: ResLab's own notice-period refusal → 400 'Choose a later arrival time'", async () => {
+    getMinPrice.mockRejectedValue(new ReslabError(400, 'API request failed: {"message":"Minimum number of hours before parking reservation is 24"}'));
+    const res = await GET(request());
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "notice_period" });
+  });
+
+  it("H6: an unknown ResLab account → 503 without a ticket", async () => {
+    fingerprint.mockReturnValue("ffffffffffffffff");
+    expect((await GET(request())).status).toBe(503);
+    expect(takeLiteApiCall).not.toHaveBeenCalled();
+  });
+});
+

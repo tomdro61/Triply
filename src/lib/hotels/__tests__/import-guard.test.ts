@@ -57,8 +57,8 @@ function resolveImport(fromFile: string, spec: string): string | null {
 function importsOf(file: string): string[] {
   return [...readFileSync(file, "utf8").matchAll(IMPORT_RE)].map((m) => m[1]);
 }
-function reachable(roots: string[], target: string): string[] {
-  const seen = new Set<string>();
+function reachable(roots: string[], target: string, stops: readonly string[] = []): string[] {
+  const seen = new Set<string>(stops.map((x) => resolve(x)));
   const queue = [...roots];
   const offenders: string[] = [];
   while (queue.length) {
@@ -136,6 +136,15 @@ describe("Park & Stay import guards", () => {
 
   it("rule 3 is not vacuous: the park-stay search route does reach hotel-lot-resolve.ts", () => {
     expect(reachable([join(PARK_STAY_ROUTES, "search/route.ts")], resolve(RESOLVE))).toHaveLength(1);
+  });
+
+  it("T2(b): Park & Stay routes, pages and components reach reslab/search.ts ONLY through hotel-lot-resolve.ts", () => {
+    const roots = [...routeFiles, ...pageFiles, ...componentFiles];
+    expect(roots.length).toBeGreaterThan(5);
+    const searchTs = resolve(join(SRC, "lib/reslab/search.ts"));
+    expect(reachable(roots, searchTs, [RESOLVE])).toEqual([]);
+    // not vacuous: without the stop node the search route does reach it
+    expect(reachable([join(PARK_STAY_ROUTES, "search/route.ts")], searchTs)).toHaveLength(1);
   });
 
   it("rule 5: no process.env under src/lib/hotels except flags.ts and liteapi/env.ts", () => {

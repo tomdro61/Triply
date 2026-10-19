@@ -168,3 +168,23 @@ describe("quote checks (§5.2)", () => {
     expect(checkParkingQuote(null)).toMatchObject({ kind: "failed", reason: "malformed" });
   });
 });
+
+describe("priceRoom — the room is never sold below LiteAPI's net (review M6)", () => {
+  // A commission big enough to subsidise the order pushes the order floor below net.
+  const subsidised = { ...example, commissionCents: 10_000 };
+
+  it("no SSP and a floor below net → sold at net, basis 'net'", () => {
+    const p = priceRoom({ ...subsidised, sspCents: null, propertyFeesDueAtHotelCents: 0 });
+    expect(p.floorCents).toBeLessThan(example.roomNetCents);
+    expect(p).toMatchObject({ roomSellCents: 21_600, priceBasis: "net" });
+  });
+
+  it("SSP below net (and the floor below net too) → still net", () => {
+    expect(priceRoom({ ...subsidised, sspCents: 21_000, propertyFeesDueAtHotelCents: 0 })).toMatchObject({ roomSellCents: 21_600, priceBasis: "net" });
+  });
+
+  it("the guard is net only — SSP above net but below the order floor still sells at the floor (fees stay in the order floor, D1)", () => {
+    expect(priceRoom({ ...example, sspCents: 21_700, propertyFeesDueAtHotelCents: 0 })).toMatchObject({ roomSellCents: 21_845, priceBasis: "floor" });
+    expect(priceRoom({ ...subsidised, sspCents: 21_700, propertyFeesDueAtHotelCents: 0 })).toMatchObject({ roomSellCents: 21_700, priceBasis: "ssp" });
+  });
+});

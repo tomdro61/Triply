@@ -134,8 +134,8 @@ export function supplierFailure(error: unknown, caller: string): NextResponse {
     return NextResponse.json(body, { status: 503, headers: NO_STORE });
   }
   if (error instanceof ParkStayUnavailableError) {
-    if (error.reason === "all_parking_transient") {
-      captureAPIError(error, { endpoint: caller, method: "GET", stage: "parking_all_transient", statusCode: 503 });
+    if (error.reason === "no_reliable_result") {
+      captureAPIError(error, { endpoint: caller, method: "GET", stage: "no_reliable_result", statusCode: 503 });
     }
     // unknown_reslab_account / no_ids_for_account were reported once at the source.
     return NextResponse.json(body, { status: 503, headers: NO_STORE });

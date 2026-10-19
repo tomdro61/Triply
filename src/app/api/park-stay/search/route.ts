@@ -21,7 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkParkStaySearchRateLimit } from "@/lib/attribution/limiter";
 import { enabledHotelLotsFor } from "@/lib/hotels/hotel-lots";
 import { PARK_STAY_SEARCH_CACHE_TTL_MS } from "@/lib/hotels/plans";
-import { searchParkStay, type EmptyReason, type HiddenCounts, type ParkStayCard } from "@/lib/hotels/search";
+import { prepareParkStay, searchParkStay, type EmptyReason, type HiddenCounts, type ParkStayCard } from "@/lib/hotels/search";
 import {
   NO_STORE,
   clientKey,
@@ -32,9 +32,11 @@ import {
   takeParkStayTicket,
 } from "../_lib/request";
 
-// Critical path ≈ 2 s budget RPC + 4 s getLocation (Preview only) +
-// max(15 s LiteAPI rates, 8 s bounded min-price) ≈ 21 s (§6). No sweep can
-// run from here, so the August 60 s headroom is not needed.
+// Worst cold path ≈ 2 s budget RPC + 5 s snapshot read (getChannelLocationsNoSweep,
+// Production) + 3 s token warm-up + 4 s getLocation (only when there is no
+// list, i.e. Preview — where the snapshot read is skipped) + max(15 s LiteAPI
+// rates, 8 s bounded min-price) ≈ 26 s; the two middle legs never both run
+// long. No sweep can run from here, so the August 60 s headroom is not needed.
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
@@ -53,8 +55,9 @@ export interface ParkStaySearchResponse {
     adults: number;
   };
   offers: ParkStayCard[];
-  /** Some hotels could not be checked right now; never cached. */
+  /** Some hotels could not be checked reliably right now; never cached. */
   partial: boolean;
+  /** Null when there are offers, or when an empty answer is only partial ("we couldn't check"). */
   emptyReason: EmptyReason | null;
   sandbox: boolean | null;
   diagnostics: { hidden: HiddenCounts; cached: boolean };
@@ -104,10 +107,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // The ResLab account and ids first (pure): an unknown account / no ids
+    // fails closed here WITHOUT spending a LiteAPI budget call (H6).
+    const prepared = prepareParkStay(enabledHotelLotsFor(airport.code), airport.code, CALLER);
     // Nothing has been sent to LiteAPI or ResLab before this line.
     const ticket = await takeParkStayTicket(CALLER);
     const outcome = await searchParkStay(
-      enabledHotelLotsFor(airport.code),
+      prepared,
       { airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
       (a) => reportAnomaliesOnce(CALLER, a)
     );

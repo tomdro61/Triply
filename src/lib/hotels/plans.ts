@@ -63,7 +63,14 @@ export const RESLAB_GET_LOCATION_TIMEOUT_MS = 4_000;
 export const RESLAB_MIN_PRICE_TIMEOUT_MS = 8_000;
 /** Per-process caches for the mapped lots (§6 step 4–5). */
 export const RESLAB_LOCATION_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+/** Backoff after a real ResLab 5xx / 429 / network failure on getLocation. */
 export const RESLAB_LOCATION_BACKOFF_MS = 10 * 60 * 1000;
+/** Backoff after OUR 4 s bound fired (a cold instance, not ResLab refusing) — short, so one slow start doesn't 503 the next 10 minutes. */
+export const RESLAB_LOCATION_TIMEOUT_BACKOFF_MS = 60 * 1000;
+/** One bounded /authenticate before a fan-out (M1). */
+export const RESLAB_TOKEN_WARM_TIMEOUT_MS = 3_000;
+/** Recurring per-lot ResLab failures reach Sentry at most this often per lot and stage. */
+export const PARK_STAY_TRANSIENT_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 export const RESLAB_QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** LiteAPI /hotels/rates timeout (the client keeps it armed through the body). */

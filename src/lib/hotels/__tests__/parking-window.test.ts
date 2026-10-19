@@ -154,3 +154,17 @@ describe("lotWindowVerdict — every night, not only tonight (§4.3)", () => {
     expect(lotWindowVerdict(win({ returnDate: "2026-11-11", returnTime: "6:00 PM" }), hourlyLot, NY, NOON_OCT20)).toBe("ok");
   });
 });
+
+describe("DST: the window is measured in literal wall-clock time (review note)", () => {
+  // US clocks fall back at 2:00 AM on Sun 1 Nov 2026: Sat 7 PM → Sun 7 PM is 25 real hours.
+  // We count WALL-CLOCK hours (24 → 1 block), never instants. If ResLab counts real
+  // hours instead, it sees MORE blocks than we do: our minimum-stay pre-filter can only
+  // hide a lot ResLab would accept (the safe direction), and the quote — ResLab's own
+  // price — is what the customer pays either way.
+  it("Sat 31 Oct 7:00 PM → Sun 1 Nov 7:00 PM is one block; 7:30 PM is two", () => {
+    const at = (returnTime: string) => win({ night: "2026-10-31", arrivalTime: "7:00 PM", returnDate: "2026-11-01", returnTime });
+    expect(parking24hBlocks(at("7:00 PM"))).toBe(1);
+    expect(parking24hBlocks(at("7:30 PM"))).toBe(2);
+    expect(lotWindowVerdict(at("7:00 PM"), { ...hourlyLot, minimumBookingDays: 2 }, NY, NOON_OCT20)).toBe("min_stay");
+  });
+});
