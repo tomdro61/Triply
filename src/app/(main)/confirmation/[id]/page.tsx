@@ -139,11 +139,12 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   // Track the purchase once per booking: only on the load checkout sent the
   // customer to (takePurchaseToTrack), never on a revisit from the email link,
   // My Reservations or a refresh — those had double-counted 23% of purchases.
-  // Never for a cancelled booking.
+  // Never for a cancelled booking. The mark is only used up when gtag exists,
+  // so a page that loads before the GA stub keeps it for a refresh.
   useEffect(() => {
     if (reservation?.location && reservation.status !== "cancelled" && !hasFiredPurchase.current) {
       hasFiredPurchase.current = true;
-      if (!takePurchaseToTrack(confirmationId)) return;
+      if (typeof window.gtag !== "function" || !takePurchaseToTrack(confirmationId)) return;
       // Airport: from the booking row (ResLab) or the lot snapshot (direct) —
       // never the `lot` param, whose "reslab-N" / "direct-N" prefix GA4 used
       // to record as the airport (fix from Vin's PR #72). A direct lot id keeps
