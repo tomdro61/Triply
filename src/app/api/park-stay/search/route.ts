@@ -20,7 +20,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { checkParkStaySearchRateLimit } from "@/lib/attribution/limiter";
 import { enabledHotelLotsFor } from "@/lib/hotels/hotel-lots";
-import { PARK_STAY_SEARCH_CACHE_TTL_MS } from "@/lib/hotels/plans";
+import { PARK_STAY_REQUEST_BUDGET_MS, PARK_STAY_SEARCH_CACHE_TTL_MS } from "@/lib/hotels/plans";
 import { prepareParkStay, searchParkStay, type EmptyReason, type HiddenCounts, type ParkStayCard } from "@/lib/hotels/search";
 import {
   NO_STORE,
@@ -32,11 +32,11 @@ import {
   takeParkStayTicket,
 } from "../_lib/request";
 
-// Worst cold path ≈ 2 s budget RPC + 5 s snapshot read (getChannelLocationsNoSweep,
-// Production) + 3 s token warm-up + 4 s getLocation (only when there is no
-// list, i.e. Preview — where the snapshot read is skipped) + max(15 s LiteAPI
-// rates, 8 s bounded min-price) ≈ 26 s; the two middle legs never both run
-// long. No sweep can run from here, so the August 60 s headroom is not needed.
+// Time budget: one request-wide deadline of start + 28 s (PARK_STAY_REQUEST_BUDGET_MS),
+// ~2 s under maxDuration. Legs, each also capped by what is left: budget RPC 2 s,
+// snapshot read 5 s (a timeout = no list → the getLocation path), ONE token
+// warm-up 3 s, getLocation 4 s, then LiteAPI 15 s ∥ min-price 8 s. With < 3 s
+// left, LiteAPI isn't called and the answer is 503. No sweep can run from here.
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
@@ -91,6 +91,9 @@ export function __resetParkStaySearchCacheForTests(): void {
 
 export async function GET(request: NextRequest) {
   const nowDate = new Date();
+  // The request-wide deadline (review pass 2, H1): every leg after this is
+  // bounded by what is left of it.
+  const deadlineMs = nowDate.getTime() + PARK_STAY_REQUEST_BUDGET_MS;
   const gate = gateParkStayRequest(request, nowDate);
   if (!gate.ok) return gate.response;
   const { airport, window: w, adults } = gate.request;
@@ -114,7 +117,7 @@ export async function GET(request: NextRequest) {
     const ticket = await takeParkStayTicket(CALLER);
     const outcome = await searchParkStay(
       prepared,
-      { airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
+      { deadlineMs, airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
       (a) => reportAnomaliesOnce(CALLER, a)
     );
     if (outcome.kind === "notice_period") return noticePeriodResponse();

@@ -18,14 +18,22 @@ describe("mapHotelRates — every USD rate, integer cents, total mapping", () =>
     const anomalies = new Set<string>();
     const m = mapHotelRates(hr, NY, NOW, anomalies);
     expect(m.hiddenReason).toBeNull();
-    expect(m.malformed).toBe(0);
+    // a rate with no USD total can't be priced — counted as malformed (pass 2, M2), never "no room"
+    expect(m.malformed).toBe(1);
     expect(m.rates.map((r) => r.rateId)).toEqual(["a", "b"]);
     const b = m.rates[1];
     expect(b).toMatchObject({ roomNetCents: 23_297, sspCents: 23_507, propertyFeesDueAtHotelCents: 3_786, refundableTag: "RFN" });
     expect(b.refundability).toEqual({ kind: "free_until", deadlineLocal: "2026-11-10 15:00", timeZone: NY });
     expect(b.roomKey).toBe("rt-lp27fe6|RO|RFN");
     expect(m.rates[0].roomKey).toBe("rt-lp27fe6|RO|NRFN");
-    expect([...anomalies]).toEqual([]);
+    expect([...anomalies]).toEqual([expect.stringMatching(/rate eur .* no USD retailRate.total/)]);
+  });
+
+  it("a hotel whose only rates have no USD total is rates_malformed (degraded), not 'no room'", () => {
+    const eurOnly = { ...rate({ rateId: "eur", net: 100 }), retailRate: { total: [{ amount: 100, currency: "EUR" }] } };
+    expect(mapHotelRates(hotelRates("lp27fe6", [eurOnly]), NY, NOW, new Set())).toMatchObject({ rates: [], malformed: 1, hiddenReason: "rates_malformed" });
+    // an explicit empty room list IS a valid "no availability" answer
+    expect(mapHotelRates({ hotelId: "lp27fe6", roomTypes: [] }, NY, NOW, new Set())).toMatchObject({ rates: [], malformed: 0, hiddenReason: null });
   });
 
   it("a hotel-collected fee in another currency hides the hotel (B13)", () => {

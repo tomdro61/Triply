@@ -37,6 +37,7 @@ import {
   RESLAB_GET_LOCATION_TIMEOUT_MS,
   RESLAB_LOCATION_BACKOFF_MS,
   RESLAB_LOCATION_CACHE_TTL_MS,
+  RESLAB_LOCATION_FAILURE_BACKOFF_MS,
   RESLAB_LOCATION_TIMEOUT_BACKOFF_MS,
   RESLAB_MIN_PRICE_TIMEOUT_MS,
   RESLAB_TOKEN_WARM_TIMEOUT_MS,
@@ -148,17 +149,23 @@ export function classifyCallError(err: unknown): CallFailure {
 
 // ───────────────────────────── token warm-up (M1) ─────────────────────────────
 
+export type WarmResult = { ok: true } | { ok: false; failure: CallFailure };
+
 /**
  * Authenticate once before a fan-out, so N parallel ResLab calls on a cold
  * instance don't each POST /authenticate (the client's token cache has no
- * single-flight). Bounded; a failure here is not reported — the calls that
- * follow surface their own errors.
+ * single-flight). Bounded by `timeoutMs` (≤ RESLAB_TOKEN_WARM_TIMEOUT_MS).
+ * Returns the classified failure: the caller refuses the whole request on
+ * `auth` BEFORE fanning out (a revoked key must not cost N calls + N 401
+ * retries per request); any other failure lets the per-lot calls proceed and
+ * classify themselves.
  */
-export async function warmReslab(): Promise<void> {
+export async function warmReslab(timeoutMs: number = RESLAB_TOKEN_WARM_TIMEOUT_MS): Promise<WarmResult> {
   try {
-    await bounded(warmReslabToken(), RESLAB_TOKEN_WARM_TIMEOUT_MS, "reslab token warm-up");
-  } catch {
-    // the per-lot calls classify and report
+    await bounded(warmReslabToken(), Math.min(timeoutMs, RESLAB_TOKEN_WARM_TIMEOUT_MS), "reslab token warm-up");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, failure: classifyCallError(err) };
   }
 }
 
@@ -180,13 +187,23 @@ interface CachedLocation {
   location: ReslabLocation;
 }
 const locationCache = new Map<number, CachedLocation>();
-const locationBackoffUntil = new Map<number, number>();
+/** Per-lot backoff, remembering WHY so a lookup inside it answers with the same kind. */
+interface LocationBackoff {
+  until: number;
+  kind: "transient" | "auth" | "unexpected";
+  detail: string;
+}
+const locationBackoff = new Map<number, LocationBackoff>();
 const locationInflight = new Map<number, Promise<LotLookup>>();
 
 const isThisLot = (location: ReslabLocation | null | undefined, id: number): location is ReslabLocation =>
   !!location && typeof location === "object" && location.id === id;
 
-async function fetchLocation(id: number, now: number): Promise<LotLookup> {
+function backOff(id: number, now: number, ms: number, kind: LocationBackoff["kind"], detail: string): void {
+  locationBackoff.set(id, { until: now + ms, kind, detail });
+}
+
+async function fetchLocation(id: number, now: number, timeoutMs: number): Promise<LotLookup> {
   const call = reslab.getLocation(id);
   // A late answer (after our 4 s bound) still fills the cache, so a cold
   // instance's slow first request doesn't cost the next one too (M1).
@@ -194,16 +211,17 @@ async function fetchLocation(id: number, now: number): Promise<LotLookup> {
     (late) => {
       if (isThisLot(late, id)) {
         locationCache.set(id, { at: Date.now(), location: late });
-        locationBackoffUntil.delete(id);
+        locationBackoff.delete(id);
       }
     },
     () => {}
   );
   try {
-    const location = await bounded(call, RESLAB_GET_LOCATION_TIMEOUT_MS, `reslab.getLocation(${id})`);
+    const location = await bounded(call, Math.min(timeoutMs, RESLAB_GET_LOCATION_TIMEOUT_MS), `reslab.getLocation(${id})`);
     if (!isThisLot(location, id)) {
-      locationBackoffUntil.set(id, now + RESLAB_LOCATION_BACKOFF_MS);
-      return { kind: "unexpected", detail: "getLocation returned a body that is not this lot" };
+      const detail = "getLocation returned a body that is not this lot";
+      backOff(id, now, RESLAB_LOCATION_FAILURE_BACKOFF_MS, "unexpected", detail);
+      return { kind: "unexpected", detail };
     }
     locationCache.set(id, { at: now, location });
     return { kind: "found", location };
@@ -216,12 +234,16 @@ async function fetchLocation(id: number, now: number): Promise<LotLookup> {
       case "transient":
         // Our own 4 s bound is not ResLab refusing: retry within a minute
         // (the late answer may fill the cache first). Real 5xx / 429: 10 min.
-        locationBackoffUntil.set(id, now + (f.timeout ? RESLAB_LOCATION_TIMEOUT_BACKOFF_MS : RESLAB_LOCATION_BACKOFF_MS));
+        backOff(id, now, f.timeout ? RESLAB_LOCATION_TIMEOUT_BACKOFF_MS : RESLAB_LOCATION_BACKOFF_MS, "transient", f.detail);
         return { kind: "transient", detail: f.detail };
+      // A revoked key or an inexplicable failure repeats on every request:
+      // back off (≥ 60 s) so it costs one call per lot per minute, not N per request.
       case "auth":
+        backOff(id, now, RESLAB_LOCATION_FAILURE_BACKOFF_MS, "auth", f.detail);
         return { kind: "auth", detail: f.detail };
       case "client_4xx":
       case "unexpected":
+        backOff(id, now, RESLAB_LOCATION_FAILURE_BACKOFF_MS, "unexpected", f.detail);
         return { kind: "unexpected", detail: f.detail };
     }
   }
@@ -232,26 +254,35 @@ async function fetchLocation(id: number, now: number): Promise<LotLookup> {
  * (complete when non-null) — when present it is authoritative and no ResLab
  * call is made.
  */
-export async function lookupLot(id: number, list: readonly ReslabLocation[] | null, now: number = Date.now()): Promise<LotLookup> {
+export async function lookupLot(
+  id: number,
+  list: readonly ReslabLocation[] | null,
+  now: number = Date.now(),
+  timeoutMs: number = RESLAB_GET_LOCATION_TIMEOUT_MS
+): Promise<LotLookup> {
   if (list) {
     const location = list.find((l) => l.id === id);
     return location ? { kind: "found", location } : { kind: "missing" };
   }
   const cached = locationCache.get(id);
   if (cached && now - cached.at < RESLAB_LOCATION_CACHE_TTL_MS) return { kind: "found", location: cached.location };
-  const until = locationBackoffUntil.get(id);
-  if (until !== undefined && now < until) return { kind: "transient", detail: "in backoff after a recent failure" };
+  const backoff = locationBackoff.get(id);
+  if (backoff && now < backoff.until) return { kind: backoff.kind, detail: `in backoff after: ${backoff.detail}` };
   const inflight = locationInflight.get(id);
   if (inflight) return inflight;
-  const p = fetchLocation(id, now).finally(() => locationInflight.delete(id));
+  const p = fetchLocation(id, now, timeoutMs).finally(() => locationInflight.delete(id));
   locationInflight.set(id, p);
   return p;
 }
 
-/** The no-sweep list, or null (Preview / a cold instance). Never calls ResLab; never throws. */
-export async function channelListNoSweep(): Promise<readonly ReslabLocation[] | null> {
+/**
+ * The no-sweep list, or null (Preview / a cold instance / the snapshot read
+ * did not answer within `timeoutMs`). Never calls ResLab; never throws.
+ */
+export async function channelListNoSweep(timeoutMs: number): Promise<readonly ReslabLocation[] | null> {
+  if (timeoutMs <= 0) return null;
   try {
-    return await getChannelLocationsNoSweep();
+    return await bounded(getChannelLocationsNoSweep(), timeoutMs, "getChannelLocationsNoSweep");
   } catch {
     return null;
   }
@@ -420,13 +451,14 @@ function reslabMessage(err: ReslabError): string {
 
 interface CachedQuote {
   at: number;
+  ttlMs: number;
   outcome: ParkingQuoteOutcome;
 }
 const quoteCache = new Map<string, CachedQuote>();
 const quoteInflight = new Map<string, Promise<ParkingQuoteOutcome>>();
 const QUOTE_CACHE_MAX_KEYS = 2_000;
 
-async function fetchQuote(lotId: number, fromDate: string, toDate: string): Promise<ParkingQuoteOutcome> {
+async function fetchQuote(lotId: number, fromDate: string, toDate: string, timeoutMs: number): Promise<ParkingQuoteOutcome> {
   let raw: unknown;
   try {
     raw = await bounded(
@@ -437,7 +469,7 @@ async function fetchQuote(lotId: number, fromDate: string, toDate: string): Prom
         to_date: toDate,
         number_of_spots: 1,
       }),
-      RESLAB_MIN_PRICE_TIMEOUT_MS,
+      Math.min(timeoutMs, RESLAB_MIN_PRICE_TIMEOUT_MS),
       `reslab.getMinPrice(${lotId})`
     );
   } catch (err) {
@@ -448,6 +480,9 @@ async function fetchQuote(lotId: number, fromDate: string, toDate: string): Prom
       case "auth":
         return { kind: "auth", detail: f.detail };
       case "not_found":
+        // The lot resolved a moment ago, so a min-price 404 is not "no parking":
+        // we don't know what it means — degraded, never a confident exclusion.
+        return { kind: "unexpected", detail: f.detail };
       case "client_4xx": {
         if (!(err instanceof ReslabError)) return { kind: "unexpected", detail: f.detail };
         const message = reslabMessage(err);
@@ -469,21 +504,35 @@ async function fetchQuote(lotId: number, fromDate: string, toDate: string): Prom
   }
 }
 
-/** Only definitive, repeatable answers are cached; a transient or a failed check never is. */
-function cacheable(o: ParkingQuoteOutcome): boolean {
-  return o.kind === "priced" || o.kind === "sold_out" || o.kind === "known_4xx";
+/**
+ * How long an outcome is reused: definitive answers for the quote TTL; auth
+ * and unexpected failures briefly (a negative cache, so a revoked key costs
+ * one call per lot per minute, not one per request); transient, unknown 4xx
+ * and failed checks never.
+ */
+function cacheTtl(o: ParkingQuoteOutcome): number {
+  if (o.kind === "priced" || o.kind === "sold_out" || o.kind === "known_4xx") return RESLAB_QUOTE_CACHE_TTL_MS;
+  if (o.kind === "auth" || o.kind === "unexpected") return RESLAB_LOCATION_FAILURE_BACKOFF_MS;
+  return 0;
 }
 
-export async function quoteLotParking(lotId: number, fromDate: string, toDate: string, now: number = Date.now()): Promise<ParkingQuoteOutcome> {
+export async function quoteLotParking(
+  lotId: number,
+  fromDate: string,
+  toDate: string,
+  now: number = Date.now(),
+  timeoutMs: number = RESLAB_MIN_PRICE_TIMEOUT_MS
+): Promise<ParkingQuoteOutcome> {
   const key = `${lotId}|${fromDate}|${toDate}`;
   const hit = quoteCache.get(key);
-  if (hit && now - hit.at < RESLAB_QUOTE_CACHE_TTL_MS) return hit.outcome;
+  if (hit && now - hit.at < hit.ttlMs) return hit.outcome;
   const inflight = quoteInflight.get(key);
   if (inflight) return inflight;
-  const p = fetchQuote(lotId, fromDate, toDate)
+  const p = fetchQuote(lotId, fromDate, toDate, timeoutMs)
     .then((outcome) => {
-      if (cacheable(outcome)) {
-        quoteCache.set(key, { at: now, outcome });
+      const ttlMs = cacheTtl(outcome);
+      if (ttlMs > 0) {
+        quoteCache.set(key, { at: now, ttlMs, outcome });
         while (quoteCache.size > QUOTE_CACHE_MAX_KEYS) {
           const oldest = quoteCache.keys().next().value;
           if (oldest === undefined) break;
@@ -502,7 +551,7 @@ export function __resetHotelLotResolveForTests(): void {
   reported.clear();
   lastReportAt.clear();
   locationCache.clear();
-  locationBackoffUntil.clear();
+  locationBackoff.clear();
   locationInflight.clear();
   quoteCache.clear();
   quoteInflight.clear();

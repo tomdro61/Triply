@@ -225,7 +225,13 @@ export function mapHotelRates(hr: LiteApiHotelRates, hotelTimeZone: string, now:
       }
       const rate = rateParsed.data;
       const net = usdCents(rate.retailRate?.total);
-      if (net === null) continue; // a non-USD rate is never priced
+      if (net === null) {
+        // No USD total (another currency, missing, negative): we can't price it,
+        // and we can't call it "no room" either — counted as malformed.
+        malformed++;
+        anomalies.add(`rate ${rate.rateId} on hotel ${hr.hotelId} has no USD retailRate.total — skipped`);
+        continue;
+      }
       const fees: PropertyFeeDueAtHotel[] = [];
       for (const tf of rate.retailRate?.taxesAndFees ?? []) {
         if (tf.included === true) continue;
@@ -323,6 +329,8 @@ export async function fetchParkStayRates(params: {
   hotelTimeZone: string;
   now: Date;
   ticket: BudgetTicket;
+  /** ≤ LITEAPI_RATES_TIMEOUT_MS — the caller passes what is left of the request deadline. */
+  timeoutMs: number;
 }): Promise<ParkStayRatesResult> {
   const anomalies = new Set<string>();
   let r: LiteApiResult;
@@ -344,7 +352,7 @@ export async function fetchParkStayRates(params: {
         // V2: without this a hotelIds query returns no `hotels[]` content.
         includeHotelData: true,
       },
-      timeoutMs: LITEAPI_RATES_TIMEOUT_MS,
+      timeoutMs: Math.min(params.timeoutMs, LITEAPI_RATES_TIMEOUT_MS),
     });
   } catch (err) {
     if (err instanceof LiteApiError && err.code === LITEAPI_NO_AVAILABILITY_CODE && err.statusCode >= 400 && err.statusCode < 500) {
@@ -363,13 +371,25 @@ export async function fetchParkStayRates(params: {
   }
   const wanted = new Set(params.hotelIds);
   const rates = new Map<string, HotelRatesMapped>();
-  for (const raw of body.data.data) {
+  const malformedFor = (hotelId: string): HotelRatesMapped => ({ hotelId, rates: [], hiddenReason: "rates_malformed", malformed: 1 });
+  // Entries we couldn't attribute to any hotel: then NO absent hotel can be
+  // read as "no availability" — it may be the unreadable one.
+  let unattributable = 0;
+  body.data.data.forEach((raw, index) => {
     const hr = hotelRatesSchema.safeParse(raw);
-    if (!hr.success || !wanted.has(hr.data.hotelId)) {
-      anomalies.add(`rates entry that is malformed or for an unrequested hotel: ${JSON.stringify(hr.success ? hr.data.hotelId : null)}`);
-      continue;
+    if (hr.success) {
+      if (wanted.has(hr.data.hotelId)) rates.set(hr.data.hotelId, mapHotelRates(hr.data, params.hotelTimeZone, params.now, anomalies));
+      else anomalies.add(`rates returned for an unrequested hotelId ${JSON.stringify(hr.data.hotelId)}`);
+      return;
     }
-    rates.set(hr.data.hotelId, mapHotelRates(hr.data, params.hotelTimeZone, params.now, anomalies));
+    // Read the id loosely so the failure lands on the right hotel.
+    const looseId = raw && typeof raw === "object" && "hotelId" in raw && typeof raw.hotelId === "string" ? raw.hotelId : null;
+    anomalies.add(`malformed rates entry #${index} (hotelId ${JSON.stringify(looseId)}): ${issuePaths(hr.error.issues)}`);
+    if (looseId !== null && wanted.has(looseId)) rates.set(looseId, malformedFor(looseId));
+    else unattributable++;
+  });
+  if (unattributable > 0) {
+    for (const id of wanted) if (!rates.has(id)) rates.set(id, malformedFor(id));
   }
   const content = new Map<string, HotelContent>();
   for (const raw of body.data.hotels ?? []) {

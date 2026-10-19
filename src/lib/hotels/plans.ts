@@ -67,6 +67,8 @@ export const RESLAB_LOCATION_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
 export const RESLAB_LOCATION_BACKOFF_MS = 10 * 60 * 1000;
 /** Backoff after OUR 4 s bound fired (a cold instance, not ResLab refusing) — short, so one slow start doesn't 503 the next 10 minutes. */
 export const RESLAB_LOCATION_TIMEOUT_BACKOFF_MS = 60 * 1000;
+/** Backoff (and negative quote cache) after a ResLab auth failure or an unexplained failure — once per lot per minute, not per request. */
+export const RESLAB_LOCATION_FAILURE_BACKOFF_MS = 60 * 1000;
 /** One bounded /authenticate before a fan-out (M1). */
 export const RESLAB_TOKEN_WARM_TIMEOUT_MS = 3_000;
 /** Recurring per-lot ResLab failures reach Sentry at most this often per lot and stage. */
@@ -75,6 +77,23 @@ export const RESLAB_QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** LiteAPI /hotels/rates timeout (the client keeps it armed through the body). */
 export const LITEAPI_RATES_TIMEOUT_MS = 15_000;
+
+/**
+ * The request-wide deadline (review pass 2, H1): the routes' maxDuration is
+ * 30 s; every leg after the budget RPC is bounded by the time left until
+ * start + 28 s, leaving ~2 s for the response. The snapshot read is bounded
+ * at 5 s, the warm-up at 3 s, getLocation at 4 s, min-price at 8 s and
+ * LiteAPI at 15 s — each also by what is left.
+ */
+export const PARK_STAY_REQUEST_BUDGET_MS = 28_000;
+/** The snapshot read (getChannelLocationsNoSweep) leg. */
+export const PARK_STAY_SNAPSHOT_LEG_MS = 5_000;
+/** Below this much time left, a ResLab lot fan-out isn't started (503). */
+export const PARK_STAY_MIN_RESLAB_LEG_MS = 1_000;
+/** Below this much time left, LiteAPI isn't called at all (503, the ticket stays unspent). */
+export const PARK_STAY_MIN_LITEAPI_LEG_MS = 3_000;
+/** Auth failures reach Sentry at most this often per process. */
+export const PARK_STAY_AUTH_REPORT_INTERVAL_MS = 60 * 1000;
 
 /** Guard distances (§3.4): the lot / hotel must lie within this of the recorded point. */
 export const PARK_STAY_MAX_DRIFT_M = 300;

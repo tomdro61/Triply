@@ -13,7 +13,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { checkParkStayHotelRateLimit } from "@/lib/attribution/limiter";
 import { findEnabledHotelLot } from "@/lib/hotels/hotel-lots";
-import { PARK_STAY_HOTEL_PAGE_MAX_RATES } from "@/lib/hotels/plans";
+import { PARK_STAY_HOTEL_PAGE_MAX_RATES, PARK_STAY_REQUEST_BUDGET_MS } from "@/lib/hotels/plans";
 import { prepareParkStay, quoteParkStayHotel, type HiddenReason, type ParkStayHotelSummary, type ParkStayRoomOffer } from "@/lib/hotels/search";
 import {
   NO_STORE,
@@ -25,6 +25,8 @@ import {
   takeParkStayTicket,
 } from "../_lib/request";
 
+// Same request-wide deadline as search (start + 28 s, every leg capped by what
+// is left; < 3 s left → 503 without calling LiteAPI). See the search route.
 export const maxDuration = 30;
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,9 @@ export type ParkStayHotelResponse =
 
 export async function GET(request: NextRequest) {
   const nowDate = new Date();
+  // The request-wide deadline (review pass 2, H1): every leg after this is
+  // bounded by what is left of it.
+  const deadlineMs = nowDate.getTime() + PARK_STAY_REQUEST_BUDGET_MS;
   const gate = gateParkStayRequest(request, nowDate);
   if (!gate.ok) return gate.response;
   const { airport, window: w, adults } = gate.request;
@@ -66,7 +71,7 @@ export async function GET(request: NextRequest) {
     const ticket = await takeParkStayTicket(CALLER);
     const outcome = await quoteParkStayHotel(
       prepared,
-      { airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
+      { deadlineMs, airport: { code: airport.code, timezone: airport.timezone }, window: w, adults, ticket, now: nowDate, caller: CALLER },
       PARK_STAY_HOTEL_PAGE_MAX_RATES,
       (a) => reportAnomaliesOnce(CALLER, a)
     );

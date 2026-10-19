@@ -134,10 +134,10 @@ export function supplierFailure(error: unknown, caller: string): NextResponse {
     return NextResponse.json(body, { status: 503, headers: NO_STORE });
   }
   if (error instanceof ParkStayUnavailableError) {
-    if (error.reason === "no_reliable_result") {
-      captureAPIError(error, { endpoint: caller, method: "GET", stage: "no_reliable_result", statusCode: 503 });
+    if (error.reason === "no_reliable_result" || error.reason === "deadline") {
+      captureAPIError(error, { endpoint: caller, method: "GET", stage: error.reason, statusCode: 503 });
     }
-    // unknown_reslab_account / no_ids_for_account were reported once at the source.
+    // unknown_reslab_account / no_ids_for_account / reslab_auth were reported at the source (throttled).
     return NextResponse.json(body, { status: 503, headers: NO_STORE });
   }
   const err = error instanceof Error ? error : new Error(String(error));

@@ -209,11 +209,24 @@ describe("review pass 1 — failure classification and the cold start (H2, M1)",
     expect(classifyCallError("a string").kind).toBe("unexpected");
   });
 
-  it("getLocation 401 → auth (no backoff); a body for another lot → unexpected", async () => {
+  it("getLocation 401 → auth, backed off 60 s (no call per request); a body for another lot → unexpected, backed off too", async () => {
     getLocation.mockRejectedValueOnce(new ReslabError(401, "unauthorised"));
     expect((await lookupLot(132, null, 0)).kind).toBe("auth");
+    expect((await lookupLot(132, null, 59_999)).kind).toBe("auth");
+    expect(getLocation).toHaveBeenCalledTimes(1);
     getLocation.mockResolvedValueOnce(locationFor(HOTEL_LOTS[1]));
-    expect((await lookupLot(132, null, 1)).kind).toBe("unexpected");
+    expect((await lookupLot(132, null, 60_001)).kind).toBe("unexpected");
+    expect((await lookupLot(132, null, 61_000)).kind).toBe("unexpected");
+    expect(getLocation).toHaveBeenCalledTimes(2);
+  });
+
+  it("min-price auth / unexpected outcomes are negatively cached for 60 s; a min-price 404 is unexpected, never a confident exclusion", async () => {
+    getMinPrice.mockRejectedValueOnce(new ReslabError(401, "unauthorised"));
+    expect((await quoteLotParking(1, "a", "b", 0)).kind).toBe("auth");
+    expect((await quoteLotParking(1, "a", "b", 59_999)).kind).toBe("auth");
+    expect(getMinPrice).toHaveBeenCalledTimes(1);
+    getMinPrice.mockRejectedValueOnce(new ReslabError(404, "API request failed: not found"));
+    expect((await quoteLotParking(2, "a", "b", 0)).kind).toBe("unexpected");
   });
 
   it("OUR 4 s bound firing backs off only 60 s, and the late answer fills the cache (M1)", async () => {

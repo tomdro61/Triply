@@ -84,7 +84,7 @@ describe("Park & Stay search with the real ResLab modules", () => {
     const ticket = await takeLiteApiCall("sandbox", "/hotels/rates", async () => ({ data: [{ allowed: true, calls: 1, denied: 0 }], error: null }));
     const out = await searchParkStay(
       prepareParkStay(enabledHotelLotsFor("JFK"), "JFK", "/api/park-stay/search"),
-      { airport: { code: "JFK", timezone: "America/New_York" }, window: w.window, adults: 2, ticket, now: new Date("2026-10-20T16:00:00Z"), caller: "/api/park-stay/search" },
+      { deadlineMs: Date.now() + 28_000, airport: { code: "JFK", timezone: "America/New_York" }, window: w.window, adults: 2, ticket, now: new Date("2026-10-20T16:00:00Z"), caller: "/api/park-stay/search" },
       () => {}
     );
     expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["hampton-inn-jfk", "doubletree-jfk"]);

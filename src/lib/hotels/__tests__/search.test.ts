@@ -10,6 +10,7 @@ const fingerprint = vi.fn();
 const captureAPIError = vi.fn();
 const logAvailability = vi.fn();
 const logSearchEvent = vi.fn();
+const warmToken = vi.fn(async (): Promise<void> => {});
 
 vi.mock("@/lib/sentry", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/sentry")>();
@@ -19,7 +20,7 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
   return {
     ...actual,
-    warmReslabToken: async () => {},
+    warmReslabToken: () => warmToken(),
     reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) },
   };
 });
@@ -53,7 +54,7 @@ import { ReslabError } from "@/lib/reslab/client";
 import { takeLiteApiCall, type BudgetTicket } from "../liteapi/budget";
 import { LiteApiError } from "../liteapi/client";
 import { HOTEL_LOTS, enabledHotelLotsFor, type HotelLotEntry } from "../hotel-lots";
-import { __resetHotelLotResolveForTests } from "../hotel-lot-resolve";
+import { __resetHotelLotResolveForTests, lookupLot } from "../hotel-lot-resolve";
 import { validateParkStayWindow, type ParkStayWindow } from "../parking-window";
 import { ParkStayUnavailableError, prepareParkStay, quoteParkStayHotel, searchParkStay, type ParkStayRunInput } from "../search";
 import { PROD_FINGERPRINT, content, hotelRates, locationFor, minPrice, rate } from "./fixtures";
@@ -85,7 +86,7 @@ async function ticket(): Promise<BudgetTicket> {
 }
 
 async function input(w: ParkStayWindow = windowOf()): Promise<ParkStayRunInput> {
-  return { airport: { code: "JFK", timezone: NY }, window: w, adults: 2, ticket: await ticket(), now: NOW, caller: "/api/park-stay/search" };
+  return { deadlineMs: Date.now() + 28_000, airport: { code: "JFK", timezone: NY }, window: w, adults: 2, ticket: await ticket(), now: NOW, caller: "/api/park-stay/search" };
 }
 
 // ── LiteAPI over fetch ──
@@ -111,6 +112,8 @@ const LOTS: Record<number, HotelLotEntry> = { 132: doubletree, 304: hampton };
 beforeEach(() => {
   __resetHotelLotResolveForTests();
   for (const m of [getLocation, getMinPrice, getChannelLocationsNoSweep, getChannelLocationsCached, searchParking, fingerprint, captureAPIError, logAvailability, logSearchEvent, fetchMock]) m.mockReset();
+  warmToken.mockReset();
+  warmToken.mockResolvedValue(undefined);
   fingerprint.mockReturnValue(PROD_FINGERPRINT);
   getChannelLocationsNoSweep.mockResolvedValue(null);
   getLocation.mockImplementation(async (id: number) => {
@@ -440,5 +443,76 @@ describe("review pass 1 — hotel page list keeps the leading rate (M7)", () => 
     if (out.kind !== "hotel") throw new Error(out.kind);
     expect(out.leading.offerRef.rateId).toBe("rfn-live");
     expect(out.rooms.map((r) => r.offerRef.rateId)).toEqual(["rfn-live"]);
+  });
+});
+
+describe("review pass 2 — the request-wide deadline (H1)", () => {
+  afterEach(() => vi.useRealTimers());
+
+  /** A fetch that never answers but honours its AbortSignal, like a stalled LiteAPI. */
+  function stalledFetch(_url: string | URL | Request, init?: RequestInit): Promise<Response> {
+    return new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "AbortError" })));
+    });
+  }
+
+  it("snapshot stalled + auth stalled + one lot cached, one stalled + LiteAPI stalled → done within the 28 s budget", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    // Prime: lot 132 cached from an earlier request; lot 304 will stall.
+    expect((await lookupLot(132, null)).kind).toBe("found");
+    getChannelLocationsNoSweep.mockReturnValue(new Promise(() => {}));
+    warmToken.mockReturnValue(new Promise(() => {}));
+    getLocation.mockReturnValue(new Promise(() => {}));
+    getMinPrice.mockReturnValue(new Promise(() => {}));
+    fetchMock.mockImplementation(stalledFetch);
+
+    const started = Date.now();
+    const i = { ...(await input()), deadlineMs: started + 28_000 };
+    let settledAt: number | null = null;
+    const p = searchParkStay(prep(), i, () => {}).then(
+      () => "resolved",
+      (e: unknown) => e
+    );
+    void p.then(() => (settledAt = Date.now()));
+    for (let t = 0; t < 40 && settledAt === null; t++) await vi.advanceTimersByTimeAsync(1_000);
+    expect(settledAt).not.toBeNull();
+    expect((settledAt ?? Infinity) - started).toBeLessThanOrEqual(28_000);
+    // LiteAPI was capped at what was left (~15 s here) and timed out → the route's 503.
+    expect(await p).toBeInstanceOf(LiteApiError);
+    expect(warmToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("too little time left for LiteAPI → 503 (deadline) without calling it; the ticket stays unspent", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    getChannelLocationsNoSweep.mockReturnValue(new Promise(() => {}));
+    warmToken.mockReturnValue(new Promise(() => {}));
+    const started = Date.now();
+    const i = { ...(await input()), deadlineMs: started + 10_000 };
+    const p = searchParkStay(prep(), i, () => {}).catch((e: unknown) => e);
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await p).toMatchObject({ name: "ParkStayUnavailableError", reason: "deadline" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(i.ticket.spent).toBe(false);
+  });
+
+  it("a ResLab auth refusal at the warm-up stops the request BEFORE the fan-out (M1)", async () => {
+    warmToken.mockRejectedValue(new ReslabError(401, "Authentication failed"));
+    await expect(searchParkStay(prep(), await input(), () => {})).rejects.toMatchObject({ reason: "reslab_auth" });
+    expect(getLocation).not.toHaveBeenCalled();
+    expect(getMinPrice).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("an unrecognised ResLab refusal is DEGRADED: partial, no confident 'none available' (M3)", async () => {
+    getMinPrice.mockImplementation(async (id: number) => {
+      if (id === 132) throw new ReslabError(422, 'API request failed: {"message":"Stay too short for this lot"}');
+      return minPrice({ grand: 90, sub: 80, soldOut: true });
+    });
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", cards: [], partial: true, emptyReason: null, hidden: { parking_unknown_4xx: 1, parking_sold_out: 1 } });
+    // and when it is the only answer there is, nothing reliable remains → 503
+    __resetHotelLotResolveForTests();
+    getMinPrice.mockRejectedValue(new ReslabError(422, 'API request failed: {"message":"Stay too short for this lot"}'));
+    await expect(searchParkStay(prep(), await input(), () => {})).rejects.toMatchObject({ reason: "no_reliable_result" });
   });
 });

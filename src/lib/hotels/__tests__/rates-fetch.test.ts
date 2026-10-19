@@ -15,16 +15,17 @@ const doubletree = HOTEL_LOTS[0];
 const fetchMock = vi.fn();
 let reply: { status: number; text: string };
 
-async function call() {
+async function call(hotelIds: string[] = ["lp27fe6"]) {
   const ticket = await takeLiteApiCall("sandbox", "/hotels/rates", async () => ({ data: [{ allowed: true, calls: 1, denied: 0 }], error: null }));
   return fetchParkStayRates({
-    hotelIds: ["lp27fe6"],
+    hotelIds,
     checkin: "2026-11-10",
     checkout: "2026-11-11",
     adults: 2,
     hotelTimeZone: "America/New_York",
     now: new Date("2026-10-20T16:00:00Z"),
     ticket,
+    timeoutMs: 15_000,
   });
 }
 
@@ -83,5 +84,41 @@ describe("fetchParkStayRates — the 200 body is validated at the boundary (revi
     const r = await call();
     expect(r.content.size).toBe(0);
     expect(r.anomalies.some((a) => a.includes("hotels[]"))).toBe(true);
+  });
+});
+
+describe("review pass 2 — unreadable rates entries never become 'no room' (M2)", () => {
+  const ids = ["lp27fe6", "lp3034d"];
+  const good = hotelRates("lp27fe6", [rate({ rateId: "a", net: 200, ssp: 220 })]);
+
+  it("an entry whose body fails validation marks THAT hotel rates_malformed (its id read loosely)", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good, { hotelId: "lp3034d", roomTypes: "oops" }] }) };
+    const r = await call(ids);
+    expect(r.rates.get("lp27fe6")?.hiddenReason).toBeNull();
+    expect(r.rates.get("lp3034d")).toMatchObject({ hiddenReason: "rates_malformed", rates: [] });
+  });
+
+  it("an entry with no readable hotelId marks every ABSENT wanted hotel rates_malformed", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good, { roomTypes: [] }] }) };
+    const r = await call(ids);
+    expect(r.rates.get("lp27fe6")?.hiddenReason).toBeNull();
+    expect(r.rates.get("lp3034d")?.hiddenReason).toBe("rates_malformed");
+  });
+
+  it("each bad entry is its own anomaly (no dedupe on a null id)", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [{ roomTypes: 1 }, { roomTypes: 2 }] }) };
+    const r = await call(ids);
+    expect(r.anomalies.filter((a) => a.startsWith("malformed rates entry"))).toHaveLength(2);
+  });
+
+  it("a hotel simply absent from a fully readable data[] is a genuine no-availability answer", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good] }) };
+    const r = await call(ids);
+    expect(r.rates.has("lp3034d")).toBe(false);
+  });
+
+  it("nested: a hotel whose room types / rates are all malformed is rates_malformed", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [{ hotelId: "lp27fe6", roomTypes: [{ offerId: "o", rates: [{ rateId: "x", retailRate: { total: "200" } }] }] }] }) };
+    expect((await call()).rates.get("lp27fe6")).toMatchObject({ hiddenReason: "rates_malformed", malformed: 1 });
   });
 });

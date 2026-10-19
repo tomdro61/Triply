@@ -41,7 +41,6 @@ import {
   lotDisplay,
   lotWindowFacts,
   quoteLotParking,
-  reportAlways,
   reportOnce,
   reportThrottled,
   warmReslab,
@@ -54,7 +53,13 @@ import { lotWindowVerdict, type ParkStayWindow } from "./parking-window";
 import { packagePrice, parkingCommission, priceRoom, type PackagePrice, type PriceBasis } from "./pricing";
 import type { ParkingQuote } from "./parking-quote";
 import { roomRefundabilitySummary, type RoomRefundability } from "./refundability";
-import { PARK_STAY_TRANSIENT_REPORT_INTERVAL_MS } from "./plans";
+import {
+  PARK_STAY_AUTH_REPORT_INTERVAL_MS,
+  PARK_STAY_MIN_LITEAPI_LEG_MS,
+  PARK_STAY_MIN_RESLAB_LEG_MS,
+  PARK_STAY_SNAPSHOT_LEG_MS,
+  PARK_STAY_TRANSIENT_REPORT_INTERVAL_MS,
+} from "./plans";
 
 // ───────────────────────────── types ─────────────────────────────
 
@@ -97,6 +102,9 @@ export const DEGRADED_REASONS: ReadonlySet<HiddenReason> = new Set<HiddenReason>
   "parking_auth",
   "parking_unexpected",
   "parking_quote_invalid",
+  // An unrecognised ResLab refusal (a new wording of a known rule included):
+  // we don't know it means "no parking" — never a confident exclusion.
+  "parking_unknown_4xx",
   "rates_malformed",
 ]);
 
@@ -106,7 +114,7 @@ export type EmptyReason = "min_stay" | "booking_window" | "sold_out" | "notice_p
 /** 503-class conditions: the route answers "temporarily unavailable". */
 export class ParkStayUnavailableError extends Error {
   constructor(
-    public reason: "unknown_reslab_account" | "no_ids_for_account" | "no_reliable_result",
+    public reason: "unknown_reslab_account" | "no_ids_for_account" | "no_reliable_result" | "reslab_auth" | "deadline",
     message: string
   ) {
     super(message);
@@ -170,6 +178,11 @@ export interface PreparedParkStay {
 }
 
 export interface ParkStayRunInput {
+  /**
+   * Epoch ms by which the work must be done (request start + PARK_STAY_REQUEST_BUDGET_MS).
+   * Every leg is bounded by what is left of it (review pass 2, H1).
+   */
+  deadlineMs: number;
   airport: { code: string; timezone: string };
   window: ParkStayWindow;
   adults: number;
@@ -324,7 +337,11 @@ function hide(hidden: HiddenCounts, reason: HiddenReason): void {
   hidden[reason] = (hidden[reason] ?? 0) + 1;
 }
 
-/** Report a degraded per-lot outcome: transient throttled per lot, auth and unexpected every time (H2). */
+/**
+ * Report a degraded per-lot outcome (H2): transient throttled per lot (10 min);
+ * auth throttled per process (≈ once a minute — every lot fails together);
+ * unexpected throttled per lot per minute.
+ */
 function reportDegraded(
   stage: "lot" | "parking",
   kind: "transient" | "auth" | "unexpected",
@@ -340,8 +357,10 @@ function reportDegraded(
       stage: `${stage}_transient`,
       extra,
     });
+  } else if (kind === "auth") {
+    reportThrottled("park_stay_reslab_auth", PARK_STAY_AUTH_REPORT_INTERVAL_MS, message, { caller: input.caller, stage: `${stage}_auth`, extra });
   } else {
-    reportAlways(new Error(message), { caller: input.caller, stage: `${stage}_${kind}`, extra });
+    reportThrottled(`park_stay_${stage}_unexpected:${c.lotId}`, PARK_STAY_AUTH_REPORT_INTERVAL_MS, message, { caller: input.caller, stage: `${stage}_unexpected`, extra });
   }
 }
 
@@ -364,11 +383,46 @@ function hideForLookup(lookup: Exclude<LotLookup, { kind: "found" }>, item: { en
   }
 }
 
-async function resolveCandidates(prepared: PreparedParkStay, input: ParkStayRunInput, hidden: HiddenCounts): Promise<Candidate[]> {
-  const list = await channelListNoSweep();
-  // Preview / cold instance: authenticate once before N parallel getLocation calls (M1).
-  if (!list) await warmReslab();
-  const lookups = await Promise.all(prepared.items.map(async (item) => ({ item, lookup: await lookupLot(item.lotId, list) })));
+/** Milliseconds left until the request deadline (never negative). */
+function timeLeft(input: ParkStayRunInput): number {
+  return Math.max(0, input.deadlineMs - Date.now());
+}
+
+function requireTime(input: ParkStayRunInput, minMs: number, leg: string): void {
+  if (timeLeft(input) < minMs) {
+    throw new ParkStayUnavailableError("deadline", `only ${timeLeft(input)} ms left before ${leg}`);
+  }
+}
+
+/**
+ * Authenticate at most ONCE per request, before the first ResLab fan-out
+ * (M1). A ResLab auth refusal stops the request here (503) instead of costing
+ * N calls with N 401 retries; any other warm-up failure lets the per-lot
+ * calls run and classify themselves.
+ */
+async function warmOnce(state: { warmed: boolean }, input: ParkStayRunInput): Promise<void> {
+  if (state.warmed) return;
+  state.warmed = true;
+  const w = await warmReslab(timeLeft(input));
+  if (!w.ok && w.failure.kind === "auth") {
+    reportThrottled("park_stay_reslab_auth", PARK_STAY_AUTH_REPORT_INTERVAL_MS, `Park & Stay: ResLab refused our credentials: ${w.failure.detail}`, {
+      caller: input.caller,
+      stage: "reslab_auth",
+    });
+    throw new ParkStayUnavailableError("reslab_auth", "ResLab refused our credentials");
+  }
+}
+
+async function resolveCandidates(prepared: PreparedParkStay, input: ParkStayRunInput, hidden: HiddenCounts, warm: { warmed: boolean }): Promise<Candidate[]> {
+  // A snapshot read that doesn't answer in time is treated as "no list" (the Preview path).
+  const list = await channelListNoSweep(Math.min(PARK_STAY_SNAPSHOT_LEG_MS, timeLeft(input)));
+  if (!list) {
+    // Preview / cold instance: authenticate once before N parallel getLocation calls (M1).
+    await warmOnce(warm, input);
+    requireTime(input, PARK_STAY_MIN_RESLAB_LEG_MS, "the lot lookups");
+  }
+  const lotMs = timeLeft(input);
+  const lookups = await Promise.all(prepared.items.map(async (item) => ({ item, lookup: await lookupLot(item.lotId, list, Date.now(), lotMs) })));
   const candidates: Candidate[] = [];
   for (const { item, lookup } of lookups) {
     const { entry, lotId } = item;
@@ -533,13 +587,18 @@ async function run(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomal
   const hidden: HiddenCounts = {};
   if (prepared.noAccountId > 0) hidden.no_account_id = prepared.noAccountId;
   const considered = prepared.items.length;
-  const candidates = await resolveCandidates(prepared, input, hidden);
+  const warm = { warmed: false };
+  const candidates = await resolveCandidates(prepared, input, hidden, warm);
   if (candidates.length === 0) return { results: [], hidden, considered, sandbox: null };
 
   // Step 5: both suppliers in parallel. A LiteAPI failure propagates (503);
-  // a ResLab failure is per lot. The token is warm by now unless the list
-  // came from the snapshot — warm it once before the min-price fan-out.
-  await warmReslab();
+  // a ResLab failure is per lot. Warm-up only if the lookups didn't already
+  // (the list came from the snapshot) — at most once per request.
+  await warmOnce(warm, input);
+  // Not enough time left for a useful LiteAPI call: 503 without calling it
+  // (the ticket stays unspent).
+  requireTime(input, PARK_STAY_MIN_LITEAPI_LEG_MS, "LiteAPI");
+  const legMs = timeLeft(input);
   const [rates, quotes] = await Promise.all([
     fetchParkStayRates({
       hotelIds: candidates.map((c) => c.entry.liteapi.hotelId),
@@ -549,8 +608,9 @@ async function run(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomal
       hotelTimeZone: input.airport.timezone,
       now: input.now,
       ticket: input.ticket,
+      timeoutMs: legMs,
     }),
-    Promise.all(candidates.map((c) => quoteLotParking(c.lotId, input.window.fromDate, input.window.toDate))),
+    Promise.all(candidates.map((c) => quoteLotParking(c.lotId, input.window.fromDate, input.window.toDate, Date.now(), legMs))),
   ]);
   onAnomalies(rates.anomalies);
 
