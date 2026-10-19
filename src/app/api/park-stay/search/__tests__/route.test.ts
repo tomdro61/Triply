@@ -261,3 +261,16 @@ describe("GET /api/park-stay/search — review pass 1", () => {
   });
 });
 
+describe("GET /api/park-stay/search — review pass 3", () => {
+  it("an answer where LiteAPI left out a requested hotel is shown but NOT micro-cached", async () => {
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ sandbox: true, data: [hotelRates("lp3034d", [rate({ rateId: "b", net: 150, ssp: 170 })])], hotels: [content(hampton)] }), { status: 200 })
+    );
+    const res = await GET(request());
+    expect(res.status).toBe(200);
+    expect((await res.json()).offers.map((o: { hotelKey: string }) => o.hotelKey)).toEqual(["hampton-inn-jfk"]);
+    await GET(request());
+    expect(takeLiteApiCall).toHaveBeenCalledTimes(2);
+  });
+});

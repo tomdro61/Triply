@@ -27,7 +27,7 @@ import { safePhotoUrl } from "../photo-hosts";
 import { normaliseRefundableTag, refundabilityFromPolicies, type RefundableTag } from "../cancellation";
 import type { RoomRefundability } from "../refundability";
 import { dollarsToCents } from "../pricing";
-import { LITEAPI_RATES_TIMEOUT_MS } from "../plans";
+import { LITEAPI_RATES_TIMEOUT_MS, LITEAPI_SUPPLIER_TIMEOUT_MARGIN_MS, LITEAPI_SUPPLIER_TIMEOUT_S } from "../plans";
 
 // ───────────────────────────── wire shapes (validated at the boundary) ─────────────────────────────
 //
@@ -307,8 +307,20 @@ function errorBody(body: unknown): { code: number | null; description: string } 
   return { code, description };
 }
 
-function emptyResult(rateLimit: LiteApiRateLimit, durationMs: number): ParkStayRatesResult {
-  return { rates: new Map(), content: new Map(), anomalies: [], sandbox: null, rateLimit, durationMs };
+/**
+ * LiteAPI's explicit "no availability" (2001): every requested hotel gets an
+ * explicit empty room list — a valid "no rooms" answer (sold out), unlike a
+ * hotel merely absent from data[] (see search.ts, no_rates_returned).
+ */
+function noAvailabilityResult(hotelIds: readonly string[], rateLimit: LiteApiRateLimit, durationMs: number): ParkStayRatesResult {
+  const rates = new Map<string, HotelRatesMapped>();
+  for (const id of hotelIds) rates.set(id, { hotelId: id, rates: [], hiddenReason: null, malformed: 0 });
+  return { rates, content: new Map(), anomalies: [], sandbox: null, rateLimit, durationMs };
+}
+
+/** Our leg in ms → LiteAPI's `timeout` in whole seconds: ≤ 12 s and ≥ 3 s inside the leg; at least 1. */
+export function liteApiSupplierTimeoutSeconds(legMs: number): number {
+  return Math.max(1, Math.min(LITEAPI_SUPPLIER_TIMEOUT_S, Math.floor((Math.min(legMs, LITEAPI_RATES_TIMEOUT_MS) - LITEAPI_SUPPLIER_TIMEOUT_MARGIN_MS) / 1000)));
 }
 
 /**
@@ -351,18 +363,23 @@ export async function fetchParkStayRates(params: {
         margin: 0,
         // V2: without this a hotelIds query returns no `hotels[]` content.
         includeHotelData: true,
+        // LiteAPI's own supplier timeout, in SECONDS (documented body param
+        // `timeout`, docs.liteapi.travel; not yet verified live). Kept below our
+        // client-side leg so LiteAPI answers with what it has instead of us
+        // aborting a call that was about to return.
+        timeout: liteApiSupplierTimeoutSeconds(params.timeoutMs),
       },
       timeoutMs: Math.min(params.timeoutMs, LITEAPI_RATES_TIMEOUT_MS),
     });
   } catch (err) {
     if (err instanceof LiteApiError && err.code === LITEAPI_NO_AVAILABILITY_CODE && err.statusCode >= 400 && err.statusCode < 500) {
-      return emptyResult({ limit: null, remaining: null }, 0);
+      return noAvailabilityResult(params.hotelIds, { limit: null, remaining: null }, 0);
     }
     throw err;
   }
   const errBody = errorBody(r.data);
   if (errBody) {
-    if (errBody.code === LITEAPI_NO_AVAILABILITY_CODE) return emptyResult(r.rateLimit, r.durationMs);
+    if (errBody.code === LITEAPI_NO_AVAILABILITY_CODE) return noAvailabilityResult(params.hotelIds, r.rateLimit, r.durationMs);
     throw new LiteApiError(502, `LiteAPI /hotels/rates answered 200 with an error body: ${errBody.description}`, r.data, errBody.code ?? undefined);
   }
   const body = ratesBodySchema.safeParse(r.data);
@@ -385,8 +402,11 @@ export async function fetchParkStayRates(params: {
     // Read the id loosely so the failure lands on the right hotel.
     const looseId = raw && typeof raw === "object" && "hotelId" in raw && typeof raw.hotelId === "string" ? raw.hotelId : null;
     anomalies.add(`malformed rates entry #${index} (hotelId ${JSON.stringify(looseId)}): ${issuePaths(hr.error.issues)}`);
-    if (looseId !== null && wanted.has(looseId)) rates.set(looseId, malformedFor(looseId));
-    else unattributable++;
+    if (looseId === null) unattributable++;
+    // A hotel we didn't ask for: ignored (the anomaly above records it).
+    else if (!wanted.has(looseId)) return;
+    // Never overwrite a readable entry for the same hotel with a broken duplicate.
+    else if (!rates.has(looseId)) rates.set(looseId, malformedFor(looseId));
   });
   if (unattributable > 0) {
     for (const id of wanted) if (!rates.has(id)) rates.set(id, malformedFor(id));

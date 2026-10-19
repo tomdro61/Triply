@@ -88,7 +88,10 @@ export type HiddenReason =
   | "parking_transient"
   | "parking_auth"
   | "parking_unexpected"
+  /** The hotel was in a READABLE answer with no rooms (or LiteAPI said "no availability", 2001). */
   | "no_room"
+  /** The hotel was simply absent from a readable answer — not evidence of a sell-out. */
+  | "no_rates_returned"
   | "non_usd_collected_fee"
   | "rates_malformed"
   | "liteapi_mismatch";
@@ -201,6 +204,8 @@ export type ParkStaySearchOutcome =
       cards: ParkStayCard[];
       /** Some hotels could not be checked reliably right now — never cached. */
       partial: boolean;
+      /** False when LiteAPI's answer left out a requested hotel: shown, but never micro-cached. */
+      cacheable: boolean;
       /** Null when there are cards, or when the empty answer is only partial (we don't know). */
       emptyReason: EmptyReason | null;
       sandbox: boolean | null;
@@ -415,7 +420,7 @@ async function warmOnce(state: { warmed: boolean }, input: ParkStayRunInput): Pr
 
 async function resolveCandidates(prepared: PreparedParkStay, input: ParkStayRunInput, hidden: HiddenCounts, warm: { warmed: boolean }): Promise<Candidate[]> {
   // A snapshot read that doesn't answer in time is treated as "no list" (the Preview path).
-  const list = await channelListNoSweep(Math.min(PARK_STAY_SNAPSHOT_LEG_MS, timeLeft(input)));
+  const list = await channelListNoSweep(Math.min(PARK_STAY_SNAPSHOT_LEG_MS, timeLeft(input)), input.caller);
   if (!list) {
     // Preview / cold instance: authenticate once before N parallel getLocation calls (M1).
     await warmOnce(warm, input);
@@ -595,8 +600,10 @@ async function run(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomal
   // a ResLab failure is per lot. Warm-up only if the lookups didn't already
   // (the list came from the snapshot) — at most once per request.
   await warmOnce(warm, input);
-  // Not enough time left for a useful LiteAPI call: 503 without calling it
-  // (the ticket stays unspent).
+  // Not enough time left for a useful LiteAPI call: 503 without calling it.
+  // "Unspent" means no LiteAPI request is sent — the budget RPC already
+  // debited the day's count when the ticket was taken, so this 503 still
+  // counts against the daily budget.
   requireTime(input, PARK_STAY_MIN_LITEAPI_LEG_MS, "LiteAPI");
   const legMs = timeLeft(input);
   const [rates, quotes] = await Promise.all([
@@ -630,7 +637,12 @@ async function run(prepared: PreparedParkStay, input: ParkStayRunInput, onAnomal
       }
       return;
     }
-    if (!mapped || mapped.rates.length === 0) {
+    if (!mapped) {
+      // Absent from a readable answer: LiteAPI didn't say "no rooms", it said nothing.
+      hide(hidden, "no_rates_returned");
+      return;
+    }
+    if (mapped.rates.length === 0) {
       hide(hidden, "no_room");
       return;
     }
@@ -688,6 +700,7 @@ export async function searchParkStay(prepared: PreparedParkStay, input: ParkStay
     kind: "results",
     cards,
     partial,
+    cacheable: (r.hidden.no_rates_returned ?? 0) === 0,
     // An empty answer that is only partial is "we couldn't check", not "none available" (M2).
     emptyReason: cards.length === 0 && !partial ? emptyReasonFrom(r.hidden) : null,
     sandbox: r.sandbox,

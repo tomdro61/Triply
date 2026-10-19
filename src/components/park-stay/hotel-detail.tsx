@@ -11,7 +11,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { ParkStayHotelResponse } from "@/app/api/park-stay/hotel/route";
-import type { ParkStayRoomOffer } from "@/lib/hotels/search";
+import type { HiddenReason, ParkStayRoomOffer } from "@/lib/hotels/search";
 import { BUNDLE_CANCELLATION_NOTE } from "@/lib/hotels/refundability";
 import { Button } from "@/components/ui/button";
 import { PackagePrice } from "./package-price";
@@ -21,7 +21,7 @@ import { readSearchValues } from "./search-results";
 
 type Ok = Extract<ParkStayHotelResponse, { status: "ok" }>;
 
-type Settled = { kind: "error"; message: string; retry: boolean } | { kind: "unavailable" } | { kind: "ok"; body: Ok };
+type Settled = { kind: "error"; message: string; retry: boolean } | { kind: "unavailable"; reason: HiddenReason } | { kind: "ok"; body: Ok };
 type State = { kind: "missing_inputs" } | { kind: "loading" } | Settled;
 
 function isHotelResponse(body: unknown): body is ParkStayHotelResponse {
@@ -41,7 +41,7 @@ async function fetchHotel(query: string): Promise<Settled> {
     const body: unknown = await res.json().catch(() => null);
     if (res.ok) {
       if (!isHotelResponse(body)) return UNAVAILABLE;
-      return body.status === "ok" ? { kind: "ok", body } : { kind: "unavailable" };
+      return body.status === "ok" ? { kind: "ok", body } : { kind: "unavailable", reason: body.reason };
     }
     if (res.status === 400 || res.status === 404) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
     if (res.status === 429) return { kind: "error", message: "Too many requests — please wait a moment.", retry: true };
@@ -49,6 +49,14 @@ async function fetchHotel(query: string): Promise<Settled> {
   } catch {
     return UNAVAILABLE;
   }
+}
+
+/** Only an explicit sold-out reads as "no availability"; anything else stays neutral. */
+export function unavailableCopy(reason: HiddenReason, mapName: string): string {
+  if (reason === "parking_sold_out" || reason === "no_room") return `${mapName} has no Park & Stay available for these dates.`;
+  if (reason === "no_rates_returned") return "No rooms were returned for these dates.";
+  if (reason === "min_stay") return `${mapName}'s parking needs a longer stay for these dates.`;
+  return `${mapName} isn't available for these dates right now.`;
 }
 
 function RoomRow({ room, returnDate }: { room: ParkStayRoomOffer; returnDate: string }) {
@@ -141,7 +149,7 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
           )}
         </div>
       )}
-      {state.kind === "unavailable" && <p className="rounded-md border p-4 text-sm">{mapName} has no Park &amp; Stay available for these dates.</p>}
+      {state.kind === "unavailable" && <p className="rounded-md border p-4 text-sm">{unavailableCopy(state.reason, mapName)}</p>}
       {state.kind === "ok" && <HotelBody body={state.body} seen={seen} />}
     </div>
   );

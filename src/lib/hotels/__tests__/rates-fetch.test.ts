@@ -5,7 +5,7 @@ vi.mock("@/lib/hotels/liteapi/env", async (importOriginal) => {
   return { ...actual, resolveHotelEnv: () => ({ mode: "sandbox", apiKey: "k", dataBaseUrl: "https://data.test", bookBaseUrl: "https://book.test" }) };
 });
 
-import { fetchParkStayRates } from "../liteapi/rates";
+import { fetchParkStayRates, liteApiSupplierTimeoutSeconds } from "../liteapi/rates";
 import { LiteApiError } from "../liteapi/client";
 import { takeLiteApiCall } from "../liteapi/budget";
 import { HOTEL_LOTS } from "../hotel-lots";
@@ -62,14 +62,14 @@ describe("fetchParkStayRates — the 200 body is validated at the boundary (revi
     await expect(call()).rejects.toBeInstanceOf(LiteApiError);
   });
 
-  it("LiteAPI's no-availability code 2001 is an honest empty — as a 200 body…", async () => {
+  it("LiteAPI's no-availability code 2001 is an EXPLICIT empty for every requested hotel — as a 200 body…", async () => {
     reply = { status: 200, text: JSON.stringify({ error: { code: 2001, description: "no availability found" } }) };
-    expect((await call()).rates.size).toBe(0);
+    expect((await call()).rates.get("lp27fe6")).toEqual({ hotelId: "lp27fe6", rates: [], hiddenReason: null, malformed: 0 });
   });
 
   it("…and as a 4xx (no 503, no Sentry for an ordinary sold-out night)", async () => {
     reply = { status: 400, text: JSON.stringify({ error: { code: 2001, description: "no availability found" } }) };
-    expect((await call()).rates.size).toBe(0);
+    expect((await call()).rates.get("lp27fe6")).toEqual({ hotelId: "lp27fe6", rates: [], hiddenReason: null, malformed: 0 });
   });
 
   it("another 4xx, or a 5xx, still throws", async () => {
@@ -120,5 +120,35 @@ describe("review pass 2 — unreadable rates entries never become 'no room' (M2)
   it("nested: a hotel whose room types / rates are all malformed is rates_malformed", async () => {
     reply = { status: 200, text: JSON.stringify({ data: [{ hotelId: "lp27fe6", roomTypes: [{ offerId: "o", rates: [{ rateId: "x", retailRate: { total: "200" } }] }] }] }) };
     expect((await call()).rates.get("lp27fe6")).toMatchObject({ hiddenReason: "rates_malformed", malformed: 1 });
+  });
+});
+
+describe("review pass 3", () => {
+  const ids = ["lp27fe6", "lp3034d"];
+  const good = hotelRates("lp27fe6", [rate({ rateId: "a", net: 200, ssp: 220 })]);
+
+  it("sends LiteAPI's own `timeout` (seconds), 12 s at most and ≥ 3 s inside our leg", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good] }) };
+    await call();
+    const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body.timeout).toBe(12);
+    expect(liteApiSupplierTimeoutSeconds(15_000)).toBe(12);
+    expect(liteApiSupplierTimeoutSeconds(10_000)).toBe(7);
+    expect(liteApiSupplierTimeoutSeconds(3_500)).toBe(1);
+  });
+
+  it("L2: a broken duplicate never overwrites a readable entry for the same hotel", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good, { hotelId: "lp27fe6", roomTypes: "oops" }] }) };
+    const r = await call(ids);
+    expect(r.rates.get("lp27fe6")?.rates).toHaveLength(1);
+    expect(r.rates.get("lp27fe6")?.hiddenReason).toBeNull();
+  });
+
+  it("L2: a broken entry for a hotel we did NOT request is ignored — it doesn't taint the hotels we did", async () => {
+    reply = { status: 200, text: JSON.stringify({ data: [good, { hotelId: "lpOTHER", roomTypes: "oops" }] }) };
+    const r = await call(ids);
+    expect(r.rates.has("lp3034d")).toBe(false);
+    expect(r.rates.has("lpOTHER")).toBe(false);
+    expect(r.anomalies.some((a) => a.includes("lpOTHER"))).toBe(true);
   });
 });

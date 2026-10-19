@@ -267,3 +267,20 @@ describe("review pass 1 — failure classification and the cold start (H2, M1)",
     expect(captureAPIError).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("review pass 3 — auth by message, unknown-4xx negative cache", () => {
+  it("ANY failed /authenticate is auth, whatever its status", () => {
+    expect(classifyCallError(new ReslabError(400, "Authentication failed: bad domain")).kind).toBe("auth");
+    expect(classifyCallError(new ReslabError(422, "Authentication failed: {}")).kind).toBe("auth");
+    expect(classifyCallError(new ReslabError(422, "API request failed: x")).kind).toBe("client_4xx");
+  });
+
+  it("an unrecognised min-price 4xx is negatively cached for 60 s", async () => {
+    getMinPrice.mockRejectedValueOnce(new ReslabError(422, 'API request failed: {"message":"Something new"}'));
+    expect((await quoteLotParking(7, "a", "b", 0)).kind).toBe("unknown_4xx");
+    expect((await quoteLotParking(7, "a", "b", 59_999)).kind).toBe("unknown_4xx");
+    expect(getMinPrice).toHaveBeenCalledTimes(1);
+    getMinPrice.mockResolvedValueOnce(minPrice({ grand: 100, sub: 100 }));
+    expect((await quoteLotParking(7, "a", "b", 60_001)).kind).toBe("priced");
+  });
+});

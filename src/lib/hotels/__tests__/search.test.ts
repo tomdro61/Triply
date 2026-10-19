@@ -516,3 +516,45 @@ describe("review pass 2 — the request-wide deadline (H1)", () => {
     await expect(searchParkStay(prep(), await input(), () => {})).rejects.toMatchObject({ reason: "no_reliable_result" });
   });
 });
+
+describe("review pass 3", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("M1: a warm-up refused with a NON-401 status ('Authentication failed', 422) still stops the request before the fan-out", async () => {
+    warmToken.mockRejectedValue(new ReslabError(422, "Authentication failed: invalid domain"));
+    await expect(searchParkStay(prep(), await input(), () => {})).rejects.toMatchObject({ reason: "reslab_auth" });
+    expect(getLocation).not.toHaveBeenCalled();
+    expect(getMinPrice).not.toHaveBeenCalled();
+  });
+
+  it("M2: a hotel absent from LiteAPI's readable answer is no_rates_returned — never sold out — and the answer is not cacheable", async () => {
+    liteResponse.body.data = [liteResponse.body.data[1]]; // Hampton only
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", partial: false, cacheable: false, hidden: { no_rates_returned: 1 } });
+    expect(out.kind === "results" && out.cards.map((c) => c.hotelKey)).toEqual(["hampton-inn-jfk"]);
+
+    __resetHotelLotResolveForTests();
+    liteResponse.body.data = [];
+    const empty = await searchParkStay(prep(), await input(), () => {});
+    expect(empty).toMatchObject({ kind: "results", cards: [], emptyReason: "none_available", cacheable: false });
+    __resetHotelLotResolveForTests();
+    expect(await quoteParkStayHotel(prep([doubletree]), await input(), 6, () => {})).toEqual({ kind: "unavailable", reason: "no_rates_returned" });
+  });
+
+  it("M2: an explicit empty room list for a hotel is still sold out", async () => {
+    liteResponse.body.data = [hotelRates("lp27fe6", []), hotelRates("lp3034d", [])];
+    const out = await searchParkStay(prep(), await input(), () => {});
+    expect(out).toMatchObject({ kind: "results", cards: [], emptyReason: "sold_out", cacheable: true });
+  });
+
+  it("M3: a snapshot read that times out is reported (throttled) and the search continues on getLocation", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+    getChannelLocationsNoSweep.mockReturnValue(new Promise(() => {}));
+    const i = { ...(await input()), deadlineMs: Date.now() + 28_000 };
+    const p = searchParkStay(prep(), i, () => {});
+    await vi.advanceTimersByTimeAsync(5_001);
+    const out = await p;
+    expect(out.kind === "results" && out.cards).toHaveLength(2);
+    expect(captureAPIError.mock.calls.filter((c) => (c[1] as { stage: string }).stage === "park_stay_snapshot_unavailable")).toHaveLength(1);
+  });
+});

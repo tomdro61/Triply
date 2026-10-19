@@ -77,6 +77,13 @@ export const RESLAB_QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /** LiteAPI /hotels/rates timeout (the client keeps it armed through the body). */
 export const LITEAPI_RATES_TIMEOUT_MS = 15_000;
+/**
+ * LiteAPI's own `timeout` body param (SECONDS; documented, its default and
+ * range are not): at most 12 s — inside LiteAPI's recommended 6–12 s — and
+ * always ≥ 3 s below our client-side leg, so LiteAPI answers before we abort.
+ */
+export const LITEAPI_SUPPLIER_TIMEOUT_S = 12;
+export const LITEAPI_SUPPLIER_TIMEOUT_MARGIN_MS = 3_000;
 
 /**
  * The request-wide deadline (review pass 2, H1): the routes' maxDuration is

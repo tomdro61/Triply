@@ -78,6 +78,7 @@ export function reportOnce(
 }
 
 const lastReportAt = new Map<string, number>();
+const SNAPSHOT_REPORT_INTERVAL_MS = 10 * 60 * 1000;
 const LAST_REPORT_MAX_KEYS = 1_000;
 
 /**
@@ -129,11 +130,18 @@ function errorDetail(err: unknown): string {
   return err instanceof Error ? `${err.name}: ${err.message.slice(0, 200)}` : String(err).slice(0, 200);
 }
 
+/** The message prefix of every ReslabError thrown by getToken() in reslab/client.ts. */
+export const RESLAB_AUTH_FAILURE_PREFIX = "Authentication failed";
+
 export function classifyCallError(err: unknown): CallFailure {
   const detail = errorDetail(err);
   if (err instanceof BoundedTimeoutError) return { kind: "transient", detail, timeout: true };
   if (err instanceof ReslabError) {
     const s = err.statusCode;
+    // ANY failed /authenticate is auth, whatever its status: reslab/client.ts
+    // getToken() throws ReslabError(status, "Authentication failed: …") — a 400
+    // or 422 there is still "we can't log in", not a per-lot 4xx.
+    if (err.message.startsWith(RESLAB_AUTH_FAILURE_PREFIX)) return { kind: "auth", detail };
     if (s === 401 || s === 403) return { kind: "auth", detail };
     if (s === 404) return { kind: "not_found", detail };
     if (s === 0 || s === 408 || s === 429 || s >= 500) return { kind: "transient", detail, timeout: false };
@@ -277,13 +285,20 @@ export async function lookupLot(
 
 /**
  * The no-sweep list, or null (Preview / a cold instance / the snapshot read
- * did not answer within `timeoutMs`). Never calls ResLab; never throws.
+ * did not answer within `timeoutMs`). Never calls ResLab; never throws. A
+ * timeout or error is reported (throttled) — a null that is NOT the ordinary
+ * "no list on this instance" must not be silent.
  */
-export async function channelListNoSweep(timeoutMs: number): Promise<readonly ReslabLocation[] | null> {
+export async function channelListNoSweep(timeoutMs: number, caller: string): Promise<readonly ReslabLocation[] | null> {
   if (timeoutMs <= 0) return null;
   try {
     return await bounded(getChannelLocationsNoSweep(), timeoutMs, "getChannelLocationsNoSweep");
-  } catch {
+  } catch (err) {
+    reportThrottled("park_stay_snapshot_unavailable", SNAPSHOT_REPORT_INTERVAL_MS, `Park & Stay: location list unavailable (${errorDetail(err)}) — using getLocation`, {
+      caller,
+      stage: "park_stay_snapshot_unavailable",
+      extra: { timeoutMs, timeout: err instanceof BoundedTimeoutError },
+    });
     return null;
   }
 }
@@ -505,14 +520,14 @@ async function fetchQuote(lotId: number, fromDate: string, toDate: string, timeo
 }
 
 /**
- * How long an outcome is reused: definitive answers for the quote TTL; auth
- * and unexpected failures briefly (a negative cache, so a revoked key costs
- * one call per lot per minute, not one per request); transient, unknown 4xx
- * and failed checks never.
+ * How long an outcome is reused: definitive answers for the quote TTL; auth,
+ * unexpected and unrecognised-4xx failures briefly (a negative cache, so a
+ * repeating failure costs one call per lot per minute, not one per request);
+ * transient failures and failed checks never.
  */
 function cacheTtl(o: ParkingQuoteOutcome): number {
   if (o.kind === "priced" || o.kind === "sold_out" || o.kind === "known_4xx") return RESLAB_QUOTE_CACHE_TTL_MS;
-  if (o.kind === "auth" || o.kind === "unexpected") return RESLAB_LOCATION_FAILURE_BACKOFF_MS;
+  if (o.kind === "auth" || o.kind === "unexpected" || o.kind === "unknown_4xx") return RESLAB_LOCATION_FAILURE_BACKOFF_MS;
   return 0;
 }
 

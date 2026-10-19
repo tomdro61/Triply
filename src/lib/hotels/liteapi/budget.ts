@@ -73,6 +73,11 @@ const ISSUE: unique symbol = Symbol("BudgetTicket.issue");
 /**
  * One call taken from today's budget, not yet spent. Pass it to a
  * `meter: "prepaid"` request; `spend()` is single-use and checks the mode.
+ *
+ * The database debits the day's count when the ticket is TAKEN, not when it
+ * is spent: a request that takes a ticket and then answers 503 without
+ * calling LiteAPI (deadline, ResLab auth, no reliable lot) still counts
+ * against the daily budget. "Unspent" only means no LiteAPI call was sent.
  */
 export class BudgetTicket {
   #spent = false;

@@ -141,7 +141,8 @@ export async function GET(request: NextRequest) {
     };
     // Only a complete, non-empty answer is worth reusing (an empty or partial
     // one may be a blip).
-    if (body.status === "ok" && !body.partial) cacheSet(cacheKey, body, now);
+    // ...and one where LiteAPI left out a requested hotel is not reused either.
+    if (body.status === "ok" && !body.partial && outcome.cacheable) cacheSet(cacheKey, body, now);
     return NextResponse.json(body, { headers: NO_STORE });
   } catch (error) {
     return supplierFailure(error, CALLER);
