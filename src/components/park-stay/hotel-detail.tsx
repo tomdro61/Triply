@@ -44,6 +44,7 @@ async function fetchHotel(query: string): Promise<Settled> {
       return body.status === "ok" ? { kind: "ok", body } : { kind: "unavailable" };
     }
     if (res.status === 400 || res.status === 404) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
+    if (res.status === 429) return { kind: "error", message: "Too many requests — please wait a moment.", retry: true };
     return UNAVAILABLE;
   } catch {
     return UNAVAILABLE;

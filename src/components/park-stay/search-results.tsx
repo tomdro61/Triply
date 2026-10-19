@@ -36,6 +36,7 @@ const EMPTY_COPY: Record<NonNullable<ParkStaySearchResponse["emptyReason"]>, str
   min_stay: "No Park & Stay available for these dates — the hotels here need a longer parking stay.",
   booking_window: "No Park & Stay available for these dates — they are outside the booking window.",
   sold_out: "No Park & Stay available for these dates — the hotels or their parking are sold out.",
+  notice_period: "No Park & Stay available for that arrival time — choose a later arrival time.",
   none_available: "No Park & Stay available for these dates.",
 };
 
@@ -119,8 +120,18 @@ export function ParkStaySearchResults({ airports }: { airports: ParkStayAirportO
           <p className="text-sm text-muted-foreground">
             Hotel night {formatIsoDay(state.body.search.night)}, check-out and departure {formatIsoDay(state.body.search.departureDate)}. Parking from {state.body.search.arrivalTime} on {formatIsoDay(state.body.search.night)} to {state.body.search.returnTime} on {formatIsoDay(state.body.search.returnDate)}.
           </p>
-          {state.body.partial && <p className="rounded-md bg-muted px-3 py-2 text-sm">Some hotels couldn&apos;t be checked right now.</p>}
-          {state.body.offers.length === 0 ? (
+          {state.body.partial && state.body.offers.length > 0 && (
+            <p className="rounded-md bg-muted px-3 py-2 text-sm">Some hotels couldn&apos;t be checked right now.</p>
+          )}
+          {state.body.offers.length === 0 && state.body.partial ? (
+            // Partial AND empty is "we don't know", never "none available" (M2).
+            <div className="rounded-md border p-4 text-sm">
+              <p>We couldn&apos;t check most hotels right now.</p>
+              <button type="button" onClick={retry} className="mt-2 font-medium text-primary hover:underline">
+                Try again
+              </button>
+            </div>
+          ) : state.body.offers.length === 0 ? (
             <p className="rounded-md border p-4 text-sm">{EMPTY_COPY[state.body.emptyReason ?? "none_available"]}</p>
           ) : (
             state.body.offers.map((card) => (
