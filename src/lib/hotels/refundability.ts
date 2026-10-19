@@ -27,8 +27,16 @@ export function formatLocalDeadline(deadlineLocal: string): string {
 }
 
 export const ROOM_NON_REFUNDABLE_SUMMARY = "Non-refundable room";
-export const ROOM_NON_REFUNDABLE_DETAIL =
-  "This room rate cannot be cancelled or refunded once booked. Your parking keeps its own cancellation terms.";
+export const ROOM_NON_REFUNDABLE_DETAIL = "This room rate cannot be cancelled or refunded once booked.";
+
+/**
+ * The only thing Phase A says about cancelling the BUNDLE (plan v3 §8.2, B10):
+ * the package cancellation rules are decided in Phase B (M12), so no surface
+ * may commit to them yet — not "your parking keeps its own terms", not a
+ * refund promise. (B1 note: Stripe fees are not returned on refunds, so the
+ * Phase B rules must account for them.)
+ */
+export const BUNDLE_CANCELLATION_NOTE = "Cancellation terms are confirmed before you book.";
 
 export function roomRefundabilitySummary(r: RoomRefundability): string {
   if (r.kind === "non_refundable") return ROOM_NON_REFUNDABLE_SUMMARY;
@@ -37,7 +45,7 @@ export function roomRefundabilitySummary(r: RoomRefundability): string {
 
 export function roomRefundabilityDetail(r: RoomRefundability): string {
   if (r.kind === "non_refundable") return ROOM_NON_REFUNDABLE_DETAIL;
-  return `Cancel the room for free until ${formatLocalDeadline(r.deadlineLocal)} (local time at the hotel). After that the room is non-refundable. Your parking keeps its own cancellation terms.`;
+  return `Cancel the room for free until ${formatLocalDeadline(r.deadlineLocal)} (local time at the hotel). After that the room is non-refundable.`;
 }
 
 /** Terms-checkbox copy is CONDITIONAL on refundability, never additive (plan §1). */

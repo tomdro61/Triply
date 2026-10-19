@@ -5,11 +5,13 @@
  *   PARK_STAY_AIRPORTS  comma-separated IATA allowlist; EMPTY = off even when
  *                       the master is on
  *
- * Checked in exactly four places: the search tab (resolved in the Server
- * Component and passed down — never a NEXT_PUBLIC_ var), /api/park-stay/search,
- * the hotel detail route (404), and the `hotel` branch of /api/checkout/lot +
- * update-pi. DELIBERATELY UNGATED: fulfilment, /checkout/complete, both crons,
- * both webhooks and every cancellation path — a card is already authorised.
+ * Phase A checks it in four places, all answering 404 when off: the
+ * /park-stay page and the /park-stay/[airport]/[hotelKey] page (resolved in
+ * the Server Component — never a NEXT_PUBLIC_ var), /api/park-stay/search and
+ * /api/park-stay/hotel (checked BEFORE input validation, so Production answers
+ * 404 to any query). Phase B adds the checkout branch; fulfilment, crons,
+ * webhooks and cancellation stay DELIBERATELY UNGATED — a card is already
+ * authorised by then.
  *
  * Rollback = remove the codes / set the master false AND REDEPLOY: an env
  * change does not affect the running deployment.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveHotelNight, shiftIsoDate, todayInZone, isHotelCheckinBookable } from "../dates";
+import { isIsoDate, isoDayDiff, shiftIsoDate, todayInZone } from "../dates";
 
 describe("shiftIsoDate — pure calendar arithmetic, no timezone", () => {
   it("crosses month, year and leap-day boundaries", () => {
@@ -10,7 +10,6 @@ describe("shiftIsoDate — pure calendar arithmetic, no timezone", () => {
   });
 
   it("is unaffected by DST transitions (a day is a day, not 86 400 000 ms)", () => {
-    // US spring-forward 2026-03-08 and fall-back 2026-11-01.
     expect(shiftIsoDate("2026-03-08", 1)).toBe("2026-03-09");
     expect(shiftIsoDate("2026-11-01", -1)).toBe("2026-10-31");
   });
@@ -21,41 +20,26 @@ describe("shiftIsoDate — pure calendar arithmetic, no timezone", () => {
   });
 });
 
-describe("deriveHotelNight", () => {
-  it("'before' books the night before parking starts", () => {
-    expect(deriveHotelNight("2026-10-15", "2026-10-20", "before")).toEqual({
-      checkin: "2026-10-14",
-      checkout: "2026-10-15",
-    });
+describe("isIsoDate / isoDayDiff", () => {
+  it("accepts only real calendar dates", () => {
+    expect(isIsoDate("2026-11-11")).toBe(true);
+    expect(isIsoDate("2028-02-29")).toBe(true);
+    expect(isIsoDate("2026-02-29")).toBe(false);
+    expect(isIsoDate("2026-13-01")).toBe(false);
+    expect(isIsoDate("2026-11-1")).toBe(false);
   });
-
-  it("'after' books the night the traveller gets back", () => {
-    expect(deriveHotelNight("2026-10-15", "2026-10-20", "after")).toEqual({
-      checkin: "2026-10-20",
-      checkout: "2026-10-21",
-    });
-  });
-
-  it("never depends on the parking TIMES — only the dates are inputs", () => {
-    // Same-day trip: night before is the previous calendar day regardless of a 4:00 AM check-in.
-    expect(deriveHotelNight("2026-10-15", "2026-10-15", "before").checkin).toBe("2026-10-14");
+  it("counts calendar days across DST and year ends", () => {
+    expect(isoDayDiff("2026-10-31", "2026-11-02")).toBe(2);
+    expect(isoDayDiff("2026-12-31", "2027-01-01")).toBe(1);
+    expect(isoDayDiff("2026-03-09", "2026-03-08")).toBe(-1);
   });
 });
 
-describe("todayInZone / isHotelCheckinBookable — the only clock in the module", () => {
+describe("todayInZone — the calendar day AT THE AIRPORT", () => {
   // 2026-10-15T03:30:00Z is the evening of the 14th in New York and the morning of the 15th in London.
   const instant = new Date("2026-10-15T03:30:00Z");
-
-  it("reports the calendar day AT THE AIRPORT, not the server's", () => {
+  it("reports the airport's date, not the server's", () => {
     expect(todayInZone("America/New_York", instant)).toBe("2026-10-14");
     expect(todayInZone("Europe/London", instant)).toBe("2026-10-15");
-    expect(todayInZone("Pacific/Kiritimati", instant)).toBe("2026-10-15");
-  });
-
-  it("'night before' for a same-day trip is bookable only while it is still that day at the airport", () => {
-    // Parking starts 2026-10-15; the night before is 2026-10-14. At 23:30 New York on the 14th it is still bookable…
-    expect(isHotelCheckinBookable("2026-10-14", "America/New_York", instant)).toBe(true);
-    // …but at the same instant in London (already the 15th) it is in the past.
-    expect(isHotelCheckinBookable("2026-10-14", "Europe/London", instant)).toBe(false);
   });
 });

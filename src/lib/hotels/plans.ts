@@ -3,44 +3,71 @@
  * pattern). Safe to import from "use client" components, Zod schemas and
  * tests: no env reads, no fetch, no side effects.
  *
- * Plan: notes/2026-09-18-park-and-stay-plan-v2.md §2.3, §5, §7.
+ * Plan: notes/2026-10-19-park-stay-search-plan.md (v3) §4, §5.1, §6.
  */
 
-/**
- * Margin applied on top of LiteAPI's NET rate (`retailRate.total` requested at
- * `margin: 0`). `roomSellCents = max(round(net × (1 + this/100)), sspCents)`.
- * Phase A measurement (sandbox, 24 Sept): SSP ≈ net × 1.01 on the JFK sample,
- * so this constant is the binding term and SSP is only a floor-underrun guard.
- * Re-check before Phase E against the production feed.
- */
-export const HOTEL_MARGIN_PERCENT = 15;
+// ───────────────────────── order floor (§5.1, decision D1) ─────────────────────────
+//
+// Room sell price = max(LiteAPI's suggested selling price, floor), where the
+// floor is the room price at which the WHOLE order (room + the hotel's own
+// parking + service fee) breaks even at margin m. Measured 19 Oct (V6 re-run,
+// §5.3): at m = 0 the floor binds for only 0–2 of the 9 NY/NJ hotels and
+// lifts those rooms ~1–3 % above SSP — decision 1A holds in practice. The old
+// "SSP ≈ net × 1.01" comment (one sample) is superseded.
+//
+// All percentages are applied in basis points by pricing.ts; every amount is
+// integer cents.
 
-/** Hotels considered "at the airport": LiteAPI radius search around the airport point. */
-export const PARK_STAY_HOTEL_RADIUS_M = 6_000;
+/** Stripe card fee, charged on the WHOLE charge (room + parking + service fee). */
+export const STRIPE_FEE_PERCENT = 2.9;
+export const STRIPE_FEE_FIXED_CENTS = 30;
+/** LiteAPI processing fee, on the room SELL price — conservative until LiteAPI says what it applies to. */
+export const LITEAPI_PROCESSING_FEE_PERCENT = 4;
+/** ResLab "RL Fee" (channel fee), on the parking base. */
+export const RESLAB_CHANNEL_FEE_PERCENT = 5;
+/** D1, 19 Oct 2026: the order never loses money. Defined on the whole charge (R + P + F). */
+export const ORDER_MARGIN_PERCENT = 0;
+/** Occupancy tax on our markup; 0 until the accountant answers M16 (§5.2). */
+export const ROOM_TAX_ON_MARKUP_PERCENT = 0;
 
-/** One room, 1–4 adults (A4). Occupancy changes the rate, so never defaulted. */
+// ───────────────────────── search inputs (§4.1) ─────────────────────────
+
+/** One room, 1–4 adults. Occupancy changes the rate, so never defaulted. */
 export const PARK_STAY_MIN_ADULTS = 1;
 export const PARK_STAY_MAX_ADULTS = 4;
 
-/** Which night the room is for, relative to the parking window (A4; "both" is v2). */
-export const PARK_STAY_NIGHTS = ["before", "after"] as const;
-export type ParkStayNight = (typeof PARK_STAY_NIGHTS)[number];
+/** The hotel night may be up to this many days ahead, airport-local (ResLab's window applies to the parking start, which is on this date). */
+export const PARK_STAY_MAX_NIGHT_AHEAD_DAYS = 100;
+/** The return date may be up to this many days after the hotel night. */
+export const PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS = 60;
+
+/** Arrival at the hotel (parking starts): the :00/:30 grid from 12:00 PM to 11:30 PM. */
+export const PARK_STAY_ARRIVAL_FIRST_MINUTES = 12 * 60;
+export const PARK_STAY_ARRIVAL_LAST_MINUTES = 23 * 60 + 30;
+export const PARK_STAY_TIME_SLOT_MINUTES = 30;
+
+// ───────────────────────── supplier calls (§6, §7) ─────────────────────────
 
 /**
- * Server-side micro-cache on /api/park-stay/search results, keyed on
- * (airport, derived hotel dates, adults, parking times). A named constant so
- * it can be set to 0; NOT applied on the hotel detail page (§5).
+ * Server-side micro-cache on /api/park-stay/search results, keyed on every
+ * input. Only complete, non-empty answers are stored. A named constant so it
+ * can be set to 0; NOT applied on the hotel page (it always prices fresh, §8.4).
  */
 export const PARK_STAY_SEARCH_CACHE_TTL_MS = 60_000;
 
-/**
- * How many hotels we ask LiteAPI to price per search. `/hotels/rates` cost is
- * per hotel id; 30 hotels ≈ 3.5 s in the sandbox sample.
- */
-export const PARK_STAY_MAX_HOTELS_PRICED = 20;
+/** The hotel page lists up to this many rates — the cheapest per room key. */
+export const PARK_STAY_HOTEL_PAGE_MAX_RATES = 6;
 
-/**
- * LiteAPI facility ids that mean "airport shuttle" (plan §1: 17 / 139 / 140).
- * Used for the shuttle badge only — never for pricing or pairing.
- */
-export const LITEAPI_SHUTTLE_FACILITY_IDS: ReadonlySet<number> = new Set([17, 139, 140]);
+/** ResLab bounds (§6): getLocation 4 s, min-price 8 s — `request()` alone can take getToken 10 s + call 10 s + a 401 retry. */
+export const RESLAB_GET_LOCATION_TIMEOUT_MS = 4_000;
+export const RESLAB_MIN_PRICE_TIMEOUT_MS = 8_000;
+/** Per-process caches for the mapped lots (§6 step 4–5). */
+export const RESLAB_LOCATION_CACHE_TTL_MS = 4 * 60 * 60 * 1000;
+export const RESLAB_LOCATION_BACKOFF_MS = 10 * 60 * 1000;
+export const RESLAB_QUOTE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** LiteAPI /hotels/rates timeout (the client keeps it armed through the body). */
+export const LITEAPI_RATES_TIMEOUT_MS = 15_000;
+
+/** Guard distances (§3.4): the lot / hotel must lie within this of the recorded point. */
+export const PARK_STAY_MAX_DRIFT_M = 300;

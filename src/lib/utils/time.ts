@@ -32,6 +32,25 @@ export function time12ToMinutes(time12h: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Strict "h:mm AM|PM" → minutes since midnight (0–1439), or null.
+ *
+ * `time12ToMinutes` above accepts "13:99 PM" and returns 1599, which a caller
+ * would hand ResLab as "25:99:00". This one requires an hour of 1–12 and
+ * minutes 00–59, exactly one space, upper-case AM/PM, and no surrounding
+ * whitespace. "12:00 AM" is 0 (midnight), "12:00 PM" is 720 (noon). Added
+ * for Park & Stay (plan v3 §4.1); existing callers are unchanged.
+ */
+export function parseTime12Strict(input: string): number | null {
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec(input);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+  const hour24 = (hour % 12) + (match[3] === "PM" ? 12 : 0);
+  return hour24 * 60 + minute;
+}
+
 export function isValidTimeZone(timeZone: string | null | undefined): timeZone is string {
   if (!timeZone) return false;
   try {
