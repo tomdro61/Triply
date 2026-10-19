@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * The /api/reviews request body: { rating, details? }, sent when the customer
+ * The /api/reviews request body: { bookingId, rating, details? }, sent when the customer
  * presses Save (never on page load). The review token is NOT in the body — it
  * travels in the HttpOnly review cookie (src/lib/reviews/token.ts). `details`
  * replaces every detail field at once (an omitted field inside it is stored
@@ -34,6 +34,10 @@ export const reviewDetailsSchema = z
 
 export const reviewSubmitSchema = z
   .object({
+    // The booking the page is showing. Must match the cookie's token: a second
+    // review link opened in another tab replaces the cookie, and this tab must
+    // then refuse rather than save its answers onto the other trip.
+    bookingId: z.string().uuid(),
     rating: ratingSchema,
     details: reviewDetailsSchema.optional(),
   })

@@ -58,32 +58,38 @@ function checkLink(request: NextRequest, method: "GET" | "POST"): LinkCheck {
   return valid ? { ok: true, id: id.toLowerCase() } : { ok: false, response: htmlPage(INVALID_LINK, 400) };
 }
 
-async function lookupEmail(
+/** Every address this booking's review emails went to (initial + reminder may
+ *  differ if the guest lookup changed between runs) — all are opted out. */
+async function lookupEmails(
   bookingId: string,
   method: "GET" | "POST"
-): Promise<{ ok: true; email: string } | { ok: false; response: NextResponse }> {
+): Promise<{ ok: true; emails: string[] } | { ok: false; response: NextResponse }> {
   const supabase = await createAdminClient();
   const { data, error } = await supabase
     .from("review_emails")
     .select("email")
     .eq("booking_id", bookingId)
-    .limit(1)
     .abortSignal(AbortSignal.timeout(3_000));
   if (error) {
     captureAPIError(new Error(error.message), { endpoint: ENDPOINT, method, stage: "lookup", code: error.code });
     return { ok: false, response: htmlPage(GENERIC_ERROR, 500) };
   }
-  const row = Array.isArray(data) ? data[0] : undefined;
-  const email = row && typeof row.email === "string" ? row.email.toLowerCase() : null;
-  if (!email) return { ok: false, response: htmlPage("This link no longer exists.", 404) };
-  return { ok: true, email };
+  const emails = [
+    ...new Set(
+      (Array.isArray(data) ? data : [])
+        .map((r) => (typeof r.email === "string" ? r.email.toLowerCase() : ""))
+        .filter((e) => e !== "")
+    ),
+  ];
+  if (emails.length === 0) return { ok: false, response: htmlPage("This link no longer exists.", 404) };
+  return { ok: true, emails };
 }
 
 export async function GET(request: NextRequest) {
   const link = checkLink(request, "GET");
   if (!link.ok) return link.response;
   try {
-    const found = await lookupEmail(link.id, "GET");
+    const found = await lookupEmails(link.id, "GET");
     if (!found.ok) return found.response;
   } catch (error) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), { endpoint: ENDPOINT, method: "GET" });
@@ -102,18 +108,20 @@ export async function POST(request: NextRequest) {
   const link = checkLink(request, "POST");
   if (!link.ok) return link.response;
   try {
-    const found = await lookupEmail(link.id, "POST");
+    const found = await lookupEmails(link.id, "POST");
     if (!found.ok) return found.response;
 
     const supabase = await createAdminClient();
-    const { error } = await supabase
-      .from("review_email_optouts")
-      .insert({ email: found.email })
-      .abortSignal(AbortSignal.timeout(3_000));
-    // 23505 = already opted out — the outcome the person asked for.
-    if (error && error.code !== "23505") {
-      captureAPIError(new Error(error.message), { endpoint: ENDPOINT, method: "POST", stage: "insert", code: error.code });
-      return htmlPage(GENERIC_ERROR, 500);
+    for (const email of found.emails) {
+      const { error } = await supabase
+        .from("review_email_optouts")
+        .insert({ email })
+        .abortSignal(AbortSignal.timeout(3_000));
+      // 23505 = already opted out — the outcome the person asked for.
+      if (error && error.code !== "23505") {
+        captureAPIError(new Error(error.message), { endpoint: ENDPOINT, method: "POST", stage: "insert", code: error.code });
+        return htmlPage(GENERIC_ERROR, 500);
+      }
     }
   } catch (error) {
     captureAPIError(error instanceof Error ? error : new Error(String(error)), { endpoint: ENDPOINT, method: "POST" });

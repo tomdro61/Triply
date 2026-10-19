@@ -219,8 +219,9 @@ export interface ReviewEmailsSection {
   failed: number;
   /** Rows still `claimed` or parked in `retry`: in progress or stuck. */
   waiting: number;
+  /** Address-level opt-outs (no mode: a staging soak's test opt-out counts too). */
   optOuts: number;
-  /** booking_reviews rows created in the window (any mode — reviews carry none). */
+  /** Reviews saved in the window for live (or pre-034) bookings. */
   reviews: number;
 }
 

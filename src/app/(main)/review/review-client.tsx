@@ -7,6 +7,8 @@ import { REVIEW_COMMENT_MAX, type ShuttleWait } from "@/lib/reviews/schema";
 import type { ExistingReview } from "@/lib/reviews/store";
 
 interface ReviewClientProps {
+  /** The booking this page shows; the API checks it against the cookie. */
+  bookingId: string;
   lotName: string;
   airportCode: string | null;
   bookAgainHref: string;
@@ -28,6 +30,7 @@ const SUPPORT_EMAIL = "support@triplypro.com";
  *  surfaced — never treated as saved. */
 function failureMessage(status: number): string {
   if (status === 410) return "This review link has expired.";
+  if (status === 412) return "You've opened another review link since this page loaded. Please open this trip's link from your email again.";
   if (status === 401 || status === 403) return "This review link isn't valid any more. Please open it again from your email.";
   if (status === 404 || status === 409) return "This booking can't be reviewed.";
   if (status === 400) return "Something in the form wasn't accepted. Please check it and try again.";
@@ -42,6 +45,7 @@ function failureMessage(status: number): string {
  * HttpOnly cookie, never in this page or its requests' bodies.
  */
 export default function ReviewClient({
+  bookingId,
   lotName,
   airportCode,
   bookAgainHref,
@@ -74,6 +78,7 @@ export default function ReviewClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          bookingId,
           rating,
           details: {
             shuttleWait,

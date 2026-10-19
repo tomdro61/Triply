@@ -94,7 +94,15 @@ async function resolve(token: string | undefined): Promise<
   try {
     const supabase = await createAdminClient();
     const ctx = await loadReviewContext(supabase, verified.bookingId);
-    if (ctx.kind === "not_found") return { kind: "error", error: "invalid" };
+    if (ctx.kind === "not_found") {
+      // Only we can sign tokens: a valid one for a missing booking means a lost
+      // row or a signing secret shared across environments.
+      captureAPIError(new Error(`review: signed token for a booking that does not exist (${verified.bookingId})`), {
+        ...CTX,
+        stage: "not_found",
+      });
+      return { kind: "error", error: "invalid" };
+    }
     if (ctx.kind === "not_reviewable") return { kind: "error", error: "not_reviewable" };
     return { kind: "ok", ctx };
   } catch (error) {
@@ -118,6 +126,7 @@ export default async function ReviewPage({ searchParams }: ReviewPageProps) {
           <ErrorState kind={result.error} />
         ) : (
           <ReviewClient
+            bookingId={result.ctx.booking.id}
             lotName={result.ctx.booking.lotName}
             airportCode={result.ctx.booking.airportCode}
             bookAgainHref={bookAgainUrl(result.ctx.booking.airportCode, "review_page")}

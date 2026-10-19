@@ -593,7 +593,14 @@ export async function collectReviewEmails(sb: Client, w: DigestWindow): Promise<
     const [emails, optouts, reviews] = await Promise.all([
       sb.from("review_emails").select("status").eq("livemode", true).gte("created_at", s).lt("created_at", e).limit(CAP + 1).abortSignal(sig()),
       sb.from("review_email_optouts").select("email", { count: "exact", head: true }).gte("created_at", s).lt("created_at", e).abortSignal(sig()),
-      sb.from("booking_reviews").select("id", { count: "exact", head: true }).gte("created_at", s).lt("created_at", e).abortSignal(sig()),
+      // Live bookings only (one shared database): a staging soak's test reviews stay out.
+      sb
+        .from("booking_reviews")
+        .select("id, bookings!inner(livemode)", { count: "exact", head: true })
+        .not("bookings.livemode", "is", false)
+        .gte("created_at", s)
+        .lt("created_at", e)
+        .abortSignal(sig()),
     ]);
     if (emails.error) throw new Error(`review_emails: ${emails.error.code ?? "?"} ${emails.error.message}`);
     const rows = (emails.data ?? []) as Array<{ status: string }>;

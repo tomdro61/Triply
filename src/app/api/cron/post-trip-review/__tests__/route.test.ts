@@ -304,4 +304,43 @@ describe("GET /api/cron/post-trip-review", () => {
     expect(body.deferredToNextRun).toBe(1);
     expect(db.tables.review_emails.map((r) => r.status)).toEqual(["retry", "retry"]);
   });
+
+  it("skips (and alarms) a checkout booking whose guest snapshot is missing — never the account holder", async () => {
+    booking({ stripe_payment_intent_id: "pi_missing" });
+    const res = await GET(req());
+    expect(await res.json()).toMatchObject({ sent: 0, noGuestSnapshot: 1 });
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("refuses (503) when the deployment mode is unknown (missing or garbled Stripe key)", async () => {
+    process.env.STRIPE_SECRET_KEY = "garbled";
+    booking();
+    expect((await GET(req())).status).toBe(503);
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("stops before claiming anything when the email cannot be built (our config)", async () => {
+    const saved = process.env.NEXT_PUBLIC_APP_URL;
+    process.env.NEXT_PUBLIC_APP_URL = "not a url";
+    try {
+      booking();
+      booking();
+      const body = await (await GET(req())).json();
+      expect(body).toMatchObject({ sent: 0, deferredToNextRun: 2 });
+      expect(resendSend).not.toHaveBeenCalled();
+      expect(db.tables.review_emails).toEqual([]);
+    } finally {
+      process.env.NEXT_PUBLIC_APP_URL = saved;
+    }
+  });
+
+  it("stops the run after two sends in a row with an unknown outcome", async () => {
+    booking();
+    booking();
+    booking();
+    resendSend.mockRejectedValue(new Error("ECONNRESET"));
+    const body = await (await GET(req())).json();
+    expect(resendSend).toHaveBeenCalledTimes(2);
+    expect(body).toMatchObject({ unconfirmed: 2, deferredToNextRun: 1 });
+  });
 });

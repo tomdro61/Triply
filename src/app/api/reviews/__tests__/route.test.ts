@@ -81,7 +81,7 @@ describe("GET /review/{token} (landing)", () => {
 
 describe("POST /api/reviews", () => {
   it("saves the review for the booking named by the cookie", async () => {
-    const res = await POST(post({ rating: 4, details: { shuttleWait: "under_5", extraCharges: false, comment: "Fine", publishConsent: true } }));
+    const res = await POST(post({ bookingId: BOOKING, rating: 4, details: { shuttleWait: "under_5", extraCharges: false, comment: "Fine", publishConsent: true } }));
     expect(res.status).toBe(200);
     expect(db.tables.booking_reviews).toMatchObject([{ booking_id: BOOKING, rating: 4, publish_consent: true, display_name: "Sam" }]);
   });
@@ -89,20 +89,32 @@ describe("POST /api/reviews", () => {
   it("uses the booked guest's first name from the staged payload", async () => {
     db.tables.bookings[0].stripe_payment_intent_id = "pi_1";
     db.tables.pending_bookings.push({ stripe_payment_intent_id: "pi_1", customer: { firstName: "Robin", email: "robin@example.com" } });
-    await POST(post({ rating: 5, details: { shuttleWait: null, extraCharges: null, comment: null, publishConsent: true } }));
+    await POST(post({ bookingId: BOOKING, rating: 5, details: { shuttleWait: null, extraCharges: null, comment: null, publishConsent: true } }));
     expect(db.tables.booking_reviews).toMatchObject([{ display_name: "Robin" }]);
   });
 
   it("refuses without the cookie, and never accepts a token in the body", async () => {
-    expect((await POST(post({ rating: 5 }, null))).status).toBe(401);
-    expect((await POST(post({ token: token(), rating: 5 }, null))).status).toBe(401);
-    expect((await POST(post({ token: token(), rating: 5 }))).status).toBe(400);
+    expect((await POST(post({ bookingId: BOOKING, rating: 5 }, null))).status).toBe(401);
+    expect((await POST(post({ bookingId: BOOKING, token: token(), rating: 5 }, null))).status).toBe(401);
+    expect((await POST(post({ bookingId: BOOKING, token: token(), rating: 5 }))).status).toBe(400);
+    expect(db.tables.booking_reviews).toEqual([]);
+  });
+
+  it("refuses (412) when another review link replaced the cookie since the page loaded", async () => {
+    const other = "9f2b8c1e-9a4d-4e2b-8c7a-1d2e3f4a5b6c";
+    const otherToken = signReviewToken(other, Math.floor(Date.now() / 1000) + 30 * 86_400);
+    expect((await POST(post({ bookingId: BOOKING, rating: 5 }, otherToken))).status).toBe(412);
     expect(db.tables.booking_reviews).toEqual([]);
   });
 
   it("refuses a forged cookie", async () => {
-    const forged = token().replace(/.$/, (ch) => (ch === "A" ? "B" : "A"));
-    expect((await POST(post({ rating: 1 }, forged))).status).toBe(401);
+    // Flip a character in the middle of the signature: the LAST base64url
+    // character carries only 4 significant bits, so changing it can spell the
+    // same signature (harmless, but it makes a flaky "forgery").
+    const t = token();
+    const i = t.length - 20;
+    const forged = t.slice(0, i) + (t[i] === "A" ? "B" : "A") + t.slice(i + 1);
+    expect((await POST(post({ bookingId: BOOKING, rating: 1 }, forged))).status).toBe(401);
   });
 });
 
@@ -131,5 +143,18 @@ describe("/api/reviews/unsubscribe", () => {
     bad.searchParams.set("token", "x".repeat(43));
     expect((await UNSUB_POST(new NextRequest(bad, { method: "POST" }))).status).toBe(400);
     expect(db.tables.review_email_optouts).toEqual([]);
+  });
+
+  it("one-click POST (form body from the mail client) opts out every address the booking was emailed at", async () => {
+    db.tables.review_emails.push({ id: "r2", booking_id: BOOKING, kind: "reminder", status: "sent", email: "sam@example.com" });
+    const res = await UNSUB_POST(
+      new NextRequest(url(), {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: "List-Unsubscribe=One-Click",
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(db.tables.review_email_optouts.map((r) => r.email).sort()).toEqual(["robin@example.com", "sam@example.com"]);
   });
 });

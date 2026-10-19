@@ -4,6 +4,12 @@
 -- prod) BEFORE enabling POST_TRIP_REVIEW_EMAILS_ENABLED. Strictly additive:
 -- three new tables, no change to bookings. Re-run-safe (IF NOT EXISTS).
 --
+-- BEFORE APPLYING, confirm no earlier draft of this migration was applied —
+-- IF NOT EXISTS would silently keep an old review_emails without the email /
+-- livemode columns and the 'unconfirmed' status, and every claim would fail:
+--   SELECT to_regclass('public.review_emails'), to_regclass('public.booking_reviews');
+--   -- both must be NULL
+--
 -- booking_reviews — one review per booking (UNIQUE booking_id), written only
 -- through /api/reviews by a customer who opened the signed link from the
 -- post-trip email AND pressed Save (nothing is written on page load, so mail

@@ -110,6 +110,8 @@ export async function loadReviewContext(supabase: Supabase, bookingId: string): 
   // The name a published review shows is the booked guest's (the person the
   // review email went to), not the customers row's — a signed-in account can
   // book for someone else. The customers row is the fallback.
+  // A checkout booking whose snapshot is missing or malformed gets no name at
+  // all — the customers row could be the account holder, not the guest.
   let guestFirstName: string | null | undefined;
   if (row.stripe_payment_intent_id) {
     const g = await supabase
@@ -120,7 +122,7 @@ export async function loadReviewContext(supabase: Supabase, bookingId: string): 
       .maybeSingle();
     if (g.error) throw new Error(`pending_bookings read failed: ${g.error.message}`);
     const p = g.data ? guestSchema.safeParse(g.data) : null;
-    if (p?.success) guestFirstName = p.data.customer.firstName?.trim() || null;
+    guestFirstName = p?.success ? p.data.customer.firstName?.trim() || null : null;
   }
   const cust = Array.isArray(row.customers) ? (row.customers[0] ?? null) : row.customers;
   return {

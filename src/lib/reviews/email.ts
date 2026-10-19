@@ -79,10 +79,17 @@ export interface ReviewEmailFooter {
   postalAddress: string;
 }
 
-export function buildReviewEmail(
-  c: ReviewCandidate,
-  footerInfo: ReviewEmailFooter
-): { subject: string; html: string; text: string; unsubscribeUrl: string } {
+export interface BuiltReviewEmail {
+  subject: string;
+  html: string;
+  text: string;
+  unsubscribeUrl: string;
+}
+
+/** Pure; throws on our own config faults (bad NEXT_PUBLIC_APP_URL, missing
+ *  signing secret). The cron builds BEFORE claiming a row, so such a fault can
+ *  never be mistaken for a send whose outcome is unknown. */
+export function buildReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFooter): BuiltReviewEmail {
   const token = signReviewToken(c.bookingId, reviewLinkExpiry(c.checkoutDate));
   const starUrls = [1, 2, 3, 4, 5].map((n) => reviewUrl(token, n));
   const againUrl = bookAgainUrl(c.airportCode);
@@ -170,8 +177,8 @@ export function buildReviewEmail(
 export const reviewIdempotencyKey = (bookingId: string, kind: ReviewCandidate["kind"]) =>
   `post-trip-review/${bookingId}/${kind}`;
 
-export async function sendReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFooter): Promise<void> {
-  const { subject, html, text, unsubscribeUrl } = buildReviewEmail(c, footerInfo);
+export async function sendReviewEmail(c: ReviewCandidate, built: BuiltReviewEmail): Promise<void> {
+  const { subject, html, text, unsubscribeUrl } = built;
   // resend never throws for an API-level failure — it resolves { error }. The
   // race bounds a hung send (classified "uncertain" — the request isn't
   // cancelled, so the email may still go out).

@@ -14,7 +14,9 @@ import { loadReviewContext, upsertReview } from "@/lib/reviews/store";
  * expires. Nothing is written unless the token verifies and the booking is
  * still a reviewable stay. Same-origin only (the review page is the one caller).
  *
- * Body (Zod, src/lib/reviews/schema.ts): { rating, details? }.
+ * Body (Zod, src/lib/reviews/schema.ts): { bookingId, rating, details? }. The
+ * bookingId must be the cookie's booking (412 otherwise — another review link
+ * replaced the cookie since this page loaded).
  */
 
 export const dynamic = "force-dynamic";
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid review", issues: parsed.error.issues.map((i) => i.message) }, { status: 400 });
   }
-  const { rating, details } = parsed.data;
+  const { bookingId, rating, details } = parsed.data;
 
   let verified: ReturnType<typeof verifyReviewToken>;
   try {
@@ -64,11 +66,23 @@ export async function POST(request: NextRequest) {
     const status = verified.reason === "expired" ? 410 : 401;
     return NextResponse.json({ error: verified.reason === "expired" ? "Link expired" : "Invalid link" }, { status });
   }
+  if (verified.bookingId !== bookingId.toLowerCase()) {
+    // Another review link was opened since this page loaded (it replaced the cookie).
+    return NextResponse.json({ error: "Stale page" }, { status: 412 });
+  }
 
   try {
     const supabase = await createAdminClient();
     const ctx = await loadReviewContext(supabase, verified.bookingId);
-    if (ctx.kind === "not_found") return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    if (ctx.kind === "not_found") {
+      // A valid signature for a missing booking: a lost row or a shared secret.
+      captureAPIError(new Error(`reviews: signed token for a booking that does not exist (${verified.bookingId})`), {
+        ...CTX,
+        stage: "not_found",
+        statusCode: 404,
+      });
+      return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
     if (ctx.kind === "not_reviewable") {
       return NextResponse.json({ error: "This booking can't be reviewed" }, { status: 409 });
     }

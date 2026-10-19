@@ -88,6 +88,9 @@ export interface ReviewCandidate {
 export interface ReviewSelection {
   initial: ReviewCandidate[];
   reminder: ReviewCandidate[];
+  /** Emails parked in `retry` whose window closed before they could be sent
+   *  (initial or reminder) — never sent; the cron alarms with these ids. */
+  expiredRetries: Array<{ bookingId: string; kind: ReviewEmailKind }>;
   skipped: {
     notReviewable: number;
     cancelling: number;
@@ -98,7 +101,7 @@ export interface ReviewSelection {
     invalidCheckout: number;
     notCheckedOut: number;
     tooOldForInitial: number;
-    /** A 'retry' initial that aged out before it could be sent; the cron alarms. */
+    /** A 'retry' initial or reminder that aged out before it could be sent; the cron alarms. */
     retryExpired: number;
     optedOut: number;
     unconfirmed: number;
@@ -211,6 +214,7 @@ export function selectReviewSends(
 
   const initial: ReviewCandidate[] = [];
   const reminder: ReviewCandidate[] = [];
+  const expiredRetries: ReviewSelection["expiredRetries"] = [];
   // One email per address per run: a customer with two trips ending together
   // gets the second on a later run (still inside the window), not two at once.
   const addressesThisRun = new Set<string>();
@@ -275,8 +279,12 @@ export function selectReviewSends(
     const first = ledgerByKey.get(`${b.id}|initial`);
     if (!first || first.status === "retry") {
       if (daysSince > INITIAL_MAX_DAYS_AFTER) {
-        if (first) skipped.retryExpired++;
-        else skipped.tooOldForInitial++;
+        if (first) {
+          skipped.retryExpired++;
+          expiredRetries.push({ bookingId: b.id, kind: "initial" });
+        } else {
+          skipped.tooOldForInitial++;
+        }
         continue;
       }
       if (addressesThisRun.has(email)) {
@@ -310,7 +318,13 @@ export function selectReviewSends(
       continue;
     }
     if (daysSince > REMINDER_MAX_DAYS_AFTER) {
-      skipped.tooOldForReminder++;
+      if (second) {
+        // A reminder parked in `retry` that never made it out.
+        skipped.retryExpired++;
+        expiredRetries.push({ bookingId: b.id, kind: "reminder" });
+      } else {
+        skipped.tooOldForReminder++;
+      }
       continue;
     }
     const sentMs = first.sentAt ? Date.parse(first.sentAt) : Number.NaN;
@@ -330,5 +344,5 @@ export function selectReviewSends(
     reminder.push(candidate("reminder"));
   }
 
-  return { initial, reminder, skipped };
+  return { initial, reminder, expiredRetries, skipped };
 }

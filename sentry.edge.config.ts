@@ -2,6 +2,7 @@
 // NEXT_RUNTIME === "edge" (middleware, edge route handlers).
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubEventCredentials } from "@/lib/sentry-scrub";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -20,4 +21,9 @@ Sentry.init({
 
   // Send application logs ingested via Sentry.logger.* alongside events.
   enableLogs: true,
+
+  // Credentials that travel in URLs (the review link /review/{token}, unsubscribe
+  // ?token=) never leave the server, in errors or traces (src/lib/sentry-scrub.ts).
+  beforeSend: (event) => scrubEventCredentials(event),
+  beforeSendTransaction: (event) => scrubEventCredentials(event),
 });

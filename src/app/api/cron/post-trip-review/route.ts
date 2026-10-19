@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
-import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
+import { stripeKeyMode } from "@/lib/cancellation/source-guard";
 import { assertReviewSigningSecret, isReviewConfigError } from "@/lib/reviews/token";
 import {
   REVIEWABLE_STATUSES,
@@ -14,10 +14,12 @@ import {
   type ReviewLedgerRow,
 } from "@/lib/reviews/select";
 import {
+  buildReviewEmail,
   classifySendFailure,
   RESEND_SEND_TIMEOUT_MS,
   ReviewSendError,
   sendReviewEmail,
+  type BuiltReviewEmail,
   type ReviewEmailFooter,
 } from "@/lib/reviews/email";
 
@@ -79,6 +81,8 @@ const STALE_CLAIM_MS = 15 * 60_000;
 const ROW_CAP = 1000;
 /** Ids per `.in()` filter, so the request URL stays short. */
 const IN_CHUNK = 150;
+/** Addresses per opt-out lookup; small enough that a full page means trouble. */
+const SUPPRESSION_CHUNK = 50;
 
 const dbSignal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
 const CTX = { endpoint: "/api/cron/post-trip-review", method: "GET" as const };
@@ -206,12 +210,28 @@ async function readGuests(supabase: Supabase, paymentIntentIds: string[]): Promi
  *  Throws on any read error (fail closed: nothing is sent). */
 async function readSuppressed(supabase: Supabase, emails: string[]): Promise<Set<string>> {
   const out = new Set<string>();
-  for (const batch of chunks(emails, IN_CHUNK)) {
+  // Only opted-out rows are read, and a page that comes back full means rows
+  // may be missing (PostgREST caps a response; booking_waitlist holds one row
+  // per trip, so an address can have many): fail closed rather than email
+  // someone whose opt-out was cut off.
+  for (const batch of chunks(emails, SUPPRESSION_CHUNK)) {
     const [review, recovery, newsletter, waitlist] = await Promise.all([
-      supabase.from("review_email_optouts").select("email").in("email", batch).abortSignal(dbSignal()),
-      supabase.from("checkout_recovery_optouts").select("email").in("email", batch).abortSignal(dbSignal()),
-      supabase.from("newsletter_subscribers").select("email, unsubscribed_at").in("email", batch).abortSignal(dbSignal()),
-      supabase.from("booking_waitlist").select("email, unsubscribed_at").in("email", batch).abortSignal(dbSignal()),
+      supabase.from("review_email_optouts").select("email").in("email", batch).limit(ROW_CAP).abortSignal(dbSignal()),
+      supabase.from("checkout_recovery_optouts").select("email").in("email", batch).limit(ROW_CAP).abortSignal(dbSignal()),
+      supabase
+        .from("newsletter_subscribers")
+        .select("email, unsubscribed_at")
+        .in("email", batch)
+        .not("unsubscribed_at", "is", null)
+        .limit(ROW_CAP)
+        .abortSignal(dbSignal()),
+      supabase
+        .from("booking_waitlist")
+        .select("email, unsubscribed_at")
+        .in("email", batch)
+        .not("unsubscribed_at", "is", null)
+        .limit(ROW_CAP)
+        .abortSignal(dbSignal()),
     ]);
     for (const [name, res] of [
       ["review_email_optouts", review],
@@ -220,6 +240,7 @@ async function readSuppressed(supabase: Supabase, emails: string[]): Promise<Set
       ["booking_waitlist", waitlist],
     ] as const) {
       if (res.error) throw new Error(`${name} read failed: ${res.error.message}`);
+      if ((res.data ?? []).length >= ROW_CAP) throw new Error(`${name} read hit the ${ROW_CAP}-row cap; opt-outs may be incomplete`);
     }
     const optout = z.array(z.object({ email: z.string() }));
     const unsub = z.array(z.object({ email: z.string(), unsubscribed_at: z.string().nullable() }));
@@ -323,7 +344,7 @@ async function sweepStaleClaims(supabase: Supabase, nowMs: number): Promise<{ re
   if (alarmed > 0) {
     alarm(
       "post_trip_review_stale_claims",
-      `post-trip-review: ${alarmed} claimed row(s) reached Resend and were never marked — the email may be out. Check Resend by booking id, then set each row to sent or unconfirmed by hand (until then that booking gets no reminder).`,
+      `post-trip-review: ${alarmed} claimed row(s) reached the send step and were never marked — the outcome is unknown (Sentry may hold the run's own error for the row with its intended status). Check Resend by booking id, then set each row to sent, retry, failed or unconfirmed by hand (until then that booking gets no reminder).`,
       "error",
       { rows: stuck.map((r) => ({ id: r.id, bookingId: r.booking_id, kind: r.kind })) }
     );
@@ -404,7 +425,9 @@ async function markRow(
   if (error || !Array.isArray(data) || data.length === 0) {
     result.markFailed++;
     captureAPIError(
-      new Error(`post-trip-review: status '${patch.status}' not recorded for ${rowId}: ${error?.message ?? "matched no rows"}`),
+      new Error(
+        `post-trip-review: status '${patch.status}' not recorded for ${rowId} (send error: ${patch.last_error ?? "none"}): ${error?.message ?? "matched no rows"}`
+      ),
       { ...CTX, stage: `mark_${patch.status}` }
     );
   }
@@ -431,19 +454,24 @@ export async function GET(request: NextRequest) {
     captureAPIError(new Error("post-trip-review: TRIPLY_POSTAL_ADDRESS is not set"), { ...CTX, stage: "config" });
     return respond({ ok: false, error: "postal address is not configured" }, 503);
   }
+  // The deployment's mode decides which bookings it may email at all (one
+  // shared database for staging and production). A missing or garbled key
+  // would otherwise read as "test" and silently send nothing in production.
+  const mode = stripeKeyMode();
+  if (!mode) {
+    captureAPIError(new Error("post-trip-review: STRIPE_SECRET_KEY is missing or not a live/test key"), { ...CTX, stage: "config" });
+    return respond({ ok: false, error: "deployment mode is unknown" }, 503);
+  }
   try {
-    return await run({ postalAddress });
+    return await run({ postalAddress }, mode === "live");
   } catch (error) {
     return fail("unhandled", errorMessage(error));
   }
 }
 
-async function run(footer: ReviewEmailFooter) {
+async function run(footer: ReviewEmailFooter, live: boolean) {
   const nowMs = Date.now();
   const elapsed = () => Date.now() - nowMs;
-  // The deployment's mode decides which bookings it may email at all (one
-  // shared database for staging and production).
-  const live = stripeKeyIsLive();
   const supabase = await createAdminClient();
   const stale = await sweepStaleClaims(supabase, nowMs);
 
@@ -494,9 +522,30 @@ async function run(footer: ReviewEmailFooter) {
   } catch (e) {
     return fail("guests_read", errorMessage(e));
   }
-  const bookings = parsed.map((r) =>
-    toBookingRow(r, r.stripe_payment_intent_id ? guests.get(r.stripe_payment_intent_id) : undefined)
-  );
+  // A booking paid through checkout has a staged payload naming its guest. If
+  // that snapshot is missing or malformed, the customers row may be the
+  // signed-in account holder, not the guest — skip it (loudly) rather than
+  // email the wrong person. The customers row is used only for bookings with
+  // no PaymentIntent at all (manual recoveries).
+  const noGuest: string[] = [];
+  const bookings: ReviewBookingRow[] = [];
+  for (const r of parsed) {
+    const pi = r.stripe_payment_intent_id;
+    const guest = pi ? guests.get(pi) : undefined;
+    if (pi && !guest) {
+      noGuest.push(r.id);
+      continue;
+    }
+    bookings.push(toBookingRow(r, guest));
+  }
+  if (noGuest.length > 0) {
+    alarm(
+      "post_trip_review_no_guest_snapshot",
+      `post-trip-review: ${noGuest.length} booking(s) have no readable guest snapshot in pending_bookings and were skipped`,
+      "warning",
+      { bookingIds: noGuest.slice(0, 50) }
+    );
+  }
 
   let state: { ledger: ReviewLedgerRow[]; reviewed: Set<string> };
   let suppressed: Set<string>;
@@ -510,17 +559,19 @@ async function run(footer: ReviewEmailFooter) {
     return fail("state_read", errorMessage(e));
   }
 
-  const { initial, reminder, skipped } = selectReviewSends(bookings, state.ledger, state.reviewed, nowMs, {
+  const selection = selectReviewSends(bookings, state.ledger, state.reviewed, nowMs, {
     live,
     testLocationIds: TEST_RESLAB_LOCATION_IDS,
     suppressed,
   });
+  const { initial, reminder, skipped } = selection;
   const toSend = [...initial, ...reminder];
   if (skipped.retryExpired > 0) {
     alarm(
       "post_trip_review_retry_expired",
       `post-trip-review: ${skipped.retryExpired} email(s) parked for retry aged out of the window and will never be sent`,
-      "warning"
+      "warning",
+      { expired: selection.expiredRetries.slice(0, 50) }
     );
   }
 
@@ -528,6 +579,7 @@ async function run(footer: ReviewEmailFooter) {
     live,
     scanned: rawRows.length,
     invalidRows,
+    noGuestSnapshot: noGuest.length,
     initialCandidates: initial.length,
     reminderCandidates: reminder.length,
     staleClaims: stale,
@@ -541,12 +593,31 @@ async function run(footer: ReviewEmailFooter) {
   };
 
   let attempted = 0;
-  // Two consecutive rejections with the same status mean OUR payload or setup,
-  // not the addresses: stop before every remaining row is burned as `failed`.
-  let lastRejection: { status: number | undefined; rowId: string } | null = null;
+  // Two consecutive identical rejections (same status AND Resend error name)
+  // mean OUR payload or setup, not the addresses: stop before every remaining
+  // row is burned as `failed`.
+  let lastRejection: { key: string; rowId: string; bookingId: string } | null = null;
+  // Two consecutive sends with an unknown outcome mean Resend (or our network)
+  // is down: stop rather than mark the whole batch `unconfirmed` for good.
+  let uncertainInARow = 0;
   for (const [i, c] of toSend.entries()) {
     if (attempted >= MAX_SENDS_PER_RUN || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
       result.deferredToNextRun = toSend.length - i;
+      break;
+    }
+
+    // Build BEFORE claiming: a fault here (bad NEXT_PUBLIC_APP_URL, a secret)
+    // is ours, sends nothing, and would fail for every row — stop the run.
+    let built: BuiltReviewEmail;
+    try {
+      built = buildReviewEmail(c, footer);
+    } catch (error) {
+      captureAPIError(new Error(`post-trip-review: email build failed: ${redact(errorMessage(error))}`), {
+        ...CTX,
+        stage: "build",
+      });
+      result.sendFailed++;
+      result.deferredToNextRun += toSend.length - i;
       break;
     }
 
@@ -580,12 +651,13 @@ async function run(footer: ReviewEmailFooter) {
     }
 
     try {
-      await sendReviewEmail(c, footer);
+      await sendReviewEmail(c, built);
     } catch (error) {
       const message = redact(errorMessage(error)).slice(0, 500);
       const kind = classifySendFailure(error);
       if (kind === "uncertain") {
         result.unconfirmed++;
+        uncertainInARow++;
         alarm(
           "post_trip_review_unconfirmed",
           `post-trip-review: ${c.kind} send for booking ${c.bookingId} has an unknown outcome (the email may be out); marked unconfirmed — check Resend, it will not be retried`,
@@ -594,8 +666,19 @@ async function run(footer: ReviewEmailFooter) {
         );
         await markRow(supabase, rowId, { status: "unconfirmed", last_error: message }, result);
         lastRejection = null;
+        if (uncertainInARow >= 2) {
+          result.deferredToNextRun += toSend.length - i - 1;
+          alarm(
+            "post_trip_review_resend_unreachable",
+            `post-trip-review: two sends in a row had an unknown outcome; run stopped (Resend or the network is likely down)`,
+            "error",
+            { lastError: message }
+          );
+          break;
+        }
         continue;
       }
+      uncertainInARow = 0;
       captureAPIError(new Error(`post-trip-review send failed: ${message}`), { ...CTX, stage: "send" });
       result.sendFailed++;
       if (kind === "config") {
@@ -609,26 +692,34 @@ async function run(footer: ReviewEmailFooter) {
         lastRejection = null;
         continue;
       }
-      const status = error instanceof ReviewSendError ? error.statusCode : undefined;
-      if (lastRejection && lastRejection.status === status) {
+      const key =
+        error instanceof ReviewSendError ? `${error.statusCode ?? "?"}/${error.resendName ?? "?"}` : "?/?";
+      if (lastRejection && lastRejection.key === key) {
         // Same rejection twice in a row: put both rows back for a later run.
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
         await markRow(supabase, lastRejection.rowId, { status: "retry", last_error: message }, result);
         result.deferredToNextRun += toSend.length - i - 1;
         alarm(
           "post_trip_review_systematic_rejection",
-          `post-trip-review: Resend rejected two emails in a row with status ${status ?? "?"}; run stopped and both rows set to retry — likely a problem with our payload or sender setup`,
+          `post-trip-review: Resend rejected two emails in a row with ${key}; run stopped and both rows set to retry — likely a problem with our payload or sender setup (if both addresses are genuinely bad, set the rows to failed by hand)`,
           "error",
-          { error: message }
+          {
+            error: message,
+            rows: [
+              { rowId: lastRejection.rowId, bookingId: lastRejection.bookingId },
+              { rowId, bookingId: c.bookingId },
+            ],
+          }
         );
         break;
       }
       await markRow(supabase, rowId, { status: "failed", last_error: message }, result);
-      lastRejection = { status, rowId };
+      lastRejection = { key, rowId, bookingId: c.bookingId };
       continue;
     }
 
     lastRejection = null;
+    uncertainInARow = 0;
     await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString(), last_error: null }, result);
     result.sent++;
   }

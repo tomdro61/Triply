@@ -301,4 +301,14 @@ describe("mode, opt-outs and unconfirmed sends", () => {
     expect(r.skipped.retryExpired).toBe(1);
     expect(r.skipped.tooOldForInitial).toBe(0);
   });
+
+  it("reports a reminder parked in retry that aged out", () => {
+    const b = booking({ checkOut: "2026-10-03T10:00:00" });
+    const r = run(
+      [b],
+      [sent(b.id, "initial", new Date(NOW - 6 * 24 * HOUR).toISOString()), { bookingId: b.id, kind: "reminder", status: "retry", sentAt: null }]
+    );
+    expect(r.reminder).toEqual([]);
+    expect(r.expiredRetries).toEqual([{ bookingId: b.id, kind: "reminder" }]);
+  });
 });
