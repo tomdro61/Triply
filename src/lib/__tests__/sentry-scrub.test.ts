@@ -27,4 +27,15 @@ describe("sentry-scrub", () => {
     expect(out.request.url).toBe("https://www.triplypro.com/review/[token]");
     expect(out.breadcrumbs[0].data.n).toBe(1);
   });
+
+  it("scrubs a query_string where the token comes first (Sentry drops the leading ?)", () => {
+    expect(scrubUrlCredentials("token=abc123&id=x")).toBe("token=[redacted]&id=x");
+  });
+
+  it("never walks SDK internals and never throws", () => {
+    const frozen = Object.freeze({ url: "/review/" + "a".repeat(30) });
+    const event = { request: { url: "/x" }, sdkProcessingMetadata: { capturedSpanScope: frozen }, extra: { f: frozen } };
+    expect(() => scrubEventCredentials(event)).not.toThrow();
+    expect(event.sdkProcessingMetadata.capturedSpanScope.url).toContain("aaaa");
+  });
 });

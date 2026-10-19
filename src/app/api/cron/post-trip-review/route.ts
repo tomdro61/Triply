@@ -538,11 +538,15 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     }
     bookings.push(toBookingRow(r, guest));
   }
+  // Most checkout bookings missing a snapshot means the payload shape drifted
+  // (guestSchema), not a one-off: every review email would stop. Fail the run.
+  const withPi = parsed.filter((r) => r.stripe_payment_intent_id).length;
+  const guestDrift = noGuest.length >= 2 && noGuest.length * 2 > withPi;
   if (noGuest.length > 0) {
     alarm(
       "post_trip_review_no_guest_snapshot",
-      `post-trip-review: ${noGuest.length} booking(s) have no readable guest snapshot in pending_bookings and were skipped`,
-      "warning",
+      `post-trip-review: ${noGuest.length} of ${withPi} checkout booking(s) have no readable guest snapshot in pending_bookings and were skipped${guestDrift ? " — most of them: the snapshot shape has likely changed" : ""}`,
+      guestDrift ? "error" : "warning",
       { bookingIds: noGuest.slice(0, 50) }
     );
   }
@@ -600,6 +604,8 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   // Two consecutive sends with an unknown outcome mean Resend (or our network)
   // is down: stop rather than mark the whole batch `unconfirmed` for good.
   let uncertainInARow = 0;
+  // Why the run stopped before its candidates ran out (a cap is not a stop).
+  let stoppedEarly: "build" | "resend_unreachable" | "config" | "systematic_rejection" | null = null;
   for (const [i, c] of toSend.entries()) {
     if (attempted >= MAX_SENDS_PER_RUN || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
       result.deferredToNextRun = toSend.length - i;
@@ -618,6 +624,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
       });
       result.sendFailed++;
       result.deferredToNextRun += toSend.length - i;
+      stoppedEarly = "build";
       break;
     }
 
@@ -674,6 +681,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
             "error",
             { lastError: message }
           );
+          stoppedEarly = "resend_unreachable";
           break;
         }
         continue;
@@ -685,6 +693,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
         // Not this row's fault, and every later send would fail the same way.
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
         result.deferredToNextRun += toSend.length - i - 1;
+        stoppedEarly = "config";
         break;
       }
       if (kind === "retry") {
@@ -711,6 +720,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
             ],
           }
         );
+        stoppedEarly = "systematic_rejection";
         break;
       }
       await markRow(supabase, rowId, { status: "failed", last_error: message }, result);
@@ -731,7 +741,12 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
       "warning"
     );
   }
-  const allFailed = attempted + result.claimFailed > 0 && result.sent === 0 && result.unconfirmed === 0;
+  // A run that sent nothing because it stopped early, or because the guest
+  // snapshots drifted, is a failed run — 500 + ok:false, not a quiet day.
+  const allFailed =
+    (attempted + result.claimFailed > 0 && result.sent === 0 && result.unconfirmed === 0) ||
+    (stoppedEarly !== null && result.sent === 0) ||
+    guestDrift;
   if (result.sendFailed + result.claimFailed + result.markFailed > 0) {
     alarm(
       "post_trip_review_failures",
@@ -739,5 +754,5 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
       allFailed ? "error" : "warning"
     );
   }
-  return respond({ ok: !allFailed, ...result, skipped }, allFailed ? 500 : 200);
+  return respond({ ok: !allFailed, stoppedEarly, guestDrift, ...result, skipped }, allFailed ? 500 : 200);
 }

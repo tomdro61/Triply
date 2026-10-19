@@ -2,31 +2,58 @@
 // the server. The post-trip review link /review/{token} is a bearer credential
 // for that booking's review: the landing route redirects it away at once, but
 // server tracing records the original request URL (sendDefaultPii does not
-// cover URLs). Also the `token=` query of the unsubscribe links.
+// cover URLs). Also the `token=` query of the unsubscribe links — including
+// Sentry's `request.query_string`, which has no leading "?".
 
 const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
-const TOKEN_QUERY = /([?&]token=)[^&#\s"']+/g;
+const TOKEN_QUERY = /((?:^|[?&])token=)[^&#\s"']+/g;
 
 export function scrubUrlCredentials(text: string): string {
   return text.replace(REVIEW_PATH, "/review/[token]").replace(TOKEN_QUERY, "$1[redacted]");
 }
 
-/** Deep-scrubs every string in a Sentry event (request, transaction name,
- *  spans, breadcrumbs, extras). Mutates in place and returns the event. */
+/** Holds live SDK scope objects (the whole client graph), never user data. */
+const SKIP_KEYS = new Set(["sdkProcessingMetadata"]);
+
+/**
+ * Deep-scrubs every string in a Sentry event (request, transaction name,
+ * spans, breadcrumbs, extras). Writes back only strings that changed, never
+ * walks SDK internals, and never throws: a throw in beforeSend makes Sentry
+ * drop the event, so a scrub failure is logged and the event still goes out.
+ */
 export function scrubEventCredentials<T>(event: T): T {
-  const seen = new WeakSet<object>();
-  const walk = (value: unknown): unknown => {
-    if (typeof value === "string") return scrubUrlCredentials(value);
-    if (value === null || typeof value !== "object") return value;
-    if (seen.has(value)) return value;
-    seen.add(value);
-    if (Array.isArray(value)) {
-      for (let i = 0; i < value.length; i++) value[i] = walk(value[i]);
-      return value;
-    }
-    const record = value as Record<string, unknown>;
-    for (const key of Object.keys(record)) record[key] = walk(record[key]);
-    return value;
-  };
-  return walk(event) as T;
+  try {
+    const seen = new WeakSet<object>();
+    const walk = (value: unknown): void => {
+      if (value === null || typeof value !== "object" || seen.has(value)) return;
+      seen.add(value);
+      if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++) {
+          const v: unknown = value[i];
+          if (typeof v === "string") {
+            const s = scrubUrlCredentials(v);
+            if (s !== v) value[i] = s;
+          } else {
+            walk(v);
+          }
+        }
+        return;
+      }
+      const record = value as Record<string, unknown>;
+      for (const key of Object.keys(record)) {
+        if (SKIP_KEYS.has(key)) continue;
+        const v = record[key];
+        if (typeof v === "string") {
+          const s = scrubUrlCredentials(v);
+          if (s !== v) record[key] = s;
+        } else {
+          walk(v);
+        }
+      }
+    };
+    walk(event);
+  } catch (error) {
+    console.error("sentry-scrub: could not scrub event", error);
+  }
+  return event;
 }

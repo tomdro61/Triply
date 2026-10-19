@@ -306,10 +306,12 @@ describe("GET /api/cron/post-trip-review", () => {
   });
 
   it("skips (and alarms) a checkout booking whose guest snapshot is missing — never the account holder", async () => {
-    booking({ stripe_payment_intent_id: "pi_missing" });
+    const skippedRow = booking({ stripe_payment_intent_id: "pi_missing" });
+    booking(); // no PaymentIntent: the customers row is fine
     const res = await GET(req());
-    expect(await res.json()).toMatchObject({ sent: 0, noGuestSnapshot: 1 });
-    expect(resendSend).not.toHaveBeenCalled();
+    expect(await res.json()).toMatchObject({ ok: true, sent: 1, noGuestSnapshot: 1, guestDrift: false });
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.review_emails.map((r) => r.booking_id)).not.toContain(skippedRow.id);
   });
 
   it("refuses (503) when the deployment mode is unknown (missing or garbled Stripe key)", async () => {
@@ -326,7 +328,7 @@ describe("GET /api/cron/post-trip-review", () => {
       booking();
       booking();
       const body = await (await GET(req())).json();
-      expect(body).toMatchObject({ sent: 0, deferredToNextRun: 2 });
+      expect(body).toMatchObject({ ok: false, stoppedEarly: "build", sent: 0, deferredToNextRun: 2 });
       expect(resendSend).not.toHaveBeenCalled();
       expect(db.tables.review_emails).toEqual([]);
     } finally {
@@ -341,6 +343,14 @@ describe("GET /api/cron/post-trip-review", () => {
     resendSend.mockRejectedValue(new Error("ECONNRESET"));
     const body = await (await GET(req())).json();
     expect(resendSend).toHaveBeenCalledTimes(2);
-    expect(body).toMatchObject({ unconfirmed: 2, deferredToNextRun: 1 });
+    expect(body).toMatchObject({ ok: false, stoppedEarly: "resend_unreachable", unconfirmed: 2, deferredToNextRun: 1 });
+  });
+
+  it("fails the run when most checkout bookings have no guest snapshot (shape drift)", async () => {
+    booking({ stripe_payment_intent_id: "pi_a" });
+    booking({ stripe_payment_intent_id: "pi_b" });
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, guestDrift: true, sent: 0 });
   });
 });
