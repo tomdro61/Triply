@@ -114,7 +114,7 @@ export function rate(o: {
   };
 }
 
-export function hotelRates(hotelId: string, rates: LiteApiRate[], roomTypeId = `rt-${hotelId}`): LiteApiHotelRates {
+export function hotelRates(hotelId: string, rates: readonly unknown[], roomTypeId = `rt-${hotelId}`): LiteApiHotelRates {
   return { hotelId, roomTypes: [{ roomTypeId, offerId: `offer-${hotelId}`, rates }] };
 }
 

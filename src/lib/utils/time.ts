@@ -87,6 +87,28 @@ export function zonedWallClock(
   };
 }
 
+/**
+ * The instant (epoch ms) at which the wall clock in `timeZone` reads
+ * `date` + `secondsOfDay`. The inverse of zonedWallClock, for SUPPLIER
+ * timestamps that carry their own zone (LiteAPI cancellation deadlines, e.g.
+ * `timezone: "GMT"`) — never for booking times, which stay literal strings.
+ * In a DST gap the result is the first valid instant after it; in an overlap,
+ * the earlier one. Throws on an invalid zone (callers validate first).
+ */
+export function zonedWallTimeToEpochMs(date: string, secondsOfDay: number, timeZone: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) throw new Error(`date must be YYYY-MM-DD, got ${JSON.stringify(date)}`);
+  const target = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + secondsOfDay * 1000;
+  const wallAsUtc = (instant: number) => {
+    const w = zonedWallClock(timeZone, new Date(instant));
+    return Date.UTC(Number(w.date.slice(0, 4)), Number(w.date.slice(5, 7)) - 1, Number(w.date.slice(8, 10))) + w.secondsOfDay * 1000;
+  };
+  // Two passes of "instant = target − offset(instant)" settle across a DST change.
+  let instant = target - (wallAsUtc(target) - target);
+  instant = target - (wallAsUtc(instant) - instant);
+  return instant;
+}
+
 /** Minimum gap between "now" and a same-day check-in we ask ResLab to price.
  *  Verified live 2026-10-06: a check-in ~30 min out prices, a past one 422s
  *  ("Please choose a date in the future"). */

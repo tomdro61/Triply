@@ -38,9 +38,13 @@ export const ROOM_NON_REFUNDABLE_DETAIL = "This room rate cannot be cancelled or
  */
 export const BUNDLE_CANCELLATION_NOTE = "Cancellation terms are confirmed before you book.";
 
+/**
+ * The ROOM's terms only — prefixed "Room:" so on a package card it can't read
+ * as a promise about the whole booking (the bundle terms are B1's, M12).
+ */
 export function roomRefundabilitySummary(r: RoomRefundability): string {
   if (r.kind === "non_refundable") return ROOM_NON_REFUNDABLE_SUMMARY;
-  return `Free cancellation until ${formatLocalDeadline(r.deadlineLocal)}`;
+  return `Room: free cancellation until ${formatLocalDeadline(r.deadlineLocal)} (hotel time)`;
 }
 
 export function roomRefundabilityDetail(r: RoomRefundability): string {

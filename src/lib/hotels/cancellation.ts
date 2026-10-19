@@ -12,20 +12,21 @@
  */
 
 import type { RoomRefundability } from "./refundability";
+import { isValidTimeZone, zonedWallClock, zonedWallTimeToEpochMs } from "@/lib/utils/time";
 
 export interface LiteApiCancelPolicyInfo {
-  /** e.g. "2026-10-14 18:00:00" — hotel-local per `timezone`. */
-  cancelTime?: string;
-  amount?: number;
-  currency?: string;
-  type?: string;
-  timezone?: string;
+  /** e.g. "2026-10-14 18:00:00" — a wall clock in `timezone` (often "GMT"), NOT the hotel's. */
+  cancelTime?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  type?: string | null;
+  timezone?: string | null;
 }
 
 export interface LiteApiCancellationPolicies {
-  refundableTag?: string;
-  cancelPolicyInfos?: LiteApiCancelPolicyInfo[];
-  hotelRemarks?: string[];
+  refundableTag?: string | null;
+  cancelPolicyInfos?: LiteApiCancelPolicyInfo[] | null;
+  hotelRemarks?: string[] | null;
 }
 
 export type RefundableTag = "RFN" | "NRFN";
@@ -37,55 +38,63 @@ export interface RefundabilityResult {
 }
 
 /** Normalise the tag; anything but the two documented values is an anomaly. */
-export function normaliseRefundableTag(tag: string | undefined): { tag: RefundableTag; anomaly: string | null } {
+export function normaliseRefundableTag(tag: string | null | undefined): { tag: RefundableTag; anomaly: string | null } {
   if (tag === "RFN" || tag === "NRFN") return { tag, anomaly: null };
   return { tag: "NRFN", anomaly: `unrecognised refundableTag ${JSON.stringify(tag)} treated as NRFN` };
 }
 
-const CANCEL_TIME_RE = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?$/;
+const CANCEL_TIME_RE = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/;
+
+const NRFN = (anomaly: string): RefundabilityResult => ({ refundability: { kind: "non_refundable" }, anomaly });
 
 /**
- * The free-cancellation deadline: the EARLIEST `cancelTime` among policy
- * entries that carry a penalty (`amount > 0`). Before it, cancellation is free;
- * from it on, a charge applies. A refundable tag with no penalty entries at all
- * means "free until check-in" per LiteAPI's docs, but we do not guess a
- * check-in time — that case is an anomaly and renders non-refundable until the
- * vendor confirms the semantics (Q4).
+ * The free-cancellation deadline: the EARLIEST penalised `cancelTime`, compared
+ * as INSTANTS — each entry is read in its own declared `timezone` (LiteAPI
+ * sends e.g. "GMT"), then shown on the hotel's wall clock, so "(local time at
+ * the hotel)" on every surface is true. Before it, cancellation is free; from
+ * it on, a charge applies.
+ *
+ * Non-refundable (+ anomaly, never a guess) when: the tag is not RFN; an RFN
+ * rate has no penalised entry; a cancelTime is unparseable; an entry has no
+ * timezone or one we don't recognise; or the deadline is already at or before
+ * `now` (a passed deadline must never read as free cancellation).
  */
 export function refundabilityFromPolicies(
-  policies: LiteApiCancellationPolicies | undefined,
-  hotelTimeZone: string
+  policies: LiteApiCancellationPolicies | null | undefined,
+  hotelTimeZone: string,
+  now: Date
 ): RefundabilityResult {
   const { tag, anomaly: tagAnomaly } = normaliseRefundableTag(policies?.refundableTag);
   if (tag === "NRFN") {
     return { refundability: { kind: "non_refundable" }, anomaly: tagAnomaly };
   }
+  if (!isValidTimeZone(hotelTimeZone)) return NRFN(`hotel timezone ${JSON.stringify(hotelTimeZone)} invalid — treated as NRFN`);
   const infos = policies?.cancelPolicyInfos ?? [];
   const penalised = infos.filter((p) => typeof p.amount === "number" && p.amount > 0 && p.cancelTime);
   if (penalised.length === 0) {
-    return {
-      refundability: { kind: "non_refundable" },
-      anomaly: "RFN rate with no penalised cancelPolicyInfos — deadline unknown, treated as NRFN",
-    };
+    return NRFN("RFN rate with no penalised cancelPolicyInfos — deadline unknown, treated as NRFN");
   }
-  let earliest: string | null = null;
-  let tz = hotelTimeZone;
+  let earliest: number | null = null;
   for (const p of penalised) {
     const m = CANCEL_TIME_RE.exec(p.cancelTime ?? "");
-    if (!m) {
-      return {
-        refundability: { kind: "non_refundable" },
-        anomaly: `unparseable cancelTime ${JSON.stringify(p.cancelTime)} — treated as NRFN`,
-      };
+    if (!m) return NRFN(`unparseable cancelTime ${JSON.stringify(p.cancelTime)} — treated as NRFN`);
+    const zone = p.timezone?.trim();
+    if (!zone || !isValidTimeZone(zone)) {
+      return NRFN(`cancelTime timezone ${JSON.stringify(p.timezone ?? null)} missing or unrecognised — treated as NRFN`);
     }
-    const local = `${m[1]} ${m[2]}:${m[3]}`;
-    if (earliest === null || local < earliest) {
-      earliest = local;
-      if (p.timezone) tz = p.timezone;
-    }
+    const seconds = Number(m[2]) * 3600 + Number(m[3]) * 60 + Number(m[4] ?? 0);
+    const instant = zonedWallTimeToEpochMs(m[1], seconds, zone);
+    if (earliest === null || instant < earliest) earliest = instant;
   }
+  if (earliest === null) return NRFN("no usable cancelTime — treated as NRFN");
+  if (earliest <= now.getTime()) {
+    return NRFN("free-cancellation deadline already passed — treated as NRFN");
+  }
+  const wall = zonedWallClock(hotelTimeZone, new Date(earliest));
+  const hh = String(Math.floor(wall.secondsOfDay / 3600)).padStart(2, "0");
+  const mm = String(Math.floor((wall.secondsOfDay % 3600) / 60)).padStart(2, "0");
   return {
-    refundability: { kind: "free_until", deadlineLocal: earliest as string, timeZone: tz },
+    refundability: { kind: "free_until", deadlineLocal: `${wall.date} ${hh}:${mm}`, timeZone: hotelTimeZone },
     anomaly: null,
   };
 }

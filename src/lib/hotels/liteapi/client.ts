@@ -56,8 +56,9 @@ export interface LiteApiRateLimit {
   remaining: number | null;
 }
 
-export interface LiteApiResult<T> {
-  data: T;
+export interface LiteApiResult {
+  /** The parsed JSON body (or `{ raw }` for a non-JSON body) — UNTRUSTED: callers validate it. */
+  data: unknown;
   rateLimit: LiteApiRateLimit;
   /** Wall time of the round-trip, for the Phase A latency measurement. */
   durationMs: number;
@@ -88,11 +89,11 @@ export type LiteApiRequestInit =
   | (LiteApiRequestBase & { meter: "prepaid"; ticket: BudgetTicket })
   | (LiteApiRequestBase & { meter: "search" | "unmetered" });
 
-export async function liteApiRequest<T>(
+export async function liteApiRequest(
   host: LiteApiHost,
   path: string,
   init: LiteApiRequestInit
-): Promise<LiteApiResult<T>> {
+): Promise<LiteApiResult> {
   const env = resolveHotelEnv();
   // Outside the try below: a refusal is a LiteApiBudgetError, never a LiteApiError.
   if (init.meter === "search") await takeLiteApiCall(env.mode, path);
@@ -132,7 +133,7 @@ export async function liteApiRequest<T>(
           : `LiteAPI ${init.method ?? "GET"} ${path} failed (${response.status})`);
       throw new LiteApiError(response.status, msg, parsed, extractCode(parsed));
     }
-    return { data: parsed as T, rateLimit: readRateLimit(response.headers), durationMs: Date.now() - started };
+    return { data: parsed, rateLimit: readRateLimit(response.headers), durationMs: Date.now() - started };
   } catch (err) {
     if (err instanceof LiteApiError) throw err;
     const isAbort = err instanceof Error && err.name === "AbortError";
