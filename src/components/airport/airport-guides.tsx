@@ -3,6 +3,8 @@ import { Airport } from "@/config/airports";
 import { fetchFromCms } from "@/lib/cms";
 import { captureAPIError } from "@/lib/sentry";
 import { BookOpen } from "lucide-react";
+import { isPromoPost } from "@/lib/blog/promo-post";
+import { guideLabels } from "@/lib/blog/guide-label";
 
 interface AirportGuidesProps {
   airport: Airport;
@@ -14,6 +16,8 @@ interface GuidePost {
   articleType?: string;
 }
 
+const MAX_GUIDES = 10;
+
 // The airport's blog hub + sub-pillar guides. Booking pages linked to no blog
 // post at all, so Google had no crawl path to newly written airports (281 posts
 // "URL is unknown to Google", 16 Oct 2026). Decorative: a CMS failure hides the
@@ -24,15 +28,22 @@ async function getGuides(code: string): Promise<GuidePost[]> {
       "where[status][equals]": "published",
       "where[airportCode][equals]": code,
       "where[articleType][in]": "hub,sub-pillar",
+      // "hub" sorts before "sub-pillar", so the hub is never cut by the limit.
+      "sort": "articleType",
       "depth": "0",
-      "limit": "10",
+      "limit": String(MAX_GUIDES + 4),
       "select[slug]": "true",
       "select[title]": "true",
       "select[articleType]": "true",
     });
     const docs: GuidePost[] = data?.docs ?? [];
-    // Hub first, then sub-pillars in CMS order.
-    return [...docs].sort((a, b) => Number(b.articleType === "hub") - Number(a.articleType === "hub"));
+    // Coupon/promo guides stay off the booking page: a reader here is ready to
+    // book, and those posts convert worst (blog audit, Oct 19). They are still
+    // linked from the hub, so Google keeps its crawl path to them.
+    return docs
+      .filter((p) => !isPromoPost(p.slug))
+      .sort((a, b) => Number(b.articleType === "hub") - Number(a.articleType === "hub"))
+      .slice(0, MAX_GUIDES);
   } catch (err) {
     captureAPIError(err instanceof Error ? err : new Error(String(err)), {
       endpoint: "/api/posts",
@@ -46,6 +57,8 @@ async function getGuides(code: string): Promise<GuidePost[]> {
 export async function AirportGuides({ airport }: AirportGuidesProps) {
   const guides = await getGuides(airport.code);
   if (guides.length === 0) return null;
+  // Topic-only link text: no lot prices or year under the live rates table.
+  const labels = guideLabels(guides.map((g) => g.title));
 
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -53,7 +66,7 @@ export async function AirportGuides({ airport }: AirportGuidesProps) {
         {airport.code} Parking Guides
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {guides.map((post) => (
+        {guides.map((post, i) => (
           <Link
             key={post.slug}
             href={`/blog/${post.slug}`}
@@ -63,7 +76,7 @@ export async function AirportGuides({ airport }: AirportGuidesProps) {
               <BookOpen className="w-4 h-4 text-gray-400 group-hover:text-brand-orange transition-colors" />
             </div>
             <span className="text-sm font-medium text-gray-900 line-clamp-2">
-              {post.title}
+              {labels[i]}
             </span>
           </Link>
         ))}
