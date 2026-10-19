@@ -23,6 +23,8 @@ describe("isSkippedPath — pages that must never count as a touch", () => {
     ["/account", true],
     ["/reservations", true],
     ["/partner", true],
+    ["/park-stay", true],
+    ["/park-stay/jfk/doubletree-jfk", true],
     ["/checkout", false],
     ["/search", false],
     ["/new-york-jfk/airport-parking", false],

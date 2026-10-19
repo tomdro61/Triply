@@ -36,7 +36,10 @@ export function isSkippedPath(pathname: string): boolean {
     pathname.startsWith("/admin") ||
     pathname.startsWith("/account") ||
     pathname.startsWith("/reservations") ||
-    pathname.startsWith("/partner")
+    pathname.startsWith("/partner") ||
+    // Park & Stay is a private preview (plan v3 §6): a touch from it would
+    // attribute later parking bookings to a page customers can't reach.
+    pathname.startsWith("/park-stay")
   );
 }
 
