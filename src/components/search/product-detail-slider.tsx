@@ -25,8 +25,9 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
-import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
+import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
+import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -140,23 +141,50 @@ export function ProductDetailSlider({
   const timesMissing = !selectedCheckInTime || !localCheckOutTime;
   // Same gate as the lot page's BookingWidget: a direct lot is listed before
   // its checkout ships, so Reserve stays off here too (review M1).
-  const bookingNotOpenYet = lot.source === "direct" && !DIRECT_BOOKING_OPEN;
-  const reserveDisabled = timesMissing || bookingNotOpenYet;
+  const bookingNotOpenYet = lot.source === "direct" && !lot.checkoutOpen;
+  // Direct lots price in billed 24-hour days (directDays); a stay shorter than
+  // the lot's minimum must not reach checkout (review R12). The lot page's
+  // widget runs the same check on the same on-screen count.
+  const directRateCents = Math.round((lot.pricing?.minPrice ?? 0) * 100);
+  const directTaxRate = lot.pricing?.taxValue ?? 0;
+  const directQuote =
+    lot.source === "direct"
+      ? directReserveQuote({
+          rateCents: directRateCents,
+          taxRatePercent: directTaxRate,
+          checkIn: localCheckIn,
+          checkInTime: selectedCheckInTime,
+          checkOut: localCheckOut,
+          checkOutTime: localCheckOutTime,
+        })
+      : null;
+  const belowMinDays =
+    lot.source === "direct" && !!lot.minimumBookingDays && !!directQuote && directQuote.days < lot.minimumBookingDays;
+  const reserveDisabled = timesMissing || bookingNotOpenYet || belowMinDays;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
     : timesMissing
       ? "Select check-in and check-out times"
-      : undefined;
+      : belowMinDays
+        ? `Minimum ${lot.minimumBookingDays} days required`
+        : undefined;
 
-  const handleReserve = () => {
-    if (reserveDisabled) return;
-    // The list refreshes once a minute; re-check against the clock now so a
-    // slot that passed since then never reaches checkout.
-    if (!stillBookableCheckinTime(selectedCheckInTime, timeOptions, localCheckIn, airport?.timezone, lot.hoursBeforeReservation)) {
-      setLocalCheckInTime("");
-      setClock(Date.now());
-      return;
-    }
+  // Direct lots with oversized-vehicle surcharges ask for the vehicle size in a
+  // pop-up BEFORE checkout (vehicle-surcharge plan §1.4); other lots unchanged.
+  const vehicleSurcharges = lot.source === "direct" ? (lot.vehicleSurcharges ?? []) : [];
+  const asksVehicleSize = vehicleSurcharges.length > 0;
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const surchargeNotice = asksVehicleSize ? surchargeRangeText(vehicleSurcharges) : null;
+
+  /** The check-in slot may have passed while the slider (or pop-up) sat open. */
+  const checkinStillBookable = (): boolean => {
+    if (stillBookableCheckinTime(selectedCheckInTime, timeOptions, localCheckIn, airport?.timezone, lot.hoursBeforeReservation)) return true;
+    setLocalCheckInTime("");
+    setClock(Date.now());
+    return false;
+  };
+
+  const goToCheckout = (vehicleSize?: string) => {
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: localCheckIn,
@@ -164,7 +192,29 @@ export function ProductDetailSlider({
       checkinTime: selectedCheckInTime,
       checkoutTime: localCheckOutTime,
     });
+    if (vehicleSize) params.set("vehicleSize", vehicleSize);
     router.push(`/checkout?${params.toString()}`);
+  };
+
+  const handleReserve = () => {
+    if (reserveDisabled) return;
+    // The list refreshes once a minute; re-check against the clock now so a
+    // slot that passed since then never reaches checkout.
+    if (!checkinStillBookable()) return;
+    if (asksVehicleSize) {
+      setVehicleModalOpen(true);
+      return;
+    }
+    goToCheckout();
+  };
+
+  const handleVehicleSizeContinue = (vehicleSize: string) => {
+    // Re-checked on Continue too: the pop-up can sit open past a slot.
+    if (!checkinStillBookable()) {
+      setVehicleModalOpen(false);
+      return;
+    }
+    goToCheckout(vehicleSize);
   };
 
   return (
@@ -496,6 +546,12 @@ export function ProductDetailSlider({
                   </div>
                 </div>
               )}
+              {surchargeNotice && (
+                // Before Reserve, so the fee is never a surprise (review R10).
+                <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                  Oversized vehicles {surchargeNotice}, paid at the lot.
+                </p>
+              )}
             </div>
           </div>
           </div>
@@ -520,6 +576,20 @@ export function ProductDetailSlider({
           </button>
         </div>
       </div>
+      {asksVehicleSize && (
+        <VehicleSizeModal
+          open={vehicleModalOpen}
+          onOpenChange={setVehicleModalOpen}
+          surcharges={vehicleSurcharges}
+          rateCents={directRateCents}
+          taxRatePercent={directTaxRate}
+          checkIn={localCheckIn}
+          checkInTime={selectedCheckInTime}
+          checkOut={localCheckOut}
+          checkOutTime={localCheckOutTime}
+          onContinue={handleVehicleSizeContinue}
+        />
+      )}
     </div>
   );
 }

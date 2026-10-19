@@ -18,20 +18,38 @@ import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
+import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
+import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
+import type { CostBreakdownResult, FallbackDue } from "@/lib/booking/cost-breakdown";
+import type { CardSummary } from "@/lib/booking/confirmation-payment";
+import type { PaymentFallback } from "@/components/confirmation/booking-details";
 
 interface ConfirmationPageProps {
   params: Promise<{ id: string }>;
 }
 
-interface ReservationData {
-  id: number;
+/** Fields both sources of GET /api/reservations/[id] return. */
+interface ReservationDataBase {
+  id: number | string;
   reservationNumber: string;
-  status: string;
+  /** Both API paths emit only these two (cancelled/refunded rows → "cancelled"). */
+  status: "confirmed" | "cancelled";
+  /** ResLab: pre-discount total incl. due-at-lot. Direct: pre-discount online total. */
   grandTotal: number;
+  /** What was charged online: grandTotal − dueAtLocation (− promo discount on a direct booking). */
   dueNow: number;
   dueAtLocation: number;
+  /**
+   * The Payment summary, built and checked server-side (plan 2026-10-12).
+   * The ONLY source of the money this page shows.
+   */
+  costBreakdown: CostBreakdownResult;
+  /** The fallback's card side as Stripe reports it — never grandTotal, never a row-computed "charged". */
+  cardPayment: CardSummary;
+  /** What the fallback may say is due at the location / lot — never a guessed 0. */
+  fallbackDue: FallbackDue;
   protectionPlan: string | null;
   protectionPlanPrice: number;
   pgSyncStatus: "pending" | "synced" | "skipped_missing_data" | null;
@@ -50,15 +68,17 @@ interface ReservationData {
     numberOfSpots: number;
   }>;
   location: {
-    id: number;
+    /** ResLab location id (number), or the direct lot's CMS id (string). */
+    id: number | string;
     name: string;
     address: string;
     city: string;
     state: string;
     zipCode: string;
     phone: string;
-    latitude: string;
-    longitude: string;
+    /** ResLab sends strings; a direct booking sends numbers from its snapshot. */
+    latitude: string | number;
+    longitude: string | number;
     shuttleDetails?: string;
     specialConditions?: string;
   } | null;
@@ -71,6 +91,27 @@ interface ReservationData {
   } | null;
   extraFields?: Record<string, string>;
 }
+
+/** A ResLab booking (`inventorySource` absent on responses from before it was added). */
+interface ReslabReservationData extends ReservationDataBase {
+  inventorySource?: "reslab";
+  /** `bookings.airport_code` (e.g. "JFK"); null on rows from before it was derived. */
+  airportCode?: string | null;
+}
+
+/** A Triply-owned lot (no ResLab record) — built from the booking row + lot snapshot. */
+interface DirectReservationData extends ReservationDataBase {
+  inventorySource: "direct";
+  /** The lot's airport (from the booking's lot snapshot). */
+  airportCode: string;
+  /**
+   * The oversized-vehicle surcharge PAID AT THE LOT. A separate display
+   * value — never part of grandTotal / dueNow / dueAtLocation.
+   */
+  atLotEstimate: AtLotEstimateView | null;
+}
+
+type ReservationData = ReslabReservationData | DirectReservationData;
 
 function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const searchParams = useSearchParams();
@@ -89,21 +130,41 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const [showAccountPrompt, setShowAccountPrompt] = useState(true);
   const hasFiredPurchase = useRef(false);
 
-  // Track purchase when reservation data loads (fire once)
+  // The API reports "cancelled" from ResLab's own flag (ResLab bookings) or the
+  // booking row (direct). A cancelled booking keeps its record on this page but
+  // loses everything that only makes sense for a live reservation: the QR code,
+  // calendar, directions, protection status and the purchase event.
+  const isCancelled = reservation?.status === "cancelled";
+
+  // Track the purchase once per booking: only on the load checkout sent the
+  // customer to (takePurchaseToTrack), never on a revisit from the email link,
+  // My Reservations or a refresh — those had double-counted 23% of purchases.
+  // Never for a cancelled booking. The mark is only used up when gtag exists,
+  // so a page that loads before the GA stub keeps it for a refresh.
   useEffect(() => {
-    if (reservation?.location && !hasFiredPurchase.current) {
+    if (reservation?.location && reservation.status !== "cancelled" && !hasFiredPurchase.current) {
       hasFiredPurchase.current = true;
+      if (typeof window.gtag !== "function" || !takePurchaseToTrack(confirmationId)) return;
+      // Airport: from the booking row (ResLab) or the lot snapshot (direct) —
+      // never the `lot` param, whose "reslab-N" / "direct-N" prefix GA4 used
+      // to record as the airport (fix from Vin's PR #72). A direct lot id keeps
+      // the "direct-" prefix so it can't collide with a ResLab location id.
+      const isDirect = reservation.inventorySource === "direct";
       trackPurchase({
         confirmationNumber: confirmationId,
-        lotId: String(reservation.location.id),
+        lotId: isDirect
+          ? `direct-${reservation.location.id}`
+          : String(reservation.location.id),
         lotName: reservation.location.name,
-        grandTotal: reservation.grandTotal,
+        // Direct: the amount actually charged (net of any promo discount).
+        // ResLab: unchanged.
+        grandTotal: isDirect ? reservation.dueNow : reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
-        airportCode: lotId?.split("-")[0]?.toUpperCase(),
+        airportCode: reservation.airportCode || undefined,
       });
     }
-  }, [reservation, confirmationId, serviceFeeParam, lotId]);
+  }, [reservation, confirmationId, serviceFeeParam]);
 
   // Check if user is logged in
   useEffect(() => {
@@ -173,20 +234,37 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         ? storedLot.photos
         : [{ id: "1", url: "/placeholder-parking.jpg", alt: reservation.location.name }];
 
-      // Build UnifiedLot from reservation data
+      // Build UnifiedLot from reservation data. Source-aware: a direct lot has
+      // no ResLab location id; its id is "direct-<CMS id>" (the same id the
+      // checkout put in ?lot=) and its coordinates arrive as numbers.
+      const isDirect = reservation.inventorySource === "direct";
+      const identity: Pick<UnifiedLot, "id" | "source" | "sourceId" | "reslabLocationId" | "airportCode"> = isDirect
+        ? {
+            id: `direct-${reservation.location.id}`,
+            source: "direct",
+            sourceId: String(reservation.location.id),
+            airportCode: reservation.airportCode,
+          }
+        : {
+            id: `reslab-${reservation.location.id}`,
+            source: "reslab",
+            sourceId: String(reservation.location.id),
+            reslabLocationId: Number(reservation.location.id),
+          };
       return {
-        id: `reslab-${reservation.location.id}`,
-        source: "reslab",
-        sourceId: String(reservation.location.id),
-        reslabLocationId: reservation.location.id,
+        ...identity,
         name: reservation.location.name,
         slug: reservation.location.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
         address: reservation.location.address,
         city: reservation.location.city,
         state: reservation.location.state,
         zipCode: reservation.location.zipCode,
-        latitude: parseFloat(reservation.location.latitude),
-        longitude: parseFloat(reservation.location.longitude),
+        latitude: isDirect
+          ? Number(reservation.location.latitude)
+          : parseFloat(String(reservation.location.latitude)),
+        longitude: isDirect
+          ? Number(reservation.location.longitude)
+          : parseFloat(String(reservation.location.longitude)),
         phone: reservation.location.phone,
         shuttleInfo: reservation.location.shuttleDetails
           ? { summary: "", details: reservation.location.shuttleDetails }
@@ -226,33 +304,30 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkInTime = convertTo12Hour(reservationCheckInTime24 || "");
   const checkOutTime = convertTo12Hour(reservationCheckOutTime24 || "");
 
-  // Calculate days and total
-  const { days, total } = useMemo(() => {
-    if (reservation) {
-      return {
-        days: reservation.items[0]?.numberOfDays || 1,
-        total: reservation.grandTotal,
-      };
-    }
+  // Duration from the reservation. Money comes ONLY from the API's
+  // costBreakdown / cardPayment — the page never invents a total.
+  const days = reservation?.items[0]?.numberOfDays || 1;
 
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const numDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-    const dailyRate = lot?.pricing?.minPrice ?? 15;
-    const subtotal = dailyRate * numDays;
-    const taxes = Math.round(subtotal * 0.08 * 100) / 100;
-    return {
-      days: numDays,
-      total: subtotal + taxes,
-    };
-  }, [checkIn, checkOut, lot, reservation]);
+  // The plain fallback's figures when the breakdown was refused — both decided
+  // server-side (a missing or doubted due amount is "untrusted", never 0).
+  const paymentFallback: PaymentFallback | null = reservation
+    ? {
+        card: reservation.cardPayment,
+        due: reservation.fallbackDue,
+        dueContext:
+          reservation.inventorySource === "direct"
+            ? { source: "direct", estimate: reservation.atLotEstimate }
+            : { source: "reslab" },
+      }
+    : null;
 
   // Get customer and vehicle info
   const customerName = reservation
     ? `${reservation.customer.firstName} ${reservation.customer.lastName}`
     : "Customer";
-  const customerEmail = reservation?.customer.email || "customer@example.com";
+  // Never a placeholder: an unknown address hides "Confirmation sent to" (and the
+  // account prompt) rather than stating an address we never emailed.
+  const customerEmail = reservation?.customer.email ?? "";
   const customerPhone = reservation?.customer.phone || "(555) 123-4567";
   const vehicleInfo = reservation?.vehicleInfo
     ? `${reservation.vehicleInfo.make} ${reservation.vehicleInfo.model} (${reservation.vehicleInfo.color}) - ${reservation.vehicleInfo.licensePlate}`
@@ -314,9 +389,10 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   }
 
   // Fetch succeeded but we still have no lot data (e.g., reservation has no
-  // location, or sessionStorage was empty on a re-visit) — fall back to the
-  // generic not-found screen rather than rendering placeholders.
-  if (!lot) {
+  // location, or sessionStorage was empty on a re-visit) — or no reservation
+  // at all (a lot from sessionStorage alone has no booking money to show) —
+  // fall back to the generic not-found screen rather than rendering placeholders.
+  if (!lot || !reservation || !paymentFallback) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navbar forceSolid />
@@ -351,10 +427,18 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           <ConfirmationHeader
             confirmationId={confirmationId}
             email={customerEmail}
+            cancelled={isCancelled}
           />
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Main Content Grid (one centred column for a cancelled booking:
+              the right column only holds live-reservation items) */}
+          <div
+            className={
+              isCancelled
+                ? "grid grid-cols-1 gap-8 max-w-2xl mx-auto"
+                : "grid grid-cols-1 lg:grid-cols-2 gap-8"
+            }
+          >
             {/* Left Column */}
             <div className="space-y-6">
               <BookingDetails
@@ -364,46 +448,50 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 checkInTime={checkInTime}
                 checkOutTime={checkOutTime}
                 days={days}
-                total={total}
                 customerName={customerName}
                 customerEmail={customerEmail}
                 customerPhone={customerPhone}
                 vehicleInfo={vehicleInfo}
-                dueAtLocation={reservation?.dueAtLocation}
+                costBreakdown={reservation.costBreakdown}
+                fallback={paymentFallback}
+                cancelled={isCancelled}
               />
 
-              {reservation?.protectionPlan && (
+              {!isCancelled && reservation.protectionPlan && (
                 <ProtectionPlanStatus
                   planName={reservation.protectionPlan}
-                  price={reservation.protectionPlanPrice}
                   pgSyncStatus={reservation.pgSyncStatus}
                   pgIdentifier={reservation.pgIdentifier}
                 />
               )}
 
-              <AddToCalendar
-                lot={lot}
-                checkIn={checkIn}
-                checkOut={checkOut}
-                checkInTime={checkInTime}
-                checkOutTime={checkOutTime}
-                confirmationId={confirmationId}
-              />
+              {!isCancelled && (
+                <AddToCalendar
+                  lot={lot}
+                  checkIn={checkIn}
+                  checkOut={checkOut}
+                  checkInTime={checkInTime}
+                  checkOutTime={checkOutTime}
+                  confirmationId={confirmationId}
+                />
+              )}
             </div>
 
             {/* Right Column */}
-            <div className="space-y-6">
-              <QRCodeSection
-                confirmationId={confirmationId}
-                lotName={lot.name}
-              />
+            {!isCancelled && (
+              <div className="space-y-6">
+                <QRCodeSection
+                  confirmationId={confirmationId}
+                  lotName={lot.name}
+                />
 
-              <WhatsNext lot={lot} checkIn={checkIn} checkInTime={checkInTime} />
-            </div>
+                <WhatsNext lot={lot} checkIn={checkIn} checkInTime={checkInTime} />
+              </div>
+            )}
           </div>
 
           {/* Create Account Prompt (for guests only) */}
-          {!user && showAccountPrompt && (
+          {!isCancelled && !user && showAccountPrompt && customerEmail && (
             <div className="mt-8">
               <CreateAccountPrompt
                 email={customerEmail}
@@ -431,9 +519,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
           </div>
 
           {/* Print-friendly note */}
-          <p className="text-center text-sm text-gray-500 mt-8">
-            We recommend saving or printing this confirmation for your records.
-          </p>
+          {!isCancelled && (
+            <p className="text-center text-sm text-gray-500 mt-8">
+              We recommend saving or printing this confirmation for your records.
+            </p>
+          )}
         </div>
       </main>
 

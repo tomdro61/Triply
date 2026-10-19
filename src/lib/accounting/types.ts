@@ -120,15 +120,44 @@ export interface ReconcileResult {
     cancelled: number;
     other: number;
     testExcluded: number;
-    // Staging/test bookings excluded because their test-mode PI is unreadable by
-    // the live Stripe key (resource_missing) — junk from staging soaks in the
-    // shared prod DB. Distinct from testExcluded (test LOTS).
+    // Staging bookings in the shared prod DB, excluded from everything: rows
+    // that RECORD Stripe test mode (`livemode === false`), plus NULL-livemode
+    // rows inferred as staging (test-mode PI unreadable by the live key AND a
+    // definitive prod-ResLab 404). Distinct from testExcluded (test LOTS).
     stagingExcluded: number;
+    // ResLab bookings in `bookings[]`. Direct-lot bookings are NOT in it — see
+    // `direct.count`.
     total: number;
+  };
+  // Bookings at Triply-owned DIRECT lots (`inventory_source === "direct"`,
+  // live only — a test-mode direct row is in counts.stagingExcluded). Kept OUT
+  // of every other figure in this result (counts, bookings[]/CSV, stripe,
+  // confirmed, triplyNet, takeRates, the ResLab settlement): Triply collects
+  // the whole parking charge and owes the lot a payout, which the ResLab-shaped
+  // P&L does not describe. Never fetched from ResLab. The payout / margin
+  // section is Phase 6; this is the explicit placeholder so they're never $0.
+  direct: {
+    count: number; // all statuses
+    confirmed: number;
+    refunded: number;
+    cancelled: number;
+    other: number;
+    // What customers paid online for CONFIRMED direct bookings: live Stripe
+    // amount_received per row, or — when Stripe is off/unavailable for a row —
+    // grand_total + service fee + PG premium − promo discount (flagged below).
+    grossOnlineCharge: number;
+    grossOnlineChargeIsDerived: boolean;
+    // Our TRP- confirmation numbers, all statuses (audit trail).
+    reservations: string[];
+    // Stripe fetch failures for direct rows (incl. a live key unable to read a
+    // live direct row's PI). Separate from stripeFetch.errors, whose rows are
+    // in the CSV; these are not.
+    stripeErrors: Array<{ resNum: string; err: string }>;
   };
   // Reservation numbers of the rows counted in `counts.stagingExcluded` — the
   // audit trail for the exclusion (which specific bookings were dropped as
   // staging junk), so a misclassified row is traceable rather than invisible.
+  // Recorded-livemode=false rows first, then the inferred ones.
   stagingExcludedReservations: string[];
   // Reservation numbers of Park Guard opt-ins whose row carries NO wholesale
   // (deploy-window rows written before migration 022's repair). They count $0

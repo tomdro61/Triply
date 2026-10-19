@@ -176,11 +176,18 @@ console.log(`Pulled ${bookings.length} bookings from Supabase.`);
 
 const real = [];
 const testBookings = [];
+const directBookings = [];
 for (const b of bookings) {
-  if (TEST_RESLAB_LOCATION_IDS.has(b.reslab_location_id)) testBookings.push(b);
+  // Triply direct-lot bookings (TRP- numbers) have no ResLab reservation and are
+  // not on the ResLab invoice this script reconciles to — never fetch or sum them.
+  if (/^TRP-/i.test(String(b.reslab_reservation_number ?? '').trim())) directBookings.push(b);
+  else if (TEST_RESLAB_LOCATION_IDS.has(b.reslab_location_id)) testBookings.push(b);
   else real.push(b);
 }
-console.log(`Excluded ${testBookings.length} booking(s) at TEST lots.\n`);
+console.log(`Excluded ${testBookings.length} booking(s) at TEST lots.`);
+console.log(
+  `Excluded ${directBookings.length} Triply direct-lot booking(s) (TRP- numbers — no ResLab reservation exists; see OPERATIONS_RUNBOOK direct-lots section).\n`
+);
 
 // ---- Cross-check loop -----------------------------------------------------
 

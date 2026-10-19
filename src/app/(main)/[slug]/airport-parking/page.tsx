@@ -15,6 +15,7 @@ import { RatesTable } from "@/components/airport/rates-table";
 import { SEOContent } from "@/components/airport/seo-content";
 import { AirportFAQ } from "@/components/airport/airport-faq";
 import { OtherAirports } from "@/components/airport/other-airports";
+import { AirportGuides } from "@/components/airport/airport-guides";
 
 export const revalidate = 3600; // ISR: 1 hour
 
@@ -116,6 +117,7 @@ export default async function AirportParkingPage({ params }: PageProps) {
         </section>
       )}
 
+      <AirportGuides airport={airport} />
       <OtherAirports currentAirport={airport} />
       <Newsletter />
       <Footer />

@@ -7,7 +7,8 @@
 
 import { generateText } from "ai";
 import { anthropic } from "@ai-sdk/anthropic";
-import type { DigestData } from "./types";
+import { BOOKING_SOURCE_LABELS } from "@/lib/attribution/source";
+import type { DigestData, SourceCount } from "./types";
 
 /** The digest's own pin — never the customer-chat AI_MODEL, which is tuned separately. */
 export const DIGEST_MODEL = "claude-haiku-4-5";
@@ -29,6 +30,10 @@ export function modelInput(d: DigestData): Record<string, unknown> {
   const f = d.funnel.ok ? d.funnel.data : null;
   const l = d.lostSales.ok ? d.lostSales.data : null;
   const e = d.engagement.ok ? d.engagement.data : null;
+  const p = d.pace.ok ? d.pace.data : null;
+  const rc = d.recovery.ok ? d.recovery.data : null;
+  // Display labels, not enum keys, so the model writes "ChatGPT", never "no_referrer_blog".
+  const labelled = (rows: SourceCount[]) => rows.map((r) => ({ source: BOOKING_SOURCE_LABELS[r.key], bookings: r.bookings }));
   return {
     date: d.dateEt,
     bookings: b && {
@@ -46,10 +51,10 @@ export function modelInput(d: DigestData): Record<string, unknown> {
       cancelledOrFailed: b.cancelledOrFailed,
     },
     whereFrom: w && {
-      byChannel: w.byChannel,
+      bySource: labelled(w.bySource),
+      bySourceLast7Days: w.bySource7d.ok ? { total: w.bySource7d.data.total, bySource: labelled(w.bySource7d.data.rows) } : null,
       topAirports: w.topAirports,
       landing: w.landing,
-      aiReferrals: w.aiReferrals,
       topBlogPosts: w.topBlogPosts.map((p) => ({ path: p.path, bookings: p.bookings })),
     },
     funnel: f && {
@@ -64,6 +69,26 @@ export function modelInput(d: DigestData): Record<string, unknown> {
       lotSoldOutRate: f.lotSoldOutRate,
       degradedCount: f.degradedCount,
     },
+    monthToDate: p && {
+      // Day numerals of both ranges, so "Oct 1–10" / "Sept 1–10" pass the number check.
+      thisMonthDays: [Number(p.mtdFirstDay.slice(8)), Number(p.mtdLastDay.slice(8))],
+      lastMonthDays: [Number(p.priorFirstDay.slice(8)), Number(p.priorLastDay.slice(8))],
+      bookings: p.mtd.bookings,
+      gmv: p.mtd.gmv,
+      feeIncome: p.mtd.feeIncome,
+      // With unclassified rows in either period the totals are not comparable: last
+      // month's figures are withheld so the read cannot set two partial counts side by side.
+      ...(p.mtd.unmatched || p.prior.unmatched
+        ? { comparisonWithheld: true, unclassifiedBookings: { thisMonth: p.mtd.unmatched, lastMonth: p.prior.unmatched } }
+        : { sameDaysLastMonthBookings: p.prior.bookings, sameDaysLastMonthGmv: p.prior.gmv, sameDaysLastMonthFeeIncome: p.prior.feeIncome }),
+      // Direction + magnitude, never a signed number: the validator reads "down 25%"
+      // as 25, so a -25 in the input would withhold every read on a down month.
+      bookingsChange:
+        p.bookingsChange === null
+          ? null
+          : { direction: Math.round(p.bookingsChange * 100) === 0 ? "flat" : p.bookingsChange > 0 ? "up" : "down", percent: Math.abs(Math.round(p.bookingsChange * 100)) },
+    },
+    checkoutRecoveryLast7Days: rc && { emailsSent: rc.sent, emailsFailed: rc.failed, emailsInProgressOrStuck: rc.waiting, bookingsThroughEmailLink: rc.recoveredBookings },
     lostSalesByStatus: l ? l.byStatus : null,
     engagement: e && {
       newsletter: e.newsletterBySource,
@@ -77,6 +102,9 @@ const SYSTEM = `You write a 3–5 sentence morning read of yesterday's numbers f
 - Use ONLY numbers present in the JSON you are given. Never compute or invent a number, a percentage, or a total.
 - Compare yesterday to avg7/avg28 only where those are present (null means "no baseline yet" — say so, do not guess).
 - No causal claims ("because", "due to", "driven by"); say what changed, and name one thing worth a look.
+- bySource is yesterday's bookings by where the customer first came from; bySourceLast7Days is the 7 days ending yesterday. "Blog (no referrer)" = the customer arrived straight on a blog article with no referrer; describe it as "arrived on a blog article with no referrer" and do not guess where they came from — never as direct or typed-in traffic or as the blog "driving" bookings.
+- monthToDate compares this month so far with the same days of last month; state bookingsChange exactly as given (direction and percent); if it is null, say no comparison is available; if comparisonWithheld is true, say the month comparison is withheld because some bookings could not be classified, and do not compare the months.
+- checkoutRecoveryLast7Days.emailsInProgressOrStuck = recovery emails claimed or parked for retry; call them "in progress or stuck", never "waiting to send".
 - "originSearches" are CDN misses, not customer searches — never call them customers or visits.
 - Glossary: parkGuardAttachRate = share of bookings that added the Park Guard protection plan (Park Guard is a protection plan, never "payment gateway" or "insurance"); feeIncome = Triply's own fee income (service fees + Park Guard margin), not revenue; zeroResultShare = share of priced searches that showed the customer no lot at all; nothingBookableShare = share of priced searches that returned no lot while at least one lot was sold out (do not state a cause); lotSoldOutRate = of the lots that priced (sold out + returned), the share that were sold out; repeatByEmail = bookings from an email seen before.
 - Write percentages as whole numbers ("35%"), money to the cent or rounded to the dollar, exactly as they appear.

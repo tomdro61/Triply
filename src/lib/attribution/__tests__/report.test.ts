@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { aggregate, buildPromoReport, byAirport, byChannel, presentRate, type ReportRow } from "../report";
+import { aggregate, buildPromoReport, byAirport, bySource, presentRate, type ReportRow } from "../report";
 import { attributionSourceLabel } from "../display";
 
 const row = (over: Partial<ReportRow> = {}): ReportRow => ({
@@ -37,7 +37,7 @@ describe("aggregate", () => {
       row({ channel: "email", status: "disputed" }),
       row({ channel: "email", status: "cancelled" }),
     ];
-    const out = byChannel(rows);
+    const out = bySource(rows);
     expect(out).toEqual([{ key: "email", bookings: 1, gross: 86, triply: 6, protected: 0 }]);
   });
   it("gross = grand_total + service fee + protection premium, NULL numerics as 0; sorted by bookings desc", () => {
@@ -46,8 +46,8 @@ describe("aggregate", () => {
       row({ channel: "paid_search" }),
       row({ channel: "paid_search" }),
     ];
-    const out = byChannel(rows);
-    expect(out[0]).toEqual({ key: "paid_search", bookings: 2, gross: 172, triply: 12, protected: 0 });
+    const out = bySource(rows);
+    expect(out[0]).toEqual({ key: "paid", bookings: 2, gross: 172, triply: 12, protected: 0 });
     expect(out[1]).toEqual({ key: "direct", bookings: 1, gross: 112.99, triply: 0, protected: 1 });
   });
 });

@@ -451,3 +451,90 @@ describe("POST /api/reservations/pending — required lot fields (before the cha
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/reservations/pending — PaymentIntent state FIRST (4b plan §9 M-A, §10 F-9)", () => {
+  it.each(["requires_capture", "processing", "succeeded"])(
+    "%s → 409 already_authorized before any binding / required-field check (never 'not charged')",
+    async (status) => {
+      // Every other check would refuse this body: a different email, a different
+      // lot, a tier the payment does not hold, and a lot field left blank.
+      stripeMock.paymentIntents.retrieve.mockResolvedValue({
+        id: PI,
+        amount: 9400,
+        livemode: false,
+        status,
+        metadata: { customerEmail: "someone-else@example.com", locationId: "99" },
+      });
+      reslabMock.getLocation.mockResolvedValue({
+        id: 42,
+        extra_fields: [{ id: 1, name: "return_flight_number", label: "Return flight #", type: "parking", input_type: "text" }],
+      });
+      const res = await POST(req(body({ protectionPlanCode: "A" })));
+      expect(res.status).toBe(409);
+      const json = await res.json();
+      expect(json).toMatchObject({ code: "already_authorized", paymentIntentId: PI });
+      expect(json.error).not.toMatch(/not been charged/);
+      expect(reslabMock.getLocation).not.toHaveBeenCalled();
+      expect(capturePaymentError).not.toHaveBeenCalled();
+      expect(captureRequiredFieldCheck).not.toHaveBeenCalled();
+      expect(db.log).toEqual([]);
+      expect(db.tables.pending_bookings).toHaveLength(0);
+    }
+  );
+
+  it("canceled → 400 payment_not_stageable, no ResLab lookup, nothing written", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 9400,
+      livemode: false,
+      status: "canceled",
+      metadata: { customerEmail: "ada@example.com", locationId: "42" },
+    });
+    const res = await POST(req(body()));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toMatchObject({ code: "payment_not_stageable" });
+    expect(json.error).toMatch(/not been charged/);
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+    expect(db.tables.pending_bookings).toHaveLength(0);
+  });
+
+  it("an existing-booking read error → 503 'not charged', never staged, never reaches ResLab", async () => {
+    db.failOnce("bookings", "select", "connection reset");
+    const res = await POST(req(body()));
+    expect(res.status).toBe(503);
+    expect((await res.json()).error).toMatch(/not been charged/);
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/existing-booking read failed/) }),
+      expect.anything()
+    );
+    expect(reslabMock.getLocation).not.toHaveBeenCalled();
+    expect(db.tables.pending_bookings).toHaveLength(0);
+  });
+});
+
+describe("POST /api/reservations/pending — re-stage after a declined card (2026-10-11)", () => {
+  it("a row the decline webhook marked `failed` gets the retry's tier, so fulfilment's tier check stays quiet", async () => {
+    const { getProtectionPlan, protectionMetadataPatch } = await import("@/lib/parkguard/plans");
+    db.tables.pending_bookings = [
+      { stripe_payment_intent_id: PI, status: "failed", reslab_reservation_number: null, protection_plan_code: "A", has_protection_plan: true },
+    ];
+    stripeMock.paymentIntents.retrieve.mockResolvedValue({
+      id: PI,
+      amount: 9400,
+      livemode: false,
+      metadata: { customerEmail: "ada@example.com", locationId: "42", ...protectionMetadataPatch(getProtectionPlan("B")!) },
+    });
+    const res = await POST(req(body({ protectionPlanCode: "B" })));
+    expect(await res.json()).toEqual({ staged: true, reason: "already_staged" });
+    expect(db.tables.pending_bookings[0]).toMatchObject({ status: "failed", protection_plan_code: "B", has_protection_plan: true });
+  });
+
+  it("a row past `pending`/`failed` (claimed by fulfilment) is never refreshed", async () => {
+    db.tables.pending_bookings = [
+      { stripe_payment_intent_id: PI, status: "processing", reslab_reservation_number: null, protection_plan_code: "A", has_protection_plan: true },
+    ];
+    await POST(req(body()));
+    expect(db.tables.pending_bookings[0]).toMatchObject({ protection_plan_code: "A", has_protection_plan: true });
+  });
+});

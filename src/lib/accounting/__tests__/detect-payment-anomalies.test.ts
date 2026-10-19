@@ -179,3 +179,91 @@ describe("detectPaymentAnomalies — invoice lookup discipline", () => {
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("detectPaymentAnomalies — duplicate-cart bookings (test exclusion + direct lots)", () => {
+  /** A confirmed booking row for customer c1, same dates + plate unless overridden. */
+  const booking = (id: string, pi: string, over: Record<string, unknown> = {}) => ({
+    id,
+    customer_id: "c1",
+    stripe_payment_intent_id: pi,
+    status: "confirmed",
+    reslab_location_id: 277,
+    reslab_reservation_number: `RTL_${id}`,
+    check_in: "2026-10-12T10:00:00",
+    check_out: "2026-10-15T10:00:00",
+    created_at: new Date().toISOString(),
+    vehicle_info: { licensePlate: "ABC123" },
+    ...over,
+  });
+  /** A direct booking (no ResLab lot) at direct lot `lotId`. */
+  const directBooking = (id: string, pi: string, lotId: string, over: Record<string, unknown> = {}) =>
+    booking(id, pi, {
+      inventory_source: "direct",
+      direct_lot_id: lotId,
+      reslab_location_id: null,
+      reslab_reservation_number: `TRP-${id}`,
+      livemode: true,
+      ...over,
+    });
+
+  it("same cart booked twice under different PIs is a duplicate (rows without livemode = live, pre-015)", async () => {
+    db.tables.bookings = [booking("a", "pi_a"), booking("b", "pi_b")];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([
+      { email: "v@example.com", reservationNumbers: ["RTL_a", "RTL_b"], paymentIntentIds: ["pi_a", "pi_b"] },
+    ]);
+  });
+
+  it("staging rows (livemode=false) at a REAL lot are excluded, so testers rebooking a cart never page", async () => {
+    db.tables.bookings = [
+      booking("a", "pi_a", { livemode: false }),
+      booking("b", "pi_b", { livemode: false }),
+    ];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+
+  it("a staging row does not pair with a live row of the same cart", async () => {
+    db.tables.bookings = [booking("a", "pi_a", { livemode: true }), booking("b", "pi_b", { livemode: false })];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+
+  it("test-LOT rows are still excluded", async () => {
+    db.tables.bookings = [
+      booking("a", "pi_a", { reslab_location_id: 195 }),
+      booking("b", "pi_b", { reslab_location_id: 195 }),
+    ];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+
+  it("direct bookings at two DIFFERENT direct lots are not collapsed into one key", async () => {
+    db.tables.bookings = [directBooking("d1", "pi_d1", "1"), directBooking("d2", "pi_d2", "2")];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+
+  it("the same direct lot booked twice IS a duplicate", async () => {
+    db.tables.bookings = [directBooking("d1", "pi_d1", "1"), directBooking("d2", "pi_d2", "1")];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([
+      { email: "v@example.com", reservationNumbers: ["TRP-d1", "TRP-d2"], paymentIntentIds: ["pi_d1", "pi_d2"] },
+    ]);
+  });
+
+  it("a direct lot id never collides with an equal ResLab location id", async () => {
+    db.tables.bookings = [booking("r", "pi_r", { reslab_location_id: 1 }), directBooking("d", "pi_d", "1")];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+
+  it("staging direct bookings (livemode=false) are excluded", async () => {
+    db.tables.bookings = [
+      directBooking("d1", "pi_d1", "1", { livemode: false }),
+      directBooking("d2", "pi_d2", "1", { livemode: false }),
+    ];
+    const r = await detectPaymentAnomalies(14);
+    expect(r.duplicateBookings).toEqual([]);
+  });
+});

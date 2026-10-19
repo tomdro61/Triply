@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -19,8 +19,10 @@ import {
 import { formatDate, formatDateTime, formatPrice } from "@/lib/utils";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 import { csvEscape } from "@/lib/utils/csv";
-import { attributionSourceLabel as sourceLabel, type AttributionRow } from "@/lib/attribution/display";
+import type { AttributionRow } from "@/lib/attribution/display";
+import { bookingSourceLabel as sourceLabel } from "@/lib/attribution/source";
 import { PG_WHOLESALE_SHORT_SUMMARY } from "@/lib/parkguard/plans";
+import { isCancellable } from "@/lib/cancellation/eligibility";
 import {
   ADMIN_CANCELLATION_REASONS,
   CANCELLATION_REASON_LABELS,
@@ -28,12 +30,32 @@ import {
   type AdminCancellationReason,
   type CancellationReason,
 } from "@/lib/cancellation/reason-codes";
+// Type-only (erased at build): the server's own unions, so a new action, skip
+// reason or outcome fails the build here instead of rendering a generic line.
+import type { DirectAdminAction } from "@/lib/direct/admin-actions/booking";
+import type { BookingAlertKind, OpenAlert } from "@/lib/direct/admin-actions/alerts";
+import type { CustomerEmailOutcome, DirectRedriveSkipReason } from "@/lib/booking/create-booking";
+import type { LotNoticeOutcome } from "@/lib/direct/lot-notice";
 
 interface Booking {
   id: string;
   reslab_reservation_number: string;
-  reslab_location_id: number;
+  /** NULL on a direct-lot booking (Triply-owned lot, no ResLab location). */
+  reslab_location_id: number | null;
+  /** "direct" = Triply-owned lot (migration 034); anything else is ResLab. */
+  inventory_source?: string | null;
+  /** The direct lot's CMS id; NULL on ResLab rows. */
+  direct_lot_id?: string | null;
+  /**
+   * Direct lots (migration 036): the oversized-vehicle estimate PAID AT THE
+   * LOT. Display only — never part of any online figure. NULL on ResLab rows.
+   */
+  vehicle_size_label?: string | null;
+  vehicle_surcharge_cents?: number | null;
+  vehicle_surcharge_tax_cents?: number | null;
   location_name: string;
+  /** The lot's IANA zone — the 24 h free-cancellation rule is judged in it. */
+  location_timezone?: string | null;
   check_in: string;
   check_out: string;
   subtotal: string;
@@ -105,6 +127,389 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+/** ResLab vs Triply's own (direct) lots — the list column, filter and CSV. */
+const inventoryLabel = (b: Pick<Booking, "inventory_source">) =>
+  b.inventory_source === "direct" ? "Triply lot" : "ResLab";
+
+type InventoryFilter = "all" | "reslab" | "direct";
+/** Live vs test bookings (staging and production share one database). */
+type ModeFilter = "live" | "test" | "all";
+const asModeFilter = (v: unknown): ModeFilter | null => (v === "live" || v === "test" || v === "all" ? v : null);
+
+/** GET /api/admin/direct-bookings/action — what the direct-lot panel shows. */
+interface DirectLotInfo {
+  lotRecipients: string[] | null;
+  cmsInbox: string[] | null;
+  recipientsRev: number | null;
+  lotNotifiedAt: string | null;
+  lotNoticeClaimedAt: string | null;
+  lotCancelNotifiedAt: string | null;
+  /** Has the original customer confirmation gone? null = couldn't read. */
+  customerEmailSent: boolean | null;
+  /** null = couldn't read. */
+  openAlerts: OpenAlert[] | null;
+  otherEnvironment: boolean;
+}
+
+type DirectAction = DirectAdminAction;
+
+const DIRECT_ACTION_LABELS: Record<DirectAction, string> = {
+  retry_lot_notice: "Retry lot notice",
+  repoint_lot_inbox: "Re-point to current CMS inbox",
+  resend_lot_cancellation: "Re-send lot cancellation",
+  resend_customer_confirmation: "Re-send customer confirmation",
+  resolve_alerts: "Lot phoned — mark resolved",
+};
+
+/**
+ * The lot was told, but the customer's original confirmation never went:
+ * `retry_lot_notice` then sends only that confirmation (the notice answers
+ * not_claimed), so the button reads "Send confirmation now".
+ */
+const confirmationOnly = (status: string, data: DirectLotInfo) =>
+  status === "confirmed" && !!data.lotNotifiedAt && data.customerEmailSent === false;
+
+const actionLabel = (action: DirectAction, status: string, data: DirectLotInfo) =>
+  action === "retry_lot_notice" && confirmationOnly(status, data) ? "Send confirmation now" : DIRECT_ACTION_LABELS[action];
+
+const ALERT_KIND_LABELS: Record<BookingAlertKind, string> = {
+  lot_notice: "Lot not told about the booking",
+  cancel_notice: "Lot not told about the cancellation",
+  followup: "Manifest follow-up cancel failed",
+};
+
+const isStringArray = (v: unknown): v is string[] => Array.isArray(v) && v.every((x) => typeof x === "string");
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+const hasKey = <K extends string>(map: Record<K, unknown>, v: unknown): v is K =>
+  typeof v === "string" && Object.prototype.hasOwnProperty.call(map, v);
+
+function parseOpenAlerts(v: unknown): OpenAlert[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: OpenAlert[] = [];
+  for (const item of v) {
+    if (typeof item !== "object" || item === null) continue;
+    const r = item as Record<string, unknown>;
+    if (!hasKey(ALERT_KIND_LABELS, r.kind) || typeof r.first_seen_at !== "string") continue;
+    out.push({ kind: r.kind, first_seen_at: r.first_seen_at, alerted_at: strOrNull(r.alerted_at) });
+  }
+  return out;
+}
+
+function parseDirectLotInfo(body: Record<string, unknown>): DirectLotInfo {
+  return {
+    lotRecipients: isStringArray(body.lotRecipients) ? body.lotRecipients : null,
+    cmsInbox: isStringArray(body.cmsInbox) ? body.cmsInbox : null,
+    recipientsRev: typeof body.recipientsRev === "number" ? body.recipientsRev : null,
+    lotNotifiedAt: strOrNull(body.lotNotifiedAt),
+    lotNoticeClaimedAt: strOrNull(body.lotNoticeClaimedAt),
+    lotCancelNotifiedAt: strOrNull(body.lotCancelNotifiedAt),
+    customerEmailSent: typeof body.customerEmailSent === "boolean" ? body.customerEmailSent : null,
+    openAlerts: parseOpenAlerts(body.openAlerts),
+    otherEnvironment: body.otherEnvironment === true,
+  };
+}
+
+const RETRY_SKIP_REASONS: Record<DirectRedriveSkipReason, string> = {
+  not_direct: "Stripe doesn't record this as a Triply-lot booking — nothing sent.",
+  refunded: "The payment was refunded in full — nothing sent.",
+  held: "The booking's own checkout is still finishing — nothing sent. Try again in a couple of minutes.",
+  no_number: "The checkout record has no confirmation number — nothing sent. Handle it by hand.",
+  unreadable: "The booking couldn't be read back — nothing sent. See Sentry.",
+  not_confirmed: "The booking is no longer confirmed — nothing sent.",
+  mid_cancel: "A cancellation is in progress — nothing sent.",
+};
+
+const NOTICE_OUTCOMES: Record<LotNoticeOutcome, string> = {
+  sent: "Lot notice sent.",
+  not_claimed: "Nothing sent — the notice was already sent or another send holds it. Refresh in a few minutes.",
+  skipped: "Not sent — no test inbox is configured here (DIRECT_LOT_NOTICE_OVERRIDE_TO).",
+  failed:
+    "The lot notice failed or Resend didn't answer — see Sentry. If it didn't answer it may still arrive; don't retry for 5 minutes.",
+};
+
+/** null = nothing worth saying (it had already gone). */
+const CUSTOMER_EMAIL_OUTCOMES: Record<CustomerEmailOutcome, string | null> = {
+  sent: "The customer's confirmation (unsent until now) was also sent.",
+  failed: "The customer's confirmation (also unsent) didn't go — see Sentry; it is retried automatically.",
+  not_claimed: "The customer's confirmation was already sent or is being sent elsewhere.",
+  already_sent: null,
+};
+
+/** "Send confirmation now" (the lot already told): only the confirmation's outcome matters. */
+const CONFIRMATION_ONLY_OUTCOMES: Record<CustomerEmailOutcome, { ok: boolean; message: string }> = {
+  sent: { ok: true, message: "Customer confirmation sent." },
+  failed: {
+    ok: false,
+    message: "The customer's confirmation didn't go — see Sentry; it is retried automatically until check-out.",
+  },
+  not_claimed: { ok: false, message: "The confirmation was already sent or is being sent elsewhere — refresh in a few minutes." },
+  already_sent: { ok: true, message: "The confirmation had already gone — nothing sent." },
+};
+
+const UNEXPECTED_REPLY = { ok: false, message: "Unexpected reply — refresh and check before trying again." };
+
+/** The outcome line for a 2xx action response. Reads the body defensively — never claims more than it says. */
+function describeDirectOutcome(
+  action: DirectAction,
+  body: Record<string, unknown>,
+  onlyConfirmation: boolean
+): { ok: boolean; message: string } {
+  if (action === "retry_lot_notice") {
+    const r = (typeof body.result === "object" && body.result !== null ? body.result : {}) as Record<string, unknown>;
+    if (r.kind === "skipped") {
+      return hasKey(RETRY_SKIP_REASONS, r.reason) ? { ok: false, message: RETRY_SKIP_REASONS[r.reason] } : UNEXPECTED_REPLY;
+    }
+    if (r.kind === "error") {
+      return {
+        ok: false,
+        message: `The retry hit an unexpected error — the ${onlyConfirmation ? "confirmation" : "lot notice"} may or may not have gone. See Sentry and refresh before trying again.`,
+      };
+    }
+    if (r.kind !== "attempted" || !hasKey(NOTICE_OUTCOMES, r.notice) || !hasKey(CUSTOMER_EMAIL_OUTCOMES, r.customerEmail)) {
+      return UNEXPECTED_REPLY;
+    }
+    // The lot was already told: its notice answers not_claimed by design.
+    if (onlyConfirmation) return CONFIRMATION_ONLY_OUTCOMES[r.customerEmail];
+    const parts = [NOTICE_OUTCOMES[r.notice]];
+    const customer = CUSTOMER_EMAIL_OUTCOMES[r.customerEmail];
+    if (customer) parts.push(customer);
+    parts.push("The retried notice keeps its original URGENT flag — phone the lot if check-in is close.");
+    return { ok: r.notice === "sent", message: parts.join(" ") };
+  }
+  if (action === "repoint_lot_inbox") {
+    const from = isStringArray(body.from) ? body.from.join(", ") : "?";
+    const to = isStringArray(body.to) ? body.to.join(", ") : "?";
+    return { ok: true, message: `Re-pointed: ${from} → ${to}. Now press "Retry lot notice" to send it there.` };
+  }
+  if (action === "resolve_alerts") {
+    if (typeof body.resolved !== "number") return UNEXPECTED_REPLY;
+    if (body.resolved === 0) return { ok: true, message: "No open alerts for this booking — nothing to resolve." };
+    return { ok: true, message: `Marked ${body.resolved} alert${body.resolved === 1 ? "" : "s"} resolved — they stop now.` };
+  }
+  const n = typeof body.n === "number" ? body.n : null;
+  const to = isStringArray(body.recipients) ? body.recipients.join(", ") : "?";
+  const label = `re-send${n ? ` #${n}` : ""}`;
+  if (body.outcome === "sent") return { ok: true, message: `Sent (${label}) to ${to}.` };
+  if (body.outcome === "unknown") {
+    return {
+      ok: false,
+      message: `Resend didn't confirm the ${label} — it may have been sent (or may still arrive). Check Sentry before sending again.`,
+    };
+  }
+  return {
+    ok: false,
+    message: `The ${label} didn't go (or Resend didn't answer in time and it may still arrive) — check Sentry before sending again.`,
+  };
+}
+
+type DirectLotInfoState =
+  | { state: "loading" }
+  | { state: "error"; message: string }
+  | { state: "ready"; data: DirectLotInfo };
+
+/**
+ * Direct-lot (Triply-owned lot) panel in the booking modal (6b plan §6):
+ * what the lot was told, the inbox on file, the open alerts, and the admin
+ * actions.
+ *
+ * State: `info` (loading | error | ready) from the GET; `busy` = the one
+ * action in flight. A ref is the synchronous double-click guard (state lands
+ * a render later); `busy` disables every button while anything runs. A 2xx
+ * shows the outcome (green only when it definitely went), a 4xx/5xx its
+ * `error`; a 2xx then re-reads the panel and refreshes the list. The parent
+ * keys it by booking id, so opening another booking starts clean.
+ */
+function DirectLotPanel({ booking, onChanged }: { booking: Booking; onChanged: () => void }) {
+  const [info, setInfo] = useState<DirectLotInfoState>({ state: "loading" });
+  const [busy, setBusy] = useState<DirectAction | null>(null);
+  const inFlight = useRef(false);
+  const [outcome, setOutcome] = useState<{ ok: boolean; message: string } | null>(null);
+  const number = booking.reslab_reservation_number;
+  const status = booking.status;
+  const cancelled = status === "cancelled" || status === "refunded";
+
+  async function loadInfo() {
+    try {
+      const res = await fetch(`/api/admin/direct-bookings/action?reservationNumber=${encodeURIComponent(number)}`);
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        setInfo({ state: "error", message: typeof body.error === "string" ? body.error : `Couldn't load (HTTP ${res.status})` });
+        return;
+      }
+      setInfo({ state: "ready", data: parseDirectLotInfo(body) });
+    } catch {
+      setInfo({ state: "error", message: "Network error — couldn't load the lot details." });
+    }
+  }
+
+  useEffect(() => {
+    void loadInfo();
+    // Keyed by booking id by the parent: load once per booking.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function confirmText(action: DirectAction, data: DirectLotInfo): string {
+    const onFile = data.lotRecipients?.join(", ") ?? "(none on file)";
+    switch (action) {
+      case "retry_lot_notice":
+        if (confirmationOnly(status, data)) {
+          return `Send the customer's booking confirmation for ${number} now? It never went. The lot was already told — nothing is sent to the lot.`;
+        }
+        return `Send the lot its booking notice for ${number} now (to ${onFile})? If the customer's confirmation never went, it is sent too.`;
+      case "repoint_lot_inbox":
+        return `Re-point ${number}'s unsent lot notice?\n\nFrom: ${onFile}\nTo: ${data.cmsInbox?.join(", ") ?? "the lot's current CMS inbox"}\n\nNothing is sent — press "Retry lot notice" afterwards.`;
+      case "resend_lot_cancellation":
+        return `Re-send the cancellation of ${number} to the lot (${onFile}) as a reminder?`;
+      case "resend_customer_confirmation":
+        return `Re-send the booking confirmation for ${number} to the guest's email?`;
+      case "resolve_alerts":
+        return `Record that you phoned the lot about ${number}? Its open alerts stop.`;
+    }
+  }
+
+  async function run(action: DirectAction, data: DirectLotInfo) {
+    if (inFlight.current) return;
+    if (!confirm(confirmText(action, data))) return;
+    const onlyConfirmation = action === "retry_lot_notice" && confirmationOnly(status, data);
+    inFlight.current = true;
+    setBusy(action);
+    setOutcome(null);
+    try {
+      const res = await fetch("/api/admin/direct-bookings/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reservationNumber: number, action }),
+      });
+      const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      if (!res.ok) {
+        setOutcome({ ok: false, message: typeof body.error === "string" ? body.error : `Failed (HTTP ${res.status})` });
+      } else {
+        setOutcome(describeDirectOutcome(action, body, onlyConfirmation));
+        await loadInfo();
+        onChanged();
+      }
+    } catch {
+      setOutcome({ ok: false, message: "Network error — it may or may not have run. Refresh and check before trying again." });
+    } finally {
+      inFlight.current = false;
+      setBusy(null);
+    }
+  }
+
+
+  return (
+    <div>
+      <h3 className="font-semibold text-gray-900 mb-2">Triply lot — notices</h3>
+      <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+        {info.state === "loading" && (
+          <p className="flex items-center gap-2 text-gray-500">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+          </p>
+        )}
+        {info.state === "error" && <p className="text-red-700">{info.message}</p>}
+        {info.state === "ready" && (
+          <>
+            <p>
+              <span className="text-gray-500">Lot told:</span>{" "}
+              {info.data.lotNotifiedAt ? (
+                formatDateTime(info.data.lotNotifiedAt)
+              ) : (
+                <span className="text-amber-700 font-medium">
+                  not yet
+                  {info.data.lotNoticeClaimedAt ? ` (a send started ${formatDateTime(info.data.lotNoticeClaimedAt)})` : ""}
+                </span>
+              )}
+            </p>
+            {cancelled && (
+              <p>
+                <span className="text-gray-500">Cancellation sent:</span>{" "}
+                {info.data.lotCancelNotifiedAt ? formatDateTime(info.data.lotCancelNotifiedAt) : "not sent"}
+              </p>
+            )}
+            {status === "confirmed" && (
+              <p>
+                <span className="text-gray-500">Customer confirmation:</span>{" "}
+                {info.data.customerEmailSent === null ? (
+                  "couldn't check"
+                ) : info.data.customerEmailSent ? (
+                  "sent"
+                ) : (
+                  <span className="text-amber-700 font-medium">not yet — retried automatically until check-out</span>
+                )}
+              </p>
+            )}
+            <div>
+              <span className="text-gray-500">Open alerts:</span>{" "}
+              {info.data.openAlerts === null ? (
+                <span className="text-amber-700">couldn&apos;t read them</span>
+              ) : info.data.openAlerts.length === 0 ? (
+                "none"
+              ) : (
+                <ul className="mt-1 ml-4 list-disc text-amber-800">
+                  {info.data.openAlerts.map((a) => (
+                    <li key={`${a.kind}-${a.first_seen_at}`}>
+                      {ALERT_KIND_LABELS[a.kind]} — since {formatDateTime(a.first_seen_at)}
+                      {a.alerted_at ? `, last posted ${formatDateTime(a.alerted_at)}` : ", not posted yet"}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <p>
+              <span className="text-gray-500">Lot inbox on file:</span>{" "}
+              {info.data.lotRecipients?.join(", ") ?? "none"}
+              {(info.data.recipientsRev ?? 0) > 0 && (
+                <span className="ml-1 text-xs text-gray-400">(re-pointed ×{info.data.recipientsRev})</span>
+              )}
+            </p>
+            {info.data.otherEnvironment ? (
+              <p className="text-amber-800">
+                This booking was made in the other environment (staging vs production) — manage it from that
+                environment&apos;s admin.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2 pt-2">
+                {(
+                  [
+                    // "Retry lot notice" while the lot isn't told; "Send confirmation now"
+                    // once it is but the customer's original confirmation never went.
+                    status === "confirmed" && (!info.data.lotNotifiedAt || confirmationOnly(status, info.data))
+                      ? "retry_lot_notice"
+                      : null,
+                    status === "confirmed" && !info.data.lotNotifiedAt && !info.data.lotNoticeClaimedAt
+                      ? "repoint_lot_inbox"
+                      : null,
+                    cancelled && info.data.lotCancelNotifiedAt ? "resend_lot_cancellation" : null,
+                    // Not while the original hasn't gone: "Send confirmation now" sends it (the POST refuses this too).
+                    status === "confirmed" && info.data.customerEmailSent !== false ? "resend_customer_confirmation" : null,
+                    info.data.openAlerts === null || info.data.openAlerts.length > 0 ? "resolve_alerts" : null,
+                  ] as Array<DirectAction | null>
+                )
+                  .filter((a): a is DirectAction => a !== null)
+                  .map((a) => (
+                    <button
+                      key={a}
+                      onClick={() => void run(a, info.data)}
+                      disabled={busy !== null}
+                      className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-800 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {busy === a ? "Working…" : actionLabel(a, status, info.data)}
+                    </button>
+                  ))}
+              </div>
+            )}
+          </>
+        )}
+        {outcome && (
+          <div className={`p-3 rounded-lg ${outcome.ok ? "bg-green-50 text-green-800" : "bg-amber-50 text-amber-900"}`}>
+            {outcome.message}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -118,6 +523,15 @@ export default function AdminBookingsPage() {
   // Degraded-search notices from the API (customer lookup failed / truncated).
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [status, setStatus] = useState("all");
+  const [inventory, setInventory] = useState<InventoryFilter>("all");
+  // null = the API's default (this deployment's own mode); `appliedMode` is what it applied.
+  const [mode, setMode] = useState<ModeFilter | null>(null);
+  const [appliedMode, setAppliedMode] = useState<ModeFilter | null>(null);
+  // A failed load is shown as an error, never as "No bookings found" or as the previous rows.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Only the latest request may update the list: switching filters quickly must not leave
+  // one mode's rows under another mode's label.
+  const fetchSeq = useRef(0);
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
@@ -130,6 +544,16 @@ export default function AdminBookingsPage() {
   // Required reason + optional admin note for the cancel (migration 032).
   const [cancelReason, setCancelReason] = useState<AdminCancellationReason | "">("");
   const [cancelNote, setCancelNote] = useState("");
+  // Standard cancel: refund the service fee too ("policy refund")? Decided ONCE
+  // when the dialog opens, by the free-cancellation rule (more than 24 h before
+  // check-in, lot time — the self-cancel's own check), so a guest who cancels by
+  // email gets what one who cancels online gets. Fixed for the dialog's life: a
+  // retry that crosses the 24 h mark must not flip the refund (Codex review).
+  // Staff can untick it.
+  const [feeChoice, setFeeChoice] = useState<{ bookingId: string; refund: boolean } | null>(null);
+  const policyRefundDefault = (b: Booking) => isCancellable(b.check_in, b.location_timezone).cancellable;
+  const refundFeeOnStandard = (b: Booking) =>
+    feeChoice?.bookingId === b.id ? feeChoice.refund : policyRefundDefault(b);
   const [cancelResult, setCancelResult] = useState<{
     success: boolean;
     message: string;
@@ -141,6 +565,8 @@ export default function AdminBookingsPage() {
   } | null>(null);
 
   async function handleCancelBooking(booking: Booking, refundServiceFee = false) {
+    // Standard path only: the fee comes back under the free-cancellation policy.
+    const refundServiceFeeOnly = !refundServiceFee && refundFeeOnStandard(booking);
     if (!cancelReason) {
       setCancelResult({ success: false, message: "Pick a cancellation reason first." });
       return;
@@ -158,6 +584,8 @@ export default function AdminBookingsPage() {
     const pgWithheld = hasPG ? pgWholesaleWithheld(pgPremium, pgWholesale) : 0;
     const confirmMsg = refundServiceFee
       ? `FULL refund for ${booking.reslab_reservation_number} — refunds everything the customer paid Triply online, INCLUDING the $${fee.toFixed(2)} service fee${hasPG ? ` and the full $${pgPremium.toFixed(2)} Park Guard premium` : ""}. Use this when the lot turned the customer away. This cannot be undone.`
+      : refundServiceFeeOnly
+      ? `Cancel ${booking.reslab_reservation_number} under the FREE-CANCELLATION policy — refunds everything the customer paid Triply online INCLUDING the $${fee.toFixed(2)} service fee${hasPG ? `, except $${pgWithheld.toFixed(2)} of the $${pgPremium.toFixed(2)} Park Guard premium (its non-refundable wholesale)` : ""}. Same as an online cancellation. This cannot be undone.`
       : `Cancel ${booking.reslab_reservation_number} and refund the customer, RETAINING the $${fee.toFixed(2)} Triply service fee${hasPG ? ` and $${pgWithheld.toFixed(2)} of the $${pgPremium.toFixed(2)} Park Guard premium (its non-refundable wholesale — customer gets $${(pgPremium - pgWithheld).toFixed(2)} back)` : ""} (standard cancellation). This cannot be undone.`;
     if (!confirm(confirmMsg)) {
       return;
@@ -173,6 +601,7 @@ export default function AdminBookingsPage() {
           reservationNumber: booking.reslab_reservation_number,
           stripePaymentIntentId: booking.stripe_payment_intent_id,
           refundServiceFee,
+          refundServiceFeeOnly,
           reason: cancelReason,
           note: cancelNote.trim() || undefined,
         }),
@@ -219,6 +648,7 @@ export default function AdminBookingsPage() {
   }
 
   async function fetchBookings(page = 1) {
+    const seq = ++fetchSeq.current;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -228,6 +658,14 @@ export default function AdminBookingsPage() {
 
       if (status !== "all") {
         params.set("status", status);
+      }
+
+      if (inventory !== "all") {
+        params.set("inventory", inventory);
+      }
+
+      if (mode) {
+        params.set("mode", mode);
       }
 
       if (search) {
@@ -262,22 +700,30 @@ export default function AdminBookingsPage() {
       }
 
       const res = await fetch(`/api/admin/bookings?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      if (seq !== fetchSeq.current) return;
 
       setBookings(data.bookings || []);
       setPagination(data.pagination);
       setSearchWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setAppliedMode(asModeFilter(data.mode));
+      setLoadError(null);
     } catch (error) {
+      if (seq !== fetchSeq.current) return;
       console.error("Failed to fetch bookings:", error);
+      setBookings([]);
+      setAppliedMode(null);
       setSearchWarnings([]);
+      setLoadError(`Bookings failed to load (${error instanceof Error ? error.message : "network error"}). Refresh to try again.`);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     fetchBookings(1);
-  }, [status, dateRange, customStartDate, customEndDate]);
+  }, [status, inventory, mode, dateRange, customStartDate, customEndDate]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,12 +735,14 @@ export default function AdminBookingsPage() {
   };
 
   const exportCSV = () => {
+    if (loadError || !appliedMode) return;
     const headers = [
       "Confirmation #",
       "Customer Name",
       "Email",
       "Phone",
       "Location",
+      "Inventory",
       "Check In",
       "Check Out",
       "Booking Total",
@@ -327,6 +775,7 @@ export default function AdminBookingsPage() {
         b.customers?.email,
         b.customers?.phone,
         b.location_name,
+        inventoryLabel(b),
         formatDateTime(b.check_in),
         formatDateTime(b.check_out),
         bookingTotal.toFixed(2),
@@ -355,7 +804,8 @@ export default function AdminBookingsPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `triply-bookings-${new Date().toISOString().split("T")[0]}.csv`;
+    // The applied mode is in the name: a test-only export must never pass for real revenue.
+    a.download = `triply-bookings-${appliedMode}-${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
   };
 
@@ -373,6 +823,12 @@ export default function AdminBookingsPage() {
             <p>
               <strong>Name/email search is unavailable right now</strong> — results below match only
               the confirmation number and lot name. Check Sentry.
+            </p>
+          )}
+          {searchWarnings.includes("mode_default_unknown") && (
+            <p>
+              <strong>This site&apos;s Stripe key wasn&apos;t recognised</strong> — showing live and test
+              bookings together. Check STRIPE_SECRET_KEY.
             </p>
           )}
           {searchWarnings.includes("customer_search_truncated") && (
@@ -409,6 +865,30 @@ export default function AdminBookingsPage() {
               <option value="confirmed">Confirmed</option>
               <option value="cancelled">Cancelled</option>
               <option value="completed">Completed</option>
+            </select>
+            <select
+              value={inventory}
+              onChange={(e) => {
+                const v = e.target.value;
+                setInventory(v === "reslab" || v === "direct" ? v : "all");
+              }}
+              aria-label="Inventory"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none bg-white"
+            >
+              <option value="all">All Inventory</option>
+              <option value="reslab">ResLab</option>
+              <option value="direct">Triply lots</option>
+            </select>
+            <select
+              value={mode ?? appliedMode ?? ""}
+              onChange={(e) => setMode(asModeFilter(e.target.value))}
+              aria-label="Live or test bookings"
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-orange focus:border-transparent outline-none bg-white"
+            >
+              {!mode && !appliedMode && <option value="">{loading ? "Loading…" : "Default"}</option>}
+              <option value="live">Live bookings</option>
+              <option value="test">Test bookings</option>
+              <option value="all">Live + test</option>
             </select>
           </div>
 
@@ -468,7 +948,8 @@ export default function AdminBookingsPage() {
 
           <button
             onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            disabled={loading || !!loadError || !appliedMode}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download size={18} />
             Export CSV
@@ -482,9 +963,22 @@ export default function AdminBookingsPage() {
           <div className="p-8 flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-brand-orange" />
           </div>
+        ) : loadError ? (
+          <div role="alert" className="p-8 text-center text-red-700">
+            {loadError}
+          </div>
         ) : bookings.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No bookings found
+            {appliedMode === "live" || appliedMode === "test" ? (
+              <>
+                No {appliedMode} bookings found.{" "}
+                <button type="button" onClick={() => setMode("all")} className="text-brand-orange underline">
+                  Look in live + test
+                </button>
+              </>
+            ) : (
+              "No bookings found"
+            )}
           </div>
         ) : (
           <>
@@ -493,7 +987,7 @@ export default function AdminBookingsPage() {
               {bookings.map((booking) => (
                 <button
                   key={booking.id}
-                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                  onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                   className="w-full text-left p-4 hover:bg-gray-50 active:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3 mb-2">
@@ -516,6 +1010,7 @@ export default function AdminBookingsPage() {
                   <div className="flex items-center gap-1 text-sm text-gray-600 mt-2">
                     <MapPin size={14} className="text-gray-400 flex-shrink-0" />
                     <span className="truncate">{booking.location_name}</span>
+                    <span className="flex-shrink-0 text-xs text-gray-400">· {inventoryLabel(booking)}</span>
                   </div>
                   <div className="flex items-center justify-between mt-2 gap-2">
                     <div className="flex items-center gap-1 text-xs text-gray-500 min-w-0">
@@ -552,6 +1047,9 @@ export default function AdminBookingsPage() {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Location
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Inventory
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Dates
@@ -602,6 +1100,9 @@ export default function AdminBookingsPage() {
                           </span>
                         </div>
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {inventoryLabel(booking)}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-gray-600">
@@ -647,7 +1148,7 @@ export default function AdminBookingsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); }}
+                          onClick={() => { setSelectedBooking(booking); setCancelResult(null); setCancelReason(""); setCancelNote(""); setFeeChoice({ bookingId: booking.id, refund: policyRefundDefault(booking) }); }}
                           className="text-brand-orange hover:text-orange-600 p-1"
                           title="View Details"
                         >
@@ -781,6 +1282,14 @@ export default function AdminBookingsPage() {
                   0,
                   bookingTotal - dueAtLocation - discountAmount
                 );
+                // Direct lots only: the oversized-vehicle surcharge the customer
+                // pays AT THE LOT. Its own line — never folded into the online
+                // figures above (a direct row's due_at_location is 0).
+                const atLotEstimateCents =
+                  selectedBooking.inventory_source === "direct"
+                    ? (selectedBooking.vehicle_surcharge_cents ?? 0) +
+                      (selectedBooking.vehicle_surcharge_tax_cents ?? 0)
+                    : 0;
 
                 return (
                   <div>
@@ -840,6 +1349,21 @@ export default function AdminBookingsPage() {
                           <span className="text-gray-500">Due at location</span>
                           <span className="text-amber-700 font-medium">
                             {formatPrice(dueAtLocation)}
+                          </span>
+                        </div>
+                      )}
+                      {atLotEstimateCents > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">
+                            Est. at the lot
+                            {selectedBooking.vehicle_size_label && (
+                              <span className="ml-1 text-xs">
+                                ({selectedBooking.vehicle_size_label}, not charged online)
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-amber-700 font-medium">
+                            {formatPrice(atLotEstimateCents / 100)}
                           </span>
                         </div>
                       )}
@@ -914,6 +1438,15 @@ export default function AdminBookingsPage() {
                 </div>
               )}
 
+              {/* Triply-lot notices + admin actions (6b §6) — direct bookings only */}
+              {selectedBooking.inventory_source === "direct" && (
+                <DirectLotPanel
+                  key={selectedBooking.id}
+                  booking={selectedBooking}
+                  onChanged={() => void fetchBookings(pagination.page)}
+                />
+              )}
+
               {/* Recorded cancellation reason (migration 032) */}
               {(selectedBooking.status === "cancelled" || selectedBooking.status === "refunded") && (
                 <div className="p-3 rounded-lg text-sm bg-gray-50 text-gray-700">
@@ -960,6 +1493,23 @@ export default function AdminBookingsPage() {
                     placeholder="Note (optional, staff only — stored apart from the booking, not readable by the customer)"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
+                  <label className="flex items-start gap-2 text-sm text-gray-700">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5"
+                      checked={refundFeeOnStandard(selectedBooking)}
+                      onChange={(e) => setFeeChoice({ bookingId: selectedBooking.id, refund: e.target.checked })}
+                      disabled={cancelling}
+                    />
+                    <span>
+                      &quot;Cancel &amp; Refund&quot; also refunds the ${(parseFloat(selectedBooking.triply_service_fee) || 0).toFixed(2)} service fee
+                      <span className="block text-xs text-gray-500">
+                        {policyRefundDefault(selectedBooking)
+                          ? "Pre-ticked: more than 24 h before check-in, so free cancellation applies (same as an online cancel; the Park Guard wholesale is still kept)."
+                          : "Within 24 h of check-in (or the lot's time zone is unknown) — the fee is normally kept."}
+                      </span>
+                    </span>
+                  </label>
                 </div>
               )}
 
@@ -1008,13 +1558,15 @@ export default function AdminBookingsPage() {
                 </Link>
                 {selectedBooking.status === "confirmed" && (
                   <>
-                    {/* Standard cancel: refunds the customer but RETAINS the
-                        Triply service fee + the per-row Park Guard wholesale
-                        (a partial protection refund on PG bookings). */}
+                    {/* Standard cancel: refunds the customer, RETAINS the per-row
+                        Park Guard wholesale, and retains the Triply service fee
+                        unless the free-cancellation box above is ticked. */}
                     <button
                       onClick={() => handleCancelBooking(selectedBooking, false)}
                       disabled={cancelling || !cancelReason}
-                      title={`Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
+                      title={refundFeeOnStandard(selectedBooking)
+                        ? `Free cancellation: refunds everything incl. the Triply service fee; on Park Guard bookings keeps the non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`
+                        : `Refunds parking; keeps the Triply service fee and, on Park Guard bookings, its non-refundable wholesale (${PG_WHOLESALE_SHORT_SUMMARY} by plan)`}
                       className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
                     >
                       {cancelling && cancellingMode === "standard" ? "Cancelling..." : "Cancel & Refund"}

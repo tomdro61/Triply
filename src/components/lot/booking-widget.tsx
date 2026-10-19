@@ -18,8 +18,9 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
 import { calculateServiceFee } from "@/lib/utils/service-fee";
-import { DIRECT_BOOKING_OPEN } from "@/lib/direct/flag";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
+import { VehicleSizeModal } from "./vehicle-size-modal";
+import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
 
 interface BookingWidgetProps {
   lot: UnifiedLot;
@@ -170,11 +171,29 @@ export function BookingWidget({
     : "Free cancellation up to 24h before";
 
   const timesMissing = !selectedCheckInTime || !checkOutTime;
-  const belowMinDays = lot.minimumBookingDays ? days < lot.minimumBookingDays : false;
-  // Direct (non-ResLab) lots are listed from Phase 2 but their checkout ships
-  // in Phase 3; until then the button is off and says why. /api/checkout/lot
-  // refuses them too, so this is the courteous gate, not the only one.
-  const bookingNotOpenYet = lot.source === "direct" && !DIRECT_BOOKING_OPEN;
+  // Direct lots bill 24-hour days from the dates AND times on screen; `days`
+  // above is the quote priced once from the URL and goes stale on edits, so the
+  // minimum stay is checked against a fresh count (review R12, same as the
+  // search slider). null until both times are set (timesMissing covers that).
+  // ResLab lots keep the existing count.
+  const directQuote =
+    lot.source === "direct"
+      ? directReserveQuote({
+          rateCents: Math.round(price * 100),
+          taxRatePercent: lot.pricing?.taxValue ?? 0,
+          checkIn,
+          checkInTime: selectedCheckInTime,
+          checkOut,
+          checkOutTime,
+        })
+      : null;
+  const stayDays: number | null = lot.source === "direct" ? (directQuote?.days ?? null) : days;
+  const belowMinDays = lot.minimumBookingDays && stayDays !== null ? stayDays < lot.minimumBookingDays : false;
+  // Reserve is off unless `lot.checkoutOpen` — resolved on the server by
+  // isDirectCheckoutOpen() (DIRECT_BOOKING_OPEN, or DIRECT_CHECKOUT_PREVIEW on
+  // preview/staging/dev). /api/checkout/lot refuses them too, so this is the
+  // courteous gate, not the only one.
+  const bookingNotOpenYet = lot.source === "direct" && !lot.checkoutOpen;
   const reserveDisabled = timesMissing || belowMinDays || bookingNotOpenYet;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
@@ -184,15 +203,23 @@ export function BookingWidget({
         ? `Minimum ${lot.minimumBookingDays} days required`
         : undefined;
 
-  const handleReserve = () => {
-    if (reserveDisabled) return;
-    // The list refreshes once a minute; re-check against the clock now so a
-    // slot that passed since then never reaches checkout.
-    if (!stillBookableCheckinTime(selectedCheckInTime, timeOptions, checkIn, airportTimeZone, lot.hoursBeforeReservation)) {
-      setCheckInTime("");
-      setClock(Date.now());
-      return;
-    }
+  // Direct lots with oversized-vehicle surcharges ask for the vehicle size in a
+  // pop-up BEFORE checkout (vehicle-surcharge plan §1.4). Every other lot:
+  // Reserve goes straight to checkout, exactly as before.
+  const vehicleSurcharges = lot.source === "direct" ? (lot.vehicleSurcharges ?? []) : [];
+  const asksVehicleSize = vehicleSurcharges.length > 0;
+  const [vehicleModalOpen, setVehicleModalOpen] = useState(false);
+  const surchargeNotice = asksVehicleSize ? surchargeRangeText(vehicleSurcharges) : null;
+
+  /** The check-in slot may have passed while the page (or pop-up) sat open. */
+  const checkinStillBookable = (): boolean => {
+    if (stillBookableCheckinTime(selectedCheckInTime, timeOptions, checkIn, airportTimeZone, lot.hoursBeforeReservation)) return true;
+    setCheckInTime("");
+    setClock(Date.now());
+    return false;
+  };
+
+  const goToCheckout = (vehicleSize?: string) => {
     const params = new URLSearchParams({
       lot: lot.id,
       checkin: checkIn,
@@ -200,7 +227,29 @@ export function BookingWidget({
       checkinTime: selectedCheckInTime,
       checkoutTime: checkOutTime,
     });
+    if (vehicleSize) params.set("vehicleSize", vehicleSize);
     router.push(`/checkout?${params.toString()}`);
+  };
+
+  const handleReserve = () => {
+    if (reserveDisabled) return;
+    // The list refreshes once a minute; re-check against the clock now so a
+    // slot that passed since then never reaches checkout.
+    if (!checkinStillBookable()) return;
+    if (asksVehicleSize) {
+      setVehicleModalOpen(true);
+      return;
+    }
+    goToCheckout();
+  };
+
+  const handleVehicleSizeContinue = (vehicleSize: string) => {
+    // Re-checked on Continue too: the pop-up can sit open past a slot.
+    if (!checkinStillBookable()) {
+      setVehicleModalOpen(false);
+      return;
+    }
+    goToCheckout(vehicleSize);
   };
 
   const [copied, setCopied] = useState(false);
@@ -306,7 +355,7 @@ export function BookingWidget({
       )}
 
       {/* Minimum Booking Days Warning */}
-      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && days < lot.minimumBookingDays && (
+      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && stayDays !== null && stayDays < lot.minimumBookingDays && (
         <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
@@ -461,6 +510,12 @@ export function BookingWidget({
             </div>
           </div>
         )}
+        {surchargeNotice && (
+          // Before Reserve, so the fee is never a surprise (review R10).
+          <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+            Oversized vehicles {surchargeNotice}, paid at the lot.
+          </p>
+        )}
       </div>
 
       {/* Reserve Button — hidden on mobile, sticky footer handles it */}
@@ -489,6 +544,20 @@ export function BookingWidget({
         </button>
       </div>
     </div>
+    {asksVehicleSize && (
+      <VehicleSizeModal
+        open={vehicleModalOpen}
+        onOpenChange={setVehicleModalOpen}
+        surcharges={vehicleSurcharges}
+        rateCents={Math.round(price * 100)}
+        taxRatePercent={lot.pricing?.taxValue ?? 0}
+        checkIn={checkIn}
+        checkInTime={selectedCheckInTime}
+        checkOut={checkOut}
+        checkOutTime={checkOutTime}
+        onContinue={handleVehicleSizeContinue}
+      />
+    )}
     </>
   );
 }

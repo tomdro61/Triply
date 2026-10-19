@@ -1,7 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
-import { isAdminEmail } from "@/config/admin";
+import { isAdminEmail, excludeTestBookings, onlyTestBookings } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
+import { stripeKeyMode } from "@/lib/cancellation/source-guard";
+
+/**
+ * `?inventory=` (6b plan §7): which inventory system a booking came from.
+ * Absent or "all" = no filter; anything else is a 400 — a typo must never
+ * quietly show every booking as though it were filtered.
+ */
+const inventorySchema = z.enum(["all", "reslab", "direct"]);
+
+/**
+ * `?mode=`: live or test bookings. Staging and production share one database,
+ * so without this the production list showed every staging test booking (Tom,
+ * 2026-10-13). Absent = this deployment's own mode (its Stripe key: production
+ * live, staging/dev test) — the rows its admin can actually act on. An
+ * unrecognised key shows both, with a warning and a Sentry event, rather than
+ * quietly picking one. "Test" is the dashboard's rule (`excludeTestBookings`)
+ * inverted. A bad value is a 400.
+ */
+const modeSchema = z.enum(["live", "test", "all"]);
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +44,32 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search");
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
+    const inventoryParam = searchParams.get("inventory");
+    const inventory = inventoryParam === null ? null : inventorySchema.safeParse(inventoryParam);
+    if (inventory && !inventory.success) {
+      return NextResponse.json({ error: "inventory must be one of: all, reslab, direct" }, { status: 400 });
+    }
+    const modeParam = searchParams.get("mode");
+    const modeParsed = modeParam === null ? null : modeSchema.safeParse(modeParam);
+    if (modeParsed && !modeParsed.success) {
+      return NextResponse.json({ error: "mode must be one of: live, test, all" }, { status: 400 });
+    }
+    const warnings: string[] = [];
+    let mode: z.infer<typeof modeSchema>;
+    if (modeParsed?.success) {
+      mode = modeParsed.data;
+    } else {
+      const keyMode = stripeKeyMode();
+      mode = keyMode ?? "all";
+      if (!keyMode) {
+        warnings.push("mode_default_unknown");
+        captureAPIError(new Error("Admin bookings: STRIPE_SECRET_KEY is missing or not a Stripe secret key — showing live + test"), {
+          endpoint: "/api/admin/bookings",
+          method: "GET",
+          stage: "mode_default",
+        });
+      }
+    }
 
     const offset = (page - 1) * limit;
 
@@ -48,6 +94,15 @@ export async function GET(request: NextRequest) {
       query = query.eq("status", status);
     }
 
+    // Filter by inventory source (ResLab vs Triply's own direct lots).
+    if (inventory?.success && inventory.data !== "all") {
+      query = query.eq("inventory_source", inventory.data);
+    }
+
+    // Live vs test (each `.or()` is its own parameter, ANDed with the search's).
+    if (mode === "live") query = excludeTestBookings(query);
+    if (mode === "test") query = onlyTestBookings(query);
+
     // Filter by date range
     if (startDate) {
       query = query.gte("created_at", startDate);
@@ -63,7 +118,6 @@ export async function GET(request: NextRequest) {
     // query on `customer_id` alongside the booking-level fields.
     // `warnings` is returned to the page so a failed or truncated customer
     // lookup is never indistinguishable from a genuine "no matches".
-    const warnings: string[] = [];
     if (search) {
       const raw = search.trim();
       // Keep letters/digits/space/-_# plus @ and . for email. Everything else
@@ -146,6 +200,11 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error("Admin bookings error:", error);
+      captureAPIError(new Error(`Admin bookings query failed (mode ${mode}): ${error.message}`), {
+        endpoint: "/api/admin/bookings",
+        method: "GET",
+        stage: "bookings_query",
+      });
       return NextResponse.json(
         { error: "Failed to fetch bookings" },
         { status: 500 }
@@ -194,6 +253,8 @@ export async function GET(request: NextRequest) {
       // "customer_search_unavailable" | "customer_search_truncated" — the page
       // shows these so a degraded search never looks like "no matches".
       warnings,
+      // The mode actually applied (the default when none was asked for), so the page can label it.
+      mode,
     });
   } catch (error) {
     console.error("Admin bookings error:", error);

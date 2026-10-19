@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { capturePaymentError, captureParkGuardError, captureNonCheckoutPayment } from "@/lib/sentry";
@@ -56,7 +58,7 @@ export async function POST(request: NextRequest) {
 
       const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
-        .select("id, status")
+        .select("id, status, inventory_source")
         .eq("stripe_payment_intent_id", paymentIntent.id)
         .maybeSingle();
 
@@ -85,6 +87,26 @@ export async function POST(request: NextRequest) {
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
+        } else if (booking.inventory_source === "direct") {
+          // A DIRECT booking's lot notice and customer email are sent after the
+          // insert; a function that died in between left them unsent. The
+          // engine's Step 3 re-runs exactly those (each behind its own claim)
+          // — or answers in_progress while the main path is still sending,
+          // which asks Stripe to redeliver (4b §9 H-B). A send that fails here
+          // is picked up by the sweep's direct backstop.
+          try {
+            const outcome = await createBooking({ source: "webhook", stripePaymentIntentId: paymentIntent.id });
+            retryable = shouldStripeRedeliver(outcome);
+          } catch (redriveError) {
+            capturePaymentError(
+              new Error(
+                `Webhook ${event.type}: direct-booking re-send failed: ${
+                  redriveError instanceof Error ? redriveError.message : String(redriveError)
+                }`
+              ),
+              { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+            );
+          }
         }
         break;
       }
@@ -187,7 +209,7 @@ export async function POST(request: NextRequest) {
         if (pending.reslab_reservation_number) {
           capturePaymentError(
             new Error(
-              `PaymentIntent ${paymentIntent.id} was canceled but ResLab reservation ${pending.reslab_reservation_number} exists — release the spot manually.`
+              `PaymentIntent ${paymentIntent.id} was canceled but ${describeRecordedNumber(pending.reslab_reservation_number)}.`
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
@@ -205,6 +227,37 @@ export async function POST(request: NextRequest) {
     case "payment_intent.payment_failed": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       console.error("Payment failed:", paymentIntent.id);
+
+      // The event is a SNAPSHOT from the moment the card was declined, and
+      // Stripe guarantees neither order nor single delivery. If the customer has
+      // since retried on this same PaymentIntent and it was authorized, this
+      // event is stale — acting on it would mark a real booking payment_failed,
+      // fail its pending row, or release its cart claim (2026-10-11). Decide on
+      // the PaymentIntent as it is NOW.
+      let livePi: Stripe.PaymentIntent;
+      try {
+        livePi = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      } catch (retrieveErr) {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed: could not read the live PaymentIntent ${paymentIntent.id} — retrying rather than acting on a possibly stale event: ${
+              retrieveErr instanceof Error ? retrieveErr.message : String(retrieveErr)
+            }`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        retryable = true;
+        break;
+      }
+      if (livePi.status === "requires_capture" || livePi.status === "succeeded" || livePi.status === "processing") {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed for ${paymentIntent.id} is stale — the PaymentIntent is now ${livePi.status} (a retry on the same payment succeeded); nothing changed`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        break;
+      }
 
       const { data: booking, error: lookupErr } = await supabase
         .from("bookings")
@@ -257,11 +310,38 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      if (
-        failedPending &&
-        (failedPending.status === "pending" || failedPending.status === "processing")
-      ) {
-        await supabase
+      // A `processing` row is held by a fulfilment caller, and the engine only
+      // claims a row AFTER the payment was authorized — so a payment_failed
+      // event for it is late or a duplicate (Stripe guarantees neither order
+      // nor single delivery): an earlier declined card, before the customer's
+      // retry succeeded. Failing that row (or releasing its cart claim) under a
+      // live caller is what let a second caller re-fulfil it. Leave it alone;
+      // an async payment that genuinely fails after settling is handed back to
+      // `pending` by the engine first, so it is still caught here.
+      if (failedPending?.status === "processing") {
+        capturePaymentError(
+          new Error(
+            `Webhook payment_failed for ${paymentIntent.id} arrived while a fulfilment holds the row — row and cart claim left as they are; asking Stripe to redeliver`
+          ),
+          { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+        );
+        // Redeliver: by then the holder has either finished (the live
+        // PaymentIntent then holds money → stale branch above) or handed the
+        // row back as `pending` after a genuinely failed async payment, which
+        // the next delivery fails and releases. The sweep is the backstop.
+        retryable = true;
+        break;
+      }
+
+      // Release the cart claim only when nothing is fulfilling this payment:
+      // no staged row, a row already finished, or a row THIS event moved to
+      // `failed`. A `pending` row the update did NOT match was claimed in the
+      // meantime by a caller that now holds the cart (2026-10-11).
+      let releaseCartClaim =
+        !failedPending || (failedPending.status !== "pending" && failedPending.status !== "processing");
+
+      if (failedPending && failedPending.status === "pending") {
+        const { data: failedRows, error: failErr } = await supabase
           .from("pending_bookings")
           .update({
             status: "failed",
@@ -270,7 +350,17 @@ export async function POST(request: NextRequest) {
             }`,
           })
           .eq("stripe_payment_intent_id", paymentIntent.id)
-          .in("status", ["pending", "processing"]);
+          .eq("status", "pending")
+          .select("stripe_payment_intent_id");
+        if (failErr) {
+          capturePaymentError(
+            new Error(`Webhook payment_failed: could not mark ${paymentIntent.id} failed: ${failErr.message}`),
+            { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
+          );
+          retryable = true;
+          break;
+        }
+        releaseCartClaim = (failedRows?.length ?? 0) > 0;
 
         // A reservation with a failed payment is inventory we hold and can never
         // bill for. Should be rare — the deferral runs before ResLab — but if it
@@ -278,18 +368,20 @@ export async function POST(request: NextRequest) {
         if (failedPending.reslab_reservation_number) {
           capturePaymentError(
             new Error(
-              `PaymentIntent ${paymentIntent.id} failed but ResLab reservation ${failedPending.reslab_reservation_number} exists — release the spot manually.`
+              `PaymentIntent ${paymentIntent.id} failed but ${describeRecordedNumber(failedPending.reslab_reservation_number)}.`
             ),
             { stripePaymentIntentId: paymentIntent.id, amount: paymentIntent.amount / 100 }
           );
         }
       }
 
-      await supabase
-        .from("cart_claims")
-        .update({ released_at: new Date().toISOString() })
-        .eq("stripe_payment_intent_id", paymentIntent.id)
-        .is("released_at", null);
+      if (releaseCartClaim) {
+        await supabase
+          .from("cart_claims")
+          .update({ released_at: new Date().toISOString() })
+          .eq("stripe_payment_intent_id", paymentIntent.id)
+          .is("released_at", null);
+      }
 
       capturePaymentError(
         new Error(`Payment failed: ${paymentIntent.last_payment_error?.message || "unknown error"}`),
@@ -352,7 +444,7 @@ export async function POST(request: NextRequest) {
       if (paymentIntentId) {
         const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
-          .select("id, protection_plan, protection_plan_price, pg_identifier, pg_sync_status")
+          .select("id, protection_plan, protection_plan_price, pg_identifier, pg_sync_status, inventory_source")
           .eq("stripe_payment_intent_id", paymentIntentId)
           .single();
 
@@ -444,16 +536,41 @@ export async function POST(request: NextRequest) {
             break;
           }
 
-          const { error: updateErr } = await supabase
+          // Never overwrite `disputed` (the dispute record is what ops works
+          // from) or `payment_failed`. `.select` tells us whether the status
+          // actually advanced: a filtered-out UPDATE returns no error and no
+          // rows, and the side effects below that describe a NEW refund-
+          // cancellation must not fire for a row that didn't move.
+          const { data: advanced, error: updateErr } = await supabase
             .from("bookings")
             .update({ status: "refunded" })
-            .eq("id", booking.id);
+            .eq("id", booking.id)
+            .not("status", "in", "(disputed,payment_failed)")
+            .select("id");
+          const statusAdvanced = !updateErr && (advanced?.length ?? 0) > 0;
 
           if (updateErr) {
             capturePaymentError(
               new Error(`Webhook charge.refunded: status update failed: ${updateErr.message}`),
               { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
             );
+          } else if (!statusAdvanced) {
+            // A refund on a disputed / payment_failed row is a payment event,
+            // not a checkout-step failure: tag it with the PI + amount so ops
+            // can find the charge.
+            capturePaymentError(
+              new Error(
+                `Full refund on booking ${booking.id} left its status as is (disputed or payment_failed) — check the dispute/payment record`
+              ),
+              { stripePaymentIntentId: paymentIntentId, amount: charge.amount_refunded / 100 }
+            );
+          }
+
+          // Any full refund that left a DIRECT row refunded — including one the
+          // app issued itself — gets the lot cancel notice. The claim sends it
+          // at most once across this webhook, the cancel routes and the sweep.
+          if (statusAdvanced && booking.inventory_source === "direct") {
+            await sendLotCancelNotice(paymentIntentId);
           }
 
           // Attribute it (migration 032) ONLY if no cancel path already did.
@@ -461,7 +578,7 @@ export async function POST(request: NextRequest) {
           // refund, so reaching here unattributed means the refund came from
           // outside the app (Stripe dashboard, partner) — reason unknown.
           // Best-effort; never fails the webhook.
-          if (!updateErr) {
+          if (statusAdvanced) {
             await recordCancellationReason({
               bookingId: booking.id,
               cancelledBy: "system",

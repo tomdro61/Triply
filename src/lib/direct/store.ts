@@ -354,8 +354,15 @@ function captureThrottled(key: string, error: Error, context: { endpoint: string
 export async function fetchDirectLots(
   filter: { airportCode?: string; payloadId?: number } = {},
   endpoint = "direct_lots",
+  opts: {
+    /** A transient failure (timeout, failed read, unexpected response) is left to the caller to report — it retries first. Misconfigured always reports. */
+    quietTransient?: boolean;
+    /** On a retry: the first attempt's failure, carried into this attempt's report so a double failure tells the whole story. */
+    priorFailure?: string;
+  } = {},
 ): Promise<DirectLotsResult> {
   const airportCode = filter.airportCode?.trim().toUpperCase() ?? null;
+  const reportFailure = (kind: DirectLotsFailureKind) => kind === "misconfigured" || !opts.quietTransient;
   try {
     const supabase = await createAdminClient();
     const { data, error } = await supabase
@@ -363,16 +370,24 @@ export async function fetchDirectLots(
       .abortSignal(AbortSignal.timeout(DB_TIMEOUT_MS));
     if (error) {
       const kind = classifyFailure(error.code ?? "", error.message ?? "");
-      captureThrottled(`read:${kind}:${error.code}`, new Error(`direct_lots: read failed (${kind}) — ${error.message}`), {
-        endpoint,
-        stage: "direct_lots_read",
-        code: error.code || undefined,
-        extra: { kind, details: error.details ?? null, hint: error.hint ?? null },
-      });
+      if (reportFailure(kind)) {
+        captureThrottled(`read:${kind}:${error.code}`, new Error(`direct_lots: read failed (${kind}) — ${error.message}`), {
+          endpoint,
+          stage: "direct_lots_read",
+          code: error.code || undefined,
+          extra: { kind, details: error.details ?? null, hint: error.hint ?? null, priorFailure: opts.priorFailure ?? null },
+        });
+      }
       return { ok: false, kind, code: error.code ?? "", message: error.message ?? "" };
     }
     if (!Array.isArray(data)) {
-      captureThrottled("read:shape", new Error(`direct_lots: unexpected response shape (${typeof data})`), { endpoint, stage: "direct_lots_read" });
+      if (reportFailure("unavailable")) {
+        captureThrottled("read:shape", new Error(`direct_lots: unexpected response shape (${typeof data})`), {
+          endpoint,
+          stage: "direct_lots_read",
+          extra: { priorFailure: opts.priorFailure ?? null },
+        });
+      }
       return { ok: false, kind: "unavailable", code: "", message: "unexpected response shape" };
     }
     const lots: DirectLot[] = [];
@@ -412,7 +427,13 @@ export async function fetchDirectLots(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const kind = classifyFailure("", message);
-    captureThrottled(`throw:${kind}`, new Error(`direct_lots: read threw (${kind}) — ${message}`), { endpoint, stage: "direct_lots_read", extra: { kind } });
+    if (reportFailure(kind)) {
+      captureThrottled(`throw:${kind}`, new Error(`direct_lots: read threw (${kind}) — ${message}`), {
+        endpoint,
+        stage: "direct_lots_read",
+        extra: { kind, priorFailure: opts.priorFailure ?? null },
+      });
+    }
     return { ok: false, kind, code: "", message };
   }
 }
@@ -436,9 +457,34 @@ export type DirectLotLookup =
   | { status: "unavailable"; kind: DirectLotsFailureKind; message: string };
 
 /** One lot by Payload id. Does NOT apply `isSellable` — callers decide what a non-sellable hit means. */
-export async function fetchDirectLot(payloadId: number, endpoint = "direct_lots"): Promise<DirectLotLookup> {
+export async function fetchDirectLot(
+  payloadId: number,
+  endpoint = "direct_lots",
+  opts: { retryTransient?: boolean } = {},
+): Promise<DirectLotLookup> {
   if (!Number.isInteger(payloadId) || payloadId <= 0) return { status: "not_found" };
-  const r = await fetchDirectLots({ payloadId }, endpoint);
+  // `retryTransient` (TRIPLY-40, 2026-10-13): the first read on a cold
+  // instance opens its connection inside the 4 s timeout and can run out of
+  // it — a paying customer then saw "temporarily unavailable" while the lot was
+  // fine. One retry; a misconfiguration is not retried. A double failure is
+  // reported once, naming both errors; a recovered retry still leaves one
+  // throttled event, so first reads that time out on most requests (each
+  // payment ~4 s slower) can't go unseen. Worst case 2 × 4 s, so it is opt-in:
+  // checkout's routes allow ≥ 45 s (the pending route's other waits use most of
+  // that — see its maxDuration note), while the admin routes keep tight budgets
+  // (payout re-send: 30 s with a ~22 s email step) and an admin can try again.
+  let r = await fetchDirectLots({ payloadId }, endpoint, { quietTransient: opts.retryTransient });
+  if (opts.retryTransient && !r.ok && r.kind !== "misconfigured") {
+    const firstKind = r.kind;
+    const first = `${r.kind}: ${r.message}`;
+    r = await fetchDirectLots({ payloadId }, endpoint, { priorFailure: first });
+    if (r.ok) {
+      captureThrottled(`retry_recovered:${firstKind}`, new Error(`direct_lots: first read failed, retry recovered — ${first}`), {
+        endpoint,
+        stage: "direct_lots_retry",
+      });
+    }
+  }
   if (!r.ok) return { status: "unavailable", kind: r.kind, message: r.message };
   if (r.lots.length > 0) return { status: "found", lot: r.lots[0] };
   if (r.droppedKeys.some((k) => k.id === payloadId || k.id === null)) {

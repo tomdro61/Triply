@@ -6,34 +6,16 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
-import { ReservationCard } from "@/components/reservations/reservation-card";
+import {
+  ReservationCard,
+  type ReservationCardBooking,
+} from "@/components/reservations/reservation-card";
 import { Calendar, Loader2, Ticket, ArrowLeft, Search } from "lucide-react";
 import { isPast, parseISO, isToday } from "date-fns";
 
-interface Booking {
-  id: string;
-  reslab_reservation_number: string;
-  reslab_location_id: number;
-  location_name: string;
-  location_address: string;
-  airport_code: string | null;
-  check_in: string;
-  check_out: string;
-  grand_total: number;
-  triply_service_fee: number | string | null;
-  protection_plan_price: number | string | null;
-  vehicle_info: {
-    make: string;
-    model: string;
-    color: string;
-    licensePlate: string;
-  } | null;
-  // 'refunded' = cancelled AND money returned (the common self-cancel outcome).
-  status: "confirmed" | "cancelled" | "refunded" | "completed";
-  created_at: string;
-  /** Server-computed airport-local 24h self-cancel eligibility. */
-  cancellable: boolean;
-}
+// One shape for the card and this page, so a column the card needs cannot be
+// missing here.
+type Booking = ReservationCardBooking;
 
 export default function ReservationsPage() {
   const router = useRouter();

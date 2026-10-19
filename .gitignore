@@ -68,4 +68,4 @@ scripts/send-test-event.mjs
 scripts/wire-staging-webhook.mjs
 
 # Partner lot photos dropped here for upload to the CMS; the repo is public and media lives in Vercel Blob
-lots/
+/lots/

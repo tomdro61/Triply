@@ -80,7 +80,7 @@ export default function TermsPage() {
               Payment is required at the time of booking. We accept major credit cards, Apple Pay, and Google Pay. By providing payment information, you represent that you are authorized to use the payment method.
             </p>
 
-            <h2>5. Cancellation and Refund Policy</h2>
+            <h2 id="cancellation" className="scroll-mt-24">5. Cancellation and Refund Policy</h2>
 
             <h3>5.1 Cancelling a reservation</h3>
             <p>

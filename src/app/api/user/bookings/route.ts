@@ -3,14 +3,26 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureBookingError } from "@/lib/sentry";
 import { getClaimableCustomerIds } from "@/lib/bookings/claimable";
 import { isCancellable } from "@/lib/cancellation/eligibility";
+import { reservationCardAmounts } from "@/lib/bookings/reservation-card-amounts";
 
 // Column allowlist for the browser response. Excludes internal/sensitive
 // fields (stripe_payment_intent_id, pg_identifier, pg_sync_status) but KEEPS
 // protection_plan + protection_plan_price — both are consumed downstream (the
 // reservation-card total and the dirty-data check below). location_timezone is
 // used only to compute the `cancellable` flag server-side (never the client).
+// inventory_source / direct_lot_id let the card link a direct-lot booking
+// (reslab_location_id NULL) correctly; vehicle_* carry a direct booking's
+// at-lot oversized-vehicle estimate (display only). All NULL on ResLab rows.
+// discount_amount nets the promo out of the card's "Booking total";
+// due_at_location is its "Due at location" sub-line.
 const BOOKING_COLUMNS =
-  "id, reslab_reservation_number, reslab_location_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, triply_service_fee, protection_plan, protection_plan_price, vehicle_info, status, created_at";
+  "id, reslab_reservation_number, reslab_location_id, inventory_source, direct_lot_id, location_name, location_address, airport_code, check_in, check_out, location_timezone, grand_total, subtotal, fees_total, tax_total, triply_service_fee, discount_amount, due_at_location, protection_plan, protection_plan_price, vehicle_info, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents, status, created_at";
+
+// Booking ids already reported as having an unreadable card amount (per
+// server instance; bounded). See the report in GET. (No test-reset export:
+// a route module may only export route fields.)
+const REPORTED_LIMIT = 1_000;
+const reportedUnreadable = new Set<string>();
 
 export async function GET() {
   try {
@@ -105,6 +117,28 @@ export async function GET() {
           `/api/user/bookings: ${dirtyProtection.length} booking(s) for user ${user.id} with protection_plan set but invalid protection_plan_price`
         ),
         { step: "account", userId: user.id }
+      );
+    }
+
+    // Live rows whose card amount is unreadable (a NULL service fee on a legacy
+    // row, a set plan without a premium, a net below zero): the card shows NO
+    // amount rather than a wrong one, so say so instead of failing silently.
+    // Once per booking row per server instance, under one stable fingerprint,
+    // so a customer reloading My Reservations does not multiply events.
+    for (const b of linked ?? []) {
+      if (!reservationCardAmounts(b).unreadable) continue;
+      const key = String(b.id);
+      if (reportedUnreadable.has(key)) continue;
+      if (reportedUnreadable.size >= REPORTED_LIMIT) reportedUnreadable.clear();
+      reportedUnreadable.add(key);
+      captureBookingError(
+        new Error("/api/user/bookings: booking with an unreadable booking total"),
+        {
+          step: "account",
+          userId: user.id,
+          confirmationNumber: b.reslab_reservation_number,
+          fingerprint: ["reservation-card-amount-unreadable"],
+        }
       );
     }
 

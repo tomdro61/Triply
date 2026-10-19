@@ -3,6 +3,7 @@ import type { UnifiedLot } from "@/types/lot";
 import { calculateDistance } from "@/lib/utils/geo";
 import type { DirectLot } from "./store";
 import { computeDirectQuote, directDays } from "./pricing";
+import { isDirectCheckoutOpen } from "./flag";
 
 /**
  * DirectLot → UnifiedLot, the shape every search card, lot page and checkout
@@ -108,6 +109,8 @@ export function directLotToUnified(lot: DirectLot, airport: Airport, window: Dir
     dueAtLocationAmount: 0,
     // Paid at the lot, never online — kept out of dueAtLocation* on purpose.
     vehicleSurcharges: lot.vehicleSurcharges.map((v) => ({ code: v.code, label: v.label, dailyRateCents: v.dailyRateCents })),
+    // Server env, resolved here so the client Reserve buttons can read it.
+    checkoutOpen: isDirectCheckoutOpen(),
 
     extraFields: [],
     // Left undefined on purpose: the booking widget then shows Triply's own

@@ -1,13 +1,21 @@
 "use client";
 
 import { CustomerDetails } from "@/types/checkout";
-import { User, Mail, Phone } from "lucide-react";
+import Link from "next/link";
+import { User, Mail, Phone, CalendarX, UserCheck, Lock, MailCheck } from "lucide-react";
 
 interface CustomerDetailsStepProps {
   data: CustomerDetails;
   onChange: (data: CustomerDetails) => void;
   onNext: () => void;
   errors: Partial<Record<keyof CustomerDetails, string>>;
+  /**
+   * Show "Free cancellation up to 24 hours before check-in". Only when the
+   * check-in is at least two calendar days away: a same-day or next-day
+   * booking can't use it, so the line would mislead. (The policy is Terms §5;
+   * the 24 h gate itself is enforced server-side in lib/cancellation.)
+   */
+  showFreeCancellation: boolean;
 }
 
 export function CustomerDetailsStep({
@@ -15,6 +23,7 @@ export function CustomerDetailsStep({
   onChange,
   onNext,
   errors,
+  showFreeCancellation,
 }: CustomerDetailsStepProps) {
   const handleChange = (field: keyof CustomerDetails, value: string) => {
     onChange({ ...data, [field]: value });
@@ -153,6 +162,44 @@ export function CustomerDetailsStep({
       >
         Continue to Vehicle Info
       </button>
+
+      {/* Reassurance at the decision point: 43% of visitors left this step
+          without trying the form (GA4, Oct 7–13). Every line must stay true. */}
+      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm text-gray-600">
+        {showFreeCancellation && (
+          <li className="flex items-start gap-2">
+            <CalendarX className="w-4 h-4 mt-0.5 text-green-600 shrink-0" aria-hidden="true" />
+            <span>
+              Free cancellation up to 24 hours before check-in
+              <span className="block text-xs text-gray-500">
+                Cancel online from your Triply account (booking as a guest? sign up later with this email). Park
+                Guard protection plans are partly non-refundable.{" "}
+                <Link
+                  href="/terms#cancellation"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Cancellation policy (opens in a new tab)"
+                  className="underline hover:text-gray-700"
+                >
+                  Policy
+                </Link>
+              </span>
+            </span>
+          </li>
+        )}
+        <li className="flex items-start gap-2">
+          <UserCheck className="w-4 h-4 mt-0.5 text-green-600 shrink-0" aria-hidden="true" />
+          <span>No account needed — book as a guest</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <Lock className="w-4 h-4 mt-0.5 text-green-600 shrink-0" aria-hidden="true" />
+          <span>Secure payment, processed by Stripe</span>
+        </li>
+        <li className="flex items-start gap-2">
+          <MailCheck className="w-4 h-4 mt-0.5 text-green-600 shrink-0" aria-hidden="true" />
+          <span>Confirmation emailed instantly</span>
+        </li>
+      </ul>
     </form>
   );
 }

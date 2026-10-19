@@ -7,7 +7,7 @@
  * way that could be violated.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { FakeSupabase } from "@/lib/booking/__tests__/supabase-fake";
 
 const db = new FakeSupabase();
@@ -59,6 +59,10 @@ vi.mock("@/lib/resend/send-cancellation-confirmation", () => ({
 }));
 
 vi.mock("@/lib/sentry", () => sentry);
+// The lot-facing notice (4b plan §3.4) has its own tests (direct/lot-notice);
+// here it is a recorded call, never a network or DB side effect.
+const lotNotice = vi.hoisted(() => ({ sendLotCancelNotice: vi.fn(async () => "not_claimed"), sendLotBookingNotice: vi.fn(async () => "not_claimed") }));
+vi.mock("@/lib/direct/lot-notice", () => lotNotice);
 
 const { performSelfCancel } = await import("../perform");
 const { checkInInstantMs } = await import("../eligibility");
@@ -120,6 +124,7 @@ function mkPi(status: string, over: Record<string, unknown> = {}) {
 beforeEach(() => {
   db.tables.bookings = [];
   db.log = [];
+  lotNotice.sendLotCancelNotice.mockClear();
   for (const m of [
     stripeMock.paymentIntents.retrieve,
     createRefundCents,
@@ -563,5 +568,177 @@ describe("performSelfCancel — cancellation reason (migration 032)", () => {
 
     expect(r.status).toBe(422);
     expect(db.tables.bookings[0].cancelled_by).toBeUndefined();
+  });
+});
+
+describe("direct lots — inventory source + environment guards (plan 4b §9 H-C/H-D)", () => {
+  it("a direct booking with our own number never calls ResLab and still refunds", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const res = await performSelfCancel(
+      mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+      NOW_OK,
+    );
+    expect(res.status).toBe(200);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(reslabMock.getReservation).not.toHaveBeenCalled();
+    // Same money as a ResLab self-cancel: $100 − the row's $6 PG wholesale,
+    // service fee refunded, once, under the self-cancel idempotency key.
+    expect(createRefundCents).toHaveBeenCalledTimes(1);
+    expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9400, "selfcancel:pi_1");
+    expect(res.body).toMatchObject({ status: "refunded", refunded: true, refundAmount: 94 });
+    expect(db.tables.bookings[0]).toMatchObject({
+      status: "refunded",
+      cancel_state: "refund_issued",
+      service_fee_refunded: true,
+      pg_identifier: null,
+    });
+    expect(parkGuardMock.updateReservation).toHaveBeenCalledWith("b1", { status: "cancelled" });
+    expect(sendCancellationConfirmation).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmationNumber: "TRP-AB12CD34", wasRefunded: true, refundAmount: 94 }),
+    );
+    // The lot is told, once, after the status write landed (4b plan §3.4).
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+    expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+  });
+
+  it("the lot notice runs AFTER the terminal status write — the row it reads is already terminal", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    const res = await performSelfCancel(
+      mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+      NOW_OK,
+    );
+    expect(res.status).toBe(200);
+    expect(seenStatus).toHaveLength(1);
+    expect(["cancelled", "refunded"]).toContain(seenStatus[0]);
+  });
+
+  it("a stolen terminal write (another owner already finished the cancel) STILL sends the lot notice", async () => {
+    seedDb({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" });
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    // Just before our pinned terminal write lands, a new owner steals the claim
+    // and finishes: the row is already cancelled, our write matches 0 rows.
+    let stolen = false;
+    db.failWhen(
+      "bookings",
+      "update",
+      (p) => {
+        if (!stolen && p?.cancel_state === "refund_issued") {
+          stolen = true;
+          Object.assign(db.tables.bookings[0], {
+            status: "refunded",
+            cancel_state: "refund_issued",
+            cancel_claimed_at: "2099-01-01T00:00:00.000Z",
+          });
+        }
+        return false;
+      },
+      "unused",
+    );
+    const seenStatus: unknown[] = [];
+    lotNotice.sendLotCancelNotice.mockImplementationOnce(async () => {
+      seenStatus.push(db.tables.bookings[0].status);
+      return "not_claimed";
+    });
+    try {
+      await performSelfCancel(
+        mkBooking({ reslab_reservation_number: "TRP-AB12CD34", inventory_source: "direct" }),
+        NOW_OK,
+      );
+      expect(stolen).toBe(true);
+      // The write was NOT ours (stale-stolen no-op is reported) ...
+      expect(sentry.captureAPIError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringMatching(/terminal write no-op/) }),
+        expect.anything(),
+      );
+      // ... yet the lot is still told (the claim inside decides who sends).
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledTimes(1);
+      expect(lotNotice.sendLotCancelNotice).toHaveBeenCalledWith("pi_1");
+      expect(seenStatus).toEqual(["refunded"]);
+    } finally {
+      db.clearFailures();
+    }
+  });
+
+  it("a ResLab booking whose select lacks inventory_source STILL calls ResLab", async () => {
+    seedDb();
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+    const booking = mkBooking();
+    expect("inventory_source" in booking).toBe(false);
+    await performSelfCancel(booking, NOW_OK);
+    expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+  });
+
+  it("source and number disagreeing is refused before anything happens", async () => {
+    seedDb({ inventory_source: "direct" });
+    const res = await performSelfCancel(mkBooking({ inventory_source: "direct" }), NOW_OK);
+    expect(res.status).toBe(500);
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+  });
+
+  it("a booking paid in the other Stripe mode is refused (tests run on a test key)", async () => {
+    seedDb();
+    const res = await performSelfCancel(mkBooking({ livemode: true }), NOW_OK);
+    expect(res.status).toBe(409);
+    // Customer wording — never the staff "other environment's admin" text.
+    expect(res.body).toEqual({
+      error: "other_environment",
+      message: "We can't change this reservation online right now. Please contact support.",
+    });
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(createRefundCents).not.toHaveBeenCalled();
+  });
+
+  it("a pre-015 row (NULL livemode = a real live booking) is refused under a test key", async () => {
+    // staging / localhost (which talks to PRODUCTION ResLab) must never cancel it.
+    seedDb();
+    const res = await performSelfCancel(mkBooking({ livemode: null }), NOW_OK);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("other_environment");
+    expect(stripeMock.paymentIntents.retrieve).not.toHaveBeenCalled();
+    expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+    expect(db.tables.bookings[0].cancel_claimed_at).toBeNull();
+  });
+
+  describe("on a production (LIVE) key", () => {
+    beforeEach(() => {
+      vi.stubEnv("STRIPE_SECRET_KEY", "sk_live_x");
+    });
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it("a staging TEST booking (livemode:false) → 409, no PI read, no claim, no ResLab, no refund", async () => {
+      seedDb();
+      const res = await performSelfCancel(mkBooking({ livemode: false }), NOW_OK);
+      expect(res.status).toBe(409);
+      expect(res.body.error).toBe("other_environment");
+      expect(stripeMock.paymentIntents.retrieve).not.toHaveBeenCalled();
+      expect(reslabMock.cancelReservation).not.toHaveBeenCalled();
+      expect(createRefundCents).not.toHaveBeenCalled();
+      expect(cancelPaymentIntent).not.toHaveBeenCalled();
+      expect(db.tables.bookings[0]).toMatchObject({
+        status: "confirmed",
+        cancel_claimed_at: null,
+        cancel_state: null,
+      });
+    });
+
+    it("a pre-015 NULL row is cancelled exactly as before", async () => {
+      seedDb();
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(mkPi("succeeded"));
+      const res = await performSelfCancel(mkBooking({ livemode: null }), NOW_OK);
+      expect(res.status).toBe(200);
+      expect(reslabMock.cancelReservation).toHaveBeenCalledWith("RTL1");
+      expect(createRefundCents).toHaveBeenCalledWith("pi_1", 9400, "selfcancel:pi_1");
+    });
   });
 });

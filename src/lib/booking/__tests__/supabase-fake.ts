@@ -17,7 +17,7 @@
 export type Row = Record<string, unknown>;
 
 interface Filter {
-  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "ilike" | "or";
+  op: "eq" | "in" | "is" | "lt" | "lte" | "gte" | "like" | "ilike" | "or" | "not";
   col: string;
   val: unknown;
 }
@@ -29,6 +29,13 @@ function leaf(expr: string): (row: Row) => boolean {
   const col = expr.slice(0, first);
   const op = expr.slice(first + 1, second);
   const raw = expr.slice(second + 1);
+  if (op === "not") {
+    // `col.not.op.value`. SQL three-valued logic: NOT (NULL op x) is NULL, so a
+    // NULL column never matches a negated comparison — except `not.is.null`.
+    const inner = leaf(`${col}.${raw}`);
+    const isNullCheck = raw.startsWith("is.");
+    return (row) => (row[col] == null && !isNullCheck ? false : !inner(row));
+  }
   return (row) => {
     const actual = row[col];
     switch (op) {
@@ -66,14 +73,14 @@ function leaf(expr: string): (row: Row) => boolean {
  * that must match one exact address has to use `.eq`, and this is what makes
  * a test prove it.
  */
-function likeRegex(pattern: string): RegExp {
+function likeRegex(pattern: string, caseInsensitive = true): RegExp {
   let out = "";
   for (const ch of pattern) {
     if (ch === "%") out += "[\\s\\S]*";
     else if (ch === "_") out += "[\\s\\S]";
     else out += ch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  return new RegExp(`^${out}$`, "i");
+  return new RegExp(`^${out}$`, caseInsensitive ? "i" : "");
 }
 
 /** Split on commas that are NOT inside parentheses. */
@@ -105,12 +112,121 @@ function parseOr(expr: string): (row: Row) => boolean {
   return (row) => terms.some((f) => f(row));
 }
 
+/**
+ * CHECK constraints the direct-lots engine must respect (migrations 034, 036,
+ * 038), evaluated on INSERT only, against the row WITH its column defaults
+ * applied (the stored row is left as the caller wrote it, so recorded snapshots
+ * don't change). Returns the violated constraint's name, or null.
+ *
+ * Not modelled on UPDATE — Postgres DOES enforce these on UPDATE, so this fake
+ * is more permissive there. Two reasons it can't cheaply be stricter: suites
+ * seed rows through `seed()`, which bypasses insert and so holds rows that
+ * would never pass these CHECKs (a bookings row without `reslab_location_id`,
+ * say), and an UPDATE payload is partial — evaluating it would mean merging
+ * into such a seeded row and failing the update for a column it never touched.
+ * A test that needs CHECK-on-UPDATE behaviour must inject it (`failWhen`).
+ */
+function violatedCheck(table: string, row: Row): string | null {
+  const v = { inventory_source: "reslab", ...row } as Row;
+  const isNull = (x: unknown) => x === null || x === undefined;
+  if (table === "bookings") {
+    const reslabOk = v.inventory_source === "reslab" && !isNull(v.reslab_location_id) && isNull(v.direct_lot_id);
+    const directOk = v.inventory_source === "direct" && !isNull(v.direct_lot_id) && isNull(v.reslab_location_id);
+    if (!reslabOk && !directOk) return "bookings_inventory_source_ids_check";
+    if (v.inventory_source === "direct") {
+      const snap = v.lot_snapshot as Row | null | undefined;
+      if (isNull(v.livemode) || isNull(snap) || (snap && "notificationEmails" in snap)) {
+        return "bookings_direct_fields_check_v2";
+      }
+    }
+    const vehicleCols = ["vehicle_size", "vehicle_size_label", "vehicle_surcharge_cents", "vehicle_surcharge_tax_cents", "vehicle_size_source"];
+    if (v.inventory_source === "reslab" && vehicleCols.some((c) => !isNull(v[c]))) return "bookings_vehicle_size_check";
+    if (v.inventory_source === "direct" && vehicleCols.some((c) => isNull(v[c]))) return "bookings_vehicle_size_check";
+  }
+  if (table === "pending_bookings") {
+    const reslabOk = v.inventory_source === "reslab" && !isNull(v.location_id) && !isNull(v.parking_type_id) && isNull(v.direct_lot_id);
+    const directOk =
+      v.inventory_source === "direct" && !isNull(v.direct_lot_id) && !isNull(v.lot_snapshot) &&
+      isNull(v.location_id) && isNull(v.parking_type_id);
+    if (!reslabOk && !directOk) return "pending_bookings_inventory_source_ids_check";
+  }
+  if (table === "direct_booking_terms") {
+    // 038: column CHECKs (Postgres names an inline column CHECK <table>_<col>_check).
+    const share = Number(v.partner_share_percent);
+    if (isNull(v.partner_share_percent) || !(share >= 0 && share <= 100)) {
+      return "direct_booking_terms_partner_share_percent_check";
+    }
+    if (isNull(v.tax_rate_percent) || !(Number(v.tax_rate_percent) >= 0)) return "direct_booking_terms_tax_rate_percent_check";
+    if (v.tax_collected_by !== "triply" && v.tax_collected_by !== "lot") return "direct_booking_terms_tax_collected_by_check";
+    const recipients = v.lot_recipients;
+    if (!Array.isArray(recipients) || recipients.length < 1 || recipients.some((r) => isNull(r))) {
+      return "direct_booking_terms_lot_recipients_check";
+    }
+  }
+  return null;
+}
+
+/**
+ * UNIQUE / PRIMARY KEY constraints the engine relies on, checked on INSERT.
+ * Returns the REAL constraint name (what Postgres puts in the 23505 message),
+ * or null.
+ */
+function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
+  const samePi = (r: Row) => r.stripe_payment_intent_id === row.stripe_payment_intent_id;
+  switch (table) {
+    case "pending_bookings":
+      // 015: stripe_payment_intent_id is the PRIMARY KEY.
+      if (rows.some(samePi)) return "pending_bookings_pkey";
+      // 034: partial UNIQUE index on reslab_reservation_number (non-null).
+      if (row.reslab_reservation_number != null && rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) {
+        return "pending_bookings_reservation_number_uq";
+      }
+      return null;
+    case "bookings":
+      // 003: stripe_payment_intent_id TEXT UNIQUE (NULLs never collide).
+      if (row.stripe_payment_intent_id != null && rows.some(samePi)) return "bookings_stripe_payment_intent_id_key";
+      // 001: reslab_reservation_number TEXT UNIQUE.
+      if (row.reslab_reservation_number != null && rows.some((r) => r.reslab_reservation_number === row.reslab_reservation_number)) {
+        return "bookings_reslab_reservation_number_key";
+      }
+      return null;
+    case "direct_booking_terms":
+      // 038: stripe_payment_intent_id is the PRIMARY KEY.
+      return rows.some(samePi) ? "direct_booking_terms_pkey" : null;
+    case "cart_claims":
+      // 015: partial UNIQUE index on cart_key WHERE released_at IS NULL.
+      return rows.some((r) => r.cart_key === row.cart_key && r.released_at == null) ? "idx_cart_claims_live" : null;
+    case "checkout_recovery_emails":
+      // 031: the recovery cron's claim-before-send lock.
+      return rows.some(samePi) ? "checkout_recovery_emails_pi_unique" : null;
+    case "checkout_recovery_optouts":
+      // 031: the opt-out table's PK.
+      return rows.some((r) => r.email === row.email) ? "checkout_recovery_optouts_pkey" : null;
+    case "direct_lot_resends":
+      // 041: UNIQUE (booking_id, kind, source) — the admin re-send / follow-up once-only claim.
+      return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind && r.source === row.source)
+        ? "direct_lot_resends_booking_id_kind_source_key"
+        : null;
+    case "review_emails":
+      // 037: UNIQUE (booking_id, kind), the review cron's claim-before-send lock.
+      return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind)
+        ? "review_emails_booking_kind_unique"
+        : null;
+    case "booking_reviews":
+      // 037: UNIQUE (booking_id), one review per booking.
+      return rows.some((r) => r.booking_id === row.booking_id) ? "booking_reviews_booking_unique" : null;
+    default:
+      return null;
+  }
+}
+
 export class FakeSupabase {
   tables: Record<string, Row[]> = {
     pending_bookings: [],
     bookings: [],
     cart_claims: [],
     customers: [],
+    direct_booking_terms: [],
   };
 
   /** `${table}:${op}` -> injected error. Consumed on first use. */
@@ -133,10 +249,19 @@ export class FakeSupabase {
     predicate: (payload: Row | null) => boolean;
     message: string;
     code: string;
+    /** The write is APPLIED, then the error is returned (a statement that
+     *  committed but whose answer was lost — a timeout, a dropped connection). */
+    afterCommit: boolean;
   }> = [];
 
   /** Every query executed, for assertions like "createReservation was skipped". */
   log: Array<{ table: string; op: string }> = [];
+
+  /** The column list of every SELECT executed, in order. Kept OUT of `log` on
+   *  purpose: the fulfilment golden snapshot records `log`, and a select-string
+   *  change must not churn it. Use this to assert a query never reads a column
+   *  (e.g. a customer-facing read touching partner terms). */
+  selects: Array<{ table: string; select: string }> = [];
 
   seed(table: string, rows: Row[]) {
     this.tables[table] = rows.map((r) => ({ ...r }));
@@ -195,7 +320,22 @@ export class FakeSupabase {
     message: string,
     code = "XXFAKE"
   ) {
-    this.conditional.push({ table, op, predicate, message, code });
+    this.conditional.push({ table, op, predicate, message, code, afterCommit: false });
+    return this;
+  }
+
+  /** Like `failWhen`, but the write IS applied before the error comes back:
+   *  the statement committed and only its answer was lost (a client-side
+   *  timeout, a dropped connection). Code that treats every write error as
+   *  "nothing changed" fails a test under this. */
+  failAfterCommitWhen(
+    table: string,
+    op: "insert" | "update" | "delete",
+    predicate: (payload: Row | null) => boolean,
+    message: string,
+    code = "XXFAKE"
+  ) {
+    this.conditional.push({ table, op, predicate, message, code, afterCommit: true });
     return this;
   }
 
@@ -203,17 +343,35 @@ export class FakeSupabase {
     return new FakeQuery(this, table);
   }
 
+  /** Postgres functions a test provides by name; an unknown name is a
+   *  PGRST202 error, as PostgREST returns for a function it cannot find. */
+  rpcHandlers: Record<string, (args: Record<string, unknown>) => { data: unknown; error: unknown }> = {};
+  rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+
+  rpc(fn: string, args: Record<string, unknown> = {}) {
+    this.rpcCalls.push({ fn, args });
+    const handler = this.rpcHandlers[fn];
+    const result = handler
+      ? handler(args)
+      : { data: null, error: { message: `Could not find the function public.${fn}`, code: "PGRST202" } };
+    const call = {
+      abortSignal: (_signal: AbortSignal) => call,
+      then: <T>(onFulfilled: (r: { data: unknown; error: unknown }) => T) => Promise.resolve(result).then(onFulfilled),
+    };
+    return call;
+  }
+
   _takeConditional(
     table: string,
     op: string,
     payload: Row | null
-  ): { message: string; code: string } | null {
+  ): { message: string; code: string; afterCommit: boolean } | null {
     const idx = this.conditional.findIndex(
       (c) => c.table === table && c.op === op && c.predicate(payload)
     );
     if (idx >= 0) {
       const [c] = this.conditional.splice(idx, 1);
-      return { message: c.message, code: c.code };
+      return { message: c.message, code: c.code, afterCommit: c.afterCommit };
     }
     return null;
   }
@@ -247,8 +405,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   private rangeFrom: number | null = null;
   private countMode = false;
   private headOnly = false;
-  private orderCol: string | null = null;
-  private orderAsc = true;
+  /** Every `.order()` call, in order — PostgREST sorts by all of them (the first is primary). */
+  private orders: Array<{ col: string; asc: boolean }> = [];
 
   constructor(private db: FakeSupabase, private table: string) {}
 
@@ -300,6 +458,11 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     this.filters.push({ op: "in", col, val });
     return this;
   }
+  /** PostgREST `.not(col, op, value)`, e.g. `.not("status", "in", "(a,b)")`. */
+  not(col: string, op: string, val: unknown) {
+    this.filters.push({ op: "not", col, val: `${col}.not.${op}.${val === null ? "null" : String(val)}` });
+    return this;
+  }
   is(col: string, val: unknown) {
     this.filters.push({ op: "is", col, val });
     return this;
@@ -314,6 +477,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   }
   gte(col: string, val: unknown) {
     this.filters.push({ op: "gte", col, val });
+    return this;
+  }
+  like(col: string, val: unknown) {
+    this.filters.push({ op: "like", col, val });
     return this;
   }
   ilike(col: string, val: unknown) {
@@ -336,8 +503,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   // insertion order regardless of what was asked for, which would pass a
   // test that got the intended row purely by luck of seed order.
   order(col: string, opts?: { ascending?: boolean }) {
-    this.orderCol = col;
-    this.orderAsc = opts?.ascending ?? true;
+    this.orders.push({ col, asc: opts?.ascending ?? true });
     return this;
   }
   limit(n: number) {
@@ -355,6 +521,10 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
    *  cut short. Its presence in a call chain is what lets a bounded query run
    *  under this fake at all. */
   abortSignal(_signal: AbortSignal) {
+    return this;
+  }
+  /** Type-only in supabase-js. */
+  returns() {
     return this;
   }
   maybeSingle() {
@@ -384,6 +554,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     const withEmbed = this.embeddedCustomer(row);
     return this.filters.every((f) => {
       if (f.op === "or") return parseOr(String(f.val))(withEmbed);
+      if (f.op === "not") return leaf(String(f.val))(withEmbed);
 
       // Embedded column reference, e.g. "customers.email".
       let actual: unknown;
@@ -409,6 +580,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           return actual != null && String(actual) <= String(f.val);
         case "gte":
           return actual != null && String(actual) >= String(f.val);
+        case "like":
+          return actual != null && likeRegex(String(f.val), false).test(String(actual));
         case "ilike":
           // A real LIKE pattern match — see likeRegex. Never equality.
           return actual != null && likeRegex(String(f.val)).test(String(actual));
@@ -429,6 +602,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
 
   private run(): { data: unknown; error: unknown; count?: number } {
     this.db.log.push({ table: this.table, op: this.op });
+    if (this.op === "select") this.db.selects.push({ table: this.table, select: this.selectStr });
 
     // Real PostgREST rejects `.or()` on a mutating request. Reproduce it so a
     // regression to `.update(...).or(...)` fails a test instead of silently
@@ -449,9 +623,15 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       this.payload
     );
     if (conditional) {
-      return { data: null, error: conditional };
+      const error = { message: conditional.message, code: conditional.code };
+      if (!conditional.afterCommit) return { data: null, error };
+      this.execute(); // applied — only the answer is lost
+      return { data: null, error };
     }
+    return this.execute();
+  }
 
+  private execute(): { data: unknown; error: unknown; count?: number } {
     const injected = this.db._take(this.table, this.op);
     if (injected) {
       return { data: null, error: injected };
@@ -471,39 +651,23 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
           return { data: this.singleRow ? { ...existing } : [{ ...existing }], error: null };
         }
       }
-      // Emulate the UNIQUE constraints the engine relies on.
-      const dupe =
-        (this.table === "pending_bookings" &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        (this.table === "cart_claims" &&
-          rows.some(
-            (r) => r.cart_key === row.cart_key && r.released_at == null
-          )) ||
-        (this.table === "bookings" &&
-          row.stripe_payment_intent_id != null &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        // Migration 031: UNIQUE (stripe_payment_intent_id) — the recovery
-        // cron's claim-before-send lock — and the opt-out table's PK.
-        (this.table === "checkout_recovery_emails" &&
-          rows.some(
-            (r) =>
-              r.stripe_payment_intent_id === row.stripe_payment_intent_id
-          )) ||
-        (this.table === "checkout_recovery_optouts" &&
-          rows.some((r) => r.email === row.email)) ||
-        // Migration 037: UNIQUE (booking_id, kind) — the review cron's lock.
-        (this.table === "review_emails" &&
-          rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind));
-      if (dupe) {
+      // Postgres evaluates CHECK constraints BEFORE the unique index insertion,
+      // so a row that violates both reports 23514, not 23505.
+      const check = violatedCheck(this.table, row);
+      if (check) {
         return {
           data: null,
-          error: { message: "duplicate key value", code: "23505" },
+          error: {
+            message: `new row for relation "${this.table}" violates check constraint "${check}"`,
+            code: "23514",
+          },
+        };
+      }
+      const unique = violatedUnique(this.table, row, rows);
+      if (unique) {
+        return {
+          data: null,
+          error: { message: `duplicate key value violates unique constraint "${unique}"`, code: "23505" },
         };
       }
       if (!row.id) row.id = `row_${rows.length + 1}`;
@@ -517,6 +681,18 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     const hit = rows.filter((r) => this.matches(r));
 
     if (this.op === "update") {
+      // 034's partial UNIQUE fires on UPDATE too — that is where a confirmation
+      // number collision surfaces (recordReslabNumber). Validate before
+      // mutating so the statement stays atomic, as Postgres does.
+      const newNumber = this.payload?.reslab_reservation_number;
+      if (this.table === "pending_bookings" && newNumber != null) {
+        const clash =
+          hit.length > 1 ||
+          rows.some((r) => !hit.includes(r) && r.reslab_reservation_number === newNumber);
+        if (clash) {
+          return { data: null, error: { message: "duplicate key value violates unique constraint \"pending_bookings_reservation_number_uq\"", code: "23505" } };
+        }
+      }
       for (const r of hit) {
         Object.assign(r, this.payload);
         r.updated_at = new Date().toISOString();
@@ -538,19 +714,20 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
       return { data: this.singleRow ? out[0] ?? null : out, error: null };
     }
 
-    const ordered = this.orderCol
+    const ordered = this.orders.length
       ? [...hit].sort((a, b) => {
-          const col = this.orderCol as string;
-          const av = a[col];
-          const bv = b[col];
-          if (av == null && bv == null) return 0;
-          // Postgres: ASC => NULLS LAST, DESC => NULLS FIRST. Never the
-          // reverse — a fake that orders nulls first would bless a row
-          // PostgREST puts last.
-          if (av == null) return this.orderAsc ? 1 : -1;
-          if (bv == null) return this.orderAsc ? -1 : 1;
-          if (av < bv) return this.orderAsc ? -1 : 1;
-          if (av > bv) return this.orderAsc ? 1 : -1;
+          for (const { col, asc } of this.orders) {
+            const av = a[col];
+            const bv = b[col];
+            if (av == null && bv == null) continue;
+            // Postgres: ASC => NULLS LAST, DESC => NULLS FIRST. Never the
+            // reverse — a fake that orders nulls first would bless a row
+            // PostgREST puts last.
+            if (av == null) return asc ? 1 : -1;
+            if (bv == null) return asc ? -1 : 1;
+            if (av < bv) return asc ? -1 : 1;
+            if (av > bv) return asc ? 1 : -1;
+          }
           return 0;
         })
       : hit;

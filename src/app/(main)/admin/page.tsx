@@ -18,6 +18,65 @@ import { formatDate, formatPrice } from "@/lib/utils";
 import { CancellationReportPanel } from "@/components/admin/cancellation-report";
 import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
+import { readStatsResponse } from "@/lib/admin/stats-response";
+import { bookingSourceLabelForKey } from "@/lib/attribution/source";
+import {
+  accountingMixSchema,
+  isDefinitive,
+  keptStateOf,
+  mixFromAccounting,
+  paidFromStats,
+  schemaIssuePaths,
+  type KeptState,
+  type MoneyMix,
+} from "@/lib/admin/revenue-mix";
+import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
+
+type MonthMixState = MoneyMix | "loading" | { error: string };
+
+// This month's profit comes from the reconciler: one ResLab + one Stripe
+// lookup per booking this month, on every dashboard visit the cache below
+// doesn't cover. Cached for the tab for 10 minutes so moving around the admin
+// and back doesn't re-run it; the month is still moving, so never longer. The
+// cache holds the reconciler's own slice and re-parses it on read, so an
+// entry from an older shape is a miss, never misread; only a definitive result
+// (profit known, no Park Guard rows overstating it) is kept. Storage can be
+// unavailable (private mode) — try/caught.
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
+const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
+function readCachedMonthMix(monthKey: string): MoneyMix | null {
+  try {
+    const raw = sessionStorage.getItem(MONTH_MIX_CACHE_KEY);
+    if (!raw) return null;
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== "object" || v === null || !("monthKey" in v) || !("at" in v) || !("slice" in v)) return null;
+    const age = typeof v.at === "number" ? Date.now() - v.at : NaN;
+    if (v.monthKey !== monthKey || !(age >= 0 && age < MONTH_MIX_TTL_MS)) return null;
+    const parsed = accountingMixSchema.safeParse(v.slice);
+    if (!parsed.success) return null;
+    const mix = mixFromAccounting(parsed.data);
+    return isDefinitive(mix) ? mix : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedMonthMix(monthKey: string, slice: unknown): void {
+  try {
+    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), slice }));
+  } catch {
+    /* storage unavailable — the figures still render, they just aren't cached */
+  }
+}
+
+/** What a failed accounting request means for the person looking at the page. */
+function accountingFailure(status: number, serverMessage: string | null): string {
+  if (status === 401 || status === 403) return "your admin session has expired — sign in again";
+  if (status === 504) return "the ResLab/Stripe lookups took too long — refresh to try again";
+  if (status >= 500)
+    return `the accounting query failed (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""}) — check Sentry`;
+  return `the request was refused (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""})`;
+}
 
 interface Stats {
   bookings: {
@@ -51,7 +110,8 @@ interface Stats {
     margin: { total: number; today: number; thisWeek: number; thisMonth: number };
   };
   attribution?: {
-    byChannel: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
+    /** Optional on the wire: a server from before the bySource change does not send it (rollback / version skew). */
+    bySource?: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirport: Array<{ key: string; bookings: number; gross: number; triply: number; protected: number }>;
     byAirportTotal: number;
     byPromo: Array<{
@@ -205,18 +265,81 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
+  // Set when /api/admin/stats fails: the cards must not show zeros as if real.
+  const [statsError, setStatsError] = useState<string | null>(null);
   const [recentBookings, setRecentBookings] = useState<Booking[]>([]);
+  // A failed load must not read as "No bookings yet".
+  const [recentBookingsError, setRecentBookingsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState("all");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [monthMix, setMonthMix] = useState<MonthMixState>("loading");
+
+  // This month so far (UTC, like /api/admin/stats' thisMonth and the
+  // accounting page), independent of the date filter. Loaded once per visit.
+  useEffect(() => {
+    const controller = new AbortController();
+    const today = new Date().toISOString().slice(0, 10);
+    const monthKey = today.slice(0, 7);
+    const cached = readCachedMonthMix(monthKey);
+    if (cached) {
+      setMonthMix(cached);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
+          signal: controller.signal,
+        });
+        // A body that isn't JSON (an HTML error page, a cut-off response) is
+        // its own failure, not a schema change.
+        let body: unknown;
+        let readable = true;
+        try {
+          body = await r.json();
+        } catch {
+          readable = false;
+        }
+        if (controller.signal.aborted) return;
+        if (r.ok && !readable) {
+          setMonthMix({ error: `unreadable accounting response (HTTP ${r.status}, not JSON) — refresh to try again` });
+          return;
+        }
+        if (!r.ok) {
+          const serverMessage =
+            typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
+              ? body.error
+              : null;
+          setMonthMix({ error: accountingFailure(r.status, serverMessage) });
+          return;
+        }
+        const parsed = accountingMixSchema.safeParse(body);
+        if (!parsed.success) {
+          const paths = schemaIssuePaths(parsed.error);
+          reportMixShape(paths, "/admin");
+          setMonthMix({ error: `the accounting response changed shape (${paths}) — reported to Sentry` });
+          return;
+        }
+        const mix = mixFromAccounting(parsed.data);
+        setMonthMix(mix);
+        if (isDefinitive(mix)) writeCachedMonthMix(monthKey, parsed.data);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setMonthMix({ error: `network error (${e instanceof Error ? e.message : String(e)}) — refresh to try again` });
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
       try {
         const params = new URLSearchParams();
-        const bookingParams = new URLSearchParams({ limit: "5" });
+        // Live bookings, like the stat cards above (/api/admin/stats excludes test
+        // rows on every deployment) — the list's own default follows the Stripe key.
+        const bookingParams = new URLSearchParams({ limit: "5", mode: "live" });
 
         // Date range filtering
         if (dateRange !== "all") {
@@ -251,18 +374,39 @@ export default function AdminDashboard() {
           }
         }
 
-        const [statsRes, bookingsRes] = await Promise.all([
-          fetch(`/api/admin/stats?${params}`),
-          fetch(`/api/admin/bookings?${bookingParams}`),
+        // Each response is read on its own: a failure of one (a 504 HTML body,
+        // a dropped connection) must neither hide the other nor leave the stat
+        // cards showing stale or zero figures without the error banner.
+        const [statsResult] = await Promise.all([
+          readStatsResponse<Stats>(fetch(`/api/admin/stats?${params}`)),
+          fetch(`/api/admin/bookings?${bookingParams}`)
+            .then(async (bookingsRes) => {
+              if (!bookingsRes.ok) throw new Error(`HTTP ${bookingsRes.status}`);
+              const bookingsData: { bookings?: Booking[] } = await bookingsRes.json();
+              setRecentBookings(bookingsData.bookings || []);
+              setRecentBookingsError(null);
+            })
+            .catch((error) => {
+              console.error("Failed to fetch recent bookings:", error);
+              setRecentBookings([]);
+              setRecentBookingsError(
+                `Recent bookings failed to load (${error instanceof Error ? error.message : "network error"}).`
+              );
+            }),
         ]);
 
-        const statsData = await statsRes.json();
-        const bookingsData = await bookingsRes.json();
-
-        setStats(statsData);
-        setRecentBookings(bookingsData.bookings || []);
+        if (statsResult.ok) {
+          setStats(statsResult.data);
+          setStatsError(null);
+        } else {
+          setStats(null);
+          setStatsError(statsResult.error);
+        }
       } catch (error) {
+        // readStatsResponse never throws; this is only a last-resort guard.
         console.error("Failed to fetch admin data:", error);
+        setStats(null);
+        setStatsError(`Stats failed to load (${error instanceof Error ? error.message : String(error)})`);
       } finally {
         setLoading(false);
       }
@@ -278,6 +422,18 @@ export default function AdminDashboard() {
       </div>
     );
   }
+
+  // Once the reconciler answers, BOTH sides of the card come from it, so
+  // revenue, profit and every ratio cover the same bookings. stats' figures
+  // (which include direct-lot bookings) fill the revenue side only until then.
+  const monthLoaded = monthMix !== "loading" && !("error" in monthMix) ? monthMix : null;
+  const monthKept: KeptState =
+    monthMix === "loading"
+      ? "loading"
+      : "error" in monthMix
+        ? { unavailable: monthMix.error }
+        : keptStateOf(monthMix);
+  const monthPaid = monthLoaded ? monthLoaded.paid : stats ? paidFromStats(stats) : null;
 
   return (
     <div>
@@ -352,6 +508,12 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {statsError && (
+        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          {statsError} The figures below are unavailable, not zero.
+        </div>
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatCard
@@ -384,6 +546,39 @@ export default function AdminDashboard() {
         />
       </div>
 
+      {/* This month so far: revenue (instant, from stats) + what we kept (reconciler) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              This month so far
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-500">Bookings made this month (UTC), whatever the date filter above says</p>
+          </div>
+          <Link
+            href="/admin/numbers"
+            className="text-sm text-brand-orange hover:text-orange-600 inline-flex items-center gap-1"
+          >
+            Month by month
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+        <MoneyBreakdown
+          paid={monthPaid}
+          kept={monthKept}
+          directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
+          pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
+          paidNote={
+            !monthLoaded && monthPaid
+              ? `Revenue is from the booking table (direct-lot bookings included)${monthMix === "loading" ? " until the accounting figures load" : ""}.`
+              : undefined
+          }
+        />
+      </div>
+
       {/* Attribution — where bookings come from (migration 023) */}
       {stats && !stats.attribution && (
         <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
@@ -396,7 +591,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-gray-200 p-6">
             <div className="flex items-baseline justify-between mb-4">
-              <h3 className="font-semibold text-gray-900">Bookings by channel</h3>
+              <h3 className="font-semibold text-gray-900">Bookings by source</h3>
               <span
                 className={`text-xs ${
                   (stats.attribution.invalidRate7d ?? 0) > 0 ? "text-red-600 font-medium" : "text-gray-500"
@@ -430,18 +625,26 @@ export default function AdminDashboard() {
                     : `${stats.reslabSnapshot.ageHours} h old · ${stats.reslabSnapshot.locationCount} lots · ${stats.reslabSnapshot.wireKb} KB · ${stats.reslabSnapshot.writtenBy}${stats.reslabSnapshot.stale ? " · STALE — cron failing, search on per-server fetches" : stats.reslabSnapshot.behind ? " · BEHIND — cron missed ≥ 2 runs" : ""}`}
               </p>
             )}
-            <BreakdownTable
-              rows={stats.attribution.byChannel.map((r) => ({
-                label: r.key.replace(/_/g, " "),
-                bookings: r.bookings,
-                money: r.gross,
-              }))}
-              moneyHeader="Gross"
-              emptyText="No bookings in range"
-            />
+            {stats.attribution.bySource ? (
+              <BreakdownTable
+                rows={stats.attribution.bySource.map((r) => ({
+                  label: bookingSourceLabelForKey(r.key),
+                  bookings: r.bookings,
+                  money: r.gross,
+                }))}
+                moneyHeader="Gross"
+                emptyText="No bookings in range"
+              />
+            ) : (
+              <p className="text-sm text-amber-700">
+                Source breakdown not sent by the server (version mismatch) — reload, or check the deploy.
+              </p>
+            )}
             <p className="mt-3 text-xs text-gray-400">
-              &ldquo;unknown&rdquo; = booked before capture existed or with no cookie; &ldquo;invalid&rdquo; = cookie
-              present but unreadable (a bug — check Sentry).
+              Where the customer first came from. &ldquo;Blog (no referrer)&rdquo; = arrived straight on a blog
+              article with no referrer (often a search or AI app, but the data can&rsquo;t tell which). &ldquo;No data&rdquo; = booked before
+              capture existed or with no cookie; &ldquo;Invalid cookie&rdquo; = present but unreadable (a bug —
+              check Sentry).
             </p>
           </div>
 
@@ -652,7 +855,11 @@ export default function AdminDashboard() {
           </Link>
         </div>
 
-        {recentBookings.length === 0 ? (
+        {recentBookingsError ? (
+          <div className="p-8 text-center text-red-700">
+            {recentBookingsError} Refresh to try again.
+          </div>
+        ) : recentBookings.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No bookings yet
           </div>

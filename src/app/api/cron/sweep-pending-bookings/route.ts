@@ -23,10 +23,14 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { describeRecordedNumber } from "@/lib/direct/confirmation-number";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
+import { LOT_TOLD_OR } from "@/lib/direct/lot-told";
 import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
-import { createBooking } from "@/lib/booking/create-booking";
+import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -58,6 +62,24 @@ const RUN_BUDGET_MS = 45_000;
  *  call. Well past any real checkout, so an abandoned test row is unambiguous. */
 const CROSS_MODE_CLEANUP_MS = 60 * 60_000;
 
+/** How far back the sweep looks for `failed` rows whose PaymentIntent was later
+ *  authorized (a declined card, then a retry on the same PaymentIntent). A card
+ *  authorization lasts ~7 days; past that there is nothing left to capture. */
+const DECLINED_RETRY_WINDOW_MS = 8 * 24 * 60 * 60_000;
+
+/** Direct-lot sends (lot notice, customer email, lot cancel notice) still
+ *  outstanding this long after the booking / cancellation are re-driven. Past
+ *  the lot-notice claim's 5-minute staleness, so a send whose outcome was
+ *  unknown (a timeout keeps its claim) is retried rather than skipped. */
+/** Unsent-confirmation rows read before the still-standing check and the per-run cap. */
+const CONFIRMATION_CANDIDATES = 200;
+const DIRECT_SEND_DUE_MS = 6 * 60_000;
+
+/** Prefix stamped into `last_error` once an opposite-mode held row has been
+ *  reported, so it is reported once rather than every tick. No dots: it is
+ *  embedded in a PostgREST `or=` filter. */
+const HELD_REPORTED_MARKER = "held-cross-mode-reported";
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {
@@ -70,7 +92,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  const livemode = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_");
+  const livemode = stripeKeyIsLive();
 
   try {
     const supabase = await createAdminClient();
@@ -83,14 +105,23 @@ export async function GET(request: NextRequest) {
     // accumulate forever in the shared Triply-prod DB (see the CMS-egress
     // history). Retire opposite-mode rows that have been stuck well past any real
     // checkout — WITHOUT calling Stripe (we hold the wrong-mode key and cannot
-    // retrieve those PaymentIntents). An hour-old pending/processing test row is
-    // unambiguously abandoned.
+    // retrieve those PaymentIntents). An hour-old pending/processing test row
+    // with NO reservation number is unambiguously abandoned.
+    //
+    // A row WITH a recorded reservation number (ResLab RTL… or a Triply direct
+    // TRP-…) is NOT abandoned: the number is written only after the payment was
+    // authorized, mid-fulfilment. Expiring it blind (no Stripe call is possible
+    // from here) would make it terminal under a live authorization and a real
+    // reservation — the other environment's webhook/sweep would then find it
+    // terminal and never capture or release. Those rows are left untouched and
+    // reported below for a human (plan 4b §9 M-G).
     const otherModeCutoff = new Date(Date.now() - CROSS_MODE_CLEANUP_MS).toISOString();
     const { data: otherMode, error: otherErr } = await supabase
       .from("pending_bookings")
       .update({ status: "expired", last_error: "swept: opposite-mode abandoned row cleanup" })
       .eq("livemode", !livemode)
       .in("status", ["pending", "processing"])
+      .is("reslab_reservation_number", null)
       .lt("created_at", otherModeCutoff)
       .select("stripe_payment_intent_id");
     if (otherErr) {
@@ -106,6 +137,77 @@ export async function GET(request: NextRequest) {
           .update({ released_at: new Date().toISOString() })
           .eq("stripe_payment_intent_id", r.stripe_payment_intent_id)
           .is("released_at", null);
+      }
+    }
+
+    // The opposite-mode rows the cleanup deliberately skipped: authorized, a
+    // reservation number recorded, still not finished an hour later. Report each
+    // one ONCE and change nothing about its booking state. Non-fatal to the
+    // primary sweep, like the cleanup.
+    //
+    // ONCE matters: this runs every 10 minutes, so re-reporting until a human
+    // acted was 144 Sentry events per row per day, and with the old oldest-first
+    // cap of 25 a newer row behind 25 unattended ones was never reported at all.
+    // After a row is reported it is stamped (`last_error` gets the
+    // HELD_REPORTED_MARKER prefix, the prior error kept after it) and the query
+    // excludes stamped rows. If the other environment touches the row again and
+    // rewrites last_error, it is reported again — its state changed, so that is
+    // the right outcome. Newest first, so a fresh row is never starved.
+    let crossModeHeld = 0;
+    let crossModeHeldUnmarked = 0;
+    const { data: heldOther, error: heldErr } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id, status, reslab_reservation_number, last_error")
+      .eq("livemode", !livemode)
+      .in("status", ["pending", "processing"])
+      .not("reslab_reservation_number", "is", null)
+      .lt("created_at", otherModeCutoff)
+      // NULL-safe: a bare NOT ILIKE would drop every row whose last_error is NULL.
+      .or(`last_error.is.null,last_error.not.ilike.${HELD_REPORTED_MARKER}%`)
+      .order("created_at", { ascending: false })
+      .limit(MAX_PER_RUN);
+    if (heldErr) {
+      capturePaymentError(
+        new Error(`pending_bookings opposite-mode held-row check failed: ${heldErr.message}`),
+        {}
+      );
+    } else {
+      const otherEnv = livemode ? "staging (Stripe TEST)" : "production (Stripe LIVE)";
+      for (const r of heldOther ?? []) {
+        crossModeHeld++;
+        capturePaymentError(
+          new Error(
+            `Opposite-mode pending booking ${r.stripe_payment_intent_id} has reservation ${r.reslab_reservation_number} recorded but is still ${r.status} after > 1 h. NOT expired by the sweep (this deployment holds the wrong-mode Stripe key and cannot read the authorization). Check it against the ${otherEnv} Stripe account by hand (capture or cancel the authorization, then settle the row). Reported once; the row's last_error is stamped "${HELD_REPORTED_MARKER}".`
+          ),
+          // One issue per PaymentIntent: grouped by stack trace, a second held
+          // row would join the first one's issue and email nobody — and the
+          // stamp below then stops it being reported again.
+          { stripePaymentIntentId: r.stripe_payment_intent_id, fingerprint: ["sweep-cross-mode-held", r.stripe_payment_intent_id] }
+        );
+        // Compare-and-set: only while the row is exactly as read (same status,
+        // same last_error). If the other environment moved it on in between,
+        // this matches nothing and the row is simply re-evaluated next tick.
+        // The updated_at trigger bumps the row. Crons run on Production only, so
+        // in practice this stamps STAGING rows; a manual run on staging would
+        // stamp live rows and delay production's own stuck-row scan (keyed on
+        // updated_at) by one stale window — harmless, but don't do it.
+        const prior = r.last_error as string | null;
+        const stamp = `${HELD_REPORTED_MARKER} ${new Date().toISOString()}${prior ? ` | prior: ${prior}` : ""}`;
+        let mark = supabase
+          .from("pending_bookings")
+          .update({ last_error: stamp })
+          .eq("stripe_payment_intent_id", r.stripe_payment_intent_id)
+          .eq("status", r.status);
+        mark = prior == null ? mark.is("last_error", null) : mark.eq("last_error", prior);
+        const { error: markErr } = await mark;
+        if (markErr) {
+          // Non-fatal and NOT silent: the row stays unstamped, so it is reported
+          // again next tick (the pre-fix behaviour), and the count is returned.
+          crossModeHeldUnmarked++;
+          console.error(
+            `[sweep] could not stamp held opposite-mode row ${r.stripe_payment_intent_id}: ${markErr.message}`
+          );
+        }
       }
     }
 
@@ -137,6 +239,20 @@ export async function GET(request: NextRequest) {
       failed: 0,
       /** Left for the next tick because the time budget ran out. */
       deferredToNextRun: 0,
+      /** Opposite-mode rows with a reservation number, left alone and reported
+       *  (Sentry) — newly reported THIS run; already-reported rows are excluded. */
+      crossModeHeld,
+      /** Of those, the ones whose "reported" stamp did not land — they will be
+       *  reported again next tick. */
+      crossModeHeldUnmarked,
+      /** `failed` rows (a declined card) looked at for a later authorized retry. */
+      declinedScanned: 0,
+      /** Of those, PaymentIntents that now hold money — re-driven through the engine. */
+      declinedRedriven: 0,
+      /** Direct bookings re-driven for an outstanding lot notice / customer email. */
+      directSendsRedriven: 0,
+      /** Direct cancellations whose lot cancel notice was (re)attempted. */
+      directCancelNoticesAttempted: 0,
     };
 
     for (const row of stuck ?? []) {
@@ -257,10 +373,8 @@ export async function GET(request: NextRequest) {
           new Error(
             `Pending booking ${piId} unresolved after ${Math.round(
               age / 86_400_000
-            )} days (PI ${pi.status}${
-              row.reslab_reservation_number
-                ? `, ResLab ${row.reslab_reservation_number} EXISTS`
-                : ", no reservation"
+            )} days (PI ${pi.status}; ${
+              row.reslab_reservation_number ? describeRecordedNumber(row.reslab_reservation_number) : "no reservation"
             }). Manual recovery required.`
           ),
           { stripePaymentIntentId: piId, amount: pi.amount / 100 }
@@ -284,6 +398,202 @@ export async function GET(request: NextRequest) {
       } else if (outcome.kind === "needs_reconciliation") {
         result.escalated++;
       }
+    }
+
+    // --- Backstop: a declined card, then an authorized retry (2026-10-11) -------
+    // The decline webhook marks the row `failed`; the customer retries another
+    // card on the SAME PaymentIntent and it is authorized. The engine reopens
+    // such a row (Step 4.5) — but only when something calls it. If the browser
+    // is gone and every webhook delivery failed, this is the only caller left;
+    // the scan above never sees `failed` rows. Only rows with no reservation
+    // number, in this mode, inside the authorization window; anything that does
+    // not hold money is left alone.
+    const declinedSince = new Date(Date.now() - DECLINED_RETRY_WINDOW_MS).toISOString();
+    const { data: declined, error: declinedErr } = await supabase
+      .from("pending_bookings")
+      .select("stripe_payment_intent_id")
+      .eq("status", "failed")
+      .is("reslab_reservation_number", null)
+      .eq("livemode", livemode)
+      .lt("updated_at", staleBefore)
+      .gte("updated_at", declinedSince)
+      .order("updated_at", { ascending: false })
+      .limit(MAX_PER_RUN);
+    if (declinedErr) {
+      result.failed++;
+      capturePaymentError(new Error(`pending_bookings declined-retry scan failed: ${declinedErr.message}`), {});
+    } else {
+      for (const row of declined ?? []) {
+        if (Date.now() - startedAt > RUN_BUDGET_MS) {
+          result.deferredToNextRun++;
+          continue;
+        }
+        result.declinedScanned++;
+        const piId = row.stripe_payment_intent_id;
+        let pi;
+        try {
+          pi = await stripe.paymentIntents.retrieve(piId);
+        } catch {
+          // Nothing is known to be wrong yet; next tick reads it again.
+          result.skipped++;
+          continue;
+        }
+        if (pi.status !== "requires_capture" && pi.status !== "succeeded" && pi.status !== "processing") continue;
+        result.declinedRedriven++;
+        const outcome = await createBooking({ source: "sweep", stripePaymentIntentId: piId });
+        if (outcome.kind === "created" || outcome.kind === "already_exists") result.completed++;
+        else if (outcome.kind === "in_progress" || outcome.kind === "deferred") result.stillPending++;
+        else if (outcome.kind === "needs_reconciliation") result.escalated++;
+      }
+    }
+
+    // --- Backstop: direct-lot sends (4b plan §9 H-B; pass-1 review) -----------
+    // The lot notice is the lot's ONLY channel and the confirmation is the
+    // customer's. Either can fail after the booking is stored (Resend down, or
+    // a timeout that kept its claim because Resend may have delivered). The
+    // engine's Step 3 re-sends both behind their claims — but only when
+    // something calls it. This is the caller of last resort. Each send is
+    // claim-guarded, so a re-drive never mails twice.
+    const directDueBefore = new Date(Date.now() - DIRECT_SEND_DUE_MS).toISOString();
+    // check_out (bookings, a literal wall-clock TIMESTAMP) and to_date
+    // (pending_bookings, literal "YYYY-MM-DD HH:MM:SS" TEXT, which compares
+    // lexicographically) — a date a day back is a safe, timezone-free bound.
+    const stayNotOver = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    // Unsent lot notices, bounded by the STAY (6b): a notice that keeps failing is
+    // retried until the stay is over (check-out a day back), not dropped after 3
+    // days. Check-ins not yet passed come first, soonest first; stays already
+    // under way only fill the slots left — so a stuck booking further out, or a
+    // backlog of passed check-ins, can't starve a sooner arrival.
+    const unsentLotNotices = async (): Promise<{ data: Array<{ stripe_payment_intent_id: string }> | null; error: { message: string } | null }> => {
+      const rowsWhere = () =>
+        supabase
+          .from("bookings")
+          .select("stripe_payment_intent_id")
+          .eq("inventory_source", "direct")
+          .eq("livemode", livemode)
+          .eq("status", "confirmed")
+          .is("lot_notified_at", null)
+          .lt("created_at", directDueBefore)
+          .gte("check_out", stayNotOver);
+      const upcoming = await rowsWhere().gte("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN);
+      if (upcoming.error) return { data: null, error: upcoming.error };
+      const first = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      if (first.length >= MAX_PER_RUN) return { data: first, error: null };
+      const passed = await rowsWhere().lt("check_in", stayNotOver).order("check_in").limit(MAX_PER_RUN - first.length);
+      if (passed.error) return { data: first, error: passed.error };
+      return { data: [...first, ...((passed.data ?? []) as Array<{ stripe_payment_intent_id: string }>)], error: null };
+    };
+    // Unsent customer confirmations, bounded by the STAY too (6b pass 2): the
+    // confirmation is the customer's only record of the booking, so it is
+    // retried until check-out (a day back), not dropped a few days after booking.
+    // `created_at` (not `updated_at`, which every claim bumps) gives the 6-minute
+    // grace. Upcoming stays first, then ones under way (6b pass 3) — and only
+    // bookings that still stand: a cancellation never touches the pending row,
+    // so a cancelled booking's unsent confirmation would otherwise sit in this
+    // scan until its check-out, taking a slot every run. Candidates are read
+    // wide (CONFIRMATION_CANDIDATES) and checked against `bookings` before the cap.
+    const unsentConfirmations = async (): Promise<{ data: Array<{ stripe_payment_intent_id: string }> | null; error: { message: string } | null }> => {
+      const rowsWhere = () =>
+        supabase
+          .from("pending_bookings")
+          .select("stripe_payment_intent_id")
+          .eq("inventory_source", "direct")
+          .eq("livemode", livemode)
+          .eq("status", "completed")
+          .eq("email_sent", false)
+          .lt("created_at", directDueBefore)
+          .gte("to_date", stayNotOver);
+      const upcoming = await rowsWhere().gte("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES);
+      if (upcoming.error) return { data: null, error: { message: `pending_bookings (upcoming): ${upcoming.error.message}` } };
+      let candidates = (upcoming.data ?? []) as Array<{ stripe_payment_intent_id: string }>;
+      // A failed second read still re-drives the upcoming rows (and is counted).
+      let underwayError: { message: string } | null = null;
+      if (candidates.length < CONFIRMATION_CANDIDATES) {
+        const underway = await rowsWhere().lt("from_date", stayNotOver).order("from_date").limit(CONFIRMATION_CANDIDATES - candidates.length);
+        if (underway.error) underwayError = { message: `pending_bookings (under way): ${underway.error.message}` };
+        else candidates = [...candidates, ...((underway.data ?? []) as Array<{ stripe_payment_intent_id: string }>)];
+      }
+      if (candidates.length === 0) return { data: [], error: underwayError };
+      const standing = await supabase
+        .from("bookings")
+        .select("stripe_payment_intent_id")
+        .in("stripe_payment_intent_id", candidates.map((c) => c.stripe_payment_intent_id))
+        .eq("status", "confirmed")
+        .is("cancel_state", null)
+        .is("cancel_claimed_at", null);
+      if (standing.error) return { data: null, error: { message: `bookings standing check: ${standing.error.message}` } };
+      const keep = new Set(((standing.data ?? []) as Array<{ stripe_payment_intent_id: string }>).map((b) => b.stripe_payment_intent_id));
+      const live = candidates.filter((c) => keep.has(c.stripe_payment_intent_id));
+      if (candidates.length >= CONFIRMATION_CANDIDATES && live.length < MAX_PER_RUN) {
+        // The candidate read was cut short and most of it no longer stands: a standing
+        // booking further down may not be reached this run. Rare; never silent.
+        capturePaymentError(
+          new Error(`direct customer email backstop: ${CONFIRMATION_CANDIDATES} candidates read, only ${live.length} still stand — later rows may be skipped`),
+          { inventorySource: "direct" }
+        );
+      }
+      return { data: live.slice(0, MAX_PER_RUN), error: underwayError };
+    };
+    const [lotUnsent, emailUnsent, cancelUnsent] = await Promise.all([
+      unsentLotNotices(),
+      unsentConfirmations(),
+      // Cancellations: no stable "cancelled at" column (`updated_at` moves with
+      // every claim), so bounded by the STAY instead — a cancel notice matters
+      // until check-out. check_out is a literal wall-clock TIMESTAMP; a date a
+      // day back is a safe, timezone-free bound. The claim refuses an in-flight
+      // booking notice, so calling early is harmless. `.or()` on a SELECT is
+      // fine (PostgREST rejects it only on UPDATE).
+      supabase
+        .from("bookings")
+        .select("stripe_payment_intent_id")
+        .eq("inventory_source", "direct")
+        .eq("livemode", livemode)
+        .in("status", ["cancelled", "refunded"])
+        .is("lot_cancel_notified_at", null)
+        .or(LOT_TOLD_OR)
+        .gte("check_out", stayNotOver)
+        .limit(MAX_PER_RUN),
+    ]);
+    for (const [label, scan] of [
+      ["lot notice", lotUnsent],
+      ["customer email", emailUnsent],
+      ["lot cancel notice", cancelUnsent],
+    ] as const) {
+      if (scan.error) {
+        result.failed++;
+        capturePaymentError(new Error(`direct ${label} backstop scan failed: ${scan.error.message}`), { inventorySource: "direct" });
+      }
+    }
+    const redriveIds = new Set(
+      [...(lotUnsent.data ?? []), ...(emailUnsent.data ?? [])].map((r) => (r as { stripe_payment_intent_id: string }).stripe_payment_intent_id)
+    );
+    for (const piId of redriveIds) {
+      if (Date.now() - startedAt > RUN_BUDGET_MS) {
+        result.deferredToNextRun++;
+        continue;
+      }
+      result.directSendsRedriven++;
+      // Sends only — lot notice first, then the email, each claimed — never
+      // the whole engine (its refund gate would skip a partially refunded,
+      // still-confirmed booking). One that throws must not starve the rest.
+      try {
+        await redriveDirectBookingSends(piId);
+      } catch (err) {
+        result.failed++;
+        capturePaymentError(
+          new Error(`direct send backstop re-drive threw for ${piId}: ${err instanceof Error ? err.message : String(err)}`),
+          { stripePaymentIntentId: piId, inventorySource: "direct" }
+        );
+      }
+    }
+    for (const r of cancelUnsent.data ?? []) {
+      if (Date.now() - startedAt > RUN_BUDGET_MS) {
+        result.deferredToNextRun++;
+        continue;
+      }
+      result.directCancelNoticesAttempted++;
+      // Never throws; a failure is its own Sentry event and is retried next tick.
+      await sendLotCancelNotice((r as { stripe_payment_intent_id: string }).stripe_payment_intent_id);
     }
 
     // A monitor whose failure looks like health is worse than no monitor. If any

@@ -14,6 +14,40 @@ import {
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { formatDate as sharedFormatDate } from "@/lib/utils";
+import {
+  formatUsd,
+  toCents,
+  type CostBreakdown,
+  type CostBreakdownResult,
+  type FallbackDue,
+} from "@/lib/booking/cost-breakdown";
+import type { CardSummary } from "@/lib/booking/confirmation-payment";
+
+/**
+ * What the plain fallback shows when the breakdown was refused (`ok: false`),
+ * both decided server-side: the card side as Stripe reports it (charged +
+ * refunds / released / unknown — never an amount computed from the booking
+ * and called "charged") and what may be said about money due at the
+ * location / lot (core `fallbackDue`: an amount, unconfirmed, or none).
+ */
+export interface PaymentFallback {
+  card: CardSummary;
+  due: FallbackDue;
+  /** Labels the due line: ResLab's recorded figure, or the direct lot's estimate + its size/tax note. */
+  dueContext:
+    | { source: "reslab" }
+    | {
+        source: "direct";
+        estimate: { vehicleSizeLabel: string; surcharge: number; surchargeTax: number } | null;
+      };
+}
+
+function directDueNote(estimate: { vehicleSizeLabel: string; surcharge: number; surchargeTax: number } | null): string {
+  const surcharge = estimate ? toCents(estimate.surcharge) : null;
+  const tax = estimate ? toCents(estimate.surchargeTax) : null;
+  if (!estimate || surcharge === null || tax === null) return "Paid at drop-off. Not charged online.";
+  return `${estimate.vehicleSizeLabel}: ${formatUsd(surcharge)}${tax > 0 ? ` + ${formatUsd(tax)} tax` : ""}, paid at drop-off. Not charged online.`;
+}
 
 interface BookingDetailsProps {
   lot: UnifiedLot;
@@ -22,12 +56,151 @@ interface BookingDetailsProps {
   checkInTime: string;
   checkOutTime: string;
   days: number;
-  total: number;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
   vehicleInfo?: string;
-  dueAtLocation?: number;
+  /**
+   * The Payment summary, built and checked server-side by
+   * `GET /api/reservations/[id]` (plan notes/2026-10-12-cost-breakdown-plan.md).
+   * This component renders it — it never adds anything up itself.
+   */
+  costBreakdown: CostBreakdownResult;
+  fallback: PaymentFallback;
+  /**
+   * The booking was cancelled: keep the record (lot, dates, amounts, refund)
+   * but drop what only applies to a live reservation — money still due at the
+   * location and Get Directions. Required, never defaulted (see ConfirmationHeader).
+   */
+  cancelled: boolean;
+}
+
+function Row({
+  label,
+  cents,
+  credit = false,
+  className = "text-gray-700",
+}: {
+  label: string;
+  cents: number;
+  credit?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`flex justify-between gap-3 ${className}`}>
+      <span>{label}</span>
+      <span className="tabular-nums whitespace-nowrap">{formatUsd(cents, credit)}</span>
+    </div>
+  );
+}
+
+function DueRow({ label, cents, note }: { label: string; cents: number; note: string }) {
+  return (
+    <div>
+      <div className="flex justify-between gap-3 font-medium text-amber-700">
+        <span className="flex items-center gap-1.5">
+          <Wallet size={14} />
+          {label}
+        </span>
+        <span className="tabular-nums whitespace-nowrap font-semibold">{formatUsd(cents)}</span>
+      </div>
+      <p className="text-xs text-gray-500 mt-0.5">{note}</p>
+    </div>
+  );
+}
+
+/** The checked breakdown: lines → rule → total → (paid online / due) → refund. */
+function BreakdownSummary({ b }: { b: CostBreakdown }) {
+  // "Booking total" only where the card line IS the total; ResLab's "Total"
+  // (the whole booking, incl. the share due at the location) keeps its label.
+  const totalLabel = b.cancelled && b.totalLabel !== "Total" ? "Booking total" : b.totalLabel;
+  return (
+    <div className="space-y-1.5 text-sm">
+      {b.lines.map((line) => (
+        <Row key={line.key} label={line.label} cents={line.cents} credit={line.credit} />
+      ))}
+      <div className="border-t border-gray-200 pt-2 mt-2">
+        <Row label={totalLabel} cents={b.totalCents} className="font-semibold text-gray-900" />
+      </div>
+      {b.totalLabel === "Total" && (
+        <div className="space-y-1.5 pl-3">
+          <Row label="Paid online (card)" cents={b.paidOnlineCents} className="text-gray-600" />
+          {b.dueAtLocationCents > 0 && (
+            <DueRow label="Due at location" cents={b.dueAtLocationCents} note="Paid when you arrive." />
+          )}
+        </div>
+      )}
+      {b.atLot && (
+        <div className="space-y-1.5 pt-1">
+          <DueRow
+            label="Due at the lot (est.)"
+            cents={b.atLot.cents}
+            note={`${b.atLot.vehicleSizeLabel}: ${formatUsd(b.atLot.surchargeCents)}${
+              b.atLot.surchargeTaxCents > 0 ? ` + ${formatUsd(b.atLot.surchargeTaxCents)} tax` : ""
+            }, paid at drop-off. Not charged online.`}
+          />
+          {b.tripTotalCents !== null && (
+            <div className="border-t border-gray-200 pt-2 mt-2">
+              <Row
+                label={b.tripTotalIsEstimate ? "Trip total (est.)" : "Trip total"}
+                cents={b.tripTotalCents}
+                className="font-semibold text-gray-900"
+              />
+            </div>
+          )}
+        </div>
+      )}
+      {b.refundedCents > 0 && b.netPaidCents !== null && (
+        <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
+          <Row label="Refunded" cents={b.refundedCents} credit className="text-emerald-700" />
+          <Row label="Net paid" cents={b.netPaidCents} className="font-semibold text-gray-900" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The plain layout when the breakdown was refused — no itemisation, no
+ * guesses. "Charged to card" appears ONLY for Stripe's own amount.
+ */
+function FallbackSummary({ fallback, cancelled }: { fallback: PaymentFallback; cancelled: boolean }) {
+  const { card, due } = fallback;
+  return (
+    <div className="space-y-1.5 text-sm">
+      {card.status === "charged" ? (
+        <>
+          <Row label="Charged to card" cents={card.chargedCents} className="font-semibold text-gray-900" />
+          {card.refundedCents > 0 && card.netPaidCents !== null && (
+            <div className="border-t border-gray-200 pt-2 mt-2 space-y-1.5">
+              <Row label="Refunded" cents={card.refundedCents} credit className="text-emerald-700" />
+              <Row label="Net paid" cents={card.netPaidCents} className="font-semibold text-gray-900" />
+            </div>
+          )}
+        </>
+      ) : card.status === "released" ? (
+        <p className="font-medium text-gray-900">Not charged — the card hold was released.</p>
+      ) : (
+        <p className="text-gray-600">
+          The full payment details are in your confirmation email.
+        </p>
+      )}
+      {!cancelled && due.kind === "amount" && (
+        fallback.dueContext.source === "direct" ? (
+          <DueRow label="Due at the lot (est.)" cents={due.cents} note={directDueNote(fallback.dueContext.estimate)} />
+        ) : (
+          <DueRow label="Due at location (as recorded)" cents={due.cents} note="Paid when you arrive." />
+        )
+      )}
+      {!cancelled && due.kind === "unconfirmed" && (
+        // The recorded due amount is missing, implausible, or a $0 the refusal
+        // puts in doubt — never printed as fact, never turned into "nothing due".
+        <p className="text-gray-600">
+          The lot will confirm any amount due when you arrive. Questions? support@triplypro.com
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function BookingDetails({
@@ -37,12 +210,13 @@ export function BookingDetails({
   checkInTime,
   checkOutTime,
   days,
-  total,
   customerName,
   customerEmail,
   customerPhone,
   vehicleInfo,
-  dueAtLocation,
+  costBreakdown,
+  fallback,
+  cancelled,
 }: BookingDetailsProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
 
@@ -118,39 +292,27 @@ export function BookingDetails({
           </div>
         </div>
 
-        {/* Duration & Total */}
-        <div className="flex items-center justify-between p-4 bg-brand-orange/10 rounded-lg mb-6">
-          <div className="flex items-center">
-            <Clock size={20} className="text-brand-orange mr-3" />
-            <div>
-              <p className="text-sm text-gray-600">Duration</p>
-              <p className="font-bold text-gray-900">
-                {days} {days === 1 ? "day" : "days"}
-              </p>
-            </div>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-gray-600">
-              {dueAtLocation && dueAtLocation > 0 ? "Total" : "Total Paid"}
-            </p>
-            <p className="text-2xl font-bold text-brand-orange">
-              ${total.toFixed(2)}
+        {/* Duration */}
+        <div className="flex items-center p-4 bg-brand-orange/10 rounded-lg mb-6">
+          <Clock size={20} className="text-brand-orange mr-3" />
+          <div>
+            <p className="text-sm text-gray-600">Duration</p>
+            <p className="font-bold text-gray-900">
+              {days} {days === 1 ? "day" : "days"}
             </p>
           </div>
         </div>
 
-        {/* Due at Location Notice */}
-        {typeof dueAtLocation === "number" && dueAtLocation > 0 && (
-          <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg mb-6">
-            <Wallet size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-800">Pay at Location</p>
-              <p className="text-sm text-amber-700">
-                ${dueAtLocation.toFixed(2)} will be collected when you arrive
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Payment summary — rendered from the server's checked breakdown,
+            or the plain fallback when it was refused. */}
+        <div className="p-4 border border-gray-200 rounded-lg mb-6">
+          <h3 className="font-semibold text-gray-900 mb-3">Payment summary</h3>
+          {costBreakdown.ok ? (
+            <BreakdownSummary b={costBreakdown} />
+          ) : (
+            <FallbackSummary fallback={fallback} cancelled={cancelled} />
+          )}
+        </div>
 
         {/* Customer & Vehicle Info */}
         {(customerName || vehicleInfo) && (
@@ -188,13 +350,15 @@ export function BookingDetails({
         )}
 
         {/* Get Directions Button */}
-        <button
-          onClick={handleGetDirections}
-          className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          <Navigation size={18} />
-          Get Directions
-        </button>
+        {!cancelled && (
+          <button
+            onClick={handleGetDirections}
+            className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-gray-900 text-white font-medium rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <Navigation size={18} />
+            Get Directions
+          </button>
+        )}
       </div>
     </div>
   );

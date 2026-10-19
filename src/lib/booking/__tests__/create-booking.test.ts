@@ -14,6 +14,9 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { FakeSupabase } from "./supabase-fake";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { BookingConfirmationEmail } from "@/lib/resend/templates/booking-confirmation";
 import { __setAuthUserLookupForTests } from "../customer-link";
 
 // ---------------------------------------------------------------------------
@@ -70,7 +73,9 @@ vi.mock("@/lib/reslab/client", async () => {
 });
 
 vi.mock("@/lib/resend/send-booking-confirmation", () => ({
-  sendBookingConfirmation: vi.fn(async () => undefined),
+  // The real sender resolves { success, emailId } and never throws on a Resend
+  // error; fulfilment only counts an accepted send as sent.
+  sendBookingConfirmation: vi.fn(async () => ({ success: true, emailId: "em_1" })),
 }));
 vi.mock("@/lib/resend/send-admin-booking-notification", () => ({
   sendAdminBookingNotification: vi.fn(async () => undefined),
@@ -802,6 +807,33 @@ describe("emails", () => {
 
     expect(out.kind).toBe("created");
     expect(sendBookingConfirmation).not.toHaveBeenCalled();
+  });
+
+  it("records the email as sent only when Resend accepted it (the sender reports failure by RETURNING, not throwing)", async () => {
+    const { sendBookingConfirmation } = await import(
+      "@/lib/resend/send-booking-confirmation"
+    );
+    vi.mocked(sendBookingConfirmation).mockResolvedValueOnce({ success: false, error: new Error("resend 500") });
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(db.tables.pending_bookings[0].email_sent).toBe(false);
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("confirmation email did not send") }),
+      expect.anything()
+    );
+  });
+
+  it("an accepted send is recorded", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(db.tables.pending_bookings[0].email_sent).toBe(true);
   });
 });
 
@@ -1562,11 +1594,42 @@ describe("inventory source guard (direct lots, A-29/A-31)", () => {
 
     const out = await createBooking({ source: "client", stripePaymentIntentId: PI, payload: resLabPayload() });
 
-    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    // 4b-2 (§9 H-A, §10 F-10): the payload is ignored, nothing is self-created,
+    // and with no staged row the authorization is RELEASED — the customer is
+    // told "not charged", which is now true.
+    expect(out).toMatchObject({ kind: "failed", reason: "direct booking was never staged" });
     expect(db.tables.pending_bookings).toHaveLength(0);
     expect(reslabMock.createReservation).not.toHaveBeenCalled();
     expect(capturePaymentIntent).not.toHaveBeenCalled();
-    expect(capturePaymentError).toHaveBeenCalledTimes(1);
+    expect(cancelPaymentIntent).toHaveBeenCalledWith(PI);
+    expect(capturePaymentError).toHaveBeenCalled();
+  });
+
+  it("…and if that release throws, it is needs_reconciliation — never 'not charged' (§10 F-10)", async () => {
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ metadata: { customerEmail: "Ada.Lovelace@Example.com", inventorySource: "direct", lotId: "direct-1" } })
+    );
+    cancelPaymentIntent.mockRejectedValueOnce(new Error("stripe 500"));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+  });
+
+  it("a direct PaymentIntent whose staged row says ResLab is refused after the claim, with no money moved", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ metadata: { inventorySource: "direct" } }));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it("an unknown inventory source is refused before any write", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ metadata: { inventorySource: "hotel" } }));
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("pending");
   });
 
   it("the webhook path refuses a direct PaymentIntent too", async () => {
@@ -1584,5 +1647,443 @@ describe("inventory source guard (direct lots, A-29/A-31)", () => {
     );
     const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
     expect(out.kind).toBe("created");
+  });
+});
+
+describe("confirmation-email money invariant (promo bookings)", () => {
+  // The customer email states "Total" and "Due at the lot"; the difference is
+  // what the card was charged. A promo discount comes off the ONLINE charge, so
+  // the email total must subtract it — or a promo customer is told they paid
+  // more than Stripe took. The admin notification states the same total.
+  for (const amount of [6600, 6601]) {
+    it(`totalAmount − dueAtLocation === pi.amount/100 to the cent, and the admin email gets the same total (pi.amount ${amount})`, async () => {
+      const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+      db.seed("pending_bookings", [pendingRow()]);
+      stripeMock.paymentIntents.retrieve.mockResolvedValue(
+        paymentIntent({ amount, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+      );
+
+      const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+      expect(out.kind).toBe("created");
+      expect(db.tables.bookings[0].discount_amount).toBeGreaterThan(0);
+      expect(sendBookingConfirmation).toHaveBeenCalledTimes(1);
+      const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+      expect(customer.dueAtLocation).toBe(20);
+      // NaN (never 0) if the due amount went missing, so the equality fails loudly.
+      expect(Math.round((customer.totalAmount - (customer.dueAtLocation ?? Number.NaN)) * 100)).toBe(amount);
+      expect(sendAdminBookingNotification).toHaveBeenCalledTimes(1);
+      const admin = vi.mocked(sendAdminBookingNotification).mock.calls[0][0];
+      expect(admin.totalAmount).toBe(customer.totalAmount);
+      expect(admin.dueAtLocation).toBe(customer.dueAtLocation);
+    });
+  }
+});
+
+describe("admin notification failure", () => {
+  // The sender reports its own Resend failure (send-admin-booking-notification.ts),
+  // so fulfilment adds nothing — but a refused admin email must never fail the
+  // booking or become a money event.
+  it("a { success: false } return neither fails the booking nor raises a payment error", async () => {
+    const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+    vi.mocked(sendAdminBookingNotification).mockResolvedValueOnce({ success: false, error: new Error("resend 429") });
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    expect(capturePaymentError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("Admin notification") }),
+      expect.anything()
+    );
+  });
+});
+
+
+describe("a declined card, then a retry on the SAME PaymentIntent (fixed 2026-10-11)", () => {
+  // payment_intent.payment_failed marks the row `failed`; the customer then
+  // enters another card on the same PaymentIntent and it is authorized. The
+  // row must be reopened and booked — not left `failed` with a live hold.
+  const failedRow = (over: Record<string, unknown> = {}) =>
+    pendingRow({ status: "failed", last_error: "PaymentIntent failed: Your card was declined.", ...over });
+
+  it.each(["client", "webhook", "complete", "sweep"] as const)("%s: the authorized retry is booked and captured", async (source) => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const out = await createBooking({ source, stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "created", reservationNumber: "RTL999" });
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).toHaveBeenCalledWith(PI);
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(1);
+    expect(db.tables.pending_bookings[0]).toMatchObject({ status: "completed", reslab_reservation_number: "RTL999" });
+    expect(String(db.tables.pending_bookings[0].last_error)).toMatch(/^revived: PaymentIntent requires_capture after an earlier failed attempt \(PaymentIntent failed: Your card was declined\.\)/);
+    expect(captureBookingError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/reopened for fulfilment/) }),
+      expect.anything()
+    );
+  });
+
+  it("three entry points at once revive it once and book it once", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+
+    const outs = await Promise.all([
+      createBooking({ source: "client", stripePaymentIntentId: PI }),
+      createBooking({ source: "webhook", stripePaymentIntentId: PI }),
+      createBooking({ source: "complete", stripePaymentIntentId: PI }),
+    ]);
+
+    expect(outs.filter((o) => o.kind === "created")).toHaveLength(1);
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(db.tables.bookings).toHaveLength(1);
+  });
+
+  it("an already-captured retry (wallet auto-capture) is booked without a second capture", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ status: "succeeded", latest_charge: { amount_refunded: 0 } })
+    );
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("created");
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it("a `failed` row whose PaymentIntent is NOT authorized is still refused (nothing to book)", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ status: "requires_payment_method" }));
+    await expect(createBooking({ source: "client", stripePaymentIntentId: PI })).rejects.toThrow(PaymentNotConfirmedError);
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+
+  it("a `failed` row that already carries a reservation number is NOT reopened — and is a loud reconciliation, never a quiet 'failed'", async () => {
+    db.seed("pending_bookings", [failedRow({ reslab_reservation_number: "RTL555" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    // Moved into the reconciliation queue, so the sweep's declined-retry scan stops re-alerting.
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(String(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[0])).toMatch(/HAS paid and has no booking.*RTL555|RTL555.*HAS paid/);
+    expect(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[1]).toMatchObject({ fingerprint: ["failed-row-holds-money", PI] });
+  });
+
+  it("a `failed` row a caller is STILL working on (fresh claim — a late payment_failed flipped it) is not revived: in_progress", async () => {
+    db.seed("pending_bookings", [failedRow({ claimed_at: new Date().toISOString() })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "complete", stripePaymentIntentId: PI });
+    expect(out).toEqual({ kind: "in_progress" });
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a stale claim", { claimed_at: "2026-01-01T00:00:00.000Z" }],
+    ["a ResLab attempt that began", { reslab_attempt_started_at: "2026-01-01T00:00:00.000Z" }],
+  ])("a `failed` row with %s is never revived: loud reconciliation, money untouched", async (_n, over) => {
+    db.seed("pending_bookings", [failedRow(over)]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(String(vi.mocked(capturePaymentError).mock.calls.at(-1)?.[0])).toMatch(/NOT reopened automatically/);
+  });
+
+  it("other terminal statuses are untouched (released_failed stays refused)", async () => {
+    db.seed("pending_bookings", [pendingRow({ status: "released_failed" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+
+  it("a DB fault while reopening is retryable — never a terminal refusal", async () => {
+    db.seed("pending_bookings", [failedRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    db.failWhen("pending_bookings", "update", (p) => !!p && p.status === "pending" && "last_error" in p, "connection reset");
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: true });
+    expect(db.tables.pending_bookings[0].status).toBe("failed");
+    expect(reslabMock.createReservation).not.toHaveBeenCalled();
+  });
+});
+
+describe("recordReslabNumber hits 23505 — the number is already on another pending row (034)", () => {
+  it("needs_reconciliation, NOT retryable: no capture, no second reservation, the authorization left intact", async () => {
+    db.seed("pending_bookings", [
+      pendingRow(),
+      // Another PaymentIntent's row already holds the number ResLab just returned.
+      pendingRow({ stripe_payment_intent_id: "pi_other", status: "completed", reslab_reservation_number: "RTL900" }),
+    ]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.createReservation.mockResolvedValue(reslabReservation("RTL900"));
+
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(shouldStripeRedeliver(out)).toBe(false);
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+    expect(createRefund).not.toHaveBeenCalled();
+    expect(db.tables.bookings).toHaveLength(0);
+    const ours = db.tables.pending_bookings.find((r) => r.stripe_payment_intent_id === PI)!;
+    expect(ours.status).toBe("needs_reconciliation");
+    expect(ours.reslab_reservation_number).toBeNull();
+    expect(String(ours.last_error)).toMatch(/RTL900/);
+    // The other row is untouched.
+    expect(db.tables.pending_bookings.find((r) => r.stripe_payment_intent_id === "pi_other")).toMatchObject({
+      status: "completed",
+      reslab_reservation_number: "RTL900",
+    });
+    expect(capturePaymentError).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringMatching(/RTL900.*already recorded on another pending row/) }),
+      expect.anything()
+    );
+
+    // A redelivery must not book a SECOND reservation either.
+    const again = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(again.kind).toBe("needs_reconciliation");
+    expect(reslabMock.createReservation).toHaveBeenCalledTimes(1);
+    expect(capturePaymentIntent).not.toHaveBeenCalled();
+    expect(cancelPaymentIntent).not.toHaveBeenCalled();
+  });
+});
+
+describe("the emails' cost breakdown (plan 2026-10-12)", () => {
+  /** The customer email as it would render from the arguments fulfilment passed. */
+  function renderCustomerEmail(): string {
+    const args = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    return renderToStaticMarkup(createElement(BookingConfirmationEmail, { ...args, customerEmail: args.to }));
+  }
+
+  // Fixture money: ResLab 80 + fees 3 + tax 5 = grand 88, of which 20 is due at
+  // the location; service fee 6. Card = 88 + 6 − 20 = 74.00 (no promo).
+  it("a normal ResLab booking: both emails get an ok breakdown anchored to pi.amount", async () => {
+    const { sendAdminBookingNotification } = await import("@/lib/resend/send-admin-booking-notification");
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ amount: 7400 }));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toMatchObject({
+      ok: true,
+      source: "reslab",
+      totalLabel: "Total",
+      totalCents: 9400,
+      paidOnlineCents: 7400, // = pi.amount — the anchor
+      dueAtLocationCents: 2000,
+    });
+    expect(vi.mocked(sendAdminBookingNotification).mock.calls[0][0].breakdown).toEqual(customer.breakdown);
+    expect(captureBookingError).not.toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining("cost breakdown fell back") }),
+      expect.anything()
+    );
+  });
+
+  it("a promo: the discount line and code come from the charge (88 + 6 − 20 − 8 = 66)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 6600, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: " save10 " } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b?.ok).toBe(true);
+    if (!b?.ok) return;
+    expect(b.paidOnlineCents).toBe(6600);
+    expect(b.lines.find((l) => l.key === "promo")).toEqual({ key: "promo", label: "Promo discount (SAVE10)", cents: 800, credit: true });
+  });
+
+  it("a typed code that applied no discount is not shown", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 7400, metadata: { customerEmail: "a@b.com", promoCode: "nope" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b?.ok && b.lines.some((l) => l.key === "promo")).toBe(false);
+  });
+
+  it("parts that do not add up to the charge → ok:false (fallback layout), reported once, and the fallback total is unchanged", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    // 94.00 charged against parts that add up to 74.00 online.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ amount: 9400 }));
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toEqual({ ok: false, reason: "the parts do not add up to what the card was charged" });
+    expect(customer.totalAmount).toBe(94);
+    const reports = vi
+      .mocked(captureBookingError)
+      .mock.calls.filter(([e]) => e.message.startsWith("Booking email cost breakdown fell back"));
+    expect(reports).toHaveLength(1);
+    expect(reports[0][1]).toMatchObject({
+      step: "confirmation",
+      confirmationNumber: "RTL999",
+      inventorySource: "reslab",
+      // One Sentry issue per reason class, not per booking.
+      fingerprint: ["email-cost-breakdown-fallback", "the parts do not add up to what the card was charged"],
+    });
+    // The fallback states the charge itself, not a total re-added from the parts;
+    // the recorded $20 due is believable (≤ the $88 parking total), so it is shown as recorded.
+    const fallback = { chargedCents: 9400, due: { kind: "amount", cents: 2000 }, protection: null, reason: "the parts do not add up to what the card was charged" };
+    expect(customer.anchoredFallback).toEqual(fallback);
+    expect(vi.mocked((await import("@/lib/resend/send-admin-booking-notification")).sendAdminBookingNotification).mock.calls[0][0].anchoredFallback).toEqual(fallback);
+  });
+
+  it("a price drop after authorization with a promo: the derived discount is $0 but the code had a percent → ok:false (never a receipt without the promo)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    // Charged 74.00 = the full pre-discount online amount: the derived discount is 0.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 7400, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toEqual({ ok: false, reason: "promo discount does not match the code's percent" });
+    // The due amount is not in doubt here, so it is stated.
+    expect(customer.anchoredFallback).toEqual({
+      chargedCents: 7400,
+      due: { kind: "amount", cents: 2000 },
+      protection: null,
+      reason: "promo discount does not match the code's percent",
+    });
+  });
+
+  it("a pay-at-lot promo where ResLab omits due_at_location → ok:false, never a due amount swallowed into the promo line", async () => {
+    const r = reslabReservation();
+    delete (r.history[0] as Record<string, unknown>).due_at_location_total;
+    reslabMock.createReservation.mockResolvedValue(r);
+    db.seed("pending_bookings", [pendingRow()]);
+    // 88 + 6 − 20 − 8 = 66 charged; with the due amount missing the derived "discount" would be 28.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 6600, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown?.ok).toBe(false);
+    // ResLab sent no due amount: unconfirmed, never silent and never a number.
+    expect(customer.anchoredFallback).toMatchObject({ chargedCents: 6600, due: { kind: "unconfirmed" } });
+    expect(renderCustomerEmail()).toContain("The lot will confirm any amount due when you arrive. Questions?");
+  });
+
+  // Codex's reproductions (review round 3): subtotal 80, fees 3, tax 5, fee 6, a 10 % promo, $66 charged.
+  const codexPromoPi = () =>
+    paymentIntent({ amount: 6600, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } });
+  function reservationWithDue(due: number) {
+    const r = reslabReservation();
+    r.history[0].due_at_location_total = due;
+    return r;
+  }
+
+  it("a recorded $200 due on an $88 booking (promo refused first) → unconfirmed, the $200 never printed", async () => {
+    reslabMock.createReservation.mockResolvedValue(reservationWithDue(200));
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(codexPromoPi());
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown?.ok).toBe(false);
+    expect(customer.anchoredFallback?.due).toEqual({ kind: "unconfirmed" });
+    const html = renderCustomerEmail();
+    expect(html).not.toContain("$200.00");
+    expect(html).toContain("The lot will confirm any amount due when you arrive. Questions?");
+    expect(html).toContain("$66.00");
+  });
+
+  it("a recorded $0 due with the promo refused (an unexplained $20) → the unconfirmed copy, not silence", async () => {
+    reslabMock.createReservation.mockResolvedValue(reservationWithDue(0));
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(codexPromoPi());
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toEqual({ ok: false, reason: "promo discount does not match the code's percent" });
+    expect(customer.anchoredFallback?.due).toEqual({ kind: "unconfirmed" });
+    expect(renderCustomerEmail()).toContain("The lot will confirm any amount due when you arrive. Questions?");
+  });
+
+  it("a believable $40 due after an anchor mismatch → shown 'as recorded'", async () => {
+    reslabMock.createReservation.mockResolvedValue(reservationWithDue(40));
+    db.seed("pending_bookings", [pendingRow()]);
+    // 88 + 6 − 40 = 54 would be the card; 74.00 was charged → the anchor refuses.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent({ amount: 7400 }));
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const customer = vi.mocked(sendBookingConfirmation).mock.calls[0][0];
+    expect(customer.breakdown).toEqual({ ok: false, reason: "the parts do not add up to what the card was charged" });
+    expect(customer.anchoredFallback?.due).toEqual({ kind: "amount", cents: 4000 });
+    const html = renderCustomerEmail();
+    expect(html).toContain("Due at location (as recorded)");
+    expect(html).toContain("$40.00");
+    expect(html).toContain("$74.00");
+    expect(html).not.toContain("The lot will confirm");
+  });
+
+  it("the anchored fallback labels the plan 'Plan B', not the tier's display name", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "B" })]);
+    // Inconsistent on purpose (the parts give 81.99 online) → fallback.
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 9400, metadata: { customerEmail: "a@b.com", protectionPlanCode: "B", protectionPlanPrice: "7.99" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    expect(vi.mocked(sendBookingConfirmation).mock.calls[0][0].anchoredFallback?.protection).toEqual({ label: "Plan B", premiumCents: 799 });
+  });
+
+  it("the plan line reads 'Plan B' (the charged plan's code), not the tier's display name", async () => {
+    db.seed("pending_bookings", [pendingRow({ has_protection_plan: true, protection_plan_code: "B" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 7400 + 799, metadata: { customerEmail: "a@b.com", protectionPlanCode: "B", protectionPlanPrice: "7.99" } })
+    );
+
+    expect((await createBooking({ source: "client", stripePaymentIntentId: PI })).kind).toBe("created");
+
+    const b = vi.mocked(sendBookingConfirmation).mock.calls[0][0].breakdown;
+    expect(b?.ok && b.lines.find((l) => l.key === "protection")).toEqual({
+      key: "protection",
+      label: "Parking Protection — Plan B",
+      cents: 799,
+      credit: false,
+    });
+  });
+
+  it("the POST response's dueNow is what the card was charged — net of the promo (plan §4)", async () => {
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(
+      paymentIntent({ amount: 6600, metadata: { customerEmail: "a@b.com", discountPercent: "10", promoCode: "save10" } })
+    );
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+
+    expect(out.kind).toBe("created");
+    if (out.kind !== "created") return;
+    expect(out.reservation?.dueNow).toBe(66);
+    expect(out.reservation?.grandTotal).toBe(94); // unchanged (GA4 reads it)
   });
 });

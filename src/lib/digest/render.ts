@@ -5,8 +5,10 @@
  * fields are dropped first until the embed fits.
  */
 
-import type { DigestData, Flag, Metric, Baselined } from "./types";
+import { AI_SOURCES, BOOKING_SOURCE_LABELS } from "@/lib/attribution/source";
+import type { DigestData, Flag, Metric, Baselined, PaceTotals, SourceCount } from "./types";
 import type { ReadResult } from "./read";
+import { MONTHS } from "./window";
 
 export const BRAND = 0xf87356;
 export const RED = 0xdc2626;
@@ -16,6 +18,8 @@ const FIELD_VALUE_LIMIT = 1_024;
 const DESCRIPTION_LIMIT = 4_096;
 /** Flags beyond this are summarised as "… and N more" so a ResLab-wide sold-out day cannot silently lose flags to the description clamp. */
 export const MAX_FLAGS = 20;
+/** Reservation numbers printed in the unsent-email flag; the count is always shown in full. */
+export const EMAIL_NUMBERS_SHOWN = 10;
 
 export interface Embed {
   title: string;
@@ -46,6 +50,10 @@ export function verdictFor(d: DigestData): Verdict {
 const usd = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 const m = (v: Metric, f: (n: number) => string = String) => (v === "unavailable" ? "unavailable" : f(v));
 const pct = (v: Metric) => m(v, (n) => `${Math.round(n * 100)}%`);
+const signedPct = (share: number) => {
+  const n = Math.round(share * 100);
+  return n === 0 ? "±0%" : `${n > 0 ? "+" : "−"}${Math.abs(n)}%`;
+};
 const clamp = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s); // declared before its first caller
 
 // ── flags ──
@@ -61,7 +69,7 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (b.count.value !== "unavailable" && b.count.avg7 !== null && b.count.avg7 >= 2 && b.count.value < b.count.avg7 * 0.5) {
       flags.push({ text: `bookings ${b.count.value} < half the 7-day avg (${b.count.avg7.toFixed(1)})` });
     }
-    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record — check manually` });
+    if (b.unmatched > 0) flags.push({ text: `${b.unmatched} booking(s) with no payment record or no recorded Stripe mode — check manually` });
     if (b.otherStatus > 0) flags.push({ text: `${b.otherStatus} booking(s) with an unknown status` });
     if (b.dirtyPgRows > 0) flags.push({ text: `${b.dirtyPgRows} Park Guard row(s) with no wholesale recorded` });
     if (b.leadTime.unknown > 0) flags.push({ text: `${b.leadTime.unknown} booking(s) with no lot timezone (lead time unknown)` });
@@ -103,6 +111,22 @@ export function flagsFor(d: DigestData, extra: Flag[] = []): Flag[] {
     if (h.snapshot.kind === "row" && (h.snapshot.stale || h.snapshot.behind)) flags.push({ text: `ResLab snapshot ${h.snapshot.stale ? "stale" : "behind"} (${h.snapshot.ageHours} h)` });
     if (h.stuckPending.kind === "n" && h.stuckPending.n > 0) flags.push({ text: `${h.stuckPending.n} pending booking(s) stuck > 1 h (possibly mid-sweep)` });
     if (h.stuckPending.kind === "error") flags.push({ text: "stuck-pending check unavailable (money could be stranded unseen)" });
+    if (h.emailNotSent.kind === "n" && h.emailNotSent.n > 0) {
+      const e = h.emailNotSent;
+      const shown = e.numbers.slice(0, EMAIL_NUMBERS_SHOWN).join(", ");
+      const more = e.numbers.length > EMAIL_NUMBERS_SHOWN ? ` … +${e.numbers.length - EMAIL_NUMBERS_SHOWN} more` : "";
+      flags.push({ text: `${e.n}${e.capped ? "+" : ""} completed booking(s) in the last ${e.lookbackDays} days with no confirmation email sent: ${shown}${more}` });
+    }
+    if (h.emailNotSent.kind === "error") flags.push({ text: "confirmation-email check unavailable (a customer could be missing their confirmation unseen)" });
+    // Direct lots: the notice email is the lot's ONLY channel (4b plan §9 H-B).
+    const lot = h.lotNotNotified;
+    if (lot.kind === "n" && lot.n > 0) {
+      flags.push({ text: `${lot.n}${lot.capped ? "+" : ""} direct-lot booking(s) whose LOT was never notified (> 1 h): ${lot.numbers.join(", ")} — tell the lot by hand` });
+    }
+    if (lot.kind === "n" && lot.cancelN > 0) {
+      flags.push({ text: `${lot.cancelN}${lot.cancelCapped ? "+" : ""} cancelled direct-lot booking(s) whose LOT was never told of the cancellation (stay not over; the sweep retries every 10 min): ${lot.cancelNumbers.join(", ")} — tell the lot by hand` });
+    }
+    if (h.lotNotNotified.kind === "error") flags.push({ text: "direct-lot notice check unavailable (a lot could be missing a booking unseen)" });
   }
   return flags;
 }
@@ -183,6 +207,52 @@ function tiles(d: DigestData): Embed["fields"] {
   ];
 }
 
+/**
+ * "Google 3 · AI 2 (ChatGPT 1, Gemini 1) · Blog (no referrer) 2": the AI
+ * assistants fold into one entry so their total reads at a glance, largest
+ * entry first.
+ */
+export function sourceLine(rows: SourceCount[]): string {
+  const ai = rows.filter((r) => AI_SOURCES.has(r.key) && r.bookings > 0);
+  const aiTotal = ai.reduce((n, r) => n + r.bookings, 0);
+  const entries: Array<{ text: string; n: number }> = rows
+    .filter((r) => !AI_SOURCES.has(r.key) && r.bookings > 0)
+    .map((r) => ({ text: `${BOOKING_SOURCE_LABELS[r.key]} ${r.bookings}`, n: r.bookings }));
+  if (aiTotal > 0) {
+    const detail = ai.map((r) => `${BOOKING_SOURCE_LABELS[r.key]} ${r.bookings}`).join(", ");
+    entries.push({ text: ai.length === 1 ? `AI: ${detail}` : `AI ${aiTotal} (${detail})`, n: aiTotal });
+  }
+  return entries.sort((a, b) => b.n - a.n).map((e) => e.text).join(" · ") || "—";
+}
+
+const dayLabel = (iso: string) => `${MONTHS[Number(iso.slice(5, 7)) - 1]} ${Number(iso.slice(8))}`;
+const dayRange = (first: string, last: string) => (first === last ? dayLabel(first) : `${dayLabel(first)}–${Number(last.slice(8))}`);
+
+function paceField(d: DigestData): string {
+  if (!d.pace.ok) return `unavailable (${clamp(d.pace.error, 80)})`;
+  const p = d.pace.data;
+  const line = (label: string, t: PaceTotals) => {
+    const caveats = [
+      t.unmatched ? `${t.unmatched} unclassified booking(s) not counted` : "",
+      t.dirtyPgRows ? `fee income excludes ${t.dirtyPgRows} Park Guard row(s) with no wholesale` : "",
+    ].filter(Boolean);
+    return `${label}: ${t.bookings} bookings · GMV ${m(t.gmv, usd)} · fee income ${m(t.feeIncome, usd)}${caveats.length ? ` (${caveats.join("; ")})` : ""}`;
+  };
+  const change =
+    p.bookingsChange !== null
+      ? `Bookings ${signedPct(p.bookingsChange)} vs the same days last month`
+      : p.mtd.unmatched || p.prior.unmatched
+        ? "Change withheld: unclassified bookings in the comparison"
+        : "No bookings in the same days last month";
+  return [line(dayRange(p.mtdFirstDay, p.mtdLastDay), p.mtd), line(dayRange(p.priorFirstDay, p.priorLastDay), p.prior), change].join("\n");
+}
+
+function recoveryField(d: DigestData): string {
+  if (!d.recovery.ok) return `unavailable (${clamp(d.recovery.error, 80)})`;
+  const r = d.recovery.data;
+  return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ in progress or stuck ${r.waiting} (check the recovery cron)` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
+}
+
 function whereFromField(d: DigestData): string {
   if (!d.whereFrom.ok) return `unavailable (${d.whereFrom.error})`;
   const w = d.whereFrom.data;
@@ -195,9 +265,13 @@ function whereFromField(d: DigestData): string {
     land.none ? `no cookie ${land.none}` : "",
   ].filter(Boolean).join(" · ") || "—";
   const posts = w.topBlogPosts.map((p) => `${p.path.replace(/^\/blog\//, "")}${p.bookings > 1 ? ` (${p.bookings})` : ""}`).join(", ");
+  const week = w.bySource7d.ok
+    ? `7 days to ${dayLabel(d.dateEt)} (${w.bySource7d.data.total}): ${sourceLine(w.bySource7d.data.rows)}`
+    : `7 days to ${dayLabel(d.dateEt)}: unavailable (${clamp(w.bySource7d.error, 60)})`;
   return [
-    `${w.byChannel.slice(0, 6).map((c) => `${titleCase(c.key)} ${c.bookings}`).join(" · ") || "—"}`,
-    `Landed on: ${landed}${w.aiReferrals ? ` · AI-assistant referrals ${w.aiReferrals}` : ""}`,
+    `${dayLabel(d.dateEt)}: ${sourceLine(w.bySource)}`,
+    week,
+    `Landed on: ${landed}`,
     w.topAirports.length ? `Airports: ${w.topAirports.map((a) => `${a.key} ${a.bookings}`).join(", ")}` : "",
     posts ? `Top posts: ${posts}` : "",
   ].filter(Boolean).join("\n");
@@ -283,6 +357,11 @@ function healthField(d: DigestData): string {
       ? { text: `stuck pending ${h.stuckPending.n}`, warn: h.stuckPending.n > 0 }
       : { text: `stuck pending UNKNOWN (${clamp(h.stuckPending.message, 50)})`, warn: true }
   );
+  parts.push(
+    h.emailNotSent.kind === "n"
+      ? { text: `emails unsent ${h.emailNotSent.n}${h.emailNotSent.capped ? "+" : ""}`, warn: h.emailNotSent.n > 0 }
+      : { text: `emails unsent UNKNOWN (${clamp(h.emailNotSent.message, 50)})`, warn: true }
+  );
   if (h.lastDigest.kind === "none") parts.push({ text: "no earlier digest on record", neutral: true });
   else if (h.lastDigest.kind === "days" && h.lastDigest.n !== 1) parts.push({ text: `last digest ${h.lastDigest.n} days ago`, warn: true });
   else if (h.lastDigest.kind === "error") parts.push({ text: `last digest UNKNOWN (run log: ${clamp(h.lastDigest.message, 50)})`, warn: true });
@@ -339,9 +418,11 @@ export function renderEmbed(d: DigestData, read: ReadResult | null, extraFlags: 
   const FLOOR = tileRows.length; // the tiles are never dropped
   const ranked: Ranked[] = [
     ...tileRows.map((field) => ({ field, keep: 9 })),
+    { field: { name: "Month to date", value: clamp(paceField(d), FIELD_VALUE_LIMIT) }, keep: 6.5 },
     { field: { name: "Where bookings came from", value: clamp(whereFromField(d), FIELD_VALUE_LIMIT) }, keep: 6 },
     { field: { name: "Lead time & extras", value: clamp(leadTimeField(d), FIELD_VALUE_LIMIT) }, keep: 5 },
     { field: { name: "Lost sales", value: clamp(lostSalesField(d), FIELD_VALUE_LIMIT) }, keep: 7 },
+    { field: { name: "Abandoned-checkout emails (last 7 days)", value: clamp(recoveryField(d), FIELD_VALUE_LIMIT) }, keep: 4 },
     { field: { name: "Search detail", value: clamp(searchDetailField(d), FIELD_VALUE_LIMIT) }, keep: 3 },
     { field: { name: "Engagement", value: clamp(engagementField(d), FIELD_VALUE_LIMIT) }, keep: 2 },
     { field: { name: "Health", value: clamp(healthField(d), FIELD_VALUE_LIMIT) }, keep: 8 },

@@ -283,6 +283,9 @@ function CheckoutContent() {
             costData={checkoutData.costData}
             fromDate={checkoutData.fromDate}
             toDate={checkoutData.toDate}
+            // Raw — CheckoutForm validates it against the server's lot terms (R8).
+            requestedVehicleSize={searchParams.get("vehicleSize")}
+            requestedVehicleSizeSource={searchParams.get("vehicleSizeSource")}
           />
         </div>
       </main>

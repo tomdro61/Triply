@@ -16,6 +16,9 @@ const { lookup, createPI, getLotById, getCost, promoSingle, promoEq } = vi.hoist
   promoEq: vi.fn(),
 }));
 
+vi.mock("@/lib/direct/flag", async (importOriginal) =>
+  (await import("@/lib/direct/__tests__/flag-switch")).mockFlag(importOriginal)
+);
 vi.mock("@/lib/direct/store", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/direct/store")>()),
   fetchDirectLot: lookup,
@@ -46,6 +49,13 @@ import { directLotFromRow, type DirectLot } from "@/lib/direct/store";
 import { directLotToUnified } from "@/lib/direct/adapter";
 import { getAirportByCode } from "@/config/airports";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
+import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
+
+// Booking closed unless a test opens it (go-live behaviour is pinned explicitly).
+afterEach(() => {
+  flagSwitch.open = false;
+});
+
 
 const lot = (over: Record<string, unknown> = {}): DirectLot => {
   const out = directLotFromRow(directLotRow({ tax_rate_percent: 16, ...over }));
@@ -221,6 +231,20 @@ describe("GET /api/checkout/lot — direct", () => {
     const res = await get();
     expect(res.status).toBe(503);
     expect(await res.json()).toMatchObject({ code: "direct_not_bookable_yet" });
+  });
+
+  it("go-live (DIRECT_BOOKING_OPEN): open in production with no preview flag", async () => {
+    flagSwitch.open = true;
+    vi.stubEnv("DIRECT_CHECKOUT_PREVIEW", "");
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    const prodLot = lot({ visibility: "production" });
+    lookup.mockResolvedValue({ status: "found", lot: prodLot });
+    getLotById.mockResolvedValue(
+      directLotToUnified(prodLot, getAirportByCode("JFK")!, { fromDate: "2026-10-10 10:00:00", toDate: "2026-10-15 10:00:00" })
+    );
+    const res = await get();
+    expect(res.status).toBe(200);
   });
 });
 

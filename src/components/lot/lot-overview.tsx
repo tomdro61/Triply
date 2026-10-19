@@ -1,5 +1,6 @@
 import { Bus, AlertTriangle } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
+import { bulletLines } from "@/lib/utils/bullet-lines";
 
 interface LotOverviewProps {
   lot: UnifiedLot;
@@ -8,6 +9,8 @@ interface LotOverviewProps {
 export function LotOverview({ lot }: LotOverviewProps) {
   // Only show if we have description, shuttle info, or special conditions
   const hasContent = lot.description || lot.shuttleInfo || lot.specialConditions;
+  // Notes written as "- item" lines (a direct lot's CMS text) render as a list.
+  const importantItems = bulletLines(lot.specialConditions);
 
   if (!hasContent) {
     return null;
@@ -55,9 +58,17 @@ export function LotOverview({ lot }: LotOverviewProps) {
             <AlertTriangle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-amber-800 mb-1">Important Information</h3>
-              <p className="text-amber-700 text-sm">
-                {lot.specialConditions}
-              </p>
+              {importantItems ? (
+                <ul className="list-disc pl-5 space-y-1.5 text-amber-700 text-sm">
+                  {importantItems.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-amber-700 text-sm">
+                  {lot.specialConditions}
+                </p>
+              )}
             </div>
           </div>
         </div>

@@ -259,6 +259,72 @@ describe("fetchDirectLot — found / not_found / invalid / unavailable", () => {
     rpcResolves({ error: { code: "", message: "TimeoutError: aborted" } });
     expect(await fetchDirectLot(1)).toMatchObject({ status: "unavailable", kind: "timeout" });
   });
+  it("without retryTransient a timeout is ONE read, reported", async () => {
+    rpcResolves({ error: { code: "", message: "TimeoutError: aborted" } });
+    expect(await fetchDirectLot(1)).toMatchObject({ status: "unavailable", kind: "timeout" });
+    expect(adminClient.rpc).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+  it("retryTransient: a cold-start timeout then success is found, leaving ONE throttled 'recovered' event (TRIPLY-40)", async () => {
+    const timeoutThenFound = () =>
+      adminClient.rpc
+        .mockReturnValueOnce({ abortSignal: async () => ({ data: null, error: { code: "", message: "TimeoutError: The operation was aborted due to timeout" } }) })
+        .mockReturnValueOnce({ abortSignal: async () => ({ data: [row], error: null }) });
+    timeoutThenFound();
+    expect((await fetchDirectLot(1, "x", { retryTransient: true })).status).toBe("found");
+    expect(adminClient.rpc).toHaveBeenCalledTimes(2);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError.mock.calls[0][0].message).toMatch(/retry recovered — timeout: TimeoutError/);
+    expect(sentry.captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "direct_lots_retry" });
+    // A second recovery on this instance within 5 minutes is counted, not re-sent.
+    timeoutThenFound();
+    expect((await fetchDirectLot(1, "x", { retryTransient: true })).status).toBe("found");
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+  it("retryTransient: a thrown network failure is retried too", async () => {
+    adminClient.rpc
+      .mockReturnValueOnce({ abortSignal: async () => { throw new Error("fetch failed"); } })
+      .mockReturnValueOnce({ abortSignal: async () => ({ data: [row], error: null }) });
+    expect((await fetchDirectLot(1, "x", { retryTransient: true })).status).toBe("found");
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError.mock.calls[0][0].message).toMatch(/retry recovered — unavailable: fetch failed/);
+  });
+  it("retryTransient: two timeouts are unavailable, reported ONCE (the second)", async () => {
+    rpcResolves({ error: { code: "", message: "TimeoutError: aborted" } });
+    expect(await fetchDirectLot(1, "x", { retryTransient: true })).toMatchObject({ status: "unavailable", kind: "timeout" });
+    expect(adminClient.rpc).toHaveBeenCalledTimes(2);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    // The report is the SECOND attempt's (both share a throttle key, so a count alone can't tell), naming the first.
+    expect(sentry.captureAPIError.mock.invocationCallOrder[0]).toBeGreaterThan(adminClient.rpc.mock.invocationCallOrder[1]);
+    expect(sentry.captureAPIError.mock.calls[0][1].extra).toMatchObject({ priorFailure: "timeout: TimeoutError: aborted" });
+  });
+  it("retryTransient: an unexpected response shape is retried — recovered leaves one retry event, twice reports read:shape naming the first", async () => {
+    adminClient.rpc
+      .mockReturnValueOnce({ abortSignal: async () => ({ data: { not: "an array" }, error: null }) })
+      .mockReturnValueOnce({ abortSignal: async () => ({ data: [row], error: null }) });
+    expect((await fetchDirectLot(1, "x", { retryTransient: true })).status).toBe("found");
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError.mock.calls[0][1]).toMatchObject({ stage: "direct_lots_retry" });
+
+    sentry.captureAPIError.mockReset();
+    __resetCaptureThrottleForTests();
+    rpcResolves({ data: { not: "an array" } });
+    expect(await fetchDirectLot(1, "x", { retryTransient: true })).toMatchObject({ status: "unavailable", kind: "unavailable" });
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError.mock.calls[0][0].message).toMatch(/unexpected response shape/);
+    expect(sentry.captureAPIError.mock.calls[0][1].extra).toMatchObject({ priorFailure: "unavailable: unexpected response shape" });
+  });
+  it("retryTransient: a misconfiguration is not retried and is reported at once", async () => {
+    rpcResolves({ error: { code: "42501", message: "permission denied for function direct_lots_v2" } });
+    expect(await fetchDirectLot(1, "x", { retryTransient: true })).toMatchObject({ status: "unavailable", kind: "misconfigured" });
+    expect(adminClient.rpc).toHaveBeenCalledTimes(1);
+    expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
+  });
+  it("retryTransient: an unparseable row is invalid after ONE read (a data problem, not retried)", async () => {
+    rpcResolves({ data: [{ ...row, tax_collected_by: "nobody" }] });
+    expect((await fetchDirectLot(1, "x", { retryTransient: true })).status).toBe("invalid");
+    expect(adminClient.rpc).toHaveBeenCalledTimes(1);
+  });
   it("a non-positive or fractional id is not_found without a query", async () => {
     expect((await fetchDirectLot(0)).status).toBe("not_found");
     expect((await fetchDirectLot(1.5)).status).toBe("not_found");

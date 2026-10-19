@@ -47,3 +47,38 @@ describe("postToDiscord — budgeted retry", () => {
     expect(r).toMatchObject({ kind: "failed", status: null, body: "ECONNRESET" });
   });
 });
+
+describe("postToDiscord — body", () => {
+  const hook = () => vi.fn<typeof fetch>(async () => res(204));
+  const sentBody = (f: ReturnType<typeof hook>) => String(f.mock.calls[0][1]?.body);
+
+  it("without the new options the body is byte-identical to the daily digest's original", async () => {
+    const f = hook();
+    await postToDiscord("https://hook", embed, { remainingBudgetMs: 50_000, fetchImpl: f });
+    expect(sentBody(f)).toBe(JSON.stringify({ username: "Triply Daily", embeds: [embed] }));
+  });
+
+  it("username, content and allowed_mentions are sent when given", async () => {
+    const f = hook();
+    await postToDiscord("https://hook", embed, {
+      remainingBudgetMs: 50_000,
+      fetchImpl: f,
+      username: "Triply Alerts",
+      content: "@here",
+      allowedMentions: { parse: ["everyone"] },
+    });
+    expect(JSON.parse(sentBody(f))).toEqual({ username: "Triply Alerts", content: "@here", allowed_mentions: { parse: ["everyone"] }, embeds: [embed] });
+  });
+
+  it("content without allowedMentions still sends allowed_mentions { parse: [] } — nothing can ping by accident", async () => {
+    const f = hook();
+    await postToDiscord("https://hook", embed, { remainingBudgetMs: 50_000, fetchImpl: f, username: "Triply Alerts", content: "@here" });
+    expect(sentBody(f)).toBe(JSON.stringify({ username: "Triply Alerts", content: "@here", allowed_mentions: { parse: [] }, embeds: [embed] }));
+  });
+
+  it("a username alone adds no content and no allowed_mentions", async () => {
+    const f = hook();
+    await postToDiscord("https://hook", embed, { remainingBudgetMs: 50_000, fetchImpl: f, username: "Triply Alerts" });
+    expect(sentBody(f)).toBe(JSON.stringify({ username: "Triply Alerts", embeds: [embed] }));
+  });
+});

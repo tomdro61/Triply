@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sendLotCancelNotice } from "@/lib/direct/lot-notice";
 import { z } from "zod";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { reslab } from "@/lib/reslab/client";
 import {
   createRefund,
-  getPaymentIntent,
+  getPaymentIntentWithCharge,
   cancelPaymentIntent,
 } from "@/lib/stripe/client";
 import { sendCancellationConfirmation } from "@/lib/resend/send-cancellation-confirmation";
@@ -19,6 +20,7 @@ import {
   recordCancellationReason,
 } from "@/lib/cancellation/reason";
 import { pgWholesaleForRow } from "@/lib/cancellation/refund-math";
+import { cancelSource, isOtherStripeMode, OTHER_MODE_MESSAGE } from "@/lib/cancellation/source-guard";
 import { parseMoneyColumn, pgWholesaleWithheld } from "@/lib/utils/money";
 
 // Sequential ResLab + Stripe + Supabase + Park Guard + email. Pinned so a healthy
@@ -39,6 +41,12 @@ const cancelSchema = z.object({
   // when a lot turns the customer away — Triply returns its own fee as goodwill.
   // Defaults false: the standard path retains the non-refundable service fee.
   refundServiceFee: z.boolean().optional().default(false),
+  // The POLICY refund (Terms §5.2, 2026-10-13): refunds the service fee but,
+  // like the self-cancel, still withholds the Park Guard wholesale. The admin
+  // dialog pre-ticks it when check-in is more than 24 h away, so a guest who
+  // cancels by email gets the same "free cancellation" as one who cancels
+  // online. Exclusive with refundServiceFee (the full / goodwill refund).
+  refundServiceFeeOnly: z.boolean().optional().default(false),
   // Why (migration 032). REQUIRED for an admin cancel — the admin always knows
   // (or picks "other" + a note). `unknown` is deliberately not accepted here.
   reason: z.enum(ADMIN_CANCELLATION_REASONS, {
@@ -71,8 +79,14 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { reservationNumber, stripePaymentIntentId, refundServiceFee, reason, note } =
+    const { reservationNumber, stripePaymentIntentId, refundServiceFee, refundServiceFeeOnly, reason, note } =
       parsed.data;
+    if (refundServiceFee && refundServiceFeeOnly) {
+      return NextResponse.json(
+        { error: "Choose either the full refund or the policy refund, not both" },
+        { status: 400 }
+      );
+    }
 
     // Pre-check: verify booking exists, is cancellable, and fetch details for email
     const { data: booking } = await supabase
@@ -80,6 +94,7 @@ export async function POST(request: NextRequest) {
       .select(`
         id, status, location_name, location_address, check_in, check_out, grand_total, triply_service_fee,
         protection_plan, protection_plan_price, protection_plan_wholesale, pg_identifier, stripe_payment_intent_id,
+        inventory_source, livemode,
         customers ( email, first_name, last_name )
       `)
       .eq("reslab_reservation_number", reservationNumber)
@@ -95,6 +110,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Booking is already ${booking.status}` },
         { status: 409 }
+      );
+    }
+    // Environment + inventory guards before ANY side effect (direct-lots plan 4b
+    // §9 H-C/H-D). This route never aborts once it starts — a wrong-mode refund
+    // 404s and the booking is still marked cancelled and emailed — so a booking
+    // paid in the other Stripe mode is refused here, outright.
+    if (isOtherStripeMode(booking.livemode)) {
+      return NextResponse.json({ error: OTHER_MODE_MESSAGE }, { status: 409 });
+    }
+    const source = cancelSource({ ...booking, reslab_reservation_number: reservationNumber });
+    if (source.kind === "inconsistent") {
+      captureAPIError(
+        new Error(`admin cancel refused for ${reservationNumber}: ${source.detail}`),
+        { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 500 }
+      );
+      return NextResponse.json(
+        { error: "This booking's inventory source and number disagree — cancel it by hand (see Sentry)." },
+        { status: 500 }
       );
     }
 
@@ -135,13 +168,29 @@ export async function POST(request: NextRequest) {
     // specific "still settling" case before any side effect runs.
     if (refundPaymentIntentId) {
       try {
-        const preCheckPi = await getPaymentIntent(refundPaymentIntentId);
+        const preCheckPi = await getPaymentIntentWithCharge(refundPaymentIntentId);
         if (preCheckPi.status === "processing") {
           return NextResponse.json(
             {
               error:
                 "This payment is still settling. Wait a few minutes until it completes, then cancel — otherwise the refund can't be issued.",
             },
+            { status: 409 }
+          );
+        }
+        // The refund nets out earlier refunds, so it needs the charge. A captured
+        // payment whose charge we can't read → refuse BEFORE anything changes,
+        // rather than release the lot and leave a paid booking unrefunded.
+        if (
+          (preCheckPi.amount_received ?? 0) > 0 &&
+          (!preCheckPi.latest_charge || typeof preCheckPi.latest_charge === "string")
+        ) {
+          captureAPIError(
+            new Error(`Admin cancel: PI ${refundPaymentIntentId} captured but its charge is unreadable — cancel refused before any side effect`),
+            { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 409 }
+          );
+          return NextResponse.json(
+            { error: "Couldn't read this payment's refund history from Stripe. Nothing was changed — try again in a minute." },
             { status: 409 }
           );
         }
@@ -229,14 +278,20 @@ export async function POST(request: NextRequest) {
       results.errors.push("Reason: admin note NOT recorded (see Sentry)");
     }
 
-    // Step 1: Cancel in ResLab (release the parking spot)
-    try {
-      await reslab.cancelReservation(reservationNumber);
+    // Step 1: Cancel in ResLab (release the parking spot). A direct lot has no
+    // vendor reservation — Triply issued the number — so there is nothing to
+    // release; the step counts as done.
+    if (source.kind === "direct") {
       results.reslab = true;
-    } catch (error) {
-      const msg =
-        error instanceof Error ? error.message : "ResLab cancellation failed";
-      results.errors.push(`ResLab: ${msg}`);
+    } else {
+      try {
+        await reslab.cancelReservation(reservationNumber);
+        results.reslab = true;
+      } catch (error) {
+        const msg =
+          error instanceof Error ? error.message : "ResLab cancellation failed";
+        results.errors.push(`ResLab: ${msg}`);
+      }
     }
 
     // Step 2 & 3: Stripe refund + Supabase update (run in parallel)
@@ -276,8 +331,16 @@ export async function POST(request: NextRequest) {
       !refundServiceFee && booking.protection_plan
         ? pgWholesaleWithheld(pgPremium, pgRow.wholesaleDollars)
         : 0;
-    const feeWithheld = (refundServiceFee ? 0 : serviceFee) + pgWholesaleWithheldDollars;
+    // The service fee comes back on the full refund AND on the policy refund.
+    const feeRefunded = refundServiceFee || refundServiceFeeOnly;
+    const feeWithheld = (feeRefunded ? 0 : serviceFee) + pgWholesaleWithheldDollars;
     let refundAmount = 0;
+    // Already refunded before this request (latest_charge.amount_refunded), in
+    // dollars — a goodwill refund, or THIS cancel's own refund on a re-drive.
+    let priorRefundedDollars = 0;
+    // What this cancel should leave the customer with refunded in total
+    // (amount_received − withheld); 0 when nothing was captured.
+    let refundTarget = 0;
     let piLookupFailed = false;
     // Set when the payment was an uncaptured AUTHORIZATION that we released
     // rather than refunded. Keeps the $0-refund branch below from also firing and
@@ -285,7 +348,9 @@ export async function POST(request: NextRequest) {
     let holdReleased = false;
     if (refundPaymentIntentId) {
       try {
-        const pi = await getPaymentIntent(refundPaymentIntentId);
+        // Charge expanded: the refund must net out what was ALREADY refunded
+        // (a goodwill or price-drop refund), exactly as the self-cancel does.
+        const pi = await getPaymentIntentWithCharge(refundPaymentIntentId);
         if (pi.status === "requires_capture") {
           // Authorized but NEVER captured — under the manual-capture model this
           // is a normal state, and there is nothing to refund because no money
@@ -340,12 +405,46 @@ export async function POST(request: NextRequest) {
           piLookupFailed = true; // keeps results.stripe=false → allSucceeded=false → 207, not a false 200
         } else {
           const amountReceived = (pi.amount_received || 0) / 100;
-          refundAmount = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+          // Already refunded, in dollars. A captured payment always has a charge;
+          // if Stripe gave none, or didn't expand it, the prior refunds are
+          // UNKNOWN — refuse the refund rather than risk refunding twice (the
+          // policy refund leaves little or no withheld margin to absorb it).
+          const charge = pi.latest_charge;
+          const target = Math.max(0, Math.round((amountReceived - feeWithheld) * 100) / 100);
+          refundTarget = target;
+          if (amountReceived > 0 && (!charge || typeof charge === "string")) {
+            piLookupFailed = true; // 207, never a false 200
+            const how = `refund $${target.toFixed(2)} less anything already refunded${feeRefunded ? " (service fee included)" : ""}`;
+            results.errors.push(
+              `Stripe: couldn't read earlier refunds on this payment — refund NOT issued; in Stripe, ${how}, then set the booking to refunded`
+            );
+            captureAPIError(
+              new Error(
+                `Admin cancel: PI ${refundPaymentIntentId} has no readable charge (prior refunds unknown); ResLab already released, refund NOT issued — ${how}`
+              ),
+              { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+            );
+          } else {
+            // Only CAPTURED money counts. A released / expired authorization
+            // also shows `amount_refunded == amount` on its charge although no
+            // money moved — never read that as a refund (pass-3 review). And a
+            // partial capture's released remainder is in amount_refunded too.
+            priorRefundedDollars =
+              pi.status === "succeeded" && amountReceived > 0 && charge && typeof charge !== "string"
+                ? Math.max(0, (charge.amount_refunded ?? 0) - ((charge.amount ?? 0) - (charge.amount_captured ?? 0))) / 100
+                : 0;
+            refundAmount = Math.max(0, Math.round((target - priorRefundedDollars) * 100) / 100);
+          }
         }
       } catch (error) {
         piLookupFailed = true;
         const msg = error instanceof Error ? error.message : "PaymentIntent lookup failed";
         results.errors.push(`Stripe: ${msg}`);
+        // ResLab is already released and no refund went out — page someone.
+        captureAPIError(
+          new Error(`Admin cancel: PaymentIntent ${refundPaymentIntentId} lookup failed after ResLab release; refund NOT issued — ${msg}`),
+          { endpoint: "/api/admin/bookings/cancel", method: "POST", statusCode: 207 }
+        );
       }
     }
 
@@ -390,18 +489,36 @@ export async function POST(request: NextRequest) {
       results.stripe = true;
       if (refundPaymentIntentId && refundAmount <= 0) {
         results.errors.push(
-          `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheldDollars})`
+          priorRefundedDollars > 0
+            ? `Stripe: $${priorRefundedDollars.toFixed(2)} was refunded earlier — no further refund issued`
+            : `Stripe: refund skipped - computed amount is $${refundAmount} (service_fee=${serviceFee}, pg_wholesale_withheld=${pgWholesaleWithheldDollars})`
         );
       }
     }
 
     // Persist booking state from the ACTUAL refund outcome.
-    const wasRefunded = intendToRefund && results.stripe;
+    // Refunded = this request's refund went through, OR the money was already
+    // back before it (a re-drive after this cancel's own refund landed but the
+    // status write didn't, or an earlier refund that covers the target) — the
+    // self-cancel's rule (finalize.ts). Otherwise a re-drive would write
+    // "cancelled, no refund" on a refunded booking.
+    const alreadyRefunded =
+      !intendToRefund &&
+      refundTarget > 0 &&
+      priorRefundedDollars >= refundTarget &&
+      !piLookupFailed &&
+      !holdReleased;
+    const wasRefunded = (intendToRefund && results.stripe) || alreadyRefunded;
+    // What the customer has got back in total (for the email / response).
+    const totalRefunded =
+      Math.round(((intendToRefund && results.stripe ? refundAmount : 0) + priorRefundedDollars) * 100) / 100;
     const newStatus = wasRefunded ? "refunded" : "cancelled";
-    // The fee was returned only if a full-refund refund actually fulfilled on a
-    // booking that had a fee. This is what the accounting reconciler reads to
-    // exclude the fee from kept revenue (migration 013).
-    const serviceFeeRefunded = refundServiceFee && wasRefunded && serviceFee > 0;
+    // The fee was returned if a full OR policy refund actually went through on a
+    // booking that had a fee. NOT the same as "full refund": a policy refund (and
+    // every self-cancel) returns the fee but still withholds the Park Guard
+    // wholesale. The accounting reconciler reads this to exclude the fee from
+    // kept revenue (migration 013); PG retention comes from Stripe's actual refund.
+    const serviceFeeRefunded = feeRefunded && wasRefunded && serviceFee > 0;
 
     const { error: bookingUpdateError } = await supabase
       .from("bookings")
@@ -470,6 +587,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Tell a DIRECT lot (4b plan §3.4): it has no system of ours to look at.
+    // Status-driven and claim-guarded — only the caller that wins the claim
+    // sends, and only if the lot was told about the booking (§10 F-2). Never throws.
+    if (results.supabase && booking.inventory_source === "direct" && booking.stripe_payment_intent_id) {
+      await sendLotCancelNotice(booking.stripe_payment_intent_id);
+    }
+
     // Step 4: Send cancellation email to customer
     const customer = booking.customers as unknown as {
       email: string;
@@ -486,8 +610,10 @@ export async function POST(request: NextRequest) {
         // was ever charged, so nothing is returned, and reporting a $6.99
         // protection refund here would both misstate the email and trip the
         // invariant check below on every single Park Guard cancellation.
+        // With an earlier refund in the mix the parking / protection split can't
+        // be known — show the total only (no split, no invariant check).
         const protectionPlanRefund =
-          wasRefunded && booking.protection_plan
+          wasRefunded && booking.protection_plan && priorRefundedDollars === 0
             ? Math.max(0, pgPremium - pgWholesaleWithheldDollars)
             : 0;
         // Invariant: the protection refund can never exceed the total refund
@@ -513,7 +639,7 @@ export async function POST(request: NextRequest) {
           lotAddress: booking.location_address || "",
           checkInDate: booking.check_in,
           checkOutDate: booking.check_out,
-          refundAmount,
+          refundAmount: totalRefunded,
           wasRefunded,
           // Only surface the fee as "retained" when it actually was. On a full
           // refund the fee is folded into refundAmount and no retained note shows.
@@ -552,7 +678,9 @@ export async function POST(request: NextRequest) {
         noteRecorded,
         message: allSucceeded
           ? `${
-              wasRefunded
+              alreadyRefunded
+                ? `Reservation cancelled — already refunded $${priorRefundedDollars.toFixed(2)} earlier, no further refund issued`
+                : wasRefunded
                 ? "Reservation cancelled and refunded successfully"
                 : holdReleased
                 ? "Reservation cancelled and the card authorization released — the customer was never charged"
