@@ -576,6 +576,7 @@ describe("ResLab booking — unchanged", () => {
     protection_plan_price: "12.99",
     pg_identifier: "PG-9",
     pg_sync_status: "synced",
+    airport_code: "EWR",
     inventory_source: "reslab",
     direct_lot_id: null,
     lot_snapshot: null,
@@ -673,6 +674,7 @@ describe("ResLab booking — unchanged", () => {
         protectionPlanPrice: 12.99,
         pgIdentifier: "PG-9",
         pgSyncStatus: "synced",
+        airportCode: "EWR",
         dueNow: 70.82 + 5.95 + 12.99 - 20,
         dueAtLocation: 20,
         costBreakdown: {

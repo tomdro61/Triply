@@ -20,11 +20,24 @@ import {
   netTakeFrom,
   DATE_AXES,
   DATE_AXIS_LABELS,
+  type AccountingSlice,
   type DateAxis,
   type MonthBookings,
   type MonthWindow,
   type NetTake,
 } from "@/lib/admin/monthly-numbers";
+import {
+  accountingMixSchema,
+  isDefinitive,
+  keptStateOf,
+  mixFromAccounting,
+  schemaIssuePaths,
+  type AccountingMix,
+  type MoneyMix,
+} from "@/lib/admin/revenue-mix";
+import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
+import { MonthlyMoneyChart, type ChartMonth } from "@/components/admin/monthly-money-chart";
 
 interface NumbersResponse {
   by: DateAxis;
@@ -42,38 +55,60 @@ interface NumbersResponse {
   warnings: string[];
 }
 
-type NetState = NetTake | "loading" | { error: string };
+/** A month's net take plus its revenue/kept breakdown (mix null + mixError when the chart's slice didn't parse). */
+type MonthNet = NetTake & { mix: MoneyMix | null; mixError: string | null };
+type NetState = MonthNet | "loading" | { error: string };
+
+/** The parsed reconciler slices a month is built from — what the cache stores. */
+interface MonthSlices {
+  slice: AccountingSlice;
+  mixSlice: AccountingMix | null;
+  mixError: string | null;
+}
+const monthNetFrom = ({ slice, mixSlice, mixError }: MonthSlices): MonthNet => ({
+  ...netTakeFrom(slice),
+  mix: mixSlice ? mixFromAccounting(mixSlice) : null,
+  mixError,
+});
 
 // Closed months rarely change (a later refund can still move one), so a
-// DEFINITIVE reconcile — both figures present, i.e. Stripe fee data complete
-// — is kept for the tab's lifetime (sessionStorage) and a reload costs no
-// ResLab/Stripe calls. A result with either figure null is never cached: that
-// is usually a transient ResLab/Stripe miss and must be asked again. Storage
-// can be unavailable (private mode); every access is try/caught.
-// Key is versioned: the shape changed when the page adopted accounting's
-// gross/cash vocabulary, and an old cached object must not be read as new.
-const NET_CACHE_PREFIX = "admin-numbers:net:v2:";
-function readCachedNet(key: string): NetTake | null {
+// DEFINITIVE reconcile — both figures present (Stripe fee data complete), the
+// chart's breakdown present, no Park Guard rows known to overstate it — is
+// kept for the tab's lifetime (sessionStorage) and a reload costs no
+// ResLab/Stripe calls. Anything less is usually a transient ResLab/Stripe miss
+// and must be asked again. The cache holds the reconciler's own slices and
+// re-runs them through the same schemas on read, so an entry from an older
+// shape is a miss, never misread. Storage can be unavailable (private mode);
+// every access is try/caught.
+const NET_CACHE_PREFIX = "admin-numbers:net:v4:";
+function readCachedNet(key: string): MonthNet | null {
   try {
     const raw = sessionStorage.getItem(key);
     if (!raw) return null;
-    const v = JSON.parse(raw) as Partial<NetTake>;
-    return typeof v === "object" && v !== null && typeof v.gross === "number" && typeof v.cash === "number"
-      ? (v as NetTake)
-      : null;
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== "object" || v === null) return null;
+    const slice = accountingSliceSchema.safeParse("slice" in v ? v.slice : null);
+    const mixSlice = accountingMixSchema.safeParse("mixSlice" in v ? v.mixSlice : null);
+    if (!slice.success || !mixSlice.success) return null;
+    const month = monthNetFrom({ slice: slice.data, mixSlice: mixSlice.data, mixError: null });
+    return isDefinitiveMonth(month) ? month : null;
   } catch {
     return null;
   }
 }
-function writeCachedNet(key: string, value: NetState): void {
+function isDefinitiveMonth(m: MonthNet): boolean {
+  return m.gross !== null && m.cash !== null && m.mix !== null && isDefinitive(m.mix);
+}
+function writeCachedNet(key: string, slices: MonthSlices): void {
   try {
-    if (typeof value === "object" && "gross" in value && value.gross !== null && value.cash !== null) {
-      sessionStorage.setItem(key, JSON.stringify(value));
+    if (isDefinitiveMonth(monthNetFrom(slices))) {
+      sessionStorage.setItem(key, JSON.stringify({ slice: slices.slice, mixSlice: slices.mixSlice }));
     }
   } catch {
     /* storage unavailable — the number still renders, it just isn't cached */
   }
 }
+
 /** A month whose net take is missing or errored — what "load" and "retry" target. */
 const needsNet = (net: Record<string, NetState>, key: string): boolean =>
   !(key in net) || (typeof net[key] === "object" && "error" in net[key]);
@@ -179,6 +214,8 @@ export default function MonthlyNumbersPage() {
   const [error, setError] = useState<string | null>(null);
   const [net, setNet] = useState<Record<string, NetState>>({});
   const [historyRequested, setHistoryRequested] = useState(false);
+  // The month whose breakdown shows under the chart; null = the last complete one.
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   // Stops state updates (and the client side of in-flight fetches) when the
   // page unmounts. NB the reconciler keeps running server-side until it
   // finishes — /api/admin/accounting does not read request.signal — so the
@@ -214,9 +251,23 @@ export default function MonthlyNumbersPage() {
               signal: controller.signal,
             });
             if (!r.ok) throw new Error(`accounting ${r.status}`);
-            const parsed = accountingSliceSchema.safeParse(await r.json());
-            state = parsed.success ? netTakeFrom(parsed.data) : { error: "unexpected accounting response shape" };
-            if (!month.partial && parsed.success) writeCachedNet(cacheKey, state);
+            const body: unknown = await r.json();
+            const parsed = accountingSliceSchema.safeParse(body);
+            // The chart's slice is parsed on its own: if it fails, the table
+            // still gets its numbers and the chart says why it can't draw.
+            const mix = accountingMixSchema.safeParse(body);
+            if (!mix.success) reportMixShape(schemaIssuePaths(mix.error), "/admin/numbers");
+            if (parsed.success) {
+              const slices: MonthSlices = {
+                slice: parsed.data,
+                mixSlice: mix.success ? mix.data : null,
+                mixError: mix.success ? null : `accounting response changed shape (${schemaIssuePaths(mix.error)})`,
+              };
+              state = monthNetFrom(slices);
+              if (!month.partial) writeCachedNet(cacheKey, slices);
+            } else {
+              state = { error: "unexpected accounting response shape" };
+            }
           } catch (e) {
             if (controller.signal.aborted) return;
             state = { error: e instanceof Error ? e.message : String(e) };
@@ -238,6 +289,7 @@ export default function MonthlyNumbersPage() {
     setData(null);
     setNet({});
     setHistoryRequested(false);
+    setSelectedKey(null);
     setError(null);
     async function load() {
       const res = await fetch(`/api/admin/monthly-numbers?by=${by}`, { signal: controller.signal });
@@ -312,6 +364,31 @@ export default function MonthlyNumbersPage() {
   const thinAirports = lots ? lots.rows.filter((r) => r.lots <= 1) : [];
   const searchTotal = searches ? searches.days.reduce((n, d) => n + d.count, 0) : 0;
 
+  const chartMonths: ChartMonth[] = months.map((m) => {
+    const n = net[m.key];
+    return {
+      key: m.key,
+      short: short(m),
+      label: m.label + (m.partial ? " (so far)" : ""),
+      state:
+        n === undefined
+          ? "not-loaded"
+          : n === "loading"
+            ? "loading"
+            : "error" in n
+              ? { error: n.error }
+              : (n.mix ?? { error: n.mixError ?? "no breakdown in the response" }),
+    };
+  });
+  const selected = months.find((m) => m.key === (selectedKey ?? lastFull?.key)) ?? null;
+  const selectedNet = selected ? net[selected.key] : undefined;
+  const selectMonth = (key: string) => {
+    setSelectedKey(key);
+    const m = months.find((x) => x.key === key);
+    // Clicking a month that isn't loaded loads just that month.
+    if (m && needsNet(net, key)) void loadNet([m], by);
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -361,6 +438,56 @@ export default function MonthlyNumbersPage() {
           ))}
         </div>
       )}
+
+      <Card
+        title="Revenue and what we kept"
+        note={`Same figures as /admin/accounting (Date field "${DATE_AXIS_LABELS[by]}"); direct-lot bookings not included yet. Click a month for its breakdown.`}
+      >
+        {!historyRequested && months.some((m) => needsNet(net, m.key)) && (
+          <p className="text-sm text-gray-600 mb-4">
+            Dashed months aren&rsquo;t loaded — each costs one ResLab and one Stripe lookup per booking. Click one, or{" "}
+            <button
+              type="button"
+              onClick={loadHistory}
+              className="text-brand-orange font-semibold underline underline-offset-2"
+            >
+              load them all
+            </button>
+            .
+          </p>
+        )}
+        <MonthlyMoneyChart months={chartMonths} selectedKey={selected?.key ?? null} onSelect={selectMonth} />
+        {selected && (
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <p className="text-sm font-semibold text-gray-900 mb-4">
+              {selected.label}
+              {selected.partial && <span className="font-normal text-gray-500"> (so far)</span>}
+            </p>
+            {selectedNet === undefined || selectedNet === "loading" ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500 py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-brand-orange" />
+                Loading {selected.label} from ResLab and Stripe…
+              </div>
+            ) : "error" in selectedNet ? (
+              <p className="text-sm text-amber-700 flex items-center gap-1.5">
+                <AlertTriangle size={14} /> {selected.label} failed to load ({selectedNet.error}) — click the month to retry.
+              </p>
+            ) : selectedNet.mix === null ? (
+              <p className="text-sm text-amber-700 flex items-center gap-1.5">
+                <AlertTriangle size={14} /> Breakdown unavailable — {selectedNet.mixError ?? "no breakdown in the response"}.
+                Reported to Sentry.
+              </p>
+            ) : (
+              <MoneyBreakdown
+                paid={selectedNet.mix.paid}
+                kept={keptStateOf(selectedNet.mix)}
+                directConfirmed={selectedNet.mix.directConfirmed}
+                pgWholesaleMissing={selectedNet.mix.pgWholesaleMissing}
+              />
+            )}
+          </div>
+        )}
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
         <Card
