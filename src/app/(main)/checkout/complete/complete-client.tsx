@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
+import { captureBookingError } from "@/lib/sentry";
 
 /** Poll cadence and ceiling. The webhook normally completes a booking within a
  *  couple of seconds; the ceiling exists so a customer never watches an infinite
@@ -69,6 +71,17 @@ export default function CheckoutCompleteClient() {
 
         switch (data.state) {
           case "booked":
+            // The confirmation page sends the GA4 purchase only for this mark.
+            if (typeof data.reservationNumber === "string") {
+              markPurchaseToTrack(data.reservationNumber);
+            } else {
+              // Still navigate; but every 3-D Secure purchase would go
+              // unreported, so make the contract drift visible.
+              captureBookingError(
+                new Error("checkout/complete: booked without reservationNumber; GA4 purchase not marked"),
+                { step: "confirmation", fingerprint: ["complete-booked-no-reservation-number"] }
+              );
+            }
             router.replace(data.confirmationUrl);
             return;
           case "payment_failed":

@@ -30,6 +30,7 @@ import {
   trackCheckoutValidationError,
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
+import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -974,6 +975,8 @@ export function CheckoutForm({
 
       // Store lot data for confirmation page
       sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+      // The confirmation page sends the GA4 purchase only for this mark.
+      markPurchaseToTrack(result.reservation.reservationNumber);
 
       // Redirect to confirmation page
       router.push(
@@ -1073,6 +1076,8 @@ export function CheckoutForm({
 
       // Store lot data for confirmation page (in case lot ID isn't in mock data)
       sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+      // The confirmation page sends the GA4 purchase only for this mark.
+      markPurchaseToTrack(result.reservation.reservationNumber);
 
       // Redirect to confirmation page with reservation number
       router.push(

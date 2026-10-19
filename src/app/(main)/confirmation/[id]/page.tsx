@@ -18,6 +18,7 @@ import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { trackPurchase } from "@/lib/analytics/gtag";
+import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
 import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
@@ -94,6 +95,8 @@ interface ReservationDataBase {
 /** A ResLab booking (`inventorySource` absent on responses from before it was added). */
 interface ReslabReservationData extends ReservationDataBase {
   inventorySource?: "reslab";
+  /** `bookings.airport_code` (e.g. "JFK"); null on rows from before it was derived. */
+  airportCode?: string | null;
 }
 
 /** A Triply-owned lot (no ResLab record) — built from the booking row + lot snapshot. */
@@ -133,16 +136,19 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   // calendar, directions, protection status and the purchase event.
   const isCancelled = reservation?.status === "cancelled";
 
-  // Track purchase when reservation data loads (fire once). Never for a
-  // cancelled booking — a revisit to its link is not a sale.
+  // Track the purchase once per booking: only on the load checkout sent the
+  // customer to (takePurchaseToTrack), never on a revisit from the email link,
+  // My Reservations or a refresh — those had double-counted 23% of purchases.
+  // Never for a cancelled booking. The mark is only used up when gtag exists,
+  // so a page that loads before the GA stub keeps it for a refresh.
   useEffect(() => {
     if (reservation?.location && reservation.status !== "cancelled" && !hasFiredPurchase.current) {
       hasFiredPurchase.current = true;
-      // Source-aware: a direct lot's `lot` param is "direct-N", so the old
-      // split("-")[0] would report the airport as "DIRECT"; its airport comes
-      // from the booking's snapshot instead, and its lot id keeps the "direct-"
-      // prefix so it can never collide with a ResLab location id in GA4.
-      // ResLab bookings are reported exactly as before.
+      if (typeof window.gtag !== "function" || !takePurchaseToTrack(confirmationId)) return;
+      // Airport: from the booking row (ResLab) or the lot snapshot (direct) —
+      // never the `lot` param, whose "reslab-N" / "direct-N" prefix GA4 used
+      // to record as the airport (fix from Vin's PR #72). A direct lot id keeps
+      // the "direct-" prefix so it can't collide with a ResLab location id.
       const isDirect = reservation.inventorySource === "direct";
       trackPurchase({
         confirmationNumber: confirmationId,
@@ -155,12 +161,10 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
         grandTotal: isDirect ? reservation.dueNow : reservation.grandTotal,
         serviceFee: serviceFeeParam ? parseFloat(serviceFeeParam) : undefined,
         protectionPlanPrice: reservation.protectionPlanPrice || undefined,
-        airportCode: isDirect
-          ? reservation.airportCode
-          : lotId?.split("-")[0]?.toUpperCase(),
+        airportCode: reservation.airportCode || undefined,
       });
     }
-  }, [reservation, confirmationId, serviceFeeParam, lotId]);
+  }, [reservation, confirmationId, serviceFeeParam]);
 
   // Check if user is logged in
   useEffect(() => {
