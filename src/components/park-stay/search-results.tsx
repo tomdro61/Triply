@@ -126,7 +126,7 @@ export function ParkStaySearchResults({ airports }: { airports: ParkStayAirportO
           {state.body.offers.length === 0 && state.body.partial ? (
             // Partial AND empty is "we don't know", never "none available" (M2).
             <div className="rounded-md border p-4 text-sm">
-              <p>We couldn&apos;t check most hotels right now.</p>
+              <p>We couldn&apos;t check some hotels right now.</p>
               <button type="button" onClick={retry} className="mt-2 font-medium text-primary hover:underline">
                 Try again
               </button>

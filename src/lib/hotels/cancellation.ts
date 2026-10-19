@@ -70,7 +70,18 @@ export function refundabilityFromPolicies(
   }
   if (!isValidTimeZone(hotelTimeZone)) return NRFN(`hotel timezone ${JSON.stringify(hotelTimeZone)} invalid — treated as NRFN`);
   const infos = policies?.cancelPolicyInfos ?? [];
-  const penalised = infos.filter((p) => typeof p.amount === "number" && p.amount > 0 && p.cancelTime);
+  // Every entry is validated BEFORE any is used: a penalty we can't read must
+  // not quietly drop out and leave a later deadline looking like free
+  // cancellation (review pass 2, M4).
+  for (const p of infos) {
+    if (typeof p.amount !== "number" || !Number.isFinite(p.amount) || p.amount < 0) {
+      return NRFN(`cancelPolicyInfos entry with unreadable amount ${JSON.stringify(p.amount ?? null)} — treated as NRFN`);
+    }
+    if (p.amount > 0 && !p.cancelTime) {
+      return NRFN("penalty entry without a cancelTime — deadline unknown, treated as NRFN");
+    }
+  }
+  const penalised = infos.filter((p) => typeof p.amount === "number" && p.amount > 0);
   if (penalised.length === 0) {
     return NRFN("RFN rate with no penalised cancelPolicyInfos — deadline unknown, treated as NRFN");
   }

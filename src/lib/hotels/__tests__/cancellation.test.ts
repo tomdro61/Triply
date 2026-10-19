@@ -108,6 +108,29 @@ describe("refundabilityFromPolicies — the deadline's own timezone and the cloc
 });
 
 
+describe("review pass 2 — an unreadable penalty can never extend free cancellation (M4)", () => {
+  it("a positive penalty with no cancelTime makes the rate non-refundable, even next to a readable later deadline", () => {
+    const r = refundabilityFromPolicies(
+      {
+        refundableTag: "RFN",
+        cancelPolicyInfos: [
+          { amount: 100, cancelTime: null, timezone: "GMT" },
+          { amount: 200, cancelTime: "2026-10-14 18:00:00", timezone: "GMT" },
+        ],
+      },
+      "America/New_York",
+      NOW
+    );
+    expect(r).toMatchObject({ refundability: { kind: "non_refundable" }, anomaly: expect.stringMatching(/without a cancelTime/) });
+  });
+
+  it("an entry with an unreadable amount is non-refundable + anomaly; a zero-amount entry is ignored", () => {
+    const base = { cancelTime: "2026-10-14 18:00:00", timezone: "GMT" };
+    expect(refundabilityFromPolicies({ refundableTag: "RFN", cancelPolicyInfos: [{ ...base, amount: null }, { ...base, amount: 50 }] }, "America/New_York", NOW).refundability).toEqual({ kind: "non_refundable" });
+    expect(refundabilityFromPolicies({ refundableTag: "RFN", cancelPolicyInfos: [{ amount: 0, cancelTime: null }, { ...base, amount: 50 }] }, "America/New_York", NOW).refundability.kind).toBe("free_until");
+  });
+});
+
 describe("refundability copy — one source for every surface", () => {
   it("formats the deadline without any Date parsing", () => {
     expect(formatLocalDeadline("2026-10-13 18:00")).toBe("Oct 13, 2026 at 6:00 PM");
