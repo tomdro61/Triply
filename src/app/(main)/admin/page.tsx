@@ -544,14 +544,14 @@ export default function AdminDashboard() {
         <StatCard
           title="Today's Bookings"
           value={stats?.bookings.today || 0}
-          subValue={`${formatPrice(stats?.revenue.gross.today || 0)} gross`}
+          subValue={`${formatPrice(stats?.revenue.gross.today || 0)} booking value`}
           icon={Calendar}
           color="blue"
         />
         <StatCard
           title="This Week"
           value={stats?.bookings.thisWeek || 0}
-          subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} gross`}
+          subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} booking value`}
           icon={TrendingUp}
           color="purple"
         />
@@ -791,7 +791,7 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
           <h3 className="font-semibold text-gray-900">Booking value</h3>
           <p className="mb-4 mt-1 text-xs text-gray-500">
-            What customers spent, including the lot&apos;s share and anything paid at the lot. Profit (what we
+            What customers spent before promo discounts, including the lot&apos;s share and anything paid at the lot. Profit (what we
             kept) is in &ldquo;This month so far&rdquo; above and, by month, on{" "}
             <Link href="/admin/numbers" className="text-brand-orange hover:underline">
               Monthly numbers
