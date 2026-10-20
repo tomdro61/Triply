@@ -120,7 +120,7 @@ function ContentCard({ s }: { s: Section<ContentSection> }) {
     >
       <p className="text-sm text-gray-700">
         {fmtInt(c.blogSessions)} blog visits · {fmtBookings(c.blogBookings)} bookings started on a blog article
-        (of {c.totalBookings} bookings in these days, cancellations excluded)
+        (of {c.totalBookings} bookings in these days, cancelled and refunded excluded)
       </p>
       <p className="mt-1 text-xs text-gray-500">
         Bookings are credited to the article the customer arrived on (first or last visit from outside the site).{" "}
@@ -183,7 +183,9 @@ function FunnelCard({ s }: { s: Section<FunnelSection> }) {
           ))}
         </tbody>
       </table>
-      {f.purchase ? (
+      {f.purchaseError ? (
+        <p className="mt-4 text-sm text-amber-700">Abandonment rate unavailable — {f.purchaseError}.</p>
+      ) : f.purchase ? (
         <p className="mt-4 text-sm text-gray-700">
           <span className="font-semibold">Checkout abandonment: {fmtPct(f.purchase.abandonmentRate)}</span> —{" "}
           {fmtInt(f.purchase.purchaseSessions)} bookings from {fmtInt(f.purchase.checkoutSessions)} checkouts opened (
@@ -230,7 +232,9 @@ function SourcesCard({ s }: { s: Section<SourcesSection> }) {
         </tbody>
       </table>
       <p className="mt-3 text-xs text-gray-500">
-        {d.purchaseWindow
+        {d.purchaseError
+          ? `Bookings and booking rate unavailable — ${d.purchaseError}.`
+          : d.purchaseWindow
           ? `Bookings and booking rate over ${fmtRange(d.purchaseWindow)} only (clean booking data from Oct 20).`
           : "Bookings and booking rate appear once a week of clean booking data is in (from Oct 20)."}{" "}
         Booking counts by source from our own records are on the Dashboard.

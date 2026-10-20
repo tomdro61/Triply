@@ -140,9 +140,13 @@ export async function ga4Report(report: object): Promise<Ga4Row[]> {
         metrics: Object.fromEntries(metricNames.map((n, i) => [n, Number(r.metricValues[i]?.value ?? 0)])),
       });
     }
-    const total = body.rowCount ?? out.length;
-    if (out.length >= total || rows.length === 0) {
-      if (out.length < total) throw new Error(`GA4 returned ${out.length} of ${total} rows`);
+    if (body.rowCount === undefined) {
+      // No count: a short page is the last one; a full page means more may follow.
+      if (rows.length < GA4_PAGE) return out;
+      continue;
+    }
+    if (out.length >= body.rowCount || rows.length === 0) {
+      if (out.length < body.rowCount) throw new Error(`GA4 returned ${out.length} of ${body.rowCount} rows`);
       return out;
     }
   }

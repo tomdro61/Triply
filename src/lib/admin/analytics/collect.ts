@@ -67,7 +67,13 @@ async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string
     ],
     dimensions: [{ name: "landingPage" }],
     metrics: [{ name: "sessions" }],
-    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
+    // Ties (the long tail is mostly 1 session) broken by dimension, so offset
+    // paging cannot repeat or skip a row between pages.
+    orderBys: [
+      { metric: { metricName: "sessions" }, desc: true },
+      { dimension: { dimensionName: "landingPage" } },
+      { dimension: { dimensionName: "dateRange" } },
+    ],
     dimensionFilter: {
       andGroup: {
         expressions: [
@@ -123,7 +129,8 @@ async function bookingsInWindow(w: DateWindow): Promise<Array<{ attribution: { f
     supabase
       .from("bookings")
       .select("attribution")
-      .in("status", ["confirmed", "completed"])
+      // Disputed bookings are real (ResLab still bills them); cancelled/refunded are not.
+      .in("status", ["confirmed", "completed", "disputed"])
       .gte("created_at", zonedMidnightUtc(w.start, DIGEST_TZ).toISOString())
       .lt("created_at", zonedMidnightUtc(shiftIsoDate(w.end, 1), DIGEST_TZ).toISOString())
   )
@@ -143,7 +150,7 @@ export async function collectContent(now: Date, today: string): Promise<Section<
         const [sessions, bookings] = await Promise.all([blogSessions(current, previous), bookingsInWindow(current)]);
         // The blog never has zero visits in 28 days: zero means a filter or
         // property problem, not a quiet month — fail rather than cache zeros.
-        if (sessions.size === 0) throw new Error("GA4 returned no blog visits for the window (check the host filter / property)");
+        if ([...sessions.values()].reduce((t, v) => t + v.now, 0) === 0) throw new Error("GA4 returned no blog visits for the window (check the host filter / property)");
         return {
           sessions: [...sessions.entries()],
           credited: [...bookingsByArticle(bookings).entries()],
@@ -194,6 +201,8 @@ export interface FunnelSection {
   steps: FunnelStep[];
   /** Over the clean-purchase window only (GA4 purchase de-duplicated since Oct 20). */
   purchase: { window: DateWindow; checkoutSessions: number; purchaseSessions: number; abandonmentRate: number | null } | null;
+  /** Set when the clean window exists but GA4 shows no checkouts or no bookings in it. */
+  purchaseError?: string;
 }
 
 const STEP_ORDER = ["details", "vehicle", "payment"] as const;
@@ -248,17 +257,22 @@ export async function collectFunnel(now: Date): Promise<Section<FunnelSection>> 
         sessions: all.get(key) ?? 0,
       }));
       let purchase: FunnelSection["purchase"] = null;
+      let purchaseError: string | undefined;
       if (pw && clean) {
         const checkoutSessions = clean.get("checkout_view") ?? 0;
         const purchaseSessions = clean.get("purchase") ?? 0;
-        purchase = {
+        // A week with no checkouts or no bookings is a tracking fault here, not
+        // a real 100 % abandonment.
+        if (checkoutSessions === 0 || purchaseSessions === 0) {
+          purchaseError = "GA4 shows no checkouts or no bookings in the clean window; booking tracking may be broken";
+        } else purchase = {
           window: pw,
           checkoutSessions,
           purchaseSessions,
           abandonmentRate: checkoutSessions > 0 ? Math.max(0, 1 - purchaseSessions / checkoutSessions) : null,
         };
       }
-      return { window: current, steps, purchase };
+      return { window: current, steps, purchase, ...(purchaseError ? { purchaseError } : {}) };
     })
   );
 }
@@ -278,6 +292,8 @@ export interface SourcesSection {
   purchaseWindow: DateWindow | null;
   /** GA4's default channel groups (its own "AI Assistant" group included). */
   rows: SourceRow[];
+  /** Set when the clean window exists but GA4 shows no bookings in it. */
+  purchaseError?: string;
 }
 
 async function byChannel(w: DateWindow, metric: "sessions" | "ecommercePurchases"): Promise<Map<string, number>> {
@@ -308,14 +324,21 @@ export async function collectSources(now: Date): Promise<Section<SourcesSection>
         pw ? byChannel(pw, "ecommercePurchases") : Promise.resolve(null),
       ]);
       if ([...sessions.values()].reduce((a, b) => a + b, 0) === 0) throw new Error("GA4 returned no sessions for the window (check the host filter / property)");
+      const noPurchases = pwPurchases !== null && [...pwPurchases.values()].reduce((a, b) => a + b, 0) === 0;
+      const purchasesUsable = pwPurchases !== null && !noPurchases ? pwPurchases : null;
       const rows: SourceRow[] = [...sessions.entries()]
         .map(([source, s]) => {
           const base = pwSessions?.get(source) ?? 0;
-          const p = pwPurchases ? (pwPurchases.get(source) ?? 0) : null;
+          const p = purchasesUsable ? (purchasesUsable.get(source) ?? 0) : null;
           return { source, sessions: s, purchases: p, rate: p !== null && base > 0 ? p / base : null };
         })
         .sort((a, b) => b.sessions - a.sessions);
-      return { window: current, purchaseWindow: pw, rows };
+      return {
+        window: current,
+        purchaseWindow: pw,
+        rows,
+        ...(noPurchases ? { purchaseError: "GA4 shows no bookings in the clean window; booking tracking may be broken" } : {}),
+      };
     })
   );
 }
