@@ -104,4 +104,29 @@ describe("GET /api/admin/stats — test bookings out, direct and pre-015 rows in
     expect(sentry.captureAPIError).toHaveBeenCalledTimes(1);
     expect(String(sentry.captureAPIError.mock.calls[0][0].message)).toMatch(/queries failed .*timeout/);
   });
+
+  it("reports abandoned-checkout emails for the range: live sends, opt-outs, bookings through the link", async () => {
+    const now = new Date().toISOString();
+    db.tables.checkout_recovery_emails = [
+      { id: "e1", status: "sent", livemode: true, created_at: now },
+      { id: "e2", status: "sent", livemode: false, created_at: now }, // staging
+      { id: "e3", status: "failed", livemode: true, created_at: now },
+    ];
+    db.tables.checkout_recovery_optouts = [{ email: "a@example.com", created_at: now }];
+    db.seed("bookings", [
+      confirmed("recovered", {
+        reslab_location_id: 42,
+        livemode: true,
+        attribution: { v: 1, first: { src: "google" }, last: { src: "triply", med: "email", cmp: "checkout_recovery" } },
+      }),
+    ]);
+    const body = await (await GET(req())).json();
+    expect(body.recovery).toEqual({ sent: 1, optedOut: 1, recoveredBookings: 1 });
+  });
+
+  it("a failed recovery count makes the card unavailable (null), not zero", async () => {
+    db.failOnce("checkout_recovery_emails", "select", "boom");
+    const body = await (await GET(req())).json();
+    expect(body.recovery).toBeNull();
+  });
 });
