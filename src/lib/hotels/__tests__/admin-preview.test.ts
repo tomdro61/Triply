@@ -68,7 +68,7 @@ describe("parkStayViewerAllowed (plan §20.1) — fails closed", () => {
     expect(captureAPIError.mock.calls[0][1]).toMatchObject({ endpoint: "/api/park-stay/search", stage: "viewer_auth" });
   });
 
-  it("throttles per failure kind: a one-off timeout does not silence a different error", async () => {
+  it("throttles per failure kind: a one-off thrown error does not silence a different auth error", async () => {
     getUser.mockRejectedValueOnce(new Error("boom"));
     await parkStayViewerAllowed("/x");
     getUser.mockResolvedValue({ data: { user: null }, error: { status: 401, message: "invalid api key", code: "bad_api_key", name: "AuthApiError" } });

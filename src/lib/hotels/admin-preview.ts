@@ -7,10 +7,10 @@
  * the same 404 as when the flag is off.
  *
  * Fails CLOSED: no session, an unconfirmed email, an auth error or a timeout
- * all answer false. An error or timeout is reported, at most once per 10
- * minutes per process. There is deliberately no "public" setting — opening
- * Park & Stay to customers is a launch PR that removes this gate, so no env
- * value can open it by mistake.
+ * all answer false. An error or timeout is logged every time and reported to
+ * Sentry at most once per 10 minutes per failure kind (per process). There is
+ * deliberately no "public" setting — opening Park & Stay to customers is a
+ * launch PR that removes this gate, so no env value can open it by mistake.
  *
  * Supabase Auth resolves `{ error }` and does not throw, so `error` is checked
  * as well as the catch.
@@ -74,7 +74,7 @@ export async function parkStayViewerAllowed(caller: string): Promise<boolean> {
     return isAdminEmail(user.email);
   } catch (err) {
     const e = err instanceof Error ? err : new Error(String(err));
-    report(e, `thrown:${e.name}`, caller);
+    report(e, `thrown:${e.name}:${e.message.slice(0, 60)}`, caller);
     return false;
   }
 }
