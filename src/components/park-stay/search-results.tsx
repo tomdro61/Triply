@@ -20,6 +20,7 @@ import { PreviewBanner } from "./hotel-facts";
 import { ParkStayHeader } from "./park-stay-header";
 import { ParkStayMapCard, ParkStayResultCard, cardElementId, hotelHref, mapCardElementId } from "./park-stay-card";
 import { LazyParkStayMap } from "./lazy-park-stay-map";
+import { reportRejectedAnswer } from "./report";
 import { MapErrorBoundary } from "./map-error-boundary";
 import type { ParkStayPin } from "./park-stay-map";
 import { formatCents, formatIsoDay } from "./format";
@@ -44,8 +45,13 @@ async function fetchSearch(query: string): Promise<Settled> {
   try {
     const res = await fetch(`/api/park-stay/search?${query}`, { cache: "no-store" });
     const body: unknown = await res.json().catch(() => null);
-    return classifySearchAnswer(res.status, body);
-  } catch {
+    const settled = classifySearchAnswer(res.status, body);
+    // A 2xx the strict check refused shows as "unavailable" — leave a trace
+    // so it never looks like an unexplained outage (admin-only, low volume).
+    if (res.ok && settled.kind !== "done") reportRejectedAnswer("/api/park-stay/search", res.status);
+    return settled;
+  } catch (err) {
+    console.warn("[park-stay] search request failed:", err instanceof Error ? err.name : String(err));
     return UNAVAILABLE;
   }
 }

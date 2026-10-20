@@ -19,6 +19,7 @@ import { HotelPhoto, HotelRatingLine, PreviewBanner, RoomTimesLine, ShuttleLine 
 import { SEARCH_PARAM_KEYS, formatCents, formatIsoDay, formatReslabDateTime } from "./format";
 import { readSearchValues } from "./search-results";
 import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
+import { reportRejectedAnswer } from "./report";
 import { resolveFlight } from "./search-values";
 
 type Ok = Extract<ParkStayHotelResponse, { status: "ok" }>;
@@ -42,7 +43,10 @@ async function fetchHotel(query: string): Promise<Settled> {
     const res = await fetch(`/api/park-stay/hotel?${query}`, { cache: "no-store" });
     const body: unknown = await res.json().catch(() => null);
     if (res.ok) {
-      if (!isHotelResponse(body)) return UNAVAILABLE;
+      if (!isHotelResponse(body)) {
+        reportRejectedAnswer("/api/park-stay/hotel", res.status);
+        return UNAVAILABLE;
+      }
       return body.status === "ok" ? { kind: "ok", body } : { kind: "unavailable", reason: body.reason };
     }
     // A 404 here is the server's admin check failing this time (the page itself rendered), not a bad search.
@@ -50,7 +54,8 @@ async function fetchHotel(query: string): Promise<Settled> {
     if (res.status === 400) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
     if (res.status === 429) return { kind: "error", message: "Too many requests — please wait a moment.", retry: true };
     return UNAVAILABLE;
-  } catch {
+  } catch (err) {
+    console.warn("[park-stay] hotel request failed:", err instanceof Error ? err.name : String(err));
     return UNAVAILABLE;
   }
 }

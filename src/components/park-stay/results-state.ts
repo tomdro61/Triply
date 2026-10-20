@@ -16,7 +16,7 @@ export const UNAVAILABLE: Settled = { kind: "error", message: "Hotel search is t
  * server's admin check failed THIS time (Lock 1 answers 404 to everyone it
  * can't confirm) — not that the search was wrong. Shared with the hotel page.
  */
-export const PREVIEW_UNAVAILABLE_MESSAGE = "The Park & Stay preview is unavailable right now.";
+export const PREVIEW_UNAVAILABLE_MESSAGE = "The Park & Stay preview is unavailable right now. If this keeps happening, sign in again.";
 export const PREVIEW_UNAVAILABLE: Settled = { kind: "error", message: PREVIEW_UNAVAILABLE_MESSAGE, retry: true };
 
 export const EMPTY_COPY: Record<NonNullable<ParkStaySearchResponse["emptyReason"]>, string> = {

@@ -65,7 +65,7 @@ describe("HTTP answers (review round 1, item 5)", () => {
   it("a 404 is the preview gate failing this time: its own message, with Try again", () => {
     expect(classifySearchAnswer(404, { error: "Not found" })).toBe(PREVIEW_UNAVAILABLE);
     expect(PREVIEW_UNAVAILABLE).toEqual({ kind: "error", message: PREVIEW_UNAVAILABLE_MESSAGE, retry: true });
-    expect(PREVIEW_UNAVAILABLE_MESSAGE).toBe("The Park & Stay preview is unavailable right now.");
+    expect(PREVIEW_UNAVAILABLE_MESSAGE).toBe("The Park & Stay preview is unavailable right now. If this keeps happening, sign in again.");
   });
 
   it("400 names the problem without a retry; 429 and 5xx retry", () => {
