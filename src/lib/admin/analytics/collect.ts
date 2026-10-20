@@ -51,9 +51,11 @@ async function section<T>(fn: () => Promise<T>): Promise<Section<T>> {
 export interface ContentSection extends ContentLists {
   window: DateWindow;
   previousWindow: DateWindow;
-  googleWindow: DateWindow | null;
+  /** Search Console clicks per article: its own section, so a failure is shown, not blanked. */
+  googleClicks: { ok: true; window: DateWindow } | { ok: false; error: string };
   /** Bookings in the window with no attribution at all (not credited anywhere). */
   unattributedBookings: number;
+  /** Live bookings made in the window, excluding cancelled / refunded. */
   totalBookings: number;
 }
 
@@ -65,6 +67,7 @@ async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string
     ],
     dimensions: [{ name: "landingPage" }],
     metrics: [{ name: "sessions" }],
+    orderBys: [{ metric: { metricName: "sessions" }, desc: true }],
     dimensionFilter: {
       andGroup: {
         expressions: [
@@ -79,8 +82,10 @@ async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string
     const slug = blogSlug(r.dims.landingPage);
     if (!slug) continue;
     const cur = out.get(slug) ?? { now: 0, before: 0 };
-    if (r.dims.dateRange === "before") cur.before += r.metrics.sessions ?? 0;
-    else cur.now += r.metrics.sessions ?? 0;
+    // Named ranges come back by name; anything else would silently double "now".
+    if (r.dims.dateRange === "now") cur.now += r.metrics.sessions ?? 0;
+    else if (r.dims.dateRange === "before") cur.before += r.metrics.sessions ?? 0;
+    else throw new Error(`GA4 returned an unexpected dateRange "${r.dims.dateRange}"`);
     out.set(slug, cur);
   }
   return out;
@@ -88,7 +93,7 @@ async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string
 
 /** The last day Search Console has data for (it lags 2–3 days). */
 async function gscLastDay(today: string): Promise<string> {
-  const rows = await gscQuery({ startDate: shiftIsoDate(today, -10), endDate: today, dimensions: ["date"], rowLimit: 20 });
+  const rows = await gscQuery({ startDate: shiftIsoDate(today, -10), endDate: today, dimensions: ["date"] });
   const days = rows.map((r) => r.keys[0]).filter((d): d is string => typeof d === "string").sort();
   const last = days[days.length - 1];
   if (!last) throw new Error("Search Console returned no recent days");
@@ -118,6 +123,7 @@ async function bookingsInWindow(w: DateWindow): Promise<Array<{ attribution: { f
     supabase
       .from("bookings")
       .select("attribution")
+      .in("status", ["confirmed", "completed"])
       .gte("created_at", zonedMidnightUtc(w.start, DIGEST_TZ).toISOString())
       .lt("created_at", zonedMidnightUtc(shiftIsoDate(w.end, 1), DIGEST_TZ).toISOString())
   )
@@ -131,38 +137,48 @@ async function bookingsInWindow(w: DateWindow): Promise<Array<{ attribution: { f
 
 export async function collectContent(now: Date, today: string): Promise<Section<ContentSection>> {
   const { current, previous } = ga4Windows(now);
-  return section(() =>
-    cached("content", current.end, async () => {
-      const [sessions, bookings, gsc] = await Promise.all([
-        blogSessions(current, previous),
-        bookingsInWindow(current),
-        // Search Console is optional context: its failure leaves the column blank.
-        gscLastDay(today)
-          .then(async (last) => {
-            const gw = gscWindows(last).current;
-            return { window: gw, clicks: await googleClicksByArticle(gw) };
-          })
-          .catch(() => null),
-      ]);
-      const credited = bookingsByArticle(bookings);
-      const slugs = new Set([...sessions.keys(), ...credited.keys()]);
-      const articles: ArticleRow[] = [...slugs].map((slug) => ({
-        slug,
-        sessions: sessions.get(slug)?.now ?? 0,
-        sessionsBefore: sessions.get(slug)?.before ?? 0,
-        googleClicks: gsc ? (gsc.clicks.get(slug) ?? 0) : null,
-        bookings: credited.get(slug) ?? 0,
-      }));
-      return {
-        ...contentLists(articles),
-        window: current,
-        previousWindow: previous,
-        googleWindow: gsc?.window ?? null,
-        unattributedBookings: bookings.filter((b) => !b.attribution?.first && !b.attribution?.last).length,
-        totalBookings: bookings.length,
-      };
-    })
-  );
+  return section(async () => {
+    const [main, gsc] = await Promise.all([
+      cached("content", current.end, async () => {
+        const [sessions, bookings] = await Promise.all([blogSessions(current, previous), bookingsInWindow(current)]);
+        // The blog never has zero visits in 28 days: zero means a filter or
+        // property problem, not a quiet month — fail rather than cache zeros.
+        if (sessions.size === 0) throw new Error("GA4 returned no blog visits for the window (check the host filter / property)");
+        return {
+          sessions: [...sessions.entries()],
+          credited: [...bookingsByArticle(bookings).entries()],
+          unattributed: bookings.filter((b) => !b.attribution?.first && !b.attribution?.last).length,
+          total: bookings.length,
+        };
+      }),
+      section(async () => {
+        const last = await gscLastDay(today);
+        return cached("content-gsc", last, async () => {
+          const gw = gscWindows(last).current;
+          return { window: gw, clicks: [...(await googleClicksByArticle(gw)).entries()] };
+        });
+      }),
+    ]);
+    const sessions = new Map(main.sessions);
+    const credited = new Map(main.credited);
+    const clicks = gsc.ok ? new Map(gsc.data.clicks) : null;
+    const slugs = new Set([...sessions.keys(), ...credited.keys()]);
+    const articles: ArticleRow[] = [...slugs].map((slug) => ({
+      slug,
+      sessions: sessions.get(slug)?.now ?? 0,
+      sessionsBefore: sessions.get(slug)?.before ?? 0,
+      googleClicks: clicks ? (clicks.get(slug) ?? 0) : null,
+      bookings: credited.get(slug) ?? 0,
+    }));
+    return {
+      ...contentLists(articles),
+      window: current,
+      previousWindow: previous,
+      googleClicks: gsc.ok ? { ok: true as const, window: gsc.data.window } : { ok: false as const, error: gsc.error },
+      unattributedBookings: main.unattributed,
+      totalBookings: main.total,
+    };
+  });
 }
 
 // ── B2 checkout funnel ──────────────────────────────────────────────────────
@@ -225,6 +241,7 @@ export async function collectFunnel(now: Date): Promise<Section<FunnelSection>> 
     cached("funnel", funnelWindow.end, async () => {
       const current = funnelWindow;
       const [all, clean] = await Promise.all([funnelSessions(current), pw ? funnelSessions(pw) : Promise.resolve(null)]);
+      if ((all.get("checkout_view") ?? 0) === 0) throw new Error("GA4 returned no checkouts for the window (check the host filter / events)");
       const steps: FunnelStep[] = ["checkout_view", ...STEP_ORDER].map((key) => ({
         key,
         label: STEP_LABELS[key] ?? key,
@@ -290,6 +307,7 @@ export async function collectSources(now: Date): Promise<Section<SourcesSection>
         pw ? byChannel(pw, "sessions") : Promise.resolve(null),
         pw ? byChannel(pw, "ecommercePurchases") : Promise.resolve(null),
       ]);
+      if ([...sessions.values()].reduce((a, b) => a + b, 0) === 0) throw new Error("GA4 returned no sessions for the window (check the host filter / property)");
       const rows: SourceRow[] = [...sessions.entries()]
         .map(([source, s]) => {
           const base = pwSessions?.get(source) ?? 0;

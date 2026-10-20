@@ -114,16 +114,22 @@ function ContentCard({ s }: { s: Section<ContentSection> }) {
   const c = s.data;
   const sub = "mt-6 mb-2 text-sm font-semibold text-gray-900";
   return (
-    <Card title="Blog content" range={`Visits ${fmtRange(c.window)} (Google Analytics)${c.googleWindow ? ` · Google clicks ${fmtRange(c.googleWindow)}` : ""}`}>
+    <Card
+      title="Blog content"
+      range={`Visits ${fmtRange(c.window)} (Google Analytics)${c.googleClicks.ok ? ` · Google clicks ${fmtRange(c.googleClicks.window)}` : ""}`}
+    >
       <p className="text-sm text-gray-700">
         {fmtInt(c.blogSessions)} blog visits · {fmtBookings(c.blogBookings)} bookings started on a blog article
-        (of {c.totalBookings} bookings in these days)
+        (of {c.totalBookings} bookings in these days, cancellations excluded)
       </p>
       <p className="mt-1 text-xs text-gray-500">
-        Bookings are credited to the article the customer arrived on (first or last visit from outside the site). About
-        4 in 10 bookings can&apos;t be traced to a page, so booking counts here are a floor. Small numbers — treat the
-        lists as leads, not proof.
+        Bookings are credited to the article the customer arrived on (first or last visit from outside the site).{" "}
+        {c.unattributedBookings} of {c.totalBookings} bookings carry no trace of where they came from, so booking counts
+        here are a floor. Small numbers — treat the lists as leads, not proof.
       </p>
+      {!c.googleClicks.ok && (
+        <p className="mt-2 text-xs text-amber-700">Google clicks unavailable — {c.googleClicks.error}</p>
+      )}
 
       <h3 className={sub}>Top articles by bookings</h3>
       <ArticleTable rows={c.topByBookings} empty="No bookings credited to an article in these days." />

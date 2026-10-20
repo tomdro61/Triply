@@ -104,24 +104,49 @@ const ga4ResponseSchema = z.object({
       })
     )
     .optional(),
+  rowCount: z.number().optional(),
+  metadata: z.object({ dataLossFromOtherRow: z.boolean().optional() }).optional(),
 });
 
 export type Ga4Row = { dims: Record<string, string>; metrics: Record<string, number> };
 
-/** GA4 Data API runReport → flat rows. */
+const GA4_PAGE = 10_000;
+const MAX_PAGES = 10;
+
+/**
+ * GA4 Data API runReport → flat rows, ALL of them: pages with `offset` until
+ * `rowCount` rows are in. Throws (never returns a silently partial report)
+ * when the row count can't be reached or GA4 folded rows into "(other)".
+ */
 export async function ga4Report(report: object): Promise<Ga4Row[]> {
-  const body = ga4ResponseSchema.parse(
-    await post(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`, {
-      limit: 10_000,
-      ...report,
-    })
-  );
-  const dimNames = (body.dimensionHeaders ?? []).map((h) => h.name);
-  const metricNames = (body.metricHeaders ?? []).map((h) => h.name);
-  return (body.rows ?? []).map((r) => ({
-    dims: Object.fromEntries(dimNames.map((n, i) => [n, r.dimensionValues[i]?.value ?? ""])),
-    metrics: Object.fromEntries(metricNames.map((n, i) => [n, Number(r.metricValues[i]?.value ?? 0)])),
-  }));
+  const out: Ga4Row[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const body = ga4ResponseSchema.parse(
+      await post(`https://analyticsdata.googleapis.com/v1beta/properties/${GA4_PROPERTY}:runReport`, {
+        ...report,
+        limit: GA4_PAGE,
+        offset: page * GA4_PAGE,
+      })
+    );
+    if (body.metadata?.dataLossFromOtherRow) {
+      throw new Error("GA4 folded rows into \"(other)\" — the report would be incomplete");
+    }
+    const dimNames = (body.dimensionHeaders ?? []).map((h) => h.name);
+    const metricNames = (body.metricHeaders ?? []).map((h) => h.name);
+    const rows = body.rows ?? [];
+    for (const r of rows) {
+      out.push({
+        dims: Object.fromEntries(dimNames.map((n, i) => [n, r.dimensionValues[i]?.value ?? ""])),
+        metrics: Object.fromEntries(metricNames.map((n, i) => [n, Number(r.metricValues[i]?.value ?? 0)])),
+      });
+    }
+    const total = body.rowCount ?? out.length;
+    if (out.length >= total || rows.length === 0) {
+      if (out.length < total) throw new Error(`GA4 returned ${out.length} of ${total} rows`);
+      return out;
+    }
+  }
+  throw new Error(`GA4 report has more than ${MAX_PAGES * GA4_PAGE} rows`);
 }
 
 const gscResponseSchema = z.object({
@@ -139,13 +164,21 @@ const gscResponseSchema = z.object({
 
 export type GscRow = { keys: string[]; clicks: number; impressions: number };
 
-/** Search Console searchAnalytics.query. */
+const GSC_PAGE = 25_000;
+
+/** Search Console searchAnalytics.query, all pages (`startRow`) — a full page means more follow. */
 export async function gscQuery(query: object): Promise<GscRow[]> {
-  const body = gscResponseSchema.parse(
-    await post(
-      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(GSC_SITE)}/searchAnalytics/query`,
-      { rowLimit: 25_000, ...query }
-    )
-  );
-  return body.rows ?? [];
+  const out: GscRow[] = [];
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const body = gscResponseSchema.parse(
+      await post(
+        `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(GSC_SITE)}/searchAnalytics/query`,
+        { ...query, rowLimit: GSC_PAGE, startRow: page * GSC_PAGE }
+      )
+    );
+    const rows = body.rows ?? [];
+    out.push(...rows);
+    if (rows.length < GSC_PAGE) return out;
+  }
+  throw new Error(`Search Console query has more than ${MAX_PAGES * GSC_PAGE} rows`);
 }

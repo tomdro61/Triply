@@ -47,5 +47,13 @@ export async function GET() {
     }
   }
 
+  if (content.ok && !content.data.googleClicks.ok) {
+    captureAPIError(new Error(`admin analytics: Google clicks per article unavailable: ${content.data.googleClicks.error}`), {
+      endpoint: "/api/admin/analytics",
+      method: "GET",
+      stage: "content-gsc",
+    });
+  }
+
   return NextResponse.json({ content, funnel, sources, search }, { headers: { "Cache-Control": "no-store" } });
 }
