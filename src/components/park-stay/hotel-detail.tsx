@@ -22,7 +22,7 @@ import { PARK_STAY_TOTAL_LABEL_INTERIM } from "@/lib/pricing/copy";
 import { Button } from "@/components/ui/button";
 import { FactRow, HotelPhoto, MetaLine, PreviewBanner, ScoreBadge, Tags } from "./hotel-facts";
 import { SEARCH_PARAM_KEYS, formatCents, formatReslabDateTime } from "./format";
-import { cancellationTag, metaParts, milesToAirport, roomChoices, roomTags, shuttleFact, tripSteps } from "./card-facts";
+import { cancellationTag, metaParts, milesToAirport, priceChangeNote, priceLines, roomChoices, roomTags, shuttleFact, tripSteps } from "./card-facts";
 import { readSearchValues } from "./search-results";
 import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
 import { reportRejectedAnswer } from "./report";
@@ -172,7 +172,7 @@ function PriceRow({ label, cents, strong = false }: { label: string; cents: numb
   return (
     <div className={`flex justify-between gap-3 ${strong ? "border-t border-gray-200 pt-2 font-heading text-base font-bold text-gray-900" : "text-sm text-gray-700"}`}>
       <span>{label}</span>
-      <span>{formatCents(cents)}</span>
+      <span>{cents < 0 ? `−${formatCents(-cents)}` : formatCents(cents)}</span>
     </div>
   );
 }
@@ -196,7 +196,7 @@ function HotelBody({
   const [selectedId, setSelectedId] = useState(leading.offerRef.rateId);
   const selected = choices.find((r) => r.offerRef.rateId === selectedId) ?? leading;
   const radioName = useId();
-  const changed = seen !== null && seen !== leading.price.headlineTotalCents;
+  const changeNote = priceChangeNote({ seen, leading, selected });
   const lot = hotel.lot;
   const meta = metaParts({ stars: hotel.stars, miles: milesToAirport(lot, airportPoint), airportCode: airport, reviewCount: hotel.reviewCount });
   const shuttle = shuttleFact(lot, airport);
@@ -311,16 +311,14 @@ function HotelBody({
         {/* The price follows the selected room; under the details on a phone, sticky beside them on desktop. */}
         <aside aria-label="Your price" className="flex h-fit flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 lg:sticky lg:top-24">
           <h2 className="font-heading text-base font-semibold text-gray-900">Your price</h2>
-          <PriceRow label={`${selected.roomName}, 1 night`} cents={p.roomSellCents} />
-          {/* Zero until the accountant answers M16 (plans.ts); shown if it ever is not, so the lines add up. */}
-          {p.roomTaxCents > 0 && <PriceRow label="Room tax" cents={p.roomTaxCents} />}
-          <PriceRow label="Parking, incl. tax" cents={p.parkingOnlineCents} />
-          <PriceRow label="Service fee" cents={p.serviceFeeCents} />
-          {p.propertyFeesDueAtHotelCents > 0 && <PriceRow label="Paid at the hotel" cents={p.propertyFeesDueAtHotelCents} />}
+          {/* Every non-zero component of packagePrice(), so the lines always add up to the total. */}
+          {priceLines(p, selected.roomName).map((line) => (
+            <PriceRow key={line.label} label={line.label} cents={line.cents} />
+          ))}
           <PriceRow label="Total" cents={p.headlineTotalCents} strong />
           <p className="text-[11.5px] text-muted-foreground">{PARK_STAY_TOTAL_LABEL_INTERIM}</p>
           <Tags tags={[cancellationTag(selected.refundability)]} />
-          {changed && <p className="rounded-md bg-muted px-3 py-2 text-sm">Price updated since your search (was {formatCents(seen)}).</p>}
+          {changeNote && <p className="rounded-md bg-muted px-3 py-2 text-sm">{changeNote}</p>}
           <p className="text-xs text-muted-foreground">{BUNDLE_CANCELLATION_NOTE}</p>
           <Button disabled className="mt-1 w-full">
             Booking opens soon

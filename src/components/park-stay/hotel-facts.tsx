@@ -9,15 +9,34 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { PARK_STAY_TAX_PENDING_NOTE } from "@/lib/pricing/copy";
-import { ratingLabel, type MetaPart, type RoomTag } from "./card-facts";
+import { ratingLabel, scoreBadgeLabel, type MetaPart, type RoomTag } from "./card-facts";
 
-export function HotelPhoto({ url, name, sizes = "(max-width: 640px) 100vw, 240px", eager = false, children }: { url: string | null; name: string; sizes?: string; eager?: boolean; children?: ReactNode }) {
+/**
+ * `minHeight`: the floor when the parent lets the photo size itself (the
+ * card column). Pass "" when the parent sets the height (the 96 px map-card
+ * box), so object-cover fills exactly that box instead of overflowing it.
+ */
+export function HotelPhoto({
+  url,
+  name,
+  sizes = "(max-width: 640px) 100vw, 240px",
+  eager = false,
+  minHeight = "min-h-36",
+  children,
+}: {
+  url: string | null;
+  name: string;
+  sizes?: string;
+  eager?: boolean;
+  minHeight?: string;
+  children?: ReactNode;
+}) {
   return (
-    <div className="relative h-full min-h-36 w-full overflow-hidden bg-gray-100">
+    <div className={`relative h-full w-full overflow-hidden bg-gray-100 ${minHeight}`}>
       {url ? (
         <Image src={url} alt={name} fill sizes={sizes} className="object-cover" loading={eager ? "eager" : "lazy"} />
       ) : (
-        <div className="flex h-full min-h-36 w-full items-center justify-center text-xs text-gray-400" aria-label={`${name} (no photo)`}>
+        <div className={`flex h-full w-full items-center justify-center text-xs text-gray-400 ${minHeight}`} aria-label={`${name} (no photo)`}>
           No photo
         </div>
       )}
@@ -32,8 +51,11 @@ export function ScoreBadge({ rating, className = "absolute left-2 top-2" }: { ra
   const word = ratingLabel(rating);
   return (
     <span className={`${className} rounded-lg bg-navy px-2 py-0.5 font-heading text-[13px] font-bold text-white`}>
-      {rating.toFixed(1)}
-      {word && <small className="ml-1 text-[11px] font-medium opacity-85">{word}</small>}
+      <span className="sr-only">{scoreBadgeLabel(rating)}</span>
+      <span aria-hidden="true">
+        {rating.toFixed(1)}
+        {word && <small className="ml-1 text-[11px] font-medium opacity-85">{word}</small>}
+      </span>
     </span>
   );
 }

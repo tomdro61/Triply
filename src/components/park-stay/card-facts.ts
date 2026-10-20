@@ -17,12 +17,11 @@
  */
 
 import { calculateDistance } from "@/lib/utils/geo";
-import { ROOM_NON_REFUNDABLE_SUMMARY, type RoomRefundability } from "@/lib/hotels/refundability";
+import { roomRefundabilityTag, type RoomRefundability } from "@/lib/hotels/refundability";
+import type { PackagePrice } from "@/lib/hotels/pricing";
 import type { ParkStayRoomOffer } from "@/lib/hotels/search";
 import type { LotDisplay } from "@/lib/hotels/hotel-lot-resolve";
 import { formatCents, formatNightLabel } from "./format";
-
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** A fixed mapping of LiteAPI's 0–10 score; below 7 the number stands alone. */
 export function ratingLabel(score: number | null): string | null {
@@ -39,6 +38,12 @@ export function milesToAirport(lot: { latitude: number; longitude: number }, air
   const pts = [lot.latitude, lot.longitude, airport.latitude, airport.longitude];
   if (!pts.every(Number.isFinite) || (lot.latitude === 0 && lot.longitude === 0)) return null;
   return calculateDistance(airport.latitude, airport.longitude, lot.latitude, lot.longitude);
+}
+
+/** What a screen reader hears for the score badge: "Guest rating 8.4 out of 10, Very good". */
+export function scoreBadgeLabel(score: number): string {
+  const word = ratingLabel(score);
+  return `Guest rating ${score.toFixed(1)} out of 10${word ? `, ${word}` : ""}`;
 }
 
 export interface MetaPart {
@@ -59,15 +64,6 @@ export function metaParts(input: { stars: number | null; miles: number | null; a
   return out;
 }
 
-/** "2026-11-09 18:00" → "Nov 9, 6:00 PM". Pure string formatting. */
-export function shortDeadline(deadlineLocal: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(deadlineLocal);
-  if (!m) return deadlineLocal;
-  const h24 = Number(m[4]);
-  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  return `${MONTHS[Number(m[2]) - 1]} ${Number(m[3])}, ${h12}:${m[5]} ${h24 < 12 ? "AM" : "PM"}`;
-}
-
 export type TagTone = "ok" | "no" | "warn";
 export interface RoomTag {
   tone: TagTone;
@@ -75,16 +71,14 @@ export interface RoomTag {
 }
 
 /**
- * The room's cancellation tag. Free cancellation ONLY for a refundable rate
- * with a known deadline (refundability.ts: anything unrecognised is already
- * non-refundable). Prefixed "Room:" like roomRefundabilitySummary, so on a
- * package it can't read as a promise about the parking or the bundle.
+ * The room's cancellation tag: the wording, the "Room:" prefix, the year
+ * and "(hotel time)" all come from refundability.ts (every refundability
+ * string lives there — the FTC 16 CFR 464 / CA AB 537 item). Free
+ * cancellation only for a refundable rate with a well-formed deadline.
  */
 export function cancellationTag(r: RoomRefundability): RoomTag {
-  if (r.kind === "free_until" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(r.deadlineLocal)) {
-    return { tone: "ok", text: `Room: free cancellation until ${shortDeadline(r.deadlineLocal)}` };
-  }
-  return { tone: "no", text: ROOM_NON_REFUNDABLE_SUMMARY };
+  const t = roomRefundabilityTag(r);
+  return { tone: t.refundable ? "ok" : "no", text: t.text };
 }
 
 /** Every tag for a room: its cancellation terms, then money paid at the hotel when there is any. */
@@ -126,7 +120,8 @@ export function tripSteps(input: {
   const hours = lot.shuttleSummary.trim().length > 0 ? ` Shuttle: ${lot.shuttleSummary.trim()}.` : "";
   return [
     {
-      title: `${formatNightLabel(search.night)} · arrive by ${search.arrivalTime}`,
+      // The arrival time is when PARKING STARTS, not a deadline (review of 310f033, item 5).
+      title: `${formatNightLabel(search.night)} · arrive from ${search.arrivalTime}`,
       body: `Check in at the hotel${ready} and leave your car in the hotel's parking.`,
     },
     {
@@ -143,4 +138,42 @@ export function tripSteps(input: {
 /** The rooms to choose from: the leading room first if the list doesn't already carry it. Keyed by rate id. */
 export function roomChoices(leading: ParkStayRoomOffer, rooms: readonly ParkStayRoomOffer[]): ParkStayRoomOffer[] {
   return rooms.some((r) => r.offerRef.rateId === leading.offerRef.rateId) ? [...rooms] : [leading, ...rooms];
+}
+
+export interface PriceLine {
+  label: string;
+  /** Negative for a discount. */
+  cents: number;
+}
+
+/**
+ * The price box lines for a room, matching packagePrice() (pricing.ts):
+ * headline = roomSell + roomTax + parkingOnline + serviceFee − promoDiscount
+ * + protectionPremium + propertyFeesDueAtHotel. A line that is zero is left
+ * out (room tax, promo, protection and fees at the hotel are zero in Phase A),
+ * so the shown lines always add up to the total.
+ */
+export function priceLines(price: PackagePrice, roomName: string): PriceLine[] {
+  const lines: PriceLine[] = [{ label: `${roomName}, 1 night`, cents: price.roomSellCents }];
+  if (price.roomTaxCents > 0) lines.push({ label: "Room tax", cents: price.roomTaxCents });
+  lines.push({ label: "Parking, incl. tax", cents: price.parkingOnlineCents });
+  lines.push({ label: "Service fee", cents: price.serviceFeeCents });
+  if (price.promoDiscountCents > 0) lines.push({ label: "Promo discount", cents: -price.promoDiscountCents });
+  if (price.protectionPremiumCents > 0) lines.push({ label: "Parking protection", cents: price.protectionPremiumCents });
+  if (price.propertyFeesDueAtHotelCents > 0) lines.push({ label: "Paid at the hotel", cents: price.propertyFeesDueAtHotelCents });
+  return lines;
+}
+
+/**
+ * The "price changed" note. `seen` is the LEADING room's total on the
+ * results card, so the plain note only belongs under the leading room; with
+ * another room selected it names the leading room, never implying the
+ * selected room's total changed. Null when nothing changed.
+ */
+export function priceChangeNote(input: { seen: number | null; leading: Pick<ParkStayRoomOffer, "roomName" | "price" | "offerRef">; selected: Pick<ParkStayRoomOffer, "offerRef"> }): string | null {
+  const { seen, leading, selected } = input;
+  const now = leading.price.headlineTotalCents;
+  if (seen === null || seen === now) return null;
+  if (selected.offerRef.rateId === leading.offerRef.rateId) return `Price updated since your search (was ${formatCents(seen)}).`;
+  return `The ${leading.roomName} was ${formatCents(seen)} in your search (it's now ${formatCents(now)}).`;
 }

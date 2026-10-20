@@ -113,7 +113,7 @@ export function ParkStayMapCard({ card, href }: { card: ParkStayCard; href: stri
     <div id={mapCardElementId(card.hotelKey)} className="w-[88vw] flex-shrink-0 snap-center overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
       <div className="flex gap-3 p-3">
         <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl">
-          <HotelPhoto url={card.photoUrl} name={card.name} sizes="96px">
+          <HotelPhoto url={card.photoUrl} name={card.name} sizes="96px" minHeight="">
             <ScoreBadge rating={card.rating} className="absolute left-1 top-1 !px-1.5 !text-[11px]" />
           </HotelPhoto>
         </div>
