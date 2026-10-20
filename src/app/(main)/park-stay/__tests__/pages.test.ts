@@ -44,6 +44,9 @@ describe("Park & Stay pages (plan v3 §8.1)", () => {
 
   it("are noindex / nofollow", () => {
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
+    // The 404 renders in this layout: nothing may name the feature (§20).
+    expect(metadata.title).toBeUndefined();
+    expect(JSON.stringify(metadata)).not.toMatch(/park|stay|hotel/i);
   });
 
   it("flag off → both pages 404 (the post-deploy negative control)", async () => {
