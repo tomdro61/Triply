@@ -3,6 +3,13 @@ import { validateParkStayWindow } from "@/lib/hotels/parking-window";
 import { formatNightLabel } from "../format";
 import {
   DETAILS_PROMPT,
+  RETURN_BEFORE_FLIGHT,
+  initialHeaderFields,
+  isPickerSwap,
+  resolveFlight,
+  sanitizeSearchValues,
+  submitHref,
+  type HeaderFields,
   apiSearchQuery,
   checkSearchDates,
   detailsPrompt,
@@ -111,7 +118,7 @@ describe("the header's date rules", () => {
     expect(checkSearchDates({ ...base, flight: b.today, night: "2026-10-19" }, b)?.field).toBe("flight");
     expect(checkSearchDates({ ...base, flight: "2027-01-30", night: "2027-01-29" }, b)?.field).toBe("flight");
     expect(checkSearchDates({ ...base, flight: "2027-01-29", night: "2027-01-28", returnDate: "2027-02-01" }, b)).toBeNull();
-    expect(checkSearchDates({ ...base, returnDate: "2026-11-10" }, b)).toEqual({ field: "return", message: "Your return date must be on or after your flight date." });
+    expect(checkSearchDates({ ...base, returnDate: "2026-11-10" }, b)).toEqual({ field: "return", message: RETURN_BEFORE_FLIGHT });
     expect(checkSearchDates({ ...base, returnDate: "2027-01-09" }, b)).toBeNull(); // night + 60
     expect(checkSearchDates({ ...base, returnDate: "2027-01-10" }, b)?.message).toMatch(/60 days after the hotel night/);
     expect(checkSearchDates({ ...base, returnDate: "" }, b)?.field).toBe("return");
@@ -158,17 +165,28 @@ describe("missing details: highlighted, never defaulted (plan §3)", () => {
 });
 
 describe("URLs", () => {
-  it("every submit keeps focus; empty keys are left out", () => {
-    expect(parkStayPageQuery(full, "doubletree-jfk")).toBe(
-      "airport=JFK&night=2026-11-10&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&focus=doubletree-jfk"
+  it("every submit keeps flight and focus; empty keys are left out", () => {
+    expect(parkStayPageQuery(full, { flight: "2026-11-11", focus: "doubletree-jfk" })).toBe(
+      "airport=JFK&night=2026-11-10&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&flight=2026-11-11&focus=doubletree-jfk"
     );
-    expect(parkStayPageQuery({ ...full, arrivalTime: "", adults: "" }, "doubletree-jfk")).toBe(
+    expect(parkStayPageQuery({ ...full, arrivalTime: "", adults: "" }, { flight: null, focus: "doubletree-jfk" })).toBe(
       "airport=JFK&night=2026-11-10&returnDate=2026-11-14&returnTime=6%3A00+PM&focus=doubletree-jfk"
     );
-    expect(parkStayPageQuery(full, null)).not.toMatch(/focus/);
+    expect(parkStayPageQuery(full, { flight: null, focus: null })).not.toMatch(/focus|flight/);
+    expect(parkStayPageQuery(full, { flight: "2026-02-30", focus: null })).not.toMatch(/flight/);
   });
 
-  it("the API query carries the six search keys only — never focus or seen", () => {
+  it("resolveFlight: the URL's flight when it is night + 1 or night + 2, otherwise night + 1", () => {
+    expect(resolveFlight("2026-11-12", "2026-11-10")).toBe("2026-11-12");
+    expect(resolveFlight("2026-11-11", "2026-11-10")).toBe("2026-11-11");
+    expect(resolveFlight("2026-11-13", "2026-11-10")).toBe("2026-11-11");
+    expect(resolveFlight("2026-11-10", "2026-11-10")).toBe("2026-11-11");
+    expect(resolveFlight("junk", "2026-11-10")).toBe("2026-11-11");
+    expect(resolveFlight(null, "2026-12-31")).toBe("2027-01-01");
+    expect(resolveFlight("2026-11-12", "")).toBeNull();
+  });
+
+  it("the API query carries the six search keys only — never flight, focus or seen", () => {
     const q = new URLSearchParams(apiSearchQuery(full));
     expect([...q.keys()]).toEqual(["airport", "night", "arrivalTime", "returnDate", "returnTime", "adults"]);
   });
@@ -179,18 +197,99 @@ describe("URLs", () => {
     expect(readFocus(params({}))).toBeNull();
   });
 
-  it("Parking only → /search?airport&checkin=night+1&checkout=returnDate, nothing /search doesn't read", () => {
-    expect(parkingOnlyHref(full)).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
-    expect(parkingOnlyHref({ ...full, airport: "jfk", night: "2026-12-31", returnDate: "2027-01-03" })).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
+  it("Parking only → /search?airport&checkin=<flight>&checkout=returnDate, nothing /search doesn't read", () => {
+    expect(parkingOnlyHref(full, "2026-11-11")).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
+    // the red-eye night (2026-11-09, flight 2026-11-11): check-in is the FLIGHT date, not night + 1
+    expect(parkingOnlyHref(sanitizeSearchValues({ ...full, night: "2026-11-09" }, ["JFK"]), resolveFlight("2026-11-11", "2026-11-09"))).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
+    expect(parkingOnlyHref({ airport: "jfk", returnDate: "2027-01-03" }, "2027-01-01")).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
     // same-day return is a valid parking range
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" })).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" }, "2026-11-11")).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
   });
 
   it("Parking only is disabled when the values can't make a parking search", () => {
-    expect(parkingOnlyHref({ ...full, night: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, airport: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" })).toBeNull(); // before the flight: no swap
+    expect(parkingOnlyHref(full, null)).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "" }, "2026-11-11")).toBeNull();
+    expect(parkingOnlyHref({ ...full, airport: "" }, "2026-11-11")).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" }, "2026-11-11")).toBeNull(); // before the flight: no swap
+  });
+});
+
+describe("sanitizeSearchValues: off-list values show as missing (review round 1, item 7)", () => {
+  it("keeps on-list values (airport upper-cased) and blanks the rest, never picking an option", () => {
+    expect(sanitizeSearchValues({ ...full, airport: "jfk" }, ["JFK", "LGA"])).toEqual(full);
+    expect(
+      sanitizeSearchValues({ airport: "BOS", night: "2026-02-30", arrivalTime: "3:15 PM", returnDate: "soon", returnTime: "25:00 PM", adults: "9" }, ["JFK"])
+    ).toEqual({ airport: "", night: "", arrivalTime: "", returnDate: "", returnTime: "", adults: "" });
+    expect(sanitizeSearchValues({ ...full, arrivalTime: "9:00 AM" }, ["JFK"]).arrivalTime).toBe(""); // a return slot, not an arrival slot
+    expect(sanitizeSearchValues({ ...full, adults: "0" }, ["JFK"]).adults).toBe("");
+  });
+
+  it("a sanitised-away value makes the search incomplete (no fetch) and flags the field", () => {
+    const v = sanitizeSearchValues({ ...full, arrivalTime: "3:15 PM" }, ["JFK"]);
+    expect(isCompleteSearch(v)).toBe(false);
+    expect(missingDetails(v)).toEqual(["arrivalTime"]);
+  });
+});
+
+describe("the header: submit → URL → header round trip (review round 1, items 1 and 11)", () => {
+  const b = parkStayDateBounds(NY, new Date("2026-10-20T16:00:00Z"));
+  const fields: HeaderFields = { airport: "JFK", flight: "2026-11-11", night: "2026-11-09", returnDate: "2026-11-14", arrivalTime: "7:00 PM", returnTime: "6:00 PM", adults: "2" };
+
+  function reload(href: string): HeaderFields {
+    const p = new URL(href, "https://x.test").searchParams;
+    const values = sanitizeSearchValues(
+      {
+        airport: p.get("airport") ?? "",
+        night: p.get("night") ?? "",
+        arrivalTime: p.get("arrivalTime") ?? "",
+        returnDate: p.get("returnDate") ?? "",
+        returnTime: p.get("returnTime") ?? "",
+        adults: p.get("adults") ?? "",
+      },
+      ["JFK"]
+    );
+    return initialHeaderFields(values, p.get("flight"));
+  }
+
+  it("a changed night keeps the flight date through the round trip", () => {
+    const out = submitHref(fields, b, "doubletree-jfk");
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.href).toBe(
+      "/park-stay?airport=JFK&night=2026-11-09&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&flight=2026-11-11&focus=doubletree-jfk"
+    );
+    expect(reload(out.href)).toEqual(fields);
+    // the night choices stay relative to the flight
+    expect(nightChoices(reload(out.href).flight, b.today)).toEqual(["2026-11-10", "2026-11-09"]);
+  });
+
+  it("the default night round-trips too, and missing details still navigate (flagged on reload)", () => {
+    const def = { ...fields, night: "2026-11-10", arrivalTime: "", adults: "" };
+    const out = submitHref(def, b, null);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(out.href).not.toMatch(/arrivalTime|adults|focus/);
+    const back = reload(out.href);
+    expect(back).toEqual(def);
+    expect(missingDetails(back)).toEqual(["arrivalTime", "adults"]);
+  });
+
+  it("a date problem blocks the submit and names it", () => {
+    expect(submitHref({ ...fields, returnDate: "2026-11-10" }, b, null)).toEqual({ ok: false, problem: { field: "return", message: RETURN_BEFORE_FLIGHT } });
+    expect(submitHref({ ...fields, night: "2026-11-08" }, b, null)).toMatchObject({ ok: false, problem: { field: "night" } });
+  });
+});
+
+describe("the picker's swap is rejected, never applied (review round 1, item 2)", () => {
+  it("start earlier than the flight followed at once by end = the old flight → a swap", () => {
+    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "2026-11-11" }, "2026-11-11")).toBe(true);
+  });
+
+  it("a first click (end cleared), a normal return pick, or a later start is not a swap", () => {
+    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "2026-11-11" }, "")).toBe(false);
+    expect(isPickerSwap(null, "2026-11-14")).toBe(false);
+    expect(isPickerSwap({ start: "2026-11-12", prevFlight: "2026-11-11" }, "2026-11-11")).toBe(false);
+    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "" }, "2026-11-11")).toBe(false);
   });
 });
 

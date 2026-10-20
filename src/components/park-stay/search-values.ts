@@ -3,15 +3,18 @@
  * v2 §2–3). Pure: no React, no fetch, the clock injected.
  *
  * Dates are literal airport-local "YYYY-MM-DD" strings. The customer picks a
- * FLIGHT date; the hotel night is the night before (flight − 1), editable,
- * and the night is what the URL carries (`night`). Every shift is calendar
- * arithmetic (dates.ts) — never toISOString() or ±86 400 000 ms, which a DST
- * day or a non-UTC browser would shift.
+ * FLIGHT date; the hotel night is the night before (flight − 1) or, for a
+ * flight just after midnight, the one before that (flight − 2). The night is
+ * what the API gets (`night`); the flight rides along as a PAGE-ONLY key
+ * (`flight`, like `focus`) so changing the night never loses the flight date
+ * (review round 1, item 1). Every shift is calendar arithmetic (dates.ts) —
+ * never toISOString() or ±86 400 000 ms, which a DST day or a non-UTC browser
+ * would shift.
  */
 
 import { isIsoDate, shiftIsoDate, todayInZone } from "@/lib/hotels/dates";
-import { PARK_STAY_MAX_NIGHT_AHEAD_DAYS, PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS } from "@/lib/hotels/plans";
-import { SEARCH_PARAM_KEYS, type SearchParamKey } from "./format";
+import { PARK_STAY_MAX_ADULTS, PARK_STAY_MAX_NIGHT_AHEAD_DAYS, PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS, PARK_STAY_MIN_ADULTS } from "@/lib/hotels/plans";
+import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, SEARCH_PARAM_KEYS, type SearchParamKey } from "./format";
 
 export type ParkStaySearchValues = Record<SearchParamKey, string>;
 
@@ -31,40 +34,69 @@ export interface ParkStayHotelName {
   name: string;
 }
 
+export const ADULT_OPTIONS: readonly string[] = Array.from({ length: PARK_STAY_MAX_ADULTS - PARK_STAY_MIN_ADULTS + 1 }, (_, i) => String(PARK_STAY_MIN_ADULTS + i));
+
 const HOTEL_KEY_RE = /^[a-z0-9-]{1,64}$/;
 
+type Params = { get(name: string): string | null };
+
 /** `focus` from the URL, or null when absent or not a possible hotel key. */
-export function readFocus(params: { get(name: string): string | null }): string | null {
+export function readFocus(params: Params): string | null {
   const raw = params.get("focus");
   return raw !== null && HOTEL_KEY_RE.test(raw) ? raw : null;
+}
+
+/**
+ * Values that aren't one of the options become "" — shown as MISSING (and
+ * highlighted), never as whichever option a <select> would fall back to
+ * (review round 1, item 7). The airport must be an open one; dates must be
+ * real calendar dates. Nothing is ever filled in.
+ */
+export function sanitizeSearchValues(values: ParkStaySearchValues, openAirports: readonly string[]): ParkStaySearchValues {
+  const airport = values.airport.toUpperCase();
+  return {
+    airport: openAirports.includes(airport) ? airport : "",
+    night: isIsoDate(values.night) ? values.night : "",
+    arrivalTime: ARRIVAL_TIME_OPTIONS.includes(values.arrivalTime) ? values.arrivalTime : "",
+    returnDate: isIsoDate(values.returnDate) ? values.returnDate : "",
+    returnTime: RETURN_TIME_OPTIONS.includes(values.returnTime) ? values.returnTime : "",
+    adults: ADULT_OPTIONS.includes(values.adults) ? values.adults : "",
+  };
 }
 
 export function isCompleteSearch(values: ParkStaySearchValues): boolean {
   return SEARCH_PARAM_KEYS.every((k) => values[k].length > 0);
 }
 
-/** The API query: every search key, in a fixed order, and nothing else (no `focus`, no `seen`). */
+/** The API query: every search key, in a fixed order, and nothing else (no `flight`, `focus` or `seen`). */
 export function apiSearchQuery(values: ParkStaySearchValues): string {
   const q = new URLSearchParams();
   for (const k of SEARCH_PARAM_KEYS) q.set(k, values[k]);
   return q.toString();
 }
 
+/** The page-only URL keys: kept through every submit, never sent to the API. */
+export interface PageExtras {
+  flight: string | null;
+  focus: string | null;
+}
+
 /**
- * The /park-stay URL for a submit: the non-empty search keys, then `focus`
- * when there is one. Every submit keeps `focus` (review C-H4) — the old form
- * rebuilt the URL from SEARCH_PARAM_KEYS only and dropped it.
+ * The /park-stay URL query: the non-empty search keys, then `flight` and
+ * `focus` when set. Every submit keeps both (review C-H4: the old form
+ * rebuilt the URL from SEARCH_PARAM_KEYS only and dropped `focus`).
  */
-export function parkStayPageQuery(values: ParkStaySearchValues, focus: string | null): string {
+export function parkStayPageQuery(values: ParkStaySearchValues, extras: PageExtras): string {
   const q = new URLSearchParams();
   for (const k of SEARCH_PARAM_KEYS) if (values[k].length > 0) q.set(k, values[k]);
-  if (focus) q.set("focus", focus);
+  if (extras.flight && isIsoDate(extras.flight)) q.set("flight", extras.flight);
+  if (extras.focus) q.set("focus", extras.focus);
   return q.toString();
 }
 
 // ───────────────────────── night ↔ flight ─────────────────────────
 
-/** The flight (departure) date for a hotel night: the morning after. Null for a non-date. */
+/** The default flight (departure) date for a hotel night: the morning after. Null for a non-date. */
 export function flightDateForNight(night: string): string | null {
   return isIsoDate(night) ? shiftIsoDate(night, 1) : null;
 }
@@ -72,6 +104,19 @@ export function flightDateForNight(night: string): string | null {
 /** The default hotel night for a flight date: the night before. Null for a non-date. */
 export function nightForFlightDate(flight: string): string | null {
   return isIsoDate(flight) ? shiftIsoDate(flight, -1) : null;
+}
+
+/**
+ * The flight date to show for a URL: its `flight` when that is a real date
+ * the night can belong to (night + 1, or night + 2 for the red-eye choice);
+ * otherwise night + 1. Null when the night isn't a date.
+ */
+export function resolveFlight(flightParam: string | null, night: string): string | null {
+  if (!isIsoDate(night)) return null;
+  if (flightParam !== null && isIsoDate(flightParam) && (flightParam === shiftIsoDate(night, 1) || flightParam === shiftIsoDate(night, 2))) {
+    return flightParam;
+  }
+  return shiftIsoDate(night, 1);
 }
 
 export interface ParkStayDateBounds {
@@ -98,9 +143,9 @@ export function returnMaxForNight(night: string): string | null {
 }
 
 /**
- * The nights offered for a flight: the night before (the default) and the one
- * before that — for a flight just after midnight, the night the customer
- * actually sleeps at the hotel. Never a night before today.
+ * The nights offered for a FLIGHT (never for the night): the night before
+ * (the default) and the one before that — for a flight just after midnight,
+ * the night the customer actually sleeps at the hotel. Never before today.
  */
 export function nightChoices(flight: string, today: string): string[] {
   if (!isIsoDate(flight)) return [];
@@ -121,7 +166,9 @@ export function pickerMaxDate(input: { flight: string; night: string; returnDate
   return returnMax > bounds.flightMax ? returnMax : bounds.flightMax;
 }
 
-export type DatesProblem ={ field: "airport" | "flight" | "night" | "return"; message: string };
+export type DatesProblem = { field: "airport" | "flight" | "night" | "return"; message: string };
+
+export const RETURN_BEFORE_FLIGHT = "Return date must be on or after your flight date.";
 
 /**
  * The header's own date rules, checked before a submit so the customer gets
@@ -140,11 +187,11 @@ export function checkSearchDates(
   if (input.flight > bounds.flightMax) {
     return { field: "flight", message: `Flights can be searched up to ${PARK_STAY_MAX_NIGHT_AHEAD_DAYS + 1} days ahead.` };
   }
-  if (!isIsoDate(input.night) || input.night < bounds.today || input.night >= input.flight) {
+  if (!isIsoDate(input.night) || input.night < bounds.today || !nightChoices(input.flight, bounds.today).includes(input.night)) {
     return { field: "night", message: "Choose the night you'll stay at the hotel." };
   }
   if (!isIsoDate(input.returnDate)) return { field: "return", message: "Choose your return date." };
-  if (input.returnDate < input.flight) return { field: "return", message: "Your return date must be on or after your flight date." };
+  if (input.returnDate < input.flight) return { field: "return", message: RETURN_BEFORE_FLIGHT };
   const max = returnMaxForNight(input.night);
   if (max !== null && input.returnDate > max) {
     return { field: "return", message: `Park & Stay can be booked up to ${PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS} days after the hotel night.` };
@@ -152,11 +199,72 @@ export function checkSearchDates(
   return null;
 }
 
+// ───────────────────────── the header's state ─────────────────────────
+
+export interface HeaderFields {
+  airport: string;
+  flight: string;
+  night: string;
+  returnDate: string;
+  arrivalTime: string;
+  returnTime: string;
+  adults: string;
+}
+
+/** The header's starting fields, from SANITISED URL values and the URL's `flight`. */
+export function initialHeaderFields(values: ParkStaySearchValues, flightParam: string | null): HeaderFields {
+  return {
+    airport: values.airport,
+    flight: resolveFlight(flightParam, values.night) ?? "",
+    night: values.night,
+    returnDate: values.returnDate,
+    arrivalTime: values.arrivalTime,
+    returnTime: values.returnTime,
+    adults: values.adults,
+  };
+}
+
+export type SubmitResult = { ok: true; href: string } | { ok: false; problem: DatesProblem };
+
+/**
+ * Where a submit goes: the date rules first; then /park-stay with every set
+ * search key plus the page-only `flight` and `focus`. Missing details still
+ * navigate (the URL then shows exactly what is set; the results stay idle
+ * with the highlight).
+ */
+export function submitHref(fields: HeaderFields, bounds: ParkStayDateBounds, focus: string | null): SubmitResult {
+  const problem = checkSearchDates(fields, bounds);
+  if (problem) return { ok: false, problem };
+  const values: ParkStaySearchValues = {
+    airport: fields.airport,
+    night: fields.night,
+    arrivalTime: fields.arrivalTime,
+    returnDate: fields.returnDate,
+    returnTime: fields.returnTime,
+    adults: fields.adults,
+  };
+  return { ok: true, href: `/park-stay?${parkStayPageQuery(values, { flight: fields.flight, focus })}` };
+}
+
+/**
+ * The shared DateRangePicker SWAPS a return picked before the flight
+ * (date-picker.tsx: onStartChange(earlier day) then onEndChange(old start)
+ * in the same click). Park & Stay never swaps silently (review round 1,
+ * item 2): the header remembers the start it just received and, when the
+ * very next end is the old flight and the new start is earlier, rejects the
+ * pick. A normal first click sends onEndChange("") after the start — not a
+ * swap; a normal second click sends an end with no start before it.
+ */
+export function isPickerSwap(pending: { start: string; prevFlight: string } | null, end: string): boolean {
+  return pending !== null && end !== "" && pending.prevFlight !== "" && pending.start < pending.prevFlight && end === pending.prevFlight;
+}
+
 // ───────────────────────── missing details ─────────────────────────
 
 export const DETAIL_KEYS = ["arrivalTime", "returnTime", "adults"] as const satisfies readonly SearchParamKey[];
 export type DetailKey = (typeof DETAIL_KEYS)[number];
 
+/** The detail fields flagged missing (highlighted). */
 export function missingDetails(values: Pick<ParkStaySearchValues, DetailKey>): DetailKey[] {
   return DETAIL_KEYS.filter((k) => values[k].length === 0);
 }
@@ -173,17 +281,18 @@ export function detailsPrompt(missing: readonly DetailKey[]): string | null {
 // ───────────────────────── the toggle back to parking ─────────────────────────
 
 /**
- * "Parking only": /search?airport&checkin=<night + 1>&checkout=<returnDate>.
- * /search reads exactly airport, checkin and checkout (search/page.tsx), so
- * nothing else is carried — no times it would ignore. Built from the URL
- * values (what was searched), never from a half-edited form. Null when the
- * values can't make a valid parking search.
+ * "Parking only": /search?airport&checkin=<flight>&checkout=<returnDate>.
+ * The check-in is the FLIGHT date (from resolveFlight — the URL's `flight`
+ * or night + 1), the day the car would go to an airport lot. /search reads
+ * exactly airport, checkin and checkout (search/page.tsx), so nothing else is
+ * carried — no times it would ignore. Built from the URL values (what was
+ * searched), never from a half-edited form. Null when the values can't make
+ * a valid parking search (never swapped).
  */
-export function parkingOnlyHref(values: Pick<ParkStaySearchValues, "airport" | "night" | "returnDate">): string | null {
+export function parkingOnlyHref(values: Pick<ParkStaySearchValues, "airport" | "returnDate">, flight: string | null): string | null {
   if (!/^[A-Za-z]{3}$/.test(values.airport)) return null;
-  const checkin = flightDateForNight(values.night);
-  if (checkin === null || !isIsoDate(values.returnDate) || values.returnDate < checkin) return null;
-  const q = new URLSearchParams({ airport: values.airport.toUpperCase(), checkin, checkout: values.returnDate });
+  if (flight === null || !isIsoDate(flight) || !isIsoDate(values.returnDate) || values.returnDate < flight) return null;
+  const q = new URLSearchParams({ airport: values.airport.toUpperCase(), checkin: flight, checkout: values.returnDate });
   return `/search?${q.toString()}`;
 }
 

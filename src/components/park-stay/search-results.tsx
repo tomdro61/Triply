@@ -13,7 +13,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { List, Map as MapIcon } from "lucide-react";
-import type { ParkStaySearchResponse } from "@/app/api/park-stay/search/route";
 import type { ParkStayCard } from "@/lib/hotels/search";
 import { MapPlaceholder } from "@/components/map/map-placeholder";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -21,8 +20,10 @@ import { PreviewBanner } from "./hotel-facts";
 import { ParkStayHeader } from "./park-stay-header";
 import { ParkStayMapCard, ParkStayResultCard, cardElementId, hotelHref, mapCardElementId } from "./park-stay-card";
 import { LazyParkStayMap } from "./lazy-park-stay-map";
+import { MapErrorBoundary } from "./map-error-boundary";
 import type { ParkStayPin } from "./park-stay-map";
 import { formatCents, formatIsoDay } from "./format";
+import { UNAVAILABLE, classifySearchAnswer, deriveResultsState, listContent, type Settled } from "./results-state";
 import {
   apiSearchQuery,
   focusBanner,
@@ -30,39 +31,30 @@ import {
   parkingOnlyHref,
   parkStayPageQuery,
   readFocus,
+  resolveFlight,
+  sanitizeSearchValues,
   type ParkStayAirportOption,
   type ParkStayHotelName,
   type ParkStaySearchValues,
 } from "./search-values";
 
-type Settled = { kind: "error"; message: string; retry: boolean } | { kind: "done"; body: ParkStaySearchResponse };
-type State = { kind: "idle" } | { kind: "loading" } | Settled;
-
-const UNAVAILABLE: Settled = { kind: "error", message: "Hotel search is temporarily unavailable.", retry: true };
 const NO_OFFERS: readonly ParkStayCard[] = [];
 
 async function fetchSearch(query: string): Promise<Settled> {
   try {
     const res = await fetch(`/api/park-stay/search?${query}`, { cache: "no-store" });
     const body: unknown = await res.json().catch(() => null);
-    if (res.ok) return isSearchResponse(body) ? { kind: "done", body } : UNAVAILABLE;
-    if (res.status === 400 || res.status === 404) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
-    if (res.status === 429) return { kind: "error", message: "Too many searches — please wait a moment.", retry: true };
-    return UNAVAILABLE;
+    return classifySearchAnswer(res.status, body);
   } catch {
     return UNAVAILABLE;
   }
 }
 
-const EMPTY_COPY: Record<NonNullable<ParkStaySearchResponse["emptyReason"]>, string> = {
-  min_stay: "No Park & Stay available for these dates — the hotels here need a longer parking stay.",
-  booking_window: "No Park & Stay available for these dates — they are outside the booking window.",
-  sold_out: "No Park & Stay available for these dates — the hotels or their parking are sold out.",
-  notice_period: "No Park & Stay available for that arrival time — choose a later arrival time.",
-  none_available: "No Park & Stay available for these dates.",
-};
-
-/** The URL's values, verbatim — a missing one stays "" (the header shows it unselected; nothing is defaulted). */
+/**
+ * The URL's values, verbatim — a missing one stays "" (nothing is defaulted).
+ * The hotel page uses it as is; this page sanitises it first
+ * (sanitizeSearchValues) so an off-list value shows as missing.
+ */
 export function readSearchValues(params: { get(name: string): string | null }): ParkStaySearchValues {
   return {
     airport: params.get("airport") ?? "",
@@ -72,22 +64,6 @@ export function readSearchValues(params: { get(name: string): string | null }): 
     returnTime: params.get("returnTime") ?? "",
     adults: params.get("adults") ?? "",
   };
-}
-
-function isSearchResponse(body: unknown): body is ParkStaySearchResponse {
-  return (
-    typeof body === "object" &&
-    body !== null &&
-    "status" in body &&
-    (body.status === "ok" || body.status === "empty") &&
-    "offers" in body &&
-    Array.isArray(body.offers)
-  );
-}
-
-function errorMessage(body: unknown, fallback: string): string {
-  if (body && typeof body === "object" && "error" in body && typeof body.error === "string") return body.error;
-  return fallback;
 }
 
 function Panel({ title, children }: { title?: string; children: React.ReactNode }) {
@@ -109,8 +85,10 @@ function RetryButton({ onClick }: { onClick: () => void }) {
 
 export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStayAirportOption[]; hotels: ParkStayHotelName[] }) {
   const params = useSearchParams();
-  const values = useMemo<ParkStaySearchValues>(() => readSearchValues(params), [params]);
+  const openCodes = useMemo(() => airports.map((a) => a.code), [airports]);
+  const values = useMemo<ParkStaySearchValues>(() => sanitizeSearchValues(readSearchValues(params), openCodes), [params, openCodes]);
   const focus = readFocus(params);
+  const flight = resolveFlight(params.get("flight"), values.night);
   const complete = isCompleteSearch(values);
   const query = useMemo(() => apiSearchQuery(values), [values]);
   // Results are keyed by (query, attempt): the state is DERIVED, so a new
@@ -135,12 +113,15 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
     };
   }, [complete, query, attempt]);
 
-  // The answer for THIS query and attempt (a stable reference), or null.
-  const settled: Settled | null = complete && result && result.query === query && result.attempt === attempt ? result.state : null;
-  const state: State = !complete ? { kind: "idle" } : (settled ?? { kind: "loading" });
+  const state = deriveResultsState({ complete, query, attempt, result });
   const retry = () => setAttempt((a) => a + 1);
 
-  const offers = useMemo(() => (settled?.kind === "done" ? settled.body.offers : NO_OFFERS), [settled]);
+  // The stored answer when it is the one shown (the same reference
+  // deriveResultsState returned), so the pins are only rebuilt when a new
+  // answer arrives — not on every hover.
+  const shown = result !== null && state === result.state ? result.state : null;
+  const offers = useMemo(() => (shown?.kind === "done" ? shown.body.offers : NO_OFFERS), [shown]);
+  const doneBody = state.kind === "done" ? state.body : null;
   const airportCode = values.airport.toUpperCase();
   const airportInfo = useMemo(() => {
     const a = airports.find((x) => x.code === airportCode);
@@ -198,12 +179,15 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
   const mapReady = state.kind === "done" || state.kind === "idle";
   const renderMap = (showControls: boolean) =>
     mapReady ? (
-      <LazyParkStayMap pins={pins} airport={airportInfo} hoveredKey={hoveredKey} onHover={setHoveredKey} onSelect={selectFromMap} showControls={showControls} />
+      <MapErrorBoundary>
+        <LazyParkStayMap pins={pins} airport={airportInfo} hoveredKey={hoveredKey} onHover={setHoveredKey} onSelect={selectFromMap} showControls={showControls} />
+      </MapErrorBoundary>
     ) : (
       <MapPlaceholder />
     );
 
-  const currentHref = `/park-stay?${parkStayPageQuery(values, focus)}`;
+  const currentHref = `/park-stay?${parkStayPageQuery(values, { flight, focus })}`;
+  const content = doneBody ? listContent(doneBody) : null;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -211,11 +195,12 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
         <PreviewBanner />
       </div>
       <ParkStayHeader
-        key={`${query}|${focus ?? ""}`}
+        key={`${query}|${flight ?? ""}|${focus ?? ""}`}
         airports={airports}
         values={values}
+        flightParam={params.get("flight")}
         focus={focus}
-        parkingHref={parkingOnlyHref(values)}
+        parkingHref={parkingOnlyHref(values, flight)}
         currentHref={currentHref}
       />
 
@@ -243,8 +228,10 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
           {state.kind === "done" && (
             <>
               <p className="text-sm text-muted-foreground">
-                Hotel night {formatIsoDay(state.body.search.night)}, check-out and departure {formatIsoDay(state.body.search.departureDate)}. Parking from{" "}
-                {state.body.search.arrivalTime} on {formatIsoDay(state.body.search.night)} to {state.body.search.returnTime} on {formatIsoDay(state.body.search.returnDate)}.
+                {/* The hotel check-out is night + 1; the FLIGHT may be a day later (the red-eye night), so it is named from the URL, not from departureDate. */}
+                Hotel night {formatIsoDay(state.body.search.night)}, check-out {formatIsoDay(state.body.search.departureDate)}
+                {flight ? `, flight ${formatIsoDay(flight)}` : ""}. Parking from {state.body.search.arrivalTime} on {formatIsoDay(state.body.search.night)} to{" "}
+                {state.body.search.returnTime} on {formatIsoDay(state.body.search.returnDate)}.
               </p>
               {banner && (
                 <p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -252,22 +239,22 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
                 </p>
               )}
               {state.body.partial && offers.length > 0 && <p className="rounded-md bg-muted px-3 py-2 text-sm">Some hotels couldn&apos;t be checked right now.</p>}
-              {offers.length === 0 && state.body.partial ? (
+              {content?.kind === "retry" ? (
                 // Partial AND empty is "we don't know", never "none available" (M2).
                 <Panel>
                   <p>We couldn&apos;t check some hotels right now.</p>
                   <RetryButton onClick={retry} />
                 </Panel>
-              ) : offers.length === 0 ? (
+              ) : content?.kind === "empty" ? (
                 <Panel>
-                  <p>{EMPTY_COPY[state.body.emptyReason ?? "none_available"]}</p>
+                  <p>{content.copy}</p>
                 </Panel>
               ) : (
                 offers.map((card, i) => (
                   <ParkStayResultCard
                     key={card.hotelKey}
                     card={card}
-                    href={hotelHref(state.body.airport.code, card, query)}
+                    href={hotelHref(state.body.airport.code, card, query, flight)}
                     returnDate={state.body.search.returnDate}
                     isHovered={hoveredKey === card.hotelKey}
                     isFocused={focus === card.hotelKey}
@@ -287,7 +274,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
             <div className="absolute bottom-0 left-0 right-0 pb-20 pt-2">
               <div ref={carouselRef} onScroll={onCarouselScroll} className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
                 {offers.map((card) => (
-                  <ParkStayMapCard key={card.hotelKey} card={card} href={hotelHref(state.body.airport.code, card, query)} />
+                  <ParkStayMapCard key={card.hotelKey} card={card} href={hotelHref(state.body.airport.code, card, query, flight)} />
                 ))}
               </div>
             </div>

@@ -5,7 +5,10 @@
  *
  * - The flight date comes first, then the return date (the shared
  *   DateRangePicker). The hotel night = flight − 1, shown as "You'll stay
- *   the night of …" and editable (red-eyes); the NIGHT is what goes in the URL.
+ *   the night of …" and editable (red-eyes); the NIGHT goes to the API, the
+ *   flight rides in the page-only `flight` key so a changed night keeps it.
+ * - The picker's swap of a return picked before the flight is REJECTED, not
+ *   applied (isPickerSwap).
  * - Flight minimum = tomorrow at the AIRPORT (a flight today would put the
  *   night in the past); return maximum = the night + 60 days (plans.ts).
  * - Arrival time, return time and adults start EMPTY unless the URL has them
@@ -19,29 +22,28 @@
  * was searched.
  */
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronDown, ChevronUp, MapPin, SlidersHorizontal } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
-import { PARK_STAY_MAX_ADULTS, PARK_STAY_MIN_ADULTS } from "@/lib/hotels/plans";
 import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, formatNightLabel } from "./format";
 import { ParkStayModeToggle } from "./mode-toggle";
 import {
-  checkSearchDates,
+  ADULT_OPTIONS,
+  RETURN_BEFORE_FLIGHT,
   detailsPrompt,
-  flightDateForNight,
+  initialHeaderFields,
+  isPickerSwap,
   missingDetails,
   nightChoices,
   nightForFlightDate,
   parkStayDateBounds,
-  parkStayPageQuery,
   pickerMaxDate,
+  submitHref,
   type DatesProblem,
   type ParkStayAirportOption,
   type ParkStaySearchValues,
 } from "./search-values";
-
-const ADULT_OPTIONS = Array.from({ length: PARK_STAY_MAX_ADULTS - PARK_STAY_MIN_ADULTS + 1 }, (_, i) => String(PARK_STAY_MIN_ADULTS + i));
 // Only for the picker's limits before an airport is chosen (every open
 // airport is in New York today); a submit needs an airport, and then its own
 // timezone sets the limits. Never a booking value.
@@ -92,25 +94,31 @@ function DetailSelect({
 export function ParkStayHeader({
   airports,
   values,
+  flightParam,
   focus,
   parkingHref,
   currentHref,
 }: {
   airports: ParkStayAirportOption[];
-  /** What the URL searched (verbatim; "" = missing). */
+  /** What the URL searched, SANITISED (sanitizeSearchValues; "" = missing). */
   values: ParkStaySearchValues;
+  /** The URL's page-only `flight`, raw (resolveFlight checks it against the night). */
+  flightParam: string | null;
   focus: string | null;
   parkingHref: string | null;
   currentHref: string;
 }) {
   const router = useRouter();
-  const [airport, setAirport] = useState(values.airport.toUpperCase());
-  const [flight, setFlight] = useState(flightDateForNight(values.night) ?? "");
-  const [night, setNight] = useState(flightDateForNight(values.night) ? values.night : "");
-  const [returnDate, setReturnDate] = useState(values.returnDate);
-  const [arrivalTime, setArrivalTime] = useState(values.arrivalTime);
-  const [returnTime, setReturnTime] = useState(values.returnTime);
-  const [adults, setAdults] = useState(values.adults);
+  const [init] = useState(() => initialHeaderFields(values, flightParam));
+  const [airport, setAirport] = useState(init.airport);
+  const [flight, setFlight] = useState(init.flight);
+  const [night, setNight] = useState(init.night);
+  const [returnDate, setReturnDate] = useState(init.returnDate);
+  const [arrivalTime, setArrivalTime] = useState(init.arrivalTime);
+  const [returnTime, setReturnTime] = useState(init.returnTime);
+  const [adults, setAdults] = useState(init.adults);
+  // The start the picker sent in THIS click (see isPickerSwap); cleared by the end that follows.
+  const pendingStart = useRef<{ start: string; prevFlight: string; prevNight: string } | null>(null);
   const [editingNight, setEditingNight] = useState(false);
   const [problem, setProblem] = useState<DatesProblem | null>(null);
   const missing = missingDetails({ arrivalTime, returnTime, adults });
@@ -126,24 +134,37 @@ export function ParkStayHeader({
   const prompt = detailsPrompt(missing);
 
   function onFlightChange(v: string) {
+    pendingStart.current = { start: v, prevFlight: flight, prevNight: night };
     setFlight(v);
     setNight(nightForFlightDate(v) ?? "");
     setEditingNight(false);
     setProblem(null);
   }
 
+  function onReturnChange(v: string) {
+    const pending = pendingStart.current;
+    pendingStart.current = null;
+    if (pending && isPickerSwap(pending, v)) {
+      // The picker swapped a return picked before the flight: keep the
+      // flight (and its night) and the return as it was, and say why.
+      setFlight(pending.prevFlight);
+      setNight(pending.prevNight);
+      setProblem({ field: "return", message: RETURN_BEFORE_FLIGHT });
+      return;
+    }
+    setReturnDate(v);
+    setProblem(null);
+  }
+
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const p = checkSearchDates({ airport, flight, night, returnDate }, bounds);
-    if (p) {
-      setProblem(p);
+    const out = submitHref({ airport, flight, night, returnDate, arrivalTime, returnTime, adults }, bounds, focus);
+    if (!out.ok) {
+      setProblem(out.problem);
       return;
     }
     setProblem(null);
-    // Missing details still navigate: the URL then shows exactly what is set,
-    // and the results stay idle with the highlight until the rest is chosen.
-    const next = parkStayPageQuery({ airport, night, arrivalTime, returnDate, returnTime, adults }, focus);
-    router.push(`/park-stay?${next}`);
+    router.push(out.href);
     if (missing.length === 0) setExpanded(false);
   }
 
@@ -215,10 +236,7 @@ export function ParkStayHeader({
             startDate={flight}
             endDate={returnDate}
             onStartChange={onFlightChange}
-            onEndChange={(v) => {
-              setReturnDate(v);
-              setProblem(null);
-            }}
+            onEndChange={onReturnChange}
             minDate={pickerDate(bounds.flightMin)}
             maxDate={pickerDate(maxPick)}
           >

@@ -18,6 +18,8 @@ import { PackagePrice } from "./package-price";
 import { HotelPhoto, HotelRatingLine, PreviewBanner, RoomTimesLine, ShuttleLine } from "./hotel-facts";
 import { SEARCH_PARAM_KEYS, formatCents, formatIsoDay, formatReslabDateTime } from "./format";
 import { readSearchValues } from "./search-results";
+import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
+import { resolveFlight } from "./search-values";
 
 type Ok = Extract<ParkStayHotelResponse, { status: "ok" }>;
 
@@ -43,7 +45,9 @@ async function fetchHotel(query: string): Promise<Settled> {
       if (!isHotelResponse(body)) return UNAVAILABLE;
       return body.status === "ok" ? { kind: "ok", body } : { kind: "unavailable", reason: body.reason };
     }
-    if (res.status === 400 || res.status === 404) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
+    // A 404 here is the server's admin check failing this time (the page itself rendered), not a bad search.
+    if (res.status === 404) return { kind: "error", message: PREVIEW_UNAVAILABLE_MESSAGE, retry: true };
+    if (res.status === 400) return { kind: "error", message: errorMessage(body, "Check your search."), retry: false };
     if (res.status === 429) return { kind: "error", message: "Too many requests — please wait a moment.", retry: true };
     return UNAVAILABLE;
   } catch {
@@ -93,6 +97,7 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
   const params = useSearchParams();
   const values = useMemo(() => readSearchValues(params), [params]);
   const complete = SEARCH_PARAM_KEYS.every((k) => values[k].length > 0) && values.airport.toUpperCase() === airport.toUpperCase();
+  const flightParam = params.get("flight");
   const seenRaw = params.get("seen");
   const seen = seenRaw !== null && /^\d{1,9}$/.test(seenRaw) ? Number(seenRaw) : null; // display-only
   const query = useMemo(() => {
@@ -104,8 +109,12 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
   const backQuery = useMemo(() => {
     const q = new URLSearchParams();
     for (const k of SEARCH_PARAM_KEYS) q.set(k, values[k]);
+    // The page-only flight date rides back to the results (it is never sent to the API).
+    const flight = resolveFlight(flightParam, values.night);
+    if (flight) q.set("flight", flight);
+    q.set("focus", hotelKey);
     return q.toString();
-  }, [values]);
+  }, [values, flightParam, hotelKey]);
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ query: string; attempt: number; state: Settled } | null>(null);
 
