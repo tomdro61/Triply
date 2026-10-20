@@ -259,6 +259,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
                     key={card.hotelKey}
                     card={card}
                     href={hotelHref(state.body.airport.code, card, query)}
+                    airport={{ code: state.body.airport.code, point: airportInfo }}
                     returnDate={state.body.search.returnDate}
                     isHovered={hoveredKey === card.hotelKey}
                     isFocused={focus === card.hotelKey}

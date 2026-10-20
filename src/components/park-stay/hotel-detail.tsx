@@ -2,21 +2,27 @@
 
 /**
  * /park-stay/[airport]/[hotelKey] — one hotel, priced fresh (plan v3 §8.1,
- * §8.4). Itemises room, parking (with tax), service fee and fees paid at the
- * hotel; says "Price updated since your search" when the leading total
- * differs from the results card's `seen` value. Booking is disabled.
+ * §8.4), laid out as mockup screen 8 (approved by Tom 20 Oct 2026): a hero
+ * photo and header; on the left "Your trip" in three steps, the rooms as a
+ * radio group, and the parking / hotel facts; on the right a sticky price
+ * box itemising the SELECTED room (room, parking with tax, service fee, paid
+ * at the hotel). Says "Price updated since your search" when the leading
+ * total differs from the results card's `seen` value. Booking is disabled.
+ * Every fact comes from the hotel API answer (card-facts.ts).
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactElement, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { BedDouble, Bus, Clock, ConciergeBell, Info, SquareParking } from "lucide-react";
 import type { ParkStayHotelResponse } from "@/app/api/park-stay/hotel/route";
-import type { HiddenReason, ParkStayRoomOffer } from "@/lib/hotels/search";
+import type { HiddenReason } from "@/lib/hotels/search";
 import { BUNDLE_CANCELLATION_NOTE } from "@/lib/hotels/refundability";
+import { PARK_STAY_TOTAL_LABEL_INTERIM } from "@/lib/pricing/copy";
 import { Button } from "@/components/ui/button";
-import { PackagePrice } from "./package-price";
-import { HotelPhoto, HotelRatingLine, PreviewBanner, RoomTimesLine, ShuttleLine } from "./hotel-facts";
-import { SEARCH_PARAM_KEYS, formatCents, formatIsoDay, formatReslabDateTime } from "./format";
+import { FactRow, HotelPhoto, MetaLine, PreviewBanner, ScoreBadge, Tags } from "./hotel-facts";
+import { SEARCH_PARAM_KEYS, formatCents, formatReslabDateTime } from "./format";
+import { cancellationTag, metaParts, milesToAirport, roomChoices, roomTags, shuttleFact, tripSteps } from "./card-facts";
 import { readSearchValues } from "./search-results";
 import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
 import { reportRejectedAnswer } from "./report";
@@ -67,37 +73,18 @@ export function unavailableCopy(reason: HiddenReason, mapName: string): string {
   return `${mapName} isn't available for these dates right now.`;
 }
 
-function RoomRow({ room, returnDate }: { room: ParkStayRoomOffer; returnDate: string }) {
-  const p = room.price;
-  return (
-    <li className="grid grid-cols-1 gap-3 rounded-lg border p-4 sm:grid-cols-[1fr_auto]">
-      <div className="space-y-1 text-sm">
-        <p className="font-medium">
-          {room.roomName}
-          {room.boardName ? ` · ${room.boardName}` : ""}
-        </p>
-        <p className="text-xs text-muted-foreground">{room.refundabilitySummary}</p>
-        <dl className="mt-2 grid grid-cols-[auto_auto] gap-x-4 gap-y-0.5 text-xs">
-          <dt>Room (1 night)</dt>
-          <dd className="text-right">{formatCents(p.roomSellCents)}</dd>
-          <dt>Parking, incl. tax</dt>
-          <dd className="text-right">{formatCents(p.parkingOnlineCents)}</dd>
-          <dt>Service fee</dt>
-          <dd className="text-right">{formatCents(p.serviceFeeCents)}</dd>
-          {p.propertyFeesDueAtHotelCents > 0 && (
-            <>
-              <dt>Paid at the hotel</dt>
-              <dd className="text-right">{formatCents(p.propertyFeesDueAtHotelCents)}</dd>
-            </>
-          )}
-        </dl>
-      </div>
-      <PackagePrice price={p} returnDate={returnDate} />
-    </li>
-  );
-}
-
-export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: string; hotelKey: string; mapName: string }) {
+export function ParkStayHotelDetail({
+  airport,
+  airportPoint,
+  hotelKey,
+  mapName,
+}: {
+  airport: string;
+  /** The airport's point (@/config/airports) for the straight-line distance; null = not shown. */
+  airportPoint: { latitude: number; longitude: number } | null;
+  hotelKey: string;
+  mapName: string;
+}) {
   const params = useSearchParams();
   const values = useMemo(() => readSearchValues(params), [params]);
   const complete = SEARCH_PARAM_KEYS.every((k) => values[k].length > 0) && values.airport.toUpperCase() === airport.toUpperCase();
@@ -140,9 +127,8 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
   return (
     <div className="space-y-4">
       <PreviewBanner />
-      <Link href={`/park-stay?${backQuery}`} className="text-sm text-primary hover:underline">
-        ← Back to results
-      </Link>
+      {/* The loaded page puts the back link in its header, under the hero photo. */}
+      {state.kind !== "ok" && <BackLink href={`/park-stay?${backQuery}`} />}
       {state.kind === "missing_inputs" && (
         <p className="rounded-md border p-4 text-sm">
           {mapName}: choose your dates and times on the <Link href="/park-stay" className="text-primary hover:underline">Park &amp; Stay search</Link> to see prices.
@@ -160,43 +146,187 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
         </div>
       )}
       {state.kind === "unavailable" && <p className="rounded-md border p-4 text-sm">{unavailableCopy(state.reason, mapName)}</p>}
-      {state.kind === "ok" && <HotelBody body={state.body} seen={seen} />}
+      {state.kind === "ok" && <HotelBody body={state.body} seen={seen} airport={airport} airportPoint={airportPoint} backHref={`/park-stay?${backQuery}`} />}
     </div>
   );
 }
 
-function HotelBody({ body, seen }: { body: Ok; seen: number | null }) {
+function BackLink({ href }: { href: string }) {
+  return (
+    <Link href={href} className="text-sm font-semibold text-brand-orange hover:underline">
+      ← Back to results
+    </Link>
+  );
+}
+
+function Block({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="flex flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-4">
+      <h2 className="font-heading text-base font-semibold text-gray-900">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function PriceRow({ label, cents, strong = false }: { label: string; cents: number; strong?: boolean }) {
+  return (
+    <div className={`flex justify-between gap-3 ${strong ? "border-t border-gray-200 pt-2 font-heading text-base font-bold text-gray-900" : "text-sm text-gray-700"}`}>
+      <span>{label}</span>
+      <span>{formatCents(cents)}</span>
+    </div>
+  );
+}
+
+function HotelBody({
+  body,
+  seen,
+  airport,
+  airportPoint,
+  backHref,
+}: {
+  body: Ok;
+  seen: number | null;
+  airport: string;
+  airportPoint: { latitude: number; longitude: number } | null;
+  backHref: string;
+}) {
   const { hotel, leading, rooms, search } = body;
+  const choices = roomChoices(leading, rooms);
+  // The leading room starts selected; an id no longer in the list falls back to it.
+  const [selectedId, setSelectedId] = useState(leading.offerRef.rateId);
+  const selected = choices.find((r) => r.offerRef.rateId === selectedId) ?? leading;
+  const radioName = useId();
   const changed = seen !== null && seen !== leading.price.headlineTotalCents;
+  const lot = hotel.lot;
+  const meta = metaParts({ stars: hotel.stars, miles: milesToAirport(lot, airportPoint), airportCode: airport, reviewCount: hotel.reviewCount });
+  const shuttle = shuttleFact(lot, airport);
+  const steps = tripSteps({ search, lot, airportCode: airport });
+  const atHotel = [
+    lot.roomCheckinTime ? { icon: <Clock className="h-4 w-4" />, text: `Room ready from ${lot.roomCheckinTime}` } : null,
+    lot.roomCheckoutTime ? { icon: <Clock className="h-4 w-4" />, text: `Check-out by ${lot.roomCheckoutTime}` } : null,
+    lot.frontDeskHours ? { icon: <ConciergeBell className="h-4 w-4" />, text: `Front desk: ${lot.frontDeskHours}` } : null,
+  ].filter((x): x is { icon: ReactElement; text: string } => x !== null);
+  const p = selected.price;
+
   return (
     <article className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-[280px_1fr]">
-        <HotelPhoto url={hotel.photoUrl} name={hotel.name} />
-        <div className="space-y-1">
-          <h1 className="font-heading text-2xl font-bold">{hotel.name}</h1>
-          <HotelRatingLine stars={hotel.stars} rating={hotel.rating} reviewCount={hotel.reviewCount} />
-          {hotel.address && <p className="text-sm text-muted-foreground">{hotel.address}</p>}
-          <p className="text-sm">Parking at the hotel: {hotel.lot.name}</p>
-          <ShuttleLine lot={hotel.lot} detailed />
-          <RoomTimesLine lot={hotel.lot} />
-          <p className="text-sm">
-            Parking from {formatReslabDateTime(hotel.parking.fromDate)} to {formatReslabDateTime(hotel.parking.toDate)}. Hotel night {formatIsoDay(search.night)}, check-out {formatIsoDay(search.departureDate)}.
-          </p>
-          {hotel.lot.specialConditions && <p className="text-xs text-muted-foreground">Parking rules: {hotel.lot.specialConditions}</p>}
+      <div className="relative h-48 overflow-hidden rounded-xl sm:h-64">
+        <HotelPhoto url={hotel.photoUrl} name={hotel.name} sizes="(max-width: 1024px) 100vw, 1024px" eager />
+      </div>
+      <div>
+        <BackLink href={backHref} />
+        <h1 className="mt-1 font-heading text-2xl font-bold text-gray-900">{hotel.name}</h1>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <ScoreBadge rating={hotel.rating} className="!rounded-md !px-1.5 !text-xs" />
+          <MetaLine parts={[...meta, ...(hotel.address ? [{ text: hotel.address }] : [])]} />
         </div>
       </div>
-      {changed && (
-        <p className="rounded-md bg-muted px-3 py-2 text-sm">Price updated since your search (was {formatCents(seen)}).</p>
-      )}
-      <ul className="space-y-3">
-        {rooms.map((r) => (
-          <RoomRow key={r.roomKey} room={r} returnDate={search.returnDate} />
-        ))}
-      </ul>
-      <p className="text-sm text-muted-foreground">{BUNDLE_CANCELLATION_NOTE}</p>
-      <Button disabled className="w-full sm:w-auto">
-        Booking opens soon
-      </Button>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Block title="Your trip">
+            <ol className="flex flex-col gap-3">
+              {steps.map((step, i) => (
+                <li key={step.title} className="flex gap-3">
+                  <span className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-brand-orange font-heading text-xs font-bold text-white" aria-hidden="true">
+                    {i + 1}
+                  </span>
+                  <div className="text-sm">
+                    <b className="block font-heading font-semibold text-gray-900">{step.title}</b>
+                    <span className="text-gray-600">{step.body}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Block>
+
+          {/* Native radios: arrow keys move the choice, the fieldset names the group. */}
+          <fieldset className="flex min-w-0 flex-col gap-2.5 rounded-xl border border-gray-200 bg-white p-4">
+            <legend className="float-left mb-1 w-full font-heading text-base font-semibold text-gray-900">Choose your room</legend>
+            {choices.map((room) => {
+              const on = room.offerRef.rateId === selected.offerRef.rateId;
+              return (
+                <label
+                  key={room.offerRef.rateId}
+                  className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors focus-within:ring-2 focus-within:ring-brand-orange/40 ${
+                    on ? "border-brand-orange bg-orange-50/40" : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={radioName}
+                    value={room.offerRef.rateId}
+                    checked={on}
+                    onChange={() => setSelectedId(room.offerRef.rateId)}
+                    className="mt-1 h-4 w-4 accent-brand-orange"
+                  />
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="flex items-center gap-1.5 font-heading text-sm font-semibold text-gray-900">
+                      <BedDouble className="h-4 w-4 flex-shrink-0 text-gray-500" aria-hidden="true" />
+                      {room.roomName}
+                    </span>
+                    {room.boardName && <span className="text-xs text-muted-foreground">{room.boardName}</span>}
+                    <Tags tags={roomTags(room)} compact />
+                  </span>
+                  <span className="font-heading text-base font-bold text-gray-900">{formatCents(room.price.headlineTotalCents)}</span>
+                </label>
+              );
+            })}
+          </fieldset>
+
+          <div className={`grid grid-cols-1 gap-4 ${atHotel.length > 0 ? "sm:grid-cols-2" : ""}`}>
+            <Block title="Parking at the hotel">
+              <ul className="flex flex-col gap-2 text-[13px] text-gray-700">
+                <FactRow icon={<SquareParking className="h-4 w-4" />} lead={lot.name}>
+                  · from {formatReslabDateTime(hotel.parking.fromDate)} to {formatReslabDateTime(hotel.parking.toDate)}
+                </FactRow>
+                <FactRow icon={<Bus className="h-4 w-4" />} lead={shuttle.lead}>
+                  {shuttle.rest || null}
+                  {lot.shuttleAvailable && lot.shuttleDetails && <span className="mt-0.5 block text-xs text-muted-foreground">{lot.shuttleDetails}</span>}
+                </FactRow>
+                {lot.specialConditions && (
+                  <FactRow icon={<Info className="h-4 w-4" />}>
+                    <details>
+                      <summary className="cursor-pointer font-medium text-brand-orange">Show parking rules</summary>
+                      <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">{lot.specialConditions}</p>
+                    </details>
+                  </FactRow>
+                )}
+              </ul>
+            </Block>
+            {atHotel.length > 0 && (
+              <Block title="At the hotel">
+                <ul className="flex flex-col gap-2 text-[13px] text-gray-700">
+                  {atHotel.map((f) => (
+                    <FactRow key={f.text} icon={f.icon}>
+                      {f.text}
+                    </FactRow>
+                  ))}
+                </ul>
+              </Block>
+            )}
+          </div>
+        </div>
+
+        {/* The price follows the selected room; under the details on a phone, sticky beside them on desktop. */}
+        <aside aria-label="Your price" className="flex h-fit flex-col gap-2 rounded-xl border border-gray-200 bg-white p-4 lg:sticky lg:top-24">
+          <h2 className="font-heading text-base font-semibold text-gray-900">Your price</h2>
+          <PriceRow label={`${selected.roomName}, 1 night`} cents={p.roomSellCents} />
+          {/* Zero until the accountant answers M16 (plans.ts); shown if it ever is not, so the lines add up. */}
+          {p.roomTaxCents > 0 && <PriceRow label="Room tax" cents={p.roomTaxCents} />}
+          <PriceRow label="Parking, incl. tax" cents={p.parkingOnlineCents} />
+          <PriceRow label="Service fee" cents={p.serviceFeeCents} />
+          {p.propertyFeesDueAtHotelCents > 0 && <PriceRow label="Paid at the hotel" cents={p.propertyFeesDueAtHotelCents} />}
+          <PriceRow label="Total" cents={p.headlineTotalCents} strong />
+          <p className="text-[11.5px] text-muted-foreground">{PARK_STAY_TOTAL_LABEL_INTERIM}</p>
+          <Tags tags={[cancellationTag(selected.refundability)]} />
+          {changed && <p className="rounded-md bg-muted px-3 py-2 text-sm">Price updated since your search (was {formatCents(seen)}).</p>}
+          <p className="text-xs text-muted-foreground">{BUNDLE_CANCELLATION_NOTE}</p>
+          <Button disabled className="mt-1 w-full">
+            Booking opens soon
+          </Button>
+        </aside>
+      </div>
     </article>
   );
 }
