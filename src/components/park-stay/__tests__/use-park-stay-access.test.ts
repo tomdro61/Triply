@@ -6,6 +6,8 @@ vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({}) }));
 
 import {
   PARK_STAY_ACCESS_CACHE_PREFIX,
+  PARK_STAY_ACCESS_HIDDEN_TTL_MS,
+  PARK_STAY_ACCESS_VISIBLE_TTL_MS,
   PARK_STAY_ACCESS_URL,
   startParkStayAccess,
   type AccessAuthClient,
@@ -67,10 +69,16 @@ async function settle(): Promise<void> {
   await new Promise((r) => setTimeout(r, 0));
 }
 
-function run(auth: AccessAuthClient, fetchImpl: (url: string, init: RequestInit) => Promise<Response>, storage: AccessStorage | null = memoryStorage(), timeoutMs = 50) {
+function run(
+  auth: AccessAuthClient,
+  fetchImpl: (url: string, init: RequestInit) => Promise<Response>,
+  storage: AccessStorage | null = memoryStorage(),
+  timeoutMs = 50,
+  now?: () => number
+) {
   const states: ParkStayAccessState[] = [];
   const fetchMock = vi.fn(fetchImpl);
-  const stop = startParkStayAccess({ auth, fetch: fetchMock, storage, timeoutMs }, (s) => states.push(s));
+  const stop = startParkStayAccess({ auth, fetch: fetchMock, storage, timeoutMs, now }, (s) => states.push(s));
   return { states, fetchMock, stop, last: () => states[states.length - 1] };
 }
 
@@ -234,5 +242,103 @@ describe("useParkStayAccess controller (CX plan v2 §1)", () => {
     await settle();
     expect(a.unsubscribe).toHaveBeenCalledTimes(1);
     expect(r.last()).toEqual({ status: "loading" });
+  });
+});
+
+describe("cache TTLs (review round 1, item 3)", () => {
+  it("a hidden (404) answer is reused for under 5 minutes, then asked again", async () => {
+    const storage = memoryStorage();
+    let t = 1_000_000;
+    const clock = () => t;
+    run(fakeAuth("u1").auth, async () => notFound(), storage, 50, clock);
+    await settle();
+
+    t += PARK_STAY_ACCESS_HIDDEN_TTL_MS - 1;
+    const within = run(fakeAuth("u1").auth, async () => ok(), storage, 50, clock);
+    await settle();
+    expect(within.fetchMock).not.toHaveBeenCalled();
+    expect(within.last()).toEqual({ status: "hidden" });
+
+    t += 1;
+    const after = run(fakeAuth("u1").auth, async () => ok(), storage, 50, clock);
+    await settle();
+    expect(after.fetchMock).toHaveBeenCalledTimes(1);
+    expect(after.last()).toEqual({ status: "visible", data: ACCESS });
+  });
+
+  it("a visible answer lasts 10 minutes", async () => {
+    const storage = memoryStorage();
+    let t = 5_000_000;
+    const clock = () => t;
+    run(fakeAuth("u1").auth, async () => ok(), storage, 50, clock);
+    await settle();
+
+    t += PARK_STAY_ACCESS_VISIBLE_TTL_MS - 1;
+    const within = run(fakeAuth("u1").auth, async () => notFound(), storage, 50, clock);
+    await settle();
+    expect(within.fetchMock).not.toHaveBeenCalled();
+    expect(within.last()).toEqual({ status: "visible", data: ACCESS });
+
+    t += 1;
+    const after = run(fakeAuth("u1").auth, async () => notFound(), storage, 50, clock);
+    await settle();
+    expect(after.fetchMock).toHaveBeenCalledTimes(1);
+    expect(after.last()).toEqual({ status: "hidden" });
+  });
+
+  it("an entry with no timestamp, or from the future (clock moved back), is ignored", async () => {
+    const storage = memoryStorage();
+    storage.setItem(PARK_STAY_ACCESS_CACHE_PREFIX + "u1", JSON.stringify({ visible: false }));
+    const r = run(fakeAuth("u1").auth, async () => ok(), storage, 50, () => 1_000);
+    await settle();
+    expect(r.fetchMock).toHaveBeenCalledTimes(1);
+
+    storage.setItem(PARK_STAY_ACCESS_CACHE_PREFIX + "u1", JSON.stringify({ visible: false, at: 9_999 }));
+    const r2 = run(fakeAuth("u1").auth, async () => ok(), storage, 50, () => 1_000);
+    await settle();
+    expect(r2.fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("a client trace when the access check fails (review round 1, item 6)", () => {
+  it("warns on 5xx, network error, unreadable body, timeout and a failed session read", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const cases: Array<[(url: string, init: RequestInit) => Promise<Response>, RegExp]> = [
+        [async () => new Response("x", { status: 503 }), /HTTP 503/],
+        [async () => Promise.reject(new TypeError("offline")), /network error: offline/],
+        [async () => new Response("not json", { status: 200 }), /unreadable body/],
+        [async () => new Response(JSON.stringify({ hotels: 1 }), { status: 200 }), /unreadable body/],
+        [(_u, init) => new Promise<Response>((_res, rej) => init.signal?.addEventListener("abort", () => rej(new Error("aborted")))), /timeout/],
+      ];
+      for (const [impl, re] of cases) {
+        warn.mockClear();
+        run(fakeAuth("u1").auth, impl, memoryStorage(), 30);
+        await new Promise((res) => setTimeout(res, 60));
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(warn.mock.calls[0][0]).toBe("[park-stay] access check failed:");
+        expect(String(warn.mock.calls[0][1])).toMatch(re);
+      }
+
+      warn.mockClear();
+      run(fakeAuth("u1", { error: true }).auth, async () => ok());
+      await settle();
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0][1])).toMatch(/session read/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("stays silent for a plain 404 and for a signed-out visitor", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      run(fakeAuth("u1").auth, async () => notFound());
+      run(fakeAuth(null).auth, async () => ok());
+      await settle();
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

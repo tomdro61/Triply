@@ -10,9 +10,12 @@
  * - No Supabase session → "hidden", and ZERO requests to the endpoint (so a
  *   signed-out customer's network log never names it).
  * - A session → one bounded GET, cached in sessionStorage keyed by the user
- *   id. A definitive answer is cached (200 → visible, 404 → hidden); an error,
- *   a timeout or an unreadable body is NEVER cached — hidden for this view,
- *   asked again on the next.
+ *   id, with a TTL: 200 → visible for 10 minutes; 404 → hidden for only 5
+ *   (a 404 can also be one failed server-side auth check — review round 1,
+ *   item 3 — so it must not hide the feature for the whole tab). An error, a
+ *   timeout or an unreadable body is NEVER cached — hidden for this view,
+ *   asked again on the next, and logged with console.warn (a plain 404 and
+ *   a signed-out visitor are not failures and log nothing).
  * - SIGNED_OUT clears every cached answer. SIGNED_IN or any event carrying a
  *   different user id re-asks for that user. A SIGNED_IN for the SAME user is
  *   ignored: supabase-js re-emits SIGNED_IN on every tab-visibility change
@@ -31,7 +34,9 @@ import type { ParkStayAccess, ParkStayAccessAirport, ParkStayAccessHotel } from 
 export const PARK_STAY_ACCESS_URL = "/api/park-stay/access";
 /** Both the session read and the endpoint call are bounded by this. */
 export const PARK_STAY_ACCESS_TIMEOUT_MS = 5_000;
-export const PARK_STAY_ACCESS_CACHE_PREFIX = "triply:psa:v1:";
+export const PARK_STAY_ACCESS_CACHE_PREFIX = "triply:psa:v2:";
+export const PARK_STAY_ACCESS_VISIBLE_TTL_MS = 10 * 60 * 1000;
+export const PARK_STAY_ACCESS_HIDDEN_TTL_MS = 5 * 60 * 1000;
 
 export type ParkStayAccessState = { status: "hidden" } | { status: "loading" } | { status: "visible"; data: ParkStayAccess };
 
@@ -59,6 +64,8 @@ export interface AccessDeps {
   /** Null when sessionStorage is unavailable (private mode, blocked site data). */
   storage: AccessStorage | null;
   timeoutMs?: number;
+  /** Epoch ms; injectable for the TTL tests. */
+  now?: () => number;
 }
 
 // ───────────────────────── response guard (no zod in the shared bundle) ─────────────────────────
@@ -103,25 +110,30 @@ export function isParkStayAccess(v: unknown): v is ParkStayAccess {
 
 type CachedAnswer = { visible: false } | { visible: true; data: ParkStayAccess };
 
-function readCache(storage: AccessStorage | null, userId: string): CachedAnswer | null {
+/** A stored answer counts only within its TTL (and never from the "future": a clock moved back expires it). */
+function readCache(storage: AccessStorage | null, userId: string, now: number): CachedAnswer | null {
   if (!storage) return null;
   try {
     const raw = storage.getItem(PARK_STAY_ACCESS_CACHE_PREFIX + userId);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || !("visible" in parsed)) return null;
-    if (parsed.visible === false) return { visible: false };
-    if (parsed.visible === true && "data" in parsed && isParkStayAccess(parsed.data)) return { visible: true, data: parsed.data };
+    if (typeof parsed !== "object" || parsed === null || !("visible" in parsed) || !("at" in parsed) || typeof parsed.at !== "number") return null;
+    const age = now - parsed.at;
+    if (age < 0) return null;
+    if (parsed.visible === false) return age < PARK_STAY_ACCESS_HIDDEN_TTL_MS ? { visible: false } : null;
+    if (parsed.visible === true && age < PARK_STAY_ACCESS_VISIBLE_TTL_MS && "data" in parsed && isParkStayAccess(parsed.data)) {
+      return { visible: true, data: parsed.data };
+    }
     return null;
   } catch {
     return null;
   }
 }
 
-function writeCache(storage: AccessStorage | null, userId: string, answer: CachedAnswer): void {
+function writeCache(storage: AccessStorage | null, userId: string, answer: CachedAnswer, now: number): void {
   if (!storage) return;
   try {
-    storage.setItem(PARK_STAY_ACCESS_CACHE_PREFIX + userId, JSON.stringify(answer));
+    storage.setItem(PARK_STAY_ACCESS_CACHE_PREFIX + userId, JSON.stringify({ ...answer, at: now }));
   } catch {
     // Quota / blocked storage: the answer simply isn't reused.
   }
@@ -159,17 +171,37 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-/** One bounded GET. Only a 200 with a readable body or a 404 is definitive. */
+function warn(reason: string): void {
+  console.warn("[park-stay] access check failed:", reason);
+}
+
+/** One bounded GET. Only a 200 with a readable body or a 404 is definitive; every other outcome is logged. */
 async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | null> {
   const controller = new AbortController();
-  const t = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const t = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   try {
     const res = await deps.fetch(PARK_STAY_ACCESS_URL, { cache: "no-store", credentials: "same-origin", signal: controller.signal });
     if (res.status === 404) return { visible: false };
-    if (res.status !== 200) return null;
-    const body: unknown = await res.json();
-    return isParkStayAccess(body) ? { visible: true, data: body } : null;
-  } catch {
+    if (res.status !== 200) {
+      warn(`HTTP ${res.status}`);
+      return null;
+    }
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      warn(timedOut ? "timeout" : "unreadable body");
+      return null;
+    }
+    if (isParkStayAccess(body)) return { visible: true, data: body };
+    warn("unreadable body");
+    return null;
+  } catch (err) {
+    warn(timedOut ? "timeout" : `network error: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   } finally {
     clearTimeout(t);
@@ -183,6 +215,7 @@ async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | 
  */
 export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAccessState) => void): () => void {
   const timeoutMs = deps.timeoutMs ?? PARK_STAY_ACCESS_TIMEOUT_MS;
+  const now = deps.now ?? (() => Date.now());
   let stopped = false;
   // Each resolve gets a generation; only the latest may publish.
   let generation = 0;
@@ -200,7 +233,7 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
       publish(gen, HIDDEN);
       return;
     }
-    const cached = readCache(deps.storage, userId);
+    const cached = readCache(deps.storage, userId, now());
     if (cached) {
       publish(gen, cached.visible ? { status: "visible", data: cached.data } : HIDDEN);
       return;
@@ -212,7 +245,7 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
       publish(gen, HIDDEN); // not cached: asked again on the next page view
       return;
     }
-    writeCache(deps.storage, userId, answer);
+    writeCache(deps.storage, userId, answer, now());
     publish(gen, answer.visible ? { status: "visible", data: answer.data } : HIDDEN);
   }
 
@@ -238,9 +271,12 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
     try {
       const { data: s, error } = await withTimeout(deps.auth.getSession(), timeoutMs);
       // Supabase resolves { error } rather than throwing: an error is "no session".
+      if (error) warn(`session read: ${error instanceof Error ? error.message : String(error)}`);
       userId = error ? null : (s.session?.user.id ?? null);
-    } catch {
-      userId = null; // a hung or failed session read hides, uncached
+    } catch (err) {
+      // A hung or failed session read hides, uncached.
+      warn(`session read: ${err instanceof Error ? err.message : String(err)}`);
+      userId = null;
     }
     // An auth event may already have resolved a newer state; don't overwrite it.
     if (stopped || gen !== generation) return;
