@@ -91,7 +91,7 @@ const ok =
   exec.allowed?.allowed === true && exec.allowed.calls >= 1 &&
   exec.refused?.allowed === false && exec.refused.denied >= 1 &&
   exec.anonDenied === true &&
-  rowsAfterChecks[0].n === after.rows;
+  rowsAfterChecks[0].n === after.rows[0]?.n;
 console.log(
   ok
     ? "VERIFIED: RLS on, service_role only (select/insert/execute), take allowed + 0-limit refused, anon denied, no rows left behind — OK"
