@@ -22,7 +22,7 @@
  * was searched.
  */
 
-import { useMemo, useRef, useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronDown, ChevronUp, MapPin, SlidersHorizontal } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
@@ -40,11 +40,8 @@ import {
   type DatesProblem,
   type ParkStayAirportOption,
   type ParkStaySearchValues,
+  airportTimeZone,
 } from "./search-values";
-// Only for the picker's limits before an airport is chosen (every open
-// airport is in New York today); a submit needs an airport, and then its own
-// timezone sets the limits. Never a booking value.
-const FALLBACK_TIME_ZONE = "America/New_York";
 
 /** A LOCAL-midnight Date for the picker, built from the literal calendar date (the picker compares local days). */
 function pickerDate(iso: string): Date | undefined {
@@ -116,10 +113,11 @@ export function ParkStayHeader({
   // Mobile: open when something is still to fill in, collapsed once searched.
   const [expanded, setExpanded] = useState(!(airport && night && returnDate) || missing.length > 0);
 
-  const timeZone = airports.find((a) => a.code === airport)?.timezone ?? FALLBACK_TIME_ZONE;
-  // "Today" at the airport, read once per airport — not a render-time default
-  // for any booking value, only the picker's limits.
-  const bounds = useMemo(() => parkStayDateBounds(timeZone, new Date()), [timeZone]);
+  const timeZone = airportTimeZone(airports, airport);
+  // "Today" at the airport, read on every render so a page left open past
+  // midnight doesn't keep offering yesterday (review recheck L4). Only the
+  // picker's limits — never a default for any booking value.
+  const bounds = parkStayDateBounds(timeZone, new Date());
   const maxPick = pickerMaxDate({ night, returnDate }, bounds);
   const prompt = detailsPrompt(missing);
 

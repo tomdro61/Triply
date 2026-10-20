@@ -14,6 +14,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { List, Map as MapIcon } from "lucide-react";
 import type { ParkStayCard } from "@/lib/hotels/search";
+import { todayInZone } from "@/lib/hotels/dates";
 import { MapPlaceholder } from "@/components/map/map-placeholder";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { PreviewBanner } from "./hotel-facts";
@@ -36,6 +37,7 @@ import {
   type ParkStayAirportOption,
   type ParkStayHotelName,
   type ParkStaySearchValues,
+  airportTimeZone,
 } from "./search-values";
 
 const NO_OFFERS: readonly ParkStayCard[] = [];
@@ -203,7 +205,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
         airports={airports}
         values={values}
         focus={focus}
-        parkingHref={parkingOnlyHref(values)}
+        parkingHref={parkingOnlyHref(values, todayInZone(airportTimeZone(airports, values.airport), new Date()))}
         currentHref={currentHref}
       />
 

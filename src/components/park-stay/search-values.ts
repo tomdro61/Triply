@@ -15,6 +15,7 @@
  */
 
 import { isIsoDate, shiftIsoDate, todayInZone } from "@/lib/hotels/dates";
+import { MAX_ADVANCE_BOOKING_DAYS } from "@/lib/booking-window";
 import { PARK_STAY_MAX_ADULTS, PARK_STAY_MAX_NIGHT_AHEAD_DAYS, PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS, PARK_STAY_MIN_ADULTS } from "@/lib/hotels/plans";
 import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, SEARCH_PARAM_KEYS, type SearchParamKey } from "./format";
 
@@ -104,6 +105,14 @@ export interface ParkStayDateBounds {
   checkinMax: string;
 }
 
+/** Only sets the picker limits before an airport is chosen (every open airport is Eastern today). */
+export const FALLBACK_TIME_ZONE = "America/New_York";
+
+/** The chosen airport's IANA time zone, or the fallback when none is chosen yet. */
+export function airportTimeZone(airports: readonly ParkStayAirportOption[], code: string): string {
+  return airports.find((a) => a.code === code.toUpperCase())?.timezone ?? FALLBACK_TIME_ZONE;
+}
+
 export function parkStayDateBounds(timeZone: string, now: Date): ParkStayDateBounds {
   const today = todayInZone(timeZone, now);
   return { today, checkinMax: shiftIsoDate(today, PARK_STAY_MAX_NIGHT_AHEAD_DAYS) };
@@ -116,15 +125,15 @@ export function returnMaxForNight(night: string): string | null {
 
 /**
  * The latest day the shared DateRangePicker may offer. It takes ONE maxDate
- * for both legs, so it follows the phase: no check-in yet → the check-in
- * limit; check-in picked, return cleared (the picker is on the return leg)
- * → check-in + 60; both set (either leg may be reopened) → the later of the
- * two, and checkSearchDates() names whichever rule a pick then breaks.
+ * for both legs and doesn't say which leg is open, so: no check-in yet → the
+ * check-in limit; otherwise the later of the check-in limit and check-in +
+ * 60, so reopening the check-in leg never blocks a valid check-in (review
+ * recheck M1). checkSearchDates() names whichever rule a pick then breaks
+ * (e.g. a return more than 60 days after check-in).
  */
 export function pickerMaxDate(input: { night: string; returnDate: string }, bounds: ParkStayDateBounds): string {
   const returnMax = returnMaxForNight(input.night);
   if (returnMax === null) return bounds.checkinMax;
-  if (input.returnDate.length === 0) return returnMax;
   return returnMax > bounds.checkinMax ? returnMax : bounds.checkinMax;
 }
 
@@ -220,12 +229,18 @@ export function detailsPrompt(missing: readonly DetailKey[]): string | null {
  * hotel night. /search reads exactly airport, checkin and checkout
  * (search/page.tsx), so nothing else is carried — no times it would ignore.
  * Built from the URL values (what was searched), never from a half-edited
- * form. Null when the values can't make a valid parking search (never swapped).
+ * form. Null when the values can't make a valid parking search (never swapped),
+ * or when the parking check-in would fall past ResLab's 100-day check-in
+ * window counted from `today` at the airport (review recheck L3).
  */
-export function parkingOnlyHref(values: Pick<ParkStaySearchValues, "airport" | "night" | "returnDate">): string | null {
+export function parkingOnlyHref(
+  values: Pick<ParkStaySearchValues, "airport" | "night" | "returnDate">,
+  today: string
+): string | null {
   if (!/^[A-Za-z]{3}$/.test(values.airport)) return null;
   const checkin = checkoutDateFor(values.night);
   if (checkin === null || !isIsoDate(values.returnDate) || values.returnDate < checkin) return null;
+  if (!isIsoDate(today) || checkin > shiftIsoDate(today, MAX_ADVANCE_BOOKING_DAYS)) return null;
   const q = new URLSearchParams({ airport: values.airport.toUpperCase(), checkin, checkout: values.returnDate });
   return `/search?${q.toString()}`;
 }

@@ -30,6 +30,8 @@ const NY = "America/New_York";
 const full: ParkStaySearchValues = { airport: "JFK", night: "2026-11-10", arrivalTime: "7:00 PM", returnDate: "2026-11-14", returnTime: "6:00 PM", adults: "2" };
 const params = (o: Record<string, string>) => new URLSearchParams(o);
 
+const TODAY = "2026-10-21"; // today+100 = 2027-01-29
+
 describe("check-in → check-out (calendar arithmetic)", () => {
   it("check-out = check-in + 1 across month end, year end, a leap day and the DST weekends", () => {
     const pairs: Array<[string, string]> = [
@@ -114,7 +116,8 @@ describe("the header's date rules match validateParkStayWindow", () => {
 
   it("the picker's one maxDate follows the leg being picked", () => {
     expect(pickerMaxDate({ night: "", returnDate: "" }, b)).toBe(b.checkinMax);
-    expect(pickerMaxDate({ night: "2026-11-10", returnDate: "" }, b)).toBe("2027-01-09");
+    // Reopening the check-in leg must never block a valid check-in (review recheck M1).
+    expect(pickerMaxDate({ night: "2026-11-10", returnDate: "" }, b)).toBe(b.checkinMax > "2027-01-09" ? b.checkinMax : "2027-01-09");
     expect(pickerMaxDate({ night: "2026-11-10", returnDate: "2026-11-14" }, b)).toBe(b.checkinMax);
     expect(pickerMaxDate({ night: "2027-01-19", returnDate: "2027-01-25" }, b)).toBe("2027-03-20");
   });
@@ -182,17 +185,21 @@ describe("URLs", () => {
   });
 
   it("Parking only → /search?airport&checkin=<check-in + 1>&checkout=returnDate, nothing /search doesn't read", () => {
-    expect(parkingOnlyHref(full)).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
-    expect(parkingOnlyHref({ airport: "jfk", night: "2026-12-31", returnDate: "2027-01-03" })).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
+    expect(parkingOnlyHref(full, TODAY)).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
+    expect(parkingOnlyHref({ airport: "jfk", night: "2026-12-31", returnDate: "2027-01-03" }, TODAY)).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
     // a return on the hotel check-out day is a valid same-day parking range
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" })).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" }, TODAY)).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
   });
 
   it("Parking only is disabled when the values can't make a parking search (never swapped)", () => {
-    expect(parkingOnlyHref({ ...full, night: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, airport: "" })).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" })).toBeNull();
+    expect(parkingOnlyHref({ ...full, night: "" }, TODAY)).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "" }, TODAY)).toBeNull();
+    expect(parkingOnlyHref({ ...full, airport: "" }, TODAY)).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" }, TODAY)).toBeNull();
+    // ResLab takes a check-in up to 100 days ahead: a hotel night on day 100 can't link to parking (review recheck L3).
+    expect(parkingOnlyHref({ airport: "JFK", night: "2027-01-28", returnDate: "2027-02-02" }, TODAY)).toBe("/search?airport=JFK&checkin=2027-01-29&checkout=2027-02-02");
+    expect(parkingOnlyHref({ airport: "JFK", night: "2027-01-29", returnDate: "2027-02-02" }, TODAY)).toBeNull();
+    expect(parkingOnlyHref(full, "")).toBeNull();
   });
 });
 
