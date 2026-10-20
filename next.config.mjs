@@ -9,6 +9,26 @@ const withPWA = withPWAInit({
   fallbacks: {
     document: "/offline",
   },
+  // Park & Stay is an admin-only preview (plan §20): never keep a copy in the
+  // service worker, or a signed-out or offline visit on the same browser could
+  // be served an admin's page or API answer without reaching the server gate.
+  // Prepended to the defaults; the function is serialised into sw.js, so it
+  // must stay self-contained.
+  extendDefaultRuntimeCaching: true,
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        urlPattern: ({ sameOrigin, url: { pathname } }) =>
+          sameOrigin &&
+          (pathname === "/park-stay" ||
+            pathname.startsWith("/park-stay/") ||
+            pathname === "/api/park-stay" ||
+            pathname.startsWith("/api/park-stay/")),
+        handler: "NetworkOnly",
+        options: { cacheName: "park-stay-private" },
+      },
+    ],
+  },
 });
 
 /** @type {import('next').NextConfig} */

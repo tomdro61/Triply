@@ -49,6 +49,7 @@ describe("Park & Stay pages (plan v3 §8.1)", () => {
   it("flag off → both pages 404 (the post-deploy negative control)", async () => {
     await rejectsNotFound(() => ParkStayPage());
     await rejectsNotFound(() => ParkStayHotelPage(params("jfk", "doubletree-jfk")));
+    expect(viewerAllowed).not.toHaveBeenCalled();
   });
 
   it("flag on: the search page renders; unknown, disabled or other-airport hotel keys 404", async () => {

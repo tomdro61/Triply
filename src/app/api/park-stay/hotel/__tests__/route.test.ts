@@ -108,6 +108,7 @@ describe("GET /api/park-stay/hotel", () => {
     flags.enabled = false;
     expect((await GET(request({ hotelKey: null, night: "x" }))).status).toBe(404);
     expect(supplierCalls()).toBe(0);
+    expect(viewerAllowed).not.toHaveBeenCalled(); // flag first: no auth call where Park & Stay is off
   });
 
   it("not a signed-in admin → 404 before validation, no supplier call (§20)", async () => {

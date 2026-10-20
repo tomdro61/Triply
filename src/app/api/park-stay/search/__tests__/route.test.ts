@@ -114,6 +114,7 @@ describe("GET /api/park-stay/search — gate order (§4.1)", () => {
     }
     expect(takeLiteApiCall).not.toHaveBeenCalled();
     expect(supplierCalls()).toBe(0);
+    expect(viewerAllowed).not.toHaveBeenCalled(); // flag first: no auth call where Park & Stay is off
   });
 
   it("not a signed-in admin → the same 404 for ANY query, before validation and with no supplier call (§20)", async () => {

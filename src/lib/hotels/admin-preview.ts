@@ -24,15 +24,33 @@ import { bounded } from "@/lib/utils/bounded";
 
 export const PARK_STAY_VIEWER_TIMEOUT_MS = 4000;
 
-/** At most one Sentry event per warm process per window, so a later outage is still heard. */
+/**
+ * Every denial for an error or timeout is logged (one cheap line, so an admin
+ * who "can't see Park & Stay" leaves a trace). Sentry gets at most one event per
+ * failure KIND per 10 minutes per process, so a one-off failure can't silence a
+ * different one, and a later outage is still heard.
+ */
 export const PARK_STAY_VIEWER_REPORT_INTERVAL_MS = 10 * 60 * 1000;
-let lastReportAt: number | null = null;
+const lastReportAt = new Map<string, number>();
+const suppressed = new Map<string, number>();
 
-function report(err: Error, caller: string): void {
+function report(err: Error, kind: string, caller: string): void {
+  console.warn(`[park-stay] viewer auth denied (${caller}): ${err.name}: ${err.message}`);
   const now = Date.now();
-  if (lastReportAt !== null && now - lastReportAt < PARK_STAY_VIEWER_REPORT_INTERVAL_MS) return;
-  lastReportAt = now;
-  captureAPIError(err, { endpoint: caller, method: "GET", stage: "viewer_auth" });
+  const last = lastReportAt.get(kind);
+  if (last !== undefined && now - last < PARK_STAY_VIEWER_REPORT_INTERVAL_MS) {
+    suppressed.set(kind, (suppressed.get(kind) ?? 0) + 1);
+    return;
+  }
+  const skipped = suppressed.get(kind) ?? 0;
+  lastReportAt.set(kind, now);
+  suppressed.delete(kind);
+  captureAPIError(err, {
+    endpoint: caller,
+    method: "GET",
+    stage: "viewer_auth",
+    extra: { kind, suppressedSinceLastEvent: skipped },
+  });
 }
 
 export async function parkStayViewerAllowed(caller: string): Promise<boolean> {
@@ -44,19 +62,25 @@ export async function parkStayViewerAllowed(caller: string): Promise<boolean> {
     } = await bounded(supabase.auth.getUser(), PARK_STAY_VIEWER_TIMEOUT_MS, "auth.getUser");
     if (error) {
       if (!isSessionMissing(error)) {
-        report(new Error(`auth.getUser failed (${error.status ?? "?"}): ${error.message}`), caller);
+        report(
+          new Error(`auth.getUser failed (${error.status ?? "?"}): ${error.message}`),
+          `${error.name ?? "AuthError"}:${error.status ?? ""}:${error.code ?? ""}`,
+          caller
+        );
       }
       return false;
     }
     if (!user || !user.email_confirmed_at) return false;
     return isAdminEmail(user.email);
   } catch (err) {
-    report(err instanceof Error ? err : new Error(String(err)), caller);
+    const e = err instanceof Error ? err : new Error(String(err));
+    report(e, `thrown:${e.name}`, caller);
     return false;
   }
 }
 
 /** Test seam. */
 export function __resetParkStayViewerForTests(): void {
-  lastReportAt = null;
+  lastReportAt.clear();
+  suppressed.clear();
 }

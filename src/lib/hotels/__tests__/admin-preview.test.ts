@@ -14,6 +14,8 @@ const user = (over: Record<string, unknown> = {}) => ({
 });
 
 beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   getUser.mockReset();
   captureAPIError.mockReset();
   __resetParkStayViewerForTests();
@@ -64,6 +66,28 @@ describe("parkStayViewerAllowed (plan §20.1) — fails closed", () => {
     expect(await parkStayViewerAllowed("/api/park-stay/search")).toBe(false);
     expect(captureAPIError).toHaveBeenCalledTimes(1);
     expect(captureAPIError.mock.calls[0][1]).toMatchObject({ endpoint: "/api/park-stay/search", stage: "viewer_auth" });
+  });
+
+  it("throttles per failure kind: a one-off timeout does not silence a different error", async () => {
+    getUser.mockRejectedValueOnce(new Error("boom"));
+    await parkStayViewerAllowed("/x");
+    getUser.mockResolvedValue({ data: { user: null }, error: { status: 401, message: "invalid api key", code: "bad_api_key", name: "AuthApiError" } });
+    await parkStayViewerAllowed("/x");
+    expect(captureAPIError).toHaveBeenCalledTimes(2);
+  });
+
+  it("every error denial is logged even when Sentry is throttled", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    warn.mockClear();
+    try {
+      getUser.mockResolvedValue({ data: { user: null }, error: { status: 500, message: "gotrue down" } });
+      await parkStayViewerAllowed("/x");
+      await parkStayViewerAllowed("/x");
+      expect(captureAPIError).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(2);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("a thrown error → false and reported", async () => {
