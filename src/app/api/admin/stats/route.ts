@@ -5,6 +5,7 @@ import { isAdminEmail, excludeTestBookings } from "@/config/admin";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { attributionSourceLabel } from "@/lib/attribution/display";
+import { RECOVERY_CAMPAIGN } from "@/lib/checkout-recovery/campaign";
 import {
   aggregate,
   buildPromoReport,
@@ -374,7 +375,42 @@ export async function GET(request: NextRequest) {
         )
       : null;
 
+    // --- Abandoned-checkout emails (migration 031) -----------------------------
+    // Live sends and opt-outs in the range, and confirmed bookings in the range
+    // whose first or last touch came through the email's link (a floor: a
+    // customer who came back without clicking it isn't counted). null =
+    // unavailable, never shown as 0.
+    let recovery: { sent: number; optedOut: number; recoveredBookings: number | null } | null = null;
+    {
+      const [sentRes, optRes] = await Promise.all([
+        applyDateFilter(
+          supabase
+            .from("checkout_recovery_emails")
+            .select("*", { count: "exact", head: true })
+            .eq("status", "sent")
+            .eq("livemode", true)
+        ),
+        applyDateFilter(supabase.from("checkout_recovery_optouts").select("*", { count: "exact", head: true })),
+      ]);
+      if (sentRes.error) warn("recovery email count failed", sentRes.error);
+      else if (optRes.error) warn("recovery opt-out count failed", optRes.error);
+      else {
+        recovery = {
+          sent: sentRes.count ?? 0,
+          optedOut: optRes.count ?? 0,
+          recoveredBookings: attrRowsComplete
+            ? attrRows.filter(
+                (r) =>
+                  r.status === "confirmed" &&
+                  (r.attribution?.first?.cmp === RECOVERY_CAMPAIGN || r.attribution?.last?.cmp === RECOVERY_CAMPAIGN)
+              ).length
+            : null,
+        };
+      }
+    }
+
     return NextResponse.json({
+      recovery,
       attribution: attrRowsComplete
         ? {
             bySource: bySource(attrRows),

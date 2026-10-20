@@ -132,6 +132,8 @@ interface Stats {
     warnings: string[];
   } | null;
   attributionWarnings?: string[];
+  /** Abandoned-checkout emails in the range (live). null = unavailable. */
+  recovery?: { sent: number; optedOut: number; recoveredBookings: number | null } | null;
   /** Migration 032. null + cancellationsError when the fetch failed. */
   cancellations?: CancellationReport | null;
   cancellationsError?: string | null;
@@ -362,6 +364,13 @@ export default function AdminDashboard() {
             const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
             params.set("startDate", monthStart.toISOString());
             bookingParams.set("startDate", monthStart.toISOString());
+          } else if (dateRange === "last7" || dateRange === "last30") {
+            // Today plus the 6 (or 29) days before, in this browser's time zone
+            // like the other presets.
+            const start = new Date(today);
+            start.setDate(start.getDate() - (dateRange === "last7" ? 6 : 29));
+            params.set("startDate", start.toISOString());
+            bookingParams.set("startDate", start.toISOString());
           } else if (dateRange === "custom" && customStartDate) {
             params.set("startDate", new Date(customStartDate).toISOString());
             bookingParams.set("startDate", new Date(customStartDate).toISOString());
@@ -472,6 +481,8 @@ export default function AdminDashboard() {
               <option value="today">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+              <option value="last7">Last 7 Days</option>
+              <option value="last30">Last 30 Days</option>
               <option value="custom">Custom Range</option>
             </select>
           </div>
@@ -524,9 +535,9 @@ export default function AdminDashboard() {
           color="orange"
         />
         <StatCard
-          title="Gross Revenue"
+          title="Total booking value"
           value={formatPrice(stats?.revenue.gross.total || 0)}
-          subValue={`Triply: ${formatPrice(stats?.revenue.triply.total || 0)}`}
+          subValue={`Service fees: ${formatPrice(stats?.revenue.triply.total || 0)}`}
           icon={DollarSign}
           color="green"
         />
@@ -724,6 +735,34 @@ export default function AdminDashboard() {
               Margin per code lives on the Accounting page (this view does not model ResLab settlement).
             </p>
           </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Abandoned-checkout emails</h3>
+            {!stats.recovery ? (
+              <p className="text-sm text-amber-700">Email data unavailable — check Sentry.</p>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Emails sent</span>
+                  <span className="font-semibold text-gray-900">{stats.recovery.sent}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Bookings through the email link</span>
+                  <span className="font-semibold text-gray-900">
+                    {stats.recovery.recoveredBookings ?? "unavailable"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Unsubscribed</span>
+                  <span className="font-semibold text-gray-900">{stats.recovery.optedOut}</span>
+                </div>
+                <p className="pt-1 text-xs text-gray-400">
+                  Live emails in the selected range. Bookings count only customers who came back through the
+                  email&apos;s link, so it&apos;s a floor.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -750,7 +789,15 @@ export default function AdminDashboard() {
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Revenue Summary</h3>
+          <h3 className="font-semibold text-gray-900">Booking value</h3>
+          <p className="mb-4 mt-1 text-xs text-gray-500">
+            What customers spent, including the lot&apos;s share and anything paid at the lot. Profit (what we
+            kept) is in &ldquo;This month so far&rdquo; above and, by month, on{" "}
+            <Link href="/admin/numbers" className="text-brand-orange hover:underline">
+              Monthly numbers
+            </Link>
+            .
+          </p>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-500">Today</p>
@@ -758,7 +805,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.today || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.today || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.today || 0)}
               </p>
             </div>
             <div>
@@ -767,7 +814,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.thisWeek || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.thisWeek || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.thisWeek || 0)}
               </p>
             </div>
             <div>
@@ -776,7 +823,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.thisMonth || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.thisMonth || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.thisMonth || 0)}
               </p>
             </div>
           </div>
@@ -831,7 +878,7 @@ export default function AdminDashboard() {
                   {(rate * 100).toFixed(1)}% of {confirmed} confirmed
                 </p>
                 <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">Triply margin</p>
+                  <p className="text-xs text-gray-500">Park Guard margin</p>
                   <p className="text-lg font-semibold text-emerald-700">
                     {formatPrice(margin)}
                   </p>
