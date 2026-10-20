@@ -1,19 +1,19 @@
 "use client";
 
 /**
- * The /park-stay search header (CX plan v2 §3), replacing the native form.
+ * The /park-stay search header (CX plan v2 §3, with Tom's 20 Oct change to
+ * "Hotel check-in date" + "Parking return date"), replacing the native form.
  *
- * - The flight date comes first, then the return date (the shared
- *   DateRangePicker). The hotel night = flight − 1, shown as "You'll stay
- *   the night of …" and editable (red-eyes); the NIGHT goes to the API, the
- *   flight rides in the page-only `flight` key so a changed night keeps it.
- * - The picker's swap of a return picked before the flight is REJECTED, not
- *   applied (isPickerSwap).
- * - Flight minimum = tomorrow at the AIRPORT (a flight today would put the
- *   night in the past); return maximum = the night + 60 days (plans.ts).
- * - Arrival time, return time and adults start EMPTY unless the URL has them
- *   — no defaults; a missing one is highlighted with the prompt, and the
- *   results stay idle (no fetch) until all are set.
+ * - The shared DateRangePicker's start is the HOTEL CHECK-IN date (the
+ *   `night` URL key, as is) and its end the PARKING RETURN date.
+ * - Check-in from today at the AIRPORT; return on or after the hotel
+ *   check-out day and within 60 days of the check-in — the server's own
+ *   rules (validateParkStayWindow).
+ * - The picker's swap of a return picked before the check-in is REJECTED,
+ *   not applied (isPickerSwap).
+ * - Arrive at the hotel, return time and guests start EMPTY unless the URL
+ *   has them — no defaults; a missing one is highlighted with the prompt,
+ *   and the results stay idle (no fetch) until all are set.
  * - Every submit keeps `focus`.
  * - Mobile: a collapsed summary bar (a button) over an expandable form; the
  *   mode toggle sits OUTSIDE that button (a link inside a button is invalid).
@@ -30,13 +30,10 @@ import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, formatNightLabel } from "./f
 import { ParkStayModeToggle } from "./mode-toggle";
 import {
   ADULT_OPTIONS,
-  RETURN_BEFORE_FLIGHT,
+  RETURN_BEFORE_CHECKIN,
   detailsPrompt,
-  initialHeaderFields,
   isPickerSwap,
   missingDetails,
-  nightChoices,
-  nightForFlightDate,
   parkStayDateBounds,
   pickerMaxDate,
   submitHref,
@@ -94,7 +91,6 @@ function DetailSelect({
 export function ParkStayHeader({
   airports,
   values,
-  flightParam,
   focus,
   parkingHref,
   currentHref,
@@ -102,42 +98,34 @@ export function ParkStayHeader({
   airports: ParkStayAirportOption[];
   /** What the URL searched, SANITISED (sanitizeSearchValues; "" = missing). */
   values: ParkStaySearchValues;
-  /** The URL's page-only `flight`, raw (resolveFlight checks it against the night). */
-  flightParam: string | null;
   focus: string | null;
   parkingHref: string | null;
   currentHref: string;
 }) {
   const router = useRouter();
-  const [init] = useState(() => initialHeaderFields(values, flightParam));
-  const [airport, setAirport] = useState(init.airport);
-  const [flight, setFlight] = useState(init.flight);
-  const [night, setNight] = useState(init.night);
-  const [returnDate, setReturnDate] = useState(init.returnDate);
-  const [arrivalTime, setArrivalTime] = useState(init.arrivalTime);
-  const [returnTime, setReturnTime] = useState(init.returnTime);
-  const [adults, setAdults] = useState(init.adults);
+  const [airport, setAirport] = useState(values.airport);
+  const [night, setNight] = useState(values.night);
+  const [returnDate, setReturnDate] = useState(values.returnDate);
+  const [arrivalTime, setArrivalTime] = useState(values.arrivalTime);
+  const [returnTime, setReturnTime] = useState(values.returnTime);
+  const [adults, setAdults] = useState(values.adults);
   // The start the picker sent in THIS click (see isPickerSwap); cleared by the end that follows.
-  const pendingStart = useRef<{ start: string; prevFlight: string; prevNight: string } | null>(null);
-  const [editingNight, setEditingNight] = useState(false);
+  const pendingStart = useRef<{ start: string; prevStart: string } | null>(null);
   const [problem, setProblem] = useState<DatesProblem | null>(null);
   const missing = missingDetails({ arrivalTime, returnTime, adults });
   // Mobile: open when something is still to fill in, collapsed once searched.
-  const [expanded, setExpanded] = useState(!(airport && flight && returnDate) || missing.length > 0);
+  const [expanded, setExpanded] = useState(!(airport && night && returnDate) || missing.length > 0);
 
   const timeZone = airports.find((a) => a.code === airport)?.timezone ?? FALLBACK_TIME_ZONE;
   // "Today" at the airport, read once per airport — not a render-time default
   // for any booking value, only the picker's limits.
   const bounds = useMemo(() => parkStayDateBounds(timeZone, new Date()), [timeZone]);
-  const maxPick = pickerMaxDate({ flight, night, returnDate }, bounds);
-  const choices = nightChoices(flight, bounds.today);
+  const maxPick = pickerMaxDate({ night, returnDate }, bounds);
   const prompt = detailsPrompt(missing);
 
-  function onFlightChange(v: string) {
-    pendingStart.current = { start: v, prevFlight: flight, prevNight: night };
-    setFlight(v);
-    setNight(nightForFlightDate(v) ?? "");
-    setEditingNight(false);
+  function onCheckinChange(v: string) {
+    pendingStart.current = { start: v, prevStart: night };
+    setNight(v);
     setProblem(null);
   }
 
@@ -145,11 +133,10 @@ export function ParkStayHeader({
     const pending = pendingStart.current;
     pendingStart.current = null;
     if (pending && isPickerSwap(pending, v)) {
-      // The picker swapped a return picked before the flight: keep the
-      // flight (and its night) and the return as it was, and say why.
-      setFlight(pending.prevFlight);
-      setNight(pending.prevNight);
-      setProblem({ field: "return", message: RETURN_BEFORE_FLIGHT });
+      // The picker swapped a return picked before the check-in: keep the
+      // check-in and the return as they were, and say why.
+      setNight(pending.prevStart);
+      setProblem({ field: "return", message: RETURN_BEFORE_CHECKIN });
       return;
     }
     setReturnDate(v);
@@ -158,7 +145,7 @@ export function ParkStayHeader({
 
   function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const out = submitHref({ airport, flight, night, returnDate, arrivalTime, returnTime, adults }, bounds, focus);
+    const out = submitHref({ airport, night, arrivalTime, returnDate, returnTime, adults }, bounds, focus);
     if (!out.ok) {
       setProblem(out.problem);
       return;
@@ -168,7 +155,7 @@ export function ParkStayHeader({
     if (missing.length === 0) setExpanded(false);
   }
 
-  const summaryDates = flight ? `${formatNightLabel(flight)} — ${returnDate ? formatNightLabel(returnDate) : "Return"}` : "Add your dates";
+  const summaryDates = night ? `${formatNightLabel(night)} — ${returnDate ? formatNightLabel(returnDate) : "Return"}` : "Add your dates";
 
   return (
     <div className="relative z-30 flex-shrink-0 border-b border-gray-200 bg-white shadow-sm">
@@ -233,30 +220,30 @@ export function ParkStayHeader({
           </label>
 
           <DateRangePicker
-            startDate={flight}
+            startDate={night}
             endDate={returnDate}
-            onStartChange={onFlightChange}
+            onStartChange={onCheckinChange}
             onEndChange={onReturnChange}
-            minDate={pickerDate(bounds.flightMin)}
+            minDate={pickerDate(bounds.today)}
             maxDate={pickerDate(maxPick)}
           >
             {({ startTriggerProps, endTriggerProps }) => (
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-1">
                 <div className="flex-1">
-                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Flight date</span>
+                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Hotel check-in date</span>
                   <button
                     type="button"
                     ref={startTriggerProps.ref}
                     onClick={startTriggerProps.onClick}
-                    aria-invalid={problem?.field === "flight" || undefined}
+                    aria-invalid={problem?.field === "night" || undefined}
                     className={`${fieldBase} ${fieldOk} flex items-center text-left`}
                   >
                     <CalendarIcon size={18} className="mr-2 flex-shrink-0 text-brand-blue opacity-80" aria-hidden="true" />
-                    <span className={flight ? "truncate font-medium" : "truncate text-gray-400"}>{flight ? formatNightLabel(flight) : "Flight date"}</span>
+                    <span className={night ? "truncate font-medium" : "truncate text-gray-400"}>{night ? formatNightLabel(night) : "Check-in date"}</span>
                   </button>
                 </div>
                 <div className="flex-1">
-                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Return date</span>
+                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Parking return date</span>
                   <button
                     type="button"
                     ref={endTriggerProps.ref}
@@ -276,7 +263,7 @@ export function ParkStayHeader({
 
           <div className="grid grid-cols-3 gap-3 lg:flex lg:gap-3">
             <DetailSelect
-              label="Reach the hotel"
+              label="Arrive at the hotel"
               placeholder="Time"
               value={arrivalTime}
               options={ARRIVAL_TIME_OPTIONS}
@@ -284,7 +271,7 @@ export function ParkStayHeader({
               onChange={setArrivalTime}
             />
             <DetailSelect
-              label="Collect your car"
+              label="Return time"
               placeholder="Time"
               value={returnTime}
               options={RETURN_TIME_OPTIONS}
@@ -303,44 +290,6 @@ export function ParkStayHeader({
         </div>
 
         <div className="mt-2 space-y-1 text-sm">
-          {night && (
-            <p className="text-gray-700">
-              You&apos;ll stay the night of <strong>{formatNightLabel(night)}</strong>
-              {choices.length > 1 && !editingNight && (
-                <>
-                  {" · "}
-                  <button type="button" onClick={() => setEditingNight(true)} className="font-medium text-primary hover:underline">
-                    change
-                  </button>
-                </>
-              )}
-            </p>
-          )}
-          {editingNight && choices.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2">
-                <span className="text-xs text-gray-500">Hotel night</span>
-                <select
-                  value={night}
-                  onChange={(e) => {
-                    setNight(e.target.value);
-                    setProblem(null);
-                  }}
-                  aria-invalid={problem?.field === "night" || undefined}
-                  className={`${fieldBase} ${fieldOk} w-auto py-1.5`}
-                >
-                  {choices.map((n) => (
-                    <option key={n} value={n}>
-                      {formatNightLabel(n)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-          )}
-          {night && choices.length > 1 && (
-            <p className="text-xs text-gray-500">Flight just after midnight? Pick the night you&apos;ll actually sleep at the hotel.</p>
-          )}
           {problem && (
             <p role="alert" className="text-sm font-medium text-red-600">
               {problem.message}

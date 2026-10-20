@@ -32,7 +32,6 @@ import {
   parkingOnlyHref,
   parkStayPageQuery,
   readFocus,
-  resolveFlight,
   sanitizeSearchValues,
   type ParkStayAirportOption,
   type ParkStayHotelName,
@@ -94,7 +93,6 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
   const openCodes = useMemo(() => airports.map((a) => a.code), [airports]);
   const values = useMemo<ParkStaySearchValues>(() => sanitizeSearchValues(readSearchValues(params), openCodes), [params, openCodes]);
   const focus = readFocus(params);
-  const flight = resolveFlight(params.get("flight"), values.night);
   const complete = isCompleteSearch(values);
   const query = useMemo(() => apiSearchQuery(values), [values]);
   // Results are keyed by (query, attempt): the state is DERIVED, so a new
@@ -192,7 +190,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
       <MapPlaceholder />
     );
 
-  const currentHref = `/park-stay?${parkStayPageQuery(values, { flight, focus })}`;
+  const currentHref = `/park-stay?${parkStayPageQuery(values, focus)}`;
   const content = doneBody ? listContent(doneBody) : null;
 
   return (
@@ -201,12 +199,11 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
         <PreviewBanner />
       </div>
       <ParkStayHeader
-        key={`${query}|${flight ?? ""}|${focus ?? ""}`}
+        key={`${query}|${focus ?? ""}`}
         airports={airports}
         values={values}
-        flightParam={params.get("flight")}
         focus={focus}
-        parkingHref={parkingOnlyHref(values, flight)}
+        parkingHref={parkingOnlyHref(values)}
         currentHref={currentHref}
       />
 
@@ -214,7 +211,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
         <section aria-label="Hotels" className={`h-full w-full space-y-3 overflow-y-auto bg-gray-50 p-4 lg:w-2/5 ${showMobileMap ? "hidden lg:block" : ""}`}>
           {state.kind === "idle" && (
             <Panel title="Find a hotel night with parking">
-              <p className="text-gray-600">Choose your airport, flight date and return date, then when you&apos;ll reach the hotel, when you&apos;ll collect your car and the number of guests.</p>
+              <p className="text-gray-600">Choose your airport, hotel check-in date and parking return date, then when you&apos;ll arrive at the hotel, your return time and the number of guests.</p>
             </Panel>
           )}
           {state.kind === "loading" && (
@@ -234,10 +231,9 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
           {state.kind === "done" && (
             <>
               <p className="text-sm text-muted-foreground">
-                {/* The hotel check-out is night + 1; the FLIGHT may be a day later (the red-eye night), so it is named from the URL, not from departureDate. */}
-                Hotel night {formatIsoDay(state.body.search.night)}, check-out {formatIsoDay(state.body.search.departureDate)}
-                {flight ? `, flight ${formatIsoDay(flight)}` : ""}. Parking from {state.body.search.arrivalTime} on {formatIsoDay(state.body.search.night)} to{" "}
-                {state.body.search.returnTime} on {formatIsoDay(state.body.search.returnDate)}.
+                Hotel check-in {formatIsoDay(state.body.search.night)}, check-out {formatIsoDay(state.body.search.departureDate)}. Parking from{" "}
+                {state.body.search.arrivalTime} on {formatIsoDay(state.body.search.night)} until {state.body.search.returnTime} on{" "}
+                {formatIsoDay(state.body.search.returnDate)}.
               </p>
               {banner && (
                 <p role="status" className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
@@ -260,7 +256,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
                   <ParkStayResultCard
                     key={card.hotelKey}
                     card={card}
-                    href={hotelHref(state.body.airport.code, card, query, flight)}
+                    href={hotelHref(state.body.airport.code, card, query)}
                     returnDate={state.body.search.returnDate}
                     isHovered={hoveredKey === card.hotelKey}
                     isFocused={focus === card.hotelKey}
@@ -280,7 +276,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
             <div className="absolute bottom-0 left-0 right-0 pb-20 pt-2">
               <div ref={carouselRef} onScroll={onCarouselScroll} className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto px-4">
                 {offers.map((card) => (
-                  <ParkStayMapCard key={card.hotelKey} card={card} href={hotelHref(state.body.airport.code, card, query, flight)} />
+                  <ParkStayMapCard key={card.hotelKey} card={card} href={hotelHref(state.body.airport.code, card, query)} />
                 ))}
               </div>
             </div>

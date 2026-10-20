@@ -20,7 +20,6 @@ import { SEARCH_PARAM_KEYS, formatCents, formatIsoDay, formatReslabDateTime } fr
 import { readSearchValues } from "./search-results";
 import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
 import { reportRejectedAnswer } from "./report";
-import { resolveFlight } from "./search-values";
 
 type Ok = Extract<ParkStayHotelResponse, { status: "ok" }>;
 
@@ -102,7 +101,6 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
   const params = useSearchParams();
   const values = useMemo(() => readSearchValues(params), [params]);
   const complete = SEARCH_PARAM_KEYS.every((k) => values[k].length > 0) && values.airport.toUpperCase() === airport.toUpperCase();
-  const flightParam = params.get("flight");
   const seenRaw = params.get("seen");
   const seen = seenRaw !== null && /^\d{1,9}$/.test(seenRaw) ? Number(seenRaw) : null; // display-only
   const query = useMemo(() => {
@@ -114,12 +112,10 @@ export function ParkStayHotelDetail({ airport, hotelKey, mapName }: { airport: s
   const backQuery = useMemo(() => {
     const q = new URLSearchParams();
     for (const k of SEARCH_PARAM_KEYS) q.set(k, values[k]);
-    // The page-only flight date rides back to the results (it is never sent to the API).
-    const flight = resolveFlight(flightParam, values.night);
-    if (flight) q.set("flight", flight);
+    // Back to results lands on this hotel's card.
     q.set("focus", hotelKey);
     return q.toString();
-  }, [values, flightParam, hotelKey]);
+  }, [values, hotelKey]);
   const [attempt, setAttempt] = useState(0);
   const [result, setResult] = useState<{ query: string; attempt: number; state: Settled } | null>(null);
 

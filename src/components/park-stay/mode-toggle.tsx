@@ -15,7 +15,7 @@ export function ParkStayModeToggle({ parkingHref, currentHref }: { parkingHref: 
           Parking only
         </Link>
       ) : (
-        <span aria-disabled="true" title="Choose your flight and return dates first" className={`${base} cursor-not-allowed text-gray-400`}>
+        <span aria-disabled="true" title="Choose your check-in and return dates first" className={`${base} cursor-not-allowed text-gray-400`}>
           Parking only
         </span>
       )}

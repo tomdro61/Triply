@@ -16,13 +16,9 @@ import { PackagePrice } from "./package-price";
 import { HotelRatingLine, RoomTimesLine, ShuttleLine } from "./hotel-facts";
 import { formatCents } from "./format";
 
-/**
- * The hotel page link for a card: the search, the page-only flight date (so
- * "Back to results" keeps it), and the total the card showed (`seen`).
- */
-export function hotelHref(airport: string, card: ParkStayCard, apiQuery: string, flight: string | null): string {
+/** The hotel page link for a card: the search, plus the total the card showed (`seen`). */
+export function hotelHref(airport: string, card: ParkStayCard, apiQuery: string): string {
   const q = new URLSearchParams(apiQuery);
-  if (flight) q.set("flight", flight);
   q.set("seen", String(card.room.price.headlineTotalCents));
   return `/park-stay/${airport.toLowerCase()}/${card.hotelKey}?${q.toString()}`;
 }

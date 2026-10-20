@@ -1,30 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { validateParkStayWindow } from "@/lib/hotels/parking-window";
 import { formatNightLabel } from "../format";
+import { readSearchValues } from "../search-results";
 import {
   DETAILS_PROMPT,
-  RETURN_BEFORE_FLIGHT,
-  initialHeaderFields,
-  isPickerSwap,
-  resolveFlight,
-  sanitizeSearchValues,
-  submitHref,
-  type HeaderFields,
+  RETURN_BEFORE_CHECKIN,
+  RETURN_BEFORE_CHECKOUT,
   apiSearchQuery,
   checkSearchDates,
+  checkoutDateFor,
   detailsPrompt,
-  flightDateForNight,
   focusBanner,
   isCompleteSearch,
+  isPickerSwap,
   missingDetails,
-  nightChoices,
-  nightForFlightDate,
   parkStayDateBounds,
   parkStayPageQuery,
   parkingOnlyHref,
   pickerMaxDate,
   readFocus,
   returnMaxForNight,
+  sanitizeSearchValues,
+  submitHref,
+  type HeaderFields,
   type ParkStaySearchValues,
 } from "../search-values";
 
@@ -32,129 +30,116 @@ const NY = "America/New_York";
 const full: ParkStaySearchValues = { airport: "JFK", night: "2026-11-10", arrivalTime: "7:00 PM", returnDate: "2026-11-14", returnTime: "6:00 PM", adults: "2" };
 const params = (o: Record<string, string>) => new URLSearchParams(o);
 
-describe("night ↔ flight (calendar arithmetic, CX plan v2 §2)", () => {
-  it("flight = night + 1 and night = flight − 1 across month end, year end and a leap day", () => {
+describe("check-in → check-out (calendar arithmetic)", () => {
+  it("check-out = check-in + 1 across month end, year end, a leap day and the DST weekends", () => {
     const pairs: Array<[string, string]> = [
       ["2026-10-31", "2026-11-01"],
-      ["2026-11-30", "2026-12-01"],
+      ["2026-11-01", "2026-11-02"], // DST ends (a 25-hour day)
+      ["2027-03-14", "2027-03-15"], // DST starts (a 23-hour day)
       ["2026-12-31", "2027-01-01"],
       ["2028-02-28", "2028-02-29"],
-      ["2028-02-29", "2028-03-01"],
       ["2027-02-28", "2027-03-01"],
     ];
-    for (const [night, flight] of pairs) {
-      expect(flightDateForNight(night), night).toBe(flight);
-      expect(nightForFlightDate(flight), flight).toBe(night);
-    }
+    for (const [night, checkout] of pairs) expect(checkoutDateFor(night), night).toBe(checkout);
+    expect(checkoutDateFor("2026-02-30")).toBeNull();
   });
 
-  it("the DST weekends do not shift a day (no ±86 400 000 ms)", () => {
-    // US DST ends 1 Nov 2026 and starts 14 Mar 2027 (25- and 23-hour days).
-    expect(flightDateForNight("2026-10-31")).toBe("2026-11-01");
-    expect(flightDateForNight("2026-11-01")).toBe("2026-11-02");
-    expect(nightForFlightDate("2027-03-14")).toBe("2027-03-13");
-    expect(nightForFlightDate("2027-03-15")).toBe("2027-03-14");
-  });
-
-  it("a non-date is null, never guessed", () => {
-    expect(flightDateForNight("")).toBeNull();
-    expect(flightDateForNight("2026-02-30")).toBeNull();
-    expect(nightForFlightDate("tomorrow")).toBeNull();
-  });
-
-  it("the night line names the night: 'Tue, Nov 10'", () => {
+  it("the trigger labels: 'Tue, Nov 10'", () => {
     expect(formatNightLabel("2026-11-10")).toBe("Tue, Nov 10");
     expect(formatNightLabel("2026-12-31")).toBe("Thu, Dec 31");
   });
 });
 
-describe("airport-local today and the flight minimum (review L-H1)", () => {
+describe("airport-local today is the earliest check-in", () => {
   it("late evening in New York is still 'today' there, though it is tomorrow in UTC", () => {
     const b = parkStayDateBounds(NY, new Date("2026-10-21T03:30:00Z")); // 11:30 PM EDT on Oct 20
     expect(b.today).toBe("2026-10-20");
-    expect(b.flightMin).toBe("2026-10-21");
-    expect(b.flightMax).toBe("2027-01-29"); // night ≤ today + 100 → flight ≤ today + 101
+    expect(b.checkinMax).toBe("2027-01-28"); // today + 100
   });
 
-  it("just after midnight in New York is the new day", () => {
+  it("just after midnight in New York is the new day; DST night and year end too", () => {
     expect(parkStayDateBounds(NY, new Date("2026-10-21T04:05:00Z")).today).toBe("2026-10-21");
+    expect(parkStayDateBounds(NY, new Date("2026-11-01T06:30:00Z")).today).toBe("2026-11-01"); // 01:30 EST, the second time
+    expect(parkStayDateBounds(NY, new Date("2027-01-01T03:00:00Z")).today).toBe("2026-12-31"); // 10 PM Dec 31 in New York
   });
 
-  it("across the DST change (1 Nov 2026, 01:30 happens twice)", () => {
-    const b = parkStayDateBounds(NY, new Date("2026-11-01T06:30:00Z")); // 01:30 EST, the second time
-    expect(b.today).toBe("2026-11-01");
-    expect(b.flightMin).toBe("2026-11-02");
-  });
-
-  it("at year end", () => {
-    const b = parkStayDateBounds(NY, new Date("2027-01-01T03:00:00Z")); // 10 PM Dec 31 in New York
-    expect(b.today).toBe("2026-12-31");
-    expect(b.flightMin).toBe("2027-01-01");
-  });
-
-  it("a flight tomorrow gives a night of today, which the server accepts; a flight today would not be", () => {
-    const now = new Date("2026-10-20T16:00:00Z");
+  it("check-in today is allowed, by the header and by the server; yesterday is rejected by both", () => {
+    const now = new Date("2026-10-21T02:00:00Z"); // 10 PM Oct 20 in New York, already Oct 21 in UTC
     const b = parkStayDateBounds(NY, now);
-    const night = nightForFlightDate(b.flightMin) ?? "";
-    expect(night).toBe(b.today);
-    const ok = validateParkStayWindow({ night, arrivalTime: "11:30 PM", returnDate: b.flightMin, returnTime: "6:00 PM", airportTimeZone: NY, now });
-    expect(ok.ok).toBe(true);
-    const past = validateParkStayWindow({ night: nightForFlightDate(b.today) ?? "", arrivalTime: "11:30 PM", returnDate: b.flightMin, returnTime: "6:00 PM", airportTimeZone: NY, now });
-    expect(!past.ok && past.error.code).toBe("night_past");
+    const today = { airport: "JFK", night: "2026-10-20", returnDate: "2026-10-23" };
+    expect(checkSearchDates(today, b)).toBeNull();
+    expect(validateParkStayWindow({ night: today.night, arrivalTime: "11:30 PM", returnDate: today.returnDate, returnTime: "6:00 PM", airportTimeZone: NY, now }).ok).toBe(true);
+
+    const yesterday = { ...today, night: "2026-10-19" };
+    expect(checkSearchDates(yesterday, b)).toEqual({ field: "night", message: "The hotel check-in date can't be in the past." });
+    const server = validateParkStayWindow({ night: yesterday.night, arrivalTime: "11:30 PM", returnDate: today.returnDate, returnTime: "6:00 PM", airportTimeZone: NY, now });
+    expect(!server.ok && server.error.code).toBe("night_past");
   });
 });
 
-describe("the header's date rules", () => {
-  const b = parkStayDateBounds(NY, new Date("2026-10-20T16:00:00Z"));
-  const base = { airport: "JFK", flight: "2026-11-11", night: "2026-11-10", returnDate: "2026-11-14" };
+describe("the header's date rules match validateParkStayWindow", () => {
+  const now = new Date("2026-10-20T16:00:00Z");
+  const b = parkStayDateBounds(NY, now);
+  const base = { airport: "JFK", night: "2026-11-10", returnDate: "2026-11-14" };
+  const server = (night: string, returnDate: string) =>
+    validateParkStayWindow({ night, arrivalTime: "7:00 PM", returnDate, returnTime: "6:00 PM", airportTimeZone: NY, now }).ok;
 
-  it("accepts a normal trip and a same-day return", () => {
+  it("accepts a normal trip and a return on the check-out day", () => {
     expect(checkSearchDates(base, b)).toBeNull();
-    expect(checkSearchDates({ ...base, returnDate: base.flight }, b)).toBeNull();
+    expect(checkSearchDates({ ...base, returnDate: "2026-11-11" }, b)).toBeNull();
+    expect(server("2026-11-10", "2026-11-11")).toBe(true);
   });
 
-  it("names the field: airport, flight today, flight too far, return before flight (never swapped), > 60 days", () => {
+  it("a return before the check-in is an error (never a swap); a same-day return is before check-out, as on the server", () => {
+    expect(checkSearchDates({ ...base, returnDate: "2026-11-09" }, b)).toEqual({ field: "return", message: RETURN_BEFORE_CHECKIN });
+    expect(RETURN_BEFORE_CHECKIN).toBe("Parking return date must be on or after your hotel check-in date.");
+    expect(checkSearchDates({ ...base, returnDate: "2026-11-10" }, b)).toEqual({ field: "return", message: RETURN_BEFORE_CHECKOUT });
+    expect(server("2026-11-10", "2026-11-10")).toBe(false);
+  });
+
+  it("names the other problems: airport, too far ahead, > 60 days, missing return", () => {
     expect(checkSearchDates({ ...base, airport: "" }, b)?.field).toBe("airport");
-    expect(checkSearchDates({ ...base, flight: b.today, night: "2026-10-19" }, b)?.field).toBe("flight");
-    expect(checkSearchDates({ ...base, flight: "2027-01-30", night: "2027-01-29" }, b)?.field).toBe("flight");
-    expect(checkSearchDates({ ...base, flight: "2027-01-29", night: "2027-01-28", returnDate: "2027-02-01" }, b)).toBeNull();
-    expect(checkSearchDates({ ...base, returnDate: "2026-11-10" }, b)).toEqual({ field: "return", message: RETURN_BEFORE_FLIGHT });
+    expect(checkSearchDates({ ...base, night: "2027-01-28", returnDate: "2027-02-01" }, b)).toBeNull(); // today + 100
+    expect(checkSearchDates({ ...base, night: "2027-01-29", returnDate: "2027-02-01" }, b)?.field).toBe("night");
+    expect(server("2027-01-29", "2027-02-01")).toBe(false);
     expect(checkSearchDates({ ...base, returnDate: "2027-01-09" }, b)).toBeNull(); // night + 60
-    expect(checkSearchDates({ ...base, returnDate: "2027-01-10" }, b)?.message).toMatch(/60 days after the hotel night/);
+    expect(checkSearchDates({ ...base, returnDate: "2027-01-10" }, b)?.message).toMatch(/60 days after the hotel check-in/);
+    expect(server("2026-11-10", "2027-01-10")).toBe(false);
     expect(checkSearchDates({ ...base, returnDate: "" }, b)?.field).toBe("return");
   });
 
-  it("the night must be before the flight and not in the past", () => {
-    expect(checkSearchDates({ ...base, night: base.flight }, b)?.field).toBe("night");
-    expect(checkSearchDates({ ...base, night: "2026-11-09" }, b)).toBeNull(); // the red-eye choice
-    expect(checkSearchDates({ ...base, flight: b.flightMin, night: "2026-10-19", returnDate: "2026-10-25" }, b)?.field).toBe("night");
-  });
-
-  it("return max is the night + 60 (plans.ts), not parking's 100", () => {
+  it("return max is the check-in + 60 (plans.ts), not parking's 100", () => {
     expect(returnMaxForNight("2026-11-10")).toBe("2027-01-09");
   });
 
-  it("night choices: the night before and the one before that, never before today", () => {
-    expect(nightChoices("2026-11-11", b.today)).toEqual(["2026-11-10", "2026-11-09"]);
-    expect(nightChoices(b.flightMin, b.today)).toEqual([b.today]);
-    expect(nightChoices("", b.today)).toEqual([]);
+  it("the picker's one maxDate follows the leg being picked", () => {
+    expect(pickerMaxDate({ night: "", returnDate: "" }, b)).toBe(b.checkinMax);
+    expect(pickerMaxDate({ night: "2026-11-10", returnDate: "" }, b)).toBe("2027-01-09");
+    expect(pickerMaxDate({ night: "2026-11-10", returnDate: "2026-11-14" }, b)).toBe(b.checkinMax);
+    expect(pickerMaxDate({ night: "2027-01-19", returnDate: "2027-01-25" }, b)).toBe("2027-03-20");
+  });
+});
+
+describe("the picker's swap is rejected, never applied", () => {
+  it("start earlier than the check-in followed at once by end = the old check-in → a swap", () => {
+    expect(isPickerSwap({ start: "2026-11-08", prevStart: "2026-11-10" }, "2026-11-10")).toBe(true);
   });
 
-  it("the picker's one maxDate follows the leg being picked", () => {
-    expect(pickerMaxDate({ flight: "", night: "", returnDate: "" }, b)).toBe(b.flightMax);
-    expect(pickerMaxDate({ flight: "2026-11-11", night: "2026-11-10", returnDate: "" }, b)).toBe("2027-01-09");
-    // both set: the later of the two limits (either leg may be reopened)
-    expect(pickerMaxDate({ flight: "2026-11-11", night: "2026-11-10", returnDate: "2026-11-14" }, b)).toBe(b.flightMax);
-    expect(pickerMaxDate({ flight: "2027-01-20", night: "2027-01-19", returnDate: "2027-01-25" }, b)).toBe("2027-03-20");
+  it("a first click (end cleared), a normal return pick, or a later start is not a swap", () => {
+    expect(isPickerSwap({ start: "2026-11-08", prevStart: "2026-11-10" }, "")).toBe(false);
+    expect(isPickerSwap(null, "2026-11-14")).toBe(false);
+    expect(isPickerSwap({ start: "2026-11-12", prevStart: "2026-11-10" }, "2026-11-10")).toBe(false);
+    expect(isPickerSwap({ start: "2026-11-08", prevStart: "" }, "2026-11-10")).toBe(false);
   });
 });
 
 describe("missing details: highlighted, never defaulted (plan §3)", () => {
-  it("lists what is missing and the prompt", () => {
+  it("lists what is missing; the prompt names the return time only while it is missing", () => {
     expect(missingDetails({ arrivalTime: "", returnTime: "6:00 PM", adults: "" })).toEqual(["arrivalTime", "adults"]);
-    expect(detailsPrompt(["arrivalTime", "adults"])).toBe(DETAILS_PROMPT);
-    expect(DETAILS_PROMPT).toBe("Add when you'll reach the hotel and the number of guests to see prices.");
-    expect(detailsPrompt(["returnTime"])).toBe("Add when you'll collect your car to see prices.");
+    expect(detailsPrompt(["arrivalTime", "returnTime", "adults"])).toBe(DETAILS_PROMPT);
+    expect(DETAILS_PROMPT).toBe("Add when you'll reach the hotel, your return time and the number of guests to see prices.");
+    expect(detailsPrompt(["arrivalTime", "adults"])).toBe("Add when you'll reach the hotel and the number of guests to see prices.");
+    expect(detailsPrompt(["returnTime"])).toBe(DETAILS_PROMPT);
     expect(detailsPrompt([])).toBeNull();
   });
 
@@ -165,28 +150,17 @@ describe("missing details: highlighted, never defaulted (plan §3)", () => {
 });
 
 describe("URLs", () => {
-  it("every submit keeps flight and focus; empty keys are left out", () => {
-    expect(parkStayPageQuery(full, { flight: "2026-11-11", focus: "doubletree-jfk" })).toBe(
-      "airport=JFK&night=2026-11-10&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&flight=2026-11-11&focus=doubletree-jfk"
+  it("every submit keeps focus; empty keys are left out", () => {
+    expect(parkStayPageQuery(full, "doubletree-jfk")).toBe(
+      "airport=JFK&night=2026-11-10&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&focus=doubletree-jfk"
     );
-    expect(parkStayPageQuery({ ...full, arrivalTime: "", adults: "" }, { flight: null, focus: "doubletree-jfk" })).toBe(
+    expect(parkStayPageQuery({ ...full, arrivalTime: "", adults: "" }, "doubletree-jfk")).toBe(
       "airport=JFK&night=2026-11-10&returnDate=2026-11-14&returnTime=6%3A00+PM&focus=doubletree-jfk"
     );
-    expect(parkStayPageQuery(full, { flight: null, focus: null })).not.toMatch(/focus|flight/);
-    expect(parkStayPageQuery(full, { flight: "2026-02-30", focus: null })).not.toMatch(/flight/);
+    expect(parkStayPageQuery(full, null)).not.toMatch(/focus/);
   });
 
-  it("resolveFlight: the URL's flight when it is night + 1 or night + 2, otherwise night + 1", () => {
-    expect(resolveFlight("2026-11-12", "2026-11-10")).toBe("2026-11-12");
-    expect(resolveFlight("2026-11-11", "2026-11-10")).toBe("2026-11-11");
-    expect(resolveFlight("2026-11-13", "2026-11-10")).toBe("2026-11-11");
-    expect(resolveFlight("2026-11-10", "2026-11-10")).toBe("2026-11-11");
-    expect(resolveFlight("junk", "2026-11-10")).toBe("2026-11-11");
-    expect(resolveFlight(null, "2026-12-31")).toBe("2027-01-01");
-    expect(resolveFlight("2026-11-12", "")).toBeNull();
-  });
-
-  it("the API query carries the six search keys only — never flight, focus or seen", () => {
+  it("the API query carries the six search keys only — never focus or seen", () => {
     const q = new URLSearchParams(apiSearchQuery(full));
     expect([...q.keys()]).toEqual(["airport", "night", "arrivalTime", "returnDate", "returnTime", "adults"]);
   });
@@ -197,24 +171,32 @@ describe("URLs", () => {
     expect(readFocus(params({}))).toBeNull();
   });
 
-  it("Parking only → /search?airport&checkin=<flight>&checkout=returnDate, nothing /search doesn't read", () => {
-    expect(parkingOnlyHref(full, "2026-11-11")).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
-    // the red-eye night (2026-11-09, flight 2026-11-11): check-in is the FLIGHT date, not night + 1
-    expect(parkingOnlyHref(sanitizeSearchValues({ ...full, night: "2026-11-09" }, ["JFK"]), resolveFlight("2026-11-11", "2026-11-09"))).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
-    expect(parkingOnlyHref({ airport: "jfk", returnDate: "2027-01-03" }, "2027-01-01")).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
-    // same-day return is a valid parking range
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" }, "2026-11-11")).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
+  it("an old link's stray `flight` param is ignored: same values, same API query, dropped on the next submit", () => {
+    const withFlight = params({ ...full, flight: "2026-11-12", focus: "doubletree-jfk" });
+    const values = sanitizeSearchValues(readSearchValues(withFlight), ["JFK"]);
+    expect(values).toEqual(full);
+    expect(apiSearchQuery(values)).toBe(apiSearchQuery(full));
+    const out = submitHref(values, parkStayDateBounds(NY, new Date("2026-10-20T16:00:00Z")), readFocus(withFlight));
+    expect(out.ok && out.href).toBe(`/park-stay?${parkStayPageQuery(full, "doubletree-jfk")}`);
+    expect(out.ok && out.href).not.toMatch(/flight/);
   });
 
-  it("Parking only is disabled when the values can't make a parking search", () => {
-    expect(parkingOnlyHref(full, null)).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "" }, "2026-11-11")).toBeNull();
-    expect(parkingOnlyHref({ ...full, airport: "" }, "2026-11-11")).toBeNull();
-    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" }, "2026-11-11")).toBeNull(); // before the flight: no swap
+  it("Parking only → /search?airport&checkin=<check-in + 1>&checkout=returnDate, nothing /search doesn't read", () => {
+    expect(parkingOnlyHref(full)).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-14");
+    expect(parkingOnlyHref({ airport: "jfk", night: "2026-12-31", returnDate: "2027-01-03" })).toBe("/search?airport=JFK&checkin=2027-01-01&checkout=2027-01-03");
+    // a return on the hotel check-out day is a valid same-day parking range
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-11" })).toBe("/search?airport=JFK&checkin=2026-11-11&checkout=2026-11-11");
+  });
+
+  it("Parking only is disabled when the values can't make a parking search (never swapped)", () => {
+    expect(parkingOnlyHref({ ...full, night: "" })).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "" })).toBeNull();
+    expect(parkingOnlyHref({ ...full, airport: "" })).toBeNull();
+    expect(parkingOnlyHref({ ...full, returnDate: "2026-11-10" })).toBeNull();
   });
 });
 
-describe("sanitizeSearchValues: off-list values show as missing (review round 1, item 7)", () => {
+describe("sanitizeSearchValues: off-list values show as missing", () => {
   it("keeps on-list values (airport upper-cased) and blanks the rest, never picking an option", () => {
     expect(sanitizeSearchValues({ ...full, airport: "jfk" }, ["JFK", "LGA"])).toEqual(full);
     expect(
@@ -231,65 +213,33 @@ describe("sanitizeSearchValues: off-list values show as missing (review round 1,
   });
 });
 
-describe("the header: submit → URL → header round trip (review round 1, items 1 and 11)", () => {
+describe("the header submit", () => {
   const b = parkStayDateBounds(NY, new Date("2026-10-20T16:00:00Z"));
-  const fields: HeaderFields = { airport: "JFK", flight: "2026-11-11", night: "2026-11-09", returnDate: "2026-11-14", arrivalTime: "7:00 PM", returnTime: "6:00 PM", adults: "2" };
+  const fields: HeaderFields = full;
 
-  function reload(href: string): HeaderFields {
-    const p = new URL(href, "https://x.test").searchParams;
-    const values = sanitizeSearchValues(
-      {
-        airport: p.get("airport") ?? "",
-        night: p.get("night") ?? "",
-        arrivalTime: p.get("arrivalTime") ?? "",
-        returnDate: p.get("returnDate") ?? "",
-        returnTime: p.get("returnTime") ?? "",
-        adults: p.get("adults") ?? "",
-      },
-      ["JFK"]
-    );
-    return initialHeaderFields(values, p.get("flight"));
-  }
-
-  it("a changed night keeps the flight date through the round trip", () => {
+  it("goes to /park-stay with the search and focus, and the URL reads back to the same fields", () => {
     const out = submitHref(fields, b, "doubletree-jfk");
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.href).toBe(
-      "/park-stay?airport=JFK&night=2026-11-09&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&flight=2026-11-11&focus=doubletree-jfk"
+      "/park-stay?airport=JFK&night=2026-11-10&arrivalTime=7%3A00+PM&returnDate=2026-11-14&returnTime=6%3A00+PM&adults=2&focus=doubletree-jfk"
     );
-    expect(reload(out.href)).toEqual(fields);
-    // the night choices stay relative to the flight
-    expect(nightChoices(reload(out.href).flight, b.today)).toEqual(["2026-11-10", "2026-11-09"]);
+    const back = new URL(out.href, "https://x.test").searchParams;
+    expect(sanitizeSearchValues(readSearchValues(back), ["JFK"])).toEqual(fields);
+    expect(readFocus(back)).toBe("doubletree-jfk");
   });
 
-  it("the default night round-trips too, and missing details still navigate (flagged on reload)", () => {
-    const def = { ...fields, night: "2026-11-10", arrivalTime: "", adults: "" };
-    const out = submitHref(def, b, null);
+  it("missing details still navigate and are flagged on the way back", () => {
+    const out = submitHref({ ...fields, arrivalTime: "", adults: "" }, b, null);
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     expect(out.href).not.toMatch(/arrivalTime|adults|focus/);
-    const back = reload(out.href);
-    expect(back).toEqual(def);
-    expect(missingDetails(back)).toEqual(["arrivalTime", "adults"]);
+    expect(missingDetails(readSearchValues(new URL(out.href, "https://x.test").searchParams))).toEqual(["arrivalTime", "adults"]);
   });
 
   it("a date problem blocks the submit and names it", () => {
-    expect(submitHref({ ...fields, returnDate: "2026-11-10" }, b, null)).toEqual({ ok: false, problem: { field: "return", message: RETURN_BEFORE_FLIGHT } });
-    expect(submitHref({ ...fields, night: "2026-11-08" }, b, null)).toMatchObject({ ok: false, problem: { field: "night" } });
-  });
-});
-
-describe("the picker's swap is rejected, never applied (review round 1, item 2)", () => {
-  it("start earlier than the flight followed at once by end = the old flight → a swap", () => {
-    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "2026-11-11" }, "2026-11-11")).toBe(true);
-  });
-
-  it("a first click (end cleared), a normal return pick, or a later start is not a swap", () => {
-    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "2026-11-11" }, "")).toBe(false);
-    expect(isPickerSwap(null, "2026-11-14")).toBe(false);
-    expect(isPickerSwap({ start: "2026-11-12", prevFlight: "2026-11-11" }, "2026-11-11")).toBe(false);
-    expect(isPickerSwap({ start: "2026-11-08", prevFlight: "" }, "2026-11-11")).toBe(false);
+    expect(submitHref({ ...fields, returnDate: "2026-11-09" }, b, null)).toEqual({ ok: false, problem: { field: "return", message: RETURN_BEFORE_CHECKIN } });
+    expect(submitHref({ ...fields, night: "2026-10-19" }, b, null)).toMatchObject({ ok: false, problem: { field: "night" } });
   });
 });
 

@@ -29,7 +29,7 @@ export function formatIsoDay(iso: string): string {
   return `${DAYS[weekday]} ${d} ${MONTHS[mo - 1]}`;
 }
 
-/** "2026-11-10" → "Tue, Nov 10" (the night line and the date triggers). Returns the input unchanged if it isn't a date. */
+/** "2026-11-10" → "Tue, Nov 10" (the date triggers and the mobile summary). Returns the input unchanged if it isn't a date. */
 export function formatNightLabel(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
   if (!m) return iso;
