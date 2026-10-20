@@ -23,6 +23,17 @@
  * `reslab.ids.staging` is null everywhere until V1 reads the staging
  * account's location list (plan §9.3); a null id fails closed for that
  * account, it is never guessed.
+ *
+ * `display` (Park & Stay CX plan v2 §5, 20 Oct 2026) is what an admin sees
+ * before any price is asked — served only through /api/park-stay/access:
+ *   - `photoUrl`: hand-copied from the 19 Oct sandbox `/hotels/rates`
+ *     `hotels[].main_photo` (the V2b run, matched on `liteapi.hotelId`).
+ *     Sandbox URLs can expire: a dead image shows the card's placeholder,
+ *     and check-hotel-lots.mjs could re-check them later. Must stay on HOTEL_PHOTO_HOSTS
+ *     (photo-hosts.ts — the test pins it).
+ *   - `shuttle`: one short line restating the shuttle facts in `evidence`
+ *     (ResLab's shuttle fields, 18 Oct snapshot). Never "free" — no source
+ *     says so. Unknown hours say so ("hours shown before you book").
  */
 
 export type ReslabAccount = "production" | "staging";
@@ -52,6 +63,8 @@ export interface HotelLotEntry {
   };
   /** The M1 hand check: who, when (YYYY-MM-DD), and what was compared. */
   check: { by: string; on: string; evidence: string };
+  /** Pre-search display facts (see the header): a photo (null = the placeholder) and the shuttle line. */
+  display: { photoUrl: string | null; shuttle: string };
 }
 
 const DATA_CHECK_BY = "Claude (build agent) — data cross-check, map step pending a person";
@@ -74,6 +87,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same street address (135-30 140th Street, Jamaica); points 35 m apart; lot type parking_room, valet, 24/7 shuttle every 30 min, nothing due at lot, 100% refund. Formerly a Radisson — re-check the name on drift. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/614117928.jpg", shuttle: "Shuttle every 30 min, 24/7" },
   },
   {
     key: "hampton-inn-jfk",
@@ -89,6 +103,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (144-10 135th Avenue, Jamaica); points 74 m apart; names overlap only on 'Hampton Inn'/'JFK'. parking_room, 24/7 shuttle, nothing due at lot, 100% refund, minimum_booking_days 2. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/484877642.jpg", shuttle: "Shuttle 24/7" },
   },
   {
     key: "hyatt-place-flushing-lga",
@@ -104,6 +119,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "DIFFERENT STREETS: lot 133-59 Roosevelt Ave, hotel 133-42 39th Ave; points 75 m apart. Not yet confirmed that the LAZ garage is the hotel's own. Shuttle 7 AM – 10 PM only; front_desk_hours empty. parking_room, nothing due at lot, 100% refund. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/ex_5b16ef7f_z.jpg", shuttle: "Shuttle 7 AM – 10 PM" },
   },
   {
     key: "laguardia-marriott",
@@ -119,6 +135,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (102-05 Ditmars Blvd, East Elmhurst); points 34 m apart; parking_room, 24/7 shuttle every 15 min, nothing due at lot, 100% refund. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/430823651.jpg", shuttle: "Shuttle every 15 min, 24/7" },
   },
   {
     key: "red-carpet-inn-ewr",
@@ -132,6 +149,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
       on: DATA_CHECK_ON,
       evidence: "Same address (100 Union Avenue, Irvington); points 10 m apart; shuttle_available 0; minimum_booking_days 1. Disabled per D2.",
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/182049147.jpg", shuttle: "No airport shuttle" },
   },
   {
     key: "renaissance-newark-airport",
@@ -147,6 +165,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (1000 Spring St, Elizabeth); identical names; points 84 m apart; parking_room, shuttle 4 AM – 12 AM every 15 min, nothing due at lot, 100% refund. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/494451402.jpg", shuttle: "Shuttle every 15 min, 4 AM – 12 AM" },
   },
   {
     key: "courtyard-newark-liberty",
@@ -162,6 +181,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (600 US 1 & 9, Newark); points 51 m apart; parking_room, 24/7 shuttle every 30 min, nothing due at lot, 100% refund. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/603414590.jpg", shuttle: "Shuttle every 30 min, 24/7" },
   },
   {
     key: "hilton-newark-airport",
@@ -177,6 +197,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (1170 Spring St, Elizabeth); points 67 m apart; parking_room, 24/7 shuttle every 20 min, nothing due at lot, 100% refund. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/484394464.jpg", shuttle: "Shuttle every 20 min, 24/7" },
   },
   {
     key: "embassy-suites-newark-airport",
@@ -192,6 +213,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Addresses differ in form: ResLab '95 International Blvd', LiteAPI '95 Glimcher Realty Way' (the 18 Oct matcher saw '95 International Boulevard'); points 15 m apart. parking_room, shuttle every 30 min, nothing due at lot, 100% refund. No refundable room in the 11 Nov sample. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/485489800.jpg", shuttle: "Shuttle every 30 min — hours shown before you book" },
   },
   {
     key: "courtyard-newark-elizabeth",
@@ -207,6 +229,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Same address (87 International Blvd, Elizabeth); identical names; points 53 m apart; parking_room, 24/7 shuttle every 30 min, nothing due at lot, 100% refund, minimum_booking_days 2. " +
         MAP_STEP_PENDING,
     },
+    display: { photoUrl: "https://static.cupid.travel/hotels/486553834.jpg", shuttle: "Shuttle every 30 min, 24/7" },
   },
 ];
 
