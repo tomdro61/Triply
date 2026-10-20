@@ -59,20 +59,20 @@ export interface ContentSection extends ContentLists {
   totalBookings: number;
 }
 
-async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string, { now: number; before: number }>> {
+/** Blog sessions per article in one window. */
+async function blogSessionsIn(w: DateWindow): Promise<Map<string, number>> {
+  // One window per report: GA4 answers HTTP 500 to an orderBy on the
+  // "dateRange" dimension, and without it two ranges can tie on sessions +
+  // landingPage, which offset paging could repeat or skip.
   const rows = await ga4Report({
-    dateRanges: [
-      { startDate: w.start, endDate: w.end, name: "now" },
-      { startDate: prev.start, endDate: prev.end, name: "before" },
-    ],
+    dateRanges: [{ startDate: w.start, endDate: w.end }],
     dimensions: [{ name: "landingPage" }],
     metrics: [{ name: "sessions" }],
-    // Ties (the long tail is mostly 1 session) broken by dimension, so offset
-    // paging cannot repeat or skip a row between pages.
+    // Ties (the long tail is mostly 1 session) broken by landingPage, which is
+    // unique per row, so offset paging cannot repeat or skip a row.
     orderBys: [
       { metric: { metricName: "sessions" }, desc: true },
       { dimension: { dimensionName: "landingPage" } },
-      { dimension: { dimensionName: "dateRange" } },
     ],
     dimensionFilter: {
       andGroup: {
@@ -83,16 +83,19 @@ async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string
       },
     },
   });
-  const out = new Map<string, { now: number; before: number }>();
+  const out = new Map<string, number>();
   for (const r of rows) {
     const slug = blogSlug(r.dims.landingPage);
-    if (!slug) continue;
-    const cur = out.get(slug) ?? { now: 0, before: 0 };
-    // Named ranges come back by name; anything else would silently double "now".
-    if (r.dims.dateRange === "now") cur.now += r.metrics.sessions ?? 0;
-    else if (r.dims.dateRange === "before") cur.before += r.metrics.sessions ?? 0;
-    else throw new Error(`GA4 returned an unexpected dateRange "${r.dims.dateRange}"`);
-    out.set(slug, cur);
+    if (slug) out.set(slug, (out.get(slug) ?? 0) + (r.metrics.sessions ?? 0));
+  }
+  return out;
+}
+
+async function blogSessions(w: DateWindow, prev: DateWindow): Promise<Map<string, { now: number; before: number }>> {
+  const [now, before] = await Promise.all([blogSessionsIn(w), blogSessionsIn(prev)]);
+  const out = new Map<string, { now: number; before: number }>();
+  for (const slug of new Set([...now.keys(), ...before.keys()])) {
+    out.set(slug, { now: now.get(slug) ?? 0, before: before.get(slug) ?? 0 });
   }
   return out;
 }
