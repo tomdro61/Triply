@@ -4,9 +4,11 @@
  *
  * Order of checks, identical on both routes:
  *   1. flag (404 when off — Production answers 404 to ANY query, the
- *      post-deploy negative control), 2. input shape (400, naming the field),
- *   3. airport open for Park & Stay (404), 4. window rules (400),
- *   then the route's per-IP limit (429), and only then a budget ticket.
+ *      post-deploy negative control), 1b. admin viewer (404 for anyone else —
+ *      plan §20, the private preview runs in production), 2. input shape (400,
+ *      naming the field), 3. airport open for Park & Stay (404), 4. window
+ *      rules (400), then the route's per-IP limit (429), and only then a
+ *      budget ticket.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,6 +16,7 @@ import { z } from "zod";
 import type { Airport } from "@/config/airports";
 import { captureAPIError } from "@/lib/sentry";
 import { parkStayFlags } from "@/lib/hotels/flags";
+import { parkStayViewerAllowed } from "@/lib/hotels/admin-preview";
 import { parkStayAirport } from "@/lib/hotels/park-stay-airports";
 import { validateParkStayWindow, type ParkStayWindow } from "@/lib/hotels/parking-window";
 import { PARK_STAY_MAX_ADULTS, PARK_STAY_MIN_ADULTS } from "@/lib/hotels/plans";
@@ -57,8 +60,9 @@ function notFound(): NextResponse {
 }
 
 /** Steps 1–4. `now` is injectable for tests. */
-export function gateParkStayRequest(request: NextRequest, now: Date): ParkStayGate {
+export async function gateParkStayRequest(request: NextRequest, now: Date, caller: string): Promise<ParkStayGate> {
   if (!parkStayFlags().enabled) return { ok: false, response: notFound() };
+  if (!(await parkStayViewerAllowed(caller))) return { ok: false, response: notFound() };
   const sp = request.nextUrl.searchParams;
   const parsed = searchQuerySchema.safeParse({
     airport: sp.get("airport") ?? "",

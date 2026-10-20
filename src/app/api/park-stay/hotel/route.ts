@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   // The request-wide deadline (review pass 2, H1): every leg after this is
   // bounded by what is left of it.
   const deadlineMs = nowDate.getTime() + PARK_STAY_REQUEST_BUDGET_MS;
-  const gate = gateParkStayRequest(request, nowDate);
+  const gate = await gateParkStayRequest(request, nowDate, CALLER);
   if (!gate.ok) return gate.response;
   const { airport, window: w, adults } = gate.request;
 

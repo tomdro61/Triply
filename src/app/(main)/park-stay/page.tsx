@@ -3,14 +3,17 @@ import { notFound } from "next/navigation";
 import { Navbar, Footer } from "@/components/shared";
 import { ParkStaySearchResults } from "@/components/park-stay/search-results";
 import { parkStayAirports } from "@/lib/hotels/park-stay-airports";
+import { parkStayViewerAllowed } from "@/lib/hotels/admin-preview";
 
 // Never ISR / never static: the flag is read per process and the page must
-// 404 when it is off (the post-deploy negative control, plan v3 §9.1).
+// 404 when it is off (the post-deploy negative control, plan v3 §9.1) or the
+// viewer is not a signed-in admin (the production preview, §20).
 export const dynamic = "force-dynamic";
 
-export default function ParkStayPage() {
+export default async function ParkStayPage() {
   const airports = parkStayAirports();
   if (airports.length === 0) notFound();
+  if (!(await parkStayViewerAllowed("/park-stay"))) notFound();
   return (
     <>
       <Navbar />

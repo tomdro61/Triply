@@ -18,7 +18,7 @@ vi.mock("@/lib/hotels/liteapi/env", async (importOriginal) => {
   };
 });
 
-import { liteApiRequest } from "@/lib/hotels/liteapi/client";
+import { liteApiRequest, LITEAPI_BOOK_HOST_ENABLED, LiteApiBookHostDisabledError } from "@/lib/hotels/liteapi/client";
 import { LiteApiBudgetError, BudgetTicket } from "@/lib/hotels/liteapi/budget";
 
 const fetchMock = vi.fn();
@@ -36,6 +36,18 @@ beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => vi.unstubAllGlobals());
+
+describe("the LiteAPI booking host is off in this phase (plan §20.4)", () => {
+  it("the constant is false until the reviewed Phase B launch PR", () => {
+    expect(LITEAPI_BOOK_HOST_ENABLED).toBe(false);
+  });
+
+  it("a book-host request throws before metering or sending anything", async () => {
+    await expect(liteApiRequest("book", "/rates/book", { meter: "unmetered", method: "POST", body: {} })).rejects.toBeInstanceOf(LiteApiBookHostDisabledError);
+    expect(takeLiteApiCall).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
 
 describe("liteApiRequest metering", () => {
   it("search: takes one budget call before the request", async () => {
@@ -73,8 +85,8 @@ describe("liteApiRequest metering", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("unmetered: never touches the budget (booking / cancel)", async () => {
-    await liteApiRequest("book", "/bookings/abc", { meter: "unmetered", method: "PUT" });
+  it("unmetered: never touches the budget (booking / cancel; data host while the book host is off)", async () => {
+    await liteApiRequest("data", "/bookings/abc", { meter: "unmetered", method: "PUT" });
     expect(takeLiteApiCall).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });

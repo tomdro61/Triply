@@ -29,6 +29,22 @@ import { takeLiteApiCall, type BudgetTicket } from "./budget";
 
 export const LITEAPI_TIMEOUT_MS = 10_000;
 
+/**
+ * The booking host (book / get / cancel on book.liteapi.travel) is OFF until
+ * the reviewed Phase B launch PR flips this constant (plan §20.4). Production
+ * holds the LIVE key from Phase A on (the admin preview prices real rooms), so
+ * without this the first booking code merged to main could book real rooms
+ * before B0's controls exist. A code constant, not an env var, on purpose.
+ */
+export const LITEAPI_BOOK_HOST_ENABLED = false;
+
+export class LiteApiBookHostDisabledError extends Error {
+  constructor(path: string) {
+    super(`LiteAPI booking host is disabled in this phase (refused ${path})`);
+    this.name = "LiteApiBookHostDisabledError";
+  }
+}
+
 export type LiteApiHost = "data" | "book";
 
 export class LiteApiError extends Error {
@@ -94,6 +110,8 @@ export async function liteApiRequest(
   path: string,
   init: LiteApiRequestInit
 ): Promise<LiteApiResult> {
+  // Before the key, the meter and fetch: nothing is spent or sent.
+  if (host === "book" && !LITEAPI_BOOK_HOST_ENABLED) throw new LiteApiBookHostDisabledError(path);
   const env = resolveHotelEnv();
   // Outside the try below: a refusal is a LiteApiBudgetError, never a LiteApiError.
   if (init.meter === "search") await takeLiteApiCall(env.mode, path);

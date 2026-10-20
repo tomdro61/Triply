@@ -10,11 +10,14 @@ const getChannelLocationsNoSweep = vi.fn();
 const captureAPIError = vi.fn();
 const fetchMock = vi.fn();
 const fingerprint = vi.fn(() => "f5d7c11622bdb289");
+const warmToken = vi.fn(async () => {});
+const viewerAllowed = vi.fn(async (_caller: string) => true);
 
 vi.mock("@/lib/hotels/flags", () => ({
   parkStayFlags: () => flags,
   isParkStayEnabledFor: (code: string) => flags.enabled && flags.airports.has(code.toUpperCase()),
 }));
+vi.mock("@/lib/hotels/admin-preview", () => ({ parkStayViewerAllowed: (caller: string) => viewerAllowed(caller) }));
 vi.mock("@/lib/attribution/limiter", () => ({ checkParkStaySearchRateLimit: () => rateLimitOk() }));
 vi.mock("@/lib/sentry", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/sentry")>();
@@ -30,7 +33,7 @@ vi.mock("@/lib/hotels/liteapi/env", async (importOriginal) => {
 });
 vi.mock("@/lib/reslab/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/client")>();
-  return { ...actual, warmReslabToken: async () => {}, reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
+  return { ...actual, warmReslabToken: () => warmToken(), reslab: { ...actual.reslab, getLocation: (...a: unknown[]) => getLocation(...a), getMinPrice: (...a: unknown[]) => getMinPrice(...a) } };
 });
 vi.mock("@/lib/reslab/search", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/reslab/search")>();
@@ -66,9 +69,12 @@ let liteStatus = 200;
 
 beforeEach(async () => {
   flags.enabled = true;
+  viewerAllowed.mockReset();
+  viewerAllowed.mockResolvedValue(true);
+  warmToken.mockResolvedValue(undefined);
   __resetParkStaySearchCacheForTests();
   __resetHotelLotResolveForTests();
-  for (const m of [takeLiteApiCall, getLocation, getMinPrice, getChannelLocationsNoSweep, captureAPIError, fetchMock]) m.mockReset();
+  for (const m of [warmToken, takeLiteApiCall, getLocation, getMinPrice, getChannelLocationsNoSweep, captureAPIError, fetchMock]) m.mockReset();
   rateLimitOk.mockReturnValue(true);
   fingerprint.mockReturnValue("f5d7c11622bdb289");
   const actual = await vi.importActual<typeof import("@/lib/hotels/liteapi/budget")>("@/lib/hotels/liteapi/budget");
@@ -96,7 +102,7 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const supplierCalls = () => getLocation.mock.calls.length + getMinPrice.mock.calls.length + getChannelLocationsNoSweep.mock.calls.length + fetchMock.mock.calls.length;
+const supplierCalls = () => warmToken.mock.calls.length + getLocation.mock.calls.length + getMinPrice.mock.calls.length + getChannelLocationsNoSweep.mock.calls.length + fetchMock.mock.calls.length;
 
 describe("GET /api/park-stay/search — gate order (§4.1)", () => {
   it("flag off → 404 for ANY query, checked before validation", async () => {
@@ -108,6 +114,26 @@ describe("GET /api/park-stay/search — gate order (§4.1)", () => {
     }
     expect(takeLiteApiCall).not.toHaveBeenCalled();
     expect(supplierCalls()).toBe(0);
+  });
+
+  it("not a signed-in admin → the same 404 for ANY query, before validation and with no supplier call (§20)", async () => {
+    viewerAllowed.mockResolvedValue(false);
+    for (const req of [request(), request({ night: "garbage", adults: null })]) {
+      const res = await GET(req);
+      expect(res.status).toBe(404);
+      expect(res.headers.get("Cache-Control")).toBe("no-store");
+      expect(await res.json()).toEqual({ error: "Not found" });
+    }
+    expect(viewerAllowed).toHaveBeenCalledWith("/api/park-stay/search");
+    expect(takeLiteApiCall).not.toHaveBeenCalled();
+    expect(supplierCalls()).toBe(0);
+  });
+
+  it("a cached result is never served to a non-admin (§20)", async () => {
+    const first = await GET(request());
+    expect(first.status).toBe(200);
+    viewerAllowed.mockResolvedValue(false);
+    expect((await GET(request())).status).toBe(404);
   });
 
   it("a missing input is a 400 naming the field — never defaulted", async () => {
