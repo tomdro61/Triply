@@ -33,7 +33,8 @@
  *     (photo-hosts.ts — the test pins it).
  *   - `shuttle`: one short line restating the shuttle facts in `evidence`
  *     (ResLab's shuttle fields, 18 Oct snapshot). Never "free" — no source
- *     says so. Unknown hours say so ("hours shown before you book").
+ *     says so, and no line promises what we may not show: unknown hours say
+ *     "hours not listed".
  */
 
 export type ReslabAccount = "production" | "staging";
@@ -213,7 +214,7 @@ export const HOTEL_LOTS: readonly HotelLotEntry[] = [
         "Addresses differ in form: ResLab '95 International Blvd', LiteAPI '95 Glimcher Realty Way' (the 18 Oct matcher saw '95 International Boulevard'); points 15 m apart. parking_room, shuttle every 30 min, nothing due at lot, 100% refund. No refundable room in the 11 Nov sample. " +
         MAP_STEP_PENDING,
     },
-    display: { photoUrl: "https://static.cupid.travel/hotels/485489800.jpg", shuttle: "Shuttle every 30 min — hours shown before you book" },
+    display: { photoUrl: "https://static.cupid.travel/hotels/485489800.jpg", shuttle: "Shuttle every 30 min (hours not listed)" },
   },
   {
     key: "courtyard-newark-elizabeth",

@@ -70,6 +70,8 @@ describe("the hotel ↔ lot map (plan v3 §3.2)", () => {
       expect(e.display.shuttle.trim().length, e.key).toBeGreaterThan(0);
       expect(e.display.shuttle.length, e.key).toBeLessThanOrEqual(60);
       expect(/\bfree\b/i.test(e.display.shuttle), e.key).toBe(false);
+      // No promise the page may not keep (review round 1, item 9): unknown hours are "not listed".
+      expect(/before you book|guaranteed|always/i.test(e.display.shuttle), e.key).toBe(false);
     }
     // Enabled hotels all have a photo (copied from the 19 Oct sandbox answer).
     expect(HOTEL_LOTS.filter((e) => e.enabled && e.display.photoUrl === null)).toEqual([]);
