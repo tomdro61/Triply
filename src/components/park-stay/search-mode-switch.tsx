@@ -9,9 +9,10 @@ import { useId } from "react";
  * with aria-current, not radio buttons: switching changes the route, so the
  * back button and screen readers treat it as navigation.
  *
- * A side that can't be offered is a disabled span, and its reason is SHOWN
- * beside the switch and tied to it with aria-describedby (R12-M8) — not only
- * a tooltip.
+ * A side that can't be offered is a disabled link (role="link",
+ * aria-disabled, focusable, no href), and its reason is SHOWN beside the
+ * switch and tied to it with aria-describedby (R12-M8) — so keyboard and
+ * screen-reader users reach it and hear why, not only a tooltip.
  */
 
 export type SearchMode = "parking" | "park-stay";
@@ -22,7 +23,14 @@ const BASE = "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors";
 function Side({ label, side, current, reasonId }: { label: string; side: ModeSide; current: boolean; reasonId: string }) {
   if ("disabledReason" in side) {
     return (
-      <span aria-disabled="true" aria-describedby={reasonId} title={side.disabledReason} className={`${BASE} cursor-not-allowed text-gray-400`}>
+      <span
+        role="link"
+        aria-disabled="true"
+        tabIndex={0}
+        aria-describedby={reasonId}
+        title={side.disabledReason}
+        className={`${BASE} cursor-not-allowed text-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange/40`}
+      >
         {label}
       </span>
     );

@@ -19,9 +19,10 @@
  *   has them — no defaults; a missing one is highlighted with the prompt,
  *   and the results stay idle (no fetch) until all are set.
  * - Every submit keeps `focus`.
- * - The mode switch (§12.1) is the first item of the desktop row and sits
- *   directly above the mobile summary bar — OUTSIDE its button (a link
- *   inside a button is invalid).
+ * - The mode switch (§12.1) sits on its own line above the fields on
+ *   desktop, and directly above the mobile summary bar — OUTSIDE its button
+ *   (a link inside a button is invalid). The fields are one row from 1440 px
+ *   and two rows below it, so nothing is clipped.
  *
  * The parent re-keys this on the URL, so its state always starts from what
  * was searched.
@@ -73,7 +74,7 @@ function DetailSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className={`flex items-center xl:w-40 ${missing ? BOX_MISSING : BOX_OK}`}>
+    <div className={`flex min-w-0 items-center min-[1440px]:w-44 ${missing ? BOX_MISSING : BOX_OK}`}>
       <span className="mr-1.5 whitespace-nowrap text-sm text-gray-500" aria-hidden="true">
         {prefix}
       </span>
@@ -207,95 +208,102 @@ export function ParkStayHeader({
         noValidate
         className={`${expanded ? "block" : "hidden"} lg:block px-4 pb-4 pt-3 border-t border-gray-100 lg:border-t-0 lg:max-w-7xl lg:mx-auto lg:px-8 lg:pt-2`}
       >
-        <div className="flex flex-col xl:flex-row gap-3">
-          <div className="hidden lg:block self-start xl:self-center">{modeSwitch}</div>
+        {/* Desktop: the switch on its own line above the fields (seven fields
+            and a button don't fit one row with it beside them below ~1440 px). */}
+        <div className="hidden lg:block mb-3">{modeSwitch}</div>
+        {/* One row from 1440 px; below that two rows — airport + dates, then
+            the three details + Update — so no field is squeezed or clipped. */}
+        <div className="flex flex-col gap-3 min-[1440px]:flex-row">
+          <div className="flex flex-col sm:flex-row gap-3 min-[1440px]:flex-1 min-w-0">
+            <div className="sm:w-56 flex-shrink-0">
+              <ParkStayAirportSelect
+                value={airport}
+                onChange={(code) => {
+                  setAirport(code);
+                  setProblem(null);
+                }}
+                airports={airports}
+                variant="compact"
+                invalid={problem?.field === "airport"}
+                label="Airport"
+              />
+            </div>
 
-          <div className="flex-grow xl:w-1/5">
-            <ParkStayAirportSelect
-              value={airport}
-              onChange={(code) => {
-                setAirport(code);
-                setProblem(null);
-              }}
-              airports={airports}
-              variant="compact"
-              invalid={problem?.field === "airport"}
-              label="Airport"
-            />
+            <DateRangePicker
+              startDate={night}
+              endDate={returnDate}
+              onStartChange={onCheckinChange}
+              onEndChange={onReturnChange}
+              minDate={pickerDate(bounds.today)}
+              maxDate={pickerDate(maxPick)}
+              windowNote={PARK_STAY_WINDOW_NOTE}
+            >
+              {({ startTriggerProps, endTriggerProps }) => (
+                <div className="flex flex-col sm:flex-row gap-3 flex-1 min-w-0">
+                  <div className={`flex-1 ${BOX_OK}`}>
+                    <button
+                      type="button"
+                      ref={startTriggerProps.ref}
+                      onClick={startTriggerProps.onClick}
+                      aria-label={night ? `Hotel check-in date, ${formatNightLabel(night)}` : "Hotel check-in date"}
+                      aria-invalid={problem?.field === "night" || undefined}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
+                      <span className="mr-1 whitespace-nowrap text-gray-500">Hotel check-in</span>
+                      <span className={night ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{night ? formatNightLabel(night) : "Choose"}</span>
+                    </button>
+                  </div>
+                  <div className={`flex-1 ${BOX_OK}`}>
+                    <button
+                      type="button"
+                      ref={endTriggerProps.ref}
+                      onClick={endTriggerProps.onClick}
+                      aria-label={returnDate ? `Parking return date, ${formatNightLabel(returnDate)}` : "Parking return date"}
+                      aria-invalid={problem?.field === "return" || undefined}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
+                      <span className="mr-1 whitespace-nowrap text-gray-500">Parking return</span>
+                      <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{returnDate ? formatNightLabel(returnDate) : "Choose"}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </DateRangePicker>
           </div>
 
-          <DateRangePicker
-            startDate={night}
-            endDate={returnDate}
-            onStartChange={onCheckinChange}
-            onEndChange={onReturnChange}
-            minDate={pickerDate(bounds.today)}
-            maxDate={pickerDate(maxPick)}
-            windowNote={PARK_STAY_WINDOW_NOTE}
-          >
-            {({ startTriggerProps, endTriggerProps }) => (
-              <div className="flex flex-col sm:flex-row gap-3 xl:flex-1">
-                <div className={`flex-1 ${BOX_OK}`}>
-                  <button
-                    type="button"
-                    ref={startTriggerProps.ref}
-                    onClick={startTriggerProps.onClick}
-                    aria-label={night ? `Hotel check-in date, ${formatNightLabel(night)}` : "Hotel check-in date"}
-                    aria-invalid={problem?.field === "night" || undefined}
-                    className="flex items-center w-full text-left cursor-pointer text-sm"
-                  >
-                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
-                    <span className="mr-1 whitespace-nowrap text-gray-500">Hotel check-in</span>
-                    <span className={night ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{night ? formatNightLabel(night) : "Choose"}</span>
-                  </button>
-                </div>
-                <div className={`flex-1 ${BOX_OK}`}>
-                  <button
-                    type="button"
-                    ref={endTriggerProps.ref}
-                    onClick={endTriggerProps.onClick}
-                    aria-label={returnDate ? `Parking return date, ${formatNightLabel(returnDate)}` : "Parking return date"}
-                    aria-invalid={problem?.field === "return" || undefined}
-                    className="flex items-center w-full text-left cursor-pointer text-sm"
-                  >
-                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
-                    <span className="mr-1 whitespace-nowrap text-gray-500">Parking return</span>
-                    <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{returnDate ? formatNightLabel(returnDate) : "Choose"}</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </DateRangePicker>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 min-[1440px]:flex">
+              <DetailSelect
+                prefix="At hotel"
+                ariaLabel="Arrive at the hotel"
+                placeholder="Time"
+                value={arrivalTime}
+                options={ARRIVAL_TIME_OPTIONS}
+                missing={arrivalTime.length === 0}
+                onChange={setArrivalTime}
+              />
+              <DetailSelect
+                prefix="Back"
+                ariaLabel="Return time"
+                placeholder="Time"
+                value={returnTime}
+                options={RETURN_TIME_OPTIONS}
+                missing={returnTime.length === 0}
+                onChange={setReturnTime}
+              />
+              <DetailSelect prefix="Guests" ariaLabel="Guests" placeholder="Adults" value={adults} options={ADULT_OPTIONS} missing={adults.length === 0} onChange={setAdults} />
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:flex">
-            <DetailSelect
-              prefix="At hotel"
-              ariaLabel="Arrive at the hotel"
-              placeholder="Time"
-              value={arrivalTime}
-              options={ARRIVAL_TIME_OPTIONS}
-              missing={arrivalTime.length === 0}
-              onChange={setArrivalTime}
-            />
-            <DetailSelect
-              prefix="Back"
-              ariaLabel="Return time"
-              placeholder="Time"
-              value={returnTime}
-              options={RETURN_TIME_OPTIONS}
-              missing={returnTime.length === 0}
-              onChange={setReturnTime}
-            />
-            <DetailSelect prefix="Guests" ariaLabel="Guests" placeholder="Adults" value={adults} options={ADULT_OPTIONS} missing={adults.length === 0} onChange={setAdults} />
+            <button
+              type="submit"
+              className="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
+            >
+              <span className="lg:hidden">Update Search</span>
+              <span className="hidden lg:inline">Update</span>
+            </button>
           </div>
-
-          <button
-            type="submit"
-            className="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
-          >
-            <span className="lg:hidden">Update Search</span>
-            <span className="hidden lg:inline">Update</span>
-          </button>
         </div>
 
         <div className="mt-2 space-y-1 text-sm">

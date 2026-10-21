@@ -101,6 +101,10 @@ describe("parking search components — baseline markup (PR B must not change it
     expect(html(createElement(MobileMapCard, { lot: BARE_LOT, onSelect: noop }))).toMatchSnapshot();
   });
 
+  // Limitation: SearchHeader's mobile form only renders after a tap
+  // (`expanded` starts false), so these snapshots pin the mobile summary bar
+  // and the desktop form, NOT the expanded mobile form. The modeSwitch slot's
+  // placement in both areas is pinned in extra-slots.test.ts.
   it("SearchHeader: JFK with both dates, and with no dates", () => {
     const base = {
       tab: "parking" as const,

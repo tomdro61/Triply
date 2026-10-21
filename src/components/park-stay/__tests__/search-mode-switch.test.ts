@@ -36,7 +36,8 @@ describe("SearchModeSwitch — one switch, both pages (§12.1, R12-M8)", () => {
     const html = renderToStaticMarkup(
       createElement(SearchModeSwitch, { mode: "parking", parking: { href: "/search?a=1" }, parkStay: { disabledReason: "Park & Stay needs a hotel night before your parking starts." } })
     );
-    const describedBy = /<span aria-disabled="true" aria-describedby="([^"]+)"[^>]*>Park &amp; Stay<\/span>/.exec(html);
+    // A focusable disabled link (role + tabindex), so aria-describedby is announced.
+    const describedBy = /<span role="link" aria-disabled="true" tabindex="0" aria-describedby="([^"]+)"[^>]*>Park &amp; Stay<\/span>/.exec(html);
     expect(describedBy).not.toBeNull();
     const id = describedBy?.[1] ?? "";
     expect(html).toContain(`<p id="${id}" class="text-xs text-gray-500">Park &amp; Stay needs a hotel night before your parking starts.</p>`);
@@ -45,7 +46,7 @@ describe("SearchModeSwitch — one switch, both pages (§12.1, R12-M8)", () => {
 
   it("on /park-stay the parking side can be the disabled one", () => {
     const html = renderToStaticMarkup(createElement(SearchModeSwitch, { mode: "park-stay", parking: { disabledReason: PARKING_NEEDS_DATES }, parkStay: { href: "/park-stay?x=1" } }));
-    expect(html).toMatch(/<span aria-disabled="true" aria-describedby="[^"]+"[^>]*>Parking only<\/span>/);
+    expect(html).toMatch(/<span role="link" aria-disabled="true" tabindex="0" aria-describedby="[^"]+"[^>]*>Parking only<\/span>/);
     expect(html).toContain('aria-current="page">Park &amp; Stay</a>');
     expect(html).toContain(PARKING_NEEDS_DATES);
   });

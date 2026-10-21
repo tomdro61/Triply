@@ -70,6 +70,28 @@ describe("extraBadge / renderExtraBadge", () => {
 });
 
 describe("SearchHeader modeSwitch", () => {
+  it("snapshot: the slot in BOTH the mobile area (above the summary button) and the desktop row (first item)", () => {
+    const html = renderToStaticMarkup(
+      createElement(SearchHeader, {
+        tab: "parking",
+        onTabChange: noop,
+        airport: "JFK",
+        onAirportChange: noop,
+        departDate: "2026-11-10",
+        onDepartDateChange: noop,
+        returnDate: "2026-11-14",
+        onReturnDateChange: noop,
+        onSearch: noop,
+        modeSwitch: marker("SWITCH"),
+      })
+    );
+    // The wrappers the slot lands in, in document order (mobile, then desktop)…
+    const places = [...html.matchAll(/<div class="([^"]*)"><b data-slot="x">SWITCH<\/b><\/div>/g)].map((m) => m[1]);
+    expect(places).toMatchSnapshot();
+    // …and the whole header with the slot set.
+    expect(html).toMatchSnapshot();
+  });
+
   it("renders above the mobile summary bar (outside its button) and first in the desktop row", () => {
     const html = renderToStaticMarkup(
       createElement(SearchHeader, {
