@@ -2,8 +2,9 @@
 
 /**
  * /admin/analytics — the Google-backed half of the admin analytics plan
- * (notes/2026-10-19-admin-analytics-plan.md, v2 Part B). Booking counts by
- * source, airports, Park Guard, promos and cancellations stay on /admin.
+ * (notes/2026-10-19-admin-analytics-plan.md, v2 Part B), plus booking counts
+ * by source from our own records. Airports, Park Guard, promos and
+ * cancellations stay on /admin.
  *
  * Every section prints its own date range (GA4 and Search Console lag
  * differently) and shows "unavailable" rather than zeros when it fails.
@@ -12,18 +13,20 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import type {
+  BookingSourcesSection,
   ContentSection,
   FunnelSection,
   SearchTrendSection,
   Section,
   SourcesSection,
 } from "@/lib/admin/analytics/collect";
-import type { ArticleRow, DateWindow } from "@/lib/admin/analytics/content";
+import type { ArticleRow, BlogByAirport, DateWindow } from "@/lib/admin/analytics/content";
 
 interface AnalyticsResponse {
   content: Section<ContentSection>;
   funnel: Section<FunnelSection>;
   sources: Section<SourcesSection>;
+  bookingSources: Section<BookingSourcesSection>;
   search: Section<SearchTrendSection>;
 }
 
@@ -104,6 +107,56 @@ function ArticleTable({ rows, empty, showBefore = false }: { rows: ArticleRow[];
   );
 }
 
+function AirportTable({ data: { rows, otherAirports, otherBookings } }: { data: BlogByAirport }) {
+  if (rows.length === 0) return <p className="text-sm text-gray-500">No bookings started on a blog article in these days.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs uppercase text-gray-500">
+            <th className="pb-2">Airport</th>
+            <th className="pb-2 text-right">Bookings</th>
+            <th className="pb-2 text-right">Articles</th>
+            <th className="pb-2 pl-4">Articles they came from</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.airport} className="border-t border-gray-100 align-top">
+              <td className="py-1.5 font-medium">{r.airport}</td>
+              <td className="py-1.5 text-right tabular-nums">{r.bookings}</td>
+              <td className="py-1.5 text-right tabular-nums">{r.articleCount}</td>
+              <td className="max-w-[32rem] py-1.5 pl-4">
+                {r.articles.map((a) => (
+                  <div key={a.slug} className="truncate">
+                    <a href={`/blog/${a.slug}`} target="_blank" rel="noreferrer" className="text-brand-orange hover:underline">
+                      {a.slug}
+                    </a>
+                    <span className="ml-1 text-gray-500">({fmtBookings(a.bookings)})</span>
+                  </div>
+                ))}
+                {r.articleCount > r.articles.length && (
+                  <div className="text-xs text-gray-500">+{r.articleCount - r.articles.length} more</div>
+                )}
+              </td>
+            </tr>
+          ))}
+          {otherAirports > 0 && (
+            <tr className="border-t border-gray-100 text-gray-500">
+              <td className="py-1.5">
+                Other {otherAirports} airport{otherAirports === 1 ? "" : "s"}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{otherBookings}</td>
+              <td />
+              <td />
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ContentCard({ s }: { s: Section<ContentSection> }) {
   if (!s.ok)
     return (
@@ -131,8 +184,13 @@ function ContentCard({ s }: { s: Section<ContentSection> }) {
         <p className="mt-2 text-xs text-amber-700">Google clicks unavailable — {c.googleClicks.error}</p>
       )}
 
-      <h3 className={sub}>Top articles by bookings</h3>
-      <ArticleTable rows={c.topByBookings} empty="No bookings credited to an article in these days." />
+      <h3 className={sub}>Blog bookings by airport</h3>
+      <p className="mb-2 text-xs text-gray-500">
+        Bookings are spread over thousands of articles and almost none gets more than one or two, so they are grouped
+        by the airport booked. &ldquo;Articles&rdquo; is how many different articles those bookings came from; up to 3 are
+        listed.
+      </p>
+      <AirportTable data={c.byAirport} />
 
       <h3 className={sub}>Top articles by traffic</h3>
       <ArticleTable rows={c.topByTraffic} empty="No blog visits." />
@@ -201,16 +259,55 @@ function FunnelCard({ s }: { s: Section<FunnelSection> }) {
   );
 }
 
-function SourcesCard({ s }: { s: Section<SourcesSection> }) {
-  if (!s.ok)
-    return (
-      <Card title="Visits and booking rate by source">
-        <Unavailable error={s.error} />
-      </Card>
-    );
-  const d = s.data;
+function BookingSourcesTable({ s }: { s: Section<BookingSourcesSection> }) {
+  if (!s.ok) return <Unavailable error={s.error} />;
+  const b = s.data;
+  if (b.total === 0) return <p className="text-sm text-gray-500">No bookings in these days.</p>;
   return (
-    <Card title="Visits and booking rate by source" range={`${fmtRange(d.window)} (Google Analytics)`}>
+    <>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs uppercase text-gray-500">
+            <th className="pb-2">Where the customer came from</th>
+            <th className="pb-2 text-right">Bookings</th>
+            <th className="pb-2 text-right">Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          {b.rows.map((r) => (
+            <tr key={r.source} className="border-t border-gray-100">
+              <td className="py-1.5">{r.label}</td>
+              <td className="py-1.5 text-right tabular-nums">{fmtInt(r.bookings)}</td>
+              <td className="py-1.5 text-right tabular-nums">{fmtPct(r.bookings / b.total, 0)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-2 text-xs text-gray-500">
+        {b.total} confirmed bookings {fmtRange(b.window)} from our booking records, by the customer&apos;s first visit —
+        counted the same way as the Dashboard.
+      </p>
+    </>
+  );
+}
+
+function SourcesCard({ s, b }: { s: Section<SourcesSection>; b: Section<BookingSourcesSection> }) {
+  const sub = "mb-2 text-sm font-semibold text-gray-900";
+  // Both halves use the same 28-day window.
+  const win = s.ok ? s.data.window : b.ok ? b.data.window : null;
+  return (
+    <Card title="Bookings and visits by source" range={win ? fmtRange(win) : undefined}>
+      <h3 className={sub}>Bookings</h3>
+      <BookingSourcesTable s={b} />
+      <h3 className={`mt-6 ${sub}`}>Visits (Google Analytics)</h3>
+      {s.ok ? <SourcesTable d={s.data} /> : <Unavailable error={s.error} />}
+    </Card>
+  );
+}
+
+function SourcesTable({ d }: { d: SourcesSection }) {
+  return (
+    <>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left text-xs uppercase text-gray-500">
@@ -236,10 +333,10 @@ function SourcesCard({ s }: { s: Section<SourcesSection> }) {
           ? `Bookings and booking rate unavailable — ${d.purchaseError}.`
           : d.purchaseWindow
           ? `Bookings and booking rate over ${fmtRange(d.purchaseWindow)} only (clean booking data from Oct 20).`
-          : "Bookings and booking rate appear once a week of clean booking data is in (from Oct 20)."}{" "}
-        Booking counts by source from our own records are on the Dashboard.
+          : "Google Analytics bookings and booking rate appear once a week of clean booking data is in (from Oct 20)."}{" "}
+        Google Analytics groups sources its own way, so its booking counts won&apos;t match the table above exactly.
       </p>
-    </Card>
+    </>
   );
 }
 
@@ -298,8 +395,8 @@ export default function AdminAnalyticsPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
         <p className="mt-1 text-sm text-gray-500">
-          Last 28 days from Google Analytics and Search Console. Bookings, sources, airports, Park Guard, promo codes
-          and cancellations are on the Dashboard.
+          Last 28 days from Google Analytics, Search Console and our booking records. Revenue, airports, Park Guard,
+          promo codes and cancellations are on the Dashboard.
         </p>
       </div>
       {error ? (
@@ -313,7 +410,7 @@ export default function AdminAnalyticsPage() {
       ) : (
         <>
           <SearchCard s={data.search} />
-          <SourcesCard s={data.sources} />
+          <SourcesCard s={data.sources} b={data.bookingSources} />
           <FunnelCard s={data.funnel} />
           <ContentCard s={data.content} />
         </>

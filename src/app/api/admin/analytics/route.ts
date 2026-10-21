@@ -3,7 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
 import { captureAPIError } from "@/lib/sentry";
 import { calendarDayIn, DIGEST_TZ } from "@/lib/digest/window";
-import { collectContent, collectFunnel, collectSearchTrend, collectSources } from "@/lib/admin/analytics/collect";
+import {
+  collectBookingSources,
+  collectContent,
+  collectFunnel,
+  collectSearchTrend,
+  collectSources,
+} from "@/lib/admin/analytics/collect";
 
 /**
  * GET /api/admin/analytics — the admin Analytics page (plan v2 Part B):
@@ -25,10 +31,11 @@ export async function GET() {
 
   const now = new Date();
   const today = calendarDayIn(DIGEST_TZ, now);
-  const [content, funnel, sources, search] = await Promise.all([
+  const [content, funnel, sources, bookingSources, search] = await Promise.all([
     collectContent(now, today),
     collectFunnel(now),
     collectSources(now),
+    collectBookingSources(now),
     collectSearchTrend(today),
   ]);
 
@@ -36,6 +43,7 @@ export async function GET() {
     ["content", content],
     ["funnel", funnel],
     ["sources", sources],
+    ["bookingSources", bookingSources],
     ["search", search],
   ] as const) {
     if (!s.ok) {
@@ -55,5 +63,5 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ content, funnel, sources, search }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ content, funnel, sources, bookingSources, search }, { headers: { "Cache-Control": "no-store" } });
 }
