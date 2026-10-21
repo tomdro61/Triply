@@ -3,7 +3,10 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { excludeTestBookings } from "@/config/admin";
 import { DIGEST_TZ, shiftIsoDate, zonedMidnightUtc } from "@/lib/digest/window";
 import { ga4Report, gscQuery, GoogleConfigError } from "@/lib/google/client";
+import type { AttributionRow } from "@/lib/attribution/display";
+import { BOOKING_SOURCE_LABELS, bookingSource, type BookingSource } from "@/lib/attribution/source";
 import {
+  blogBookingsByAirport,
   blogSlug,
   bookingsByArticle,
   CHECKOUT_EVENTS_FROM,
@@ -12,6 +15,7 @@ import {
   ga4Windows,
   gscWindows,
   purchaseWindow,
+  type AirportBlogRow,
   type ArticleRow,
   type ContentLists,
   type DateWindow,
@@ -53,6 +57,8 @@ export interface ContentSection extends ContentLists {
   previousWindow: DateWindow;
   /** Search Console clicks per article: its own section, so a failure is shown, not blanked. */
   googleClicks: { ok: true; window: DateWindow } | { ok: false; error: string };
+  /** Blog bookings grouped by the airport booked, top articles under each. */
+  byAirport: AirportBlogRow[];
   /** Bookings in the window with no attribution at all (not credited anywhere). */
   unattributedBookings: number;
   /** Live bookings made in the window, excluding cancelled / refunded. */
@@ -124,14 +130,16 @@ async function googleClicksByArticle(w: DateWindow): Promise<Map<string, number>
   return out;
 }
 
+type WindowBooking = AttributionRow & { airport_code: string | null };
+
 /** Live bookings created in the window (ET days), with their attribution. */
-async function bookingsInWindow(w: DateWindow): Promise<Array<{ attribution: { first?: { land?: string }; last?: { land?: string } } | null }>> {
+async function bookingsInWindow(w: DateWindow): Promise<WindowBooking[]> {
   const supabase = await createAdminClient();
   const CAP = 2000;
   const { data, error } = await excludeTestBookings(
     supabase
       .from("bookings")
-      .select("attribution")
+      .select("attribution, channel, airport_code")
       // Disputed bookings are real (ResLab still bills them); cancelled/refunded are not.
       .in("status", ["confirmed", "completed", "disputed"])
       .gte("created_at", zonedMidnightUtc(w.start, DIGEST_TZ).toISOString())
@@ -140,7 +148,7 @@ async function bookingsInWindow(w: DateWindow): Promise<Array<{ attribution: { f
     .limit(CAP)
     .abortSignal(AbortSignal.timeout(5_000));
   if (error) throw new Error(`bookings read failed: ${error.message}`);
-  const rows = (data ?? []) as Array<{ attribution: { first?: { land?: string }; last?: { land?: string } } | null }>;
+  const rows = (data ?? []) as WindowBooking[];
   if (rows.length >= CAP) throw new Error("bookings read hit its row cap");
   return rows;
 }
@@ -149,7 +157,9 @@ export async function collectContent(now: Date, today: string): Promise<Section<
   const { current, previous } = ga4Windows(now);
   return section(async () => {
     const [main, gsc] = await Promise.all([
-      cached("content", current.end, async () => {
+      // "-v2": the cached shape gained byAirport; a "content" entry from the
+      // previous deploy must not be served without it.
+      cached("content-v2", current.end, async () => {
         const [sessions, bookings] = await Promise.all([blogSessions(current, previous), bookingsInWindow(current)]);
         // The blog never has zero visits in 28 days: zero means a filter or
         // property problem, not a quiet month — fail rather than cache zeros.
@@ -157,6 +167,7 @@ export async function collectContent(now: Date, today: string): Promise<Section<
         return {
           sessions: [...sessions.entries()],
           credited: [...bookingsByArticle(bookings).entries()],
+          byAirport: blogBookingsByAirport(bookings),
           unattributed: bookings.filter((b) => !b.attribution?.first && !b.attribution?.last).length,
           total: bookings.length,
         };
@@ -185,6 +196,7 @@ export async function collectContent(now: Date, today: string): Promise<Section<
       window: current,
       previousWindow: previous,
       googleClicks: gsc.ok ? { ok: true as const, window: gsc.data.window } : { ok: false as const, error: gsc.error },
+      byAirport: main.byAirport,
       unattributedBookings: main.unattributed,
       totalBookings: main.total,
     };
@@ -342,6 +354,45 @@ export async function collectSources(now: Date): Promise<Section<SourcesSection>
         rows,
         ...(noPurchases ? { purchaseError: "GA4 shows no bookings in the clean window; booking tracking may be broken" } : {}),
       };
+    })
+  );
+}
+
+// ── Bookings by source, from our own booking records ────────────────────────
+
+export interface BookingSourceRow {
+  source: BookingSource;
+  label: string;
+  bookings: number;
+}
+
+export interface BookingSourcesSection {
+  /** The same window as the GA4 visits, so the two tables line up. */
+  window: DateWindow;
+  rows: BookingSourceRow[];
+  total: number;
+}
+
+/**
+ * Bookings per source from `bookings.attribution` (the split the Dashboard and
+ * daily digest use), available now — GA4's purchase counts are only clean from
+ * PURCHASE_CLEAN_FROM. Counts only: our sources and GA4's channel groups are
+ * defined differently, so dividing one by the other's visits would be wrong.
+ */
+export async function collectBookingSources(now: Date): Promise<Section<BookingSourcesSection>> {
+  const { current } = ga4Windows(now);
+  return section(() =>
+    cached("booking-sources", current.end, async () => {
+      const bookings = await bookingsInWindow(current);
+      const counts = new Map<BookingSource, number>();
+      for (const b of bookings) {
+        const s = bookingSource(b);
+        counts.set(s, (counts.get(s) ?? 0) + 1);
+      }
+      const rows = [...counts.entries()]
+        .map(([source, n]) => ({ source, label: BOOKING_SOURCE_LABELS[source], bookings: n }))
+        .sort((a, b) => b.bookings - a.bookings || a.label.localeCompare(b.label));
+      return { window: current, rows, total: bookings.length };
     })
   );
 }

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  blogBookingsByAirport,
   blogSlug,
   bookingsByArticle,
   change,
@@ -64,6 +65,49 @@ describe("bookingsByArticle", () => {
   });
 });
 
+describe("blogBookingsByAirport", () => {
+  const b = (airport_code: string | null, first?: string, last?: string) => ({
+    airport_code,
+    attribution: { first: first ? { land: first } : undefined, last: last ? { land: last } : undefined },
+  });
+
+  it("groups blog bookings by the airport booked, top articles under each", () => {
+    const rows = blogBookingsByAirport([
+      b("EWR", "/blog/ewr-a"),
+      b("EWR", "/blog/ewr-b"),
+      b("EWR", "/blog/ewr-a", "/blog/ewr-c"), // two articles: ½ each
+      b("jfk", "/blog/jfk-a"),
+      b("JFK", "/search"), // not from the blog: not counted
+      b(null, "/blog/x"),
+    ]);
+    expect(rows.map((r) => [r.airport, r.bookings])).toEqual([
+      ["EWR", 3],
+      ["JFK", 1],
+      ["Unknown", 1],
+    ]);
+    expect(rows[0].articleCount).toBe(3);
+    expect(rows[0].articles).toEqual([
+      { slug: "ewr-a", bookings: 1.5 },
+      { slug: "ewr-b", bookings: 1 },
+      { slug: "ewr-c", bookings: 0.5 },
+    ]);
+  });
+
+  it("keeps at most 3 articles per airport and 15 airports", () => {
+    const many = Array.from({ length: 20 }, (_, i) => b(`A${String(i).padStart(2, "0")}`, `/blog/p${i}`));
+    const fourArticles = ["a", "b", "c", "d"].map((s) => b("ZZZ", `/blog/${s}`));
+    const rows = blogBookingsByAirport([...many, ...fourArticles]);
+    expect(rows).toHaveLength(15);
+    expect(rows[0]).toMatchObject({ airport: "ZZZ", bookings: 4 });
+    expect(rows[0].articles).toHaveLength(3);
+    expect(rows[0].articleCount).toBe(4);
+  });
+
+  it("is empty when no booking started on the blog", () => {
+    expect(blogBookingsByAirport([b("EWR", "/"), { airport_code: "EWR", attribution: null }])).toEqual([]);
+  });
+});
+
 const row = (slug: string, sessions: number, bookings: number, sessionsBefore = 0): ArticleRow => ({
   slug,
   sessions,
@@ -81,10 +125,6 @@ describe("contentLists", () => {
     row("tiny-none", 20, 0),
     row("falling", 100, 0, 400),
   ]);
-
-  it("ranks top articles by bookings, whatever their traffic", () => {
-    expect(lists.topByBookings.map((a) => a.slug)).toEqual(["mid-two", "quiet-two", "busy-one"]);
-  });
 
   it("ranks top articles by traffic", () => {
     expect(lists.topByTraffic[0].slug).toBe("busy-none");

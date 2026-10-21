@@ -82,14 +82,63 @@ export interface AttributedBooking {
 export function bookingsByArticle(rows: readonly AttributedBooking[]): Map<string, number> {
   const out = new Map<string, number>();
   for (const r of rows) {
-    const slugs = new Set(
-      [blogSlug(r.attribution?.first?.land), blogSlug(r.attribution?.last?.land)].filter(
-        (s): s is string => s !== null
-      )
-    );
+    const slugs = articleSlugs(r);
     for (const s of slugs) out.set(s, (out.get(s) ?? 0) + 1 / slugs.size);
   }
   return out;
+}
+
+/** The articles a booking is credited to: its first- and last-touch landing pages. */
+function articleSlugs(r: AttributedBooking): Set<string> {
+  return new Set(
+    [blogSlug(r.attribution?.first?.land), blogSlug(r.attribution?.last?.land)].filter((s): s is string => s !== null)
+  );
+}
+
+export interface AirportBlogRow {
+  /** The airport booked (bookings.airport_code); "Unknown" when not set. */
+  airport: string;
+  /** Bookings at this airport that started on a blog article. */
+  bookings: number;
+  /** How many different articles those bookings came from. */
+  articleCount: number;
+  /** Up to ARTICLES_PER_AIRPORT of them, most first (same ½ rule as bookingsByArticle). */
+  articles: Array<{ slug: string; bookings: number }>;
+}
+
+const AIRPORT_ROWS = 15;
+const ARTICLES_PER_AIRPORT = 3;
+
+/**
+ * Blog bookings grouped by the airport booked. Traffic is spread over ~4,500
+ * articles and almost none gets a second booking, so a per-article ranking is
+ * noise; per airport the pattern shows.
+ */
+export function blogBookingsByAirport(
+  rows: readonly (AttributedBooking & { airport_code: string | null })[]
+): AirportBlogRow[] {
+  const byAirport = new Map<string, { bookings: number; articles: Map<string, number> }>();
+  for (const r of rows) {
+    const slugs = articleSlugs(r);
+    if (slugs.size === 0) continue;
+    const airport = r.airport_code?.trim().toUpperCase() || "Unknown";
+    const a = byAirport.get(airport) ?? { bookings: 0, articles: new Map<string, number>() };
+    a.bookings += 1;
+    for (const s of slugs) a.articles.set(s, (a.articles.get(s) ?? 0) + 1 / slugs.size);
+    byAirport.set(airport, a);
+  }
+  return [...byAirport.entries()]
+    .map(([airport, a]) => ({
+      airport,
+      bookings: a.bookings,
+      articleCount: a.articles.size,
+      articles: [...a.articles.entries()]
+        .map(([slug, bookings]) => ({ slug, bookings }))
+        .sort((x, y) => y.bookings - x.bookings || x.slug.localeCompare(y.slug))
+        .slice(0, ARTICLES_PER_AIRPORT),
+    }))
+    .sort((x, y) => y.bookings - x.bookings || x.airport.localeCompare(y.airport))
+    .slice(0, AIRPORT_ROWS);
 }
 
 export interface ArticleRow {
@@ -105,7 +154,6 @@ export interface ContentLists {
   blogBookings: number;
   /** Blog-wide bookings per session — a guide for spotting pages, not a conversion rate. */
   blogRate: number | null;
-  topByBookings: ArticleRow[];
   topByTraffic: ArticleRow[];
   trafficFewBookings: ArticleRow[];
   fewTrafficManyBookings: ArticleRow[];
@@ -122,10 +170,6 @@ export function contentLists(articles: readonly ArticleRow[]): ContentLists {
   const blogRate = blogSessions > 0 ? blogBookings / blogSessions : null;
   const by = (key: (a: ArticleRow) => number) => (a: ArticleRow, b: ArticleRow) => key(b) - key(a);
 
-  const topByBookings = articles
-    .filter((a) => a.bookings > 0)
-    .sort((a, b) => b.bookings - a.bookings || b.sessions - a.sessions)
-    .slice(0, LIST_SIZE);
   const topByTraffic = [...articles].sort(by((a) => a.sessions)).slice(0, LIST_SIZE);
 
   // Traffic is spread over thousands of articles (the busiest gets ~100+
@@ -149,7 +193,7 @@ export function contentLists(articles: readonly ArticleRow[]): ContentLists {
     .sort(by((a) => a.sessionsBefore - a.sessions))
     .slice(0, LIST_SIZE);
 
-  return { blogSessions, blogBookings, blogRate, topByBookings, topByTraffic, trafficFewBookings, fewTrafficManyBookings, losingTraffic };
+  return { blogSessions, blogBookings, blogRate, topByTraffic, trafficFewBookings, fewTrafficManyBookings, losingTraffic };
 }
 
 /** Change from `before` to `now` as a fraction, or null when there's no base. */
