@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   MapPin,
   ChevronDown,
@@ -26,6 +26,12 @@ interface SearchHeaderProps {
   returnDate: string;
   onReturnDateChange: (date: string) => void;
   onSearch: () => void;
+  /**
+   * An optional search-type switch: rendered above the mobile summary bar
+   * (outside its button) and as the first item of the desktop row. Unset
+   * renders nothing.
+   */
+  modeSwitch?: ReactNode;
 }
 
 function formatShortDate(dateStr: string): string {
@@ -43,6 +49,7 @@ export function SearchHeader({
   returnDate,
   onReturnDateChange,
   onSearch,
+  modeSwitch,
 }: SearchHeaderProps) {
   const [expanded, setExpanded] = useState(false);
   const airportInfo = getAirportByCode(airport);
@@ -54,6 +61,7 @@ export function SearchHeader({
     <div className="bg-white border-b border-gray-200 z-30 shadow-sm relative flex-shrink-0">
       {/* Mobile: Compact summary bar */}
       <div className="lg:hidden">
+        {modeSwitch && <div className="px-4 pt-3">{modeSwitch}</div>}
         <button
           onClick={() => setExpanded(!expanded)}
           className="w-full px-4 py-3 flex items-center justify-between"
@@ -150,6 +158,7 @@ export function SearchHeader({
       <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
         {/* Search Inputs */}
         <div className="flex flex-col xl:flex-row gap-3">
+          {modeSwitch && <div className="self-start xl:self-center">{modeSwitch}</div>}
           {/* Location */}
           <div className="flex-grow xl:w-1/4">
             <AirportCombobox

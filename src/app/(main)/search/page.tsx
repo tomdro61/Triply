@@ -17,10 +17,21 @@ import { UnifiedLot, SortOption } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
 import { trackSearch } from "@/lib/analytics/gtag";
 import { compareByTotal, compareByTotalDesc } from "@/lib/search/ranking";
+// Park & Stay (admin-only until launch): the hook decides whether to ASK —
+// signed out, it makes no request — and the slots lazy-load the switch and
+// the card badge only when the access endpoint said yes. They get the raw
+// URL strings only; every mapping rule lives in their lazy chunks.
+import { useParkStayAccess } from "@/components/park-stay/use-park-stay-access";
+import { ParkStayLotBadgeSlot, ParkStaySearchSwitchSlot, isParkStayAirport } from "@/components/park-stay/slots/search-slots";
 
 function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const parkStayAccess = useParkStayAccess();
+  // What was SEARCHED (the URL), never the header's unsubmitted edits.
+  const urlSearch = { airport: searchParams.get("airport"), checkin: searchParams.get("checkin"), checkout: searchParams.get("checkout") };
+  const parkStay =
+    parkStayAccess.status === "visible" && isParkStayAirport(parkStayAccess.data, urlSearch.airport) ? parkStayAccess.data : null;
 
   // Get initial values from URL params
   const initialAirport = searchParams.get("airport") || "JFK";
@@ -223,6 +234,7 @@ function SearchPageContent() {
             if (r && departDate && r < departDate) setDepartDate(r);
           }}
           onSearch={handleSearch}
+          modeSwitch={parkStay ? <ParkStaySearchSwitchSlot access={parkStay} search={urlSearch} /> : undefined}
         />
 
         {/* Split View Content */}
@@ -274,6 +286,11 @@ function SearchPageContent() {
               className={mobileView === "map" ? "hidden lg:block" : ""}
               partialResults={partialResults}
               onRetry={fetchResults}
+              renderExtraBadge={
+                parkStay
+                  ? (lot) => <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} />
+                  : undefined
+              }
             />
           )}
 
@@ -315,6 +332,9 @@ function SearchPageContent() {
                         key={lot.id}
                         lot={lot}
                         onSelect={setSelectedLot}
+                        extraBadge={
+                          parkStay ? <ParkStayLotBadgeSlot access={parkStay} search={urlSearch} reslabLocationId={lot.reslabLocationId ?? null} /> : undefined
+                        }
                       />
                     ))}
                   </div>

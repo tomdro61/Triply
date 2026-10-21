@@ -176,3 +176,47 @@ describe("shared pages reach Park & Stay only through the allowlist (R12-H2)", (
     }
   });
 });
+
+describe("the guard is not vacuous: the shared pages DO mount the slots (PR B)", () => {
+  const reach = (root: string) => [...reachableRuntime([root])].map(rel);
+
+  it("the homepage reaches the hero-tab and home-section slots", () => {
+    const r = reach(join(SRC, "app/(main)/page.tsx"));
+    expect(r).toContain("src/components/park-stay/slots/hero-tab-slot.tsx");
+    expect(r).toContain("src/components/park-stay/slots/home-section-slot.tsx");
+    expect(r).toContain("src/components/park-stay/use-park-stay-access.ts");
+  });
+
+  it("/search reaches the hook and the search slots", () => {
+    const r = reach(join(SRC, "app/(main)/search/page.tsx"));
+    expect(r).toContain("src/components/park-stay/slots/search-slots.tsx");
+    expect(r).toContain("src/components/park-stay/use-park-stay-access.ts");
+  });
+
+  it("every slot lazy-loads at least one entry chunk, and every entry chunk is lazy-loaded by a slot", () => {
+    const lazyTargets = new Set<string>();
+    for (const f of walk(SLOTS)) {
+      for (const spec of parseImports(readFileSync(f, "utf8")).dynamic) {
+        const r = resolveImport(f, spec);
+        if (r) lazyTargets.add(rel(r));
+      }
+    }
+    expect(lazyTargets).toEqual(
+      new Set([
+        "src/components/park-stay/entry/hero-tab.tsx",
+        "src/components/park-stay/entry/home-section.tsx",
+        "src/components/park-stay/entry/parking-search-switch.tsx",
+        "src/components/park-stay/entry/parking-lot-badge.tsx",
+      ])
+    );
+  });
+
+  it("…and the copy those chunks carry is NOT statically reachable from a shared page", () => {
+    const reached = reachableRuntime(SHARED_ROOTS.flatMap(walk));
+    for (const f of walk(ENTRY)) expect(reached.has(resolve(f)), rel(f)).toBe(false);
+    expect(reached.has(resolve(join(PARK_STAY, "search-values.ts")))).toBe(false);
+    expect(reached.has(resolve(join(PARK_STAY, "format.ts")))).toBe(false);
+    expect(reached.has(resolve(join(HOTELS, "plans.ts")))).toBe(false);
+    expect(reached.has(resolve(join(HOTELS, "hotel-lots.ts")))).toBe(false);
+  });
+});

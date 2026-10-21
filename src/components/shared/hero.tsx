@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
@@ -9,10 +9,20 @@ import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { HeroChatInput } from "@/components/chat";
+import { HeroExtraTabContext, type HeroExtraTabValue } from "./hero-extra-tab";
 
-type SearchTab = "parking" | "ai";
+type SearchTab = "parking" | "ai" | "extra";
 
-export function Hero() {
+interface HeroProps {
+  /**
+   * An optional extra tab, rendered once in the tab strip and once as the
+   * panel while active (see hero-extra-tab.ts). Unset: today's two tabs,
+   * exactly.
+   */
+  extraTab?: ReactNode;
+}
+
+export function Hero({ extraTab }: HeroProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SearchTab>("parking");
   const [isLoading, setIsLoading] = useState(false);
@@ -43,6 +53,16 @@ export function Hero() {
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
     { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
   ];
+
+  // Stable, so the extra tab can run unavailable() from an unmount cleanup.
+  const selectExtraTab = useCallback(() => setActiveTab("extra"), []);
+  const extraTabUnavailable = useCallback(() => setActiveTab((t) => (t === "extra" ? "parking" : t)), []);
+  const extraTabContext = (part: HeroExtraTabValue["part"]): HeroExtraTabValue => ({
+    part,
+    active: activeTab === "extra",
+    select: selectExtraTab,
+    unavailable: extraTabUnavailable,
+  });
 
   return (
     <div
@@ -88,6 +108,9 @@ export function Hero() {
                 </button>
               );
             })}
+            {extraTab && (
+              <HeroExtraTabContext.Provider value={extraTabContext("tab")}>{extraTab}</HeroExtraTabContext.Provider>
+            )}
           </div>
 
           {/* Content Area */}
@@ -96,6 +119,8 @@ export function Hero() {
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 md:p-6">
                 <HeroChatInput />
               </div>
+            ) : activeTab === "extra" && extraTab ? (
+              <HeroExtraTabContext.Provider value={extraTabContext("panel")}>{extraTab}</HeroExtraTabContext.Provider>
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end animate-fade-in">
               {/* Location */}
