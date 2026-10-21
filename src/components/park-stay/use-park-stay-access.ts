@@ -16,6 +16,8 @@
  *   timeout or an unreadable body is NEVER cached — hidden for this view,
  *   asked again on the next, and logged with console.warn (a plain 404 and
  *   a signed-out visitor are not failures and log nothing).
+ * - Every consumer on the page shares ONE open request per user id (CX plan
+ *   §12.5, R12-M4): the homepage's hero tab and section ask once.
  * - SIGNED_OUT clears every cached answer. SIGNED_IN or any event carrying a
  *   different user id re-asks for that user. A SIGNED_IN for the SAME user is
  *   ignored: supabase-js re-emits SIGNED_IN on every tab-visibility change
@@ -66,7 +68,22 @@ export interface AccessDeps {
   timeoutMs?: number;
   /** Epoch ms; injectable for the TTL tests. */
   now?: () => number;
+  /**
+   * The in-flight requests shared by every consumer on the page (R12-M4).
+   * Defaults to one module-wide registry; tests pass their own.
+   */
+  inflight?: AccessInflight;
 }
+
+/**
+ * In-flight access requests by user id (CX plan §12.5, R12-M4): the homepage
+ * mounts several consumers at once (the hero tab's button and panel, the
+ * homepage section), and they must make ONE request and see the same answer.
+ * An entry lives only while its request is open; SIGNED_OUT drops them all.
+ */
+export type AccessInflight = Map<string, Promise<CachedAnswer | null>>;
+
+const SHARED_INFLIGHT: AccessInflight = new Map();
 
 // ───────────────────────── response guard (no zod in the shared bundle) ─────────────────────────
 
@@ -108,7 +125,7 @@ export function isParkStayAccess(v: unknown): v is ParkStayAccess {
 
 // ───────────────────────── the cache (every access wrapped: storage can throw) ─────────────────────────
 
-type CachedAnswer = { visible: false } | { visible: true; data: ParkStayAccess };
+export type CachedAnswer = { visible: false } | { visible: true; data: ParkStayAccess };
 
 /** A stored answer counts only within its TTL (and never from the "future": a clock moved back expires it). */
 function readCache(storage: AccessStorage | null, userId: string, now: number): CachedAnswer | null {
@@ -208,6 +225,17 @@ async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | 
   }
 }
 
+/** Joins the open request for this user, or starts one (R12-M4). `ask` never rejects. */
+function askShared(deps: AccessDeps, inflight: AccessInflight, userId: string, timeoutMs: number): Promise<CachedAnswer | null> {
+  const open = inflight.get(userId);
+  if (open) return open;
+  const p = ask(deps, timeoutMs).finally(() => {
+    if (inflight.get(userId) === p) inflight.delete(userId);
+  });
+  inflight.set(userId, p);
+  return p;
+}
+
 /**
  * Starts the access check and follows auth changes. `onState` gets every
  * state change; the returned function stops it (unsubscribes, and late
@@ -216,6 +244,7 @@ async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | 
 export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAccessState) => void): () => void {
   const timeoutMs = deps.timeoutMs ?? PARK_STAY_ACCESS_TIMEOUT_MS;
   const now = deps.now ?? (() => Date.now());
+  const inflight = deps.inflight ?? SHARED_INFLIGHT;
   let stopped = false;
   // Each resolve gets a generation; only the latest may publish.
   let generation = 0;
@@ -239,7 +268,7 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
       return;
     }
     publish(gen, { status: "loading" });
-    const answer = await ask(deps, timeoutMs);
+    const answer = await askShared(deps, inflight, userId, timeoutMs);
     if (stopped || gen !== generation) return;
     if (answer === null) {
       publish(gen, HIDDEN); // not cached: asked again on the next page view
@@ -254,6 +283,8 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
     const id = session?.user.id ?? null;
     if (event === "SIGNED_OUT") {
       clearParkStayAccessCache(deps.storage);
+      // A request still open for the old session must not be joined later.
+      inflight.clear();
       void resolveFor(null);
       return;
     }
