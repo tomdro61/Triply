@@ -160,4 +160,11 @@ describe("Park & Stay import guards", () => {
       expect(/@\/lib\/analytics\//.test(src) || /\bgtag\b/.test(src), `${f} touches analytics`).toBe(false);
     }
   });
+
+  it("…nor reuse the parking search components, which do (LotCard fires trackSelectItem — CX plan v2 §3)", () => {
+    for (const f of [...pageFiles, ...componentFiles]) {
+      const bad = importsOf(f).filter((spec) => spec.startsWith("@/components/search"));
+      expect(bad, `${f} imports ${bad.join(", ")}`).toEqual([]);
+    }
+  });
 });

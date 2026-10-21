@@ -146,6 +146,17 @@ export interface ParkStayRoomOffer {
   offerRef: ParkStayOfferRef;
 }
 
+/**
+ * The lot as shown, plus WHERE it is (CX plan v2 §3: the map pins sit on the
+ * lot). The coordinates are the map entry's recorded ResLab point — the same
+ * point the drift guard checked this lot against — not lotDisplay(), which
+ * sees only the ResLab location.
+ */
+export interface ParkStayLotDisplay extends LotDisplay {
+  latitude: number;
+  longitude: number;
+}
+
 export interface ParkStayHotelSummary {
   hotelKey: string;
   liteapiHotelId: string;
@@ -157,7 +168,7 @@ export interface ParkStayHotelSummary {
   rating: number | null;
   reviewCount: number | null;
   address: string;
-  lot: LotDisplay;
+  lot: ParkStayLotDisplay;
   parking: {
     fromDate: string;
     toDate: string;
@@ -577,7 +588,7 @@ function summaryFor(c: Candidate, content: HotelContent | undefined, contentFrom
     rating: contentFromMap ? null : (content?.rating ?? null),
     reviewCount: contentFromMap ? null : (content?.reviewCount ?? null),
     address: !contentFromMap && content && content.address.length > 0 ? content.address : c.display.address,
-    lot: c.display,
+    lot: { ...c.display, latitude: c.entry.reslab.latitude, longitude: c.entry.reslab.longitude },
     parking: {
       fromDate: w.fromDate,
       toDate: w.toDate,

@@ -18,6 +18,13 @@ describe("shiftIsoDate — pure calendar arithmetic, no timezone", () => {
     expect(() => shiftIsoDate("2026-3-8", 1)).toThrow(/YYYY-MM-DD/);
     expect(() => shiftIsoDate("2026-03-08T00:00:00Z", 1)).toThrow(/YYYY-MM-DD/);
   });
+
+  it("rejects a well-shaped date that doesn't exist, instead of rolling it over (review round 1, item 10)", () => {
+    expect(() => shiftIsoDate("2026-02-30", 0)).toThrow(/real YYYY-MM-DD/);
+    expect(() => shiftIsoDate("2027-02-29", 1)).toThrow(/real YYYY-MM-DD/);
+    expect(() => isoDayDiff("2026-04-31", "2026-05-01")).toThrow(/real YYYY-MM-DD/);
+    expect(shiftIsoDate("2028-02-29", 1)).toBe("2028-03-01");
+  });
 });
 
 describe("isIsoDate / isoDayDiff", () => {

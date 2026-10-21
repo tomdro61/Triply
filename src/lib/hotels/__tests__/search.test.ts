@@ -151,6 +151,9 @@ describe("searchParkStay — each hotel with its own lot (M1, M3)", () => {
     expect(dt.room.price).toMatchObject({ parkingOnlineCents: 12_000, serviceFeeCents: 660, roomSellCents: 25_000, headlineTotalCents: 37_660 });
     expect(dt.room.priceBasis).toBe("ssp");
     expect(dt.lot.reslabLotId).toBe(132);
+    // CX plan §3: each card carries ITS OWN lot's point (the map entry's ResLab coordinates) for the map pin.
+    expect([dt.lot.latitude, dt.lot.longitude]).toEqual([doubletree.reslab.latitude, doubletree.reslab.longitude]);
+    expect([hi.lot.latitude, hi.lot.longitude]).toEqual([hampton.reslab.latitude, hampton.reslab.longitude]);
     expect(dt.room.offerRef).toEqual({
       hotelKey: "doubletree-jfk",
       roomKey: "rt-lp27fe6|RO|RFN",

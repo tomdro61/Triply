@@ -22,7 +22,12 @@ export default async function ParkStayHotelPage({ params }: { params: Promise<{ 
       <Navbar />
       <main className="mx-auto max-w-5xl px-4 py-8">
         <Suspense fallback={null}>
-          <ParkStayHotelDetail airport={airport.code} hotelKey={entry.key} mapName={entry.liteapi.name} />
+          <ParkStayHotelDetail
+            airport={airport.code}
+            airportPoint={{ latitude: airport.latitude, longitude: airport.longitude }}
+            hotelKey={entry.key}
+            mapName={entry.liteapi.name}
+          />
         </Suspense>
       </main>
       <Footer />

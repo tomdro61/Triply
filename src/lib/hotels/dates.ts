@@ -26,9 +26,10 @@ export function isIsoDate(value: string): boolean {
   return t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d;
 }
 
+/** A real calendar date, not just the shape: "2026-02-30" would otherwise roll over to 2 March. */
 function assertIsoDate(label: string, value: string): void {
-  if (!ISO_DATE_RE.test(value)) {
-    throw new Error(`${label} must be YYYY-MM-DD, got ${JSON.stringify(value)}`);
+  if (!isIsoDate(value)) {
+    throw new Error(`${label} must be a real YYYY-MM-DD date, got ${JSON.stringify(value)}`);
   }
 }
 

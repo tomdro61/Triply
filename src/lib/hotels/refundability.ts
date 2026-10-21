@@ -47,6 +47,21 @@ export function roomRefundabilitySummary(r: RoomRefundability): string {
   return `Room: free cancellation until ${formatLocalDeadline(r.deadlineLocal)} (hotel time)`;
 }
 
+/**
+ * The short tag form for cards and the price box (Park & Stay CX, mockup
+ * screens 7–8). It IS the summary wording — "Room:" prefix, the year and
+ * "(hotel time)" included — so the tag can never say less than the summary.
+ * A deadline that isn't a well-formed "YYYY-MM-DD HH:mm" is NON-refundable
+ * (the direction of every ambiguity in this file), never a free-cancellation
+ * tag with a garbled date.
+ */
+export function roomRefundabilityTag(r: RoomRefundability): { refundable: boolean; text: string } {
+  if (r.kind === "free_until" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(r.deadlineLocal)) {
+    return { refundable: true, text: roomRefundabilitySummary(r) };
+  }
+  return { refundable: false, text: ROOM_NON_REFUNDABLE_SUMMARY };
+}
+
 export function roomRefundabilityDetail(r: RoomRefundability): string {
   if (r.kind === "non_refundable") return ROOM_NON_REFUNDABLE_DETAIL;
   return `Cancel the room for free until ${formatLocalDeadline(r.deadlineLocal)} (local time at the hotel). After that the room is non-refundable.`;

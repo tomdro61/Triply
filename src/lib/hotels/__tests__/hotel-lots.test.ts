@@ -3,6 +3,7 @@ import { airports } from "@/config/airports";
 import { HOTEL_LOTS, enabledHotelLotsFor, findEnabledHotelLot } from "../hotel-lots";
 import { RESLAB_ACCOUNT_BY_FINGERPRINT, reslabAccountForFingerprint, reslabIdFor } from "../reslab-account";
 import { distanceMeters } from "../geo";
+import { safePhotoUrl } from "../photo-hosts";
 
 /** sha256(production RESLAB_API_KEY)[0:16], as keyFingerprint() computes it. */
 const PROD_FINGERPRINT = "f5d7c11622bdb289";
@@ -61,6 +62,21 @@ describe("the hotel ↔ lot map (plan v3 §3.2)", () => {
     expect(enabledHotelLotsFor("lga").map((e) => e.reslab.ids.production)).toEqual([159, 454]);
     expect(enabledHotelLotsFor("EWR")).toHaveLength(5);
     expect(new Set(HOTEL_LOTS.map((e) => e.airport))).toEqual(new Set(["JFK", "LGA", "EWR"]));
+  });
+
+  it("display: every photo is an allowlisted https URL (or null) and every shuttle line is short and never says 'free' (CX plan §5)", () => {
+    for (const e of HOTEL_LOTS) {
+      if (e.display.photoUrl !== null) expect(safePhotoUrl(e.display.photoUrl).url, e.key).toBe(e.display.photoUrl);
+      expect(e.display.shuttle.trim().length, e.key).toBeGreaterThan(0);
+      expect(e.display.shuttle.length, e.key).toBeLessThanOrEqual(60);
+      expect(/\bfree\b/i.test(e.display.shuttle), e.key).toBe(false);
+      // No promise the page may not keep (review round 1, item 9): unknown hours are "not listed".
+      expect(/before you book|guaranteed|always/i.test(e.display.shuttle), e.key).toBe(false);
+    }
+    // Enabled hotels all have a photo (copied from the 19 Oct sandbox answer).
+    expect(HOTEL_LOTS.filter((e) => e.enabled && e.display.photoUrl === null)).toEqual([]);
+    // The one hotel with no shuttle is the disabled one (D2).
+    expect(HOTEL_LOTS.filter((e) => /no airport shuttle/i.test(e.display.shuttle)).map((e) => e.key)).toEqual(["red-carpet-inn-ewr"]);
   });
 
   it("findEnabledHotelLot refuses unknown, disabled and other-airport keys", () => {
