@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
@@ -9,6 +10,12 @@ import { LotBadges } from "./lot-badges";
 interface MobileMapCardProps {
   lot: UnifiedLot;
   onSelect: (lot: UnifiedLot) => void;
+  /**
+   * An optional extra badge under the distance line. Unset renders nothing.
+   * A link in it must stop the click's propagation: this card's root opens
+   * the lot slider.
+   */
+  extraBadge?: ReactNode;
 }
 
 function getTopAmenityIcon(name: string) {
@@ -20,7 +27,7 @@ function getTopAmenityIcon(name: string) {
   return null;
 }
 
-export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
+export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
   const grandTotal = customerTotalFromPricing(lot.pricing);
@@ -59,6 +66,7 @@ export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
                   : lot.address}
               </span>
             </div>
+            {extraBadge}
           </div>
 
           {/* Price */}

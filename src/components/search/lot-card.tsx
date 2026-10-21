@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import {
   Star,
   MapPin,
@@ -35,9 +36,11 @@ interface LotCardProps {
    * observer; every other card stays lazy.
    */
   isFirst?: boolean;
+  /** An optional extra badge under the distance line. Unset renders nothing. */
+  extraBadge?: ReactNode;
 }
 
-export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: LotCardProps) {
+export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, extraBadge }: LotCardProps) {
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -144,6 +147,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
                 ? `${lot.distanceFromAirport.toFixed(1)} mi from airport`
                 : lot.address}
             </div>
+            {extraBadge}
           </div>
           <div className="text-right">
             {originalPrice && (

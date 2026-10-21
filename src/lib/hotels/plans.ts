@@ -32,7 +32,7 @@ export const ROOM_TAX_ON_MARKUP_PERCENT = 0;
 
 // ───────────────────────── search inputs (§4.1) ─────────────────────────
 
-/** One room, 1–4 adults. Occupancy changes the rate, so never defaulted. */
+/** One room, 1–4 adults. Occupancy changes the rate: the SERVER never defaults it; the page's starting value (search-values.ts DETAIL_DEFAULTS) is shown in the header, and Phase B checkout must confirm it. */
 export const PARK_STAY_MIN_ADULTS = 1;
 export const PARK_STAY_MAX_ADULTS = 4;
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { validateParkStayWindow } from "@/lib/hotels/parking-window";
-import { formatNightLabel } from "../format";
+import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, formatNightLabel } from "../format";
 import { readSearchValues } from "../search-results";
 import {
+  ADULT_OPTIONS,
   DETAILS_PROMPT,
+  DETAIL_DEFAULTS,
   RETURN_BEFORE_CHECKIN,
   RETURN_BEFORE_CHECKOUT,
   apiSearchQuery,
@@ -22,6 +24,8 @@ import {
   returnMaxForNight,
   sanitizeSearchValues,
   submitHref,
+  tonightArrivalDefault,
+  withSearchDefaults,
   type HeaderFields,
   type ParkStaySearchValues,
 } from "../search-values";
@@ -136,7 +140,7 @@ describe("the picker's swap is rejected, never applied", () => {
   });
 });
 
-describe("missing details: highlighted, never defaulted (plan §3)", () => {
+describe("missing details: the highlight fallback (the page fills starting values first)", () => {
   it("lists what is missing; the prompt names the return time only while it is missing", () => {
     expect(missingDetails({ arrivalTime: "", returnTime: "6:00 PM", adults: "" })).toEqual(["arrivalTime", "adults"]);
     expect(detailsPrompt(["arrivalTime", "returnTime", "adults"])).toBe(DETAILS_PROMPT);
@@ -279,5 +283,80 @@ describe("the focus banner (review L-H4: never a silent swap)", () => {
   it("an unknown key still gets a banner; another airport's hotel (focus kept after an airport change) gets none", () => {
     expect(focusBanner({ focus: "gone-hotel", airport: "JFK", offerKeys: ["hampton-inn-jfk"], partial: false, hotels })).toMatch(/^That hotel has no rooms/);
     expect(focusBanner({ focus: "laguardia-marriott", airport: "JFK", offerKeys: ["hampton-inn-jfk"], partial: false, hotels })).toBeNull();
+  });
+});
+
+describe("withSearchDefaults (Tom, 21 Oct: land on results, not an empty form)", () => {
+  // 10:00 AM in New York on Tue 10 Nov 2026 (EST, UTC-5).
+  const morning = new Date("2026-11-10T15:00:00Z");
+  const opts = { timeZone: NY, now: morning, fillDates: true };
+  const from = (q: string) => sanitizeSearchValues(readSearchValues(new URLSearchParams(q)), ["JFK"]);
+
+  it("each starting value is one of its own options, so the header shows it selected", () => {
+    expect(ARRIVAL_TIME_OPTIONS).toContain(DETAIL_DEFAULTS.arrivalTime);
+    expect(RETURN_TIME_OPTIONS).toContain(DETAIL_DEFAULTS.returnTime);
+    expect(ADULT_OPTIONS).toContain(DETAIL_DEFAULTS.adults);
+  });
+
+  it("airport + dates only (the hero tab, the switch, Add a night) becomes a complete search", () => {
+    const fromHero = from("airport=JFK&night=2026-11-20&returnDate=2026-11-24");
+    expect(isCompleteSearch(fromHero)).toBe(false);
+    const v = withSearchDefaults(fromHero, opts);
+    expect(v).toEqual({ airport: "JFK", night: "2026-11-20", arrivalTime: "6:00 PM", returnDate: "2026-11-24", returnTime: "12:00 PM", adults: "2" });
+    expect(isCompleteSearch(v)).toBe(true);
+    expect(detailsPrompt(missingDetails(v))).toBeNull();
+  });
+
+  it("airport only (a homepage card): check-in tomorrow at the airport, return a week later, and it passes the date rules", () => {
+    const v = withSearchDefaults(from("airport=JFK&focus=hampton-inn-jfk"), opts);
+    expect(v.night).toBe("2026-11-11");
+    expect(v.returnDate).toBe("2026-11-18");
+    expect(isCompleteSearch(v)).toBe(true);
+    expect(checkSearchDates(v, parkStayDateBounds(NY, morning))).toBeNull();
+  });
+
+  it("tomorrow is the AIRPORT's tomorrow: 11:30 PM in New York is already the next day in UTC", () => {
+    const lateNight = new Date("2026-11-11T04:30:00Z"); // Tue 10 Nov, 11:30 PM EST
+    expect(withSearchDefaults(from("airport=JFK"), { ...opts, now: lateNight }).night).toBe("2026-11-11");
+  });
+
+  it("a check-in without a return gets a return a week after it; a return without a check-in is left alone", () => {
+    expect(withSearchDefaults(from("airport=JFK&night=2026-11-20"), opts).returnDate).toBe("2026-11-27");
+    const onlyReturn = withSearchDefaults(from("airport=JFK&returnDate=2026-11-24"), opts);
+    expect(onlyReturn.night).toBe("");
+    expect(isCompleteSearch(onlyReturn)).toBe(false);
+  });
+
+  it("never fills dates with no airport, or on the hotel page (fillDates false)", () => {
+    expect(withSearchDefaults(from("night="), opts).night).toBe("");
+    const hotelPage = withSearchDefaults(from("airport=JFK"), { ...opts, fillDates: false });
+    expect(hotelPage.night + hotelPage.returnDate).toBe("");
+  });
+
+  it("keeps every value the URL set; an invalid detail (sanitised to empty) gets the starting value", () => {
+    expect(withSearchDefaults(full, opts)).toEqual(full);
+    const v = withSearchDefaults(sanitizeSearchValues({ ...full, arrivalTime: "3:17 AM", adults: "40" }, ["JFK"]), opts);
+    expect(v.arrivalTime).toBe("6:00 PM");
+    expect(v.adults).toBe("2");
+  });
+
+  it("check-in tonight: 6:00 PM while it is far enough away, else the first slot 30+ minutes out, else empty", () => {
+    expect(tonightArrivalDefault(NY, morning)).toBe("6:00 PM");
+    expect(tonightArrivalDefault(NY, new Date("2026-11-10T22:30:00Z"))).toBe("6:00 PM"); // 5:30 PM → 6:00 PM is 30 min out
+    expect(tonightArrivalDefault(NY, new Date("2026-11-10T22:31:00Z"))).toBe("6:30 PM");
+    expect(tonightArrivalDefault(NY, new Date("2026-11-10T23:40:00Z"))).toBe("7:30 PM"); // 6:40 PM
+    expect(tonightArrivalDefault(NY, new Date("2026-11-11T04:00:00Z"))).toBe("11:30 PM"); // 11:00 PM
+    expect(tonightArrivalDefault(NY, new Date("2026-11-11T04:10:00Z"))).toBe(""); // 11:10 PM: no slot left
+    const tonight = withSearchDefaults(from("airport=JFK&night=2026-11-10&returnDate=2026-11-14"), { ...opts, now: new Date("2026-11-10T23:40:00Z") });
+    expect(tonight.arrivalTime).toBe("7:30 PM");
+    // The server's window rules accept it.
+    const now = new Date("2026-11-10T23:40:00Z");
+    expect(validateParkStayWindow({ night: tonight.night, arrivalTime: tonight.arrivalTime, returnDate: tonight.returnDate, returnTime: tonight.returnTime, airportTimeZone: NY, now }).ok).toBe(true);
+  });
+
+  it("no slot left tonight: the arrival stays empty, so the header asks instead of searching a time every hotel refuses", () => {
+    const late = withSearchDefaults(from("airport=JFK&night=2026-11-10&returnDate=2026-11-14"), { ...opts, now: new Date("2026-11-11T04:10:00Z") });
+    expect(late.arrivalTime).toBe("");
+    expect(missingDetails(late)).toEqual(["arrivalTime"]);
   });
 });

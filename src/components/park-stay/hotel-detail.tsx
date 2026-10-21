@@ -24,6 +24,8 @@ import { FactRow, HotelPhoto, MetaLine, PreviewBanner, ScoreBadge, Tags } from "
 import { SEARCH_PARAM_KEYS, formatCents, formatReslabDateTime } from "./format";
 import { cancellationTag, metaParts, milesToAirport, priceChangeNote, priceLines, roomChoices, roomTags, shuttleFact, tripSteps } from "./card-facts";
 import { readSearchValues } from "./search-results";
+import { FALLBACK_TIME_ZONE, withSearchDefaults } from "./search-values";
+import { getAirportByCode } from "@/config/airports";
 import { PREVIEW_UNAVAILABLE_MESSAGE } from "./results-state";
 import { reportRejectedAnswer } from "./report";
 
@@ -86,7 +88,12 @@ export function ParkStayHotelDetail({
   mapName: string;
 }) {
   const params = useSearchParams();
-  const values = useMemo(() => readSearchValues(params), [params]);
+  // The results page's starting values for the details, so a link without them
+  // still prices. Dates are never filled in here: a hotel link always carries them.
+  const values = useMemo(
+    () => withSearchDefaults(readSearchValues(params), { timeZone: getAirportByCode(airport)?.timezone ?? FALLBACK_TIME_ZONE, now: new Date(), fillDates: false }),
+    [params, airport]
+  );
   const complete = SEARCH_PARAM_KEYS.every((k) => values[k].length > 0) && values.airport.toUpperCase() === airport.toUpperCase();
   const seenRaw = params.get("seen");
   const seen = seenRaw !== null && /^\d{1,9}$/.test(seenRaw) ? Number(seenRaw) : null; // display-only
@@ -131,7 +138,7 @@ export function ParkStayHotelDetail({
       {state.kind !== "ok" && <BackLink href={`/park-stay?${backQuery}`} />}
       {state.kind === "missing_inputs" && (
         <p className="rounded-md border p-4 text-sm">
-          {mapName}: choose your dates and times on the <Link href="/park-stay" className="text-primary hover:underline">Park &amp; Stay search</Link> to see prices.
+          {mapName}: choose your dates on the <Link href="/park-stay" className="text-primary hover:underline">Park &amp; Stay search</Link> to see prices.
         </p>
       )}
       {state.kind === "loading" && <p className="text-sm text-muted-foreground">Checking {mapName} and its parking…</p>}

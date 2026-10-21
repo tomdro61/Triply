@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { UnifiedLot, SortOption } from "@/types/lot";
 import { LotCard } from "./lot-card";
@@ -23,6 +24,8 @@ interface SearchResultsListProps {
    */
   partialResults?: boolean;
   onRetry?: () => void;
+  /** An optional extra badge per card (LotCard's `extraBadge`). Unset renders nothing. */
+  renderExtraBadge?: (lot: UnifiedLot) => ReactNode;
 }
 
 export function SearchResultsList({
@@ -37,6 +40,7 @@ export function SearchResultsList({
   className = "",
   partialResults = false,
   onRetry,
+  renderExtraBadge,
 }: SearchResultsListProps) {
   return (
     <div className={`w-full lg:w-2/5 h-full overflow-y-auto no-scrollbar bg-gray-50 ${className}`}>
@@ -110,6 +114,7 @@ export function SearchResultsList({
               isHovered={hoveredId === lot.id}
               onHover={onHover}
               onSelect={onSelect}
+              extraBadge={renderExtraBadge?.(lot)}
             />
           ))
         )}

@@ -15,6 +15,7 @@
  */
 
 import { isIsoDate, shiftIsoDate, todayInZone } from "@/lib/hotels/dates";
+import { SAME_DAY_LEAD_MINUTES, parseTime12Strict, zonedWallClock } from "@/lib/utils/time";
 import { MAX_ADVANCE_BOOKING_DAYS } from "@/lib/booking-window";
 import { PARK_STAY_MAX_ADULTS, PARK_STAY_MAX_NIGHT_AHEAD_DAYS, PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS, PARK_STAY_MIN_ADULTS } from "@/lib/hotels/plans";
 import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, SEARCH_PARAM_KEYS, type SearchParamKey } from "./format";
@@ -53,7 +54,8 @@ export function readFocus(params: Params): string | null {
  * Values that aren't one of the options become "" — shown as MISSING (and
  * highlighted), never as whichever option a <select> would fall back to
  * (review round 1, item 7). The airport must be an open one; dates must be
- * real calendar dates. Nothing is ever filled in. Keys this page doesn't
+ * real calendar dates. Nothing is filled in HERE (withSearchDefaults() does
+ * that, after this: the details, and on the results page the dates). Keys this page doesn't
  * know (an old link's `flight`, say) are simply never read.
  */
 export function sanitizeSearchValues(values: ParkStaySearchValues, openAirports: readonly string[]): ParkStaySearchValues {
@@ -65,6 +67,62 @@ export function sanitizeSearchValues(values: ParkStaySearchValues, openAirports:
     returnDate: isIsoDate(values.returnDate) ? values.returnDate : "",
     returnTime: RETURN_TIME_OPTIONS.includes(values.returnTime) ? values.returnTime : "",
     adults: ADULT_OPTIONS.includes(values.adults) ? values.adults : "",
+  };
+}
+
+/**
+ * Starting values, so every way in (hero tab, homepage section, the switch,
+ * "Add a night") lands on results instead of an empty form (Tom, 21 Oct 2026,
+ * reversing plan §3's "never filled in").
+ *
+ * Safe because this is a SEARCH, not a booking: the values are shown in the
+ * header's own fields (never hidden), the customer can change them, and
+ * booking is blocked in code (LITEAPI_BOOK_HOST_ENABLED = false). When Phase B
+ * builds booking, checkout must show the dates, times and guests for the
+ * customer to confirm before payment — never carry them into a booking unseen.
+ */
+export const DETAIL_DEFAULTS = { arrivalTime: "6:00 PM", returnTime: "12:00 PM", adults: "2" } as const;
+/** No dates in the link (a homepage card): check-in tomorrow, return a week later — parking's own /search default is a week too. */
+export const DEFAULT_CHECKIN_DAYS_AHEAD = 1;
+export const DEFAULT_STAY_DAYS = 7;
+
+/**
+ * The starting arrival time for a check-in TONIGHT: 6:00 PM, or the first
+ * arrival slot at least SAME_DAY_LEAD_MINUTES from now when 6:00 PM is too
+ * soon (the server's notice rule, lotWindowVerdict). "" when no slot is left
+ * tonight — the header then asks for it instead of searching a time every
+ * hotel would refuse.
+ */
+export function tonightArrivalDefault(timeZone: string, now: Date): string {
+  const nowMinutes = zonedWallClock(timeZone, now).secondsOfDay / 60;
+  const earliest = Math.max(parseTime12Strict(DETAIL_DEFAULTS.arrivalTime) ?? 0, nowMinutes + SAME_DAY_LEAD_MINUTES);
+  return ARRIVAL_TIME_OPTIONS.find((o) => (parseTime12Strict(o) ?? -1) >= earliest) ?? "";
+}
+
+/**
+ * Fills only EMPTY values; anything the URL set is kept as is.
+ * - Details: DETAIL_DEFAULTS, except a check-in tonight (tonightArrivalDefault).
+ * - Dates, when `fillDates` and the airport is set: no dates at all → check-in
+ *   tomorrow + return a week later; a check-in without a return → return a
+ *   week after it. A return without a check-in is left for the customer.
+ */
+export function withSearchDefaults(
+  values: ParkStaySearchValues,
+  opts: { timeZone: string; now: Date; fillDates: boolean }
+): ParkStaySearchValues {
+  let { night, returnDate } = values;
+  if (opts.fillDates && values.airport.length > 0) {
+    if (night === "" && returnDate === "") night = shiftIsoDate(todayInZone(opts.timeZone, opts.now), DEFAULT_CHECKIN_DAYS_AHEAD);
+    if (isIsoDate(night) && returnDate === "") returnDate = shiftIsoDate(night, DEFAULT_STAY_DAYS);
+  }
+  const tonight = night !== "" && night === todayInZone(opts.timeZone, opts.now);
+  return {
+    ...values,
+    night,
+    returnDate,
+    arrivalTime: values.arrivalTime || (tonight ? tonightArrivalDefault(opts.timeZone, opts.now) : DETAIL_DEFAULTS.arrivalTime),
+    returnTime: values.returnTime || DETAIL_DEFAULTS.returnTime,
+    adults: values.adults || DETAIL_DEFAULTS.adults,
   };
 }
 
@@ -92,6 +150,16 @@ export function parkStayPageQuery(values: ParkStaySearchValues, focus: string | 
 }
 
 // ───────────────────────── date limits ─────────────────────────
+
+/**
+ * A LOCAL-midnight Date for the shared DateRangePicker, built from the
+ * literal calendar date (the picker compares local days). Undefined for a
+ * non-date. Never `new Date(iso)`, which is UTC midnight.
+ */
+export function pickerDate(iso: string): Date | undefined {
+  if (!isIsoDate(iso)) return undefined;
+  return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+}
 
 /** Hotel check-out: the morning after check-in. Null for a non-date. */
 export function checkoutDateFor(night: string): string | null {
@@ -178,7 +246,7 @@ export type SubmitResult = { ok: true; href: string } | { ok: false; problem: Da
 /**
  * Where a submit goes: the date rules first; then /park-stay with every set
  * search key plus `focus`. Missing details still navigate (the URL then
- * shows exactly what is set; the results stay idle with the highlight).
+ * shows exactly what is set; the page then fills starting values).
  */
 export function submitHref(fields: HeaderFields, bounds: ParkStayDateBounds, focus: string | null): SubmitResult {
   const problem = checkSearchDates(fields, bounds);
@@ -214,7 +282,9 @@ const DETAILS_PROMPT_NO_RETURN_TIME = "Add when you'll reach the hotel and the n
 
 /**
  * The highlight prompt, or null when nothing is missing. It names the return
- * time only while that is missing. Never a guessed value (plan §3).
+ * time only while that is missing. With withSearchDefaults() upstream it is a
+ * fallback: in practice only a check-in tonight with no arrival slot left
+ * (tonightArrivalDefault returns "") reaches it.
  */
 export function detailsPrompt(missing: readonly DetailKey[]): string | null {
   if (missing.length === 0) return null;
@@ -244,6 +314,30 @@ export function parkingOnlyHref(
   const q = new URLSearchParams({ airport: values.airport.toUpperCase(), checkin, checkout: values.returnDate });
   return `/search?${q.toString()}`;
 }
+
+export const PARKING_NEEDS_DATES = "Choose your dates to switch to parking only.";
+export const PARKING_NEEDS_VALID_DATES = "The parking return must be on or after the hotel check-out day.";
+export const PARKING_TOO_FAR = `Parking only opens ${MAX_ADVANCE_BOOKING_DAYS} days ahead.`;
+
+/**
+ * The switch's "Parking only" side on /park-stay (CX plan §12.1, R12-M8): its
+ * link, or the short reason shown beside it when there is none. Same rules
+ * as parkingOnlyHref(), each with its own reason.
+ */
+export function parkingOnlySide(
+  values: Pick<ParkStaySearchValues, "airport" | "night" | "returnDate">,
+  today: string
+): { href: string } | { disabledReason: string } {
+  const href = parkingOnlyHref(values, today);
+  if (href !== null) return { href };
+  if (!/^[A-Za-z]{3}$/.test(values.airport) || !isIsoDate(values.night) || !isIsoDate(values.returnDate)) return { disabledReason: PARKING_NEEDS_DATES };
+  const checkin = checkoutDateFor(values.night);
+  if (checkin === null || values.returnDate < checkin) return { disabledReason: PARKING_NEEDS_VALID_DATES };
+  return { disabledReason: PARKING_TOO_FAR };
+}
+
+/** The Park & Stay calendar footer (the DateRangePicker `windowNote`): its own limits, never parking's 100-day sentence. */
+export const PARK_STAY_WINDOW_NOTE = `Hotel check-in up to ${PARK_STAY_MAX_NIGHT_AHEAD_DAYS} days ahead; parking return up to ${PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS} days after check-in.`;
 
 // ───────────────────────── focus ─────────────────────────
 

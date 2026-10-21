@@ -11,6 +11,7 @@ import {
   PARK_STAY_ACCESS_URL,
   startParkStayAccess,
   type AccessAuthClient,
+  type AccessInflight,
   type AccessStorage,
   type ParkStayAccessState,
 } from "../use-park-stay-access";
@@ -74,11 +75,13 @@ function run(
   fetchImpl: (url: string, init: RequestInit) => Promise<Response>,
   storage: AccessStorage | null = memoryStorage(),
   timeoutMs = 50,
-  now?: () => number
+  now?: () => number,
+  // A fresh registry per run unless a test shares one on purpose (R12-M4).
+  inflight: AccessInflight = new Map()
 ) {
   const states: ParkStayAccessState[] = [];
   const fetchMock = vi.fn(fetchImpl);
-  const stop = startParkStayAccess({ auth, fetch: fetchMock, storage, timeoutMs, now }, (s) => states.push(s));
+  const stop = startParkStayAccess({ auth, fetch: fetchMock, storage, timeoutMs, now, inflight }, (s) => states.push(s));
   return { states, fetchMock, stop, last: () => states[states.length - 1] };
 }
 
@@ -340,5 +343,93 @@ describe("a client trace when the access check fails (review round 1, item 6)", 
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe("one shared in-flight request per user id (CX plan §12.5, R12-M4)", () => {
+  /** A fetch that stays open until released, counting its calls. */
+  function gatedFetch() {
+    let release: (r: Response) => void = () => {};
+    const impl = vi.fn(() => new Promise<Response>((res) => (release = res)));
+    return { impl, release: (r: Response) => release(r) };
+  }
+
+  it("consumers mounted together make ONE request and all see the same answer", async () => {
+    const inflight: AccessInflight = new Map();
+    const storage = memoryStorage();
+    const gate = gatedFetch();
+    const a = run(fakeAuth("u1").auth, gate.impl, storage, 1_000, undefined, inflight);
+    const b = run(fakeAuth("u1").auth, gate.impl, storage, 1_000, undefined, inflight);
+    const c = run(fakeAuth("u1").auth, gate.impl, storage, 1_000, undefined, inflight);
+    await settle();
+    expect(gate.impl).toHaveBeenCalledTimes(1);
+    expect([a, b, c].map((r) => r.last())).toEqual([{ status: "loading" }, { status: "loading" }, { status: "loading" }]);
+    gate.release(ok());
+    await settle();
+    for (const r of [a, b, c]) expect(r.last()).toEqual({ status: "visible", data: ACCESS });
+    expect(inflight.size).toBe(0);
+    expect(storage.map.has(PARK_STAY_ACCESS_CACHE_PREFIX + "u1")).toBe(true);
+  });
+
+  it("a shared failure hides every consumer, caches nothing, and the next view asks again", async () => {
+    const inflight: AccessInflight = new Map();
+    const storage = memoryStorage();
+    const fail = vi.fn(async () => new Response("x", { status: 503 }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const a = run(fakeAuth("u1").auth, fail, storage, 1_000, undefined, inflight);
+      const b = run(fakeAuth("u1").auth, fail, storage, 1_000, undefined, inflight);
+      await settle();
+      expect(fail).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(1); // one request, one trace
+      expect(a.last()).toEqual({ status: "hidden" });
+      expect(b.last()).toEqual({ status: "hidden" });
+      expect(storage.map.size).toBe(0);
+      expect(inflight.size).toBe(0);
+      const next = run(fakeAuth("u1").auth, async () => ok(), storage, 1_000, undefined, inflight);
+      await settle();
+      expect(next.fetchMock).toHaveBeenCalledTimes(1);
+      expect(next.last()).toEqual({ status: "visible", data: ACCESS });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("different users never share a request", async () => {
+    const inflight: AccessInflight = new Map();
+    const gate = gatedFetch();
+    run(fakeAuth("u1").auth, gate.impl, memoryStorage(), 1_000, undefined, inflight);
+    run(fakeAuth("u2").auth, gate.impl, memoryStorage(), 1_000, undefined, inflight);
+    await settle();
+    expect(gate.impl).toHaveBeenCalledTimes(2);
+  });
+
+  it("one consumer stopping does not drop the answer for the others", async () => {
+    const inflight: AccessInflight = new Map();
+    const gate = gatedFetch();
+    const a = run(fakeAuth("u1").auth, gate.impl, memoryStorage(), 1_000, undefined, inflight);
+    const b = run(fakeAuth("u1").auth, gate.impl, memoryStorage(), 1_000, undefined, inflight);
+    await settle();
+    a.stop();
+    gate.release(ok());
+    await settle();
+    expect(a.last()).toEqual({ status: "loading" });
+    expect(b.last()).toEqual({ status: "visible", data: ACCESS });
+  });
+
+  it("SIGNED_OUT drops open requests: a later consumer for that user asks afresh", async () => {
+    const inflight: AccessInflight = new Map();
+    const gate = gatedFetch();
+    const a = fakeAuth("u1");
+    run(a.auth, gate.impl, memoryStorage(), 1_000, undefined, inflight);
+    await settle();
+    expect(inflight.size).toBe(1);
+    a.emit("SIGNED_OUT", null);
+    await settle();
+    expect(inflight.size).toBe(0);
+    const later = run(fakeAuth("u1").auth, async () => notFound(), memoryStorage(), 1_000, undefined, inflight);
+    await settle();
+    expect(later.fetchMock).toHaveBeenCalledTimes(1);
+    expect(later.last()).toEqual({ status: "hidden" });
   });
 });
