@@ -106,6 +106,13 @@ export interface AirportBlogRow {
   articles: Array<{ slug: string; bookings: number }>;
 }
 
+export interface BlogByAirport {
+  rows: AirportBlogRow[];
+  /** Airports past the shown rows, and their blog bookings — so the rows add up to the blog total. */
+  otherAirports: number;
+  otherBookings: number;
+}
+
 const AIRPORT_ROWS = 15;
 const ARTICLES_PER_AIRPORT = 3;
 
@@ -116,7 +123,7 @@ const ARTICLES_PER_AIRPORT = 3;
  */
 export function blogBookingsByAirport(
   rows: readonly (AttributedBooking & { airport_code: string | null })[]
-): AirportBlogRow[] {
+): BlogByAirport {
   const byAirport = new Map<string, { bookings: number; articles: Map<string, number> }>();
   for (const r of rows) {
     const slugs = articleSlugs(r);
@@ -127,7 +134,7 @@ export function blogBookingsByAirport(
     for (const s of slugs) a.articles.set(s, (a.articles.get(s) ?? 0) + 1 / slugs.size);
     byAirport.set(airport, a);
   }
-  return [...byAirport.entries()]
+  const all = [...byAirport.entries()]
     .map(([airport, a]) => ({
       airport,
       bookings: a.bookings,
@@ -137,8 +144,13 @@ export function blogBookingsByAirport(
         .sort((x, y) => y.bookings - x.bookings || x.slug.localeCompare(y.slug))
         .slice(0, ARTICLES_PER_AIRPORT),
     }))
-    .sort((x, y) => y.bookings - x.bookings || x.airport.localeCompare(y.airport))
-    .slice(0, AIRPORT_ROWS);
+    .sort((x, y) => y.bookings - x.bookings || x.airport.localeCompare(y.airport));
+  const rest = all.slice(AIRPORT_ROWS);
+  return {
+    rows: all.slice(0, AIRPORT_ROWS),
+    otherAirports: rest.length,
+    otherBookings: rest.reduce((t, r) => t + r.bookings, 0),
+  };
 }
 
 export interface ArticleRow {

@@ -20,7 +20,7 @@ import type {
   Section,
   SourcesSection,
 } from "@/lib/admin/analytics/collect";
-import type { AirportBlogRow, ArticleRow, DateWindow } from "@/lib/admin/analytics/content";
+import type { ArticleRow, BlogByAirport, DateWindow } from "@/lib/admin/analytics/content";
 
 interface AnalyticsResponse {
   content: Section<ContentSection>;
@@ -107,7 +107,7 @@ function ArticleTable({ rows, empty, showBefore = false }: { rows: ArticleRow[];
   );
 }
 
-function AirportTable({ rows }: { rows: AirportBlogRow[] }) {
+function AirportTable({ data: { rows, otherAirports, otherBookings } }: { data: BlogByAirport }) {
   if (rows.length === 0) return <p className="text-sm text-gray-500">No bookings started on a blog article in these days.</p>;
   return (
     <div className="overflow-x-auto">
@@ -141,6 +141,16 @@ function AirportTable({ rows }: { rows: AirportBlogRow[] }) {
               </td>
             </tr>
           ))}
+          {otherAirports > 0 && (
+            <tr className="border-t border-gray-100 text-gray-500">
+              <td className="py-1.5">
+                Other {otherAirports} airport{otherAirports === 1 ? "" : "s"}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">{otherBookings}</td>
+              <td />
+              <td />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>
@@ -180,7 +190,7 @@ function ContentCard({ s }: { s: Section<ContentSection> }) {
         by the airport booked. &ldquo;Articles&rdquo; is how many different articles those bookings came from; up to 3 are
         listed.
       </p>
-      <AirportTable rows={c.byAirport} />
+      <AirportTable data={c.byAirport} />
 
       <h3 className={sub}>Top articles by traffic</h3>
       <ArticleTable rows={c.topByTraffic} empty="No blog visits." />
@@ -274,8 +284,8 @@ function BookingSourcesTable({ s }: { s: Section<BookingSourcesSection> }) {
         </tbody>
       </table>
       <p className="mt-2 text-xs text-gray-500">
-        {b.total} bookings {fmtRange(b.window)} from our booking records (first visit), cancelled and refunded excluded —
-        the same split as the Dashboard.
+        {b.total} confirmed bookings {fmtRange(b.window)} from our booking records, by the customer&apos;s first visit —
+        counted the same way as the Dashboard.
       </p>
     </>
   );

@@ -15,8 +15,8 @@ import {
   ga4Windows,
   gscWindows,
   purchaseWindow,
-  type AirportBlogRow,
   type ArticleRow,
+  type BlogByAirport,
   type ContentLists,
   type DateWindow,
 } from "./content";
@@ -58,7 +58,7 @@ export interface ContentSection extends ContentLists {
   /** Search Console clicks per article: its own section, so a failure is shown, not blanked. */
   googleClicks: { ok: true; window: DateWindow } | { ok: false; error: string };
   /** Blog bookings grouped by the airport booked, top articles under each. */
-  byAirport: AirportBlogRow[];
+  byAirport: BlogByAirport;
   /** Bookings in the window with no attribution at all (not credited anywhere). */
   unattributedBookings: number;
   /** Live bookings made in the window, excluding cancelled / refunded. */
@@ -130,7 +130,7 @@ async function googleClicksByArticle(w: DateWindow): Promise<Map<string, number>
   return out;
 }
 
-type WindowBooking = AttributionRow & { airport_code: string | null };
+type WindowBooking = AttributionRow & { airport_code: string | null; status: string };
 
 /** Live bookings created in the window (ET days), with their attribution. */
 async function bookingsInWindow(w: DateWindow): Promise<WindowBooking[]> {
@@ -139,7 +139,7 @@ async function bookingsInWindow(w: DateWindow): Promise<WindowBooking[]> {
   const { data, error } = await excludeTestBookings(
     supabase
       .from("bookings")
-      .select("attribution, channel, airport_code")
+      .select("attribution, channel, airport_code, status")
       // Disputed bookings are real (ResLab still bills them); cancelled/refunded are not.
       .in("status", ["confirmed", "completed", "disputed"])
       .gte("created_at", zonedMidnightUtc(w.start, DIGEST_TZ).toISOString())
@@ -383,7 +383,9 @@ export async function collectBookingSources(now: Date): Promise<Section<BookingS
   const { current } = ga4Windows(now);
   return section(() =>
     cached("booking-sources", current.end, async () => {
-      const bookings = await bookingsInWindow(current);
+      // Confirmed only, as the Dashboard's source split counts (isLive in
+      // src/lib/attribution/report.ts) — so the two pages agree.
+      const bookings = (await bookingsInWindow(current)).filter((b) => b.status === "confirmed");
       const counts = new Map<BookingSource, number>();
       for (const b of bookings) {
         const s = bookingSource(b);

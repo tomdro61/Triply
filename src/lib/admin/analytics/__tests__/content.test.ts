@@ -72,7 +72,7 @@ describe("blogBookingsByAirport", () => {
   });
 
   it("groups blog bookings by the airport booked, top articles under each", () => {
-    const rows = blogBookingsByAirport([
+    const { rows, otherAirports } = blogBookingsByAirport([
       b("EWR", "/blog/ewr-a"),
       b("EWR", "/blog/ewr-b"),
       b("EWR", "/blog/ewr-a", "/blog/ewr-c"), // two articles: ½ each
@@ -85,6 +85,7 @@ describe("blogBookingsByAirport", () => {
       ["JFK", 1],
       ["Unknown", 1],
     ]);
+    expect(otherAirports).toBe(0);
     expect(rows[0].articleCount).toBe(3);
     expect(rows[0].articles).toEqual([
       { slug: "ewr-a", bookings: 1.5 },
@@ -93,18 +94,25 @@ describe("blogBookingsByAirport", () => {
     ]);
   });
 
-  it("keeps at most 3 articles per airport and 15 airports", () => {
+  it("keeps at most 3 articles per airport and 15 airports; the rest add up in 'other'", () => {
     const many = Array.from({ length: 20 }, (_, i) => b(`A${String(i).padStart(2, "0")}`, `/blog/p${i}`));
     const fourArticles = ["a", "b", "c", "d"].map((s) => b("ZZZ", `/blog/${s}`));
-    const rows = blogBookingsByAirport([...many, ...fourArticles]);
+    const { rows, otherAirports, otherBookings } = blogBookingsByAirport([...many, ...fourArticles]);
     expect(rows).toHaveLength(15);
+    // 21 airports, 24 blog bookings: 15 shown (4 + 14×1), 6 others with 1 each.
+    expect([otherAirports, otherBookings]).toEqual([6, 6]);
+    expect(rows.reduce((t, r) => t + r.bookings, 0) + otherBookings).toBe(24);
     expect(rows[0]).toMatchObject({ airport: "ZZZ", bookings: 4 });
     expect(rows[0].articles).toHaveLength(3);
     expect(rows[0].articleCount).toBe(4);
   });
 
   it("is empty when no booking started on the blog", () => {
-    expect(blogBookingsByAirport([b("EWR", "/"), { airport_code: "EWR", attribution: null }])).toEqual([]);
+    expect(blogBookingsByAirport([b("EWR", "/"), { airport_code: "EWR", attribution: null }])).toEqual({
+      rows: [],
+      otherAirports: 0,
+      otherBookings: 0,
+    });
   });
 });
 
