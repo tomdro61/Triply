@@ -15,9 +15,9 @@ type SearchTab = "parking" | "ai" | "extra";
 
 interface HeroProps {
   /**
-   * An optional extra tab, rendered once in the tab strip and once as the
-   * panel while active (see hero-extra-tab.ts). Unset: today's two tabs,
-   * exactly.
+   * An optional extra tab, rendered once in the tab strip; it portals its
+   * panel into the content area while active (see hero-extra-tab.ts).
+   * Unset: today's two tabs, exactly.
    */
   extraTab?: ReactNode;
 }
@@ -54,15 +54,18 @@ export function Hero({ extraTab }: HeroProps) {
     { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
   ];
 
-  // Stable, so the extra tab can run unavailable() from an unmount cleanup.
+  // The optional extra tab (hero-extra-tab.ts): rendered once, it portals
+  // its panel into `extraTabPanel` while active. Stable callbacks, so the
+  // tab can call unavailable() from an effect.
+  const [extraTabPanel, setExtraTabPanel] = useState<HTMLElement | null>(null);
   const selectExtraTab = useCallback(() => setActiveTab("extra"), []);
   const extraTabUnavailable = useCallback(() => setActiveTab((t) => (t === "extra" ? "parking" : t)), []);
-  const extraTabContext = (part: HeroExtraTabValue["part"]): HeroExtraTabValue => ({
-    part,
+  const extraTabContext: HeroExtraTabValue = {
     active: activeTab === "extra",
+    panel: activeTab === "extra" ? extraTabPanel : null,
     select: selectExtraTab,
     unavailable: extraTabUnavailable,
-  });
+  };
 
   return (
     <div
@@ -109,7 +112,7 @@ export function Hero({ extraTab }: HeroProps) {
               );
             })}
             {extraTab && (
-              <HeroExtraTabContext.Provider value={extraTabContext("tab")}>{extraTab}</HeroExtraTabContext.Provider>
+              <HeroExtraTabContext.Provider value={extraTabContext}>{extraTab}</HeroExtraTabContext.Provider>
             )}
           </div>
 
@@ -120,7 +123,7 @@ export function Hero({ extraTab }: HeroProps) {
                 <HeroChatInput />
               </div>
             ) : activeTab === "extra" && extraTab ? (
-              <HeroExtraTabContext.Provider value={extraTabContext("panel")}>{extraTab}</HeroExtraTabContext.Provider>
+              <div ref={setExtraTabPanel} />
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end animate-fade-in">
               {/* Location */}

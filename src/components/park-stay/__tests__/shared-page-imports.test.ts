@@ -14,7 +14,9 @@ import { fileURLToPath } from "node:url";
  *   - the slot wrappers in src/components/park-stay/slots/.
  *
  * Those allowlisted files may themselves import, at runtime, only react,
- * next/dynamic, @/lib/supabase/client and each other; type-only imports are
+ * next/dynamic, @/lib/supabase/client, @sentry/nextjs
+ * (already in every page's first-load JS via instrumentation-client.ts), the
+ * Hero's react-only extra-tab context, and each other; type-only imports are
  * free (erased at build). Everything that names Park & Stay is reached only
  * through a dynamic import() from a slot, into src/components/park-stay/entry/.
  */
@@ -35,7 +37,8 @@ const SHARED_ROOTS = [
   join(SRC, "components/ui/date-picker.tsx"),
 ];
 
-const ALLOWED_RUNTIME_SPECS = new Set(["react", "next/dynamic", "@/lib/supabase/client"]);
+const HERO_EXTRA_TAB = join(SRC, "components/shared/hero-extra-tab.ts");
+const ALLOWED_RUNTIME_SPECS = new Set(["react", "next/dynamic", "@/lib/supabase/client", "@sentry/nextjs", "@/components/shared/hero-extra-tab"]);
 
 function walk(p: string): string[] {
   if (!existsSync(p)) return [];
@@ -218,5 +221,12 @@ describe("the guard is not vacuous: the shared pages DO mount the slots (PR B)",
     expect(reached.has(resolve(join(PARK_STAY, "format.ts")))).toBe(false);
     expect(reached.has(resolve(join(HOTELS, "plans.ts")))).toBe(false);
     expect(reached.has(resolve(join(HOTELS, "hotel-lots.ts")))).toBe(false);
+  });
+});
+
+describe("the Hero's extra-tab context stays copy-free", () => {
+  it("imports only react at runtime (the slot may import it)", () => {
+    expect(parseImports(readFileSync(HERO_EXTRA_TAB, "utf8")).runtime).toEqual(["react"]);
+    expect(stripComments(readFileSync(HERO_EXTRA_TAB, "utf8"))).not.toMatch(/Park\s*&|park-stay|hotel/i);
   });
 });

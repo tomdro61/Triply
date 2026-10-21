@@ -29,7 +29,8 @@
  * piece the shared pages will import (PR B).
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import type { ParkStayAccess, ParkStayAccessAirport, ParkStayAccessHotel } from "@/lib/hotels/access";
 
@@ -73,6 +74,12 @@ export interface AccessDeps {
    * Defaults to one module-wide registry; tests pass their own.
    */
   inflight?: AccessInflight;
+  /** A non-404 failure of the endpoint call (5xx, timeout, unreadable body). Defaults to the throttled Sentry report. */
+  report?: (reason: string) => void;
+  /** Called with the user id each resolve is for (null = signed out): the hook's in-memory answer forgets another user's. */
+  onUser?: (userId: string | null) => void;
+  /** A definitive answer for a user, or null = forget it: the hook keeps a visible one in memory for later mounts. */
+  onAnswer?: (userId: string, state: ParkStayAccessState | null) => void;
 }
 
 /**
@@ -192,8 +199,43 @@ function warn(reason: string): void {
   console.warn("[park-stay] access check failed:", reason);
 }
 
+// ───────────────────────── Sentry (review of PR B, item 2) ─────────────────────────
+
+const REPORTED = new Set<string>();
+
+/**
+ * One Sentry event per kind per page session (module memory lives across
+ * client navigations), tagged `feature`. Never called for a plain 404 or a
+ * signed-out visitor. @sentry/nextjs is already in every page's first-load
+ * JS (src/instrumentation-client.ts), so this adds no library there.
+ */
+export function reportParkStayFailure(kind: "park_stay_access" | "park_stay_slot", error: Error, detail: Record<string, unknown> = {}): void {
+  if (REPORTED.has(kind)) return;
+  REPORTED.add(kind);
+  try {
+    Sentry.withScope((scope) => {
+      scope.setTag("feature", kind);
+      scope.setContext("detail", detail);
+      scope.setLevel("warning");
+      Sentry.captureException(error);
+    });
+  } catch {
+    // Reporting must never break the page.
+  }
+}
+
+/** Test seam: forget which kinds were reported. */
+export function __resetParkStayReportsForTests(): void {
+  REPORTED.clear();
+}
+
+function defaultReport(reason: string): void {
+  reportParkStayFailure("park_stay_access", new Error(`access check failed: ${reason}`), { reason });
+}
+
 /** One bounded GET. Only a 200 with a readable body or a 404 is definitive; every other outcome is logged. */
 async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | null> {
+  const report = deps.report ?? defaultReport;
   const controller = new AbortController();
   let timedOut = false;
   const t = setTimeout(() => {
@@ -205,6 +247,7 @@ async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | 
     if (res.status === 404) return { visible: false };
     if (res.status !== 200) {
       warn(`HTTP ${res.status}`);
+      report(`HTTP ${res.status}`);
       return null;
     }
     let body: unknown;
@@ -212,13 +255,18 @@ async function ask(deps: AccessDeps, timeoutMs: number): Promise<CachedAnswer | 
       body = await res.json();
     } catch {
       warn(timedOut ? "timeout" : "unreadable body");
+      report(timedOut ? "timeout" : "unreadable body");
       return null;
     }
     if (isParkStayAccess(body)) return { visible: true, data: body };
     warn("unreadable body");
+    report("unreadable body");
     return null;
   } catch (err) {
     warn(timedOut ? "timeout" : `network error: ${err instanceof Error ? err.message : String(err)}`);
+    // A plain network error (offline, a navigation abort) is the visitor's
+    // connection, not our endpoint: logged, not reported.
+    if (timedOut) report("timeout");
     return null;
   } finally {
     clearTimeout(t);
@@ -258,24 +306,32 @@ export function startParkStayAccess(deps: AccessDeps, onState: (s: ParkStayAcces
   async function resolveFor(userId: string | null): Promise<void> {
     const gen = ++generation;
     currentUserId = userId;
+    deps.onUser?.(userId);
     if (!userId) {
       publish(gen, HIDDEN);
       return;
     }
     const cached = readCache(deps.storage, userId, now());
     if (cached) {
-      publish(gen, cached.visible ? { status: "visible", data: cached.data } : HIDDEN);
+      const state: ParkStayAccessState = cached.visible ? { status: "visible", data: cached.data } : HIDDEN;
+      deps.onAnswer?.(userId, state);
+      publish(gen, state);
       return;
     }
     publish(gen, { status: "loading" });
     const answer = await askShared(deps, inflight, userId, timeoutMs);
     if (stopped || gen !== generation) return;
     if (answer === null) {
-      publish(gen, HIDDEN); // not cached: asked again on the next page view
+      // Not cached (asked again on the next page view) and not remembered:
+      // a later mount must not show an answer we just failed to confirm.
+      deps.onAnswer?.(userId, null);
+      publish(gen, HIDDEN);
       return;
     }
     writeCache(deps.storage, userId, answer, now());
-    publish(gen, answer.visible ? { status: "visible", data: answer.data } : HIDDEN);
+    const state: ParkStayAccessState = answer.visible ? { status: "visible", data: answer.data } : HIDDEN;
+    deps.onAnswer?.(userId, state);
+    publish(gen, state);
   }
 
   const { data } = deps.auth.onAuthStateChange((event, session) => {
@@ -328,15 +384,77 @@ function browserStorage(): AccessStorage | null {
   }
 }
 
+// ───────────────────────── the in-memory answer (review of PR B, item 1) ─────────────────────────
+
+/**
+ * The last visible answer, for one user id, kept in module memory so a
+ * component that mounts LATER (on the same page, or after a client
+ * navigation) starts from it instead of "hidden": no empty flash, and no
+ * second opinion. Read through useSyncExternalStore, whose server snapshot is
+ * always "hidden" — React uses it for the server render AND the hydrating
+ * render, so a fresh page load hydrates hidden whatever the memory holds.
+ */
+type Remembered = { userId: string; state: ParkStayAccessState };
+let remembered: Remembered | null = null;
+const rememberedListeners = new Set<() => void>();
+
+function setRemembered(next: Remembered | null): void {
+  if (next === remembered) return;
+  remembered = next;
+  for (const l of rememberedListeners) l();
+}
+function subscribeRemembered(listener: () => void): () => void {
+  rememberedListeners.add(listener);
+  return () => {
+    rememberedListeners.delete(listener);
+  };
+}
+const rememberedSnapshot = (): ParkStayAccessState => remembered?.state ?? HIDDEN;
+const serverSnapshot = (): ParkStayAccessState => HIDDEN;
+
+/** The memory's update rules (exported for tests): a visible answer is kept per user; anything else, or another user, forgets it. */
+export function nextRemembered(current: Remembered | null, event: { user: string | null } | { userId: string; state: ParkStayAccessState | null }): Remembered | null {
+  if ("user" in event) return current && current.userId !== event.user ? null : current;
+  if (event.state && event.state.status === "visible") {
+    return current && current.userId === event.userId && current.state === event.state ? current : { userId: event.userId, state: event.state };
+  }
+  return current && current.userId === event.userId ? null : current;
+}
+
+/** Test seam. */
+export function __resetParkStayAccessMemoryForTests(): void {
+  setRemembered(null);
+}
+
+/**
+ * What a hook instance shows: its own controller's answer once that is
+ * definitive; until then (not started, or "loading") the remembered answer.
+ * The controller makes the memory forget another user's answer before it
+ * publishes anything for the new one (onUser), so the memory is only ever
+ * this user's.
+ */
+export function pickAccessState(own: ParkStayAccessState | null, memory: ParkStayAccessState): ParkStayAccessState {
+  if (own === null) return memory;
+  if (own.status === "loading" && memory.status === "visible") return memory;
+  return own;
+}
+
 /** Starts "hidden" (also on the server), so customers never see a placeholder flash. */
 export function useParkStayAccess(): ParkStayAccessState {
-  const [state, setState] = useState<ParkStayAccessState>(HIDDEN);
+  const memory = useSyncExternalStore(subscribeRemembered, rememberedSnapshot, serverSnapshot);
+  const [own, setOwn] = useState<ParkStayAccessState | null>(null);
   useEffect(() => {
     const supabase = createClient();
     return startParkStayAccess(
-      { auth: supabase.auth, fetch: (url, init) => fetch(url, init), storage: browserStorage() },
-      setState
+      {
+        auth: supabase.auth,
+        fetch: (url, init) => fetch(url, init),
+        storage: browserStorage(),
+        onUser: (user) => setRemembered(nextRemembered(remembered, { user })),
+        onAnswer: (userId, state) => setRemembered(nextRemembered(remembered, { userId, state })),
+      },
+      setOwn
     );
   }, []);
-  return state;
+  return pickAccessState(own, memory);
 }

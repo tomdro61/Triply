@@ -2,9 +2,12 @@
 
 /**
  * The homepage Hero's "Park & Stay" tab (CX plan §2, as changed by §11 and
- * §12.3; mockup screen 1). Loaded lazily by slots/hero-tab-slot.tsx only for
- * a viewer the access endpoint said yes to; the Hero renders it twice
- * through HeroExtraTabContext — the tab button, and the form while active.
+ * §12.3; mockup screen 1). Loaded lazily by slots/hero-tab-slot.tsx, which
+ * owns the access answer (one owner: review of PR B, item 1). The Hero
+ * renders this once, in its tab strip: it draws the tab button there and,
+ * while active, portals the form into the Hero's content area
+ * (HeroExtraTabContext.panel). A form that throws reaches the slot's
+ * boundary, which resets the Hero to Parking.
  *
  * The form asks the airport (the access airports only), the HOTEL CHECK-IN
  * date (`night`) and the PARKING RETURN date (`returnDate`): check-in from
@@ -13,11 +16,12 @@
  * highlighted, never defaulted. Styling is the Hero's own, classes copied.
  */
 
-import { useContext, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useContext, useMemo, useRef, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { BedDouble, Calendar as CalendarIcon } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
-import { HeroExtraTabContext, type HeroExtraTabValue } from "@/components/shared/hero-extra-tab";
+import { HeroExtraTabContext } from "@/components/shared/hero-extra-tab";
 import type { ParkStayAccess } from "@/lib/hotels/access";
 import { ParkStayAirportSelect } from "../airport-select";
 import { formatNightLabel } from "../format";
@@ -27,23 +31,24 @@ import { accessAirportOptions, heroDateLimits, heroSubmit } from "./hero-dates";
 export function ParkStayHeroTab({ access }: { access: ParkStayAccess }) {
   const ctx = useContext(HeroExtraTabContext);
   if (!ctx) return null;
-  return ctx.part === "tab" ? <TabButton ctx={ctx} /> : <HeroTabForm access={access} />;
+  return (
+    <>
+      <TabButton active={ctx.active} onSelect={ctx.select} />
+      {ctx.active && ctx.panel && createPortal(<HeroTabForm access={access} />, ctx.panel)}
+    </>
+  );
 }
 
-function TabButton({ ctx }: { ctx: HeroExtraTabValue }) {
-  const { unavailable } = ctx;
-  // When this button goes away (access hidden again), the Hero must not keep
-  // an empty Park & Stay panel open.
-  useEffect(() => unavailable, [unavailable]);
+function TabButton({ active, onSelect }: { active: boolean; onSelect: () => void }) {
   return (
     <button
       type="button"
-      onClick={ctx.select}
+      onClick={onSelect}
       className={`flex items-center justify-center px-6 py-4 flex-1 transition-colors text-sm md:text-base font-medium
-                    ${ctx.active ? "bg-white text-brand-orange border-b-2 border-brand-orange" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}
+                    ${active ? "bg-white text-brand-orange border-b-2 border-brand-orange" : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"}
                   `}
     >
-      <BedDouble size={18} className={`mr-2 ${ctx.active ? "stroke-2" : "stroke-1"}`} aria-hidden="true" />
+      <BedDouble size={18} className={`mr-2 ${active ? "stroke-2" : "stroke-1"}`} aria-hidden="true" />
       Park &amp; Stay
     </button>
   );
