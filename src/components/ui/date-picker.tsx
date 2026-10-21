@@ -6,6 +6,16 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
+/**
+ * The calendar footer: how far ahead the latest selectable day is, counted
+ * from the start of `today` (the browser's local day, as the picker's own
+ * day cells are). Null when there is no `maxDate` (no footer).
+ */
+export function windowNoteText(maxDate: Date | undefined, today: Date): string | null {
+  if (!maxDate) return null;
+  return `Reservations open up to ${differenceInCalendarDays(maxDate, startOfDay(today))} days in advance.`;
+}
+
 interface TriggerProps {
   onClick: () => void;
   ref: React.RefObject<HTMLButtonElement | null>;
@@ -123,6 +133,8 @@ export function DateRangePicker({
     modifiersClassNames.inRange = "!bg-brand-orange/10 !text-gray-900";
   }
 
+  const note = windowNoteText(maxDate, new Date());
+
   // Virtual anchor — positions popover near the start trigger button
   const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
     getBoundingClientRect: () =>
@@ -171,11 +183,9 @@ export function DateRangePicker({
             modifiers={modifiers}
             modifiersClassNames={modifiersClassNames}
           />
-          {maxDate && (
+          {note && (
             <p className="px-3 pb-3 pt-1 text-center text-xs text-gray-500">
-              Reservations open up to{" "}
-              {differenceInCalendarDays(maxDate, startOfDay(new Date()))} days in
-              advance.
+              {note}
             </p>
           )}
         </PopoverPrimitive.Content>
