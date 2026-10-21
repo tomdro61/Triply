@@ -30,7 +30,7 @@ import {
   apiSearchQuery,
   focusBanner,
   isCompleteSearch,
-  parkingOnlyHref,
+  parkingOnlySide,
   parkStayPageQuery,
   readFocus,
   sanitizeSearchValues,
@@ -205,19 +205,31 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
         airports={airports}
         values={values}
         focus={focus}
-        parkingHref={parkingOnlyHref(values, todayInZone(airportTimeZone(airports, values.airport), new Date()))}
+        parking={parkingOnlySide(values, todayInZone(airportTimeZone(airports, values.airport), new Date()))}
         currentHref={currentHref}
       />
 
       <div className="relative flex flex-1 overflow-hidden">
-        <section aria-label="Hotels" className={`h-full w-full space-y-3 overflow-y-auto bg-gray-50 p-4 lg:w-2/5 ${showMobileMap ? "hidden lg:block" : ""}`}>
+        <section aria-label="Hotels" className={`no-scrollbar h-full w-full overflow-y-auto bg-gray-50 lg:w-2/5 ${showMobileMap ? "hidden lg:block" : ""}`}>
+          {/* The parking list's sticky header (SearchResultsList, classes copied; one ranking, so no sort). */}
+          {state.kind === "done" && (
+            <div className="sticky top-0 z-20 bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200 shadow-sm backdrop-blur-sm bg-opacity-95">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-lg font-bold text-gray-900 leading-none">Park &amp; Stay at {state.body.airport.code}</h2>
+                <span className="text-sm font-medium text-gray-400">
+                  {offers.length} {offers.length === 1 ? "Result" : "Results"}
+                </span>
+              </div>
+            </div>
+          )}
+          <div className="p-4 sm:p-6 space-y-4 pb-20">
           {state.kind === "idle" && (
             <Panel title="Find a hotel night with parking">
               <p className="text-gray-600">Choose your airport, hotel check-in date and parking return date, then when you&apos;ll arrive at the hotel, your return time and the number of guests.</p>
             </Panel>
           )}
           {state.kind === "loading" && (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex items-center justify-center py-12">
               <div className="text-center">
                 <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-brand-orange" />
                 <p className="text-gray-500">Checking hotels and their parking…</p>
@@ -270,6 +282,7 @@ export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStay
               )}
             </>
           )}
+          </div>
         </section>
 
         {/* Mobile: full-screen map with a snap carousel */}

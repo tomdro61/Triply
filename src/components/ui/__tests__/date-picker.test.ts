@@ -32,6 +32,7 @@ describe("DateRangePicker footer text (windowNoteText)", () => {
 describe("DateRangePicker — baseline closed render", () => {
   it("renders only its trigger children while closed", () => {
     const out = renderToStaticMarkup(
+      // eslint-disable-next-line react/no-children-prop -- a render-prop child: createElement's children argument can't carry a function
       createElement(DateRangePicker, {
         startDate: "2026-11-10",
         endDate: "2026-11-14",

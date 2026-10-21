@@ -93,6 +93,16 @@ export function parkStayPageQuery(values: ParkStaySearchValues, focus: string | 
 
 // ───────────────────────── date limits ─────────────────────────
 
+/**
+ * A LOCAL-midnight Date for the shared DateRangePicker, built from the
+ * literal calendar date (the picker compares local days). Undefined for a
+ * non-date. Never `new Date(iso)`, which is UTC midnight.
+ */
+export function pickerDate(iso: string): Date | undefined {
+  if (!isIsoDate(iso)) return undefined;
+  return new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+}
+
 /** Hotel check-out: the morning after check-in. Null for a non-date. */
 export function checkoutDateFor(night: string): string | null {
   return isIsoDate(night) ? shiftIsoDate(night, 1) : null;
@@ -244,6 +254,30 @@ export function parkingOnlyHref(
   const q = new URLSearchParams({ airport: values.airport.toUpperCase(), checkin, checkout: values.returnDate });
   return `/search?${q.toString()}`;
 }
+
+export const PARKING_NEEDS_DATES = "Choose your dates to switch to parking only.";
+export const PARKING_NEEDS_VALID_DATES = "The parking return must be on or after the hotel check-out day.";
+export const PARKING_TOO_FAR = `Parking only opens ${MAX_ADVANCE_BOOKING_DAYS} days ahead.`;
+
+/**
+ * The switch's "Parking only" side on /park-stay (CX plan §12.1, R12-M8): its
+ * link, or the short reason shown beside it when there is none. Same rules
+ * as parkingOnlyHref(), each with its own reason.
+ */
+export function parkingOnlySide(
+  values: Pick<ParkStaySearchValues, "airport" | "night" | "returnDate">,
+  today: string
+): { href: string } | { disabledReason: string } {
+  const href = parkingOnlyHref(values, today);
+  if (href !== null) return { href };
+  if (!/^[A-Za-z]{3}$/.test(values.airport) || !isIsoDate(values.night) || !isIsoDate(values.returnDate)) return { disabledReason: PARKING_NEEDS_DATES };
+  const checkin = checkoutDateFor(values.night);
+  if (checkin === null || values.returnDate < checkin) return { disabledReason: PARKING_NEEDS_VALID_DATES };
+  return { disabledReason: PARKING_TOO_FAR };
+}
+
+/** The Park & Stay calendar footer (the DateRangePicker `windowNote`): its own limits, never parking's 100-day sentence. */
+export const PARK_STAY_WINDOW_NOTE = `Hotel check-in up to ${PARK_STAY_MAX_NIGHT_AHEAD_DAYS} days ahead; parking return up to ${PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS} days after check-in.`;
 
 // ───────────────────────── focus ─────────────────────────
 

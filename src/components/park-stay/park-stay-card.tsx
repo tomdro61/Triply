@@ -7,7 +7,9 @@
  * deal-breakers; a separate price column with the button. A NEW component
  * on purpose — the parking LotCard fires trackSelectItem, and Park & Stay
  * sends no analytics events. Every line comes from card-facts.ts, which
- * shows only facts we have.
+ * shows only facts we have. The shell (border, radius, shadow, hover and
+ * highlight ring, a 192 px photo column, the title, price and button type)
+ * copies LotCard's classes (CX plan §12.2); the content stays its own.
  */
 
 import Link from "next/link";
@@ -62,20 +64,20 @@ export function ParkStayResultCard({
     <article
       id={cardElementId(card.hotelKey)}
       aria-current={isFocused ? "true" : undefined}
-      className={`grid scroll-mt-4 grid-cols-1 overflow-hidden rounded-xl border bg-white transition-all duration-300 hover:shadow-lg sm:grid-cols-[160px_minmax(0,1fr)] 2xl:grid-cols-[170px_minmax(0,1fr)_170px] ${ring}`}
+      className={`grid scroll-mt-4 grid-cols-1 overflow-hidden rounded-xl border bg-white transition-all duration-300 hover:shadow-lg sm:grid-cols-[192px_minmax(0,1fr)] 2xl:grid-cols-[192px_minmax(0,1fr)_170px] ${ring}`}
       onMouseEnter={() => onHover(card.hotelKey)}
       onMouseLeave={() => onHover(null)}
     >
       {/* Photo: on top on a phone (16:9), the left column from sm. */}
       <div className="relative aspect-video sm:row-span-2 sm:aspect-auto 2xl:row-span-1">
-        <HotelPhoto url={card.photoUrl} name={card.name} sizes="(max-width: 640px) 100vw, 170px" eager={isFirst}>
+        <HotelPhoto url={card.photoUrl} name={card.name} sizes="(max-width: 640px) 100vw, 192px" eager={isFirst}>
           <ScoreBadge rating={card.rating} />
         </HotelPhoto>
       </div>
 
       <div className="flex min-w-0 flex-col gap-2.5 p-4">
         <div>
-          <h3 className="font-heading text-base font-semibold leading-tight text-gray-900">
+          <h3 className="text-lg font-bold leading-tight text-gray-900">
             <Link href={href} className="hover:underline">
               {card.name}
             </Link>
@@ -99,7 +101,7 @@ export function ParkStayResultCard({
       {/* Price column: beside the details on wide lists, under them otherwise. */}
       <div className="flex items-end justify-between gap-3 border-t border-gray-100 p-4 sm:col-start-2 2xl:col-start-3 2xl:flex-col 2xl:items-end 2xl:justify-center 2xl:border-l 2xl:border-t-0">
         <PackagePrice price={card.room.price} returnDate={returnDate} align="start" />
-        <Link href={href} className="whitespace-nowrap rounded-lg bg-brand-orange px-4 py-2 font-heading text-sm font-semibold text-white shadow-sm transition-colors hover:bg-orange-600">
+        <Link href={href} className="whitespace-nowrap rounded-lg bg-brand-orange px-4 py-2 text-sm font-bold text-white shadow-sm transition-colors hover:bg-orange-600">
           See rooms
         </Link>
       </div>

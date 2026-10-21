@@ -2,21 +2,26 @@
 
 /**
  * The /park-stay search header (CX plan v2 §3, with Tom's 20 Oct change to
- * "Hotel check-in date" + "Parking return date"), replacing the native form.
+ * "Hotel check-in date" + "Parking return date"), in the parking
+ * SearchHeader's look (§12.2: its container, field boxes, brand-blue
+ * calendar icons, orange "Update" button and mobile summary bar — classes
+ * copied; SearchHeader itself is a customer component and is not reused).
  *
  * - The shared DateRangePicker's start is the HOTEL CHECK-IN date (the
  *   `night` URL key, as is) and its end the PARKING RETURN date.
  * - Check-in from today at the AIRPORT; return on or after the hotel
  *   check-out day and within 60 days of the check-in — the server's own
- *   rules (validateParkStayWindow).
+ *   rules (validateParkStayWindow). The calendar footer states those limits
+ *   (`windowNote`), not parking's 100-day sentence.
  * - The picker's swap of a return picked before the check-in is REJECTED,
  *   not applied (isPickerSwap).
  * - Arrive at the hotel, return time and guests start EMPTY unless the URL
  *   has them — no defaults; a missing one is highlighted with the prompt,
  *   and the results stay idle (no fetch) until all are set.
  * - Every submit keeps `focus`.
- * - Mobile: a collapsed summary bar (a button) over an expandable form; the
- *   mode toggle sits OUTSIDE that button (a link inside a button is invalid).
+ * - The mode switch (§12.1) is the first item of the desktop row and sits
+ *   directly above the mobile summary bar — OUTSIDE its button (a link
+ *   inside a button is invalid).
  *
  * The parent re-keys this on the URL, so its state always starts from what
  * was searched.
@@ -27,14 +32,17 @@ import { useRouter } from "next/navigation";
 import { Calendar as CalendarIcon, ChevronDown, ChevronUp, MapPin, SlidersHorizontal } from "lucide-react";
 import { DateRangePicker } from "@/components/ui/date-picker";
 import { ARRIVAL_TIME_OPTIONS, RETURN_TIME_OPTIONS, formatNightLabel } from "./format";
-import { ParkStayModeToggle } from "./mode-toggle";
+import { ParkStayAirportSelect } from "./airport-select";
+import { SearchModeSwitch, type ModeSide } from "./search-mode-switch";
 import {
   ADULT_OPTIONS,
+  PARK_STAY_WINDOW_NOTE,
   RETURN_BEFORE_CHECKIN,
   detailsPrompt,
   isPickerSwap,
   missingDetails,
   parkStayDateBounds,
+  pickerDate,
   pickerMaxDate,
   submitHref,
   type DatesProblem,
@@ -43,25 +51,21 @@ import {
   airportTimeZone,
 } from "./search-values";
 
-/** A LOCAL-midnight Date for the picker, built from the literal calendar date (the picker compares local days). */
-function pickerDate(iso: string): Date | undefined {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : undefined;
-}
-
-const fieldBase = "w-full rounded-lg border px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-orange/40";
-const fieldOk = "border-gray-200 bg-gray-50";
-const fieldMissing = "border-amber-400 bg-amber-50 ring-2 ring-amber-200";
+/** SearchHeader's field box, and its "missing" twin (highlighted, never filled in). */
+const BOX_OK = "py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg";
+const BOX_MISSING = "py-2.5 px-3 bg-amber-50 border border-amber-400 ring-2 ring-amber-200 rounded-lg";
 
 function DetailSelect({
-  label,
+  prefix,
+  ariaLabel,
   placeholder,
   value,
   options,
   missing,
   onChange,
 }: {
-  label: string;
+  prefix: string;
+  ariaLabel: string;
   placeholder: string;
   value: string;
   options: readonly string[];
@@ -69,19 +73,27 @@ function DetailSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block lg:w-36">
-      <span className="mb-1 block text-[11px] font-medium text-gray-500">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-invalid={missing || undefined} className={`${fieldBase} ${missing ? fieldMissing : fieldOk}`}>
+    <div className={`flex items-center xl:w-40 ${missing ? BOX_MISSING : BOX_OK}`}>
+      <span className="mr-1.5 whitespace-nowrap text-sm text-gray-500" aria-hidden="true">
+        {prefix}
+      </span>
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={missing || undefined}
+        className={`w-full min-w-0 cursor-pointer bg-transparent text-sm outline-none ${value ? "font-medium text-gray-900" : "text-gray-400"}`}
+      >
         <option value="" disabled>
           {placeholder}
         </option>
         {options.map((o) => (
-          <option key={o} value={o}>
+          <option key={o} value={o} className="text-gray-900">
             {o}
           </option>
         ))}
       </select>
-    </label>
+    </div>
   );
 }
 
@@ -89,14 +101,15 @@ export function ParkStayHeader({
   airports,
   values,
   focus,
-  parkingHref,
+  parking,
   currentHref,
 }: {
   airports: ParkStayAirportOption[];
   /** What the URL searched, SANITISED (sanitizeSearchValues; "" = missing). */
   values: ParkStaySearchValues;
   focus: string | null;
-  parkingHref: string | null;
+  /** The switch's "Parking only" side: its link, or why there is none. */
+  parking: ModeSide;
   currentHref: string;
 }) {
   const router = useRouter();
@@ -154,68 +167,62 @@ export function ParkStayHeader({
   }
 
   const summaryDates = night ? `${formatNightLabel(night)} — ${returnDate ? formatNightLabel(returnDate) : "Return"}` : "Add your dates";
+  const modeSwitch = <SearchModeSwitch mode="park-stay" parking={parking} parkStay={{ href: currentHref }} />;
 
   return (
-    <div className="relative z-30 flex-shrink-0 border-b border-gray-200 bg-white shadow-sm">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 pt-2 sm:px-6 lg:px-8">
-        <ParkStayModeToggle parkingHref={parkingHref} currentHref={currentHref} />
+    <div className="bg-white border-b border-gray-200 z-30 shadow-sm relative flex-shrink-0">
+      {/* Mobile: the switch, then the compact summary bar. Only the summary is inside the button. */}
+      <div className="lg:hidden">
+        <div className="px-4 pt-3">{modeSwitch}</div>
+        <button
+          type="button"
+          onClick={() => setExpanded((x) => !x)}
+          aria-expanded={expanded}
+          aria-controls="park-stay-search-form"
+          className="w-full px-4 py-3 flex items-center justify-between"
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
+              <MapPin size={16} className="text-brand-orange flex-shrink-0" aria-hidden="true" />
+              {airport || "Airport"}
+            </span>
+            <span className="text-gray-300" aria-hidden="true">
+              |
+            </span>
+            <span className="flex items-center gap-1.5 text-sm text-gray-600 truncate">
+              <CalendarIcon size={14} className="text-gray-400 flex-shrink-0" aria-hidden="true" />
+              <span className="truncate">{summaryDates}</span>
+            </span>
+          </span>
+          <span className="flex items-center gap-1 ml-3 flex-shrink-0 text-brand-orange" aria-hidden="true">
+            <SlidersHorizontal size={16} />
+            {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </span>
+        </button>
       </div>
-
-      {/* Mobile: compact summary bar. Only the summary is inside the button. */}
-      <button
-        type="button"
-        onClick={() => setExpanded((x) => !x)}
-        aria-expanded={expanded}
-        aria-controls="park-stay-search-form"
-        className="flex w-full items-center justify-between px-4 py-3 lg:hidden"
-      >
-        <span className="flex min-w-0 items-center gap-3">
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-gray-900">
-            <MapPin size={16} className="flex-shrink-0 text-brand-orange" aria-hidden="true" />
-            {airport || "Airport"}
-          </span>
-          <span className="text-gray-300" aria-hidden="true">
-            |
-          </span>
-          <span className="flex items-center gap-1.5 truncate text-sm text-gray-600">
-            <CalendarIcon size={14} className="flex-shrink-0 text-gray-400" aria-hidden="true" />
-            <span className="truncate">{summaryDates}</span>
-          </span>
-        </span>
-        <span className="ml-3 flex flex-shrink-0 items-center gap-1 text-brand-orange" aria-hidden="true">
-          <SlidersHorizontal size={16} />
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </span>
-      </button>
 
       <form
         id="park-stay-search-form"
         onSubmit={submit}
         noValidate
-        className={`${expanded ? "block" : "hidden"} mx-auto max-w-7xl border-t border-gray-100 px-4 pb-4 pt-3 sm:px-6 lg:block lg:border-t-0 lg:px-8 lg:pt-2`}
+        className={`${expanded ? "block" : "hidden"} lg:block px-4 pb-4 pt-3 border-t border-gray-100 lg:border-t-0 lg:max-w-7xl lg:mx-auto lg:px-8 lg:pt-2`}
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
-          <label className="block lg:w-40">
-            <span className="mb-1 block text-[11px] font-medium text-gray-500">Airport</span>
-            <select
+        <div className="flex flex-col xl:flex-row gap-3">
+          <div className="hidden lg:block self-start xl:self-center">{modeSwitch}</div>
+
+          <div className="flex-grow xl:w-1/5">
+            <ParkStayAirportSelect
               value={airport}
-              onChange={(e) => {
-                setAirport(e.target.value);
+              onChange={(code) => {
+                setAirport(code);
                 setProblem(null);
               }}
-              aria-invalid={problem?.field === "airport" || undefined}
-              className={`${fieldBase} ${fieldOk}`}
-            >
-              <option value="" disabled>
-                Choose
-              </option>
-              {airports.map((a) => (
-                <option key={a.code} value={a.code}>
-                  {a.code} — {a.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              airports={airports}
+              variant="compact"
+              invalid={problem?.field === "airport"}
+              label="Airport"
+            />
+          </div>
 
           <DateRangePicker
             startDate={night}
@@ -224,44 +231,46 @@ export function ParkStayHeader({
             onEndChange={onReturnChange}
             minDate={pickerDate(bounds.today)}
             maxDate={pickerDate(maxPick)}
+            windowNote={PARK_STAY_WINDOW_NOTE}
           >
             {({ startTriggerProps, endTriggerProps }) => (
-              <div className="flex flex-col gap-3 sm:flex-row lg:flex-1">
-                <div className="flex-1">
-                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Hotel check-in date</span>
+              <div className="flex flex-col sm:flex-row gap-3 xl:flex-1">
+                <div className={`flex-1 ${BOX_OK}`}>
                   <button
                     type="button"
                     ref={startTriggerProps.ref}
                     onClick={startTriggerProps.onClick}
+                    aria-label={night ? `Hotel check-in date, ${formatNightLabel(night)}` : "Hotel check-in date"}
                     aria-invalid={problem?.field === "night" || undefined}
-                    className={`${fieldBase} ${fieldOk} flex items-center text-left`}
+                    className="flex items-center w-full text-left cursor-pointer text-sm"
                   >
-                    <CalendarIcon size={18} className="mr-2 flex-shrink-0 text-brand-blue opacity-80" aria-hidden="true" />
-                    <span className={night ? "truncate font-medium" : "truncate text-gray-400"}>{night ? formatNightLabel(night) : "Check-in date"}</span>
+                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
+                    <span className="mr-1 whitespace-nowrap text-gray-500">Hotel check-in</span>
+                    <span className={night ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{night ? formatNightLabel(night) : "Choose"}</span>
                   </button>
                 </div>
-                <div className="flex-1">
-                  <span className="mb-1 block text-[11px] font-medium text-gray-500">Parking return date</span>
+                <div className={`flex-1 ${BOX_OK}`}>
                   <button
                     type="button"
                     ref={endTriggerProps.ref}
                     onClick={endTriggerProps.onClick}
+                    aria-label={returnDate ? `Parking return date, ${formatNightLabel(returnDate)}` : "Parking return date"}
                     aria-invalid={problem?.field === "return" || undefined}
-                    className={`${fieldBase} ${fieldOk} flex items-center text-left`}
+                    className="flex items-center w-full text-left cursor-pointer text-sm"
                   >
-                    <CalendarIcon size={18} className="mr-2 flex-shrink-0 text-brand-blue opacity-80" aria-hidden="true" />
-                    <span className={returnDate ? "truncate font-medium" : "truncate text-gray-400"}>
-                      {returnDate ? formatNightLabel(returnDate) : "Return date"}
-                    </span>
+                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" aria-hidden="true" />
+                    <span className="mr-1 whitespace-nowrap text-gray-500">Parking return</span>
+                    <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>{returnDate ? formatNightLabel(returnDate) : "Choose"}</span>
                   </button>
                 </div>
               </div>
             )}
           </DateRangePicker>
 
-          <div className="grid grid-cols-3 gap-3 lg:flex lg:gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 xl:flex">
             <DetailSelect
-              label="Arrive at the hotel"
+              prefix="At hotel"
+              ariaLabel="Arrive at the hotel"
               placeholder="Time"
               value={arrivalTime}
               options={ARRIVAL_TIME_OPTIONS}
@@ -269,21 +278,23 @@ export function ParkStayHeader({
               onChange={setArrivalTime}
             />
             <DetailSelect
-              label="Return time"
+              prefix="Back"
+              ariaLabel="Return time"
               placeholder="Time"
               value={returnTime}
               options={RETURN_TIME_OPTIONS}
               missing={returnTime.length === 0}
               onChange={setReturnTime}
             />
-            <DetailSelect label="Guests" placeholder="Adults" value={adults} options={ADULT_OPTIONS} missing={adults.length === 0} onChange={setAdults} />
+            <DetailSelect prefix="Guests" ariaLabel="Guests" placeholder="Adults" value={adults} options={ADULT_OPTIONS} missing={adults.length === 0} onChange={setAdults} />
           </div>
 
           <button
             type="submit"
-            className="whitespace-nowrap rounded-lg bg-brand-orange px-6 py-2.5 font-bold text-white shadow-sm transition-all hover:bg-orange-600 active:scale-95"
+            className="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
           >
-            Search
+            <span className="lg:hidden">Update Search</span>
+            <span className="hidden lg:inline">Update</span>
           </button>
         </div>
 

@@ -16,6 +16,11 @@ export function windowNoteText(maxDate: Date | undefined, today: Date): string |
   return `Reservations open up to ${differenceInCalendarDays(maxDate, startOfDay(today))} days in advance.`;
 }
 
+/** The footer actually shown: an unset `windowNote` keeps today's sentence; null hides it; a string replaces it. */
+export function resolveWindowNote(windowNote: string | null | undefined, maxDate: Date | undefined, today: Date): string | null {
+  return windowNote === undefined ? windowNoteText(maxDate, today) : windowNote;
+}
+
 interface TriggerProps {
   onClick: () => void;
   ref: React.RefObject<HTMLButtonElement | null>;
@@ -28,6 +33,12 @@ interface DateRangePickerProps {
   onEndChange: (value: string) => void;
   minDate?: Date;
   maxDate?: Date;
+  /**
+   * The calendar footer. Unset = the parking sentence from windowNoteText()
+   * (today's footer, exactly); null = no footer; a string = that sentence,
+   * for a picker whose limits aren't parking's.
+   */
+  windowNote?: string | null;
   children: (props: {
     startTriggerProps: TriggerProps;
     endTriggerProps: TriggerProps;
@@ -41,6 +52,7 @@ export function DateRangePicker({
   onEndChange,
   minDate,
   maxDate,
+  windowNote,
   children,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
@@ -133,7 +145,7 @@ export function DateRangePicker({
     modifiersClassNames.inRange = "!bg-brand-orange/10 !text-gray-900";
   }
 
-  const note = windowNoteText(maxDate, new Date());
+  const note = resolveWindowNote(windowNote, maxDate, new Date());
 
   // Virtual anchor — positions popover near the start trigger button
   const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
