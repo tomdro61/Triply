@@ -73,7 +73,7 @@ export function parkStayFromParking(raw: RawParkingSearch, access: Pick<ParkStay
   if (checkout > shiftIsoDate(night, PARK_STAY_MAX_RETURN_AFTER_NIGHT_DAYS)) return disabled(RETURN_TOO_FAR);
 
   // The /park-stay key order (format.ts SEARCH_PARAM_KEYS); arrival time,
-  // return time and guests are asked there, never guessed (§3, §12.1).
+  // return time and guests get their starting values there (withSearchDefaults).
   const q = new URLSearchParams({ airport, night, returnDate: checkout });
   return { kind: "enabled", href: `/park-stay?${q.toString()}`, airport, parkingHref };
 }

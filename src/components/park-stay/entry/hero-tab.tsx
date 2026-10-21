@@ -12,8 +12,8 @@
  * The form asks the airport (the access airports only), the HOTEL CHECK-IN
  * date (`night`) and the PARKING RETURN date (`returnDate`): check-in from
  * today at the airport, return within 60 days of it — an error, never a
- * swap. Arrival time, return time and guests are asked on /park-stay,
- * highlighted, never defaulted. Styling is the Hero's own, classes copied.
+ * swap. Arrival time, return time and guests get their starting values on
+ * /park-stay (withSearchDefaults). Styling is the Hero's own, classes copied.
  */
 
 import { useContext, useMemo, useRef, useState, type FormEvent } from "react";

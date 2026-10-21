@@ -10,8 +10,8 @@
  * - return on or after the hotel check-out day and within 60 days of the
  *   check-in — an error, never a swap.
  *
- * Arrival time, return time and guests are asked on /park-stay, highlighted,
- * never defaulted here.
+ * Arrival time, return time and guests are not set here: /park-stay fills
+ * their starting values (withSearchDefaults), shown in its header.
  */
 
 import { getAirportByCode } from "@/config/airports";

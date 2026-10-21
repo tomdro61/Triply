@@ -33,8 +33,10 @@ describe("Hero extraTab slot", () => {
     expect(html).toContain('<i data-active="false" data-panel="false"></i>');
     // The parking form is still the content.
     expect(html).toContain("Depart date");
-    // Inside the tab strip, right after the AI Assistant tab.
-    expect(html.indexOf("<i data-active")).toBeGreaterThan(html.indexOf("AI Assistant"));
+    // Inside the tab strip, second: after Parking, before the AI Assistant tab.
+    expect(html.indexOf(">Parking<")).toBeGreaterThan(-1);
+    expect(html.indexOf("<i data-active")).toBeGreaterThan(html.indexOf(">Parking<"));
+    expect(html.indexOf("<i data-active")).toBeLessThan(html.indexOf("AI Assistant"));
     expect(html.indexOf("<i data-active")).toBeLessThan(html.indexOf("Depart date"));
   });
 });

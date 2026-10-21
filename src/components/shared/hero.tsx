@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
@@ -15,8 +15,9 @@ type SearchTab = "parking" | "ai" | "extra";
 
 interface HeroProps {
   /**
-   * An optional extra tab, rendered once in the tab strip; it portals its
-   * panel into the content area while active (see hero-extra-tab.ts).
+   * An optional extra tab, rendered once in the tab strip (second, between
+   * Parking and AI Assistant); it portals its panel into the content area
+   * while active (see hero-extra-tab.ts).
    * Unset: today's two tabs, exactly.
    */
   extraTab?: ReactNode;
@@ -89,9 +90,9 @@ export function Hero({ extraTab }: HeroProps) {
         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
           {/* Tabs */}
           <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50">
-            {tabs.map((tab) => {
+            {tabs.map((tab, index) => {
               const isActive = activeTab === tab.id;
-              return (
+              const button = (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -110,10 +111,16 @@ export function Hero({ extraTab }: HeroProps) {
                   {tab.label}
                 </button>
               );
+              // The optional extra tab sits second, between Parking and AI Assistant.
+              return index === 0 && extraTab ? (
+                <Fragment key={tab.id}>
+                  {button}
+                  <HeroExtraTabContext.Provider value={extraTabContext}>{extraTab}</HeroExtraTabContext.Provider>
+                </Fragment>
+              ) : (
+                button
+              );
             })}
-            {extraTab && (
-              <HeroExtraTabContext.Provider value={extraTabContext}>{extraTab}</HeroExtraTabContext.Provider>
-            )}
           </div>
 
           {/* Content Area */}

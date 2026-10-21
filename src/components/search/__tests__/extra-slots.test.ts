@@ -70,7 +70,7 @@ describe("extraBadge / renderExtraBadge", () => {
 });
 
 describe("SearchHeader modeSwitch", () => {
-  it("snapshot: the slot in BOTH the mobile area (above the summary button) and the desktop row (first item)", () => {
+  it("snapshot: the slot in BOTH the mobile area (above the summary button) and on its own line above the desktop fields", () => {
     const html = renderToStaticMarkup(
       createElement(SearchHeader, {
         tab: "parking",
@@ -92,7 +92,7 @@ describe("SearchHeader modeSwitch", () => {
     expect(html).toMatchSnapshot();
   });
 
-  it("renders above the mobile summary bar (outside its button) and first in the desktop row", () => {
+  it("renders above the mobile summary bar (outside its button) and on its own line above the desktop fields (as on /park-stay)", () => {
     const html = renderToStaticMarkup(
       createElement(SearchHeader, {
         tab: "parking",
@@ -117,5 +117,7 @@ describe("SearchHeader modeSwitch", () => {
     const desktop = html.indexOf("hidden lg:block");
     expect(second).toBeGreaterThan(desktop);
     expect(second).toBeLessThan(html.indexOf("(JFK)", desktop));
+    // Its own line: outside (before) the fields row, not an item inside it.
+    expect(second).toBeLessThan(html.indexOf("flex flex-col xl:flex-row gap-3", desktop));
   });
 });

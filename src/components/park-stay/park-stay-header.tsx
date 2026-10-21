@@ -15,14 +15,16 @@
  *   (`windowNote`), not parking's 100-day sentence.
  * - The picker's swap of a return picked before the check-in is REJECTED,
  *   not applied (isPickerSwap).
- * - Arrive at the hotel, return time and guests start EMPTY unless the URL
- *   has them — no defaults; a missing one is highlighted with the prompt,
- *   and the results stay idle (no fetch) until all are set.
+ * - Arrive at the hotel, return time and guests arrive already filled in:
+ *   the URL's value, or the starting value from withSearchDefaults() (Tom,
+ *   21 Oct 2026), so a search shows results at once. The missing-highlight
+ *   and prompt remain only as a fallback.
  * - Every submit keeps `focus`.
  * - The mode switch (§12.1) sits on its own line above the fields on
- *   desktop, and directly above the mobile summary bar — OUTSIDE its button
- *   (a link inside a button is invalid). The fields are one row from 1440 px
- *   and two rows below it, so nothing is clipped.
+ *   desktop (the parking SearchHeader places it the same way, so switching
+ *   pages doesn't move it), and directly above the mobile summary bar — OUTSIDE its button
+ *   (a link inside a button is invalid). The fields are always two rows on
+ *   desktop, so nothing is squeezed or clipped.
  *
  * The parent re-keys this on the URL, so its state always starts from what
  * was searched.
@@ -74,7 +76,7 @@ function DetailSelect({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className={`flex min-w-0 items-center min-[1440px]:w-44 ${missing ? BOX_MISSING : BOX_OK}`}>
+    <div className={`flex min-w-0 items-center ${missing ? BOX_MISSING : BOX_OK}`}>
       <span className="mr-1.5 whitespace-nowrap text-sm text-gray-500" aria-hidden="true">
         {prefix}
       </span>
@@ -208,13 +210,13 @@ export function ParkStayHeader({
         noValidate
         className={`${expanded ? "block" : "hidden"} lg:block px-4 pb-4 pt-3 border-t border-gray-100 lg:border-t-0 lg:max-w-7xl lg:mx-auto lg:px-8 lg:pt-2`}
       >
-        {/* Desktop: the switch on its own line above the fields (seven fields
-            and a button don't fit one row with it beside them below ~1440 px). */}
+        {/* Desktop: the switch on its own line above the fields. */}
         <div className="hidden lg:block mb-3">{modeSwitch}</div>
-        {/* One row from 1440 px; below that two rows — airport + dates, then
-            the three details + Update — so no field is squeezed or clipped. */}
-        <div className="flex flex-col gap-3 min-[1440px]:flex-row">
-          <div className="flex flex-col sm:flex-row gap-3 min-[1440px]:flex-1 min-w-0">
+        {/* Always two rows — airport + dates, then the three details + Update.
+            All seven on one row don't fit the 1280 px content width: the date
+            boxes were squeezed under the time fields. */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 min-w-0">
             <div className="sm:w-56 flex-shrink-0">
               <ParkStayAirportSelect
                 value={airport}
@@ -274,7 +276,7 @@ export function ParkStayHeader({
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 min-[1440px]:flex">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
               <DetailSelect
                 prefix="At hotel"
                 ariaLabel="Arrive at the hotel"

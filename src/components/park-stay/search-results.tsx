@@ -6,8 +6,9 @@
  * (main)/search/page.tsx: the client fetches the API; desktop shows the list
  * (2/5) beside the map (3/5), the map mounted only at lg+; mobile shows the
  * list with a Map button that opens a full-screen map and a snap carousel.
- * With any input missing it shows the header (missing fields highlighted)
- * and fetches nothing. No GA4 events.
+ * Values the URL left out get starting values (withSearchDefaults); only a
+ * missing airport (or a return with no check-in) leaves the header asking,
+ * and then it fetches nothing. No GA4 events.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -34,6 +35,7 @@ import {
   parkStayPageQuery,
   readFocus,
   sanitizeSearchValues,
+  withSearchDefaults,
   type ParkStayAirportOption,
   type ParkStayHotelName,
   type ParkStaySearchValues,
@@ -59,8 +61,9 @@ async function fetchSearch(query: string): Promise<Settled> {
 
 /**
  * The URL's values, verbatim — a missing one stays "" (nothing is defaulted).
- * The hotel page uses it as is; this page sanitises it first
- * (sanitizeSearchValues) so an off-list value shows as missing.
+ * Both pages then fill starting values (withSearchDefaults); this page
+ * sanitises first (sanitizeSearchValues) so an off-list value is replaced,
+ * while the hotel page sends it as is and the server answers 400.
  */
 export function readSearchValues(params: { get(name: string): string | null }): ParkStaySearchValues {
   return {
@@ -93,7 +96,13 @@ function RetryButton({ onClick }: { onClick: () => void }) {
 export function ParkStaySearchResults({ airports, hotels }: { airports: ParkStayAirportOption[]; hotels: ParkStayHotelName[] }) {
   const params = useSearchParams();
   const openCodes = useMemo(() => airports.map((a) => a.code), [airports]);
-  const values = useMemo<ParkStaySearchValues>(() => sanitizeSearchValues(readSearchValues(params), openCodes), [params, openCodes]);
+  // Values the URL left out get their starting values (withSearchDefaults), so
+  // the header shows them filled in and the search runs at once. The clock is
+  // read when the URL changes, not on every render, so the query stays stable.
+  const values = useMemo<ParkStaySearchValues>(() => {
+    const clean = sanitizeSearchValues(readSearchValues(params), openCodes);
+    return withSearchDefaults(clean, { timeZone: airportTimeZone(airports, clean.airport), now: new Date(), fillDates: true });
+  }, [params, openCodes, airports]);
   const focus = readFocus(params);
   const complete = isCompleteSearch(values);
   const query = useMemo(() => apiSearchQuery(values), [values]);

@@ -17,7 +17,7 @@ export interface HomeCard {
   /** Null renders the placeholder. */
   photoUrl: string | null;
   shuttle: string;
-  /** /park-stay for the airport with the hotel highlighted; dates are asked there. */
+  /** /park-stay for the airport with the hotel highlighted; that page fills the starting dates (withSearchDefaults). */
   href: string;
 }
 

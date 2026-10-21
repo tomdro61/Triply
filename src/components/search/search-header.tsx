@@ -28,8 +28,8 @@ interface SearchHeaderProps {
   onSearch: () => void;
   /**
    * An optional search-type switch: rendered above the mobile summary bar
-   * (outside its button) and as the first item of the desktop row. Unset
-   * renders nothing.
+   * (outside its button) and on its own line above the desktop fields, as
+   * the Park & Stay header places it. Unset renders nothing.
    */
   modeSwitch?: ReactNode;
 }
@@ -156,9 +156,10 @@ export function SearchHeader({
 
       {/* Desktop: Full form */}
       <div className="hidden lg:block max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 pb-4">
+        {/* The switch on its own line above the fields — the same place as on /park-stay. */}
+        {modeSwitch && <div className="mb-3">{modeSwitch}</div>}
         {/* Search Inputs */}
         <div className="flex flex-col xl:flex-row gap-3">
-          {modeSwitch && <div className="self-start xl:self-center">{modeSwitch}</div>}
           {/* Location */}
           <div className="flex-grow xl:w-1/4">
             <AirportCombobox
