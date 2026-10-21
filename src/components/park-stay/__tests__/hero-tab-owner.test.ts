@@ -20,14 +20,48 @@ import type { ParkStayAccess } from "@/lib/hotels/access";
 import { heroTabDecision } from "../slots/hero-tab-slot";
 import { SlotBoundary } from "../slots/slot-boundary";
 import {
+  PARK_STAY_ACCESS_CACHE_PREFIX,
+  __accessMemoryForTests,
+  __dispatchAccessMemoryForTests,
+  __resetParkStayAccessMemoryForTests,
   __resetParkStayReportsForTests,
-  nextRemembered,
+  nextAccessMemory,
   pickAccessState,
   reportParkStayFailure,
   startParkStayAccess,
+  watchAuthForAccessMemory,
   type AccessAuthClient,
+  type AccessStorage,
   type ParkStayAccessState,
 } from "../use-park-stay-access";
+
+type AuthListener = (event: string, session: { user: { id: string } } | null) => void;
+function watcherAuth() {
+  const listeners: AuthListener[] = [];
+  return {
+    auth: {
+      onAuthStateChange: (cb: AuthListener) => {
+        listeners.push(cb);
+        return { data: { subscription: { unsubscribe: () => {} } } };
+      },
+    },
+    emit: (event: string, session: { user: { id: string } } | null) => listeners.forEach((l) => l(event, session)),
+  };
+}
+
+function memoryStore(init: Record<string, string>): AccessStorage & { map: Map<string, string> } {
+  const map = new Map(Object.entries(init));
+  return {
+    map,
+    getItem: (k) => map.get(k) ?? null,
+    setItem: (k, v) => void map.set(k, v),
+    removeItem: (k) => void map.delete(k),
+    get length() {
+      return map.size;
+    },
+    key: (i) => [...map.keys()][i] ?? null,
+  };
+}
 
 const DATA: ParkStayAccess = { airports: [{ code: "JFK", name: "JFK" }], hotels: [] };
 const VISIBLE: ParkStayAccessState = { status: "visible", data: DATA };
@@ -58,26 +92,95 @@ describe("heroTabDecision — panel shows the form, or the Hero resets to Parkin
   }
 });
 
-describe("the in-memory answer (later mounts start from it)", () => {
-  it("pickAccessState: a fresh instance shows the memory; its own definitive answer wins; 'loading' keeps a visible memory", () => {
-    expect(pickAccessState(null, VISIBLE)).toBe(VISIBLE);
-    expect(pickAccessState(null, HIDDEN)).toBe(HIDDEN);
-    expect(pickAccessState(LOADING, VISIBLE)).toBe(VISIBLE);
-    expect(pickAccessState(LOADING, HIDDEN)).toBe(LOADING);
-    expect(pickAccessState(HIDDEN, VISIBLE)).toBe(HIDDEN);
-    expect(pickAccessState(VISIBLE, HIDDEN)).toBe(VISIBLE);
+describe("the in-memory answer (later mounts start from it, only for the same signed-in user)", () => {
+  const set = (userId: string) => nextAccessMemory(null, { type: "answer", userId, state: VISIBLE });
+
+  it("nextAccessMemory: a visible answer is kept per user, unconfirmed until the watcher sees that user", () => {
+    const kept = set("u1");
+    expect(kept).toEqual({ userId: "u1", state: VISIBLE, confirmed: false });
+    const confirmed = nextAccessMemory(kept, { type: "auth", event: "INITIAL_SESSION", userId: "u1" });
+    expect(confirmed).toEqual({ userId: "u1", state: VISIBLE, confirmed: true });
+    expect(nextAccessMemory(confirmed, { type: "auth", event: "TOKEN_REFRESHED", userId: "u1" })).toBe(confirmed); // unchanged → no re-render
+    expect(nextAccessMemory(confirmed, { type: "answer", userId: "u1", state: VISIBLE })).toBe(confirmed);
+    expect(nextAccessMemory(confirmed, { type: "user", userId: "u1" })).toBe(confirmed);
   });
 
-  it("nextRemembered: keeps a visible answer per user; another user, a hidden answer or a failure forgets it", () => {
-    const kept = nextRemembered(null, { userId: "u1", state: VISIBLE });
-    expect(kept).toEqual({ userId: "u1", state: VISIBLE });
-    expect(nextRemembered(kept, { userId: "u1", state: VISIBLE })).toBe(kept); // unchanged → no re-render
-    expect(nextRemembered(kept, { user: "u1" })).toBe(kept);
-    expect(nextRemembered(kept, { user: "u2" })).toBeNull();
-    expect(nextRemembered(kept, { user: null })).toBeNull();
-    expect(nextRemembered(kept, { userId: "u1", state: HIDDEN })).toBeNull();
-    expect(nextRemembered(kept, { userId: "u1", state: null })).toBeNull();
-    expect(nextRemembered(kept, { userId: "u2", state: null })).toBe(kept);
+  it("nextAccessMemory: sign-out, another user, a hidden answer or a failed check forgets it", () => {
+    const m = nextAccessMemory(set("u1"), { type: "auth", event: "SIGNED_IN", userId: "u1" });
+    expect(nextAccessMemory(m, { type: "auth", event: "SIGNED_OUT", userId: null })).toBeNull();
+    expect(nextAccessMemory(m, { type: "auth", event: "SIGNED_IN", userId: "u2" })).toBeNull();
+    expect(nextAccessMemory(m, { type: "auth", event: "INITIAL_SESSION", userId: null })).toBeNull();
+    expect(nextAccessMemory(m, { type: "user", userId: "u2" })).toBeNull();
+    expect(nextAccessMemory(m, { type: "user", userId: null })).toBeNull();
+    expect(nextAccessMemory(m, { type: "answer", userId: "u1", state: HIDDEN })).toBeNull();
+    expect(nextAccessMemory(m, { type: "answer", userId: "u1", state: null })).toBeNull();
+  });
+
+  it("pickAccessState: memory counts only when it is known to be this session's user", () => {
+    const unconfirmed = set("u1");
+    const confirmed = nextAccessMemory(unconfirmed, { type: "auth", event: "INITIAL_SESSION", userId: "u1" });
+    // Before this mount's session read: only a watcher-confirmed memory.
+    expect(pickAccessState(null, confirmed, undefined)).toBe(VISIBLE);
+    expect(pickAccessState(null, unconfirmed, undefined)).toEqual(HIDDEN);
+    // After it: only the same user's memory.
+    expect(pickAccessState(null, unconfirmed, "u1")).toBe(VISIBLE);
+    expect(pickAccessState(null, confirmed, "u2")).toEqual(HIDDEN);
+    expect(pickAccessState(null, confirmed, null)).toEqual(HIDDEN);
+    // "loading" keeps a usable memory; a definitive own answer always wins.
+    expect(pickAccessState(LOADING, confirmed, "u1")).toBe(VISIBLE);
+    expect(pickAccessState(LOADING, confirmed, "u2")).toBe(LOADING);
+    expect(pickAccessState(HIDDEN, confirmed, "u1")).toBe(HIDDEN);
+    expect(pickAccessState(VISIBLE, null, "u1")).toBe(VISIBLE);
+    expect(pickAccessState(null, null, undefined)).toEqual(HIDDEN);
+  });
+
+  it("sign-out with NO hook mounted (admin sign-out, then a client navigation home), then a later mount → hidden", () => {
+    __resetParkStayAccessMemoryForTests();
+    const { auth, emit } = watcherAuth();
+    const storage = memoryStore({ [PARK_STAY_ACCESS_CACHE_PREFIX + "u1"]: "x", keep: "y" });
+
+    // A homepage mount answered visible for u1 and started the watcher (INITIAL_SESSION confirms it).
+    __dispatchAccessMemoryForTests({ type: "answer", userId: "u1", state: VISIBLE });
+    watchAuthForAccessMemory(auth, storage, new Map());
+    emit("INITIAL_SESSION", { user: { id: "u1" } });
+    expect(pickAccessState(null, __accessMemoryForTests(), undefined)).toBe(VISIBLE);
+
+    // Every hook unmounts (the visitor goes to /admin); /admin signs out.
+    emit("SIGNED_OUT", null);
+    expect(__accessMemoryForTests()).toBeNull();
+    expect([...storage.map.keys()]).toEqual(["keep"]);
+    // The homepage mounts again before its own session read: hidden.
+    expect(pickAccessState(null, __accessMemoryForTests(), undefined)).toEqual(HIDDEN);
+    __resetParkStayAccessMemoryForTests();
+  });
+
+  it("sign-out then sign-in as someone else, with no hook mounted → the next mount is hidden for the new user", () => {
+    __resetParkStayAccessMemoryForTests();
+    const { auth, emit } = watcherAuth();
+    const storage = memoryStore({ [PARK_STAY_ACCESS_CACHE_PREFIX + "u1"]: "x", [PARK_STAY_ACCESS_CACHE_PREFIX + "u2"]: "z" });
+
+    __dispatchAccessMemoryForTests({ type: "answer", userId: "u1", state: VISIBLE });
+    watchAuthForAccessMemory(auth, storage, new Map());
+    emit("INITIAL_SESSION", { user: { id: "u1" } });
+    emit("SIGNED_IN", { user: { id: "u2" } }); // a switch, even without a SIGNED_OUT in between
+    expect(__accessMemoryForTests()).toBeNull();
+    expect([...storage.map.keys()]).toEqual([PARK_STAY_ACCESS_CACHE_PREFIX + "u2"]); // other users' entries dropped
+    expect(pickAccessState(null, __accessMemoryForTests(), undefined)).toEqual(HIDDEN);
+    expect(pickAccessState(null, __accessMemoryForTests(), "u2")).toEqual(HIDDEN);
+
+    // Even had the memory survived somehow, a mount whose session is u2 never shows u1's answer.
+    const stale = nextAccessMemory(set("u1"), { type: "auth", event: "INITIAL_SESSION", userId: "u1" });
+    expect(pickAccessState(null, stale, "u2")).toEqual(HIDDEN);
+    __resetParkStayAccessMemoryForTests();
+  });
+
+  it("the watcher subscribes once for the life of the page", () => {
+    __resetParkStayAccessMemoryForTests();
+    const onAuthStateChange = vi.fn(() => ({ data: { subscription: { unsubscribe: () => {} } } }));
+    watchAuthForAccessMemory({ onAuthStateChange }, null, new Map());
+    watchAuthForAccessMemory({ onAuthStateChange }, null, new Map());
+    expect(onAuthStateChange).toHaveBeenCalledTimes(1);
+    __resetParkStayAccessMemoryForTests();
   });
 
   it("the controller tells the memory who it resolves for, and every definitive answer (or failure)", async () => {

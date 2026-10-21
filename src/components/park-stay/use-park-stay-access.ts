@@ -384,77 +384,164 @@ function browserStorage(): AccessStorage | null {
   }
 }
 
-// ───────────────────────── the in-memory answer (review of PR B, item 1) ─────────────────────────
+// ───────────────────────── the in-memory answer (review of PR B, item 1; re-check) ─────────────────────────
 
 /**
  * The last visible answer, for one user id, kept in module memory so a
  * component that mounts LATER (on the same page, or after a client
  * navigation) starts from it instead of "hidden": no empty flash, and no
  * second opinion. Read through useSyncExternalStore, whose server snapshot is
- * always "hidden" — React uses it for the server render AND the hydrating
+ * null (= unusable) — React uses it for the server render AND the hydrating
  * render, so a fresh page load hydrates hidden whatever the memory holds.
+ *
+ * Module memory outlives the hooks (a sign-out on /admin, then a client
+ * navigation home, with no hook mounted in between), so it is guarded twice:
+ *
+ * 1. A module-level auth watcher, subscribed ONCE (the first time an answer
+ *    is remembered) for the life of the page, forgets the memory on
+ *    SIGNED_OUT or on any event for a different user (and drops the other
+ *    users' session-cache entries), whether or not a hook is mounted.
+ * 2. The memory is only USED when it is known to be this session's user:
+ *    the mount's own getSession() resolved to that user, or — before that —
+ *    the watcher saw an auth event for that user after the memory was set
+ *    (`confirmed`; supabase-js emits INITIAL_SESSION to a new subscriber, so
+ *    a freshly set memory is confirmed almost at once).
  */
-type Remembered = { userId: string; state: ParkStayAccessState };
-let remembered: Remembered | null = null;
-const rememberedListeners = new Set<() => void>();
+export type AccessMemory = { userId: string; state: ParkStayAccessState; confirmed: boolean };
 
-function setRemembered(next: Remembered | null): void {
-  if (next === remembered) return;
-  remembered = next;
-  for (const l of rememberedListeners) l();
-}
-function subscribeRemembered(listener: () => void): () => void {
-  rememberedListeners.add(listener);
-  return () => {
-    rememberedListeners.delete(listener);
-  };
-}
-const rememberedSnapshot = (): ParkStayAccessState => remembered?.state ?? HIDDEN;
-const serverSnapshot = (): ParkStayAccessState => HIDDEN;
+export type AccessMemoryEvent =
+  /** A mount's controller is resolving for this user (null = signed out). */
+  | { type: "user"; userId: string | null }
+  /** A mount's controller has a definitive answer for this user (null = it couldn't confirm one). */
+  | { type: "answer"; userId: string; state: ParkStayAccessState | null }
+  /** The module-level auth watcher saw an event (userId = the event's session user, null = none). */
+  | { type: "auth"; event: string; userId: string | null };
 
-/** The memory's update rules (exported for tests): a visible answer is kept per user; anything else, or another user, forgets it. */
-export function nextRemembered(current: Remembered | null, event: { user: string | null } | { userId: string; state: ParkStayAccessState | null }): Remembered | null {
-  if ("user" in event) return current && current.userId !== event.user ? null : current;
-  if (event.state && event.state.status === "visible") {
-    return current && current.userId === event.userId && current.state === event.state ? current : { userId: event.userId, state: event.state };
+/** The memory's rules, pure (exported for tests). Returns the same object when nothing changes. */
+export function nextAccessMemory(current: AccessMemory | null, e: AccessMemoryEvent): AccessMemory | null {
+  switch (e.type) {
+    case "user":
+      return current && current.userId !== e.userId ? null : current;
+    case "answer":
+      if (e.state && e.state.status === "visible") {
+        if (current && current.userId === e.userId) return current.state === e.state ? current : { ...current, state: e.state };
+        return { userId: e.userId, state: e.state, confirmed: false };
+      }
+      return current && current.userId === e.userId ? null : current;
+    case "auth":
+      if (!current) return null;
+      if (e.event === "SIGNED_OUT" || e.userId !== current.userId) return null;
+      return current.confirmed ? current : { ...current, confirmed: true };
   }
-  return current && current.userId === event.userId ? null : current;
-}
-
-/** Test seam. */
-export function __resetParkStayAccessMemoryForTests(): void {
-  setRemembered(null);
 }
 
 /**
- * What a hook instance shows: its own controller's answer once that is
- * definitive; until then (not started, or "loading") the remembered answer.
- * The controller makes the memory forget another user's answer before it
- * publishes anything for the new one (onUser), so the memory is only ever
- * this user's.
+ * What a hook instance shows. The memory counts only when it is known to be
+ * this session's user: `mountUser` (what this mount's getSession() resolved
+ * to; undefined = not yet) equals its user, or — until then — the watcher
+ * has confirmed it. Then: the mount's own definitive answer wins; while the
+ * mount has none (not started, or "loading") the usable memory is shown.
  */
-export function pickAccessState(own: ParkStayAccessState | null, memory: ParkStayAccessState): ParkStayAccessState {
-  if (own === null) return memory;
-  if (own.status === "loading" && memory.status === "visible") return memory;
+export function pickAccessState(own: ParkStayAccessState | null, memory: AccessMemory | null, mountUser: string | null | undefined): ParkStayAccessState {
+  const usable =
+    memory !== null && memory.state.status === "visible" && (mountUser === undefined ? memory.confirmed : mountUser === memory.userId);
+  if (own === null) return usable && memory ? memory.state : HIDDEN;
+  if (own.status === "loading" && usable && memory) return memory.state;
   return own;
+}
+
+let memory: AccessMemory | null = null;
+const memoryListeners = new Set<() => void>();
+let watching = false;
+
+function dispatchMemory(e: AccessMemoryEvent): void {
+  const next = nextAccessMemory(memory, e);
+  if (next === memory) return;
+  memory = next;
+  for (const l of memoryListeners) l();
+}
+function subscribeMemory(listener: () => void): () => void {
+  memoryListeners.add(listener);
+  return () => {
+    memoryListeners.delete(listener);
+  };
+}
+const memorySnapshot = (): AccessMemory | null => memory;
+const serverMemorySnapshot = (): AccessMemory | null => null;
+
+/** Removes every cached answer except `keepUserId`'s. */
+function clearOtherUsersCache(storage: AccessStorage | null, keepUserId: string | null): void {
+  if (!storage) return;
+  try {
+    const keep = keepUserId === null ? null : PARK_STAY_ACCESS_CACHE_PREFIX + keepUserId;
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (k !== null && k.startsWith(PARK_STAY_ACCESS_CACHE_PREFIX) && k !== keep) keys.push(k);
+    }
+    for (const k of keys) storage.removeItem(k);
+  } catch {
+    // An unreadable cache is also an unusable one.
+  }
+}
+
+/**
+ * The module-level auth watcher: subscribed once, for the life of the page
+ * (never unsubscribed — it must outlive every hook). Exported for tests.
+ */
+export function watchAuthForAccessMemory(auth: Pick<AccessAuthClient, "onAuthStateChange">, storage: AccessStorage | null, inflight: AccessInflight = SHARED_INFLIGHT): void {
+  if (watching) return;
+  watching = true;
+  auth.onAuthStateChange((event, session) => {
+    const userId = session?.user.id ?? null;
+    if (event === "SIGNED_OUT" || (memory !== null && userId !== memory.userId)) {
+      clearOtherUsersCache(storage, event === "SIGNED_OUT" ? null : userId);
+      inflight.clear();
+    }
+    dispatchMemory({ type: "auth", event, userId });
+  });
+}
+
+/** Test seam: forget the memory and the watcher. */
+export function __resetParkStayAccessMemoryForTests(): void {
+  memory = null;
+  watching = false;
+  for (const l of memoryListeners) l();
+}
+/** Test seam: the memory as the hook would read it. */
+export function __accessMemoryForTests(): AccessMemory | null {
+  return memory;
+}
+/** Test seam: drive the memory as a mount's controller would. */
+export function __dispatchAccessMemoryForTests(e: AccessMemoryEvent): void {
+  dispatchMemory(e);
 }
 
 /** Starts "hidden" (also on the server), so customers never see a placeholder flash. */
 export function useParkStayAccess(): ParkStayAccessState {
-  const memory = useSyncExternalStore(subscribeRemembered, rememberedSnapshot, serverSnapshot);
+  const remembered = useSyncExternalStore(subscribeMemory, memorySnapshot, serverMemorySnapshot);
   const [own, setOwn] = useState<ParkStayAccessState | null>(null);
+  // What THIS mount's session read resolved to (undefined = not yet).
+  const [mountUser, setMountUser] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     const supabase = createClient();
+    const storage = browserStorage();
     return startParkStayAccess(
       {
         auth: supabase.auth,
         fetch: (url, init) => fetch(url, init),
-        storage: browserStorage(),
-        onUser: (user) => setRemembered(nextRemembered(remembered, { user })),
-        onAnswer: (userId, state) => setRemembered(nextRemembered(remembered, { userId, state })),
+        storage,
+        onUser: (userId) => {
+          setMountUser(userId);
+          dispatchMemory({ type: "user", userId });
+        },
+        onAnswer: (userId, state) => {
+          dispatchMemory({ type: "answer", userId, state });
+          if (memory !== null) watchAuthForAccessMemory(supabase.auth, storage);
+        },
       },
       setOwn
     );
   }, []);
-  return pickAccessState(own, memory);
+  return pickAccessState(own, remembered, mountUser);
 }
