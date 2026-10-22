@@ -25,11 +25,9 @@ vi.mock("@/lib/reslab/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reslab/client")>()),
   reslab: { getMinPrice, getCost, getLocation },
 }));
-vi.mock("@/lib/sentry", () => ({ captureAPIError: vi.fn() }));
-import { captureAPIError } from "@/lib/sentry";
+const { captureAPIError } = vi.hoisted(() => ({ captureAPIError: vi.fn() }));
+vi.mock("@/lib/sentry", () => ({ captureAPIError }));
 
-import { GET } from "../route";
-import { ReslabError } from "@/lib/reslab/client";
 import { directLotFromRow } from "@/lib/direct/store";
 import { directLotRow } from "@/lib/direct/__tests__/fixtures";
 import { flagSwitch } from "@/lib/direct/__tests__/flag-switch";
@@ -61,8 +59,15 @@ const MIN_PRICE = {
   },
 };
 
-beforeEach(() => {
+// The route keeps its Sentry throttle in module state: a fresh module per test,
+// so no test passes or fails because of what an earlier one captured.
+let GET: typeof import("../route").GET;
+let ReslabError: typeof import("@/lib/reslab/client").ReslabError;
+beforeEach(async () => {
   vi.clearAllMocks();
+  vi.resetModules();
+  ({ GET } = await import("../route"));
+  ({ ReslabError } = await import("@/lib/reslab/client"));
 });
 afterEach(() => {
   flagSwitch.open = false;
@@ -118,6 +123,48 @@ describe("GET /api/lots/quote — ResLab lot", () => {
     getMinPrice.mockRejectedValue(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
     expect((await GET(req())).status).toBe(503);
     expect(captureAPIError).toHaveBeenCalledTimes(1);
+  });
+
+  it("our own ResLab problems (401/403) are outages, not 'this stay can't be booked'", async () => {
+    getMinPrice.mockRejectedValue(new ReslabError(401, "Auth failed"));
+    expect((await GET(req())).status).toBe(503);
+    getMinPrice.mockRejectedValue(new ReslabError(403, "Forbidden"));
+    expect((await GET(req())).status).toBe(503);
+  });
+
+  it("refuses stays no one can book before calling ResLab", async () => {
+    const reversed = await GET(req({ checkout: "2026-12-10", checkinTime: "6:00 PM", checkoutTime: "8:00 AM" }));
+    expect(reversed.status).toBe(422);
+    expect((await reversed.json()).code).toBe("checkout_not_after_checkin");
+    expect((await GET(req({ checkout: "2026-12-10" }))).status).toBe(422); // 8 AM → 8 AM same day
+    const far = await GET(req({ checkin: "2027-06-01", checkout: "2027-06-03" }));
+    expect(far.status).toBe(422);
+    expect((await far.json()).code).toBe("beyond_booking_window");
+    expect(getMinPrice).not.toHaveBeenCalled();
+  });
+
+  it("refuses dates and times that don't exist", async () => {
+    expect((await GET(req({ checkin: "2026-13-45" }))).status).toBe(400);
+    expect((await GET(req({ checkout: "2026-02-30" }))).status).toBe(400);
+    expect((await GET(req({ checkinTime: "99:99 PM" }))).status).toBe(400);
+    expect((await GET(req({ checkinTime: "0:30 AM" }))).status).toBe(400);
+    expect(getMinPrice).not.toHaveBeenCalled();
+  });
+
+  it("an answer that does not make a price (ResLab's $0.00 case) is a 503, reported with the lot and stay", async () => {
+    getMinPrice.mockResolvedValue({ ...MIN_PRICE, reservation: { ...MIN_PRICE.reservation, grand_total: 0, sub_total: 0, fees_total: 0, tax_total: 0 } });
+    expect((await GET(req())).status).toBe(503);
+    expect(captureAPIError).toHaveBeenCalledTimes(1);
+    const [, ctx] = captureAPIError.mock.calls[0];
+    expect(ctx.extra).toMatchObject({ lotId: "reslab-275", fromDate: "2026-12-10 08:00:00", toDate: "2026-12-13 08:00:00" });
+  });
+
+  it("a sold-out stay is reported as sold out even with a $0 total", async () => {
+    getMinPrice.mockResolvedValue({ ...MIN_PRICE, reservation: { ...MIN_PRICE.reservation, grand_total: 0, sold_out: true } });
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    expect((await res.json()).quote.soldOut).toBe(true);
+    expect(captureAPIError).not.toHaveBeenCalled();
   });
 
   it("refuses a malformed request and a blocked lot without calling ResLab", async () => {

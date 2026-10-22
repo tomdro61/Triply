@@ -86,7 +86,8 @@ describe("settleQuote", () => {
 
   it("refusals turn Reserve off; outages and malformed answers show no figure", () => {
     expect(settleQuote(200, { quote: { ...QUOTE, soldOut: true } })).toEqual({ kind: "sold_out" });
-    for (const status of [400, 404, 422]) expect(settleQuote(status, { code: "x" })).toEqual({ kind: "not_bookable" });
+    for (const status of [404, 422]) expect(settleQuote(status, { code: "x" })).toEqual({ kind: "not_bookable" });
+    expect(settleQuote(400, { error: "Invalid time" })).toEqual({ kind: "error" }); // our bug, not theirs
     for (const status of [500, 502, 503]) expect(settleQuote(status, null)).toEqual({ kind: "error" });
     expect(settleQuote(200, null)).toEqual({ kind: "error" });
     expect(settleQuote(200, { quote: { ...QUOTE, taxTotal: undefined } })).toEqual({ kind: "error" });

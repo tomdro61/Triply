@@ -186,6 +186,14 @@ export function BookingWidget({
   else if (shown.kind === "view") stayDays = shown.view.days;
   const belowMinDays = lot.minimumBookingDays && stayDays !== null ? stayDays < lot.minimumBookingDays : false;
   const soldOutForStay = isUnavailable(live);
+  // When ResLab has refused the stay (Reserve is already off), a short stay is
+  // the likely reason: calendar nights may name it. Message only — never a
+  // block, since calendar nights can under-count the billed days.
+  const calendarDays =
+    checkIn && checkOut
+      ? Math.max(1, Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000))
+      : null;
+  const minStayHintDays = stayDays ?? (live.kind === "not_bookable" ? calendarDays : null);
   const reserveDisabled = timesMissing || belowMinDays || bookingNotOpenYet || soldOutForStay;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
@@ -340,7 +348,7 @@ export function BookingWidget({
       )}
 
       {/* Minimum Booking Days Warning */}
-      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && stayDays !== null && stayDays < lot.minimumBookingDays && (
+      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && minStayHintDays !== null && minStayHintDays < lot.minimumBookingDays && (
         <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm">

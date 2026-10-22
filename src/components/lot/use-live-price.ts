@@ -97,11 +97,13 @@ const quoteBodySchema = z.object({
 
 /**
  * Pure: a GET /api/lots/quote answer → what to show. Never the old stay's total.
- * - 400/404/422: checkout would refuse this stay → not_bookable (Reserve off).
+ * - 404/422: checkout would refuse this stay → not_bookable (Reserve off).
+ * - 400 is a request our own route rejected (page and server disagree) — our
+ *   bug, not the customer's answer: error, Reserve stays on.
  * - Anything else that isn't a valid quote: error ("total shown at checkout").
  */
 export function settleQuote(status: number, body: unknown): Settled {
-  if (status === 400 || status === 404 || status === 422) return { kind: "not_bookable" };
+  if (status === 404 || status === 422) return { kind: "not_bookable" };
   if (status < 200 || status >= 300) return { kind: "error" };
   const parsed = quoteBodySchema.safeParse(body);
   if (!parsed.success) return { kind: "error" };
