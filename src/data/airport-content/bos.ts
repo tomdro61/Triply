@@ -11,7 +11,7 @@ const bosContent: AirportContent = {
 
 On-airport parking at BOS is straightforward but pricey. Central Parking and Terminal B Garage cost $46/day at the gate, with advance reservations as low as $29/day. Economy Parking is $37/day ($29 with advance reservation). Logan Express buses from suburban stations cost just $7/day for parking + $9 each way for the bus.
 
-Off-airport parking through Triply starts at around $12.55/day — saving over 70% compared to Central Parking. Lots with a free 24/7 shuttle start at around $17.84/day. Four of the five bookable lots run a free shuttle to the terminals, and three of them run it around the clock.`,
+Off-airport parking through Triply starts at around $12.55/day — saving over 70% compared to Central Parking. Lots with a free 24/7 shuttle start at around $17.84/day. All five bookable lots offer a shuttle to the terminals; it's free at four of them, and three run it around the clock.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near BOS",
@@ -23,7 +23,7 @@ Off-airport parking through Triply starts at around $12.55/day — saving over 7
 
 **Ramada by Wyndham Boston** — Around $20.95/day pre-booked. Hotel lot 5.2 miles out. Free on-demand shuttle 6 AM–10 PM only — no shuttle overnight, so check your flight time.
 
-**Broadway Motor Service** — Around $12.55/day pre-booked. **Cheapest bookable lot at BOS**, 2.7 miles out in Revere, but **no shuttle** — you need a drop-off, taxi or rideshare to the terminal. Oil changes, repairs, car washes and detailing can be added while you travel.`,
+**Broadway Motor Service** — Around $12.55/day pre-booked. **Cheapest bookable lot at BOS**, 2.7 miles out in Revere, but **the shuttle isn't included in the rate** — it costs extra, so budget for it or plan a drop-off or rideshare. Oil changes, repairs, car washes and detailing can be added while you travel.`,
     },
     {
       heading: "The Silver Line SL1 — Free Transit to Downtown Boston",
@@ -56,7 +56,7 @@ The airport remains fully operational. Terminal E surface parking is closed unti
       body: `• **Use the Silver Line SL1 if downtown-bound** — Free from airport to South Station. Beats every parking option on cost for downtown trips.
 • **Pre-book on-airport for $29/day** — Walk-up parking is $46/day at Central. Advance reservations drop that to $29/day — a $17/day savings.
 • **Logan Express from the suburbs** — If you're driving from Back Bay, Braintree, Danvers, Framingham, or Woburn, Logan Express is $7/day parking + $9 each way for the bus. A 5-day trip costs ~$53 vs ~$185 at Central with reservation.
-• **Check the shuttle before you book** — Broadway Motor Service has no shuttle, and Ramada's shuttle stops 10 PM–6 AM. For red-eyes, pick a 24/7 shuttle lot (Park N Boston, Se-lect, PreFlight).
+• **Check the shuttle before you book** — Broadway Motor Service's shuttle costs extra (not included in the rate), and Ramada's shuttle stops 10 PM–6 AM. For red-eyes, pick a 24/7 shuttle lot (Park N Boston, Se-lect, PreFlight).
 • **Watch for nor'easters in winter** — Major winter storms can shut Logan for 12–24 hours. Build buffer time November–March, especially January–February.
 • **Allow time for fog** — Coastal fog in spring and fall mornings can delay early departures. Usually clears by mid-morning.
 • **Massport shuttle is free** — Free 24/7 shuttle (Routes 11/22/33/55/66/88) connects all terminals to parking, Rental Car Center, Airport Blue Line Station, and Water Taxi Dock. Every 5–15 minutes.`,
@@ -67,7 +67,7 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "What is the cheapest parking at Boston Logan?",
       answer:
-        "Broadway Motor Service at around $12.55/day pre-booked is the cheapest off-airport lot on Triply, 2.7 miles from Logan, but it has no shuttle — you need a drop-off or rideshare. The cheapest lot with a free 24/7 shuttle is Park N Boston at around $17.84/day. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). Prices are from a sample 7-day booking and vary by date.",
+        "Broadway Motor Service at around $12.55/day pre-booked is the cheapest off-airport lot on Triply, 2.7 miles from Logan, but its shuttle costs extra — it isn't included in the rate. The cheapest lot with a free 24/7 shuttle is Park N Boston at around $17.84/day. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). Prices are from a sample 7-day booking and vary by date.",
     },
     {
       question: "How much does it cost to park at BOS?",
@@ -82,7 +82,7 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "Do BOS off-airport parking lots run shuttles 24/7?",
       answer:
-        "Three of the five bookable lots do: Park N Boston (every 30 minutes), Se-lect Airport Valet Parking (every 20 minutes), and PreFlight Airport Parking (every 10 minutes). Ramada by Wyndham Boston runs its shuttle 6 AM–10 PM only, and Broadway Motor Service has no shuttle. If you have a red-eye or very early flight, book one of the 24/7 lots.",
+        "Three of the five bookable lots do: Park N Boston (every 30 minutes), Se-lect Airport Valet Parking (every 20 minutes), and PreFlight Airport Parking (every 10 minutes). Ramada by Wyndham Boston runs its shuttle 6 AM–10 PM only, and Broadway Motor Service's shuttle isn't included in its rate. If you have a red-eye or very early flight, book one of the 24/7 lots.",
     },
     {
       question: "How early should I arrive at Boston Logan?",
