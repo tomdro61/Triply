@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { calculateServiceFee, customerPerDayFromPricing, customerTotalFromPricing } from "../service-fee";
+import { computeDirectQuote } from "@/lib/direct/pricing";
 
 /**
  * Pins the service-fee formula: max($5.95, 6% of the parking base), rounded to
@@ -40,6 +41,21 @@ describe("calculateServiceFee", () => {
     expect(
       customerPerDayFromPricing({ grandTotal: 64.71, subtotal: 51.39, feesTotal: 3, taxTotal: 5.37, numberOfDays: 3 })
     ).toBeCloseTo((64.71 + 5.95) / 3, 10);
+  });
+
+  it("a direct lot's card total equals what its checkout charges (before protection, no promo)", () => {
+    // The Parking Point JFK: $9.95/day, 16 % tax. 3 days stays on the $5.95 floor; 20 days uses 6 %.
+    for (const days of [3, 20]) {
+      const q = computeDirectQuote({ rateCents: 995, days, taxRatePercent: 16 });
+      // Mapped as src/lib/direct/adapter.ts maps a quote onto lot.pricing.
+      const card = customerTotalFromPricing({
+        grandTotal: q.grandTotalCents / 100,
+        subtotal: q.subtotalCents / 100,
+        feesTotal: 0,
+        taxTotal: q.taxTotalCents / 100,
+      });
+      expect(Math.round(card! * 100)).toBe(q.chargeCents);
+    }
   });
 
   it("customerPerDayFromPricing is null without a total or a day count, never a fee-less rate", () => {
