@@ -4,7 +4,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TAXES_AND_FEES_INCLUDED, customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
@@ -30,7 +30,8 @@ function getTopAmenityIcon(name: string) {
 export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  // Headline = what the customer pays, taxes and our service fee included.
+  // Headline = the whole stay for the searched dates, taxes and our service fee
+  // included, before optional protection or a promo (see lot-card.tsx).
   const grandTotal = customerTotalFromPricing(lot.pricing);
   const perDay = customerPerDayFromPricing(lot.pricing);
   const topAmenities = lot.amenities.slice(0, 3);
@@ -72,17 +73,17 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
           </div>
 
           {/* Price */}
-          {grandTotal != null ? (
+          {grandTotal !== null ? (
             <div className="mt-1">
               <div className="flex items-baseline gap-1.5">
                 <span className="text-xl font-bold text-gray-900">
                   ${grandTotal.toFixed(2)}
                 </span>
-                {perDay != null && (
+                {perDay !== null && (
                   <span className="text-xs text-gray-500">${perDay.toFixed(2)}/day</span>
                 )}
               </div>
-              <div className="text-[11px] text-gray-500">Taxes &amp; fees included</div>
+              <div className="text-[11px] text-gray-500">{TAXES_AND_FEES_INCLUDED}</div>
             </div>
           ) : (
             <div className="flex items-baseline gap-1 mt-1">
