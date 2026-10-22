@@ -42,3 +42,22 @@ export function customerTotalFromPricing(pricing: {
       : pricing.grandTotal - (pricing.taxTotal || 0);
   return pricing.grandTotal + calculateServiceFee(parkingBase);
 }
+
+/**
+ * The customer total spread over ResLab's billed days — the per-day figure the
+ * search cards show beside the total, so both include taxes and fees. Null
+ * without a total or a billed-day count: never fall back to `minPrice`, which
+ * leaves out our service fee and tax.
+ */
+export function customerPerDayFromPricing(pricing: {
+  grandTotal?: number;
+  subtotal?: number;
+  feesTotal?: number;
+  taxTotal?: number;
+  numberOfDays?: number;
+} | undefined): number | null {
+  const total = customerTotalFromPricing(pricing);
+  const days = pricing?.numberOfDays;
+  if (total === null || !days || days <= 0) return null;
+  return total / days;
+}
