@@ -351,14 +351,14 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
     // No `robots: noindex` here: that is a removal signal, and this is a
     // transient read failure on a URL we publish (see UnavailableState).
     if (err instanceof DirectInventoryUnavailableError) {
-      return { title: "Parking Temporarily Unavailable | Triply" };
+      return { title: "Parking Temporarily Unavailable" };
     }
     throw err;
   }
 
   if (!airport || !lot) {
     return {
-      title: "Parking Not Found | Triply",
+      title: "Parking Not Found",
     };
   }
 
@@ -366,7 +366,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const ogImage = lot.photos?.[0]?.url || "/opengraph-image";
 
   return {
-    title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
+    title: `${lot.name} - ${airport.code} Airport Parking`,
     description,
     // Date/time query params make every search a new URL; point them all at the bare lot page.
     alternates: { canonical: `/${airport.slug}/airport-parking/${lot.slug || lotSlug}` },
