@@ -67,7 +67,7 @@ export function PriceMarker({
             className={`drop-shadow-md -mt-1 transition-colors ${
               isHovered
                 ? "text-brand-orange fill-brand-orange"
-                : "text-brand-blue fill-brand-blue"
+                : "text-brand-dark fill-brand-dark"
             }`}
           />
         </div>

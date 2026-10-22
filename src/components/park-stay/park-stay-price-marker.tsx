@@ -67,7 +67,7 @@ export function ParkStayPriceMarker({
           <div className={`-mt-2.5 h-3 w-3 rotate-45 transform border-b border-r ${isHovered ? "border-brand-orange bg-brand-orange" : "border-brand-dark bg-brand-dark"}`} />
           <MapPin
             size={isHovered ? 28 : 24}
-            className={`-mt-1 drop-shadow-md transition-colors ${isHovered ? "fill-brand-orange text-brand-orange" : "fill-brand-blue text-brand-blue"}`}
+            className={`-mt-1 drop-shadow-md transition-colors ${isHovered ? "fill-brand-orange text-brand-orange" : "fill-brand-dark text-brand-dark"}`}
           />
         </div>
       </div>
