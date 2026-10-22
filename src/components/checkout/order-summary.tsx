@@ -11,6 +11,9 @@ interface OrderSummaryProps {
   lot: UnifiedLot;
   checkIn: string;
   checkOut: string;
+  /** The customer's own picks ("8:00 AM"), airport-local — required, never defaulted. */
+  checkInTime: string;
+  checkOutTime: string;
   priceBreakdown: PriceBreakdown;
   promoCode: string | null;
   onApplyPromo: (code: string) => Promise<ApplyPromoResult>;
@@ -44,6 +47,8 @@ export function OrderSummary({
   lot,
   checkIn,
   checkOut,
+  checkInTime,
+  checkOutTime,
   priceBreakdown,
   promoCode,
   onApplyPromo,
@@ -105,7 +110,7 @@ export function OrderSummary({
             </div>
             <div>
               <p className="text-xs text-gray-500">Check-in</p>
-              <p className="font-medium text-gray-900">{formatCheckoutDate(checkIn)}</p>
+              <p className="font-medium text-gray-900">{formatCheckoutDate(checkIn)} · {checkInTime}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -114,7 +119,7 @@ export function OrderSummary({
             </div>
             <div>
               <p className="text-xs text-gray-500">Check-out</p>
-              <p className="font-medium text-gray-900">{formatCheckoutDate(checkOut)}</p>
+              <p className="font-medium text-gray-900">{formatCheckoutDate(checkOut)} · {checkOutTime}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

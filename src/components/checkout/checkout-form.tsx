@@ -1258,6 +1258,8 @@ export function CheckoutForm({
           lot={lot}
           checkIn={checkIn}
           checkOut={checkOut}
+          checkInTime={checkInTime}
+          checkOutTime={checkOutTime}
           priceBreakdown={priceBreakdown}
           promoCode={promoCode}
           onApplyPromo={handleApplyPromo}
