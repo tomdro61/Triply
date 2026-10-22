@@ -1,6 +1,8 @@
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
-export const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
+// Mapbox's full-colour street map (was light-v11, grey and white). Used by
+// every map: search, lot page, Park & Stay.
+export const MAPBOX_STYLE = "mapbox://styles/mapbox/streets-v12";
 
 export const DEFAULT_MAP_CONFIG = {
   // New York area as default center (MVP is JFK + LGA)
