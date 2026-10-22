@@ -46,17 +46,19 @@ export function PriceMarker({
             <>
               <div
                 className={`px-3 py-1.5 rounded-lg shadow-md font-bold text-xs whitespace-nowrap mb-1 transition-colors border ${
+                  // Navy tag, orange when hovered/selected: a white tag disappeared
+                  // into Mapbox Standard's pale background.
                   isHovered
-                    ? "bg-brand-dark text-white border-brand-dark"
-                    : "bg-white text-gray-900 border-gray-200"
+                    ? "bg-brand-orange text-white border-brand-orange"
+                    : "bg-brand-dark text-white border-brand-dark"
                 }`}
               >
                 ${price.toFixed(2)}
               </div>
               <div
-                className={`w-3 h-3 rotate-45 transform -mt-2.5 ${
-                  isHovered ? "bg-brand-dark" : "bg-white"
-                } border-r border-b border-gray-200`}
+                className={`w-3 h-3 rotate-45 transform -mt-2.5 border-r border-b ${
+                  isHovered ? "bg-brand-orange border-brand-orange" : "bg-brand-dark border-brand-dark"
+                }`}
               />
             </>
           )}
