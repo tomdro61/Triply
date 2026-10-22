@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { productionAirports } from "@/config/airports";
+import { liveComparisons } from "@/data/comparison";
 import {
   AIRPORT_SEARCH_RADIUS_KM,
   BLOCKED_RESLAB_LOCATION_IDS,
@@ -90,6 +91,13 @@ function airportPages(): MetadataRoute.Sitemap {
       url: `${baseUrl}/${airport.slug}/airport-parking`,
       changeFrequency: "daily" as const,
       priority: 0.9,
+    })),
+    // Only "live" comparisons: a draft one 404s, and a 404 in the sitemap
+    // teaches Google to trust it less.
+    ...liveComparisons.map((c) => ({
+      url: `${baseUrl}/${c.slug}/spothero-vs-airportparkingreservations-vs-triply`,
+      changeFrequency: "weekly" as const,
+      priority: 0.75,
     })),
   ];
 }

@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const bosContent: AirportContent = {
   metaDescription:
-    "Compare 9+ off-airport BOS parking lots from $17/day. Save vs $46/day Central Parking. Free shuttle to terminals — and the Silver Line SL1 is FREE from airport to downtown. Free cancellation.",
+    "Compare off-airport BOS parking lots from about $13/day. Save vs $46/day Central Parking. Free shuttle to terminals — and the Silver Line SL1 is FREE from airport to downtown. Free cancellation.",
 
   sections: [
     {
@@ -11,7 +11,7 @@ const bosContent: AirportContent = {
 
 On-airport parking at BOS is straightforward but pricey. Central Parking and Terminal B Garage cost $46/day at the gate, with advance reservations as low as $29/day. Economy Parking is $37/day ($29 with advance reservation). Logan Express buses from suburban stations cost just $7/day for parking + $9 each way for the bus.
 
-Off-airport parking through Triply starts at around $17/day — saving up to 65% compared to Central Parking. Most lots include free shuttle service to all four terminals, and many properties offer 24/7 shuttle for early morning or late night flights.`,
+Off-airport parking through Triply starts at around $12.55/day — saving over 70% compared to Central Parking. Most lots include free shuttle service to all four terminals, and many properties offer 24/7 shuttle for early morning or late night flights.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near BOS",
@@ -73,12 +73,12 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "What is the cheapest parking at Boston Logan?",
       answer:
-        "Park Shuttle & Fly at around $17/day pre-booked is the cheapest off-airport option, located just 1.5 miles from Logan with 24/7 on-demand shuttle. Holiday Inn Express Boston Logan is also $17/day pre-booked. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). All prices are based on a sample 5-day booking and may vary.",
+        "Broadway Motor Service at around $12.55/day pre-booked is the cheapest off-airport lot on Triply, 2.7 miles from Logan. Park N Boston is around $17.84/day. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). All prices are based on a sample 5-day booking and may vary.",
     },
     {
       question: "How much does it cost to park at BOS?",
       answer:
-        "On-airport parking at Logan is $46/day at Central Parking and Terminal B Garage ($29/day with advance reservation). Economy Parking is $37/day ($29 advance). Off-airport parking through Triply starts at around $17/day — saving up to 65%. Logan Express from suburban stations is just $7/day for parking + $9 each way for the bus.",
+        "On-airport parking at Logan is $46/day at Central Parking and Terminal B Garage ($29/day with advance reservation). Economy Parking is $37/day ($29 advance). Off-airport parking through Triply starts at around $12.55/day — saving over 70%. Logan Express from suburban stations is just $7/day for parking + $9 each way for the bus.",
     },
     {
       question: "Is the Silver Line really free from Boston Logan?",
