@@ -83,8 +83,9 @@ export function SearchMap({
       )}
       {lots.map((lot) => {
         if (!lot.latitude || !lot.longitude) return null;
-        // Same per-day figure as the lot's card (taxes and fees included).
-        const price = customerPerDayFromPricing(lot.pricing) ?? lot.pricing?.minPrice ?? 0;
+        // The card's per-day figure (taxes and fees included). Without one the
+        // pin has no label — never the pre-tax minPrice beside pins that include them.
+        const price = customerPerDayFromPricing(lot.pricing);
 
         return (
           <PriceMarker

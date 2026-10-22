@@ -23,6 +23,7 @@ import {
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
 import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
@@ -102,8 +103,10 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  // Headline = what the customer pays, taxes and our service fee included.
-  // The fee-less daily rate shows only when there is no total to show.
+  // Headline = the whole stay for the searched dates, taxes and our service fee
+  // included, before optional protection or a promo (on Pay at Location lots,
+  // part of it is paid at the lot). The pre-tax daily rate without our service
+  // fee shows only when there is no total, and then without the "included" line.
   const total = customerTotalFromPricing(lot.pricing);
   const perDay = customerPerDayFromPricing(lot.pricing);
 
@@ -159,7 +162,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                   <div className="text-xs text-gray-500">${perDay.toFixed(2)}/day</div>
                 )}
                 <div className="text-xl font-bold text-gray-900">${total.toFixed(2)}</div>
-                <div className="text-[11px] text-gray-500 whitespace-nowrap">Taxes &amp; fees included</div>
+                <TaxesAndFeesIncluded className="text-[11px] justify-end" />
               </>
             ) : (
               <div className="text-xl font-bold text-gray-900">
