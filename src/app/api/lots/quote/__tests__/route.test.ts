@@ -149,6 +149,8 @@ describe("GET /api/lots/quote — ResLab lot", () => {
     expect((await GET(req({ checkinTime: "99:99 PM" }))).status).toBe(400);
     expect((await GET(req({ checkinTime: "0:30 AM" }))).status).toBe(400);
     expect(getMinPrice).not.toHaveBeenCalled();
+    // Our page only sends picker values: a 400 is page/server drift — reported (throttled).
+    expect(captureAPIError).toHaveBeenCalledTimes(1);
   });
 
   it("an answer that does not make a price (ResLab's $0.00 case) is a 503, reported with the lot and stay", async () => {

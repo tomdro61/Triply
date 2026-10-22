@@ -68,7 +68,8 @@ export function ProductDetailSlider({
   const [localCheckIn, setLocalCheckIn] = useState(checkIn);
   const [localCheckOut, setLocalCheckOut] = useState(checkOut);
   const [localCheckInTime, setLocalCheckInTime] = useState(checkInTime);
-  const [localCheckOutTime, setLocalCheckOutTime] = useState(checkOutTime);
+  // Only a time the picker offers counts as picked (same rule as BookingWidget).
+  const [localCheckOutTime, setLocalCheckOutTime] = useState(timeOptions.includes(checkOutTime) ? checkOutTime : "");
   const [currentPhoto, setCurrentPhoto] = useState(0);
 
   const price = lot.pricing?.minPrice ?? 0;

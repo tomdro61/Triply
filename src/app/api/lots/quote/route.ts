@@ -96,7 +96,13 @@ export async function GET(request: NextRequest) {
     checkoutTime: sp.get("checkoutTime") ?? undefined,
   });
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Invalid request" }, { status: 400, headers: NO_STORE });
+    // Our own page sends only picker values, so a 400 means page and server
+    // disagree — our bug, reported (the customer just sees "total at checkout").
+    const issue = parsed.error.issues[0];
+    captureThrottled(new Error(`/api/lots/quote rejected a request: ${issue?.path.join(".") ?? "?"} ${issue?.message ?? ""}`), {
+      query: Object.fromEntries(sp.entries()),
+    });
+    return NextResponse.json({ error: issue?.message ?? "Invalid request" }, { status: 400, headers: NO_STORE });
   }
   const { lotId, checkin, checkout, checkinTime, checkoutTime } = parsed.data;
   const fromDate = `${checkin} ${convertTo24Hour(checkinTime)}:00`;

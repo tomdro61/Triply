@@ -105,7 +105,10 @@ export function BookingWidget({
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);
-  const [checkOutTime, setCheckOutTime] = useState(initialCheckOutTime);
+  // A link's check-out time counts only if it is one of the picker's options
+  // ("08:00 AM" or "14:00" from an old link reads as unselected, like a passed
+  // check-in time) — anything else would reach the quote and checkout malformed.
+  const [checkOutTime, setCheckOutTime] = useState(timeOptions.includes(initialCheckOutTime) ? initialCheckOutTime : "");
 
   // For a check-in today, hide slots already past (or inside the lot's notice
   // period) at the airport: ResLab refuses them at checkout. A pre-filled time

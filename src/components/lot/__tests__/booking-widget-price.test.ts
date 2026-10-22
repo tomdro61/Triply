@@ -63,6 +63,24 @@ const READY = settleQuote(200, {
   quote: { grandTotal: 55.2, subtotal: 46.25, feesTotal: 3.99, taxTotal: 4.96, serviceFee: 5.95, dueAtLocation: 43.24, numberOfDays: 3, soldOut: false },
 });
 
+describe("BookingWidget link times", () => {
+  it("a check-out time the picker doesn't offer ('08:00 AM' from an old link) reads as unpicked: Reserve off", () => {
+    state.current = { kind: "as_loaded" };
+    const html = renderToStaticMarkup(
+      createElement(BookingWidget, {
+        lot: LOT,
+        initialCheckIn: "2026-12-10",
+        initialCheckOut: "2026-12-13",
+        initialCheckInTime: "8:00 AM",
+        initialCheckOutTime: "08:00 AM",
+        airportTimeZone: "America/New_York",
+      })
+    );
+    expect(reserveDisabled(html)).toBe(true);
+    expect(html).toContain("Please select check-in and check-out times");
+  });
+});
+
 describe("BookingWidget price states", () => {
   it("as loaded: the page's total, per-day, the included line and a breakdown that matches", () => {
     const html = render({ kind: "as_loaded" });
