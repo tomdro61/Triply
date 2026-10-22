@@ -35,14 +35,16 @@ export function PriceMarker({
       }}
     >
       <div
-        className={`cursor-pointer transition-all duration-300 ${
+        className={`cursor-pointer origin-bottom transition-all duration-300 ${
           isHovered ? "scale-110" : ""
         }`}
         onMouseEnter={() => onHover(id)}
         onMouseLeave={() => onHover(null)}
       >
+        {/* The price tag IS the marker; its pointer marks the lot (anchor="bottom").
+            A lot with no price to show keeps a plain pin so it stays on the map. */}
         <div className="relative flex flex-col items-center group">
-          {price !== null && (
+          {price !== null ? (
             <>
               <div
                 className={`px-3 py-1.5 rounded-lg shadow-md font-bold text-xs whitespace-nowrap mb-1 transition-colors border ${
@@ -61,15 +63,16 @@ export function PriceMarker({
                 }`}
               />
             </>
+          ) : (
+            <MapPin
+              size={isHovered ? 28 : 24}
+              className={`drop-shadow-md transition-colors ${
+                isHovered
+                  ? "text-brand-orange fill-brand-orange"
+                  : "text-brand-dark fill-brand-dark"
+              }`}
+            />
           )}
-          <MapPin
-            size={isHovered ? 28 : 24}
-            className={`drop-shadow-md -mt-1 transition-colors ${
-              isHovered
-                ? "text-brand-orange fill-brand-orange"
-                : "text-brand-dark fill-brand-dark"
-            }`}
-          />
         </div>
       </div>
     </Marker>
