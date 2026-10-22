@@ -4,7 +4,8 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { TAXES_AND_FEES_INCLUDED, customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
@@ -83,7 +84,7 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
                   <span className="text-xs text-gray-500">${perDay.toFixed(2)}/day</span>
                 )}
               </div>
-              <div className="text-[11px] text-gray-500">{TAXES_AND_FEES_INCLUDED}</div>
+              <TaxesAndFeesIncluded className="text-[11px]" />
             </div>
           ) : (
             <div className="flex items-baseline gap-1 mt-1">

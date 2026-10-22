@@ -1,6 +1,6 @@
 import type { ShownPrice } from "./shown-price";
 import { formatMoney } from "@/lib/pricing/price-view";
-import { TAXES_AND_FEES_INCLUDED } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 
 /** The price beside a sticky Reserve button (lot page on phones, search slider). */
 export function PriceFooter({ shown, dailyRate }: { shown: ShownPrice; dailyRate: number }) {
@@ -22,7 +22,7 @@ export function PriceFooter({ shown, dailyRate }: { shown: ShownPrice; dailyRate
         <span className="text-xl font-bold text-gray-900">{formatMoney(view.total)}</span>
         {view.perDay !== null && <span className="text-sm text-gray-500">{formatMoney(view.perDay)}/day</span>}
       </div>
-      <span className="text-xs text-gray-500">{TAXES_AND_FEES_INCLUDED}</span>
+      <TaxesAndFeesIncluded className="text-xs" />
     </div>
   );
 }

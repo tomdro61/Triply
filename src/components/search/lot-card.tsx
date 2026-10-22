@@ -22,7 +22,8 @@ import {
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
-import { TAXES_AND_FEES_INCLUDED, customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
@@ -161,7 +162,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                   <div className="text-xs text-gray-500">${perDay.toFixed(2)}/day</div>
                 )}
                 <div className="text-xl font-bold text-gray-900">${total.toFixed(2)}</div>
-                <div className="text-[11px] text-gray-500 whitespace-nowrap">{TAXES_AND_FEES_INCLUDED}</div>
+                <TaxesAndFeesIncluded className="text-[11px] justify-end" />
               </>
             ) : (
               <div className="text-xl font-bold text-gray-900">

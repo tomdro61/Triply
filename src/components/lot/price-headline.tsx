@@ -1,6 +1,6 @@
 import type { ShownPrice } from "./shown-price";
 import { formatMoney } from "@/lib/pricing/price-view";
-import { TAXES_AND_FEES_INCLUDED } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 
 /** The price box headline: per-day, total and the included line — or the state message. */
 export function PriceHeadline({ shown, dailyRate }: { shown: ShownPrice; dailyRate: number }) {
@@ -20,7 +20,7 @@ export function PriceHeadline({ shown, dailyRate }: { shown: ShownPrice; dailyRa
     <div>
       {view.perDay !== null && <div className="text-sm text-gray-500">{formatMoney(view.perDay)}/day</div>}
       <div className="text-3xl font-bold text-gray-900">{formatMoney(view.total)}</div>
-      <div className="text-xs text-gray-500">{TAXES_AND_FEES_INCLUDED}</div>
+      <TaxesAndFeesIncluded className="text-xs" />
     </div>
   );
 }
