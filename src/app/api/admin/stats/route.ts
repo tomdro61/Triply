@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isSnapshotEnabled, readSnapshotMeta, SNAPSHOT_MAX_AGE_MS, SNAPSHOT_WARN_MS } from "@/lib/reslab/location-snapshot";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail, excludeTestBookings } from "@/config/admin";
+import { etDayBounds } from "@/lib/admin/eastern-day";
 import { captureAPIError, captureBookingError } from "@/lib/sentry";
 import { parseMoneyColumn } from "@/lib/utils/money";
 import { attributionSourceLabel } from "@/lib/attribution/display";
@@ -45,18 +46,9 @@ export async function GET(request: NextRequest) {
     const filterStartDate = searchParams.get("startDate");
     const filterEndDate = searchParams.get("endDate");
 
-    // Get today's date range
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    // Get this week's date range
-    const weekStart = new Date(today);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-
-    // Get this month's date range
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    // Today / this week / this month on Eastern calendar days (the server's
+    // clock is UTC, which made "Today" reset at 8 PM ET).
+    const { todayStart, tomorrowStart, weekStart, monthStart } = etDayBounds();
 
     // Helper to build filtered query
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -91,18 +83,18 @@ export async function GET(request: NextRequest) {
       excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", today.toISOString())
-        .lt("created_at", tomorrow.toISOString())),
+        .gte("created_at", todayStart)
+        .lt("created_at", tomorrowStart)),
       // This week's bookings
       excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", weekStart.toISOString())),
+        .gte("created_at", weekStart)),
       // This month's bookings
       excludeTestBookings(supabase
         .from("bookings")
         .select("*", { count: "exact", head: true })
-        .gte("created_at", monthStart.toISOString())),
+        .gte("created_at", monthStart)),
       // Total revenue (filtered)
       excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale").eq("status", "confirmed")
@@ -112,20 +104,20 @@ export async function GET(request: NextRequest) {
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
-        .gte("created_at", today.toISOString())
-        .lt("created_at", tomorrow.toISOString())),
+        .gte("created_at", todayStart)
+        .lt("created_at", tomorrowStart)),
       // This week's revenue
       excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
-        .gte("created_at", weekStart.toISOString())),
+        .gte("created_at", weekStart)),
       // This month's revenue
       excludeTestBookings(supabase
         .from("bookings")
         .select("grand_total, triply_service_fee, protection_plan_price, protection_plan, protection_plan_wholesale")
         .eq("status", "confirmed")
-        .gte("created_at", monthStart.toISOString())),
+        .gte("created_at", monthStart)),
       // Confirmed bookings (filtered)
       excludeTestBookings(applyDateFilter(
         supabase.from("bookings").select("*", { count: "exact", head: true }).eq("status", "confirmed")

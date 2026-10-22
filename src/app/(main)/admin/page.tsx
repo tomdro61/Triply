@@ -25,12 +25,12 @@ import {
   isDefinitive,
   keptStateOf,
   mixFromAccounting,
-  paidFromStats,
   schemaIssuePaths,
   type KeptState,
   type MoneyMix,
 } from "@/lib/admin/revenue-mix";
 import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { adminDateRange } from "@/lib/admin/eastern-day";
 import { MoneyBreakdown } from "@/components/admin/money-breakdown";
 
 type MonthMixState = MoneyMix | "loading" | { error: string };
@@ -279,8 +279,9 @@ export default function AdminDashboard() {
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [monthMix, setMonthMix] = useState<MonthMixState>("loading");
 
-  // This month so far (UTC, like /api/admin/stats' thisMonth and the
-  // accounting page), independent of the date filter. Loaded once per visit.
+  // This month so far (a UTC month, like the accounting page it reads; the
+  // stat cards use Eastern days), independent of the date filter. Loaded once
+  // per visit.
   useEffect(() => {
     const controller = new AbortController();
     const today = new Date().toISOString().slice(0, 10);
@@ -343,44 +344,15 @@ export default function AdminDashboard() {
         // rows on every deployment) — the list's own default follows the Stripe key.
         const bookingParams = new URLSearchParams({ limit: "5", mode: "live" });
 
-        // Date range filtering
-        if (dateRange !== "all") {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          if (dateRange === "today") {
-            params.set("startDate", today.toISOString());
-            bookingParams.set("startDate", today.toISOString());
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            params.set("endDate", tomorrow.toISOString());
-            bookingParams.set("endDate", tomorrow.toISOString());
-          } else if (dateRange === "week") {
-            const weekStart = new Date(today);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            params.set("startDate", weekStart.toISOString());
-            bookingParams.set("startDate", weekStart.toISOString());
-          } else if (dateRange === "month") {
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            params.set("startDate", monthStart.toISOString());
-            bookingParams.set("startDate", monthStart.toISOString());
-          } else if (dateRange === "last7" || dateRange === "last30") {
-            // Today plus the 6 (or 29) days before, in this browser's time zone
-            // like the other presets.
-            const start = new Date(today);
-            start.setDate(start.getDate() - (dateRange === "last7" ? 6 : 29));
-            params.set("startDate", start.toISOString());
-            bookingParams.set("startDate", start.toISOString());
-          } else if (dateRange === "custom" && customStartDate) {
-            params.set("startDate", new Date(customStartDate).toISOString());
-            bookingParams.set("startDate", new Date(customStartDate).toISOString());
-            if (customEndDate) {
-              const endDate = new Date(customEndDate);
-              endDate.setDate(endDate.getDate() + 1);
-              params.set("endDate", endDate.toISOString());
-              bookingParams.set("endDate", endDate.toISOString());
-            }
-          }
+        // Date range filtering, on Eastern calendar days.
+        const { startDate, endDate } = adminDateRange(dateRange, { start: customStartDate, end: customEndDate });
+        if (startDate) {
+          params.set("startDate", startDate);
+          bookingParams.set("startDate", startDate);
+        }
+        if (endDate) {
+          params.set("endDate", endDate);
+          bookingParams.set("endDate", endDate);
         }
 
         // Each response is read on its own: a failure of one (a 504 HTML body,
@@ -432,9 +404,10 @@ export default function AdminDashboard() {
     );
   }
 
-  // Once the reconciler answers, BOTH sides of the card come from it, so
-  // revenue, profit and every ratio cover the same bookings. stats' figures
-  // (which include direct-lot bookings) fill the revenue side only until then.
+  // BOTH sides of the card come from the reconciler, so revenue, profit and
+  // every ratio cover the same bookings in the same (UTC) month. Until it
+  // answers the card shows "—": the stat cards' month is an Eastern month, so
+  // it can't stand in under this card's UTC label.
   const monthLoaded = monthMix !== "loading" && !("error" in monthMix) ? monthMix : null;
   const monthKept: KeptState =
     monthMix === "loading"
@@ -442,7 +415,7 @@ export default function AdminDashboard() {
       : "error" in monthMix
         ? { unavailable: monthMix.error }
         : keptStateOf(monthMix);
-  const monthPaid = monthLoaded ? monthLoaded.paid : stats ? paidFromStats(stats) : null;
+  const monthPaid = monthLoaded ? monthLoaded.paid : null;
 
   return (
     <div>
@@ -582,11 +555,6 @@ export default function AdminDashboard() {
           kept={monthKept}
           directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
           pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
-          paidNote={
-            !monthLoaded && monthPaid
-              ? `Revenue is from the booking table (direct-lot bookings included)${monthMix === "loading" ? " until the accounting figures load" : ""}.`
-              : undefined
-          }
         />
       </div>
 
