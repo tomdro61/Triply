@@ -1,79 +1,139 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CheckoutCostData } from "@/types/checkout";
-import { priceViewFromCost, type PriceView } from "@/lib/pricing/price-view";
+import { z } from "zod";
+import { priceViewFromQuote, type PriceView } from "@/lib/pricing/price-view";
+import { convertTo24Hour } from "@/lib/utils/time";
 
 /**
  * What a price box (lot page booking box, search slider) should show for the
  * dates and times on screen.
  *
- * The lot's own pricing was priced once, for the window the page was loaded
- * with. Once the customer has picked both times — and the stay differs from
- * that window — this asks GET /api/checkout/lot for the stay on screen: the
- * same endpoint the checkout page prices from, so the box and checkout agree.
- * Dates changed but times not picked yet → no figure at all ("needs_times"),
- * rather than a default-time guess or the old window's total.
+ * The lot's own pricing was priced once, when the page loaded (the search's or
+ * the link's dates, at the page's pricing times). Once the customer has picked
+ * both times, this asks GET /api/lots/quote for the stay on screen — totals
+ * equal to what checkout charges for that stay, before optional Park Guard
+ * protection and any promo. Until both times are
+ * picked: the loaded price while the dates are unchanged and no time is
+ * picked, otherwise no figure at all ("needs_times") — never a default-time
+ * guess or the old stay's total.
  */
 export type LivePrice =
   | { kind: "as_loaded" }
   | { kind: "needs_times" }
+  /** A direct lot not open for online booking: there is no quote to ask for. */
+  | { kind: "closed" }
   | { kind: "loading" }
   | { kind: "ready"; view: PriceView }
   | { kind: "sold_out" }
+  /** Checkout would refuse this stay (e.g. inside the lot's notice period, below its minimum stay). */
+  | { kind: "not_bookable" }
+  /** The quote could not be had (outage, network, a malformed answer). */
   | { kind: "error" };
 
-type Settled = Extract<LivePrice, { kind: "ready" | "sold_out" | "error" }>;
+export type Settled = Extract<LivePrice, { kind: "ready" | "sold_out" | "not_bookable" | "error" }>;
 
-export interface StayOnScreen {
+export interface LivePriceInput {
+  lotId: string;
   checkIn: string;
   checkOut: string;
   /** "" until the customer picks one. */
   checkInTime: string;
   checkOutTime: string;
-}
-
-export interface LivePriceInput extends StayOnScreen {
-  lotId: string;
-  /** The stay the lot's own pricing was priced for; a "" time = the page's default times. */
-  priced: StayOnScreen;
-  /** False where checkout would refuse anyway (a direct lot not open for booking). */
+  /** The dates the lot's own pricing was priced for. */
+  pricedCheckIn: string;
+  pricedCheckOut: string;
+  /** False for a direct lot not open for online booking (checkout refuses it). */
   enabled: boolean;
 }
 
 export type LivePricePlan =
-  | { kind: "as_loaded" }
-  | { kind: "needs_times" }
-  /** `key` identifies the stay, so an answer for an older stay is never shown. */
-  | { kind: "fetch"; key: string; query: string };
+  | { kind: "as_loaded" | "needs_times" | "closed" | "not_bookable" }
+  /** `key` is the quote's query string — it identifies the stay, so an answer
+   *  for an older stay is never shown for a newer one. */
+  | { kind: "fetch"; key: string };
 
-/** Pure: what to show without a network call, or which quote to fetch. */
+/**
+ * Pure: what to show without a network call, or which quote to fetch.
+ * The page's own pricing times are never treated as the customer's: the server
+ * may have priced a different time than the link carried (a time that can no
+ * longer be booked, the lot's own timezone), so any picked times are quoted.
+ */
 export function planLivePrice(i: LivePriceInput): LivePricePlan {
-  const timesChosen = i.checkInTime !== "" && i.checkOutTime !== "";
-  const datesChanged = i.checkIn !== i.priced.checkIn || i.checkOut !== i.priced.checkOut;
-  if (!timesChosen || !i.enabled || i.checkIn === "" || i.checkOut === "") {
-    return datesChanged ? { kind: "needs_times" } : { kind: "as_loaded" };
+  const datesChanged = i.checkIn !== i.pricedCheckIn || i.checkOut !== i.pricedCheckOut;
+  if (!i.enabled) return datesChanged ? { kind: "closed" } : { kind: "as_loaded" };
+  const picked = (i.checkInTime !== "" ? 1 : 0) + (i.checkOutTime !== "" ? 1 : 0);
+  if (picked === 0) return datesChanged ? { kind: "needs_times" } : { kind: "as_loaded" };
+  // One time picked can already change the billed days — no figure until both are.
+  if (picked === 1 || i.checkIn === "" || i.checkOut === "") return { kind: "needs_times" };
+  // Pick-up must be after drop-off (the date picker allows the same day) —
+  // checkout refuses it, so don't ask.
+  if (`${i.checkOut} ${convertTo24Hour(i.checkOutTime)}` <= `${i.checkIn} ${convertTo24Hour(i.checkInTime)}`) {
+    return { kind: "not_bookable" };
   }
-  const sameAsLoaded =
-    !datesChanged && i.checkInTime === i.priced.checkInTime && i.checkOutTime === i.priced.checkOutTime;
-  if (sameAsLoaded) return { kind: "as_loaded" };
-  const query = new URLSearchParams({
+  const key = new URLSearchParams({
     lotId: i.lotId,
     checkin: i.checkIn,
     checkout: i.checkOut,
     checkinTime: i.checkInTime,
     checkoutTime: i.checkOutTime,
   }).toString();
-  return { kind: "fetch", key: query, query };
+  return { kind: "fetch", key };
 }
 
-/** Pure: a GET /api/checkout/lot answer → what to show. Never the old window's total. */
-export function settleQuote(ok: boolean, body: { costData?: CheckoutCostData | null } | null): Settled {
-  if (!ok || !body?.costData) return { kind: "error" };
-  if (body.costData.soldOut) return { kind: "sold_out" };
-  const view = priceViewFromCost(body.costData);
+// The answer is checked, not trusted (CLAUDE.md: Zod at boundaries).
+const quoteBodySchema = z.object({
+  quote: z.object({
+    grandTotal: z.number().finite(),
+    subtotal: z.number().finite(),
+    feesTotal: z.number().finite(),
+    taxTotal: z.number().finite(),
+    serviceFee: z.number().finite(),
+    dueAtLocation: z.number().finite(),
+    numberOfDays: z.number().finite().optional(),
+    soldOut: z.boolean(),
+  }),
+});
+
+/**
+ * Pure: a GET /api/lots/quote answer → what to show. Never the old stay's total.
+ * - 400/404/422: checkout would refuse this stay → not_bookable (Reserve off).
+ * - Anything else that isn't a valid quote: error ("total shown at checkout").
+ */
+export function settleQuote(status: number, body: unknown): Settled {
+  if (status === 400 || status === 404 || status === 422) return { kind: "not_bookable" };
+  if (status < 200 || status >= 300) return { kind: "error" };
+  const parsed = quoteBodySchema.safeParse(body);
+  if (!parsed.success) return { kind: "error" };
+  if (parsed.data.quote.soldOut) return { kind: "sold_out" };
+  const view = priceViewFromQuote(parsed.data.quote);
   return view ? { kind: "ready", view } : { kind: "error" };
 }
+
+/** Fetches one quote. Null when aborted (a newer stay replaced it). */
+export async function fetchQuote(
+  key: string,
+  signal: AbortSignal,
+  fetchImpl: typeof fetch = fetch
+): Promise<Settled | null> {
+  try {
+    const res = await fetchImpl(`/api/lots/quote?${key}`, { signal, cache: "no-store" });
+    const body: unknown = await res.json().catch(() => null);
+    return signal.aborted ? null : settleQuote(res.status, body);
+  } catch {
+    // Network failure or abort. Not reported: the route reports ResLab
+    // outages (throttled); here a failure only means "no figure".
+    return signal.aborted ? null : { kind: "error" };
+  }
+}
+
+/** Pure: the plan plus the last settled answer → what to show. */
+export function pickLive(plan: LivePricePlan, settled: { key: string; price: Settled } | null): LivePrice {
+  if (plan.kind !== "fetch") return { kind: plan.kind };
+  return settled && settled.key === plan.key ? settled.price : { kind: "loading" };
+}
+
+const QUOTE_DEBOUNCE_MS = 400;
 
 export function useLivePrice(input: LivePriceInput): LivePrice {
   const plan = planLivePrice(input);
@@ -83,18 +143,18 @@ export function useLivePrice(input: LivePriceInput): LivePrice {
   useEffect(() => {
     if (!key) return;
     const controller = new AbortController();
-    // The route captures its own failures (ResLab errors, 5xx) in Sentry; here
-    // a failure only means "no figure".
-    fetch(`/api/checkout/lot?${key}`, { signal: controller.signal, cache: "no-store" })
-      .then(async (res) => settleQuote(res.ok, await res.json().catch(() => null)))
-      .catch((): Settled => ({ kind: "error" }))
-      .then((price) => {
-        // A superseded request is aborted; its late answer must never land.
-        if (!controller.signal.aborted) setSettled({ key, price });
+    // Wait out a burst of changes (date picker, two time selects) so one stay
+    // costs one quote; a newer stay cancels both the wait and the request.
+    const timer = setTimeout(() => {
+      fetchQuote(key, controller.signal).then((price) => {
+        if (price) setSettled({ key, price });
       });
-    return () => controller.abort();
+    }, QUOTE_DEBOUNCE_MS);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [key]);
 
-  if (plan.kind !== "fetch") return plan;
-  return settled && settled.key === plan.key ? settled.price : { kind: "loading" };
+  return pickLive(plan, settled);
 }

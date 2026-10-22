@@ -62,6 +62,11 @@ function SearchPageContent() {
   const [dateError, setDateError] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedLot, setSelectedLot] = useState<UnifiedLot | null>(null);
+  // The dates the CURRENT results were priced for, as /api/search answered them
+  // (a cleared return leg comes back as the defaulted date). The slider starts
+  // from these — never the header's unsubmitted edits, which would show these
+  // results' totals for dates they were not priced for.
+  const [pricedStay, setPricedStay] = useState<{ checkIn: string; checkOut: string } | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">("list");
   const [activeMapCardIndex, setActiveMapCardIndex] = useState(0);
   const carouselRef = useRef<HTMLDivElement>(null);
@@ -125,6 +130,11 @@ function SearchPageContent() {
         setLots([]);
       } else {
         setLots(data.results || []);
+        setPricedStay(
+          typeof data.checkin === "string" && typeof data.checkout === "string"
+            ? { checkIn: data.checkin, checkOut: data.checkout }
+            : null
+        );
         setPartialResults(data.reslabUnavailable === true);
         if (data.closedForToday === true && (data.results?.length ?? 0) === 0) {
           setDateError(
@@ -379,11 +389,11 @@ function SearchPageContent() {
       )}
 
       {/* Slide-out Product Detail */}
-      {selectedLot && (
+      {selectedLot && pricedStay && (
         <ProductDetailSlider
           lot={selectedLot}
-          checkIn={departDate}
-          checkOut={returnDate}
+          checkIn={pricedStay.checkIn}
+          checkOut={pricedStay.checkOut}
           checkInTime=""
           checkOutTime=""
           airportCode={airport}

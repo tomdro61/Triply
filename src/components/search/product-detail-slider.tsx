@@ -24,10 +24,12 @@ import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
-import { TAXES_AND_FEES_INCLUDED } from "@/lib/utils/service-fee";
 import { priceViewFromPricing } from "@/lib/pricing/price-view";
 import { useLivePrice } from "@/components/lot/use-live-price";
-import { PriceBreakdown, PriceHeadline, shownPrice } from "@/components/lot/price-summary";
+import { isUnavailable, shownPrice } from "@/components/lot/shown-price";
+import { PriceHeadline } from "@/components/lot/price-headline";
+import { PriceBreakdown } from "@/components/lot/price-breakdown";
+import { PriceFooter } from "@/components/lot/price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
@@ -72,8 +74,9 @@ export function ProductDetailSlider({
   const price = lot.pricing?.minPrice ?? 0;
   const photoCount = lot.photos.length || 1;
 
-  // The price the search priced this lot at (the search's dates, default
-  // times). Same live re-pricing as the lot page's BookingWidget.
+  // The price the search priced this lot at (`checkIn`/`checkOut` are the
+  // dates that search was run for, at its pricing times). Same live
+  // re-pricing as the lot page's BookingWidget.
   const loadedView = useMemo(
     () => priceViewFromPricing(lot.pricing, lot.dueAtLocationAmount),
     [lot.pricing, lot.dueAtLocationAmount]
@@ -123,11 +126,12 @@ export function ProductDetailSlider({
     checkOut: localCheckOut,
     checkInTime: selectedCheckInTime,
     checkOutTime: localCheckOutTime,
-    priced: { checkIn, checkOut, checkInTime, checkOutTime },
+    pricedCheckIn: checkIn,
+    pricedCheckOut: checkOut,
     enabled: !bookingNotOpenYet,
   });
-  const shown = shownPrice(live, loadedView);
-  const soldOutForStay = live.kind === "sold_out";
+  const shown = shownPrice(live, loadedView, price);
+  const soldOutForStay = isUnavailable(live);
   // Direct lots price in billed 24-hour days (directDays); a stay shorter than
   // the lot's minimum must not reach checkout (review R12). The lot page's
   // widget runs the same check on the same on-screen count.
@@ -144,8 +148,12 @@ export function ProductDetailSlider({
           checkOutTime: localCheckOutTime,
         })
       : null;
-  const belowMinDays =
-    lot.source === "direct" && !!lot.minimumBookingDays && !!directQuote && directQuote.days < lot.minimumBookingDays;
+  // ResLab lots: the billed days of the price on screen (unknown while none is
+  // showing — same rule as the lot page's BookingWidget).
+  let stayDays: number | null = null;
+  if (lot.source === "direct") stayDays = directQuote?.days ?? null;
+  else if (shown.kind === "view") stayDays = shown.view.days;
+  const belowMinDays = !!lot.minimumBookingDays && stayDays !== null && stayDays < lot.minimumBookingDays;
   const reserveDisabled = timesMissing || bookingNotOpenYet || belowMinDays || soldOutForStay;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
@@ -495,18 +503,17 @@ export function ProductDetailSlider({
               </div>
             )}
 
-            {/* Price Breakdown — only beside a real total for the stay on screen */}
-            {(shown.kind === "view" || surchargeNotice) && (
-              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-                {shown.kind === "view" && <PriceBreakdown view={shown.view} />}
-                {surchargeNotice && (
+            <PriceBreakdown
+              shown={shown}
+              note={
+                surchargeNotice && (
                   // Before Reserve, so the fee is never a surprise (review R10).
                   <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
                     Oversized vehicles {surchargeNotice}, paid at the lot.
                   </p>
-                )}
-              </div>
-            )}
+                )
+              }
+            />
           </div>
           </div>
         </div>
@@ -514,24 +521,7 @@ export function ProductDetailSlider({
         {/* Sticky Footer — both mobile and desktop */}
         <div className="border-t border-gray-200 px-4 py-3 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
           <div>
-            {shown.kind === "view" ? (
-              <>
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-xl font-bold text-gray-900">${shown.view.total.toFixed(2)}</span>
-                  {shown.view.perDay !== null && (
-                    <span className="text-sm text-gray-500">${shown.view.perDay.toFixed(2)}/day</span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-500">{TAXES_AND_FEES_INCLUDED}</span>
-              </>
-            ) : shown.kind === "message" ? (
-              <span className="text-sm font-semibold text-gray-700">{shown.short}</span>
-            ) : (
-              <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
-                <span className="text-sm text-gray-500">/day</span>
-              </div>
-            )}
+            <PriceFooter shown={shown} dailyRate={price} />
           </div>
           <button
             onClick={handleReserve}

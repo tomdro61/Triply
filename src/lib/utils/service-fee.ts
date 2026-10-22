@@ -13,8 +13,8 @@
 
 import type { UnifiedLot } from "@/types/lot";
 
-/** Shown beside every total built by customerTotalFromPricing — one string so
- *  the cards, the lot page and the slider can't drift apart. */
+/** Shown beside every fee-inclusive total — one string so the cards, the lot
+ *  page and the slider can't drift apart. */
 export const TAXES_AND_FEES_INCLUDED = "Taxes & fees included";
 
 /** The pricing fields the customer total is built from — tied to the lot type,
@@ -38,9 +38,10 @@ export function calculateServiceFee(parkingBase: number): number {
 }
 
 /**
- * Customer total for the stay that was priced: ResLab's grand total (tax and
- * ResLab fees included, including any part paid at the lot) plus our service
- * fee. Optional Park Guard and promo codes are not in it.
+ * Customer total for the stay that was priced: the grand total (ResLab's, or a
+ * direct lot's quote — tax and ResLab fees included, including any part paid at
+ * the lot) plus our service fee. Optional Park Guard and promo codes are not in
+ * it, nor a direct lot's oversized-vehicle surcharge collected at the gate.
  * Prefers subtotal + feesTotal as the parking base; falls back to grandTotal − taxTotal.
  * Returns null if there isn't enough data to compute.
  */
