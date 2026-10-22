@@ -4,7 +4,7 @@ import { CookieSettings } from "@/components/shared/cookie-settings";
 import { ArrowLeft, Shield } from "lucide-react";
 
 export const metadata = {
-  title: "Privacy Policy | Triply",
+  title: "Privacy Policy",
   description: "How Triply collects, uses, and protects your personal information.",
   alternates: { canonical: "/privacy" },
 };
