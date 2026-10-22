@@ -1,3 +1,5 @@
+import type { LotReviewSummary } from "@/lib/reviews/summary";
+
 export interface ShuttleInfo {
   summary: string;
   details: string;
@@ -63,8 +65,11 @@ export interface UnifiedLot {
   amenities: Amenity[];
   photos: Photo[];
 
+  /** Verified Triply guest rating (booking_reviews, src/lib/reviews/summary.ts); unset below the minimum count. */
   rating?: number;
   reviewCount?: number;
+  /** Verified Triply reviews: count, average and consented review text. Unset when the lot has none or display is off. */
+  reviews?: LotReviewSummary;
 
   distanceFromAirport?: number;
 

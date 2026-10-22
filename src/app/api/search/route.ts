@@ -6,6 +6,7 @@ import { captureAPIError } from "@/lib/sentry";
 import { z } from "zod";
 import { readAttributionFromRequest } from "@/lib/attribution/read-request";
 import type { Attribution } from "@/lib/attribution/schema";
+import { fetchLotReviewSummaries, withReviews } from "@/lib/reviews/summary";
 
 /** First-touch utm_source/medium/campaign + GA client id off the same
  *  `triply_attr` cookie bookings already read (migration 023), so a
@@ -163,6 +164,12 @@ export async function GET(request: NextRequest) {
     // `rankingDegraded` (the booking counts behind the Recommended order could
     // not be read; the list fell back to cheapest-first) is the same shape:
     // complete and correctly priced, so short TTL rather than no-store.
+    // Verified Triply reviews onto the cards: rating + count + the newest
+    // published review (one per lot keeps the payload small). Never throws;
+    // off / failing → the cards render exactly as before.
+    const summaries = await fetchLotReviewSummaries(result.results, "/api/search");
+    const body = summaries.size > 0 ? { ...result, results: withReviews(result.results, summaries, 1) } : result;
+
     const cacheControl =
       result.total > 0 && !result.degraded
         ? result.stale || result.directUnavailable || result.rankingDegraded
@@ -178,7 +185,7 @@ export async function GET(request: NextRequest) {
     // into a customer-facing 503 (the earlier design's block was inline in
     // this success path, unwrapped).
 
-    return NextResponse.json(result, {
+    return NextResponse.json(body, {
       headers: { "Cache-Control": cacheControl },
     });
   } catch (error) {

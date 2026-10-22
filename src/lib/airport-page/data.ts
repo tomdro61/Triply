@@ -4,6 +4,7 @@ import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
+import { fetchLotReviewSummaries, withReviews } from "@/lib/reviews/summary";
 
 // Throttles the failure report below to one event per window per instance.
 const AIRPORT_PAGE_REPORT_INTERVAL_MS = 10 * 60 * 1000;
@@ -94,6 +95,8 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     // leave `lots` empty and bake the zero-lot render — empty, indexable
     // airport pages, strictly worse than the thin page we actually have.
     lots = result.results;
+    // Verified Triply reviews onto the lot cards (never throws; off → unchanged).
+    lots = withReviews(lots, await fetchLotReviewSummaries(lots, "airport-page"), 1);
     locationsConsidered = result.locationsConsidered;
 
     // A THIN location list does not throw — searchParking returns successfully

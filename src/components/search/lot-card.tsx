@@ -38,6 +38,7 @@ interface LotCardProps {
 }
 
 export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: LotCardProps) {
+  const topReview = lot.reviews?.published[0];
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -190,6 +191,14 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
               </div>
             )}
           </div>
+        )}
+
+        {/* Newest verified Triply review with consented text */}
+        {topReview && (
+          <p className="text-xs text-gray-600 italic line-clamp-2 mb-3">
+            &ldquo;{topReview.comment}&rdquo;
+            <span className="not-italic text-gray-400"> — {topReview.name ?? "Verified guest"}, verified stay</span>
+          </p>
         )}
 
         {/* Footer Row */}
