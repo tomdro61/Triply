@@ -4,7 +4,7 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
@@ -30,7 +30,9 @@ function getTopAmenityIcon(name: string) {
 export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
+  // Headline = what the customer pays, taxes and our service fee included.
   const grandTotal = customerTotalFromPricing(lot.pricing);
+  const perDay = customerPerDayFromPricing(lot.pricing);
   const topAmenities = lot.amenities.slice(0, 3);
 
   return (
@@ -70,17 +72,26 @@ export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps)
           </div>
 
           {/* Price */}
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xl font-bold text-gray-900">
-              ${price.toFixed(2)}
-            </span>
-            <span className="text-xs text-gray-500">/day</span>
-            {grandTotal != null && (
-              <span className="text-xs text-gray-400 ml-1">
-                ${grandTotal.toFixed(2)} total
+          {grandTotal != null ? (
+            <div className="mt-1">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-bold text-gray-900">
+                  ${grandTotal.toFixed(2)}
+                </span>
+                {perDay != null && (
+                  <span className="text-xs text-gray-500">${perDay.toFixed(2)}/day</span>
+                )}
+              </div>
+              <div className="text-[11px] text-gray-500">Taxes &amp; fees included</div>
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold text-gray-900">
+                ${price.toFixed(2)}
               </span>
-            )}
-          </div>
+              <span className="text-xs text-gray-500">/day</span>
+            </div>
+          )}
         </div>
       </div>
 

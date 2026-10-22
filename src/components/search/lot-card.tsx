@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
-import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
@@ -102,7 +102,10 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  const originalPrice = lot.pricing?.parkingTypes[0]?.originalPrice;
+  // Headline = what the customer pays, taxes and our service fee included.
+  // The fee-less daily rate shows only when there is no total to show.
+  const total = customerTotalFromPricing(lot.pricing);
+  const perDay = customerPerDayFromPricing(lot.pricing);
 
   return (
     <div
@@ -150,18 +153,18 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
             {extraBadge}
           </div>
           <div className="text-right">
-            {originalPrice && (
-              <div className="text-xs text-gray-400 line-through font-medium">
-                ${originalPrice}
-              </div>
-            )}
-            <div className="text-xl font-bold text-gray-900">
-              ${price.toFixed(2)}
-              <span className="text-xs text-gray-500 font-normal">/day</span>
-            </div>
-            {lot.pricing?.grandTotal && (
-              <div className="text-xs text-gray-500 font-medium">
-                ${(customerTotalFromPricing(lot.pricing) ?? lot.pricing.grandTotal).toFixed(2)} total
+            {total !== null ? (
+              <>
+                {perDay !== null && (
+                  <div className="text-xs text-gray-500">${perDay.toFixed(2)}/day</div>
+                )}
+                <div className="text-xl font-bold text-gray-900">${total.toFixed(2)}</div>
+                <div className="text-[11px] text-gray-500 whitespace-nowrap">Taxes &amp; fees included</div>
+              </>
+            ) : (
+              <div className="text-xl font-bold text-gray-900">
+                ${price.toFixed(2)}
+                <span className="text-xs text-gray-500 font-normal">/day</span>
               </div>
             )}
             {lot.dueAtLocation && (

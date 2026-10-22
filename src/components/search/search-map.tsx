@@ -6,6 +6,7 @@ import { MapboxMap, PriceMarker, AirportMarker } from "@/components/map";
 import { UnifiedLot } from "@/types/lot";
 import { Airport } from "@/config/airports";
 import { DEFAULT_MAP_CONFIG } from "@/lib/mapbox/config";
+import { customerPerDayFromPricing } from "@/lib/utils/service-fee";
 
 interface SearchMapProps {
   lots: UnifiedLot[];
@@ -82,7 +83,8 @@ export function SearchMap({
       )}
       {lots.map((lot) => {
         if (!lot.latitude || !lot.longitude) return null;
-        const price = lot.pricing?.minPrice ?? 0;
+        // Same per-day figure as the lot's card (taxes and fees included).
+        const price = customerPerDayFromPricing(lot.pricing) ?? lot.pricing?.minPrice ?? 0;
 
         return (
           <PriceMarker
