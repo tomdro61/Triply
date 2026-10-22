@@ -172,11 +172,15 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
-  // Structured data for parking facility
+  // Structured data for parking facility. LocalBusiness alongside
+  // ParkingFacility (a CivicStructure) so Google treats it as review-eligible.
+  const lotUrl = `https://www.triplypro.com/${airport.slug}/airport-parking/${lot.slug || lotSlug}`;
   const parkingSchema = {
     "@context": "https://schema.org",
-    "@type": "ParkingFacility",
+    "@type": ["ParkingFacility", "LocalBusiness"],
     name: lot.name,
+    url: lotUrl,
+    ...(lot.photos?.[0]?.url && { image: lot.photos[0].url }),
     ...(lot.address && {
       address: {
         "@type": "PostalAddress",
@@ -198,6 +202,29 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
       priceRange: `From $${lot.pricing.minPrice.toFixed(2)}/day`,
     }),
     ...(lot.phone && { telephone: lot.phone }),
+    // Same "from" price the page shows (lot.pricing for these dates).
+    ...(lot.pricing?.minPrice && {
+      offers: {
+        "@type": "AggregateOffer",
+        lowPrice: lot.pricing.minPrice.toFixed(2),
+        ...(lot.pricing.maxPrice && lot.pricing.maxPrice > lot.pricing.minPrice && {
+          highPrice: lot.pricing.maxPrice.toFixed(2),
+        }),
+        priceCurrency: lot.pricing.currencyCode || "USD",
+        url: lotUrl,
+      },
+    }),
+    // Only real Triply guest reviews. rating/reviewCount stay unset until
+    // booking_reviews has enough for a lot — never emit a placeholder.
+    ...(lot.rating && lot.reviewCount && lot.reviewCount > 0 && {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: lot.rating.toFixed(1),
+        reviewCount: lot.reviewCount,
+        bestRating: "5",
+        worstRating: "1",
+      },
+    }),
   };
 
   const breadcrumbItems = [
@@ -341,6 +368,8 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   return {
     title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
     description,
+    // Date/time query params make every search a new URL; point them all at the bare lot page.
+    alternates: { canonical: `/${airport.slug}/airport-parking/${lot.slug || lotSlug}` },
     openGraph: {
       title: `${lot.name} - ${airport.code} Airport Parking`,
       description,
