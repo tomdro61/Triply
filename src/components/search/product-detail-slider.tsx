@@ -24,7 +24,10 @@ import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { getAirportByCode } from "@/config/airports";
-import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { TAXES_AND_FEES_INCLUDED } from "@/lib/utils/service-fee";
+import { priceViewFromPricing } from "@/lib/pricing/price-view";
+import { useLivePrice } from "@/components/lot/use-live-price";
+import { PriceBreakdown, PriceHeadline, shownPrice } from "@/components/lot/price-summary";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
@@ -69,40 +72,12 @@ export function ProductDetailSlider({
   const price = lot.pricing?.minPrice ?? 0;
   const photoCount = lot.photos.length || 1;
 
-  // Calculate number of days and total (matches BookingWidget logic)
-  const hasApiPricing = lot.pricing?.grandTotal !== undefined;
-  const { days, subtotal, fees, taxes, serviceFee, total } = useMemo(() => {
-    const start = new Date(localCheckIn);
-    const end = new Date(localCheckOut);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-    if (hasApiPricing) {
-      const sub = lot.pricing?.subtotal || 0;
-      const feesTotal = lot.pricing?.feesTotal || 0;
-      const fee = calculateServiceFee(sub + feesTotal);
-      return {
-        days: lot.pricing?.numberOfDays || diffDays,
-        subtotal: sub + feesTotal,
-        fees: 0,
-        taxes: lot.pricing?.taxTotal || 0,
-        serviceFee: fee,
-        total: (lot.pricing?.grandTotal || price * diffDays) + fee,
-      };
-    }
-
-    const sub = price * diffDays;
-    const tax = Math.round(sub * (lot.pricing?.taxValue || 8) / 100 * 100) / 100;
-    const fee = calculateServiceFee(sub);
-    return {
-      days: diffDays,
-      subtotal: sub,
-      fees: 0,
-      taxes: tax,
-      serviceFee: fee,
-      total: sub + tax + fee,
-    };
-  }, [localCheckIn, localCheckOut, price, hasApiPricing, lot.pricing]);
+  // The price the search priced this lot at (the search's dates, default
+  // times). Same live re-pricing as the lot page's BookingWidget.
+  const loadedView = useMemo(
+    () => priceViewFromPricing(lot.pricing, lot.dueAtLocationAmount),
+    [lot.pricing, lot.dueAtLocationAmount]
+  );
 
   const airport = getAirportByCode(airportCode);
 
@@ -142,6 +117,17 @@ export function ProductDetailSlider({
   // Same gate as the lot page's BookingWidget: a direct lot is listed before
   // its checkout ships, so Reserve stays off here too (review M1).
   const bookingNotOpenYet = lot.source === "direct" && !lot.checkoutOpen;
+  const live = useLivePrice({
+    lotId: lot.id,
+    checkIn: localCheckIn,
+    checkOut: localCheckOut,
+    checkInTime: selectedCheckInTime,
+    checkOutTime: localCheckOutTime,
+    priced: { checkIn, checkOut, checkInTime, checkOutTime },
+    enabled: !bookingNotOpenYet,
+  });
+  const shown = shownPrice(live, loadedView);
+  const soldOutForStay = live.kind === "sold_out";
   // Direct lots price in billed 24-hour days (directDays); a stay shorter than
   // the lot's minimum must not reach checkout (review R12). The lot page's
   // widget runs the same check on the same on-screen count.
@@ -160,14 +146,16 @@ export function ProductDetailSlider({
       : null;
   const belowMinDays =
     lot.source === "direct" && !!lot.minimumBookingDays && !!directQuote && directQuote.days < lot.minimumBookingDays;
-  const reserveDisabled = timesMissing || bookingNotOpenYet || belowMinDays;
+  const reserveDisabled = timesMissing || bookingNotOpenYet || belowMinDays || soldOutForStay;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
     : timesMissing
       ? "Select check-in and check-out times"
       : belowMinDays
         ? `Minimum ${lot.minimumBookingDays} days required`
-        : undefined;
+        : soldOutForStay
+          ? "Not available for these dates and times"
+          : undefined;
 
   // Direct lots with oversized-vehicle surcharges ask for the vehicle size in a
   // pop-up BEFORE checkout (vehicle-surcharge plan §1.4); other lots unchanged.
@@ -490,11 +478,8 @@ export function ProductDetailSlider({
           {/* Booking Section — dates & price breakdown */}
           <div>
             {/* Price Header */}
-            <div className="mb-4">
-              <span className="text-3xl font-bold text-gray-900">
-                ${price.toFixed(2)}
-              </span>
-              <span className="text-gray-500 font-medium"> / day</span>
+            <div className="mb-4" aria-live="polite">
+              <PriceHeadline shown={shown} dailyRate={price} />
             </div>
 
             {/* Pay at Location Indicator */}
@@ -510,49 +495,18 @@ export function ProductDetailSlider({
               </div>
             )}
 
-            {/* Price Breakdown */}
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>
-                  ${price.toFixed(2)} x {days} {days === 1 ? "day" : "days"}
-                </span>
-                <span>${subtotal.toFixed(2)}</span>
+            {/* Price Breakdown — only beside a real total for the stay on screen */}
+            {(shown.kind === "view" || surchargeNotice) && (
+              <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                {shown.kind === "view" && <PriceBreakdown view={shown.view} />}
+                {surchargeNotice && (
+                  // Before Reserve, so the fee is never a surprise (review R10).
+                  <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+                    Oversized vehicles {surchargeNotice}, paid at the lot.
+                  </p>
+                )}
               </div>
-              {fees > 0 && (
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Fees</span>
-                  <span>${fees.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Taxes</span>
-                <span>${taxes.toFixed(2)}</span>
-              </div>
-              {serviceFee > 0 && (
-                <div className="flex justify-between text-sm text-gray-600 mb-2">
-                  <span>Service fee</span>
-                  <span>${serviceFee.toFixed(2)}</span>
-                </div>
-              )}
-              <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
-                <span>Total</span>
-                <span>${total.toFixed(2)}</span>
-              </div>
-              {lot.dueAtLocation && lot.dueAtLocationAmount && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <div className="flex justify-between text-sm text-amber-700">
-                    <span>Due at location</span>
-                    <span>${lot.dueAtLocationAmount.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-              {surchargeNotice && (
-                // Before Reserve, so the fee is never a surprise (review R10).
-                <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
-                  Oversized vehicles {surchargeNotice}, paid at the lot.
-                </p>
-              )}
-            </div>
+            )}
           </div>
           </div>
         </div>
@@ -560,11 +514,24 @@ export function ProductDetailSlider({
         {/* Sticky Footer — both mobile and desktop */}
         <div className="border-t border-gray-200 px-4 py-3 bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex items-center justify-between gap-4">
           <div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
-              <span className="text-sm text-gray-500">/day</span>
-            </div>
-            <span className="text-xs text-gray-500">${total.toFixed(2)} total</span>
+            {shown.kind === "view" ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-xl font-bold text-gray-900">${shown.view.total.toFixed(2)}</span>
+                  {shown.view.perDay !== null && (
+                    <span className="text-sm text-gray-500">${shown.view.perDay.toFixed(2)}/day</span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-500">{TAXES_AND_FEES_INCLUDED}</span>
+              </>
+            ) : shown.kind === "message" ? (
+              <span className="text-sm font-semibold text-gray-700">{shown.short}</span>
+            ) : (
+              <div className="flex items-baseline gap-1">
+                <span className="text-xl font-bold text-gray-900">${price.toFixed(2)}</span>
+                <span className="text-sm text-gray-500">/day</span>
+              </div>
+            )}
           </div>
           <button
             onClick={handleReserve}
