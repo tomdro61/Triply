@@ -12,7 +12,6 @@ import {
   keptStateOf,
   mixFromAccounting,
   netCommission,
-  paidFromStats,
   schemaIssuePaths,
   share,
   stackExtent,
@@ -161,19 +160,6 @@ describe("kept slices", () => {
   });
   it("commission below the fee (Due-at-Lot bookings) is a negative slice", () => {
     expect(netCommission(mixOf({ commission: 100, fee: 151.1 }).kept!)).toBeCloseTo(-51.1, 10);
-  });
-});
-
-describe("paidFromStats", () => {
-  it("reads the thisMonth window of each stats field; parking is gross less fee and Park Guard", () => {
-    // Every window distinct, so reading the wrong one shows up.
-    const w = (thisMonth: number) => ({ total: 9001, today: 9002, thisWeek: 9003, thisMonth });
-    expect(
-      paidFromStats({
-        revenue: { gross: w(1000), triply: w(60) },
-        parkGuard: { revenue: w(25.98), count: w(2), confirmedTotal: w(9) },
-      })
-    ).toEqual({ parking: 1000 - 60 - 25.98, serviceFee: 60, parkGuard: 25.98, total: 1000, bookings: 9, pgOptIns: 2 });
   });
 });
 
