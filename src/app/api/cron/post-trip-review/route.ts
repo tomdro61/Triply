@@ -13,6 +13,7 @@ import {
   type ReviewCandidate,
   type ReviewLedgerRow,
 } from "@/lib/reviews/select";
+import { BACKFILL_MAX_DAYS_AFTER, selectBackfillSends, summarizeBackfill } from "@/lib/reviews/backfill";
 import {
   buildReviewEmail,
   classifySendFailure,
@@ -57,6 +58,17 @@ import {
  * The customers row is the fallback for bookings without a staged payload.
  * Opted-out addresses (review opt-outs, recovery opt-outs, unsubscribed
  * newsletter/waitlist) are skipped; an unreadable opt-out list sends nothing.
+ *
+ * BACKFILL (run by hand, never scheduled): the ONE-TIME review ask to past
+ * customers, src/lib/reviews/backfill.ts. `?backfill=preview` reads the last
+ * year of bookings and returns who WOULD be asked (counts by airport, lot and
+ * check-out month; no addresses) — it writes nothing and sends nothing, so it
+ * runs with the flags off. `?backfill=send&campaign=YYYY-MM-DD&limit=N` sends
+ * up to N (≤ MAX_SENDS_PER_RUN) through the same ledger as the daily email
+ * (kind 'backfill', migration 044); it additionally needs
+ * REVIEW_BACKFILL_ENABLED=true, and `campaign` must be today or up to 7 days
+ * back (links expire 60 days after it). Run it again for the next batch: the
+ * ledger skips everyone already asked.
  *
  * Gated by POST_TRIP_REVIEW_EMAILS_ENABLED=true so the code can merge dark.
  * Needs REVIEW_SIGNING_SECRET (links) and TRIPLY_POSTAL_ADDRESS (the footer of
@@ -146,7 +158,7 @@ const bookingRowSchema = z.object({
 
 const ledgerRowSchema = z.object({
   booking_id: z.string(),
-  kind: z.enum(["initial", "reminder"]),
+  kind: z.enum(["initial", "reminder", "backfill"]),
   status: z.enum(["claimed", "retry", "sent", "failed", "unconfirmed"]),
   sent_at: z.string().nullable(),
 });
@@ -438,8 +450,23 @@ export async function GET(request: NextRequest) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const plan = parsePlan(request, Date.now());
+  if ("error" in plan) return NextResponse.json({ ok: false, error: plan.error }, { status: 400 });
+  if (plan.kind === "backfill" && plan.mode === "preview") {
+    // Reads only: no send, no ledger write, so no flag, secret or address needed.
+    const mode = stripeKeyMode();
+    if (!mode) return respond({ ok: false, error: "deployment mode is unknown" }, 503);
+    try {
+      return await run({ postalAddress: "" }, mode === "live", plan);
+    } catch (error) {
+      return fail("unhandled", errorMessage(error));
+    }
+  }
   if (process.env.POST_TRIP_REVIEW_EMAILS_ENABLED !== "true") {
     return NextResponse.json({ ok: true, disabled: true });
+  }
+  if (plan.kind === "backfill" && process.env.REVIEW_BACKFILL_ENABLED !== "true") {
+    return NextResponse.json({ ok: true, disabled: true, backfill: true });
   }
   try {
     assertReviewSigningSecret();
@@ -463,22 +490,56 @@ export async function GET(request: NextRequest) {
     return respond({ ok: false, error: "deployment mode is unknown" }, 503);
   }
   try {
-    return await run({ postalAddress }, mode === "live");
+    return await run({ postalAddress }, mode === "live", plan);
   } catch (error) {
     return fail("unhandled", errorMessage(error));
   }
 }
 
-async function run(footer: ReviewEmailFooter, live: boolean) {
+type RunPlan =
+  | { kind: "daily" }
+  | { kind: "backfill"; mode: "preview" }
+  | { kind: "backfill"; mode: "send"; campaignDate: string; limit: number };
+
+/** How far back a campaign date may be: its links expire 60 days after it. */
+const BACKFILL_CAMPAIGN_MAX_AGE_DAYS = 7;
+
+/** The scheduled call has no query; anything else must be a well-formed backfill. */
+function parsePlan(request: NextRequest, nowMs: number): RunPlan | { error: string } {
+  const q = request.nextUrl.searchParams;
+  const backfill = q.get("backfill");
+  if (backfill === null) return { kind: "daily" };
+  if (backfill === "preview") return { kind: "backfill", mode: "preview" };
+  if (backfill !== "send") return { error: "backfill must be 'preview' or 'send'" };
+  const campaign = q.get("campaign") ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(campaign) || Number.isNaN(Date.parse(`${campaign}T00:00:00Z`))) {
+    return { error: "campaign must be a YYYY-MM-DD date" };
+  }
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  const oldest = new Date(nowMs - BACKFILL_CAMPAIGN_MAX_AGE_DAYS * 86_400_000).toISOString().slice(0, 10);
+  if (campaign > today || campaign < oldest) {
+    return { error: `campaign must be between ${oldest} and ${today}` };
+  }
+  const limitRaw = q.get("limit") ?? "";
+  const limit = /^\d{1,3}$/.test(limitRaw) ? Number(limitRaw) : Number.NaN;
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SENDS_PER_RUN) {
+    return { error: `limit must be 1..${MAX_SENDS_PER_RUN}` };
+  }
+  return { kind: "backfill", mode: "send", campaignDate: campaign, limit };
+}
+
+async function run(footer: ReviewEmailFooter, live: boolean, plan: RunPlan) {
   const nowMs = Date.now();
-  const elapsed = () => Date.now() - nowMs;
   const supabase = await createAdminClient();
-  const stale = await sweepStaleClaims(supabase, nowMs);
+  const preview = plan.kind === "backfill" && plan.mode === "preview";
+  const stale = preview ? { released: 0, alarmed: 0 } : await sweepStaleClaims(supabase, nowMs);
 
   // check_out is a literal TIMESTAMP; bounding it by two UTC calendar dates
   // (a day of slack each side) never converts the stored value — the
-  // selector makes the real, airport-local decision.
-  const from = new Date(nowMs - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
+  // selector makes the real, airport-local decision. A backfill reads the
+  // whole year, so each address's latest trip and earlier asks are all seen.
+  const lookbackDays = plan.kind === "backfill" ? BACKFILL_MAX_DAYS_AFTER + 2 : LOOKBACK_DAYS;
+  const from = new Date(nowMs - lookbackDays * 86_400_000).toISOString().slice(0, 10);
   const to = new Date(nowMs + 2 * 86_400_000).toISOString().slice(0, 10);
   let query = supabase
     .from("bookings")
@@ -494,6 +555,10 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     .abortSignal(dbSignal());
   if (error) return fail("bookings_read", `bookings read failed: ${error.message}`);
   const rawRows = data ?? [];
+  if (rawRows.length >= ROW_CAP && plan.kind === "backfill") {
+    // A cut-off year could hide an address's latest trip or an earlier ask.
+    return fail("bookings_read", `backfill bookings read hit the ${ROW_CAP}-row cap; refusing to judge a partial year`);
+  }
   if (rawRows.length >= ROW_CAP) {
     alarm("post_trip_review_row_cap", `post-trip-review: bookings read hit the ${ROW_CAP}-row cap; some trips may be skipped`, "warning");
   }
@@ -563,6 +628,39 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     return fail("state_read", errorMessage(e));
   }
 
+  if (plan.kind === "backfill") {
+    const today = new Date(nowMs).toISOString().slice(0, 10);
+    const backfill = selectBackfillSends(bookings, state.ledger, state.reviewed, nowMs, {
+      live,
+      testLocationIds: TEST_RESLAB_LOCATION_IDS,
+      suppressed,
+      campaignDate: plan.mode === "send" ? plan.campaignDate : today,
+    });
+    if (plan.mode === "preview") {
+      // Counts only: never an address, never a booking id.
+      return respond({
+        ok: true,
+        preview: true,
+        live,
+        scanned: rawRows.length,
+        invalidRows,
+        noGuestSnapshot: noGuest.length,
+        wouldAsk: summarizeBackfill(backfill.candidates),
+        skipped: backfill.skipped,
+      });
+    }
+    return sendAll(supabase, footer, live, backfill.candidates, Math.min(plan.limit, MAX_SENDS_PER_RUN), nowMs, {
+      backfill: true,
+      campaignDate: plan.campaignDate,
+      scanned: rawRows.length,
+      invalidRows,
+      noGuestSnapshot: noGuest.length,
+      backfillCandidates: backfill.candidates.length,
+      staleClaims: stale,
+      skipped: backfill.skipped,
+    }, guestDrift);
+  }
+
   const selection = selectReviewSends(bookings, state.ledger, state.reviewed, nowMs, {
     live,
     testLocationIds: TEST_RESLAB_LOCATION_IDS,
@@ -579,14 +677,32 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     );
   }
 
-  const result = {
-    live,
+  return sendAll(supabase, footer, live, toSend, MAX_SENDS_PER_RUN, nowMs, {
     scanned: rawRows.length,
     invalidRows,
     noGuestSnapshot: noGuest.length,
     initialCandidates: initial.length,
     reminderCandidates: reminder.length,
     staleClaims: stale,
+    skipped,
+  }, guestDrift);
+}
+
+/** The claim → send → mark loop, shared by the daily run and the backfill.
+ *  `report` is merged into the response as-is (counts and skips only). */
+async function sendAll(
+  supabase: Supabase,
+  footer: ReviewEmailFooter,
+  live: boolean,
+  toSend: readonly ReviewCandidate[],
+  maxSends: number,
+  nowMs: number,
+  report: Record<string, unknown>,
+  guestDrift: boolean
+) {
+  const elapsed = () => Date.now() - nowMs;
+  const result = {
+    live,
     sent: 0,
     unconfirmed: 0,
     alreadyClaimed: 0,
@@ -607,7 +723,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   // Why the run stopped before its candidates ran out (a cap is not a stop).
   let stoppedEarly: "build" | "resend_unreachable" | "config" | "systematic_rejection" | null = null;
   for (const [i, c] of toSend.entries()) {
-    if (attempted >= MAX_SENDS_PER_RUN || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
+    if (attempted >= maxSends || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
       result.deferredToNextRun = toSend.length - i;
       break;
     }
@@ -737,7 +853,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   if (result.deferredToNextRun > 0) {
     alarm(
       "post_trip_review_capped",
-      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${MAX_SENDS_PER_RUN} / ${RUN_DEADLINE_MS} ms deadline, or the run stopped early)`,
+      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${maxSends} / ${RUN_DEADLINE_MS} ms deadline, or the run stopped early)`,
       "warning"
     );
   }
@@ -754,5 +870,5 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
       allFailed ? "error" : "warning"
     );
   }
-  return respond({ ok: !allFailed, stoppedEarly, guestDrift, ...result, skipped }, allFailed ? 500 : 200);
+  return respond({ ok: !allFailed, stoppedEarly, guestDrift, ...report, ...result }, allFailed ? 500 : 200);
 }
