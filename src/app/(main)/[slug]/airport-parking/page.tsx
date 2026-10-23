@@ -2,7 +2,13 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAirportBySlug } from "@/config/airports";
 import { fetchAirportPageData } from "@/lib/airport-page/data";
-import { generateSEOContent, generateFAQs, emptyStateCopy } from "@/lib/airport-page/content";
+import {
+  generateSEOContent,
+  generateFAQs,
+  emptyStateCopy,
+  isKnownEmpty,
+  emptyMetaDescription,
+} from "@/lib/airport-page/content";
 import { buildAirportSchemas } from "@/lib/airport-page/schemas";
 import { getAirportContent } from "@/data/airport-content";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -58,17 +64,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
   // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
   const lotCount = data.totalLots > 0 ? `${data.totalLots}+ ` : "";
+  // Nothing bookable: noindex, and don't let a hand-written meta (SLC's
+  // "6+ lots from $6.50/day") advertise inventory the page can't sell.
+  const empty = isKnownEmpty(data.totalLots, data.locationsConsidered);
+  const description = empty
+    ? emptyMetaDescription(airport.name, airport.code)
+    : customContent?.metaDescription
+      ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`;
 
   return {
     title: `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
-    description: customContent?.metaDescription
-      ?? `Compare ${lotCount}parking lots near ${airport.name}. Reserve ${airport.code} parking${priceText}/day with free cancellation. Book now & save.`,
+    description,
+    ...(empty && { robots: { index: false, follow: true } }),
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
     },
     openGraph: {
-      title: `${airport.code} Airport Parking${priceText}/day`,
-      description: `Compare ${lotCount}parking lots near ${airport.name}. Book online and save up to 60%.`,
+      title: `${airport.code} Airport Parking${priceText ? `${priceText}/day` : ""}`,
+      description: empty
+        ? description
+        : `Compare ${lotCount}parking lots near ${airport.name}. Book online and save up to 60%.`,
       url: `https://www.triplypro.com/${airport.slug}/airport-parking`,
       type: "website",
     },
