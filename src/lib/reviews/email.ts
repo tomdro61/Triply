@@ -73,6 +73,19 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** "2026-03-14" → "March 2026". String work on the literal date, no time zones. */
+export function monthYear(date: string): string {
+  const m = /^(\d{4})-(\d{2})-\d{2}$/.exec(date);
+  const name = m ? MONTHS[Number(m[2]) - 1] : undefined;
+  if (!m || !name) throw new Error(`monthYear: not a YYYY-MM-DD date: ${date}`);
+  return `${name} ${m[1]}`;
+}
+
 /** The footer every send carries: CAN-SPAM postal address + the opt-out link
  *  (the email has a "book your next trip" button, so it is treated as commercial). */
 export interface ReviewEmailFooter {
@@ -90,7 +103,11 @@ export interface BuiltReviewEmail {
  *  signing secret). The cron builds BEFORE claiming a row, so such a fault can
  *  never be mistaken for a send whose outcome is unknown. */
 export function buildReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFooter): BuiltReviewEmail {
-  const token = signReviewToken(c.bookingId, reviewLinkExpiry(c.checkoutDate));
+  // A backfill trip can be months old, so its link runs from the campaign date
+  // (still byte-stable per booking within one campaign).
+  if (c.kind === "backfill" && !c.linkFromDate) throw new Error("buildReviewEmail: a backfill email needs linkFromDate");
+  const linkFrom = c.kind === "backfill" && c.linkFromDate ? c.linkFromDate : c.checkoutDate;
+  const token = signReviewToken(c.bookingId, reviewLinkExpiry(linkFrom));
   const starUrls = [1, 2, 3, 4, 5].map((n) => reviewUrl(token, n));
   const againUrl = bookAgainUrl(c.airportCode);
   const againLabel = bookAgainLabel(c.airportCode);
@@ -99,12 +116,18 @@ export function buildReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFoot
   const lot = c.lotName.trim();
 
   const subject =
-    c.kind === "reminder" ? `Quick one: how was ${lot}?` : `How was parking at ${lot}?`;
+    c.kind === "reminder"
+      ? `Quick one: how was ${lot}?`
+      : c.kind === "backfill"
+        ? `How was ${lot} in ${monthYear(c.checkoutDate)}?`
+        : `How was parking at ${lot}?`;
   const greeting = c.firstName ? `Hi ${c.firstName},` : "Hi,";
   const ask =
     c.kind === "reminder"
       ? `Got 10 seconds? Tap a star to rate your parking at ${lot}.`
-      : `Thanks for parking with Triply. How was ${lot}? Tap a star — that's it.`;
+      : c.kind === "backfill"
+        ? `You parked at ${lot} with Triply in ${monthYear(c.checkoutDate)}. We're starting to show real ratings from Triply customers, and yours would help. Tap a star — that's it. We'll only ask once.`
+        : `Thanks for parking with Triply. How was ${lot}? Tap a star — that's it.`;
   const why = "Your rating helps other travellers pick the right lot.";
   const footer = "You received this email because you booked on triplypro.com";
 

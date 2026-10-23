@@ -45,7 +45,9 @@ export const REMINDER_MIN_HOURS_AFTER_INITIAL = 48;
  *  refunded, payment_failed and disputed are never asked for a review. */
 export const REVIEWABLE_STATUSES: readonly string[] = ["confirmed", "completed"];
 
-export type ReviewEmailKind = "initial" | "reminder";
+/** "backfill" is the one-time ask to past customers (src/lib/reviews/backfill.ts);
+ *  selectReviewSends only ever produces "initial" and "reminder". */
+export type ReviewEmailKind = "initial" | "reminder" | "backfill";
 
 export interface ReviewBookingRow {
   id: string;
@@ -83,6 +85,9 @@ export interface ReviewCandidate {
   airportCode: string | null;
   /** Literal "YYYY-MM-DD" check-out date. */
   checkoutDate: string;
+  /** Backfill only: the campaign's "YYYY-MM-DD". Its review links expire
+   *  relative to this date — a trip months old would otherwise get a dead link. */
+  linkFromDate?: string;
 }
 
 export interface ReviewSelection {

@@ -354,3 +354,83 @@ describe("GET /api/cron/post-trip-review", () => {
     expect(await res.json()).toMatchObject({ ok: false, guestDrift: true, sent: 0 });
   });
 });
+
+describe("GET /api/cron/post-trip-review?backfill=…", () => {
+  const bfReq = (q: string) =>
+    new NextRequest(`https://www.triplypro.com/api/cron/post-trip-review?${q}`, {
+      headers: { authorization: `Bearer ${CRON_SECRET}` },
+    });
+  afterEach(() => {
+    delete process.env.REVIEW_BACKFILL_ENABLED;
+  });
+
+  it("preview counts who would be asked, with every flag off, and writes and sends nothing", async () => {
+    delete process.env.POST_TRIP_REVIEW_EMAILS_ENABLED;
+    booking({ check_out: "2026-07-15T10:00:00" });
+    booking({ check_out: "2026-08-02T10:00:00", airport_code: "EWR", location_name: "Lot B" });
+    booking({ check_out: "2026-10-09T10:00:00" }); // today: the daily email's
+    const res = await GET(bfReq("backfill=preview"));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({
+      ok: true,
+      preview: true,
+      wouldAsk: { total: 2, byAirport: { JFK: 1, EWR: 1 } },
+      skipped: { tooRecent: 1 },
+    });
+    expect(JSON.stringify(body)).not.toContain("@");
+    expect(resendSend).not.toHaveBeenCalled();
+    expect(db.tables.review_emails).toEqual([]);
+  });
+
+  it("will not send without REVIEW_BACKFILL_ENABLED", async () => {
+    booking({ check_out: "2026-07-15T10:00:00" });
+    const res = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await res.json()).toEqual({ ok: true, disabled: true, backfill: true });
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed run: bad mode, stale or future campaign, bad limit", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    for (const q of [
+      "backfill=yes",
+      "backfill=send&limit=5",
+      "backfill=send&campaign=2026-09-01&limit=5",
+      "backfill=send&campaign=2026-10-10&limit=5",
+      "backfill=send&campaign=2026-10-09",
+      "backfill=send&campaign=2026-10-09&limit=0",
+      "backfill=send&campaign=2026-10-09&limit=41",
+    ]) {
+      expect((await GET(bfReq(q))).status, q).toBe(400);
+    }
+    expect(resendSend).not.toHaveBeenCalled();
+  });
+
+  it("sends up to the limit, freshest trips first, then never re-asks", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    const older = booking({ check_out: "2026-05-01T10:00:00" });
+    const newer = booking({ check_out: "2026-09-01T10:00:00" });
+    const first = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=1"));
+    expect(await first.json()).toMatchObject({ ok: true, backfill: true, sent: 1, backfillCandidates: 2 });
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(resendSend.mock.calls[0][1]).toEqual({ idempotencyKey: `post-trip-review/${newer.id}/backfill` });
+    expect(resendSend.mock.calls[0][0].subject).toBe("How was Jet Parking JFK in September 2026?");
+    expect(db.tables.review_emails).toMatchObject([{ booking_id: newer.id, kind: "backfill", status: "sent" }]);
+
+    await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(resendSend).toHaveBeenCalledTimes(2);
+    expect(resendSend.mock.calls[1][1]).toEqual({ idempotencyKey: `post-trip-review/${older.id}/backfill` });
+
+    const third = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await third.json()).toMatchObject({ ok: true, sent: 0, backfillCandidates: 0 });
+    expect(resendSend).toHaveBeenCalledTimes(2);
+  });
+
+  it("the daily run still works with backfill rows in the ledger", async () => {
+    const past = booking({ check_out: "2026-06-01T10:00:00" });
+    db.tables.review_emails.push({ id: "led-b", booking_id: past.id, kind: "backfill", status: "sent", sent_at: "2026-10-01T23:00:00Z" });
+    booking(); // due today
+    const res = await GET(req());
+    expect(await res.json()).toMatchObject({ ok: true, sent: 1 });
+  });
+});
