@@ -24,41 +24,83 @@ export function scrubUrlCredentials(text: string): string {
 const SKIP_KEYS = new Set(["sdkProcessingMetadata"]);
 
 /**
- * Deep-scrubs every string in a Sentry event (request, transaction name,
- * spans, breadcrumbs, extras). Writes back only strings that changed, never
- * walks SDK internals, and never throws: a throw in beforeSend makes Sentry
- * drop the event. Each value is scrubbed on its own, so one that can't be
- * written (a frozen object, a throwing getter) is skipped and logged while the
- * walk carries on — one bad value never leaves the REST of the event unscrubbed.
+ * Returns `value` with every string scrubbed. Objects are fixed in place where
+ * possible; when a field can't be written (a frozen object) or read (a
+ * throwing getter), the object is replaced by a scrubbed copy — without the
+ * unreadable field — and the copy goes to its parent the same way, up to the
+ * event itself. So a scrub never leaves a credential behind by failing open.
+ * Arrays too: Object.keys gives their indices.
  */
-export function scrubEventCredentials<T>(event: T): T {
-  const seen = new WeakSet<object>();
-  let failures = 0;
-  // Arrays too: Object.keys gives their indices.
-  const walk = (value: unknown): void => {
-    if (value === null || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    const record = value as Record<string, unknown>;
-    for (const key of Object.keys(record)) {
-      if (SKIP_KEYS.has(key)) continue;
-      try {
-        const v = record[key];
-        if (typeof v === "string") {
-          const s = scrubUrlCredentials(v);
-          if (s !== v) record[key] = s;
-        } else {
-          walk(v);
-        }
-      } catch {
-        failures++;
-      }
+function scrubValue(value: unknown, seen: WeakSet<object>): unknown {
+  if (typeof value === "string") return scrubUrlCredentials(value);
+  if (value === null || typeof value !== "object" || seen.has(value)) return value;
+  seen.add(value);
+  const record = value as Record<string, unknown>;
+  // Scrubbed values that couldn't be written in place, and fields that couldn't be read.
+  const pending = new Map<string, unknown>();
+  const unreadable = new Set<string>();
+  for (const key of Object.keys(record)) {
+    if (SKIP_KEYS.has(key)) continue;
+    let v: unknown;
+    try {
+      v = record[key];
+    } catch {
+      unreadable.add(key);
+      continue;
+    }
+    const s = scrubValue(v, seen);
+    if (s === v) continue;
+    try {
+      record[key] = s;
+      if (record[key] === s) continue;
+    } catch {
+      // can't write here: the copy below carries it
+    }
+    pending.set(key, s);
+  }
+  if (pending.size === 0 && unreadable.size === 0) return value;
+
+  // A copy of every readable field, with the scrubbed values in place.
+  const field = (key: string): { ok: true; v: unknown } | { ok: false } => {
+    if (unreadable.has(key)) return { ok: false };
+    if (pending.has(key)) return { ok: true, v: pending.get(key) };
+    try {
+      return { ok: true, v: record[key] };
+    } catch {
+      return { ok: false };
     }
   };
-  try {
-    walk(event);
-  } catch {
-    failures++;
+  if (Array.isArray(value)) {
+    const out: unknown[] = [];
+    for (const key of Object.keys(record)) {
+      const f = field(key);
+      if (f.ok) out[Number(key)] = f.v;
+    }
+    return out;
   }
-  if (failures > 0) console.error(`sentry-scrub: ${failures} value(s) could not be scrubbed`);
-  return event;
+  const out: Record<string, unknown> = {};
+  for (const key of Object.keys(record)) {
+    const f = field(key);
+    if (f.ok) out[key] = f.v;
+  }
+  return out;
+}
+
+/**
+ * Deep-scrubs every string in a Sentry event (request, transaction name,
+ * spans, breadcrumbs, extras) — also used for transactions and logs. Never
+ * walks SDK internals and never throws: a throw in beforeSend makes Sentry
+ * drop the event. May return a scrubbed COPY when the event can't be fixed in
+ * place (Sentry sends whatever beforeSend returns).
+ */
+export function scrubEventCredentials<T>(event: T): T {
+  try {
+    // scrubValue keeps the shape of what it is given; only strings change.
+    return scrubValue(event, new WeakSet<object>()) as T;
+  } catch (error) {
+    // Only reachable through exotic objects (e.g. a Proxy whose ownKeys throws),
+    // which Sentry's event normalisation does not produce.
+    console.error("sentry-scrub: could not scrub event", error);
+    return event;
+  }
 }

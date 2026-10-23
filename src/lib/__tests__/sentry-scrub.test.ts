@@ -39,12 +39,31 @@ describe("sentry-scrub", () => {
     expect(JSON.stringify(scrubEventCredentials(event))).not.toContain("AbC-def_123XYZ");
   });
 
-  it("a value that can't be written is skipped; the rest of the event is still scrubbed", () => {
+  it("a frozen object is replaced by a scrubbed copy — nothing in the result keeps the token", () => {
     const hook = "https://discord.com/api/webhooks/1/AbC-def_123XYZ";
-    const event = { a: Object.freeze({ u: hook }), b: { u: hook }, c: [hook] };
-    expect(() => scrubEventCredentials(event)).not.toThrow();
-    expect(event.b.u).toBe("https://discord.com/api/webhooks/1/[token]");
-    expect(event.c[0]).toBe("https://discord.com/api/webhooks/1/[token]");
+    const headers = Object.freeze({ referer: hook, accept: "*/*" });
+    const event = { request: { headers }, b: { u: hook }, c: Object.freeze([hook, "x"]) };
+    const out = scrubEventCredentials(event);
+    expect(JSON.stringify(out)).not.toContain("AbC-def_123XYZ");
+    expect(out.request.headers).toEqual({ referer: "https://discord.com/api/webhooks/1/[token]", accept: "*/*" });
+    expect(out.c).toEqual(["https://discord.com/api/webhooks/1/[token]", "x"]);
+  });
+
+  it("a frozen EVENT comes back as a scrubbed copy", () => {
+    const event = Object.freeze({ message: "POST https://discord.com/api/webhooks/1/AbC-def_123XYZ failed", level: "error" });
+    const out = scrubEventCredentials(event);
+    expect(out).toEqual({ message: "POST https://discord.com/api/webhooks/1/[token] failed", level: "error" });
+  });
+
+  it("a field whose getter throws is left out of the copy", () => {
+    const tricky = Object.defineProperty({ ok: "fine" }, "bad", { enumerable: true, get() { throw new Error("boom"); } });
+    const out = scrubEventCredentials({ extra: tricky });
+    expect(out.extra).toEqual({ ok: "fine" });
+  });
+
+  it("an event with nothing to scrub is returned as the same object", () => {
+    const event = { message: "hello", tags: { a: "b" } };
+    expect(scrubEventCredentials(event)).toBe(event);
   });
 
   it("scrubs a query_string where the token comes first (Sentry drops the leading ?)", () => {
