@@ -41,6 +41,8 @@ export interface PostOptions {
    * nothing pings — so a caller can never ping by accident.
    */
   allowedMentions?: { parse: Array<"everyone" | "users" | "roles"> };
+  /** Per-attempt timeout. Default 8 s; the booking alert uses less because a booking waits on it. */
+  timeoutMs?: number;
 }
 
 export async function postToDiscord(webhookUrl: string, embed: Embed, opts: PostOptions): Promise<PostResult> {
@@ -64,7 +66,7 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
         method: "POST",
         headers: { "content-type": "application/json" },
         body,
-        signal: AbortSignal.timeout(8_000),
+        signal: AbortSignal.timeout(opts.timeoutMs ?? 8_000),
       });
       const text = await res.text().catch(() => "");
       return { res, text };
