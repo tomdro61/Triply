@@ -19,6 +19,7 @@ import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/
 import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import type { UnifiedLot } from "@/types/lot";
+import { linkDate } from "@/lib/utils/link-date";
 
 /**
  * How the lot page PRICES the lot: the URL's times when present and still
@@ -125,7 +126,11 @@ function UnavailableState({ backUrl }: { backUrl: string }) {
 
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  const query = await searchParams;
+  const { checkinTime, checkoutTime } = query;
+  // A link's dates, or undefined when it names no real date (see linkDate).
+  const checkin = linkDate(query.checkin);
+  const checkout = linkDate(query.checkout);
 
   // Validate airport slug
   const airport = getAirportBySlug(slug);
@@ -288,7 +293,11 @@ export default function LotPage(props: LotPageProps) {
 // Generate metadata
 export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  const query = await searchParams;
+  const { checkinTime, checkoutTime } = query;
+  // A link's dates, or undefined when it names no real date (see linkDate).
+  const checkin = linkDate(query.checkin);
+  const checkout = linkDate(query.checkout);
 
   const airport = getAirportBySlug(slug);
 
