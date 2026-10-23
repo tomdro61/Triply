@@ -1,5 +1,5 @@
 import { resend, FROM_EMAIL } from "./client";
-import { ADMIN_EMAILS } from "@/config/admin";
+import { PAYMENT_ALERT_EMAILS } from "@/config/admin";
 import type { AnomalyReport } from "@/lib/accounting/detect-payment-anomalies";
 
 // Escape every data-derived value before interpolating into the HTML email.
@@ -96,7 +96,7 @@ export async function sendReconciliationAlert(report: AnomalyReport) {
 
   const { data, error } = await resend.emails.send({
     from: FROM_EMAIL,
-    to: ADMIN_EMAILS,
+    to: PAYMENT_ALERT_EMAILS,
     subject,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;color:#111827;">
@@ -132,7 +132,7 @@ export async function sendReconciliationAlert(report: AnomalyReport) {
 export async function sendMonitorFailureAlert(reason: string) {
   const { error } = await resend.emails.send({
     from: FROM_EMAIL,
-    to: ADMIN_EMAILS,
+    to: PAYMENT_ALERT_EMAILS,
     subject: "🚨 Triply payment monitor FAILED to run",
     html: `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#111827;">
