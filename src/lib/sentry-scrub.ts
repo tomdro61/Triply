@@ -11,7 +11,8 @@
 const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 // The token classes stop at quotes and backslashes: the text being scrubbed is
 // often JSON, and a swallowed escape would break it.
-const TOKEN_QUERY = /((?:^|[?&])token=)[^&#\s"'\\]+/g;
+// `"` too: in JSON a query_string that STARTS with token= follows the opening quote.
+const TOKEN_QUERY = /((?:^|[?&"])token=)[^&#\s"'\\]+/g;
 // Any id segment, not just digits: a mistyped webhook URL still carries a real token.
 const DISCORD_WEBHOOK = /(\/api\/(?:v\d+\/)?webhooks\/(?!stripe\b)[^/\s?#"'\\]+\/)[^/\s?#"'\\]+/g;
 
@@ -23,10 +24,24 @@ export function scrubUrlCredentials(text: string): string {
 }
 
 /**
- * Holds live SDK scope objects (the whole client graph), never user data; the
- * SDK reads it after beforeSend and never sends it. Set aside, put back as is.
+ * Holds live SDK scope objects (the whole client graph), so it is not
+ * serialised with the event. The SDK reads it after beforeSend and sends ONE
+ * part of it: `dynamicSamplingContext` becomes the envelope's trace header
+ * (transaction name included), so that part is scrubbed; the rest is put back
+ * as is.
  */
 const SDK_METADATA_KEY = "sdkProcessingMetadata";
+const DSC_KEY = "dynamicSamplingContext";
+
+/** The metadata to put back: the same object, or a shallow copy with a scrubbed sampling context. */
+function scrubbedMetadata(metadata: unknown): unknown {
+  if (metadata === null || typeof metadata !== "object") return metadata;
+  const dsc: unknown = Reflect.get(metadata, DSC_KEY);
+  if (dsc === undefined) return metadata;
+  // A plain record of strings; a throw here drops the event (the caller's catch).
+  const clean: unknown = JSON.parse(scrubUrlCredentials(JSON.stringify(dsc)));
+  return { ...metadata, [DSC_KEY]: clean };
+}
 
 /**
  * Returns the event with every credential removed from what Sentry will SEND.
@@ -52,18 +67,24 @@ export function scrubEventCredentials<T extends object>(event: T): T | null {
     try {
       json = JSON.stringify(event, skipMetadata);
     } catch {
-      const seen = new WeakSet<object>();
+      // Only a true cycle (an object inside itself) becomes "[Circular]"; a
+      // shared object reached twice is written twice. JSON.stringify walks depth
+      // first, so `ancestors` is the path from the root to the current holder.
+      // A BigInt (e.g. a log attribute) is written as a string.
+      const ancestors: unknown[] = [];
       json = JSON.stringify(event, function (this: unknown, key: string, value: unknown) {
         const v = skipMetadata.call(this, key, value);
+        if (typeof v === "bigint") return v.toString();
         if (typeof v !== "object" || v === null) return v;
-        if (seen.has(v)) return "[Circular]";
-        seen.add(v);
+        while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) ancestors.pop();
+        if (ancestors.includes(v)) return "[Circular]";
+        ancestors.push(v);
         return v;
       });
     }
     // The fields of an event are plain JSON data, so the parsed copy has the event's shape.
     const scrubbed = JSON.parse(scrubUrlCredentials(json)) as T;
-    if (metadata !== undefined) Reflect.set(scrubbed, SDK_METADATA_KEY, metadata);
+    if (metadata !== undefined) Reflect.set(scrubbed, SDK_METADATA_KEY, scrubbedMetadata(metadata));
     return scrubbed;
   } catch (error) {
     console.error("sentry-scrub: event could not be serialised; dropped so no credential is sent", error);

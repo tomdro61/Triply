@@ -81,6 +81,14 @@ describe("sentry-scrub", () => {
     expect(scrub({ extra: a }).extra).toEqual({ url: SCRUBBED, self: "[Circular]" });
   });
 
+  it("on the cycle retry, a SHARED (non-cyclic) object keeps its data both times; a BigInt becomes a string", () => {
+    const shared = { a: 1, url: HOOK };
+    const me: Record<string, unknown> = {};
+    me.me = me;
+    const out = scrub({ extra: { s1: shared, s2: shared, me, n: BigInt(10) } });
+    expect(out.extra).toEqual({ s1: { a: 1, url: SCRUBBED }, s2: { a: 1, url: SCRUBBED }, me: { me: "[Circular]" }, n: "10" });
+  });
+
   it("[codex] anything that can't be serialised (a throwing getter, extreme depth) is DROPPED, never sent unscrubbed", () => {
     const tricky = Object.defineProperty({ url: HOOK }, "bad", { enumerable: true, get() { throw new Error("boom"); } });
     expect(scrubEventCredentials({ extra: tricky })).toBeNull();
@@ -94,11 +102,26 @@ describe("sentry-scrub", () => {
     expect(out.message).toBe(`failed: "${SCRUBBED}" and /x?token=[redacted]"q`);
   });
 
-  it("sdkProcessingMetadata is neither serialised nor scrubbed, and is put back as the same object", () => {
+  it("sdkProcessingMetadata is not serialised, and without a sampling context is put back as the same object", () => {
     const meta = { capturedSpanScope: { url: "/review/" + "a".repeat(30) }, live: () => 1 };
     const out = scrub({ request: { url: "/x" }, sdkProcessingMetadata: meta });
     expect(out.sdkProcessingMetadata).toBe(meta);
     expect(meta.capturedSpanScope.url).toContain("aaaa");
+  });
+
+  it("[codex] the sampling context (sent as the envelope's trace header) is scrubbed; live references kept", () => {
+    const scope = { live: () => 1 };
+    const meta = { capturedSpanScope: scope, dynamicSamplingContext: { trace_id: "abc", transaction: `GET /review/${TOKEN}` } };
+    const out = scrub({ type: "transaction", sdkProcessingMetadata: meta });
+    expect(out.sdkProcessingMetadata.dynamicSamplingContext).toEqual({ trace_id: "abc", transaction: "GET /review/[token]" });
+    expect(out.sdkProcessingMetadata.capturedSpanScope).toBe(scope);
+    // The caller's metadata object is not mutated.
+    expect(meta.dynamicSamplingContext.transaction).toContain(TOKEN);
+  });
+
+  it("[codex] a query_string that STARTS with token= is scrubbed inside an event", () => {
+    const out = scrub({ request: { query_string: "token=abc123&id=x", url: "https://www.triplypro.com/api/reviews/unsubscribe" } });
+    expect(out.request.query_string).toBe("token=[redacted]&id=x");
   });
 
   it("an event with nothing to scrub comes back equal", () => {
