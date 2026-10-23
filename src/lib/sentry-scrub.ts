@@ -52,8 +52,8 @@ function scrubbedMetadata(metadata: unknown): unknown {
  * object) and every one of those leaked a token in review. The result is a
  * fresh plain copy rebuilt from the scrubbed text.
  *
- * A cycle is retried with repeated objects written as "[Circular]" (as
- * Sentry's own envelope fallback does). Anything that still can't be
+ * A cycle is retried with any object found inside itself written as
+ * "[Circular]" (as Sentry's own envelope fallback does). Anything that still can't be
  * serialised (a throwing getter, extreme depth) fails CLOSED: null tells
  * Sentry to drop the event — dropping beats sending a token. Never throws.
  */
