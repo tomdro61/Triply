@@ -39,6 +39,14 @@ describe("sentry-scrub", () => {
     expect(JSON.stringify(scrubEventCredentials(event))).not.toContain("AbC-def_123XYZ");
   });
 
+  it("a value that can't be written is skipped; the rest of the event is still scrubbed", () => {
+    const hook = "https://discord.com/api/webhooks/1/AbC-def_123XYZ";
+    const event = { a: Object.freeze({ u: hook }), b: { u: hook }, c: [hook] };
+    expect(() => scrubEventCredentials(event)).not.toThrow();
+    expect(event.b.u).toBe("https://discord.com/api/webhooks/1/[token]");
+    expect(event.c[0]).toBe("https://discord.com/api/webhooks/1/[token]");
+  });
+
   it("scrubs a query_string where the token comes first (Sentry drops the leading ?)", () => {
     expect(scrubUrlCredentials("token=abc123&id=x")).toBe("token=[redacted]&id=x");
   });

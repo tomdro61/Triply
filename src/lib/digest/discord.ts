@@ -52,6 +52,11 @@ export interface PostOptions {
   requireMessageId?: boolean;
 }
 
+/** Exactly a Discord webhook URL (optionally with a query, e.g. thread_id). */
+export function isDiscordWebhookUrl(url: string): boolean {
+  return /^https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/(?:v\d+\/)?webhooks\/\d+\/[A-Za-z0-9_-]+(?:\?[^#\s]*)?$/.test(url);
+}
+
 function withWait(webhookUrl: string): string {
   const url = new URL(webhookUrl);
   url.searchParams.set("wait", "true");
@@ -129,5 +134,6 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
   const second = await attempt();
   if ("error" in second) return { kind: "failed", status: null, body: second.error, retried: true };
   if (delivered(second.res, second.text)) return { kind: "posted", status: second.res.status, retried: true };
+  if (second.res.ok) return { kind: "failed", status: second.res.status, body: `no saved message in the reply (${second.text.length} bytes)`, retried: true };
   return { kind: "failed", status: second.res.status, body: second.text.slice(0, 300), retried: true };
 }

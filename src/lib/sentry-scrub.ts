@@ -10,7 +10,8 @@
 
 const REVIEW_PATH = /\/review\/[0-9a-zA-Z._-]{20,}/g;
 const TOKEN_QUERY = /((?:^|[?&])token=)[^&#\s"']+/g;
-const DISCORD_WEBHOOK = /(\/api\/(?:v\d+\/)?webhooks\/\d+\/)[A-Za-z0-9_-]+/g;
+// Any id segment, not just digits: a mistyped webhook URL still carries a real token.
+const DISCORD_WEBHOOK = /(\/api\/(?:v\d+\/)?webhooks\/(?!stripe\b)[^/\s?#"']+\/)[^/\s?#"']+/g;
 
 export function scrubUrlCredentials(text: string): string {
   return text
@@ -26,29 +27,21 @@ const SKIP_KEYS = new Set(["sdkProcessingMetadata"]);
  * Deep-scrubs every string in a Sentry event (request, transaction name,
  * spans, breadcrumbs, extras). Writes back only strings that changed, never
  * walks SDK internals, and never throws: a throw in beforeSend makes Sentry
- * drop the event, so a scrub failure is logged and the event still goes out.
+ * drop the event. Each value is scrubbed on its own, so one that can't be
+ * written (a frozen object, a throwing getter) is skipped and logged while the
+ * walk carries on — one bad value never leaves the REST of the event unscrubbed.
  */
 export function scrubEventCredentials<T>(event: T): T {
-  try {
-    const seen = new WeakSet<object>();
-    const walk = (value: unknown): void => {
-      if (value === null || typeof value !== "object" || seen.has(value)) return;
-      seen.add(value);
-      if (Array.isArray(value)) {
-        for (let i = 0; i < value.length; i++) {
-          const v: unknown = value[i];
-          if (typeof v === "string") {
-            const s = scrubUrlCredentials(v);
-            if (s !== v) value[i] = s;
-          } else {
-            walk(v);
-          }
-        }
-        return;
-      }
-      const record = value as Record<string, unknown>;
-      for (const key of Object.keys(record)) {
-        if (SKIP_KEYS.has(key)) continue;
+  const seen = new WeakSet<object>();
+  let failures = 0;
+  // Arrays too: Object.keys gives their indices.
+  const walk = (value: unknown): void => {
+    if (value === null || typeof value !== "object" || seen.has(value)) return;
+    seen.add(value);
+    const record = value as Record<string, unknown>;
+    for (const key of Object.keys(record)) {
+      if (SKIP_KEYS.has(key)) continue;
+      try {
         const v = record[key];
         if (typeof v === "string") {
           const s = scrubUrlCredentials(v);
@@ -56,11 +49,16 @@ export function scrubEventCredentials<T>(event: T): T {
         } else {
           walk(v);
         }
+      } catch {
+        failures++;
       }
-    };
+    }
+  };
+  try {
     walk(event);
-  } catch (error) {
-    console.error("sentry-scrub: could not scrub event", error);
+  } catch {
+    failures++;
   }
+  if (failures > 0) console.error(`sentry-scrub: ${failures} value(s) could not be scrubbed`);
   return event;
 }

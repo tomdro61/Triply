@@ -28,4 +28,5 @@ Sentry.init({
   // (src/lib/sentry-scrub.ts).
   beforeSend: (event) => scrubEventCredentials(event),
   beforeSendTransaction: (event) => scrubEventCredentials(event),
+  beforeSendLog: (log) => scrubEventCredentials(log),
 });

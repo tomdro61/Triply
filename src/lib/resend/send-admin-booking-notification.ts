@@ -4,7 +4,7 @@ import { captureBookingError } from "@/lib/sentry";
 import { escapeHtml } from "@/lib/validation/schemas";
 import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "./anchored-fallback";
-import { postToDiscord } from "@/lib/digest/discord";
+import { isDiscordWebhookUrl, postToDiscord } from "@/lib/digest/discord";
 import type { Embed } from "@/lib/digest/render";
 
 interface AdminBookingNotificationParams {
@@ -182,7 +182,14 @@ export function bookingAlertEmbed(p: AdminBookingNotificationParams): Embed {
  */
 export async function sendAdminBookingNotification(params: AdminBookingNotificationParams) {
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
-  if (webhookUrl) {
+  if (webhookUrl && !isDiscordWebhookUrl(webhookUrl)) {
+    // Never fetched: a malformed value could carry the token where the Sentry
+    // scrubber doesn't recognise it. Fixed text only — never the value.
+    captureBookingError(
+      new Error(`DISCORD_BOOKING_ALERTS_WEBHOOK_URL is not a Discord webhook URL — ${params.confirmationNumber} emailed instead`),
+      { step: "checkout", airportCode: params.airportCode }
+    );
+  } else if (webhookUrl) {
     // The webhook URL is a secret: keep it out of anything reported.
     // The token (last path segment) too, in case an error quotes a normalised form of the URL.
     const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;

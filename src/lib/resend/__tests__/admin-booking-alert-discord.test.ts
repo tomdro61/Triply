@@ -7,7 +7,7 @@ vi.mock("@/lib/sentry", () => ({ captureBookingError }));
 
 const { sendAdminBookingNotification, bookingAlertEmbed } = await import("../send-admin-booking-notification");
 
-const HOOK = "https://discord.example/api/webhooks/1/secret";
+const HOOK = "https://discord.com/api/webhooks/1563293029723545644/secret";
 const base = {
   confirmationNumber: "RTL870500",
   customerName: "Ada Lovelace",
@@ -93,6 +93,19 @@ describe("New Booking alert → Discord, email as the fallback", () => {
     expect(send).toHaveBeenCalledTimes(1);
     expect(captureBookingError).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(captureBookingError.mock.calls)).not.toContain("secret");
+  });
+
+  it("a parseable but mistyped webhook (non-numeric id, wrong host) → never fetched, emailed, token never reported", async () => {
+    for (const bad of ["https://discord.com/api/webhooks/1234x/secret", "https://discord.example/api/webhooks/1/secret", "http://discord.com/api/webhooks/1/secret"]) {
+      vi.stubEnv("DISCORD_BOOKING_ALERTS_WEBHOOK_URL", bad);
+      send.mockClear();
+      captureBookingError.mockClear();
+      await sendAdminBookingNotification(base);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(captureBookingError).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(captureBookingError.mock.calls)).not.toContain("secret");
+    }
   });
 
   it("a fetch error that quotes the URL is redacted before it is reported", async () => {
