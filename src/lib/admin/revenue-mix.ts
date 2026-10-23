@@ -141,35 +141,6 @@ export function mixFromAccounting(a: AccountingMix): MoneyMix {
   };
 }
 
-/** The slice of /api/admin/stats the dashboard's instant revenue figures read. */
-export interface StatsThisMonth {
-  revenue: { gross: { thisMonth: number }; triply: { thisMonth: number } };
-  parkGuard: {
-    revenue: { thisMonth: number };
-    count: { thisMonth: number };
-    confirmedTotal: { thisMonth: number };
-  };
-}
-
-/**
- * The dashboard's this-month figures from /api/admin/stats, shown only while
- * the reconciler loads. stats' gross = grand_total + service fee + PG premium
- * over confirmed bookings (direct lots INCLUDED), so parking is what's left.
- */
-export function paidFromStats(s: StatsThisMonth): PaidMix {
-  const gross = s.revenue.gross.thisMonth;
-  const serviceFee = s.revenue.triply.thisMonth;
-  const parkGuard = s.parkGuard.revenue.thisMonth;
-  return {
-    parking: gross - serviceFee - parkGuard,
-    serviceFee,
-    parkGuard,
-    total: gross,
-    bookings: s.parkGuard.confirmedTotal.thisMonth,
-    pgOptIns: s.parkGuard.count.thisMonth,
-  };
-}
-
 /** part ÷ whole, or null when whole isn't positive. */
 export function share(part: number, whole: number): number | null {
   return whole > 0 ? part / whole : null;

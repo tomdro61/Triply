@@ -32,6 +32,25 @@ export function time12ToMinutes(time12h: string): number {
   return h * 60 + m;
 }
 
+/**
+ * Strict "h:mm AM|PM" → minutes since midnight (0–1439), or null.
+ *
+ * `time12ToMinutes` above accepts "13:99 PM" and returns 1599, which a caller
+ * would hand ResLab as "25:99:00". This one requires an hour of 1–12 and
+ * minutes 00–59, exactly one space, upper-case AM/PM, and no surrounding
+ * whitespace. "12:00 AM" is 0 (midnight), "12:00 PM" is 720 (noon). Added
+ * for Park & Stay (plan v3 §4.1); existing callers are unchanged.
+ */
+export function parseTime12Strict(input: string): number | null {
+  const match = /^(\d{1,2}):(\d{2}) (AM|PM)$/.exec(input);
+  if (!match) return null;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 1 || hour > 12 || minute > 59) return null;
+  const hour24 = (hour % 12) + (match[3] === "PM" ? 12 : 0);
+  return hour24 * 60 + minute;
+}
+
 export function isValidTimeZone(timeZone: string | null | undefined): timeZone is string {
   if (!timeZone) return false;
   try {
@@ -66,6 +85,28 @@ export function zonedWallClock(
     date: `${get("year")}-${get("month")}-${get("day")}`,
     secondsOfDay: Number(get("hour")) * 3600 + Number(get("minute")) * 60 + Number(get("second")),
   };
+}
+
+/**
+ * The instant (epoch ms) at which the wall clock in `timeZone` reads
+ * `date` + `secondsOfDay`. The inverse of zonedWallClock, for SUPPLIER
+ * timestamps that carry their own zone (LiteAPI cancellation deadlines, e.g.
+ * `timezone: "GMT"`) — never for booking times, which stay literal strings.
+ * In a DST gap the result is the first valid instant after it; in an overlap,
+ * the earlier one. Throws on an invalid zone (callers validate first).
+ */
+export function zonedWallTimeToEpochMs(date: string, secondsOfDay: number, timeZone: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!m) throw new Error(`date must be YYYY-MM-DD, got ${JSON.stringify(date)}`);
+  const target = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])) + secondsOfDay * 1000;
+  const wallAsUtc = (instant: number) => {
+    const w = zonedWallClock(timeZone, new Date(instant));
+    return Date.UTC(Number(w.date.slice(0, 4)), Number(w.date.slice(5, 7)) - 1, Number(w.date.slice(8, 10))) + w.secondsOfDay * 1000;
+  };
+  // Two passes of "instant = target − offset(instant)" settle across a DST change.
+  let instant = target - (wallAsUtc(target) - target);
+  instant = target - (wallAsUtc(instant) - instant);
+  return instant;
 }
 
 /** Minimum gap between "now" and a same-day check-in we ask ResLab to price.

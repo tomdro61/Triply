@@ -10,6 +10,10 @@ import {
   Footer,
 } from "@/components/shared";
 import { JsonLd } from "@/components/seo/JsonLd";
+// Client slots that render nothing on the server and for every customer;
+// their content is lazy-loaded only for a viewer the access check allows.
+import { ParkStayHeroTabSlot } from "@/components/park-stay/slots/hero-tab-slot";
+import { ParkStayHomeSlot } from "@/components/park-stay/slots/home-section-slot";
 
 export const metadata: Metadata = {
   title: "Triply - Airport Parking Made Simple | Compare & Book",
@@ -69,8 +73,9 @@ export default function Home() {
 
       <main>
         <div className="animate-fade-in">
-          <Hero />
+          <Hero extraTab={<ParkStayHeroTabSlot />} />
           <FeaturedParking />
+          <ParkStayHomeSlot />
           <Comparison />
           <FAQ />
           <BrowseAirports />

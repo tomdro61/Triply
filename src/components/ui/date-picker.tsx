@@ -6,6 +6,21 @@ import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
+/**
+ * The calendar footer: how far ahead the latest selectable day is, counted
+ * from the start of `today` (the browser's local day, as the picker's own
+ * day cells are). Null when there is no `maxDate` (no footer).
+ */
+export function windowNoteText(maxDate: Date | undefined, today: Date): string | null {
+  if (!maxDate) return null;
+  return `Reservations open up to ${differenceInCalendarDays(maxDate, startOfDay(today))} days in advance.`;
+}
+
+/** The footer actually shown: an unset `windowNote` keeps today's sentence; null hides it; a string replaces it. */
+export function resolveWindowNote(windowNote: string | null | undefined, maxDate: Date | undefined, today: Date): string | null {
+  return windowNote === undefined ? windowNoteText(maxDate, today) : windowNote;
+}
+
 interface TriggerProps {
   onClick: () => void;
   ref: React.RefObject<HTMLButtonElement | null>;
@@ -18,6 +33,12 @@ interface DateRangePickerProps {
   onEndChange: (value: string) => void;
   minDate?: Date;
   maxDate?: Date;
+  /**
+   * The calendar footer. Unset = the parking sentence from windowNoteText()
+   * (today's footer, exactly); null = no footer; a string = that sentence,
+   * for a picker whose limits aren't parking's.
+   */
+  windowNote?: string | null;
   children: (props: {
     startTriggerProps: TriggerProps;
     endTriggerProps: TriggerProps;
@@ -31,6 +52,7 @@ export function DateRangePicker({
   onEndChange,
   minDate,
   maxDate,
+  windowNote,
   children,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
@@ -123,6 +145,8 @@ export function DateRangePicker({
     modifiersClassNames.inRange = "!bg-brand-orange/10 !text-gray-900";
   }
 
+  const note = resolveWindowNote(windowNote, maxDate, new Date());
+
   // Virtual anchor — positions popover near the start trigger button
   const virtualRef = useRef<{ getBoundingClientRect: () => DOMRect }>({
     getBoundingClientRect: () =>
@@ -171,11 +195,9 @@ export function DateRangePicker({
             modifiers={modifiers}
             modifiersClassNames={modifiersClassNames}
           />
-          {maxDate && (
+          {note && (
             <p className="px-3 pb-3 pt-1 text-center text-xs text-gray-500">
-              Reservations open up to{" "}
-              {differenceInCalendarDays(maxDate, startOfDay(new Date()))} days in
-              advance.
+              {note}
             </p>
           )}
         </PopoverPrimitive.Content>

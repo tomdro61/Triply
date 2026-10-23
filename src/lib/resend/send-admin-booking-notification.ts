@@ -1,5 +1,5 @@
 import { resend, FROM_EMAIL } from "./client";
-import { ADMIN_EMAILS } from "@/config/admin";
+import { ALERT_EMAILS } from "@/config/admin";
 import { captureBookingError } from "@/lib/sentry";
 import { escapeHtml } from "@/lib/validation/schemas";
 import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
@@ -125,7 +125,7 @@ export async function sendAdminBookingNotification({
 
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
-      to: ADMIN_EMAILS,
+      to: ALERT_EMAILS,
       subject: `New Booking - ${confirmationNumber} | ${lotName}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">

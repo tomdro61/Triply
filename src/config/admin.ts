@@ -7,6 +7,24 @@ export const ADMIN_EMAILS = (
   .split(",")
   .map((e) => e.trim().toLowerCase());
 
+const emailList = (value: string) =>
+  value
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+// Who receives the team alert emails (New Booking, contact form). Separate
+// from ADMIN_EMAILS, the login list: an account can sign in to /admin without
+// getting a copy of every alert (Tom, 2026-10-22 — Resend's daily cap).
+export const ALERT_EMAILS = emailList(
+  process.env.ALERT_EMAILS || "vin@triplypro.com,john@triplypro.com,tom@triplypro.com"
+);
+
+// Who receives the payment monitor (reconciliation) alerts.
+export const PAYMENT_ALERT_EMAILS = emailList(
+  process.env.PAYMENT_ALERT_EMAILS || "vin@triplypro.com,tom@triplypro.com"
+);
+
 // Test ResLab location IDs. Bookings against these lots are always test
 // regardless of customer email. Kept in sync with the `isTest: true`
 // entries in src/config/airports.ts.

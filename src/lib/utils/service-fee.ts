@@ -11,6 +11,19 @@
  *   TRIPLY_SERVICE_FEE_MIN      – default 5.95
  */
 
+import type { UnifiedLot } from "@/types/lot";
+
+/** Shown beside every fee-inclusive total — one string so the cards, the lot
+ *  page and the slider can't drift apart. */
+export const TAXES_AND_FEES_INCLUDED = "Taxes & fees included";
+
+/** The pricing fields the customer total is built from — tied to the lot type,
+ *  so renaming one of them fails the build instead of blanking every price. */
+export type PricingTotals = Pick<
+  NonNullable<UnifiedLot["pricing"]>,
+  "grandTotal" | "subtotal" | "feesTotal" | "taxTotal" | "numberOfDays"
+>;
+
 const FEE_PERCENT = parseFloat(process.env.TRIPLY_SERVICE_FEE_PERCENT || "6");
 const FEE_MIN = parseFloat(process.env.TRIPLY_SERVICE_FEE_MIN || "5.95");
 
@@ -25,20 +38,34 @@ export function calculateServiceFee(parkingBase: number): number {
 }
 
 /**
- * Customer-facing total (what they'll be charged), given a lot's pricing object.
+ * Customer total for the stay that was priced: the grand total (ResLab's, or a
+ * direct lot's quote — tax and ResLab fees included, including any part paid at
+ * the lot) plus our service fee. Optional Park Guard and promo codes are not in
+ * it, nor a direct lot's oversized-vehicle surcharge collected at the gate.
  * Prefers subtotal + feesTotal as the parking base; falls back to grandTotal − taxTotal.
  * Returns null if there isn't enough data to compute.
  */
-export function customerTotalFromPricing(pricing: {
-  grandTotal?: number;
-  subtotal?: number;
-  feesTotal?: number;
-  taxTotal?: number;
-} | undefined): number | null {
+export function customerTotalFromPricing(
+  pricing: Omit<PricingTotals, "numberOfDays"> | undefined
+): number | null {
   if (!pricing?.grandTotal) return null;
   const parkingBase =
     pricing.subtotal !== undefined
       ? pricing.subtotal + (pricing.feesTotal || 0)
       : pricing.grandTotal - (pricing.taxTotal || 0);
   return pricing.grandTotal + calculateServiceFee(parkingBase);
+}
+
+/**
+ * The customer total spread over the billed days (ResLab's `number_of_days`,
+ * or `directDays` for a direct lot) — the per-day figure shown beside the
+ * total, so both include taxes and fees. Null without a total or a billed-day
+ * count: never fall back to `minPrice`, which is a pre-tax daily rate without
+ * our service fee.
+ */
+export function customerPerDayFromPricing(pricing: PricingTotals | undefined): number | null {
+  const total = customerTotalFromPricing(pricing);
+  const days = pricing?.numberOfDays;
+  if (total === null || !days || days <= 0) return null;
+  return total / days;
 }

@@ -7,7 +7,8 @@ interface PriceMarkerProps {
   id: string;
   longitude: number;
   latitude: number;
-  price: number;
+  /** Per-day price to label the pin with; null shows the pin without a label. */
+  price: number | null;
   isHovered: boolean;
   onHover: (id: string | null) => void;
   onClick: () => void;
@@ -34,35 +35,44 @@ export function PriceMarker({
       }}
     >
       <div
-        className={`cursor-pointer transition-all duration-300 ${
+        className={`cursor-pointer origin-bottom transition-all duration-300 ${
           isHovered ? "scale-110" : ""
         }`}
         onMouseEnter={() => onHover(id)}
         onMouseLeave={() => onHover(null)}
       >
+        {/* The price tag IS the marker; its pointer marks the lot (anchor="bottom").
+            A lot with no price to show keeps a plain pin so it stays on the map. */}
         <div className="relative flex flex-col items-center group">
-          <div
-            className={`px-3 py-1.5 rounded-lg shadow-md font-bold text-xs whitespace-nowrap mb-1 transition-colors border ${
-              isHovered
-                ? "bg-brand-dark text-white border-brand-dark"
-                : "bg-white text-gray-900 border-gray-200"
-            }`}
-          >
-            ${price.toFixed(2)}
-          </div>
-          <div
-            className={`w-3 h-3 rotate-45 transform -mt-2.5 ${
-              isHovered ? "bg-brand-dark" : "bg-white"
-            } border-r border-b border-gray-200`}
-          />
-          <MapPin
-            size={isHovered ? 28 : 24}
-            className={`drop-shadow-md -mt-1 transition-colors ${
-              isHovered
-                ? "text-brand-orange fill-brand-orange"
-                : "text-brand-blue fill-brand-blue"
-            }`}
-          />
+          {price !== null ? (
+            <>
+              <div
+                className={`px-3 py-1.5 rounded-lg shadow-md font-bold text-xs whitespace-nowrap mb-1 transition-colors border ${
+                  // Navy tag, orange when hovered/selected: a white tag disappeared
+                  // into Mapbox Standard's pale background.
+                  isHovered
+                    ? "bg-brand-orange text-white border-brand-orange"
+                    : "bg-brand-dark text-white border-brand-dark"
+                }`}
+              >
+                ${price.toFixed(2)}
+              </div>
+              <div
+                className={`w-3 h-3 rotate-45 transform -mt-2.5 border-r border-b ${
+                  isHovered ? "bg-brand-orange border-brand-orange" : "bg-brand-dark border-brand-dark"
+                }`}
+              />
+            </>
+          ) : (
+            <MapPin
+              size={isHovered ? 28 : 24}
+              className={`drop-shadow-md transition-colors ${
+                isHovered
+                  ? "text-brand-orange fill-brand-orange"
+                  : "text-brand-dark fill-brand-dark"
+              }`}
+            />
+          )}
         </div>
       </div>
     </Marker>
