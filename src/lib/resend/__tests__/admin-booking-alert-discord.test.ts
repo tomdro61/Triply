@@ -25,6 +25,8 @@ const base = {
 
 const fetchMock = vi.fn();
 const posted = () => JSON.parse(fetchMock.mock.calls[0][1].body as string);
+/** What Discord answers to ?wait=true when it saved the message. */
+const saved = () => new Response(JSON.stringify({ id: "1300000000000000000" }), { status: 200 });
 
 beforeEach(() => {
   send.mockReset().mockResolvedValue({ data: { id: "em_admin" }, error: null });
@@ -40,12 +42,12 @@ afterEach(() => {
 });
 
 describe("New Booking alert → Discord, email as the fallback", () => {
-  it("posts to the webhook and sends NO email when Discord accepts it", async () => {
-    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+  it("posts to the webhook (?wait=true) and sends NO email when Discord saved the message", async () => {
+    fetchMock.mockResolvedValue(saved());
     const r = await sendAdminBookingNotification(base);
     expect(r).toEqual({ success: true, channel: "discord" });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][0]).toBe(HOOK);
+    expect(fetchMock.mock.calls[0][0]).toBe(`${HOOK}?wait=true`);
     expect(send).not.toHaveBeenCalled();
     expect(captureBookingError).not.toHaveBeenCalled();
     const body = posted();
@@ -54,7 +56,7 @@ describe("New Booking alert → Discord, email as the fallback", () => {
   });
 
   it("the post carries the customer's name but never their email, phone or vehicle", async () => {
-    fetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+    fetchMock.mockResolvedValue(saved());
     await sendAdminBookingNotification(base);
     const text = JSON.stringify(posted());
     expect(text).toContain("Ada Lovelace");
@@ -71,6 +73,33 @@ describe("New Booking alert → Discord, email as the fallback", () => {
     expect(r).toMatchObject({ success: true, emailId: "em_admin" });
     expect(captureBookingError).toHaveBeenCalledTimes(1);
     expect(String(captureBookingError.mock.calls[0][0].message)).toMatch(/RTL870500 \(500: .+\) — emailed instead/);
+  });
+
+  it("a 2xx without a saved message (204, or 200 without an id) → emailed instead, reported", async () => {
+    for (const reply of [new Response(null, { status: 204 }), new Response("{}", { status: 200 }), new Response("<html>", { status: 200 })]) {
+      send.mockClear();
+      captureBookingError.mockClear();
+      fetchMock.mockResolvedValueOnce(reply);
+      await sendAdminBookingNotification(base);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(captureBookingError).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  it("a webhook pasted without https:// → no fetch, emailed, and the secret never reaches Sentry", async () => {
+    vi.stubEnv("DISCORD_BOOKING_ALERTS_WEBHOOK_URL", "discord.example/api/webhooks/1/secret");
+    await sendAdminBookingNotification(base);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(captureBookingError).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(captureBookingError.mock.calls)).not.toContain("secret");
+  });
+
+  it("a fetch error that quotes the URL is redacted before it is reported", async () => {
+    fetchMock.mockRejectedValue(new Error(`request to ${HOOK}?wait=true failed`));
+    await sendAdminBookingNotification(base);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify(captureBookingError.mock.calls)).not.toContain("secret");
   });
 
   it("a rate limit (429) → emailed instead, no sleep", async () => {

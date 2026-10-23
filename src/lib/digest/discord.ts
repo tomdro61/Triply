@@ -43,6 +43,28 @@ export interface PostOptions {
   allowedMentions?: { parse: Array<"everyone" | "users" | "roles"> };
   /** Per-attempt timeout. Default 8 s; the booking alert uses less because a booking waits on it. */
   timeoutMs?: number;
+  /**
+   * Count the post as delivered only when Discord says it SAVED the message:
+   * sent with `?wait=true`, success = 200 with a message `id`. Without it a 204
+   * is success, and Discord's docs say an unsaved message can still return no
+   * error — fine for the digest, not for an alert whose fallback is email.
+   */
+  requireMessageId?: boolean;
+}
+
+function withWait(webhookUrl: string): string {
+  const url = new URL(webhookUrl);
+  url.searchParams.set("wait", "true");
+  return url.toString();
+}
+
+function savedMessage(res: Response, text: string): boolean {
+  if (res.status !== 200) return false;
+  try {
+    return typeof (JSON.parse(text) as { id?: unknown }).id === "string";
+  } catch {
+    return false;
+  }
 }
 
 export async function postToDiscord(webhookUrl: string, embed: Embed, opts: PostOptions): Promise<PostResult> {
@@ -60,9 +82,21 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
     embeds: [embed],
   });
 
+  let target = webhookUrl;
+  if (opts.requireMessageId) {
+    try {
+      target = withWait(webhookUrl);
+    } catch {
+      // Never echo the URL: it is a secret (Node's fetch puts it in its parse error).
+      return { kind: "failed", status: null, body: "webhook URL is not a valid URL", retried: false };
+    }
+  }
+  const delivered = (res: Response, text: string) =>
+    opts.requireMessageId ? savedMessage(res, text) : res.ok || res.status === 204;
+
   const attempt = async (): Promise<{ res: Response; text: string } | { error: string }> => {
     try {
-      const res = await f(webhookUrl, {
+      const res = await f(target, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body,
@@ -77,7 +111,9 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
 
   const first = await attempt();
   if ("error" in first) return { kind: "failed", status: null, body: first.error, retried: false };
-  if (first.res.ok || first.res.status === 204) return { kind: "posted", status: first.res.status, retried: false };
+  if (delivered(first.res, first.text)) return { kind: "posted", status: first.res.status, retried: false };
+  // Not the reply itself: with wait=true it echoes the message, customer text included.
+  if (first.res.ok) return { kind: "failed", status: first.res.status, body: `no saved message in the reply (${first.text.length} bytes)`, retried: false };
 
   const retryable = first.res.status === 429 || first.res.status >= 500;
   if (!retryable) return { kind: "failed", status: first.res.status, body: first.text.slice(0, 300), retried: false };
@@ -92,6 +128,6 @@ export async function postToDiscord(webhookUrl: string, embed: Embed, opts: Post
   await sleep(wait);
   const second = await attempt();
   if ("error" in second) return { kind: "failed", status: null, body: second.error, retried: true };
-  if (second.res.ok || second.res.status === 204) return { kind: "posted", status: second.res.status, retried: true };
+  if (delivered(second.res, second.text)) return { kind: "posted", status: second.res.status, retried: true };
   return { kind: "failed", status: second.res.status, body: second.text.slice(0, 300), retried: true };
 }

@@ -156,7 +156,7 @@ export function bookingAlertEmbed(p: AdminBookingNotificationParams): Embed {
   const where = `${plain(p.lotName)}${p.airportCode ? ` (${plain(p.airportCode, 10)})` : ""}`;
   const money = moneyLines(p).map((l) => `${plain(l.label, 120)}: **${plain(l.value, 120)}**`).join("\n");
   const fields: Embed["fields"] = [
-    { name: "Location", value: p.lotAddress.trim() ? `${where}\n${plain(p.lotAddress)}` : where },
+    { name: "Location", value: (p.lotAddress.trim() ? `${where}\n${plain(p.lotAddress)}` : where).slice(0, 1024) },
     { name: "Check-in", value: plain(p.checkInDate, 40) || "—", inline: true },
     { name: "Check-out", value: plain(p.checkOutDate, 40) || "—", inline: true },
     { name: "Money", value: money.slice(0, 1024) || "—" },
@@ -183,23 +183,28 @@ export function bookingAlertEmbed(p: AdminBookingNotificationParams): Embed {
 export async function sendAdminBookingNotification(params: AdminBookingNotificationParams) {
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
   if (webhookUrl) {
+    // The webhook URL is a secret: keep it out of anything reported.
+    // The token (last path segment) too, in case an error quotes a normalised form of the URL.
+    const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;
+    const redact = (text: string) => text.split(webhookUrl).join("<webhook>").split(token).join("<token>");
     try {
       const res = await postToDiscord(webhookUrl, bookingAlertEmbed(params), {
         remainingBudgetMs: 0, // no retry: a booking is waiting, and email is the fallback
         username: DISCORD_USERNAME,
         timeoutMs: DISCORD_TIMEOUT_MS,
+        requireMessageId: true, // a 204 can hide an unsaved message; only a saved one skips the email
       });
       if (res.kind === "posted") return { success: true, channel: "discord" as const };
       captureBookingError(
         new Error(
-          `Booking alert Discord post failed for ${params.confirmationNumber} (${res.status ?? "no response"}: ${res.body}) — emailed instead`
+          `Booking alert Discord post failed for ${params.confirmationNumber} (${res.status ?? "no response"}: ${redact(res.body)}) — emailed instead`
         ),
         { step: "checkout", airportCode: params.airportCode }
       );
     } catch (err) {
       captureBookingError(
         new Error(
-          `Booking alert Discord post threw for ${params.confirmationNumber}: ${err instanceof Error ? err.message : String(err)} — emailed instead`
+          `Booking alert Discord post threw for ${params.confirmationNumber}: ${redact(err instanceof Error ? err.message : String(err))} — emailed instead`
         ),
         { step: "checkout", airportCode: params.airportCode }
       );
