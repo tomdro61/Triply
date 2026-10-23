@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { linkDate } from "@/lib/utils/link-date";
+import { linkDates } from "@/lib/utils/link-date";
 import { validateSearchDates } from "@/lib/booking-window";
 import { Map, List } from "lucide-react";
 import { Navbar } from "@/components/shared";
@@ -30,22 +30,24 @@ function SearchPageContent() {
   const searchParams = useSearchParams();
   const parkStayAccess = useParkStayAccess();
   // What was SEARCHED (the URL), never the header's unsubmitted edits.
-  const urlSearch = { airport: searchParams.get("airport"), checkin: searchParams.get("checkin"), checkout: searchParams.get("checkout") };
+  // A link's dates: a date-time keeps its date; anything unreadable reads as no
+  // date, and an unreadable check-in drops the check-out too (see linkDates —
+  // the raw values crashed the date fields before, TRIPLY-2D).
+  const linked = linkDates(searchParams.get("checkin") ?? undefined, searchParams.get("checkout") ?? undefined);
+  const urlSearch = { airport: searchParams.get("airport"), checkin: linked.checkin ?? null, checkout: linked.checkout ?? null };
   const parkStay =
     parkStayAccess.status === "visible" && isParkStayAirport(parkStayAccess.data, urlSearch.airport) ? parkStayAccess.data : null;
 
   // Get initial values from URL params
   const initialAirport = searchParams.get("airport") || "JFK";
-  // linkDate: a link's date-time keeps its date; anything unreadable reads as
-  // no date (it crashed the date fields before — see TRIPLY-2D).
   const initialCheckin =
-    linkDate(searchParams.get("checkin") ?? undefined) ||
+    linked.checkin ||
     new Date().toISOString().split("T")[0];
   // A reversed range in the URL (bookmark, shared link, hand-edited) is NOT
   // rewritten here — that would silently search a different range than the
   // customer asked for. fetchResults refuses it with a "Check your dates" state.
   const initialCheckout =
-    linkDate(searchParams.get("checkout") ?? undefined) ||
+    linked.checkout ||
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   // State

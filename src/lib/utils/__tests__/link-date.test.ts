@@ -45,12 +45,32 @@ describe("lotLinkQuery (what the lot page reads from its link)", () => {
   it("TRIPLY-2D's link → clean dates; times passed through", () => {
     expect(
       lotLinkQuery({ checkin: "2026-12-05T18:00", checkout: "2026-12-14T02:00", checkinTime: "6:00 PM", checkoutTime: undefined })
-    ).toEqual({ checkin: "2026-12-05", checkout: "2026-12-14", checkinTime: "6:00 PM", checkoutTime: undefined });
+    ).toEqual({ checkin: "2026-12-05", checkout: "2026-12-14", checkinTime: "6:00 PM", checkoutTime: undefined, ignored: [] });
   });
 
   it("repeated params of any kind → absent", () => {
     expect(
       lotLinkQuery({ checkin: ["2026-12-05", "x"], checkout: ["a", "b"], checkinTime: ["6:00 PM", "7:00 PM"], checkoutTime: ["1:00 PM"] })
-    ).toEqual({ checkin: undefined, checkout: undefined, checkinTime: undefined, checkoutTime: undefined });
+    ).toEqual({ checkin: undefined, checkout: undefined, checkinTime: undefined, checkoutTime: undefined, ignored: ["checkin", "checkout"] });
+  });
+
+  it("an unreadable check-in drops the check-out too (never half a range)", () => {
+    expect(lotLinkQuery({ checkin: "2026-12-05T18:00Z", checkout: "2026-12-14" })).toMatchObject({
+      checkin: undefined,
+      checkout: undefined,
+      ignored: ["checkin"],
+    });
+  });
+
+  it("an unreadable check-out alone keeps the check-in", () => {
+    expect(lotLinkQuery({ checkin: "2026-12-05", checkout: "garbage" })).toMatchObject({
+      checkin: "2026-12-05",
+      checkout: undefined,
+      ignored: ["checkout"],
+    });
+  });
+
+  it("absent params aren't 'ignored'", () => {
+    expect(lotLinkQuery({}).ignored).toEqual([]);
   });
 });

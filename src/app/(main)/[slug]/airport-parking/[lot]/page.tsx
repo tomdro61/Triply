@@ -129,7 +129,12 @@ function UnavailableState({ backUrl }: { backUrl: string }) {
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
   // Malformed or repeated link params read as absent (see lotLinkQuery).
-  const { checkin, checkout, checkinTime, checkoutTime } = lotLinkQuery(await searchParams);
+  const query = await searchParams;
+  const { checkin, checkout, checkinTime, checkoutTime, ignored } = lotLinkQuery(query);
+  if (ignored.length > 0) {
+    // Which sites send links we can't read (TRIPLY-2D). Body only, not generateMetadata.
+    console.warn(`[lot-page] ignored link date(s) ${ignored.join(", ")}`, { slug, lot: lotSlug, checkin: query.checkin, checkout: query.checkout });
+  }
 
   // Validate airport slug
   const airport = getAirportBySlug(slug);

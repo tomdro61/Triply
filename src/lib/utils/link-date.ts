@@ -32,13 +32,26 @@ export function linkDate(value: LinkParam): string | undefined {
 /**
  * The lot page's link params, safe to use: dates through linkDate, times only
  * when they're a single string (the widget and pricing check the value itself).
+ * An unreadable check-in drops the check-out too: half a link's range would be
+ * a stay the customer never asked for (tomorrow → their check-out).
+ * `ignored` names the params that were present but unreadable, for logging.
  */
 export function lotLinkQuery(query: Partial<Record<"checkin" | "checkout" | "checkinTime" | "checkoutTime", LinkParam>>) {
   const single = (v: LinkParam) => (typeof v === "string" ? v : undefined);
+  const dates = linkDates(query.checkin, query.checkout);
   return {
-    checkin: linkDate(query.checkin),
-    checkout: linkDate(query.checkout),
+    ...dates,
     checkinTime: single(query.checkinTime),
     checkoutTime: single(query.checkoutTime),
   };
+}
+
+/** Both link dates, by lotLinkQuery's rule (shared with /search). */
+export function linkDates(rawCheckin: LinkParam, rawCheckout: LinkParam) {
+  const checkin = linkDate(rawCheckin);
+  const checkinUnreadable = rawCheckin !== undefined && rawCheckin !== "" && checkin === undefined;
+  const readCheckout = linkDate(rawCheckout);
+  const checkoutUnreadable = rawCheckout !== undefined && rawCheckout !== "" && readCheckout === undefined;
+  const ignored = [...(checkinUnreadable ? ["checkin"] : []), ...(checkoutUnreadable ? ["checkout"] : [])];
+  return { checkin, checkout: checkinUnreadable ? undefined : readCheckout, ignored };
 }
