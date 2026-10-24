@@ -446,3 +446,17 @@ export function trackCheckoutPaymentInitFailed(params: { reason: string; status?
 export function trackCheckoutBack(fromStep: string) {
   sendCheckoutEvent("checkout_back", { checkout_step: fromStep });
 }
+
+/**
+ * Track a post-trip review submitted from /review/[token] (the optional form,
+ * not the bare star tap). rating 1–5; airport_code only when it is an airport
+ * we sell.
+ */
+export function trackReviewSubmitted(params: { rating: number; airportCode: string | null }) {
+  if (typeof window !== "undefined" && window.gtag) {
+    window.gtag("event", "review_submitted", {
+      rating: params.rating,
+      airport_code: params.airportCode || undefined,
+    });
+  }
+}
