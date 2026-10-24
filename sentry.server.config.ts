@@ -24,7 +24,9 @@ Sentry.init({
   enableLogs: true,
 
   // Credentials that travel in URLs (the review link /review/{token}, unsubscribe
-  // ?token=) never leave the server, in errors or traces (src/lib/sentry-scrub.ts).
+  // ?token=, Discord webhook tokens) never leave the server, in errors or traces
+  // (src/lib/sentry-scrub.ts).
   beforeSend: (event) => scrubEventCredentials(event),
   beforeSendTransaction: (event) => scrubEventCredentials(event),
+  beforeSendLog: (log) => scrubEventCredentials(log),
 });

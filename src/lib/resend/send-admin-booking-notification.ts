@@ -4,6 +4,8 @@ import { captureBookingError } from "@/lib/sentry";
 import { escapeHtml } from "@/lib/validation/schemas";
 import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "./anchored-fallback";
+import { isDiscordWebhookUrl, postToDiscord } from "@/lib/digest/discord";
+import type { Embed } from "@/lib/digest/render";
 
 interface AdminBookingNotificationParams {
   confirmationNumber: string;
@@ -48,43 +50,174 @@ function moneyRow(label: string, value: string, valueStyle = ""): string {
               </tr>`;
 }
 
+/** One money line, shared by the email (as a table row) and the Discord post (as a text line). */
+interface MoneyLine {
+  label: string;
+  value: string;
+  /** Email-only CSS appended to the value cell. */
+  style?: string;
+}
+
+const STRONG = " color: #f87356; font-size: 16px; font-weight: 700;";
+const DUE = " color: #d97706; font-weight: 600;";
+
 /**
  * A breakdown was attempted and did not add up, but the charge is known: the
  * charge, the protection in it, the due-at-location amount only when it can
  * be stated, plus WHY the breakdown was withheld — never a total re-added from
  * the rejected parts.
  */
-function anchoredFallbackRows(f: AnchoredFallback, direct: boolean): string {
-  const rows = [moneyRow("Charged to card", formatUsd(f.chargedCents), " color: #f87356; font-size: 16px; font-weight: 700;")];
-  if (f.protection) rows.push(moneyRow(`Parking Protection — ${f.protection.label} (incl.)`, formatUsd(f.protection.premiumCents)));
+function anchoredFallbackLines(f: AnchoredFallback, direct: boolean): MoneyLine[] {
+  const lines: MoneyLine[] = [{ label: "Charged to card", value: formatUsd(f.chargedCents), style: STRONG }];
+  if (f.protection) lines.push({ label: `Parking Protection — ${f.protection.label} (incl.)`, value: formatUsd(f.protection.premiumCents) });
   const dueLabel = direct ? "Due at the lot (est.)" : "Due at location";
   if (f.due.kind === "amount") {
-    rows.push(moneyRow(dueLabel, formatUsd(f.due.cents), " color: #d97706; font-weight: 600;"));
+    lines.push({ label: dueLabel, value: formatUsd(f.due.cents), style: DUE });
   } else if (f.due.kind === "unconfirmed") {
-    rows.push(moneyRow(dueLabel, "Unconfirmed — check the reservation", " color: #d97706; font-weight: 600;"));
+    lines.push({ label: dueLabel, value: "Unconfirmed — check the reservation", style: DUE });
   }
-  rows.push(moneyRow("Breakdown withheld", f.reason, " color: #6b7280;"));
-  return rows.join("");
+  lines.push({ label: "Breakdown withheld", value: f.reason, style: " color: #6b7280;" });
+  return lines;
 }
 
-/** The money rows from a cost breakdown — every amount from buildCostBreakdown, none computed here. */
-function breakdownRows(b: CostBreakdown): string {
-  const rows = b.lines.map((line) => moneyRow(line.label, formatUsd(line.cents, line.credit), line.credit ? " color: #15803d;" : ""));
-  const strong = " color: #f87356; font-size: 16px; font-weight: 700;";
-  rows.push(moneyRow(b.totalLabel, formatUsd(b.totalCents), strong));
+/** The money lines from a cost breakdown — every amount from buildCostBreakdown, none computed here. */
+function breakdownLines(b: CostBreakdown): MoneyLine[] {
+  const lines: MoneyLine[] = b.lines.map((line) => ({
+    label: line.label,
+    value: formatUsd(line.cents, line.credit),
+    style: line.credit ? " color: #15803d;" : "",
+  }));
+  lines.push({ label: b.totalLabel, value: formatUsd(b.totalCents), style: STRONG });
   if (b.dueAtLocationCents > 0) {
-    rows.push(moneyRow("Paid online (card)", formatUsd(b.paidOnlineCents)));
-    rows.push(moneyRow("Due at location", formatUsd(b.dueAtLocationCents), " color: #d97706; font-weight: 600;"));
+    lines.push({ label: "Paid online (card)", value: formatUsd(b.paidOnlineCents) });
+    lines.push({ label: "Due at location", value: formatUsd(b.dueAtLocationCents), style: DUE });
   }
   if (b.atLot !== null) {
-    rows.push(moneyRow(`Due at the lot (est., ${b.atLot.vehicleSizeLabel})`, formatUsd(b.atLot.cents), " color: #d97706; font-weight: 600;"));
-    if (b.tripTotalCents !== null) rows.push(moneyRow("Trip total (est.)", formatUsd(b.tripTotalCents)));
+    lines.push({ label: `Due at the lot (est., ${b.atLot.vehicleSizeLabel})`, value: formatUsd(b.atLot.cents), style: DUE });
+    if (b.tripTotalCents !== null) lines.push({ label: "Trip total (est.)", value: formatUsd(b.tripTotalCents) });
   }
   if (b.netPaidCents !== null) {
-    rows.push(moneyRow("Refunded", formatUsd(b.refundedCents, true)));
-    rows.push(moneyRow("Net paid", formatUsd(b.netPaidCents)));
+    lines.push({ label: "Refunded", value: formatUsd(b.refundedCents, true) });
+    lines.push({ label: "Net paid", value: formatUsd(b.netPaidCents) });
   }
-  return rows.join("");
+  return lines;
+}
+
+/** No breakdown attempted: Total / Protection / Paid Online / Due at Location, as before the breakdown. */
+function plainLines(p: AdminBookingNotificationParams): MoneyLine[] {
+  const lines: MoneyLine[] = [{ label: "Total", value: `$${p.totalAmount.toFixed(2)}`, style: STRONG }];
+  // Pair the protection plan name and formatted price together so the line can
+  // never half-render (name-without-price or price-without-name). Mirrors
+  // booking-confirmation.tsx.
+  if (p.protectionPlan && p.protectionPlanPrice != null && p.protectionPlanPrice > 0) {
+    lines.push({ label: "Parking Protection", value: `${p.protectionPlan} — $${p.protectionPlanPrice.toFixed(2)}`, style: " font-weight: 600;" });
+  }
+  if (p.dueAtLocation && p.dueAtLocation > 0) {
+    lines.push({ label: "Paid Online", value: `$${(p.totalAmount - p.dueAtLocation).toFixed(2)}` });
+    lines.push({ label: "Due at Location", value: `$${p.dueAtLocation.toFixed(2)}`, style: DUE });
+  }
+  return lines;
+}
+
+function moneyLines(p: AdminBookingNotificationParams): MoneyLine[] {
+  if (p.breakdown?.ok) return breakdownLines(p.breakdown);
+  if (p.breakdown && p.anchoredFallback) return anchoredFallbackLines(p.anchoredFallback, p.sourceLine !== undefined);
+  return plainLines(p);
+}
+
+// ---------------------------------------------------------------------------
+// Discord (private #booking-alerts channel)
+// ---------------------------------------------------------------------------
+
+const ADMIN_BOOKINGS_URL = "https://www.triplypro.com/admin/bookings";
+const DISCORD_USERNAME = "Triply Bookings";
+/** A booking waits on this post (fulfilment awaits the alert), so keep it short; no retry — email is the fallback. */
+const DISCORD_TIMEOUT_MS = 4_000;
+const BRAND_CORAL = 0xf87356;
+
+/**
+ * Free text (customer name, lot name, labels) as plain Discord text: markdown
+ * escaped so a name can't become a masked link ("[View](https://…)") or a
+ * heading, whitespace collapsed to one line, clipped to Discord's limits.
+ * Mentions inside an embed never ping, so "@everyone" needs nothing.
+ */
+function plain(text: string, max = 300): string {
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  const clipped = oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine;
+  return clipped.replace(/([\\`*_~|>[\]()])/g, "\\$1").replace(/^([#-])/, "\\$1");
+}
+
+/**
+ * The alert as one Discord embed. Deliberately leaves out the customer's email,
+ * phone and vehicle: the channel is private, but those are one click away in
+ * the admin, so they don't need to live in Discord too.
+ */
+export function bookingAlertEmbed(p: AdminBookingNotificationParams): Embed {
+  const where = `${plain(p.lotName)}${p.airportCode ? ` (${plain(p.airportCode, 10)})` : ""}`;
+  const money = moneyLines(p).map((l) => `${plain(l.label, 120)}: **${plain(l.value, 120)}**`).join("\n");
+  const fields: Embed["fields"] = [
+    { name: "Location", value: (p.lotAddress.trim() ? `${where}\n${plain(p.lotAddress)}` : where).slice(0, 1024) },
+    { name: "Check-in", value: plain(p.checkInDate, 40) || "—", inline: true },
+    { name: "Check-out", value: plain(p.checkOutDate, 40) || "—", inline: true },
+    { name: "Money", value: money.slice(0, 1024) || "—" },
+    { name: "Customer", value: plain(p.customerName, 120) || "—" },
+  ];
+  if (p.vehicleDeclaration) fields.push({ name: "Vehicle size", value: plain(p.vehicleDeclaration) });
+  if (p.sourceLine) fields.push({ name: "Source", value: plain(p.sourceLine) });
+  return {
+    title: `New booking — ${plain(p.confirmationNumber, 60)}`,
+    description: `[View in Dashboard](${ADMIN_BOOKINGS_URL})`,
+    color: BRAND_CORAL,
+    fields,
+    footer: { text: "Triply booking alert · email, phone and vehicle are in the admin" },
+  };
+}
+
+/**
+ * The team's New Booking alert. With DISCORD_BOOKING_ALERTS_WEBHOOK_URL set it
+ * is posted to the private #booking-alerts channel instead of emailed (Resend's
+ * free plan caps sends at 100 a day, and these copies were a third of them).
+ * When that post fails, or the variable is unset, the alert is emailed to
+ * ALERT_EMAILS exactly as before — an alert is never dropped. Never throws.
+ */
+export async function sendAdminBookingNotification(params: AdminBookingNotificationParams) {
+  const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
+  if (webhookUrl && !isDiscordWebhookUrl(webhookUrl)) {
+    // Never fetched: a malformed value could carry the token where the Sentry
+    // scrubber doesn't recognise it. Fixed text only — never the value.
+    captureBookingError(
+      new Error(`DISCORD_BOOKING_ALERTS_WEBHOOK_URL is not a Discord webhook URL — ${params.confirmationNumber} emailed instead`),
+      { step: "checkout", airportCode: params.airportCode }
+    );
+  } else if (webhookUrl) {
+    // The webhook URL is a secret: keep it out of anything reported.
+    // The token (last path segment) too, in case an error quotes a normalised form of the URL.
+    const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;
+    const redact = (text: string) => text.split(webhookUrl).join("<webhook>").split(token).join("<token>");
+    try {
+      const res = await postToDiscord(webhookUrl, bookingAlertEmbed(params), {
+        remainingBudgetMs: 0, // no retry: a booking is waiting, and email is the fallback
+        username: DISCORD_USERNAME,
+        timeoutMs: DISCORD_TIMEOUT_MS,
+        requireMessageId: true, // a 204 can hide an unsaved message; only a saved one skips the email
+      });
+      if (res.kind === "posted") return { success: true, channel: "discord" as const };
+      captureBookingError(
+        new Error(
+          `Booking alert Discord post failed for ${params.confirmationNumber} (${res.status ?? "no response"}: ${redact(res.body)}) — emailed instead`
+        ),
+        { step: "checkout", airportCode: params.airportCode }
+      );
+    } catch (err) {
+      captureBookingError(
+        new Error(
+          `Booking alert Discord post threw for ${params.confirmationNumber}: ${redact(err instanceof Error ? err.message : String(err))} — emailed instead`
+        ),
+        { step: "checkout", airportCode: params.airportCode }
+      );
+    }
+  }
+  return emailAdminBookingNotification(params);
 }
 
 /**
@@ -92,37 +225,22 @@ function breakdownRows(b: CostBreakdown): string {
  * URL-encoded): customer names, plates and makes are free text, and this email
  * goes to the team's inbox with a "View in Dashboard" link worth faking.
  */
-export async function sendAdminBookingNotification({
-  confirmationNumber,
-  customerName,
-  customerEmail,
-  customerPhone,
-  lotName,
-  lotAddress,
-  checkInDate,
-  checkOutDate,
-  totalAmount,
-  dueAtLocation,
-  vehicleInfo,
-  airportCode,
-  protectionPlan,
-  protectionPlanPrice,
-  sourceLine,
-  vehicleDeclaration,
-  breakdown,
-  anchoredFallback,
-}: AdminBookingNotificationParams) {
+async function emailAdminBookingNotification(params: AdminBookingNotificationParams) {
+  const {
+    confirmationNumber,
+    customerName,
+    customerEmail,
+    customerPhone,
+    lotName,
+    lotAddress,
+    checkInDate,
+    checkOutDate,
+    vehicleInfo,
+    airportCode,
+    sourceLine,
+    vehicleDeclaration,
+  } = params;
   try {
-    const paidOnline = dueAtLocation ? totalAmount - dueAtLocation : totalAmount;
-    // Pair the protection plan name and formatted price together so the
-    // gated render block can never half-render (block-without-price or
-    // price-without-block). Mirrors booking-confirmation.tsx.
-    const protectionPriceText =
-      !!protectionPlan && protectionPlanPrice != null && protectionPlanPrice > 0
-        ? protectionPlanPrice.toFixed(2)
-        : null;
-    const hasProtection = protectionPriceText !== null;
-
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
       to: ALERT_EMAILS,
@@ -157,28 +275,7 @@ export async function sendAdminBookingNotification({
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Check-out</td>
                 <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(checkOutDate)}</td>
               </tr>
-              ${breakdown?.ok ? breakdownRows(breakdown) : breakdown && anchoredFallback ? anchoredFallbackRows(anchoredFallback, sourceLine !== undefined) : `
-              <tr>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Total</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #f87356; font-size: 16px; font-weight: 700;">$${totalAmount.toFixed(2)}</td>
-              </tr>
-              ${hasProtection ? `
-              <tr>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Parking Protection</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px; font-weight: 600;">${escapeHtml(protectionPlan ?? "")} — $${protectionPriceText}</td>
-              </tr>
-              ` : ""}
-              ${dueAtLocation && dueAtLocation > 0 ? `
-              <tr>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Paid Online</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #111827; font-size: 14px;">$${paidOnline.toFixed(2)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 14px;">Due at Location</td>
-                <td style="padding: 10px 0; border-bottom: 1px solid #e5e7eb; color: #d97706; font-size: 14px; font-weight: 600;">$${dueAtLocation.toFixed(2)}</td>
-              </tr>
-              ` : ""}
-              `}
+              ${moneyLines(params).map((l) => moneyRow(l.label, l.value, l.style)).join("")}
             </table>
 
             <h2 style="margin: 0 0 16px; color: #111827; font-size: 18px; font-weight: 700;">Customer</h2>
