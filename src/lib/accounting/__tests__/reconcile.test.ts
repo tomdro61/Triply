@@ -58,7 +58,7 @@ vi.mock("@/lib/stripe/client", () => ({
   },
 }));
 
-import { reconcileRevenue } from "../reconcile";
+import { reconcileRevenue, STRIPE_RATE_LIMIT_MAX_ATTEMPTS } from "../reconcile";
 import { stripe } from "@/lib/stripe/client";
 
 const OPTS: ReconcileOptions = {
@@ -805,5 +805,85 @@ describe("reconcileRevenue — direct lots + recorded livemode", () => {
     // The real ResLab 404 stays visible, and the headline fails loud (null).
     expect(r.reslab.fetchErrors.some((e) => e.resNum === "RTL_LIVE404")).toBe(true);
     expect(r.triplyNet.total).toBeNull();
+  });
+});
+
+describe("Stripe 429 rate-limit retry (Oct 2026: 14 of 187 live PIs refused in one run)", () => {
+  const rateLimit = () => {
+    const err = new Error("Request rate limit exceeded.") as Error & {
+      type: string;
+      code: string;
+      statusCode: number;
+    };
+    err.type = "StripeRateLimitError";
+    err.code = "rate_limit";
+    err.statusCode = 429;
+    return err;
+  };
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.mocked(stripe.paymentIntents.retrieve).mockClear();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("retries a throttled read and still lands the real Stripe figures (no derived fallback)", async () => {
+    registerReservation("RTL_429");
+    registerLivePI("pi_429");
+    pushRow("RTL_429", "pi_429");
+    vi.mocked(stripe.paymentIntents.retrieve)
+      .mockRejectedValueOnce(rateLimit())
+      .mockRejectedValueOnce(rateLimit());
+
+    const pending = reconcileRevenue(OPTS);
+    await vi.runAllTimersAsync();
+    const r = await pending;
+
+    expect(vi.mocked(stripe.paymentIntents.retrieve)).toHaveBeenCalledTimes(3);
+    expect(r.stripeFetch.errors).toEqual([]);
+    expect(r.stripe.isDerived).toBe(false);
+    expect(r.stripeFetch.fetched).toBe(1);
+    // The fee came through, so net cash is computable.
+    expect(r.triplyNet.stripeProcessingFees).toBe(3);
+    expect(r.triplyNet.cashTotal).not.toBeNull();
+  });
+
+  it("gives up after the attempt cap and reports the row instead of hanging", async () => {
+    registerReservation("RTL_429X");
+    registerLivePI("pi_429x");
+    pushRow("RTL_429X", "pi_429x");
+    vi.mocked(stripe.paymentIntents.retrieve).mockRejectedValue(rateLimit());
+
+    const pending = reconcileRevenue(OPTS);
+    await vi.runAllTimersAsync();
+    const r = await pending;
+
+    expect(vi.mocked(stripe.paymentIntents.retrieve)).toHaveBeenCalledTimes(
+      STRIPE_RATE_LIMIT_MAX_ATTEMPTS
+    );
+    expect(r.stripeFetch.errors.map((e) => e.resNum)).toEqual(["RTL_429X"]);
+    expect(r.stripe.isDerived).toBe(true);
+    expect(r.triplyNet.cashTotal).toBeNull();
+    vi.mocked(stripe.paymentIntents.retrieve).mockReset();
+  });
+
+  it("does NOT retry a non-429 Stripe error", async () => {
+    registerReservation("RTL_ERR");
+    registerLivePI("pi_err");
+    pushRow("RTL_ERR", "pi_err");
+    const boom = new Error("An error occurred with our connection to Stripe.") as Error & {
+      type: string;
+    };
+    boom.type = "StripeConnectionError";
+    vi.mocked(stripe.paymentIntents.retrieve).mockRejectedValueOnce(boom);
+
+    const pending = reconcileRevenue(OPTS);
+    await vi.runAllTimersAsync();
+    const r = await pending;
+
+    expect(vi.mocked(stripe.paymentIntents.retrieve)).toHaveBeenCalledTimes(1);
+    expect(r.stripeFetch.errors.map((e) => e.resNum)).toEqual(["RTL_ERR"]);
   });
 });

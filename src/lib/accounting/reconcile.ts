@@ -36,6 +36,7 @@
  *   refunds, and dispute reversals all reflect correctly.
  */
 
+import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
 import { isAtTestLot, isTestBooking } from "@/config/admin";
@@ -52,6 +53,44 @@ export type { DateField, ReconcileOptions, BookingDetail, ReconcileResult, TakeR
 
 const RESLAB_CONCURRENCY = 5;
 const STRIPE_CONCURRENCY = 5;
+// Stripe throttles bursts of reads (HTTP 429 `rate_limit`) and the SDK does NOT
+// retry those on its own (only 409 / 5xx / connection errors). A busy month
+// (Oct 2026: 187 live PIs) had 14 of them refused, which forced the whole
+// month's Stripe side onto the derived fallback and withheld net cash. Retry a
+// throttled read with exponential backoff; anything else still fails fast.
+export const STRIPE_RATE_LIMIT_MAX_ATTEMPTS = 4;
+export const STRIPE_RATE_LIMIT_BACKOFF_MS = 400;
+
+function isStripeRateLimit(e: unknown): boolean {
+  const err = e as { type?: string; code?: string; statusCode?: number } | null;
+  return (
+    !!err &&
+    (err.type === "StripeRateLimitError" || err.code === "rate_limit" || err.statusCode === 429)
+  );
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** `stripe.paymentIntents.retrieve` with a bounded retry on 429 only. */
+async function retrievePaymentIntentWithRetry(id: string): Promise<Stripe.PaymentIntent> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await stripe.paymentIntents.retrieve(id, {
+        // Expand balance_transaction so we can read the original Stripe
+        // processing fee directly (no second API call). The fee value
+        // is the original capture fee — does NOT subtract fee refunds
+        // on cancelled charges (Stripe sometimes returns the fee for
+        // full refunds; capturing that requires summing the charge's
+        // full balance-transaction history, deferred for MVP).
+        expand: ["latest_charge.balance_transaction"],
+      });
+    } catch (e) {
+      if (!isStripeRateLimit(e) || attempt >= STRIPE_RATE_LIMIT_MAX_ATTEMPTS) throw e;
+      // 400, 800, 1600 ms (+ jitter): worst case ≈ 3 s per PI, well inside maxDuration.
+      await sleep(STRIPE_RATE_LIMIT_BACKOFF_MS * 2 ** (attempt - 1) + Math.random() * 100);
+    }
+  }
+}
 
 const DATE_COLUMN: Record<DateField, string> = {
   created: "created_at",
@@ -400,15 +439,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     return withConcurrency(rows, STRIPE_CONCURRENCY, async (b) => {
       if (!b.stripe_payment_intent_id) return { ...emptyStripe };
       try {
-        const pi = await stripe.paymentIntents.retrieve(b.stripe_payment_intent_id, {
-          // Expand balance_transaction so we can read the original Stripe
-          // processing fee directly (no second API call). The fee value
-          // is the original capture fee — does NOT subtract fee refunds
-          // on cancelled charges (Stripe sometimes returns the fee for
-          // full refunds; capturing that requires summing the charge's
-          // full balance-transaction history, deferred for MVP).
-          expand: ["latest_charge.balance_transaction"],
-        });
+        const pi = await retrievePaymentIntentWithRetry(b.stripe_payment_intent_id);
         const charge =
           pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
         const bt =
