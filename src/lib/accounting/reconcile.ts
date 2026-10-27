@@ -60,6 +60,12 @@ const STRIPE_CONCURRENCY = 5;
 // throttled read with exponential backoff; anything else still fails fast.
 export const STRIPE_RATE_LIMIT_MAX_ATTEMPTS = 4;
 export const STRIPE_RATE_LIMIT_BACKOFF_MS = 400;
+// Retries stop once this much of the run has elapsed, so a month Stripe keeps
+// refusing degrades to the derived fallback (as before this retry existed)
+// instead of running the route past its 60 s maxDuration into a 504. Each of
+// the 5 workers reads its rows in series: ~38 rows × ~3.7 s fully-throttled
+// would be ~140 s without this cap.
+export const STRIPE_RETRY_BUDGET_MS = 35_000;
 
 function isStripeRateLimit(e: unknown): boolean {
   const err = e as { type?: string; code?: string; statusCode?: number } | null;
@@ -71,8 +77,14 @@ function isStripeRateLimit(e: unknown): boolean {
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-/** `stripe.paymentIntents.retrieve` with a bounded retry on 429 only. */
-async function retrievePaymentIntentWithRetry(id: string): Promise<Stripe.PaymentIntent> {
+/**
+ * `stripe.paymentIntents.retrieve` with a bounded retry on 429 only. `deadline`
+ * (epoch ms) is the run-wide cutoff: no sleep may end after it.
+ */
+async function retrievePaymentIntentWithRetry(
+  id: string,
+  deadline: number
+): Promise<Stripe.PaymentIntent> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await stripe.paymentIntents.retrieve(id, {
@@ -86,8 +98,10 @@ async function retrievePaymentIntentWithRetry(id: string): Promise<Stripe.Paymen
       });
     } catch (e) {
       if (!isStripeRateLimit(e) || attempt >= STRIPE_RATE_LIMIT_MAX_ATTEMPTS) throw e;
-      // 400, 800, 1600 ms (+ jitter): worst case ≈ 3 s per PI, well inside maxDuration.
-      await sleep(STRIPE_RATE_LIMIT_BACKOFF_MS * 2 ** (attempt - 1) + Math.random() * 100);
+      // 400, 800, 1600 ms (+ jitter) per PI — but never past the run's budget.
+      const delay = STRIPE_RATE_LIMIT_BACKOFF_MS * 2 ** (attempt - 1) + Math.random() * 100;
+      if (Date.now() + delay > deadline) throw e;
+      await sleep(delay);
     }
   }
 }
@@ -427,6 +441,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
   // reporting. For ResLab rows it is NOT (it feeds the staging inference
   // below); for a LIVE direct row under a live key it IS (nothing else would
   // explain why that row fell back to the derived charge).
+  const retryDeadline = Date.now() + STRIPE_RETRY_BUDGET_MS;
   const fetchStripeSlices = async (
     rows: SupabaseRow[],
     errors: Array<{ resNum: string; err: string }>,
@@ -439,7 +454,7 @@ export async function reconcileRevenue(opts: ReconcileOptions): Promise<Reconcil
     return withConcurrency(rows, STRIPE_CONCURRENCY, async (b) => {
       if (!b.stripe_payment_intent_id) return { ...emptyStripe };
       try {
-        const pi = await retrievePaymentIntentWithRetry(b.stripe_payment_intent_id);
+        const pi = await retrievePaymentIntentWithRetry(b.stripe_payment_intent_id, retryDeadline);
         const charge =
           pi.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
         const bt =

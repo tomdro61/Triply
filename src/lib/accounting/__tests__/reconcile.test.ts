@@ -58,7 +58,11 @@ vi.mock("@/lib/stripe/client", () => ({
   },
 }));
 
-import { reconcileRevenue, STRIPE_RATE_LIMIT_MAX_ATTEMPTS } from "../reconcile";
+import {
+  reconcileRevenue,
+  STRIPE_RATE_LIMIT_MAX_ATTEMPTS,
+  STRIPE_RETRY_BUDGET_MS,
+} from "../reconcile";
 import { stripe } from "@/lib/stripe/client";
 
 const OPTS: ReconcileOptions = {
@@ -827,6 +831,7 @@ describe("Stripe 429 rate-limit retry (Oct 2026: 14 of 187 live PIs refused in o
   });
   afterEach(() => {
     vi.useRealTimers();
+    vi.mocked(stripe.paymentIntents.retrieve).mockReset();
   });
 
   it("retries a throttled read and still lands the real Stripe figures (no derived fallback)", async () => {
@@ -866,6 +871,29 @@ describe("Stripe 429 rate-limit retry (Oct 2026: 14 of 187 live PIs refused in o
     expect(r.stripeFetch.errors.map((e) => e.resNum)).toEqual(["RTL_429X"]);
     expect(r.stripe.isDerived).toBe(true);
     expect(r.triplyNet.cashTotal).toBeNull();
+    vi.mocked(stripe.paymentIntents.retrieve).mockReset();
+  });
+
+  it("stops retrying once the run's retry budget is spent, so a throttled month degrades instead of 504ing", async () => {
+    registerReservation("RTL_BUDGET");
+    registerLivePI("pi_budget");
+    pushRow("RTL_BUDGET", "pi_budget");
+    vi.setSystemTime(0);
+    // Each refused read "costs" 60% of the budget on the (faked) clock: attempt 1
+    // at t=0 → retry allowed; attempt 2 → the next backoff would end past the
+    // budget → give up. Must be 2 calls, not the 4-attempt cap.
+    vi.mocked(stripe.paymentIntents.retrieve).mockImplementation(async () => {
+      vi.setSystemTime(Date.now() + STRIPE_RETRY_BUDGET_MS * 0.6);
+      throw rateLimit();
+    });
+
+    const pending = reconcileRevenue(OPTS);
+    await vi.runAllTimersAsync();
+    const r = await pending;
+
+    expect(vi.mocked(stripe.paymentIntents.retrieve)).toHaveBeenCalledTimes(2);
+    expect(r.stripeFetch.errors.map((e) => e.resNum)).toEqual(["RTL_BUDGET"]);
+    expect(r.stripe.isDerived).toBe(true);
     vi.mocked(stripe.paymentIntents.retrieve).mockReset();
   });
 
