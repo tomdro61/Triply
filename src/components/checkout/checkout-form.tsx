@@ -349,7 +349,7 @@ export function CheckoutForm({
       errors.licensePlate = "License plate is required";
     }
     if (!vehicleDetails.state) {
-      errors.state = "State is required";
+      errors.state = "State or province is required";
     }
 
     setVehicleErrors(errors);
