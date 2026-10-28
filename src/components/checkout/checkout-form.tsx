@@ -99,6 +99,11 @@ export function CheckoutForm({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
+  // Bumped once per update-pi that succeeded and is still the latest click.
+  // StripePaymentForm re-syncs the Payment Element on each bump
+  // (elements.fetchUpdates) so the Apple Pay / Google Pay sheet shows the
+  // new total, not the one the Element learned at mount. 0 = nothing to sync.
+  const [priceVersion, setPriceVersion] = useState(0);
 
   // --- Direct lots: oversized-vehicle choice (vehicle-surcharge plan §1.5) ---
   // The terms are the server's: from the checkout GET, then replaced by the
@@ -563,6 +568,9 @@ export function CheckoutForm({
     // back on the vehicle step could end up paying the old (stale) amount.
     setClientSecret(null);
     setPaymentIntentId(null);
+    // A fresh PaymentIntent means a fresh Element that reads the amount on
+    // mount; no catch-up sync is owed on re-entry.
+    setPriceVersion(0);
     // The choice is deliberately KEPT: re-entering the payment step creates a
     // fresh PI from it, so a customer who picked "none" is not re-defaulted to
     // Plan A. Stale-toggle protection is the sequence-ID bump above, not a
@@ -705,6 +713,11 @@ export function CheckoutForm({
         setProtectionPlanChoice(previous);
       }
       setProtectionChoiceError(errorMessage);
+    } else {
+      // The server amount changed and this is the latest click: tell the
+      // Payment Element (see priceVersion). Pay stays disabled in
+      // StripePaymentForm until the sync resolves.
+      setPriceVersion((v) => v + 1);
     }
     setProtectionPlanUpdating(false);
   };
@@ -1281,6 +1294,8 @@ export function CheckoutForm({
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionChoiceError={protectionChoiceError}
                   protectionStateAmbiguous={protectionStateAmbiguous}
+                  priceVersion={priceVersion}
+                  paymentIntentId={paymentIntentId ?? undefined}
                   vehicleSizeAnswered={vehicleSizeAnswered}
                   renderVehicleSize={
                     isDirect && directTerms && directTerms.vehicleSurcharges.length > 0

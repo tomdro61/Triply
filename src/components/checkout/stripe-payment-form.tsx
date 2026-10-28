@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   PaymentElement,
   useStripe,
@@ -17,6 +17,8 @@ import {
 import { PriceBreakdown } from "@/types/checkout";
 import type { ProtectionChoice } from "@/lib/parkguard/plans";
 import { ProtectionPlan } from "./protection-plan";
+import { capturePaymentError } from "@/lib/sentry";
+import { ELEMENTS_SYNC_FAILED_MESSAGE, syncElementsAmount } from "@/lib/checkout/elements-sync";
 
 interface StripePaymentFormProps {
   priceBreakdown: PriceBreakdown;
@@ -55,6 +57,15 @@ interface StripePaymentFormProps {
    */
   protectionStateAmbiguous?: boolean;
   /**
+   * Incremented by the parent after each successful server-side amount
+   * change (update-pi). Each bump re-syncs the Payment Element with
+   * `elements.fetchUpdates()` so wallet sheets show the new total; Pay is
+   * disabled until the sync resolves. 0 = never changed since mount.
+   */
+  priceVersion?: number;
+  /** Sentry context for a failed sync. */
+  paymentIntentId?: string;
+  /**
    * DIRECT lots with oversized-vehicle surcharges: renders the vehicle-size
    * selector above Parking Protection. Receives `processing` so the choice is
    * locked while a payment is in flight (vehicle-surcharge plan R4).
@@ -79,6 +90,8 @@ export function StripePaymentForm({
   protectionPlanUpdating = false,
   protectionChoiceError = null,
   protectionStateAmbiguous = false,
+  priceVersion = 0,
+  paymentIntentId,
   renderVehicleSize,
   vehicleSizeAnswered = true,
 }: StripePaymentFormProps) {
@@ -87,13 +100,58 @@ export function StripePaymentForm({
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Payment Element re-sync after the server changed the amount. Its own
+  // slots (not paymentError): a failed sync is not a payment failure, and
+  // the plan choice is NOT rolled back — the server amount is already right,
+  // only the Element's copy is stale. "Owed" is DERIVED from the versions, so
+  // Pay is disabled in the very render the version bumps (an effect-set flag
+  // would leave one frame with Pay enabled against the stale amount).
+  const [syncedVersion, setSyncedVersion] = useState(0);
+  const [elementsSyncError, setElementsSyncError] = useState<string | null>(null);
+  // "Try again" re-runs the effect without a new priceVersion.
+  const [syncAttempt, setSyncAttempt] = useState(0);
+  // Sequence guard: rapid A → B → none starts one fetch per bump; only the
+  // last one's result counts (it reads the final amount). The effect's
+  // cleanup bumps it too, so a result arriving after Back (the provider
+  // unmounts) is discarded instead of reporting an abandoned checkout.
+  const syncSeq = useRef(0);
+  const syncOwed = priceVersion !== 0 && syncedVersion !== priceVersion;
+  const elementsSyncing = syncOwed && elementsSyncError === null;
+
+  useEffect(() => {
+    // Stripe not loaded yet: Pay is disabled anyway (!elements), and the
+    // effect re-runs when the Elements instance arrives.
+    if (!syncOwed || !elements) return;
+    const mine = ++syncSeq.current;
+    setElementsSyncError(null);
+    void syncElementsAmount(elements).then((outcome) => {
+      if (mine !== syncSeq.current) return;
+      if (outcome.ok) {
+        setSyncedVersion(priceVersion);
+        return;
+      }
+      setElementsSyncError(ELEMENTS_SYNC_FAILED_MESSAGE);
+      capturePaymentError(new Error(`elements.fetchUpdates failed: ${outcome.message}`), {
+        stripePaymentIntentId: paymentIntentId,
+        amount: priceBreakdown.total,
+      });
+    });
+    return () => {
+      syncSeq.current += 1;
+    };
+    // paymentIntentId / priceBreakdown.total are Sentry context only;
+    // re-running on them would fetch more than once per change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceVersion, syncAttempt, elements, syncOwed]);
 
   const processing = isProcessing || isSubmitting;
+  // Everything that must be settled before the card can be charged.
+  const amountSettling = protectionPlanUpdating || elementsSyncing || elementsSyncError !== null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || processing || protectionPlanUpdating || protectionStateAmbiguous) {
+    if (!stripe || !elements || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || processing || amountSettling || protectionStateAmbiguous) {
       return;
     }
 
@@ -209,6 +267,23 @@ export function StripePaymentForm({
         choiceError={protectionChoiceError}
       />
 
+      {/* Payment Element could not be refreshed with the new total */}
+      {elementsSyncError && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="text-amber-800">{elementsSyncError}</p>
+            <button
+              type="button"
+              onClick={() => setSyncAttempt((n) => n + 1)}
+              className="mt-1 text-xs font-semibold text-amber-800 underline"
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Stripe Payment Element */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <PaymentElement
@@ -293,7 +368,7 @@ export function StripePaymentForm({
         </button>
         <button
           type="submit"
-          disabled={processing || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || protectionPlanUpdating || protectionStateAmbiguous || !stripe || !elements}
+          disabled={processing || !acceptedTerms || !protectionAnswered || !vehicleSizeAnswered || amountSettling || protectionStateAmbiguous || !stripe || !elements}
           className="flex-1 bg-brand-orange text-white font-bold py-3.5 rounded-lg hover:bg-orange-600 transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {processing ? (
@@ -301,11 +376,13 @@ export function StripePaymentForm({
               <Loader2 size={20} className="animate-spin" />
               Processing...
             </>
-          ) : protectionPlanUpdating ? (
+          ) : protectionPlanUpdating || elementsSyncing ? (
             <>
               <Loader2 size={20} className="animate-spin" />
               Updating total…
             </>
+          ) : elementsSyncError ? (
+            <>Refresh the total above before paying</>
           ) : protectionStateAmbiguous ? (
             // Server state is unknown after a network failure (the selection
             // is cleared on entering this state, so this must be checked
