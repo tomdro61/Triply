@@ -90,6 +90,19 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
     expect(body).not.toHaveProperty("charge");
   });
 
+  it("a RETRYABLE needs_reconciliation (we could not read our own state) keeps the page polling", async () => {
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "db blip", retryable: true });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toEqual({ state: "pending" });
+    expect(retrieve).toHaveBeenCalledTimes(1); // no money read for a transient fault
+  });
+
+  it("bounds the post-fulfilment Stripe read (a function timeout would skip the catch)", async () => {
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "x", retryable: false });
+    await post({ paymentIntentId: "pi_abc", clientSecret: SECRET });
+    expect(retrieve).toHaveBeenNthCalledWith(2, "pi_abc", {}, { timeout: 4_000, maxNetworkRetries: 0 });
+  });
+
   it("a wrong client secret is a 404 with nothing about the payment", async () => {
     const res = await post({ paymentIntentId: "pi_abc", clientSecret: "pi_abc_secret_WRONG" });
     expect(res.status).toBe(404);

@@ -90,6 +90,11 @@ export default function CheckoutCompleteClient() {
 
   const poll = useCallback(async () => {
     if (!paymentIntentId || !clientSecret) {
+      // Nothing server-side knows this customer is here; say so to Sentry.
+      captureBookingError(new Error("checkout/complete: opened with no payment reference (no URL params, no marker)"), {
+        step: "confirmation",
+        fingerprint: ["complete-unidentified", resolved.source],
+      });
       setView({
         kind: "unidentified",
         message:
@@ -110,6 +115,10 @@ export default function CheckoutCompleteClient() {
         if (!mountedRef.current) return;
 
         if (res.status === 404) {
+          capturePaymentError(new Error("checkout/complete: payment reference did not verify (404)"), {
+            stripePaymentIntentId: paymentIntentId,
+            fingerprint: ["complete-unidentified", "404"],
+          });
           setView({
             kind: "unidentified",
             message:
@@ -175,7 +184,7 @@ export default function CheckoutCompleteClient() {
       });
       setView({ kind: "timeout", reference: paymentIntentId });
     }
-  }, [paymentIntentId, clientSecret, router]);
+  }, [paymentIntentId, clientSecret, resolved.source, router]);
 
   useEffect(() => {
     // Re-arm on every mount so React 18 StrictMode's mount→unmount→remount in
@@ -230,7 +239,7 @@ export default function CheckoutCompleteClient() {
         </h1>
         <p className="mt-3 text-slate-600">{view.message}</p>
         <p className="mt-4 font-semibold text-slate-700">
-          Please don&apos;t book again until you&apos;ve heard from us — a second booking would place a second charge on your card.
+          Please don&apos;t book again until you&apos;ve checked your email for a confirmation or contacted us — a second booking would place a second charge on your card.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link

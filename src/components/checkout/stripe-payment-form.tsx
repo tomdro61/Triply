@@ -148,10 +148,12 @@ export function StripePaymentForm({
         // once the PaymentIntent becomes capturable.
         await onPaymentSuccess(paymentIntent.id);
         // Reset processing once the handler resolves. handlePaymentSuccess
-        // NAVIGATES AWAY on success or on a 202 hand-off (this component then
-        // unmounts, so the reset is a harmless no-op) — but on a terminal
-        // booking failure (sold-out race, suspected_duplicate, needs_recon, 402,
-        // 500) it catches internally, sets submitError, and RESOLVES normally.
+        // NAVIGATES AWAY on success and on every hand-off (202, needs_recon,
+        // 500, gateway or network failure — see postAuthActionFor; this
+        // component then unmounts, so the reset is a harmless no-op) — but on
+        // a definitive release of the hold (409 sold-out race /
+        // suspected_duplicate / failed, 402) it sets submitError and RESOLVES
+        // normally.
         // Without this reset, isProcessing stayed true forever, leaving both Pay
         // Now and Back disabled under a live error message with no recovery.
         setIsProcessing(false);

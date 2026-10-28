@@ -81,7 +81,11 @@ async function moneyOnCard(
   piId: string
 ): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
   try {
-    const fresh = await stripe.paymentIntents.retrieve(piId);
+    // Bounded: the SDK's default (80 s + retries) outlives the route's 60 s,
+    // and a function killed here never reaches the catch — the customer would
+    // get an HTML gateway page instead of the definitive answer they already
+    // had. The figure is optional; a fast failure to `{}` is the right trade.
+    const fresh = await stripe.paymentIntents.retrieve(piId, {}, { timeout: 4_000, maxNetworkRetries: 0 });
     if (fresh.status === "requires_capture" && fresh.amount_capturable > 0) {
       return { amountCents: fresh.amount_capturable, currency: fresh.currency, charge: "hold" };
     }
@@ -192,6 +196,12 @@ export async function POST(request: NextRequest) {
         });
 
       case "needs_reconciliation":
+        // `retryable` = we could not READ our own state (a database blip);
+        // nothing is known to be wrong with the booking and the webhook / the
+        // next poll may well finish it. Keep the page polling (its 90 s
+        // ceiling and Sentry event still apply) instead of parking the
+        // customer on "our team has been alerted" for a two-second fault.
+        if (outcome.retryable) return NextResponse.json({ state: "pending" });
         // Money is held or taken and the booking state is genuinely unknown.
         // The page says what is on the card from Stripe's own figures — never
         // "not charged", never a client-supplied amount.
