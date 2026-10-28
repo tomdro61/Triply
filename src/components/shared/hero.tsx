@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { HeroChatInput } from "@/components/chat";
 import { HeroExtraTabContext, type HeroExtraTabValue } from "./hero-extra-tab";
+import { isAiChatEnabled } from "@/lib/ai/flag";
 
 type SearchTab = "parking" | "ai" | "extra";
 
@@ -50,10 +51,14 @@ export function Hero({ extraTab }: HeroProps) {
     }, 500);
   };
 
+  // The AI Assistant tab follows the kill switch (NEXT_PUBLIC_AI_CHAT_ENABLED);
+  // with it off and no extra tab there is one tab, so the strip is not shown.
+  const aiChatEnabled = isAiChatEnabled();
   const tabs = [
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
-    { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
+    ...(aiChatEnabled ? [{ id: "ai" as const, icon: Sparkles, label: "AI Assistant" }] : []),
   ];
+  const showTabStrip = tabs.length > 1 || Boolean(extraTab);
 
   // The optional extra tab (hero-extra-tab.ts): rendered once, it portals
   // its panel into `extraTabPanel` while active. Stable callbacks, so the
@@ -89,6 +94,7 @@ export function Hero({ extraTab }: HeroProps) {
         {/* Search Container */}
         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
           {/* Tabs */}
+          {showTabStrip && (
           <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50">
             {tabs.map((tab, index) => {
               const isActive = activeTab === tab.id;
@@ -122,10 +128,11 @@ export function Hero({ extraTab }: HeroProps) {
               );
             })}
           </div>
+          )}
 
           {/* Content Area */}
           <div className="p-4 md:p-6 bg-white">
-            {activeTab === "ai" ? (
+            {activeTab === "ai" && aiChatEnabled ? (
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 md:p-6">
                 <HeroChatInput />
               </div>
