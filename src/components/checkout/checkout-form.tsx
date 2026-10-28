@@ -31,6 +31,8 @@ import {
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
+import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
+import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -918,8 +920,11 @@ export function CheckoutForm({
       // finishing page, and still throw so confirmPayment never runs again
       // (4b plan §9 M-A, §10 F-9). Never "you have not been charged" here.
       if (response.status === 409 && detail?.code === "already_authorized") {
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-        router.push(
+        rememberLotForNextPage();
+        saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
+        // replace, not push: Back from the finishing page must not land on a
+        // blank checkout that invites a second booking (and a second hold).
+        router.replace(
           `/checkout/complete?payment_intent=${encodeURIComponent(
             stripePaymentIntentId
           )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
@@ -933,11 +938,67 @@ export function CheckoutForm({
     }
   };
 
-  // Handle successful Stripe payment - then create ResLab reservation
+  // The confirmation / finishing pages read the lot from this cache when they
+  // have it, and work without it. Storage can throw (blocked site data, quota)
+  // and a throw here, AFTER the card is authorized, would surface as a raw
+  // "QuotaExceededError" over a held card with Pay Now live again — so never
+  // let it.
+  const rememberLotForNextPage = () => {
+    try {
+      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+    } catch {
+      // best effort — see above
+    }
+  };
+
+  // Handle successful Stripe payment - then create ResLab reservation.
+  //
+  // From here on the customer's card is AUTHORIZED. The only answers that keep
+  // them on this page are the ones in which the engine has released that hold
+  // (402 / 409). Everything else — in flight, unknown, unreadable — hands off to
+  // /checkout/complete, which polls the engine for the truth. The rule itself
+  // is `postAuthActionFor` (pure, unit-tested).
   const handlePaymentSuccess = async (stripePaymentIntentId: string) => {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const handOff = (reason: string) => {
+      rememberLotForNextPage();
+      // So a refresh of the complete page (which scrubs its own URL) resumes
+      // the same payment instead of "we couldn't identify this payment".
+      saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
+      if (reason !== "pending") {
+        // Count how often the post-authorization recovery path fires, and why
+        // — one issue per reason. WITH the PaymentIntent id: for a network
+        // failure or a gateway timeout the server may have been killed
+        // mid-fulfilment and sent nothing to Sentry, so this is the only
+        // pointer ops has to the payment. No customer data.
+        capturePaymentError(
+          new Error(`checkout: handed off to /checkout/complete after payment (${reason})`),
+          {
+            stripePaymentIntentId,
+            fingerprint: ["post-auth-handoff", reason],
+            inventorySource: isDirect ? "direct" : "reslab",
+          }
+        );
+      }
+      // BOTH params are required. /checkout/complete authenticates against the
+      // client secret — Stripe supplies it on its own redirects, and this
+      // in-app hand-off must too. Sending only payment_intent made the page
+      // fail its first check and show "we couldn't identify this payment" to a
+      // customer whose card had just been authorized successfully.
+      //
+      // replace, not push: Back from the finishing page must not land on a
+      // blank checkout that invites a second booking (and a second hold).
+      router.replace(
+        `/checkout/complete?payment_intent=${encodeURIComponent(
+          stripePaymentIntentId
+        )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+      );
+    };
+
+    let status = 0;
+    let body: unknown = null;
     try {
       const response = await fetch("/api/reservations", {
         method: "POST",
@@ -948,46 +1009,39 @@ export function CheckoutForm({
             : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
         ),
       });
+      status = response.status;
+      // A gateway 502/504 answers with an HTML page, not JSON. That is a
+      // hand-off (status kept, body null), never a thrown "Payment Error".
+      body = await response.json().catch(() => null);
+    } catch (error) {
+      console.error("Reservation request failed after payment:", error);
+      status = 0;
+      body = null;
+    }
 
-      const result = await response.json();
+    const action = postAuthActionFor({ status, body });
 
-      // 202 = another path (the webhook) is completing this booking, or the
-      // payment is still settling. Hand off to /checkout/complete, which polls
-      // until the reservation exists rather than showing a false failure.
-      if (response.status === 202) {
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-        // BOTH params are required. /checkout/complete authenticates against the
-        // client secret — Stripe supplies it on its own redirects, and this
-        // in-app hand-off must too. Sending only payment_intent made the page
-        // fail its first check and show "we couldn't identify this payment" to a
-        // customer whose card had just been authorized successfully.
+    switch (action.kind) {
+      case "confirmed": {
+        // Store lot data for confirmation page
+        rememberLotForNextPage();
+        // The confirmation page sends the GA4 purchase only for this mark.
+        markPurchaseToTrack(action.reservationNumber);
+
+        // Redirect to confirmation page
         router.push(
-          `/checkout/complete?payment_intent=${encodeURIComponent(
-            stripePaymentIntentId
-          )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+          `/confirmation/${action.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
         );
         return;
       }
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create reservation");
-      }
-
-      // Store lot data for confirmation page
-      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-      // The confirmation page sends the GA4 purchase only for this mark.
-      markPurchaseToTrack(result.reservation.reservationNumber);
-
-      // Redirect to confirmation page
-      router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
-      );
-    } catch (error) {
-      console.error("Reservation error after payment:", error);
-      setSubmitError(
-        error instanceof Error ? error.message : "Payment succeeded but reservation failed. Please contact support."
-      );
-      setIsSubmitting(false);
+      case "handoff":
+        handOff(action.reason);
+        return;
+      case "stay":
+        console.error("Reservation refused after payment:", action.message);
+        setSubmitError(action.message);
+        setIsSubmitting(false);
+        return;
     }
   };
 

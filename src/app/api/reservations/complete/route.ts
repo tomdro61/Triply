@@ -65,6 +65,43 @@ async function buildConfirmationUrl(
   )}?${params.toString()}`;
 }
 
+/**
+ * What is on the card NOW, for the needs_support answer. Read AFTER the
+ * engine ran: `createBooking` captures inside that call, and several of its
+ * `needs_reconciliation` returns come after a successful capture (a booking
+ * insert that collided or was rejected after capture, a capture whose result
+ * could not be read). The PaymentIntent read taken before the engine, used for
+ * the client-secret check, would call that captured money "a hold" (review
+ * finding, Oct 28 2026). `requires_capture` → a hold of the capturable amount;
+ * `succeeded` → the amount received. Anything else (`processing`, a failed
+ * read) → no figure, and the page uses its "not final" sentence, which is true
+ * in every case.
+ */
+async function moneyOnCard(
+  piId: string
+): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
+  try {
+    // Bounded: the SDK's default (80 s + retries) outlives the route's 60 s,
+    // and a function killed here never reaches the catch — the customer would
+    // get an HTML gateway page instead of the definitive answer they already
+    // had. The figure is optional; a fast failure to `{}` is the right trade.
+    const fresh = await stripe.paymentIntents.retrieve(piId, {}, { timeout: 4_000, maxNetworkRetries: 0 });
+    if (fresh.status === "requires_capture" && fresh.amount_capturable > 0) {
+      return { amountCents: fresh.amount_capturable, currency: fresh.currency, charge: "hold" };
+    }
+    if (fresh.status === "succeeded" && fresh.amount_received > 0) {
+      return { amountCents: fresh.amount_received, currency: fresh.currency, charge: "captured" };
+    }
+    return {};
+  } catch (error) {
+    capturePaymentError(
+      error instanceof Error ? error : new Error(String(error)),
+      { stripePaymentIntentId: piId, fingerprint: ["complete-money-on-card-read-failed"] }
+    );
+    return {};
+  }
+}
+
 export async function POST(request: NextRequest) {
   let piId: string | undefined;
 
@@ -159,10 +196,21 @@ export async function POST(request: NextRequest) {
         });
 
       case "needs_reconciliation":
+        // `retryable` = we could not READ our own state (a database blip);
+        // nothing is known to be wrong with the booking and the webhook / the
+        // next poll may well finish it. Keep the page polling (its 90 s
+        // ceiling and Sentry event still apply) instead of parking the
+        // customer on "our team has been alerted" for a two-second fault.
+        if (outcome.retryable) return NextResponse.json({ state: "pending" });
+        // Money is held or taken and the booking state is genuinely unknown.
+        // The page says what is on the card from Stripe's own figures — never
+        // "not charged", never a client-supplied amount.
         return NextResponse.json({
           state: "needs_support",
           message:
-            "We're confirming your reservation with the parking facility. Our team will email you shortly — please don't rebook.",
+            "We're confirming your reservation with the parking facility. Our team has been alerted and will email you as soon as it's resolved.",
+          reference: piId,
+          ...(await moneyOnCard(piId)),
         });
 
       case "failed":
