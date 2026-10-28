@@ -36,9 +36,19 @@ describe("postAuthActionFor", () => {
     expect(postAuthActionFor({ status, body: { error } })).toEqual({ kind: "stay", message: error });
   });
 
-  it("402 / 409 without a readable message still stays, with a generic one", () => {
-    expect(postAuthActionFor({ status: 409, body: null })).toEqual({ kind: "stay", message: "Failed to create reservation" });
-    expect(postAuthActionFor({ status: 402, body: { error: "   " } })).toEqual({ kind: "stay", message: "Failed to create reservation" });
+  it("409 carrying a definitive `failed` outcome's own message → stay", () => {
+    expect(
+      postAuthActionFor({
+        status: 409,
+        body: { error: "This checkout expired and was not completed. You have not been charged — please search again." },
+      })
+    ).toMatchObject({ kind: "stay" });
+  });
+
+  it("402 / 409 WITHOUT the engine's JSON message (a platform HTML page) → hand-off, not a live Pay button", () => {
+    expect(postAuthActionFor({ status: 409, body: null })).toEqual({ kind: "handoff", reason: "non_json_409" });
+    expect(postAuthActionFor({ status: 402, body: null })).toEqual({ kind: "handoff", reason: "non_json_402" });
+    expect(postAuthActionFor({ status: 402, body: { error: "   " } })).toEqual({ kind: "handoff", reason: "non_json_402" });
   });
 
   it("our own 502 needsSupport → hand-off, never a red 'Payment Error' over a held card", () => {

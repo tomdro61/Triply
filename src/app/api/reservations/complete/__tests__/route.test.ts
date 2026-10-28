@@ -33,16 +33,21 @@ const post = (body: unknown) =>
     })
   );
 
+const pi = (status: string, over: Record<string, unknown> = {}) => ({
+  id: "pi_abc",
+  client_secret: SECRET,
+  status,
+  amount: 2537,
+  amount_capturable: status === "requires_capture" ? 2537 : 0,
+  amount_received: status === "succeeded" ? 2537 : 0,
+  currency: "usd",
+  metadata: { customerEmail: "ada@example.com" },
+  ...over,
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
-  retrieve.mockResolvedValue({
-    id: "pi_abc",
-    client_secret: SECRET,
-    status: "requires_capture",
-    amount: 2537,
-    currency: "usd",
-    metadata: { customerEmail: "ada@example.com" },
-  });
+  retrieve.mockResolvedValue(pi("requires_capture"));
 });
 
 describe("POST /api/reservations/complete — needs_support answer", () => {
@@ -60,20 +65,29 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
     });
     expect(body.message).not.toMatch(/not (been )?charged/i);
     expect(body.message).not.toMatch(/charged twice/i);
+    expect(body.message).not.toMatch(/business day/i); // no deadline the code can't enforce
   });
 
-  it("says 'captured' when the PaymentIntent already succeeded (capture result unknown)", async () => {
-    retrieve.mockResolvedValue({
-      id: "pi_abc",
-      client_secret: SECRET,
-      status: "succeeded",
-      amount: 2537,
-      currency: "usd",
-      metadata: {},
-    });
-    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "capture_ambiguous", retryable: false });
+  it("reads the card AFTER the engine ran: a hold before, captured after → says 'captured' (review High, Oct 28)", async () => {
+    retrieve.mockResolvedValueOnce(pi("requires_capture")).mockResolvedValueOnce(pi("succeeded"));
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "booking insert rejected after capture", retryable: false });
     const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
-    expect(body).toMatchObject({ state: "needs_support", charge: "captured", amountCents: 2537 });
+    expect(body).toMatchObject({ state: "needs_support", charge: "captured", amountCents: 2537, currency: "usd" });
+    expect(retrieve).toHaveBeenCalledTimes(2);
+  });
+
+  it("says nothing about the amount while the payment is still 'processing' or the second read fails", async () => {
+    retrieve.mockResolvedValueOnce(pi("requires_capture")).mockResolvedValueOnce(pi("processing"));
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "x", retryable: false });
+    let body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toMatchObject({ state: "needs_support", reference: "pi_abc" });
+    expect(body).not.toHaveProperty("charge");
+    expect(body).not.toHaveProperty("amountCents");
+
+    retrieve.mockResolvedValueOnce(pi("requires_capture")).mockRejectedValueOnce(new Error("stripe down"));
+    body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toMatchObject({ state: "needs_support", reference: "pi_abc" });
+    expect(body).not.toHaveProperty("charge");
   });
 
   it("a wrong client secret is a 404 with nothing about the payment", async () => {

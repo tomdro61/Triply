@@ -39,7 +39,7 @@ import {
   type ProtectionChoice,
   type ProtectionPlanCode,
 } from "@/lib/parkguard/plans";
-import { capturePaymentError, captureAPIError, captureBookingError } from "@/lib/sentry";
+import { capturePaymentError, captureAPIError } from "@/lib/sentry";
 import { isVehicleFieldName } from "@/lib/booking/vehicle-field-aliases";
 import { checkoutExtraFields, extraFieldStepErrors } from "@/lib/booking/required-extra-fields";
 import { VehicleSizeSelector } from "./vehicle-size-selector";
@@ -920,9 +920,11 @@ export function CheckoutForm({
       // finishing page, and still throw so confirmPayment never runs again
       // (4b plan §9 M-A, §10 F-9). Never "you have not been charged" here.
       if (response.status === 409 && detail?.code === "already_authorized") {
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+        rememberLotForNextPage();
         saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
-        router.push(
+        // replace, not push: Back from the finishing page must not land on a
+        // blank checkout that invites a second booking (and a second hold).
+        router.replace(
           `/checkout/complete?payment_intent=${encodeURIComponent(
             stripePaymentIntentId
           )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
@@ -933,6 +935,19 @@ export function CheckoutForm({
         detail?.error ||
           "We couldn't prepare your booking. Please try again — you have not been charged."
       );
+    }
+  };
+
+  // The confirmation / finishing pages read the lot from this cache when they
+  // have it, and work without it. Storage can throw (blocked site data, quota)
+  // and a throw here, AFTER the card is authorized, would surface as a raw
+  // "QuotaExceededError" over a held card with Pay Now live again — so never
+  // let it.
+  const rememberLotForNextPage = () => {
+    try {
+      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+    } catch {
+      // best effort — see above
     }
   };
 
@@ -948,16 +963,23 @@ export function CheckoutForm({
     setSubmitError(null);
 
     const handOff = (reason: string) => {
-      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+      rememberLotForNextPage();
       // So a refresh of the complete page (which scrubs its own URL) resumes
       // the same payment instead of "we couldn't identify this payment".
       saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
       if (reason !== "pending") {
-        // Count how often the post-authorization recovery path fires, and why.
-        // One issue per reason; no customer data.
-        captureBookingError(
+        // Count how often the post-authorization recovery path fires, and why
+        // — one issue per reason. WITH the PaymentIntent id: for a network
+        // failure or a gateway timeout the server may have been killed
+        // mid-fulfilment and sent nothing to Sentry, so this is the only
+        // pointer ops has to the payment. No customer data.
+        capturePaymentError(
           new Error(`checkout: handed off to /checkout/complete after payment (${reason})`),
-          { step: "checkout", fingerprint: ["post-auth-handoff", reason], inventorySource: isDirect ? "direct" : "reslab" }
+          {
+            stripePaymentIntentId,
+            fingerprint: ["post-auth-handoff", reason],
+            inventorySource: isDirect ? "direct" : "reslab",
+          }
         );
       }
       // BOTH params are required. /checkout/complete authenticates against the
@@ -1002,7 +1024,7 @@ export function CheckoutForm({
     switch (action.kind) {
       case "confirmed": {
         // Store lot data for confirmation page
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+        rememberLotForNextPage();
         // The confirmation page sends the GA4 purchase only for this mark.
         markPurchaseToTrack(action.reservationNumber);
 

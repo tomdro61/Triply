@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
-import { captureBookingError } from "@/lib/sentry";
+import { captureBookingError, capturePaymentError } from "@/lib/sentry";
 import {
   clearRecoveryMarker,
-  readRecoveryMarker,
+  markerActionFor,
+  resolveCredentials,
   saveRecoveryMarker,
 } from "@/lib/checkout/recovery-marker";
 
@@ -27,6 +28,9 @@ interface MoneyOnCard {
 
 type ViewState =
   | { kind: "working" }
+  /** We cannot tell which payment this is (no parameters, no marker, or the
+   *  secret did not match). The hold MAY be live: never "start a new search". */
+  | { kind: "unidentified"; message: string }
   | { kind: "failed"; message: string }
   | { kind: "payment_failed"; message: string }
   | { kind: "needs_support"; message: string; reference: string | null; money: MoneyOnCard | null }
@@ -76,25 +80,20 @@ export default function CheckoutCompleteClient() {
   // the per-tab marker (saved below, and by checkout at the hand-off) is how
   // the same payment is resumed instead of telling a customer with a live
   // hold that we couldn't identify it.
-  const [resolved] = useState(() => {
-    const fromUrl = {
+  const [resolved] = useState(() =>
+    resolveCredentials({
       paymentIntentId: searchParams.get("payment_intent"),
       clientSecret: searchParams.get("payment_intent_client_secret"),
-    };
-    if (fromUrl.paymentIntentId && fromUrl.clientSecret) return fromUrl;
-    const marker = readRecoveryMarker();
-    return marker
-      ? { paymentIntentId: marker.paymentIntentId, clientSecret: marker.clientSecret }
-      : fromUrl;
-  });
-  const { paymentIntentId, clientSecret } = resolved;
+    })
+  );
+  const { paymentIntentId, clientSecret } = resolved.credentials;
 
   const poll = useCallback(async () => {
     if (!paymentIntentId || !clientSecret) {
       setView({
-        kind: "failed",
+        kind: "unidentified",
         message:
-          "We couldn't identify this payment. If you were charged, contact support@triplypro.com and we'll sort it out straight away.",
+          "We couldn't identify this payment from this page. If you entered your card, your booking may still be going through — check your email for a confirmation before doing anything else.",
       });
       return;
     }
@@ -112,9 +111,9 @@ export default function CheckoutCompleteClient() {
 
         if (res.status === 404) {
           setView({
-            kind: "failed",
+            kind: "unidentified",
             message:
-              "We couldn't verify this payment. If you were charged, contact support@triplypro.com and we'll sort it out straight away.",
+              "We couldn't verify this payment from this page. If you entered your card, your booking may still be going through — check your email for a confirmation before doing anything else.",
           });
           return;
         }
@@ -122,9 +121,10 @@ export default function CheckoutCompleteClient() {
         const data = await res.json();
         if (!mountedRef.current) return;
 
+        if (markerActionFor(data.state) === "clear") clearRecoveryMarker();
+
         switch (data.state) {
           case "booked":
-            clearRecoveryMarker();
             // The confirmation page sends the GA4 purchase only for this mark.
             if (typeof data.reservationNumber === "string") {
               markPurchaseToTrack(data.reservationNumber);
@@ -140,15 +140,13 @@ export default function CheckoutCompleteClient() {
             return;
           case "payment_failed":
           case "payment_incomplete":
-            clearRecoveryMarker();
             setView({ kind: "payment_failed", message: data.message });
             return;
           case "failed":
-            clearRecoveryMarker();
             setView({ kind: "failed", message: data.message });
             return;
           case "needs_support":
-            // The marker is KEPT: a refresh must show this same state again.
+            // The marker is kept (markerActionFor): a refresh shows this again.
             setView({
               kind: "needs_support",
               message: data.message,
@@ -168,7 +166,15 @@ export default function CheckoutCompleteClient() {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    if (mountedRef.current) setView({ kind: "timeout", reference: paymentIntentId });
+    if (mountedRef.current) {
+      // The timeout screen says "our team has been alerted" — make it true.
+      // Nothing server-side knows the customer is still waiting.
+      capturePaymentError(new Error("checkout/complete: poll gave up after ~90 s without a definitive answer"), {
+        stripePaymentIntentId: paymentIntentId,
+        fingerprint: ["complete-poll-timeout"],
+      });
+      setView({ kind: "timeout", reference: paymentIntentId });
+    }
   }, [paymentIntentId, clientSecret, router]);
 
   useEffect(() => {
@@ -181,7 +187,8 @@ export default function CheckoutCompleteClient() {
 
     // Remember the payment for this tab BEFORE scrubbing the URL, so a refresh
     // resumes it (cleared on every answer that releases the hold or confirms).
-    if (paymentIntentId && clientSecret) {
+    // Only when the URL supplied it: a resume from the marker rewrites nothing.
+    if (resolved.source === "url" && paymentIntentId && clientSecret) {
       saveRecoveryMarker({ paymentIntentId, clientSecret });
     }
     // Scrub the client secret out of the address bar so it isn't left in
@@ -194,7 +201,7 @@ export default function CheckoutCompleteClient() {
     return () => {
       mountedRef.current = false;
     };
-  }, [poll, paymentIntentId, clientSecret]);
+  }, [poll, resolved.source, paymentIntentId, clientSecret]);
 
   if (view.kind === "working") {
     return (
@@ -210,6 +217,35 @@ export default function CheckoutCompleteClient() {
         <p className="mt-6 text-sm text-slate-500">
           Please don't close this page or press back.
         </p>
+      </Shell>
+    );
+  }
+
+  if (view.kind === "unidentified") {
+    return (
+      <Shell>
+        <StatusIcon tone="warning" />
+        <h1 className="mt-6 font-[Poppins] text-2xl font-bold text-[#1A1A2E]">
+          We couldn&apos;t identify this payment
+        </h1>
+        <p className="mt-3 text-slate-600">{view.message}</p>
+        <p className="mt-4 font-semibold text-slate-700">
+          Please don&apos;t book again until you&apos;ve heard from us — a second booking would place a second charge on your card.
+        </p>
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/contact"
+            className="rounded-lg bg-[#f87356] px-6 py-3 font-semibold text-white transition hover:opacity-90"
+          >
+            Contact support
+          </Link>
+          <a
+            href="mailto:support@triplypro.com"
+            className="rounded-lg border border-slate-300 px-6 py-3 font-semibold text-[#1A1A2E] transition hover:bg-slate-50"
+          >
+            support@triplypro.com
+          </a>
+        </div>
       </Shell>
     );
   }

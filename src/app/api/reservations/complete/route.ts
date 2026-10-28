@@ -65,6 +65,39 @@ async function buildConfirmationUrl(
   )}?${params.toString()}`;
 }
 
+/**
+ * What is on the card NOW, for the needs_support answer. Read AFTER the
+ * engine ran: `createBooking` captures inside that call, and several of its
+ * `needs_reconciliation` returns come after a successful capture (a booking
+ * insert that collided or was rejected after capture, a capture whose result
+ * could not be read). The PaymentIntent read taken before the engine, used for
+ * the client-secret check, would call that captured money "a hold" (review
+ * finding, Oct 28 2026). `requires_capture` → a hold of the capturable amount;
+ * `succeeded` → the amount received. Anything else (`processing`, a failed
+ * read) → no figure, and the page uses its "not final" sentence, which is true
+ * in every case.
+ */
+async function moneyOnCard(
+  piId: string
+): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
+  try {
+    const fresh = await stripe.paymentIntents.retrieve(piId);
+    if (fresh.status === "requires_capture" && fresh.amount_capturable > 0) {
+      return { amountCents: fresh.amount_capturable, currency: fresh.currency, charge: "hold" };
+    }
+    if (fresh.status === "succeeded" && fresh.amount_received > 0) {
+      return { amountCents: fresh.amount_received, currency: fresh.currency, charge: "captured" };
+    }
+    return {};
+  } catch (error) {
+    capturePaymentError(
+      error instanceof Error ? error : new Error(String(error)),
+      { stripePaymentIntentId: piId, fingerprint: ["complete-money-on-card-read-failed"] }
+    );
+    return {};
+  }
+}
+
 export async function POST(request: NextRequest) {
   let piId: string | undefined;
 
@@ -161,17 +194,13 @@ export async function POST(request: NextRequest) {
       case "needs_reconciliation":
         // Money is held or taken and the booking state is genuinely unknown.
         // The page says what is on the card from Stripe's own figures — never
-        // "not charged", never a client-supplied amount. `charge` tells the
-        // page whether that figure is a hold (manual capture, the normal case)
-        // or already captured (a capture whose result we could not read).
+        // "not charged", never a client-supplied amount.
         return NextResponse.json({
           state: "needs_support",
           message:
-            "We're confirming your reservation with the parking facility. Our team has been alerted and will email you by the end of the next business day.",
+            "We're confirming your reservation with the parking facility. Our team has been alerted and will email you as soon as it's resolved.",
           reference: piId,
-          amountCents: pi.amount,
-          currency: pi.currency,
-          charge: pi.status === "requires_capture" ? "hold" : "captured",
+          ...(await moneyOnCard(piId)),
         });
 
       case "failed":

@@ -7,14 +7,16 @@
  *   The card is held. The only answers that justify keeping the customer on
  *   the checkout page with an error are the ones in which the engine has
  *   definitively RELEASED that hold — 402 (payment never completed) and 409
- *   (sold out / duplicate / refunded / definitive failure). Every other
- *   non-success answer — our own 502 `needsSupport`, a generic 500, a gateway
- *   502/504 that returns an HTML page instead of JSON, a dropped connection, a
- *   400 for a body the server could not read — leaves the booking in flight
- *   server-side (the staged row + the Stripe webhook finish it), so the
- *   customer is handed to /checkout/complete, which polls the engine for the
- *   truth. Before this rule those answers rendered a red "Payment Error" over a
- *   held card with Pay Now live again (launch-QA finding #8, Oct 28 2026).
+ *   (sold out / duplicate / refunded / definitive failure) — and only when
+ *   they carry the engine's own JSON message. Every other non-success answer —
+ *   our own 502 `needsSupport`, a generic 500, a gateway 502/504 (or a
+ *   platform 402/409) that returns an HTML page instead of JSON, a dropped
+ *   connection, a 400 for a body the server could not read — leaves the
+ *   booking in flight server-side (the staged row + the Stripe webhook finish
+ *   it), so the customer is handed to /checkout/complete, which polls the
+ *   engine for the truth. Before this rule those answers rendered a red
+ *   "Payment Error" over a held card with Pay Now live again (launch-QA
+ *   finding #8, Oct 28 2026).
  */
 
 export type PostAuthAction =
@@ -31,8 +33,6 @@ export interface ReservationAnswer {
   /** Parsed JSON body, or null when there was none / it did not parse. */
   body: unknown;
 }
-
-const GENERIC_STAY_MESSAGE = "Failed to create reservation";
 
 function errorMessageOf(body: unknown): string | null {
   if (body && typeof body === "object" && "error" in body) {
@@ -68,9 +68,14 @@ export function postAuthActionFor(answer: ReservationAnswer): PostAuthAction {
 
   if (status === 202) return { kind: "handoff", reason: "pending" };
 
-  // The engine has released the hold: say why and let the customer act.
+  // The engine has released the hold: say why and let the customer act. Only
+  // OUR route's answer carries the message — a platform 402/409 (an HTML
+  // page, no JSON) says nothing about the hold, so it is a hand-off like any
+  // other gateway answer.
   if (status === 402 || status === 409) {
-    return { kind: "stay", message: errorMessageOf(body) ?? GENERIC_STAY_MESSAGE };
+    const message = errorMessageOf(body);
+    if (message) return { kind: "stay", message };
+    return { kind: "handoff", reason: `non_json_${status}` };
   }
 
   if (status === 0) return { kind: "handoff", reason: "network" };
