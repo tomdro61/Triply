@@ -1166,6 +1166,15 @@ async function createBookingInner(
       ),
       { stripePaymentIntentId, amount: pi.amount / 100 }
     );
+    // Money is held and nothing will transition a row for it: alert from here
+    // (deduped on the PaymentIntent by the alert itself).
+    await scheduleReconciliationAlert({
+      stripePaymentIntentId,
+      status: "needs_reconciliation",
+      reason: `PaymentIntent inventory source ${piSource} is not fulfillable here`,
+      source,
+      row: null,
+    });
     return {
       kind: "needs_reconciliation",
       reason: `PaymentIntent inventory source ${piSource} is not fulfillable here`,
@@ -1292,6 +1301,13 @@ async function createBookingInner(
         ),
         { stripePaymentIntentId, amount: pi.amount / 100, inventorySource: "direct" }
       );
+      await scheduleReconciliationAlert({
+        stripePaymentIntentId,
+        status: "needs_reconciliation",
+        reason: `direct payment with no staged row could not be released: ${detail}`,
+        source,
+        row: null,
+      });
       return { kind: "needs_reconciliation", reason: `direct payment with no staged row could not be released: ${detail}`, retryable: false };
     }
     if (release.released === "deferred") return { kind: "deferred" };
@@ -1371,6 +1387,13 @@ async function createBookingInner(
 
     row = await readPendingRow(stripePaymentIntentId);
     if (!row) {
+      await scheduleReconciliationAlert({
+        stripePaymentIntentId,
+        status: "needs_reconciliation",
+        reason: "pending row self-create failed",
+        source,
+        row: null,
+      });
       return {
         kind: "needs_reconciliation",
         reason: "pending row self-create failed",
@@ -1449,15 +1472,11 @@ async function createBookingInner(
           ),
           { stripePaymentIntentId, amount: pi.amount / 100 }
         );
-        // The row stays `completed` (a human decides what it is), so no
-        // transition fires the alert — send it from here. Non-retryable.
-        await scheduleReconciliationAlert({
-          stripePaymentIntentId,
-          status: "needs_reconciliation",
-          reason: "completed row has no reservation number and no bookings row",
-          source,
-          row: row as unknown as ReconciliationAlertRow,
-        });
+        // Into the reconciliation queue, like the expired/failed cases: the
+        // transition is what fires the alert ONCE (every finishing-page poll
+        // and both webhook events re-run the engine, so a direct alert here
+        // would repeat).
+        await markTerminal(stripePaymentIntentId, "needs_reconciliation", "completed row has no reservation number and no bookings row", ["completed"]);
         return {
           kind: "needs_reconciliation",
           reason: "completed row has no reservation number",
@@ -1481,9 +1500,9 @@ async function createBookingInner(
             ),
             { stripePaymentIntentId, amount: pi.amount / 100 }
           );
-          // Into the reconciliation queue (alert first: markTerminal can throw),
-          // exactly like the `failed`-row case below — and that transition is
-          // what fires the team + customer alert.
+          // Into the reconciliation queue (the Sentry event above fired first;
+          // markTerminal can throw), exactly like the `failed`-row case below —
+          // and that transition is what fires the team + customer alert.
           await markTerminal(stripePaymentIntentId, "needs_reconciliation", "expired row for a PaymentIntent that carries money", ["expired"]);
           return {
             kind: "needs_reconciliation",

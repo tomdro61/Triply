@@ -7,28 +7,39 @@
  * the customer sat with a hold on their card and no booking (launch-QA finding
  * #8, Oct 28 2026; the Fox Parking orphan, Oct 22).
  *
- * Fired exactly when the row's status TRANSITIONS to `needs_reconciliation`
- * or `capture_ambiguous` (markTerminal's `.in("status", …)` guard, the sweep's
- * `.select()`), plus the few engine outcomes that carry money but never write
- * a row. At most once per PaymentIntent per status.
+ * Fired when the row's status TRANSITIONS to `needs_reconciliation` or
+ * `capture_ambiguous` (markTerminal's `.in("status", …)` guard, the sweep's
+ * `.select()`), and from the engine outcomes that carry money but have no row
+ * to transition. Once per PaymentIntent: the transition dedupes the first
+ * kind; a `reconciliation_alerted_at` marker on the PaymentIntent's metadata
+ * dedupes the second (every finishing-page poll and both webhook events
+ * re-run the engine), and the two emails carry Resend idempotency keys.
  *
  * Rules:
  *  - `scheduleReconciliationAlert` runs the alert AFTER the response with
  *    Next's `after()` (Vercel `waitUntil`): it never adds to a 60 s route's
  *    budget, never delays the engine's own Sentry events or the customer's
  *    answer, and is not frozen with the function. Outside a request scope
- *    (a script, a test) it runs inline.
+ *    (a script, a test) `after` throws and the alert runs inline. Known limit:
+ *    `waitUntil` work is still bounded by the route's `maxDuration`; an alert
+ *    scheduled at ~50 s of a 60 s route can be cut off — the engine's own
+ *    Sentry event (fired before the schedule) and the daily reconciliation
+ *    email are the backstop.
  *  - Never throws, never writes a row. Every step is bounded; the two
  *    deliveries (team, customer) run in parallel; the whole alert is capped.
  *  - A step that fails is one `capturePaymentError` with the PaymentIntent id
  *    and the step name; the other steps still run.
  *  - The row comes from the caller — the UPDATE's own RETURNING — so there is
- *    no second read and `livemode` is always known ("[TEST]" and no ping for
- *    staging rows; "@here" only for live rows). No row (engine outcomes with
- *    nothing staged) → the team alert still goes, with the PaymentIntent id.
- *  - What is on the card comes from Stripe (moneyOnCard), never from the row;
- *    a refunded payment is said to be refunded. No deadline is promised —
- *    "as soon as it's resolved", the same words as the finishing page.
+ *    no second read and `livemode` is known ("[TEST]" and no ping for staging
+ *    rows; "@here" only for live rows). No row (engine outcomes with nothing
+ *    staged) → the team alert still goes, with the PaymentIntent id, and the
+ *    customer address falls back to the PaymentIntent's metadata.
+ *  - The team alert says whether the customer is being emailed, and to which
+ *    address class — never a fixed "customer emailed" claim.
+ *  - What is on the card comes from Stripe (readCard), never from the row; a
+ *    refunded payment is said to be refunded and NOT told "don't book again".
+ *    No deadline is promised — "as soon as it's resolved", the same words as
+ *    the finishing page.
  *  - Dates shown to the customer are the row's LITERAL airport-local strings,
  *    reformatted by string operations only. No Date math.
  */
@@ -41,7 +52,7 @@ import { isDiscordWebhookUrl, postToDiscord } from "@/lib/digest/discord";
 import type { Embed } from "@/lib/digest/render";
 import { capturePaymentError } from "@/lib/sentry";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
-import { formatMoneyOnCard, moneyOnCard, type MoneyOnCard } from "@/lib/stripe/money-on-card";
+import { formatMoneyOnCard, markAlerted, readCard, type CardState, type MoneyOnCard } from "@/lib/stripe/money-on-card";
 
 export type ReconciliationStatus = "needs_reconciliation" | "capture_ambiguous";
 
@@ -65,7 +76,7 @@ export interface ReconciliationAlertInput {
   status: ReconciliationStatus;
   /** The engine's reason (`last_error`). Free text; may contain supplier HTML. */
   reason: string;
-  /** Which caller hit it: "engine", "sweep". */
+  /** Which caller hit it: "engine", "sweep", or the engine's `source`. */
   source: string;
   /** The row as the transition returned it; null when nothing was staged. */
   row: ReconciliationAlertRow | null;
@@ -74,6 +85,8 @@ export interface ReconciliationAlertInput {
 export interface ReconciliationAlertResult {
   team: "discord" | "email" | "none";
   customer: "sent" | "no_email" | "failed";
+  /** This payment was alerted before (marker on the PaymentIntent); nothing sent. */
+  deduped: boolean;
 }
 
 const DISCORD_USERNAME = "Triply Bookings";
@@ -81,11 +94,11 @@ const RED = 0xdc2626;
 const AMBER = 0xd97706;
 
 /** Per-step bounds; the deliveries run in parallel, so the worst case is
- *  card read + the longer of (Discord then email) and (customer email). */
+ *  card read + the longer of (Discord then email) and (customer email) + the marker. */
 const CARD_MS = 4_000;
 const DISCORD_MS = 4_000;
 const EMAIL_MS = 4_000;
-const ALERT_BUDGET_MS = 15_000;
+const ALERT_BUDGET_MS = 18_000;
 
 class StepTimeout extends Error {
   constructor(step: string, ms: number) {
@@ -175,28 +188,49 @@ function stripeUrl(piId: string, live: boolean): string {
   return `https://dashboard.stripe.com/${live ? "" : "test/"}payments/${encodeURIComponent(piId)}`;
 }
 
-/** Live unless the row says otherwise; with no row, the deployment's key decides. */
-function isLive(row: ReconciliationAlertRow | null): boolean {
+/** The row says; else Stripe says; else the deployment's key decides. */
+function isLive(row: ReconciliationAlertRow | null, card: CardState): boolean {
   if (row && typeof row.livemode === "boolean") return row.livemode;
+  if (typeof card.livemode === "boolean") return card.livemode;
   return stripeKeyIsLive();
 }
 
-function teamEmbed(input: ReconciliationAlertInput, money: MoneyOnCard): Embed {
+function validEmail(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim();
+  return v.includes("@") ? v : null;
+}
+
+/** Where the customer email goes: the staged row first, then the PaymentIntent's metadata. */
+function customerRecipient(row: ReconciliationAlertRow | null, card: CardState): string | null {
+  return validEmail(row?.customer?.email) ?? card.customerEmail;
+}
+
+/** What the team is told about the customer email — never a fixed claim. */
+function customerLine(recipient: string | null, withAddress: boolean): string {
+  if (!recipient) return "customer NOT emailed — no address on file; contact them from Stripe";
+  return withAddress
+    ? `customer being emailed at ${recipient} (a failed send is a Sentry 'customer email' event)`
+    : "customer being emailed at the address on file (a failed send is a Sentry 'customer email' event)";
+}
+
+function teamEmbed(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Embed {
   const { row } = input;
-  const live = isLive(row);
+  const live = isLive(row, card);
   const prefix = live ? "" : "[TEST] ";
   const where = row?.location_name
     ? `${plain(row.location_name)}${row.airport_code ? ` (${plain(row.airport_code, 10)})` : ""}`
     : "nothing staged for this payment";
   const name = row?.customer ? plain(`${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""}`.trim(), 120) : "";
   const fields: Embed["fields"] = [
-    { name: "Money", value: plain(moneyLine(money), 120) },
+    { name: "Money", value: plain(moneyLine(card.money), 120) },
     { name: "Lot", value: where },
     { name: "Dates", value: row ? `${plain(row.from_date, 40)} → ${plain(row.to_date, 40)}` : "—" },
     { name: "Customer", value: name || "—", inline: true },
     { name: "Reservation", value: row?.reslab_reservation_number ? plain(row.reslab_reservation_number, 40) : "none recorded", inline: true },
     { name: "Why", value: plain(reasonSummary(input.reason), 1000) },
     { name: "Found by", value: plain(input.source, 40), inline: true },
+    { name: "Customer email", value: plain(customerLine(recipient, false), 200) },
   ];
   return {
     title: `${prefix}Booking needs a human — ${plain(input.stripePaymentIntentId, 60)}`,
@@ -205,11 +239,11 @@ function teamEmbed(input: ReconciliationAlertInput, money: MoneyOnCard): Embed {
       `[Open in Stripe](${stripeUrl(input.stripePaymentIntentId, live)}) · resolve per runbook § 32, then mark the row.`,
     color: live ? RED : AMBER,
     fields,
-    footer: { text: `${prefix}Triply reconciliation alert · ${live ? "production (live Stripe)" : "test mode (staging)"} · customer emailed once` },
+    footer: { text: `${prefix}Triply reconciliation alert · ${live ? "production (live Stripe)" : "test mode (staging)"}` },
   };
 }
 
-async function postTeamDiscord(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<boolean> {
+async function postTeamDiscord(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Promise<boolean> {
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
   if (!webhookUrl) return false;
   if (!isDiscordWebhookUrl(webhookUrl)) {
@@ -219,9 +253,9 @@ async function postTeamDiscord(input: ReconciliationAlertInput, money: MoneyOnCa
   }
   const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;
   const redact = (text: string) => text.split(webhookUrl).join("<webhook>").split(token).join("<token>");
-  const live = isLive(input.row);
+  const live = isLive(input.row, card);
   try {
-    const res = await postToDiscord(webhookUrl, teamEmbed(input, money), {
+    const res = await postToDiscord(webhookUrl, teamEmbed(input, card, recipient), {
       remainingBudgetMs: 0,
       username: DISCORD_USERNAME,
       timeoutMs: DISCORD_MS,
@@ -237,18 +271,19 @@ async function postTeamDiscord(input: ReconciliationAlertInput, money: MoneyOnCa
   }
 }
 
-async function emailTeam(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<boolean> {
+async function emailTeam(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Promise<boolean> {
   const { row } = input;
-  const live = isLive(row);
+  const live = isLive(row, card);
   const prefix = live ? "" : "[TEST] ";
-  const figure = formatMoneyOnCard(money);
+  const figure = formatMoneyOnCard(card.money);
   const rows: Array<[string, string]> = [
     ["PaymentIntent", input.stripePaymentIntentId],
-    ["Money", moneyLine(money)],
+    ["Money", moneyLine(card.money)],
     ["Status", input.status],
     ["Lot", row?.location_name ? `${row.location_name}${row.airport_code ? ` (${row.airport_code})` : ""}` : "nothing staged for this payment"],
     ["Dates", row ? `${row.from_date} → ${row.to_date}` : "—"],
-    ["Customer", row?.customer ? `${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""} <${row.customer.email ?? "no email"}>`.trim() : "—"],
+    ["Customer", row?.customer ? `${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""}`.trim() || "—" : "—"],
+    ["Customer email", customerLine(recipient, true)],
     ["Reservation", row?.reslab_reservation_number ?? "none recorded"],
     ["Found by", input.source],
     ["Why", reasonSummary(input.reason, 600)],
@@ -256,7 +291,7 @@ async function emailTeam(input: ReconciliationAlertInput, money: MoneyOnCard): P
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;">
       <h2 style="color:#dc2626;">${prefix}Booking needs a human${figure ? ` — ${escapeHtml(figure)}` : ""}</h2>
-      <p style="font-size:14px;">Money is held or taken and the booking state is unknown. Resolve it in Stripe and with the supplier per runbook § 32, then mark the row. The customer has been emailed once and told not to book again.</p>
+      <p style="font-size:14px;">Money is held or taken and the booking state is unknown. Resolve it in Stripe and with the supplier per runbook § 32, then mark the row.</p>
       <table style="border-collapse:collapse;width:100%;font-size:13px;">
         ${rows.map(([k, v]) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;">${escapeHtml(k)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(v)}</td></tr>`).join("")}
       </table>
@@ -266,12 +301,15 @@ async function emailTeam(input: ReconciliationAlertInput, money: MoneyOnCard): P
     const { error } = await bounded(
       "team email",
       EMAIL_MS,
-      resend.emails.send({
-        from: FROM_EMAIL,
-        to: PAYMENT_ALERT_EMAILS,
-        subject: `🚨 ${prefix}Booking needs a human${figure ? ` — ${figure}` : ""} — ${input.stripePaymentIntentId}`,
-        html,
-      })
+      resend.emails.send(
+        {
+          from: FROM_EMAIL,
+          to: PAYMENT_ALERT_EMAILS,
+          subject: `🚨 ${prefix}Booking needs a human${figure ? ` — ${figure}` : ""} — ${input.stripePaymentIntentId}`,
+          html,
+        },
+        { idempotencyKey: `reconciliation/team/${input.stripePaymentIntentId}` }
+      )
     );
     if (error) throw new Error(error.message);
     return true;
@@ -281,36 +319,45 @@ async function emailTeam(input: ReconciliationAlertInput, money: MoneyOnCard): P
   }
 }
 
-async function emailCustomer(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<"sent" | "no_email" | "failed"> {
-  const { row } = input;
-  const to = row?.customer?.email?.trim();
-  if (!to || !to.includes("@")) return "no_email";
+async function emailCustomer(input: ReconciliationAlertInput, card: CardState, to: string | null): Promise<"sent" | "no_email" | "failed"> {
+  if (!to) return "no_email";
   try {
-    const first = row?.customer?.firstName?.trim();
-    const lot = row?.location_name?.trim();
+    const { row } = input;
+    const money = card.money;
+    const first = typeof row?.customer?.firstName === "string" ? row.customer.firstName.trim() : "";
+    const lot = typeof row?.location_name === "string" ? row.location_name.trim() : "";
     const when = row ? `${formatLiteralDateTime(row.from_date)} – ${formatLiteralDateTime(row.to_date)}` : null;
+    const refunded = money.kind === "refunded";
     // Neutral on purpose: at some sites the supplier DID confirm and our
     // capture failed; at direct lots no supplier is called. "Checking it by
-    // hand" is true in every case.
+    // hand" is true in every case. A refunded customer has no booking and
+    // their money back — they are NOT told to wait.
     const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;line-height:1.5;">
-      <h2 style="font-family:Poppins,Arial,sans-serif;color:#1A1A2E;">We're finishing your booking</h2>
+      <h2 style="font-family:Poppins,Arial,sans-serif;color:#1A1A2E;">${refunded ? "About your Triply booking" : "We're finishing your booking"}</h2>
       <p>${first ? `Hi ${escapeHtml(first)},` : "Hi,"}</p>
       <p>We couldn't finish confirming your booking${lot ? ` at <strong>${escapeHtml(lot)}</strong>` : ""}${when ? ` (${escapeHtml(when)})` : ""} automatically, and our team is checking it by hand. <strong>We'll email you as soon as it's resolved.</strong></p>
       <p>${escapeHtml(moneySentence(money))}</p>
-      <p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;"><strong>Please don't book again</strong> — a second booking would place a second charge on your card.</p>
+      ${
+        refunded
+          ? `<p style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">Your payment has been returned, so there is nothing on your card for this booking. If your trip is soon, you can book again now or reply to this email and we'll help.</p>`
+          : `<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;"><strong>Please don't book again</strong> — a second booking would place a second charge on your card.</p>`
+      }
       <p style="font-size:14px;color:#64748b;">Your reference: <code>${escapeHtml(input.stripePaymentIntentId)}</code><br>Quote it if you contact us: <a href="mailto:support@triplypro.com">support@triplypro.com</a></p>
       <p style="font-size:12px;color:#94a3b8;">Triply · triplypro.com</p>
     </div>`;
     const { error } = await bounded(
       "customer email",
       EMAIL_MS,
-      resend.emails.send({
-        from: FROM_EMAIL,
-        to,
-        subject: "We're finishing your Triply booking — no action needed",
-        html,
-      })
+      resend.emails.send(
+        {
+          from: FROM_EMAIL,
+          to,
+          subject: refunded ? "About your Triply booking — your payment was returned" : "We're finishing your Triply booking — no action needed",
+          html,
+        },
+        { idempotencyKey: `reconciliation/customer/${input.stripePaymentIntentId}` }
+      )
     );
     if (error) throw new Error(error.message);
     return "sent";
@@ -322,30 +369,41 @@ async function emailCustomer(input: ReconciliationAlertInput, money: MoneyOnCard
 
 async function run(input: ReconciliationAlertInput, progress: ReconciliationAlertResult): Promise<ReconciliationAlertResult> {
   const piId = input.stripePaymentIntentId;
-  const money = await bounded("card read", CARD_MS, moneyOnCard(piId)).catch((error: unknown): MoneyOnCard => {
+  const card = await bounded("card read", CARD_MS, readCard(piId)).catch((error: unknown): CardState => {
     report(piId, "card read", error);
-    return { kind: "unknown" };
+    return { money: { kind: "unknown" }, customerEmail: null, livemode: null, alreadyAlerted: false };
   });
+  if (card.alreadyAlerted) {
+    progress.deduped = true;
+    progress.customer = "no_email";
+    return progress;
+  }
+  const recipient = customerRecipient(input.row, card);
 
   const team = (async () => {
-    if (await postTeamDiscord(input, money)) {
+    if (await postTeamDiscord(input, card, recipient)) {
       progress.team = "discord";
-    } else if (await emailTeam(input, money)) {
+    } else if (await emailTeam(input, card, recipient)) {
       progress.team = "email";
     } else {
       report(piId, "team alert", new Error("neither Discord nor email delivered — only Sentry and the daily reconciliation email know"), true);
     }
   })();
   const customer = (async () => {
-    progress.customer = await emailCustomer(input, money);
+    progress.customer = await emailCustomer(input, card, recipient);
   })();
   await Promise.allSettled([team, customer]);
+
+  // Durable once-only marker, written only after something was delivered.
+  if (progress.team !== "none" || progress.customer === "sent") {
+    await bounded("mark alerted", CARD_MS, markAlerted(piId)).catch((error: unknown) => report(piId, "mark alerted", error));
+  }
   return progress;
 }
 
 /** Never throws. Capped at ALERT_BUDGET_MS; the result reflects what finished. */
 export async function alertNeedsReconciliation(input: ReconciliationAlertInput): Promise<ReconciliationAlertResult> {
-  const progress: ReconciliationAlertResult = { team: "none", customer: "failed" };
+  const progress: ReconciliationAlertResult = { team: "none", customer: "failed", deduped: false };
   try {
     return await bounded("whole alert", ALERT_BUDGET_MS, run(input, progress));
   } catch (error) {

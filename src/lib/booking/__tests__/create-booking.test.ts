@@ -143,6 +143,7 @@ function pendingRow(over: Record<string, unknown> = {}) {
     location_name: "Lot A",
     location_address: "1 Road",
     airport_code: "JFK",
+    inventory_source: "reslab",
     subtotal: "80.00",
     tax_total: "5.00",
     fees_total: "3.00",
@@ -2136,6 +2137,36 @@ describe("reconciliation alert hook (P1b, Oct 28 2026)", () => {
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
     await createBooking({ source: "client", stripePaymentIntentId: PI });
     expect(scheduleReconciliationAlert).not.toHaveBeenCalled();
+  });
+
+  it("a `completed` row with no reservation number and no bookings row is moved into the queue and alerts once (every poll re-runs the engine)", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    db.seed("pending_bookings", [pendingRow({ status: "completed", reslab_reservation_number: null })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent()); // a hold: the refund gate does not apply
+    const out = await createBooking({ source: "complete", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false, reason: expect.not.stringContaining("DurableState") });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+    const again = await createBooking({ source: "complete", stripePaymentIntentId: PI });
+    expect(again.kind).toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("no pending row and no payload (money held, nothing staged) → alerts with row null", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(scheduleReconciliationAlert).mock.calls[0][0]).toMatchObject({ row: null, source: "webhook", reason: "no pending row and no payload" });
+  });
+
+  it("every column the alert reads from the UPDATE's RETURNING exists on a pending row (the fake returns whole rows, so this is the only check)", async () => {
+    const { RECONCILIATION_ALERT_COLUMNS } = await import("@/lib/booking/reconciliation-alert");
+    const fixture = pendingRow();
+    for (const col of RECONCILIATION_ALERT_COLUMNS.split(",").map((c) => c.trim())) {
+      expect(fixture, `column ${col}`).toHaveProperty(col);
+    }
   });
 
   it("an `expired` row whose PaymentIntent carries money is moved into the queue and alerts once", async () => {
