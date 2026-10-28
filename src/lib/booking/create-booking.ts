@@ -42,6 +42,7 @@ import {
   paymentIntentRefundState,
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
+import { alertNeedsReconciliation } from "./reconciliation-alert";
 import { reservationSchema } from "@/lib/validation/schemas";
 import { redactForDigest } from "@/lib/digest/redact";
 import type { Attribution } from "@/lib/attribution/schema";
@@ -866,7 +867,20 @@ async function markTerminal(
   // redelivery re-drove a fulfilment that had already completed.
   if (error) throw new DurableStateError(`markTerminal(${status})`, error.message);
 
-  return !!data;
+  const changed = !!data;
+  // The row just became a human's problem: say so NOW (Discord + one customer
+  // email), not in tomorrow's reconciliation digest. Only on the transition
+  // (`changed`), so three racing callers alert once. Awaited and bounded
+  // inside; never throws (reconciliation-alert.ts).
+  if (changed && (status === "needs_reconciliation" || status === "capture_ambiguous")) {
+    await alertNeedsReconciliation({
+      stripePaymentIntentId: pi,
+      status,
+      reason: lastError ?? "",
+      source: "engine",
+    });
+  }
+  return changed;
 }
 
 /**

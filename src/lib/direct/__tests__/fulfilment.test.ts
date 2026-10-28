@@ -1,4 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+}));
 import { directCartKey, directPayloadFromRow, directStaleness } from "../fulfilment";
 import { fromSnapshot } from "@/lib/booking/fulfilled-reservation";
 import { readDirectMetadataMoney } from "../metadata-money";

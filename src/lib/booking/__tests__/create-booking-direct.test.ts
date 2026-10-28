@@ -21,6 +21,9 @@ const reslabMock = { createReservation: vi.fn(), getReservation: vi.fn(), getCos
 const resendSend = vi.fn();
 const numbers = vi.hoisted(() => ({ queue: [] as string[] }));
 
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+}));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/stripe/client")>("@/lib/stripe/client");

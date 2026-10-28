@@ -44,6 +44,9 @@ const reslabMock = {
   getLocation: vi.fn(),
 };
 
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+}));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: async () => db,
 }));

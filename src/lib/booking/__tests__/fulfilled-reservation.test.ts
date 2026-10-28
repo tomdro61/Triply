@@ -1,4 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+}));
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromReslab } from "../fulfilled-reservation";

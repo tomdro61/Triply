@@ -5,6 +5,9 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+}));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => ({}) }));
 vi.mock("@/lib/reslab/client", () => ({ reslab: {}, stripHtml: (s: string | null) => s ?? "" }));
 vi.mock("@/lib/resend/send-booking-confirmation", () => ({ sendBookingConfirmation: vi.fn() }));
