@@ -2152,13 +2152,15 @@ describe("reconciliation alert hook (P1b, Oct 28 2026)", () => {
     expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
   });
 
-  it("no pending row and no payload (money held, nothing staged) → alerts with row null", async () => {
+  it("no pending row and no payload (money held, nothing staged) → alerts with row null and the PaymentIntent's email + mode as fallbacks", async () => {
     const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
     stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
     const out = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
     expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
     expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(scheduleReconciliationAlert).mock.calls[0][0]).toMatchObject({ row: null, source: "webhook", reason: "no pending row and no payload" });
+    const call = vi.mocked(scheduleReconciliationAlert).mock.calls[0][0];
+    expect(call).toMatchObject({ row: null, source: "webhook", reason: "no pending row and no payload" });
+    expect(call.fallback).toEqual({ customerEmail: paymentIntent().metadata?.customerEmail ?? null, livemode: paymentIntent().livemode });
   });
 
   it("every column the alert reads from the UPDATE's RETURNING exists on a pending row (the fake returns whole rows, so this is the only check)", async () => {

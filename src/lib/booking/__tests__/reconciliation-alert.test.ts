@@ -275,6 +275,77 @@ describe("alertNeedsReconciliation", () => {
   });
 });
 
+describe("alertNeedsReconciliation — pass-3 behaviours", () => {
+  it("a Resend idempotency conflict means the OTHER caller sent it: counted as sent, no Sentry 'customer email' event", async () => {
+    send.mockImplementation(async (m: { to: unknown }) =>
+      Array.isArray(m.to)
+        ? { data: { id: "em" }, error: null }
+        : { data: null, error: { name: "concurrent_idempotent_requests", message: "Request is in progress" } }
+    );
+    delete process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL;
+    const result = await alertNeedsReconciliation(input());
+    expect(result).toEqual({ team: "email", customer: "sent", deduped: false });
+    expect(capturePaymentError.mock.calls.some((c) => /customer email failed/.test(c[0].message))).toBe(false);
+  });
+
+  it("no row + card read failed: the caller's PaymentIntent fallback supplies the address and the mode", async () => {
+    readCard.mockRejectedValue(new Error("stripe timeout"));
+    const result = await alertNeedsReconciliation(input({ row: null, fallback: { customerEmail: "fallback@example.com", livemode: false } }));
+    expect(result).toMatchObject({ team: "discord", customer: "sent" });
+    expect(customerMail().to).toBe("fallback@example.com");
+    const [, embed, opts] = postToDiscord.mock.calls[0];
+    expect(embed.title).toMatch(/^\[TEST\] /);
+    expect(opts).not.toHaveProperty("content");
+    expect(markAlerted).toHaveBeenCalledTimes(1); // not claimed up front (the read failed), marked after delivery
+  });
+
+  it("no row + card read failed + no fallback: the team is told the PaymentIntent could not be read, not 'no address on file'", async () => {
+    readCard.mockRejectedValue(new Error("stripe timeout"));
+    delete process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL;
+    await alertNeedsReconciliation(input({ row: null }));
+    expect(teamMail().html).toContain("could not be read for an address");
+    expect(teamMail().html).not.toContain("no address on file");
+  });
+
+  it("no-row alert claims the marker BEFORE sending (one @here, not two, when the finishing page and the webhook race)", async () => {
+    const order: string[] = [];
+    markAlerted.mockImplementation(async () => {
+      order.push("mark");
+      return true;
+    });
+    postToDiscord.mockImplementation(async () => {
+      order.push("discord");
+      return { kind: "posted", status: 200, retried: false };
+    });
+    await alertNeedsReconciliation(input({ row: null }));
+    expect(order[0]).toBe("mark");
+    expect(markAlerted).toHaveBeenCalledTimes(1);
+  });
+
+  it("row alert marks AFTER delivery (the transition already dedupes it)", async () => {
+    const order: string[] = [];
+    markAlerted.mockImplementation(async () => {
+      order.push("mark");
+      return true;
+    });
+    postToDiscord.mockImplementation(async () => {
+      order.push("discord");
+      return { kind: "posted", status: 200, retried: false };
+    });
+    await alertNeedsReconciliation(input());
+    expect(order).toEqual(["discord", "mark"]);
+  });
+
+  it("refunded WITH a reservation number recorded: no 'book again' — the reservation is still live", async () => {
+    readCard.mockResolvedValue(card({ money: { kind: "refunded", amountCents: 2537, currency: "usd" } }));
+    await alertNeedsReconciliation(input({ row: row({ reslab_reservation_number: "RTL874084" }) }));
+    const mail = customerMail();
+    expect(mail.html).toContain("has already been refunded in full");
+    expect(mail.html).not.toContain("you can book again");
+    expect(mail.html).toContain("Please don't book again");
+  });
+});
+
 describe("scheduleReconciliationAlert", () => {
   it("defers the alert to after the response when a request scope exists", async () => {
     after.mockImplementation(() => undefined);

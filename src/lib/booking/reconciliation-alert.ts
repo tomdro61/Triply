@@ -13,7 +13,9 @@
  * to transition. Once per PaymentIntent: the transition dedupes the first
  * kind; a `reconciliation_alerted_at` marker on the PaymentIntent's metadata
  * dedupes the second (every finishing-page poll and both webhook events
- * re-run the engine), and the two emails carry Resend idempotency keys.
+ * re-run the engine — often within seconds of each other, so for a no-row
+ * alert the marker is claimed BEFORE sending), and the two emails carry
+ * Resend idempotency keys (a conflict on the key = the other caller sent it).
  *
  * Rules:
  *  - `scheduleReconciliationAlert` runs the alert AFTER the response with
@@ -80,6 +82,10 @@ export interface ReconciliationAlertInput {
   source: string;
   /** The row as the transition returned it; null when nothing was staged. */
   row: ReconciliationAlertRow | null;
+  /** What the caller already knows from the PaymentIntent it holds — used
+   *  when the alert's own card read fails, so a timeout never turns into
+   *  "no address on file". */
+  fallback?: { customerEmail?: string | null; livemode?: boolean | null };
 }
 
 export interface ReconciliationAlertResult {
@@ -188,11 +194,21 @@ function stripeUrl(piId: string, live: boolean): string {
   return `https://dashboard.stripe.com/${live ? "" : "test/"}payments/${encodeURIComponent(piId)}`;
 }
 
-/** The row says; else Stripe says; else the deployment's key decides. */
-function isLive(row: ReconciliationAlertRow | null, card: CardState): boolean {
+/** The row says; else Stripe says; else the caller's PaymentIntent; else the deployment's key. */
+function isLive(input: ReconciliationAlertInput, card: CardState): boolean {
+  const { row } = input;
   if (row && typeof row.livemode === "boolean") return row.livemode;
   if (typeof card.livemode === "boolean") return card.livemode;
+  if (typeof input.fallback?.livemode === "boolean") return input.fallback.livemode;
   return stripeKeyIsLive();
+}
+
+/** Resend answers a repeated idempotency key with one of these: the OTHER
+ *  caller sent this email. Not a failure, and never "customer NOT emailed". */
+function isIdempotencyConflict(error: unknown): boolean {
+  const name = error && typeof error === "object" ? String((error as { name?: unknown }).name ?? "") : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return /concurrent_idempotent_requests|invalid_idempotent_request|idempoten/i.test(`${name} ${message}`);
 }
 
 function validEmail(value: unknown): string | null {
@@ -201,22 +217,26 @@ function validEmail(value: unknown): string | null {
   return v.includes("@") ? v : null;
 }
 
-/** Where the customer email goes: the staged row first, then the PaymentIntent's metadata. */
-function customerRecipient(row: ReconciliationAlertRow | null, card: CardState): string | null {
-  return validEmail(row?.customer?.email) ?? card.customerEmail;
+/** Where the customer email goes: the staged row, then the PaymentIntent's metadata (read here, else as the caller saw it). */
+function customerRecipient(input: ReconciliationAlertInput, card: CardState): string | null {
+  return validEmail(input.row?.customer?.email) ?? card.customerEmail ?? validEmail(input.fallback?.customerEmail);
 }
 
 /** What the team is told about the customer email — never a fixed claim. */
-function customerLine(recipient: string | null, withAddress: boolean): string {
-  if (!recipient) return "customer NOT emailed — no address on file; contact them from Stripe";
+function customerLine(recipient: string | null, withAddress: boolean, cardReadFailed: boolean): string {
+  if (!recipient) {
+    return cardReadFailed
+      ? "customer NOT emailed — the PaymentIntent could not be read for an address; contact them from Stripe"
+      : "customer NOT emailed — no address on file; contact them from Stripe";
+  }
   return withAddress
     ? `customer being emailed at ${recipient} (a failed send is a Sentry 'customer email' event)`
     : "customer being emailed at the address on file (a failed send is a Sentry 'customer email' event)";
 }
 
-function teamEmbed(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Embed {
+function teamEmbed(input: ReconciliationAlertInput, card: CardState, recipient: string | null, cardReadFailed: boolean): Embed {
   const { row } = input;
-  const live = isLive(row, card);
+  const live = isLive(input, card);
   const prefix = live ? "" : "[TEST] ";
   const where = row?.location_name
     ? `${plain(row.location_name)}${row.airport_code ? ` (${plain(row.airport_code, 10)})` : ""}`
@@ -230,7 +250,7 @@ function teamEmbed(input: ReconciliationAlertInput, card: CardState, recipient: 
     { name: "Reservation", value: row?.reslab_reservation_number ? plain(row.reslab_reservation_number, 40) : "none recorded", inline: true },
     { name: "Why", value: plain(reasonSummary(input.reason), 1000) },
     { name: "Found by", value: plain(input.source, 40), inline: true },
-    { name: "Customer email", value: plain(customerLine(recipient, false), 200) },
+    { name: "Customer email", value: plain(customerLine(recipient, false, cardReadFailed), 200) },
   ];
   return {
     title: `${prefix}Booking needs a human — ${plain(input.stripePaymentIntentId, 60)}`,
@@ -243,7 +263,7 @@ function teamEmbed(input: ReconciliationAlertInput, card: CardState, recipient: 
   };
 }
 
-async function postTeamDiscord(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Promise<boolean> {
+async function postTeamDiscord(input: ReconciliationAlertInput, card: CardState, recipient: string | null, cardReadFailed: boolean): Promise<boolean> {
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
   if (!webhookUrl) return false;
   if (!isDiscordWebhookUrl(webhookUrl)) {
@@ -253,9 +273,9 @@ async function postTeamDiscord(input: ReconciliationAlertInput, card: CardState,
   }
   const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;
   const redact = (text: string) => text.split(webhookUrl).join("<webhook>").split(token).join("<token>");
-  const live = isLive(input.row, card);
+  const live = isLive(input, card);
   try {
-    const res = await postToDiscord(webhookUrl, teamEmbed(input, card, recipient), {
+    const res = await postToDiscord(webhookUrl, teamEmbed(input, card, recipient, cardReadFailed), {
       remainingBudgetMs: 0,
       username: DISCORD_USERNAME,
       timeoutMs: DISCORD_MS,
@@ -271,9 +291,9 @@ async function postTeamDiscord(input: ReconciliationAlertInput, card: CardState,
   }
 }
 
-async function emailTeam(input: ReconciliationAlertInput, card: CardState, recipient: string | null): Promise<boolean> {
+async function emailTeam(input: ReconciliationAlertInput, card: CardState, recipient: string | null, cardReadFailed: boolean): Promise<boolean> {
   const { row } = input;
-  const live = isLive(row, card);
+  const live = isLive(input, card);
   const prefix = live ? "" : "[TEST] ";
   const figure = formatMoneyOnCard(card.money);
   const rows: Array<[string, string]> = [
@@ -283,7 +303,7 @@ async function emailTeam(input: ReconciliationAlertInput, card: CardState, recip
     ["Lot", row?.location_name ? `${row.location_name}${row.airport_code ? ` (${row.airport_code})` : ""}` : "nothing staged for this payment"],
     ["Dates", row ? `${row.from_date} → ${row.to_date}` : "—"],
     ["Customer", row?.customer ? `${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""}`.trim() || "—" : "—"],
-    ["Customer email", customerLine(recipient, true)],
+    ["Customer email", customerLine(recipient, true, cardReadFailed)],
     ["Reservation", row?.reslab_reservation_number ?? "none recorded"],
     ["Found by", input.source],
     ["Why", reasonSummary(input.reason, 600)],
@@ -311,9 +331,10 @@ async function emailTeam(input: ReconciliationAlertInput, card: CardState, recip
         { idempotencyKey: `reconciliation/team/${input.stripePaymentIntentId}` }
       )
     );
-    if (error) throw new Error(error.message);
+    if (error) throw Object.assign(new Error(error.message), { name: (error as { name?: string }).name ?? "ResendError" });
     return true;
   } catch (error) {
+    if (isIdempotencyConflict(error)) return true; // the other caller sent it
     report(input.stripePaymentIntentId, "team email", error);
     return false;
   }
@@ -327,11 +348,14 @@ async function emailCustomer(input: ReconciliationAlertInput, card: CardState, t
     const first = typeof row?.customer?.firstName === "string" ? row.customer.firstName.trim() : "";
     const lot = typeof row?.location_name === "string" ? row.location_name.trim() : "";
     const when = row ? `${formatLiteralDateTime(row.from_date)} – ${formatLiteralDateTime(row.to_date)}` : null;
-    const refunded = money.kind === "refunded";
+    // "Book again" only when the money is back AND no reservation is recorded:
+    // a refunded payment with a live ResLab number (the sweep's give-up window)
+    // still has a reservation billed to Triply until someone cancels it.
+    const refunded = money.kind === "refunded" && !row?.reslab_reservation_number;
     // Neutral on purpose: at some sites the supplier DID confirm and our
     // capture failed; at direct lots no supplier is called. "Checking it by
-    // hand" is true in every case. A refunded customer has no booking and
-    // their money back — they are NOT told to wait.
+    // hand" is true in every case. A refunded customer with nothing recorded
+    // has no booking and their money back — they are NOT told to wait.
     const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;line-height:1.5;">
       <h2 style="font-family:Poppins,Arial,sans-serif;color:#1A1A2E;">${refunded ? "About your Triply booking" : "We're finishing your booking"}</h2>
@@ -359,9 +383,10 @@ async function emailCustomer(input: ReconciliationAlertInput, card: CardState, t
         { idempotencyKey: `reconciliation/customer/${input.stripePaymentIntentId}` }
       )
     );
-    if (error) throw new Error(error.message);
+    if (error) throw Object.assign(new Error(error.message), { name: (error as { name?: string }).name ?? "ResendError" });
     return "sent";
   } catch (error) {
+    if (isIdempotencyConflict(error)) return "sent"; // the other caller sent it
     report(input.stripePaymentIntentId, "customer email", error);
     return "failed";
   }
@@ -369,8 +394,10 @@ async function emailCustomer(input: ReconciliationAlertInput, card: CardState, t
 
 async function run(input: ReconciliationAlertInput, progress: ReconciliationAlertResult): Promise<ReconciliationAlertResult> {
   const piId = input.stripePaymentIntentId;
+  let cardReadFailed = false;
   const card = await bounded("card read", CARD_MS, readCard(piId)).catch((error: unknown): CardState => {
     report(piId, "card read", error);
+    cardReadFailed = true;
     return { money: { kind: "unknown" }, customerEmail: null, livemode: null, alreadyAlerted: false };
   });
   if (card.alreadyAlerted) {
@@ -378,12 +405,25 @@ async function run(input: ReconciliationAlertInput, progress: ReconciliationAler
     progress.customer = "no_email";
     return progress;
   }
-  const recipient = customerRecipient(input.row, card);
+  const recipient = customerRecipient(input, card);
+
+  // No row = no transition to dedupe on, and two callers (the finishing page
+  // and the webhook) reach these outcomes within seconds: CLAIM the marker
+  // before sending, so Discord gets one @here, not two. A failed claim still
+  // sends (a repeat beats silence); a claim on a payment that then fails to
+  // deliver leaves the per-payment "nothing delivered" Sentry event as the signal.
+  let marked = false;
+  if (input.row === null && !cardReadFailed) {
+    marked = await bounded("mark alerted", CARD_MS, markAlerted(piId)).catch((error: unknown) => {
+      report(piId, "mark alerted", error);
+      return false;
+    });
+  }
 
   const team = (async () => {
-    if (await postTeamDiscord(input, card, recipient)) {
+    if (await postTeamDiscord(input, card, recipient, cardReadFailed)) {
       progress.team = "discord";
-    } else if (await emailTeam(input, card, recipient)) {
+    } else if (await emailTeam(input, card, recipient, cardReadFailed)) {
       progress.team = "email";
     } else {
       report(piId, "team alert", new Error("neither Discord nor email delivered — only Sentry and the daily reconciliation email know"), true);
@@ -394,8 +434,8 @@ async function run(input: ReconciliationAlertInput, progress: ReconciliationAler
   })();
   await Promise.allSettled([team, customer]);
 
-  // Durable once-only marker, written only after something was delivered.
-  if (progress.team !== "none" || progress.customer === "sent") {
+  // Durable once-only marker, written after something was delivered (unless claimed above).
+  if (!marked && (progress.team !== "none" || progress.customer === "sent")) {
     await bounded("mark alerted", CARD_MS, markAlerted(piId)).catch((error: unknown) => report(piId, "mark alerted", error));
   }
   return progress;

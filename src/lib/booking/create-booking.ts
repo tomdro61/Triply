@@ -1174,6 +1174,7 @@ async function createBookingInner(
       reason: `PaymentIntent inventory source ${piSource} is not fulfillable here`,
       source,
       row: null,
+      fallback: { customerEmail: pi.metadata?.customerEmail ?? null, livemode: pi.livemode },
     });
     return {
       kind: "needs_reconciliation",
@@ -1307,6 +1308,7 @@ async function createBookingInner(
         reason: `direct payment with no staged row could not be released: ${detail}`,
         source,
         row: null,
+        fallback: { customerEmail: pi.metadata?.customerEmail ?? null, livemode: pi.livemode },
       });
       return { kind: "needs_reconciliation", reason: `direct payment with no staged row could not be released: ${detail}`, retryable: false };
     }
@@ -1344,6 +1346,7 @@ async function createBookingInner(
         reason: "no pending row and no payload",
         source,
         row: null,
+        fallback: { customerEmail: pi.metadata?.customerEmail ?? null, livemode: pi.livemode },
       });
       return {
         kind: "needs_reconciliation",
@@ -1393,6 +1396,7 @@ async function createBookingInner(
         reason: "pending row self-create failed",
         source,
         row: null,
+        fallback: { customerEmail: pi.metadata?.customerEmail ?? null, livemode: pi.livemode },
       });
       return {
         kind: "needs_reconciliation",
