@@ -5,6 +5,8 @@ describe("isAiChatEnabled", () => {
   afterEach(() => vi.unstubAllEnvs());
 
   it("is on when the variable is unset or anything but false", () => {
+    vi.stubEnv("NEXT_PUBLIC_AI_CHAT_ENABLED", undefined);
+    expect(isAiChatEnabled()).toBe(true);
     vi.stubEnv("NEXT_PUBLIC_AI_CHAT_ENABLED", "");
     expect(isAiChatEnabled()).toBe(true);
     vi.stubEnv("NEXT_PUBLIC_AI_CHAT_ENABLED", "true");

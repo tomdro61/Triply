@@ -17,9 +17,10 @@ type SearchTab = "parking" | "ai" | "extra";
 interface HeroProps {
   /**
    * An optional extra tab, rendered once in the tab strip (second, between
-   * Parking and AI Assistant); it portals its panel into the content area
-   * while active (see hero-extra-tab.ts).
-   * Unset: today's two tabs, exactly.
+   * Parking and AI Assistant — or last when the AI tab is switched off by
+   * NEXT_PUBLIC_AI_CHAT_ENABLED=false); it portals its panel into the content
+   * area while active (see hero-extra-tab.ts).
+   * Unset: the default tabs, exactly.
    */
   extraTab?: ReactNode;
 }
@@ -51,14 +52,16 @@ export function Hero({ extraTab }: HeroProps) {
     }, 500);
   };
 
-  // The AI Assistant tab follows the kill switch (NEXT_PUBLIC_AI_CHAT_ENABLED);
-  // with it off and no extra tab there is one tab, so the strip is not shown.
+  // The AI Assistant tab follows the kill switch (NEXT_PUBLIC_AI_CHAT_ENABLED).
+  // With it off, the strip may hold the Parking tab alone (the homepage always
+  // passes the Park & Stay slot, which renders nothing for customers), so the
+  // strip hides itself by CSS whenever a single button is all it contains —
+  // the server and the browser agree without knowing what the slot rendered.
   const aiChatEnabled = isAiChatEnabled();
   const tabs = [
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
     ...(aiChatEnabled ? [{ id: "ai" as const, icon: Sparkles, label: "AI Assistant" }] : []),
   ];
-  const showTabStrip = tabs.length > 1 || Boolean(extraTab);
 
   // The optional extra tab (hero-extra-tab.ts): rendered once, it portals
   // its panel into `extraTabPanel` while active. Stable callbacks, so the
@@ -93,9 +96,8 @@ export function Hero({ extraTab }: HeroProps) {
 
         {/* Search Container */}
         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-          {/* Tabs */}
-          {showTabStrip && (
-          <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50">
+          {/* Tabs — hidden when it would show one lone tab */}
+          <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50 has-[>button:only-child]:hidden">
             {tabs.map((tab, index) => {
               const isActive = activeTab === tab.id;
               const button = (
@@ -128,7 +130,6 @@ export function Hero({ extraTab }: HeroProps) {
               );
             })}
           </div>
-          )}
 
           {/* Content Area */}
           <div className="p-4 md:p-6 bg-white">
