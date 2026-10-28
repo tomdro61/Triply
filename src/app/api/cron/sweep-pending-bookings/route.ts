@@ -30,7 +30,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
-import { alertNeedsReconciliation } from "@/lib/booking/reconciliation-alert";
+import {
+  RECONCILIATION_ALERT_COLUMNS,
+  scheduleReconciliationAlert,
+  type ReconciliationAlertRow,
+} from "@/lib/booking/reconciliation-alert";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
 export const dynamic = "force-dynamic";
@@ -369,18 +373,19 @@ export async function GET(request: NextRequest) {
           })
           .eq("stripe_payment_intent_id", piId)
           .in("status", ["pending", "processing"])
-          .select("stripe_payment_intent_id")
+          .select(RECONCILIATION_ALERT_COLUMNS)
           .maybeSingle();
         if (giveUpErr) result.failed++;
         result.escalated++;
         // Only when THIS update made the transition (a row another caller
-        // retired first alerts from there). Awaited, bounded, never throws.
+        // retired first alerts from there). Runs after the response; never throws.
         if (givenUp) {
-          await alertNeedsReconciliation({
+          await scheduleReconciliationAlert({
             stripePaymentIntentId: piId,
             status: "needs_reconciliation",
             reason: giveUpReason,
             source: "sweep",
+            row: givenUp as ReconciliationAlertRow,
           });
         }
         capturePaymentError(

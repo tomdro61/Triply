@@ -1,3 +1,4 @@
+import type Stripe from "stripe";
 import { stripe } from "./client";
 import { capturePaymentError } from "@/lib/sentry";
 
@@ -5,7 +6,9 @@ import { capturePaymentError } from "@/lib/sentry";
 export type MoneyOnCard =
   | { kind: "hold"; amountCents: number; currency: string }
   | { kind: "captured"; amountCents: number; currency: string }
-  /** Still settling, canceled, refunded, or the read failed: say nothing numeric. */
+  /** Captured, then refunded in full. */
+  | { kind: "refunded"; amountCents: number; currency: string }
+  /** Still settling, canceled, partially refunded, or the read failed: say nothing numeric. */
   | { kind: "unknown" };
 
 /**
@@ -16,15 +19,28 @@ export type MoneyOnCard =
  * (80 s + retries) outlives a route's 60 s, and a function killed mid-read
  * never reaches the catch. The figure is optional; a fast "unknown" is the
  * right trade.
+ *
+ * `succeeded` keeps its `amount_received` after a refund, so the charge is
+ * expanded and `amount_refunded` read: a full refund is "refunded", a partial
+ * one is "unknown" (never "charged $X" for money already returned).
  */
 export async function moneyOnCard(piId: string): Promise<MoneyOnCard> {
   try {
-    const fresh = await stripe.paymentIntents.retrieve(piId, {}, { timeout: 4_000, maxNetworkRetries: 0 });
+    const fresh = await stripe.paymentIntents.retrieve(
+      piId,
+      { expand: ["latest_charge"] },
+      { timeout: 4_000, maxNetworkRetries: 0 }
+    );
     if (fresh.status === "requires_capture" && fresh.amount_capturable > 0) {
       return { kind: "hold", amountCents: fresh.amount_capturable, currency: fresh.currency };
     }
     if (fresh.status === "succeeded" && fresh.amount_received > 0) {
-      return { kind: "captured", amountCents: fresh.amount_received, currency: fresh.currency };
+      const charge = fresh.latest_charge;
+      const refunded =
+        charge && typeof charge === "object" ? (charge as Stripe.Charge).amount_refunded ?? 0 : 0;
+      if (refunded <= 0) return { kind: "captured", amountCents: fresh.amount_received, currency: fresh.currency };
+      if (refunded >= fresh.amount_received) return { kind: "refunded", amountCents: refunded, currency: fresh.currency };
+      return { kind: "unknown" };
     }
     return { kind: "unknown" };
   } catch (error) {

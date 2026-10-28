@@ -42,7 +42,11 @@ import {
   paymentIntentRefundState,
 } from "@/lib/stripe/client";
 import { capturePaymentError, captureBookingError } from "@/lib/sentry";
-import { alertNeedsReconciliation } from "./reconciliation-alert";
+import {
+  RECONCILIATION_ALERT_COLUMNS,
+  scheduleReconciliationAlert,
+  type ReconciliationAlertRow,
+} from "./reconciliation-alert";
 import { reservationSchema } from "@/lib/validation/schemas";
 import { redactForDigest } from "@/lib/digest/redact";
 import type { Attribution } from "@/lib/attribution/schema";
@@ -859,7 +863,8 @@ async function markTerminal(
     })
     .eq("stripe_payment_intent_id", pi)
     .in("status", fromStatuses)
-    .select("stripe_payment_intent_id")
+    // RETURNING what the alert below needs, so it never re-reads the row.
+    .select(RECONCILIATION_ALERT_COLUMNS)
     .maybeSingle();
 
   // A swallowed error here (notably a 23514 check_violation from an invalid
@@ -870,14 +875,15 @@ async function markTerminal(
   const changed = !!data;
   // The row just became a human's problem: say so NOW (Discord + one customer
   // email), not in tomorrow's reconciliation digest. Only on the transition
-  // (`changed`), so three racing callers alert once. Awaited and bounded
-  // inside; never throws (reconciliation-alert.ts).
+  // (`changed`), so three racing callers alert once. Scheduled after the
+  // response (never inside this route's budget); never throws.
   if (changed && (status === "needs_reconciliation" || status === "capture_ambiguous")) {
-    await alertNeedsReconciliation({
+    await scheduleReconciliationAlert({
       stripePaymentIntentId: pi,
       status,
       reason: lastError ?? "",
       source: "engine",
+      row: data as ReconciliationAlertRow,
     });
   }
   return changed;
@@ -1314,6 +1320,15 @@ async function createBookingInner(
         ),
         { stripePaymentIntentId, amount: pi.amount / 100 }
       );
+      // Nothing staged → no row to transition → markTerminal never alerts.
+      // Non-retryable, so a redelivery cannot repeat this.
+      await scheduleReconciliationAlert({
+        stripePaymentIntentId,
+        status: "needs_reconciliation",
+        reason: "no pending row and no payload",
+        source,
+        row: null,
+      });
       return {
         kind: "needs_reconciliation",
         reason: "no pending row and no payload",
@@ -1434,6 +1449,15 @@ async function createBookingInner(
           ),
           { stripePaymentIntentId, amount: pi.amount / 100 }
         );
+        // The row stays `completed` (a human decides what it is), so no
+        // transition fires the alert — send it from here. Non-retryable.
+        await scheduleReconciliationAlert({
+          stripePaymentIntentId,
+          status: "needs_reconciliation",
+          reason: "completed row has no reservation number and no bookings row",
+          source,
+          row: row as unknown as ReconciliationAlertRow,
+        });
         return {
           kind: "needs_reconciliation",
           reason: "completed row has no reservation number",
@@ -1457,6 +1481,10 @@ async function createBookingInner(
             ),
             { stripePaymentIntentId, amount: pi.amount / 100 }
           );
+          // Into the reconciliation queue (alert first: markTerminal can throw),
+          // exactly like the `failed`-row case below — and that transition is
+          // what fires the team + customer alert.
+          await markTerminal(stripePaymentIntentId, "needs_reconciliation", "expired row for a PaymentIntent that carries money", ["expired"]);
           return {
             kind: "needs_reconciliation",
             reason: "expired row for a PaymentIntent that carries money",

@@ -7,45 +7,68 @@
  * the customer sat with a hold on their card and no booking (launch-QA finding
  * #8, Oct 28 2026; the Fox Parking orphan, Oct 22).
  *
- * Called exactly when the row's status TRANSITIONS to `needs_reconciliation`
+ * Fired exactly when the row's status TRANSITIONS to `needs_reconciliation`
  * or `capture_ambiguous` (markTerminal's `.in("status", …)` guard, the sweep's
- * `.select()`), so it fires at most once per PaymentIntent per status.
+ * `.select()`), plus the few engine outcomes that carry money but never write
+ * a row. At most once per PaymentIntent per status.
  *
  * Rules:
- *  - Never throws, never writes a row. Every step is bounded and the whole
- *    alert is capped (ALERT_BUDGET_MS); it is AWAITED by the caller, never
- *    fire-and-forget, because Vercel freezes the function after the response.
+ *  - `scheduleReconciliationAlert` runs the alert AFTER the response with
+ *    Next's `after()` (Vercel `waitUntil`): it never adds to a 60 s route's
+ *    budget, never delays the engine's own Sentry events or the customer's
+ *    answer, and is not frozen with the function. Outside a request scope
+ *    (a script, a test) it runs inline.
+ *  - Never throws, never writes a row. Every step is bounded; the two
+ *    deliveries (team, customer) run in parallel; the whole alert is capped.
  *  - A step that fails is one `capturePaymentError` with the PaymentIntent id
- *    and the step name; the remaining steps still run. A row that cannot be
- *    read still produces the team alert with the PaymentIntent id alone.
- *  - Team alert: Discord (DISCORD_BOOKING_ALERTS_WEBHOOK_URL, "@here" for live
- *    rows, "[TEST]" and no ping for staging rows — the direct-lot convention),
- *    emailed to PAYMENT_ALERT_EMAILS when Discord is unset or fails.
- *  - Customer email: one, to the staged customer email. What is on the card
- *    comes from Stripe (moneyOnCard), never from the row. No deadline is
- *    promised — "as soon as it's resolved", the same words as the page.
+ *    and the step name; the other steps still run.
+ *  - The row comes from the caller — the UPDATE's own RETURNING — so there is
+ *    no second read and `livemode` is always known ("[TEST]" and no ping for
+ *    staging rows; "@here" only for live rows). No row (engine outcomes with
+ *    nothing staged) → the team alert still goes, with the PaymentIntent id.
+ *  - What is on the card comes from Stripe (moneyOnCard), never from the row;
+ *    a refunded payment is said to be refunded. No deadline is promised —
+ *    "as soon as it's resolved", the same words as the finishing page.
  *  - Dates shown to the customer are the row's LITERAL airport-local strings,
  *    reformatted by string operations only. No Date math.
  */
 
-import { createAdminClient } from "@/lib/supabase/server";
+import { after } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
 import { PAYMENT_ALERT_EMAILS } from "@/config/admin";
 import { escapeHtml } from "@/lib/validation/schemas";
 import { isDiscordWebhookUrl, postToDiscord } from "@/lib/digest/discord";
 import type { Embed } from "@/lib/digest/render";
 import { capturePaymentError } from "@/lib/sentry";
+import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 import { formatMoneyOnCard, moneyOnCard, type MoneyOnCard } from "@/lib/stripe/money-on-card";
 
 export type ReconciliationStatus = "needs_reconciliation" | "capture_ambiguous";
+
+/** The columns the caller's UPDATE … RETURNING (or its own read) supplies. */
+export const RECONCILIATION_ALERT_COLUMNS =
+  "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source";
+
+export interface ReconciliationAlertRow {
+  livemode: boolean | null;
+  customer: { firstName?: string; lastName?: string; email?: string } | null;
+  location_name: string | null;
+  airport_code: string | null;
+  from_date: string;
+  to_date: string;
+  reslab_reservation_number: string | null;
+  inventory_source: string | null;
+}
 
 export interface ReconciliationAlertInput {
   stripePaymentIntentId: string;
   status: ReconciliationStatus;
   /** The engine's reason (`last_error`). Free text; may contain supplier HTML. */
   reason: string;
-  /** Which caller hit it. */
+  /** Which caller hit it: "engine", "sweep". */
   source: string;
+  /** The row as the transition returned it; null when nothing was staged. */
+  row: ReconciliationAlertRow | null;
 }
 
 export interface ReconciliationAlertResult {
@@ -53,28 +76,16 @@ export interface ReconciliationAlertResult {
   customer: "sent" | "no_email" | "failed";
 }
 
-const ADMIN_BOOKINGS_URL = "https://www.triplypro.com/admin/bookings";
 const DISCORD_USERNAME = "Triply Bookings";
 const RED = 0xdc2626;
 const AMBER = 0xd97706;
 
-/** Whole alert; the caller is a 60 s route that has already spent most of it. */
-const ALERT_BUDGET_MS = 12_000;
-const ROW_READ_MS = 3_000;
+/** Per-step bounds; the deliveries run in parallel, so the worst case is
+ *  card read + the longer of (Discord then email) and (customer email). */
+const CARD_MS = 4_000;
 const DISCORD_MS = 4_000;
 const EMAIL_MS = 4_000;
-
-interface AlertRow {
-  customer: { firstName?: string; lastName?: string; email?: string } | null;
-  location_name: string | null;
-  airport_code: string | null;
-  from_date: string;
-  to_date: string;
-  grand_total: string | number | null;
-  livemode: boolean | null;
-  inventory_source: string | null;
-  reslab_reservation_number: string | null;
-}
+const ALERT_BUDGET_MS = 15_000;
 
 class StepTimeout extends Error {
   constructor(step: string, ms: number) {
@@ -91,11 +102,13 @@ function bounded<T>(step: string, ms: number, work: Promise<T>): Promise<T> {
   return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }
 
-function report(piId: string, step: string, error: unknown): void {
+function report(piId: string, step: string, error: unknown, perPayment = false): void {
   const err = error instanceof Error ? error : new Error(String(error));
   capturePaymentError(new Error(`reconciliation alert: ${step} failed — ${err.message}`), {
     stripePaymentIntentId: piId,
-    fingerprint: ["reconciliation-alert", step],
+    // The "nothing delivered" report is the last live signal: one issue PER
+    // payment, so the second incident is not folded into the first.
+    fingerprint: perPayment ? ["reconciliation-alert", step, piId] : ["reconciliation-alert", step],
   });
 }
 
@@ -109,8 +122,9 @@ function plain(text: string, max = 300): string {
   return clipped.replace(/([\\`*_~|>[\]()])/g, "\\$1").replace(/^([#-])/, "\\$1");
 }
 
-/** A supplier error can be a whole HTML page; keep the first readable line. */
-function reasonSummary(reason: string, max = 300): string {
+/** A supplier error can be a whole HTML page; keep the first readable line.
+ *  ≤ 400 chars → ≤ 800 after Discord escaping, under the 1024 field limit. */
+function reasonSummary(reason: string, max = 400): string {
   const stripped = reason.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
   return stripped.length > max ? `${stripped.slice(0, max - 1)}…` : stripped || "(no reason recorded)";
 }
@@ -143,6 +157,9 @@ function moneySentence(money: MoneyOnCard): string {
   if (money.kind === "captured" && figure) {
     return `Your card was charged ${figure}. If we can't confirm this reservation, that amount is refunded in full.`;
   }
+  if (money.kind === "refunded" && figure) {
+    return `The ${figure} charged to your card has already been refunded in full; it can take 5–10 business days to show on your statement.`;
+  }
   return "The amount on your card is not final until your reservation is confirmed. If we can't confirm it, it is released or refunded in full.";
 }
 
@@ -150,34 +167,27 @@ function moneyLine(money: MoneyOnCard): string {
   const figure = formatMoneyOnCard(money);
   if (money.kind === "hold" && figure) return `${figure} HELD (requires_capture)`;
   if (money.kind === "captured" && figure) return `${figure} CAPTURED`;
+  if (money.kind === "refunded" && figure) return `${figure} REFUNDED in full`;
   return "unknown — read the PaymentIntent in Stripe";
 }
 
-async function readRow(piId: string): Promise<AlertRow | null> {
-  const supabase = await createAdminClient();
-  const { data, error } = await bounded(
-    "row read",
-    ROW_READ_MS,
-    Promise.resolve(
-      supabase
-        .from("pending_bookings")
-        .select(
-          "customer, location_name, airport_code, from_date, to_date, grand_total, livemode, inventory_source, reslab_reservation_number"
-        )
-        .eq("stripe_payment_intent_id", piId)
-        .maybeSingle()
-    )
-  );
-  if (error) throw new Error(error.message);
-  return (data as AlertRow | null) ?? null;
+function stripeUrl(piId: string, live: boolean): string {
+  return `https://dashboard.stripe.com/${live ? "" : "test/"}payments/${encodeURIComponent(piId)}`;
 }
 
-function teamEmbed(input: ReconciliationAlertInput, row: AlertRow | null, money: MoneyOnCard): Embed {
-  const live = row?.livemode ?? true;
+/** Live unless the row says otherwise; with no row, the deployment's key decides. */
+function isLive(row: ReconciliationAlertRow | null): boolean {
+  if (row && typeof row.livemode === "boolean") return row.livemode;
+  return stripeKeyIsLive();
+}
+
+function teamEmbed(input: ReconciliationAlertInput, money: MoneyOnCard): Embed {
+  const { row } = input;
+  const live = isLive(row);
   const prefix = live ? "" : "[TEST] ";
   const where = row?.location_name
     ? `${plain(row.location_name)}${row.airport_code ? ` (${plain(row.airport_code, 10)})` : ""}`
-    : "unknown lot (row not readable)";
+    : "nothing staged for this payment";
   const name = row?.customer ? plain(`${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""}`.trim(), 120) : "";
   const fields: Embed["fields"] = [
     { name: "Money", value: plain(moneyLine(money), 120) },
@@ -192,14 +202,14 @@ function teamEmbed(input: ReconciliationAlertInput, row: AlertRow | null, money:
     title: `${prefix}Booking needs a human — ${plain(input.stripePaymentIntentId, 60)}`,
     description:
       `${input.status === "capture_ambiguous" ? "Capture result unknown" : "Money held or taken, booking state unknown"}. ` +
-      `Resolve in Stripe + the supplier, then mark the row (runbook § 32). [Admin](${ADMIN_BOOKINGS_URL})`,
+      `[Open in Stripe](${stripeUrl(input.stripePaymentIntentId, live)}) · resolve per runbook § 32, then mark the row.`,
     color: live ? RED : AMBER,
     fields,
     footer: { text: `${prefix}Triply reconciliation alert · ${live ? "production (live Stripe)" : "test mode (staging)"} · customer emailed once` },
   };
 }
 
-async function postTeamDiscord(input: ReconciliationAlertInput, row: AlertRow | null, money: MoneyOnCard): Promise<boolean> {
+async function postTeamDiscord(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<boolean> {
   const webhookUrl = (process.env.DISCORD_BOOKING_ALERTS_WEBHOOK_URL ?? "").trim();
   if (!webhookUrl) return false;
   if (!isDiscordWebhookUrl(webhookUrl)) {
@@ -209,9 +219,9 @@ async function postTeamDiscord(input: ReconciliationAlertInput, row: AlertRow | 
   }
   const token = webhookUrl.split("?")[0].split("/").filter(Boolean).pop() ?? webhookUrl;
   const redact = (text: string) => text.split(webhookUrl).join("<webhook>").split(token).join("<token>");
-  const live = row?.livemode ?? true;
+  const live = isLive(input.row);
   try {
-    const res = await postToDiscord(webhookUrl, teamEmbed(input, row, money), {
+    const res = await postToDiscord(webhookUrl, teamEmbed(input, money), {
       remainingBudgetMs: 0,
       username: DISCORD_USERNAME,
       timeoutMs: DISCORD_MS,
@@ -227,15 +237,16 @@ async function postTeamDiscord(input: ReconciliationAlertInput, row: AlertRow | 
   }
 }
 
-async function emailTeam(input: ReconciliationAlertInput, row: AlertRow | null, money: MoneyOnCard): Promise<boolean> {
-  const live = row?.livemode ?? true;
+async function emailTeam(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<boolean> {
+  const { row } = input;
+  const live = isLive(row);
   const prefix = live ? "" : "[TEST] ";
   const figure = formatMoneyOnCard(money);
   const rows: Array<[string, string]> = [
     ["PaymentIntent", input.stripePaymentIntentId],
     ["Money", moneyLine(money)],
     ["Status", input.status],
-    ["Lot", row?.location_name ? `${row.location_name}${row.airport_code ? ` (${row.airport_code})` : ""}` : "unknown (row not readable)"],
+    ["Lot", row?.location_name ? `${row.location_name}${row.airport_code ? ` (${row.airport_code})` : ""}` : "nothing staged for this payment"],
     ["Dates", row ? `${row.from_date} → ${row.to_date}` : "—"],
     ["Customer", row?.customer ? `${row.customer.firstName ?? ""} ${row.customer.lastName ?? ""} <${row.customer.email ?? "no email"}>`.trim() : "—"],
     ["Reservation", row?.reslab_reservation_number ?? "none recorded"],
@@ -245,11 +256,11 @@ async function emailTeam(input: ReconciliationAlertInput, row: AlertRow | null, 
   const html = `
     <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;">
       <h2 style="color:#dc2626;">${prefix}Booking needs a human${figure ? ` — ${escapeHtml(figure)}` : ""}</h2>
-      <p style="font-size:14px;">Money is held or taken and the booking state is unknown. Resolve it in Stripe and with the supplier, then mark the row (runbook § 32). The customer has been emailed once and told not to book again.</p>
+      <p style="font-size:14px;">Money is held or taken and the booking state is unknown. Resolve it in Stripe and with the supplier per runbook § 32, then mark the row. The customer has been emailed once and told not to book again.</p>
       <table style="border-collapse:collapse;width:100%;font-size:13px;">
         ${rows.map(([k, v]) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:#6b7280;white-space:nowrap;">${escapeHtml(k)}</td><td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;">${escapeHtml(v)}</td></tr>`).join("")}
       </table>
-      <p style="font-size:13px;"><a href="${ADMIN_BOOKINGS_URL}">Open the admin</a></p>
+      <p style="font-size:13px;"><a href="${stripeUrl(input.stripePaymentIntentId, live)}">Open the payment in Stripe</a></p>
     </div>`;
   try {
     const { error } = await bounded(
@@ -270,23 +281,27 @@ async function emailTeam(input: ReconciliationAlertInput, row: AlertRow | null, 
   }
 }
 
-async function emailCustomer(input: ReconciliationAlertInput, row: AlertRow | null, money: MoneyOnCard): Promise<"sent" | "no_email" | "failed"> {
+async function emailCustomer(input: ReconciliationAlertInput, money: MoneyOnCard): Promise<"sent" | "no_email" | "failed"> {
+  const { row } = input;
   const to = row?.customer?.email?.trim();
   if (!to || !to.includes("@")) return "no_email";
-  const first = row?.customer?.firstName?.trim();
-  const lot = row?.location_name?.trim();
-  const when = row ? `${formatLiteralDateTime(row.from_date)} – ${formatLiteralDateTime(row.to_date)}` : null;
-  const html = `
+  try {
+    const first = row?.customer?.firstName?.trim();
+    const lot = row?.location_name?.trim();
+    const when = row ? `${formatLiteralDateTime(row.from_date)} – ${formatLiteralDateTime(row.to_date)}` : null;
+    // Neutral on purpose: at some sites the supplier DID confirm and our
+    // capture failed; at direct lots no supplier is called. "Checking it by
+    // hand" is true in every case.
+    const html = `
     <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1e293b;line-height:1.5;">
       <h2 style="font-family:Poppins,Arial,sans-serif;color:#1A1A2E;">We're finishing your booking</h2>
       <p>${first ? `Hi ${escapeHtml(first)},` : "Hi,"}</p>
-      <p>We couldn't get an instant confirmation from the parking facility for your reservation${lot ? ` at <strong>${escapeHtml(lot)}</strong>` : ""}${when ? ` (${escapeHtml(when)})` : ""}. Our team has been alerted and is confirming it now. <strong>We'll email you as soon as it's resolved.</strong></p>
+      <p>We couldn't finish confirming your booking${lot ? ` at <strong>${escapeHtml(lot)}</strong>` : ""}${when ? ` (${escapeHtml(when)})` : ""} automatically, and our team is checking it by hand. <strong>We'll email you as soon as it's resolved.</strong></p>
       <p>${escapeHtml(moneySentence(money))}</p>
       <p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px;"><strong>Please don't book again</strong> — a second booking would place a second charge on your card.</p>
       <p style="font-size:14px;color:#64748b;">Your reference: <code>${escapeHtml(input.stripePaymentIntentId)}</code><br>Quote it if you contact us: <a href="mailto:support@triplypro.com">support@triplypro.com</a></p>
       <p style="font-size:12px;color:#94a3b8;">Triply · triplypro.com</p>
     </div>`;
-  try {
     const { error } = await bounded(
       "customer email",
       EMAIL_MS,
@@ -305,31 +320,53 @@ async function emailCustomer(input: ReconciliationAlertInput, row: AlertRow | nu
   }
 }
 
-async function run(input: ReconciliationAlertInput): Promise<ReconciliationAlertResult> {
+async function run(input: ReconciliationAlertInput, progress: ReconciliationAlertResult): Promise<ReconciliationAlertResult> {
   const piId = input.stripePaymentIntentId;
-  let row: AlertRow | null = null;
-  try {
-    row = await readRow(piId);
-  } catch (error) {
-    report(piId, "row read", error);
-  }
-  const money = await moneyOnCard(piId);
+  const money = await bounded("card read", CARD_MS, moneyOnCard(piId)).catch((error: unknown): MoneyOnCard => {
+    report(piId, "card read", error);
+    return { kind: "unknown" };
+  });
 
-  const discord = await postTeamDiscord(input, row, money);
-  const team: ReconciliationAlertResult["team"] = discord ? "discord" : (await emailTeam(input, row, money)) ? "email" : "none";
-  if (team === "none") {
-    report(piId, "team alert", new Error("neither Discord nor email delivered — only Sentry and the daily reconciliation email know"));
-  }
-  const customer = await emailCustomer(input, row, money);
-  return { team, customer };
+  const team = (async () => {
+    if (await postTeamDiscord(input, money)) {
+      progress.team = "discord";
+    } else if (await emailTeam(input, money)) {
+      progress.team = "email";
+    } else {
+      report(piId, "team alert", new Error("neither Discord nor email delivered — only Sentry and the daily reconciliation email know"), true);
+    }
+  })();
+  const customer = (async () => {
+    progress.customer = await emailCustomer(input, money);
+  })();
+  await Promise.allSettled([team, customer]);
+  return progress;
 }
 
-/** Never throws. Awaited by the caller; capped at ALERT_BUDGET_MS. */
+/** Never throws. Capped at ALERT_BUDGET_MS; the result reflects what finished. */
 export async function alertNeedsReconciliation(input: ReconciliationAlertInput): Promise<ReconciliationAlertResult> {
+  const progress: ReconciliationAlertResult = { team: "none", customer: "failed" };
   try {
-    return await bounded("whole alert", ALERT_BUDGET_MS, run(input));
+    return await bounded("whole alert", ALERT_BUDGET_MS, run(input, progress));
   } catch (error) {
-    report(input.stripePaymentIntentId, "whole alert", error);
-    return { team: "none", customer: "failed" };
+    report(input.stripePaymentIntentId, "whole alert", error, true);
+    return progress;
   }
+}
+
+/**
+ * Run the alert after the response (Next `after()` → Vercel `waitUntil`), so
+ * it never adds to a route's time budget, never delays the engine's own
+ * Sentry events or the customer's answer, and is not frozen with the
+ * function. Outside a request scope (a script, a test) `after` throws and
+ * the alert runs inline instead. Never throws.
+ */
+export async function scheduleReconciliationAlert(input: ReconciliationAlertInput): Promise<void> {
+  try {
+    after(() => alertNeedsReconciliation(input));
+    return;
+  } catch {
+    // not in a request scope — run it here
+  }
+  await alertNeedsReconciliation(input);
 }

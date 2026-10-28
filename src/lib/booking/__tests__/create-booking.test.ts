@@ -48,7 +48,9 @@ const reslabMock = {
 };
 
 vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  RECONCILIATION_ALERT_COLUMNS: "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source",
   alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+  scheduleReconciliationAlert: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: async () => db,
@@ -2088,5 +2090,61 @@ describe("the emails' cost breakdown (plan 2026-10-12)", () => {
     if (out.kind !== "created") return;
     expect(out.reservation?.dueNow).toBe(66);
     expect(out.reservation?.grandTotal).toBe(94); // unchanged (GA4 reads it)
+  });
+});
+
+describe("reconciliation alert hook (P1b, Oct 28 2026)", () => {
+  it("fires ONCE on the transition to needs_reconciliation, with the row the UPDATE returned; a second drive does not re-alert", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    reslabMock.createReservation.mockRejectedValue(new ReslabError(502, "bad gateway"));
+
+    const out = await createBooking({ source: "client", stripePaymentIntentId: PI });
+    expect(out.kind).toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(scheduleReconciliationAlert).mock.calls[0][0]).toMatchObject({
+      stripePaymentIntentId: PI,
+      status: "needs_reconciliation",
+      source: "engine",
+      reason: expect.stringContaining("ResLab ambiguous failure"),
+      row: expect.objectContaining({ from_date: expect.any(String), to_date: expect.any(String) }),
+    });
+
+    // The row is terminal now: the next caller short-circuits and nothing re-alerts.
+    const again = await createBooking({ source: "webhook", stripePaymentIntentId: PI });
+    expect(again.kind).toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it("fires with capture_ambiguous when the capture failed after the reservation was made", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    db.seed("pending_bookings", [pendingRow()]);
+    stripeMock.paymentIntents.retrieve
+      .mockResolvedValueOnce(paymentIntent())
+      .mockResolvedValueOnce(paymentIntent());
+    capturePaymentIntent.mockRejectedValue(new Error("capture network error"));
+
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(scheduleReconciliationAlert).mock.calls[0][0]).toMatchObject({ status: "capture_ambiguous", source: "engine" });
+  });
+
+  it("a row that is already needs_reconciliation never re-alerts", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    db.seed("pending_bookings", [pendingRow({ status: "needs_reconciliation" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    await createBooking({ source: "client", stripePaymentIntentId: PI });
+    expect(scheduleReconciliationAlert).not.toHaveBeenCalled();
+  });
+
+  it("an `expired` row whose PaymentIntent carries money is moved into the queue and alerts once", async () => {
+    const { scheduleReconciliationAlert } = await import("@/lib/booking/reconciliation-alert");
+    db.seed("pending_bookings", [pendingRow({ status: "expired" })]);
+    stripeMock.paymentIntents.retrieve.mockResolvedValue(paymentIntent());
+    const out = await createBooking({ source: "sweep", stripePaymentIntentId: PI });
+    expect(out).toMatchObject({ kind: "needs_reconciliation", retryable: false });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
   });
 });
