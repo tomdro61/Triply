@@ -159,10 +159,19 @@ export async function POST(request: NextRequest) {
         });
 
       case "needs_reconciliation":
+        // Money is held or taken and the booking state is genuinely unknown.
+        // The page says what is on the card from Stripe's own figures — never
+        // "not charged", never a client-supplied amount. `charge` tells the
+        // page whether that figure is a hold (manual capture, the normal case)
+        // or already captured (a capture whose result we could not read).
         return NextResponse.json({
           state: "needs_support",
           message:
-            "We're confirming your reservation with the parking facility. Our team will email you shortly — please don't rebook.",
+            "We're confirming your reservation with the parking facility. Our team has been alerted and will email you by the end of the next business day.",
+          reference: piId,
+          amountCents: pi.amount,
+          currency: pi.currency,
+          charge: pi.status === "requires_capture" ? "hold" : "captured",
         });
 
       case "failed":
