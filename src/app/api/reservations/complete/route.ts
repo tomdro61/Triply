@@ -22,6 +22,7 @@ import {
   PaymentNotConfirmedError,
 } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import { moneyOnCard } from "@/lib/stripe/money-on-card";
 
 export const maxDuration = 60;
 
@@ -66,40 +67,19 @@ async function buildConfirmationUrl(
 }
 
 /**
- * What is on the card NOW, for the needs_support answer. Read AFTER the
- * engine ran: `createBooking` captures inside that call, and several of its
- * `needs_reconciliation` returns come after a successful capture (a booking
- * insert that collided or was rejected after capture, a capture whose result
- * could not be read). The PaymentIntent read taken before the engine, used for
- * the client-secret check, would call that captured money "a hold" (review
- * finding, Oct 28 2026). `requires_capture` → a hold of the capturable amount;
- * `succeeded` → the amount received. Anything else (`processing`, a failed
- * read) → no figure, and the page uses its "not final" sentence, which is true
- * in every case.
+ * What is on the card NOW, for the needs_support answer — the shared,
+ * bounded, post-fulfilment read (src/lib/stripe/money-on-card.ts; it reads
+ * AFTER `createBooking`, which captures inside that call). A refunded or
+ * unknown state yields no figure, and the page uses its "not final" sentence.
  */
-async function moneyOnCard(
+async function moneyForAnswer(
   piId: string
 ): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
-  try {
-    // Bounded: the SDK's default (80 s + retries) outlives the route's 60 s,
-    // and a function killed here never reaches the catch — the customer would
-    // get an HTML gateway page instead of the definitive answer they already
-    // had. The figure is optional; a fast failure to `{}` is the right trade.
-    const fresh = await stripe.paymentIntents.retrieve(piId, {}, { timeout: 4_000, maxNetworkRetries: 0 });
-    if (fresh.status === "requires_capture" && fresh.amount_capturable > 0) {
-      return { amountCents: fresh.amount_capturable, currency: fresh.currency, charge: "hold" };
-    }
-    if (fresh.status === "succeeded" && fresh.amount_received > 0) {
-      return { amountCents: fresh.amount_received, currency: fresh.currency, charge: "captured" };
-    }
-    return {};
-  } catch (error) {
-    capturePaymentError(
-      error instanceof Error ? error : new Error(String(error)),
-      { stripePaymentIntentId: piId, fingerprint: ["complete-money-on-card-read-failed"] }
-    );
-    return {};
+  const money = await moneyOnCard(piId);
+  if (money.kind === "hold" || money.kind === "captured") {
+    return { amountCents: money.amountCents, currency: money.currency, charge: money.kind };
   }
+  return {};
 }
 
 export async function POST(request: NextRequest) {
@@ -210,7 +190,7 @@ export async function POST(request: NextRequest) {
           message:
             "We're confirming your reservation with the parking facility. Our team has been alerted and will email you as soon as it's resolved.",
           reference: piId,
-          ...(await moneyOnCard(piId)),
+          ...(await moneyForAnswer(piId)),
         });
 
       case "failed":

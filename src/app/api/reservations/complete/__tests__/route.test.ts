@@ -100,7 +100,17 @@ describe("POST /api/reservations/complete — needs_support answer", () => {
   it("bounds the post-fulfilment Stripe read (a function timeout would skip the catch)", async () => {
     createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "x", retryable: false });
     await post({ paymentIntentId: "pi_abc", clientSecret: SECRET });
-    expect(retrieve).toHaveBeenNthCalledWith(2, "pi_abc", {}, { timeout: 4_000, maxNetworkRetries: 0 });
+    expect(retrieve).toHaveBeenNthCalledWith(2, "pi_abc", { expand: ["latest_charge"] }, { timeout: 4_000, maxNetworkRetries: 0 });
+  });
+
+  it("a payment refunded in full after the engine ran → no figure (the page's 'not final' sentence)", async () => {
+    retrieve
+      .mockResolvedValueOnce(pi("requires_capture"))
+      .mockResolvedValueOnce(pi("succeeded", { latest_charge: { id: "ch_1", amount_refunded: 2537 } }));
+    createBooking.mockResolvedValue({ kind: "needs_reconciliation", reason: "x", retryable: false });
+    const body = await (await post({ paymentIntentId: "pi_abc", clientSecret: SECRET })).json();
+    expect(body).toMatchObject({ state: "needs_support", reference: "pi_abc" });
+    expect(body).not.toHaveProperty("charge");
   });
 
   it("a wrong client secret is a 404 with nothing about the payment", async () => {
