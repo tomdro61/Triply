@@ -79,7 +79,9 @@ export function SearchResultsList({
         </div>
       </div>
 
-      <div className="p-4 sm:p-6 space-y-4 pb-20">
+      {/* @container: each LotCard lays itself out by this column's width, not the
+          screen's — the list is narrow on 1024–1279 px screens. */}
+      <div className="@container p-4 sm:p-6 space-y-4 pb-20">
         {partialResults && (
           <div
             role="status"

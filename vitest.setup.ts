@@ -31,3 +31,4 @@ process.env.PARKGUARD_API_KEY ||= "dummy";
 
 process.env.WAITLIST_SIGNING_SECRET ||= "test-waitlist-secret-at-least-32-chars";
 process.env.CRON_SECRET ||= "dummy_cron_secret";
+process.env.REVIEW_SIGNING_SECRET ||= "test-review-secret-at-least-32-chars";

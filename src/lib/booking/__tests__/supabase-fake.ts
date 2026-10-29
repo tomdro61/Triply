@@ -207,6 +207,17 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
       return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind && r.source === row.source)
         ? "direct_lot_resends_booking_id_kind_source_key"
         : null;
+    case "review_emails":
+      // 037: UNIQUE (booking_id, kind), the review cron's claim-before-send lock.
+      return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind)
+        ? "review_emails_booking_kind_unique"
+        : null;
+    case "booking_reviews":
+      // 037: UNIQUE (booking_id), one review per booking.
+      return rows.some((r) => r.booking_id === row.booking_id) ? "booking_reviews_booking_unique" : null;
+    case "review_email_optouts":
+      // 037: the opt-out table's PK.
+      return rows.some((r) => r.email === row.email) ? "review_email_optouts_pkey" : null;
     default:
       return null;
   }
@@ -533,9 +544,14 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
   }
 
   private embeddedCustomer(row: Row): Row {
-    if (!this.selectStr.includes("customers!inner")) return row;
+    // `customers!inner(...)` and the plain left-join embed `customers(...)`.
+    if (!this.selectStr.includes("customers!inner") && !this.selectStr.includes("customers(")) return row;
     const cust = this.db.tables.customers.find((c) => c.id === row.customer_id);
-    return { ...row, customers: cust ? { email: cust.email } : null };
+    if (!cust) return { ...row, customers: null };
+    // first_name only when the select asks for it (the review cron does).
+    const embed: Row = { email: cust.email };
+    if (this.selectStr.includes("first_name")) embed.first_name = cust.first_name ?? null;
+    return { ...row, customers: embed };
   }
 
   private matches(row: Row): boolean {

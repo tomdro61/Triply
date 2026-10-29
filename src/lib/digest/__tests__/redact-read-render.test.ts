@@ -419,6 +419,14 @@ describe("render — sources, month to date, abandoned-checkout emails", () => {
     expect(field(stuck, "Abandoned-checkout emails (last 7 days)")).toBe("Sent 0 · ⚠️ in progress or stuck 4 (check the recovery cron) · opted out 0 · bookings through the email link 0");
   });
 
+  it("the review-email line appears only while the email is on, and flags unconfirmed sends", () => {
+    expect(field(data(), "Review emails (last 7 days)")).toBe(""); // switched off: no line at all
+    const on = data({ reviewEmails: { ok: true, data: { sent: 9, unconfirmed: 1, failed: 0, waiting: 0, optOuts: 2, reviews: 3 } } });
+    expect(field(on, "Review emails (last 7 days)")).toBe("Sent 9 · ⚠️ unconfirmed 1 (check Resend) · opted out 2 · reviews saved 3");
+    const quiet = data({ reviewEmails: { ok: true, data: { sent: 0, unconfirmed: 0, failed: 0, waiting: 0, optOuts: 0, reviews: 0 } } });
+    expect(field(quiet, "Review emails (last 7 days)")).toBe("Sent 0 · opted out 0 · reviews saved 0");
+  });
+
   it("pace and recovery failing never change the verdict and never raise a flag", () => {
     const d = data({ pace: { ok: false, error: "bookings(pace 2026-09-01): row cap hit" }, recovery: { ok: false, error: "checkout_recovery_emails: 42P01 missing" } });
     const { verdict, flags, embed } = renderEmbed(d, null);

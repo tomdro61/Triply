@@ -18,6 +18,8 @@ import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/lib/reslab/pricing-window";
 import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
+import { lotLinkQuery, type LinkParam } from "@/lib/utils/link-date";
+import { shiftIsoDate } from "@/lib/digest/window";
 import type { UnifiedLot } from "@/types/lot";
 
 /**
@@ -74,11 +76,12 @@ interface LotPageProps {
     slug: string;
     lot: string;
   }>;
+  // A repeated param arrives as an array (see lotLinkQuery).
   searchParams: Promise<{
-    checkin?: string;
-    checkout?: string;
-    checkinTime?: string;
-    checkoutTime?: string;
+    checkin?: LinkParam;
+    checkout?: LinkParam;
+    checkinTime?: LinkParam;
+    checkoutTime?: LinkParam;
   }>;
 }
 
@@ -125,7 +128,13 @@ function UnavailableState({ backUrl }: { backUrl: string }) {
 
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  // Malformed or repeated link params read as absent (see lotLinkQuery).
+  const query = await searchParams;
+  const { checkin, checkout, checkinTime, checkoutTime, ignored } = lotLinkQuery(query);
+  if (ignored.length > 0) {
+    // Which sites send links we can't read (TRIPLY-2D). Body only, not generateMetadata.
+    console.warn(`[lot-page] ignored link date(s) ${ignored.join(", ")}`, { slug, lot: lotSlug, checkin: query.checkin, checkout: query.checkout });
+  }
 
   // Validate airport slug
   const airport = getAirportBySlug(slug);
@@ -137,9 +146,11 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   // Note: ResLab requires advance booking, so use tomorrow if no date provided
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
+  // No (readable) check-out: a week after the check-in, so a link with only a
+  // far-off check-in never shows a reversed range.
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // tomorrow + 7 days
+    (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]); // tomorrow + 7 days
   // For pricing lookup only — actual booking times are required to be picked by the user.
   const { fromDate, toDate, pricingWindowFor } = lotPricing(
     defaultCheckin,
@@ -315,7 +326,8 @@ export default function LotPage(props: LotPageProps) {
 // Generate metadata
 export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  // Malformed or repeated link params read as absent (see lotLinkQuery).
+  const { checkin, checkout, checkinTime, checkoutTime } = lotLinkQuery(await searchParams);
 
   const airport = getAirportBySlug(slug);
 
@@ -325,7 +337,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
   // Same window as the page body (it used a fixed 10:00 AM, a guaranteed 422
   // on every same-day view), so both renders make the same min-price call.
   const { fromDate, toDate, pricingWindowFor } = lotPricing(
