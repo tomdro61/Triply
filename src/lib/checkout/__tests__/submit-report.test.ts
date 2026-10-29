@@ -8,10 +8,20 @@ import {
   STAGE_UNREACHABLE_MESSAGE,
   SUBMIT_FAILED_MESSAGE,
   StageUnreachableError,
+  WALLET_DISMISSED_CODE,
+  isWalletDismissal,
   shouldReportSubmitError,
   submitErrorFingerprint,
   submitErrorLabel,
+  submitErrorMessage,
 } from "../submit-report";
+
+/** Exactly what Stripe answered on staging (2026-10-29) for a closed Apple Pay sheet. */
+const dismissed = {
+  type: "validation_error",
+  code: "incomplete",
+  message: "Please fill in your card details.",
+};
 
 describe("StageUnreachableError", () => {
   const browserTexts = [
@@ -62,6 +72,11 @@ describe("shouldReportSubmitError", () => {
     expect(shouldReportSubmitError({ type: "validation_error", code: "invalid_expiry_year" })).toBe(false);
   });
 
+  it("a closed wallet sheet (bare `incomplete`) is a customer action, not an incident", () => {
+    expect(WALLET_DISMISSED_CODE).toBe("incomplete");
+    expect(shouldReportSubmitError(dismissed)).toBe(false);
+  });
+
   it("a validation_error with any other code IS reported (e.g. the sheet could not be shown)", () => {
     expect(
       shouldReportSubmitError({
@@ -95,6 +110,55 @@ describe("submitErrorLabel / submitErrorFingerprint", () => {
     const err = { type: "api_error" };
     expect(submitErrorLabel(err)).toBe("elements.submit failed: api_error/-: -");
     expect(submitErrorFingerprint(err)).toEqual(["elements-submit", "api_error", "-"]);
+  });
+});
+
+describe("isWalletDismissal", () => {
+  it("true only for the bare code with a wallet selected", () => {
+    expect(isWalletDismissal(dismissed, "apple_pay")).toBe(true);
+    expect(isWalletDismissal(dismissed, "google_pay")).toBe(true);
+    expect(isWalletDismissal(dismissed, "card")).toBe(false);
+    expect(isWalletDismissal(dismissed, "link")).toBe(false);
+    expect(isWalletDismissal(dismissed, null)).toBe(false);
+    expect(isWalletDismissal({ type: "validation_error", code: "incomplete_number" }, "apple_pay")).toBe(false);
+    expect(isWalletDismissal({ type: "api_error" }, "apple_pay")).toBe(false);
+  });
+
+  it("is not fooled by Object.prototype keys as a method name", () => {
+    expect(isWalletDismissal(dismissed, "constructor")).toBe(false);
+    expect(isWalletDismissal(dismissed, "toString")).toBe(false);
+  });
+});
+
+describe("submitErrorMessage", () => {
+  it("a closed Apple Pay / Google Pay sheet gets wallet wording, not Stripe's card-form text", () => {
+    expect(submitErrorMessage(dismissed, "apple_pay")).toBe(
+      "Apple Pay was closed before the payment was confirmed. Tap the pay button again to reopen it, or choose another payment method."
+    );
+    expect(submitErrorMessage(dismissed, "google_pay")).toMatch(/^Google Pay was closed/);
+    expect(submitErrorMessage(dismissed, "apple_pay")).not.toMatch(/card details/);
+  });
+
+  it("names no button label — the button reads 'Pay Now' when something is due at the lot", () => {
+    for (const method of ["apple_pay", "google_pay"]) {
+      expect(submitErrorMessage(dismissed, method)).not.toMatch(/Complete Booking|Pay Now/);
+    }
+  });
+
+  it("the same code with a card selected, or before the selection is known, keeps Stripe's text", () => {
+    expect(submitErrorMessage(dismissed, "card")).toBe("Please fill in your card details.");
+    expect(submitErrorMessage(dismissed, "link")).toBe("Please fill in your card details.");
+    expect(submitErrorMessage(dismissed, null)).toBe("Please fill in your card details.");
+  });
+
+  it("a wallet selected with any OTHER code keeps Stripe's text (an 'unable to show' is not a dismissal)", () => {
+    const unable = { type: "validation_error", code: "payment_intent_authentication_failure", message: "Unable to show Apple Pay." };
+    expect(submitErrorMessage(unable, "apple_pay")).toBe("Unable to show Apple Pay.");
+  });
+
+  it("falls back to our message when Stripe gave none", () => {
+    expect(submitErrorMessage({ type: "api_error" }, "card")).toBe(SUBMIT_FAILED_MESSAGE);
+    expect(submitErrorMessage({ type: "api_error" }, "apple_pay")).toBe(SUBMIT_FAILED_MESSAGE);
   });
 });
 

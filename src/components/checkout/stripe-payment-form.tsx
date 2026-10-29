@@ -17,7 +17,7 @@ import {
 import { PriceBreakdown } from "@/types/checkout";
 import type { ProtectionChoice } from "@/lib/parkguard/plans";
 import { ProtectionPlan } from "./protection-plan";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureWalletSheetClosed } from "@/lib/sentry";
 import { ELEMENTS_SYNC_FAILED_MESSAGE, syncElementsAmount } from "@/lib/checkout/elements-sync";
 import { runPaymentSubmit } from "@/lib/checkout/payment-submit";
 import {
@@ -25,11 +25,12 @@ import {
   STAGE_FAILED_MESSAGE,
   STAGE_UNREACHABLE_AFTER_CONFIRM_MESSAGE,
   STAGE_UNREACHABLE_MESSAGE,
-  SUBMIT_FAILED_MESSAGE,
   StageUnreachableError,
+  WALLET_DISMISSED_CODE,
   shouldReportSubmitError,
   submitErrorFingerprint,
   submitErrorLabel,
+  submitErrorMessage,
 } from "@/lib/checkout/submit-report";
 
 interface StripePaymentFormProps {
@@ -167,6 +168,12 @@ export function StripePaymentForm({
   // run the route's already_authorized check. Set before the call, never reset.
   const confirmAttemptedRef = useRef(false);
 
+  // The Payment Element's selected method (`change` event `value.type`:
+  // "card" / "apple_pay" / "google_pay" / "link"); null until it has fired.
+  // Read only to word a submit error — a closed wallet sheet comes back as
+  // `incomplete` with Stripe's card-form text (staging walk, 2026-10-29).
+  const selectedMethodRef = useRef<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -212,12 +219,24 @@ export function StripePaymentForm({
       if (outcome.step === "submit") {
         // Sheet dismissed / could not be shown / incomplete card. Nothing was
         // staged and nothing confirmed.
-        setPaymentError(outcome.error.message || SUBMIT_FAILED_MESSAGE);
+        const selectedMethod = selectedMethodRef.current;
+        setPaymentError(submitErrorMessage(outcome.error, selectedMethod));
         if (shouldReportSubmitError(outcome.error)) {
           capturePaymentError(new Error(submitErrorLabel(outcome.error)), {
             stripePaymentIntentId: paymentIntentId,
             amount: priceBreakdown.total,
             fingerprint: submitErrorFingerprint(outcome.error),
+          });
+        } else if (outcome.error.code === WALLET_DISMISSED_CODE) {
+          // Not an incident, but not silent either: a sheet that closes by
+          // itself (live-mode merchant validation) reports the same code. On
+          // the CODE alone, not isWalletDismissal: with the ref still null
+          // (change event not yet fired) the close would otherwise go
+          // unrecorded. "unknown" / "card" get their own info-level issue.
+          captureWalletSheetClosed({
+            method: selectedMethod ?? "unknown",
+            stripePaymentIntentId: paymentIntentId,
+            amount: priceBreakdown.total,
           });
         }
         setIsProcessing(false);
@@ -393,6 +412,9 @@ export function StripePaymentForm({
         <PaymentElement
           options={{
             layout: "tabs",
+          }}
+          onChange={(event) => {
+            selectedMethodRef.current = event.value.type;
           }}
         />
       </div>

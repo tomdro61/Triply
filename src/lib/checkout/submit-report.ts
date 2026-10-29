@@ -10,6 +10,51 @@ export const SUBMIT_FAILED_MESSAGE =
   "We couldn't read your payment details. Please check them and try again — you have not been charged.";
 
 /**
+ * Stripe's code for a wallet sheet the customer closed without paying, as read
+ * off the phone in the 2026-10-29 staging walk: `validation_error` / `incomplete`
+ * (no suffix — the card-field codes are `incomplete_number` etc.), with the
+ * card-form wording "Please fill in your card details." — wrong for a wallet.
+ * One tap after a short pause reopens the sheet.
+ */
+export const WALLET_DISMISSED_CODE = "incomplete";
+
+/** Payment Element `change` event `value.type` values that open a sheet. */
+const WALLET_NAMES: Record<string, string> = {
+  apple_pay: "Apple Pay",
+  google_pay: "Google Pay",
+};
+
+/**
+ * The bare `incomplete` with a wallet selected. `selectedMethod` is the Payment
+ * Element's current `value.type` (null until its change event has fired —
+ * then this is false and the customer gets Stripe's own text, which says
+ * nothing false about money). The client cannot tell a customer's close from a
+ * sheet that closed itself (a live-mode merchant-validation problem would look
+ * the same), which is why the form records these at info level in Sentry.
+ */
+export function isWalletDismissal(error: SubmitErrorLike, selectedMethod: string | null): boolean {
+  return (
+    error.code === WALLET_DISMISSED_CODE &&
+    selectedMethod !== null &&
+    Object.prototype.hasOwnProperty.call(WALLET_NAMES, selectedMethod)
+  );
+}
+
+/**
+ * What the customer reads for an elements.submit() error. Only a dismissed
+ * wallet gets our own text; everything else keeps Stripe's localized message,
+ * with ours when Stripe gave none. The text names no button label: the pay
+ * button reads "Pay Now" when something is due at the lot, "Complete Booking"
+ * otherwise.
+ */
+export function submitErrorMessage(error: SubmitErrorLike, selectedMethod: string | null): string {
+  if (isWalletDismissal(error, selectedMethod)) {
+    return `${WALLET_NAMES[selectedMethod as string]} was closed before the payment was confirmed. Tap the pay button again to reopen it, or choose another payment method.`;
+  }
+  return error.message || SUBMIT_FAILED_MESSAGE;
+}
+
+/**
  * Thrown by the staging call when its fetch rejected at the network level
  * (the browser's TypeError: "Failed to fetch" / "Load failed" / "NetworkError
  * when attempting to fetch resource."). Tagged at the source so the form can
@@ -61,16 +106,22 @@ export const STAGE_FAILED_AFTER_CONFIRM_MESSAGE =
   "Something went wrong preparing your booking. If you already tried to pay, please don't pay again — check your email for a confirmation or contact support.";
 
 /**
- * Customer-side codes (incomplete / invalid card fields) are not incidents.
- * Everything else — including a dismissed wallet sheet until its code is
- * recorded in the staging walk — is reported, each type/code its own issue.
- * Filtering by CODE, not type, avoids both failure directions: silencing a
+ * Customer-side codes are not incidents: incomplete / invalid card fields, and
+ * the bare `incomplete` — observed only for a closed wallet sheet (staging,
+ * 2026-10-29); other sources unverified, which is why the form still records
+ * every bare `incomplete` at info level with the selected method.
+ * Everything else is reported, each type/code its own issue. Filtering by
+ * CODE, not type, avoids both failure directions: silencing a
  * `validation_error`-typed "unable to show the sheet", or reporting every
  * half-typed card number.
  */
 export function shouldReportSubmitError(error: SubmitErrorLike): boolean {
   const code = error.code ?? "";
-  return !(code.startsWith("incomplete_") || code.startsWith("invalid_"));
+  return !(
+    code === WALLET_DISMISSED_CODE ||
+    code.startsWith("incomplete_") ||
+    code.startsWith("invalid_")
+  );
 }
 
 /** Sentry message: type/code/message, "-" where Stripe gave none. */
