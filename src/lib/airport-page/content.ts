@@ -135,6 +135,40 @@ export function generateFAQs(
 }
 
 /**
+ * True when the page rendered from a successful search and has nothing to
+ * sell — we list nothing near the airport, or every listed lot is sold out or
+ * unavailable for the sampled week. Such pages get an honest meta description:
+ * a search result promising "compare parking lots... book now" that lands on
+ * an empty page wastes the click (13 ResLab lots across 11 airports sat
+ * flagged sold_out from May–Oct 2026 while their pages stayed indexed). null
+ * means the count is unknown — claim nothing, change nothing.
+ */
+export function isKnownEmpty(
+  totalLots: number,
+  locationsConsidered: number | null
+): boolean {
+  return totalLots === 0 && locationsConsidered !== null;
+}
+
+/**
+ * True when we list no lots at all near this airport (the "coming soon"
+ * case) — the only empty state that is noindexed, and the one the sitemap
+ * leaves out. A sell-out is re-decided every hour: noindexing it would drop a
+ * small airport from Google for a holiday week and take days to come back
+ * once lots return (the lot page applies the same rule to transient states).
+ * A lot that sits sold out for months is removed from the listing instead,
+ * which turns its airport into this case.
+ */
+export function listsNoLots(locationsConsidered: number | null): boolean {
+  return locationsConsidered === 0;
+}
+
+/** Meta description for a known-empty page. No prices, no lot counts. */
+export function emptyMetaDescription(airportName: string, airportCode: string): string {
+  return `No ${airportCode} parking lots are bookable on Triply right now. Search your dates near ${airportName} for the latest availability.`;
+}
+
+/**
  * Copy for an airport page with no bookable lots in its sampled week, keyed on
  * how many lots we list there (AirportPageData.locationsConsidered):
  * - 0: we list nothing near this airport → "coming soon".
@@ -144,26 +178,6 @@ export function generateFAQs(
  * No absolute dates in the copy: an ISR page can be served stale after a quiet
  * spell; the relative "next week" is bounded by the hourly revalidation.
  */
-/**
- * True when the page rendered from a successful search and has nothing to
- * sell. Such pages are noindexed and get an honest meta description: a search
- * result promising "compare parking lots... book now" that lands on an empty
- * page wastes the click (13 ResLab lots across 11 airports sat flagged
- * sold_out from May–Oct 2026 while their pages stayed indexed). null means the
- * count is unknown — claim nothing, change nothing.
- */
-export function isKnownEmpty(
-  totalLots: number,
-  locationsConsidered: number | null
-): boolean {
-  return totalLots === 0 && locationsConsidered !== null;
-}
-
-/** Meta description for a known-empty page. No prices, no lot counts. */
-export function emptyMetaDescription(airportName: string, airportCode: string): string {
-  return `No ${airportCode} parking lots are bookable on Triply right now. Search your dates near ${airportName} for the latest availability.`;
-}
-
 export function emptyStateCopy(
   airportName: string,
   locationsConsidered: number | null

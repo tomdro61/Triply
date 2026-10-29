@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
-import { productionAirports } from "@/config/airports";
+import { productionAirports, type Airport } from "@/config/airports";
+import type { ReslabLocation } from "@/lib/reslab/client";
 import {
   AIRPORT_SEARCH_RADIUS_KM,
   BLOCKED_RESLAB_LOCATION_IDS,
@@ -79,19 +80,66 @@ function staticPages(): MetadataRoute.Sitemap {
   ];
 }
 
-function airportPages(): MetadataRoute.Sitemap {
+async function airportPages(): Promise<MetadataRoute.Sitemap> {
+  // An airport page with no lots listed at all renders "coming soon" and is
+  // noindexed (listsNoLots in src/lib/airport-page/content.ts); a sitemap
+  // entry for a noindexed URL is a contradictory signal Search Console
+  // reports for good, so leave those out. Same lot selection as the lot
+  // segments and searchParking. With no usable list (cold instance, snapshot
+  // off) every airport stays listed — the page decides, and inclusion is
+  // the harmless side. A sell-out keeps its entry: the page stays indexed.
+  const channel = await getChannelLocationsNoSweep();
+  let directAirportCodes = new Set<string>();
+  if (isDirectLotsEnabled()) {
+    try {
+      const direct = await fetchDirectLots({}, "sitemap");
+      if (direct.ok) directAirportCodes = new Set(direct.lots.filter((l) => isListable(l)).map((l) => l.airportCode));
+    } catch (error) {
+      console.warn("Sitemap airports: direct lots read threw, deciding on ResLab lots only:", error);
+      captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+        endpoint: "sitemap",
+        method: "GET",
+        stage: "direct_lots_airports",
+      });
+    }
+  }
+  const listed = productionAirports.filter(
+    (airport) =>
+      channel === null ||
+      reslabLocationsFor(channel, airport).length > 0 ||
+      directAirportCodes.has(airport.code)
+  );
+  if (channel !== null && listed.length < productionAirports.length) {
+    console.log(`Sitemap airports: ${listed.length} of ${productionAirports.length} airports list lots; the rest are left out`);
+  }
   return [
     {
       url: `${baseUrl}/airport-parking`,
       changeFrequency: "weekly",
       priority: 0.85,
     },
-    ...productionAirports.map((airport) => ({
+    ...listed.map((airport) => ({
       url: `${baseUrl}/${airport.slug}/airport-parking`,
       changeFrequency: "daily" as const,
       priority: 0.9,
     })),
   ];
+}
+
+/**
+ * The ResLab lots an airport page lists — the selection searchParking makes:
+ * the mapped location for an airport with a reslabLocationId, otherwise every
+ * lot within its 15 km radius that no other airport is closer to
+ * (src/lib/search/airport-ownership.ts), minus the lots we deliberately hide.
+ */
+function reslabLocationsFor(channel: readonly ReslabLocation[], airport: Airport): ReslabLocation[] {
+  const near =
+    airport.reslabLocationId !== undefined
+      ? channel.filter((loc) => loc.id === airport.reslabLocationId)
+      : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM).filter(
+          (loc) => !isOwnAirportFilterEnabled() || locationBelongsToAirport(loc, airport)
+        );
+  return near.filter((loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id));
 }
 
 async function blogAirportHubPages(): Promise<MetadataRoute.Sitemap> {
@@ -192,19 +240,10 @@ async function lotPages(id: number): Promise<MetadataRoute.Sitemap> {
   const urls: MetadataRoute.Sitemap = [];
   const seen = new Set<string>();
   for (const airport of airportChunk) {
-    // Same selection searchParking makes: the mapped location for an airport
-    // with a reslabLocationId, otherwise every lot within its 15 km radius
-    // that no other airport is closer to (src/lib/search/airport-ownership.ts)
-    // — so LGA stops publishing JFK lots under /new-york-lga/.
-    const near = channel === null
-      ? []
-      : airport.reslabLocationId !== undefined
-        ? channel.filter((loc) => loc.id === airport.reslabLocationId)
-        : locationsNearPoint(channel, airport.latitude, airport.longitude, AIRPORT_SEARCH_RADIUS_KM).filter(
-            (loc) => !isOwnAirportFilterEnabled() || locationBelongsToAirport(loc, airport)
-          );
+    // reslabLocationsFor — so LGA stops publishing JFK lots under /new-york-lga/.
+    const near = channel === null ? [] : reslabLocationsFor(channel, airport);
     for (const loc of near) {
-      if (BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) || suppressedReslabIds.has(loc.id)) continue;
+      if (suppressedReslabIds.has(loc.id)) continue;
       const url = `${baseUrl}/${airport.slug}/airport-parking/${generateSlug(loc.name)}`;
       if (seen.has(url)) continue; // two lots with one name resolve to one page
       seen.add(url);

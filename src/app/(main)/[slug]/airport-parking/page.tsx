@@ -7,6 +7,7 @@ import {
   generateFAQs,
   emptyStateCopy,
   isKnownEmpty,
+  listsNoLots,
   emptyMetaDescription,
 } from "@/lib/airport-page/content";
 import { buildAirportSchemas } from "@/lib/airport-page/schemas";
@@ -64,9 +65,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const priceText = data.cheapestPrice ? ` from $${data.cheapestPrice.toFixed(0)}` : "";
   // Trailing space lives in the value so a 0-lot page doesn't read "Compare  parking".
   const lotCount = data.totalLots > 0 ? `${data.totalLots}+ ` : "";
-  // Nothing bookable: noindex, and don't let a hand-written meta (SLC's
-  // "6+ lots from $6.50/day") advertise inventory the page can't sell.
+  // Nothing bookable: don't let a hand-written meta (SLC's "6+ lots from
+  // $6.50/day") advertise inventory the page can't sell. Only the structural
+  // case (no lots listed at all) is noindexed — a week's sell-out is transient
+  // and must not read as "remove this URL" (see listsNoLots).
   const empty = isKnownEmpty(data.totalLots, data.locationsConsidered);
+  const noindex = listsNoLots(data.locationsConsidered);
   const description = empty
     ? emptyMetaDescription(airport.name, airport.code)
     : customContent?.metaDescription
@@ -75,7 +79,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title: `${airport.city} Airport Parking - Cheap ${airport.code} Parking Rates${priceText}`,
     description,
-    ...(empty && { robots: { index: false, follow: true } }),
+    ...(noindex && { robots: { index: false, follow: true } }),
     alternates: {
       canonical: `https://www.triplypro.com/${airport.slug}/airport-parking`,
     },
