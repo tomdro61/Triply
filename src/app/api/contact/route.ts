@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resend, FROM_EMAIL } from "@/lib/resend/client";
-import { ADMIN_EMAILS } from "@/config/admin";
+import { ALERT_EMAILS } from "@/config/admin";
 import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/validation/schemas";
 import { captureAPIError, captureContactHoneypotDrop } from "@/lib/sentry";
 import { clientKey } from "@/lib/http/origin";
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     // Send email to support team
     const { error } = await resend.emails.send({
       from: FROM_EMAIL,
-      to: ADMIN_EMAILS,
+      to: ALERT_EMAILS,
       replyTo: email,
       subject: `[Contact Form] ${subject}`,
       html: `

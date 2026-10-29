@@ -137,7 +137,11 @@ const nextConfig = {
           },
           {
             key: "Permissions-Policy",
-            value: "camera=(), microphone=(), geolocation=(self), payment=(self)",
+            // Apple Pay / Google Pay run inside Stripe's js.stripe.com frame, which
+            // needs the Payment Request API delegated to it. `payment=(self)` alone
+            // kept both wallets off every checkout (found 2026-10-28). Stripe's
+            // Google Pay docs give exactly this form; `self` stays for Chrome/Android.
+            value: 'camera=(), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")',
           },
           {
             key: "Content-Security-Policy",
@@ -148,7 +152,9 @@ const nextConfig = {
               "img-src 'self' data: blob: https://*.supabase.co https://karaaj.s3.amazonaws.com https://*.amazonaws.com https://images.unsplash.com https://api.mapbox.com https://*.mapbox.com https://cms.triplypro.com https://*.public.blob.vercel-storage.com https://static.cupid.travel",
               "font-src 'self' https://fonts.gstatic.com",
               "connect-src 'self' https://*.supabase.co https://api.stripe.com https://api.mapbox.com https://*.mapbox.com https://events.mapbox.com https://www.google-analytics.com https://*.clarity.ms https://*.sentry.io",
-              "frame-src https://js.stripe.com https://hooks.stripe.com",
+              // *.js.stripe.com: Stripe's documented set for Stripe.js (it may start
+              // frames on sibling origins); hooks.stripe.com for 3-D Secure.
+              "frame-src https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com",
               "worker-src 'self' blob:",
             ].join("; "),
           },

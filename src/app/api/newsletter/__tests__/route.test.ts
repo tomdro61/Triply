@@ -176,6 +176,27 @@ describe("POST /api/newsletter — new signup", () => {
     expect(sub.airport_code).toBe("ABE");
     expect(sub.page).toBe("abe-parking");
     expect(resendSend).toHaveBeenCalledTimes(1);
+    // The button goes to the signup airport's search, tagged as the welcome email.
+    const html = String(resendSend.mock.calls[0][0].html);
+    const href = html.match(/<a href="([^"]+)"[^>]*>\s*Book ABE parking/)?.[1];
+    expect(href).toBeDefined();
+    const url = new URL(href!.replace(/&amp;/g, "&"));
+    expect(url.pathname).toBe("/search");
+    expect(url.searchParams.get("airport")).toBe("ABE");
+    expect(url.searchParams.get("utm_campaign")).toBe("welcome");
+  });
+
+  it("a signup with no airport (homepage form) gets the homepage button, still tagged", async () => {
+    const res = await POST(post({ email: "home@example.com", source: "homepage" }));
+    expect(res.status).toBe(200);
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    const html = String(resendSend.mock.calls[0][0].html);
+    const href = html.match(/<a href="([^"]+)"[^>]*>\s*Book Now/)?.[1];
+    expect(href).toBeDefined();
+    const url = new URL(href!.replace(/&amp;/g, "&"));
+    expect(url.pathname).toBe("/");
+    expect(url.searchParams.has("airport")).toBe(false);
+    expect(url.searchParams.get("utm_campaign")).toBe("welcome");
   });
 });
 

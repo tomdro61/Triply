@@ -30,6 +30,11 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { createBooking, redriveDirectBookingSends } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import {
+  RECONCILIATION_ALERT_COLUMNS,
+  scheduleReconciliationAlert,
+  type ReconciliationAlertRow,
+} from "@/lib/booking/reconciliation-alert";
 import { stripeKeyIsLive } from "@/lib/cancellation/source-guard";
 
 export const dynamic = "force-dynamic";
@@ -359,16 +364,30 @@ export async function GET(request: NextRequest) {
       // Money IS in flight. If we've been trying for days, stop re-driving and
       // put a human on it.
       if (age > GIVE_UP_AFTER_MS) {
-        const { error: giveUpErr } = await supabase
+        const giveUpReason = `swept: unresolved after ${Math.round(age / 86_400_000)}d`;
+        const { data: givenUp, error: giveUpErr } = await supabase
           .from("pending_bookings")
           .update({
             status: "needs_reconciliation",
-            last_error: `swept: unresolved after ${Math.round(age / 86_400_000)}d`,
+            last_error: giveUpReason,
           })
           .eq("stripe_payment_intent_id", piId)
-          .in("status", ["pending", "processing"]);
+          .in("status", ["pending", "processing"])
+          .select(RECONCILIATION_ALERT_COLUMNS)
+          .maybeSingle();
         if (giveUpErr) result.failed++;
         result.escalated++;
+        // Only when THIS update made the transition (a row another caller
+        // retired first alerts from there). Runs after the response; never throws.
+        if (givenUp) {
+          await scheduleReconciliationAlert({
+            stripePaymentIntentId: piId,
+            status: "needs_reconciliation",
+            reason: giveUpReason,
+            source: "sweep",
+            row: givenUp as ReconciliationAlertRow,
+          });
+        }
         capturePaymentError(
           new Error(
             `Pending booking ${piId} unresolved after ${Math.round(
