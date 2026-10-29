@@ -34,6 +34,7 @@ import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/a
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
 import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
+import { StageUnreachableError } from "@/lib/checkout/submit-report";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -928,18 +929,30 @@ export function CheckoutForm({
    * charge becomes an orphan. Blocking checkout is the strictly better failure.
    */
   const stagePendingBooking = async (stripePaymentIntentId: string) => {
-    // fetch() does NOT reject on 4xx/5xx — the status must be checked explicitly
-    // or a failed stage would silently let the charge proceed.
-    const response = await fetch("/api/reservations/pending", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(isDirect
-          ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
-          : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))),
-        confirmationParams: confirmationParams(),
-      }),
+    // Built BEFORE the fetch so a throw from the builders (a code bug) is not
+    // mistaken for a network failure below.
+    const body = JSON.stringify({
+      ...(isDirect
+        ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
+        : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))),
+      confirmationParams: confirmationParams(),
     });
+
+    // fetch() does NOT reject on 4xx/5xx — the status must be checked explicitly
+    // or a failed stage would silently let the charge proceed. It DOES reject
+    // when the request never reaches the server (offline, DNS, blocked); that
+    // is tagged so the payment form words it ("check your connection") instead
+    // of showing the browser's "Failed to fetch".
+    let response: Response;
+    try {
+      response = await fetch("/api/reservations/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    } catch (networkError) {
+      throw new StageUnreachableError(networkError);
+    }
 
     if (!response.ok) {
       const detail = await response.json().catch(() => null);
