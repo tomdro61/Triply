@@ -20,6 +20,7 @@ import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import { lotLinkQuery, type LinkParam } from "@/lib/utils/link-date";
 import { shiftIsoDate } from "@/lib/digest/window";
+import { buildLotSchema, canonicalAirportFor, lotCanonicalPath } from "@/lib/seo/lot-schema";
 import type { UnifiedLot } from "@/types/lot";
 
 /**
@@ -183,60 +184,9 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
-  // Structured data for parking facility. LocalBusiness alongside
-  // ParkingFacility (a CivicStructure) so Google treats it as review-eligible.
-  const lotUrl = `https://www.triplypro.com/${airport.slug}/airport-parking/${lot.slug || lotSlug}`;
-  const parkingSchema = {
-    "@context": "https://schema.org",
-    "@type": ["ParkingFacility", "LocalBusiness"],
-    name: lot.name,
-    url: lotUrl,
-    ...(lot.photos?.[0]?.url && { image: lot.photos[0].url }),
-    ...(lot.address && {
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: lot.address,
-        ...(lot.city && { addressLocality: lot.city }),
-        ...(lot.state && { addressRegion: lot.state }),
-        ...(lot.zipCode && { postalCode: lot.zipCode }),
-      },
-    }),
-    ...(lot.latitude &&
-      lot.longitude && {
-        geo: {
-          "@type": "GeoCoordinates",
-          latitude: lot.latitude,
-          longitude: lot.longitude,
-        },
-      }),
-    ...(lot.pricing?.minPrice && {
-      priceRange: `From $${lot.pricing.minPrice.toFixed(2)}/day`,
-    }),
-    ...(lot.phone && { telephone: lot.phone }),
-    // Same "from" price the page shows (lot.pricing for these dates).
-    ...(lot.pricing?.minPrice && {
-      offers: {
-        "@type": "AggregateOffer",
-        lowPrice: lot.pricing.minPrice.toFixed(2),
-        ...(lot.pricing.maxPrice && lot.pricing.maxPrice > lot.pricing.minPrice && {
-          highPrice: lot.pricing.maxPrice.toFixed(2),
-        }),
-        priceCurrency: lot.pricing.currencyCode || "USD",
-        url: lotUrl,
-      },
-    }),
-    // Only real Triply guest reviews. rating/reviewCount stay unset until
-    // booking_reviews has enough for a lot — never emit a placeholder.
-    ...(lot.rating && lot.reviewCount && lot.reviewCount > 0 && {
-      aggregateRating: {
-        "@type": "AggregateRating",
-        ratingValue: lot.rating.toFixed(1),
-        reviewCount: lot.reviewCount,
-        bestRating: "5",
-        worstRating: "1",
-      },
-    }),
-  };
+  // Structured data (src/lib/seo/lot-schema.ts): fee-inclusive price only,
+  // no placeholder image, canonical on the airport that owns the lot.
+  const parkingSchema = buildLotSchema(lot, canonicalAirportFor(lot, airport).slug, lotSlug);
 
   const breadcrumbItems = [
     { name: "Home", href: "/" },
@@ -380,8 +330,9 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   return {
     title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
     description,
-    // Date/time query params make every search a new URL; point them all at the bare lot page.
-    alternates: { canonical: `/${airport.slug}/airport-parking/${lot.slug || lotSlug}` },
+    // Date/time query params make every search a new URL; point them all at the
+    // bare lot page — under the airport that owns the lot (see canonicalAirportFor).
+    alternates: { canonical: lotCanonicalPath(canonicalAirportFor(lot, airport).slug, lot.slug || lotSlug) },
     openGraph: {
       title: `${lot.name} - ${airport.code} Airport Parking`,
       description,
