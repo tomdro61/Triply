@@ -48,7 +48,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "Can I modify my reservation?",
         answer:
-          "Yes, you can modify your reservation up to 24 hours before your scheduled check-in time. Log into your account, go to My Reservations, and select the booking you want to modify. Changes may affect pricing based on availability.",
+          "There's no edit option yet. If your check-in is more than 24 hours away, cancel the reservation from My Reservations (free, everything you paid online comes back) and book again with the new details. Closer to check-in, or if you booked as a guest and can't see the reservation, email support@triplypro.com and we'll help.",
       },
       {
         question: "How do I cancel my reservation?",
@@ -85,12 +85,12 @@ const faqCategories: FAQCategory[] = [
       {
         question: "When will I be charged?",
         answer:
-          "Your card is charged at the time of booking. The amount includes all taxes and fees with no hidden charges. Some facilities may place a hold for incidentals which is released after your stay.",
+          "Your card is charged when you book. At some lots part of the price is paid when you arrive — checkout shows it separately as 'Due at Location' (or 'Due at the lot' for an oversized-vehicle surcharge), and it isn't charged to your card. Some facilities also charge on site for oversized vehicles or for staying past your booked time; check the lot's details.",
       },
       {
         question: "Are there any hidden fees?",
         answer:
-          "No, the price you see is the price you pay. All taxes, fees, and charges are included in the total shown at checkout. We believe in transparent pricing.",
+          "The total shown at checkout includes taxes and fees. At some lots part of it is paid when you arrive, shown separately as 'Due at Location' before you pay. Some lots charge on site for oversized vehicles or for staying past your booked time; those charges are listed in the lot's details.",
       },
       {
         question: "How do promo codes work?",
@@ -100,7 +100,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "What is your refund policy?",
         answer:
-          `If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}), and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.`,
+          `If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}), and the rest is returned along with your other charges. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. You cancel from the account the reservation is linked to — if you booked as a guest, sign in with the booking email first. Cancellations within 24 hours of check-in aren't refunded online — contact support and we'll do what we can; no-shows aren't refunded. Refunds go back to your original payment method and usually appear within 5-10 business days, depending on your bank.`,
       },
     ],
   },
@@ -203,7 +203,7 @@ const faqCategories: FAQCategory[] = [
       {
         question: "Do I need an account to book?",
         answer:
-          "No, you can book as a guest without creating an account. However, creating an account lets you easily view and manage your reservations, save your information for faster checkout, and access exclusive deals.",
+          "No, you can book as a guest without creating an account. However, creating an account lets you see your reservations in one place, cancel an eligible one yourself, and check out faster next time.",
       },
       {
         question: "How do I reset my password?",
@@ -213,12 +213,12 @@ const faqCategories: FAQCategory[] = [
       {
         question: "How can I contact customer support?",
         answer:
-          "You can reach us by email at support@triplypro.com or call us at 1-888-TRIPLY1. Our support team is available Monday-Friday, 9 AM - 6 PM EST. For urgent parking issues, contact the facility directly using the number on your confirmation.",
+          "Email us at support@triplypro.com — we reply within 24-48 hours on business days. For urgent parking issues, contact the facility directly using the number on your confirmation.",
       },
       {
         question: "Where can I see my past reservations?",
         answer:
-          "Log into your account and go to My Reservations. You'll see all your upcoming and past bookings. You can view details, download receipts, and rebook previous parking spots.",
+          "Log into your account and go to My Reservations. You'll see all your upcoming and past bookings, with their details, and you can cancel an eligible upcoming reservation from there.",
       },
     ],
   },
