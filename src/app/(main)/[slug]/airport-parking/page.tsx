@@ -15,6 +15,7 @@ import { RatesTable } from "@/components/airport/rates-table";
 import { SEOContent } from "@/components/airport/seo-content";
 import { AirportFAQ } from "@/components/airport/airport-faq";
 import { OtherAirports } from "@/components/airport/other-airports";
+import { ComparisonCallout } from "@/components/comparison/comparison-callout";
 import { AirportGuides } from "@/components/airport/airport-guides";
 
 export const revalidate = 3600; // ISR: 1 hour
@@ -106,6 +107,7 @@ export default async function AirportParkingPage({ params }: PageProps) {
           <LotGrid airport={airport} lots={data.topLots} />
           <RatesTable airport={airport} lots={data.lots} />
           <SEOContent sections={seoSections} />
+          <ComparisonCallout airport={airport} />
           <AirportFAQ faqs={faqs} airportCode={airport.code} />
         </>
       ) : (
