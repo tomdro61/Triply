@@ -20,6 +20,7 @@ import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
 import { lotLinkQuery, type LinkParam } from "@/lib/utils/link-date";
 import { shiftIsoDate } from "@/lib/digest/window";
+import { buildLotSchema, canonicalAirportFor, lotCanonicalPath } from "@/lib/seo/lot-schema";
 import type { UnifiedLot } from "@/types/lot";
 
 /**
@@ -183,33 +184,9 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
-  // Structured data for parking facility
-  const parkingSchema = {
-    "@context": "https://schema.org",
-    "@type": "ParkingFacility",
-    name: lot.name,
-    ...(lot.address && {
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: lot.address,
-        ...(lot.city && { addressLocality: lot.city }),
-        ...(lot.state && { addressRegion: lot.state }),
-        ...(lot.zipCode && { postalCode: lot.zipCode }),
-      },
-    }),
-    ...(lot.latitude &&
-      lot.longitude && {
-        geo: {
-          "@type": "GeoCoordinates",
-          latitude: lot.latitude,
-          longitude: lot.longitude,
-        },
-      }),
-    ...(lot.pricing?.minPrice && {
-      priceRange: `From $${lot.pricing.minPrice.toFixed(2)}/day`,
-    }),
-    ...(lot.phone && { telephone: lot.phone }),
-  };
+  // Structured data (src/lib/seo/lot-schema.ts): fee-inclusive price only,
+  // no placeholder image, canonical on the airport that owns the lot.
+  const parkingSchema = buildLotSchema(lot, canonicalAirportFor(lot, airport).slug, lotSlug);
 
   const breadcrumbItems = [
     { name: "Home", href: "/" },
@@ -353,6 +330,9 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   return {
     title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
     description,
+    // Date/time query params make every search a new URL; point them all at the
+    // bare lot page — under the airport that owns the lot (see canonicalAirportFor).
+    alternates: { canonical: lotCanonicalPath(canonicalAirportFor(lot, airport).slug, lot.slug || lotSlug) },
     openGraph: {
       title: `${lot.name} - ${airport.code} Airport Parking`,
       description,
