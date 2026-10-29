@@ -17,8 +17,21 @@ import {
 import { PriceBreakdown } from "@/types/checkout";
 import type { ProtectionChoice } from "@/lib/parkguard/plans";
 import { ProtectionPlan } from "./protection-plan";
-import { capturePaymentError } from "@/lib/sentry";
+import { capturePaymentError, captureWalletSheetClosed } from "@/lib/sentry";
 import { ELEMENTS_SYNC_FAILED_MESSAGE, syncElementsAmount } from "@/lib/checkout/elements-sync";
+import { runPaymentSubmit } from "@/lib/checkout/payment-submit";
+import {
+  STAGE_FAILED_AFTER_CONFIRM_MESSAGE,
+  STAGE_FAILED_MESSAGE,
+  STAGE_UNREACHABLE_AFTER_CONFIRM_MESSAGE,
+  STAGE_UNREACHABLE_MESSAGE,
+  StageUnreachableError,
+  WALLET_DISMISSED_CODE,
+  shouldReportSubmitError,
+  submitErrorFingerprint,
+  submitErrorLabel,
+  submitErrorMessage,
+} from "@/lib/checkout/submit-report";
 
 interface StripePaymentFormProps {
   priceBreakdown: PriceBreakdown;
@@ -148,6 +161,19 @@ export function StripePaymentForm({
   // Everything that must be settled before the card can be charged.
   const amountSettling = protectionPlanUpdating || elementsSyncing || elementsSyncError !== null;
 
+  // True once ANY tap on this form has reached stripe.confirmPayment. A later
+  // tap whose stage can't reach the server must not say "not charged": the
+  // earlier confirm may have authorized with its response lost (Stripe.js
+  // answers { error } on a dropped connection), and an unreachable stage can't
+  // run the route's already_authorized check. Set before the call, never reset.
+  const confirmAttemptedRef = useRef(false);
+
+  // The Payment Element's selected method (`change` event `value.type`:
+  // "card" / "apple_pay" / "google_pay" / "link"); null until it has fired.
+  // Read only to word a submit error — a closed wallet sheet comes back as
+  // `incomplete` with Stripe's card-form text (staging walk, 2026-10-29).
+  const selectedMethodRef = useRef<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -158,23 +184,112 @@ export function StripePaymentForm({
     setIsProcessing(true);
     setPaymentError(null);
 
+    // "collect" until the card is authorized; "post-auth" once it is. The
+    // catch block words its message by this — a throw after authorization
+    // must never read "you have not been charged".
+    let phase: "collect" | "post-auth" = "collect";
     try {
-      // Stage the booking payload BEFORE confirming. Deliberately inside the
-      // try and immediately before confirmPayment: if staging fails we throw and
-      // never charge the card. A checkout the customer can retry is recoverable;
-      // a charge with no durable record of what they bought is not.
-      if (onBeforeConfirm) {
-        await onBeforeConfirm();
+      // ORDER: submit → stage → confirm (src/lib/checkout/payment-submit.ts).
+      //
+      // `elements.submit()` opens the Apple Pay / Google Pay sheet NOW, inside
+      // the tap's activation window. With the staging call first, Safari
+      // refused the sheet ("Unable to show Apple Pay", staging 2026-10-28);
+      // Stripe.js's own error text prescribes this call "at the top of your
+      // submission handler, before any async code". For cards it validates the
+      // fields (as confirmPayment did). NO await may precede runPaymentSubmit.
+      //
+      // Staging still happens BEFORE confirming, unchanged: if it throws we
+      // never charge the card. A checkout the customer can retry is
+      // recoverable; a charge with no durable record of what they bought is not.
+      const outcome = await runPaymentSubmit({
+        submit: () => elements.submit(),
+        stage: onBeforeConfirm,
+        confirm: () => {
+          confirmAttemptedRef.current = true;
+          return stripe.confirmPayment({
+            elements,
+            confirmParams: {
+              return_url: `${window.location.origin}/checkout/complete`,
+            },
+            redirect: "if_required",
+          });
+        },
+      });
+
+      if (outcome.step === "submit") {
+        // Sheet dismissed / could not be shown / incomplete card. Nothing was
+        // staged and nothing confirmed.
+        const selectedMethod = selectedMethodRef.current;
+        setPaymentError(submitErrorMessage(outcome.error, selectedMethod));
+        if (shouldReportSubmitError(outcome.error)) {
+          capturePaymentError(new Error(submitErrorLabel(outcome.error)), {
+            stripePaymentIntentId: paymentIntentId,
+            amount: priceBreakdown.total,
+            fingerprint: submitErrorFingerprint(outcome.error),
+          });
+        } else if (outcome.error.code === WALLET_DISMISSED_CODE) {
+          // Not an incident, but not silent either: a sheet that closes by
+          // itself (live-mode merchant validation) reports the same code. On
+          // the CODE alone, not isWalletDismissal: with the ref still null
+          // (change event not yet fired) the close would otherwise go
+          // unrecorded. "unknown" / "card" get their own info-level issue.
+          captureWalletSheetClosed({
+            method: selectedMethod ?? "unknown",
+            stripePaymentIntentId: paymentIntentId,
+            amount: priceBreakdown.total,
+          });
+        }
+        setIsProcessing(false);
+        return;
       }
 
-      // Confirm the payment
-      const { error, paymentIntent } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/complete`,
-        },
-        redirect: "if_required",
-      });
+      if (outcome.step === "stage") {
+        // confirm never ran. onBeforeConfirm's own messages are customer-facing
+        // and surface as thrown: "…you have not been charged" for a pre-charge
+        // refusal (a generic string once erased that, conflating a pre-charge
+        // abort with a post-charge failure), or the already-authorized hand-off
+        // text while its router.replace is under way. A network-level fetch
+        // failure is different: it throws the browser's TypeError ("Failed to
+        // fetch" / "Load failed"), which is developer text the server never saw.
+        const stageError = outcome.error;
+        // Allowlist, not "anything but TypeError": a TypeError from a code bug
+        // is not a connection problem, and a ReferenceError is not our copy.
+        if (stageError instanceof StageUnreachableError) {
+          setPaymentError(
+            confirmAttemptedRef.current
+              ? STAGE_UNREACHABLE_AFTER_CONFIRM_MESSAGE
+              : STAGE_UNREACHABLE_MESSAGE
+          );
+          capturePaymentError(stageError, {
+            stripePaymentIntentId: paymentIntentId,
+            amount: priceBreakdown.total,
+            fingerprint: ["payment-stage-throw", "unreachable"],
+          });
+        } else if (stageError instanceof Error && stageError.name === "Error") {
+          // The staging call's own customer-facing messages: "…you have not
+          // been charged" refusals (the staging route checks the PaymentIntent's
+          // state first, so a refusal it produced is a refusal with no hold), or
+          // the already-authorized hand-off text while its router.replace runs.
+          setPaymentError(stageError.message);
+        } else {
+          const name = stageError instanceof Error ? stageError.name : typeof stageError;
+          setPaymentError(
+            confirmAttemptedRef.current ? STAGE_FAILED_AFTER_CONFIRM_MESSAGE : STAGE_FAILED_MESSAGE
+          );
+          capturePaymentError(
+            new Error(`checkout: staging call threw ${name}`, { cause: stageError }),
+            {
+              stripePaymentIntentId: paymentIntentId,
+              amount: priceBreakdown.total,
+              fingerprint: ["payment-stage-throw", name],
+            }
+          );
+        }
+        setIsProcessing(false);
+        return;
+      }
+
+      const { error, paymentIntent } = outcome.result;
 
       if (error) {
         // Payment failed
@@ -204,6 +319,7 @@ export function StripePaymentForm({
         // they gave up, a paid-but-no-booking orphan. On this path all side
         // effects are deferred to the webhook, which drives the whole sequence
         // once the PaymentIntent becomes capturable.
+        phase = "post-auth";
         await onPaymentSuccess(paymentIntent.id);
         // Reset processing once the handler resolves. handlePaymentSuccess
         // NAVIGATES AWAY on success and on every hand-off (202, needs_recon,
@@ -225,15 +341,22 @@ export function StripePaymentForm({
       }
     } catch (err) {
       console.error("Payment error:", err);
-      // Surface the thrown message. onBeforeConfirm deliberately throws
-      // "…you have not been charged" — the whole point of failing closed before
-      // the charge is telling the customer that, and a generic string erased it,
-      // conflating a pre-charge abort with a post-charge failure.
+      // Only Stripe.js integration throws (submit / confirm) and throws from the
+      // success handler reach here now; staging throws are sequencer outcomes
+      // handled above. Never show developer text; never claim a charge status
+      // we don't know. Before confirm, "not charged" is true: Stripe.js
+      // integration errors throw before any request, and a network failure
+      // inside confirmPayment resolves with { error } rather than throwing.
       setPaymentError(
-        err instanceof Error
-          ? err.message
-          : "An unexpected error occurred. Please try again."
+        phase === "post-auth"
+          ? "Your payment was authorized but we hit a problem finishing your booking. Please don't pay again — check your email for a confirmation or contact support."
+          : "We couldn't start the payment. Please try again — you have not been charged."
       );
+      capturePaymentError(err instanceof Error ? err : new Error(String(err)), {
+        stripePaymentIntentId: paymentIntentId,
+        amount: priceBreakdown.total,
+        fingerprint: ["payment-submit-throw", phase],
+      });
       setIsProcessing(false);
     }
   };
@@ -289,6 +412,9 @@ export function StripePaymentForm({
         <PaymentElement
           options={{
             layout: "tabs",
+          }}
+          onChange={(event) => {
+            selectedMethodRef.current = event.value.type;
           }}
         />
       </div>
