@@ -235,8 +235,8 @@ export function Hero({ extraTab }: HeroProps) {
         <div className="flex flex-wrap justify-center gap-3 mt-8">
           {[
             { icon: Star, label: "4.9 Rating", color: "text-yellow-400" },
-            { icon: ShieldCheck, label: "Verified Partners", color: "text-brand-orange" },
-            { icon: Clock, label: "24/7 Support", color: "text-blue-400" },
+            { icon: ShieldCheck, label: "Trusted Lots", color: "text-brand-orange" },
+            { icon: Clock, label: "Instant Confirmation", color: "text-blue-400" },
             { icon: RefreshCw, label: "Free Cancellation", color: "text-green-400" },
           ].map((item) => (
             <div

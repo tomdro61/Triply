@@ -35,7 +35,7 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
             </div>
             <div className="flex items-center text-sm text-gray-300">
               <Star className="w-4 h-4 text-brand-orange mr-1.5" />
-              Verified Partners
+              Trusted Lots
             </div>
             <div className="flex items-center text-sm text-gray-300">
               <Clock className="w-4 h-4 text-brand-orange mr-1.5" />
