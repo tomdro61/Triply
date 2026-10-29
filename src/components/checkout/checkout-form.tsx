@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { anchorStepCard } from "@/lib/checkout/step-anchor";
 import { useRouter } from "next/navigation";
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
@@ -250,6 +251,20 @@ export function CheckoutForm({
       area.removeEventListener("invalid", onInvalid, true);
       if (timer) clearTimeout(timer);
     };
+  }, [currentStep]);
+
+  // On a step change (Next or Back) bring the card — step indicator first —
+  // back under the navbar, so the new step never opens with its first fields
+  // already scrolled past. Not on first render: the page loads at the top.
+  // A ref, not state: nothing here can change a step or the payment flow.
+  const anchoredStepRef = useRef<CheckoutStep | null>(null);
+  useEffect(() => {
+    if (anchoredStepRef.current === currentStep) return;
+    const isFirstRender = anchoredStepRef.current === null;
+    anchoredStepRef.current = currentStep;
+    if (isFirstRender) return;
+    const area = formAreaRef.current;
+    if (area) anchorStepCard(area);
   }, [currentStep]);
 
   // Calculate price breakdown using API data when available
