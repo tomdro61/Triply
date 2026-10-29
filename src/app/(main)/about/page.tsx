@@ -3,7 +3,7 @@ import { Navbar, Footer } from "@/components/shared";
 import { ArrowLeft, Users, Target, Heart, MapPin } from "lucide-react";
 
 export const metadata = {
-  title: "About Us | Triply",
+  title: "About Us",
   description:
     "Learn about Triply — our mission to simplify airport parking and save travelers money.",
   alternates: { canonical: "/about" },
