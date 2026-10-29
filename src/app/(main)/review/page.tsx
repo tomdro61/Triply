@@ -28,7 +28,7 @@ import ReviewClient from "./review-client";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Rate your parking | Triply",
+  title: "Rate your parking",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };
