@@ -32,7 +32,7 @@ const steps = [
     icon: Search,
     title: "Search",
     description:
-      "Enter your airport and travel dates to instantly see 100+ parking options.",
+      "Enter your airport and travel dates to see every lot available for your trip.",
     iconBg: "bg-blue-500/10",
     iconColor: "text-blue-500",
   },
@@ -41,7 +41,7 @@ const steps = [
     icon: GitCompareArrows,
     title: "Compare",
     description:
-      "Sort by price, distance, and rating. Every fee is shown upfront — no surprises.",
+      "Sort by price, distance, and rating. Taxes and fees are in the price; anything paid at the lot is shown before you pay.",
     iconBg: "bg-green-500/10",
     iconColor: "text-green-500",
   },
@@ -60,9 +60,9 @@ const steps = [
 
 const trustProps = [
   { icon: CalendarX, label: "Free Cancellation", description: "Cancel most bookings for free up to 24 hours before check-in.", iconColor: "text-purple-400" },
-  { icon: Award, label: "Best Price Guarantee", description: "Find a lower price and we'll match it.", iconColor: "text-brand-orange" },
-  { icon: ShieldCheck, label: "Verified Partners", description: "Every lot is vetted for security, quality, and reliability.", iconColor: "text-teal-400" },
-  { icon: Headphones, label: "24/7 Support", description: "Real humans ready to help via phone, email, or chat.", iconColor: "text-blue-400" },
+  { icon: Award, label: "Clear Totals", description: "Taxes and fees are in the price you see; anything paid at the lot is shown before you pay.", iconColor: "text-brand-orange" },
+  { icon: ShieldCheck, label: "Trusted Lots", description: "Lots come from established booking partners, and we remove any lot that lets customers down.", iconColor: "text-teal-400" },
+  { icon: Headphones, label: "Real Support", description: "Real humans by email — we reply within 24-48 hours on business days.", iconColor: "text-blue-400" },
 ];
 
 // --- Component ---
@@ -353,7 +353,7 @@ export function Comparison() {
             <ArrowRight size={24} />
           </a>
           <p className="text-gray-400 text-sm mt-4">
-            No signup required &middot; Best Price Guarantee &middot; Free to
+            No signup required &middot; Clear totals &middot; Free to
             use
           </p>
         </div>

@@ -206,6 +206,23 @@ export interface DigestData {
    */
   pace: Section<PaceSection>;
   recovery: Section<RecoverySection>;
+  /** Present only while POST_TRIP_REVIEW_EMAILS_ENABLED=true, so a quiet day is
+   *  visible as "Sent 0" rather than invisible. */
+  reviewEmails?: Section<ReviewEmailsSection>;
+}
+
+/** Post-trip review email (#76) over the 7 ET days ending with the digest day. Live mode only. */
+export interface ReviewEmailsSection {
+  sent: number;
+  /** Outcome unknown (timeout, 5xx, idempotency conflict): never retried; check Resend. */
+  unconfirmed: number;
+  failed: number;
+  /** Rows still `claimed` or parked in `retry`: in progress or stuck. */
+  waiting: number;
+  /** Address-level opt-outs (no mode: a staging soak's test opt-out counts too). */
+  optOuts: number;
+  /** Reviews saved in the window for live (or pre-034) bookings. */
+  reviews: number;
 }
 
 export interface Flag {

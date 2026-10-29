@@ -52,7 +52,7 @@ export default function AboutPage() {
               So we built Triply — a platform that brings every airport
               parking option together in one place, so you can compare
               prices, read real reviews, and book the perfect spot in
-              seconds. No hidden fees, no guesswork, just simple, affordable
+              seconds. Clear totals, no guesswork, just simple, affordable
               parking.
             </p>
 
@@ -61,9 +61,9 @@ export default function AboutPage() {
               We're on a mission to take the hassle out of airport parking.
               Whether you're a frequent flyer or planning your first big
               trip, we believe finding great parking should be quick, easy,
-              and affordable. We partner with verified parking facilities to
-              bring you the best rates — saving our customers an average of
-              60% compared to on-site airport parking.
+              and affordable. We bring the lots near your airport together
+              so you can compare them — off-airport parking often costs
+              40-60% less than parking at the airport itself.
             </p>
           </div>
 
@@ -75,8 +75,8 @@ export default function AboutPage() {
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Transparency</h3>
               <p className="text-gray-600 text-sm">
-                What you see is what you pay. No hidden fees, no surprise
-                charges at checkout.
+                The total you see includes taxes and fees. Anything a lot
+                collects on arrival is shown as &ldquo;Due at Location&rdquo; before you pay.
               </p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
@@ -85,8 +85,8 @@ export default function AboutPage() {
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Trust</h3>
               <p className="text-gray-600 text-sm">
-                Every parking partner is vetted for safety, security, and
-                quality before appearing on our platform.
+                Lots come from established booking partners, and we remove
+                any lot that lets our customers down.
               </p>
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
