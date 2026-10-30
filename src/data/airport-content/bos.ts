@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const bosContent: AirportContent = {
   metaDescription:
-    "Compare 5 bookable off-airport BOS parking lots from about $13/day, with 24/7 shuttle lots from about $18/day. Save vs $46/day Central Parking — and the Silver Line SL1 is FREE from airport to downtown. Free cancellation.",
+    "Compare bookable off-airport BOS parking lots, including 24/7 shuttle lots, at today's prices. Save vs $46/day Central Parking — and the Silver Line SL1 is FREE from airport to downtown. Free cancellation.",
 
   sections: [
     {
@@ -11,19 +11,19 @@ const bosContent: AirportContent = {
 
 On-airport parking at BOS is straightforward but pricey. Central Parking and Terminal B Garage cost $46/day at the gate, with advance reservations as low as $29/day. Economy Parking is $37/day ($29 with advance reservation). Logan Express buses from suburban stations cost just $7/day for parking + $9 each way for the bus.
 
-Off-airport parking through Triply starts at around $12.55/day — saving over 70% compared to Central Parking. Lots with a free 24/7 shuttle start at around $17.84/day. All five bookable lots offer a shuttle to the terminals; it's free at four of them, and three run it around the clock.`,
+Off-airport parking through Triply typically costs less than half of Central Parking's walk-up rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Every bookable lot offers a shuttle to the terminals — free at all but one, and three run it around the clock.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near BOS",
-      body: `**Park N Boston Logan Airport Parking** — Around $17.84/day pre-booked. **Cheapest lot with a 24/7 shuttle.** 2.7 miles out. Free shuttle every 30 minutes, around the clock, and the lot is staffed 24/7. Valet-style: you leave your keys with the attendant. Pickups, oversized SUVs and vans pay an extra $10/day at the lot.
+      body: `**Park N Boston Logan Airport Parking** — **Free 24/7 shuttle**, 2.7 miles out. Runs every 30 minutes, around the clock, and the lot is staffed 24/7. Valet-style: you leave your keys with the attendant. Pickups, oversized SUVs and vans pay an extra $10/day at the lot.
 
-**Se-lect Airport Valet Parking** — Around $19.14/day pre-booked. Valet lot at the Hampton Inn, 2.5 miles out. Free 24/7 shuttle every 20 minutes with luggage help, for up to 4 passengers. Car wash and car care available while you travel. No vehicles larger than a pickup truck.
+**Se-lect Airport Valet Parking** — Valet lot at the Hampton Inn, 2.5 miles out. Free 24/7 shuttle every 20 minutes with luggage help, for up to 4 passengers. Car wash and car care available while you travel. No vehicles larger than a pickup truck.
 
-**PreFlight Airport Parking** — Around $20.63/day pre-booked. **Closest bookable lot** at 1.8 miles. Self-park (keep your keys). Free 24/7 shuttle every 10 minutes that picks you up at your car. Fenced, staffed 24/7, with EV charging stations.
+**PreFlight Airport Parking** — **Closest bookable lot** at 1.8 miles. Self-park (keep your keys). Free 24/7 shuttle every 10 minutes that picks you up at your car. Fenced, staffed 24/7, with EV charging stations.
 
-**Ramada by Wyndham Boston** — Around $20.95/day pre-booked. Hotel lot 5.2 miles out. Free on-demand shuttle 6 AM–10 PM only — no shuttle overnight, so check your flight time.
+**Ramada by Wyndham Boston** — Hotel lot 5.2 miles out. Free on-demand shuttle 6 AM–10 PM only — no shuttle overnight, so check your flight time.
 
-**Broadway Motor Service** — Around $12.55/day pre-booked. **Cheapest bookable lot at BOS**, 2.7 miles out in Revere, but **the shuttle isn't included in the rate** — it's $16 each way, so a round trip adds $32. Plan a drop-off or rideshare if that's cheaper for you. Oil changes, repairs, car washes and detailing can be added while you travel.`,
+**Broadway Motor Service** — Low pre-booked rates, 2.7 miles out in Revere, but **the shuttle isn't included in the rate** — it's $16 each way, so a round trip adds $32 to whatever the lot list shows. Plan a drop-off or rideshare if that's cheaper for you. Oil changes, repairs, car washes and detailing can be added while you travel.`,
     },
     {
       heading: "The Silver Line SL1 — Free Transit to Downtown Boston",
@@ -67,12 +67,12 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "What is the cheapest parking at Boston Logan?",
       answer:
-        "Broadway Motor Service at around $12.55/day pre-booked is the cheapest off-airport lot on Triply, 2.7 miles from Logan, but its shuttle costs $16 each way on top of the rate. The cheapest lot with a free 24/7 shuttle is Park N Boston at around $17.84/day. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). Prices are from a sample 7-day booking and vary by date.",
+        "Broadway Motor Service, 2.7 miles from Logan, usually has the lowest pre-booked rate, but its shuttle costs $16 each way on top of it — add $32 for a round trip before comparing. Park N Boston, Se-lect and PreFlight include a free 24/7 shuttle. The cheapest on-airport option is Economy Parking at $37/day ($29 with advance reservation). Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at BOS?",
       answer:
-        "On-airport parking at Logan is $46/day at Central Parking and Terminal B Garage ($29/day with advance reservation). Economy Parking is $37/day ($29 advance). Off-airport parking through Triply starts at around $12.55/day — saving over 70%. Logan Express from suburban stations is just $7/day for parking + $9 each way for the bus.",
+        "On-airport parking at Logan is $46/day at Central Parking and Terminal B Garage ($29/day with advance reservation). Economy Parking is $37/day ($29 advance). Off-airport parking through Triply typically costs less than half of the walk-up garage rate — see the lot list on this page for current rates. Logan Express from suburban stations is just $7/day for parking + $9 each way for the bus.",
     },
     {
       question: "Is the Silver Line really free from Boston Logan?",
@@ -82,7 +82,7 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "Do BOS off-airport parking lots run shuttles 24/7?",
       answer:
-        "Three of the five bookable lots do: Park N Boston (every 30 minutes), Se-lect Airport Valet Parking (every 20 minutes), and PreFlight Airport Parking (every 10 minutes). Ramada by Wyndham Boston runs its shuttle 6 AM–10 PM only, and Broadway Motor Service's shuttle costs $16 each way (not included in its rate). If you have a red-eye or very early flight, book one of the 24/7 lots.",
+        "Three bookable lots do: Park N Boston (every 30 minutes), Se-lect Airport Valet Parking (every 20 minutes), and PreFlight Airport Parking (every 10 minutes). Ramada by Wyndham Boston runs its shuttle 6 AM–10 PM only, and Broadway Motor Service's shuttle costs $16 each way (not included in its rate). If you have a red-eye or very early flight, book one of the 24/7 lots.",
     },
     {
       question: "How early should I arrive at Boston Logan?",
@@ -92,7 +92,7 @@ The airport remains fully operational. Terminal E surface parking is closed unti
     {
       question: "Which off-airport BOS lot is closest to the terminals?",
       answer:
-        "PreFlight Airport Parking is the closest bookable lot at 1.8 miles, with a free 24/7 shuttle every 10 minutes that picks you up at your car (around $20.63/day pre-booked). It's self-park, so you keep your keys. Se-lect Airport Valet Parking (2.5 miles) and Park N Boston (2.7 miles) are valet-style lots where you leave your keys.",
+        "PreFlight Airport Parking is the closest bookable lot at 1.8 miles, with a free 24/7 shuttle every 10 minutes that picks you up at your car. It's self-park, so you keep your keys. Se-lect Airport Valet Parking (2.5 miles) and Park N Boston (2.7 miles) are valet-style lots where you leave your keys.",
     },
     {
       question: "Can I cancel my Boston Logan parking reservation?",

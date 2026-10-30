@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const denContent: AirportContent = {
   metaDescription:
-    "Compare 10 bookable off-airport DEN parking lots from about $7/day, with 24/7 shuttle lots from about $9.43/day. Save vs $17–$45/day on-airport rates. Free EV charging on-airport, A Line train to downtown for $10.50. Free cancellation.",
+    "Compare bookable off-airport DEN parking lots, including 24/7 shuttle lots, at today's prices. Save vs $17–$45/day on-airport rates. Free EV charging on-airport, A Line train to downtown for $10.50. Free cancellation.",
 
   sections: [
     {
@@ -11,29 +11,29 @@ const denContent: AirportContent = {
 
 DEN sits 25 miles northeast of downtown Denver. That distance — combined with Denver's iconic mountain weather — makes parking choice especially important. Rideshare to downtown costs $35–$55 each way. The flat-rate taxi to downtown is $56.
 
-On-airport parking ranges from $7/day at the 61st & Pena Lot to $45/day for Premium Reserved. East/West Garages are $28/day. Economy Lots are $17/day. Off-airport parking through Triply starts at around $6.70/day pre-booked — about 75% less than the terminal garages. Lots with a free 24/7 shuttle start at around $9.43/day.`,
+On-airport parking ranges from $7/day at the 61st & Pena Lot to $45/day for Premium Reserved. East/West Garages are $28/day. Economy Lots are $17/day. Off-airport parking through Triply typically costs a third or less of the East/West Garage rate; the lot list on this page shows current per-day rates (and any lot added since this guide was written), and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near DEN",
-      body: `**Park2Jet Denver** — Around $9.43/day pre-booked. **Best value with a 24/7 shuttle.** Dedicated parking lot 5.5 miles out with outdoor and covered spaces. Shuttle to the airport every 10–15 minutes around the clock; from the airport it runs 4 AM–midnight, and overnight you call (303) 558-9790 for a pickup.
+      body: `**Park2Jet Denver** — **Dedicated lot with a 24/7 shuttle**, 5.5 miles out, with outdoor and covered spaces. Shuttle to the airport every 10–15 minutes around the clock; from the airport it runs 4 AM–midnight, and overnight you call (303) 558-9790 for a pickup.
 
-**Canopy Denver Airport Parking** — Around $11.14/day pre-booked. **Closest bookable lot** at 5 miles. Free 24/7 shuttle every 15 minutes with luggage help. Open-air, covered and valet parking, EV charging stations in the covered and valet areas, and free Wi-Fi, coffee and snacks in the lobby.
+**Canopy Denver Airport Parking** — **Closest bookable lot** at 5 miles. Free 24/7 shuttle every 15 minutes with luggage help. Open-air, covered and valet parking, EV charging stations in the covered and valet areas, and free Wi-Fi, coffee and snacks in the lobby.
 
-**Embassy Suites Denver Airport** — Around $6.70/day pre-booked. **Cheapest bookable lot at DEN**, 5.8 miles out. Shuttle runs 24/7 every 30 minutes, but you pay an $8 round-trip shuttle fee at the front desk, must call ahead to reserve a seat, and drop-off is at the West Terminal only.
+**Embassy Suites Denver Airport** — Low pre-booked rates, 5.8 miles out. Shuttle runs 24/7 every 30 minutes, but you pay an $8 round-trip shuttle fee at the front desk, must call ahead to reserve a seat, and drop-off is at the West Terminal only.
 
-**Hyatt Place Denver Airport** — Around $6.85/day pre-booked. Hotel lot 8.8 miles out. Free on-demand shuttle 4 AM–midnight.
+**Hyatt Place Denver Airport** — Hotel lot 8.8 miles out. Free on-demand shuttle 4 AM–midnight.
 
-**Hyatt Place Peña Station** — Around $7.35/day pre-booked. Hotel lot 6.6 miles out. Shuttle 4 AM–midnight, every 30 minutes (hourly from noon to 5 PM).
+**Hyatt Place Peña Station** — Hotel lot 6.6 miles out. Shuttle 4 AM–midnight, every 30 minutes (hourly from noon to 5 PM).
 
-**Residence Inn Denver Airport at Gateway Park** — Around $7.35/day pre-booked. Hotel lot 8.7 miles out. Shuttle 4 AM–midnight, every 30 minutes.
+**Residence Inn Denver Airport at Gateway Park** — Hotel lot 8.7 miles out. Shuttle 4 AM–midnight, every 30 minutes.
 
-**Holiday Inn Express Denver Airport** — Around $7.76/day pre-booked. Hotel lot 5.6 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — call the front desk to reserve a seat.
+**Holiday Inn Express Denver Airport** — Hotel lot 5.6 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — call the front desk to reserve a seat.
 
-**Hyatt House Denver Airport** — Around $8.29/day pre-booked. Hotel lot 5.5 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes (hourly from noon to 5 PM).
+**Hyatt House Denver Airport** — Hotel lot 5.5 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes (hourly from noon to 5 PM).
 
-**Aloft Denver Airport at Gateway Park** — Around $8.29/day pre-booked. Hotel lot 8.7 miles out. Shuttle 3:45 AM–midnight, every 30 minutes.
+**Aloft Denver Airport at Gateway Park** — Hotel lot 8.7 miles out. Shuttle 3:45 AM–midnight, every 30 minutes.
 
-**DoubleTree Denver Airport** — Around $9.02/day pre-booked. Hotel lot 5.7 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — no need to call for the return pickup.`,
+**DoubleTree Denver Airport** — Hotel lot 5.7 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — no need to call for the return pickup.`,
     },
     {
       heading: "Skip Parking — The RTD A Line Train",
@@ -75,12 +75,12 @@ The Great Hall is fully operational despite construction. Allow extra time durin
     {
       question: "What is the cheapest parking at Denver airport?",
       answer:
-        "Embassy Suites Denver Airport at around $6.70/day pre-booked is the cheapest bookable lot, though it adds an $8 round-trip shuttle fee at the front desk. Hyatt Place Denver Airport is around $6.85/day with a free shuttle 4 AM–midnight. The cheapest lot with a free 24/7 shuttle is Park2Jet Denver at around $9.43/day. The cheapest on-airport option is the 61st & Pena Lot at $7/day. Prices are from a sample 7-day booking and vary by date.",
+        "The hotel lots usually have the lowest pre-booked rates — Embassy Suites Denver Airport among them, though it adds an $8 round-trip shuttle fee at the front desk. Park2Jet Denver and Canopy include a free 24/7 shuttle. The cheapest on-airport option is the 61st & Pena Lot at $7/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at DEN?",
       answer:
-        "On-airport parking at DEN ranges from $7/day (61st & Pena Lot) to $45/day (Premium Reserved). East/West Garages are $28/day, Economy Lots $17/day, Pikes Peak/Longs Peak Shuttle Lots $10/day. Off-airport parking through Triply starts at around $6.70/day pre-booked — about 75% less than the terminal garages.",
+        "On-airport parking at DEN ranges from $7/day (61st & Pena Lot) to $45/day (Premium Reserved). East/West Garages are $28/day, Economy Lots $17/day, Pikes Peak/Longs Peak Shuttle Lots $10/day. Off-airport parking through Triply typically costs a third or less of the garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does DEN have free EV charging?",
