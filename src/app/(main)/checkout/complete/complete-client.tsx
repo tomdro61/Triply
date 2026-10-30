@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
-import { captureBookingError } from "@/lib/sentry";
+import { captureBookingError, capturePaymentError } from "@/lib/sentry";
+import {
+  clearRecoveryMarker,
+  markerActionFor,
+  resolveCredentials,
+  saveRecoveryMarker,
+} from "@/lib/checkout/recovery-marker";
 
 /** Poll cadence and ceiling. The webhook normally completes a booking within a
  *  couple of seconds; the ceiling exists so a customer never watches an infinite
@@ -12,12 +18,49 @@ import { captureBookingError } from "@/lib/sentry";
 const POLL_INTERVAL_MS = 2000;
 const MAX_ATTEMPTS = 45; // ~90 seconds
 
+/** What the card holds while the booking is unresolved — from Stripe's own
+ *  figures via /api/reservations/complete, never computed here. */
+interface MoneyOnCard {
+  amountCents: number;
+  currency: string;
+  charge: "hold" | "captured";
+}
+
 type ViewState =
   | { kind: "working" }
+  /** We cannot tell which payment this is (no parameters, no marker, or the
+   *  secret did not match). The hold MAY be live: never "start a new search". */
+  | { kind: "unidentified"; message: string }
   | { kind: "failed"; message: string }
   | { kind: "payment_failed"; message: string }
-  | { kind: "needs_support"; message: string }
-  | { kind: "timeout" };
+  | { kind: "needs_support"; message: string; reference: string | null; money: MoneyOnCard | null }
+  | { kind: "timeout"; reference: string | null };
+
+function moneyFromAnswer(data: Record<string, unknown>): MoneyOnCard | null {
+  const amountCents = data.amountCents;
+  const currency = data.currency;
+  const charge = data.charge;
+  if (
+    typeof amountCents === "number" &&
+    Number.isFinite(amountCents) &&
+    amountCents > 0 &&
+    typeof currency === "string" &&
+    (charge === "hold" || charge === "captured")
+  ) {
+    return { amountCents, currency, charge };
+  }
+  return null;
+}
+
+function formatMoney(money: MoneyOnCard): string {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: money.currency.toUpperCase() }).format(
+      money.amountCents / 100
+    );
+  } catch {
+    return `${(money.amountCents / 100).toFixed(2)} ${money.currency.toUpperCase()}`;
+  }
+}
 
 export default function CheckoutCompleteClient() {
   const router = useRouter();
@@ -32,16 +75,30 @@ export default function CheckoutCompleteClient() {
   const mountedRef = useRef(true);
 
   // Stripe appends BOTH of these to return_url. The client secret is the
-  // credential the completion endpoint authenticates against.
-  const paymentIntentId = searchParams.get("payment_intent");
-  const clientSecret = searchParams.get("payment_intent_client_secret");
+  // credential the completion endpoint authenticates against. This page scrubs
+  // them from the address bar on mount, so a refresh arrives with neither —
+  // the per-tab marker (saved below, and by checkout at the hand-off) is how
+  // the same payment is resumed instead of telling a customer with a live
+  // hold that we couldn't identify it.
+  const [resolved] = useState(() =>
+    resolveCredentials({
+      paymentIntentId: searchParams.get("payment_intent"),
+      clientSecret: searchParams.get("payment_intent_client_secret"),
+    })
+  );
+  const { paymentIntentId, clientSecret } = resolved.credentials;
 
   const poll = useCallback(async () => {
     if (!paymentIntentId || !clientSecret) {
+      // Nothing server-side knows this customer is here; say so to Sentry.
+      captureBookingError(new Error("checkout/complete: opened with no payment reference (no URL params, no marker)"), {
+        step: "confirmation",
+        fingerprint: ["complete-unidentified", resolved.source],
+      });
       setView({
-        kind: "failed",
+        kind: "unidentified",
         message:
-          "We couldn't identify this payment. If you were charged, contact support@triplypro.com and we'll sort it out straight away.",
+          "We couldn't identify this payment from this page. If you entered your card, your booking may still be going through — check your email for a confirmation before doing anything else.",
       });
       return;
     }
@@ -58,16 +115,22 @@ export default function CheckoutCompleteClient() {
         if (!mountedRef.current) return;
 
         if (res.status === 404) {
+          capturePaymentError(new Error("checkout/complete: payment reference did not verify (404)"), {
+            stripePaymentIntentId: paymentIntentId,
+            fingerprint: ["complete-unidentified", "404"],
+          });
           setView({
-            kind: "failed",
+            kind: "unidentified",
             message:
-              "We couldn't verify this payment. If you were charged, contact support@triplypro.com and we'll sort it out straight away.",
+              "We couldn't verify this payment from this page. If you entered your card, your booking may still be going through — check your email for a confirmation before doing anything else.",
           });
           return;
         }
 
         const data = await res.json();
         if (!mountedRef.current) return;
+
+        if (markerActionFor(data.state) === "clear") clearRecoveryMarker();
 
         switch (data.state) {
           case "booked":
@@ -92,7 +155,13 @@ export default function CheckoutCompleteClient() {
             setView({ kind: "failed", message: data.message });
             return;
           case "needs_support":
-            setView({ kind: "needs_support", message: data.message });
+            // The marker is kept (markerActionFor): a refresh shows this again.
+            setView({
+              kind: "needs_support",
+              message: data.message,
+              reference: typeof data.reference === "string" ? data.reference : paymentIntentId,
+              money: moneyFromAnswer(data),
+            });
             return;
           case "pending":
           default:
@@ -106,8 +175,16 @@ export default function CheckoutCompleteClient() {
       await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
     }
 
-    if (mountedRef.current) setView({ kind: "timeout" });
-  }, [paymentIntentId, clientSecret, router]);
+    if (mountedRef.current) {
+      // The timeout screen says "our team has been alerted" — make it true.
+      // Nothing server-side knows the customer is still waiting.
+      capturePaymentError(new Error("checkout/complete: poll gave up after ~90 s without a definitive answer"), {
+        stripePaymentIntentId: paymentIntentId,
+        fingerprint: ["complete-poll-timeout"],
+      });
+      setView({ kind: "timeout", reference: paymentIntentId });
+    }
+  }, [paymentIntentId, clientSecret, resolved.source, router]);
 
   useEffect(() => {
     // Re-arm on every mount so React 18 StrictMode's mount→unmount→remount in
@@ -117,6 +194,12 @@ export default function CheckoutCompleteClient() {
     if (startedRef.current) return;
     startedRef.current = true;
 
+    // Remember the payment for this tab BEFORE scrubbing the URL, so a refresh
+    // resumes it (cleared on every answer that releases the hold or confirms).
+    // Only when the URL supplied it: a resume from the marker rewrites nothing.
+    if (resolved.source === "url" && paymentIntentId && clientSecret) {
+      saveRecoveryMarker({ paymentIntentId, clientSecret });
+    }
     // Scrub the client secret out of the address bar so it isn't left in
     // history, screenshots, or a copied URL.
     if (typeof window !== "undefined" && window.location.search) {
@@ -127,7 +210,7 @@ export default function CheckoutCompleteClient() {
     return () => {
       mountedRef.current = false;
     };
-  }, [poll]);
+  }, [poll, resolved.source, paymentIntentId, clientSecret]);
 
   if (view.kind === "working") {
     return (
@@ -143,6 +226,35 @@ export default function CheckoutCompleteClient() {
         <p className="mt-6 text-sm text-slate-500">
           Please don't close this page or press back.
         </p>
+      </Shell>
+    );
+  }
+
+  if (view.kind === "unidentified") {
+    return (
+      <Shell>
+        <StatusIcon tone="warning" />
+        <h1 className="mt-6 font-[Poppins] text-2xl font-bold text-[#1A1A2E]">
+          We couldn&apos;t identify this payment
+        </h1>
+        <p className="mt-3 text-slate-600">{view.message}</p>
+        <p className="mt-4 font-semibold text-slate-700">
+          Please don&apos;t book again until you&apos;ve checked your email for a confirmation or contacted us — a second booking would place a second charge on your card.
+        </p>
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Link
+            href="/contact"
+            className="rounded-lg bg-[#f87356] px-6 py-3 font-semibold text-white transition hover:opacity-90"
+          >
+            Contact support
+          </Link>
+          <a
+            href="mailto:support@triplypro.com"
+            className="rounded-lg border border-slate-300 px-6 py-3 font-semibold text-[#1A1A2E] transition hover:bg-slate-50"
+          >
+            support@triplypro.com
+          </a>
+        </div>
       </Shell>
     );
   }
@@ -192,22 +304,40 @@ export default function CheckoutCompleteClient() {
   }
 
   // needs_support and timeout both mean: money is in flight and we will not
-  // claim otherwise. Never tell this customer they weren't charged.
+  // claim otherwise. Never tell this customer they weren't charged — and never
+  // promise they can't be charged twice: booking again WOULD create a second
+  // hold. The amount shown is Stripe's own figure for this PaymentIntent.
   const isTimeout = view.kind === "timeout";
+  const money = view.kind === "needs_support" ? view.money : null;
+  const reference = view.reference;
   return (
     <Shell>
       <StatusIcon tone="warning" />
       <h1 className="mt-6 font-[Poppins] text-2xl font-bold text-[#1A1A2E]">
-        We're finishing your booking
+        We&apos;re finishing your booking
       </h1>
       <p className="mt-3 text-slate-600">
         {isTimeout
           ? "This is taking longer than usual. Your payment is being handled and our team has been alerted — we'll email you a confirmation shortly."
           : view.message}
       </p>
-      <p className="mt-4 font-semibold text-slate-700">
-        Please don't book again — you won't be charged twice.
+      <p className="mt-3 text-slate-600" data-testid="money-on-card">
+        {money
+          ? money.charge === "hold"
+            ? `The ${formatMoney(money)} on your card is a hold, not a final charge. It is only taken once your reservation is confirmed; otherwise it is released.`
+            : `Your card was charged ${formatMoney(money)}. If we can't confirm this reservation, that amount is refunded in full.`
+          : "The amount on your card is not final until your reservation is confirmed. If we can't confirm it, it is released or refunded in full."}
       </p>
+      <p className="mt-4 font-semibold text-slate-700">
+        Please don&apos;t book again — a second booking would place a second charge on your card.
+      </p>
+      {reference && (
+        <p className="mt-4 text-sm text-slate-500">
+          Your reference: <span className="font-mono text-slate-700 break-all">{reference}</span>
+          <br />
+          Quote it if you contact us.
+        </p>
+      )}
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <Link
           href="/contact"

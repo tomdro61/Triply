@@ -10,6 +10,8 @@ import { renderToStaticMarkup } from "react-dom/server";
  * these snapshots are never updated by that PR.
  */
 
+// The AI Assistant tab is part of the baseline: pin the kill switch to "unset".
+vi.stubEnv("NEXT_PUBLIC_AI_CHAT_ENABLED", undefined);
 vi.mock("next/image", () => ({
   default: (props: { src: string; alt: string }) => createElement("img", { src: props.src, alt: props.alt }),
 }));

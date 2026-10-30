@@ -18,7 +18,7 @@ import { ParkStayHomeSlot } from "@/components/park-stay/slots/home-section-slot
 export const metadata: Metadata = {
   title: "Triply - Airport Parking Made Simple | Compare & Book",
   description:
-    "Compare and book affordable airport parking at JFK and LaGuardia. Free cancellation, shuttle service included. Your trip simplified.",
+    "Compare and book affordable airport parking at 85+ airports across the US and Canada. Free cancellation on most bookings, clear totals. Your trip simplified.",
   alternates: { canonical: "/" },
 };
 
