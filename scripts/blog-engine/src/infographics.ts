@@ -3,7 +3,7 @@ import { Resvg } from '@resvg/resvg-js'
 import { env, CLAUDE_MODEL, DOMAIN } from './config.js'
 import { trackUsage } from './claude.js'
 import { uploadMedia } from './payload.js'
-import type { AirportData } from './airport-data.js'
+import { isCanadianAirport, type AirportData } from './airport-data.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
@@ -314,7 +314,8 @@ export async function generateInfographics(
 ): Promise<InfographicResult> {
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
-  if (airportData.currency) vizData.currency = airportData.currency
+  // Same Canadian rule as the writer and editor prompts (currency field OR the code list), so the SVG never prints $ where the article prints C$.
+  if (isCanadianAirport(airportCode, airportData)) vizData.currency = 'CAD'
 
   // Call Claude with cached system prompt (brand guide + airport data)
   // and compact user message (article headings + tables only)

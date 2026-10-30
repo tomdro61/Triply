@@ -20,12 +20,30 @@ export interface AirportData {
   liveSources?: Record<string, Record<string, string> | string>
   onAirportParking?: Record<string, Record<string, unknown> | string>
   parkingLots?: Record<string, unknown>[]
+  currency?: string  // "CAD" for Canadian airports (PR #96); USD when absent
   evCharging?: Record<string, unknown>
   lounges?: Record<string, unknown>[]
   construction?: unknown
   construction2026?: Record<string, unknown>
   emergencyContacts?: Record<string, string>
   [key: string]: unknown  // Allow dynamic access for construction2026, etc.
+}
+
+/** Lots the writer may name: anything not explicitly marked `sellable: false`. A lot without the field is kept (older data files predate the flag). */
+export function filterSellableLots<T extends { sellable?: unknown }>(lots: T[]): T[] {
+  return lots.filter((l) => l.sellable !== false)
+}
+
+/** Production Canadian airports. The data file's `currency: "CAD"` is the primary signal; this list is the fallback so a missing or unreadable file never hands a Canadian airport US-only sources (review of #96). */
+export const CANADIAN_AIRPORT_CODES: ReadonlySet<string> = new Set(['YYZ', 'YUL', 'YYC', 'YOW', 'YVR', 'YEG', 'YHZ', 'YWG'])
+
+export function isCanadianAirport(code: string, data?: { currency?: string } | null): boolean {
+  return data?.currency === 'CAD' || CANADIAN_AIRPORT_CODES.has(code.toUpperCase())
+}
+
+/** Price prefix for prompts: `C$` for Canadian airports, `$` otherwise. */
+export function currencySymbol(data: { code?: string; currency?: string }): string {
+  return isCanadianAirport(data.code ?? '', data) ? 'C$' : '$'
 }
 
 export function loadAirportData(code: string): AirportData | null {
@@ -38,7 +56,7 @@ export function loadAirportData(code: string): AirportData | null {
   const data: AirportData = JSON.parse(fs.readFileSync(filepath, 'utf-8').replace(/\s*\((?:verify|Verify|VERIFY)\)/g, ''))
 
   // Writers only see lots we can sell — unsellable lots ended up recommended in new articles (PHX, 13 Oct 2026)
-  if (Array.isArray(data.parkingLots)) data.parkingLots = data.parkingLots.filter((l) => l.sellable !== false)
+  if (Array.isArray(data.parkingLots)) data.parkingLots = filterSellableLots(data.parkingLots)
 
   // Cruise ports (POE) list cruiseLines per terminal instead of airlines
   for (const t of data.terminals as ({ airlines?: string[]; cruiseLines?: string[] } & AirportData['terminals'][number])[]) {
