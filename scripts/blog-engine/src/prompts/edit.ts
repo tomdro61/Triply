@@ -1,6 +1,6 @@
 import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { PublishedPost } from '../payload.js'
-import type { AirportData } from '../airport-data.js'
+import { currencySymbol, type AirportData } from '../airport-data.js'
 import { getExternalLinks, formatExternalLinksForEditor } from '../external-links.js'
 
 type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
@@ -80,6 +80,7 @@ Verify this article covers the identified gaps. If a recommended H2 topic is ent
   // Compact airport data for the editor — only names and rates for fact-checking
   const airportDataSection = airportData
     ? (() => {
+        const cur = currencySymbol(airportData)
         const lines = ['\n**Verified rates (fact-check only — correct any wrong prices/names):**']
         lines.push(`- Official rates: ${airportData.parkingRates}`)
         if (airportData.parkingLots && airportData.parkingLots.length > 0) {
@@ -87,9 +88,11 @@ Verify this article covers the identified gaps. If a recommended H2 topic is ent
             .filter(l => typeof l.dailyRate === 'number')
             .sort((a, b) => (a.dailyRate as number) - (b.dailyRate as number))
             .slice(0, 15)
-          lines.push(`- Off-site lots: ${lots.map(l => `${l.name} $${l.dailyRate}/day`).join(', ')}`)
+          lines.push(`- Off-site lots: ${lots.map(l => `${l.name} ${cur}${l.dailyRate}/day`).join(', ')}`)
         }
-        lines.push('Correct any rates that don\'t match. Replace vague pricing with specific verified rates.\n')
+        lines.push('Correct any rates that don\'t match. Replace vague pricing with specific verified rates.')
+        if (cur === 'C$') lines.push('This is a Canadian airport: every price stays in Canadian dollars written C$ (e.g. C$12/day). Never a bare $.')
+        lines.push('')
         return lines.join('\n')
       })()
     : ''
