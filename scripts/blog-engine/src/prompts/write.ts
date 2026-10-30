@@ -1,8 +1,8 @@
 import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { QueueItem } from '../queue.js'
-import type { AirportData } from '../airport-data.js'
+import { currencySymbol, type AirportData } from '../airport-data.js'
 import type { PublishedPost } from '../payload.js'
-import { getExternalLinks, formatExternalLinksForPrompt } from '../external-links.js'
+import { getExternalLinks, formatExternalLinksForPrompt, COMPETITOR_LIVE_SOURCE_CATEGORIES, isOwnSiteUrl } from '../external-links.js'
 
 interface AnalysisResult {
   commonTopics: string[]
@@ -128,7 +128,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     .slice(0, 20)
 
   if (lots.length === 0) return ''
-  const cur = data.currency === 'CAD' ? 'C$' : '$'
+  const cur = currencySymbol(data)
 
   const lines: string[] = ['\n**Off-Site Parking Lots (sorted by price — use these EXACT names and rates in tables and text, NEVER generalize into categories):**']
   for (const lot of lots) {
@@ -247,7 +247,7 @@ function formatParkSleepFly(data: AirportData): string {
 function formatOnAirportParking(data: AirportData): string {
   if (!data.onAirportParking) return ''
   const parking = data.onAirportParking as Record<string, Record<string, unknown>>
-  const cur = data.currency === 'CAD' ? 'C$' : '$'
+  const cur = currencySymbol(data)
   const lines: string[] = ['\n**On-Airport Parking Options:**']
   for (const [key, info] of Object.entries(parking)) {
     if (typeof info === 'string') {
@@ -382,7 +382,10 @@ function formatLiveSources(data: AirportData): string {
   for (const [category, value] of Object.entries(data.liveSources)) {
     if (category.startsWith('_')) continue
     if (typeof value === 'string') continue
-    const urls = Object.entries(value as Record<string, string>)
+    // Competing booking sites are never offered as reference URLs (only our own search link survives from those categories).
+    const urls = Object.entries(value as Record<string, string>).filter(
+      ([, url]) => !COMPETITOR_LIVE_SOURCE_CATEGORIES.has(category) || isOwnSiteUrl(url)
+    )
     if (urls.length === 0) continue
     lines.push(`- ${category}: ${urls.map(([label, url]) => `${label} <${url}>`).join(', ')}`)
   }
@@ -579,7 +582,10 @@ export function getWritingRulesBlock(airportCode: string): string {
 export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
   // Vin 14 Oct 2026: never name off-site lots we can't sell, even if competitor articles do
   const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison. Never name competing booking sites or apps (SpotHero, Way.com, ParkWhiz, ParkSleepFly and the like) or send readers to them for codes; if the focus keyword names one (e.g. Groupon), cover it without recommending it."
-  return formatAirportData(airportData, keyword) + onlySellable
+  const currencyRule = currencySymbol(airportData) === 'C$'
+    ? "\n\nCURRENCY: this is a Canadian airport. Every price in the article is Canadian dollars, written C$ (e.g. C$12/day), including on-airport rates, examples and comparisons. Never a bare $."
+    : ''
+  return formatAirportData(airportData, keyword) + onlySellable + currencyRule
 }
 
 /**

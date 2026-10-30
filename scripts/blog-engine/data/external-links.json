@@ -382,6 +382,31 @@
       "status": "active"
     },
     {
+      "id": "catsa-security-screening",
+      "url": "https://www.catsa-acsta.gc.ca/en/what-can-bring",
+      "domain": "catsa-acsta.gc.ca",
+      "title": "What can I bring? | Canadian Air Transport Security Authority",
+      "description": "CATSA's official guide to what you can bring through security at Canadian airports, including liquids rules and prohibited items.",
+      "anchorTextSuggestions": [
+        "CATSA security screening rules",
+        "what CATSA allows through security",
+        "Canadian airport security rules"
+      ],
+      "category": "government",
+      "subcategory": "security",
+      "linkType": "government",
+      "authority": "high",
+      "trustSignals": [".gc.ca domain", "federal agency", "primary regulatory source"],
+      "relevantAirports": ["YYZ", "YUL", "YVR", "YYC", "YOW", "YEG", "YHZ", "YWG"],
+      "relevantTopics": ["security-screening", "prohibited-items", "arrival-time", "travel-tips"],
+      "relevantArticleTypes": ["hub", "sub-pillar", "spoke"],
+      "rel": "dofollow",
+      "contextualUsage": "Use for Canadian airports when discussing security screening. Canada uses CATSA, not the US TSA.",
+      "pageType": "guide",
+      "lastVerified": "2026-10-15",
+      "status": "active"
+    },
+    {
       "id": "tsa-precheck",
       "url": "https://www.tsa.gov/precheck",
       "domain": "tsa.gov",
