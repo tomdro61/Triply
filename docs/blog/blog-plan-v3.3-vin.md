@@ -1,14 +1,15 @@
-# Triply growth roadmap v3.4 — protect what we built, then grow traffic and bookings (2026-10-30)
+# Triply Blog Growth Roadmap v3.4 — protect what the blog built, then grow its traffic and bookings (2026-10-30)
 
-**What this is.** One roadmap for the whole funnel: more people to the site → more of them book → more
-of them come back. It replaces the blog-only framing of v3.1/v3.2 (`docs/blog/blog-plan-v3.2.md`, PR
-#110) with the business goal those plans serve, keeps everything in v3.2 that protects what we have,
-and adds the growth, conversion, repeat and supply work without which cleanup only slows the decline.
+**What this is.** The roadmap for the blog, and only the blog: on-page, off-page, AI-search visibility,
+indexing, our own data, links and mentions, new pages, and the process that tracks it. It keeps everything
+in Tom's v3.2 (`docs/blog/blog-plan-v3.2.md`, PR #110) that protects what the blog has, and adds the growth
+work without which cleanup only slows the decline. Checkout, site trust, supply and customer emails live in
+the Triply Marketing Plan, not here.
 
 **How to use it.** It is a living document. Each track has a status table (where we are), a target
 (where we are going), and numbered recipes (exactly what to do, in order, with "done when"). The
-execution list (§19) is every recipe as one ordered list, no dates. When something ships, tick it there and the next step
-is the job. Re-read §2 (status) and §12 (targets) at every monthly readout and correct them.
+execution list (§16) is every recipe as one ordered list, no dates. When something ships, tick it there and the next step
+is the job. Re-read §2 (status) and §9 (targets) at every monthly readout and correct them.
 
 **Public copy.** This repo is public. Traffic, booking, conversion and revenue figures are left out or
 given as directions and ratios. The full numbers live in Tom's and Vin's notes.
@@ -20,19 +21,17 @@ given as directions and ratios. The full numbers live in Tom's and Vin's notes.
 
 ---
 
-## 1. The goal, and the only equation that matters
+## 1. The goal, and the blog's part of the equation
 
-Bookings = **visitors × search rate × checkout rate × (1 + repeat rate)**, times the value of each
-booking. Every recipe in this document moves one of those four factors or protects one of them.
+Bookings = **visitors × search rate × checkout rate × (1 + repeat rate)**. The blog owns the first factor
+and half of the second: bring people in from Google, Bing and AI assistants, and send them into a search
+from a page that answers their question and shows the widget. Every recipe here moves or protects that.
 
 | Factor | What moves it | Track |
 |---|---|---|
 | Visitors | pages that are indexed, rank, and get cited by assistants; links and mentions on other sites; our own data that others quote; new questions we answer first; social and partner footprint | B, C, D, E |
-| Search rate (visitor → runs a search) | answer-first pages, a booking widget on every article, honest prices, trust signals, a booking page worth landing on | F |
-| Checkout rate (search → paid) | all-in price shown and said, "Limited spots", reviews on lot pages, recovery email for abandoned checkouts, lot data that doesn't get rejected | F |
-| Repeat rate | post-trip review email, email list, a reason to come back (price index, holiday reminders, waitlist), the first booking being good | G |
-| Value per booking | longer stays, holidays, park-sleep-fly packages, direct lots (no channel commission), ParkGuard attach | E, H |
-| What we protect | index health, no self-competition, no fake freshness, no claims we can't source, no dependence on one supplier | A, H |
+| Search rate (visitor → runs a search) | answer-first pages, the booking widget on every article, honest prices, the hub linking to the booking page | B, E |
+| What we protect | index health, no self-competition, no fake freshness, no claims we can't source, no dependence on one supplier | A |
 
 **Order of operations.** Protect first (A), because a Google quality action would take every channel
 down at once. Then structure and indexing (B), because an unindexed page helps nobody. Then the growth
@@ -55,14 +54,14 @@ Legend: ✅ live · 🌑 merged but off behind a flag · 🔁 open PR · 🛠 bu
 | Unsellable lots named in articles | 🔁 partly | Rule since 16 Oct: naming unsellable lots is fine **if ours are named too**. ~1,400 posts name none of our lots. Engine filter in PR #96 |
 | Lexical `&amp;` bug | ✅ engine fixed (#66) | Corpus repair (≈2,700 posts) not done |
 | "Updated" stamps | ❌ | Bulk stamps Sep 23 / Oct 13 (§5 answers Q1). Must stop until the stamping rule is in git |
-| Year "2026" in ~3,600 titles | ⏸ | Stays through the peak; test after the peak readout (step 72) |
+| Year "2026" in ~3,600 titles | ⏸ | Stays through the peak; test after the peak readout (step 42) |
 | IndexNow | ✅ key live; ping in running engine on new-airport publish; **not in git** | Bing/Copilot path |
 | Thanksgiving price index | ✅ live 29 Oct | 25 airports, garage vs off-airport, press pitch drafted, not sent |
 | Holiday pages | ❌ | Only two Thanksgiving posts exist (DEN, AUS) |
 | Sold-out "rescue" articles | ✅ 26 live | Written during events; §E6 writes them before events |
 | Partner/operator articles | ✅ 7 live, CTA → /partners | |
 
-### 2.2 Site, conversion, trust
+### 2.2 Site facts the blog depends on (owner: Tom; tracked in the Marketing Plan)
 | Item | Status | Notes |
 |---|---|---|
 | Booking widget on every article | ✅ #22 | Measured: blog-landing bookings rose several-fold the week it shipped; first ChatGPT/Copilot-referred bookings seen the same week |
@@ -71,36 +70,9 @@ Legend: ✅ live · 🌑 merged but off behind a flag · 🔁 open PR · 🛠 bu
 | All-in price | ✅ rendered on lot cards; **never said in words** | "The price you see is the price you pay" is true and absent |
 | "~70 % cheaper than the terminal garage" | ✅ true at the median of our lots at every measured airport | Never on the site. Against the airport's **economy** lot we are only ~30 % cheaper and **dearer** at AUS, IAH, ORD, PBI, DSM, PVD, HPN, MDW, ALB, FAT, SAV — so the claim is garage-only |
 | Homepage "4.9 Rating" badge, "JFK and LGA only" copy | ❌ | Perplexity called Triply "unverified" from these. v3.2 W8 |
-| Canonical + Offer + real-review aggregateRating JSON-LD on lot pages | ✅ #120, #121 | |
-| Verified reviews on lot pages and search cards | 🔁 #119 | Stacked on #76 |
-| Review ask to past customers (backfill) | 🔁 #125 | |
-| Post-trip review email | 🌑 #76 | Flag `POST_TRIP_REVIEW_EMAILS_ENABLED` |
-| Abandoned-checkout recovery email | 🌑 #44 | Flag `CHECKOUT_RECOVERY_EMAILS_ENABLED`; a measurable share of people who reach payment don't finish |
-| "Limited spots" on lot page | ✅ #46 | |
-| Lot-declared extra fields enforced before payment | ✅ #49 | ResLab rejections stopped |
-| Booking window | ✅ 100 days (#43) | Thanksgiving and Christmas bookable since late Sep |
-| Waitlist beyond the window | ✅ #25 | |
-| Sold-out signal logged on every search | ✅ #24 | Demand data ResLab can't see |
-| Search-event log | ✅ | Tool sweeps pollute it; filter `ga_client_id IS NOT NULL` |
 | 10 %-off signup block on promo posts | ✅ #99 | Article-wide capture (#23) closed; decide |
-| Promo: source per code + one use per customer | 🔁 #48 | |
-| Mobile speed | ✅ #50 | |
 | Blog post caching | ❌ | Posts are `private, no-store` (every hit runs a function). v3.2 W8.5 |
 | Attribution (first/last touch, channel, airport) | ✅ #26 since 17 Sep | Lead time: median about 2 days, about a third same-day, nearly all within 30 days → campaigns have a window of days |
-| Admin monthly numbers page | ✅ #45 | Bookings, net take, repeat rate, sellable lots |
-| Cancellation reasons | ✅ #47 | |
-
-### 2.3 Supply and product
-| Item | Status | Notes |
-|---|---|---|
-| Inventory | ResLab only (one source, ~285 sellable lots across 85 airports; 5 airports carry 10+, the median airport ~4) | Contract: 45-day no-cause exit either side; 12-month non-circumvention → **direct recruiting only for lots NOT on ResLab** |
-| Direct lots | ✅ Phase 1 modules merged (#60); first direct lots live (JFK, 13 Oct) | New lots sign with Triply directly |
-| /partners page | ✅ #56 | Inquiry form; "partners are paid monthly"; never lead with commission |
-| Lot outreach tracker | ✅ | ~387 non-ResLab lots (hotels + operators), contacts sourced for 33 airports, 9-step sequence (8 emails + 1 call), monthly list after. The Parking Spot and WallyPark are **not** on ResLab |
-| Dead lots on ResLab | ❌ | 13 lots / 11 airports at 0 bookable for months; ask ResLab |
-| ResLab APB1/APB2 listings | ⏳ | Promised 28 Sep; email Sean for a firm date if not live by 3 Nov |
-| Park & Stay (hotel + parking) | ✅ admin-only (#104, #106) on LiteAPI | Public launch = Tom. Economics favour **direct** hotel contracts over affiliate for packages |
-| ParkGuard | ✅ preselected | Margin above wholesale is ours |
 
 ### 2.4 Distribution and measurement
 | Item | Status | Notes |
@@ -149,7 +121,7 @@ Everything in v3.2 stands. This section only records status and the few changes.
 | W0 | Hand-fix ~10 worst live errors (Seattle rates, DFW receipt/veteran, Newark P6 artifacts, LGA/LAX/DFW promo copy, Logan "2028"). JSON backup first | Tom approves, Claude edits | ❌ not started; **do first** (assistants repeat what we publish) |
 | W0b | Stop bulk stamping + rewording batches for covered airports | Vin | ✅ nothing bulk-stamps now; batches paused |
 | W1.1–1.11 | Duplicate guard (normalised keyword vs every slug any status + redirect map), cluster context by similarity, facts from data file/cited URL, lint (artifact phrases, bare money, "verified" near codes, non-approved codes, unsourced "save N %"), promo framing, sellable-only, stamping in git, `status: 'review'` fix, `delete-post.ts` restricted, **answer-first**, **IndexNow in git on publish and update** | Vin | 🛠 partly in the running engine; lands in `main` with the engine PR (§5) |
-| W7 | Measurement first (Bing AI Performance, GSC generative report, GA4 AI classification in our code, AI-fetcher log drain incl. cached hits, fixed prompt panel, weekly indexed counts, pre-merge export) | **Split:** Vin = prompt panel + Bing export + indexed counts; Tom + Claude = log drain (Q5) + GA4 classification | ❌ steps 3–8 (the Stage A clock starts when the baseline does) |
+| W7 | Measurement first (Bing AI Performance, GSC generative report, GA4 AI classification in our code, AI-fetcher log drain incl. cached hits, fixed prompt panel, weekly indexed counts, pre-merge export) | **Split:** Vin = prompt panel + Bing export + indexed counts; Tom + Claude = log drain (Q5) + GA4 classification | ❌ step 3; step 4; step 5; step 6; hand-off H1; hand-off H2 (the Stage A clock starts when the baseline does) |
 | W8.1–8.3 | Remove/source the "4.9 Rating" badge; generate airport count/list from config (homepage FAQ + meta); www schema URLs; 308 → permanent apex redirect | Tom + Claude | ❌ |
 | W8.4 | Trustpilot profile; ask every customer the same neutral way | Tom decides | ❌ |
 | W8.5 | Blog post caching (`generateStaticParams() { return [] }`; `getPostBySlug` throws on non-404) | Tom + Claude | ❌ |
@@ -158,7 +130,7 @@ Everything in v3.2 stands. This section only records status and the few changes.
 | W3a / W3b | Rates pages: official figures updated in place monthly (step); new block / answer-first opening / meta (test, separate airports) | rotation | ❌ first W3a early Dec |
 | W4 | P3c lot-price removal on P3's schedule; fact corrections on survivors | Vin + Claude | ⏸ with P3 |
 | W5 | New ground | engine with W1 | ✅ every sellable airport has pages (§2.1); continues as §8 E |
-| W6 | Year in titles | Tom decides | **Change (v3.4):** the year stays as it is through the peak; a small test at 2 non-pilot airports only after the peak readout (step 72). The new year makes "leave" the default, and that is accepted |
+| W6 | Year in titles | Tom decides | **Change (v3.4):** the year stays as it is through the peak; a small test at 2 non-pilot airports only after the peak readout (step 42). The new year makes "leave" the default, and that is accepted |
 | §6 Not doing | mass deletion, monthly new posts, bulk date bumps, year batch, live price block, llms.txt work, schema/FAQ "for AI", chunking, fan-out chasing, Reddit seeding, GBP, Wikipedia | — | kept, with one proposal in §7 D-h (disclosed, person-written forum answers) |
 
 ---
@@ -169,7 +141,7 @@ Everything in v3.2 stands. This section only records status and the few changes.
 `src/index.ts:630` (regenerate existing slug), `src/perf-apply.ts:151,159` (perf body/FAQ additions),
 `src/monthly-prices.ts:260` (hub price tables), `src/inject-coupon.ts:97` (coupon block),
 `reports/lot-rewrite/publish.mts:56` (lot-article rewrites). Oct 13 = the lot-rewrite/API-rewrite runs
-that week. Sep 23 is being matched against the perf ledgers; confirmed at step 31. None runs in bulk now.
+that week. Sep 23 is being matched against the perf ledgers; confirmed at step 16. None runs in bulk now.
 
 **Q2 — which engine runs; what produced Oct 13–17?** `Triplyvin-main/scripts/blog-engine` on `vin/main`
 plus one-off scripts under `scripts/blog-engine/reports/` (`lot-rewrite/api-rewrite.mts` on the Anthropic
@@ -188,7 +160,7 @@ fact sheets did. Decision: keep that, or build the endpoint.
 **Q4 — P3c through preview → apply?** Yes, once it exists (§6 B-4); until then P3c stays on P3's schedule.
 
 **Q5 — log drain for AI-fetcher hits incl. cached responses.** Tom's call on vendor/cost; it gates
-Stage A eligibility and the AI metrics, so it is step 8 of the execution list.
+Stage A eligibility and the AI metrics, so it sits with Tom in the Marketing Plan; the blog's merge test waits for it.
 
 **Q6 — wider rewrite of an AI-cited page?** Not in this plan. The hub rebuild (B-9) is the exception,
 run at non-pilot airports first and read like a test.
@@ -209,7 +181,7 @@ Links: hub → every intent page and the **booking page above the fold**; intent
 its spokes; spoke → its intent page and the hub. Descriptive anchors; under ~45 links a page.
 
 ### Recipes
-- **B-1 Request indexing for the 6 unindexed hubs** (Vin, Search Console, one by one; "URL is on Google" or a stated reason). Note: 5 of the 6 lose the head query to the booking page or `/blog/airport/<code>`; that's correct — the fix for those is the hub rebuild (B-9) and the booking page (F-1), not another request.
+- **B-1 Request indexing for the 6 unindexed hubs** (Vin, Search Console, one by one; "URL is on Google" or a stated reason). Note: 5 of the 6 lose the head query to the booking page or `/blog/airport/<code>`; that's correct — the fix for those is the hub rebuild (B-9) and Tom's booking-page work, not another request.
 - **B-2 Linking pass** across existing posts, highest-traffic airports first: build the mesh above with `update-links.ts`'s Lexical round-trip and link-loss guard (the October `relink.mts` did this for 28 new airports). Dry run per airport → apply → spot-check 5 pages. No stamp. **This is the main push for the "crawled – not indexed" posts that aren't merge candidates:** links from strong pages are how Google reaches weak ones.
 - **B-3 Redirect map as JSON** (`src/config/blog-redirects.mjs` → JSON both app and engine import), flattened, unit test (no chains, no loops, no key is a destination, every destination published), daily CMS check. Opens as an app PR with the map **empty**; entries land per signed-off pair.
 - **B-4 Preview → apply command** in the engine (v3.2 W3.4): `--preview` writes the diff and runs lint + P3 check; a person reads it; `--apply` PATCHes by id, Lexical round-trip, stamps only on a facts diff, IndexNow. Every content edit from then on goes through it.
@@ -239,7 +211,7 @@ from the airport's site is interchangeable, ours isn't.
 
 - **C-1 Thanksgiving index** (live): add a **method page** (dates, nights, fees and tax included, which lots, when checked) linked from the index, so a reporter or an assistant can trust and cite it. Add each indexed airport's line to its hub ("garage vs off-airport, fees included, as of <month>") with a link. Done when all 25 hubs carry it.
 - **C-2 December holidays index**: same method, data pulled the week before, live before the December peak, pitched (D-1).
-- **C-3 Monthly price index**: one rolling page per method ("Airport parking price index — <month>") updated in place, plus a dated edition per holiday. First edition at step 73.
+- **C-3 Monthly price index**: one rolling page per method ("Airport parking price index — <month>") updated in place, plus a dated edition per holiday. First edition at step 43.
 - **C-4 Official-rate tracker**: which airports raised garage/economy rates this year (we already hold the official rates for 30+ airports and re-verified 11 in October). One page, updated as rates change.
 - **C-5 Park vs rideshare**: a table by distance and trip length (parking usually wins only beyond ~20 miles; the edge shrinks with trip length). One page + a short block on each hub.
 - **C-6 Construction and closures calendar**: 21 of 30 airport files carry parking/shuttle construction and 17 an actual closure or capacity cut. One page per airport event, written **before** the date, linked from the hub (E-6 writes them).
@@ -265,10 +237,10 @@ from the airport's site is interchangeable, ours isn't.
 
 ## 8. Track E — New demand with buying intent (pages that bring people who are about to book)
 
-- **E-1 Holiday pages** for the top airports by blog bookings, **only where the guard finds no page with that intent**: Thanksgiving (step 22) and Christmas/New Year (step 38), each live well before its peak. Answer-first: when the airport's lots sell out, what the garage costs, our cheapest all-in, book-by dates, shuttle timing. Official advisories cited. Written to be **updated** each year, not reissued. Linked from the hub and the index.
+- **E-1 Holiday pages** for the top airports by blog bookings, **only where the guard finds no page with that intent**: Thanksgiving (step 10) and Christmas/New Year (step 21), each live well before its peak. Answer-first: when the airport's lots sell out, what the garage costs, our cheapest all-in, book-by dates, shuttle timing. Official advisories cited. Written to be **updated** each year, not reissued. Linked from the hub and the index.
 - **E-2 Park-sleep-fly pages**: one per airport where a package is sold ("park sleep fly <city>", "hotel with parking near <airport>"), live the week Park & Stay goes public. There was already heavy search demand on our hotel/park-sleep-fly content with nothing to sell against it; this closes that gap. Hotels link back (D-4). Prefer direct hotel contracts for packages (far better economics than affiliate).
 - **E-3 Lot pages** (`/<city>/airport-parking/<lot>`): these are where people book and where assistants answer "best off-site lot at <airport>". Verified reviews (#119), shuttle details, hours, all-in price, "Limited spots". Tom's area; content from the fact sheets.
-- **E-4 Airport booking pages**: see F-1. They are also demand pages: "<airport> airport parking" is the head term.
+- **E-4 Airport booking pages** (Tom's, in the Marketing Plan): the head-term pages. The blog's job is to link every hub to them above the fold and never outrank them.
 - **E-5 Cruise-port parking** where we sell lots (Port Everglades live; Miami, Tampa, Galveston where inventory exists).
 - **E-6 Pre-written event pages**: for each dated closure/capacity cut in the airport files (C-6) and each known peak (spring break by airport, major events), a page live 4–6 weeks before, updated during, kept after as the record. Same shape as the 26 sold-out rescue articles, written before the event instead of during it.
 - **E-7 New airports on first lot**: when an airport gets its first sellable lot, 3–5 intent pages within a week (the October method: fact sheet → writer → separate fact-check → relink → inbound links → IndexNow), and its airport page is re-indexed.
@@ -277,53 +249,9 @@ from the airport's site is interchangeable, ours isn't.
 
 ---
 
-## 9. Track F — Conversion (turn visitors into searches, searches into paid bookings)
+## 9. Targets (relative to the baseline taken at steps 3–6; absolute figures in the notes)
 
-| # | Recipe | Why | Owner | Done when |
-|---|---|---|---|---|
-| F-1 | **Rebuild the airport booking pages** (~265 words today): answer-first intro (cheapest official option, our cheapest all-in, garage gap), the live lot table with the all-in price and "Limited spots", shuttle/hours, a map, the hub's intent links, FAQ from the fact sheet. Keep it a booking page, not an article | Head-term pages rank ~50–77; this is the biggest single ranking lever on the site | Tom + Claude | pages ≥ 600 words of real content; head-term position improves at the pilot airports |
-| F-2 | **Say the all-in sentence** on lot cards, search and checkout: "the price you see is the price you pay — fees and tax included" | Hidden cost is the #1 abandonment cause; we already compute it and never say it | Tom | live |
-| F-3 | **Garage comparison on every lot card and hub**: "$X/day vs $Y at the terminal garage (official, as of <month>)" | Our strongest true sentence; garage-only, never economy | Tom (card) + Vin (data) | live at airports with a verified garage rate |
-| F-4 | **Turn on the abandoned-checkout recovery email** (#44, flag) with one week of watching send counts and replies | Recovers a share of people who reached payment | Tom | flag on; sends + bookings from it visible in admin |
-| F-5 | **Reviews on lot pages and search cards** (#119) + backfill ask (#125) + post-trip email on (#76 flag) | Showing a few reviews materially raises purchase likelihood; assistants read them | Tom | merged + flags on; first reviews visible |
-| F-6 | **Trust fixes** (W8.1–8.3): no unsourced badge, no testimonials of unknown origin, correct scope copy, www schema, Trustpilot | Perplexity called us unverified | Tom + Claude | live |
-| F-7 | **Promo rules**: one source per code, one use per customer (#48); "how to save" framing on promo posts; our own 10 %-off signup block where it helps (#99); never a code we can't source | Promo posts get the most clicks and convert worst | Tom + Vin | #48 merged; promo posts linted |
-| F-8 | **Checkout rejections**: lot-declared fields enforced (#49, done); show the real reason when ResLab voids a payment; fix the 3 lots with attempts and no paid bookings ever | Each is a lost paid booking | Tom | no silent "payment not completed" |
-| F-9 | **Blog widget + CTA**: keep the widget; add the airport's garage gap line above it; track widget clicks via the existing GA event (no internal UTMs — they overwrite attribution) | The widget is what turned article traffic into bookings | Vin | GA event reported weekly |
-| F-10 | **Waitlist and sold-out capture everywhere a search returns nothing** (#24/#25 exist; make sure every empty result offers the waitlist and shows the nearest alternative) | Demand we currently lose silently | Tom | empty results always capture |
-| F-11 | **Mobile**: keep the speed work (#50); check Core Web Vitals monthly in Clarity/GSC | Most holiday searches are on phones | Tom | no "poor" URLs |
-| F-12 | **ParkGuard**: keep preselected; show the premium's value in one line | Margin above wholesale | Tom | — |
-| F-13 | **Pricing tests** | parked (Vin, 27 Oct): the fee floor change showed no visible checkout drop; revisit after the holiday peak | — | ⏸ |
-
----
-
-## 10. Track G — Repeat and retention (the second booking is the cheapest booking)
-
-- **G-1 Post-trip review email on** (#76): ask shuttle wait, extra charges, comment, consent to show first name. Replies to support@ (monitored). This is also the source for reviews (F-5) and for the lot quality list (H-5).
-- **G-2 Fix the case-sensitive email match** so repeat rate is measured right (it's a floor today).
-- **G-3 Email list with a reason to exist**: the signup block (#99) + waitlist (#25) + review consent feed one list. Send only: (a) a holiday booking reminder 6–8 weeks before each peak at the airports the person searched, (b) the index edition for their airport, (c) "your airport opened for <holiday>" from the waitlist. No weekly newsletter.
-- **G-4 Rebook prompt** on the confirmation page and in the post-trip email: "book your return / next trip at <airport>", with the all-in price and the garage gap.
-- **G-5 Customer account value**: past bookings, saved airport, one-click rebook (Tom's area; after F).
-- **G-6 Support loop**: every refund/cancellation reason (#47) reviewed monthly; the top reason becomes a page or a product fix.
-
----
-
-## 11. Track H — Supply (protect against the one-supplier risk; more and better lots)
-
-- **H-1 Outreach runs weekly** from the tracker: John sends the 9-step sequence to the ~66 lots with confirmed email first (SEA, AUS, DEN, LAX deepest), then by airport demand. No commission talk cold; "partners are paid monthly"; CTA /partners. Replies handled by John; terms on a call.
-- **H-2 The big calls**: The Parking Spot (most-named operator in our articles; 11 airports; **not on ResLab**), WallyPark, FastPark, PreFlight — one person, one call plan each, after checking the operator isn't on ResLab at that airport (§10 non-circumvention; ask before approaching an operator that is on ResLab elsewhere).
-- **H-3 Direct lots first where ResLab is thin**: AUS, CLT, DCA, IAD, IAH, MSP have ≤ 2 sellable lots each and real demand; a direct lot there adds supply and margin. Phase 1 modules exist (#60); wire and onboard with least friction (research first, pre-filled listing to OK, agreement then payment + W-9).
-- **H-4 Dead lots**: 13 ResLab lots at 0 bookable for months → ask ResLab; meanwhile they stay out of articles (sellable-only rule).
-- **H-5 Lot quality**: from reviews and cancellation reasons, a monthly list of lots with shuttle or extra-charge complaints → tell ResLab/the lot; hide repeat offenders (as done with one JFK lot).
-- **H-6 Supply data for sales**: each outreach email carries the airport's Google demand and our sold-out signals; refresh monthly.
-- **H-7 Second inventory source**: the agreement has no exclusivity; direct lots are the second source today. Keep the ResLab relationship (APB1/APB2 follow-up (step 30); pay by the 3rd; never 10 days late).
-- **H-8 Tax check**: a CPA to confirm whether we owe parking tax (Illinois/Chicago first) and who pays it on ResLab bookings. Keep-the-business item.
-
----
-
-## 12. Targets (relative to the baseline taken at steps 3–6; absolute figures in the notes)
-
-| Measure | First checkpoint (after step 71) | Quarter readout (step 81) |
+| Measure | First checkpoint (after step 41) | Quarter readout (step 49) |
 |---|---|---|
 | Blog + booking-page clicks (Google + Bing) | hold through the merge test, +25 % | **2×** Oct |
 | Sessions from AI assistants (GA4 AI group + dark-AI segment) | +50 % | **2×** |
@@ -338,7 +266,7 @@ from the airport's site is interchangeable, ours isn't.
 
 ---
 
-## 13. Measurement, stop rules and operating rhythm
+## 10. Measurement, stop rules and operating rhythm
 
 **Pre-registered (v3.2 §7, kept):** query-set position and impressions per pilot cluster; GA4 sessions to destinations by source; bookings on destinations vs the merged posts' baseline; against matched untouched airports. Success = cluster query-set position +5 places or clicks +50 % vs controls at 8–12 weeks. Stop and revert a cluster if impressions fall 30 %+ vs controls after 6 weeks or the destination's bookings + sessions fall clearly below baseline. **Added:** if the prompt panel shows a merged pair losing its Triply citation in two or more assistants for two weeks running, revert that pair, whatever Google shows.
 
@@ -346,11 +274,11 @@ from the airport's site is interchangeable, ours isn't.
 
 **Weekly (Vin, Monday):** prompt panel; Bing AI report; indexed counts; backlink delta; new-page indexing; the widget GA event; outreach sends/replies; one line per track in the team channel.
 **Monthly (Tom + Vin, first business days):** W3a rates update; index edition; admin monthly numbers (bookings, net take, repeat, sellable lots, by channel); profit workbook; index-health sample; lot quality list; this document's status tables corrected.
-**Quarterly:** readout against §12; re-rank the execution list; version bump.
+**Quarterly:** readout against §9; re-rank the execution list; version bump.
 
 ---
 
-## 14. Risks and confounds
+## 11. Risks and confounds
 - **Google quality action** from mass-produced variants: cleanup (A, B) is the insurance; growth creates only guard-checked pages.
 - **Merging away AI/Bing bookings:** Stage A zero-signal only; Stage B capped; stop rule; EWR in the pilot so a loss shows.
 - **Two engines, one outside git:** fixed by the engine PR (steps 1–2); nothing else in W1 helps until then.
@@ -362,46 +290,44 @@ from the airport's site is interchangeable, ours isn't.
 - **The "not doing" list is a guard, not a preference:** no monthly new posts, no bulk stamps, no live price block; the duplicate guard stays strict and is never loosened to ship faster.
 - **People:** two devs plus John; every recipe names one owner; anything with no owner by its date moves to the next window rather than being half-done.
 
-## 15. Not doing (kept from v3.2, plus)
+## 12. Not doing (kept from v3.2, plus)
 Mass deletion · monthly new posts · bulk date bumps · year batch · live price block · llms.txt work, schema/FAQ "for AI", chunking, fan-out chasing · Reddit seeding, bought links, link networks, sock puppets · GBP (ineligible), Wikipedia (not yet) · paid ads at scale (two narrow exceptions stay in the marketing plan) · pricing tests until after the peak · a weekly newsletter · building a consumer app.
 
-## 16. Decisions for Tom
+## 13. Decisions for Tom
 1. Accept Q1–Q6 as answered (§5); the engine-into-`main` PR as the fix.
 2. Growth, conversion, repeat and supply tracks run **alongside** cleanup as steps (they add, never remove).
 3. Stage A candidates start from the 101 + 294 lists; destination gets the copy's answers as a section.
-4. W6: leave the year through the peak; small test at 2 non-pilot airports after the peak readout (step 72).
+4. W6: leave the year through the peak; small test at 2 non-pilot airports after the peak readout (step 42).
 5. W7 split (Vin panel/Bing/indexed counts; Tom log drain/GA4).
-6. F-1 booking-page rebuild is the head-term lever; spec together, Tom builds.
-7. Flags on: recovery email (#44), post-trip review email (#76); merge #119, #125, #48.
-8. D-8 disclosed forum answers: allow or keep banned.
-9. Hub rebuilds stamp `contentUpdatedAt` (facts change) and run at non-pilot airports first.
-10. Q3 lot list: keep tagged live search, or build the endpoint.
-11. Q5 log drain vendor and cost.
+6. D-8 disclosed forum answers: allow or keep banned.
+7. Hub rebuilds stamp `contentUpdatedAt` (facts change) and run at non-pilot airports first.
+8. Q3 lot list: keep tagged live search, or build the endpoint.
+9. Q5 log drain vendor and cost.
 
-## 17. Review ledger (v3.3 → v3.4)
+## 14. Review ledger (v3.3 → v3.4)
 
 One outside review of v3.3 (senior growth lead framing). Every recommendation and what changed:
 
 | # | Recommendation | v3.4 |
 |---|---|---|
 | 1 | Engine PR is the critical path; land it before anything content-related; freeze `vin/main` the same day | Execution list steps 1–2; nothing content-side ships until it lands |
-| 2 | Pull F-1 (booking-page rebuild) forward; the 4 pilot airports early | Steps 12–13, right after measurement and the flags |
-| 3 | Turn on the two flags now (#44 recovery, #76 post-trip review) | Steps 9–10 |
-| 4 | Cap concurrent tests: Stage A only after a clean 4-week baseline; defer W6 and W3b past the peak readout | Stage A gate unchanged (step 61); W6 moved to step 72 (after the checkpoint readout); W3b to step 80 (after the Stage A readout); §14 "one test in flight per airport" |
-| 5 | Supply focus: the 6 thin high-demand airports for direct lots over broad outreach | Step 14 moved up; H-3 wording; outreach continues in the background |
+| 2 | Pull F-1 (booking-page rebuild) forward; the 4 pilot airports early | Moved to the Marketing Plan (site work, Tom); the blog hub links to the booking page above the fold |
+| 3 | Turn on the two flags now (#44 recovery, #76 post-trip review) | Moved to the Marketing Plan (site flags, Tom) |
+| 4 | Cap concurrent tests: Stage A only after a clean 4-week baseline; defer W6 and W3b past the peak readout | Stage A gate unchanged (step 36); W6 moved to step 42 (after the checkpoint readout); W3b to step 48 (after the Stage A readout); §11 "one test in flight per airport" |
+| 5 | Supply focus: the 6 thin high-demand airports for direct lots over broad outreach | Moved to the Marketing Plan (supply) |
 | 6 | Measurement in the first week is non-negotiable | Steps 3–8 precede every judged change; the stop rules depend on them |
-| 7 | Protect the "not doing" list; keep the duplicate guard strict | §14 risk line added; §15 unchanged |
+| 7 | Protect the "not doing" list; keep the duplicate guard strict | §11 risk line added; §12 unchanged |
 
 Not adopted: none. The reviewer's dating ("by mid-November") is not carried into the document, which has no dates by design.
 
-## 18. Glossary
+## 15. Glossary
 **Hub / intent page / spoke** — the three-level page shape per airport (§6). **Step / test** — safe for every channel vs measured with a way back. **Stage A / B** — the merge test's zero-signal and capped low-signal stages. **Prompt panel** — fixed questions asked weekly in four assistants, recording whether Triply is named/cited. **All-in** — the price with fees and tax, what the customer pays. **Garage gap** — official terminal-garage daily rate minus our cheapest all-in. **Sellable lot** — a lot returned by live `/api/search`; the catalogue is editorial. **Non-circumvention** — the ResLab clause that limits direct recruiting to lots not on ResLab. **IndexNow** — the ping that tells Bing (and so Copilot) a URL changed. **Dark AI** — direct visits landing on deep posts, a proxy for unreferred assistant traffic.
 
-## 19. The execution list — every step, in order
+## 16. The execution list — every blog step, in order
 
-The whole roadmap as one ordered checklist. No dates: a step starts when the one before it is done or in flight. Gates are inline (4 weeks of measurement before any merge; 8 weeks of watching before the merge readout). Blocks are reading aids only; the numbers are the order. Tick in place; the next unticked step is the job.
+The blog roadmap as one ordered checklist. No dates: a step starts when the one before it is done or in flight. Gates are inline (4 weeks of measurement before any merge; 8 weeks of watching before the merge readout). Blocks are reading aids; the numbers are the order. Tick in place; the next unticked step is the job. Work the blog depends on but doesn't own (checkout, site trust, supply, customer emails) is tracked in the Triply Marketing Plan.
 
-### Block 1 — Critical path (nothing content-side ships before these)
+### Block 1 — Critical path
 - [ ] **1.** **§5 Q2** — engine PR branch cut from `main`: publish path, stamping rule, IndexNow, guard, lint, answer-first, new-airport scripts. Vin.
 - [ ] **2.** Engine PR reviewed (`/scoped-review`) and merged; `vin/main` frozen the same day. **Critical path: nothing content-side ships until this lands**. Vin, Tom merges.
 
@@ -410,100 +336,65 @@ The whole roadmap as one ordered checklist. No dates: a step starts when the one
 - [ ] **4.** **A-W7** — Bing Webmaster AI Performance export; sitemap submitted to Bing. Vin. Done: first export saved.
 - [ ] **5.** **A-W7** — Google + Bing indexed-URL counts logged (weekly from now). Vin.
 - [ ] **6.** **D** — backlink baseline (`npm run backlinks` from fresh GSC + Bing exports). Vin. Done: referring-domain count dated.
-- [ ] **7.** **A-W7** — GA4 AI-source classification in our code + "dark AI" segment. Tom + Claude. Done: `/admin/analytics` and attribution agree.
-- [ ] **8.** **A-W7** — Q5 decided: log drain vendor, cost, turned on, cached hits included. Tom. Done: hits per page visible.
 
-### Block 3 — Switch on what is already built
-- [ ] **9.** **F-4** — abandoned-checkout recovery email flag ON; watch sends/replies daily for a week. Tom.
-- [ ] **10.** **G-1** — post-trip review email flag ON; support@ monitored. Tom.
+### Block 3 — Fix the worst, index the hubs, IndexNow
+- [ ] **7.** **A-W0** — back up and hand-fix the ~10 worst live posts (Seattle, DFW ×2, Newark ×2, LGA, LAX, Logan). Tom approves, Claude edits. Done: slugs read clean live.
+- [ ] **8.** **B-1** — request indexing for the 6 unindexed hubs in Search Console. Vin. Done: each resolved or explained.
+- [ ] **9.** **W1.11** — IndexNow ping on every update in the running engine (publish already pings). Vin. Done: Bing shows pings.
 
-### Block 4 — Fix the worst, rebuild the head-term pages, start direct supply
-- [ ] **11.** **A-W0** — back up and hand-fix the ~10 worst live posts (Seattle, DFW ×2, Newark ×2, LGA, LAX, Logan). Tom approves, Claude edits. Done: slugs read clean live.
-- [ ] **12.** **F-1** — booking-page rebuild spec agreed (sections, data sources, fact-sheet feed). Tom + Vin.
-- [ ] **13.** **F-1** — booking pages rebuilt at the 4 pilot airports — the head-term lever (they rank ~50–77 today); nothing content-side outranks this. Tom + Claude. Done: live, ≥ 600 words of real content.
-- [ ] **14.** **H-3** — direct-lot target list at AUS/CLT/DCA/IAD/IAH/MSP (non-ResLab only), first 6 approached. One or two live lots here move more than broad outreach, which continues in the background. Vin + John.
+### Block 4 — Thanksgiving pages, the index, first pitch, off-page profiles
+- [ ] **10.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
+- [ ] **11.** **C-1** — index method page live, linked from the Thanksgiving index. Vin + Claude.
+- [ ] **12.** **C-1** — the airport's index line + link added to all 25 indexed hubs. Vin + Claude.
+- [ ] **13.** **D-1** — Thanksgiving index pitched to local news/travel desks at the 25 airports; log of who/when. Vin.
+- [ ] **14.** **D-2** — reporter-request accounts set up; first answers sent. Vin.
+- [ ] **15.** **D-9** — LinkedIn/BBB/Crunchbase/social bios: same legal name, description, airport count; street address and personal phone removed. Vin.
+- [ ] **16.** **§5 Q1** — Sep 23 stamp source confirmed against the perf ledgers. Vin.
 
-### Block 5 — Trust and conversion fixes on the site
-- [ ] **15.** **A-W8.1** — "4.9 Rating" badge removed or sourced; testimonials of unknown origin removed. Tom + Claude.
-- [ ] **16.** **A-W8.2** — homepage FAQ + meta generated from config (airport count/list). Tom + Claude.
-- [ ] **17.** **A-W8.3** — www in all schema URLs; apex → www made permanent. Tom.
-- [ ] **18.** **F-2** — the all-in sentence on lot cards, search and checkout. Tom.
-- [ ] **19.** **F-3** — garage-gap line on lot cards at airports with a verified official garage rate; data file from Vin. Tom + Vin.
+### Block 5 — Merge machinery, linking pass, Christmas pages, December index prep
+- [ ] **17.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
+- [ ] **18.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
+- [ ] **19.** **B-5 prep** — 101 + 294 candidate pairs run through Stage A's zero-signal filter; Tom signs off each pair. Vin, Tom.
+- [ ] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
+- [ ] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
+- [ ] **22.** **C-2** — December index data collection scripted and scheduled (pull the week before it goes live). Vin.
+- [ ] **23.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
 
-### Block 6 — Index, Thanksgiving pages, first pitch, outreach starts
-- [ ] **20.** **B-1** — request indexing for the 6 unindexed hubs in Search Console. Vin. Done: each resolved or explained.
-- [ ] **21.** **W1.11** — IndexNow ping on every update in the running engine (publish already pings). Vin. Done: Bing shows pings.
-- [ ] **22.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
-- [ ] **23.** **C-1** — index method page live, linked from the Thanksgiving index. Vin + Claude.
-- [ ] **24.** **C-1** — the airport's index line + link added to all 25 indexed hubs. Vin + Claude.
-- [ ] **25.** **D-1** — Thanksgiving index pitched to local news/travel desks at the 25 airports; log of who/when. Vin.
-- [ ] **26.** **D-2** — reporter-request accounts set up; first answers sent. Vin.
-- [ ] **27.** **D-9** — LinkedIn/BBB/Crunchbase/social bios: same legal name, description, airport count; street address and personal phone removed. Vin.
-- [ ] **28.** **E-9** — social profiles cleaned before the first scheduled post. Vin.
-- [ ] **29.** **H-1** — outreach sequence starts for the 66 confirmed-email lots. John. Done: first sends logged in the tracker.
-- [ ] **30.** **H-7** — APB1/APB2 follow-up email to ResLab if not yet live. Vin.
-- [ ] **31.** **§5 Q1** — Sep 23 stamp source confirmed against the perf ledgers. Vin.
+### Block 6 — Readout, hubs, December index, links and mentions, new pages, repairs
+- [ ] **24.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
+- [ ] **25.** **B-2** — linking pass, airports 11–30. Vin.
+- [ ] **26.** **B-9** — hub rebuilds 1–10 (non-pilot airports) through preview → apply. Vin + Claude.
+- [ ] **27.** **C-2** — December index live + D-1 pitch. Vin + Claude.
+- [ ] **28.** **D-3** — "Book on Triply" badge + sentence offered to every lot we sell (email via the tracker). Vin.
+- [ ] **29.** **D-5** — unlinked-mention sweep #1; link asks sent. Vin.
+- [ ] **30.** **D-6** — broken-link sweep #1 (travel/city guides linking to dead parking pages); replacement offers sent. Vin.
+- [ ] **31.** **E-5** — cruise-port pages where we sell lots. Vin + Claude.
+- [ ] **32.** **E-6** — event pages for every Q1 closure/capacity cut in the airport files + spring break by airport. Vin + Claude.
+- [ ] **33.** **C-4** — official-rate tracker page (who raised garage/economy rates in 2026). Vin + Claude.
+- [ ] **34.** **C-5** — park-vs-rideshare page + hub block. Vin + Claude.
+- [ ] **35.** **B-6** — `&amp;` corpus repair through preview → apply (no stamp). Vin.
 
-### Block 7 — Merge machinery, linking pass, Christmas pages, reviews live
-- [ ] **32.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
-- [ ] **33.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
-- [ ] **34.** **B-5 prep** — 101 + 294 candidate pairs run through Stage A's zero-signal filter; Tom signs off each pair. Vin, Tom.
-- [ ] **35.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
-- [ ] **36.** **F-5** — #119 (reviews on lot pages/cards) and #125 (review backfill ask) merged; #48 (promo source/one-use) merged. Tom.
-- [ ] **37.** **A-W8.5** — blog post caching shipped (`generateStaticParams`, `getPostBySlug` throws on non-404). Tom + Claude.
-- [ ] **38.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
-- [ ] **39.** **C-2** — December index data collection scripted and scheduled (pull the week before it goes live). Vin.
-- [ ] **40.** **H-2** — The Parking Spot call plan (which airports, who, the ask); WallyPark/FastPark/PreFlight queued. Vin.
-- [ ] **41.** **G-3** — holiday booking-reminder email to the list (airports searched, Christmas peak). Vin + Tom. Done: sent, bookings from it visible.
-- [ ] **42.** **A-W8.4** — Trustpilot decision; profile opened if yes. Tom.
-- [ ] **43.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
+### Block 7 — Merge test, rates refresh, more hubs, park-sleep-fly pages
+- [ ] **36.** **B-5** — Stage A merges at BWI/LAX/BOS/EWR — gate: 4 weeks of W7 baseline, steps 17–19 done: one apply per pair, map entry, draft, IndexNow both. Vin + Tom. **Test; watch 8–12 weeks.**
+- [ ] **37.** **W3a** — first monthly in-place update of official figures on every rates page. Rotation.
+- [ ] **38.** **B-9** — hub rebuilds 11–30. Vin + Claude.
+- [ ] **39.** **E-2** — park-sleep-fly pages the week Park & Stay goes public; D-4 hotel link asks. Vin + Tom.
+- [ ] **40.** **D-1/D-5/D-6** — index pitch follow-ups; sweep #2. Vin.
+- [ ] **41.** **Checkpoint readout** — §9 first-checkpoint targets vs baseline; §2 status tables corrected. Tom + Vin.
 
-### Block 8 — Readout, hubs, December index, links and mentions, new pages, repairs
-- [ ] **44.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
-- [ ] **45.** **B-2** — linking pass, airports 11–30. Vin.
-- [ ] **46.** **B-9** — hub rebuilds 1–10 (non-pilot airports) through preview → apply. Vin + Claude.
-- [ ] **47.** **C-2** — December index live + D-1 pitch. Vin + Claude.
-- [ ] **48.** **D-3** — "Book on Triply" badge + sentence offered to every lot we sell (email via the tracker). Vin.
-- [ ] **49.** **D-5** — unlinked-mention sweep #1; link asks sent. Vin.
-- [ ] **50.** **D-6** — broken-link sweep #1 (travel/city guides linking to dead parking pages); replacement offers sent. Vin.
-- [ ] **51.** **E-5** — cruise-port pages where we sell lots. Vin + Claude.
-- [ ] **52.** **E-6** — event pages for every Q1 closure/capacity cut in the airport files + spring break by airport. Vin + Claude.
-- [ ] **53.** **C-4** — official-rate tracker page (who raised garage/economy rates in 2026). Vin + Claude.
-- [ ] **54.** **C-5** — park-vs-rideshare page + hub block. Vin + Claude.
-- [ ] **55.** **B-6** — `&amp;` corpus repair through preview → apply (no stamp). Vin.
-- [ ] **56.** **H-4** — dead-lot list sent to ResLab. Vin.
-- [ ] **57.** **H-8** — CPA engaged on parking tax (Illinois/Chicago first). Vin.
-- [ ] **58.** **F-8** — real reason shown when ResLab voids a payment; the 3 never-paid lots fixed or hidden. Tom.
-- [ ] **59.** **F-10** — every empty search result offers the waitlist + nearest alternative. Tom.
-- [ ] **60.** **G-6** — first monthly review of cancellation reasons; top reason → page or fix. Tom + Vin.
+### Block 8 — After the peak readout
+- [ ] **42.** **W6** — year-in-titles test at 2 non-pilot airports, **after the peak readout (previous step)**; until then the year stays as it is. Vin. **Test.**
+- [ ] **43.** **C-3** — monthly price index, first edition; rolling page. Vin.
+- [ ] **44.** **B-9** — hubs 31+ ; the 4 pilot hubs **after** the Stage A readout. Vin + Claude.
+- [ ] **45.** **E-7** — standing rule live: new airport → 3–5 pages within a week of its first lot. Vin.
+- [ ] **46.** **W4** — fact corrections on all merge destinations. Vin.
 
-### Block 9 — Merge test, rates refresh, more hubs and booking pages, repeat, direct lots
-- [ ] **61.** **B-5** — Stage A merges at BWI/LAX/BOS/EWR — gate: 4 weeks of W7 baseline, steps 32–34 done: one apply per pair, map entry, draft, IndexNow both. Vin + Tom. **Test; watch 8–12 weeks.**
-- [ ] **62.** **W3a** — first monthly in-place update of official figures on every rates page. Rotation.
-- [ ] **63.** **B-9** — hub rebuilds 11–30. Vin + Claude.
-- [ ] **64.** **F-1** — booking pages rebuilt at the next 10 airports. Tom + Claude.
-- [ ] **65.** **E-2** — park-sleep-fly pages the week Park & Stay goes public; D-4 hotel link asks. Vin + Tom.
-- [ ] **66.** **G-2** — case-sensitive email match fixed; repeat rate re-measured. Tom.
-- [ ] **67.** **G-4** — rebook prompt on confirmation page + post-trip email. Tom.
-- [ ] **68.** **H-5** — first lot-quality list from reviews + cancellations → ResLab/lots. Vin.
-- [ ] **69.** **H-3** — ≥ 3 direct lots live at thin airports. Vin + John + Tom.
-- [ ] **70.** **D-1/D-5/D-6** — index pitch follow-ups; sweep #2. Vin.
-- [ ] **71.** **Checkpoint readout** — §12 first-checkpoint targets vs baseline; §2 status tables corrected. Tom + Vin.
+### Block 9 — Merge readout and the quarter close
+- [ ] **47.** **Stage A readout** — gate: 8 weeks after step 36 — go/stop per §10; Stage B pairs signed off. Tom + Vin. **Test.**
+- [ ] **48.** **W3b** — answer-first openings on existing rates pages at airports kept apart from the merges, **after the Stage A readout**. Rotation. **Test.**
+- [ ] **49.** **Quarter readout** — §9 scored, execution list re-ranked, **v3.4** published. Tom + Vin.
 
-### Block 10 — After the peak readout
-- [ ] **72.** **W6** — year-in-titles test at 2 non-pilot airports, **after the peak readout (previous step)**; until then the year stays as it is. Vin. **Test.**
-- [ ] **73.** **C-3** — monthly price index, first edition; rolling page. Vin.
-- [ ] **74.** **B-9** — hubs 31+ ; the 4 pilot hubs **after** the Stage A readout. Vin + Claude.
-- [ ] **75.** **F-1** — booking pages rebuilt at all airports with ≥ 3 lots. Tom + Claude.
-- [ ] **76.** **E-7** — standing rule live: new airport → 3–5 pages within a week of its first lot. Vin.
-- [ ] **77.** **G-5** — customer account: past bookings, saved airport, one-click rebook. Tom.
-- [ ] **78.** **W4** — fact corrections on all merge destinations. Vin.
-
-### Block 11 — Merge readout and the quarter close
-- [ ] **79.** **Stage A readout** — gate: 8 weeks after step 61 — go/stop per §13; Stage B pairs signed off. Tom + Vin. **Test.**
-- [ ] **80.** **W3b** — answer-first openings on existing rates pages at airports kept apart from the merges, **after the Stage A readout**. Rotation. **Test.**
-- [ ] **81.** **Quarter readout** — §12 scored, execution list re-ranked, **v3.4** published. Tom + Vin.
 
 **Then, monthly, for as long as the company exists:** W3a figures · index edition · pitch · sweeps #5/#6 · hub and booking-page refresh on a facts diff · lot-quality list · outreach list refresh with demand data · readout and re-rank.
 
-*Created October 30, 2026 — Vin's reply to v3.2; rewritten the same day as the whole-funnel roadmap; v3.4 the same day after one outside review (§17).*
+*Created October 30, 2026 — Vin's reply to v3.2; rewritten the same day as the whole-funnel roadmap; v3.4 the same day after one outside review (§14).*
