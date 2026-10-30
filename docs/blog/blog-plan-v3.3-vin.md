@@ -328,7 +328,7 @@ Not adopted: none. The reviewer's dating ("by mid-November") is not carried into
 The blog roadmap as one ordered checklist. No dates: a step starts when the one before it is done or in flight. Gates are inline (4 weeks of measurement before any merge; 8 weeks of watching before the merge readout). Blocks are reading aids; the numbers are the order. Tick in place; the next unticked step is the job. Work the blog depends on but doesn't own (checkout, site trust, supply, customer emails) is tracked in the Triply Marketing Plan.
 
 ### Block 1 — Critical path
-- [ ] **1.** **§5 Q2** — engine PR branch cut from `main`: publish path, stamping rule, IndexNow, guard, lint, answer-first, new-airport scripts. Vin.
+- [x] **1.** **§5 Q2** — engine PR branch cut from `main`: publish path, stamping rule, IndexNow, guard, lint, answer-first, new-airport scripts. Vin.
 - [ ] **2.** Engine PR reviewed (`/scoped-review`) and merged; `vin/main` frozen the same day. **Critical path: nothing content-side ships until this lands**. Vin, Tom merges.
 
 ### Block 2 — Measurement baseline (the stop rules depend on these)
@@ -338,12 +338,12 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [ ] **6.** **D** — backlink baseline (`npm run backlinks` from fresh GSC + Bing exports). Vin. Done: referring-domain count dated.
 
 ### Block 3 — Fix the worst, index the hubs, IndexNow
-- [ ] **7.** **A-W0** — back up and hand-fix the ~10 worst live posts (Seattle, DFW ×2, Newark ×2, LGA, LAX, Logan). Tom approves, Claude edits. Done: slugs read clean live.
+- [x] **7.** **A-W0** — back up and hand-fix the ~10 worst live posts (Seattle, DFW ×2, Newark ×2, LGA, LAX, Logan). Tom approves, Claude edits. Done: slugs read clean live.
 - [ ] **8.** **B-1** — request indexing for the 6 unindexed hubs in Search Console. Vin. Done: each resolved or explained.
 - [ ] **9.** **W1.11** — IndexNow ping on every update in the running engine (publish already pings). Vin. Done: Bing shows pings.
 
 ### Block 4 — Thanksgiving pages, the index, first pitch, off-page profiles
-- [ ] **10.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
+- [x] **10.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
 - [ ] **11.** **C-1** — index method page live, linked from the Thanksgiving index. Vin + Claude.
 - [ ] **12.** **C-1** — the airport's index line + link added to all 25 indexed hubs. Vin + Claude.
 - [ ] **13.** **D-1** — Thanksgiving index pitched to local news/travel desks at the 25 airports; log of who/when. Vin.
