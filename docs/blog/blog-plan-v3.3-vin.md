@@ -1,9 +1,14 @@
-# Blog plan v3.3 (Vin) — v3.2, answered and put on a calendar (2026-10-30)
+# Blog plan v3.3 (Vin) — clean up, protect, and grow traffic (2026-10-30)
 
 **What this is:** Vin's reply to Tom's v3.2 (`docs/blog/blog-plan-v3.2.md`, PR #110), written as one
-step-by-step plan we can both run. It keeps v3.2's rule and nearly all of its mechanics. It answers
-Q1/Q2, adds what Vin's side has already shipped since Oct 23, and moves the safe steps forward so they
-land before the holiday booking peak instead of after it.
+step-by-step plan we can both run. It has two tracks:
+
+- **Cleanup + protect** (sections 1–5): v3.2's rule and nearly all of its mechanics, Q1/Q2 answered,
+  the safe steps moved forward so they land before the holiday booking peak.
+- **Growth** (section 6): v3.2 is a plan for not losing ground; it adds almost no new traffic. **The
+  main goal is a lot more traffic while protecting what we built.** The growth track adds pages,
+  data, links and mentions; it removes nothing, so under v3.2's rule it's a step, not a test, and it
+  doesn't wait for the merge tests.
 
 > **Public copy.** This repo is public: no traffic, booking or revenue figures, only rough shares.
 
@@ -26,6 +31,10 @@ land before the holiday booking peak instead of after it.
 5. **Measure all three channels before anything is taken away** (W7), and start the measurement **this
    week**, because Stage A can't start until there are 4 weeks of baseline.
 6. **Holiday pages are new ground, not variants:** ship them by Nov 10.
+7. **Grow on four fronts at once** (section 6): publish our own data that nobody else has, earn links
+   and mentions on other sites, make each hub the best page on the web for its airport, and open new
+   questions (park-sleep-fly, lot pages). AI assistants cite original data and trust what other sites
+   say about you. Cleanup alone gets us neither.
 
 ## 1. Accepted from v3.2 as written
 
@@ -156,18 +165,140 @@ Kind: **S** = step (safe for every channel), **T** = test.
 | 20 | Stage B (≤ 5 pairs per pilot airport), then roll out airport by airport on a clean readout | Tom + Vin | T | per §7 |
 | 21 | W3b answer-first openings on existing rates pages, at airports kept apart from W2 | rotation | T | per §7 |
 
-## 6. Stop / go (v3.2 §7, plus one line)
+## 6. Growth track — more traffic, nothing removed
+
+v3.2's own findings say where AI answers come from: retrieval for the exact question, trust in the
+site, and (from the wider research) original data and mentions on other sites. v3.2 covers the first
+two. This track covers the rest, plus new questions to rank for.
+
+### G1 — Publish our own data (the thing only we have)
+
+We see live, fee-inclusive prices for every lot we sell, next to each airport's official rates. Nobody
+else publishes that comparison. AI assistants and reporters cite original numbers; a reworded fact
+from the airport's site is interchangeable, ours isn't.
+
+- **Started:** the Thanksgiving Airport Parking Price Index (25 airports, terminal garage vs off-airport,
+  checked Oct 28) is live as `thanksgiving-airport-parking-price-index-2026`; a press pitch is drafted.
+- **Make it a series:** a December holidays index (by Dec 1), then a **monthly price index** (same
+  method, same URL pattern per period, one page updated rather than a new copy each month for the
+  rolling version, plus a dated edition for each holiday).
+- **Each hub gets its airport's line from the index** ("garage vs off-airport, fees included, as of
+  <month>") with a link to the index page. That turns the index into the most-linked page we own.
+- **Method page:** how the numbers are collected (dates, nights, fees and tax included, which lots),
+  so a reporter or an assistant can trust and cite it.
+- **Other data we can publish without booking figures:** official rate changes we track across
+  airports (who raised garage prices this year), shuttle frequency by airport, and the
+  park-vs-rideshare distance where parking starts to win.
+
+### G2 — Links and mentions on other sites
+
+Backlinks have never been measured here. Every item below is earned, disclosed, and something a real
+editor or partner chooses to do. No paid links, no link networks, no fake reviews.
+
+| # | Tactic | How | Owner |
+|---|---|---|---|
+| a | **Data PR** | Pitch each index to travel desks and local news at the indexed airports 2–3 weeks before each holiday ("Thanksgiving parking at <airport>: garage $X more than off-site"). Local TV and papers run this every year and need a number. | Vin |
+| b | **Reporter requests** | Answer journalist queries (Qwoted, Featured, Help a B2B Writer / HARO-style) on airport parking and holiday travel, with a figure from the index. | Vin |
+| c | **Lots we sell** | Offer every operator a "Book on Triply" badge and a line for their site; the partners page already lists them. Local, on-topic links. | Vin |
+| d | **Hotels and park-and-fly partners** | Hotels in park-sleep-fly packages link to the package page from their parking/airport page (G5). | Vin + Tom |
+| e | **Unlinked mentions** | Monthly search for "Triply" / "triplypro" without a link; ask for the link. | Vin |
+| f | **Broken links** | Find travel and city-guide pages linking to dead airport-parking pages; offer our page as the replacement. | Vin |
+| g | **Review profiles** | Trustpilot (v3.2 W8.4) and our verified-review emails (#76/#119) once live. Assistants read reviews to judge trust. | Tom |
+| h | **Forums (decision)** | Reddit/forum answers only by a named person, disclosed as Triply, where the question is real and the answer helps without a link. No seeding, no sock accounts. v3.2 lists Reddit under "not doing"; this asks to allow the disclosed form. | Tom decides |
+
+**Measure:** referring domains and linking pages (Bing Webmaster + Search Console Links report),
+baseline in the week of Nov 2, then monthly. Brand mentions in AI answers are logged by the W7 prompt
+panel (does the answer name Triply, not only link it).
+
+### G3 — Make each hub the best page for its airport
+
+v3.2's audit: hubs get about a third of a spoke's clicks. The hub should be the page an assistant cites
+for "parking at <airport>". For each hub, highest-traffic airports first:
+
+- **Answer first:** cheapest official option, cheapest option we sell (fee-inclusive, "as of"), and the
+  garage-vs-off-site gap from G1.
+- **One comparison table:** every official lot + every lot we sell: price per day all-in, distance or
+  shuttle time, open hours.
+- **A real map** where the post's title promises one (v3.2 W4 already requires this).
+- **"Park or rideshare?"** a short table by distance (parking usually wins only beyond ~20 miles).
+- **Links to every intent page** (section 3 shape) and the latest index.
+- **Through preview → apply**, `contentUpdatedAt` stamped because facts change. Hubs are never merged,
+  so this doesn't touch W2.
+- **Order:** the 4 pilot airports' hubs are kept apart from W3b's opening test; start with non-pilot
+  airports, then pilot hubs after Stage A's readout.
+
+### G4 — Linking pass across existing posts
+
+v3.2 only swaps links that point at merged pages. G4 builds the section 3 mesh at every airport:
+hub ↔ intent pages ↔ spokes, descriptive anchors, under ~45 links a page, with `update-links.ts`'s
+Lexical round-trip and link-loss guard (the Oct `relink.mts` did this for the 28 new airports). Links
+from strong pages are how Google finds and indexes weak ones, so this is also the main push for the
+~450–850 "crawled – not indexed" posts that aren't merge candidates. No `contentUpdatedAt` stamp
+(links aren't facts).
+
+### G5 — New questions with buying intent
+
+- **Park-sleep-fly:** one page per airport where we sell a package ("park sleep fly <city>", "hotel with
+  parking near <airport>"), live the week packages go live. Hotels link back (G2d).
+- **Lot pages** (`/<city>/airport-parking/<lot>`): these are where people book, and where assistants
+  answer "best off-site lot at <airport>". Show verified reviews (#119) once live, shuttle details and
+  the all-in price; Tom's area.
+- **Holiday pages** (step 8) and **cruise-port parking** where we sell lots (Port Everglades and others).
+- **New airports:** when an airport gets its first sellable lot, 3–5 intent pages within a week.
+- **Every new page passes the W1.1 guard first**, so growth never creates the copies cleanup removes.
+
+### G6 — Visibility in AI assistants specifically
+
+- **Bing:** IndexNow on every publish and update (W1.11); Bing Webmaster sitemap submitted; Bing AI
+  Performance report weekly. Copilot answers from Bing.
+- **Crawlers allowed:** OAI-SearchBot, PerplexityBot, Claude-SearchBot, Bingbot, Googlebot (already in
+  robots.txt; keep it so when Bot Protection goes on, v3.2 W8.6).
+- **Entity consistency:** the same name, description, airport count and contact on the site, schema,
+  Trustpilot, and every partner listing, so assistants describe Triply the same way everywhere.
+- **Prompt panel (W7):** weekly, the same questions per airport and per index, recording whether
+  Triply is named and which URL is cited. This is the scoreboard for G1–G5.
+
+### G7 — Targets (relative to the Nov 2 baseline; figures kept in Tom's and Vin's notes)
+
+| Measure | By end of March |
+|---|---|
+| Blog clicks (Google + Bing) | **2×** the Oct baseline |
+| Sessions from AI assistants | **2×** |
+| Indexed blog posts (Google) | the "crawled – not indexed" share **halved** |
+| Referring domains | **+25** earned |
+| Prompt panel: questions where Triply is named or cited | **+50 %** |
+
+### Growth steps on the calendar
+
+| # | Step | Owner | When |
+|---|---|---|---|
+| G-1 | Backlink + referring-domain baseline; prompt panel adds brand-mention column | Vin | week of Nov 2 |
+| G-2 | Thanksgiving index pitched to local news at all 25 airports + reporter-request answers | Vin | Nov 2–10 |
+| G-3 | Method page for the index; index line + link on each of those 25 hubs | Vin + Claude | by Nov 13 |
+| G-4 | Partner badge offer to every lot we sell | Vin | by Nov 13 |
+| G-5 | Linking pass (G4), highest-traffic airports first, dry run then apply | Vin | Nov 16 – Dec 15 |
+| G-6 | December holidays index + pitch | Vin + Claude | data by Nov 24, live Dec 1 |
+| G-7 | Hub rebuilds (G3), 5 airports a week, non-pilot first | Vin + Claude | from Nov 30 |
+| G-8 | Park-sleep-fly pages + hotel link asks | Vin + Tom | the week packages launch |
+| G-9 | Monthly price index, rolling page | Vin | first edition Jan 5 |
+| G-10 | Unlinked-mention and broken-link sweeps | Vin | monthly from Dec |
+
+## 7. Stop / go (v3.2 §7, plus one line)
 
 All of v3.2 §7 stands. Add: **if the prompt panel shows a pilot cluster losing its Triply citation in two
 or more assistants for two weeks running after a merge, revert that pair** (republish first, then remove
 the map entry), whatever Google shows.
 
-## 7. Decisions for Tom
+## 8. Decisions for Tom
 
 1. Accept Q1/Q2 as answered, and the engine-into-`main` PR as the fix (step 9).
 2. Holiday pages now (step 8), not later.
 3. Stage A candidates start from the 101 + 294 lists (step 13).
 4. W6 small test from Dec 1 (step 18).
 5. W7 split: Vin runs the panel and the Bing export; Tom runs the log drain and GA4 (steps 3–4).
+6. **Growth track as steps, running alongside cleanup** (section 6), with the G7 targets.
+7. Hub rebuilds (G3) stamp `contentUpdatedAt`, since they change facts.
+8. Disclosed, person-written forum answers (G2h): allow, or keep under "not doing".
+9. Lot pages (G5): Tom's area; reviews + shuttle details + all-in price on the page.
 
-*Created October 30, 2026 — Vin's reply to v3.2.*
+*Created October 30, 2026 — Vin's reply to v3.2; growth track (section 6) added the same day.*
