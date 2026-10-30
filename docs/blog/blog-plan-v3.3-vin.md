@@ -60,7 +60,7 @@ bulk** (W0b). After W1.7, only the preview → apply path stamps, and only on a 
 
 - **The engine that runs is `Triplyvin-main/scripts/blog-engine` on `vin/main`** plus one-off scripts
   under `scripts/blog-engine/reports/` (e.g. `new-airports/create.mts`, `lot-rewrite/publish.mts`,
-  `api-rewrite.mts`). That's why `main` has no record of the publish path, the stamps or IndexNow.
+  `lot-rewrite/api-rewrite.mts`). That's why `main` has no record of the publish path, the stamps or IndexNow.
 - **Oct 13–17 (20 airports):** written by `reports/lot-rewrite/api-rewrite.mts` on the Anthropic Batch API, plus subagent
   runs for the uncovered airports. Published straight to `published` (auto-publish was on).
 - **Oct 23–24 (new, after v3.2 was written):** 140 pages at 28 airports, 3–5 intent pages each, via
