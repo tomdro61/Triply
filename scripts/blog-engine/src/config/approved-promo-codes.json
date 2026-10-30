@@ -1,0 +1,6 @@
+{
+  "_comment": "Promo codes the lint allows in blog copy (W1.4). Only codes the airport, the lot, or Triply itself publishes. Every entry names its source. Anything else fails the write.",
+  "codes": [
+    { "code": "TRIPLY10", "source": "Triply checkout promo_codes row; 10% off the parking rate", "addedOn": "2026-10-30" }
+  ]
+}
