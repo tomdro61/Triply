@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { Resvg } from '@resvg/resvg-js'
 import { env, CLAUDE_MODEL, DOMAIN } from './config.js'
+import { trackUsage } from './claude.js'
 import { uploadMedia } from './payload.js'
 import type { AirportData } from './airport-data.js'
 
@@ -92,15 +93,18 @@ function extractVisualizableData(airportData: AirportData): Record<string, unkno
 }
 
 /**
- * Build the Claude prompt for infographic generation.
+ * Build the cached system prompt for infographic generation.
+ * Contains brand guide, SVG rules, and airport data — identical across all articles
+ * for the same airport, so it benefits from Anthropic's prompt caching.
  */
-function buildInfographicPrompt(articleHtml: string, vizData: Record<string, unknown>, airportCode: string): string {
-  return `You are a data visualization designer for ${DOMAIN}, an airport parking comparison platform.
-
-Analyze the article below and the structured airport data, then create 1–2 SVG infographics that would add the most value for readers.
+function buildInfographicSystem(vizData: Record<string, unknown>, airportCode: string): Anthropic.MessageCreateParams['system'] {
+  return [
+    {
+      type: 'text' as const,
+      text: `You are a data visualization designer for ${DOMAIN}, an airport parking comparison platform.
+Create 1–2 SVG infographics that add the most value for readers.
 
 ## Brand Style Guide
-
 - Canvas size: 800×500 pixels
 - Background: White (#ffffff)
 - Primary color (headings, borders): Navy #1A1A2E
@@ -112,34 +116,17 @@ Analyze the article below and the structured airport data, then create 1–2 SVG
 - All text must be legible at the rendered size (minimum 12px for body text, 18px+ for headings)
 - Include "Source: ${DOMAIN}" in small gray text at the bottom-right
 
-## Rules
-
+## SVG Rules
 - SVG must be fully self-contained: no <image>, no external fonts, no CSS @import, no xlink:href to external resources
 - SVG must start with \`<svg\` and include explicit width="800" and height="500" attributes
 - Use only <svg>, <rect>, <circle>, <ellipse>, <line>, <polyline>, <polygon>, <path>, <text>, <tspan>, <g>, <defs>, <clipPath>, <pattern> elements
 - All colors must be inline (fill="..." or style="..."), not via external CSS classes
 - Use data from the airport JSON — do NOT invent numbers
 - Round dollar amounts to nearest dollar for readability
-- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
-
-## Airport Data (${airportCode})
-
-\`\`\`json
-${JSON.stringify(vizData, null, 2)}
-\`\`\`
-
-## Article HTML
-
-\`\`\`html
-${articleHtml.slice(0, 12000)}
-\`\`\`
-${articleHtml.length > 12000 ? '\n[Article truncated for context — focus on the topics covered above]\n' : ''}
+${vizData.currency === 'CAD' ? '- Prices are Canadian dollars: write every price as C$ (e.g. C$12), in the SVG and in the alt text. Never a bare $.\n' : ''}- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
 
 ## Output Format
-
-Return a JSON object with this exact structure:
-
-\`\`\`json
+Return ONLY a JSON object (no markdown fences, no explanation):
 {
   "infographics": [
     {
@@ -148,12 +135,56 @@ Return a JSON object with this exact structure:
       "placement": "exact text snippet from the article (first 60 chars of a paragraph or heading) after which to insert this infographic"
     }
   ]
+}`,
+      cache_control: { type: 'ephemeral' as const },
+    },
+    {
+      type: 'text' as const,
+      text: `## Airport Data (${airportCode})\n\`\`\`json\n${JSON.stringify(vizData, null, 2)}\n\`\`\``,
+      cache_control: { type: 'ephemeral' as const },
+    },
+  ]
 }
-\`\`\`
 
-Return 1–2 infographics. Pick the most impactful visualizations for this specific article's topic. If the article is short or the data doesn't lend itself to visualization, return just 1.
+/**
+ * Extract a compact article summary for infographic context.
+ * Instead of sending 12,000 chars of raw HTML, extract just the headings
+ * and any data tables — that's all the infographic generator needs to
+ * pick relevant visualizations and placement points.
+ */
+function extractArticleContext(html: string): string {
+  const lines: string[] = []
 
-IMPORTANT: Return ONLY the JSON object, no markdown fences, no explanation.`
+  // Extract H2/H3 headings
+  const headingMatches = html.matchAll(/<h[23][^>]*>(.*?)<\/h[23]>/gi)
+  for (const m of headingMatches) {
+    lines.push(`- ${m[1].replace(/<[^>]+>/g, '')}`)
+  }
+
+  // Extract tables (important for knowing what data is already visualized)
+  const tableMatches = html.matchAll(/<table[\s\S]*?<\/table>/gi)
+  for (const m of tableMatches) {
+    lines.push(m[0].slice(0, 500))
+  }
+
+  // First paragraph for topic context
+  const firstPMatch = html.match(/<p[^>]*>(.*?)<\/p>/i)
+  if (firstPMatch) {
+    lines.push(`Opening: ${firstPMatch[1].replace(/<[^>]+>/g, '').slice(0, 200)}`)
+  }
+
+  return lines.join('\n')
+}
+
+/**
+ * Build the user message for infographic generation (article-specific content only).
+ */
+function buildInfographicUserPrompt(articleHtml: string): string {
+  const context = extractArticleContext(articleHtml)
+  return `Analyze this article and create 1–2 infographics. Pick the most impactful visualizations for this specific topic. If the article is short or data doesn't lend itself to visualization, return just 1.
+
+## Article Structure
+${context}`
 }
 
 /**
@@ -283,15 +314,22 @@ export async function generateInfographics(
 ): Promise<InfographicResult> {
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
+  if (airportData.currency) vizData.currency = airportData.currency
 
-  // Call Claude to generate infographic SVGs
-  const prompt = buildInfographicPrompt(html, vizData, airportCode)
+  // Call Claude with cached system prompt (brand guide + airport data)
+  // and compact user message (article headings + tables only)
+  const system = buildInfographicSystem(vizData, airportCode)
+  const userPrompt = buildInfographicUserPrompt(html)
 
   const response = await client.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: 16384,
-    messages: [{ role: 'user', content: prompt }],
+    system,
+    messages: [{ role: 'user', content: userPrompt }],
   })
+
+  // Track infographic token usage (was previously untracked)
+  trackUsage('infographics', response.usage)
 
   const responseText = response.content
     .filter((block): block is Anthropic.TextBlock => block.type === 'text')

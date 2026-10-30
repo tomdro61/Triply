@@ -3,7 +3,7 @@ import type { PublishedPost } from '../payload.js'
 import type { AirportData } from '../airport-data.js'
 import { getExternalLinks, formatExternalLinksForEditor } from '../external-links.js'
 
-type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
+type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | 'rescue'
 
 interface AnalysisContext {
   recommendedH2s: string[]
@@ -38,6 +38,15 @@ function getStyleEditPreamble(style: ArticleStyle): string {
 - Preserve the pricing/data-first opening structure.
 - Ensure specific numbers and rates are present throughout.
 - Keep comparison lists and pricing breakdowns intact.`
+
+    case 'rescue':
+      return `This article uses the **rescue** style — it is written for a reader whose parking just fell through. Do NOT restructure it to match a standard format.
+- Preserve the problem-first opening. Do NOT replace it with a neutral topic introduction.
+- Keep the live-status / how-to-check section FIRST, before any alternatives. Do NOT reorder sections by topic.
+- Keep the alternatives ordered by how fast they solve the problem (bookable off-site lots → park-and-ride/transit → same-day emergency options). Do NOT re-sort them by price or alphabetically.
+- Do NOT soften or delete the same-day emergency section — it is the reason the article exists.
+- Preserve real lot names and rates. Never replace a named lot with a generic category like "several nearby lots".
+- Keep the closing prevention/backup-plan section.`
 
     case 'comparison':
       return `This article uses the **comparison** style. Do NOT restructure it to match a standard format.

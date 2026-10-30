@@ -35,14 +35,14 @@ function getArticleTypeInstructions(item: QueueItem): string {
 - Each H2 section should briefly introduce a subtopic and include a CTA link to the sub-pillar article
 - Use links in this format: <a href="${BLOG_BASE_URL}/[sub-pillar-slug]">Read our complete guide to [topic]</a>
 - The tone should be authoritative and comprehensive — this is THE definitive guide
-- Target length: 2000-2500 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '3000-3500 words'}`
 
     case 'sub-pillar':
       return `This is a SUB-PILLAR article — a detailed guide on a specific aspect of ${item.airportCode} airport parking.
 - Start the introduction with a link back to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
 - Go deep on this specific topic — more detail than the hub provides
 - You MUST include at least 2 contextual links to sibling articles (not just the hub). Use natural anchor text containing the sibling's primary keyword. Place cross-links within relevant H2 sections, not bunched in one paragraph.
-- Target length: 1500-2000 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '2000-2500 words'}`
 
     case 'spoke':
       return `This is a SPOKE article — a focused, specific piece about ${item.airportCode} airport parking.
@@ -50,7 +50,7 @@ function getArticleTypeInstructions(item: QueueItem): string {
 - Include a link to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
 - You MUST include at least 1 contextual link to a sibling article. Use natural anchor text containing the sibling's primary keyword.
 - Very focused on one specific question or niche topic
-- Target length: 800-1200 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '1000-1500 words'}`
 
     default:
       return `Write a standard blog article about airport parking.
@@ -58,10 +58,24 @@ function getArticleTypeInstructions(item: QueueItem): string {
   }
 }
 
-type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
+type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | 'rescue'
 
 function getStyleInstructions(style: ArticleStyle, item: QueueItem): string {
   switch (style) {
+    case 'rescue':
+      return `**Article Style: RESCUE**
+This reader has a problem right now: they are flying soon and just found out ${item.airportCode} parking is unavailable. Write for that moment.
+- Open on the problem in the FIRST sentence, then immediately reassure — this is common and solvable. Never bury the answer behind background.
+- Lead with the live-status check: how to verify current ${item.airportCode} availability (official airport page/app from the verified sources) BEFORE any advice about alternatives.
+- Then give alternatives in descending order of how fast they solve the problem: (1) off-site lots bookable right now, (2) park-and-ride and public transit, (3) same-day emergency options — rideshare, fixed-rate taxi, park-sleep-fly hotels.
+- Name REAL lots with REAL rates and drive times from the verified data. Never write "several off-site options are available" — list them by name.
+- Include ONE comparison table: on-airport vs off-site vs park-and-ride vs valet, with daily rate, shuttle, and who each option suits best.
+- Frame off-site parking as the better-value choice, not a consolation prize. The reader should finish feeling they got an upgrade, not a downgrade.
+- Close with a prevention section (the peak periods when ${item.airportCode} parking actually fills up) and a short backup-plan recap.
+- Use statement headings that name the problem or the fix ("Best Off-Site Alternatives When ${item.airportCode} Parking Is Sold Out"), not abstract topic labels.
+- Keep the tone calm and practical. The urgency comes from the structure and the ordering, never from hype or exclamation marks.
+- FAQs (in the faqItems JSON field) must be rescue-framed — what to do on arrival, whether walk-ins are possible, refunds/cancellation, shuttle reliability, how early to book for the next trip.`
+
     case 'narrative':
       return `**Article Style: NARRATIVE**
 - Open with a traveler scenario (2-3 sentences painting a relatable situation), then deliver the direct answer.
@@ -114,11 +128,12 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     .slice(0, 20)
 
   if (lots.length === 0) return ''
+  const cur = data.currency === 'CAD' ? 'C$' : '$'
 
   const lines: string[] = ['\n**Off-Site Parking Lots (sorted by price — use these EXACT names and rates in tables and text, NEVER generalize into categories):**']
   for (const lot of lots) {
     const l = lot as Record<string, unknown>
-    let line = `- **${l.name}**: $${l.dailyRate}/day`
+    let line = `- **${l.name}**: ${cur}${l.dailyRate}/day`
     if (l.driveTime) line += ` | ${l.driveTime} from airport`
     if (l.parkingType) line += ` | ${l.parkingType}`
     if (l.shuttleInfo) line += ` | Shuttle: ${(l.shuttleInfo as string).slice(0, 100)}`
@@ -134,14 +149,105 @@ function formatParkingLots(data: AirportData, keyword: string): string {
 
   const cheapest = lots[0] as Record<string, unknown>
   const mostExpensive = lots[lots.length - 1] as Record<string, unknown>
-  lines.push(`\nPrice range: $${cheapest.dailyRate}/day — $${mostExpensive.dailyRate}/day across ${lots.length} verified lots.`)
+  lines.push(`\nPrice range: ${cur}${cheapest.dailyRate}/day — ${cur}${mostExpensive.dailyRate}/day across ${lots.length} verified lots.`)
 
   return lines.join('\n')
+}
+
+/**
+ * Render a camelCase key as a readable label ("busiestHours" → "Busiest hours").
+ */
+function humanizeKey(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * Flatten an arbitrarily-shaped value (string | string[] | object) into a single line.
+ *
+ * The 30 airport JSONs were bootstrapped in generations and their sub-object shapes are NOT
+ * uniform — e.g. peakTravelTimes has `quietestDays` at most airports but `quietestDay` +
+ * `quietDays` at JFK, and popularHotels is an object array at 26 airports but a string array
+ * at JFK/LAX/LGA/SFO. Walking whatever keys exist is the only safe approach; hardcoding a
+ * known key list silently drops data at the airports that differ.
+ */
+function flattenValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string' || typeof value === 'number') return String(value)
+  if (Array.isArray(value)) {
+    return value.map(flattenValue).filter(Boolean).join('; ')
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([k]) => !k.startsWith('_'))
+      .map(([k, v]) => {
+        const flat = flattenValue(v)
+        return flat ? `${humanizeKey(k)}: ${flat}` : ''
+      })
+      .filter(Boolean)
+      .join(' | ')
+  }
+  return ''
+}
+
+/**
+ * Format a top-level object field as a bullet list, one line per key.
+ * Returns '' when the field is absent or empty so callers can concatenate unconditionally.
+ */
+function formatObjectSection(value: unknown, header: string): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const entries = Object.entries(value as Record<string, unknown>).filter(([k]) => !k.startsWith('_'))
+  if (entries.length === 0) return ''
+
+  const lines: string[] = [header]
+  for (const [key, val] of entries) {
+    const flat = flattenValue(val)
+    if (flat) lines.push(`- ${humanizeKey(key)}: ${flat}`)
+  }
+  return lines.length > 1 ? '\n' + lines.join('\n') : ''
+}
+
+function formatPeakTravelTimes(data: AirportData): string {
+  return formatObjectSection(
+    data.peakTravelTimes,
+    '**Peak Travel Periods (use for the "when does parking fill up" section — do NOT invent dates or holidays):**',
+  )
+}
+
+function formatSavingsComparison(data: AirportData): string {
+  return formatObjectSection(
+    data.savingsComparison,
+    '**Worked Savings Scenario (use for the cost-comparison section — these are verified figures):**',
+  )
+}
+
+function formatParkSleepFly(data: AirportData): string {
+  const psf = data.parkSleepFly
+  if (!psf || typeof psf !== 'object' || Array.isArray(psf)) return ''
+  const p = psf as Record<string, unknown>
+
+  const lines: string[] = [
+    '\n**Park-Sleep-Fly Hotel Packages (same-day fallback when lots are full):**',
+  ]
+  if (typeof p.description === 'string') lines.push(`- ${p.description}`)
+  if (typeof p.priceRange === 'string') lines.push(`- Price range: ${p.priceRange}`)
+
+  // popularHotels is an object array at most airports but a plain string array at JFK/LAX/LGA/SFO.
+  if (Array.isArray(p.popularHotels)) {
+    for (const hotel of p.popularHotels.slice(0, 5)) {
+      const flat = flattenValue(hotel)
+      if (flat) lines.push(`- ${flat}`)
+    }
+  }
+  if (typeof p.extendedParking === 'string') lines.push(`- Extended parking: ${p.extendedParking}`)
+
+  return lines.length > 1 ? lines.join('\n') : ''
 }
 
 function formatOnAirportParking(data: AirportData): string {
   if (!data.onAirportParking) return ''
   const parking = data.onAirportParking as Record<string, Record<string, unknown>>
+  const cur = data.currency === 'CAD' ? 'C$' : '$'
   const lines: string[] = ['\n**On-Airport Parking Options:**']
   for (const [key, info] of Object.entries(parking)) {
     if (typeof info === 'string') {
@@ -150,8 +256,8 @@ function formatOnAirportParking(data: AirportData): string {
     }
     const parts: string[] = [`- **${key}**`]
     if (info.rate) parts.push(`${info.rate}`)
-    if (info.dailyMax) parts.push(`max $${info.dailyMax}/day`)
-    if (info.preBookRate) parts.push(`pre-book $${info.preBookRate}/day`)
+    if (info.dailyMax) parts.push(`max ${cur}${info.dailyMax}/day`)
+    if (info.preBookRate) parts.push(`pre-book ${cur}${info.preBookRate}/day`)
     if (info.terminals) parts.push(`near ${info.terminals}`)
     if (info.location) parts.push(`at ${info.location}`)
     if (info.connection) parts.push(`(${info.connection})`)
@@ -179,7 +285,12 @@ function formatConstruction(data: AirportData): string {
   const lines: string[] = ['\n**Active Construction (mention for freshness):**']
   if (construction.status) lines.push(`- Status: ${construction.status}`)
   if (Array.isArray(construction.projects)) {
-    for (const p of construction.projects) lines.push(`- ${p}`)
+    // projects is a string array at most airports but an object array at LAX/SFO; a bare
+    // template literal renders those as "[object Object]" straight into the prompt.
+    for (const p of construction.projects) {
+      const flat = flattenValue(p)
+      if (flat) lines.push(`- ${flat}`)
+    }
   }
   if (construction.travelImpact) lines.push(`- Travel impact: ${construction.travelImpact}`)
   return lines.join('\n')
@@ -233,6 +344,30 @@ ${formatLiveSources(data)}`
   }
   if (kw.includes('lounge') || kw.includes('premium') || kw.includes('ameniti')) {
     result += formatLounges(data)
+  }
+  // Capacity/availability intent — the "rescue" family (sold out / full / status / availability)
+  // plus any cost-comparison keyword, which is what the savings scenario is for.
+  if (
+    kw.includes('sold out') ||
+    kw.includes('full') ||
+    kw.includes('status') ||
+    kw.includes('availab') ||
+    kw.includes('busy') ||
+    kw.includes('peak')
+  ) {
+    result += formatPeakTravelTimes(data)
+    result += formatParkSleepFly(data)
+  }
+  if (
+    kw.includes('sold out') ||
+    kw.includes('cost') ||
+    kw.includes('price') ||
+    kw.includes('rate') ||
+    kw.includes('cheap') ||
+    kw.includes('save') ||
+    kw.includes('compar')
+  ) {
+    result += formatSavingsComparison(data)
   }
   // Always include construction for freshness signals
   result += formatConstruction(data)
@@ -320,7 +455,7 @@ Write an SEO-optimized blog article with the following parameters:
 **Generate an article title** (50-65 characters) that:
 - Contains the EXACT focus keyword, placed as close to the front as possible
 - Is compelling and specific — generated based on competitive analysis of what ranks
-- Omits the year unless content is genuinely time-sensitive
+- Include the year (${new Date().getFullYear()}) in the title when the content covers rates, deals, construction, policies, or any data that changes annually. Omit the year only for truly evergreen concepts.
 - Hub = authoritative guide title; Sub-pillar = deep-dive title; Spoke = specific answer title
 - Do NOT include any brand suffix like "| Triply" — the website template appends it automatically
 
@@ -347,14 +482,14 @@ ${airportData ? formatAirportData(airportData, item.keyword) + '\n\n' : ''}${(()
 3. Do NOT include the article title as an h1 — it's handled separately
 4. All internal links use format: ${BLOG_BASE_URL}/[slug]
 5. External links: USE the verified external links database and liveSources URLs provided above. Pick the most relevant links for this topic. Add rel="nofollow" where specified. Use the suggested anchor text (vary it naturally). Do NOT invent external URLs — ONLY use URLs from the databases provided above.
-6. Use natural keyword placement — target keyword in first paragraph, 2-3 H2s, and conclusion
+6. EXACT KEYWORD (ranking-critical — do NOT paraphrase): The focus keyword "${item.keyword}" must appear VERBATIM (identical words, identical order) at least once in the opening paragraph — it can be the 2nd or 3rd sentence, so it coexists with the definition-first opening in rule 34 — plus in at least 2 H2 headings and once near the conclusion. Repeat the exact phrase naturally 3-6 times across the article so keyword density lands between 0.5% and 2.5%. Search engines match the exact string, so reordered or paraphrased variants do not count.
 7. Write in a friendly, helpful, authoritative voice — not corporate
 8. Include specific details: prices, distances, shuttle times, tips
 9. Use "Triply" or "TriplyPro" when referencing our service with a link to https://www.${DOMAIN}
 
 **Booking CTAs (CRITICAL for conversions — must be CONTEXTUAL, not generic):**
-10. EARLY CTA: Within the first 500 words, include a booking CTA that references something specific from the surrounding content. If the section discusses Terminal 4 options, say "Compare Terminal 4 parking rates." If it discusses budget options, say "Find deals starting under $10/day." The CTA must feel like a natural extension of the paragraph, not a generic insert. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}. Do NOT use generic phrases like "Compare rates on Triply" — always tie the CTA to a specific detail mentioned nearby (a terminal, a price range, a parking type, the airport name).
-11. CLOSING CTA: In the final section, include a CTA that ties back to the article's main promise. If the article is about saving money, close with "Start comparing rates to find your best deal." If it's about convenience, close with "Book your spot now and skip the stress on travel day." Reference the specific airport (${item.airportCode}). Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
+10. EARLY CTA: Within the first 500 words, include a booking CTA that references something specific from the surrounding content. The CTA MUST include the airport name or code ("LaGuardia", "LGA", "JFK", etc.) AND a specific detail from the article (a terminal, price range, or parking type). Example: "Compare LaGuardia Terminal B parking rates starting at $10.95/day on Triply." Do NOT use generic phrases like "Compare rates on Triply" — always include the airport name. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
+11. CLOSING CTA: In the final section, include a CTA that ties back to the article's main promise AND mentions the airport by name or code. Example: "Find your best LGA parking deal — compare rates from $10.95/day on Triply." The airport name/code (${item.airportCode}) MUST appear in every CTA. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
 
 **Readability (CRITICAL — target Flesch-Kincaid grade 6-9):**
 12. SENTENCE LENGTH: Keep sentences SHORT. Average sentence length should be 15-20 words. Mix it up: some sentences 8-12 words, some 20-25, but never exceed 30 words in a single sentence. Break complex ideas into multiple simple sentences.
@@ -370,7 +505,8 @@ BAD: "For travelers seeking to minimize their overall parking expenditure while 
 GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shuttle ride to the terminals. For most travelers, the savings outweigh the extra time."
 
 **AI Search & Featured Snippet Optimization (CRITICAL — follow these closely):**
-16. OPENING ANSWER: The very first paragraph must be a concise, direct answer to the main query implied by the title. It should be extractable on its own — if someone only read this one paragraph, they'd get the core answer. AI search engines pull this as the primary citation.
+16. OPENING ANSWER (GEO-critical — AI Overviews quote this paragraph): The first paragraph must COMPLETELY answer the main query within its first ~50 words AND state the single most important hard number — the actual price/rate/range (e.g., "from $10.95/day"). Lead with the answer; never build up to it. It must be self-contained and quotable: if an AI engine lifted only this paragraph, it would be a complete, accurate answer including the key figure. In the zero-click/AI-Overview era, being the most directly quotable answer-with-data is how you get cited.
+16a. ANSWER FIRST — RATES/COST/PRICE POSTS (hard rule, checked by a lint that blocks the write): the first paragraph carries the direct answer with AT LEAST ONE sourced figure written with its currency sign ("$18/day", "C$12/day") AND the phrase "as of <Month YYYY>" (the month the official figure was checked, from the airport data block). Phrase the sentence the way the question is asked ("Parking at EWR costs $18/day in the economy lot as of October 2026"). The title also names the key number where one exists. Every figure comes from the airport data block or a cited official URL — never from a competitor page.
 17. KEY TAKEAWAYS: For standard, data-heavy, and comparison styles, immediately after the opening answer include a "Key Takeaways" section using a <ul> with 4-6 bullet points summarizing the most important facts. Bold the lead phrase of each bullet with <strong>. Skip this for narrative style (weave facts into prose instead) and listicle style (the numbered format serves this purpose).
 18. USE LISTS NATURALLY: Include <ul> or <ol> lists in most sections where they fit — options, steps, tips, comparisons, pros/cons. Don't force a list into a section that reads better as narrative, but when you're presenting multiple items, always use a list rather than burying them in paragraph form.
 19. ANSWER-FIRST SECTIONS: Begin each H2 section with a concise 1-2 sentence direct answer before elaborating. AI systems extract the first clear statement after a heading.
@@ -378,7 +514,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 21. DEFINITION PATTERN: When genuinely introducing a new concept the reader may not know, use the "What is X? X is..." pattern as an H3. Don't overuse this — it's for terms that actually need defining (e.g., "off-site parking", "cell phone lot"), not for obvious concepts.
 22. COMPARISONS: Include at least one comparison section using a structured list (e.g., "<h3>On-Site vs Off-Site Parking</h3>" with a <ul> comparing key differences side by side).
 23. SOURCE ATTRIBUTION: When citing facts you're confident about, attribute them to real sources (e.g., "the Port Authority of NY & NJ", "JFK's official parking page", "TSA guidelines"). NEVER fabricate a source or attribution — if you're not sure who published a fact, use softer language like "travelers typically find" or "based on current rates" instead.
-24. E-E-A-T SIGNALS: Use phrases like "based on current rates", "travelers frequently report", "we compared options across providers" to signal expertise and first-hand experience.
+24. E-E-A-T SIGNALS (include at least 4 different ones, spread naturally): Signal expertise and first-hand research with credibility phrases such as "according to", "based on current rates", "based on our analysis", "travelers frequently report", "we compared options across providers", "the Port Authority"/the relevant airport authority, "official airport data", "published rates", "as of ${new Date().getFullYear()}". Use at least four distinct phrases across the article — never fabricate a source or attribution.
 25. BOLD KEY TERMS: Use <strong> to highlight key terms, names, and important phrases throughout the article. This helps AI systems identify the most important concepts for extraction.
 26. ENTITY COVERAGE: Mention related entities thoroughly — terminal names (Terminal 1, Terminal 4, Terminal 8), airline hubs (JetBlue T5, Delta T4), nearby roads (Van Wyck Expressway, Belt Parkway), shuttle services, and neighborhood names (Jamaica, Howard Beach). Entity density helps NLP systems gauge content depth.
 27. FRESHNESS SIGNALS: For things that genuinely change (rates, policies, construction updates), include timeframe references like "as of 2026" or "current rates". Don't add year references to evergreen facts that don't change — it just dates the content unnecessarily.
@@ -390,6 +526,10 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 33. NO FAQ SECTION IN HTML: Do NOT include a "Frequently Asked Questions" section in the HTML body. FAQs are returned separately in the faqItems JSON field and rendered as a dedicated accordion component on the page. Including them in the HTML causes duplicate rendering.
 34. DEFINITION-FIRST OPENING: The very first sentence of the article MUST be a clear, standalone definition using the "X is..." pattern. It must pass the "island test" — if this sentence appeared alone on a search results page with no surrounding context, the reader would understand what the article is about. Example: "Off-site JFK parking is a budget-friendly alternative where private lots near the airport offer shuttle service to terminals at rates 40-60% below on-airport garages." This is DIFFERENT from rule 16 (opening answer paragraph) — rule 16 is about answering the query; this rule is about the sentence structure of the FIRST sentence being a definition.
 35. VERIFIABLE STATISTICS: Include at least 3-5 specific, data-backed statistics per article drawn from the verified parking lot data and airport facts provided above. Present savings as percentages ("save up to 55% vs on-airport rates"), distances in exact miles, shuttle frequencies in minutes, and price ranges with specific dollar amounts. Bold statistics with <strong> so AI engines can extract them. Attribute data to its source (e.g., "based on current Triply rates" or "per [airport authority name]"). NEVER fabricate statistics — only use numbers derivable from the data provided.
+36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
+37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when available (e.g., "from $8.95/day") — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
+38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of ${new Date().getFullYear()}, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
+${process.env.COUPON_CODE ? `39. TRIPLY PROMO CODE (coupon-intent articles only): If the focus keyword involves coupons, promo codes, discounts, or deals, feature Triply's own working code as the FIRST direct answer near the top: an H2 "Working promo code: ${process.env.COUPON_CODE} — ${Number(process.env.COUPON_PERCENT) || 10}% off" followed by a short paragraph stating that ${process.env.COUPON_CODE} takes ${Number(process.env.COUPON_PERCENT) || 10}% off any parking reservation booked through Triply, entered at checkout on triplypro.com, plus the terms line "Applies to bookings made on triplypro.com. One redemption per customer." NEVER write that no working codes exist. Third-party/competitor code discussion comes after ours.` : ''}
 Respond with ONLY valid JSON in this exact format:
 {
   "title": "Display title for the article (50-65 chars, keyword-rich, compelling)",
@@ -415,11 +555,11 @@ Respond with ONLY valid JSON in this exact format:
 export function getWritingRulesBlock(airportCode: string): string {
   return `**Condensed writing rules for ${DOMAIN} (airport: ${airportCode}):**
 1. Output ONLY clean HTML: h2, h3, p, ul, ol, li, a, strong, em, blockquote, table, thead, tbody, tr, th, td, img. No h1/div/span/styles/classes/IDs.
-2. Internal links: ${BLOG_BASE_URL}/[slug]. External links: ONLY from verified database. Add rel="nofollow" where specified.
+2. Internal links: ${BLOG_BASE_URL}/[slug]. External links: ONLY from verified database. Add rel="nofollow" where specified. Include year (${new Date().getFullYear()}) in title for rates/deals/construction/policies content.
 3. Natural keyword placement in first paragraph, 2-3 H2s, conclusion. Friendly authoritative voice.
 4. EARLY CTA within 500 words (contextual, specific). CLOSING CTA in final section. Both link to https://www.${DOMAIN}/search?airport=${airportCode}.
 5. Readability: grade 6-9. Sentences 15-20 words avg, never >30. Simple words. Active voice.
-6. Opening answer paragraph (extractable standalone). Key Takeaways <ul> after (standard/data-heavy/comparison only).
+6. Opening answer paragraph (extractable standalone); rates/cost posts: first paragraph has a $ figure + "as of <Month YYYY>" (lint-enforced). Key Takeaways <ul> after (standard/data-heavy/comparison/rescue only).
 7. Question H2s where natural. Answer-first sections. Lists where they fit.
 8. Real source attribution. E-E-A-T language. Bold key terms. Entity coverage.
 9. Freshness signals for time-sensitive data. 3-5 sentence paragraphs. Zero filler.
@@ -427,14 +567,18 @@ export function getWritingRulesBlock(airportCode: string): string {
 11. Verification dates: "(verified [Month ${new Date().getFullYear()}])". 2-3 PAA question headings.
 12. NO FAQ section in HTML (goes in faqItems JSON). No brand suffix in title.
 13. Definition-first opening: First sentence MUST be "X is..." standalone definition (island test). Different from opening answer paragraph — this is about sentence structure.
-14. Include 3-5+ verifiable statistics per article from provided data. Bold stats with <strong>. Attribute sources. Never fabricate numbers.`
+14. Include 3-5+ verifiable statistics per article from provided data. Bold stats with <strong>. Attribute sources. Never fabricate numbers.
+15. NO AI SLOP: Never use: "In conclusion", "It's worth noting", "Whether you're a", "game-changer", "invaluable", "Let's dive in", "Read on to learn", "When it comes to", "At the end of the day", "Without further ado". Write like a human.
+16. Meta description MUST be 120-160 characters. Include a price point when available (e.g., "from $8.95/day") — prices boost CTR. Start with direct answer, add differentiator, end with CTA.`
 }
 
 /**
  * Get formatted airport data block for prompt caching.
  */
 export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
-  return formatAirportData(airportData, keyword)
+  // Vin 14 Oct 2026: never name off-site lots we can't sell, even if competitor articles do
+  const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison. Never name competing booking sites or apps (SpotHero, Way.com, ParkWhiz, ParkSleepFly and the like) or send readers to them for codes; if the focus keyword names one (e.g. Groupon), cover it without recommending it."
+  return formatAirportData(airportData, keyword) + onlySellable
 }
 
 /**

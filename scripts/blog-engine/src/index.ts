@@ -2,17 +2,24 @@ import { Command } from 'commander'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getNextQueuedItems, validatePrerequisites, markGenerating, markDraft, markError, markPublished, getBatchItems } from './queue.js'
-import type { QueueItem } from './queue.js'
+import { getNextQueuedItems, validatePrerequisites, markGenerating, markDraft, markError, markPublished, markQueued, getBatchItems } from './queue.js'
+import { CreditBalanceError } from './retry.js'
+import { anthropicOk } from './preflight.js'
+import { generateArticlesBatch } from './generate-batch.js'
+import type { BatchItemInput, BatchArticleOutcome } from './generate-batch.js'
+import type { GenerateArticleResult } from './claude.js'
+import type { QueueItem, ArticleStyle } from './queue.js'
+import { ARTICLE_STYLES } from './queue.js'
 import { scrapeCompetitors } from './scraper.js'
 import type { ScrapedArticle } from './scraper.js'
-import { generateArticle, resetTokenTracking, getTokenSummary, setCurrentStep } from './claude.js'
+import { generateArticle, resetTokenTracking, getTokenSummary, setCurrentStep, PROMPT_VERSION } from './claude.js'
 import { htmlToLexical } from './html-to-lexical.js'
 import { generateInfographics } from './infographics.js'
 import { getAirportPhoto } from './unsplash.js'
 import {
   createPost,
   updatePost,
+  findPostBySlug,
   uploadMedia,
   findOrCreateCategory,
   findOrCreateTag,
@@ -21,13 +28,18 @@ import {
   getAllPublishedSlugs,
   updateQueueItem,
   getClusterUsedPhotoIds,
+  getAllSlugsAnyStatus,
 } from './payload.js'
-import { env } from './config.js'
+import { env, CLAUDE_MODEL } from './config.js'
 import { loadAirportData } from './airport-data.js'
 import { scoreArticle, printSeoScore } from './seo-scorer.js'
 import type { SeoScore } from './seo-scorer.js'
 import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
+import { submitUrls, postUrlFor } from './indexnow.js'
+import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
+import { lintArticle, formatLint } from './lint.js'
+import { stampField } from './stamp.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logsDir = path.resolve(__dirname, '..', 'logs')
@@ -50,6 +62,13 @@ function stripFaqSection(html: string): string {
 
 interface ArticleReport {
   timestamp: string
+  promptVersion: string
+  experiment?: {
+    arm: string | null
+    modelAnalyze: string
+    modelWrite: string
+    modelEdit: string
+  }
   queueItemId: string
   title: string
   slug: string
@@ -234,31 +253,127 @@ program
   .option('-t, --type <type>', 'Article type filter: hub, sub-pillar, spoke')
   .option('-a, --airport <code>', 'Airport code filter (e.g., JFK)')
   .option('-n, --limit <number>', 'Max articles to generate', '1')
+  .option('-m, --min-sv <number>', 'Only process items with searchVolume >= N (sorted by SV desc)')
+  .option('-s, --slug <slug>', 'Target exactly one queued item by slug (used by `maintain` rewrites)')
+  .option('--style <style>', `Override articleStyle for this run: ${ARTICLE_STYLES.join(' | ')}`)
+  .option('--batch', 'EXPERIMENTAL: generate all items via the async Batches API (~50% cheaper text, minutes–hours latency)')
+  .option('--publish', 'Create posts as published (default: draft — review in the Payload admin, then `npm run publish`)')
+  .option('--stamp', 'Regenerating an existing slug: also set contentUpdatedAt (W1.7). Default off.')
+  .option('--skip-duplicate-guard', 'DANGEROUS: write even when the keyword matches an existing page at the airport')
   .option('--dry-run', 'Preview what would be generated without creating posts')
   .action(async (options) => {
     try {
-      console.log('\n🚀 Triply Blog Engine — Generate\n')
+      console.log(`\n🚀 Triply Blog Engine — Generate [prompt: ${PROMPT_VERSION}]\n`)
+      const publishMode: boolean = Boolean(options.publish)
+      console.log(publishMode
+        ? '  Status: --publish → posts go live immediately'
+        : '  Status: draft (pass --publish to go live; CLAUDE.md: generate as draft → review → publish)')
+
+      // Validate --style before touching the queue, so a typo fails immediately rather than
+      // silently passing whenever the filters happen to match nothing.
+      let styleOverride: ArticleStyle | undefined
+      if (options.style) {
+        const style = String(options.style).toLowerCase()
+        if (!ARTICLE_STYLES.includes(style as ArticleStyle)) {
+          console.error(`Invalid --style "${options.style}". Must be one of: ${ARTICLE_STYLES.join(', ')}`)
+          process.exit(1)
+        }
+        styleOverride = style as ArticleStyle
+      }
 
       const limit = parseInt(options.limit, 10)
-      const items = await getNextQueuedItems(options.type, options.airport, limit)
+      const minSv = options.minSv !== undefined ? parseInt(options.minSv, 10) : undefined
+      const items = await getNextQueuedItems(options.type, options.airport, limit, minSv, options.slug)
 
       if (items.length === 0) {
         console.log('No queued items found matching your filters.')
         return
       }
 
+      // Apply the override here, before any consumer reads the items, so write/edit/score/batch
+      // all see the same value without threading a flag through each call site. This is a
+      // run-local override — nothing is written back to the CMS.
+      if (styleOverride) {
+        for (const item of items) item.articleStyle = styleOverride
+        console.log(`Style override: all ${items.length} item(s) will be written as "${styleOverride}" (not persisted to the queue)`)
+      }
+
       console.log(`Found ${items.length} queued item(s)\n`)
+
+      // Preflight: confirm Anthropic credit before spending any SerpAPI budget.
+      // A dead key / empty balance would otherwise scrape competitors for every
+      // item and then fail the write — wasting SERP credits on unusable data.
+      if (!options.dryRun) {
+        const creditOk = await anthropicOk()
+        if (!creditOk) {
+          console.error('\n🛑 Anthropic preflight failed (key invalid or credit balance empty).')
+          console.error('   Top up credits and re-run — no items were touched, no SerpAPI spent.')
+          process.exit(1)
+        }
+      }
 
       // Fetch all published slugs for internal link intelligence
       console.log('Fetching published posts for internal linking...')
       const publishedPosts = await getAllPublishedSlugs()
       console.log(`  ✓ ${publishedPosts.length} published post(s) available for linking\n`)
 
+      // W1.1 duplicate guard: one page per question per airport. Compare the normalised keyword
+      // with every slug at the airport in ANY status plus the redirect map; refuse matches.
+      const redirectMap = loadRedirectMap()
+      const slugsByAirport = new Map<string, string[]>()
+      const guarded: QueueItem[] = []
+      for (const item of items) {
+        const code = item.airportCode.toUpperCase()
+        if (!slugsByAirport.has(code)) slugsByAirport.set(code, (await getAllSlugsAnyStatus(code)).map((p) => p.slug))
+        const dup = findDuplicate(item.keyword, code, slugsByAirport.get(code)!, redirectMap, item.slug)
+        if (dup && !options.skipDuplicateGuard) {
+          const rec = { at: new Date().toISOString(), airportCode: code, keyword: item.keyword, queuedSlug: item.slug, queueItemId: item.id, match: dup }
+          logRefusal(rec)
+          console.log(`  ⛔ "${item.keyword}" duplicates /blog/${dup.slug} (${dup.via}) — refused; update that page instead. Logged to ${path.relative(process.cwd(), REFUSAL_LOG_PATH)}`)
+          if (!options.dryRun) await markError(item.id, `duplicate guard: update /blog/${dup.slug} instead (matched ${dup.matchedSlug})`).catch(() => {})
+          continue
+        }
+        if (dup) console.log(`  ⚠ "${item.keyword}" duplicates /blog/${dup.slug} but --skip-duplicate-guard was passed`)
+        guarded.push(item)
+      }
+      items.length = 0
+      items.push(...guarded)
+      if (items.length === 0) {
+        console.log('Every queued item was refused by the duplicate guard. Nothing to generate.')
+        return
+      }
+
       // Get the API user for the author field
       const apiUser = await getApiUser()
       if (!apiUser) {
         console.error('Error: No API user found. Create a user in the CMS first.')
         process.exit(1)
+      }
+
+      // Collect successfully published URLs → one bulk IndexNow ping at the end
+      // (instant Bing/Yandex indexing; feeds ChatGPT/Copilot — a GEO lever).
+      const publishedUrls: string[] = []
+
+      // EXPERIMENTAL batch mode: pre-scrape every item, then generate ALL article
+      // text through the async Batches API (~50% cheaper). The normal per-item loop
+      // below still handles infographics + CMS upload + report using these results.
+      let batchCompetitors: Map<string, ScrapedArticle[]> | null = null
+      let batchOutcomes: Map<string, BatchArticleOutcome> | null = null
+      if (options.batch && !options.dryRun) {
+        console.log('\n📦 BATCH MODE (experimental) — pre-scraping all items, then generating text via the Batches API…')
+        console.log('   Latency is async (minutes–hours). Validate on a small run before trusting a full cluster.\n')
+        batchCompetitors = new Map()
+        const batchInputs: BatchItemInput[] = []
+        for (const item of items) {
+          await markGenerating(item.id)
+          const manualUrls = item.competitorUrls?.map((c) => c.url) || []
+          const competitors = await scrapeCompetitors(item.keyword, manualUrls)
+          batchCompetitors.set(item.id, competitors)
+          batchInputs.push({ item, competitors, airportData: loadAirportData(item.airportCode) || undefined })
+        }
+        const { outcomes, totalCost } = await generateArticlesBatch(batchInputs, publishedPosts)
+        console.log(`   Batch text cost: $${totalCost.toFixed(4)} (infographics + CMS still per-item below)`)
+        batchOutcomes = new Map(outcomes.map((o) => [o.itemId, o]))
       }
 
       for (const item of items) {
@@ -280,6 +395,13 @@ program
         // Initialize report
         const report: ArticleReport = {
           timestamp: new Date().toISOString(),
+          promptVersion: PROMPT_VERSION,
+          experiment: {
+            arm: process.env.EXPERIMENT_ARM || null,
+            modelAnalyze: process.env.MODEL_ANALYZE || CLAUDE_MODEL,
+            modelWrite: process.env.MODEL_WRITE || CLAUDE_MODEL,
+            modelEdit: process.env.MODEL_EDIT || CLAUDE_MODEL,
+          },
           queueItemId: item.id,
           title: item.keyword,
           slug: item.slug,
@@ -305,11 +427,17 @@ program
         try {
           // Mark as generating
           await markGenerating(item.id)
+          // Reset per-item token tracking. In sync mode this captures analyze/write/
+          // edit + infographics; in batch mode text cost is reported by the batch
+          // summary, so this captures just this item's infographic tokens.
+          resetTokenTracking()
 
-          // Scrape competitors
+          // Scrape competitors (reuse the batch pre-phase's scrape when in batch mode)
           const scrapeStart = Date.now()
           const manualUrls = item.competitorUrls?.map((c) => c.url) || []
-          const competitors = await scrapeCompetitors(item.keyword, manualUrls)
+          const competitors = batchCompetitors
+            ? (batchCompetitors.get(item.id) || [])
+            : await scrapeCompetitors(item.keyword, manualUrls)
           report.timing.scrapeSeconds = Math.round((Date.now() - scrapeStart) / 1000)
 
           // Populate scraping report
@@ -336,31 +464,39 @@ program
             p.airportCode === item.airportCode || !p.airportCode
           )
 
-          // Generate with Claude (3-prompt pipeline)
-          resetTokenTracking()
-          const result = await generateArticle(item, competitors, (step, data) => {
-            // Callback to capture intermediate results for the report
-            const r = data.result as Record<string, unknown>
-            if (step === 'analyze') {
-              report.timing.analyzeSeconds = Math.round(data.elapsed / 1000)
-              report.analysis = {
-                commonTopics: (r.commonTopics as string[]) || [],
-                contentGaps: (r.gaps as string[]) || [],
-                recommendedH2s: (r.recommendedH2s as string[]) || [],
-                faqQuestions: (r.faqQuestions as string[]) || [],
-                suggestedTags: (r.suggestedTags as string[]) || [],
+          // Generate with Claude. In batch mode the text was already produced by the
+          // pre-phase; reuse that result (a missing/errored item throws → per-item
+          // error handling below). Otherwise run the normal sync 3-prompt pipeline.
+          let result: GenerateArticleResult
+          if (batchOutcomes) {
+            const o = batchOutcomes.get(item.id)
+            if (!o || !o.result) throw new Error(o?.error || 'batch generation produced no result for this item')
+            result = o.result
+          } else {
+            result = await generateArticle(item, competitors, (step, data) => {
+              // Callback to capture intermediate results for the report
+              const r = data.result as Record<string, unknown>
+              if (step === 'analyze') {
+                report.timing.analyzeSeconds = Math.round(data.elapsed / 1000)
+                report.analysis = {
+                  commonTopics: (r.commonTopics as string[]) || [],
+                  contentGaps: (r.gaps as string[]) || [],
+                  recommendedH2s: (r.recommendedH2s as string[]) || [],
+                  faqQuestions: (r.faqQuestions as string[]) || [],
+                  suggestedTags: (r.suggestedTags as string[]) || [],
+                }
+              } else if (step === 'write') {
+                report.timing.writeSeconds = Math.round(data.elapsed / 1000)
+              } else if (step === 'edit') {
+                report.timing.editSeconds = Math.round(data.elapsed / 1000)
+                report.editing = {
+                  changesCount: (r.changes as string[])?.length || 0,
+                  qualityScore: (r.qualityScore as number) || 0,
+                  changes: (r.changes as string[]) || [],
+                }
               }
-            } else if (step === 'write') {
-              report.timing.writeSeconds = Math.round(data.elapsed / 1000)
-            } else if (step === 'edit') {
-              report.timing.editSeconds = Math.round(data.elapsed / 1000)
-              report.editing = {
-                changesCount: (r.changes as string[])?.length || 0,
-                qualityScore: (r.qualityScore as number) || 0,
-                changes: (r.changes as string[]) || [],
-              }
-            }
-          }, airportData || undefined, airportPosts)
+            }, airportData || undefined, airportPosts)
+          }
 
           // Capture revision metadata
           if (result.revision) {
@@ -382,26 +518,12 @@ program
             suggestedCategory: result.suggestedCategory,
           }
 
-          // Score the article for SEO
-          console.log('  Scoring article for SEO...')
-          const seoScore = scoreArticle({
-            html: result.html,
-            keyword: item.keyword,
-            slug: item.slug,
-            metaTitle: result.metaTitle,
-            metaDescription: result.metaDescription,
-            excerpt: result.excerpt,
-            faqItems: result.faqItems,
-            articleType: item.articleType as 'hub' | 'sub-pillar' | 'spoke',
-            targetWords: item.targetWords || (item.articleType === 'hub' ? 2500 : item.articleType === 'sub-pillar' ? 1500 : 1000),
-            hasImage: false, // will be updated after image upload
-            imageAlt: null,
-            airportCode: item.airportCode,
-            parentSlug: item.parentSlug,
-            hubSlug: item.hubSlug,
-          })
+          // Use SEO score from generateArticle (already scored during write/edit flow)
+          const seoScore = result.seoScore
           report.seoScore = seoScore
-          console.log(`  ✓ SEO Score: ${seoScore.total}/${seoScore.maxTotal} (${seoScore.grade})`)
+          if (result.editSkipped) {
+            console.log(`  ✓ Edit skipped (score ${seoScore.total}/${seoScore.maxTotal} above threshold)`)
+          }
 
           // Generate infographics (Claude SVG → resvg PNG → Payload upload)
           let contentHtml = result.html
@@ -439,7 +561,11 @@ program
             if (usedPhotoIds.length > 0) {
               console.log(`    Excluding ${usedPhotoIds.length} photo(s) already used in ${item.airportCode} cluster`)
             }
-          } catch { /* cluster dedup is optional */ }
+          } catch (e) {
+            // Dedup is optional (worst case: a repeated hero photo), but log the
+            // reason so a real auth/network failure isn't invisible.
+            console.log(`    ⚠ cluster photo dedup skipped: ${e instanceof Error ? e.message : e}`)
+          }
           const photo = await getAirportPhoto(item.airportCode, item.keyword, usedPhotoIds)
           if (photo) {
             const media = await uploadMedia(photo.buffer, photo.filename, photo.alt)
@@ -462,12 +588,17 @@ program
               excerpt: result.excerpt,
               faqItems: result.faqItems,
               articleType: item.articleType as 'hub' | 'sub-pillar' | 'spoke',
+              articleStyle: item.articleStyle,
               targetWords: item.targetWords || (item.articleType === 'hub' ? 2500 : item.articleType === 'sub-pillar' ? 1500 : 1000),
               hasImage: report.image.found,
               imageAlt: report.image.alt,
               airportCode: item.airportCode,
               parentSlug: item.parentSlug,
               hubSlug: item.hubSlug,
+              // Forward CTA text so CTA-relevance scores on the final logged score
+              // (previously omitted → "CTA topic relevance" failed 100% of articles).
+              earlyCta: result.earlyCta,
+              closingCta: result.closingCta,
             })
             report.seoScore = imgScore
           }
@@ -482,9 +613,22 @@ program
             report.post.tagsCreated.push(tagName)
           }
 
-          // Create the post — draft or review based on quality score
-          const postStatus = result.suggestedStatus || 'draft'
-          console.log(`  Creating ${postStatus} post in CMS...`)
+          // Check if a post with this slug already exists (re-generation)
+          const existingPost = await findPostBySlug(item.slug)
+
+          // W1.4 lint — fails the write. Year + answer-first checks apply to new posts only.
+          const lint = lintArticle({
+            title: resolvedTitle, metaTitle: result.metaTitle, metaDescription: result.metaDescription,
+            html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
+            keyword: item.keyword, slug: item.slug, isNew: !existingPost,
+          })
+          if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
+          if (!lint.ok) {
+            console.log(`  ⛔ Lint failed (${lint.errors.length}) — not written to the CMS:\n${formatLint(lint)}`)
+            throw new Error(`lint: ${lint.errors.map((e) => `${e.rule}: ${e.message}`).join(' | ')}`)
+          }
+
+          const postStatus: 'draft' | 'published' = publishMode ? 'published' : 'draft'
           const postData: Record<string, unknown> = {
             title: resolvedTitle,
             slug: item.slug,
@@ -494,6 +638,7 @@ program
             tags: tagIds,
             author: apiUser.id,
             status: postStatus,
+            ...(publishMode ? { publishedAt: new Date().toISOString() } : {}),
             airportCode: item.airportCode,
             articleType: item.articleType,
             parentSlug: item.parentSlug || undefined,
@@ -511,20 +656,43 @@ program
 
           // Include SEO score in post data
           if (report.seoScore) {
-            postData.seoScore = report.seoScore.total
+            postData.seoScore = Math.min(report.seoScore.total, 100)
             postData.seoScoreDetails = report.seoScore
           }
 
-          const post = await createPost(postData)
-          const postId = post.doc?.id || post.id
+          let postId: string
+          if (existingPost) {
+            // Update existing post instead of creating a duplicate.
+            // Preserve the original publishedAt (datePublished) on refresh — Payload
+            // auto-bumps updatedAt, which drives dateModified in JSON-LD. Resetting
+            // publishedAt here is what previously made dateModified === datePublished.
+            console.log(`  Updating existing post (ID:${existingPost.id}) with regenerated content...`)
+            const { publishedAt: _omitPublishedAt, ...updateData } = postData
+            // Stamp the dedicated freshness field ONLY on a genuine content refresh
+            // (this existingPost branch). Drives the "Updated [Month YYYY]" badge,
+            // JSON-LD dateModified, OG modified_time, and sitemap lastmod. New posts
+            // (the else branch) leave it unset so the badge stays hidden until the
+            // first real refresh. The score pass (updatePost with seoScore) and the
+            // update-links pass (updatePost with content) deliberately never set this,
+            // so neither bumps the visible freshness date — the reason Tom used a
+            // dedicated field instead of Payload's auto-bumping updatedAt.
+            // W1.7: the date moves only by an explicit --stamp on a regenerate whose facts changed.
+            delete updateData.status // a regenerate never flips a live post's status
+            Object.assign(updateData, stampField({ factsChanged: true, requested: Boolean(options.stamp), reason: 'regenerated body (facts assumed changed; verify in the admin)' }))
+            await updatePost(existingPost.id, updateData)
+            postId = existingPost.id
+          } else {
+            console.log(`  Creating ${postStatus} post in CMS...`)
+            const post = await createPost(postData)
+            postId = post.doc?.id || post.id
+          }
           report.post.postId = postId
+          // IndexNow on every publish AND every update (W1.11); a draft is not public, nothing to ping.
+          if (publishMode || (existingPost && existingPost.status === 'published')) publishedUrls.push(postUrlFor(item.slug))
 
           // Update queue item status to match the post
-          if (postStatus === 'review') {
-            await updateQueueItem(item.id, { status: 'review', generatedPost: postId })
-          } else {
-            await markDraft(item.id, postId)
-          }
+          if (postStatus === 'published') await updateQueueItem(item.id, { status: 'published', generatedPost: postId })
+          else await markDraft(item.id, postId)
 
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
 
@@ -553,6 +721,21 @@ program
           console.log(`\n  📄 Report saved: ${reportPath}`)
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err)
+
+          // Out of Anthropic credits: not this item's fault, and it will hit every
+          // remaining item identically. Abort the batch instead of marching on and
+          // wasting SerpAPI scraping on articles that can't be written. Leave this
+          // item as 'queued' so a re-run (after top-up) picks it up cleanly.
+          if (err instanceof CreditBalanceError) {
+            console.error(`\n🛑 ${errorMsg}`)
+            console.error('   Aborting batch — top up credits, then re-run. This item left as queued.')
+            report.error = errorMsg
+            report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
+            await markQueued(item.id).catch(() => {})
+            saveReport(report)
+            break
+          }
+
           console.error(`  ❌ Error: ${errorMsg}`)
           report.error = errorMsg
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
@@ -562,6 +745,12 @@ program
           const reportPath = saveReport(report)
           console.log(`  📄 Error report saved: ${reportPath}`)
         }
+      }
+
+      // Bulk-notify IndexNow of everything published this run (no-op without a key).
+      if (publishedUrls.length > 0) {
+        console.log(`\n📣 Notifying IndexNow of ${publishedUrls.length} published URL(s)...`)
+        await submitUrls(publishedUrls)
       }
 
       console.log('\n✨ Generation complete!\n')

@@ -1,23 +1,53 @@
 import { env } from './config.js'
+import { withRetry } from './retry.js'
 
 const headers = {
   'Content-Type': 'application/json',
   Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
 }
 
+// Abort a CMS request that hangs past this, so a stuck connection can't zombie a
+// whole batch run. withRetry treats the AbortError as transient and retries it.
+const FETCH_TIMEOUT_MS = 30_000
+
+/** Typed CMS HTTP error carrying the status code so retry.ts can classify it. */
+class PayloadHttpError extends Error {
+  status: number
+  body: string
+  constructor(status: number, path: string, body: string) {
+    super(`Payload API error ${status} on ${path}: ${body}`)
+    this.name = 'PayloadHttpError'
+    this.status = status
+    this.body = body
+  }
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function payloadFetch(path: string, options: RequestInit = {}) {
   const url = `${env.PAYLOAD_CMS_URL}/api${path}`
-  const res = await fetch(url, {
-    ...options,
-    headers: { ...headers, ...options.headers },
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Payload API error ${res.status} on ${path}: ${body}`)
-  }
-
-  return res.json()
+  return withRetry(
+    async () => {
+      const res = await fetchWithTimeout(url, {
+        ...options,
+        headers: { ...headers, ...options.headers },
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        throw new PayloadHttpError(res.status, path, body)
+      }
+      return res.json()
+    },
+    { label: `payload ${(options.method as string) || 'GET'} ${path}` }
+  )
 }
 
 // Posts
@@ -67,20 +97,30 @@ export async function uploadMedia(file: Buffer, filename: string, alt: string) {
   formData.append('_payload', JSON.stringify({ alt: alt || 'Airport parking' }))
 
   const url = `${env.PAYLOAD_CMS_URL}/api/media`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
+  // MEDIA_UPLOAD_TRIES: the CMS's Vercel layer has hours-long windows where most
+  // multipart bodies fail to parse ("No files were uploaded", 2026-07-27 incident).
+  // The default 4 tries survives background flakiness; set 8-10 when re-running
+  // casualties while a window may still be flickering.
+  const tries = Number(process.env.MEDIA_UPLOAD_TRIES) || 4
+  return withRetry(
+    async () => {
+      const res = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
+        },
+        body: formData,
+      })
+      if (!res.ok) {
+        const body = await res.text()
+        // The "No files were uploaded" 400 is a known transient glitch — retry.ts
+        // matches it by message so withRetry recovers instead of crashing the batch.
+        throw new PayloadHttpError(res.status, '/media', body)
+      }
+      return res.json()
     },
-    body: formData,
-  })
-
-  if (!res.ok) {
-    const body = await res.text()
-    throw new Error(`Media upload error ${res.status}: ${body}`)
-  }
-
-  return res.json()
+    { label: `media upload ${filename}`, tries }
+  )
 }
 
 // Categories
@@ -123,11 +163,37 @@ export interface PublishedPost {
   airportCode: string
 }
 
+/**
+ * All published posts, paged (W1.1: the old single call capped at limit=500 and silently dropped
+ * the rest of a 4,500-post site). Kept under the old name so every caller pages for free.
+ */
 export async function getAllPublishedSlugs(airportCode?: string): Promise<PublishedPost[]> {
+  return getAllPublishedPosts(airportCode)
+}
+
+/** Every slug at an airport in ANY status (draft, published, archived) — the duplicate guard's input. Paged. */
+export async function getAllSlugsAnyStatus(airportCode?: string): Promise<{ slug: string; status: string }[]> {
+  const out: { slug: string; status: string }[] = []
+  let page = 1
+  while (true) {
+    const params = new URLSearchParams({ limit: '200', page: String(page), 'select[slug]': 'true', 'select[status]': 'true' })
+    if (airportCode) params.set('where[airportCode][equals]', airportCode.toUpperCase())
+    const result = await payloadFetch(`/posts?${params.toString()}`)
+    for (const doc of (result.docs || []) as Record<string, unknown>[]) out.push({ slug: String(doc.slug), status: String(doc.status || '') })
+    if (!result.hasNextPage) break
+    page++
+  }
+  return out
+}
+
+export async function getAllPublishedSlugsSinglePage(airportCode?: string): Promise<PublishedPost[]> {
   const params = new URLSearchParams({
     'where[status][equals]': 'published',
     limit: '500',
-    select: 'slug,title,articleType,airportCode',
+    'select[slug]': 'true',
+    'select[title]': 'true',
+    'select[articleType]': 'true',
+    'select[airportCode]': 'true',
   })
   if (airportCode) {
     params.set('where[airportCode][equals]', airportCode.toUpperCase())
@@ -140,6 +206,41 @@ export async function getAllPublishedSlugs(airportCode?: string): Promise<Publis
     articleType: (doc.articleType as string) || 'spoke',
     airportCode: (doc.airportCode as string) || '',
   }))
+}
+
+/**
+ * Like getAllPublishedSlugs but paginates through ALL published posts (the
+ * single-page version caps at 500 → drops the oldest on large clusters). The
+ * `maintain` sweep needs every post, so this walks pages until hasNextPage=false.
+ */
+export async function getAllPublishedPosts(airportCode?: string): Promise<PublishedPost[]> {
+  const out: PublishedPost[] = []
+  let page = 1
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const params = new URLSearchParams({
+      'where[status][equals]': 'published',
+      limit: '200',
+      page: String(page),
+      'select[slug]': 'true',
+      'select[title]': 'true',
+      'select[articleType]': 'true',
+      'select[airportCode]': 'true',
+    })
+    if (airportCode) params.set('where[airportCode][equals]', airportCode.toUpperCase())
+    const result = await payloadFetch(`/posts?${params.toString()}`)
+    for (const doc of (result.docs || []) as Record<string, unknown>[]) {
+      out.push({
+        slug: doc.slug as string,
+        title: doc.title as string,
+        articleType: (doc.articleType as string) || 'spoke',
+        airportCode: (doc.airportCode as string) || '',
+      })
+    }
+    if (!result.hasNextPage) break
+    page++
+  }
+  return out
 }
 
 // Cluster context — fetch hub + sibling article headings for cross-article awareness
@@ -190,7 +291,11 @@ export async function getClusterContext(item: { airportCode: string; articleType
         const kw = slugToKeyword.get(sibling.slug)
         if (kw) (sibling as ClusterArticle & { keyword?: string }).keyword = kw
       }
-    } catch { /* keyword enrichment is optional */ }
+    } catch (e) {
+      // Optional (siblings still link without keywords), but surface the reason so
+      // a CMS/network failure here isn't silently masked.
+      console.log(`    ⚠ sibling keyword enrichment skipped: ${e instanceof Error ? e.message : e}`)
+    }
   }
 
   return siblings
