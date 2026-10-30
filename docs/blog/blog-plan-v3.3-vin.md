@@ -355,14 +355,14 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [ ] **17.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
 - [ ] **18.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
 - [ ] **19.** **B-5 prep** — 101 + 294 candidate pairs run through Stage A's zero-signal filter; Tom signs off each pair. Vin, Tom.
-- [ ] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
+- [x] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
 - [ ] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
 - [ ] **22.** **C-2** — December index data collection scripted and scheduled (pull the week before it goes live). Vin.
 - [x] **23.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
 
 ### Block 6 — Readout, hubs, December index, links and mentions, new pages, repairs
-- [ ] **24.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
-- [ ] **25.** **B-2** — linking pass, airports 11–30. Vin.
+- [x] **24.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
+- [x] **25.** **B-2** — linking pass, airports 11–30. Vin.
 - [ ] **26.** **B-9** — hub rebuilds 1–10 (non-pilot airports) through preview → apply. Vin + Claude.
 - [ ] **27.** **C-2** — December index live + D-1 pitch. Vin + Claude.
 - [ ] **28.** **D-3** — "Book on Triply" badge + sentence offered to every lot we sell (email via the tracker). Vin.
