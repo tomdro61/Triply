@@ -340,7 +340,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 ### Block 3 — Fix the worst, index the hubs, IndexNow
 - [x] **7.** **A-W0** — back up and hand-fix the ~10 worst live posts (Seattle, DFW ×2, Newark ×2, LGA, LAX, Logan). Tom approves, Claude edits. Done: slugs read clean live.
 - [ ] **8.** **B-1** — request indexing for the 6 unindexed hubs in Search Console. Vin. Done: each resolved or explained.
-- [ ] **9.** **W1.11** — IndexNow ping on every update in the running engine (publish already pings). Vin. Done: Bing shows pings.
+- [x] **9.** **W1.11** — IndexNow ping on every update in the running engine (publish already pings). Vin. Done: Bing shows pings.
 
 ### Block 4 — Thanksgiving pages, the index, first pitch, off-page profiles
 - [x] **10.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
@@ -358,7 +358,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [ ] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
 - [ ] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
 - [ ] **22.** **C-2** — December index data collection scripted and scheduled (pull the week before it goes live). Vin.
-- [ ] **23.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
+- [x] **23.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
 
 ### Block 6 — Readout, hubs, December index, links and mentions, new pages, repairs
 - [ ] **24.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
