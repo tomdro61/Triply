@@ -352,8 +352,8 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [x] **16.** **§5 Q1** — Sep 23 stamp source confirmed against the perf ledgers. Vin.
 
 ### Block 5 — Merge machinery, linking pass, Christmas pages, December index prep
-- [ ] **17.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
-- [ ] **18.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
+- [x] **17.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
+- [x] **18.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
 - [ ] **19.** **B-5 prep** — 101 + 294 candidate pairs run through Stage A's zero-signal filter; Tom signs off each pair. Vin, Tom.
 - [x] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
 - [ ] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
