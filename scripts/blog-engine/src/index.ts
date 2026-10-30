@@ -38,8 +38,9 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
-import { lintArticle, formatLint } from './lint.js'
+import { lintArticle, formatLint, collectFigures } from './lint.js'
 import { stampField } from './stamp.js'
+import { rankBySimilarity } from './similarity.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const logsDir = path.resolve(__dirname, '..', 'logs')
@@ -460,9 +461,10 @@ program
           }
 
           // Filter published posts to same airport (keep context focused)
-          const airportPosts = publishedPosts.filter(p =>
+          // W1.2: ranked by similarity to this keyword (hub first), not CMS order
+          const airportPosts = rankBySimilarity(item.keyword, item.airportCode, publishedPosts.filter(p =>
             p.airportCode === item.airportCode || !p.airportCode
-          )
+          ))
 
           // Generate with Claude. In batch mode the text was already produced by the
           // pre-phase; reuse that result (a missing/errored item throws → per-item
@@ -621,6 +623,7 @@ program
             title: resolvedTitle, metaTitle: result.metaTitle, metaDescription: result.metaDescription,
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
+            knownFigures: airportData ? collectFigures(airportData) : undefined,
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
           if (!lint.ok) {

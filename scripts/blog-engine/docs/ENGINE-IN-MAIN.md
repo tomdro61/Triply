@@ -33,10 +33,12 @@ token files, `.env`, `.bak` files, the Thanksgiving price-index markdown (now re
 | 1.11 | **IndexNow** `pingIndexNow(urls)` (alias of `submitUrls`) on every publish and every update: `generate`, `update-links`, `booking-links`, `perf-apply`, `inject-coupon`, `differentiate-titles`, `monthly-prices`, all `reports/*` writers. Warns loudly when `INDEXNOW_KEY` is unset. | `src/indexnow.ts` |
 | publish | **`generate` writes drafts by default.** `--publish` creates posts live (the old behaviour). This matches CLAUDE.md: generate as draft → review in Payload → `npm run publish`. | `index.ts` |
 
-Not in this PR (still open in W1): 1.2 cluster context by similarity, 1.3 facts-from-data-file-only
-enforcement beyond the prompt, 1.5 promo framing beyond the lint, 1.6 sellable-only (Tom's PR #96 —
-the running copy already filters `sellable:false` in `airport-data.ts`; #96 adds the CAD helpers and
-will conflict on `airport-data.ts`, `external-links.ts`, `infographics.ts`, `prompts/*`), 1.8 P3c.
+| 1.2 | Writer and cluster context ranked by similarity to the keyword (hub first), across all the airport's posts. | `src/similarity.ts`, `payload.ts` `getClusterContext`, `index.ts`, `generate-batch.ts` |
+| 1.3 | `$` figures not in the airport data file and not next to a source link are flagged (warning, does not block yet). | `lint.ts` `knownFigures` |
+| 1.5 | Promo posts framed as "how to save"; prompts no longer ask for "verified"/"working" codes or promise one use per customer. | `prompts/write*.ts` rule 16b, `edit.ts`, `inject-coupon.ts` |
+
+Still open in W1: 1.6 sellable-only CAD helpers (Tom's PR #96; it conflicts on `airport-data.ts`,
+`external-links.ts`, `infographics.ts`, `prompts/*`), 1.8 P3c (waits on P3).
 
 ## Flags
 

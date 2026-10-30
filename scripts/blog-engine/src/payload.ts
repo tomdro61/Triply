@@ -253,21 +253,28 @@ export interface ClusterArticle {
   excerpt: string
 }
 
-export async function getClusterContext(item: { airportCode: string; articleType: string; hubSlug?: string; parentSlug?: string; slug: string }): Promise<ClusterArticle[]> {
+export async function getClusterContext(item: { airportCode: string; articleType: string; hubSlug?: string; parentSlug?: string; slug: string; keyword?: string }): Promise<ClusterArticle[]> {
   // Dynamically import to avoid circular deps
   const { extractHeadingsFromLexical } = await import('./lexical-to-html.js')
 
+  // W1.2: rank ALL the airport's published posts by similarity to this item (hub first), then
+  // load headings for the closest 10 — previously the first 20 in CMS order, whatever they were.
+  const { rankBySimilarity } = await import('./similarity.js')
+  const all = (await getAllPublishedPosts(item.airportCode)).filter((p) => p.slug !== item.slug)
+  const keyword = (item as { keyword?: string }).keyword || item.slug.replace(/-/g, ' ')
+  const closest = rankBySimilarity(keyword, item.airportCode, all).slice(0, 10)
+  if (closest.length === 0) return []
   const params = new URLSearchParams({
-    'where[status][equals]': 'published',
-    'where[airportCode][equals]': item.airportCode.toUpperCase(),
-    limit: '20',
+    'where[slug][in]': closest.map((p) => p.slug).join(','),
+    limit: String(closest.length),
   })
 
   const result = await payloadFetch(`/posts?${params.toString()}`)
-  const docs = result.docs || []
+  const order = new Map(closest.map((p, i) => [p.slug, i]))
+  const docs = ((result.docs || []) as Record<string, unknown>[])
+    .sort((a, b) => (order.get(a.slug as string) ?? 99) - (order.get(b.slug as string) ?? 99))
 
   const siblings = docs
-    .filter((doc: Record<string, unknown>) => doc.slug !== item.slug)
     .map((doc: Record<string, unknown>) => ({
       slug: doc.slug as string,
       title: doc.title as string,

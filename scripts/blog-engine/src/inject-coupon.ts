@@ -39,7 +39,7 @@ const SLUG_PATTERNS = /coupon|promo|discount|deal|code/i
 // subtotal, not the service fee, so say "parking rate".
 function couponBlockHtml(): string {
   return [
-    `<h2>Working promo code: ${CODE} — ${PERCENT}% off</h2>`,
+    `<h2>Promo code ${CODE}: ${PERCENT}% off</h2>`,
     `<p><strong>${CODE}</strong> takes <strong>${PERCENT}% off the parking rate</strong> on any reservation booked through Triply. ` +
       `Enter it in the promo code field at checkout on triplypro.com — it works on every lot we list, with no signup required. ` +
       `Unlike the third-party codes that expire seasonally, this one is ours and it works today.</p>`,

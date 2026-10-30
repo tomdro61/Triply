@@ -24,6 +24,7 @@
  * cluster (the async Batches API can only be exercised live).
  */
 
+import { rankBySimilarity } from './similarity.js'
 import type { QueueItem } from './queue.js'
 import type { ScrapedArticle } from './scraper.js'
 import type { AirportData } from './airport-data.js'
@@ -106,7 +107,7 @@ export async function generateArticlesBatch(
   for (const { item, airportData } of writeInputs) {
     const analysis = analysisById.get(item.id)!
     // Filter published posts to the same airport, exactly as the sync loop does.
-    const airportPosts = publishedPosts.filter((p) => p.airportCode === item.airportCode || !p.airportCode)
+    const airportPosts = rankBySimilarity(item.keyword, item.airportCode, publishedPosts.filter((p) => p.airportCode === item.airportCode || !p.airportCode))
     // Cluster context per item (cross-article internal linking), same as sync.
     let clusterArticles: Awaited<ReturnType<typeof getClusterContext>> = []
     if (airportPosts.length > 0) {
@@ -147,7 +148,7 @@ export async function generateArticlesBatch(
     const editReqs: BatchRequest[] = editInputs.map(({ item, airportData }) => {
       const decision = decisions.get(item.id)!
       const w = writeById.get(item.id)!
-      const airportPosts = publishedPosts.filter((p) => p.airportCode === item.airportCode || !p.airportCode)
+      const airportPosts = rankBySimilarity(item.keyword, item.airportCode, publishedPosts.filter((p) => p.airportCode === item.airportCode || !p.airportCode))
       return {
         customId: item.id,
         prompt: buildEditPrompt(w.html, item.keyword, item.articleType, item.articleStyle as any, item.airportCode, airportPosts, decision.failedChecks, decision.analysisContext, airportData),
