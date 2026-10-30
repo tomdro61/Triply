@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { Resvg } from '@resvg/resvg-js'
 import { env, CLAUDE_MODEL, DOMAIN } from './config.js'
 import { uploadMedia } from './payload.js'
-import type { AirportData } from './airport-data.js'
+import { isCanadianAirport, type AirportData } from './airport-data.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
@@ -120,7 +120,7 @@ Analyze the article below and the structured airport data, then create 1–2 SVG
 - All colors must be inline (fill="..." or style="..."), not via external CSS classes
 - Use data from the airport JSON — do NOT invent numbers
 - Round dollar amounts to nearest dollar for readability
-- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
+${vizData.currency === 'CAD' ? '- Prices are Canadian dollars: write every price as C$ (e.g. C$12), in the SVG and in the alt text. Never a bare $.\n' : ''}- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
 
 ## Airport Data (${airportCode})
 
@@ -283,6 +283,8 @@ export async function generateInfographics(
 ): Promise<InfographicResult> {
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
+  // Same Canadian rule as the writer and editor prompts (currency field OR the code list), so the SVG never prints $ where the article prints C$.
+  if (isCanadianAirport(airportCode, airportData)) vizData.currency = 'CAD'
 
   // Call Claude to generate infographic SVGs
   const prompt = buildInfographicPrompt(html, vizData, airportCode)

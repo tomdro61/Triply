@@ -278,6 +278,8 @@
     {
       "name": "Parking 4 Airport (JFK)",
       "slug": "parking-4-airport-jfk",
+      "sellable": false,
+      "sellableNote": "Hidden from Triply since 2026-09-15 (ResLab 416, BLOCKED_RESLAB_LOCATION_IDS): repeatedly refused Triply customers on arrival.",
       "dailyRate": 15.77,
       "totalFor6Days": 104.92,
       "taxesFor6Days": 10.29,
