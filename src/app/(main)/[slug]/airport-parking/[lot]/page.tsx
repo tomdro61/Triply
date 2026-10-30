@@ -18,6 +18,9 @@ import { limitedSpotsTag } from "@/lib/reslab/availability";
 import { airportPricingTimes, reslabLotPricingWindow, toPricingWindow } from "@/lib/reslab/pricing-window";
 import type { ReslabPricingWindowFn } from "@/lib/reslab/get-lot";
 import { DirectInventoryUnavailableError } from "@/lib/direct/errors";
+import { lotLinkQuery, type LinkParam } from "@/lib/utils/link-date";
+import { shiftIsoDate } from "@/lib/digest/window";
+import { buildLotSchema, canonicalAirportFor, lotCanonicalPath } from "@/lib/seo/lot-schema";
 import type { UnifiedLot } from "@/types/lot";
 
 /**
@@ -74,11 +77,12 @@ interface LotPageProps {
     slug: string;
     lot: string;
   }>;
+  // A repeated param arrives as an array (see lotLinkQuery).
   searchParams: Promise<{
-    checkin?: string;
-    checkout?: string;
-    checkinTime?: string;
-    checkoutTime?: string;
+    checkin?: LinkParam;
+    checkout?: LinkParam;
+    checkinTime?: LinkParam;
+    checkoutTime?: LinkParam;
   }>;
 }
 
@@ -125,7 +129,13 @@ function UnavailableState({ backUrl }: { backUrl: string }) {
 
 async function LotPageContent({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  // Malformed or repeated link params read as absent (see lotLinkQuery).
+  const query = await searchParams;
+  const { checkin, checkout, checkinTime, checkoutTime, ignored } = lotLinkQuery(query);
+  if (ignored.length > 0) {
+    // Which sites send links we can't read (TRIPLY-2D). Body only, not generateMetadata.
+    console.warn(`[lot-page] ignored link date(s) ${ignored.join(", ")}`, { slug, lot: lotSlug, checkin: query.checkin, checkout: query.checkout });
+  }
 
   // Validate airport slug
   const airport = getAirportBySlug(slug);
@@ -137,9 +147,11 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
   // Note: ResLab requires advance booking, so use tomorrow if no date provided
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
   const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
+  // No (readable) check-out: a week after the check-in, so a link with only a
+  // far-off check-in never shows a reversed range.
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]; // tomorrow + 7 days
+    (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]); // tomorrow + 7 days
   // For pricing lookup only — actual booking times are required to be picked by the user.
   const { fromDate, toDate, pricingWindowFor } = lotPricing(
     defaultCheckin,
@@ -172,33 +184,9 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
-  // Structured data for parking facility
-  const parkingSchema = {
-    "@context": "https://schema.org",
-    "@type": "ParkingFacility",
-    name: lot.name,
-    ...(lot.address && {
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: lot.address,
-        ...(lot.city && { addressLocality: lot.city }),
-        ...(lot.state && { addressRegion: lot.state }),
-        ...(lot.zipCode && { postalCode: lot.zipCode }),
-      },
-    }),
-    ...(lot.latitude &&
-      lot.longitude && {
-        geo: {
-          "@type": "GeoCoordinates",
-          latitude: lot.latitude,
-          longitude: lot.longitude,
-        },
-      }),
-    ...(lot.pricing?.minPrice && {
-      priceRange: `From $${lot.pricing.minPrice.toFixed(2)}/day`,
-    }),
-    ...(lot.phone && { telephone: lot.phone }),
-  };
+  // Structured data (src/lib/seo/lot-schema.ts): fee-inclusive price only,
+  // no placeholder image, canonical on the airport that owns the lot.
+  const parkingSchema = buildLotSchema(lot, canonicalAirportFor(lot, airport).slug, lotSlug);
 
   const breadcrumbItems = [
     { name: "Home", href: "/" },
@@ -288,7 +276,8 @@ export default function LotPage(props: LotPageProps) {
 // Generate metadata
 export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const { slug, lot: lotSlug } = await params;
-  const { checkin, checkout, checkinTime, checkoutTime } = await searchParams;
+  // Malformed or repeated link params read as absent (see lotLinkQuery).
+  const { checkin, checkout, checkinTime, checkoutTime } = lotLinkQuery(await searchParams);
 
   const airport = getAirportBySlug(slug);
 
@@ -298,7 +287,7 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const defaultCheckin = checkin || tomorrow.toISOString().split("T")[0];
   const defaultCheckout =
     checkout ||
-    new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    (checkin ? shiftIsoDate(checkin, 7) : new Date(Date.now() + 8 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
   // Same window as the page body (it used a fixed 10:00 AM, a guaranteed 422
   // on every same-day view), so both renders make the same min-price call.
   const { fromDate, toDate, pricingWindowFor } = lotPricing(
@@ -324,14 +313,14 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
     // No `robots: noindex` here: that is a removal signal, and this is a
     // transient read failure on a URL we publish (see UnavailableState).
     if (err instanceof DirectInventoryUnavailableError) {
-      return { title: "Parking Temporarily Unavailable | Triply" };
+      return { title: "Parking Temporarily Unavailable" };
     }
     throw err;
   }
 
   if (!airport || !lot) {
     return {
-      title: "Parking Not Found | Triply",
+      title: "Parking Not Found",
     };
   }
 
@@ -339,8 +328,11 @@ export async function generateMetadata({ params, searchParams }: LotPageProps) {
   const ogImage = lot.photos?.[0]?.url || "/opengraph-image";
 
   return {
-    title: `${lot.name} - ${airport.code} Airport Parking | Triply`,
+    title: `${lot.name} - ${airport.code} Airport Parking`,
     description,
+    // Date/time query params make every search a new URL; point them all at the
+    // bare lot page — under the airport that owns the lot (see canonicalAirportFor).
+    alternates: { canonical: lotCanonicalPath(canonicalAirportFor(lot, airport).slug, lot.slug || lotSlug) },
     openGraph: {
       title: `${lot.name} - ${airport.code} Airport Parking`,
       description,

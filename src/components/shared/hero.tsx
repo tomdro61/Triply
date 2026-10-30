@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, SquareParking, Sparkles, Star, ShieldCheck, Clock, RefreshCw, Calendar as CalendarIcon } from "lucide-react";
 import { format, parse } from "date-fns";
@@ -9,10 +9,23 @@ import { maxAdvanceBookingDate } from "@/lib/booking-window";
 import { Button } from "@/components/ui/button";
 import { AirportCombobox } from "@/components/shared/airport-combobox";
 import { HeroChatInput } from "@/components/chat";
+import { HeroExtraTabContext, type HeroExtraTabValue } from "./hero-extra-tab";
+import { isAiChatEnabled } from "@/lib/ai/flag";
 
-type SearchTab = "parking" | "ai";
+type SearchTab = "parking" | "ai" | "extra";
 
-export function Hero() {
+interface HeroProps {
+  /**
+   * An optional extra tab, rendered once in the tab strip (second, between
+   * Parking and AI Assistant — or last when the AI tab is switched off by
+   * NEXT_PUBLIC_AI_CHAT_ENABLED=false); it portals its panel into the content
+   * area while active (see hero-extra-tab.ts).
+   * Unset: the default tabs, exactly.
+   */
+  extraTab?: ReactNode;
+}
+
+export function Hero({ extraTab }: HeroProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SearchTab>("parking");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,10 +52,29 @@ export function Hero() {
     }, 500);
   };
 
+  // The AI Assistant tab follows the kill switch (NEXT_PUBLIC_AI_CHAT_ENABLED).
+  // With it off, the strip may hold the Parking tab alone (the homepage always
+  // passes the Park & Stay slot, which renders nothing for customers), so the
+  // strip hides itself by CSS whenever a single button is all it contains —
+  // the server and the browser agree without knowing what the slot rendered.
+  const aiChatEnabled = isAiChatEnabled();
   const tabs = [
     { id: "parking" as const, icon: SquareParking, label: "Parking" },
-    { id: "ai" as const, icon: Sparkles, label: "AI Assistant" },
+    ...(aiChatEnabled ? [{ id: "ai" as const, icon: Sparkles, label: "AI Assistant" }] : []),
   ];
+
+  // The optional extra tab (hero-extra-tab.ts): rendered once, it portals
+  // its panel into `extraTabPanel` while active. Stable callbacks, so the
+  // tab can call unavailable() from an effect.
+  const [extraTabPanel, setExtraTabPanel] = useState<HTMLElement | null>(null);
+  const selectExtraTab = useCallback(() => setActiveTab("extra"), []);
+  const extraTabUnavailable = useCallback(() => setActiveTab((t) => (t === "extra" ? "parking" : t)), []);
+  const extraTabContext: HeroExtraTabValue = {
+    active: activeTab === "extra",
+    panel: activeTab === "extra" ? extraTabPanel : null,
+    select: selectExtraTab,
+    unavailable: extraTabUnavailable,
+  };
 
   return (
     <div
@@ -64,11 +96,11 @@ export function Hero() {
 
         {/* Search Container */}
         <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-          {/* Tabs */}
-          <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50">
-            {tabs.map((tab) => {
+          {/* Tabs — hidden when it would show one lone tab */}
+          <div className="flex overflow-x-auto no-scrollbar border-b border-gray-200 bg-gray-50 has-[>button:only-child]:hidden">
+            {tabs.map((tab, index) => {
               const isActive = activeTab === tab.id;
-              return (
+              const button = (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -87,15 +119,26 @@ export function Hero() {
                   {tab.label}
                 </button>
               );
+              // The optional extra tab sits second, between Parking and AI Assistant.
+              return index === 0 && extraTab ? (
+                <Fragment key={tab.id}>
+                  {button}
+                  <HeroExtraTabContext.Provider value={extraTabContext}>{extraTab}</HeroExtraTabContext.Provider>
+                </Fragment>
+              ) : (
+                button
+              );
             })}
           </div>
 
           {/* Content Area */}
           <div className="p-4 md:p-6 bg-white">
-            {activeTab === "ai" ? (
+            {activeTab === "ai" && aiChatEnabled ? (
               <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg p-4 md:p-6">
                 <HeroChatInput />
               </div>
+            ) : activeTab === "extra" && extraTab ? (
+              <div ref={setExtraTabPanel} />
             ) : (
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end animate-fade-in">
               {/* Location */}
@@ -192,8 +235,8 @@ export function Hero() {
         <div className="flex flex-wrap justify-center gap-3 mt-8">
           {[
             { icon: Star, label: "4.9 Rating", color: "text-yellow-400" },
-            { icon: ShieldCheck, label: "Verified Partners", color: "text-brand-orange" },
-            { icon: Clock, label: "24/7 Support", color: "text-blue-400" },
+            { icon: ShieldCheck, label: "Trusted Lots", color: "text-brand-orange" },
+            { icon: Clock, label: "Instant Confirmation", color: "text-blue-400" },
             { icon: RefreshCw, label: "Free Cancellation", color: "text-green-400" },
           ].map((item) => (
             <div

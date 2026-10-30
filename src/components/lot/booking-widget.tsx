@@ -17,7 +17,12 @@ import { format, parse } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackLotView } from "@/lib/analytics/gtag";
-import { calculateServiceFee } from "@/lib/utils/service-fee";
+import { priceViewFromPricing } from "@/lib/pricing/price-view";
+import { useLivePrice } from "./use-live-price";
+import { isUnavailable, shownPrice } from "./shown-price";
+import { PriceHeadline } from "./price-headline";
+import { PriceBreakdown } from "./price-breakdown";
+import { PriceFooter } from "./price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "./vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
@@ -100,7 +105,10 @@ export function BookingWidget({
   const [checkIn, setCheckIn] = useState(initialCheckIn);
   const [checkOut, setCheckOut] = useState(initialCheckOut);
   const [checkInTime, setCheckInTime] = useState(initialCheckInTime);
-  const [checkOutTime, setCheckOutTime] = useState(initialCheckOutTime);
+  // A link's check-out time counts only if it is one of the picker's options
+  // ("08:00 AM" or "14:00" from an old link reads as unselected, like a passed
+  // check-in time) — anything else would reach the quote and checkout malformed.
+  const [checkOutTime, setCheckOutTime] = useState(timeOptions.includes(initialCheckOutTime) ? initialCheckOutTime : "");
 
   // For a check-in today, hide slots already past (or inside the lot's notice
   // period) at the airport: ResLab refuses them at checkout. A pre-filled time
@@ -123,45 +131,33 @@ export function BookingWidget({
   );
   const selectedCheckInTime = checkInTimeOptions.includes(checkInTime) ? checkInTime : "";
 
-  // Use API pricing if available
-  const hasApiPricing = lot.pricing?.grandTotal !== undefined;
+  // The lot's pre-tax daily rate without our service fee — shown only when the
+  // lot has no total at all, and then without the "included" line.
   const price = lot.pricing?.minPrice ?? 0;
 
-  // Calculate number of days and total
-  const { days, subtotal, fees, taxes, serviceFee, total } = useMemo(() => {
-    const start = new Date(checkIn);
-    const end = new Date(checkOut);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-
-    // Use API values if available
-    if (hasApiPricing) {
-      const sub = lot.pricing?.subtotal || 0;
-      const feesTotal = lot.pricing?.feesTotal || 0;
-      const fee = calculateServiceFee(sub + feesTotal);
-      return {
-        days: lot.pricing?.numberOfDays || diffDays,
-        subtotal: sub + feesTotal,
-        fees: 0,
-        taxes: lot.pricing?.taxTotal || 0,
-        serviceFee: fee,
-        total: (lot.pricing?.grandTotal || price * diffDays) + fee,
-      };
-    }
-
-    // Fallback calculation
-    const sub = price * diffDays;
-    const tax = Math.round(sub * (lot.pricing?.taxValue || 8) / 100 * 100) / 100;
-    const fee = calculateServiceFee(sub);
-    return {
-      days: diffDays,
-      subtotal: sub,
-      fees: 0,
-      taxes: tax,
-      serviceFee: fee,
-      total: sub + tax + fee,
-    };
-  }, [checkIn, checkOut, price, hasApiPricing, lot.pricing]);
+  // The price the page was loaded with (the URL's dates, at the page's pricing
+  // times). Once the customer has picked both times, a live quote for the stay
+  // on screen replaces it — the total checkout will charge, before protection.
+  const loadedView = useMemo(
+    () => priceViewFromPricing(lot.pricing, lot.dueAtLocationAmount),
+    [lot.pricing, lot.dueAtLocationAmount]
+  );
+  // Reserve is off unless `lot.checkoutOpen` — resolved on the server by
+  // isDirectCheckoutOpen() (DIRECT_BOOKING_OPEN, or DIRECT_CHECKOUT_PREVIEW on
+  // preview/staging/dev). /api/checkout/lot refuses them too, so this is the
+  // courteous gate, not the only one.
+  const bookingNotOpenYet = lot.source === "direct" && !lot.checkoutOpen;
+  const live = useLivePrice({
+    lotId: lot.id,
+    checkIn,
+    checkOut,
+    checkInTime: selectedCheckInTime,
+    checkOutTime,
+    pricedCheckIn: initialCheckIn,
+    pricedCheckOut: initialCheckOut,
+    enabled: !bookingNotOpenYet,
+  });
+  const shown = shownPrice(live, loadedView, price);
 
   // Get cancellation policy text
   const cancellationText = lot.cancellationPolicies?.[0]
@@ -171,11 +167,12 @@ export function BookingWidget({
     : "Free cancellation up to 24h before";
 
   const timesMissing = !selectedCheckInTime || !checkOutTime;
-  // Direct lots bill 24-hour days from the dates AND times on screen; `days`
-  // above is the quote priced once from the URL and goes stale on edits, so the
+  // Direct lots bill 24-hour days from the dates AND times on screen, so the
   // minimum stay is checked against a fresh count (review R12, same as the
   // search slider). null until both times are set (timesMissing covers that).
-  // ResLab lots keep the existing count.
+  // ResLab lots use the billed days of the price on screen; while none is
+  // showing (loading, failed) the count is unknown and Reserve isn't blocked
+  // on it — counting calendar nights would under-count and block valid stays.
   const directQuote =
     lot.source === "direct"
       ? directReserveQuote({
@@ -187,21 +184,29 @@ export function BookingWidget({
           checkOutTime,
         })
       : null;
-  const stayDays: number | null = lot.source === "direct" ? (directQuote?.days ?? null) : days;
+  let stayDays: number | null = null;
+  if (lot.source === "direct") stayDays = directQuote?.days ?? null;
+  else if (shown.kind === "view") stayDays = shown.view.days;
   const belowMinDays = lot.minimumBookingDays && stayDays !== null ? stayDays < lot.minimumBookingDays : false;
-  // Reserve is off unless `lot.checkoutOpen` — resolved on the server by
-  // isDirectCheckoutOpen() (DIRECT_BOOKING_OPEN, or DIRECT_CHECKOUT_PREVIEW on
-  // preview/staging/dev). /api/checkout/lot refuses them too, so this is the
-  // courteous gate, not the only one.
-  const bookingNotOpenYet = lot.source === "direct" && !lot.checkoutOpen;
-  const reserveDisabled = timesMissing || belowMinDays || bookingNotOpenYet;
+  const soldOutForStay = isUnavailable(live);
+  // When ResLab has refused the stay (Reserve is already off), a short stay is
+  // the likely reason: calendar nights may name it. Message only — never a
+  // block, since calendar nights can under-count the billed days.
+  const calendarDays =
+    checkIn && checkOut
+      ? Math.max(1, Math.round((Date.parse(checkOut) - Date.parse(checkIn)) / 86_400_000))
+      : null;
+  const minStayHintDays = stayDays ?? (live.kind === "not_bookable" ? calendarDays : null);
+  const reserveDisabled = timesMissing || belowMinDays || bookingNotOpenYet || soldOutForStay;
   const reserveDisabledReason = bookingNotOpenYet
     ? "Online booking for this lot opens soon"
     : timesMissing
       ? "Select check-in and check-out times"
       : belowMinDays
         ? `Minimum ${lot.minimumBookingDays} days required`
-        : undefined;
+        : soldOutForStay
+          ? "Not available for these dates and times"
+          : undefined;
 
   // Direct lots with oversized-vehicle surcharges ask for the vehicle size in a
   // pop-up BEFORE checkout (vehicle-surcharge plan §1.4). Every other lot:
@@ -300,13 +305,7 @@ export function BookingWidget({
           justifyContent: "space-between",
           gap: 16,
         }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: "#111827" }}>${price.toFixed(2)}</span>
-            <span style={{ fontSize: 14, color: "#6b7280" }}>/day</span>
-          </div>
-          <span style={{ fontSize: 12, color: "#6b7280" }}>${total.toFixed(2)} total</span>
-        </div>
+        <PriceFooter shown={shown} dailyRate={price} />
         <button
           onClick={handleReserve}
           disabled={reserveDisabled}
@@ -322,11 +321,8 @@ export function BookingWidget({
 
     <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 sticky top-24">
       {/* Price Header */}
-      <div className="mb-6">
-        <span className="text-3xl font-bold text-gray-900">
-          ${price.toFixed(2)}
-        </span>
-        <span className="text-gray-500 font-medium"> / day</span>
+      <div className="mb-6" aria-live="polite">
+        <PriceHeadline shown={shown} dailyRate={price} />
       </div>
 
       {bookingNotOpenYet && (
@@ -355,7 +351,7 @@ export function BookingWidget({
       )}
 
       {/* Minimum Booking Days Warning */}
-      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && stayDays !== null && stayDays < lot.minimumBookingDays && (
+      {lot.minimumBookingDays && lot.minimumBookingDays > 1 && minStayHintDays !== null && minStayHintDays < lot.minimumBookingDays && (
         <div className="flex items-start gap-2 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
           <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
           <div className="text-sm">
@@ -474,49 +470,18 @@ export function BookingWidget({
         )}
       </DateRangePicker>
 
-      {/* Price Breakdown */}
-      <div className="bg-gray-50 rounded-lg p-4 mb-6 border border-gray-100">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>
-            ${price.toFixed(2)} x {days} {days === 1 ? "day" : "days"}
-          </span>
-          <span>${subtotal.toFixed(2)}</span>
-        </div>
-        {fees > 0 && (
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Fees</span>
-            <span>${fees.toFixed(2)}</span>
-          </div>
-        )}
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-          <span>Taxes</span>
-          <span>${taxes.toFixed(2)}</span>
-        </div>
-        {serviceFee > 0 && (
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Service fee</span>
-            <span>${serviceFee.toFixed(2)}</span>
-          </div>
-        )}
-        <div className="border-t border-gray-200 pt-2 flex justify-between font-bold text-gray-900 text-lg">
-          <span>Total</span>
-          <span>${total.toFixed(2)}</span>
-        </div>
-        {lot.dueAtLocation && lot.dueAtLocationAmount && (
-          <div className="mt-2 pt-2 border-t border-gray-200">
-            <div className="flex justify-between text-sm text-amber-700">
-              <span>Due at location</span>
-              <span>${lot.dueAtLocationAmount.toFixed(2)}</span>
-            </div>
-          </div>
-        )}
-        {surchargeNotice && (
-          // Before Reserve, so the fee is never a surprise (review R10).
-          <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
-            Oversized vehicles {surchargeNotice}, paid at the lot.
-          </p>
-        )}
-      </div>
+      <PriceBreakdown
+        shown={shown}
+        className="mb-6"
+        note={
+          surchargeNotice && (
+            // Before Reserve, so the fee is never a surprise (review R10).
+            <p className="mt-2 pt-2 border-t border-gray-200 text-xs text-gray-600">
+              Oversized vehicles {surchargeNotice}, paid at the lot.
+            </p>
+          )
+        }
+      />
 
       {/* Reserve Button — hidden on mobile, sticky footer handles it */}
       <div className="hidden lg:block space-y-3">

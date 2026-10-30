@@ -11,6 +11,11 @@ import { FakeSupabase } from "@/lib/booking/__tests__/supabase-fake";
 
 const db = new FakeSupabase();
 const stripeMock = { paymentIntents: { retrieve: vi.fn() } };
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  RECONCILIATION_ALERT_COLUMNS: "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source",
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+  scheduleReconciliationAlert: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => db }));
 vi.mock("@/lib/stripe/client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/stripe/client")>("@/lib/stripe/client");

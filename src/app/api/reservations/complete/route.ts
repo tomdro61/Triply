@@ -22,6 +22,7 @@ import {
   PaymentNotConfirmedError,
 } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
+import { moneyOnCard } from "@/lib/stripe/money-on-card";
 
 export const maxDuration = 60;
 
@@ -63,6 +64,22 @@ async function buildConfirmationUrl(
   return `/confirmation/${encodeURIComponent(
     reservationNumber
   )}?${params.toString()}`;
+}
+
+/**
+ * What is on the card NOW, for the needs_support answer — the shared,
+ * bounded, post-fulfilment read (src/lib/stripe/money-on-card.ts; it reads
+ * AFTER `createBooking`, which captures inside that call). A refunded or
+ * unknown state yields no figure, and the page uses its "not final" sentence.
+ */
+async function moneyForAnswer(
+  piId: string
+): Promise<{ amountCents: number; currency: string; charge: "hold" | "captured" } | Record<string, never>> {
+  const money = await moneyOnCard(piId);
+  if (money.kind === "hold" || money.kind === "captured") {
+    return { amountCents: money.amountCents, currency: money.currency, charge: money.kind };
+  }
+  return {};
 }
 
 export async function POST(request: NextRequest) {
@@ -159,10 +176,21 @@ export async function POST(request: NextRequest) {
         });
 
       case "needs_reconciliation":
+        // `retryable` = we could not READ our own state (a database blip);
+        // nothing is known to be wrong with the booking and the webhook / the
+        // next poll may well finish it. Keep the page polling (its 90 s
+        // ceiling and Sentry event still apply) instead of parking the
+        // customer on "our team has been alerted" for a two-second fault.
+        if (outcome.retryable) return NextResponse.json({ state: "pending" });
+        // Money is held or taken and the booking state is genuinely unknown.
+        // The page says what is on the card from Stripe's own figures — never
+        // "not charged", never a client-supplied amount.
         return NextResponse.json({
           state: "needs_support",
           message:
-            "We're confirming your reservation with the parking facility. Our team will email you shortly — please don't rebook.",
+            "We're confirming your reservation with the parking facility. Our team has been alerted and will email you as soon as it's resolved.",
+          reference: piId,
+          ...(await moneyForAnswer(piId)),
         });
 
       case "failed":

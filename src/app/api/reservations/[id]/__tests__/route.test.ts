@@ -576,6 +576,7 @@ describe("ResLab booking — unchanged", () => {
     protection_plan_price: "12.99",
     pg_identifier: "PG-9",
     pg_sync_status: "synced",
+    airport_code: "EWR",
     inventory_source: "reslab",
     direct_lot_id: null,
     lot_snapshot: null,
@@ -673,6 +674,7 @@ describe("ResLab booking — unchanged", () => {
         protectionPlanPrice: 12.99,
         pgIdentifier: "PG-9",
         pgSyncStatus: "synced",
+        airportCode: "EWR",
         dueNow: 70.82 + 5.95 + 12.99 - 20,
         dueAtLocation: 20,
         costBreakdown: {
@@ -740,6 +742,45 @@ describe("ResLab booking — unchanged", () => {
     expect(h.retrievePi).not.toHaveBeenCalled();
     expect(h.sentryEvents).toHaveLength(1);
     expect(h.sentryEvents[0]).toMatchObject({ level: "error", fingerprint: ["cost-breakdown-fallback", "row_read_failed"] });
+  });
+
+  // RTL869257: the rate changes mid-stay, so ResLab splits the stay into one
+  // parking_rates line per rate period (3 + 1 + 1 days). The page said "3 days".
+  const splitRateReservation = {
+    ...reslabReservation,
+    history: [
+      {
+        ...reslabReservation.history[0],
+        dates: [
+          {
+            from_date: "2026-10-02 06:00:00",
+            to_date: "2026-10-06 23:30:00",
+            type: { name: "Outdoor" },
+            parking_rates: [
+              { from_date: "2026-10-02 00:00:00", to_date: "2026-10-04 00:00:00", number_of_days: 3, number_of_parkings: 1, rate: { location_parking_type: { name: "Outdoor Self Park" } } },
+              { from_date: "2026-10-05 00:00:00", to_date: "2026-10-05 00:00:00", number_of_days: 1, number_of_parkings: 1, rate: null },
+              { from_date: "2026-10-06 00:00:00", to_date: "2026-10-06 00:00:00", number_of_days: 1, number_of_parkings: 1, rate: null },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  it("a stay split over several rate periods counts every period's days (5, not the first line's 3)", async () => {
+    h.state.detailRow = { data: reslabRow, error: null };
+    h.getReservation.mockResolvedValue(splitRateReservation);
+    const { reservation } = await (await call(RTL)).json();
+    expect(reservation.items[0].numberOfDays).toBe(5);
+    expect(reservation.costBreakdown.lines[0]).toMatchObject({ key: "parking", label: "Parking — 5 days" });
+    expect(reservation.items[0].parkingType).toBe("Outdoor Self Park");
+  });
+
+  it("without row times, the dates are the whole stay's, not the first rate period's", async () => {
+    h.state.detailRow = { data: null, error: { message: "timeout", code: "57014" } };
+    h.getReservation.mockResolvedValue(splitRateReservation);
+    const { reservation } = await (await call(RTL)).json();
+    expect(reservation.items[0]).toMatchObject({ fromDate: "2026-10-02 06:00:00", toDate: "2026-10-06 23:30:00", numberOfDays: 5 });
   });
 
   // 10 % of ResLab's 60.00 sub_total (the base /api/checkout/lot discounts) = 6.00.

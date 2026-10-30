@@ -20,6 +20,63 @@ import type { CancellationReport } from "@/lib/cancellation/report";
 import { PROTECTION_PLANS, PROTECTION_PLAN_CODES } from "@/lib/parkguard/plans";
 import { readStatsResponse } from "@/lib/admin/stats-response";
 import { bookingSourceLabelForKey } from "@/lib/attribution/source";
+import {
+  accountingMixSchema,
+  isDefinitive,
+  keptStateOf,
+  mixFromAccounting,
+  schemaIssuePaths,
+  type KeptState,
+  type MoneyMix,
+} from "@/lib/admin/revenue-mix";
+import { reportMixShape } from "@/lib/admin/report-mix-shape";
+import { adminDateRange } from "@/lib/admin/eastern-day";
+import { MoneyBreakdown } from "@/components/admin/money-breakdown";
+
+type MonthMixState = MoneyMix | "loading" | { error: string };
+
+// This month's profit comes from the reconciler: one ResLab + one Stripe
+// lookup per booking this month, on every dashboard visit the cache below
+// doesn't cover. Cached for the tab for 10 minutes so moving around the admin
+// and back doesn't re-run it; the month is still moving, so never longer. The
+// cache holds the reconciler's own slice and re-parses it on read, so an
+// entry from an older shape is a miss, never misread; only a definitive result
+// (profit known, no Park Guard rows overstating it) is kept. Storage can be
+// unavailable (private mode) — try/caught.
+const MONTH_MIX_CACHE_KEY = "admin-dashboard:month-mix:v2";
+const MONTH_MIX_TTL_MS = 10 * 60 * 1000;
+function readCachedMonthMix(monthKey: string): MoneyMix | null {
+  try {
+    const raw = sessionStorage.getItem(MONTH_MIX_CACHE_KEY);
+    if (!raw) return null;
+    const v: unknown = JSON.parse(raw);
+    if (typeof v !== "object" || v === null || !("monthKey" in v) || !("at" in v) || !("slice" in v)) return null;
+    const age = typeof v.at === "number" ? Date.now() - v.at : NaN;
+    if (v.monthKey !== monthKey || !(age >= 0 && age < MONTH_MIX_TTL_MS)) return null;
+    const parsed = accountingMixSchema.safeParse(v.slice);
+    if (!parsed.success) return null;
+    const mix = mixFromAccounting(parsed.data);
+    return isDefinitive(mix) ? mix : null;
+  } catch {
+    return null;
+  }
+}
+function writeCachedMonthMix(monthKey: string, slice: unknown): void {
+  try {
+    sessionStorage.setItem(MONTH_MIX_CACHE_KEY, JSON.stringify({ monthKey, at: Date.now(), slice }));
+  } catch {
+    /* storage unavailable — the figures still render, they just aren't cached */
+  }
+}
+
+/** What a failed accounting request means for the person looking at the page. */
+function accountingFailure(status: number, serverMessage: string | null): string {
+  if (status === 401 || status === 403) return "your admin session has expired — sign in again";
+  if (status === 504) return "the ResLab/Stripe lookups took too long — refresh to try again";
+  if (status >= 500)
+    return `the accounting query failed (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""}) — check Sentry`;
+  return `the request was refused (HTTP ${status}${serverMessage ? `: ${serverMessage}` : ""})`;
+}
 
 interface Stats {
   bookings: {
@@ -75,6 +132,8 @@ interface Stats {
     warnings: string[];
   } | null;
   attributionWarnings?: string[];
+  /** Abandoned-checkout emails in the range (live). null = unavailable. */
+  recovery?: { sent: number; optedOut: number; recoveredBookings: number | null } | null;
   /** Migration 032. null + cancellationsError when the fetch failed. */
   cancellations?: CancellationReport | null;
   cancellationsError?: string | null;
@@ -218,6 +277,64 @@ export default function AdminDashboard() {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
+  const [monthMix, setMonthMix] = useState<MonthMixState>("loading");
+
+  // This month so far (a UTC month, like the accounting page it reads; the
+  // stat cards use Eastern days), independent of the date filter. Loaded once
+  // per visit.
+  useEffect(() => {
+    const controller = new AbortController();
+    const today = new Date().toISOString().slice(0, 10);
+    const monthKey = today.slice(0, 7);
+    const cached = readCachedMonthMix(monthKey);
+    if (cached) {
+      setMonthMix(cached);
+      return;
+    }
+    (async () => {
+      try {
+        const r = await fetch(`/api/admin/accounting?from=${monthKey}-01&to=${today}&by=created`, {
+          signal: controller.signal,
+        });
+        // A body that isn't JSON (an HTML error page, a cut-off response) is
+        // its own failure, not a schema change.
+        let body: unknown;
+        let readable = true;
+        try {
+          body = await r.json();
+        } catch {
+          readable = false;
+        }
+        if (controller.signal.aborted) return;
+        if (r.ok && !readable) {
+          setMonthMix({ error: `unreadable accounting response (HTTP ${r.status}, not JSON) — refresh to try again` });
+          return;
+        }
+        if (!r.ok) {
+          const serverMessage =
+            typeof body === "object" && body !== null && "error" in body && typeof body.error === "string"
+              ? body.error
+              : null;
+          setMonthMix({ error: accountingFailure(r.status, serverMessage) });
+          return;
+        }
+        const parsed = accountingMixSchema.safeParse(body);
+        if (!parsed.success) {
+          const paths = schemaIssuePaths(parsed.error);
+          reportMixShape(paths, "/admin");
+          setMonthMix({ error: `the accounting response changed shape (${paths}) — reported to Sentry` });
+          return;
+        }
+        const mix = mixFromAccounting(parsed.data);
+        setMonthMix(mix);
+        if (isDefinitive(mix)) writeCachedMonthMix(monthKey, parsed.data);
+      } catch (e) {
+        if (controller.signal.aborted) return;
+        setMonthMix({ error: `network error (${e instanceof Error ? e.message : String(e)}) — refresh to try again` });
+      }
+    })();
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -227,37 +344,15 @@ export default function AdminDashboard() {
         // rows on every deployment) — the list's own default follows the Stripe key.
         const bookingParams = new URLSearchParams({ limit: "5", mode: "live" });
 
-        // Date range filtering
-        if (dateRange !== "all") {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-
-          if (dateRange === "today") {
-            params.set("startDate", today.toISOString());
-            bookingParams.set("startDate", today.toISOString());
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            params.set("endDate", tomorrow.toISOString());
-            bookingParams.set("endDate", tomorrow.toISOString());
-          } else if (dateRange === "week") {
-            const weekStart = new Date(today);
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            params.set("startDate", weekStart.toISOString());
-            bookingParams.set("startDate", weekStart.toISOString());
-          } else if (dateRange === "month") {
-            const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-            params.set("startDate", monthStart.toISOString());
-            bookingParams.set("startDate", monthStart.toISOString());
-          } else if (dateRange === "custom" && customStartDate) {
-            params.set("startDate", new Date(customStartDate).toISOString());
-            bookingParams.set("startDate", new Date(customStartDate).toISOString());
-            if (customEndDate) {
-              const endDate = new Date(customEndDate);
-              endDate.setDate(endDate.getDate() + 1);
-              params.set("endDate", endDate.toISOString());
-              bookingParams.set("endDate", endDate.toISOString());
-            }
-          }
+        // Date range filtering, on Eastern calendar days.
+        const { startDate, endDate } = adminDateRange(dateRange, { start: customStartDate, end: customEndDate });
+        if (startDate) {
+          params.set("startDate", startDate);
+          bookingParams.set("startDate", startDate);
+        }
+        if (endDate) {
+          params.set("endDate", endDate);
+          bookingParams.set("endDate", endDate);
         }
 
         // Each response is read on its own: a failure of one (a 504 HTML body,
@@ -309,6 +404,19 @@ export default function AdminDashboard() {
     );
   }
 
+  // BOTH sides of the card come from the reconciler, so revenue, profit and
+  // every ratio cover the same bookings in the same (UTC) month. Until it
+  // answers the card shows "—": the stat cards' month is an Eastern month, so
+  // it can't stand in under this card's UTC label.
+  const monthLoaded = monthMix !== "loading" && !("error" in monthMix) ? monthMix : null;
+  const monthKept: KeptState =
+    monthMix === "loading"
+      ? "loading"
+      : "error" in monthMix
+        ? { unavailable: monthMix.error }
+        : keptStateOf(monthMix);
+  const monthPaid = monthLoaded ? monthLoaded.paid : null;
+
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
@@ -346,6 +454,8 @@ export default function AdminDashboard() {
               <option value="today">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+              <option value="last7">Last 7 Days</option>
+              <option value="last30">Last 30 Days</option>
               <option value="custom">Custom Range</option>
             </select>
           </div>
@@ -398,25 +508,53 @@ export default function AdminDashboard() {
           color="orange"
         />
         <StatCard
-          title="Gross Revenue"
+          title="Total booking value"
           value={formatPrice(stats?.revenue.gross.total || 0)}
-          subValue={`Triply: ${formatPrice(stats?.revenue.triply.total || 0)}`}
+          subValue={`Service fees: ${formatPrice(stats?.revenue.triply.total || 0)}`}
           icon={DollarSign}
           color="green"
         />
         <StatCard
           title="Today's Bookings"
           value={stats?.bookings.today || 0}
-          subValue={`${formatPrice(stats?.revenue.gross.today || 0)} gross`}
+          subValue={`${formatPrice(stats?.revenue.gross.today || 0)} booking value`}
           icon={Calendar}
           color="blue"
         />
         <StatCard
           title="This Week"
           value={stats?.bookings.thisWeek || 0}
-          subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} gross`}
+          subValue={`${formatPrice(stats?.revenue.gross.thisWeek || 0)} booking value`}
           icon={TrendingUp}
           color="purple"
+        />
+      </div>
+
+      {/* This month so far: revenue (instant, from stats) + what we kept (reconciler) */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-5">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              This month so far
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                {new Date().toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })}
+              </span>
+            </h2>
+            <p className="text-xs text-gray-500">Bookings made this month (UTC), whatever the date filter above says</p>
+          </div>
+          <Link
+            href="/admin/numbers"
+            className="text-sm text-brand-orange hover:text-orange-600 inline-flex items-center gap-1"
+          >
+            Month by month
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+        <MoneyBreakdown
+          paid={monthPaid}
+          kept={monthKept}
+          directConfirmed={monthLoaded ? monthLoaded.directConfirmed : null}
+          pgWholesaleMissing={monthLoaded ? monthLoaded.pgWholesaleMissing : 0}
         />
       </div>
 
@@ -565,6 +703,34 @@ export default function AdminDashboard() {
               Margin per code lives on the Accounting page (this view does not model ResLab settlement).
             </p>
           </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h3 className="font-semibold text-gray-900 mb-4">Abandoned-checkout emails</h3>
+            {!stats.recovery ? (
+              <p className="text-sm text-amber-700">Email data unavailable — check Sentry.</p>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Emails sent</span>
+                  <span className="font-semibold text-gray-900">{stats.recovery.sent}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Bookings through the email link</span>
+                  <span className="font-semibold text-gray-900">
+                    {stats.recovery.recoveredBookings ?? "unavailable"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Unsubscribed</span>
+                  <span className="font-semibold text-gray-900">{stats.recovery.optedOut}</span>
+                </div>
+                <p className="pt-1 text-xs text-gray-400">
+                  Live emails in the selected range. Bookings count only customers who came back through the
+                  email&apos;s link, so it&apos;s a floor.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -591,7 +757,15 @@ export default function AdminDashboard() {
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-6">
-          <h3 className="font-semibold text-gray-900 mb-4">Revenue Summary</h3>
+          <h3 className="font-semibold text-gray-900">Booking value</h3>
+          <p className="mb-4 mt-1 text-xs text-gray-500">
+            What customers spent before promo discounts, including the lot&apos;s share and anything paid at the lot. Profit (what we
+            kept) is in &ldquo;This month so far&rdquo; above and, by month, on{" "}
+            <Link href="/admin/numbers" className="text-brand-orange hover:underline">
+              Monthly numbers
+            </Link>
+            .
+          </p>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-500">Today</p>
@@ -599,7 +773,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.today || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.today || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.today || 0)}
               </p>
             </div>
             <div>
@@ -608,7 +782,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.thisWeek || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.thisWeek || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.thisWeek || 0)}
               </p>
             </div>
             <div>
@@ -617,7 +791,7 @@ export default function AdminDashboard() {
                 {formatPrice(stats?.revenue.gross.thisMonth || 0)}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">
-                Triply: {formatPrice(stats?.revenue.triply.thisMonth || 0)}
+                Service fees: {formatPrice(stats?.revenue.triply.thisMonth || 0)}
               </p>
             </div>
           </div>
@@ -672,7 +846,7 @@ export default function AdminDashboard() {
                   {(rate * 100).toFixed(1)}% of {confirmed} confirmed
                 </p>
                 <div className="mt-3 pt-3 border-t border-gray-200">
-                  <p className="text-xs text-gray-500">Triply margin</p>
+                  <p className="text-xs text-gray-500">Park Guard margin</p>
                   <p className="text-lg font-semibold text-emerald-700">
                     {formatPrice(margin)}
                   </p>

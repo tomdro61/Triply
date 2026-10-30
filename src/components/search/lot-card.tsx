@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import {
   Star,
   MapPin,
@@ -21,7 +22,8 @@ import {
 } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
 import { trackSelectItem } from "@/lib/analytics/gtag";
-import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
 
 interface LotCardProps {
@@ -35,9 +37,11 @@ interface LotCardProps {
    * observer; every other card stays lazy.
    */
   isFirst?: boolean;
+  /** An optional extra badge under the distance line. Unset renders nothing. */
+  extraBadge?: ReactNode;
 }
 
-export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: LotCardProps) {
+export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, extraBadge }: LotCardProps) {
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -99,11 +103,16 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
 
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
-  const originalPrice = lot.pricing?.parkingTypes[0]?.originalPrice;
+  // Headline = the whole stay for the searched dates, taxes and our service fee
+  // included, before optional protection or a promo (on Pay at Location lots,
+  // part of it is paid at the lot). The pre-tax daily rate without our service
+  // fee shows only when there is no total, and then without the "included" line.
+  const total = customerTotalFromPricing(lot.pricing);
+  const perDay = customerPerDayFromPricing(lot.pricing);
 
   return (
     <div
-      className={`group bg-white rounded-xl border transition-all duration-300 flex flex-col sm:flex-row overflow-hidden hover:shadow-lg ${
+      className={`group bg-white rounded-xl border transition-all duration-300 flex flex-col @lg:flex-row overflow-hidden hover:shadow-lg ${
         isHovered
           ? "ring-2 ring-brand-orange border-transparent shadow-lg"
           : "border-gray-200 shadow-sm"
@@ -112,13 +121,14 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
       onMouseLeave={() => onHover(null)}
     >
       {/* Image */}
-      <div className="sm:w-48 sm:h-auto h-48 relative flex-shrink-0">
+      <div className="@lg:w-48 @lg:h-auto h-48 relative flex-shrink-0">
         <Image
           src={mainImage}
           alt={lot.name}
           fill
           className="object-cover"
-          sizes="(max-width: 640px) 100vw, 192px"
+          // Full card width when stacked: phones, and the narrow list on 1024–1279 px screens.
+          sizes="(max-width: 640px) 100vw, (min-width: 1024px) and (max-width: 1279px) 480px, 192px"
           loading={isFirst ? "eager" : "lazy"}
           fetchPriority={isFirst ? "high" : "auto"}
         />
@@ -130,10 +140,12 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 flex flex-col">
+      <div className="flex-1 min-w-0 p-4 flex flex-col">
         {/* Header Row */}
-        <div className="flex justify-between items-start mb-1">
-          <div>
+        {/* The price column never shrinks: on a narrow list (1024–1279 px) the
+            name wraps instead of the total and "Taxes & fees included" clipping. */}
+        <div className="flex justify-between items-start gap-2 mb-1">
+          <div className="min-w-0">
             <LotBadges badges={lot.badges} className="mb-1.5" />
             <h3 className="font-bold text-gray-900 text-lg leading-tight">
               {lot.name}
@@ -144,20 +156,21 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false }: 
                 ? `${lot.distanceFromAirport.toFixed(1)} mi from airport`
                 : lot.address}
             </div>
+            {extraBadge}
           </div>
-          <div className="text-right">
-            {originalPrice && (
-              <div className="text-xs text-gray-400 line-through font-medium">
-                ${originalPrice}
-              </div>
-            )}
-            <div className="text-xl font-bold text-gray-900">
-              ${price.toFixed(2)}
-              <span className="text-xs text-gray-500 font-normal">/day</span>
-            </div>
-            {lot.pricing?.grandTotal && (
-              <div className="text-xs text-gray-500 font-medium">
-                ${(customerTotalFromPricing(lot.pricing) ?? lot.pricing.grandTotal).toFixed(2)} total
+          <div className="text-right shrink-0">
+            {total !== null ? (
+              <>
+                {perDay !== null && (
+                  <div className="text-xs text-gray-500">${perDay.toFixed(2)}/day</div>
+                )}
+                <div className="text-xl font-bold text-gray-900">${total.toFixed(2)}</div>
+                <TaxesAndFeesIncluded className="text-[11px] justify-end" />
+              </>
+            ) : (
+              <div className="text-xl font-bold text-gray-900">
+                ${price.toFixed(2)}
+                <span className="text-xs text-gray-500 font-normal">/day</span>
               </div>
             )}
             {lot.dueAtLocation && (

@@ -13,6 +13,7 @@ import {
   protectionPlanName,
 } from "@/lib/booking/confirmation-payment";
 import { readCardPayment, reportCostBreakdownFallback } from "@/lib/booking/read-card-payment";
+import { billedParkingDays } from "@/lib/reslab/billed-days";
 
 /**
  * The guest as typed at checkout, for a direct booking's confirmation page: the
@@ -235,7 +236,7 @@ export async function GET(
     const { data: bookingData, error: bookingErr } = await adminClientForVehicle
       .from("bookings")
       .select(`
-        vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_code, protection_plan_price, pg_identifier, pg_sync_status,
+        vehicle_info, triply_service_fee, check_in, check_out, protection_plan, protection_plan_code, protection_plan_price, pg_identifier, pg_sync_status, airport_code,
         inventory_source, direct_lot_id, lot_snapshot, vehicle_size, vehicle_size_label, vehicle_surcharge_cents, vehicle_surcharge_tax_cents,
         status, subtotal, tax_total, fees_total, grand_total, discount_amount, promo_code, due_at_location, cancel_state,
         stripe_payment_intent_id,
@@ -413,6 +414,8 @@ export async function GET(
     // Get dates from the first item in history
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dates = history?.dates?.[0] as any;
+    // First rate line: spot count and parking type only. A stay can span several
+    // lines (one per rate period) — the day count sums them (billedParkingDays).
     const parkingRates = dates?.parking_rates?.[0];
 
     // --- Payment summary (plan notes/2026-10-12-cost-breakdown-plan.md) ---
@@ -424,8 +427,7 @@ export async function GET(
     // read that failed or a PaymentIntent that isn't settled.
     const rowRead = bookingData ?? null;
     const rowPlan: string | null = rowRead ? rowRead.protection_plan || null : null;
-    const billedDaysRaw: unknown = parkingRates?.number_of_days ?? dates?.number_of_days;
-    const billedDays = typeof billedDaysRaw === "number" && Number.isInteger(billedDaysRaw) ? billedDaysRaw : null;
+    const billedDays = billedParkingDays(dates);
     const cancelled = reslabCancelled || rowCancelled;
     // Guarded: ResLab's history is untyped JSON. Whatever it holds, a throw
     // in the breakdown becomes a refused breakdown (its own reason class, the
@@ -526,6 +528,9 @@ export async function GET(
         protectionPlanPrice,
         pgIdentifier: bookingData?.pg_identifier || null,
         pgSyncStatus: bookingData?.pg_sync_status || null,
+        // The booking's airport (e.g. "JFK") for the GA4 purchase event — the
+        // lot id can't supply it ("reslab-<n>"). From Vin's PR #72.
+        airportCode: bookingData?.airport_code || null,
         dueNow: (history?.grand_total || 0) + triplyServiceFee + protectionPlanPrice - (history?.due_at_location_total || 0),
         dueAtLocation: history?.due_at_location_total || 0,
         costBreakdown,
@@ -540,10 +545,12 @@ export async function GET(
         items: dates ? [{
           type: "parking",
           // Prefer Supabase values for times — ResLab's API can return midnight
-          // even when the dashboard shows the correct picked time.
-          fromDate: supabaseFromDate || parkingRates?.from_date || dates.from_date,
-          toDate: supabaseToDate || parkingRates?.to_date || dates.to_date,
-          numberOfDays: parkingRates?.number_of_days || dates.number_of_days,
+          // even when the dashboard shows the correct picked time. Then the
+          // block's own dates (the whole stay), never the first rate line's,
+          // which ends where the first rate period does.
+          fromDate: supabaseFromDate || dates.from_date || parkingRates?.from_date,
+          toDate: supabaseToDate || dates.to_date || parkingRates?.to_date,
+          numberOfDays: billedDays ?? undefined,
           numberOfSpots: parkingRates?.number_of_parkings || 1,
           parkingType: parkingRates?.rate?.location_parking_type?.name || dates.type?.name,
         }] : [],
