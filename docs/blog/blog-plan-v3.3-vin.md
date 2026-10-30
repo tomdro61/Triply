@@ -356,7 +356,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [x] **18.** **B-4** — preview → apply command; dry run on one post shows diff + lint. Vin.
 - [ ] **19.** **B-5 prep** — 101 + 294 candidate pairs run through Stage A's zero-signal filter; Tom signs off each pair. Vin, Tom.
 - [x] **20.** **B-2** — linking pass, airports 1–10 by traffic (dry run → apply → spot-check 5 pages each). Vin.
-- [ ] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
+- [x] **21.** **E-1** — Christmas/New Year pages for the top 10 airports. Vin + Claude. Done: live, linked from hubs.
 - [ ] **22.** **C-2** — December index data collection scripted and scheduled (pull the week before it goes live). Vin.
 - [x] **23.** **D-10** — "list your lot" article series brief (3 pieces) written. Vin.
 
