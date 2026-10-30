@@ -40,6 +40,38 @@ token files, `.env`, `.bak` files, the Thanksgiving price-index markdown (now re
 Still open in W1: 1.6 sellable-only CAD helpers (Tom's PR #96; it conflicts on `airport-data.ts`,
 `external-links.ts`, `infographics.ts`, `prompts/*`), 1.8 P3c (waits on P3).
 
+## Redirects and the preview → apply path (stacked PR, roadmap steps 17–18)
+
+**Redirect map wiring (B-3).** `src/config/blog-redirects.json` (repo root, flattened `{ old: new }`)
+now feeds two places through `src/lib/blog/blog-redirects.mjs`:
+- `next.config.mjs` `redirects()`: every entry becomes `/blog/<old>` → `/blog/<new>`, `permanent: true` (308).
+- `src/components/blog/RichText.tsx`: any link to `/blog/<old>` renders as `/blog/<new>`, whether it is
+  absolute (`triplypro.com`, with or without `www`) or relative, and keeps any trailing slash, query or `#fragment`.
+  Readers and crawlers never hop through the redirect.
+The map stays empty until the W2 merge test. Tests: `src/lib/blog/__tests__/blog-redirects.test.ts` and
+`src/config/__tests__/blog-redirects.test.ts` (no chains, no loops).
+
+**`apply-edit` (B-4): the one way to change an existing post.**
+
+```
+npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --preview
+npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --apply [--stamp]
+```
+
+`edit.json` holds `fields` (title, excerpt, seo, faqItems) and/or `insert`
+(`{ "underHeading": "...", "html": "<p>...</p>", "position": "end" | "start" }`).
+- `--preview` reads the post by slug in any status and applies the edit in memory. It runs the lint
+  (existing-post rules), the **P3 price check** and the link/image guard. It then writes
+  `reports/apply-preview/<slug>.html`, `.diff.txt` and `.meta.json`. Nothing goes to the CMS.
+- The P3 price check is deny by default. Every `$`/`C$` figure the edit adds must be in
+  `data/airports/<code>.json`, with lots already limited to sellable ones, or sit in a paragraph that links its source.
+- `--apply` re-reads the post and refuses if it changed since the preview. It re-runs every check,
+  backs up the live JSON, then PATCHes by id. Only the new section goes through HTML → Lexical; the rest
+  of the body is spliced untouched. It re-reads to confirm no link or image was lost and pings IndexNow
+  when the post is published.
+- `contentUpdatedAt` moves only with `--stamp` **and** a non-empty facts diff, meaning a number-bearing
+  sentence was added or removed.
+
 ## Flags
 
 ```
@@ -61,6 +93,7 @@ cd scripts/blog-engine && npm install
 npx tsc --noEmit        # the XLSX namespace errors in the import-queue scripts are known and pre-existing
 npm test                # node:test — guard, lint, stamp, html-to-lexical, gsc paging, retry …
 npm run generate -- -a JFK -n 1 --dry-run
+npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --preview
 ```
 
 No secrets: `.env` is gitignored; `.env.example` lists every variable.
