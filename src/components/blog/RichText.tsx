@@ -3,6 +3,8 @@
 import React from 'react'
 import * as Sentry from '@sentry/nextjs'
 import { ComparisonTable } from './ComparisonTable'
+import { resolveBlogHref } from '@/lib/blog/blog-redirects.mjs'
+import blogRedirectMap from '@/config/blog-redirects.json'
 
 // Lexical node types that Payload uses
 type LexicalNode = {
@@ -219,7 +221,8 @@ function renderNode(node: LexicalNode, index: number): React.ReactNode {
 
     case 'link':
     case 'autolink': {
-      const linkUrl = node.fields?.url || node.url
+      // A link to a merged post renders as its destination (W2): no redirect hop for readers or crawlers.
+      const linkUrl = resolveBlogHref(node.fields?.url || node.url, blogRedirectMap as Record<string, string>)
       const openNewTab = node.fields?.newTab ?? node.newTab
       const fieldRel = node.fields?.rel
       const relParts = new Set<string>()
