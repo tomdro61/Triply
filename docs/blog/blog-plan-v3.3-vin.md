@@ -344,7 +344,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 
 ### Block 4 — Thanksgiving pages, the index, first pitch, off-page profiles
 - [x] **10.** **E-1** — Thanksgiving pages for the top 10 airports by blog bookings, guard-checked, answer-first, cited advisories, linked from hubs. Vin + Claude. Done: live, linked from hubs.
-- [ ] **11.** **C-1** — index method page live, linked from the Thanksgiving index. Vin + Claude.
+- [x] **11.** **C-1** — index method page live, linked from the Thanksgiving index. Vin + Claude.
 - [ ] **12.** **C-1** — the airport's index line + link added to all 25 indexed hubs. Vin + Claude.
 - [ ] **13.** **D-1** — Thanksgiving index pitched to local news/travel desks at the 25 airports; log of who/when. Vin.
 - [ ] **14.** **D-2** — reporter-request accounts set up; first answers sent. Vin.
