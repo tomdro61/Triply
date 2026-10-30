@@ -141,7 +141,7 @@ Everything in v3.2 stands. This section only records status and the few changes.
 `src/index.ts:630` (regenerate existing slug), `src/perf-apply.ts:151,159` (perf body/FAQ additions),
 `src/monthly-prices.ts:260` (hub price tables), `src/inject-coupon.ts:97` (coupon block),
 `reports/lot-rewrite/publish.mts:56` (lot-article rewrites). Oct 13 = the lot-rewrite/API-rewrite runs
-that week. Sep 23 is being matched against the perf ledgers; confirmed at step 16. None runs in bulk now.
+that week. **The Sep 23 stamps (778 posts) are the quick-answer rollout** of 22–23 Sep (`perf run --only quick-answer --apply`, via `perf-apply.ts`): every stamped post gained a "Quick answer" block as its first paragraph, and the ledger time equals `contentUpdatedAt` on 778/778. Each stamp coincided with a real body change, not a date bump; what was missing was the rule that only a facts change may stamp (W1.7). Confirmed 30 Oct (`notes/q1-stamp-source-2026-10-30.md`). None runs in bulk now.
 
 **Q2 — which engine runs; what produced Oct 13–17?** `Triplyvin-main/scripts/blog-engine` on `vin/main`
 plus one-off scripts under `scripts/blog-engine/reports/` (`lot-rewrite/api-rewrite.mts` on the Anthropic
@@ -349,7 +349,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 - [ ] **13.** **D-1** — Thanksgiving index pitched to local news/travel desks at the 25 airports; log of who/when. Vin.
 - [ ] **14.** **D-2** — reporter-request accounts set up; first answers sent. Vin.
 - [ ] **15.** **D-9** — LinkedIn/BBB/Crunchbase/social bios: same legal name, description, airport count; street address and personal phone removed. Vin.
-- [ ] **16.** **§5 Q1** — Sep 23 stamp source confirmed against the perf ledgers. Vin.
+- [x] **16.** **§5 Q1** — Sep 23 stamp source confirmed against the perf ledgers. Vin.
 
 ### Block 5 — Merge machinery, linking pass, Christmas pages, December index prep
 - [ ] **17.** **B-3** — redirect map as JSON + `next.config` `redirects()` + unit test + render-time link swap; map empty. Tom + Claude. Done: merged.
