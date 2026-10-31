@@ -9,6 +9,13 @@
  *   npm run update-links -- -a JFK
  *   npm run update-links -- -a JFK --dry-run
  *   npm run update-links -- -a JFK --hub-only
+ *
+ * Second mode — booking-page CTA links (deterministic, no LLM, no cost):
+ *   npm run update-links -- -a JFK --booking-links --dry-run
+ *   npm run update-links -- -a ALL --booking-links --dry-run
+ *   npm run update-links -- -a ALL --booking-links --apply
+ * See booking-links.ts. It appends ONE CTA paragraph pointing at the airport's
+ * /<slug>/airport-parking booking page to any published post that lacks one.
  */
 
 import fs from 'fs'
@@ -20,6 +27,8 @@ import { env, CLAUDE_MODEL, BLOG_BASE_URL } from './config.js'
 import { getAllPublishedSlugs, updatePost } from './payload.js'
 import { lexicalToHtml, countNodesOfType } from './lexical-to-html.js'
 import { htmlToLexical } from './html-to-lexical.js'
+import { runBookingLinks } from './booking-links.js'
+import { pingIndexNow, postUrlFor } from './indexnow.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 const ENGINE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -47,32 +56,48 @@ interface PublishedPostFull {
 }
 
 async function fetchPublishedPosts(airportCode: string): Promise<PublishedPostFull[]> {
-  const params = new URLSearchParams({
-    'where[status][equals]': 'published',
-    'where[airportCode][equals]': airportCode.toUpperCase(),
-    limit: '200',
-  })
+  // Paginate through ALL published posts. A single capped pull (e.g. limit 200)
+  // silently drops rows once a cluster exceeds the cap — and because Payload
+  // returns newest-first, the dropped rows are the OLDEST, which are exactly the
+  // hub + sub-pillars (created before their spokes) that this tool needs as
+  // parents. LAS (240 posts) was the first cluster to trip this.
+  const all: PublishedPostFull[] = []
+  let page = 1
+  while (true) {
+    const params = new URLSearchParams({
+      'where[status][equals]': 'published',
+      'where[airportCode][equals]': airportCode.toUpperCase(),
+      limit: '200',
+      page: String(page),
+    })
 
-  const url = `${env.PAYLOAD_CMS_URL}/api/posts?${params.toString()}`
-  const res = await fetch(url, {
-    headers: { Authorization: `users API-Key ${env.PAYLOAD_API_KEY}` },
-  })
+    const url = `${env.PAYLOAD_CMS_URL}/api/posts?${params.toString()}`
+    const res = await fetch(url, {
+      headers: { Authorization: `users API-Key ${env.PAYLOAD_API_KEY}` },
+    })
 
-  if (!res.ok) {
-    throw new Error(`Failed to fetch posts: ${res.status} ${await res.text()}`)
+    if (!res.ok) {
+      throw new Error(`Failed to fetch posts: ${res.status} ${await res.text()}`)
+    }
+
+    const data = await res.json()
+    for (const doc of (data.docs || []) as Record<string, unknown>[]) {
+      all.push({
+        id: doc.id as string,
+        slug: doc.slug as string,
+        title: doc.title as string,
+        articleType: (doc.articleType as string) || 'spoke',
+        airportCode: (doc.airportCode as string) || '',
+        parentSlug: (doc.parentSlug as string) || undefined,
+        hubSlug: (doc.hubSlug as string) || undefined,
+        content: doc.content,
+      })
+    }
+
+    if (!data.hasNextPage) break
+    page++
   }
-
-  const data = await res.json()
-  return (data.docs || []).map((doc: Record<string, unknown>) => ({
-    id: doc.id as string,
-    slug: doc.slug as string,
-    title: doc.title as string,
-    articleType: (doc.articleType as string) || 'spoke',
-    airportCode: (doc.airportCode as string) || '',
-    parentSlug: (doc.parentSlug as string) || undefined,
-    hubSlug: (doc.hubSlug as string) || undefined,
-    content: doc.content,
-  }))
+  return all
 }
 
 function findMissingChildLinks(
@@ -183,11 +208,29 @@ function verifyLinksInjected(html: string, children: PublishedPostFull[]): { fou
 const program = new Command()
   .name('update-links')
   .description('Inject internal links from parent articles to their published children')
-  .requiredOption('-a, --airport <code>', 'Airport code (e.g., JFK)')
+  .requiredOption('-a, --airport <code>', 'Airport code (e.g., JFK), or ALL with --booking-links')
   .option('--dry-run', 'Preview what would be updated without saving')
   .option('--hub-only', 'Only update hub articles (skip sub-pillars)')
+  .option('--booking-links', 'Booking-page CTA mode: append one CTA linking each published post to its airport booking page (deterministic, no LLM)')
+  .option('--apply', '--booking-links only: actually PATCH content (default is dry run)')
+  .option('--limit <n>', '--booking-links only: cap posts changed per airport', (v: string) => parseInt(v, 10))
+  .option('--verbose', '--booking-links only: also log posts that are skipped')
   .action(async (options) => {
     try {
+      // ── Mode 2: booking-page CTA links. Deterministic, no Claude call.
+      // Dry run unless --apply is passed explicitly.
+      if (options.bookingLinks) {
+        await runBookingLinks({
+          airport: options.airport,
+          // --dry-run always wins over --apply, so a stray --apply on a command
+          // that was meant to be a preview cannot write to 3,700 live posts.
+          apply: Boolean(options.apply) && !options.dryRun,
+          verbose: Boolean(options.verbose),
+          limit: options.limit,
+        })
+        return
+      }
+
       const code = options.airport.toUpperCase()
       console.log(`\n🔗 Triply Blog Engine — Update Links\n`)
       console.log(`Airport: ${code}${options.dryRun ? ' (DRY RUN)' : ''}${options.hubOnly ? ' (hub only)' : ''}\n`)
@@ -234,57 +277,66 @@ const program = new Command()
           continue
         }
 
-        // Use Claude to inject links
-        console.log(`     Injecting links with Claude...`)
-        const updatedHtml = await injectLinks(html, parent, missingChildren)
+        // Use Claude to inject links. Wrap per-parent so one bad response
+        // (e.g. Claude returns malformed JSON that JSON.parse can't handle)
+        // skips just this parent instead of aborting the whole link pass.
+        try {
+          console.log(`     Injecting links with Claude...`)
+          const updatedHtml = await injectLinks(html, parent, missingChildren)
 
-        // Verify links were actually injected
-        const verification = verifyLinksInjected(updatedHtml, missingChildren)
-        if (verification.found.length === 0) {
-          console.log(`     ⚠ Claude did not inject any links — skipping save`)
+          // Verify links were actually injected
+          const verification = verifyLinksInjected(updatedHtml, missingChildren)
+          if (verification.found.length === 0) {
+            console.log(`     ⚠ Claude did not inject any links — skipping save`)
+            skipped++
+            continue
+          }
+
+          if (verification.missing.length > 0) {
+            console.log(`     ⚠ ${verification.missing.length} link(s) not injected: ${verification.missing.join(', ')}`)
+          }
+
+          // Convert back to Lexical, then verify AGAIN on the round-tripped
+          // HTML — the LLM sometimes places anchors where htmlToLexical drops
+          // them (found 2026-09-18: "Saved — 10 links" with 0 persisted).
+          const lexicalContent = htmlToLexical(updatedHtml)
+          const persisted = verifyLinksInjected(lexicalToHtml(lexicalContent), missingChildren)
+          if (persisted.found.length === 0) {
+            dumpForDiagnosis(parent.slug, 'link-loss', updatedHtml)
+            console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save`)
+            skipped++
+            continue
+          }
+          // Only the links Claude DID inject that then vanished — not the ones
+          // it never wrote (those were reported above).
+          const lost = verification.found.filter((slug) => persisted.missing.includes(slug))
+          if (lost.length > 0) {
+            console.log(`     ⚠ ${lost.length} link(s) lost in HTML→Lexical: ${lost.join(', ')}`)
+          }
+
+          // Images are the other thing a round trip can silently eat. Every
+          // inline infographic is an `upload` node; if the round-tripped doc has
+          // fewer than the original, saving would delete images from a live post
+          // while reporting success. Never save a lossy round trip.
+          const uploadsBefore = countNodesOfType(parent.content as Parameters<typeof lexicalToHtml>[0], 'upload')
+          const uploadsAfter = countNodesOfType(lexicalContent as Parameters<typeof lexicalToHtml>[0], 'upload')
+          if (uploadsAfter < uploadsBefore) {
+            dumpForDiagnosis(parent.slug, 'image-loss', updatedHtml)
+            console.log(`     ⚠ ${uploadsBefore - uploadsAfter} of ${uploadsBefore} image(s) would be lost in HTML→Lexical — skipping save`)
+            skipped++
+            continue
+          }
+          await updatePost(parent.id, { content: lexicalContent })
+          await pingIndexNow([postUrlFor(parent.slug)])
+
+          console.log(`     ✓ Saved — ${persisted.found.length} link(s) added\n`)
+          updated++
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err)
+          console.log(`     ✗ ${parent.slug} — link injection failed, skipping: ${msg.slice(0, 160)}\n`)
           skipped++
           continue
         }
-
-        if (verification.missing.length > 0) {
-          console.log(`     ⚠ ${verification.missing.length} link(s) not injected: ${verification.missing.join(', ')}`)
-        }
-
-        // Convert back to Lexical, then verify AGAIN on the round-tripped
-        // HTML — verification above only proves the links are in Claude's
-        // HTML, not that they survive HTML→Lexical (2026-09-18: "Saved — 10
-        // links" with 0 persisted, because <li>-level anchors were dropped).
-        const lexicalContent = htmlToLexical(updatedHtml)
-        const persisted = verifyLinksInjected(lexicalToHtml(lexicalContent), missingChildren)
-        if (persisted.found.length === 0) {
-          dumpForDiagnosis(parent.slug, 'link-loss', updatedHtml)
-          console.log(`     ⚠ links present in Claude's HTML but lost in HTML→Lexical — skipping save`)
-          skipped++
-          continue
-        }
-        // Only the links Claude DID inject that then vanished — not the ones
-        // it never wrote (those were reported two lines up).
-        const lost = verification.found.filter((slug) => persisted.missing.includes(slug))
-        if (lost.length > 0) {
-          console.log(`     ⚠ ${lost.length} link(s) lost in HTML→Lexical: ${lost.join(', ')}`)
-        }
-
-        // Images are the other thing a round trip can silently eat. Every
-        // inline infographic is an `upload` node; if the round-tripped doc has
-        // fewer than the original, saving would delete images from a live post
-        // while reporting success. Never save a lossy round trip.
-        const uploadsBefore = countNodesOfType(parent.content as Parameters<typeof lexicalToHtml>[0], 'upload')
-        const uploadsAfter = countNodesOfType(lexicalContent as Parameters<typeof lexicalToHtml>[0], 'upload')
-        if (uploadsAfter < uploadsBefore) {
-          dumpForDiagnosis(parent.slug, 'image-loss', updatedHtml)
-          console.log(`     ⚠ ${uploadsBefore - uploadsAfter} of ${uploadsBefore} image(s) would be lost in HTML→Lexical — skipping save`)
-          skipped++
-          continue
-        }
-        await updatePost(parent.id, { content: lexicalContent })
-
-        console.log(`     ✓ Saved — ${persisted.found.length} link(s) added\n`)
-        updated++
       }
 
       console.log(`\n━━━ Summary ━━━`)

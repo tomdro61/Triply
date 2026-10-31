@@ -38,7 +38,19 @@ import { isCanadianAirport } from './airport-data.js'
 let _cache: ExternalLinksDB | null = null
 
 // US-only sources: never offer them for Canadian airports (YYZ articles linked the US TSA, 14 Oct 2026)
-const US_ONLY_DOMAINS = new Set(['tsa.gov', 'faa.gov', 'transtats.bts.gov', 'clearme.com'])
+export const US_ONLY_DOMAINS: ReadonlySet<string> = new Set(['tsa.gov', 'faa.gov', 'transtats.bts.gov', 'clearme.com'])
+
+/** True for a URL on a US-only source (TSA, FAA, CLEAR…): never offered for a Canadian airport, from any list. */
+export function isUsOnlyUrl(url: string): boolean {
+  try {
+    return US_ONLY_DOMAINS.has(new URL(url).hostname.replace(/^www\./, ''))
+  } catch {
+    return false
+  }
+}
+
+/** Competing booking sites and aggregators — never handed to the writer as "entities to mention" (review of #141). */
+export const COMPETITOR_NAME_RE = /spot\s?hero|way\.com|park\s?whiz|park\s?sleep\s?fly|park\s?'?n\s?fly|groupon|on\s?air\s?parking|airport\s?parking\s?reservations|parking\s?access|cheap\s?airport\s?parking|airportparking\.com|book\s?a\s?parking\s?spot|parkos|parkvia|looking4|holiday\s?extras/i
 
 function isCanadian(code: string): boolean {
   let data: { currency?: unknown } | null = null
@@ -141,6 +153,7 @@ export function getApprovedDomains(airportCode: string): Set<string> {
           if (value && typeof value === 'object') {
             for (const url of Object.values(value as Record<string, string>)) {
               if (competitorCategory && !isOwnSiteUrl(url)) continue
+              if (canadian && isUsOnlyUrl(url)) continue // same rule as the links DB: no TSA/CLEAR for YYZ
               try {
                 domains.add(new URL(url).hostname.replace(/^www\./, ''))
               } catch { /* skip malformed URLs */ }
