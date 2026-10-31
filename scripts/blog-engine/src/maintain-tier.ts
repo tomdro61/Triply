@@ -79,7 +79,7 @@ function daysBetween(a: Date, bIso: string): number {
  * Reuses record.changes[] owned by the apply/measure stages.
  */
 export function inCooldown(record: ArticlePerfRecord, now: Date, cooldownDays: number): boolean {
-  return record.changes.some((c) => !c.measuredAfter && !c.reverted && daysBetween(now, c.at) < cooldownDays)
+  return record.changes.some((c) => !c.measuredAfter && !c.reverted && !c.patchUnverified && daysBetween(now, c.at) < cooldownDays)
 }
 
 /** Due when never maintained, or when cadence[tier] days have elapsed since last maintenance. */

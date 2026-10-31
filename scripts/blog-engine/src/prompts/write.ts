@@ -3,6 +3,23 @@ import type { QueueItem } from '../queue.js'
 import { currencySymbol, isCanadianAirport, type AirportData } from '../airport-data.js'
 import type { PublishedPost } from '../payload.js'
 import { getExternalLinks, formatExternalLinksForPrompt, COMPETITOR_LIVE_SOURCE_CATEGORIES, isOwnSiteUrl, isUsOnlyUrl, COMPETITOR_NAME_RE } from '../external-links.js'
+import { loadApprovedCodes, loadApprovedOffers } from '../lint.js'
+
+/**
+ * Rule 39 (feature our own promo code) is emitted only for a code the lint will accept: COUPON_CODE must be listed in
+ * src/config/approved-promo-codes.json with a percentOff, and the percent comes from that file, never from the env.
+ * Otherwise the writer would be told to feature a code the lint then refuses — after the whole Claude spend.
+ */
+function ownCodeRule(airportCode: string): string {
+  const code = (process.env.COUPON_CODE || '').trim().toUpperCase()
+  if (!code) return ''
+  const pct = loadApprovedOffers()[code]
+  if (!loadApprovedCodes().map((c) => c.toUpperCase()).includes(code) || typeof pct !== 'number') {
+    console.warn(`  ⚠ COUPON_CODE=${code} is not in src/config/approved-promo-codes.json with a percentOff — the promo-code rule is left out of the prompt`)
+    return ''
+  }
+  return `39. TRIPLY PROMO CODE (coupon-intent articles only): If the focus keyword involves coupons, promo codes, discounts, or deals, feature Triply's own code as the FIRST direct answer near the top: an H2 "Promo code ${code}: ${pct}% off" followed by a short paragraph stating that ${code} takes ${pct}% off the parking rate on bookings made on triplypro.com, entered in the promo code field at checkout, with a link to https://www.${DOMAIN}/search?airport=${airportCode} in that same paragraph, plus the terms line "Applies to bookings made on triplypro.com." Never call it verified or working, never promise one use per customer, NEVER write that no codes exist. Third-party code discussion comes after ours and names only codes the airport or the lot itself publishes.`
+}
 
 interface AnalysisResult {
   commonTopics: string[]
@@ -536,7 +553,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
 37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest sellable lot rate, with its currency sign) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
 38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of <Month YYYY>, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
-${process.env.COUPON_CODE ? `39. TRIPLY PROMO CODE (coupon-intent articles only): If the focus keyword involves coupons, promo codes, discounts, or deals, feature Triply's own code as the FIRST direct answer near the top: an H2 "Promo code ${process.env.COUPON_CODE.trim().toUpperCase()}: ${Number(process.env.COUPON_PERCENT) || 10}% off" followed by a short paragraph stating that ${process.env.COUPON_CODE.trim().toUpperCase()} takes ${Number(process.env.COUPON_PERCENT) || 10}% off the parking rate on bookings made on triplypro.com, entered in the promo code field at checkout, with a link to https://www.${DOMAIN}/search?airport=${item.airportCode} in that same paragraph, plus the terms line "Applies to bookings made on triplypro.com." Never call it verified or working, never promise one use per customer, NEVER write that no codes exist. Third-party code discussion comes after ours and names only codes the airport or the lot itself publishes.` : ''}
+${ownCodeRule(item.airportCode)}
 Respond with ONLY valid JSON in this exact format:
 {
   "title": "Display title for the article (50-65 chars, keyword-rich, compelling)",

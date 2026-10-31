@@ -296,6 +296,7 @@ program
     // Refused, failed and written counts drive the exit code (a caller like maintain must not read a run with
     // failures as "done"), so they live outside the try: the `finally` reads them on every exit path.
     let errored = 0
+    let refused = 0 // preflight refusals (duplicate guard, live slug, data file): the item never started, so not "failed"
     let succeeded = 0
     try {
       console.log(`\n🚀 Triply Blog Engine — Generate [prompt: ${PROMPT_VERSION}]\n`)
@@ -381,7 +382,7 @@ program
             await markError(item.id, `duplicate guard: update /blog/${dup.slug} instead (matched ${dup.matchedSlug})`)
               .catch((e) => console.warn(`  ⚠ could not mark queue item ${item.id} as error (it will be picked up again next run): ${e instanceof Error ? e.message : e}`))
           }
-          errored++
+          refused++
           continue
         }
         if (dup) console.log(`  ⚠ "${item.keyword}" duplicates /blog/${dup.slug} but --skip-duplicate-guard was passed`)
@@ -408,7 +409,7 @@ program
           // A LIVE slug without --publish is refused HERE, before any spend; the same check near the write is the backstop.
           if (statusBySlug.get(item.slug) === 'published' && !publishMode) {
             console.log(`  ⛔ "${item.keyword}": /blog/${item.slug} is LIVE — regenerating it without --publish would replace its body in place. Left queued; re-run with --publish, or change it with apply-edit.`)
-            errored++
+            refused++
             continue
           }
           try {
@@ -423,7 +424,7 @@ program
               await markError(item.id, `airport data: ${msg}`)
                 .catch((err) => console.warn(`  ⚠ could not mark queue item ${item.id} as error: ${err instanceof Error ? err.message : err}`))
             }
-            errored++
+            refused++
           }
         }
         items.length = 0
@@ -867,8 +868,8 @@ program
       }
 
       // A caller (maintain's Tier-1 rewrite, a cron) must not read a run with failures as "done".
-      if (errored > 0 || (!options.dryRun && items.length > 0 && succeeded === 0)) {
-        console.log(`\n⚠ ${succeeded} written, ${errored} failed, ${items.length - succeeded - errored} skipped — exit code 1`)
+      if (!options.dryRun && (errored > 0 || refused > 0 || (items.length > 0 && succeeded === 0))) {
+        console.log(`\n⚠ ${succeeded} written, ${errored} failed, ${refused} refused at preflight, ${items.length - succeeded - errored} skipped — exit code 1`)
         process.exitCode = 1
       }
 
@@ -883,7 +884,7 @@ program
         await submitUrls(publishedUrls)
       }
       // Refusals on the early-return paths (duplicate guard, data check) count too.
-      if (errored > 0 && !options.dryRun) process.exitCode = 1
+      if ((errored > 0 || refused > 0) && !options.dryRun) process.exitCode = 1
       void succeeded
     }
   })
@@ -1011,6 +1012,7 @@ program
             await markPublished(item.id)
           } catch (e) {
             console.log(`    ⚠ post is LIVE but the queue item could not be marked published (fix by hand): ${e instanceof Error ? e.message : e}`)
+            process.exitCode = 1 // a cron must see this
           }
           console.log(`    ✓ Published → ${postUrlFor(item.slug)}\n`)
         } catch (err) {

@@ -44,10 +44,11 @@ test('lexicalText flattens a Lexical document and ends blocks as sentences', () 
   assert.deepEqual(factSentences(text), ['economy costs $18/day', 'garage $46'])
 })
 test('a live Lexical post and the identical HTML change no facts (the regenerate gate must not always fire)', () => {
-  const html = '<h2>Rates</h2><p>Economy costs $18/day as of October 2026.</p><ul><li>Shuttles run every 10 minutes!</li></ul><table><tbody><tr><td>Garage</td><td>$46/day</td></tr></tbody></table>'
-  // Lexical vs Lexical is what generate compares
-  assert.equal(factsDiff(lexicalText(htmlToLexical(html)), lexicalText(htmlToLexical(html))).changed, false)
-  assert.equal(factsDiff(lexicalText(htmlToLexical(html)), lexicalText(htmlToLexical(html.replace('$18', '$19')))).changed, true)
-  // and the HTML flattening agrees with it
-  assert.equal(factsDiff(lexicalText(htmlToLexical(html)), html).changed, false, JSON.stringify(factsDiff(lexicalText(htmlToLexical(html)), html)))
+  const html = '<h2>Rates</h2><p>Economy costs $18/day as of October 2026.<br>Book <a href="/search">on Triply</a>.</p><ul><li>Shuttles run every 10 minutes!<ul><li>Terminal 5 takes 12 minutes.</li></ul></li></ul><blockquote>Garage $46/day, e.g. on holidays… $12.50 extra.</blockquote><table><tbody><tr><td>Garage</td><td>$46/day</td></tr></tbody></table>'
+  // Lexical vs Lexical is what generate compares (both sides flattened the same way)
+  const live = lexicalText(htmlToLexical(html))
+  assert.equal(factsDiff(live, lexicalText(htmlToLexical(html))).changed, false)
+  assert.equal(factsDiff(live, lexicalText(htmlToLexical(html.replace('$18', '$19')))).changed, true)
+  assert.equal(factsDiff(live, lexicalText(htmlToLexical(html.replace('12 minutes', '15 minutes')))).changed, true)
+  assert.equal(factsDiff(live, lexicalText(htmlToLexical(html.replace('href="/search"', 'href="/x"')))).changed, false)
 })

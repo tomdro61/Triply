@@ -91,7 +91,7 @@ const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\
 // "verified"/"working"/… near "promo code" (any case), or near "code TRIPLY10" (an upper-case token that looks like a code).
 const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)\s?codes?\b|\b(?:promo|coupon|discount)\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
 // The token must look like a promo code (letters AND digits, "TRIPLY10"), and "gate code 4821" / "confirmation code" are not promo codes.
-const NOT_PROMO_CODE_WORD = '(?<!\\b(?:gate|access|door|confirmation|booking|reservation|zip|postal|qr|bar|area|pin)\\s)'
+const NOT_PROMO_CODE_WORD = '(?<!\\b(?:[Gg]ate|[Aa]ccess|[Dd]oor|[Cc]onfirmation|[Bb]ooking|[Rr]eservation|[Zz]ip|[Pp]ostal|[Qq][Rr]|[Bb]ar|[Aa]rea|[Pp]in)[\\s-]+)'
 const CODE_TOKEN = '(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\\d)[A-Z0-9]{4,}'
 const VERIFIED_NEAR_CODE_TOKEN = new RegExp(`\\b(?:[Vv]erified|[Ww]orking|[Tt]ested|[Cc]onfirmed|[Gg]uaranteed)\\b[^.<>]{0,40}${NOT_PROMO_CODE_WORD}\\b[Cc]odes?\\s+${CODE_TOKEN}\\b|${NOT_PROMO_CODE_WORD}\\b[Cc]odes?\\s+${CODE_TOKEN}\\b[^.<>]{0,40}\\b(?:verified|working|tested|confirmed|guaranteed)\\b`)
 // A code with a digit, anywhere in the text ("SAVE10", "TRIPLY10", "FLY2024").
@@ -102,6 +102,9 @@ const CODE_CONTEXT_DIGIT = /\b(?:[Cc]odes?|[Uu]se|[Ee]nter|[Aa]pply|[Tt]ype)\s*[
 // "use LINK light rail" stays a word: four letters).
 const CODE_AFTER_CODEWORD = /\b[Cc]odes?\s*[:"“']?\s*([A-Z]{4,})\b|\b(?:[Uu]se|[Ee]nter|[Aa]pply)\s*[:"“']?\s*([A-Z]{5,})\b/g
 const ORDINAL = /^\d+(?:ST|ND|RD|TH)$/
+// A candidate right after "confirmation code" / "gate code" / … is that kind of code, not a promo code; "RTL855661" is a ResLab reservation number.
+const NON_PROMO_CONTEXT = /\b(?:gate|access|door|confirmation|booking|reservation|zip|postal|qr|bar|area|pin)[\s-]+codes?[\s:"“'-]*$/i
+const RESERVATION_NUMBER = /^RTL\d{5,}$/
 const NOT_CODES = new Set(['AIRTRAIN', 'PRECHECK', 'COVID', 'SKYTRAIN', 'TRAIN', 'TERMINAL', 'ECONOMY', 'DAILY', 'HOURLY', 'GARAGE', 'SHUTTLE', 'PARKING', 'AIRPORT', 'NORTH', 'SOUTH', 'CENTRAL', 'EXPRESS', 'VALET', 'TRIPLY', 'CLEAR', 'GLOBAL', 'ENTRY', 'LYFT', 'UBER', 'METRO', 'MARTA', 'SEPTA', 'AMTRAK', 'UPDATED', 'VERIFIED', 'WORKING', 'TOTAL', 'PRICE', 'RATES', 'NOTE', 'FREE', 'CHEAP', 'TRANSIT', 'PANYNJ', 'MBTA', 'BART', 'DART', 'LIRR', 'PATH', 'CTA', 'WMATA', 'MASSPORT', 'TSA', 'CATSA', 'FAA', 'CBSA', 'NEXUS', 'LOGAN', 'EXIT', 'CHECKOUT', 'ONLINE'])
 // "save up to 40%", "40% off", "40-60% below/less/cheaper", "60% savings"
 const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?:\s?off)?|\b\d{1,2}\s?%\s?off\b|\b\d{1,2}\s?[-–]\s?\d{1,2}\s?%\s?(?:off|below|less|cheaper|lower|savings?)\b|\b\d{1,2}\s?%\s?(?:below|less|cheaper|lower|savings?)\b/i
@@ -207,11 +210,13 @@ export function lintArticle(input: LintInput): LintResult {
     const seen = new Set<string>()
     const candidates: { code: string; index: number }[] = []
     for (const m of allText.matchAll(CODE_STRING)) candidates.push({ code: m[1], index: m.index || 0 })
-    for (const m of allText.matchAll(CODE_CONTEXT_DIGIT)) candidates.push({ code: m[1], index: m.index || 0 })
-    for (const m of allText.matchAll(CODE_AFTER_CODEWORD)) candidates.push({ code: m[1] || m[2], index: m.index || 0 })
+    // index = where the TOKEN starts (the match starts at the keyword), so the context look-back sees "gate-code".
+    for (const m of allText.matchAll(CODE_CONTEXT_DIGIT)) candidates.push({ code: m[1], index: (m.index || 0) + m[0].lastIndexOf(m[1]) })
+    for (const m of allText.matchAll(CODE_AFTER_CODEWORD)) { const tok = m[1] || m[2]; candidates.push({ code: tok, index: (m.index || 0) + m[0].lastIndexOf(tok) }) }
     for (const { code: raw, index } of candidates) {
       const code = raw.toUpperCase()
-      if (seen.has(code) || approved.has(code) || NOT_CODES.has(code) || ORDINAL.test(code)) continue
+      if (seen.has(code) || approved.has(code) || NOT_CODES.has(code) || ORDINAL.test(code) || RESERVATION_NUMBER.test(code)) continue
+      if (NON_PROMO_CONTEXT.test(allText.slice(Math.max(0, index - 40), index))) continue
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)

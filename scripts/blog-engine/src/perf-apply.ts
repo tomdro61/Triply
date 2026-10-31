@@ -26,7 +26,8 @@ import { loadRecord, saveRecord } from './perf-snapshot.js'
 import type { PerfChange } from './perf-snapshot.js'
 import type { Recommendation } from './perf-recommend.js'
 import { AUDIT_SAMPLE_RATE } from './config.js'
-import { stampField } from './stamp.js'
+import { stampField, lexicalText } from './stamp.js'
+import type { ArticlePerfRecord } from './perf-snapshot.js'
 import { pingIndexNow, postUrlFor } from './indexnow.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +80,49 @@ export function queueForAudit(
   // Atomic append — no read-modify-write, so parallel `perf run` invocations can't
   // clobber each other's entries the way rewriting a whole JSON array did.
   fs.appendFileSync(file, JSON.stringify({ ...entry, reviewed: false }) + '\n')
+}
+
+/** True when the live post already carries every field this edit set (used to settle a PATCH whose response was lost). */
+export function editIsLive(live: { content?: unknown; faqItems?: unknown; title?: unknown; seo?: unknown }, updateData: Record<string, unknown>): boolean {
+  if (updateData.content !== undefined && lexicalText(live.content) !== lexicalText(updateData.content)) return false
+  if (updateData.faqItems !== undefined) {
+    const a = live.faqItems as { question: string }[] | undefined
+    const b = updateData.faqItems as { question: string }[]
+    if (!Array.isArray(a) || a.length !== b.length || a.some((f, i) => f.question !== b[i].question)) return false
+  }
+  if (updateData.title !== undefined && live.title !== updateData.title) return false
+  if (updateData.seo !== undefined) {
+    const a = (live.seo ?? {}) as Record<string, unknown>
+    const b = updateData.seo as Record<string, unknown>
+    if (a.metaTitle !== b.metaTitle || a.metaDescription !== b.metaDescription) return false
+  }
+  return true
+}
+
+/**
+ * A PATCH threw. Decide what happened to the entry already in the record:
+ *  - a 4xx: the CMS refused it, nothing committed → the entry comes out;
+ *  - anything else (timeout, lost response, 5xx): re-read the post → edit present = applied after all (true),
+ *    absent = entry out; re-read failed too = keep it flagged `patchUnverified` (skipped by measure/learn/tier).
+ * Returns true only when the edit is confirmed live. Rethrows otherwise.
+ */
+async function settleFailedPatch(slug: string, record: ArticlePerfRecord, change: PerfChange, updateData: Record<string, unknown>, err: unknown): Promise<boolean> {
+  const status = (err as { status?: unknown }).status
+  const refused = typeof status === 'number' && status >= 400 && status < 500
+  const live = refused ? null : await findPostBySlug(slug).catch(() => undefined)
+  if (live === undefined) {
+    change.patchUnverified = true
+    change.summary = `[PATCH outcome unknown — check the CMS, then clear patchUnverified] ${change.summary}`
+    saveRecord(record)
+    throw err
+  }
+  if (live && editIsLive(live, updateData)) {
+    console.log(`  ⚠ ${change.type}: the PATCH response was lost but the edit IS live — recorded as applied`)
+    return true
+  }
+  record.changes.pop()
+  saveRecord(record)
+  throw err
 }
 
 /** Trim to a max length at a word boundary when possible (CMS enforces metaTitle<=60, metaDescription<=160). */
@@ -182,16 +226,12 @@ export async function applyRecommendations(
         })
         if (!lint.ok) { console.log(`  ⛔ ${r.type}: lint failed — not applied\n${formatLint(lint)}`); skipped++; continue }
         // The rollback record is written BEFORE the live edit, so a crash or a hung IndexNow call can never leave an
-        // edit without its pre-edit snapshot. If the PATCH then fails, the entry is taken back out.
+        // edit without its pre-edit snapshot. If the PATCH then fails, settleFailedPatch decides whether the entry stays.
         record.changes.push(change); saveRecord(record)
         try {
           await updatePost(post.id, updateData)
         } catch (e) {
-          // The PATCH may have committed before its response was lost, so the snapshot STAYS. It is marked so a
-          // person (or `perf revert`) knows the edit may or may not be live; restoring preEdit is safe either way.
-          change.summary = `[PATCH FAILED — edit may or may not be live; verify in the CMS] ${change.summary}`
-          saveRecord(record)
-          throw e
+          await settleFailedPatch(slug, record, change, updateData, e) // returns only when the edit is confirmed live
         }
         // The local copy now follows the CMS, so a later recommendation in this run builds on what is live.
         if (updateData.content !== undefined) post.content = updateData.content

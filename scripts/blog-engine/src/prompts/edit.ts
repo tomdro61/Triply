@@ -2,11 +2,12 @@ import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { PublishedPost } from '../payload.js'
 import { currencySymbol, type AirportData } from '../airport-data.js'
 
-/** "October 2026" from an ISO date or anything Date can parse; today's month when absent/unparseable. */
+/** "October 2026" from an ISO date; today's month when absent; the literal value when it cannot be parsed (never a guessed month). */
 function monthYear(d?: string | null): string {
-  const parsed = d ? new Date(d) : new Date()
-  const v = Number.isNaN(parsed.getTime()) ? new Date() : parsed
-  return v.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  if (!d) return new Date().toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const parsed = new Date(d)
+  if (Number.isNaN(parsed.getTime())) return d
+  return parsed.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
 }
 import { getExternalLinks, formatExternalLinksForEditor } from '../external-links.js'
 

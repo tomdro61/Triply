@@ -10,7 +10,7 @@
  * `factsChanged` is the second half of the gate. Callers compute it with `factsDiff()` below —
  * sentences that carry a figure — never pass a constant.
  *
- *   const facts = factsDiff(lexicalText(livePost.content), newHtml)
+ *   const facts = factsDiff(lexicalText(livePost.content), lexicalText(htmlToLexical(newHtml)))   // both sides flattened the same way
  *   const patch = { content, ...stampField({ factsChanged: facts.changed, reason: '…' }) }
  */
 
@@ -48,13 +48,14 @@ export function lexicalText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
   const n = node as { text?: unknown; children?: unknown[]; root?: unknown; type?: unknown }
   if (n.root) return lexicalText(n.root)
+  if (n.type === 'linebreak') return ' '
   const own = typeof n.text === 'string' ? n.text : ''
   // Inline text leaves concatenate as written (a leaf usually carries its own trailing space); blocks end with '. ' below.
   const kids = Array.isArray(n.children) ? n.children.map(lexicalText).join('') : ''
   const joined = own + kids
   // A block boundary ends a sentence so "…$18/day" + next heading don't fuse into one fact sentence — but a
   // paragraph that already ends with punctuation must not get a second one ("$18/day.." ≠ "$18/day.").
-  if (n.type === 'paragraph' || n.type === 'heading' || n.type === 'listitem' || n.type === 'tablecell') {
+  if (n.type === 'paragraph' || n.type === 'heading' || n.type === 'listitem' || n.type === 'tablecell' || n.type === 'quote') {
     return /[.!?]\s*$/.test(joined) ? `${joined} ` : `${joined}. `
   }
   return joined

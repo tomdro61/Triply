@@ -131,17 +131,30 @@ async function main() {
           })(),
           preEdit,
         }
-        // Rollback record BEFORE the live edit; taken back out if the PATCH fails.
+        // Rollback record BEFORE the live edit. If the PATCH fails: a 4xx committed nothing (entry out); otherwise the
+        // post is re-read — block present = applied after all, absent = entry out, re-read failed = kept as
+        // patchUnverified (skipped by measure/learn/tier until a person checks).
         record.changes.push(change); saveRecord(record)
         content.root.children.splice(0, 0, ...newNodes)
         try {
           // W1.7: a coupon block is not a fact about the airport — the date never moves for it.
           await updatePost(post.id, { content, ...stampField({ factsChanged: false, reason: 'coupon block prepended — not a fact change' }) })
         } catch (e) {
-          // The PATCH may have committed before its response was lost: the snapshot stays, marked for a person to check.
-          change.summary = `[PATCH FAILED — edit may or may not be live; verify in the CMS] ${change.summary}`
-          saveRecord(record)
-          throw e
+          const status = (e as { status?: unknown }).status
+          const refused = typeof status === 'number' && status >= 400 && status < 500
+          const live = refused ? null : await findPostBySlug(slug).catch(() => undefined)
+          if (live === undefined) {
+            change.patchUnverified = true
+            change.summary = `[PATCH outcome unknown — check the CMS, then clear patchUnverified] ${change.summary}`
+            saveRecord(record)
+            throw e
+          }
+          if (live && JSON.stringify(live.content).includes(CODE)) {
+            console.log(`  ⚠ ${slug}: the PATCH response was lost but the block IS live — recorded as applied`)
+          } else {
+            record.changes.pop(); saveRecord(record)
+            throw e
+          }
         }
         await pingIndexNow([postUrlFor(slug)])
       }

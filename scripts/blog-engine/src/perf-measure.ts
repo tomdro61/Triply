@@ -82,7 +82,7 @@ async function measureRecord(
   controlCache: Map<string, ControlDelta | null>,
 ): Promise<{ measured: number; reverted: number; waiting: number }> {
   const now = Date.now()
-  const pending = rec.changes.filter((c) => !c.measuredAfter && !c.reverted)
+  const pending = rec.changes.filter((c) => !c.measuredAfter && !c.reverted && !c.patchUnverified)
   if (pending.length === 0) return { measured: 0, reverted: 0, waiting: 0 }
 
   let measured = 0

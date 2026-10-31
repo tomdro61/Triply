@@ -63,7 +63,7 @@ test('"QR code" / "NJ TRANSIT" in a post are not promo talk', () => {
   assert.ok(!rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
 })
 test('gate codes, ordinals and ordinary all-caps words are not promo codes', () => {
-  const r = lintArticle({ ...base, html: goodHtml + '<p>Once your booking is confirmed, the gate code 4821 is in your email. Enter 3rd Street, use 2nd-level parking, or use LINK light rail. Promo codes change often.</p>' })
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Once your booking is confirmed, the gate code 4821 is in your email. Your Confirmation code RTL855661 is confirmed by email; the gate-code AB12 is confirmed too. Enter 3rd Street, use 2nd-level parking, or use LINK light rail. Promo codes change often.</p>' })
   assert.ok(!rules(r).includes('verified-code'), JSON.stringify(r.errors))
   assert.ok(!rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
 })

@@ -82,6 +82,11 @@ export interface PerfChange {
   /** Exact pre-edit CMS values for this change, so it can be reverted losslessly. */
   preEdit?: Record<string, unknown>
   reverted?: boolean
+  /**
+   * The PATCH's outcome could not be confirmed (response lost AND the re-read failed). perf measure, maintain learn
+   * and the tier cooldown skip it until a person checks the CMS and clears the flag; revert still restores preEdit.
+   */
+  patchUnverified?: boolean
   measuredAfter?: {
     at: string
     impressionsDelta: number
