@@ -43,3 +43,24 @@ test('findDuplicate ignores the own slug (regenerate) and new intents', () => {
   assert.equal(findDuplicate('ewr airport parking rates', 'EWR', existing, {}, 'ewr-airport-parking-rates'), null)
   assert.equal(findDuplicate('ewr airport parking shuttle', 'EWR', existing, {}), null)
 })
+
+// ── Review of #141 ──
+test('terminal designators survive the filler filter ("terminal a" is not the terminal page)', () => {
+  assert.notEqual(normalizedKey('newark terminal a parking', 'EWR'), normalizedKey('newark terminal parking', 'EWR'))
+  assert.equal(normalizedKey('newark terminal a parking', 'EWR'), normalizedKey('ewr-terminal-a-parking', 'EWR'))
+  assert.equal(findDuplicate('newark terminal a parking', 'EWR', ['newark-airport-terminal-parking'], {}, 'newark-terminal-a-parking'), null)
+})
+test('economy stays distinct from long-term', () => {
+  assert.notEqual(normalizedKey('ORD economy parking', 'ORD'), normalizedKey('ORD long term parking', 'ORD'))
+  assert.equal(findDuplicate('ORD economy parking', 'ORD', ['ord-long-term-parking'], {}, 'ord-economy-parking'), null)
+  assert.equal(normalizedKey('ord economy parking', 'ORD'), normalizedKey('ohare remote parking', 'ORD'))
+})
+test('the redirect map only answers for this airport', () => {
+  const map = { 'lga-long-term-parking-2025': 'lga-long-term-parking' }
+  assert.equal(findDuplicate('JFK long term parking', 'JFK', ['jfk-airport-parking'], map, 'jfk-long-term-parking'), null)
+  assert.equal(findDuplicate('LGA long term parking', 'LGA', ['lga-airport-parking'], map, 'lga-long-term-parking-guide')?.slug, 'lga-long-term-parking')
+  // a destination that IS one of this airport's pages counts even when neither slug carries the code
+  const viaOwnPage = findDuplicate('kennedy long term parking', 'JFK', ['kennedy-airport-parking-guide'], { 'kennedy-extended-parking': 'kennedy-airport-parking-guide' }, 'kennedy-long-term-parking')
+  assert.equal(viaOwnPage?.via, 'redirect-map')
+  assert.equal(viaOwnPage?.slug, 'kennedy-airport-parking-guide')
+})

@@ -51,6 +51,7 @@ program
   .requiredOption('-s, --slug <slug>', 'Article slug')
   .option('-d, --days <number>', 'GSC lookback window in days', '28')
   .option('--apply', 'Actually write the additive/reversible changes to the CMS')
+  .option('--stamp', 'Accepted for a uniform CLI; perf edits never change a fact, so contentUpdatedAt never moves for them (W1.7)')
   .option('--no-serp', 'Skip the live SERP pull (saves a SerpAPI credit)')
   .option('--only <types>', 'Restrict to these recommendation type(s), comma-separated (e.g. quick-answer)')
   .action(async (o) => {

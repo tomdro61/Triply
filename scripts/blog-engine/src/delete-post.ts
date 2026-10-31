@@ -34,4 +34,8 @@ if (!post?.id) { console.log('No such post.'); process.exit(0) }
 console.log(`Post #${post.id} "${post.slug}" (${post.status}) at ${cmsUrl}`)
 if (!yes) { console.log('Dry run. Re-run with --yes to delete this one post.'); process.exit(0) }
 const del = await fetch(`${cmsUrl}/api/posts/${post.id}`, { method: 'DELETE', headers })
-console.log(`DELETE → ${del.status}`)
+if (!del.ok) { console.error(`DELETE failed → ${del.status} ${(await del.text()).slice(0, 300)}`); process.exit(1) }
+// Confirm by reading it back: a 2xx with the post still answering is not a deletion.
+const check = await fetch(`${cmsUrl}/api/posts/${post.id}?depth=0`, { headers })
+if (check.status !== 404) { console.error(`DELETE returned ${del.status} but the post still answers ${check.status} — NOT deleted`); process.exit(1) }
+console.log(`Deleted post #${post.id} "${post.slug}" (confirmed 404).`)

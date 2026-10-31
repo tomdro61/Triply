@@ -7,9 +7,12 @@
  * Checks (plan v3.2 §W1.4, §W1.10):
  *   - artifact phrases: "wait,", "let's be precise", "competitor article", "as an AI", …
  *   - money without a currency sign: "15/day", "costs 15 per day", "from 12 a day"
- *   - "verified" / "working" within a few words of a promo code or the word code/coupon
- *   - code strings (ALLCAPS+digits) not in src/config/approved-promo-codes.json
- *   - "save up to N %" / "up to N % off" with no source link in the same paragraph
+ *     (times, counts and ranges are not prices: "from 5:00 a.m.", "from 3 airlines", "$25–35/day" pass)
+ *   - "verified" / "working" within a few words of a promo code ("QR code", "zip code" are not promo talk)
+ *   - code strings (a code with a digit anywhere; "code WELCOME" / "use triply10" in context) not in
+ *     src/config/approved-promo-codes.json — only in posts that talk about promo/coupon/discount codes
+ *   - "save up to N %" / "N % off" / "N-M % below" with no OUTSIDE source link in the same paragraph or
+ *     FAQ answer (a Triply search link is a CTA, not a source); naming one of our approved codes is its own source
  *   - NEW posts only: a year other than the current one in title/metaTitle
  *   - NEW rates/cost posts only (answer-first): the first paragraph must carry at least one $ figure and "as of <Month>"
  */
@@ -65,20 +68,36 @@ const ARTIFACT_PHRASES: RegExp[] = [
   /\bthe (?:source|scraped) (?:article|articles|content) (?:says|said|mentions?)\b/i,
 ]
 
-const MONTHS = /\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sept?|oct|nov|dec)\b/i
+// "as of October 2026", "As of 15 October 2026", "as of Oct. 15, 2026": a month name AND a year. "as of Sunday" is not a date,
+// and "may"/"mar" as ordinary words never count (the old check accepted "as of Sunday; prices may rise").
+const MONTH_NAMES = '(?:January|February|March|April|May|June|July|August|September|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec)'
+const AS_OF_MONTH_YEAR = new RegExp(`\\bas of\\s+(?:\\d{1,2}\\s+)?${MONTH_NAMES}\\.?\\s+(?:\\d{1,2},?\\s+)?20\\d{2}\\b`, 'i')
 
 const BARE_MONEY: RegExp[] = [
-  // "15/day", "15 per day", "15 a day", "15 daily" with no $, C$, CA$, US$ or % right before the number
-  /(?<![$€£\d.,%A-Za-z-])\b(\d{1,3}(?:\.\d{2})?)\s?(?:\/|per\s|a\s|each\s)(?:day|night|hour|hr|week|wk|month)\b/i,
-  // "costs 15" / "from 15" / "rate of 15" — followed by nothing that makes it a non-price (no % / years / minutes)
-  /\b(?:costs?|priced?|rates? of|from|starting at|as low as|only)\s(\d{1,3}(?:\.\d{2})?)(?!\s?(?:%|percent|minutes?|mins?|hours?|hrs?|days?|miles?|km|feet|ft|spaces|spots|lots|terminals?|years?|am|pm|-|–|to\b|\d))\b(?!\s?(?:\/|per|a)\s?(?:day|night|hour))/i,
+  // "15/day", "15 per day", "15 a day", "15 daily" with no $, C$, CA$, US$ or % right before the number.
+  // A range dash before the number means it is the top of one price ("$25–35/day"), not a second bare price.
+  /(?<![$€£\d.,%A-Za-z\-–—])(?<![–—-]\s)\b(\d{1,3}(?:\.\d{2})?)\s?(?:\/|per\s|a\s|each\s)(?:day|night|hour|hr|week|wk|month)\b/i,
+  // "costs 15" / "from 15" / "rate of 15" — followed by nothing that makes it a non-price: no %, no clock time
+  // ("from 5:00 a.m.", "from 10 a.m."), no count noun ("from 3 airlines", "2 levels"), no year, no range.
+  // "only N" was dropped from the triggers: "only 2 levels" / "only 1 of the lots" are counts far more often than prices.
+  /\b(?:costs?|priced?|rates? of|from|starting at|as low as)\s(\d{1,3}(?:\.\d{2})?)(?![:.]\d)(?!\s?(?:%|percent|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|miles?|mi\b|km|feet|ft|spaces|spots|lots?|levels?|floors?|stops?|gates?|terminals?|airlines?|carriers?|options?|locations?|lanes?|routes?|shuttles?|buses|vans?|a\.?m\b|p\.?m\b|o'clock|-|–|—|to\b|\d))\b(?!\s?(?:\/|per|a)\s?(?:day|night|hour))/i,
 ]
 
-const PROMO_WORD = /\b(?:promo|coupon|discount)\s?codes?\b|\bcodes?\b/i
-const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)?\s?codes?\b|\b(?:promo|coupon|discount)?\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
-const CODE_STRING = /\b([A-Z][A-Z0-9]{3,}\d[A-Z0-9]*|[A-Z]{2,}\d{1,3}[A-Z]*|[A-Z]{5,})\b/g
-const NOT_CODES = new Set(['AIRTRAIN', 'PRECHECK', 'COVID', 'SKYTRAIN', 'TRAIN', 'TERMINAL', 'ECONOMY', 'DAILY', 'HOURLY', 'GARAGE', 'SHUTTLE', 'PARKING', 'AIRPORT', 'NORTH', 'SOUTH', 'CENTRAL', 'EXPRESS', 'VALET', 'TRIPLY', 'CLEAR', 'GLOBAL', 'ENTRY', 'LYFT', 'UBER', 'METRO', 'MARTA', 'SEPTA', 'AMTRAK', 'UPDATED', 'VERIFIED', 'WORKING', 'TOTAL', 'PRICE', 'RATES', 'NOTE', 'FREE', 'CHEAP'])
-const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?:\s?off)?|\b\d{1,2}\s?%\s?off\b/i
+// A post "talks about codes" only when it names promo/coupon/discount codes. A bare "code" is a QR code, a zip code,
+// a confirmation code — those posts must not have every all-caps word read as a promo code (NJ TRANSIT, PANYNJ).
+const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\b(?:promo|coupon)s?\b/i
+// "verified"/"working"/… near "promo code" (any case), or near "code TRIPLY10" (an upper-case token that looks like a code).
+const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)\s?codes?\b|\b(?:promo|coupon|discount)\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
+const VERIFIED_NEAR_CODE_TOKEN = /\b(?:[Vv]erified|[Ww]orking|[Tt]ested|[Cc]onfirmed|[Gg]uaranteed)\b[^.<>]{0,40}\b[Cc]odes?\s+[A-Z0-9]{4,}\b|\b[Cc]odes?\s+[A-Z0-9]{4,}\b[^.<>]{0,40}\b(?:verified|working|tested|confirmed|guaranteed)\b/
+// A code with a digit, anywhere in the text ("SAVE10", "TRIPLY10", "FLY2024").
+const CODE_STRING = /\b([A-Z][A-Z0-9]{3,}\d[A-Z0-9]*|[A-Z]{2,}\d{1,3}[A-Z]*)\b/g
+// A token in code position ("code WELCOME", "use triply10", "enter: Save20"), any case; letters-only tokens must be all caps.
+const CODE_CONTEXT = /\b(?:[Cc]odes?|[Uu]se|[Ee]nter|[Aa]pply|[Tt]ype)\s*[:"“']?\s*([A-Za-z]+\d[A-Za-z0-9]*|\d+[A-Za-z][A-Za-z0-9]*|[A-Z]{4,})\b/g
+const NOT_CODES = new Set(['AIRTRAIN', 'PRECHECK', 'COVID', 'SKYTRAIN', 'TRAIN', 'TERMINAL', 'ECONOMY', 'DAILY', 'HOURLY', 'GARAGE', 'SHUTTLE', 'PARKING', 'AIRPORT', 'NORTH', 'SOUTH', 'CENTRAL', 'EXPRESS', 'VALET', 'TRIPLY', 'CLEAR', 'GLOBAL', 'ENTRY', 'LYFT', 'UBER', 'METRO', 'MARTA', 'SEPTA', 'AMTRAK', 'UPDATED', 'VERIFIED', 'WORKING', 'TOTAL', 'PRICE', 'RATES', 'NOTE', 'FREE', 'CHEAP', 'TRANSIT', 'PANYNJ', 'MBTA', 'BART', 'DART', 'LIRR', 'PATH', 'CTA', 'WMATA', 'MASSPORT', 'TSA', 'CATSA', 'FAA', 'CBSA', 'NEXUS', 'LOGAN', 'EXIT', 'CHECKOUT', 'ONLINE'])
+// "save up to 40%", "40% off", "40-60% below/less/cheaper", "60% savings"
+const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?:\s?off)?|\b\d{1,2}\s?%\s?off\b|\b\d{1,2}\s?[-–]\s?\d{1,2}\s?%\s?(?:off|below|less|cheaper|lower|savings?)\b|\b\d{1,2}\s?%\s?(?:below|less|cheaper|lower|savings?)\b/i
+// A source for a savings claim is an outside page; a link to our own site is a CTA.
+const EXTERNAL_SOURCE_LINK = /<a\s[^>]*href=["']https?:\/\/(?!(?:www\.)?triplypro\.com)[^"']+["']/i
 
 export function loadApprovedCodes(file: string = APPROVED_CODES_PATH): string[] {
   try {
@@ -106,6 +125,16 @@ export function firstParagraph(html: string): string {
 
 export function isRatesPost(keywordOrSlug: string): boolean {
   return /\b(?:cost|costs|price|prices|pricing|rate|rates|fee|fees|cheap|cheapest|how[- ]much|per[- ]day|daily)\b/i.test(keywordOrSlug.replace(/-/g, ' '))
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** True when the text names one of our approved codes — our own published offer is its own source. */
+function namesApprovedCode(text: string, approved: Set<string>): boolean {
+  for (const code of approved) if (code && new RegExp(`\\b${escapeRe(code)}\\b`, 'i').test(text)) return true
+  return false
 }
 
 function paragraphs(html: string): string[] {
@@ -139,32 +168,43 @@ export function lintArticle(input: LintInput): LintResult {
     if (m) errors.push({ level: 'error', rule: 'bare-money', message: `price "${m[0].trim()}" has no $ / C$ sign`, snippet: context(allText, m.index || 0) })
   }
 
-  // 3. "verified"/"working" next to a code
-  if (PROMO_WORD.test(allText)) {
-    const m = allText.match(VERIFIED_NEAR_CODE)
+  // 3. "verified"/"working" next to a promo code (either wording is a promo claim on its own; no gate needed)
+  {
+    const m = allText.match(VERIFIED_NEAR_CODE) || allText.match(VERIFIED_NEAR_CODE_TOKEN)
     if (m) errors.push({ level: 'error', rule: 'verified-code', message: `"${m[0].trim().slice(0, 60)}": never call a code verified/working`, snippet: context(allText, m.index || 0) })
   }
 
-  // 4. Code strings not in the approved list — only where the text talks about codes at all
+  // 4. Code strings not in the approved list — only in posts that talk about promo/coupon codes
   if (PROMO_WORD.test(allText)) {
     const seen = new Set<string>()
-    for (const m of allText.matchAll(CODE_STRING)) {
-      const code = m[1].toUpperCase()
+    const candidates: { code: string; index: number }[] = []
+    for (const m of allText.matchAll(CODE_STRING)) candidates.push({ code: m[1], index: m.index || 0 })
+    for (const m of allText.matchAll(CODE_CONTEXT)) candidates.push({ code: m[1], index: m.index || 0 })
+    for (const { code: raw, index } of candidates) {
+      const code = raw.toUpperCase()
       if (seen.has(code) || approved.has(code) || NOT_CODES.has(code)) continue
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)
-      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not in config/approved-promo-codes.json`, snippet: context(allText, m.index || 0) })
+      errors.push({ level: 'error', rule: 'unapproved-code', message: `promo code "${code}" is not in config/approved-promo-codes.json`, snippet: context(allText, index) })
     }
   }
 
-  // 5. "save up to N %" needs a source link in the same paragraph
+  // 5. "save up to N %" needs an OUTSIDE source link in the same paragraph (body) or answer (FAQ).
+  // Our own approved code is its own source ("TRIPLY10: 10% off the parking rate"); a Triply search link is a CTA, not a source.
   for (const p of paragraphs(input.html)) {
     const text = stripTags(p)
-    if (SAVE_UP_TO.test(text) && !/<a\s[^>]*href=/i.test(p)) {
-      errors.push({ level: 'error', rule: 'unsourced-saving', message: `"${text.match(SAVE_UP_TO)![0]}" has no source link in its paragraph`, snippet: text.slice(0, 160) })
-      break
-    }
+    const m = text.match(SAVE_UP_TO)
+    if (!m || namesApprovedCode(text, approved) || EXTERNAL_SOURCE_LINK.test(p)) continue
+    errors.push({ level: 'error', rule: 'unsourced-saving', message: `"${m[0]}" has no source link in its paragraph`, snippet: text.slice(0, 160) })
+    break
+  }
+  for (const f of input.faqItems || []) {
+    const text = `${f.question} ${f.answer}`
+    const m = text.match(SAVE_UP_TO)
+    if (!m || namesApprovedCode(text, approved) || EXTERNAL_SOURCE_LINK.test(f.answer)) continue
+    errors.push({ level: 'error', rule: 'unsourced-saving', message: `FAQ "${f.question.slice(0, 60)}": "${m[0]}" has no source link`, snippet: stripTags(f.answer).slice(0, 160) })
+    break
   }
   for (const field of [input.title, input.metaTitle, input.metaDescription, input.excerpt]) {
     if (field && SAVE_UP_TO.test(field)) {
@@ -208,7 +248,7 @@ export function lintArticle(input: LintInput): LintResult {
   if (input.isNew && isRatesPost(`${input.keyword} ${input.slug || ''}`)) {
     const first = firstParagraph(input.html)
     const hasFigure = /(?:\$|C\$|CA\$|US\$)\s?\d/.test(first)
-    const hasAsOf = /\bas of\s+(?:[A-Z][a-z]+\.? )?(?:\d{1,2} )?(?:[A-Z][a-z]+ )?\d{4}\b|\bas of\s+[A-Z][a-z]+\b/.test(first) && MONTHS.test(first)
+    const hasAsOf = AS_OF_MONTH_YEAR.test(first)
     if (!hasFigure) errors.push({ level: 'error', rule: 'answer-first', message: 'rates/cost post: the first paragraph has no $ figure', snippet: first.slice(0, 200) })
     if (!hasAsOf) errors.push({ level: 'error', rule: 'answer-first', message: 'rates/cost post: the first paragraph has no "as of <Month YYYY>"', snippet: first.slice(0, 200) })
   }

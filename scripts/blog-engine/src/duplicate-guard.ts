@@ -11,6 +11,7 @@
  *   - drop airport names/codes and the fillers for/in/near/at/the/a/an/to/of/and/your
  *   - fold cost ≈ price ≈ rates ≈ fee ≈ per day;  shuttle ≈ bus;  pick-up ≈ visitor ≈ waiting
  *   - intent words stay distinct: long-term, hourly, short-term, economy, terminal X, garage names
+ *   - the redirect map is site-wide, so only entries that land on one of THIS airport's pages count
  * Nothing here calls the network: callers pass the slugs in, so this is unit-testable.
  */
 import fs from 'fs'
@@ -34,7 +35,8 @@ const SYNONYMS: [RegExp, string][] = [
   [/^(cost|costs|price|prices|pricing|rate|rates|fee|fees|charge|charges|perday|daily|cheap|cheapest|affordable|budget|how-much)$/, 'cost'],
   [/^(shuttle|shuttles|bus|buses|transfer|transfers)$/, 'shuttle'],
   [/^(pickup|pick-up|visitor|visitors|waiting|cellphone|cell-phone|cell|arrivals|arrival|meet)$/, 'pickup'],
-  [/^(longterm|long-term|extended|weekly|monthly|economy|econo|remote)$/, 'long-term'],
+  [/^(longterm|long-term|extended|weekly|monthly)$/, 'long-term'],
+  [/^(economy|econo|remote)$/, 'economy'], // an economy lot is a product, not a duration — stays distinct from long-term (plan v3.2 §W1.1)
   [/^(shortterm|short-term|hourly|hour|hours|daily-max)$/, 'hourly'],
   [/^(coupon|coupons|promo|promos|code|codes|discount|discounts|deal|deals|voucher|vouchers|save|savings)$/, 'promo'],
   [/^(offsite|off-site|off-airport|offairport|nearby|private|lot|lots)$/, 'offsite'],
@@ -106,11 +108,12 @@ export function normalizeKeyword(text: string, airportCode?: string): string[] {
     if (t === 'off' && (n === 'site' || n === 'airport')) { joined.push('off-site'); i++; continue }
     if (t === 'on' && (n === 'site' || n === 'airport')) { joined.push('on-site'); i++; continue }
     if (t === 'cell' && n === 'phone') { joined.push('cell-phone'); i++; continue }
+    // "terminal a", "terminal 4": the designator stays distinct — joined HERE, before the filler filter would drop a lone "a"
+    if ((t === 'terminal' || t === 'terminals' || t === 'term') && n !== undefined && /^([a-f]|\d{1,2})$/.test(n)) { joined.push(`terminal-${n}`); i++; continue }
     joined.push(t)
   }
 
   const out = new Set<string>()
-  let pendingTerminal = false
   for (const raw of joined) {
     if (raw === code || AIRPORT_NAME_WORDS.has(raw)) continue
     if (FILLERS.has(raw)) continue
@@ -119,10 +122,6 @@ export function normalizeKeyword(text: string, airportCode?: string): string[] {
       if (re.test(t)) { t = canon; break }
     }
     if (!t) continue
-    if (t === 'terminal') { pendingTerminal = true; out.add('terminal'); continue }
-    // "terminal b", "terminal 4": the designator stays distinct
-    if (pendingTerminal && /^([a-f]|\d{1,2})$/.test(t)) { out.add(`terminal-${t}`); pendingTerminal = false; continue }
-    pendingTerminal = false
     out.add(t)
   }
   return [...out].sort()
@@ -164,8 +163,15 @@ export function findDuplicate(
       return { slug: dest, via: 'existing-post', matchedSlug: slug, normalized: key }
     }
   }
+  const atThisAirport = new Set(existingSlugs)
+  const code = airportCode.toLowerCase()
+  const namesThisAirport = (slug: string) => slug.toLowerCase().split('-').includes(code)
   for (const [from, to] of Object.entries(redirects)) {
     if (ownSlug && (from === ownSlug || to === ownSlug)) continue
+    // The map is site-wide and the normaliser drops every airport name, so an LGA entry would otherwise
+    // answer a JFK question. An entry counts only when it lands on one of this airport's own pages, or
+    // when one of its slugs carries this airport's code.
+    if (!atThisAirport.has(to) && !namesThisAirport(from) && !namesThisAirport(to)) continue
     if (normalizedKey(from, airportCode) === key || normalizedKey(to, airportCode) === key) {
       return { slug: to, via: 'redirect-map', matchedSlug: from, normalized: key }
     }

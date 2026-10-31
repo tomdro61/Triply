@@ -20,6 +20,7 @@ import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { findPostBySlug, updatePost } from './payload.js'
+import { lintArticle, formatLint } from './lint.js'
 import { htmlToLexical } from './html-to-lexical.js'
 import { loadRecord, saveRecord } from './perf-snapshot.js'
 import type { PerfChange } from './perf-snapshot.js'
@@ -150,7 +151,8 @@ export async function applyRecommendations(
         console.log(`  ✎ quick-answer (prepend ${newNodes.length} block(s) at top)`)
         console.log(`      ${r.quickAnswerHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 160)}`)
         if (apply) content.root.children.splice(0, 0, ...newNodes)
-        updateData = { content, ...stampField({ factsChanged: true, reason: 'quick-answer block added (needs --stamp)' }) }
+        // A quick-answer block restates facts already on the page; it is not a fact change (W1.7), so the date never moves for it.
+        updateData = { content, ...stampField({ factsChanged: false, reason: 'quick-answer block added — not a fact change' }) }
         change = { at: now, type: 'quick-answer', summary: r.rationale, baselineMetrics: baseline, citationBaseline, preEdit }
       } else if (r.type === 'faq-additions' && r.faqItems?.length) {
         const existingFaq = Array.isArray(post.faqItems) ? post.faqItems : []
@@ -158,20 +160,36 @@ export async function applyRecommendations(
         const merged = [...existingFaq, ...r.faqItems.map((f) => ({ question: f.question, answer: f.answer }))]
         console.log(`  ✎ faq-additions (+${r.faqItems.length} → ${merged.length} total)`)
         r.faqItems.forEach((f) => console.log(`      Q: ${f.question}`))
-        updateData = { faqItems: merged, ...stampField({ factsChanged: true, reason: 'FAQ items added (needs --stamp)' }) }
+        updateData = { faqItems: merged, ...stampField({ factsChanged: false, reason: 'FAQ items added — not a fact change' }) }
         change = { at: now, type: 'faq-additions', summary: r.rationale, baselineMetrics: baseline, citationBaseline, preEdit }
       }
 
       if (!change || !updateData) { skipped++; continue }
 
       if (apply) {
-        await updatePost(post.id, updateData)
-        await pingIndexNow([postUrlFor(slug)])
+        // No perf record = nowhere to keep the pre-edit snapshot = an autonomous edit nobody could revert. Skip it.
+        if (!record) { console.log(`  ⚠ ${r.type}: no perf record for ${slug} — no rollback snapshot would be kept; skipping (run perf measure first)`); skipped++; continue }
+        // W1.4: the new text goes through the same lint as a fresh article (title/meta, quick-answer HTML, FAQ answers).
+        const seo = (updateData.seo ?? {}) as { metaTitle?: string; metaDescription?: string }
+        const lint = lintArticle({
+          title: String(updateData.title ?? post.title ?? ''), metaTitle: seo.metaTitle, metaDescription: seo.metaDescription,
+          html: r.type === 'quick-answer' ? r.quickAnswerHtml || '' : '',
+          faqItems: r.type === 'faq-additions' ? (updateData.faqItems as { question: string; answer: string }[]) : undefined,
+          keyword: slug, slug, isNew: false,
+        })
+        if (!lint.ok) { console.log(`  ⛔ ${r.type}: lint failed — not applied\n${formatLint(lint)}`); skipped++; continue }
+        // The rollback record is written BEFORE the live edit, so a crash or a hung IndexNow call can never leave an
+        // edit without its pre-edit snapshot. If the PATCH then fails, the entry is taken back out.
+        record.changes.push(change); saveRecord(record)
+        try {
+          await updatePost(post.id, updateData)
+        } catch (e) {
+          record.changes.pop(); saveRecord(record)
+          throw e
+        }
         madeChanges.push(change)
         applied++
-        // Persist the change log immediately (atomic per edit) so a later failure
-        // never leaves a live edit without its pre-edit snapshot for rollback.
-        if (record) { record.changes.push(change); saveRecord(record) }
+        await pingIndexNow([postUrlFor(slug)])
         // Spot-audit: flag a random sample for after-the-fact human review.
         if (Math.random() < AUDIT_SAMPLE_RATE) {
           queueForAudit({ slug, type: change.type, at: change.at, rationale: change.summary })

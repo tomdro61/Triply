@@ -26,6 +26,8 @@ import { env, BLOG_BASE_URL } from './config.js'
 
 const ENDPOINT = 'https://api.indexnow.org/indexnow'
 const MAX_PER_REQUEST = 10_000
+// A hung endpoint must not hang a run that has already written to the CMS (nor `maintain`, which waits on it).
+const INDEXNOW_TIMEOUT_MS = 15_000
 
 function host(): string {
   try { return new URL(BLOG_BASE_URL).host } catch { return 'www.triplypro.com' }
@@ -66,6 +68,7 @@ export async function submitUrls(urls: string[]): Promise<{ submitted: number; o
         method: 'POST',
         headers: { 'Content-Type': 'application/json; charset=utf-8' },
         body: JSON.stringify({ host: h, key, keyLocation, urlList: chunk }),
+        signal: AbortSignal.timeout(INDEXNOW_TIMEOUT_MS),
       })
       // 200 = accepted, 202 = accepted pending key validation. Both are success.
       if (res.status === 200 || res.status === 202) {
@@ -79,7 +82,7 @@ export async function submitUrls(urls: string[]): Promise<{ submitted: number; o
       }
     } catch (e) {
       ok = false
-      console.warn(`  ⚠ IndexNow request failed (non-fatal): ${(e as Error).message}`)
+      console.warn(`  ⚠ IndexNow request failed (non-fatal${(e as Error).name === 'TimeoutError' ? `, ${INDEXNOW_TIMEOUT_MS / 1000}s timeout` : ''}): ${(e as Error).message}`)
     }
   }
   return { submitted, ok }
