@@ -46,6 +46,19 @@ export function currencySymbol(data: { code?: string; currency?: string }): stri
   return isCanadianAirport(data.code ?? '', data) ? 'C$' : '$'
 }
 
+/** Lot counts from the RAW file — before loadAirportData drops `sellable: false` lots — for the generate guard. */
+export function sellableFlagSummary(code: string): { total: number; flagged: number; sellable: number } | null {
+  const filepath = path.join(DATA_DIR, `${code.toUpperCase()}.json`)
+  if (!fs.existsSync(filepath)) return null
+  const raw = JSON.parse(fs.readFileSync(filepath, 'utf-8')) as { parkingLots?: { sellable?: unknown }[] }
+  const lots = Array.isArray(raw.parkingLots) ? raw.parkingLots : []
+  return {
+    total: lots.length,
+    flagged: lots.filter((l) => typeof l.sellable === 'boolean').length,
+    sellable: lots.filter((l) => l.sellable === true).length,
+  }
+}
+
 export function loadAirportData(code: string): AirportData | null {
   const filepath = path.join(DATA_DIR, `${code.toUpperCase()}.json`)
   if (!fs.existsSync(filepath)) {

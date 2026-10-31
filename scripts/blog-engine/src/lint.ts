@@ -37,6 +37,8 @@ export interface LintInput {
   isNew: boolean
   /** Override for tests. Defaults to the list in config/approved-promo-codes.json. */
   approvedCodes?: string[]
+  /** Code → its documented percent off (`percentOff` in the config). Only THAT claim ("10% off" for a 10% code) is self-sourced. */
+  approvedOffers?: Record<string, number>
   /** W1.3: every number in the airport data file. A $ figure not in here and not next to a link is flagged. */
   knownFigures?: number[]
   now?: Date
@@ -88,11 +90,18 @@ const BARE_MONEY: RegExp[] = [
 const PROMO_WORD = /\b(?:promo|promotional|coupon|discount|voucher)\s?codes?\b|\b(?:promo|coupon)s?\b/i
 // "verified"/"working"/… near "promo code" (any case), or near "code TRIPLY10" (an upper-case token that looks like a code).
 const VERIFIED_NEAR_CODE = /\b(?:verified|working|tested|confirmed|guaranteed)\b[^.<>]{0,60}\b(?:promo|coupon|discount)\s?codes?\b|\b(?:promo|coupon|discount)\s?codes?\b[^.<>]{0,60}\b(?:verified|working|tested|confirmed|guaranteed)\b/i
-const VERIFIED_NEAR_CODE_TOKEN = /\b(?:[Vv]erified|[Ww]orking|[Tt]ested|[Cc]onfirmed|[Gg]uaranteed)\b[^.<>]{0,40}\b[Cc]odes?\s+[A-Z0-9]{4,}\b|\b[Cc]odes?\s+[A-Z0-9]{4,}\b[^.<>]{0,40}\b(?:verified|working|tested|confirmed|guaranteed)\b/
+// The token must look like a promo code (letters AND digits, "TRIPLY10"), and "gate code 4821" / "confirmation code" are not promo codes.
+const NOT_PROMO_CODE_WORD = '(?<!\\b(?:gate|access|door|confirmation|booking|reservation|zip|postal|qr|bar|area|pin)\\s)'
+const CODE_TOKEN = '(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\\d)[A-Z0-9]{4,}'
+const VERIFIED_NEAR_CODE_TOKEN = new RegExp(`\\b(?:[Vv]erified|[Ww]orking|[Tt]ested|[Cc]onfirmed|[Gg]uaranteed)\\b[^.<>]{0,40}${NOT_PROMO_CODE_WORD}\\b[Cc]odes?\\s+${CODE_TOKEN}\\b|${NOT_PROMO_CODE_WORD}\\b[Cc]odes?\\s+${CODE_TOKEN}\\b[^.<>]{0,40}\\b(?:verified|working|tested|confirmed|guaranteed)\\b`)
 // A code with a digit, anywhere in the text ("SAVE10", "TRIPLY10", "FLY2024").
 const CODE_STRING = /\b([A-Z][A-Z0-9]{3,}\d[A-Z0-9]*|[A-Z]{2,}\d{1,3}[A-Z]*)\b/g
-// A token in code position ("code WELCOME", "use triply10", "enter: Save20"), any case; letters-only tokens must be all caps.
-const CODE_CONTEXT = /\b(?:[Cc]odes?|[Uu]se|[Ee]nter|[Aa]pply|[Tt]ype)\s*[:"“']?\s*([A-Za-z]+\d[A-Za-z0-9]*|\d+[A-Za-z][A-Za-z0-9]*|[A-Z]{4,})\b/g
+// A token in code position, any case, when it carries a digit ("use triply10", "enter: Save20") …
+const CODE_CONTEXT_DIGIT = /\b(?:[Cc]odes?|[Uu]se|[Ee]nter|[Aa]pply|[Tt]ype)\s*[:"“']?\s*([A-Za-z]+\d[A-Za-z0-9]*|\d+[A-Za-z]{2,}[A-Za-z0-9]*)\b/g
+// … or an all-caps word right after "code" ("code WELCOME"), or a longer one after use/enter/apply ("use EARLYBIRD";
+// "use LINK light rail" stays a word: four letters).
+const CODE_AFTER_CODEWORD = /\b[Cc]odes?\s*[:"“']?\s*([A-Z]{4,})\b|\b(?:[Uu]se|[Ee]nter|[Aa]pply)\s*[:"“']?\s*([A-Z]{5,})\b/g
+const ORDINAL = /^\d+(?:ST|ND|RD|TH)$/
 const NOT_CODES = new Set(['AIRTRAIN', 'PRECHECK', 'COVID', 'SKYTRAIN', 'TRAIN', 'TERMINAL', 'ECONOMY', 'DAILY', 'HOURLY', 'GARAGE', 'SHUTTLE', 'PARKING', 'AIRPORT', 'NORTH', 'SOUTH', 'CENTRAL', 'EXPRESS', 'VALET', 'TRIPLY', 'CLEAR', 'GLOBAL', 'ENTRY', 'LYFT', 'UBER', 'METRO', 'MARTA', 'SEPTA', 'AMTRAK', 'UPDATED', 'VERIFIED', 'WORKING', 'TOTAL', 'PRICE', 'RATES', 'NOTE', 'FREE', 'CHEAP', 'TRANSIT', 'PANYNJ', 'MBTA', 'BART', 'DART', 'LIRR', 'PATH', 'CTA', 'WMATA', 'MASSPORT', 'TSA', 'CATSA', 'FAA', 'CBSA', 'NEXUS', 'LOGAN', 'EXIT', 'CHECKOUT', 'ONLINE'])
 // "save up to 40%", "40% off", "40-60% below/less/cheaper", "60% savings"
 const SAVE_UP_TO = /\b(?:save|savings of|discounts? of)?\s?up to\s?\d{1,2}\s?%(?:\s?off)?|\b\d{1,2}\s?%\s?off\b|\b\d{1,2}\s?[-–]\s?\d{1,2}\s?%\s?(?:off|below|less|cheaper|lower|savings?)\b|\b\d{1,2}\s?%\s?(?:below|less|cheaper|lower|savings?)\b/i
@@ -106,6 +115,18 @@ export function loadApprovedCodes(file: string = APPROVED_CODES_PATH): string[] 
     return (raw.codes || []).map((c) => String(c.code))
   } catch {
     return []
+  }
+}
+
+/** Code → documented percent off, from the same file. A code with no `percentOff` sources no savings claim at all. */
+export function loadApprovedOffers(file: string = APPROVED_CODES_PATH): Record<string, number> {
+  try {
+    const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as { codes?: { code: string; percentOff?: unknown }[] }
+    const out: Record<string, number> = {}
+    for (const c of raw.codes || []) if (typeof c.percentOff === 'number') out[String(c.code).toUpperCase()] = c.percentOff
+    return out
+  } catch {
+    return {}
   }
 }
 
@@ -131,10 +152,15 @@ function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** True when the text names one of our approved codes — our own published offer is its own source. */
-function namesApprovedCode(text: string, approved: Set<string>): boolean {
-  for (const code of approved) if (code && new RegExp(`\\b${escapeRe(code)}\\b`, 'i').test(text)) return true
-  return false
+/**
+ * Our own published offer is its own source — but only the offer itself: "TRIPLY10: 10% off" when the config says
+ * TRIPLY10 is 10% off. "TRIPLY10 takes 90% off" or a garage-savings claim beside the code still needs an outside source.
+ */
+function ownCodeCovers(text: string, claim: string, offers: Record<string, number>): boolean {
+  const m = claim.trim().match(/^(\d{1,2})\s?%\s?off$/i)
+  if (!m) return false
+  const pct = Number(m[1])
+  return Object.entries(offers).some(([code, off]) => off === pct && new RegExp(`\\b${escapeRe(code)}\\b`, 'i').test(text))
 }
 
 function paragraphs(html: string): string[] {
@@ -150,6 +176,8 @@ export function lintArticle(input: LintInput): LintResult {
   const warnings: LintFinding[] = []
   const now = input.now || new Date()
   const approved = new Set((input.approvedCodes || loadApprovedCodes()).map((c) => c.toUpperCase()))
+  const offers = input.approvedOffers ?? (input.approvedCodes ? {} : loadApprovedOffers())
+  const savingsClaims = (text: string) => [...text.matchAll(new RegExp(SAVE_UP_TO.source, 'gi'))].map((m) => m[0])
 
   const faqText = (input.faqItems || []).map((f) => `${f.question} ${f.answer}`).join(' ')
   const allText = [input.title, input.metaTitle, input.metaDescription, input.excerpt, stripTags(input.html), faqText]
@@ -179,10 +207,11 @@ export function lintArticle(input: LintInput): LintResult {
     const seen = new Set<string>()
     const candidates: { code: string; index: number }[] = []
     for (const m of allText.matchAll(CODE_STRING)) candidates.push({ code: m[1], index: m.index || 0 })
-    for (const m of allText.matchAll(CODE_CONTEXT)) candidates.push({ code: m[1], index: m.index || 0 })
+    for (const m of allText.matchAll(CODE_CONTEXT_DIGIT)) candidates.push({ code: m[1], index: m.index || 0 })
+    for (const m of allText.matchAll(CODE_AFTER_CODEWORD)) candidates.push({ code: m[1] || m[2], index: m.index || 0 })
     for (const { code: raw, index } of candidates) {
       const code = raw.toUpperCase()
-      if (seen.has(code) || approved.has(code) || NOT_CODES.has(code)) continue
+      if (seen.has(code) || approved.has(code) || NOT_CODES.has(code) || ORDINAL.test(code)) continue
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)
@@ -192,19 +221,24 @@ export function lintArticle(input: LintInput): LintResult {
 
   // 5. "save up to N %" needs an OUTSIDE source link in the same paragraph (body) or answer (FAQ).
   // Our own approved code is its own source ("TRIPLY10: 10% off the parking rate"); a Triply search link is a CTA, not a source.
-  for (const p of paragraphs(input.html)) {
+  paragraphLoop: for (const p of paragraphs(input.html)) {
     const text = stripTags(p)
-    const m = text.match(SAVE_UP_TO)
-    if (!m || namesApprovedCode(text, approved) || EXTERNAL_SOURCE_LINK.test(p)) continue
-    errors.push({ level: 'error', rule: 'unsourced-saving', message: `"${m[0]}" has no source link in its paragraph`, snippet: text.slice(0, 160) })
-    break
+    if (EXTERNAL_SOURCE_LINK.test(p)) continue
+    for (const claim of savingsClaims(text)) {
+      if (ownCodeCovers(text, claim, offers)) continue
+      errors.push({ level: 'error', rule: 'unsourced-saving', message: `"${claim}" has no source link in its paragraph`, snippet: text.slice(0, 160) })
+      break paragraphLoop
+    }
   }
-  for (const f of input.faqItems || []) {
+  faqLoop: for (const f of input.faqItems || []) {
     const text = `${f.question} ${f.answer}`
-    const m = text.match(SAVE_UP_TO)
-    if (!m || namesApprovedCode(text, approved) || EXTERNAL_SOURCE_LINK.test(f.answer)) continue
-    errors.push({ level: 'error', rule: 'unsourced-saving', message: `FAQ "${f.question.slice(0, 60)}": "${m[0]}" has no source link`, snippet: stripTags(f.answer).slice(0, 160) })
-    break
+    if (EXTERNAL_SOURCE_LINK.test(f.answer)) continue
+    for (const claim of savingsClaims(text)) {
+      if (ownCodeCovers(text, claim, offers)) continue
+      // FAQ answers render as plain text on the site (FaqAccordion), so an answer can never carry a working source link.
+      errors.push({ level: 'error', rule: 'unsourced-saving', message: `FAQ "${f.question.slice(0, 60)}": "${claim}" — FAQ answers cannot carry a source link; remove the claim or move it to the body with its source`, snippet: stripTags(f.answer).slice(0, 160) })
+      break faqLoop
+    }
   }
   for (const field of [input.title, input.metaTitle, input.metaDescription, input.excerpt]) {
     if (field && SAVE_UP_TO.test(field)) {

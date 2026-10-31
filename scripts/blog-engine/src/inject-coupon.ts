@@ -26,7 +26,7 @@ import { loadRecord, saveRecord } from './perf-snapshot.js'
 import type { PerfChange } from './perf-snapshot.js'
 import { stampField } from './stamp.js'
 import { pingIndexNow, postUrlFor } from './indexnow.js'
-import { lintArticle, formatLint, loadApprovedCodes } from './lint.js'
+import { lintArticle, formatLint, loadApprovedCodes, loadApprovedOffers } from './lint.js'
 
 const CODE = (process.env.COUPON_CODE || '').trim().toUpperCase()
 const PERCENT = Number(process.env.COUPON_PERCENT) || 10
@@ -75,8 +75,13 @@ async function main() {
     console.error(`COUPON_CODE "${CODE}" is not in src/config/approved-promo-codes.json (${approved.join(', ') || 'empty'}) — add it there with its source first (W1.4).`)
     process.exit(1)
   }
+  const offers = loadApprovedOffers()
+  if (offers[CODE] !== PERCENT) {
+    console.error(`approved-promo-codes.json documents ${CODE} as ${offers[CODE] === undefined ? 'no percentOff' : `${offers[CODE]}% off`}; COUPON_PERCENT is ${PERCENT}. Fix one of them before rolling the code out.`)
+    process.exit(1)
+  }
   // W1.4: the block is linted once, like any other text that reaches a live post.
-  const blockLint = lintArticle({ title: 'coupon block', html: couponBlockHtml(), keyword: 'promo code', isNew: false, approvedCodes: approved })
+  const blockLint = lintArticle({ title: 'coupon block', html: couponBlockHtml(), keyword: 'promo code', isNew: false, approvedCodes: approved, approvedOffers: offers })
   if (!blockLint.ok) {
     console.error(`Coupon block fails the lint — nothing written:\n${formatLint(blockLint)}`)
     process.exit(1)
@@ -133,7 +138,9 @@ async function main() {
           // W1.7: a coupon block is not a fact about the airport — the date never moves for it.
           await updatePost(post.id, { content, ...stampField({ factsChanged: false, reason: 'coupon block prepended — not a fact change' }) })
         } catch (e) {
-          record.changes.pop(); saveRecord(record)
+          // The PATCH may have committed before its response was lost: the snapshot stays, marked for a person to check.
+          change.summary = `[PATCH FAILED — edit may or may not be live; verify in the CMS] ${change.summary}`
+          saveRecord(record)
           throw e
         }
         await pingIndexNow([postUrlFor(slug)])

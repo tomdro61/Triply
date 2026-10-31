@@ -144,9 +144,11 @@ export async function applyRecommendations(
         if (metaDescription) console.log(`      metaDesc: → "${metaDescription.slice(0, 60)}..." (${metaDescription.length}c)`)
         change = { at: now, type: 'title-meta', summary: r.rationale, baselineMetrics: baseline, preEdit }
       } else if (r.type === 'quick-answer' && r.quickAnswerHtml) {
-        const content = post.content // Lexical document { root: { children: [] } }
-        if (!content?.root?.children) { console.log('  ⚠ quick-answer: post has no Lexical content, skipping'); skipped++; continue }
-        const preEdit = { content: JSON.parse(JSON.stringify(content)) } // deep clone for lossless revert
+        if (!post.content?.root?.children) { console.log('  ⚠ quick-answer: post has no Lexical content, skipping'); skipped++; continue }
+        // Work on a clone: the shared `post` follows the CMS only after a successful PATCH, so a recommendation the
+        // lint rejects can never leak into the next one's body or rollback baseline.
+        const content = JSON.parse(JSON.stringify(post.content)) // Lexical document { root: { children: [] } }
+        const preEdit = { content: JSON.parse(JSON.stringify(post.content)) } // exact pre-edit copy for lossless revert
         const newNodes = htmlToLexical(r.quickAnswerHtml).root.children
         console.log(`  ✎ quick-answer (prepend ${newNodes.length} block(s) at top)`)
         console.log(`      ${r.quickAnswerHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 160)}`)
@@ -174,7 +176,8 @@ export async function applyRecommendations(
         const lint = lintArticle({
           title: String(updateData.title ?? post.title ?? ''), metaTitle: seo.metaTitle, metaDescription: seo.metaDescription,
           html: r.type === 'quick-answer' ? r.quickAnswerHtml || '' : '',
-          faqItems: r.type === 'faq-additions' ? (updateData.faqItems as { question: string; answer: string }[]) : undefined,
+          // only the items this edit adds — an old live FAQ must not block every future addition
+          faqItems: r.type === 'faq-additions' ? (r.faqItems || []).map((f) => ({ question: f.question, answer: f.answer })) : undefined,
           keyword: slug, slug, isNew: false,
         })
         if (!lint.ok) { console.log(`  ⛔ ${r.type}: lint failed — not applied\n${formatLint(lint)}`); skipped++; continue }
@@ -184,9 +187,17 @@ export async function applyRecommendations(
         try {
           await updatePost(post.id, updateData)
         } catch (e) {
-          record.changes.pop(); saveRecord(record)
+          // The PATCH may have committed before its response was lost, so the snapshot STAYS. It is marked so a
+          // person (or `perf revert`) knows the edit may or may not be live; restoring preEdit is safe either way.
+          change.summary = `[PATCH FAILED — edit may or may not be live; verify in the CMS] ${change.summary}`
+          saveRecord(record)
           throw e
         }
+        // The local copy now follows the CMS, so a later recommendation in this run builds on what is live.
+        if (updateData.content !== undefined) post.content = updateData.content
+        if (updateData.faqItems !== undefined) post.faqItems = updateData.faqItems
+        if (updateData.title !== undefined) post.title = updateData.title
+        if (updateData.seo !== undefined) post.seo = updateData.seo
         madeChanges.push(change)
         applied++
         await pingIndexNow([postUrlFor(slug)])
