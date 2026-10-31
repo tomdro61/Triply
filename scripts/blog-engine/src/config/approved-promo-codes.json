@@ -1,0 +1,4 @@
+{
+  "_comment": "Promo codes the lint allows in blog copy (W1.4). Only codes the airport, the lot, or Triply itself publishes AND that checkout accepts (an active promo_codes row). Every entry names its source. Anything else fails the write. TRIPLY10 was listed here on 2026-10-30 but no such row exists in promo_codes and no non-WELCOME code is active (checked 2026-10-30) - add a code back only after its row is created and active. Each entry: { code, source, addedOn, percentOff } \u2014 percentOff is the ONLY savings claim the lint accepts for that code without an outside source.",
+  "codes": []
+}

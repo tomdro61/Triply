@@ -1,5 +1,7 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import withPWAInit from "@ducanh2912/next-pwa";
+import blogRedirectMap from "./src/config/blog-redirects.json" with { type: "json" };
+import { buildBlogRedirects } from "./src/lib/blog/blog-redirects.mjs";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -110,6 +112,8 @@ const nextConfig = {
         destination: "https://www.parkguardcoveragehub.com/triplyproclaims",
         permanent: false,
       },
+      // Merged blog posts (W2): /blog/<old> -> /blog/<new>, 308. Map is empty until the merge test.
+      ...buildBlogRedirects(blogRedirectMap),
     ];
   },
 

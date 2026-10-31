@@ -2,7 +2,17 @@ node_modules/
 .env
 dist/
 logs/
-reports/
+# Generated reports stay out of git; the one-off SCRIPTS under reports/ are code and are tracked.
+reports/*
+!reports/new-airports/
+reports/new-airports/*
+!reports/new-airports/*.mts
+!reports/new-airports/WRITER-RULES.md
+!reports/lot-rewrite/
+reports/lot-rewrite/*
+!reports/lot-rewrite/*.mts
+!reports/lot-rewrite/RULES.md
+!reports/publish-price-index.mts
 *.log
 temp-*
 test-output/
