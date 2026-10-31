@@ -253,7 +253,9 @@ async function main() {
       res.action = 'ABORT: verification failed (content outside block or link/image counts changed)'; console.log(`${code}: ${res.action}`); continue
     }
     // W1.7: an identical block is not a change — no write, no stamp (a same-month re-run used to re-stamp the page).
-    if (removed && JSON.stringify(children.slice(at, at + removed)) === JSON.stringify(block)) {
+    // Compared as text of the heading + table only: jsonb reorders keys, and the "Checked <day>" note is not a fact.
+    const blockFacts = (nodes: any[]) => nodes.slice(0, 2).map(plain).join('\n')
+    if (removed && blockFacts(children.slice(at, at + removed)) === blockFacts(block)) {
       res.action = 'unchanged: the page already carries this exact block'; console.log(`${code}: ${res.action}`); continue
     }
     console.log(`${code}: ${res.action} at node ${at} on ${hub.id} ${hub.slug} — ${rows.length} rows; links ${res.links}, images ${res.uploads}`)

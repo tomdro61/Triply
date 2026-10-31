@@ -79,6 +79,7 @@ function daysBetween(a: Date, bIso: string): number {
  * Reuses record.changes[] owned by the apply/measure stages.
  */
 export function inCooldown(record: ArticlePerfRecord, now: Date, cooldownDays: number): boolean {
+  // A patchUnverified entry (the edit MAY be live) still counts: stacking another edit on an unknown state is the confound the cooldown prevents.
   return record.changes.some((c) => !c.measuredAfter && !c.reverted && daysBetween(now, c.at) < cooldownDays)
 }
 

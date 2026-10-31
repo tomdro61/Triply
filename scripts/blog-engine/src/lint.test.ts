@@ -62,16 +62,26 @@ test('"QR code" / "NJ TRANSIT" in a post are not promo talk', () => {
   assert.ok(!rules(r).includes('verified-code'), JSON.stringify(r.errors))
   assert.ok(!rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
 })
+test('gate codes, ordinals and ordinary all-caps words are not promo codes', () => {
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Once your booking is confirmed, the gate code 4821 is in your email. Your Confirmation code RTL855661 is confirmed by email; the gate-code AB12 is confirmed too. Enter 3rd Street, use 2nd-level parking, or use LINK light rail. Promo codes change often.</p>' })
+  assert.ok(!rules(r).includes('verified-code'), JSON.stringify(r.errors))
+  assert.ok(!rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
+})
 test('a code in lower case or in code position is still checked', () => {
   const r = lintArticle({ ...base, html: goodHtml + '<p>Use promo code save20 at checkout.</p>' })
   assert.ok(rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Promo codes: enter WELCOME at checkout.</p>' })).includes('unapproved-code'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Code TRIPLY10 is verified for 2026.</p>' })).includes('verified-code'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Promo codes vary. Use booking code TRIPLY20 at checkout.</p>' })).includes('unapproved-code'), 'a "booking code" the sentence tells you to USE is a promo code')
 })
 test('a savings claim needs an OUTSIDE source; a Triply link or an FAQ with no link is not one', () => {
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Save up to 60% vs. the garage — <a href="/search?airport=EWR">compare lots</a>.</p>' })).includes('unsourced-saving'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Off-site lots run 40-60% below the garage — <a href="https://www.triplypro.com/search">book here</a>.</p>' })).includes('unsourced-saving'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml, faqItems: [{ question: 'How much can I save?', answer: 'Save up to 60% vs the garage.' }] })).includes('unsourced-saving'))
-  // our own approved code is its own source
-  assert.ok(!rules(lintArticle({ ...base, html: goodHtml + '<h2>Promo code TRIPLY10: 10% off</h2><p>TRIPLY10 takes 10% off the parking rate on <a href="https://www.triplypro.com/search?airport=EWR">bookings made on triplypro.com</a>.</p>' })).includes('unsourced-saving'))
+  // our own approved code is its own source — for ITS offer only
+  const offers = { approvedOffers: { TRIPLY10: 10 } }
+  assert.ok(!rules(lintArticle({ ...base, ...offers, html: goodHtml + '<h2>Promo code TRIPLY10: 10% off</h2><p>TRIPLY10 takes 10% off the parking rate on <a href="https://www.triplypro.com/search?airport=EWR">bookings made on triplypro.com</a>.</p>' })).includes('unsourced-saving'))
+  assert.ok(rules(lintArticle({ ...base, ...offers, html: goodHtml + '<p>TRIPLY10 takes 90% off the parking rate.</p>' })).includes('unsourced-saving'))
+  assert.ok(rules(lintArticle({ ...base, ...offers, html: goodHtml + '<p>Use TRIPLY10 for 10% off — and save up to 60% vs the garage.</p>' })).includes('unsourced-saving'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>TRIPLY10 takes 10% off the parking rate.</p>' })).includes('unsourced-saving'), 'a code with no documented offer sources nothing')
 })

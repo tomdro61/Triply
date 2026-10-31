@@ -10,7 +10,7 @@
  * `factsChanged` is the second half of the gate. Callers compute it with `factsDiff()` below —
  * sentences that carry a figure — never pass a constant.
  *
- *   const facts = factsDiff(lexicalText(livePost.content), newHtml)
+ *   const facts = factsDiff(lexicalText(livePost.content), lexicalText(htmlToLexical(newHtml)))   // both sides flattened the same way
  *   const patch = { content, ...stampField({ factsChanged: facts.changed, reason: '…' }) }
  */
 
@@ -20,8 +20,16 @@ export function stampRequested(argv: string[] = process.argv): boolean {
 
 /** Sentences that carry a figure ($, C$, a number, a time) — the "facts" W1.7 compares. Tag-stripped, whitespace-normalised, lower-cased. */
 export function factSentences(text: string): string[] {
-  const clean = text.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
-  return clean.split(/(?<=[.!?])\s+/).map((s) => s.trim().toLowerCase()).filter((s) => /\d/.test(s))
+  const clean = text
+    .replace(/<\/(?:p|h[1-6]|li|td|th|tr|blockquote|div)>/gi, '. ') // a block boundary ends a sentence, as lexicalText does
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&mdash;/g, '—').replace(/&ndash;/g, '–').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"')
+    .replace(/\.{2,}/g, '.')
+    .replace(/\s+/g, ' ')
+    .trim()
+  // Trailing punctuation is dropped so a Lexical block ("…$18/day" + the '. ' a block boundary adds) and the same
+  // sentence in HTML ("…$18/day.") compare equal.
+  return clean.split(/(?<=[.!?])\s+/).map((s) => s.trim().toLowerCase().replace(/[.!?\s]+$/, '')).filter((s) => /\d/.test(s))
 }
 
 export interface FactsDiff { added: string[]; removed: string[]; changed: boolean }
@@ -40,12 +48,17 @@ export function lexicalText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
   const n = node as { text?: unknown; children?: unknown[]; root?: unknown; type?: unknown }
   if (n.root) return lexicalText(n.root)
+  if (n.type === 'linebreak') return ' '
   const own = typeof n.text === 'string' ? n.text : ''
   // Inline text leaves concatenate as written (a leaf usually carries its own trailing space); blocks end with '. ' below.
   const kids = Array.isArray(n.children) ? n.children.map(lexicalText).join('') : ''
   const joined = own + kids
-  // A block boundary ends a sentence so "…$18/day" + next heading don't fuse into one fact sentence.
-  return n.type === 'paragraph' || n.type === 'heading' || n.type === 'listitem' || n.type === 'tablecell' ? `${joined}. ` : joined
+  // A block boundary ends a sentence so "…$18/day" + next heading don't fuse into one fact sentence — but a
+  // paragraph that already ends with punctuation must not get a second one ("$18/day.." ≠ "$18/day.").
+  if (n.type === 'paragraph' || n.type === 'heading' || n.type === 'listitem' || n.type === 'tablecell' || n.type === 'quote') {
+    return /[.!?]\s*$/.test(joined) ? `${joined} ` : `${joined}. `
+  }
+  return joined
 }
 
 export interface StampOptions {

@@ -26,7 +26,8 @@ import { loadRecord, saveRecord } from './perf-snapshot.js'
 import type { PerfChange } from './perf-snapshot.js'
 import type { Recommendation } from './perf-recommend.js'
 import { AUDIT_SAMPLE_RATE } from './config.js'
-import { stampField } from './stamp.js'
+import { stampField, lexicalText } from './stamp.js'
+import { settleFailedPatch } from './settle-patch.js'
 import { pingIndexNow, postUrlFor } from './indexnow.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -79,6 +80,23 @@ export function queueForAudit(
   // Atomic append — no read-modify-write, so parallel `perf run` invocations can't
   // clobber each other's entries the way rewriting a whole JSON array did.
   fs.appendFileSync(file, JSON.stringify({ ...entry, reviewed: false }) + '\n')
+}
+
+/** True when the live post already carries every field this edit set (used to settle a PATCH whose response was lost). */
+export function editIsLive(live: { content?: unknown; faqItems?: unknown; title?: unknown; seo?: unknown }, updateData: Record<string, unknown>): boolean {
+  if (updateData.content !== undefined && lexicalText(live.content) !== lexicalText(updateData.content)) return false
+  if (updateData.faqItems !== undefined) {
+    const a = live.faqItems as { question: string }[] | undefined
+    const b = updateData.faqItems as { question: string }[]
+    if (!Array.isArray(a) || a.length !== b.length || a.some((f, i) => f.question !== b[i].question)) return false
+  }
+  if (updateData.title !== undefined && live.title !== updateData.title) return false
+  if (updateData.seo !== undefined) {
+    const a = (live.seo ?? {}) as Record<string, unknown>
+    const b = updateData.seo as Record<string, unknown>
+    if (a.metaTitle !== b.metaTitle || a.metaDescription !== b.metaDescription) return false
+  }
+  return true
 }
 
 /** Trim to a max length at a word boundary when possible (CMS enforces metaTitle<=60, metaDescription<=160). */
@@ -144,9 +162,11 @@ export async function applyRecommendations(
         if (metaDescription) console.log(`      metaDesc: → "${metaDescription.slice(0, 60)}..." (${metaDescription.length}c)`)
         change = { at: now, type: 'title-meta', summary: r.rationale, baselineMetrics: baseline, preEdit }
       } else if (r.type === 'quick-answer' && r.quickAnswerHtml) {
-        const content = post.content // Lexical document { root: { children: [] } }
-        if (!content?.root?.children) { console.log('  ⚠ quick-answer: post has no Lexical content, skipping'); skipped++; continue }
-        const preEdit = { content: JSON.parse(JSON.stringify(content)) } // deep clone for lossless revert
+        if (!post.content?.root?.children) { console.log('  ⚠ quick-answer: post has no Lexical content, skipping'); skipped++; continue }
+        // Work on a clone: the shared `post` follows the CMS only after a successful PATCH, so a recommendation the
+        // lint rejects can never leak into the next one's body or rollback baseline.
+        const content = JSON.parse(JSON.stringify(post.content)) // Lexical document { root: { children: [] } }
+        const preEdit = { content: JSON.parse(JSON.stringify(post.content)) } // exact pre-edit copy for lossless revert
         const newNodes = htmlToLexical(r.quickAnswerHtml).root.children
         console.log(`  ✎ quick-answer (prepend ${newNodes.length} block(s) at top)`)
         console.log(`      ${r.quickAnswerHtml.replace(/<[^>]+>/g, ' ').trim().slice(0, 160)}`)
@@ -165,6 +185,7 @@ export async function applyRecommendations(
       }
 
       if (!change || !updateData) { skipped++; continue }
+      const patchData = updateData // a const the closure below can keep narrowed
 
       if (apply) {
         // No perf record = nowhere to keep the pre-edit snapshot = an autonomous edit nobody could revert. Skip it.
@@ -174,19 +195,25 @@ export async function applyRecommendations(
         const lint = lintArticle({
           title: String(updateData.title ?? post.title ?? ''), metaTitle: seo.metaTitle, metaDescription: seo.metaDescription,
           html: r.type === 'quick-answer' ? r.quickAnswerHtml || '' : '',
-          faqItems: r.type === 'faq-additions' ? (updateData.faqItems as { question: string; answer: string }[]) : undefined,
+          // only the items this edit adds — an old live FAQ must not block every future addition
+          faqItems: r.type === 'faq-additions' ? (r.faqItems || []).map((f) => ({ question: f.question, answer: f.answer })) : undefined,
           keyword: slug, slug, isNew: false,
         })
         if (!lint.ok) { console.log(`  ⛔ ${r.type}: lint failed — not applied\n${formatLint(lint)}`); skipped++; continue }
         // The rollback record is written BEFORE the live edit, so a crash or a hung IndexNow call can never leave an
-        // edit without its pre-edit snapshot. If the PATCH then fails, the entry is taken back out.
+        // edit without its pre-edit snapshot. If the PATCH then fails, settleFailedPatch decides whether the entry stays.
         record.changes.push(change); saveRecord(record)
         try {
           await updatePost(post.id, updateData)
         } catch (e) {
-          record.changes.pop(); saveRecord(record)
-          throw e
+          // Always re-reads the post (the final error describes only the last retry; an earlier attempt may have committed).
+          await settleFailedPatch(slug, record, change, (live) => editIsLive(live, patchData), e) // returns only when the edit is confirmed live
         }
+        // The local copy now follows the CMS, so a later recommendation in this run builds on what is live.
+        if (updateData.content !== undefined) post.content = updateData.content
+        if (updateData.faqItems !== undefined) post.faqItems = updateData.faqItems
+        if (updateData.title !== undefined) post.title = updateData.title
+        if (updateData.seo !== undefined) post.seo = updateData.seo
         madeChanges.push(change)
         applied++
         await pingIndexNow([postUrlFor(slug)])

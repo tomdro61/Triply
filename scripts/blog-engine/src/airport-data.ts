@@ -46,6 +46,19 @@ export function currencySymbol(data: { code?: string; currency?: string }): stri
   return isCanadianAirport(data.code ?? '', data) ? 'C$' : '$'
 }
 
+/** Lot counts from the RAW file — before loadAirportData drops `sellable: false` lots — for the generate guard. */
+export function sellableFlagSummary(code: string): { total: number; flagged: number; sellable: number } | null {
+  const filepath = path.join(DATA_DIR, `${code.toUpperCase()}.json`)
+  if (!fs.existsSync(filepath)) return null
+  const raw = JSON.parse(fs.readFileSync(filepath, 'utf-8')) as { parkingLots?: { sellable?: unknown }[] }
+  const lots = Array.isArray(raw.parkingLots) ? raw.parkingLots : []
+  return {
+    total: lots.length,
+    flagged: lots.filter((l) => typeof l.sellable === 'boolean').length,
+    sellable: lots.filter((l) => l.sellable === true).length,
+  }
+}
+
 export function loadAirportData(code: string): AirportData | null {
   const filepath = path.join(DATA_DIR, `${code.toUpperCase()}.json`)
   if (!fs.existsSync(filepath)) {
@@ -63,10 +76,12 @@ export function loadAirportData(code: string): AirportData | null {
     if (!Array.isArray(t.airlines)) t.airlines = Array.isArray(t.cruiseLines) ? t.cruiseLines : []
   }
 
-  // Warn if data is stale (>90 days old)
+  // Warn if data is stale (>90 days old) — or carries a date nobody can read (NaN would otherwise pass every check silently)
   const lastVerified = new Date(data.lastVerified)
   const daysSinceVerified = Math.floor((Date.now() - lastVerified.getTime()) / (1000 * 60 * 60 * 24))
-  if (daysSinceVerified > 90) {
+  if (Number.isNaN(daysSinceVerified)) {
+    console.warn(`  \u26a0\ufe0f ${code}.json lastVerified is "${data.lastVerified}" \u2014 not a date; the writer will print it as-is in "as of" and generate refuses it without --allow-stale-data.`)
+  } else if (daysSinceVerified > 90) {
     console.warn(
       `  \u26a0\ufe0f ${code}.json last verified ${data.lastVerified} (${daysSinceVerified} days ago) \u2014 consider updating rates before generating.`
     )

@@ -15,6 +15,30 @@ import type { ScrapedArticle } from './scraper.js'
 import { generateArticle, resetTokenTracking, getTokenSummary, setCurrentStep, PROMPT_VERSION } from './claude.js'
 import { factsDiff, lexicalText } from './stamp.js'
 import { getPostById } from './payload.js'
+import { sellableFlagSummary, type AirportData } from './airport-data.js'
+
+/**
+ * W1.3 / W1.6: the data block is the only source of figures, so it has to exist, carry sellable flags and be
+ * fresh. Runs for every item BEFORE any scrape or batch submission (a refused item costs no SerpAPI or Claude
+ * credit). loadAirportData already drops `sellable: false` lots. Throws with the reason.
+ */
+function checkAirportData(code: string, allowStale: boolean): { data: AirportData; note: string } {
+  const counts = sellableFlagSummary(code)
+  const data = counts ? loadAirportData(code) : null
+  if (!counts || !data) throw new Error(`no data file for ${code} (data/airports/${code}.json) — the writer would guess every figure; add the file before generating`)
+  // Counted on the raw file: every lot needs an explicit flag (one flagged lot among eight unflagged is not "flagged"),
+  // and at least one must be sellable, or the writer has nothing to recommend.
+  if (counts.total > 0 && counts.flagged < counts.total) throw new Error(`${code}: ${counts.total - counts.flagged} of ${counts.total} lots carry no sellable flag — the writer would name lots Triply cannot sell (W1.6); mark every lot sellable: true/false`)
+  if (counts.sellable === 0) throw new Error(`${code}: no lot is marked sellable: true — nothing to recommend; mark the sellable lots first`)
+  const verifiedAt = new Date(data.lastVerified)
+  // An unreadable lastVerified is treated as stale, never as fresh.
+  const ageDays = Number.isNaN(verifiedAt.getTime()) ? Number.POSITIVE_INFINITY : Math.round((Date.now() - verifiedAt.getTime()) / 86_400_000)
+  if (ageDays > 90 && !allowStale) {
+    const when = Number.isFinite(ageDays) ? `${ageDays} days ago (${data.lastVerified})` : `at an unreadable date ("${data.lastVerified}")`
+    throw new Error(`${code} data was verified ${when} — refresh it, or pass --allow-stale-data`)
+  }
+  return { data, note: `verified ${data.lastVerified}; ${counts.sellable} sellable of ${counts.total} lots, all flagged` }
+}
 import { htmlToLexical } from './html-to-lexical.js'
 import { generateInfographics } from './infographics.js'
 import { getAirportPhoto } from './unsplash.js'
@@ -269,6 +293,11 @@ program
     // Collect successfully published URLs → one bulk IndexNow ping at the end (in `finally`, so a fatal
     // error after a publish still pings what went live). Instant Bing/Yandex indexing; feeds ChatGPT/Copilot.
     const publishedUrls: string[] = []
+    // Refused, failed and written counts drive the exit code (a caller like maintain must not read a run with
+    // failures as "done"), so they live outside the try: the `finally` reads them on every exit path.
+    let errored = 0
+    let refused = 0 // preflight refusals (duplicate guard, live slug, data file): the item never started, so not "failed"
+    let succeeded = 0
     try {
       console.log(`\n🚀 Triply Blog Engine — Generate [prompt: ${PROMPT_VERSION}]\n`)
       const publishMode: boolean = Boolean(options.publish)
@@ -328,11 +357,23 @@ program
       // with every slug at the airport in ANY status plus the redirect map; refuse matches.
       const redirectMap = loadRedirectMap()
       const slugsByAirport = new Map<string, string[]>()
+      const statusBySlug = new Map<string, string>() // reused by the preflight below: a LIVE slug needs --publish
+      const inRun = new Set<string>()
       const guarded: QueueItem[] = []
       for (const item of items) {
         const code = item.airportCode.toUpperCase()
-        if (!slugsByAirport.has(code)) slugsByAirport.set(code, (await getAllSlugsAnyStatus(code)).map((p) => p.slug))
+        if (!slugsByAirport.has(code)) {
+          const known = await getAllSlugsAnyStatus(code)
+          slugsByAirport.set(code, known.map((p) => p.slug))
+          for (const p of known) statusBySlug.set(p.slug, p.status)
+        }
         const dup = findDuplicate(item.keyword, code, slugsByAirport.get(code)!, redirectMap, item.slug)
+        if (dup && inRun.has(dup.matchedSlug)) {
+          // Same question as an item accepted earlier in THIS run. Not an error on this item — its twin may still
+          // fail — so it stays queued and is judged against the real page next run.
+          console.log(`  ⏭ "${item.keyword}" asks the same question as "${dup.matchedSlug}" earlier in this run — left queued; re-run once that one is written`)
+          continue
+        }
         if (dup && !options.skipDuplicateGuard) {
           const rec = { at: new Date().toISOString(), airportCode: code, keyword: item.keyword, queuedSlug: item.slug, queueItemId: item.id, match: dup }
           if (!options.dryRun) logRefusal(rec)
@@ -341,6 +382,7 @@ program
             await markError(item.id, `duplicate guard: update /blog/${dup.slug} instead (matched ${dup.matchedSlug})`)
               .catch((e) => console.warn(`  ⚠ could not mark queue item ${item.id} as error (it will be picked up again next run): ${e instanceof Error ? e.message : e}`))
           }
+          refused++
           continue
         }
         if (dup) console.log(`  ⚠ "${item.keyword}" duplicates /blog/${dup.slug} but --skip-duplicate-guard was passed`)
@@ -348,12 +390,49 @@ program
         // An accepted item now answers its question: a second queued item for the same question in THIS run
         // ("jfk parking cost" + "jfk parking prices") must see it, or both get written.
         slugsByAirport.get(code)!.push(item.slug)
+        inRun.add(item.slug)
       }
       items.length = 0
       items.push(...guarded)
       if (items.length === 0) {
         console.log('Every queued item was refused by the duplicate guard. Nothing to generate.')
         return
+      }
+
+      // Verified airport data — checked here, before the batch pre-phase or any per-item scrape, so neither mode
+      // spends a SerpAPI or Claude credit on an item that will be refused.
+      console.log('Checking airport data files...')
+      const airportDataById = new Map<string, AirportData>()
+      {
+        const withData: QueueItem[] = []
+        for (const item of items) {
+          // A LIVE slug without --publish is refused HERE, before any spend; the same check near the write is the backstop.
+          if (statusBySlug.get(item.slug) === 'published' && !publishMode) {
+            console.log(`  ⛔ "${item.keyword}": /blog/${item.slug} is LIVE — regenerating it without --publish would replace its body in place. Left queued; re-run with --publish, or change it with apply-edit.`)
+            refused++
+            continue
+          }
+          try {
+            const { data, note } = checkAirportData(item.airportCode, Boolean(options.allowStaleData))
+            airportDataById.set(item.id, data)
+            console.log(`  ✓ ${item.airportCode}: ${note}`)
+            withData.push(item)
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e)
+            console.log(`  ⛔ "${item.keyword}" refused — ${msg}`)
+            if (!options.dryRun) {
+              await markError(item.id, `airport data: ${msg}`)
+                .catch((err) => console.warn(`  ⚠ could not mark queue item ${item.id} as error: ${err instanceof Error ? err.message : err}`))
+            }
+            refused++
+          }
+        }
+        items.length = 0
+        items.push(...withData)
+        if (items.length === 0) {
+          console.log('No queued item has a usable airport data file. Nothing to generate.')
+          return
+        }
       }
 
       // Get the API user for the author field
@@ -381,7 +460,7 @@ program
             const manualUrls = item.competitorUrls?.map((c) => c.url) || []
             const competitors = await scrapeCompetitors(item.keyword, manualUrls)
             batchCompetitors.set(item.id, competitors)
-            batchInputs.push({ item, competitors, airportData: loadAirportData(item.airportCode) || undefined })
+            batchInputs.push({ item, competitors, airportData: airportDataById.get(item.id) })
           }
           const { outcomes, totalCost } = await generateArticlesBatch(batchInputs, publishedPosts)
           console.log(`   Batch text cost: $${totalCost.toFixed(4)} (infographics + CMS still per-item below)`)
@@ -394,8 +473,6 @@ program
         }
       }
 
-      let errored = 0
-      let succeeded = 0
       for (const item of items) {
         console.log(`\n━━━ Processing: ${item.keyword} ━━━`)
         console.log(`  Type: ${item.articleType} | Airport: ${item.airportCode} | Priority: ${item.priority}`)
@@ -452,23 +529,9 @@ program
           // summary, so this captures just this item's infographic tokens.
           resetTokenTracking()
 
-          // Verified airport data is required (W1.3: every figure comes from the data block), and checked BEFORE
-          // the scrape so a refused item costs no SerpAPI credit. loadAirportData already drops `sellable: false` lots.
-          const airportData = loadAirportData(item.airportCode)
-          if (!airportData) {
-            throw new Error(`no data file for ${item.airportCode} (data/airports/${item.airportCode}.json) — the writer would guess every figure; add the file before generating`)
-          }
-          const lots = Array.isArray(airportData.parkingLots) ? airportData.parkingLots : []
-          const flaggedLots = lots.filter((l) => typeof (l as { sellable?: unknown }).sellable === 'boolean').length
-          if (lots.length > 0 && flaggedLots === 0) {
-            throw new Error(`${item.airportCode} data file predates the sellable flag (no lot carries sellable: true/false) — the writer would name lots Triply cannot sell (W1.6); mark every lot first`)
-          }
-          const verifiedAt = new Date(airportData.lastVerified)
-          const ageDays = Number.isNaN(verifiedAt.getTime()) ? null : Math.round((Date.now() - verifiedAt.getTime()) / 86_400_000)
-          if (ageDays !== null && ageDays > 90 && !options.allowStaleData) {
-            throw new Error(`${item.airportCode} data was verified ${ageDays} days ago (${airportData.lastVerified}) — refresh it, or pass --allow-stale-data`)
-          }
-          console.log(`  ✓ Loaded verified data for ${item.airportCode} (verified ${airportData.lastVerified}; ${flaggedLots} of ${lots.length} lots carry a sellable flag)`)
+          // Validated up front (checkAirportData), before any scrape.
+          const airportData = airportDataById.get(item.id)
+          if (!airportData) throw new Error(`internal: airport data for ${item.airportCode} was not validated for this item`)
 
           // Scrape competitors (reuse the batch pre-phase's scrape when in batch mode)
           const scrapeStart = Date.now()
@@ -720,7 +783,8 @@ program
             delete updateData.status
             finalStatus = existingPost.status === 'published' ? 'published' : 'draft'
             // W1.7: the date moves only by an explicit --stamp AND when a sentence with a figure actually changed.
-            const facts = factsDiff(lexicalText(existingPost.content), contentHtml)
+            // Both sides flattened the same way (Lexical → text); HTML vs Lexical never compared equal.
+            const facts = factsDiff(lexicalText(existingPost.content), lexicalText(lexicalContent))
             Object.assign(updateData, stampField({
               factsChanged: facts.changed,
               requested: Boolean(options.stamp),
@@ -804,8 +868,8 @@ program
       }
 
       // A caller (maintain's Tier-1 rewrite, a cron) must not read a run with failures as "done".
-      if (errored > 0 || (!options.dryRun && items.length > 0 && succeeded === 0)) {
-        console.log(`\n⚠ ${succeeded} written, ${errored} failed, ${items.length - succeeded - errored} skipped — exit code 1`)
+      if (!options.dryRun && (errored > 0 || refused > 0 || (items.length > 0 && succeeded === 0))) {
+        console.log(`\n⚠ ${succeeded} written, ${errored} failed, ${refused} refused at preflight, ${items.length - succeeded - errored} skipped — exit code 1`)
         process.exitCode = 1
       }
 
@@ -814,11 +878,14 @@ program
       console.error('Fatal error:', err)
       process.exitCode = 1
     } finally {
-      // Bulk-notify IndexNow of everything published this run (no-op without a key).
+      // Bulk-notify IndexNow of everything published this run (no-op without a key; submitUrls never throws).
       if (publishedUrls.length > 0) {
         console.log(`\n📣 Notifying IndexNow of ${publishedUrls.length} published URL(s)...`)
         await submitUrls(publishedUrls)
       }
+      // Refusals on the early-return paths (duplicate guard, data check) count too.
+      if ((errored > 0 || refused > 0) && !options.dryRun) process.exitCode = 1
+      void succeeded
     }
   })
 
@@ -938,11 +1005,16 @@ program
           const after = await getPostById(postId)
           if (after.status !== 'published') throw new Error(`CMS still reports status "${after.status}" after the update`)
 
-          // Only now does the queue item follow
-          await markPublished(item.id)
+          // The post is live from here on, whatever happens to the queue row.
           publishedUrls.push(postUrlFor(item.slug))
-          console.log(`    ✓ Published → ${postUrlFor(item.slug)}\n`)
           published++
+          try {
+            await markPublished(item.id)
+          } catch (e) {
+            console.log(`    ⚠ post is LIVE but the queue item could not be marked published (fix by hand): ${e instanceof Error ? e.message : e}`)
+            process.exitCode = 1 // a cron must see this
+          }
+          console.log(`    ✓ Published → ${postUrlFor(item.slug)}\n`)
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           console.log(`    ✗ Failed: ${msg}\n`)

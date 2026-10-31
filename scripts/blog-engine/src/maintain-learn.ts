@@ -139,7 +139,7 @@ export function aggregateTreatmentRoi(records: ArticlePerfRecord[] = loadAllReco
   for (const rec of records) {
     const articleType = rec.articleType || 'spoke'
     for (const ch of rec.changes || []) {
-      if (ch.reverted) continue
+      if (ch.reverted || ch.patchUnverified) continue
       // Count a change if it has EITHER a Google verdict OR a citation outcome.
       if (!ch.measuredAfter && !ch.citationDelta) continue
       if (ch.measuredAfter) totalMeasured++
