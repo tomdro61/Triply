@@ -39,6 +39,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.resolve(__dirname, '..')
 const AIRPORT_DIR = path.join(ROOT, 'data', 'airports')
 const REPORTS = path.join(ROOT, 'reports')
+// Backups are per RUN, not per day: a second --apply on the same day must not overwrite the true pre-edit backup.
+const RUN_STAMP = new Date().toISOString().replace(/[:.]/g, '-')
 
 // ---------- args ----------
 const argv = process.argv.slice(2)
@@ -250,23 +252,29 @@ async function main() {
     if (outsideBefore !== outsideAfter || before.links !== after.links || before.uploads !== after.uploads) {
       res.action = 'ABORT: verification failed (content outside block or link/image counts changed)'; console.log(`${code}: ${res.action}`); continue
     }
+    // W1.7: an identical block is not a change — no write, no stamp (a same-month re-run used to re-stamp the page).
+    if (removed && JSON.stringify(children.slice(at, at + removed)) === JSON.stringify(block)) {
+      res.action = 'unchanged: the page already carries this exact block'; console.log(`${code}: ${res.action}`); continue
+    }
     console.log(`${code}: ${res.action} at node ${at} on ${hub.id} ${hub.slug} — ${rows.length} rows; links ${res.links}, images ${res.uploads}`)
     for (const r of rows) console.log(`    ${r.label} | ${r.rate} | ${r.verified}`)
 
     if (!APPLY) continue
     backup[hub.id] = { slug: hub.slug, contentUpdatedAt: hub.contentUpdatedAt ?? null, content }
     fs.mkdirSync(REPORTS, { recursive: true })
-    fs.writeFileSync(path.join(REPORTS, `monthly-prices-${TODAY}-preedit.json`), JSON.stringify(backup, null, 1))
+    fs.writeFileSync(path.join(REPORTS, `monthly-prices-${RUN_STAMP}-preedit.json`), JSON.stringify(backup, null, 1))
 
-    // W1.7: the price table is a fact change, but the date still moves only with --stamp.
+    // W1.7: we only get here when the block differs from what is on the page (checked above), so this IS a fact
+    // change; the date still moves only with --stamp.
     await updatePost(String(hub.id), { content: newContent, ...stampField({ factsChanged: true, reason: `${MONTH_LABEL} price block ${res.action}` }) })
     const fresh: any = await cms(`/posts/${hub.id}?depth=0`)
     const post = countTypes(fresh.content.root)
     const missing = before.hrefs.filter((h) => !post.hrefs.includes(h))
     const blockOk = fresh.content.root.children.some((c: any) => c.type === 'heading' && plain(c).endsWith(MONTH_LABEL))
     if (post.links !== before.links || post.uploads !== before.uploads || missing.length || !blockOk) {
-      res.note = `POST-SAVE CHECK FAILED: links ${before.links}→${post.links}, images ${before.uploads}→${post.uploads}, missing hrefs ${missing.length}, block ${blockOk}. Restore from backup.`
+      res.note = `POST-SAVE CHECK FAILED: links ${before.links}→${post.links}, images ${before.uploads}→${post.uploads}, missing hrefs ${missing.length}, block ${blockOk}. Restore from monthly-prices-${RUN_STAMP}-preedit.json.`
       console.error(`${code}: ${res.note}`)
+      process.exitCode = 1
     } else {
       res.note = `verified after save (contentUpdatedAt ${fresh.contentUpdatedAt})`
       changedUrls.push(postUrlFor(hub.slug))

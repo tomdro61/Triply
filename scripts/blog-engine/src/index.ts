@@ -13,6 +13,8 @@ import { ARTICLE_STYLES } from './queue.js'
 import { scrapeCompetitors } from './scraper.js'
 import type { ScrapedArticle } from './scraper.js'
 import { generateArticle, resetTokenTracking, getTokenSummary, setCurrentStep, PROMPT_VERSION } from './claude.js'
+import { factsDiff, lexicalText } from './stamp.js'
+import { getPostById } from './payload.js'
 import { htmlToLexical } from './html-to-lexical.js'
 import { generateInfographics } from './infographics.js'
 import { getAirportPhoto } from './unsplash.js'
@@ -261,8 +263,12 @@ program
   .option('--publish', 'Create posts as published (default: draft — review in the Payload admin, then `npm run publish`)')
   .option('--stamp', 'Regenerating an existing slug: also set contentUpdatedAt (W1.7). Default off.')
   .option('--skip-duplicate-guard', 'DANGEROUS: write even when the keyword matches an existing page at the airport')
+  .option('--allow-stale-data', 'Write even when the airport data file was verified more than 90 days ago')
   .option('--dry-run', 'Preview what would be generated without creating posts')
   .action(async (options) => {
+    // Collect successfully published URLs → one bulk IndexNow ping at the end (in `finally`, so a fatal
+    // error after a publish still pings what went live). Instant Bing/Yandex indexing; feeds ChatGPT/Copilot.
+    const publishedUrls: string[] = []
     try {
       console.log(`\n🚀 Triply Blog Engine — Generate [prompt: ${PROMPT_VERSION}]\n`)
       const publishMode: boolean = Boolean(options.publish)
@@ -329,13 +335,19 @@ program
         const dup = findDuplicate(item.keyword, code, slugsByAirport.get(code)!, redirectMap, item.slug)
         if (dup && !options.skipDuplicateGuard) {
           const rec = { at: new Date().toISOString(), airportCode: code, keyword: item.keyword, queuedSlug: item.slug, queueItemId: item.id, match: dup }
-          logRefusal(rec)
-          console.log(`  ⛔ "${item.keyword}" duplicates /blog/${dup.slug} (${dup.via}) — refused; update that page instead. Logged to ${path.relative(process.cwd(), REFUSAL_LOG_PATH)}`)
-          if (!options.dryRun) await markError(item.id, `duplicate guard: update /blog/${dup.slug} instead (matched ${dup.matchedSlug})`).catch(() => {})
+          if (!options.dryRun) logRefusal(rec)
+          console.log(`  ⛔ "${item.keyword}" duplicates /blog/${dup.slug} (${dup.via}) — refused; update that page instead.${options.dryRun ? '' : ` Logged to ${path.relative(process.cwd(), REFUSAL_LOG_PATH)}`}`)
+          if (!options.dryRun) {
+            await markError(item.id, `duplicate guard: update /blog/${dup.slug} instead (matched ${dup.matchedSlug})`)
+              .catch((e) => console.warn(`  ⚠ could not mark queue item ${item.id} as error (it will be picked up again next run): ${e instanceof Error ? e.message : e}`))
+          }
           continue
         }
         if (dup) console.log(`  ⚠ "${item.keyword}" duplicates /blog/${dup.slug} but --skip-duplicate-guard was passed`)
         guarded.push(item)
+        // An accepted item now answers its question: a second queued item for the same question in THIS run
+        // ("jfk parking cost" + "jfk parking prices") must see it, or both get written.
+        slugsByAirport.get(code)!.push(item.slug)
       }
       items.length = 0
       items.push(...guarded)
@@ -351,10 +363,6 @@ program
         process.exit(1)
       }
 
-      // Collect successfully published URLs → one bulk IndexNow ping at the end
-      // (instant Bing/Yandex indexing; feeds ChatGPT/Copilot — a GEO lever).
-      const publishedUrls: string[] = []
-
       // EXPERIMENTAL batch mode: pre-scrape every item, then generate ALL article
       // text through the async Batches API (~50% cheaper). The normal per-item loop
       // below still handles infographics + CMS upload + report using these results.
@@ -365,18 +373,29 @@ program
         console.log('   Latency is async (minutes–hours). Validate on a small run before trusting a full cluster.\n')
         batchCompetitors = new Map()
         const batchInputs: BatchItemInput[] = []
-        for (const item of items) {
-          await markGenerating(item.id)
-          const manualUrls = item.competitorUrls?.map((c) => c.url) || []
-          const competitors = await scrapeCompetitors(item.keyword, manualUrls)
-          batchCompetitors.set(item.id, competitors)
-          batchInputs.push({ item, competitors, airportData: loadAirportData(item.airportCode) || undefined })
+        const marked: string[] = []
+        try {
+          for (const item of items) {
+            await markGenerating(item.id)
+            marked.push(item.id)
+            const manualUrls = item.competitorUrls?.map((c) => c.url) || []
+            const competitors = await scrapeCompetitors(item.keyword, manualUrls)
+            batchCompetitors.set(item.id, competitors)
+            batchInputs.push({ item, competitors, airportData: loadAirportData(item.airportCode) || undefined })
+          }
+          const { outcomes, totalCost } = await generateArticlesBatch(batchInputs, publishedPosts)
+          console.log(`   Batch text cost: $${totalCost.toFixed(4)} (infographics + CMS still per-item below)`)
+          batchOutcomes = new Map(outcomes.map((o) => [o.itemId, o]))
+        } catch (err) {
+          // A batch-phase failure must not strand every item in 'generating' (invisible to getNextQueuedItems).
+          console.error(`  ✗ batch phase failed: ${err instanceof Error ? err.message : err} — resetting ${marked.length} item(s) to queued`)
+          for (const id of marked) await markQueued(id).catch((e) => console.warn(`  ⚠ could not reset ${id} to queued: ${e instanceof Error ? e.message : e}`))
+          throw err
         }
-        const { outcomes, totalCost } = await generateArticlesBatch(batchInputs, publishedPosts)
-        console.log(`   Batch text cost: $${totalCost.toFixed(4)} (infographics + CMS still per-item below)`)
-        batchOutcomes = new Map(outcomes.map((o) => [o.itemId, o]))
       }
 
+      let errored = 0
+      let succeeded = 0
       for (const item of items) {
         console.log(`\n━━━ Processing: ${item.keyword} ━━━`)
         console.log(`  Type: ${item.articleType} | Airport: ${item.airportCode} | Priority: ${item.priority}`)
@@ -433,6 +452,24 @@ program
           // summary, so this captures just this item's infographic tokens.
           resetTokenTracking()
 
+          // Verified airport data is required (W1.3: every figure comes from the data block), and checked BEFORE
+          // the scrape so a refused item costs no SerpAPI credit. loadAirportData already drops `sellable: false` lots.
+          const airportData = loadAirportData(item.airportCode)
+          if (!airportData) {
+            throw new Error(`no data file for ${item.airportCode} (data/airports/${item.airportCode}.json) — the writer would guess every figure; add the file before generating`)
+          }
+          const lots = Array.isArray(airportData.parkingLots) ? airportData.parkingLots : []
+          const flaggedLots = lots.filter((l) => typeof (l as { sellable?: unknown }).sellable === 'boolean').length
+          if (lots.length > 0 && flaggedLots === 0) {
+            throw new Error(`${item.airportCode} data file predates the sellable flag (no lot carries sellable: true/false) — the writer would name lots Triply cannot sell (W1.6); mark every lot first`)
+          }
+          const verifiedAt = new Date(airportData.lastVerified)
+          const ageDays = Number.isNaN(verifiedAt.getTime()) ? null : Math.round((Date.now() - verifiedAt.getTime()) / 86_400_000)
+          if (ageDays !== null && ageDays > 90 && !options.allowStaleData) {
+            throw new Error(`${item.airportCode} data was verified ${ageDays} days ago (${airportData.lastVerified}) — refresh it, or pass --allow-stale-data`)
+          }
+          console.log(`  ✓ Loaded verified data for ${item.airportCode} (verified ${airportData.lastVerified}; ${flaggedLots} of ${lots.length} lots carry a sellable flag)`)
+
           // Scrape competitors (reuse the batch pre-phase's scrape when in batch mode)
           const scrapeStart = Date.now()
           const manualUrls = item.competitorUrls?.map((c) => c.url) || []
@@ -451,14 +488,6 @@ program
             headingsFound: c.headings.length,
             status: 'success' as const,
           }))
-
-          // Load verified airport data (if available)
-          const airportData = loadAirportData(item.airportCode)
-          if (airportData) {
-            console.log(`  ✓ Loaded verified data for ${item.airportCode} (verified ${airportData.lastVerified})`)
-          } else {
-            console.log(`  ⚠ No verified data file for ${item.airportCode} — Claude will use general knowledge`)
-          }
 
           // Filter published posts to same airport (keep context focused)
           // W1.2: ranked by similarity to this keyword (hub first), not CMS order
@@ -664,12 +693,19 @@ program
           }
 
           let postId: string
+          // The status the post will have after this write — the queue, the IndexNow ping and the success line all follow it.
+          let finalStatus: 'draft' | 'published' = postStatus
           if (existingPost) {
+            // A regenerate replaces the body IN PLACE. On a live post that is a live content change, so the
+            // draft default cannot silently cover it: it needs the same --publish a new post would.
+            if (existingPost.status === 'published' && !publishMode) {
+              throw new Error(`/blog/${item.slug} is LIVE — regenerating it without --publish would replace its body in place. Re-run with --publish to overwrite it, or change it with apply-edit.`)
+            }
             // Update existing post instead of creating a duplicate.
             // Preserve the original publishedAt (datePublished) on refresh — Payload
             // auto-bumps updatedAt, which drives dateModified in JSON-LD. Resetting
             // publishedAt here is what previously made dateModified === datePublished.
-            console.log(`  Updating existing post (ID:${existingPost.id}) with regenerated content...`)
+            console.log(`  Updating existing post (ID:${existingPost.id}, ${existingPost.status}) with regenerated content...`)
             const { publishedAt: _omitPublishedAt, ...updateData } = postData
             // Stamp the dedicated freshness field ONLY on a genuine content refresh
             // (this existingPost branch). Drives the "Updated [Month YYYY]" badge,
@@ -679,9 +715,17 @@ program
             // update-links pass (updatePost with content) deliberately never set this,
             // so neither bumps the visible freshness date — the reason Tom used a
             // dedicated field instead of Payload's auto-bumping updatedAt.
-            // W1.7: the date moves only by an explicit --stamp on a regenerate whose facts changed.
-            delete updateData.status // a regenerate never flips a live post's status
-            Object.assign(updateData, stampField({ factsChanged: true, requested: Boolean(options.stamp), reason: 'regenerated body (facts assumed changed; verify in the admin)' }))
+            // A regenerate never flips a post's status: a draft stays a draft (publish it with `npm run publish`),
+            // a live post stays live. Everything downstream reads `finalStatus`, not the flag.
+            delete updateData.status
+            finalStatus = existingPost.status === 'published' ? 'published' : 'draft'
+            // W1.7: the date moves only by an explicit --stamp AND when a sentence with a figure actually changed.
+            const facts = factsDiff(lexicalText(existingPost.content), contentHtml)
+            Object.assign(updateData, stampField({
+              factsChanged: facts.changed,
+              requested: Boolean(options.stamp),
+              reason: facts.changed ? `${facts.added.length} figure sentence(s) added, ${facts.removed.length} removed` : 'no sentence with a figure changed',
+            }))
             await updatePost(existingPost.id, updateData)
             postId = existingPost.id
           } else {
@@ -690,11 +734,12 @@ program
             postId = post.doc?.id || post.id
           }
           report.post.postId = postId
+          report.post.status = finalStatus
           // IndexNow on every publish AND every update (W1.11); a draft is not public, nothing to ping.
-          if (publishMode || (existingPost && existingPost.status === 'published')) publishedUrls.push(postUrlFor(item.slug))
+          if (finalStatus === 'published') publishedUrls.push(postUrlFor(item.slug))
 
-          // Update queue item status to match the post
-          if (postStatus === 'published') await updateQueueItem(item.id, { status: 'published', generatedPost: postId })
+          // The queue item's status follows the post's real status, not the flag.
+          if (finalStatus === 'published') await updateQueueItem(item.id, { status: 'published', generatedPost: postId })
           else await markDraft(item.id, postId)
 
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
@@ -714,14 +759,15 @@ program
             console.log(`     ${s.step}: $${s.cost.toFixed(4)} (${s.inputTokens.toLocaleString()} in / ${s.outputTokens.toLocaleString()} out)`)
           }
 
-          console.log(`\n  ✅ Draft created! SEO Score: ${report.seoScore?.total}/${report.seoScore?.maxTotal} (${report.seoScore?.grade})`)
-          console.log(`  📝 Review at: CMS Admin → Posts → "${resolvedTitle}"`)
+          console.log(`\n  ✅ ${finalStatus === 'published' ? 'Published' : 'Draft saved'}${existingPost ? ' (existing post updated)' : ''}! SEO Score: ${report.seoScore?.total}/${report.seoScore?.maxTotal} (${report.seoScore?.grade})`)
+          console.log(finalStatus === 'published' ? `  🌐 Live at: ${postUrlFor(item.slug)}` : `  📝 Review at: CMS Admin → Posts → "${resolvedTitle}" — then \`npm run publish\``)
 
           // Print reports
           printReport(report)
           if (report.seoScore) printSeoScore(report.seoScore)
           const reportPath = saveReport(report)
           console.log(`\n  📄 Report saved: ${reportPath}`)
+          succeeded++
         } catch (err) {
           const errorMsg = err instanceof Error ? err.message : String(err)
 
@@ -734,15 +780,22 @@ program
             console.error('   Aborting batch — top up credits, then re-run. This item left as queued.')
             report.error = errorMsg
             report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
-            await markQueued(item.id).catch(() => {})
+            await markQueued(item.id).catch((e) => console.warn(`  ⚠ could not reset ${item.id} to queued — it is stuck in 'generating' until fixed by hand: ${e instanceof Error ? e.message : e}`))
             saveReport(report)
+            errored++
             break
           }
 
+          errored++
           console.error(`  ❌ Error: ${errorMsg}`)
           report.error = errorMsg
           report.timing.totalSeconds = Math.round((Date.now() - totalStart) / 1000)
-          await markError(item.id, errorMsg)
+          try {
+            await markError(item.id, errorMsg)
+          } catch (e) {
+            // Keep going: the error report below is still saved, the IndexNow ping still runs in `finally`.
+            console.warn(`  ⚠ could not mark queue item ${item.id} as error — it stays 'generating' until fixed by hand: ${e instanceof Error ? e.message : e}`)
+          }
 
           // Save report even on error
           const reportPath = saveReport(report)
@@ -750,16 +803,22 @@ program
         }
       }
 
-      // Bulk-notify IndexNow of everything published this run (no-op without a key).
-      if (publishedUrls.length > 0) {
-        console.log(`\n📣 Notifying IndexNow of ${publishedUrls.length} published URL(s)...`)
-        await submitUrls(publishedUrls)
+      // A caller (maintain's Tier-1 rewrite, a cron) must not read a run with failures as "done".
+      if (errored > 0 || (!options.dryRun && items.length > 0 && succeeded === 0)) {
+        console.log(`\n⚠ ${succeeded} written, ${errored} failed, ${items.length - succeeded - errored} skipped — exit code 1`)
+        process.exitCode = 1
       }
 
       console.log('\n✨ Generation complete!\n')
     } catch (err) {
       console.error('Fatal error:', err)
-      process.exit(1)
+      process.exitCode = 1
+    } finally {
+      // Bulk-notify IndexNow of everything published this run (no-op without a key).
+      if (publishedUrls.length > 0) {
+        console.log(`\n📣 Notifying IndexNow of ${publishedUrls.length} published URL(s)...`)
+        await submitUrls(publishedUrls)
+      }
     }
   })
 
@@ -853,8 +912,13 @@ program
       let published = 0
       let failed = 0
 
+      const publishedUrls: string[] = []
       for (const item of items) {
-        const postId = typeof item.generatedPost === 'string' ? item.generatedPost : null
+        // `generatedPost` is a Payload relationship: the REST API returns the id (a number on Postgres) or the
+        // populated post — never a string. The old `typeof === 'string'` check skipped every post and still
+        // marked the queue item published.
+        const gp = item.generatedPost as unknown
+        const postId = gp && typeof gp === 'object' ? String((gp as { id?: unknown }).id ?? '') : gp != null ? String(gp) : ''
         console.log(`  ${item.slug}`)
         console.log(`    Title: ${item.keyword}`)
         console.log(`    Status: ${item.status} → published`)
@@ -867,16 +931,17 @@ program
         }
 
         try {
-          // Update the linked post status to published
-          if (postId) {
-            await updatePost(postId, { status: 'published' })
-          } else {
-            console.log('    ⚠ No linked post — skipping post update')
-          }
+          if (!postId) throw new Error('queue item has no linked post — generate it first')
+          const post = await getPostById(postId)
+          // publishedAt drives the card date, the -publishedAt sort and JSON-LD datePublished; a draft never had one.
+          await updatePost(postId, { status: 'published', publishedAt: post.publishedAt ?? new Date().toISOString() })
+          const after = await getPostById(postId)
+          if (after.status !== 'published') throw new Error(`CMS still reports status "${after.status}" after the update`)
 
-          // Update queue item status
+          // Only now does the queue item follow
           await markPublished(item.id)
-          console.log('    ✓ Published\n')
+          publishedUrls.push(postUrlFor(item.slug))
+          console.log(`    ✓ Published → ${postUrlFor(item.slug)}\n`)
           published++
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
@@ -889,6 +954,13 @@ program
       console.log(`  Published: ${published}`)
       if (failed > 0) console.log(`  Failed: ${failed}`)
       console.log(`  Slugs: ${items.map((i) => i.slug).join(', ')}`)
+
+      // W1.11: every publish pings IndexNow (no-op without a key).
+      if (!options.dryRun && publishedUrls.length > 0) {
+        console.log(`\n📣 Notifying IndexNow of ${publishedUrls.length} published URL(s)...`)
+        await submitUrls(publishedUrls)
+      }
+      if (!options.dryRun && failed > 0) process.exitCode = 1
 
       if (!options.dryRun && published > 0) {
         console.log('\n  💡 Next steps:')

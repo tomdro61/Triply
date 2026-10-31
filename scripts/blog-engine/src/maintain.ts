@@ -268,7 +268,9 @@ async function treatRewrite(slug: string, apply: boolean): Promise<boolean> {
   await updateQueueItem(qi.id, { status: 'queued' })
   // No `shell: true` — each argv element is passed as a discrete token, so the slug
   // can never be interpreted by a shell (command-injection safe).
-  const result = spawnSync(process.execPath, [TSX_CLI, 'src/index.ts', 'generate', '-s', slug, '-n', '1'], {
+  // A Tier-1 rewrite replaces the LIVE body on purpose, so it carries the --publish a regenerate of a live
+  // post now requires. generate exits non-zero when the item failed or was skipped, and that is checked below.
+  const result = spawnSync(process.execPath, [TSX_CLI, 'src/index.ts', 'generate', '-s', slug, '-n', '1', '--publish', ...(process.argv.includes('--stamp') ? ['--stamp'] : [])], {
     cwd: ENGINE_ROOT,
     stdio: 'inherit',
   })
@@ -327,6 +329,7 @@ program
   .option('-n, --limit <number>', 'Max articles to treat this run', '10')
   .option('--refresh', 'Refresh GSC snapshots during classification (recommended before a real run)')
   .option('--apply', 'Actually write changes (otherwise dry-run)')
+  .option('--stamp', 'Pass through to Tier-1 rewrites: move contentUpdatedAt when the regenerate changed a figure sentence (W1.7)')
   .option('--rewrites', 'Also run Tier-1 full rewrites (high-variance — off by default; they need approval)')
   .option('--no-serp', 'Skip the live SERP pull in recommendations (saves SerpAPI credits)')
   .action(async (o) => {

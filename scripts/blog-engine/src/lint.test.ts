@@ -45,3 +45,33 @@ test('isRatesPost', () => {
   assert.equal(isRatesPost('ewr-airport-parking-rates'), true)
   assert.equal(isRatesPost('ewr parking shuttle'), false)
 })
+
+// ── Review of #141: the lint must not refuse ordinary copy, and must not let unsourced savings through ──
+test('answer-first accepts "As of October 2026" (capital A) and rejects "as of Sunday"', () => {
+  assert.ok(!rules(lintArticle({ ...base, html: '<p>As of October 2026, economy parking at Newark costs $18/day.</p>' })).includes('answer-first'))
+  assert.ok(!rules(lintArticle({ ...base, html: '<p>Economy parking costs $18/day as of Oct. 15, 2026.</p>' })).includes('answer-first'))
+  assert.ok(rules(lintArticle({ ...base, html: '<p>Parking costs $18/day as of Sunday; prices may rise.</p>' })).includes('answer-first'))
+})
+test('times, counts and price ranges are not bare money', () => {
+  const ok = goodHtml + '<p>The cell phone lot is open from 5:00 a.m. to midnight. Shuttles run from 10 a.m. every 20 minutes from 3 stops. The garage has only 2 levels and serves 12 airlines.</p><p>Hotel lots charge $25–35/day.</p>'
+  assert.ok(!rules(lintArticle({ ...base, html: ok })).includes('bare-money'), JSON.stringify(lintArticle({ ...base, html: ok }).errors))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>The hotel lot charges from 12 a day.</p>' })).includes('bare-money'))
+})
+test('"QR code" / "NJ TRANSIT" in a post are not promo talk', () => {
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Once your booking is confirmed, a QR code is emailed to you. Show it to NJ TRANSIT staff. The zip code is 07114.</p>' })
+  assert.ok(!rules(r).includes('verified-code'), JSON.stringify(r.errors))
+  assert.ok(!rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
+})
+test('a code in lower case or in code position is still checked', () => {
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Use promo code save20 at checkout.</p>' })
+  assert.ok(rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Promo codes: enter WELCOME at checkout.</p>' })).includes('unapproved-code'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Code TRIPLY10 is verified for 2026.</p>' })).includes('verified-code'))
+})
+test('a savings claim needs an OUTSIDE source; a Triply link or an FAQ with no link is not one', () => {
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Save up to 60% vs. the garage — <a href="/search?airport=EWR">compare lots</a>.</p>' })).includes('unsourced-saving'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Off-site lots run 40-60% below the garage — <a href="https://www.triplypro.com/search">book here</a>.</p>' })).includes('unsourced-saving'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml, faqItems: [{ question: 'How much can I save?', answer: 'Save up to 60% vs the garage.' }] })).includes('unsourced-saving'))
+  // our own approved code is its own source
+  assert.ok(!rules(lintArticle({ ...base, html: goodHtml + '<h2>Promo code TRIPLY10: 10% off</h2><p>TRIPLY10 takes 10% off the parking rate on <a href="https://www.triplypro.com/search?airport=EWR">bookings made on triplypro.com</a>.</p>' })).includes('unsourced-saving'))
+})

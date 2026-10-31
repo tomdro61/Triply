@@ -32,30 +32,55 @@ async function fetchWithTimeout(url: string, init: RequestInit): Promise<Respons
   }
 }
 
-async function payloadFetch(path: string, options: RequestInit = {}) {
+async function payloadFetch(path: string, options: RequestInit = {}, opts: { retry?: boolean } = {}) {
   const url = `${env.PAYLOAD_CMS_URL}/api${path}`
+  const once = async () => {
+    const res = await fetchWithTimeout(url, {
+      ...options,
+      headers: { ...headers, ...options.headers },
+    })
+    if (!res.ok) {
+      const body = await res.text()
+      throw new PayloadHttpError(res.status, path, body)
+    }
+    return res.json()
+  }
+  if (opts.retry === false) return once()
+  return withRetry(once, { label: `payload ${(options.method as string) || 'GET'} ${path}` })
+}
+
+/**
+ * POST a new doc without ever replaying the create blindly. A timeout or 5xx can arrive AFTER the CMS
+ * committed the row; a blind replay then hits the unique slug (400 → a doc that exists is reported as
+ * "failed", and if it was created published it is live with nothing pinged) or makes a duplicate. On every
+ * retry the collection is queried by slug first and an existing doc is reused. (Review of #141.)
+ */
+async function createUnlessExists(collection: '/posts' | '/categories' | '/tags', slug: string | null, data: Record<string, unknown>) {
+  let attempt = 0
   return withRetry(
     async () => {
-      const res = await fetchWithTimeout(url, {
-        ...options,
-        headers: { ...headers, ...options.headers },
-      })
-      if (!res.ok) {
-        const body = await res.text()
-        throw new PayloadHttpError(res.status, path, body)
+      attempt++
+      if (attempt > 1 && slug) {
+        const found = await payloadFetch(`${collection}?where[slug][equals]=${encodeURIComponent(slug)}&limit=1`, {}, { retry: false })
+        const existing = found.docs?.[0]
+        if (existing) {
+          console.warn(`  ⚠ ${collection}/${slug} already exists — attempt ${attempt - 1} committed before its response arrived; reusing #${existing.id}`)
+          return { doc: existing }
+        }
       }
-      return res.json()
+      return payloadFetch(collection, { method: 'POST', body: JSON.stringify(data) }, { retry: false })
     },
-    { label: `payload ${(options.method as string) || 'GET'} ${path}` }
+    { label: `payload POST ${collection}` }
   )
 }
 
 // Posts
 export async function createPost(data: Record<string, unknown>) {
-  return payloadFetch('/posts', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
+  return createUnlessExists('/posts', typeof data.slug === 'string' ? data.slug : null, data)
+}
+
+export async function getPostById(id: string) {
+  return payloadFetch(`/posts/${encodeURIComponent(id)}?depth=0`)
 }
 
 export async function updatePost(id: string, data: Record<string, unknown>) {
@@ -104,13 +129,23 @@ export async function uploadMedia(file: Buffer, filename: string, alt: string) {
   const tries = Number(process.env.MEDIA_UPLOAD_TRIES) || 4
   return withRetry(
     async () => {
-      const res = await fetchWithTimeout(url, {
-        method: 'POST',
-        headers: {
-          Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
-        },
-        body: formData,
-      })
+      let res: Response
+      try {
+        res = await fetchWithTimeout(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `users API-Key ${env.PAYLOAD_API_KEY}`,
+          },
+          body: formData,
+        })
+      } catch (e) {
+        // A timed-out upload may already be stored (the request reached the CMS; only the response was lost).
+        // Replaying it stores a second copy, so a timeout is NOT retried — unlike the parse-glitch 400 below.
+        if (e instanceof Error && e.name === 'AbortError') {
+          throw new Error(`media upload ${filename} timed out after ${FETCH_TIMEOUT_MS / 1000}s — not retried (a replay could duplicate the file); check the CMS media list before re-running`)
+        }
+        throw e
+      }
       if (!res.ok) {
         const body = await res.text()
         // The "No files were uploaded" 400 is a known transient glitch — retry.ts
@@ -130,10 +165,7 @@ export async function findOrCreateCategory(name: string) {
 
   if (result.docs?.[0]) return result.docs[0]
 
-  return payloadFetch('/categories', {
-    method: 'POST',
-    body: JSON.stringify({ name, slug }),
-  })
+  return createUnlessExists('/categories', slug, { name, slug })
 }
 
 // Tags
@@ -143,10 +175,7 @@ export async function findOrCreateTag(name: string) {
 
   if (result.docs?.[0]) return result.docs[0]
 
-  return payloadFetch('/tags', {
-    method: 'POST',
-    body: JSON.stringify({ name, slug }),
-  })
+  return createUnlessExists('/tags', slug, { name, slug })
 }
 
 // Users (for author field — uses the authenticated API key user)
