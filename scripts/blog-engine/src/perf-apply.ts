@@ -27,7 +27,7 @@ import type { PerfChange } from './perf-snapshot.js'
 import type { Recommendation } from './perf-recommend.js'
 import { AUDIT_SAMPLE_RATE } from './config.js'
 import { stampField, lexicalText } from './stamp.js'
-import type { ArticlePerfRecord } from './perf-snapshot.js'
+import { settleFailedPatch } from './settle-patch.js'
 import { pingIndexNow, postUrlFor } from './indexnow.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -97,32 +97,6 @@ export function editIsLive(live: { content?: unknown; faqItems?: unknown; title?
     if (a.metaTitle !== b.metaTitle || a.metaDescription !== b.metaDescription) return false
   }
   return true
-}
-
-/**
- * A PATCH threw. Decide what happened to the entry already in the record:
- *  - a 4xx: the CMS refused it, nothing committed → the entry comes out;
- *  - anything else (timeout, lost response, 5xx): re-read the post → edit present = applied after all (true),
- *    absent = entry out; re-read failed too = keep it flagged `patchUnverified` (skipped by measure/learn/tier).
- * Returns true only when the edit is confirmed live. Rethrows otherwise.
- */
-async function settleFailedPatch(slug: string, record: ArticlePerfRecord, change: PerfChange, updateData: Record<string, unknown>, err: unknown): Promise<boolean> {
-  const status = (err as { status?: unknown }).status
-  const refused = typeof status === 'number' && status >= 400 && status < 500
-  const live = refused ? null : await findPostBySlug(slug).catch(() => undefined)
-  if (live === undefined) {
-    change.patchUnverified = true
-    change.summary = `[PATCH outcome unknown — check the CMS, then clear patchUnverified] ${change.summary}`
-    saveRecord(record)
-    throw err
-  }
-  if (live && editIsLive(live, updateData)) {
-    console.log(`  ⚠ ${change.type}: the PATCH response was lost but the edit IS live — recorded as applied`)
-    return true
-  }
-  record.changes.pop()
-  saveRecord(record)
-  throw err
 }
 
 /** Trim to a max length at a word boundary when possible (CMS enforces metaTitle<=60, metaDescription<=160). */
@@ -211,6 +185,7 @@ export async function applyRecommendations(
       }
 
       if (!change || !updateData) { skipped++; continue }
+      const patchData = updateData // a const the closure below can keep narrowed
 
       if (apply) {
         // No perf record = nowhere to keep the pre-edit snapshot = an autonomous edit nobody could revert. Skip it.
@@ -231,7 +206,8 @@ export async function applyRecommendations(
         try {
           await updatePost(post.id, updateData)
         } catch (e) {
-          await settleFailedPatch(slug, record, change, updateData, e) // returns only when the edit is confirmed live
+          // Always re-reads the post (the final error describes only the last retry; an earlier attempt may have committed).
+          await settleFailedPatch(slug, record, change, (live) => editIsLive(live, patchData), e) // returns only when the edit is confirmed live
         }
         // The local copy now follows the CMS, so a later recommendation in this run builds on what is live.
         if (updateData.content !== undefined) post.content = updateData.content

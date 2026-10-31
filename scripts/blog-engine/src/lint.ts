@@ -216,7 +216,9 @@ export function lintArticle(input: LintInput): LintResult {
     for (const { code: raw, index } of candidates) {
       const code = raw.toUpperCase()
       if (seen.has(code) || approved.has(code) || NOT_CODES.has(code) || ORDINAL.test(code) || RESERVATION_NUMBER.test(code)) continue
-      if (NON_PROMO_CONTEXT.test(allText.slice(Math.max(0, index - 40), index))) continue
+      // "booking code RTL855661" is a reservation number — unless the sentence USES it ("use booking code TRIPLY20 at checkout").
+      const before = allText.slice(Math.max(0, index - 40), index)
+      if (NON_PROMO_CONTEXT.test(before) && !/\b(?:use|enter|apply|type)\b/i.test(before)) continue
       // Skip obvious non-codes: airport codes with digits don't exist; terminal labels, PNG sizes, model names
       if (/^(?:T\d|B\d|P\d{1,2}|LOT\d{1,2}|HWY\d+|I\d{2,3}|US\d{1,3}|SR\d{1,3}|A\d{1,2}|C\d{1,2}|D\d{1,2}|E\d{1,2}|F\d{1,2}|G\d{1,2}|H\d{1,2}|\d+X\d+|COVID19|SB\d{2,4}|HB\d{2,4})$/.test(code)) continue
       seen.add(code)

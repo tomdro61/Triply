@@ -72,6 +72,7 @@ test('a code in lower case or in code position is still checked', () => {
   assert.ok(rules(r).includes('unapproved-code'), JSON.stringify(r.errors))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Promo codes: enter WELCOME at checkout.</p>' })).includes('unapproved-code'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Code TRIPLY10 is verified for 2026.</p>' })).includes('verified-code'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Promo codes vary. Use booking code TRIPLY20 at checkout.</p>' })).includes('unapproved-code'), 'a "booking code" the sentence tells you to USE is a promo code')
 })
 test('a savings claim needs an OUTSIDE source; a Triply link or an FAQ with no link is not one', () => {
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Save up to 60% vs. the garage — <a href="/search?airport=EWR">compare lots</a>.</p>' })).includes('unsourced-saving'))

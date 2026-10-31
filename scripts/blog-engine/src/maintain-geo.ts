@@ -105,7 +105,7 @@ export async function measureCitation(opts: { airport?: string; window?: number 
     if (!rec) continue
     const due = rec.changes.filter((c) =>
       GEO_TREATMENTS.includes(c.type) && c.citationBaseline !== undefined && c.citationDelta === undefined &&
-      !c.reverted && (now - new Date(c.at).getTime()) >= windowDays * DAY_MS)
+      !c.reverted && !c.patchUnverified && (now - new Date(c.at).getTime()) >= windowDays * DAY_MS)
     if (!due.length) continue
 
     let after: boolean | null = null

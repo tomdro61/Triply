@@ -27,6 +27,7 @@ import type { PerfChange } from './perf-snapshot.js'
 import { stampField } from './stamp.js'
 import { pingIndexNow, postUrlFor } from './indexnow.js'
 import { lintArticle, formatLint, loadApprovedCodes, loadApprovedOffers } from './lint.js'
+import { settleFailedPatch } from './settle-patch.js'
 
 const CODE = (process.env.COUPON_CODE || '').trim().toUpperCase()
 const PERCENT = Number(process.env.COUPON_PERCENT) || 10
@@ -140,21 +141,9 @@ async function main() {
           // W1.7: a coupon block is not a fact about the airport — the date never moves for it.
           await updatePost(post.id, { content, ...stampField({ factsChanged: false, reason: 'coupon block prepended — not a fact change' }) })
         } catch (e) {
-          const status = (e as { status?: unknown }).status
-          const refused = typeof status === 'number' && status >= 400 && status < 500
-          const live = refused ? null : await findPostBySlug(slug).catch(() => undefined)
-          if (live === undefined) {
-            change.patchUnverified = true
-            change.summary = `[PATCH outcome unknown — check the CMS, then clear patchUnverified] ${change.summary}`
-            saveRecord(record)
-            throw e
-          }
-          if (live && JSON.stringify(live.content).includes(CODE)) {
-            console.log(`  ⚠ ${slug}: the PATCH response was lost but the block IS live — recorded as applied`)
-          } else {
-            record.changes.pop(); saveRecord(record)
-            throw e
-          }
+          // Shared with perf-apply: always re-reads the post; the block is live iff the code string is in the content
+          // (the "already has code" skip above means a code found on re-read can only be ours).
+          await settleFailedPatch(slug, record, change, (live) => JSON.stringify(live.content).includes(CODE), e)
         }
         await pingIndexNow([postUrlFor(slug)])
       }

@@ -76,10 +76,12 @@ export function loadAirportData(code: string): AirportData | null {
     if (!Array.isArray(t.airlines)) t.airlines = Array.isArray(t.cruiseLines) ? t.cruiseLines : []
   }
 
-  // Warn if data is stale (>90 days old)
+  // Warn if data is stale (>90 days old) — or carries a date nobody can read (NaN would otherwise pass every check silently)
   const lastVerified = new Date(data.lastVerified)
   const daysSinceVerified = Math.floor((Date.now() - lastVerified.getTime()) / (1000 * 60 * 60 * 24))
-  if (daysSinceVerified > 90) {
+  if (Number.isNaN(daysSinceVerified)) {
+    console.warn(`  \u26a0\ufe0f ${code}.json lastVerified is "${data.lastVerified}" \u2014 not a date; the writer will print it as-is in "as of" and generate refuses it without --allow-stale-data.`)
+  } else if (daysSinceVerified > 90) {
     console.warn(
       `  \u26a0\ufe0f ${code}.json last verified ${data.lastVerified} (${daysSinceVerified} days ago) \u2014 consider updating rates before generating.`
     )
