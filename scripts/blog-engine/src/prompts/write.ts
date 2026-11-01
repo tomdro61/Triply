@@ -163,7 +163,8 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     // Operator caveats the writer must respect (review of #143: POE lots marked "AIRPORT PARKING ONLY — never
     // recommend to cruisers" and an LGA lot noted as closed reached the writer as plain cheap rows).
     if (typeof l.cruiseShuttle === 'string' && l.cruiseShuttle) line += ` | Cruise-port shuttle: ${l.cruiseShuttle}`
-    if (typeof l.rateNote === 'string' && l.rateNote) line += ` | Rate note: ${l.rateNote.slice(0, 160)}`
+    const rateNote = printableNotes(l.rateNote, true)
+    if (rateNote) line += ` | Rate note: ${cutAt(rateNote, 160)}`
     const notes = printableNotes(l.notes)
     if (notes) line += ` | Notes: ${cutAt(notes, 400)}`
     lines.push(line)
@@ -175,7 +176,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
   if (lead.length) {
     const lo = lead[0].dailyRate as number
     const hi = lead[lead.length - 1].dailyRate as number
-    lines.push(`\nPrice range (lots that may lead a recommendation): ${cur}${lo}/day — ${cur}${hi}/day across ${lead.length} lots; the others above carry a caveat.`)
+    lines.push(`\nPrice range (lots that may lead a recommendation): ${cur}${lo}/day — ${cur}${hi}/day across ${lead.length} lot${lead.length === 1 ? '' : 's'}; the others above carry a caveat.`)
   }
 
   return lines.join('\n')
@@ -255,6 +256,8 @@ const SENTENCE_BREAK = /(?<![Ii]ncl|[Ee]xcl|[Aa]pprox|\bvs|\be\.g|\bi\.e|\bSt|\b
 
 // Only the em-dash splits a sentence into clauses: "; " also separates items inside parentheses ("(Best Rate; shuttle 4 AM-10 PM only)").
 const CLAUSE_BREAK = /\s+—\s+/
+// "can save up to 50%" in the rates text: the lint blocks the writer for repeating it without a linked source (SAVE_UP_TO).
+const UNSOURCED_SAVINGS = /save up to \d+ ?%|up to \d+ ?% (?:off|less|cheaper|savings?)/i
 
 /**
  * The part of a lot name that identifies it in prose: no "(JFK)" / "(Parking)" suffix, no trailing "Airport Parking" /
@@ -275,24 +278,30 @@ function nameRegex(key: string): RegExp {
   return new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
 }
 
-/** Notes without the provenance line and without sentences that quote a per-day price (they go stale; fees per person stay). */
-export function printableNotes(notes: unknown): string {
+/**
+ * Notes without the provenance line and without sentences that quote a lot price (per-day, pre-booked, walk-up, "from $",
+ * "~$" — they go stale on every refresh). Sentences about fees, surcharges and what is paid at the lot stay: those are the
+ * caveats rule 38a makes binding. `strict` drops any sentence with a dollar figure (rate notes: their week quotes include
+ * fees and disagree with rate × days).
+ */
+export function printableNotes(notes: unknown, strict = false): string {
   if (typeof notes !== 'string' || !notes) return ''
   // "Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = …" — the domain's dot is not the sentence end.
   const body = notes.replace(/^Added \d{4}-\d{2}-\d{2} from live \S+ search[^.]*\.\s*/i, '').trim()
-  const kept = body.split(SENTENCE_BREAK).filter((s) => !PRICED_SENTENCE.test(s) || FEE_SENTENCE.test(s))
+  const kept = body.split(SENTENCE_BREAK).filter((s) => (strict ? !ANY_DOLLAR.test(s) : !PRICED_SENTENCE.test(s) || FEE_SENTENCE.test(s)))
   let out = kept.join('. ').trim()
   if (out && !/[.!?]$/.test(out)) out += '.'
   return out
 }
-const PRICED_SENTENCE = /(?:C\$|\$)\s?\d/
-const FEE_SENTENCE = /per person|\bpp\b|per vehicle|surcharge|\bfee\b|oversized|each additional|after-hours|late pickup|toll/i
+const ANY_DOLLAR = /(?:C\$|\$)\s?\d/
+const PRICED_SENTENCE = /(?:C\$|\$)\s?\d[\d.,]*\s*(?:\/|per\s|a\s)\s*(?:day|night|24)|(?:pre-?book(?:ed)?(?: online)?(?: for)?(?: the)?|walk-?up(?: is)?|from|~|rate(?: of)?)\s*(?:C\$|\$)\s?\d/i
+const FEE_SENTENCE = /per person|\d+ ?pp\b|per vehicle|surcharge|\bfees?\b|oversized|larger? vehicles?|each (?:way|additional)|one[- ]way|after-hours|late pickup|toll|at the lot|at the curb|payable|plus tax|extra/i
 
 /** Cut long text at a sentence or clause boundary before `n` chars (never mid-number or mid-word). */
 export function cutAt(text: string, n: number): string {
   if (text.length <= n) return text
   const head = text.slice(0, n)
-  const at = Math.max(head.lastIndexOf('. '), head.lastIndexOf('; '), head.lastIndexOf(': '))
+  const at = Math.max(head.lastIndexOf('. '), head.lastIndexOf('; '))
   if (at >= n / 2) return head.slice(0, at + 1)
   const sp = head.lastIndexOf(' ')
   return (sp > n / 2 ? head.slice(0, sp) : head).replace(/[\s,;:-]+$/, '') + '…'
@@ -311,7 +320,7 @@ export function dropOffSiteSentences(text: string, unsellableNames: readonly str
     .map(lotNameKey)
     .filter((k) => k && !protect.some((p) => p.includes(k))) // a brand we also sell ("Motel 6") must not drop true sentences
     .map(nameRegex)
-  const bad = (s: string) => OFF_SITE_SENTENCE.test(s) || keys.some((re) => re.test(s))
+  const bad = (s: string) => OFF_SITE_SENTENCE.test(s) || UNSOURCED_SAVINGS.test(s) || keys.some((re) => re.test(s))
   const parts = text.split(SENTENCE_BREAK)
   let changed = false
   const kept: string[] = []
@@ -354,15 +363,19 @@ function cruiseContext(data: AirportData, _keyword: string): boolean {
  * the lot list with its caveat. (Pass-2 review of #143: the first version put POE's airport-only lots and MCI's
  * suspended-shuttle lot at the top of the savings block.)
  */
+/** A transfer the customer pays on top of the lot rate ("$10 each way", "$20 per person one way", cruiseShuttle "paid-…"). */
+const PAID_TRANSFER = /shuttle is not free|(?:C\$|\$)\s?\d[\d.]*\s*(?:pp\b|per person|each way|one[- ]way|per (?:trip|ride|transfer))/i
+
 export function leadEligibleLots(data: AirportData, keyword = ''): Record<string, unknown>[] {
   const cruise = cruiseContext(data, keyword)
   return sellableLots(data).filter((l) => {
     if (l.shuttleSuspended === true) return false
     if (typeof l.notes === 'string' && DO_NOT_LEAD.test(l.notes)) return false
-    if (cruise) {
-      const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
-      return cs === 'included' || cs.startsWith('paid')
-    }
+    const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
+    // A paid transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip (pass-4 review:
+    // POE Courtyard $98 vs ~$178 with the $20pp port transfer; MCI Quality Inn $28.91 plus $10 each way).
+    if (cs.startsWith('paid') || [l.shuttleInfo, l.notes].some((t) => typeof t === 'string' && PAID_TRANSFER.test(t))) return false
+    if (cruise) return cs === 'included'
     return true
   })
 }
@@ -398,7 +411,7 @@ export function scenarioBilledDays(scenario: unknown): number | null {
   return null
 }
 
-const SAVINGS_KEEP = /^(scenario|onAirport|publicTransit|loganExpress|rideshare|portGarage|triplyFeeNote|billingDayNote)/i
+const SAVINGS_KEEP = /^(scenario|onAirport|publicTransit|loganExpress|rideshare|portGarage|billingDayNote)/i // triplyFeeNote: STL still says the $4.95 minimum ($5.95 since Sept 14)
 
 export interface OffSiteRow { name: string; rate: number; days: number | null; total: number | null }
 
@@ -417,6 +430,8 @@ function formatSavingsComparison(data: AirportData, keyword = ''): string {
   if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return ''
   const kept: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(sc as Record<string, unknown>)) if (SAVINGS_KEEP.test(k)) kept[k] = v
+  // "Off-site = live Triply checkout total incl. fees" would contradict the computed rows below.
+  if (typeof kept.scenario === 'string') kept.scenario = dropOffSiteSentences(kept.scenario)
   let out = formatObjectSection(
     kept,
     '**Worked Savings Scenario (use for the cost-comparison section — the on-airport and transit figures are verified; the off-site side is computed below from the lots Triply sells, never from older notes):**',
@@ -446,6 +461,7 @@ export function figureSource(data: AirportData, keyword = ''): unknown {
   const sc = savingsComparison && typeof savingsComparison === 'object' && !Array.isArray(savingsComparison)
     ? Object.fromEntries(Object.entries(savingsComparison as Record<string, unknown>).filter(([k]) => SAVINGS_KEEP.test(k)))
     : undefined
+  if (sc && typeof sc.scenario === 'string') sc.scenario = dropOffSiteSentences(sc.scenario) // same as the printed block
   // Only the lot fields the lot line prints (an `overview` "~$45/day" or a `sampleQuote` is not a figure the writer saw).
   const lots = ((parkingLots ?? []) as Record<string, unknown>[]).map((l) => ({
     name: l.name, dailyRate: l.dailyRate, driveTime: l.driveTime, parkingType: l.parkingType, amenities: l.amenities,
@@ -463,13 +479,43 @@ export function figureSource(data: AirportData, keyword = ''): unknown {
   }
 }
 
-/** parkSleepFly with its "Parking-only via Triply from ~$X/day" text filtered like the other prose. */
+/**
+ * parkSleepFly as the writer may see it: the description keeps product truths ("Triply sells parking-only; room packages
+ * are booked with the hotel") and loses only priced off-site sentences; priceRange / extendedParking are filtered like the
+ * other prose and dropped when empty; popularHotels keeps only hotels whose lot we sell, without their price fields
+ * (pass-4 review: LAS listed two unsellable hotels at $5.49/$5.99, AUS a sellable one at $14.95 against $10.11 in the list).
+ */
 function filteredParkSleepFly(data: AirportData): Record<string, unknown> | undefined {
   const p = data.parkSleepFly
   if (!p || typeof p !== 'object' || Array.isArray(p)) return undefined
   const out = { ...(p as Record<string, unknown>) }
-  for (const k of ['description', 'priceRange', 'extendedParking']) {
-    if (typeof out[k] === 'string') out[k] = dropOffSiteSentences(out[k] as string, data.unsellableLotNames, sellableNames(data))
+  const sellable = sellableNames(data)
+  if (typeof out.description === 'string') {
+    const kept = out.description.split(SENTENCE_BREAK).filter((s) => !(OFF_SITE_SENTENCE.test(s) && ANY_DOLLAR.test(s)))
+    out.description = kept.join('. ').replace(/\s+$/, '')
+    if (out.description && !/[.!?]$/.test(out.description as string)) out.description += '.'
+  }
+  for (const k of ['priceRange', 'extendedParking']) {
+    if (typeof out[k] === 'string') out[k] = dropOffSiteSentences(out[k] as string, data.unsellableLotNames, sellable)
+    if (!out[k]) delete out[k]
+  }
+  if (!out.description) delete out.description
+  if (Array.isArray(out.popularHotels)) {
+    const sellableKeys = sellable.map(lotNameKey).filter(Boolean)
+    const sells = (name: string) => {
+      const k = lotNameKey(name)
+      return !!k && sellableKeys.some((sk) => sk.includes(k) || k.includes(sk))
+    }
+    out.popularHotels = (out.popularHotels as unknown[])
+      .map((h) => {
+        if (typeof h === 'string') return sells(h) ? h : null
+        if (!h || typeof h !== 'object') return null
+        const entry = h as Record<string, unknown>
+        if (typeof entry.name !== 'string' || !sells(entry.name)) return null
+        return Object.fromEntries(Object.entries(entry).filter(([k]) => !/rate|price|cost|package/i.test(k)))
+      })
+      .filter(Boolean)
+    if ((out.popularHotels as unknown[]).length === 0) delete out.popularHotels
   }
   return out
 }
@@ -482,8 +528,9 @@ function formatParkSleepFly(data: AirportData): string {
   const lines: string[] = [
     '\n**Park-Sleep-Fly Hotel Packages (same-day fallback when lots are full):**',
   ]
-  if (typeof p.description === 'string') lines.push(`- ${p.description}`)
-  if (typeof p.priceRange === 'string') lines.push(`- Price range: ${p.priceRange}`)
+  if (typeof p.description === 'string' && p.description) lines.push(`- ${p.description}`)
+  if (typeof p.priceRange === 'string' && p.priceRange) lines.push(`- Price range: ${p.priceRange}`)
+  if (!Array.isArray(p.popularHotels) || p.popularHotels.length === 0) lines.push('- Hotels: only the lots in the lot list above sell parking through Triply; do not name any other hotel.')
 
   // popularHotels is an object array at most airports but a plain string array at JFK/LAX/LGA/SFO.
   if (Array.isArray(p.popularHotels)) {
@@ -492,7 +539,7 @@ function formatParkSleepFly(data: AirportData): string {
       if (flat) lines.push(`- ${flat}`)
     }
   }
-  if (typeof p.extendedParking === 'string') lines.push(`- Extended parking: ${p.extendedParking}`)
+  if (typeof p.extendedParking === 'string' && p.extendedParking) lines.push(`- Extended parking: ${p.extendedParking}`)
 
   return lines.length > 1 ? lines.join('\n') : ''
 }

@@ -39,6 +39,9 @@ test('printableNotes drops the provenance line and per-day prices but keeps per-
   assert.equal(printableNotes('Added 2026-11-01 from live Triply search; details from the lot listing. Good value at $7.99/day. Cruise port shuttle costs $20 per person one way.'), 'Cruise port shuttle costs $20 per person one way.')
   assert.equal(printableNotes('Added 2026-11-01 from live Triply search; details from the lot listing.'), '')
   assert.equal(printableNotes('Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = all-in daily for a 7-day stay booked 3 weeks out.'), 'Rate = all-in daily for a 7-day stay booked 3 weeks out.')
+  assert.equal(printableNotes('Large vehicles pay C$12/day extra AT THE LOT. Pre-book online for the $6.95 rate — walk-up is $8.95/day. Use it always with the $20pp caveat. Walk-up $24.95/24 hrs.'), 'Large vehicles pay C$12/day extra AT THE LOT. Use it always with the $20pp caveat.')
+  assert.equal(printableNotes('Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $26.12. Pay at the lot.', true), 'Pay at the lot.')
+  assert.equal(cutAt('Shuttle runs every hour to the terminal. Help: 416-555-0100 ' + 'x'.repeat(200), 60), 'Shuttle runs every hour to the terminal.')
   const long = 'Shuttle 5:00 AM-11:00 PM except statutory holidays; this plan uses the 7:00 AM-10:30 PM schedule. Call 403-717-1234 after collecting bags. ' + 'x'.repeat(200)
   const cut = cutAt(long, 240)
   assert.ok(cut.endsWith('.') && !/\d-$/.test(cut) && cut.length <= 241, cut)
@@ -72,7 +75,7 @@ const base: AirportData = {
   parkingLots: [
     { name: 'Cheap Lot', dailyRate: 6.41, sellable: true, notes: 'Hotel lot, well lit.' },
     { name: 'Dead Lot', dailyRate: 7.5, sellable: true, shuttleSuspended: true, notes: 'SHUTTLE SUSPENDED. Do NOT use in CTAs.' },
-    { name: 'Dear Lot', dailyRate: 28, sellable: true, knownCoupons: ['Pre-book via competitor.com from $13/day'], notes: 'Added 2026-11-01 from live Triply search; details from the lot listing. Good value at $7.99/day. Cruise port shuttle costs $20 per person one way.' },
+    { name: 'Dear Lot', dailyRate: 28, sellable: true, knownCoupons: ['Pre-book via competitor.com from $13/day'], notes: 'Added 2026-11-01 from live Triply search; details from the lot listing. Good value at $7.99/day. Oversized vehicles pay a $20 surcharge at the lot.' },
   ],
   parkSleepFly: { description: 'Hotel + parking combos. Triply sells parking-only at the three hotels.', priceRange: 'Parking-only via Triply from ~$5.49/day (2026-10-16 quote); room package pricing — ask the hotel.' },
   savingsComparison: {
@@ -93,6 +96,12 @@ test('the range and the computed rows skip lots whose notes bar them from leadin
   assert.deepEqual(leadEligibleLots({ ...base, code: 'POE', parkingLots: poeLots }).map((l) => l.name), ['Port Lot'])
   assert.deepEqual(leadEligibleLots({ ...base, parkingLots: poeLots }).map((l) => l.name), ['Port Lot'], 'any file with cruiseShuttle data is a cruise page')
   assert.deepEqual(leadEligibleLots({ ...base, parkingLots: [{ name: 'Clarion', dailyRate: 8.35, sellable: true, notes: 'Shuttle 10 AM-2 PM only. Confirm the airport shuttle before recommending it for flights.' }] }), [], 'BWI-shaped caveat bars leading')
+  const paid = [
+    { name: 'Courtyard', dailyRate: 12.25, sellable: true, cruiseShuttle: 'paid-$20pp-one-way' },
+    { name: 'Quality Inn', dailyRate: 4.13, sellable: true, shuttleInfo: '24/7 every 30 minutes — shuttle is NOT free: $10 each way.' },
+    { name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' },
+  ]
+  assert.deepEqual(leadEligibleLots({ ...base, parkingLots: paid }).map((l) => l.name), ['Port Lot'], 'a paid transfer never leads: the lot rate understates the trip')
   assert.equal(sellableLotRange(base), 'from $6.41/day to $28/day across 2 lots')
   assert.equal(sellableLotRange({ ...base, parkingLots: [poeLots[0]] }), 'none may lead a recommendation (every lot carries a caveat — read the lot notes)')
   assert.equal(sellableLotRange({ ...base, parkingLots: [] }), '')
@@ -108,8 +117,14 @@ test('figureSource gives the lint the figures the writer saw: computed totals in
   assert.ok(!figures.includes(4), 'the dropped "from ~$4/day" is not a known figure')
   assert.ok(figures.includes(24), 'on-airport garage rate still known')
   assert.ok(!figures.includes(7.99), 'a stale per-day price inside lot notes is not a known figure')
-  assert.ok(figures.includes(20), 'a per-person fee in the notes is')
+  assert.ok(figures.includes(20), 'a surcharge in the notes is')
   assert.ok(!figures.includes(5.49), 'park-sleep-fly "via Triply from ~$5.49/day" is not a known figure')
+  const psf = figureSource({ ...base, parkSleepFly: { description: 'Triply sells parking-only at the hotels below; room packages are booked with the hotel.', popularHotels: [{ name: 'Dear Lot Hotel', parkOnlyRate: '$7.95/day', shuttleHours: '24/7' }, { name: 'Red Roof Inn', parkOnlyRate: '$5.49/day' }], priceRange: 'Parking-only via Triply from ~$5.49/day.' }, savingsComparison: { scenario: '7-day trip. Off-site = live Triply checkout total incl. fees.', triplyFeeNote: 'service fee max of $4.95 or 6%' } }) as { parkSleepFly: Record<string, unknown>; savingsComparison: Record<string, unknown> }
+  assert.deepEqual(psf.parkSleepFly.popularHotels, [{ name: 'Dear Lot Hotel', shuttleHours: '24/7' }], 'only hotels whose lot we sell, without price fields')
+  assert.equal(psf.parkSleepFly.description, 'Triply sells parking-only at the hotels below; room packages are booked with the hotel.', 'product truth kept')
+  assert.equal(psf.parkSleepFly.priceRange, undefined)
+  assert.equal(psf.savingsComparison.triplyFeeNote, undefined, 'stale fee note dropped')
+  assert.equal(psf.savingsComparison.scenario, '7-day trip.')
 })
 
 test('the airport data block carries no stale off-site figure, no coupon pitch, and the lot caveats', () => {
@@ -126,12 +141,12 @@ test('the airport data block carries no stale off-site figure, no coupon pitch, 
   assert.ok(block.includes('Garage'), 'on-airport savings entry kept')
   assert.ok(block.includes('Notes: Hotel lot, well lit.'))
   assert.ok(!block.includes('$7.99'), 'a stale per-day price inside lot notes is not printed')
-  assert.ok(block.includes('$20 per person'), 'a per-person fee in the notes is')
+  assert.ok(block.includes('$20 surcharge'), 'a surcharge in the notes is')
   assert.ok(block.includes('Price range (lots that may lead a recommendation): $6.41/day — $28/day across 2 lots'), 'the lot-list footer spans eligible lots only')
   assert.ok(!block.includes('$7.5/day — '), 'the footer never starts at a barred lot')
   const poe = getAirportDataBlock({ ...base, code: 'POE', parkingLots: [{ name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' }, { name: 'Airport Only Lot', dailyRate: 6.25, sellable: true, cruiseShuttle: 'not-available', notes: 'AIRPORT PARKING ONLY.' }] }, 'cruise parking full')
   assert.ok(poe.includes('Cruise-port shuttle: included') && poe.includes('Cruise-port shuttle: not-available'))
-  assert.ok(poe.includes('Price range (lots that may lead a recommendation): $21.7/day — $21.7/day across 1 lots'))
+  assert.ok(poe.includes('Price range (lots that may lead a recommendation): $21.7/day — $21.7/day across 1 lot'))
   assert.ok(!poe.includes('from ~$5.49/day'), 'park-sleep-fly Triply price line filtered')
   assert.ok(!block.includes('Added 2026-11-01'), 'a provenance-only note is not printed')
   assert.ok(block.includes('On-airport shuttles every 10 minutes'), 'general shuttle sentence kept')
