@@ -296,9 +296,17 @@ export function printableNotes(notes: unknown, strict = false): string {
       if (!staleLotPrice(s)) return s
       // A sentence that is also a caveat keeps its words with the figures blanked (DTW "adds ~27% tax", SJC "do not
       // promise covered parking at that price") — dropping it whole lost the caveat (pass-6 review).
-      return CAVEAT.test(s)
-        ? s.replace(MONEY_TOKEN, '[price omitted]').replace(/\s*\(\[price omitted\](?: all-in)?\)/g, '').replace(/\s+([,;.])/g, '$1').replace(/ {2,}/g, ' ')
-        : ''
+      if (!CAVEAT.test(s)) return ''
+      // Figures out, parentheticals that only held figures out; a sentence that still needs two placeholders was a quote
+      // breakdown, not a caveat (pass-7 review: "[price omitted] subtotal + fees/tax" carried nothing).
+      const scrubbed = s
+        .replace(MONEY_TOKEN, PLACEHOLDER)
+        .replace(/\s*\([^()]*\[price omitted\][^()]*\)/g, '')
+        .replace(/\s+([,;.])/g, '$1')
+        .replace(/ {2,}/g, ' ')
+        .trim()
+      const n = scrubbed.split(PLACEHOLDER).length - 1
+      return n <= 1 && CAVEAT.test(scrubbed) ? scrubbed : ''
     })
     .filter(Boolean)
   let out = kept.join('. ').trim()
@@ -309,12 +317,13 @@ const ANY_DOLLAR = /(?:C\$|\$)\s?\d/
 const MONEY_TOKEN = /~?(?:C\$|\$)\s?\d[\d.,]*(?:\s?[-–]\s?(?:C\$|\$)?\d[\d.,]*)?(?:\s*\/\s*(?:day|night|24 ?h(?:ou)?rs?)|\s+(?:per|a)\s+(?:day|night))?/g
 // Words that make a priced sentence a caveat worth keeping (with its figures blanked). Plain comparisons ("$1 more in
 // fees", "cheapest at …") are not caveats and are dropped whole.
-const CAVEAT = /(?<!incl\.\s|incl\s|including\s|before\s|with\s)\btax|minimum|do not|don't|never|caution|warning|not bookable|at the lot|at the curb|due at location|surcharge|late fee|covered parking|oversized|larger? vehicles|grace period|position it on/i
+const CAVEAT = /adds? ~?\d+% tax|plus tax|tax(?:es)? (?:added|extra|at the lot)|(?<!no )minimum|do not|don't|never|caution|warning|not bookable|at the lot|at the curb|due at location|surcharge|late fee|oversized|larger? vehicles|grace period|position it on/i
+const PLACEHOLDER = '[price omitted]'
 const DAY_PRICE = /(?:C\$|\$)\s?\d[\d.,]*(?:\s*\/\s*|\s+per\s+|\s+a\s+)(?:day|night|24)/gi
 // A dollar figure that is a fee, not the lot's own rate: judged on the 40 characters around it.
 const FEE_CONTEXT = /extra|surcharges?|\bfees?\b|oversized|larger? vehicles?|additional|plus tax|at the lot|at the curb|payable|per person|\d+ ?pp\b|per vehicle|each way|one[- ]way|toll|\btips?\b|late fee/i
-const QUOTED_PRICE = /(?:pre-?book\w*|walk-?up|drive-?up|online|from|~|around|about|rate(?: of| is)?|was|old|now)\s*(?:is\s*|of\s*|for\s*|the\s*|at\s*)?["“]?(?:C\$|\$)\s?\d|(?:C\$|\$)\s?\d[\d.,]*["”]?\s*(?:pre-?booked|walk-?up|drive-?up|online|is false|was|vs\.?)/i
-const WEEK_QUOTE = /grand total|\btotal\b|\bquoted?\b|for (?:a )?\d+[- ](?:night|day)|for (?:[A-Z][a-z]{2}\.? )?\d{1,2}\s?[-–]\s?\d{1,2}\b|\d+ billed days|all-in/i
+const QUOTED_PRICE = /(?:pre-?book\w*|walk-?up|drive-?up|online|from|~|around|about|rate(?: of| is)?|was|old|now)\s*(?:is\s*|of\s*|for\s*|the\s*|at\s*)?["“]?(?:C\$|\$)\s?\d|(?:C\$|\$)\s?\d[\d.,]*["”]?\s*(?:pre-?booked|walk-?up|drive-?up|online|is false|was|vs\.?)|\bat (?:C\$|\$)\s?\d|\((?:C\$|\$)\s?\d[\d.,]*\)/i
+const WEEK_QUOTE = /grand total|\btotal\b|\bquoted?\b|for (?:a )?\d+[- ](?:night|day)|for (?:[A-Z][a-z]{2}\.? )?\d{1,2}\s?[-–]\s?\d{1,2}\b|[A-Z][a-z]{2}\.? \d{1,2}\s?[-–]\s?\d{1,2}\s*:\s*(?:C\$|\$)|\d+ billed days|all-in/i
 const STALE_META = /\bold\b|is false|outdated|no longer/i
 
 /** True when a notes sentence quotes the lot's OWN price in any form (goes stale on every refresh); fee sentences are not stale. */
@@ -404,9 +413,9 @@ const PAID_TRANSFER = /shuttle is not free|(?:shuttle|transfer) fee|(?:C\$|\$)\s
 const EXTRA_PASSENGER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
 // "1:00 AM - 4:00 AM: No shuttle", "NO shuttle 10 PM - 7 AM", "no shuttle outside those hours": a gap in service, not no service.
 const GAP_BEFORE = /\d{1,2}(?::\d{2})?\s*(?:AM|PM)[^.;]{0,30}:\s*no (?:airport |free )?shuttle\.?/gi
-const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;:]{0,40}?(?:\d{1,2}(?::\d{2})?\s*(?:AM|PM)|overnight|midnight|outside those hours|after \d|before \d|between \d|until \d)|\s+(?:between|after|before|overnight|during))/gi
+const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;]{0,40}?(?:\d{1,2}(?::\d{2})?\s?[-–]\s?\d{1,2}(?::\d{2})?\s*(?:AM|PM)|\d{1,2}(?::\d{2})?\s*(?:AM|PM)|overnight|midnight|outside (?:these|those|shuttle|service|operating) hours|after \d|before \d|between \d|until \d)|\s+(?:between|after|before|overnight|during))/gi
 // Words that mean the customer finds their own ride — they overrule a "valet" mention elsewhere in the lot's text.
-const OWN_RIDE = /own (?:ride|transportation|way)|uber|lyft|taxi|rideshare|cab\b/i
+const OWN_RIDE = /own (?:ride|transportation|way)|(?<!no |without |not |never )(?:uber|lyft|taxi|rideshare|cab\b)/i
 const stripGaps = (t: string) => t.replace(GAP_BEFORE, '').replace(GAP_AFTER, '')
 // A valet lot has no shuttle because a driver takes you to the terminal in your own car: not a paid transfer.
 const VALET = /valet|drives? you|in your (?:own )?(?:car|vehicle)|meet-and-greet|curb(?:side)?|drive to departures|departures level|agent (?:drives|takes)/i
@@ -911,7 +920,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
 37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest rate in the "Off-site lots Triply sells" line, with its currency sign — never a lot whose notes bar it from leading) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
 38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of <Month YYYY>, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
-38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
+38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. "[price omitted]" in a lot's notes marks a stale figure that was removed — never print it and never put a number in its place (a lint blocks the write). Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
 ${ownCodeRule(item.airportCode)}
 Respond with ONLY valid JSON in this exact format:
 {
