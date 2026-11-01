@@ -249,10 +249,10 @@ function formatPeakTravelTimes(data: AirportData): string {
  * source for off-site lot prices and names, so those sentences/entries are dropped at format time and replaced by
  * figures computed from the lots. The on-airport figures keep their own dates in the text.
  */
-const OFF_SITE_SENTENCE = /off-?site|via triply|bookable on triply|triply sells|lots triply|triply (?:lot|rate|checkout)/i
+const OFF_SITE_SENTENCE = /off-?site|via triply|on triply|bookable on triply|triply sells|lots triply|triply (?:lot|rate|checkout)/i
 // Sentence boundary: ". " followed by a capital — "$6.25/day" has no space after its dot, "July 1, 2026. Off-site" does —
 // and not after common abbreviations ("incl. 13% HST", "e.g. Nov").
-const SENTENCE_BREAK = /(?<![Ii]ncl|[Ee]xcl|[Aa]pprox|\bvs|\be\.g|\bi\.e|\bSt|\bAve|\bBlvd|\bRd|\bHwy|\bNo|\bMt)\.\s+(?=[A-Z])/
+const SENTENCE_BREAK = /(?<![Ii]ncl|[Ee]xcl|[Aa]pprox|\bvs|\be\.g|\bi\.e|\bSt|\bAve|\bBlvd|\bRd|\bHwy|\bNo|\bMt)\.\s+(?=[A-Z0-9"“(])/
 
 // Only the em-dash splits a sentence into clauses: "; " also separates items inside parentheses ("(Best Rate; shuttle 4 AM-10 PM only)").
 const CLAUSE_BREAK = /\s+—\s+/
@@ -270,12 +270,13 @@ function lotNameKey(name: string): string {
   for (let i = 0; i < 2; i++) {
     key = key.replace(/\s+(?:airport\s+parking|airport|parking|valet\s+parking)\s*$/i, '').replace(/\s+[A-Z]{3}$/, '').trim()
   }
-  key = key.toLowerCase()
+  key = key.toLowerCase().replace(/[\s-]+/g, ' ')
   return key.length >= 4 ? key : ''
 }
 
 function nameRegex(key: string): RegExp {
-  return new RegExp(`\\b${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i')
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s-]+/g, '[\\s-]+')
+  return new RegExp(`\\b${escaped}\\b`, 'i')
 }
 
 /**
@@ -288,14 +289,29 @@ export function printableNotes(notes: unknown, strict = false): string {
   if (typeof notes !== 'string' || !notes) return ''
   // "Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = …" — the domain's dot is not the sentence end.
   const body = notes.replace(/^Added \d{4}-\d{2}-\d{2} from live \S+ search[^.]*\.\s*/i, '').trim()
-  const kept = body.split(SENTENCE_BREAK).filter((s) => (strict ? !ANY_DOLLAR.test(s) : !PRICED_SENTENCE.test(s) || FEE_SENTENCE.test(s)))
+  const kept = body.split(SENTENCE_BREAK).filter((s) => (strict ? !ANY_DOLLAR.test(s) : !staleLotPrice(s)))
   let out = kept.join('. ').trim()
   if (out && !/[.!?]$/.test(out)) out += '.'
   return out
 }
 const ANY_DOLLAR = /(?:C\$|\$)\s?\d/
-const PRICED_SENTENCE = /(?:C\$|\$)\s?\d[\d.,]*\s*(?:\/|per\s|a\s)\s*(?:day|night|24)|(?:pre-?book(?:ed)?(?: online)?(?: for)?(?: the)?|walk-?up(?: is)?|from|~|rate(?: of)?)\s*(?:C\$|\$)\s?\d/i
-const FEE_SENTENCE = /per person|\d+ ?pp\b|per vehicle|surcharge|\bfees?\b|oversized|larger? vehicles?|each (?:way|additional)|one[- ]way|after-hours|late pickup|toll|at the lot|at the curb|payable|plus tax|extra/i
+const DAY_PRICE = /(?:C\$|\$)\s?\d[\d.,]*(?:\s*\/\s*|\s+per\s+|\s+a\s+)(?:day|night|24)/gi
+// A dollar figure that is a fee, not the lot's own rate: judged on the 40 characters around it.
+const FEE_CONTEXT = /extra|surcharge|\bfees?\b|oversized|larger? vehicles?|additional|plus tax|at the lot|at the curb|payable|per person|\d+ ?pp\b|per vehicle|each way|one[- ]way|toll|tip/i
+const QUOTED_PRICE = /(?:pre-?book\w*|walk-?up|drive-?up|online|from|~|around|about|rate(?: of| is)?|was|old|now)\s*(?:is\s*|of\s*|for\s*|the\s*|at\s*)?["“]?(?:C\$|\$)\s?\d|(?:C\$|\$)\s?\d[\d.,]*["”]?\s*(?:pre-?booked|walk-?up|drive-?up|online|is false|was|vs\.?)/i
+const WEEK_QUOTE = /grand total|total (?:for|incl)|for (?:a )?\d+[- ](?:night|day)|\d+ billed days|quote\b/i
+const STALE_META = /\bold\b|is false|outdated|no longer/i
+
+/** True when a notes sentence quotes the lot's OWN price in any form (goes stale on every refresh); fee sentences are not stale. */
+function staleLotPrice(s: string): boolean {
+  if (!ANY_DOLLAR.test(s)) return false
+  if (STALE_META.test(s) || WEEK_QUOTE.test(s) || QUOTED_PRICE.test(s)) return true
+  for (const m of s.matchAll(DAY_PRICE)) {
+    const i = m.index ?? 0
+    if (!FEE_CONTEXT.test(s.slice(Math.max(0, i - 40), i + m[0].length + 25))) return true
+  }
+  return false
+}
 
 /** Cut long text at a sentence or clause boundary before `n` chars (never mid-number or mid-word). */
 export function cutAt(text: string, n: number): string {
@@ -363,19 +379,51 @@ function cruiseContext(data: AirportData, _keyword: string): boolean {
  * the lot list with its caveat. (Pass-2 review of #143: the first version put POE's airport-only lots and MCI's
  * suspended-shuttle lot at the top of the savings block.)
  */
-/** A transfer the customer pays on top of the lot rate ("$10 each way", "$20 per person one way", cruiseShuttle "paid-…"). */
-const PAID_TRANSFER = /shuttle is not free|(?:C\$|\$)\s?\d[\d.]*\s*(?:pp\b|per person|each way|one[- ]way|per (?:trip|ride|transfer))/i
+/**
+ * A transfer the customer pays on top of the lot rate — or has to arrange: "$10 each way", "~$15-25 each way",
+ * "C$8 fee", "shuttle is NOT free", cruiseShuttle "paid-…", and lots with NO shuttle at all (the ride to the terminal is a
+ * paid rideshare, so "from $X/day" would understate the trip just the same). "$10 per person" for EXTRA passengers on a
+ * free shuttle is not a paid transfer. A "1:00 AM - 4:00 AM: No shuttle" gap is not "no shuttle".
+ */
+const PAID_TRANSFER = /shuttle is not free|(?:shuttle|transfer) fee|(?:C\$|\$)\s?\d[\d.]*(?:\s?[-–]\s?(?:C\$|\$)?\d[\d.]*)?\s*(?:pp\b|per person|each way|one[- ]way|per (?:trip|ride|transfer)|fee\b)/gi
+const EXTRA_PASSENGER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
+// "1:00 AM - 4:00 AM: No shuttle", "NO shuttle 10 PM - 7 AM", "no shuttle outside those hours": a gap in service, not no service.
+const GAP_BEFORE = /\d{1,2}(?::\d{2})?\s*(?:AM|PM)[^.;]{0,30}:\s*no (?:airport |free )?shuttle\.?/gi
+const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;]{0,40}?(?:\d{1,2}(?::\d{2})?\s*(?:AM|PM)|\d\s?[-–]\s?\d|overnight|midnight|outside|after|before|between|from|during|until|hours)|\s+(?:from|between|after|before|overnight|on|during))/gi
+const stripGaps = (t: string) => t.replace(GAP_BEFORE, '').replace(GAP_AFTER, '')
+// A valet lot has no shuttle because a driver takes you to the terminal in your own car: not a paid transfer.
+const VALET = /valet|drives? you|in your (?:own )?(?:car|vehicle)|meet-and-greet|curb(?:side)?|drive to departures|departures level|agent (?:drives|takes)/i
+const NO_SHUTTLE = /\bno (?:airport |free |traditional )?shuttle\b|own (?:ride|transportation|way)|uber\/lyft recommended|rideshare (?:required|needed|recommended|to the terminal)|add two rideshare|rideshare cost not included/i
+
+/** Why a lot's transfer keeps it from leading ('' when it may lead): the matched text, for probes and reviews. */
+export function transferBlocker(l: Record<string, unknown>): string {
+  const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
+  if (cs.startsWith('paid')) return `cruiseShuttle ${cs}`
+  for (const t of [l.shuttleInfo, l.notes, l.parkingType]) {
+    if (typeof t !== 'string') continue
+    for (const m of t.matchAll(PAID_TRANSFER)) {
+      if (!EXTRA_PASSENGER.test(t.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0))) return `paid: "${m[0]}"`
+    }
+    if (VALET.test(t) || (typeof l.parkingType === 'string' && VALET.test(l.parkingType))) continue
+    const m = stripGaps(t).match(NO_SHUTTLE)
+    if (m) return `no shuttle: "${m[0]}"`
+  }
+  return ''
+}
+
+export function paidOrNoTransfer(l: Record<string, unknown>): boolean {
+  return transferBlocker(l) !== ''
+}
 
 export function leadEligibleLots(data: AirportData, keyword = ''): Record<string, unknown>[] {
   const cruise = cruiseContext(data, keyword)
   return sellableLots(data).filter((l) => {
     if (l.shuttleSuspended === true) return false
     if (typeof l.notes === 'string' && DO_NOT_LEAD.test(l.notes)) return false
-    const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
-    // A paid transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip (pass-4 review:
-    // POE Courtyard $98 vs ~$178 with the $20pp port transfer; MCI Quality Inn $28.91 plus $10 each way).
-    if (cs.startsWith('paid') || [l.shuttleInfo, l.notes].some((t) => typeof t === 'string' && PAID_TRANSFER.test(t))) return false
-    if (cruise) return cs === 'included'
+    // A paid (or absent) transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip
+    // (pass-4/5 reviews: POE Courtyard $98 vs ~$178 with the $20pp port transfer; LGA Hearthstone "~$15-25 each way").
+    if (paidOrNoTransfer(l)) return false
+    if (cruise) return (typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : '') === 'included'
     return true
   })
 }
@@ -466,7 +514,7 @@ export function figureSource(data: AirportData, keyword = ''): unknown {
   const lots = ((parkingLots ?? []) as Record<string, unknown>[]).map((l) => ({
     name: l.name, dailyRate: l.dailyRate, driveTime: l.driveTime, parkingType: l.parkingType, amenities: l.amenities,
     shuttleInfo: typeof l.shuttleInfo === 'string' ? cutAt(l.shuttleInfo, 240) : undefined,
-    cruiseShuttle: l.cruiseShuttle, rateNote: l.rateNote, notes: cutAt(printableNotes(l.notes), 400),
+    cruiseShuttle: l.cruiseShuttle, rateNote: cutAt(printableNotes(l.rateNote, true), 160), notes: cutAt(printableNotes(l.notes), 400),
   }))
   return {
     ...rest,
@@ -496,7 +544,8 @@ function filteredParkSleepFly(data: AirportData): Record<string, unknown> | unde
     if (out.description && !/[.!?]$/.test(out.description as string)) out.description += '.'
   }
   for (const k of ['priceRange', 'extendedParking']) {
-    if (typeof out[k] === 'string') out[k] = dropOffSiteSentences(out[k] as string, data.unsellableLotNames, sellable)
+    // Hotel package prices ("From ~$69/night") are unverified and go stale; only non-priced sentences stay.
+    if (typeof out[k] === 'string') out[k] = printableNotes(dropOffSiteSentences(out[k] as string, data.unsellableLotNames, sellable), true)
     if (!out[k]) delete out[k]
   }
   if (!out.description) delete out.description
@@ -512,7 +561,8 @@ function filteredParkSleepFly(data: AirportData): Record<string, unknown> | unde
         if (!h || typeof h !== 'object') return null
         const entry = h as Record<string, unknown>
         if (typeof entry.name !== 'string' || !sells(entry.name)) return null
-        return Object.fromEntries(Object.entries(entry).filter(([k]) => !/rate|price|cost|package/i.test(k)))
+        // name / distance / shuttle only: `highlight` and `parkingIncluded` carried old prices and package claims
+        return Object.fromEntries(Object.entries(entry).filter(([k]) => /^(name|distance|shuttleHours|shuttle)$/.test(k)))
       })
       .filter(Boolean)
     if ((out.popularHotels as unknown[]).length === 0) delete out.popularHotels
@@ -556,7 +606,9 @@ function formatOnAirportParking(data: AirportData): string {
     }
     const parts: string[] = [`- **${key}**`]
     if (info.rate) parts.push(`${info.rate}`)
-    if (info.dailyMax) parts.push(`max ${cur}${info.dailyMax}/day`)
+    if (info.dailyMax && typeof info.dailyMax === 'object') {
+      parts.push(`max ${Object.entries(info.dailyMax as Record<string, unknown>).map(([k, v]) => `${humanizeKey(k).toLowerCase()} ${cur}${v}`).join(' / ')} per day`)
+    } else if (info.dailyMax) parts.push(`max ${cur}${info.dailyMax}/day`)
     if (info.preBookRate) parts.push(`pre-book ${cur}${info.preBookRate}/day`)
     if (info.terminals) parts.push(`near ${info.terminals}`)
     if (info.location) parts.push(`at ${info.location}`)

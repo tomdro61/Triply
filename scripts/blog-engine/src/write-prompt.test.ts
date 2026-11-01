@@ -2,7 +2,7 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock, leadEligibleLots, offSiteScenarioRows, figureSource, printableNotes, cutAt } from './prompts/write.js'
+import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock, leadEligibleLots, offSiteScenarioRows, figureSource, printableNotes, cutAt, paidOrNoTransfer } from './prompts/write.js'
 import { collectFigures } from './lint.js'
 import type { AirportData } from './airport-data.js'
 
@@ -28,6 +28,8 @@ test('dropOffSiteSentences keeps the on-airport clause of a mixed sentence and d
   const shuttle = 'AirTrain connects all terminals. Some budget lots (Parking 4 Airport, Hyatt Place Flushing) have limited shuttle hours. The Parking Spot East/West runs 24/7 shuttles. Ausby shuttle runs 10 AM-9:30 PM. Doug Fox has the fastest shuttle.'
   assert.equal(dropOffSiteSentences(shuttle, ['Parking 4 Airport (JFK)', 'The Parking Spot East AUS', 'Ausby Airport Parking (DFW)', 'Doug Fox Airport Parking']), 'AirTrain connects all terminals.')
   assert.equal(dropOffSiteSentences('Park & Zoom has shuttles on airport property. Royal Inn has NO shuttle. Economy Lot shuttle every 10 min.', ['Park & Zoom AUS', 'Royal Inn CLT Airport Parking']), 'Economy Lot shuttle every 10 min.')
+  assert.equal(dropOffSiteSentences('The Westin Dallas-Fort Worth runs hourly. Garage $27/day.', ['The Westin Dallas Fort Worth (DFW)']), 'Garage $27/day.', 'hyphen and space are the same in a name')
+  assert.equal(dropOffSiteSentences('Rates effective July 1, 2026. 3-day minimum applies. Off-site via Triply from $8.'), 'Rates effective July 1, 2026. 3-day minimum applies.', 'a sentence may start with a digit')
   // A brand we also sell is never a drop key.
   assert.equal(dropOffSiteSentences('Motel 6 runs 24/7 every 30-45 min.', ['Motel 6 (SEA)'], ['Motel 6']), 'Motel 6 runs 24/7 every 30-45 min.')
   // Only a leading clause with a figure is salvaged; a trailing fragment is not.
@@ -41,6 +43,12 @@ test('printableNotes drops the provenance line and per-day prices but keeps per-
   assert.equal(printableNotes('Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = all-in daily for a 7-day stay booked 3 weeks out.'), 'Rate = all-in daily for a 7-day stay booked 3 weeks out.')
   assert.equal(printableNotes('Large vehicles pay C$12/day extra AT THE LOT. Pre-book online for the $6.95 rate — walk-up is $8.95/day. Use it always with the $20pp caveat. Walk-up $24.95/24 hrs.'), 'Large vehicles pay C$12/day extra AT THE LOT. Use it always with the $20pp caveat.')
   assert.equal(printableNotes('Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $26.12. Pay at the lot.', true), 'Pay at the lot.')
+  // Pass-5: a lot price rescued by fee wording, "$X pre-booked" order, week quotes and reviewer meta-text are all stale.
+  assert.equal(printableNotes('At $20.95/day with NO shuttle, budget ~$15-25 each way for Uber. 3-day minimum.'), '3-day minimum.')
+  assert.equal(printableNotes('Same $6.95/day as Express Park Fly but $1 more in fees. Do not promise covered parking at that price.'), 'Do not promise covered parking at that price.')
+  assert.equal(printableNotes('Old "$6.45 pre-booked" / "$9.95" are false. 4-DAY MINIMUM: not bookable for 1-3 day trips.'), '4-DAY MINIMUM: not bookable for 1-3 day trips.')
+  assert.equal(printableNotes('$52.90 grand total for Nov 2-9 (8 billed days). C$7.61/day before HST. 3-day minimum. Keys stay with you.'), '3-day minimum. Keys stay with you.')
+  assert.equal(printableNotes('Oversized vehicles pay an extra $25/day at the lot. The listing adds ~27% tax.'), 'Oversized vehicles pay an extra $25/day at the lot. The listing adds ~27% tax.')
   assert.equal(cutAt('Shuttle runs every hour to the terminal. Help: 416-555-0100 ' + 'x'.repeat(200), 60), 'Shuttle runs every hour to the terminal.')
   const long = 'Shuttle 5:00 AM-11:00 PM except statutory holidays; this plan uses the 7:00 AM-10:30 PM schedule. Call 403-717-1234 after collecting bags. ' + 'x'.repeat(200)
   const cut = cutAt(long, 240)
@@ -102,6 +110,16 @@ test('the range and the computed rows skip lots whose notes bar them from leadin
     { name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' },
   ]
   assert.deepEqual(leadEligibleLots({ ...base, parkingLots: paid }).map((l) => l.name), ['Port Lot'], 'a paid transfer never leads: the lot rate understates the trip')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'NO SHUTTLE — Uber/Lyft recommended, ~$15-25 each way.' }), true, 'a price range each way')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'Every 30 minutes, C$8 fee.' }), true, 'a shuttle fee')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'No shuttle. Add two rideshare rides to the real cost.' }), true, 'no shuttle at all = a paid ride')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: '4:00 AM - 1:00 AM: every hour. 1:00 AM - 4:00 AM: No shuttle.' }), false, 'an overnight gap is not "no shuttle"')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: '7 AM - 10 PM, every hour on the hour. NO shuttle 10 PM - 7 AM. Call ahead.' }), false, 'a gap written the other way round')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'To the airport 4:30 AM-11 PM every 30 minutes. No shuttle outside those hours.' }), false)
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'No shuttle: drive to the lot and call; a valet meets you and drives you to the terminal in YOUR car.' }), false, 'valet = no shuttle needed')
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'NO shuttle. The terminals are a quick 5-minute Uber/Lyft ride (rideshare cost not included).' }), true)
+  assert.equal(paidOrNoTransfer({ shuttleInfo: 'Free for up to 4 passengers, every additional is $10.00 per person.' }), false, 'extra passengers on a free shuttle')
+  assert.equal(paidOrNoTransfer({ notes: 'Oversized vehicles pay a $20 surcharge at the lot.' }), false)
   assert.equal(sellableLotRange(base), 'from $6.41/day to $28/day across 2 lots')
   assert.equal(sellableLotRange({ ...base, parkingLots: [poeLots[0]] }), 'none may lead a recommendation (every lot carries a caveat — read the lot notes)')
   assert.equal(sellableLotRange({ ...base, parkingLots: [] }), '')
@@ -121,6 +139,11 @@ test('figureSource gives the lint the figures the writer saw: computed totals in
   assert.ok(!figures.includes(5.49), 'park-sleep-fly "via Triply from ~$5.49/day" is not a known figure')
   const psf = figureSource({ ...base, parkSleepFly: { description: 'Triply sells parking-only at the hotels below; room packages are booked with the hotel.', popularHotels: [{ name: 'Dear Lot Hotel', parkOnlyRate: '$7.95/day', shuttleHours: '24/7' }, { name: 'Red Roof Inn', parkOnlyRate: '$5.49/day' }], priceRange: 'Parking-only via Triply from ~$5.49/day.' }, savingsComparison: { scenario: '7-day trip. Off-site = live Triply checkout total incl. fees.', triplyFeeNote: 'service fee max of $4.95 or 6%' } }) as { parkSleepFly: Record<string, unknown>; savingsComparison: Record<string, unknown> }
   assert.deepEqual(psf.parkSleepFly.popularHotels, [{ name: 'Dear Lot Hotel', shuttleHours: '24/7' }], 'only hotels whose lot we sell, without price fields')
+  const psf2 = figureSource({ ...base, parkSleepFly: { popularHotels: [{ name: 'Dear Lot Hotel', highlight: 'Triply parking from $8.39/day', parkingIncluded: 'Up to 14 days', distance: '1 mi' }], priceRange: 'From ~$69/night (1-night stay + up to 7 days parking). Ask the hotel for package pricing.' } }) as { parkSleepFly: Record<string, unknown> }
+  assert.deepEqual(psf2.parkSleepFly.popularHotels, [{ name: 'Dear Lot Hotel', distance: '1 mi' }], 'highlight and package claims out')
+  assert.equal(psf2.parkSleepFly.priceRange, 'Ask the hotel for package pricing.', 'hotel package prices out')
+  const fig2 = collectFigures(figureSource({ ...base, parkingLots: [{ name: 'Q', dailyRate: 4.13, sellable: true, rateNote: 'Triply online rate before service fee; 7-day quote = $26.12' }] }))
+  assert.ok(!fig2.includes(26.12), 'an unprinted rate-note quote is not a known figure')
   assert.equal(psf.parkSleepFly.description, 'Triply sells parking-only at the hotels below; room packages are booked with the hotel.', 'product truth kept')
   assert.equal(psf.parkSleepFly.priceRange, undefined)
   assert.equal(psf.savingsComparison.triplyFeeNote, undefined, 'stale fee note dropped')

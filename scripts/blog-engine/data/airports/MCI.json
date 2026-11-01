@@ -160,15 +160,6 @@
       "source": "https://www.flykc.com/parking",
       "features": "24/7/365, 8-foot clearance, EV charging offered with valet. Call 816-243-2019 to have your vehicle brought up. Tips accepted."
     },
-    "parkAirExpress": {
-      "name": "Park Air Express (off-site, SP+ operated)",
-      "address": "11500 NW Prairie View Road, Kansas City, MO 64153",
-      "phone": "(816) 268-0880",
-      "rate": "Reported $10/day outdoor, $20/day indoor (rates not posted on flykc.com — verify at parkairexpress.com)",
-      "lastVerified": "2026-10-13",
-      "source": "https://www.kshb.com/news/local-news/parking-rates-to-rise-next-week-at-kci-garage-surface-lot-valet-service",
-      "features": "Covered and uncovered, 24/7 valet, complimentary shuttle, luggage assistance, EV charging, own frequent/corporate parker programs. Linked from the official flykc.com parking page; not bookable on Triply."
-    },
     "cellPhoneLot": {
       "name": "Cell Phone Waiting Lot",
       "location": "50 Bern St (flykc.com lists 680 Brasilia Ave for rideshare)",
