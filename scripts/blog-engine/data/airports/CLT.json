@@ -1,7 +1,7 @@
 {
   "code": "CLT",
   "fullName": "Charlotte Douglas International Airport",
-  "lastVerified": "2026-10-13",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Charlotte, North Carolina — 6 miles west of Uptown Charlotte",
     "iataCode": "CLT",
@@ -234,7 +234,7 @@
       "rating": "4.4/5",
       "notes": "Best-known off-site lot at CLT. 24/7 shuttle is reliable. Covered parking adds a few dollars more per day. Weekly rate approximately $49/week when pre-booked.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Red Lion Hotel Charlotte Airport",
@@ -250,7 +250,7 @@
       "freeCancellation": true,
       "notes": "Cheapest off-site parking option at CLT. Verify shuttle hours before booking — may not run 24/7. Good for budget-conscious travelers with standard departure times.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Microtel Inn & Suites Charlotte Airport",
@@ -266,7 +266,7 @@
       "freeCancellation": true,
       "notes": "Good mid-range option. Close to airport with free shuttle. Pre-booking saves over $1/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Royal Inn CLT Airport Parking",
@@ -282,7 +282,7 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle service included. You must rideshare or get dropped off at the terminal separately. Only suitable if you have someone to drive you to/from the airport. Cheapest raw rate but factor in rideshare costs.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Country Inn & Suites Charlotte Airport",
@@ -298,7 +298,7 @@
       "freeCancellation": true,
       "notes": "24-hour shuttle is a strong advantage over competitors with limited hours. Gated lot provides extra security. Good value at $6.50/day when pre-booked.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree by Hilton Charlotte Airport",
@@ -314,7 +314,49 @@
       "freeCancellation": true,
       "notes": "Hilton brand provides reliability. Further from airport than other options but shuttle is included. Good option for travelers who want a Park Sleep Fly package.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Radisson Hotel Charlotte Airport",
+      "slug": "radisson-hotel-charlotte-airport",
+      "dailyRate": 7.58,
+      "reservationRate": 7.58,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "24/7 every hour; Pick-up on demand",
+      "overview": "Located just a 10-minute drive from Charlotte Douglas International Airport (CLT) right off I-77, Radisson Hotel Charlotte Airport offers a convenient parking solution complete with complimentary shuttle service.",
+      "address": "212 W Woodlawn Rd Building C, Charlotte, NC, 28217",
+      "distanceFromAirport": "3.9 mi",
+      "phone": "980-859-5155",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Sheraton Charlotte Airport Hotel",
+      "slug": "sheraton-charlotte-airport-hotel",
+      "dailyRate": 11.13,
+      "reservationRate": 11.13,
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "24/7 every 30 minutes",
+      "overview": "Located just 2 miles from Charlotte Douglas International Airport (CLT), Sheraton Charlotte Airport Hotel offers a convenient and reliable parking option for travelers.",
+      "address": "3315 Scott Futrell Dr, Charlotte, NC, 28208",
+      "distanceFromAirport": "2.0 mi",
+      "phone": "(704) 392-1200",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: Free shuttle service from Long Term Lots 1 & 2 and Daily North to terminal. All other on-airport parking (Hourly Deck, Daily Decks, Express Decks) is walkable to terminal via covered walkways. Off-site: Most lots include free shuttle — The Parking Spot runs 24/7 every 5-10 minutes. CRITICAL: Royal Inn has NO shuttle — verify shuttle service before booking any off-site lot.",

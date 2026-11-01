@@ -1,7 +1,7 @@
 {
   "code": "MCO",
   "fullName": "Orlando International Airport",
-  "lastVerified": "2026-10-13",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Orlando, Orange County, Florida — 6 miles southeast of downtown Orlando",
     "iataCode": "MCO",
@@ -244,7 +244,7 @@
       "freeCancellation": true,
       "notes": "Established national brand with consistent service. Covered parking costs more but protects from Florida sun and afternoon thunderstorms. Loyalty rewards program available. 24/7 shuttle is reliable.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "WallyPark (MCO)",
@@ -260,7 +260,7 @@
       "freeCancellation": true,
       "notes": "One of the few off-site lots with EV charging. Covered parking ideal for Florida weather. Continuous-loop shuttle minimizes wait times.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Fast Park & Relax (MCO)",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "All covered parking — important advantage in Florida's heat and rain. Fast check-in process speeds up drop-off. Good mid-range option.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Drive & Park (MCO)",
@@ -292,7 +292,7 @@
       "freeCancellation": true,
       "notes": "Best budget off-site option at MCO. Locally owned. Uncovered parking — consider Florida sun exposure on your vehicle. 24-hour cancellation policy required for refund.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Renaissance Orlando Airport Hotel Parking",
@@ -308,7 +308,7 @@
       "freeCancellation": true,
       "notes": "Closest covered off-site option. Hotel-quality parking garage. Good for travelers wanting protection from Florida weather at a mid-range price.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Homewood Suites Orlando Airport Parking",
@@ -324,7 +324,84 @@
       "freeCancellation": true,
       "notes": "Good value hotel parking. Gated lot adds security. Popular park-sleep-fly option when combined with overnight stay.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Gold Park Orlando Airport",
+      "slug": "gold-park-orlando-airport",
+      "dailyRate": 6.41,
+      "reservationRate": 6.41,
+      "amenities": [
+        "24/7 Front Desk",
+        "Valet"
+      ],
+      "shuttleInfo": "24/7 Shuttle, every 15 minutes",
+      "overview": "Conveniently located just 1 mile from Orlando International Airport (MCO), Gold Park offers travelers an easy, affordable and reliable parking experience. The lot is fully gated and fenced, with staff onsite 24/7.",
+      "address": "7350 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "407-601-4508",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Omni Airport Parking",
+      "slug": "omni-airport-parking",
+      "dailyRate": 6.89,
+      "reservationRate": 6.89,
+      "shuttleInfo": "24/7 every 20 minutes",
+      "overview": "Located just a quick 5-7 minute drive from Orlando International Airport, Omni MCO Parking is a modern operation featuring a professional office and complimentary shuttles.",
+      "address": "7640 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "(407) 326-6676",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Holiday Inn Orlando Airport",
+      "slug": "holiday-inn-orlando-airport",
+      "dailyRate": 11.06,
+      "reservationRate": 11.06,
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "24/7 every 30 minutes",
+      "overview": "Located just minutes of drive from Orlando International Airport (MCO) and the Brightline Train Station, this property offers affordable park and fly rates and convenient access for travelers.",
+      "address": "5750 T G Lee Blvd, 32822",
+      "distanceFromAirport": "2.0 mi",
+      "phone": "407-851-6400",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Best Rate Airport Parking",
+      "slug": "best-rate-airport-parking",
+      "dailyRate": 28,
+      "reservationRate": 28,
+      "amenities": [
+        "Valet",
+        "Security",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "4:00 AM - 10:00 PM: Shuttle runs every 30 minutes.  10:00 PM - 4:00 AM: No shuttle.",
+      "overview": "Located just an 8 minute drive (4.5 miles) from Orlando International Airport (MCO), Best Rate Airport Parking offers efficient and reliable valet service with friendly staff to assist with quick drop-offs and pickups.",
+      "address": "7652 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "1-888-422-3782",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay at Location",
+      "rateVerified": "2026-11-01",
+      "rateSpreadPct": 246.82
     }
   ],
   "shuttleInfo": "On-airport: Free 24/7 shuttles connect the economy lots to the terminals (North Park Place → Terminal A, South Park Place → Terminals B and C, West Park → Terminals A and C). Off-site: All major off-site lots include free shuttle service — most run 24/7 with 5-15 minute frequency. Theme park shuttles: Mears Connect to Disney ($32 RT), SuperStar Shuttle to Universal ($39 RT). CRITICAL: Disney's free Magical Express no longer exists — all MCO-to-Disney transportation is now paid.",

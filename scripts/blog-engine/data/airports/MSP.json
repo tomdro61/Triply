@@ -1,7 +1,7 @@
 {
   "code": "MSP",
   "fullName": "Minneapolis-Saint Paul International Airport",
-  "lastVerified": "2026-10-13",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Unincorporated Hennepin County, Minnesota — between Minneapolis and Saint Paul, adjacent to the cities of Richfield, Bloomington, Eagan, and Mendota Heights",
     "iataCode": "MSP",
@@ -187,7 +187,7 @@
       "freeCancellation": true,
       "notes": "Long-running MSP off-site parking operator with strong reputation. 1 free day per 7 days is excellent for week-long trips. 24/7 shuttle is reliable.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Shepard Road Airport Parking",
@@ -204,7 +204,7 @@
       "coveredRate": 16.00,
       "notes": "Only off-site lot with a covered ramp option — important for Minnesota winters. Shuttle frequency (every 5-10 min peak) is among the best. $16/day covered is still nearly half the on-airport rate.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Park 'N Go (MSP)",
@@ -221,7 +221,7 @@
       "address": "7901 International Drive, Bloomington, MN 55425",
       "notes": "Premium off-site option — shuttle every 5-10 min is fast and reliable. Attendant-assisted parking. Pre-book online for $16/day vs $20 walk-up.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Comfort Inn Minneapolis Airport (Park & Fly)",
@@ -237,7 +237,7 @@
       "freeCancellation": true,
       "notes": "Budget-friendly option. Park-sleep-fly packages available if you need a hotel night before early flights. Verify shuttle hours for late arrivals.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "InterContinental MSP Airport (Garage Parking)",
@@ -253,7 +253,7 @@
       "freeCancellation": true,
       "notes": "Most convenient off-site option — skyway-connected to Terminal 1, no shuttle or outdoor walk needed. Premium pricing but worth it for winter travel. Park-stay-fly packages include 1-night hotel + up to 15 nights parking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Fairfield Inn & Suites Minneapolis Airport (Park & Fly)",
@@ -269,7 +269,27 @@
       "freeCancellation": true,
       "notes": "Marriott-brand reliability with 24/7 shuttle. Good mid-range option between budget lots and premium covered parking.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Hyatt Regency Bloomington",
+      "slug": "hyatt-regency-bloomington",
+      "dailyRate": 9.54,
+      "reservationRate": 9.54,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "3:30 AM - 1:30 AM: Shuttle runs every 30 minutes. Pick ups on demand 1:30 AM - 3:30 AM: No shuttle.",
+      "overview": "Located just minutes of drive from the Minneapolis−Saint Paul International Airport (MSP), this location provides a reliable and seamless parking experience.",
+      "address": "3200 East 81st Street, Bloomington, MN, 55425",
+      "distanceFromAirport": "1.9 mi",
+      "phone": "952-243-5598",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: Quick Ride Ramp provides free 24/7 curbside shuttle to both terminals. Free METRO Blue Line light rail connects Terminal 1 and Terminal 2 every ~10 minutes, 24/7. Off-site: Most lots include free shuttle — EZ Air Park and Park 'N Go shuttle every 5-15 minutes, 24/7. Shepard Road runs every 5-10 minutes during peak. Hotel lots vary — verify shuttle hours before booking for early/late flights. CRITICAL: In winter, allow extra shuttle time due to snow and ice conditions.",

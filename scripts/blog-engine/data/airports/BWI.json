@@ -1,7 +1,7 @@
 {
   "code": "BWI",
   "fullName": "Baltimore/Washington International Thurgood Marshall Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Anne Arundel County, Maryland — 9 miles south of downtown Baltimore, 30 miles northeast of Washington, D.C.",
     "iataCode": "BWI",
@@ -246,7 +246,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. Free bottle of water on departure. One of the most popular off-site lots at BWI.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "The Parking Spot (West)",
@@ -262,7 +262,7 @@
       "freeCancellation": true,
       "notes": "Former Econopark location now operated by The Parking Spot. Same shuttle frequency and amenities as East location.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "FastPark & Relax (BWI)",
@@ -278,7 +278,7 @@
       "freeCancellation": true,
       "notes": "Closest off-site lot with covered parking option. 3-minute shuttle ride is the fastest among off-site lots. Pre-booking online saves ~$1/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "FastPark 2 (BWI)",
@@ -294,7 +294,7 @@
       "freeCancellation": true,
       "notes": "Covered parking at a competitive rate. 2-minute shuttle is the fastest off-site option. Pre-booking recommended for best rates.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree by Hilton BWI Airport",
@@ -310,7 +310,7 @@
       "freeCancellation": true,
       "notes": "Best pre-book rate among off-site lots at $5.95/day. Hotel amenities available if combining with park-sleep-fly package.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Aloft BWI Baltimore Washington International Airport",
@@ -326,7 +326,92 @@
       "freeCancellation": true,
       "notes": "Park & Fly package is good value if you need a hotel night. Standalone parking rate is higher than competitors. Marriott Bonvoy points eligible for hotel stays.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Doubletree Baltimore",
+      "slug": "doubletree-baltimore",
+      "dailyRate": 6.16,
+      "reservationRate": 6.16,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "5:00 AM - 12:00 AM: Shuttle runs every 15 minutes.  12:00 AM - 5:00 AM: Shuttle runs every 30 minutes.",
+      "overview": "DoubleTree Suites provides an excellent choice for affordable long or short-term airport parking for BWI International Airport.",
+      "address": "890 Elkridge Landing Rd, Linthicum Heights, MD, 21090",
+      "distanceFromAirport": "2.2 mi",
+      "phone": "410-859-8400",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "The Westin",
+      "slug": "the-westin",
+      "dailyRate": 7.3,
+      "reservationRate": 7.3,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "24/7 every 30 minutes to airport Pick ups are on demand",
+      "overview": "Conveniently located just minutes from Baltimore/Washington International Airport (BWI), this lot offers travelers a fast, easy, and affordable parking experience. Enjoy free shuttle service to and from the airport with every online reservation.",
+      "address": "1110 Old Elkridge Landing Rd, Linthicum Heights, MD, 21090",
+      "distanceFromAirport": "2.5 mi",
+      "phone": "443-577-2300",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Sheraton Hotel",
+      "slug": "sheraton-hotel",
+      "dailyRate": 7.56,
+      "reservationRate": 7.56,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "24/7 every 30 minutes to the airport; pickups are on demand",
+      "overview": "Located minutes away from Baltimore Washington International Airport. Free shuttle service to and from airport included with online purchase.24/7 Front deskAccessible on-site parkingNo extra charges for full-size vans, pick-up trucks and large SUV's.",
+      "address": "1100 Old Elkridge Landing Rd, Linthicum Heights, MD, 21090",
+      "distanceFromAirport": "2.5 mi",
+      "phone": "(443) 577-2100",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Clarion Hotel BWI North",
+      "slug": "clarion-hotel-bwi-north",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Fitness Center",
+        "Free Internet/Wifi",
+        "Breakfast Included",
+        "Room Service"
+      ],
+      "shuttleInfo": "10:00 AM - 2:00 PM: Shuttle runs on demand.  2:00 PM - 10:00 AM: No shuttle.",
+      "overview": "The Clarion Hotel North BWI Airport offers a convenient and affordable parking option for travelers cruising in and out of the Port of Baltimore. Enjoy contactless parking, 24/7 lot access, and a focus on safety and peace of mind throughout your stay.",
+      "address": "6921 Baltimore Annapolis Blvd, Baltimore, MD, 21225",
+      "distanceFromAirport": "3.0 mi",
+      "phone": "410-789-9100",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: FREE shuttle connects terminal to Long-Term Lots, Express Parking, Daily Garage, and BWI Rail Station (MARC/Amtrak). Runs every 10-15 minutes (every 25 minutes between 1-5 AM). Off-site: All major off-site lots (The Parking Spot, FastPark) include free 24/7 shuttle running every 5-10 minutes. Hotel shuttles pick up at designated zones on lower level.",

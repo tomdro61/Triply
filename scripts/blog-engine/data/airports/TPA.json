@@ -1,7 +1,7 @@
 {
   "code": "TPA",
   "fullName": "Tampa International Airport",
-  "lastVerified": "2026-10-13",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Hillsborough County, Florida — 6 miles west of downtown Tampa",
     "iataCode": "TPA",
@@ -228,7 +228,7 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle service. You must arrange your own ride to the terminal. Covered parking available — unusual for off-site lots in Tampa. Best for travelers who can rideshare cheaply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "The Godfrey Hotel & Cabanas Tampa (TPA)",
@@ -244,7 +244,7 @@
       "freeCancellation": true,
       "notes": "Good value at $6/day with shuttle included. Confirm shuttle hours before booking for early morning or late night flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree by Hilton Tampa Airport - Westshore (TPA)",
@@ -260,7 +260,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a major advantage — works for any flight time. DoubleTree is a trusted brand with good security. Slightly pricier than budget lots but the 24/7 shuttle justifies it.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Hyatt Place Tampa Airport/Westshore (TPA)",
@@ -276,7 +276,7 @@
       "freeCancellation": true,
       "notes": "Early 4 AM shuttle start covers most morning departures. On-demand shuttle after 8 AM is convenient. Confirm late-night pickup availability for red-eye arrivals.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Holiday Inn Tampa Westshore - Airport Area (TPA)",
@@ -292,7 +292,7 @@
       "freeCancellation": true,
       "notes": "Up to 21 days of parking makes this ideal for extended vacations or cruises. Confirm shuttle hours — may not run 24/7.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Fairfield Inn & Suites Tampa Fairgrounds (TPA)",
@@ -308,7 +308,72 @@
       "freeCancellation": true,
       "notes": "Further from airport but cheaper. Up to 10 days of parking. Confirm shuttle schedule — may have limited hours.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Quality Inn & Suites Tampa/Ybor City",
+      "slug": "quality-inn-suites-tampa-ybor-city",
+      "dailyRate": 7.88,
+      "reservationRate": 7.88,
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Fitness Center",
+        "Free Internet/Wifi",
+        "Breakfast Included"
+      ],
+      "shuttleInfo": "10:00 AM - 2:00 PM: Shuttle runs on demand.  2:00 PM - 10:00 AM: No shuttle.",
+      "overview": "The Quality Inn and Suites provides a conveinent and affordable option for customers traveling in and out of Tampa Cruise Port. Guests parking with the Quality Inn may use hotel amenities including Wi-fi access and public restrooms.",
+      "address": "4955 East 18th Avenue, Tampa, FL, 33605",
+      "distanceFromAirport": "7.9 mi",
+      "phone": "(813) 623-6000",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "241 Car Services - Secure Parking",
+      "slug": "241-car-services-secure-parking",
+      "dailyRate": 9.39,
+      "reservationRate": 9.39,
+      "amenities": [
+        "Wheelchair Access",
+        "Security"
+      ],
+      "shuttleInfo": "7:00 AM - 3:00 PM on demand",
+      "overview": "Less then a mile from the port, 241 car services offers big savings over port parking garage prices!Free shuttle to and from the terminal. No extra charge for full size cars, vans or large SUV's. Don't pay $15 at the garage, save big and park close!",
+      "address": "1236 Channelside Dr, 33602",
+      "distanceFromAirport": "5.5 mi",
+      "phone": "1-877-886-1583",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Grand Hyatt Tampa Bay",
+      "slug": "grand-hyatt-tampa-bay",
+      "dailyRate": 8.92,
+      "reservationRate": 8.92,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "5:00 AM - 11:00 PM: Shuttle runs on demand.  11:00 PM - 5:00 AM: No shuttle.",
+      "overview": "Grand Hyatt Tampa Bay sits on a scenic 35-acre nature preserve and is conveniently located just about a 5-minute drive from Tampa International Airport, making transfers quick and hassle-free for travelers.",
+      "address": "2900 Bayport Dr, Tampa, FL, 33607",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "(813) 874-1234",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: FREE SkyConnect automated people mover connects Main Terminal to Economy Parking Garage and Rental Car Center — every 2 minutes, 24/7, under 5-minute ride. No shuttle buses needed for on-airport parking (Short-Term and Long-Term garages are walkable from terminal). Off-site: Most hotel lots include complimentary shuttle — frequency varies from 24/7 (DoubleTree) to scheduled hours. CRITICAL: Safeway Parking does NOT provide shuttle service — you must arrange your own transportation to the terminal. Always verify shuttle hours before booking off-site lots for early morning or late night flights.",

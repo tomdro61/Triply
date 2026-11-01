@@ -1,7 +1,7 @@
 {
   "code": "MIA",
   "fullName": "Miami International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Unincorporated Miami-Dade County, Florida — 8 miles west of downtown Miami",
     "iataCode": "MIA",
@@ -243,7 +243,7 @@
       "freeCancellation": true,
       "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Green Airport Parking (MIA)",
@@ -259,13 +259,13 @@
       "freeCancellation": true,
       "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
-      "name": "EVEN Hotel Miami Airport (MIA)",
+      "name": "EVEN Hotel Miami",
       "slug": "even-hotel-miami-airport-mia",
-      "dailyRate": 7.99,
-      "reservationRate": 7.99,
+      "dailyRate": 10.25,
+      "reservationRate": 10.25,
       "parkingType": "Covered parking (hotel garage), self-park",
       "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Bright Lighting", "Surveillance", "Handicap Accessible"],
       "shuttleInfo": "24/7 on-demand shuttle to and from airport",
@@ -273,7 +273,11 @@
       "distanceFromAirport": "1.6 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Best covered off-site option. 24/7 shuttle + covered parking at $7.99/day is excellent value. Good for travelers worried about Florida sun/rain."
+      "notes": "Best covered off-site option. 24/7 shuttle + covered parking at $7.99/day is excellent value. Good for travelers worried about Florida sun/rain.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     },
     {
       "name": "MIA Park Pro",
@@ -290,7 +294,7 @@
       "rating": "4.5/5",
       "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "La Quinta Inn & Suites Miami Airport East",
@@ -306,9 +310,9 @@
       "freeCancellation": true,
       "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-01",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Hampton Inn Miami Airport West",
@@ -325,7 +329,7 @@
       "rating": "4.8/5",
       "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: FREE MIA Mover connects terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) every 2-3 minutes, 24/7. Economy Park & Ride has free 24/7 shuttle. Off-site: Most lots include free shuttle — frequency varies from on-demand (Deal Airport Parking, EVEN Hotel) to hourly (La Quinta, Hampton Inn). CRITICAL: Some off-site lots have NO shuttle outside limited hours — verify before booking for early/late flights.",
