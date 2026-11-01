@@ -2,7 +2,7 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock, leadEligibleLots, offSiteScenarioRows, figureSource } from './prompts/write.js'
+import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock, leadEligibleLots, offSiteScenarioRows, figureSource, printableNotes, cutAt } from './prompts/write.js'
 import { collectFigures } from './lint.js'
 import type { AirportData } from './airport-data.js'
 
@@ -25,8 +25,24 @@ test('dropOffSiteSentences never splits inside a price or after "incl."', () => 
 test('dropOffSiteSentences keeps the on-airport clause of a mixed sentence and drops sentences naming an unsellable lot', () => {
   const jfk = 'Economy Lot 9 $29/first 24hrs. IMPORTANT: AirTrain costs $8.50/person one-way — off-site lots with direct shuttles save this cost vs. on-airport parking + AirTrain from Lot 9.'
   assert.equal(dropOffSiteSentences(jfk), 'Economy Lot 9 $29/first 24hrs. IMPORTANT: AirTrain costs $8.50/person one-way.')
-  const shuttle = 'AirTrain connects all terminals. Some budget lots (Parking 4 Airport, Hyatt Place Flushing) have limited shuttle hours. The Parking Spot East/West runs 24/7 shuttles.'
-  assert.equal(dropOffSiteSentences(shuttle, ['Parking 4 Airport (JFK)', 'The Parking Spot (AUS)']), 'AirTrain connects all terminals.')
+  const shuttle = 'AirTrain connects all terminals. Some budget lots (Parking 4 Airport, Hyatt Place Flushing) have limited shuttle hours. The Parking Spot East/West runs 24/7 shuttles. Ausby shuttle runs 10 AM-9:30 PM. Doug Fox has the fastest shuttle.'
+  assert.equal(dropOffSiteSentences(shuttle, ['Parking 4 Airport (JFK)', 'The Parking Spot East AUS', 'Ausby Airport Parking (DFW)', 'Doug Fox Airport Parking']), 'AirTrain connects all terminals.')
+  assert.equal(dropOffSiteSentences('Park & Zoom has shuttles on airport property. Royal Inn has NO shuttle. Economy Lot shuttle every 10 min.', ['Park & Zoom AUS', 'Royal Inn CLT Airport Parking']), 'Economy Lot shuttle every 10 min.')
+  // A brand we also sell is never a drop key.
+  assert.equal(dropOffSiteSentences('Motel 6 runs 24/7 every 30-45 min.', ['Motel 6 (SEA)'], ['Motel 6']), 'Motel 6 runs 24/7 every 30-45 min.')
+  // Only a leading clause with a figure is salvaged; a trailing fragment is not.
+  assert.equal(dropOffSiteSentences('Economy shuttle every 10 min. Off-site lots vary — most run 24/7 with 5-15 minute frequency.'), 'Economy shuttle every 10 min.')
+  assert.equal(dropOffSiteSentences('Garage $24/day. Hotel shuttles vary — off-site lots run hourly.'), 'Garage $24/day.')
+})
+
+test('printableNotes drops the provenance line and per-day prices but keeps per-person fees; cutAt never cuts mid-number', () => {
+  assert.equal(printableNotes('Added 2026-11-01 from live Triply search; details from the lot listing. Good value at $7.99/day. Cruise port shuttle costs $20 per person one way.'), 'Cruise port shuttle costs $20 per person one way.')
+  assert.equal(printableNotes('Added 2026-11-01 from live Triply search; details from the lot listing.'), '')
+  assert.equal(printableNotes('Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = all-in daily for a 7-day stay booked 3 weeks out.'), 'Rate = all-in daily for a 7-day stay booked 3 weeks out.')
+  const long = 'Shuttle 5:00 AM-11:00 PM except statutory holidays; this plan uses the 7:00 AM-10:30 PM schedule. Call 403-717-1234 after collecting bags. ' + 'x'.repeat(200)
+  const cut = cutAt(long, 240)
+  assert.ok(cut.endsWith('.') && !/\d-$/.test(cut) && cut.length <= 241, cut)
+  assert.equal(cutAt('short', 240), 'short')
 })
 
 test('dropOffSiteSentences leaves text without off-site sentences untouched', () => {
@@ -52,12 +68,13 @@ const base: AirportData = {
   roads: ['I-1'], transit: ['Bus 1'], neighborhoods: ['Town'], authority: 'Port', distanceFromCity: '5 mi',
   parkingRates: 'On-airport: Garage $24/day. Off-site: from ~$4/day with shuttle (Old Lot).',
   shuttleInfo: 'On-airport shuttles every 10 minutes. Old Lot and Gone Lot run 24/7 shuttles via Triply. Gone Lot runs hourly overnight.',
-  unsellableLotNames: ['Gone Lot (XXX)'],
+  unsellableLotNames: ['Gone Lot Airport Parking'],
   parkingLots: [
-    { name: 'Cheap Lot', dailyRate: 6.41, sellable: true, notes: 'AIRPORT PARKING ONLY. Never recommend to cruisers.', cruiseShuttle: 'not-available' },
+    { name: 'Cheap Lot', dailyRate: 6.41, sellable: true, notes: 'Hotel lot, well lit.' },
     { name: 'Dead Lot', dailyRate: 7.5, sellable: true, shuttleSuspended: true, notes: 'SHUTTLE SUSPENDED. Do NOT use in CTAs.' },
-    { name: 'Dear Lot', dailyRate: 28, sellable: true, knownCoupons: ['Pre-book via competitor.com from $13/day'], notes: 'Added 2026-11-01 from live Triply search; details from the lot listing.' },
+    { name: 'Dear Lot', dailyRate: 28, sellable: true, knownCoupons: ['Pre-book via competitor.com from $13/day'], notes: 'Added 2026-11-01 from live Triply search; details from the lot listing. Good value at $7.99/day. Cruise port shuttle costs $20 per person one way.' },
   ],
+  parkSleepFly: { description: 'Hotel + parking combos. Triply sells parking-only at the three hotels.', priceRange: 'Parking-only via Triply from ~$5.49/day (2026-10-16 quote); room package pricing — ask the hotel.' },
   savingsComparison: {
     scenario: '7-day trip for 2 travelers',
     onAirport: { garage: { parkingCost: '$168 (7 x $24)' } },
@@ -67,11 +84,17 @@ const base: AirportData = {
 }
 
 test('the range and the computed rows skip lots whose notes bar them from leading', () => {
-  assert.deepEqual(leadEligibleLots(base).map((l) => l.name), ['Cheap Lot', 'Dear Lot'], 'suspended-shuttle lot out; airport-only lot fine on a non-cruise page')
-  assert.deepEqual(leadEligibleLots(base, 'cheap cruise parking').map((l) => l.name), [], 'on a cruise keyword only cruise-shuttle lots may lead')
-  assert.deepEqual(leadEligibleLots({ ...base, code: 'POE', parkingLots: [...base.parkingLots!, { name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' }] }).map((l) => l.name), ['Port Lot'])
+  assert.deepEqual(leadEligibleLots(base).map((l) => l.name), ['Cheap Lot', 'Dear Lot'], 'suspended-shuttle lot out')
+  assert.deepEqual(leadEligibleLots(base, 'cheap cruise parking').map((l) => l.name), ['Cheap Lot', 'Dear Lot'], 'a cruise keyword at an airport page (no cruise-shuttle data) changes nothing')
+  const poeLots = [
+    { name: 'Airport Only Lot', dailyRate: 6.25, sellable: true, cruiseShuttle: 'not-available', notes: 'AIRPORT PARKING ONLY. Never recommend to cruisers.' },
+    { name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' },
+  ]
+  assert.deepEqual(leadEligibleLots({ ...base, code: 'POE', parkingLots: poeLots }).map((l) => l.name), ['Port Lot'])
+  assert.deepEqual(leadEligibleLots({ ...base, parkingLots: poeLots }).map((l) => l.name), ['Port Lot'], 'any file with cruiseShuttle data is a cruise page')
+  assert.deepEqual(leadEligibleLots({ ...base, parkingLots: [{ name: 'Clarion', dailyRate: 8.35, sellable: true, notes: 'Shuttle 10 AM-2 PM only. Confirm the airport shuttle before recommending it for flights.' }] }), [], 'BWI-shaped caveat bars leading')
   assert.equal(sellableLotRange(base), 'from $6.41/day to $28/day across 2 lots')
-  assert.equal(sellableLotRange(base, 'cruise parking'), 'none may lead a recommendation (every lot carries a caveat — read the lot notes)')
+  assert.equal(sellableLotRange({ ...base, parkingLots: [poeLots[0]] }), 'none may lead a recommendation (every lot carries a caveat — read the lot notes)')
   assert.equal(sellableLotRange({ ...base, parkingLots: [] }), '')
   assert.equal(sellableLotRange({ ...base, parkingLots: [base.parkingLots![2]] }), '$28/day (one lot)')
   assert.equal(sellableLotRange({ ...base, parkingLots: [{ name: 'A', dailyRate: 8.35, sellable: true }, { name: 'B', dailyRate: 8.35, sellable: true }] }), '$8.35/day across 2 lots')
@@ -84,6 +107,9 @@ test('figureSource gives the lint the figures the writer saw: computed totals in
   assert.ok(!figures.includes(13), 'coupon pitch "$13/day" is not a known figure')
   assert.ok(!figures.includes(4), 'the dropped "from ~$4/day" is not a known figure')
   assert.ok(figures.includes(24), 'on-airport garage rate still known')
+  assert.ok(!figures.includes(7.99), 'a stale per-day price inside lot notes is not a known figure')
+  assert.ok(figures.includes(20), 'a per-person fee in the notes is')
+  assert.ok(!figures.includes(5.49), 'park-sleep-fly "via Triply from ~$5.49/day" is not a known figure')
 })
 
 test('the airport data block carries no stale off-site figure, no coupon pitch, and the lot caveats', () => {
@@ -98,8 +124,15 @@ test('the airport data block carries no stale off-site figure, no coupon pitch, 
   assert.ok(!block.includes('Gone Lot'), 'a sentence naming an unsellable lot is dropped even without an off-site keyword')
   assert.ok(block.includes('Cheap Lot: $6.41/day × 7 = $44.87'), 'off-site side computed from the lot list')
   assert.ok(block.includes('Garage'), 'on-airport savings entry kept')
-  assert.ok(block.includes('Cruise-port shuttle: not-available'))
-  assert.ok(block.includes('Notes: AIRPORT PARKING ONLY'))
+  assert.ok(block.includes('Notes: Hotel lot, well lit.'))
+  assert.ok(!block.includes('$7.99'), 'a stale per-day price inside lot notes is not printed')
+  assert.ok(block.includes('$20 per person'), 'a per-person fee in the notes is')
+  assert.ok(block.includes('Price range (lots that may lead a recommendation): $6.41/day — $28/day across 2 lots'), 'the lot-list footer spans eligible lots only')
+  assert.ok(!block.includes('$7.5/day — '), 'the footer never starts at a barred lot')
+  const poe = getAirportDataBlock({ ...base, code: 'POE', parkingLots: [{ name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' }, { name: 'Airport Only Lot', dailyRate: 6.25, sellable: true, cruiseShuttle: 'not-available', notes: 'AIRPORT PARKING ONLY.' }] }, 'cruise parking full')
+  assert.ok(poe.includes('Cruise-port shuttle: included') && poe.includes('Cruise-port shuttle: not-available'))
+  assert.ok(poe.includes('Price range (lots that may lead a recommendation): $21.7/day — $21.7/day across 1 lots'))
+  assert.ok(!poe.includes('from ~$5.49/day'), 'park-sleep-fly Triply price line filtered')
   assert.ok(!block.includes('Added 2026-11-01'), 'a provenance-only note is not printed')
   assert.ok(block.includes('On-airport shuttles every 10 minutes'), 'general shuttle sentence kept')
 })
