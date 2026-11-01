@@ -1,7 +1,7 @@
 {
   "code": "IAD",
   "fullName": "Washington Dulles International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Dulles, Virginia — 26 miles west of downtown Washington, D.C., in Loudoun and Fairfax counties",
     "iataCode": "IAD",
@@ -252,9 +252,9 @@
       "knownCoupons": ["Book via book2park.com from $5.95/day", "Book via onestopparking.com from $5.75/day"],
       "notes": "Highly rated. 24/7 shuttle is a major advantage over some competitors. No room booking required. Uncovered parking.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-01",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree Washington Dulles Airport - Formerly Hilton",
@@ -273,11 +273,10 @@
       "knownCoupons": ["Book via book2park.com from $8.25/day"],
       "notes": "Excellent shuttle hours (4 AM - midnight) cover most flight times. Good for early morning departures.",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26",
+      "rateVerified": "2026-11-01",
       
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
-      "rateSpreadPct": 27.34
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Dulles Airport Parking by Crowne Plaza",
@@ -296,7 +295,7 @@
       "knownCoupons": ["Book via book2park.com from $9.95/day"],
       "notes": "Best covered option — 75% of lot is under a parking deck. 24/7 shuttle is reliable. Allow 1 hour before departure for transport. EV charging is a differentiator.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Spark By Hilton Sterling Dulles Airport",
@@ -315,7 +314,7 @@
       "knownCoupons": [],
       "notes": "Good budget option but shuttle only runs hourly 6 AM-10 PM. Not suitable for late night/early morning flights. Popular — limited spots.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Hyatt House Dulles Airport",
@@ -333,7 +332,7 @@
       "knownCoupons": [],
       "notes": "First-come, first-served shuttle — may need to wait. Good value at $6.95/day.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "DoubleTree by Hilton Dulles Airport - Sterling",
@@ -352,7 +351,7 @@
       "knownCoupons": [],
       "notes": "On-demand shuttle (not scheduled). Park in Lot A only — oversized vehicles charged extra. Furthest off-site lot but good reviews and price.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Comfort Suites Chantilly - Dulles Airport",
@@ -371,7 +370,7 @@
       "knownCoupons": [],
       "notes": "Cheapest option but limited shuttle hours (6:15 AM - 9:30 PM) and furthest distance. Often sells out — book early.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: Free 24/7 shuttle service between all parking facilities and terminal from Curb 2F (look for 'ECONOMY' or 'GARAGES' buses). Off-site: Most hotel lots include free shuttle to IAD. Frequency varies: Crowne Plaza (24/7 every 30 min), Hyatt Regency (every 30 min 6 AM-11 PM, on-demand overnight), DoubleTree Formerly Hilton (every 30 min 4 AM-midnight). NOTE: Most hotel shuttles are NOT 24/7 — check hours for early/late flights.",

@@ -184,13 +184,13 @@
       "driveTime": "5 minutes",
       "parkingType": "Self-Park (uncovered, covered may be available first-come)",
       "amenities": ["24/7 Front Desk", "Restaurant"],
-      "shuttleInfo": "Was 24/7 every 15 minutes. Pickup at Terminal C (City Buses area) and Terminal B (Zone 3).",
-      "overview": "PARKING CLOSED INDEFINITELY as of January 31, 2026 due to construction. When open, this was self-parking at the LaGuardia Marriott operated by Prolink Management Inc. No re-entry permitted once you exit the lot. No room booking required.",
+      "shuttleInfo": "24/7 every 15 minutes. Pickup at Terminal C (City Buses area) and Terminal B (Zone 3).",
+      "overview": "Self-parking at the LaGuardia Marriott, operated by Prolink Management Inc. Controlled-access lot; reservations are for uncovered parking, covered spaces may be used if open at no extra cost. No re-entry permitted once you exit the lot. No room booking required. Oversized and commercial vehicles are not accepted.",
       "phone": null,
       "address": "102-05 Ditmars Blvd, East Elmhurst, NY 11369",
       "freeCancellation": true,
       "knownCoupons": [],
-      "notes": "WARNING: CLOSED INDEFINITELY since January 31, 2026 due to construction. No announced reopening date. If this lot appears as bookable on Triply, it may be a data issue.",
+      "notes": "Open and bookable on Triply (confirmed stays parked here in Aug, Sep and Oct 2026). An earlier closure note (Jan 31, 2026, construction) is out of date; older Triply posts still repeat it — do not.",
       "rateVerified": "2026-10-26",
       "sellable": true,
       "sellableCheckedOn": "2026-10-26"
@@ -348,9 +348,9 @@
       "Terminal C ($4B joint Delta/Port Authority) — COMPLETE. Opened June 2022. 1.3M sq ft, 37 gates, 4 concourses.",
       "Marine Air Terminal (A) — Passenger facility replacement planned under 2026-2035 capital plan (rotunda preserved).",
       "AirTrain LGA — CANCELLED. Replaced by $160M Q70 LaGuardia Link enhancement.",
-      "LaGuardia Marriott parking — CLOSED indefinitely as of January 31, 2026 due to ongoing construction."
+      "LaGuardia Marriott parking — open and bookable again (an early-2026 construction closure has ended; confirmed by stays parked there Aug–Oct 2026)."
     ],
-    "travelImpact": "Terminal construction substantially complete. Some roadway and infrastructure work continues. Marriott parking lot closure affects travelers who previously used that option.",
+    "travelImpact": "Terminal construction substantially complete. Some roadway and infrastructure work continues.",
     "documentaryNote": "PBS NOVA aired 'The $8 Billion Overhaul of LaGuardia Airport: Engineering a New Era' in February 2026."
   },
   "securityAndScreening": {

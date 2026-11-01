@@ -1,7 +1,7 @@
 {
   "code": "IAH",
   "fullName": "George Bush Intercontinental Airport",
-  "lastVerified": "2026-10-13",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Houston, Texas — 23 miles north of downtown Houston, in unincorporated Harris County",
     "iataCode": "IAH",
@@ -222,7 +222,7 @@
       "freeCancellation": true,
       "notes": "Shuttle every 5-7 minutes is among the most frequent off-site options at IAH. Free luggage assistance. EV charging available on first-come basis. Valet option for premium service.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "The Parking Spot (IAH)",
@@ -238,7 +238,7 @@
       "freeCancellation": true,
       "notes": "3 IAH locations on JFK Blvd. Spot Club rewards earn free parking days. Covered parking available at a premium. Reliable national chain.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "PreFlight Airport Parking (IAH)",
@@ -254,7 +254,7 @@
       "freeCancellation": true,
       "notes": "Best value for long-term parking — 7-day rate drops to $3.99/day uncovered. Same location as Fine Airport Parking on Greens Road. Budget pick.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Fast Park & Relax (IAH)",
@@ -270,7 +270,7 @@
       "freeCancellation": true,
       "notes": "All covered parking — important in Houston's extreme heat and frequent rain. Staffed 24/7 for security. Good mid-range option.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Comfort Suites Houston IAH Airport (Parking)",
@@ -286,13 +286,13 @@
       "freeCancellation": true,
       "notes": "Good for park-sleep-fly combo. Check shuttle hours before booking for early/late flights.",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Hilton Garden Inn Houston/Bush IAH (Parking)",
       "slug": "hilton-garden-inn-houston-bush-iah-parking",
-      "dailyRate": 9.95,
-      "reservationRate": 7.95,
+      "dailyRate": 5.59,
+      "reservationRate": 5.59,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Hotel Amenities", "Handicap Accessible", "Security"],
       "shuttleInfo": "Shuttle service to and from IAH terminals",
@@ -302,7 +302,9 @@
       "freeCancellation": true,
       "notes": "Hilton brand quality. Park-sleep-fly packages good value for early morning flights. Verify shuttle hours.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-13"
+      "sellableCheckedOn": "2026-10-13",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: FREE Skyway people mover and Subway train connect all five terminals 24/7. ecopark and ecopark 2 have free 24/7 shuttle service about every 10 minutes. Free rental car shuttle runs 24/7 to Rental Car Center. Off-site: Most lots include free shuttle — Fine Airport Parking runs every 5-7 min (best frequency), The Parking Spot every 15 min, PreFlight and Fast Park every 10-15 min. All major off-site lots run 24/7 shuttles.",
