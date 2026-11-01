@@ -1,10 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { z } from 'zod'
-import { env, CLAUDE_MODEL, MAX_TOKENS, DOMAIN, REVISION_THRESHOLDS, HARD_FLOOR_SCORE } from './config.js'
+import { env, CLAUDE_MODEL, MAX_TOKENS, DOMAIN, REVISION_THRESHOLDS, HARD_FLOOR_SCORE, modelForStep, MODEL_PRICING } from './config.js'
+import { withRetry, CreditBalanceError } from './retry.js'
 import { scoreArticle } from './seo-scorer.js'
 import type { SeoScore } from './seo-scorer.js'
 import { buildAnalyzePrompt } from './prompts/analyze.js'
-import { buildWritePrompt, getWritingRulesBlock, getAirportDataBlock, getExternalLinksBlock } from './prompts/write.js'
+import { buildWritePrompt, getWritingRulesBlock, getAirportDataBlock, getExternalLinksBlock, PROMPT_VERSION } from './prompts/write-switch.js'
+export { PROMPT_VERSION }
 import { buildEditPrompt } from './prompts/edit.js'
 import type { QueueItem } from './queue.js'
 import type { ScrapedArticle } from './scraper.js'
@@ -21,7 +23,7 @@ interface CompetitorBenchmarks {
   avgLinkCount: number
 }
 
-interface AnalysisResult {
+export interface AnalysisResult {
   commonTopics: string[]
   gaps: string[]
   topicGaps?: string[]
@@ -38,7 +40,7 @@ interface AnalysisResult {
   competitorBenchmarks?: CompetitorBenchmarks
 }
 
-interface WriteResult {
+export interface WriteResult {
   title: string
   html: string
   excerpt: string
@@ -202,21 +204,48 @@ function repairUnescapedQuotes(json: string): string {
   return chars.join('')
 }
 
-function parseJsonResponse<T>(text: string, schema: z.ZodType<T>): T {
+export function parseJsonResponse<T>(text: string, schema: z.ZodType<T>): T {
   const jsonStr = extractJsonString(text)
+  if (!jsonStr || jsonStr.length < 10) {
+    console.log(`  [JSON Debug] extractJsonString returned near-empty result (${jsonStr.length} chars)`)
+    console.log(`  [JSON Debug] Raw response starts with: ${text.slice(0, 200)}`)
+    console.log(`  [JSON Debug] Raw response ends with: ...${text.slice(-200)}`)
+  }
   try {
     const raw = JSON.parse(jsonStr)
     return schema.parse(raw)
   } catch (firstErr) {
-    // Repair step 1: Replace literal control characters (U+0000–U+001F)
-    let repaired = jsonStr.replace(/[\x00-\x1f]/g, (ch) => {
-      switch (ch) {
-        case '\n': return '\\n'
-        case '\r': return '\\r'
-        case '\t': return '\\t'
-        default: return ''
+    // Repair step 1: Replace literal control characters (U+0000–U+001F) ONLY inside JSON string values.
+    // Structural whitespace (newlines/tabs between keys) must be preserved.
+    let repaired = ''
+    let inStr = false
+    for (let j = 0; j < jsonStr.length; j++) {
+      const c = jsonStr[j]
+      if (inStr) {
+        if (c === '\\') {
+          repaired += c + (jsonStr[j + 1] || '')
+          j++
+          continue
+        }
+        if (c === '"') {
+          inStr = false
+          repaired += c
+          continue
+        }
+        const code = c.charCodeAt(0)
+        if (code < 0x20) {
+          if (c === '\n') repaired += '\\n'
+          else if (c === '\r') repaired += '\\r'
+          else if (c === '\t') repaired += '\\t'
+          // else strip other control chars
+          continue
+        }
+        repaired += c
+      } else {
+        if (c === '"') inStr = true
+        repaired += c
       }
-    })
+    }
 
     // Repair step 2: Fix unescaped double quotes inside ALL JSON string values.
     // Claude often outputs HTML with literal "quotes" inside JSON strings.
@@ -245,12 +274,24 @@ type SystemMessage = string | Anthropic.MessageCreateParams['system']
 
 const RETRY_DELAYS = [2000, 4000, 8000]
 
-// Sonnet 4.6 pricing (per million tokens)
+// Default (Sonnet 4.6) pricing per million tokens — used when a model has no
+// entry in MODEL_PRICING. Kept for backward compatibility / fallback.
 const PRICING = {
   input: 3.0,
   output: 15.0,
   cacheWrite: 3.75,
   cacheRead: 0.30,
+}
+
+const _warnedModels = new Set<string>()
+function pricingFor(model: string): typeof PRICING {
+  const p = MODEL_PRICING[model]
+  if (p) return p
+  if (!_warnedModels.has(model)) {
+    _warnedModels.add(model)
+    console.warn(`  ⚠ No pricing for model "${model}" — logging cost at Sonnet rates. Add a verified MODEL_PRICING entry before trusting experiment cost.`)
+  }
+  return PRICING
 }
 
 export interface TokenUsage {
@@ -283,12 +324,13 @@ export function getTokenSummary(): { totalInput: number; totalOutput: number; to
   return { totalInput, totalOutput, totalCacheRead, totalCacheWrite, totalCost, steps }
 }
 
-function calculateCost(input: number, output: number, cacheRead: number, cacheWrite: number): number {
+function calculateCost(input: number, output: number, cacheRead: number, cacheWrite: number, model: string = CLAUDE_MODEL): number {
+  const p = pricingFor(model)
   return (
-    (input * PRICING.input / 1_000_000) +
-    (output * PRICING.output / 1_000_000) +
-    (cacheRead * PRICING.cacheRead / 1_000_000) +
-    (cacheWrite * PRICING.cacheWrite / 1_000_000)
+    (input * p.input / 1_000_000) +
+    (output * p.output / 1_000_000) +
+    (cacheRead * p.cacheRead / 1_000_000) +
+    (cacheWrite * p.cacheWrite / 1_000_000)
   )
 }
 
@@ -298,22 +340,65 @@ export function setCurrentStep(step: string): void {
   _currentStep = step
 }
 
-async function callClaude(prompt: string, system?: SystemMessage): Promise<string> {
-  let lastError: Error | null = null
+/**
+ * Track token usage from an external API call (e.g., infographics).
+ * Allows code that calls the Anthropic API directly to still log costs.
+ */
+export function trackUsage(step: string, usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): void {
+  const input = usage.input_tokens
+  const output = usage.output_tokens
+  const cacheRead = usage.cache_read_input_tokens ?? 0
+  const cacheWrite = usage.cache_creation_input_tokens ?? 0
+  const cost = calculateCost(input, output, cacheRead, cacheWrite)
+  _articleTokenUsage.push({
+    step,
+    inputTokens: input,
+    outputTokens: output,
+    cacheReadTokens: cacheRead,
+    cacheWriteTokens: cacheWrite,
+    cost,
+  })
+  console.log(`  💰 ${step}: $${cost.toFixed(4)} (${input.toLocaleString()} in / ${output.toLocaleString()} out)`)
+}
 
+/** True when an Anthropic error is a billing / out-of-credits failure (HTTP 402). */
+function isBillingError(err: unknown): boolean {
+  const status = (err as { status?: number }).status
+  if (status === 402) return true
+  const msg = err instanceof Error ? err.message : String(err)
+  return /credit balance is too low|billing|insufficient.*credit|payment required/i.test(msg)
+}
+
+async function callClaude(prompt: string, system?: SystemMessage): Promise<string> {
   // Convert string system to content blocks format for caching support
   const systemParam = typeof system === 'string'
     ? [{ type: 'text' as const, text: system }]
     : system
 
-  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
-    try {
-      const response = await client.messages.create({
-        model: CLAUDE_MODEL,
-        max_tokens: MAX_TOKENS,
-        ...(systemParam ? { system: systemParam } : {}),
-        messages: [{ role: 'user', content: prompt }],
-      })
+  // Per-step model override (defaults to CLAUDE_MODEL when no env override set)
+  const model = modelForStep(_currentStep)
+
+  // Shared withRetry handles transient 429/5xx/network blips with backoff. A 402
+  // credit-balance failure is rethrown as CreditBalanceError (not retryable) so the
+  // generate loop can abort the batch instead of wasting SerpAPI on every remaining item.
+  return withRetry(
+    async () => {
+      let response: Anthropic.Message
+      try {
+        response = await client.messages.create({
+          model,
+          max_tokens: MAX_TOKENS,
+          ...(systemParam ? { system: systemParam } : {}),
+          messages: [{ role: 'user', content: prompt }],
+        })
+      } catch (err) {
+        if (isBillingError(err)) {
+          throw new CreditBalanceError(
+            `Anthropic credit balance exhausted (${_currentStep} step): ${err instanceof Error ? err.message : String(err)}`
+          )
+        }
+        throw err
+      }
 
       // Track token usage
       const usage = response.usage as unknown as Record<string, number>
@@ -321,7 +406,7 @@ async function callClaude(prompt: string, system?: SystemMessage): Promise<strin
       const outputTokens = (usage.output_tokens as number) || 0
       const cacheReadTokens = (usage.cache_read_input_tokens as number) || 0
       const cacheWriteTokens = (usage.cache_creation_input_tokens as number) || 0
-      const cost = calculateCost(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens)
+      const cost = calculateCost(inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens, model)
 
       _articleTokenUsage.push({
         step: _currentStep,
@@ -332,9 +417,13 @@ async function callClaude(prompt: string, system?: SystemMessage): Promise<strin
         cost,
       })
 
-      console.log(`    Tokens: ${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out | Cost: $${cost.toFixed(4)}`)
+      console.log(`    Tokens: ${inputTokens.toLocaleString()} in / ${outputTokens.toLocaleString()} out | Cost: $${cost.toFixed(4)}${model !== CLAUDE_MODEL ? ` | model: ${model}` : ''}`)
       if (cacheReadTokens || cacheWriteTokens) {
         console.log(`    Cache: ${cacheReadTokens.toLocaleString()} read, ${cacheWriteTokens.toLocaleString()} created`)
+      }
+
+      if (response.stop_reason === 'max_tokens') {
+        console.warn(`  ⚠ Response truncated (hit max_tokens limit of ${MAX_TOKENS})`)
       }
 
       const textBlock = response.content.find((b) => b.type === 'text')
@@ -343,20 +432,9 @@ async function callClaude(prompt: string, system?: SystemMessage): Promise<strin
       }
 
       return textBlock.text
-    } catch (err: unknown) {
-      lastError = err instanceof Error ? err : new Error(String(err))
-      const status = (err as { status?: number }).status
-      const isRetryable = status === 429 || status === 500 || status === 503 || status === 529
-
-      if (!isRetryable || attempt >= RETRY_DELAYS.length) throw lastError
-
-      const delay = RETRY_DELAYS[attempt]
-      console.warn(`  ⚠ Claude API error (${status}), retrying in ${delay / 1000}s... (attempt ${attempt + 1}/${RETRY_DELAYS.length})`)
-      await new Promise(resolve => setTimeout(resolve, delay))
-    }
-  }
-
-  throw lastError!
+    },
+    { label: `claude ${_currentStep}`, baseDelayMs: RETRY_DELAYS[0] }
+  )
 }
 
 function validateCta(field: string, cta: string | undefined, airportCode: string, keyword?: string): string[] {
@@ -399,6 +477,66 @@ function validateCta(field: string, cta: string | undefined, airportCode: string
   return issues
 }
 
+// ── Stage request builders + parsers ──────────────────────────────────────────
+// Each Claude stage is split into a pure "build the request" + "parse the response"
+// pair so the sync path (analyzeCompetitors/writeArticle/editArticle) and the batch
+// path (generate-batch.ts) construct IDENTICAL prompts/system blocks — no drift.
+
+export function buildAnalyzeSystem(): string {
+  return `You are an SEO content analyst for an airport parking comparison website (${DOMAIN}). Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`
+}
+export function parseAnalyze(text: string): AnalysisResult {
+  return parseJsonResponse(text, AnalysisResultSchema)
+}
+
+/** System blocks for the write step (multi-block for prompt caching across a cluster). */
+export function buildWriteSystem(item: QueueItem, airportData?: AirportData): Anthropic.MessageCreateParams['system'] {
+  const systemBlocks: Anthropic.MessageCreateParams['system'] = [
+    {
+      type: 'text' as const,
+      text: `You are a professional travel and airport parking content writer for ${DOMAIN}. Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`,
+      cache_control: { type: 'ephemeral' as const },
+    },
+    {
+      type: 'text' as const,
+      text: getWritingRulesBlock(item.airportCode),
+      cache_control: { type: 'ephemeral' as const },
+    },
+  ]
+  if (airportData) {
+    systemBlocks.push({
+      type: 'text' as const,
+      text: getAirportDataBlock(airportData, item.keyword),
+      cache_control: { type: 'ephemeral' as const },
+    })
+  }
+  const extLinksBlock = getExternalLinksBlock(item.airportCode, item.articleType)
+  if (extLinksBlock) {
+    systemBlocks.push({
+      type: 'text' as const,
+      text: extLinksBlock,
+      cache_control: { type: 'ephemeral' as const },
+    })
+  }
+  return systemBlocks
+}
+export function parseWrite(text: string): WriteResult {
+  return parseJsonResponse(text, WriteResultSchema)
+}
+
+export function buildEditSystem(): Anthropic.MessageCreateParams['system'] {
+  return [
+    {
+      type: 'text' as const,
+      text: `You are a senior editor reviewing an airport parking blog article for ${DOMAIN}. Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`,
+      cache_control: { type: 'ephemeral' as const },
+    },
+  ]
+}
+export function parseEdit(text: string): EditResult {
+  return parseJsonResponse(text, EditResultSchema)
+}
+
 export async function analyzeCompetitors(
   keyword: string,
   competitors: ScrapedArticle[]
@@ -406,8 +544,8 @@ export async function analyzeCompetitors(
   console.log('  Step 1/3: Analyzing competitors...')
   setCurrentStep('analyze')
   const prompt = buildAnalyzePrompt(keyword, competitors)
-  const response = await callClaude(prompt, `You are an SEO content analyst for an airport parking comparison website (${DOMAIN}). Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`)
-  const result = parseJsonResponse(response, AnalysisResultSchema)
+  const response = await callClaude(prompt, buildAnalyzeSystem())
+  const result = parseAnalyze(response)
   console.log(`  ✓ Analysis complete — ${result.recommendedH2s.length} headings, ${result.faqQuestions.length} FAQs`)
   return result
 }
@@ -422,44 +560,10 @@ export async function writeArticle(
   console.log('  Step 2/3: Writing article...')
   setCurrentStep('write')
   const prompt = buildWritePrompt(item, analysis, airportData, publishedPosts, clusterArticles)
-
-  // Multi-block system prompt for caching:
-  // Block 1: Role (tiny, always cached)
-  // Block 2: Writing rules (static per airport, cached across articles in cluster)
-  // Block 3: Airport data (static per airport, cached across articles)
-  // Block 4: External links (static per airport+type, cached across articles)
-  const systemBlocks: Anthropic.MessageCreateParams['system'] = [
-    {
-      type: 'text' as const,
-      text: `You are a professional travel and airport parking content writer for ${DOMAIN}. Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`,
-      cache_control: { type: 'ephemeral' as const },
-    },
-    {
-      type: 'text' as const,
-      text: getWritingRulesBlock(item.airportCode),
-      cache_control: { type: 'ephemeral' as const },
-    },
-  ]
-  // Add airport data block if available (large, benefits most from caching)
-  if (airportData) {
-    systemBlocks.push({
-      type: 'text' as const,
-      text: getAirportDataBlock(airportData, item.keyword),
-      cache_control: { type: 'ephemeral' as const },
-    })
-  }
-  // Add external links block if available
-  const extLinksBlock = getExternalLinksBlock(item.airportCode, item.articleType)
-  if (extLinksBlock) {
-    systemBlocks.push({
-      type: 'text' as const,
-      text: extLinksBlock,
-      cache_control: { type: 'ephemeral' as const },
-    })
-  }
+  const systemBlocks = buildWriteSystem(item, airportData)
 
   const response = await callClaude(prompt, systemBlocks)
-  const result = parseJsonResponse(response, WriteResultSchema)
+  const result = parseWrite(response)
 
   console.log(`  ✓ Article written — ${result.html.length} chars, ${result.faqItems.length} FAQs`)
   return result
@@ -479,26 +583,13 @@ export async function editArticle(
   console.log(failedChecks ? '  Step 3b/3: Re-editing with failed checks...' : '  Step 3/3: Editing & QA...')
   setCurrentStep(failedChecks ? 'revision' : 'edit')
   const prompt = buildEditPrompt(html, keyword, articleType, articleStyle as 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | undefined, airportCode, publishedPosts, failedChecks, analysis, airportData)
-  const systemBlocks: Anthropic.MessageCreateParams['system'] = [
-    {
-      type: 'text' as const,
-      text: `You are a senior editor reviewing an airport parking blog article for ${DOMAIN}. Today's date is ${new Date().toISOString().split('T')[0]}. Respond with ONLY valid JSON.`,
-      cache_control: { type: 'ephemeral' as const },
-    },
-  ]
-  const response = await callClaude(prompt, systemBlocks)
-  const result = parseJsonResponse(response, EditResultSchema)
+  const response = await callClaude(prompt, buildEditSystem())
+  const result = parseEdit(response)
   console.log(`  ✓ Edit complete — ${result.changes.length} changes, quality: ${result.qualityScore}/100`)
   return result
 }
 
-export async function generateArticle(
-  item: QueueItem,
-  competitors: ScrapedArticle[],
-  onStep?: (step: string, data: { elapsed: number; result: Record<string, unknown> }) => void,
-  airportData?: AirportData,
-  publishedPosts?: PublishedPost[]
-): Promise<{
+export interface GenerateArticleResult {
   title: string
   html: string
   excerpt: string
@@ -508,37 +599,31 @@ export async function generateArticle(
   suggestedCategory: string
   suggestedTags: string[]
   qualityScore: number
-  revision?: {
-    triggered: boolean
-    scoreBefore: number
-    scoreAfter: number
-    failedChecks: string[]
-  }
-  suggestedStatus: 'draft' | 'review'
-}> {
-  // Step 1: Analyze competitors
-  const analyzeStart = Date.now()
-  const analysis = await analyzeCompetitors(item.keyword, competitors)
-  onStep?.('analyze', { elapsed: Date.now() - analyzeStart, result: analysis as unknown as Record<string, unknown> })
+  revision?: { triggered: boolean; scoreBefore: number; scoreAfter: number; failedChecks: string[] }
+  suggestedStatus: 'draft'
+  seoScore: SeoScore
+  editSkipped: boolean
+  earlyCta?: string
+  closingCta?: string
+}
 
-  // Step 2: Write article
-  const writeStart = Date.now()
-  // Fetch cluster context for cross-article awareness
-  let clusterArticles: { slug: string; title: string; articleType: string; keyword?: string; headings: { level: number; text: string }[]; excerpt: string }[] = []
-  if (item.articleType !== 'hub' && publishedPosts && publishedPosts.length > 0) {
-    try {
-      const { getClusterContext } = await import('./payload.js')
-      clusterArticles = await getClusterContext(item)
-      if (clusterArticles.length > 0) {
-        console.log(`  ✓ Cluster context: ${clusterArticles.length} sibling articles loaded`)
-      }
-    } catch { /* cluster context is optional */ }
-  }
+type EditableResult = { html: string; changes: string[]; qualityScore: number }
 
-  const writeResult = await writeArticle(item, analysis, airportData, publishedPosts, clusterArticles)
-  onStep?.('write', { elapsed: Date.now() - writeStart, result: writeResult as unknown as Record<string, unknown> })
+/** Everything the write output implies: its score, whether an edit is warranted, and
+ *  the context an edit/re-score needs. Shared by the sync and batch generation paths. */
+export interface WriteDecision {
+  writeScore: SeoScore
+  /** Re-score arbitrary HTML with the same scorer inputs (used after edits). */
+  scoreHtml: (html: string) => SeoScore
+  analysisContext: { recommendedH2s: string[]; gaps: string[]; commonTopics: string[]; competitorBenchmarks?: CompetitorBenchmarks }
+  ctaIssues: string[]
+  failedChecks: string[]
+  needsEdit: boolean
+  revisionThreshold: number
+}
 
-  // Build analysis context for the editor
+/** Score the raw write output and decide whether an edit pass is warranted. Pure. */
+export function scoreAndDecide(item: QueueItem, analysis: AnalysisResult, writeResult: WriteResult): WriteDecision {
   const analysisContext = {
     recommendedH2s: analysis.recommendedH2s,
     gaps: analysis.gaps,
@@ -546,27 +631,16 @@ export async function generateArticle(
     competitorBenchmarks: analysis.competitorBenchmarks,
   }
 
-  // Step 3: Edit and QA
-  const editStart = Date.now()
-  let editResult = await editArticle(writeResult.html, item.keyword, item.articleType, item.articleStyle, item.airportCode, publishedPosts, undefined, analysisContext, airportData)
-  onStep?.('edit', { elapsed: Date.now() - editStart, result: editResult as unknown as Record<string, unknown> })
-
-  // Step 3b: Auto-revision loop — score and re-edit if below threshold
-  let revisionMeta: { triggered: boolean; scoreBefore: number; scoreAfter: number; failedChecks: string[] } | undefined
-
-  // Validate CTAs and collect issues
   const ctaIssues = [
     ...validateCta('earlyCta', writeResult.earlyCta, item.airportCode, item.keyword),
     ...validateCta('closingCta', writeResult.closingCta, item.airportCode, item.keyword),
   ]
-  // Check CTAs are different
   if (writeResult.earlyCta && writeResult.closingCta && writeResult.earlyCta === writeResult.closingCta) {
     const msg = 'CTAs: Early and closing CTAs are identical — they should be different'
     console.warn(`  ⚠ ${msg}`)
     ctaIssues.push(msg)
   }
 
-  // Score the edited article
   const targetWords = item.targetWords || (item.articleType === 'hub' ? 2500 : item.articleType === 'sub-pillar' ? 1500 : 1000)
   const scorerBase = {
     keyword: item.keyword,
@@ -586,61 +660,39 @@ export async function generateArticle(
     earlyCta: writeResult.earlyCta,
     closingCta: writeResult.closingCta,
   }
+  const scoreHtml = (html: string) => scoreArticle({ html, ...scorerBase })
 
-  const firstScore = scoreArticle({ html: editResult.html, ...scorerBase })
+  const writeScore = scoreHtml(writeResult.html)
+  console.log(`  ✓ Write SEO score: ${writeScore.total}/${writeScore.maxTotal} (${writeScore.grade})`)
 
-  console.log(`  ✓ Initial SEO score: ${firstScore.total}/${firstScore.maxTotal} (${firstScore.grade})`)
-
-  // Collect failed checks for revision
   const failedChecks: string[] = [
     ...ctaIssues,
-    ...firstScore.categories.flatMap(cat =>
+    ...writeScore.categories.flatMap(cat =>
       cat.checks.filter(c => !c.passed).map(c => `[${cat.name}] ${c.name}: ${c.detail}`)
     ),
   ]
 
-  // Type-aware threshold
   const revisionThreshold = REVISION_THRESHOLDS[item.articleType] || 85
-  let currentScore = firstScore
-  let revisionPasses = 0
-  const maxPasses = item.articleType === 'hub' ? 2 : 1
+  const needsEdit = writeScore.total < revisionThreshold && failedChecks.length > 0
+  return { writeScore, scoreHtml, analysisContext, ctaIssues, failedChecks, needsEdit, revisionThreshold }
+}
 
-  while (currentScore.total < revisionThreshold && failedChecks.length > 0 && revisionPasses < maxPasses) {
-    revisionPasses++
-    console.log(`  ⚠ Score ${currentScore.total} < ${revisionThreshold} threshold (${item.articleType}) — revision pass ${revisionPasses}/${maxPasses} with ${failedChecks.length} failed checks`)
-    const revisionStart = Date.now()
-    editResult = await editArticle(editResult.html, item.keyword, item.articleType, item.articleStyle, item.airportCode, publishedPosts, failedChecks, analysisContext, airportData)
-    onStep?.('revision', { elapsed: Date.now() - revisionStart, result: editResult as unknown as Record<string, unknown> })
-
-    // Re-score
-    const revisedScore = scoreArticle({ html: editResult.html, ...scorerBase })
-
-    console.log(`  ✓ Revised SEO score: ${revisedScore.total}/${revisedScore.maxTotal} (${revisedScore.grade}) — ${revisedScore.total >= currentScore.total ? '+' : ''}${revisedScore.total - currentScore.total} points`)
-
-    revisionMeta = {
-      triggered: true,
-      scoreBefore: firstScore.total,
-      scoreAfter: revisedScore.total,
-      failedChecks,
-    }
-
-    // Update failed checks for next pass
-    currentScore = revisedScore
-    failedChecks.length = 0
-    failedChecks.push(
-      ...ctaIssues,
-      ...currentScore.categories.flatMap(cat =>
-        cat.checks.filter(c => !c.passed).map(c => `[${cat.name}] ${c.name}: ${c.detail}`)
-      ),
-    )
+/** Assemble the final result object + hard-floor status. Pure. */
+export function finalizeArticleResult(
+  item: QueueItem,
+  analysis: AnalysisResult,
+  writeResult: WriteResult,
+  editResult: EditableResult,
+  currentScore: SeoScore,
+  editSkipped: boolean,
+  revisionMeta: { triggered: boolean; scoreBefore: number; scoreAfter: number; failedChecks: string[] } | undefined,
+): GenerateArticleResult {
+  // The CMS accepts draft | published only ('review' was rejected on write, plan v3.2 W1.9).
+  // A post under the hard floor stays a draft and is called out here for a person to read.
+  const suggestedStatus = 'draft' as const
+  if (currentScore.total < HARD_FLOOR_SCORE) {
+    console.log(`  ⚠ Final score ${currentScore.total} < ${HARD_FLOOR_SCORE} hard floor — leave as draft, needs a human read before publish`)
   }
-
-  // Hard floor: articles below threshold after all passes get flagged for human review
-  const suggestedStatus = currentScore.total < HARD_FLOOR_SCORE ? 'review' : 'draft'
-  if (suggestedStatus === 'review') {
-    console.log(`  ⚠ Final score ${currentScore.total} < ${HARD_FLOOR_SCORE} hard floor — flagging for human review`)
-  }
-
   return {
     title: writeResult.title,
     html: editResult.html,
@@ -653,5 +705,96 @@ export async function generateArticle(
     qualityScore: editResult.qualityScore,
     revision: revisionMeta,
     suggestedStatus,
+    seoScore: currentScore,
+    editSkipped,
+    // Exposed so the post-infographic re-score in index.ts can score CTA relevance
+    // (omitting these made the final logged score fail "CTA topic relevance" 100% of the time).
+    earlyCta: writeResult.earlyCta,
+    closingCta: writeResult.closingCta,
   }
+}
+
+export async function generateArticle(
+  item: QueueItem,
+  competitors: ScrapedArticle[],
+  onStep?: (step: string, data: { elapsed: number; result: Record<string, unknown> }) => void,
+  airportData?: AirportData,
+  publishedPosts?: PublishedPost[]
+): Promise<GenerateArticleResult> {
+  // Step 1: Analyze competitors
+  const analyzeStart = Date.now()
+  const analysis = await analyzeCompetitors(item.keyword, competitors)
+  onStep?.('analyze', { elapsed: Date.now() - analyzeStart, result: analysis as unknown as Record<string, unknown> })
+
+  // Step 2: Write article
+  const writeStart = Date.now()
+  // Fetch cluster context for cross-article awareness
+  let clusterArticles: { slug: string; title: string; articleType: string; keyword?: string; headings: { level: number; text: string }[]; excerpt: string }[] = []
+  if (publishedPosts && publishedPosts.length > 0) {
+    try {
+      const { getClusterContext } = await import('./payload.js')
+      clusterArticles = await getClusterContext(item)
+      if (clusterArticles.length > 0) {
+        console.log(`  ✓ Cluster context: ${clusterArticles.length} sibling articles loaded`)
+      }
+    } catch { /* cluster context is optional */ }
+  }
+
+  const writeResult = await writeArticle(item, analysis, airportData, publishedPosts, clusterArticles)
+  onStep?.('write', { elapsed: Date.now() - writeStart, result: writeResult as unknown as Record<string, unknown> })
+
+  // Step 3: Score the raw write output and decide whether to edit (shared with batch path)
+  const decision = scoreAndDecide(item, analysis, writeResult)
+
+  let currentScore = decision.writeScore
+  let editResult: EditableResult = { html: writeResult.html, changes: [], qualityScore: decision.writeScore.total }
+  let revisionMeta: { triggered: boolean; scoreBefore: number; scoreAfter: number; failedChecks: string[] } | undefined
+  let editSkipped = true
+
+  if (decision.needsEdit) {
+    // Score is below threshold — run edit pass
+    editSkipped = false
+    console.log(`  ⚠ Score ${decision.writeScore.total} < ${decision.revisionThreshold} threshold (${item.articleType}) — running edit pass with ${decision.failedChecks.length} failed checks`)
+    const editStart = Date.now()
+    editResult = await editArticle(writeResult.html, item.keyword, item.articleType, item.articleStyle, item.airportCode, publishedPosts, decision.failedChecks, decision.analysisContext, airportData)
+    onStep?.('edit', { elapsed: Date.now() - editStart, result: editResult as unknown as Record<string, unknown> })
+
+    // Re-score after edit
+    const editScore = decision.scoreHtml(editResult.html)
+    console.log(`  ✓ Edited SEO score: ${editScore.total}/${editScore.maxTotal} (${editScore.grade}) — ${editScore.total >= decision.writeScore.total ? '+' : ''}${editScore.total - decision.writeScore.total} points`)
+
+    revisionMeta = {
+      triggered: true,
+      scoreBefore: decision.writeScore.total,
+      scoreAfter: editScore.total,
+      failedChecks: [...decision.failedChecks],
+    }
+    currentScore = editScore
+
+    // Additional revision pass if still below threshold (hubs get up to 2 passes)
+    const maxPasses = item.articleType === 'hub' ? 2 : 1
+    if (currentScore.total < decision.revisionThreshold && maxPasses > 1) {
+      const revisedFailedChecks = [
+        ...decision.ctaIssues,
+        ...currentScore.categories.flatMap(cat =>
+          cat.checks.filter(c => !c.passed).map(c => `[${cat.name}] ${c.name}: ${c.detail}`)
+        ),
+      ]
+      if (revisedFailedChecks.length > 0) {
+        console.log(`  ⚠ Score ${currentScore.total} still < ${decision.revisionThreshold} — revision pass 2/2 with ${revisedFailedChecks.length} failed checks`)
+        const revisionStart = Date.now()
+        editResult = await editArticle(editResult.html, item.keyword, item.articleType, item.articleStyle, item.airportCode, publishedPosts, revisedFailedChecks, decision.analysisContext, airportData)
+        onStep?.('revision', { elapsed: Date.now() - revisionStart, result: editResult as unknown as Record<string, unknown> })
+
+        const revisedScore = decision.scoreHtml(editResult.html)
+        console.log(`  ✓ Revised SEO score: ${revisedScore.total}/${revisedScore.maxTotal} (${revisedScore.grade}) — ${revisedScore.total >= currentScore.total ? '+' : ''}${revisedScore.total - currentScore.total} points`)
+        revisionMeta.scoreAfter = revisedScore.total
+        currentScore = revisedScore
+      }
+    }
+  } else {
+    console.log(`  ✓ Score ${decision.writeScore.total} >= ${decision.revisionThreshold} — skipping edit step (saving ~$0.12)`)
+  }
+
+  return finalizeArticleResult(item, analysis, writeResult, editResult, currentScore, editSkipped, revisionMeta)
 }

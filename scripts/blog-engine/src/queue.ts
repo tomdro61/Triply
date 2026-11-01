@@ -1,12 +1,32 @@
 import { getQueueItems, updateQueueItem, findPublishedPostBySlug } from './payload.js'
 
+/**
+ * Allowed article styles. Must stay in sync with the ContentQueue.articleStyle select
+ * options in the CMS (and its Postgres enum) — a value that exists here but not there
+ * is rejected on write.
+ *
+ * NOTE: prompts/write.ts, prompts/write-v2.ts, prompts/edit.ts and seo-scorer.ts each
+ * still declare their own local copy of this union. Adding a style means updating all
+ * of them; TypeScript will not flag the ones you miss.
+ */
+export const ARTICLE_STYLES = [
+  'standard',
+  'narrative',
+  'listicle',
+  'data-heavy',
+  'comparison',
+  'rescue',
+] as const
+
+export type ArticleStyle = (typeof ARTICLE_STYLES)[number]
+
 export interface QueueItem {
   id: string
   keyword: string
   airportCode: string
   slug: string
   articleType: 'hub' | 'sub-pillar' | 'spoke'
-  articleStyle?: 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
+  articleStyle?: ArticleStyle
   parentSlug?: string
   hubSlug?: string
   searchVolume?: number
@@ -26,17 +46,32 @@ export interface QueueItem {
 export async function getNextQueuedItems(
   type?: string,
   airport?: string,
-  limit = 5
+  limit = 5,
+  minSearchVolume?: number,
+  slug?: string
 ): Promise<QueueItem[]> {
   const filters: Record<string, string> = {
     'where[status][equals]': 'queued',
   }
+  // A slug filter targets exactly one article (used by `maintain` Tier-1 rewrites
+  // and manual one-off regenerations) — it ignores type/airport/SV noise.
+  if (slug) filters['where[slug][equals]'] = slug
   if (type) filters['where[articleType][equals]'] = type
   if (airport) filters['where[airportCode][equals]'] = airport.toUpperCase()
+  if (minSearchVolume !== undefined) {
+    filters['where[searchVolume][greater_than_equal]'] = String(minSearchVolume)
+    filters.sort = '-searchVolume'
+  }
   filters.limit = String(limit)
 
   const result = await getQueueItems(filters)
   return result.docs || []
+}
+
+/** Find a single content-queue item by slug regardless of status (for re-queueing a rewrite). */
+export async function findQueueItemBySlug(slug: string): Promise<QueueItem | null> {
+  const result = await getQueueItems({ 'where[slug][equals]': slug, limit: '1' })
+  return result.docs?.[0] || null
 }
 
 export async function validatePrerequisites(item: QueueItem): Promise<string | null> {
@@ -76,6 +111,11 @@ export async function markError(id: string, errorMessage: string) {
 
 export async function markPublished(id: string) {
   return updateQueueItem(id, { status: 'published' })
+}
+
+/** Reset an item back to 'queued' (e.g. after a credit-balance abort that wasn't the item's fault). */
+export async function markQueued(id: string) {
+  return updateQueueItem(id, { status: 'queued' })
 }
 
 export async function getBatchItems(batch: string, statusFilter?: string[]): Promise<QueueItem[]> {
