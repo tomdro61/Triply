@@ -153,7 +153,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     let line = `- **${l.name}**: ${cur}${l.dailyRate}/day`
     if (l.driveTime) line += ` | ${l.driveTime} from airport`
     if (l.parkingType) line += ` | ${l.parkingType}`
-    if (l.shuttleInfo) line += ` | Shuttle: ${(l.shuttleInfo as string).slice(0, 100)}`
+    if (l.shuttleInfo) line += ` | Shuttle: ${(l.shuttleInfo as string).slice(0, 240)}`
     if (l.amenities && Array.isArray(l.amenities) && l.amenities.length > 0) {
       line += ` | Amenities: ${(l.amenities as string[]).join(', ')}`
     }
@@ -165,7 +165,7 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     if (typeof l.cruiseShuttle === 'string' && l.cruiseShuttle) line += ` | Cruise-port shuttle: ${l.cruiseShuttle}`
     if (typeof l.rateNote === 'string' && l.rateNote) line += ` | Rate note: ${l.rateNote.slice(0, 160)}`
     const notes = typeof l.notes === 'string' ? l.notes.replace(/^Added \d{4}-\d{2}-\d{2} from live [^.]*\.\s*/i, '').trim() : '' // provenance line, not a fact
-    if (notes) line += ` | Notes: ${notes.slice(0, 220)}`
+    if (notes) line += ` | Notes: ${notes.slice(0, 400)}`
     lines.push(line)
   }
 
@@ -248,11 +248,36 @@ const OFF_SITE_SENTENCE = /off-?site|via triply|bookable on triply|triply sells|
 // and not after common abbreviations ("incl. 13% HST", "e.g. Nov").
 const SENTENCE_BREAK = /(?<![Ii]ncl|[Ee]xcl|[Aa]pprox|\bvs|\be\.g|\bi\.e|\bSt|\bAve|\bBlvd|\bRd|\bHwy|\bNo|\bMt)\.\s+(?=[A-Z])/
 
-export function dropOffSiteSentences(text: string): string {
+// Only the em-dash splits a sentence into clauses: "; " also separates items inside parentheses ("(Best Rate; shuttle 4 AM-10 PM only)").
+const CLAUSE_BREAK = /\s+—\s+/
+
+/** The part of a lot name that identifies it in prose: no "(JFK)" / "(Parking)" suffix, case-folded. '' when too short to match safely. */
+function lotNameKey(name: string): string {
+  const key = name.replace(/\s*\([^)]*\)\s*$/, '').trim().toLowerCase()
+  return key.length >= 6 ? key : ''
+}
+
+/**
+ * Drop the sentences of an airport-level text that price or name off-site lots. A sentence that ALSO carries an on-airport
+ * fact ("AirTrain costs $8.50/person one-way — off-site lots save this") keeps its non-off-site clauses. `unsellableNames`
+ * (the raw file's `sellable: false` lots) drops any sentence that names a lot we no longer sell — the shuttle text used to
+ * name The Parking Spot, Ausby, Parking 4 Airport (blocked) and the like as if they were ours.
+ */
+export function dropOffSiteSentences(text: string, unsellableNames: readonly string[] = []): string {
   if (!text) return text
+  const keys = unsellableNames.map(lotNameKey).filter(Boolean)
+  const namesUnsellable = (s: string) => keys.some((k) => s.toLowerCase().includes(k))
+  const bad = (s: string) => OFF_SITE_SENTENCE.test(s) || namesUnsellable(s)
   const parts = text.split(SENTENCE_BREAK)
-  const kept = parts.filter((part) => !OFF_SITE_SENTENCE.test(part))
-  if (kept.length === parts.length) return text
+  let changed = false
+  const kept: string[] = []
+  for (const part of parts) {
+    if (!bad(part)) { kept.push(part); continue }
+    changed = true
+    const clauses = part.split(CLAUSE_BREAK).filter((c) => c.trim() && !bad(c))
+    if (clauses.length) kept.push(clauses.join('; ').replace(/[.;:,\s]+$/, ''))
+  }
+  if (!changed) return text
   let out = kept.join('. ').trim()
   if (out && !/[.!?]$/.test(out)) out += '.'
   return out
@@ -264,16 +289,43 @@ function sellableLots(data: AirportData): Record<string, unknown>[] {
     .sort((a, b) => (a.dailyRate as number) - (b.dailyRate as number))
 }
 
-/** "from $X/day to $Y/day across N lots Triply sells" — '' when the file has no priced sellable lot. */
-export function sellableLotRange(data: AirportData): string {
-  const lots = sellableLots(data)
-  if (lots.length === 0) return ''
+/** A lot whose own notes bar it from leading (suspended shuttle, "do not use in CTAs", airport-only on a cruise page). */
+const DO_NOT_LEAD = /do not use in ctas?|not a lead recommendation|do not present it as general|shuttle (?:is )?suspended/i
+
+function cruiseContext(data: AirportData, keyword: string): boolean {
+  return data.code === 'POE' || /cruise/i.test(keyword) || /cruise/i.test(String((data.savingsComparison as Record<string, unknown> | undefined)?.scenario ?? ''))
+}
+
+/**
+ * Sellable lots that may lead a range, a CTA or a computed savings row: no suspended shuttle, no "do not use in CTAs"
+ * note, and on a cruise page only lots with a cruise-port shuttle (included or paid). Everything else still appears in
+ * the lot list with its caveat. (Pass-2 review of #143: the first version put POE's airport-only lots and MCI's
+ * suspended-shuttle lot at the top of the savings block.)
+ */
+export function leadEligibleLots(data: AirportData, keyword = ''): Record<string, unknown>[] {
+  const cruise = cruiseContext(data, keyword)
+  return sellableLots(data).filter((l) => {
+    if (l.shuttleSuspended === true) return false
+    if (typeof l.notes === 'string' && DO_NOT_LEAD.test(l.notes)) return false
+    if (cruise) {
+      const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
+      return cs === 'included' || cs.startsWith('paid')
+    }
+    return true
+  })
+}
+
+/** "from $X/day to $Y/day across N lots Triply sells" over the lead-eligible lots — '' when the file has no priced sellable lot. */
+export function sellableLotRange(data: AirportData, keyword = ''): string {
+  if (sellableLots(data).length === 0) return ''
+  const lots = leadEligibleLots(data, keyword)
+  if (lots.length === 0) return 'none may lead a recommendation (every lot carries a caveat — read the lot notes)'
   const cur = currencySymbol(data)
   const lo = lots[0].dailyRate as number
   const hi = lots[lots.length - 1].dailyRate as number
-  return lots.length === 1
-    ? `${cur}${lo}/day (one lot Triply sells)`
-    : `from ${cur}${lo}/day to ${cur}${hi}/day across ${lots.length} lots Triply sells`
+  if (lots.length === 1) return `${cur}${lo}/day (one lot)`
+  if (lo === hi) return `${cur}${lo}/day across ${lots.length} lots`
+  return `from ${cur}${lo}/day to ${cur}${hi}/day across ${lots.length} lots`
 }
 
 /**
@@ -282,8 +334,11 @@ export function sellableLotRange(data: AirportData): string {
  */
 export function scenarioBilledDays(scenario: unknown): number | null {
   if (typeof scenario !== 'string') return null
-  const explicit = scenario.match(/(?:billed as|bills?|=)\s*(\d+)\s*(?:billing |billable )?days?/i) ?? scenario.match(/(\d+)\s*(?:billing|billable)\s+days/i)
+  const explicit = scenario.match(/(?:billed as|bills?)\s*(\d+)\s*(?:billing |billable )?days?/i)
   if (explicit) return Number(explicit[1])
+  // "…(7 billing days incl. fees) to 8 billing days" — the last one is the scenario's own count
+  const billing = [...scenario.matchAll(/(\d+)\s*(?:billing|billable)\s+days/gi)]
+  if (billing.length) return Number(billing[billing.length - 1][1])
   const days = scenario.match(/(\d+)-day/i)
   if (days) return Number(days[1])
   const nights = scenario.match(/(\d+)[- ]nights?/i)
@@ -293,7 +348,19 @@ export function scenarioBilledDays(scenario: unknown): number | null {
 
 const SAVINGS_KEEP = /^(scenario|onAirport|publicTransit|loganExpress|rideshare|portGarage|triplyFeeNote|billingDayNote)/i
 
-function formatSavingsComparison(data: AirportData): string {
+export interface OffSiteRow { name: string; rate: number; days: number | null; total: number | null }
+
+/** The off-site side of the savings scenario, computed from the lead-eligible lots (also feeds the lint's known figures). */
+export function offSiteScenarioRows(data: AirportData, keyword = ''): OffSiteRow[] {
+  const sc = data.savingsComparison
+  const days = sc && typeof sc === 'object' && !Array.isArray(sc) ? scenarioBilledDays((sc as Record<string, unknown>).scenario) : null
+  return leadEligibleLots(data, keyword).slice(0, 8).map((l) => {
+    const rate = l.dailyRate as number
+    return { name: String(l.name), rate, days, total: days ? Number((rate * days).toFixed(2)) : null }
+  })
+}
+
+function formatSavingsComparison(data: AirportData, keyword = ''): string {
   const sc = data.savingsComparison
   if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return ''
   const kept: Record<string, unknown> = {}
@@ -302,17 +369,40 @@ function formatSavingsComparison(data: AirportData): string {
     kept,
     '**Worked Savings Scenario (use for the cost-comparison section — the on-airport and transit figures are verified; the off-site side is computed below from the lots Triply sells, never from older notes):**',
   )
-  const lots = sellableLots(data)
-  if (lots.length === 0) return out
+  if (sellableLots(data).length === 0) return out
+  const rows = offSiteScenarioRows(data, keyword)
   const cur = currencySymbol(data)
-  const days = scenarioBilledDays((sc as Record<string, unknown>).scenario)
-  const lines = [days ? `- Off-site via Triply for the same ${days} billed days (lot rate × days; Triply fees and any tax show at checkout):` : '- Off-site via Triply: multiply a lot rate from the list by the scenario\'s billed days (lot rate × days; fees and tax show at checkout):']
-  for (const l of lots.slice(0, 6)) {
-    const rate = l.dailyRate as number
-    lines.push(days ? `  - ${l.name}: ${cur}${rate}/day × ${days} = ${cur}${(rate * days).toFixed(2)}` : `  - ${l.name}: ${cur}${rate}/day`)
-  }
+  const days = rows[0]?.days ?? null
+  const lines = [
+    rows.length === 0
+      ? '- Off-site via Triply: no lot may lead this comparison (every lot carries a caveat — see the lot notes); describe the on-airport side only.'
+      : days
+        ? `- Off-site via Triply, ${days} billed days (a 10 AM drop-off / 2 PM pickup bills one day more than the nights; lot rate × days, Triply fees and any tax show at checkout; only lots that may lead are listed):`
+        : '- Off-site via Triply (multiply a lot rate by the scenario\'s billed days; fees and tax show at checkout; only lots that may lead are listed):',
+  ]
+  for (const r of rows) lines.push(r.total !== null ? `  - ${r.name}: ${cur}${r.rate}/day × ${r.days} = ${cur}${r.total.toFixed(2)}` : `  - ${r.name}: ${cur}${r.rate}/day`)
   if (!out) out = '\n**Worked Savings Scenario:**'
   return out + '\n' + lines.join('\n')
+}
+
+/**
+ * What the lint may treat as a sourced figure: the data as the writer sees it — off-site prose dropped, only the kept
+ * savings entries, coupon pitches out — plus the computed off-site totals.
+ */
+export function figureSource(data: AirportData, keyword = ''): unknown {
+  const { parkingRates, shuttleInfo, savingsComparison, parkingLots, ...rest } = data
+  const sc = savingsComparison && typeof savingsComparison === 'object' && !Array.isArray(savingsComparison)
+    ? Object.fromEntries(Object.entries(savingsComparison as Record<string, unknown>).filter(([k]) => SAVINGS_KEEP.test(k)))
+    : undefined
+  const lots = ((parkingLots ?? []) as Record<string, unknown>[]).map(({ knownCoupons: _c, ...lot }) => lot)
+  return {
+    ...rest,
+    parkingRates: dropOffSiteSentences(parkingRates, data.unsellableLotNames),
+    shuttleInfo: dropOffSiteSentences(shuttleInfo, data.unsellableLotNames),
+    savingsComparison: sc,
+    parkingLots: lots,
+    computedOffSiteTotals: offSiteScenarioRows(data, keyword).map((r) => r.total).filter((t): t is number => t !== null),
+  }
 }
 
 function formatParkSleepFly(data: AirportData): string {
@@ -421,11 +511,11 @@ function formatAirportData(data: AirportData, keyword?: string): string {
 - Transit: ${data.transit.join(', ')}
 - Neighborhoods: ${data.neighborhoods.join(', ')}
 - Authority: ${data.authority}
-- Official on-airport parking rates: ${dropOffSiteSentences(data.parkingRates)}
-- Off-site lots Triply sells: ${sellableLotRange(data) || 'none priced — do not name or price any off-site lot'} (the lot list below is the ONLY source for off-site lot names and prices; ignore any other off-site figure)
-- Shuttle info (general; for a specific lot's shuttle use its line in the lot list, and never name a lot that is not in the list): ${dropOffSiteSentences(data.shuttleInfo)}
+- Official on-airport parking rates: ${dropOffSiteSentences(data.parkingRates, data.unsellableLotNames)}
+- Off-site lots Triply sells: ${sellableLotRange(data, kw) || 'none priced — do not name or price any off-site lot'} (the lot list below is the ONLY source for off-site lot names and prices; ignore any other off-site figure; this range leaves out lots whose notes bar them from leading)
+- Shuttle info (general; for a specific lot's shuttle use its line in the lot list, and never name a lot that is not in the list): ${dropOffSiteSentences(data.shuttleInfo, data.unsellableLotNames)}
 - Distance: ${data.distanceFromCity}
-- Data checked: ${data.lastVerified} (the month for every "as of <Month YYYY>" in the article; it is the date of the lot list and live checks — an on-airport figure that carries its own date in the text keeps that date)
+- Data checked: ${data.lastVerified} (the month for every "as of <Month YYYY>" in the article — never an older month; an on-airport rate that states its own effective date may add "effective <date>" alongside, never instead)
 
 When citing specific numbers (rates, distances, shuttle frequency), use ONLY the data above. If a number is not in this data or on a cited official page, leave it out — never estimate, round or hedge a figure ("typically", "around", "roughly").
 ${formatLiveSources(data)}`
@@ -463,7 +553,7 @@ ${formatLiveSources(data)}`
     kw.includes('save') ||
     kw.includes('compar')
   ) {
-    result += formatSavingsComparison(data)
+    result += formatSavingsComparison(data, kw)
   }
   // Always include construction for freshness signals
   result += formatConstruction(data)
@@ -629,7 +719,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 34. DEFINITION-FIRST OPENING: The very first sentence of the article MUST be a clear, standalone definition using the "X is..." pattern. It must pass the "island test" — if this sentence appeared alone on a search results page with no surrounding context, the reader would understand what the article is about. Example: "Off-site JFK parking is a budget-friendly alternative where private lots near the airport offer shuttle service to terminals for less than the on-airport garages." This is DIFFERENT from rule 16 (opening answer paragraph) — rule 16 is about answering the query; this rule is about the sentence structure of the FIRST sentence being a definition.
 35. VERIFIABLE STATISTICS: Include at least 3-5 specific, data-backed statistics per article drawn from the verified parking lot data and airport facts provided above. Present savings as the two rates side by side ("$12/day at <lot> vs $46/day at the terminal garage") — never as a percentage unless the same sentence links its source (a lint blocks unsourced "save up to N%") — distances in exact miles, shuttle frequencies in minutes, and price ranges with specific dollar amounts. Bold statistics with <strong> so AI engines can extract them. Attribute data to its source (e.g., "based on current Triply rates" or "per [airport authority name]"). NEVER fabricate statistics — only use numbers derivable from the data provided.
 36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
-37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest sellable lot rate, with its currency sign) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
+37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest rate in the "Off-site lots Triply sells" line, with its currency sign — never a lot whose notes bar it from leading) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
 38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of <Month YYYY>, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
 38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
 ${ownCodeRule(item.airportCode)}

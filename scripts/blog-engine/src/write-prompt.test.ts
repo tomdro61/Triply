@@ -2,7 +2,8 @@
 // Run with: npm test
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock } from './prompts/write.js'
+import { dropOffSiteSentences, scenarioBilledDays, sellableLotRange, getAirportDataBlock, leadEligibleLots, offSiteScenarioRows, figureSource } from './prompts/write.js'
+import { collectFigures } from './lint.js'
 import type { AirportData } from './airport-data.js'
 
 test('dropOffSiteSentences removes the off-site sentence and keeps the on-airport ones', () => {
@@ -21,6 +22,13 @@ test('dropOffSiteSentences never splits inside a price or after "incl."', () => 
   )
 })
 
+test('dropOffSiteSentences keeps the on-airport clause of a mixed sentence and drops sentences naming an unsellable lot', () => {
+  const jfk = 'Economy Lot 9 $29/first 24hrs. IMPORTANT: AirTrain costs $8.50/person one-way — off-site lots with direct shuttles save this cost vs. on-airport parking + AirTrain from Lot 9.'
+  assert.equal(dropOffSiteSentences(jfk), 'Economy Lot 9 $29/first 24hrs. IMPORTANT: AirTrain costs $8.50/person one-way.')
+  const shuttle = 'AirTrain connects all terminals. Some budget lots (Parking 4 Airport, Hyatt Place Flushing) have limited shuttle hours. The Parking Spot East/West runs 24/7 shuttles.'
+  assert.equal(dropOffSiteSentences(shuttle, ['Parking 4 Airport (JFK)', 'The Parking Spot (AUS)']), 'AirTrain connects all terminals.')
+})
+
 test('dropOffSiteSentences leaves text without off-site sentences untouched', () => {
   const text = 'Daily Park T1/T3 garages C$42/day, C$235 first 7 days; Value Park Garage C$32/day.'
   assert.equal(dropOffSiteSentences(text), text)
@@ -33,6 +41,8 @@ test('scenarioBilledDays: explicit billed days win, N-day = N, N-night = N + 1, 
   assert.equal(scenarioBilledDays('7-night trip, Nov 2 10 AM - Nov 9 2 PM, 2026 (Triply bills 8 days), quoted'), 8)
   assert.equal(scenarioBilledDays('6-day trip for 2 travelers'), 6)
   assert.equal(scenarioBilledDays('7-night cruise, 2 travelers, one car.'), 8)
+  assert.equal(scenarioBilledDays("7-night cruise, 2 travelers, one car. Off-site prices scaled from Triply's live Nov 2-8, 2026 quote (7 billing days incl. Triply fees) to 8 billing days."), 8, 'the LAST billing-days count is the scenario\'s')
+  assert.equal(scenarioBilledDays('7-day trip (7 billing days, e.g. Nov 2-8, 2026)'), 7)
   assert.equal(scenarioBilledDays('One week. On-airport = 7 x official daily max'), null)
   assert.equal(scenarioBilledDays(undefined), null)
 })
@@ -41,9 +51,11 @@ const base: AirportData = {
   code: 'XXX', fullName: 'Test Airport', lastVerified: '2026-11-01', terminals: [{ name: 'A', airlines: ['Delta'] }],
   roads: ['I-1'], transit: ['Bus 1'], neighborhoods: ['Town'], authority: 'Port', distanceFromCity: '5 mi',
   parkingRates: 'On-airport: Garage $24/day. Off-site: from ~$4/day with shuttle (Old Lot).',
-  shuttleInfo: 'On-airport shuttles every 10 minutes. Old Lot and Gone Lot run 24/7 shuttles via Triply.',
+  shuttleInfo: 'On-airport shuttles every 10 minutes. Old Lot and Gone Lot run 24/7 shuttles via Triply. Gone Lot runs hourly overnight.',
+  unsellableLotNames: ['Gone Lot (XXX)'],
   parkingLots: [
     { name: 'Cheap Lot', dailyRate: 6.41, sellable: true, notes: 'AIRPORT PARKING ONLY. Never recommend to cruisers.', cruiseShuttle: 'not-available' },
+    { name: 'Dead Lot', dailyRate: 7.5, sellable: true, shuttleSuspended: true, notes: 'SHUTTLE SUSPENDED. Do NOT use in CTAs.' },
     { name: 'Dear Lot', dailyRate: 28, sellable: true, knownCoupons: ['Pre-book via competitor.com from $13/day'], notes: 'Added 2026-11-01 from live Triply search; details from the lot listing.' },
   ],
   savingsComparison: {
@@ -54,10 +66,24 @@ const base: AirportData = {
   },
 }
 
-test('sellableLotRange reads the priced lots', () => {
-  assert.equal(sellableLotRange(base), 'from $6.41/day to $28/day across 2 lots Triply sells')
+test('the range and the computed rows skip lots whose notes bar them from leading', () => {
+  assert.deepEqual(leadEligibleLots(base).map((l) => l.name), ['Cheap Lot', 'Dear Lot'], 'suspended-shuttle lot out; airport-only lot fine on a non-cruise page')
+  assert.deepEqual(leadEligibleLots(base, 'cheap cruise parking').map((l) => l.name), [], 'on a cruise keyword only cruise-shuttle lots may lead')
+  assert.deepEqual(leadEligibleLots({ ...base, code: 'POE', parkingLots: [...base.parkingLots!, { name: 'Port Lot', dailyRate: 21.7, sellable: true, cruiseShuttle: 'included' }] }).map((l) => l.name), ['Port Lot'])
+  assert.equal(sellableLotRange(base), 'from $6.41/day to $28/day across 2 lots')
+  assert.equal(sellableLotRange(base, 'cruise parking'), 'none may lead a recommendation (every lot carries a caveat — read the lot notes)')
   assert.equal(sellableLotRange({ ...base, parkingLots: [] }), '')
-  assert.equal(sellableLotRange({ ...base, parkingLots: [base.parkingLots![1]] }), '$28/day (one lot Triply sells)')
+  assert.equal(sellableLotRange({ ...base, parkingLots: [base.parkingLots![2]] }), '$28/day (one lot)')
+  assert.equal(sellableLotRange({ ...base, parkingLots: [{ name: 'A', dailyRate: 8.35, sellable: true }, { name: 'B', dailyRate: 8.35, sellable: true }] }), '$8.35/day across 2 lots')
+  assert.deepEqual(offSiteScenarioRows(base).map((r) => [r.name, r.total]), [['Cheap Lot', 44.87], ['Dear Lot', 196]])
+})
+
+test('figureSource gives the lint the figures the writer saw: computed totals in, stale off-site prose and coupon pitches out', () => {
+  const figures = collectFigures(figureSource(base))
+  assert.ok(figures.includes(44.87) && figures.includes(196), 'computed totals are sourced')
+  assert.ok(!figures.includes(13), 'coupon pitch "$13/day" is not a known figure')
+  assert.ok(!figures.includes(4), 'the dropped "from ~$4/day" is not a known figure')
+  assert.ok(figures.includes(24), 'on-airport garage rate still known')
 })
 
 test('the airport data block carries no stale off-site figure, no coupon pitch, and the lot caveats', () => {
@@ -66,7 +92,10 @@ test('the airport data block carries no stale off-site figure, no coupon pitch, 
   assert.ok(!block.includes('Old Lot'), 'lots we do not sell are gone from rates and shuttle text')
   assert.ok(!block.includes('$4-11/day'), 'keyDifference dropped')
   assert.ok(!block.includes('competitor.com'), 'coupon pitch dropped')
-  assert.ok(block.includes('from $6.41/day to $28/day across 2 lots Triply sells'))
+  assert.ok(block.includes('from $6.41/day to $28/day across 2 lots'))
+  assert.ok(!block.includes('Dead Lot: $7.5/day ×'), 'a barred lot gets no computed savings row')
+  assert.ok(block.includes('**Dead Lot**: $7.5/day'), 'but it is still in the lot list with its caveat')
+  assert.ok(!block.includes('Gone Lot'), 'a sentence naming an unsellable lot is dropped even without an off-site keyword')
   assert.ok(block.includes('Cheap Lot: $6.41/day × 7 = $44.87'), 'off-site side computed from the lot list')
   assert.ok(block.includes('Garage'), 'on-airport savings entry kept')
   assert.ok(block.includes('Cruise-port shuttle: not-available'))

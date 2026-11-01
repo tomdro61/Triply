@@ -21,6 +21,8 @@ export interface AirportData {
   onAirportParking?: Record<string, Record<string, unknown> | string>
   parkingLots?: Record<string, unknown>[]
   currency?: string  // "CAD" for Canadian airports (PR #96); USD when absent
+  /** Names of the lots marked `sellable: false` in the raw file (set by loadAirportData) — airport-level prose that names one is dropped by the writer prompt. */
+  unsellableLotNames?: string[]
   evCharging?: Record<string, unknown>
   lounges?: Record<string, unknown>[]
   construction?: unknown
@@ -69,7 +71,12 @@ export function loadAirportData(code: string): AirportData | null {
   const data: AirportData = JSON.parse(fs.readFileSync(filepath, 'utf-8').replace(/\s*\((?:verify|Verify|VERIFY)\)/g, ''))
 
   // Writers only see lots we can sell — unsellable lots ended up recommended in new articles (PHX, 13 Oct 2026)
-  if (Array.isArray(data.parkingLots)) data.parkingLots = filterSellableLots(data.parkingLots)
+  if (Array.isArray(data.parkingLots)) {
+    data.unsellableLotNames = data.parkingLots
+      .filter((l) => l.sellable === false && typeof l.name === 'string')
+      .map((l) => l.name as string)
+    data.parkingLots = filterSellableLots(data.parkingLots)
+  }
 
   // Cruise ports (POE) list cruiseLines per terminal instead of airlines
   for (const t of data.terminals as ({ airlines?: string[]; cruiseLines?: string[] } & AirportData['terminals'][number])[]) {
