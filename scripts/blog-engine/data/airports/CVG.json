@@ -1,0 +1,510 @@
+{
+  "code": "CVG",
+  "fullName": "Cincinnati/Northern Kentucky International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Hebron, Boone County, Kentucky — across the Ohio River from Cincinnati, Ohio. Despite the 'Cincinnati' name, CVG is in KENTUCKY, not Ohio (a common traveler mix-up).",
+    "iataCode": "CVG",
+    "icaoCode": "KCVG",
+    "faaLid": "CVG",
+    "elevation": "896 feet above mean sea level",
+    "acreage": 7000,
+    "coordinates": "39.0488N, 84.6678W",
+    "passengerVolume": "8,971,128 passengers in 2025 (down 2.62% from the 2024 record of ~9.2 million, the most in 15 years)",
+    "aircraftOperations": "154,373 (2025)",
+    "cargoVolume": "1,703,828 tons in 2025 — ranked 5th busiest U.S. airport by cargo and among the top cargo airports in the world. Home to Amazon Air's primary global hub and a DHL Americas hub.",
+    "distinction": "Kentucky's busiest airport and one of North America's largest cargo airports. Amazon Air's primary hub (opened 2017 on ~1,129 acres, 3 million sq ft sort facility) and DHL's Americas hub (since 1984) sit on the airfield. Former Delta Air Lines mega-hub (600+ daily flights in 2005) — today Delta remains the largest passenger carrier (~24% share in 2025) alongside a growing low-cost mix (Frontier, Allegiant, Breeze, Southwest).",
+    "operator": "Kenton County Airport Board (CVG Airport Authority)",
+    "owner": "Kenton County Airport Board",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "totalGates": 51,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "9/27", "length": "12,001 ft (3,658 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "18C/36C", "length": "11,000 ft (3,353 m)", "surface": "Asphalt/Concrete" },
+      { "designation": "18L/36R", "length": "10,000 ft (3,048 m)", "surface": "Concrete" },
+      { "designation": "18R/36L", "length": "8,000 ft (2,438 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Delta Air Lines (largest passenger carrier, ~24% of 2025 passengers; former hub — focus-city status ended 2021)",
+    "totalAirlines": "14 scheduled passenger carriers (incl. regional brands)",
+    "nonstopDestinations": "50+ nonstop passenger destinations in North America and Europe",
+    "founded": "1947 (site first used as an Army Air Corps field in 1944)",
+    "hubCarriers": ["Amazon Air (primary cargo hub)", "DHL Aviation (Americas cargo hub)"],
+    "slotControlled": false,
+    "metroAccess": "No rail. TANK Route 2X 'Airporter' bus links CVG to downtown Cincinnati; departs Ground Transport East (Public Transit) on the Baggage Claim level.",
+    "peopleMover": "Underground walkway and automated people mover connect the main terminal to Concourses A and B (the walkway appears in the film Rain Man)."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal — Concourse A",
+      "status": "Active — 23 gates. Reached from the main terminal via the underground walkway / people mover.",
+      "airlines": ["verify per-concourse airline assignments on cvgairport.com/flights"],
+      "gates": "A gates (23)",
+      "notes": "The Club CVG lounge is between Gates A8 and A10. Service animal relief area (SARA) near Gate A18."
+    },
+    {
+      "name": "Main Terminal — Concourse B",
+      "status": "Active — 28 gates. International arrivals without pre-clearance are processed here.",
+      "airlines": ["verify per-concourse airline assignments on cvgairport.com/flights"],
+      "gates": "B gates (28)",
+      "notes": "Delta Sky Club near Gate B14 (Level 3). Escape Lounge (Centurion Studio Partner) relocated to a larger space in Concourse B in 2026. Service animal relief area near Gate B13. Charley Harper artwork in the food court."
+    }
+  ],
+  "roads": ["Interstate 275 (exit 4 — main access)", "KY 212 / Airport Access Road", "Terminal Drive", "Donaldson Road", "Interstate 71/75 (from Cincinnati and Florence)", "Mineola Pike", "Turfway Road (Florence hotel corridor)", "Airport Exchange Blvd (Erlanger hotel corridor)"],
+  "transit": ["TANK Route 2X Airporter (CVG to downtown Cincinnati)", "Hotel courtesy shuttles from Ground Transport West", "Economy Lot / ValuPark shuttles (BusGenius live tracking)"],
+  "neighborhoods": ["Hebron", "Florence", "Erlanger", "Burlington", "Union", "Independence", "Covington", "Newport", "Fort Mitchell", "Downtown Cincinnati"],
+  "authority": "Kenton County Airport Board",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "Automated people mover and underground walkway linking the main terminal to Concourses A and B",
+      "fare": "FREE",
+      "frequency": "Continuous",
+      "hours": "During terminal operating hours",
+      "note": "Single terminal with two concourses — no terminal-to-terminal shuttle needed."
+    },
+    "groundTransportZones": {
+      "east": "Ground Transport East (Baggage Claim level): Uber/Lyft, zTrip taxi, TANK bus (Public Transit), private van/car/limousine",
+      "west": "Ground Transport West (Baggage Claim level): ALL hotel courtesy shuttles and the Rental Car Center. Partner lot instructions (Hilton, Holiday Inn) specify Ground Transport West, Zone 3.",
+      "note": "Neither zone is at the terminal curbfront — follow signs from Baggage Claim.",
+      "source": "https://www.cvgairport.com/terminal-information/ground-transportation/"
+    },
+    "tankBus": {
+      "operator": "Transit Authority of Northern Kentucky (TANK)",
+      "routes": ["Route 2X Airporter (CVG to downtown Cincinnati)"],
+      "fare": "$2 local cash fare; TANK 1-Day Pass $4; Metro/TANK 1-Day Pass $5 (verify whether 2X carries an express surcharge)",
+      "accessFromTerminal": "Baggage Claim level — follow signs to Ground Transport East, then Public Transit",
+      "phone": "(859) 331-8265",
+      "note": "Only public transit to CVG. Check tankbus.org for the current 2X timetable."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "pickup": "Ground Transport East, Baggage Claim level",
+      "providers": "zTrip (official airport taxi; wheelchair-accessible vehicles available)",
+      "phone": "(513) 962-1122",
+      "note": "Fares not published by the airport — confirm with zTrip."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Ground Transport East on the Baggage Claim level (not the terminal curb)",
+      "note": "Follow signs from Baggage Claim to Ground Transport East; the app will confirm the exact pickup spot."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center, part of the CVG Terminal — 3057 Terminal Drive, Hebron, KY 41048. Walk from Baggage Claim via Ground Transport West signage; no shuttle needed.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 10,
+      "note": "No personal-vehicle parking at the Rental Car Center — park in CVG parking first."
+    },
+    "hotelShuttles": "All hotel courtesy shuttles pick up at Ground Transport West (Baggage Claim level). Most airport hotels are in Erlanger (Airport Exchange Blvd) and Florence (Turfway Road / Meijer Dr / Vandercar Way). The DoubleTree is listed on the airport's contact page at (859) 371-6166."
+  },
+  "parkingRates": "On-airport (per day): Economy Lot $10, ValuPark $12, Terminal Garage $23, Terminal Garage Premium Reserved $27 (prepaid only), Valet $35. Credit cards only — no cash. Off-site via Triply: hotel park-and-fly lots in Florence and Erlanger from ~$5.15/day with free shuttle.",
+  "onAirportParking": {
+    "economyLot": {
+      "name": "CVG Economy Lot",
+      "rate": "$10/day",
+      "dailyMax": 10,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.cvgairport.com/parking-options/",
+      "connection": "Shuttle every 15 minutes; 24/7 pickup and drop-off at shelters; live tracking via BusGenius",
+      "features": "Lowest-cost on-airport option."
+    },
+    "valuPark": {
+      "name": "CVG ValuPark",
+      "rate": "$12/day",
+      "dailyMax": 12,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.cvgairport.com/parking-options/",
+      "connection": "24/7 continuous vehicle pickup and drop-off with luggage assistance; BusGenius tracking",
+      "features": "4 EV charging stations in Row 1."
+    },
+    "terminalGarage": {
+      "name": "CVG Terminal Garage",
+      "rate": "$23/day",
+      "dailyMax": 23,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.cvgairport.com/parking-options/",
+      "serves": "Main terminal (walk)",
+      "features": "Adjacent to the terminal. Credit card only. 8 EV charging stations on Level D, Row 30.",
+      "hourlyRates": "verify — not published on cvgairport.com/parking-options"
+    },
+    "terminalGaragePremiumReserved": {
+      "name": "CVG Terminal Garage — Premium Reserved",
+      "rate": "$27/day",
+      "dailyMax": 27,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.cvgairport.com/parking-options/",
+      "features": "Guaranteed space on Level C, Rows 28-30. Prepaid reservation only.",
+      "preBookingUrl": "https://parking.cvgairport.com/"
+    },
+    "valetParking": {
+      "name": "CVG Valet Parking",
+      "rate": "$35/day",
+      "dailyMax": 35,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.cvgairport.com/parking-options/",
+      "location": "Follow signs for Arrivals, then Valet, from the Baggage Claim level",
+      "features": "Open 24/7."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot",
+      "location": "On the right as you approach the terminal",
+      "cost": "FREE",
+      "rules": "For waiting to pick up arriving passengers; time limits not published",
+      "source": "https://www.cvgairport.com/terminal-information/meeting-passengers/"
+    },
+    "evCharging": {
+      "locations": ["Terminal Garage — Level D, Row 30 (8 stations)", "ValuPark — Row 1 (4 stations)"],
+      "totalPorts": "12 EV charging stations",
+      "cost": "No extra fees (standard parking rate applies)",
+      "note": "120V/20A (Level 1-type) outlets, limited availability.",
+      "source": "https://www.cvgairport.com/parking-options/"
+    },
+    "parkingAdvantageProgram": {
+      "name": "Parking Advantage Program",
+      "status": "Closed to new members as of 2026-10-13; existing members still earn",
+      "earning": "Per paid day: Valet 30 pts, Terminal Garage 20 pts, ValuPark 10 pts, Economy 10 pts",
+      "redemption": "Free day = 300 pts (Valet), 200 (Garage), 100 (ValuPark/Economy)",
+      "note": "Not usable with Premium Reserved reservations. Points expire after 1 year of inactivity.",
+      "source": "https://www.cvgairport.com/parking-advantage-program/"
+    },
+    "accessibleParking": "Facilities are described as handicap accessible; specific space counts and any disabled-veteran exemption are not published — verify with CVG Parking.",
+    "paymentMethods": "Credit cards only — cash not accepted. Reserved spaces require prepayment.",
+    "parkingContact": "park@cvgairport.com, (859) 767-7400 (contact page) / (859) 767-3106 (parking page)",
+    "garageServiceAreas": "Terminal Garage and Valet → walk to terminal. Economy Lot and ValuPark → shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "Hyatt Place Cincinnati Airport",
+      "slug": "hyatt-place-cincinnati-airport",
+      "dailyRate": 5.15,
+      "reservationRate": 5.15,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "ADA-Accessible Shuttle", "Restaurant"],
+      "shuttleInfo": "24/7, every 30 minutes. Check in at the front desk before leaving your car. On return, collect bags and call (859) 647-1170 for pickup.",
+      "overview": "Hotel park-and-fly lot about 5 minutes' drive from CVG with a complimentary, ADA-accessible 24/7 shuttle. Easy highway access toward the Ark Encounter, Creation Museum and downtown Cincinnati stadiums.",
+      "address": "300 Meijer Dr, Florence, KY 41042",
+      "distanceFromAirport": "3.1 mi",
+      "driveTime": "~5 minutes",
+      "phone": "(859) 647-1170",
+      "notes": "Lowest sellable rate at CVG on 2026-10-13 ($36.03 for a 6-night Nov 2-8 stay, 7 billed days). 24/7 shuttle makes it safe for 5-6 AM departures.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 17.49
+    },
+    {
+      "name": "Quality Inn & Suites",
+      "slug": "quality-inn-suites",
+      "dailyRate": 5.42,
+      "reservationRate": 5.42,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "Security", "24/7 Front Desk", "Wheelchair Access", "Fitness Center", "Free Wi-Fi", "Breakfast Included", "Room Service", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "5:00 AM-12:00 AM, every 30 minutes on the hour; door-to-door, on-demand pickups within shuttle hours. No shuttle midnight-5 AM. Call (859) 746-0300 from the airport; allow 20-30 minutes.",
+      "overview": "Closest Triply lot to CVG on Airport Exchange Blvd in Erlanger. Free shuttle with online reservation and no extra charge for full-size vans, pickup trucks or large SUVs.",
+      "address": "1805 Airport Exchange Blvd, Erlanger, KY 41018",
+      "distanceFromAirport": "2.1 mi",
+      "driveTime": "~5 minutes",
+      "phone": "(859) 746-0300",
+      "notes": "Allow at least 30 minutes for check-in before your shuttle. No overnight shuttle (12-5 AM) — late-night arrivals need another ride. Good pick for oversized vehicles.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Holiday Inn Cincinnati Airport",
+      "slug": "holiday-inn-cincinnati-airport",
+      "dailyRate": 5.20,
+      "reservationRate": 5.20,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant", "Camera Surveillance", "Well-Lit Lot"],
+      "shuttleInfo": "24/7, every 30 minutes. Register your vehicle at the front desk via QR code and hang the placard on your mirror. On return, call (859) 746-5611; pickup at Ground Transport West, Zone 3.",
+      "overview": "Erlanger hotel lot about 7 minutes (2.5 mi) from CVG with a spacious, well-lit, camera-monitored self-park lot and round-the-clock shuttle.",
+      "address": "1717 Airport Exchange Blvd, Erlanger, KY 41018",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "~7 minutes",
+      "phone": "(859) 371-2233",
+      "notes": "Shuttle return line is (859) 746-5611 (different from the main number). Quoted $38.46 total for Nov 2-8.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Holiday Inn Express & Suites",
+      "slug": "holiday-inn-express-suites",
+      "dailyRate": 6.19,
+      "reservationRate": 6.19,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free Shuttle", "24/7 Front Desk", "Restaurant", "Wheelchair Access", "Camera Surveillance", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "6:30 AM-11:00 PM, every 30 minutes on the hour; on-demand pickups within those hours by calling (859) 817-0337. No shuttle 11 PM-6:30 AM.",
+      "overview": "Florence hotel lot minutes from CVG with free shuttle on every online reservation, a 24/7 front desk and surveillance-monitored parking. No extra charge for full-size vans, pickups or large SUVs.",
+      "address": "1055 Vandercar Way, Florence, KY 41042",
+      "distanceFromAirport": "2.8 mi",
+      "driveTime": "~6 minutes",
+      "phone": "(859) 817-0337",
+      "notes": "Allow 30 minutes for check-in. Shuttle does not run 11 PM-6:30 AM, so not ideal for 6 AM departures. Bring your own child car seat — shuttle rides are denied without proper seating.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hilton Cincinnati Airport",
+      "slug": "hilton-cincinnati-airport",
+      "dailyRate": 6.84,
+      "reservationRate": 6.84,
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant", "On-site Starbucks", "Wheelchair Access", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "24 hours; departs the hotel on the hour and half-hour, pickups on demand. From the airport, call (859) 371-4400 after baggage claim and wait at Ground Transport West, Zone 3; allow up to 30 minutes.",
+      "overview": "Full-service Hilton on Turfway Road in Florence, ~10 minutes from CVG and ~10 miles from downtown Cincinnati. No hotel room required to park. Near Turfway Park.",
+      "address": "7373 Turfway Road, Florence, KY 41042",
+      "distanceFromAirport": "3.1 mi",
+      "driveTime": "~10 minutes",
+      "phone": "(859) 371-4400",
+      "notes": "Display the front-desk dashboard sticker or risk towing; do not park in the Rafferty's lot. Shuttle cannot take mobility scooters. 18-wheelers prohibited. Quoted $50.40 total (incl. tax) for Nov 2-8.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Lot shuttle every 15 minutes, ValuPark continuous 24/7 pickup with luggage help; both trackable live on BusGenius. Off-site: all Triply partner lots are hotel lots with free shuttles that pick up at Ground Transport West (Baggage Claim level) — call the hotel after you collect bags. Hyatt Place, Holiday Inn Cincinnati Airport and Hilton run 24/7; Quality Inn & Suites (5 AM-12 AM) and Holiday Inn Express & Suites (6:30 AM-11 PM) do not run overnight.",
+  "distanceFromCity": "About 13 miles southwest of downtown Cincinnati across the Ohio River (~20-25 min by car via I-275/I-71/75) — verify exact mileage. Located in Hebron, Boone County, Kentucky.",
+  "keyDistances": {
+    "toDowntownCincinnati": "~13 miles, ~20-25 min by car; TANK 2X bus",
+    "toFlorenceKY": "~3 miles (Triply lots: Hyatt Place, Holiday Inn Express & Suites, Hilton)",
+    "toErlangerKY": "~2 miles (Triply lots: Quality Inn & Suites, Holiday Inn Cincinnati Airport)",
+    "toCovingtonKY": "verify",
+    "toArkEncounter": "verify",
+    "competitiveAdvantage": "Every Triply CVG lot sits 2-3 miles from the terminal in the Erlanger/Florence hotel corridor, so shuttle rides are short; three of five run 24/7."
+  },
+  "construction2026": {
+    "status": "No major 2026 terminal or parking construction confirmed on cvgairport.com as of 2026-10-13 — verify current traffic alerts before travel.",
+    "projects": [
+      "2050 Master Plan Update (completed March 2021) guides future terminal, parking and cargo development.",
+      "Hangar Row development (~$20M, RAISE grant funded) — airside, not passenger-facing.",
+      "Periodic Airport Access Road (KY 212) resurfacing with overnight single-lane closures (8 PM-6 AM) — date unverified."
+    ],
+    "travelImpact": "No parking facility closures identified. Check cvgairport.com alerts (e.g., Concourse B elevator notices) before travel.",
+    "timeline": {}
+  },
+  "securityAndScreening": {
+    "checkpointHours": "Normally 3:30 AM-9:20 PM daily (may change; airlines coordinate with TSA for flights outside these hours)",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck available — enroll at tsa.gov/tsa-precheck"
+    },
+    "clear": {
+      "note": "CLEAR available at CVG — enroll at clearme.com"
+    },
+    "globalEntry": {
+      "note": "International arrivals without pre-clearance are processed in Concourse B (U.S. Customs: (859) 767-7002)."
+    },
+    "standardWaitTimes": {
+      "average": "Airport advises allowing at least 30 minutes for screening",
+      "peakHours": "Early-morning departure bank (checkpoint opens 3:30 AM) — verify",
+      "tips": "Single central checkpoint feeds both concourses."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (airport guidance)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    },
+    "source": "https://www.cvgairport.com/security/"
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "The Club CVG",
+        "location": "Concourse A, between Gates A8 and A10",
+        "access": "Priority Pass and paid entry (verify); Waitwhile queue when at capacity",
+        "hours": "verify"
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse B near Gate B14, Level 3",
+        "hours": "Listed 5:00 AM-7:30 PM daily (verify on delta.com)",
+        "access": "Delta Sky Club members, eligible Delta/SkyTeam premium passengers and cardholders"
+      },
+      {
+        "name": "Escape Lounge — The Centurion Studio Partner",
+        "location": "Concourse B, upstairs near Gates B8-B12 (relocated to a larger space in 2026)",
+        "hours": "verify",
+        "access": "Amex Platinum / Business Platinum / Centurion; Delta SkyMiles Reserve with same-day Delta flight; paid pre-book or walk-up"
+      }
+    ],
+    "other": "USO Center for military members and families (near Gate A11 — verify)."
+  },
+  "wifi": {
+    "networkName": "CVG Free WiFi (per third-party listing — verify on arrival)",
+    "cost": "Free",
+    "coverage": "Terminal and concourses"
+  },
+  "evCharging": {
+    "terminalGarage": {
+      "chargers": 8,
+      "location": "Level D, Row 30",
+      "type": "120V/20A",
+      "cost": "No extra fee (garage rate $23/day applies)"
+    },
+    "valuPark": {
+      "chargers": 4,
+      "location": "Row 1",
+      "type": "120V/20A",
+      "cost": "No extra fee (ValuPark rate $12/day applies)"
+    },
+    "totalPorts": "12 EV charging stations",
+    "note": "Slow 120V charging with limited availability — plan to arrive with enough range to get home.",
+    "source": "https://www.cvgairport.com/parking-options/"
+  },
+  "luggageStorage": {
+    "onSite": "verify — no luggage storage service listed on cvgairport.com",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": "Service animal relief areas (SARA) in both concourses",
+    "locations": ["Concourse A near Gate A18", "Concourse B near Gate B13"],
+    "note": "Source: cvgairport.com/accessibility. A sensory space for neurodivergent travelers is also available.",
+    "source": "https://www.cvgairport.com/accessibility/"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early morning departures (checkpoint opens 3:30 AM)", "verify afternoon peaks"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August), spring break, Thanksgiving and Christmas/New Year. Bengals home games and Cincinnati events add weekend demand.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical/continental transition: hot, humid summers and cold winters with periodic snow and ice.",
+    "commonDisruptions": "Winter snow and freezing rain (December-February); summer thunderstorms (June-August); morning fog in the Ohio River valley.",
+    "bestMonths": "May, September, October",
+    "worstMonths": "January-February",
+    "winterNote": "Ice storms can slow drives on I-275 and hotel shuttle runs — leave extra time and check flight status.",
+    "note": "Off-site hotel lots are uncovered; bring a scraper in winter."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle combos in the Erlanger and Florence hotel corridors 2-3 miles from CVG. Triply sells parking-only at the hotels below; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$5.15/day (2026-10-13 quote); room package pricing — verify with hotel",
+    "popularHotels": [
+      { "name": "Hyatt Place Cincinnati Airport", "distance": "3.1 miles (Florence)", "parkingIncluded": "verify with hotel", "shuttleHours": "24/7 every 30 min", "highlight": "Cheapest Triply rate and 24/7 shuttle." },
+      { "name": "Hilton Cincinnati Airport", "distance": "3.1 miles (Florence)", "parkingIncluded": "verify with hotel", "shuttleHours": "24/7, on the hour and half-hour", "highlight": "Full-service hotel with on-site Starbucks." },
+      { "name": "Holiday Inn Cincinnati Airport", "distance": "2.2 miles (Erlanger)", "parkingIncluded": "verify with hotel", "shuttleHours": "24/7 every 30 min", "highlight": "Camera-monitored, well-lit lot." },
+      { "name": "Quality Inn & Suites", "distance": "2.1 miles (Erlanger)", "parkingIncluded": "verify with hotel", "shuttleHours": "5 AM-12 AM", "highlight": "Breakfast included; closest lot; no oversize fee." },
+      { "name": "Holiday Inn Express & Suites", "distance": "2.8 miles (Florence)", "parkingIncluded": "verify with hotel", "shuttleHours": "6:30 AM-11 PM", "highlight": "No oversize-vehicle fee." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "6-night trip (Nov 2-8, 2026 — billed as 7 days), quoted 2026-10-13",
+    "onAirport": {
+      "economyLot": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" },
+      "valuPark": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" },
+      "terminalGarage": { "parkingCost": "$161 (7 x $23)", "totalEstimate": "$161" },
+      "premiumReserved": { "parkingCost": "$189 (7 x $27)", "totalEstimate": "$189" },
+      "valetParking": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" }
+    },
+    "offSiteWithShuttle": {
+      "hyattPlaceCincinnatiAirport": { "parkingCost": "$36.03 quoted total (~$5.15/day)", "savingsVsEconomyLot": "~$34 saved", "savingsVsTerminalGarage": "~$125 saved", "caveat": "24/7 shuttle every 30 min" },
+      "qualityInnSuites": { "parkingCost": "$37.91 quoted total (~$5.42/day)", "savingsVsEconomyLot": "~$32 saved", "savingsVsTerminalGarage": "~$123 saved", "caveat": "No shuttle 12-5 AM" },
+      "holidayInnCincinnatiAirport": { "parkingCost": "$38.46 quoted total (~$5.49/day all-in)", "savingsVsEconomyLot": "~$32 saved", "savingsVsTerminalGarage": "~$123 saved", "caveat": "24/7 shuttle" },
+      "holidayInnExpressSuites": { "parkingCost": "$43.35 quoted total (~$6.19/day)", "savingsVsEconomyLot": "~$27 saved", "savingsVsTerminalGarage": "~$118 saved", "caveat": "No shuttle 11 PM-6:30 AM" },
+      "hiltonCincinnatiAirport": { "parkingCost": "$50.40 quoted total incl. tax (~$7.20/day)", "savingsVsEconomyLot": "~$20 saved", "savingsVsTerminalGarage": "~$111 saved", "caveat": "24/7 shuttle" }
+    },
+    "publicTransit": {
+      "tankBusRoundTrip": { "costPerPersonRoundTrip": "$4 (2 x $2 local cash fare — verify 2X fare)", "travelTime": "verify", "note": "Only practical for downtown Cincinnati travelers." }
+    },
+    "keyDifference": "CVG's own Economy Lot is already cheap at $10/day, but Triply's Florence/Erlanger hotel lots run ~$5-7/day all-in — roughly half the Economy Lot and 69-78% less than the $23/day Terminal Garage."
+  },
+  "uniqueFeatures": {
+    "kentuckyNotOhio": "CVG is in Hebron, Kentucky — not Ohio — even though it is Cincinnati's main airport. The Ohio River separates the airport from the city.",
+    "amazonAirHub": "Amazon Air's primary hub opened at CVG in 2017 on ~1,129 acres with a 3 million sq ft sort center and parking for 100+ aircraft.",
+    "dhlHub": "DHL has run its Americas hub at CVG since 1984, with about 2,500 employees on site.",
+    "cargoGiant": "1.7 million tons of cargo in 2025 — 5th busiest U.S. airport by cargo.",
+    "deltaLegacy": "CVG was Delta's second-largest hub (600+ daily flights in 2005) and home of Comair until 2012. Delta remains the largest passenger carrier today.",
+    "rainManWalkway": "The underground walkway between the terminal and concourses appears in the film Rain Man.",
+    "art": "Five Winold Reiss Art Deco mosaic murals from Cincinnati Union Terminal and Charley Harper artwork in Concourse B."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(859) 767-3230",
+    "airportMain": "(859) 767-3151",
+    "airportWebsite": "cvgairport.com",
+    "parkingInfo": "cvgairport.com/parking-options",
+    "parkingPhone": "(859) 767-7400",
+    "lostAndFound": "(859) 767-4885",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "usCustoms": "(859) 767-7002",
+    "tankBus": "(859) 331-8265",
+    "ztripTaxi": "(513) 962-1122",
+    "emergency": "911 — state you are at CVG Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-13.",
+    "officialAirport": {
+      "home": "https://www.cvgairport.com/",
+      "parking": "https://www.cvgairport.com/parking-options/",
+      "parkingReservations": "https://parking.cvgairport.com/",
+      "parkingAdvantage": "https://www.cvgairport.com/parking-advantage-program/",
+      "valet": "https://www.cvgairport.com/parking-options/valet-parking/",
+      "shuttleTracking": "https://www.busgenius.com/setup_map_url?live_url=cvg",
+      "groundTransportation": "https://www.cvgairport.com/terminal-information/ground-transportation/",
+      "rentalCars": "https://www.cvgairport.com/terminal-information/rental-cars/",
+      "meetingPassengers": "https://www.cvgairport.com/terminal-information/meeting-passengers/",
+      "terminalInfo": "https://www.cvgairport.com/terminal-information/",
+      "airportTour": "https://www.cvgairport.com/terminal-information/airport-tour/",
+      "security": "https://www.cvgairport.com/security/",
+      "accessibility": "https://www.cvgairport.com/accessibility/",
+      "lostAndFound": "https://www.cvgairport.com/terminal-information/lost-and-found/",
+      "contact": "https://www.cvgairport.com/contact/",
+      "masterPlan": "https://www.cvgairport.com/business/about/master-plan/",
+      "newsroom": "https://www.cvgairport.com/business/newsroom/"
+    },
+    "transit": {
+      "tankAirportRoutes": "https://www.tankbus.org/fixed-routes/?cat=airport",
+      "tankFares": "https://www.tankbus.org/fares-guides/fare/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/cvg/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=CVG"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "lounges": {
+      "flightqueue": "https://flightqueue.com/lounges/cvg",
+      "deltaSkyClub": "https://www.delta.com/gb/en/airports/united-states/cincinnati-sky-club-airport-map"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KCVG",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/CVG"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Cincinnati/Northern_Kentucky_International_Airport",
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/cincinnati-northern-kentucky-cvg-airport/"
+    },
+    "newsAndMedia": {
+      "nkyTribune": "https://nkytribune.com/",
+      "linkNky": "https://linknky.com/",
+      "wcpo": "https://www.wcpo.com/news/cvg",
+      "spectrumNews": "https://spectrumnews1.com/oh/cincinnati"
+    }
+  }
+}

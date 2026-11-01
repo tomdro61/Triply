@@ -240,7 +240,9 @@
       "driveTime": "5 minutes",
       "freeCancellation": true,
       "knownCoupons": ["25PARK (friends & family discount — $17/day rate)", "FLYEWR10 ($10 off reservation)", "Check ezwayparking.com/promo-codes for seasonal codes"],
-      "notes": "Closest lot to EWR entrance. $6 one-time service fee added. Valet only — must leave keys. Promo code 25PARK is widely used."
+      "notes": "Closest lot to EWR entrance. $6 one-time service fee added. Valet only — must leave keys. Promo code 25PARK is widely used.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "ABC Airport Parking (EWR)",
@@ -258,7 +260,9 @@
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Check abcairportparking.net for current 48% off coupon", "EWR319 ($5 off via AirportParkingReservations)"],
-      "notes": "Good value with frequent shuttle. $6 service fee on top of daily rate. One of the more affordable options near EWR."
+      "notes": "Good value with frequent shuttle. $6 service fee on top of daily rate. One of the more affordable options near EWR.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Apex EWR Airport Parking",
@@ -276,7 +280,9 @@
       "driveTime": "3 minutes",
       "freeCancellation": true,
       "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)", "Book via Way.com from $3.35/day"],
-      "notes": "Extremely close to airport. Among the lowest daily rates when pre-booked. Valet only — must leave keys."
+      "notes": "Extremely close to airport. Among the lowest daily rates when pre-booked. Valet only — must leave keys.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Victoria Parking (EWR)",
@@ -295,7 +301,9 @@
       "freeCancellation": true,
       "googleRating": "Mixed reviews on Yelp (13 reviews)",
       "knownCoupons": ["Groupon deals available", "WEBSITE code for website discount"],
-      "notes": "One of few lots offering indoor/covered parking. Indoor rate higher than outdoor. Shuttle is frequent and reliable."
+      "notes": "One of few lots offering indoor/covered parking. Indoor rate higher than outdoor. Shuttle is frequent and reliable.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Newark Airport Long Term Parking (NALTP)",
@@ -313,13 +321,15 @@
       "driveTime": "2-3 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Check newarklongtermparking.com/resources/ for seasonal coupons", "NALTP Club members get exclusive deals"],
-      "notes": "Higher priced than competitors but emphasizes service quality. EV charging available. Dynamic pricing — rates vary by season and occupancy."
+      "notes": "Higher priced than competitors but emphasizes service quality. EV charging available. Dynamic pricing — rates vary by season and occupancy.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hilton Newark Airport Parking",
       "slug": "hilton-newark-airport-parking-ewr",
-      "dailyRate": 10.49,
-      "reservationRate": 9.99,
+      "dailyRate": 14.59,
+      "reservationRate": 14.59,
       "parkingType": "Self-park (outdoor, uncovered)",
       "amenities": ["Free Shuttle Every 15 Min", "Hotel Amenities", "24/7 Front Desk", "Restaurant"],
       "shuttleInfo": "Free shuttle every 15 minutes, rides under 10 minutes to terminal.",
@@ -331,7 +341,11 @@
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
       "knownCoupons": ["EWR319 ($5 off via AirportParkingReservations)"],
-      "notes": "Hotel lot — convenient if combining with Park-Sleep-Fly package. Self-park (keep your keys). Shuttle every 15 min."
+      "notes": "Hotel lot — convenient if combining with Park-Sleep-Fly package. Self-park (keep your keys). Shuttle every 15 min.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Courtyard by Marriott Newark Airport Parking",
@@ -367,7 +381,9 @@
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Pre-book online from $5.95/day — significant savings vs walk-up"],
-      "notes": "Excellent pre-book savings ($5.95 vs $9.95 walk-up). Real-time shuttle tracking is a plus. Valet only — must leave keys."
+      "notes": "Excellent pre-book savings ($5.95 vs $9.95 walk-up). Real-time shuttle tracking is a plus. Valet only — must leave keys.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "couponCodes": {

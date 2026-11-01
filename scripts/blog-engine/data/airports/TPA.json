@@ -1,7 +1,7 @@
 {
   "code": "TPA",
   "fullName": "Tampa International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "Hillsborough County, Florida — 6 miles west of downtown Tampa",
     "iataCode": "TPA",
@@ -148,12 +148,14 @@
     },
     "hotelShuttles": "Many Westshore-area hotels offer complimentary airport shuttles — check with your hotel before booking. Hotels along Westshore Blvd, Boy Scout Blvd, and Cypress Street are closest to TPA."
   },
-  "parkingRates": "On-airport: Short-Term Garage $24/day (1st hr free), Long-Term Garage $20/day ($18 online), Economy Garage $12/day ($10 online), Valet $32/day. Off-site: from ~$4.99/day with shuttle. Pre-booking at park.tampaairport.com for discounted rates and guaranteed space.",
+  "parkingRates": "On-airport (daily maximums raised $4 on 4 Aug 2026): Short-Term Garage $32/day, Long-Term Garage $26/day, Economy Garage $22/day; first hour free in all three garages. Valet $32/day. Off-site: from ~$8/day with shuttle (Grand Hyatt Tampa Bay). Pre-booking at park.tampaairport.com is cheaper than drive-up and guarantees a space.",
   "onAirportParking": {
     "shortTermGarage": {
       "name": "Short-Term Parking Garage",
-      "rate": "First hour FREE. $4 for 60-80 minutes, $2 each additional 20 minutes.",
-      "dailyMax": 24,
+      "rate": "First hour FREE. $32 per 24-hour maximum (hourly calculation was simplified in Aug 2026; new hourly steps not published).",
+      "dailyMax": 32,
+      "lastVerified": "2026-10-13",
+      "source": "https://news.tampaairport.com/changes-to-tpa-parking-coming-this-summer/",
       "location": "Levels 4-9 directly above the Main Terminal",
       "serves": "All airsides — direct elevator/escalator access to Main Terminal ticketing and baggage claim",
       "features": "Most convenient option — located directly above the terminal. Best for pickups, drop-offs, and short trips (1-2 days). First hour free makes it ideal for meeters/greeters. EV Level 2 charging stations available.",
@@ -161,23 +163,23 @@
     },
     "longTermGarage": {
       "name": "Long-Term Parking Garage",
-      "rate": "First hour FREE. $4 for 60-80 minutes, $2 each additional 20 minutes.",
-      "dailyMax": 20,
+      "rate": "First hour FREE. $26 per day maximum (hourly calculation was simplified in Aug 2026; new hourly steps not published).",
+      "dailyMax": 26,
       "onlineRate": 18,
       "location": "Adjacent to the Main Terminal",
       "serves": "All airsides — connected to Main Terminal via covered walkway",
-      "features": "Best value on-airport garage for multi-day trips. Save $2/day by booking online. Covered parking protects from Florida sun and rain. EV Level 1 charging stations available.",
+      "features": "Best value on-airport garage for multi-day trips. Pre-booking online is cheaper than drive-up and guarantees a space. Covered parking protects from Florida sun and rain. EV Level 1 charging stations available.",
       "preBookingUrl": "https://park.tampaairport.com/"
     },
     "economyGarage": {
       "name": "Economy Parking Garage",
-      "rate": "$12/day (gate rate). $10/day when pre-booked online.",
-      "dailyMax": 12,
+      "rate": "First hour FREE. $22/day maximum (gate rate). Pre-booking online is cheaper than drive-up.",
+      "dailyMax": 22,
       "onlineRate": 10,
       "capacity": 11000,
       "connection": "FREE SkyConnect automated people mover to Main Terminal (every 2 minutes, under 5-minute ride)",
       "features": "Best budget on-airport option with 11,000 spaces. Connected via SkyConnect APM — no outdoor shuttle needed. Covered garage protects vehicles from weather. EV Level 1 charging stations available. Rarely fills up due to massive capacity.",
-      "note": "The Economy Garage is the most popular on-airport option for multi-day parkers. At $10/day pre-booked, it's competitive with off-site lots — and you get covered garage parking plus the SkyConnect people mover (no shuttle bus).",
+      "note": "The Economy Garage is the most popular on-airport option for multi-day parkers: covered garage parking plus the SkyConnect people mover (no shuttle bus). At $22/day (since 4 Aug 2026) it costs well over double the off-site Grand Hyatt Tampa Bay (about $8/day) that Triply sells.",
       "preBookingUrl": "https://park.tampaairport.com/"
     },
     "valetParking": {
@@ -208,7 +210,7 @@
     },
     "accessibleParking": "Accessible parking available in all garages with designated spaces near elevators and terminal access points. ADA-compliant paths to all facilities.",
     "totalCapacity": "~20,000 vehicles across Short-Term, Long-Term, Economy garages and Valet",
-    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Online pre-booking available at park.tampaairport.com for discounted rates.",
+    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. New exit machines take tap-to-pay and Apple Pay. Online pre-booking at park.tampaairport.com is cheaper than drive-up.",
     "garageServiceAreas": "Short-Term → directly above Main Terminal (Levels 4-9). Long-Term → adjacent to Main Terminal via covered walkway. Economy → connected via SkyConnect APM. All garages serve all airsides since everything routes through the central Main Terminal."
   },
   "parkingLots": [
@@ -224,7 +226,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "WARNING: No shuttle service. You must arrange your own ride to the terminal. Covered parking available — unusual for off-site lots in Tampa. Best for travelers who can rideshare cheaply."
+      "notes": "WARNING: No shuttle service. You must arrange your own ride to the terminal. Covered parking available — unusual for off-site lots in Tampa. Best for travelers who can rideshare cheaply.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Godfrey Hotel & Cabanas Tampa (TPA)",
@@ -238,7 +242,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Good value at $6/day with shuttle included. Confirm shuttle hours before booking for early morning or late night flights."
+      "notes": "Good value at $6/day with shuttle included. Confirm shuttle hours before booking for early morning or late night flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "DoubleTree by Hilton Tampa Airport - Westshore (TPA)",
@@ -252,7 +258,9 @@
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "24/7 shuttle is a major advantage — works for any flight time. DoubleTree is a trusted brand with good security. Slightly pricier than budget lots but the 24/7 shuttle justifies it."
+      "notes": "24/7 shuttle is a major advantage — works for any flight time. DoubleTree is a trusted brand with good security. Slightly pricier than budget lots but the 24/7 shuttle justifies it.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hyatt Place Tampa Airport/Westshore (TPA)",
@@ -266,7 +274,9 @@
       "distanceFromAirport": "1.7 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Early 4 AM shuttle start covers most morning departures. On-demand shuttle after 8 AM is convenient. Confirm late-night pickup availability for red-eye arrivals."
+      "notes": "Early 4 AM shuttle start covers most morning departures. On-demand shuttle after 8 AM is convenient. Confirm late-night pickup availability for red-eye arrivals.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Holiday Inn Tampa Westshore - Airport Area (TPA)",
@@ -280,7 +290,9 @@
       "distanceFromAirport": "2.2 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Up to 21 days of parking makes this ideal for extended vacations or cruises. Confirm shuttle hours — may not run 24/7."
+      "notes": "Up to 21 days of parking makes this ideal for extended vacations or cruises. Confirm shuttle hours — may not run 24/7.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fairfield Inn & Suites Tampa Fairgrounds (TPA)",
@@ -294,7 +306,9 @@
       "distanceFromAirport": "4.5 mi",
       "driveTime": "12-15 minutes",
       "freeCancellation": true,
-      "notes": "Further from airport but cheaper. Up to 10 days of parking. Confirm shuttle schedule — may have limited hours."
+      "notes": "Further from airport but cheaper. Up to 10 days of parking. Confirm shuttle schedule — may have limited hours.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE SkyConnect automated people mover connects Main Terminal to Economy Parking Garage and Rental Car Center — every 2 minutes, 24/7, under 5-minute ride. No shuttle buses needed for on-airport parking (Short-Term and Long-Term garages are walkable from terminal). Off-site: Most hotel lots include complimentary shuttle — frequency varies from 24/7 (DoubleTree) to scheduled hours. CRITICAL: Safeway Parking does NOT provide shuttle service — you must arrange your own transportation to the terminal. Always verify shuttle hours before booking off-site lots for early morning or late night flights.",
@@ -501,21 +515,21 @@
   "savingsComparison": {
     "scenario": "7-day trip for 2 travelers",
     "onAirport": {
-      "shortTermGarage": { "parkingCost": "$168 (7 x $24)", "totalEstimate": "$168" },
-      "longTermGarage": { "parkingCost": "$126 (7 x $18 online)", "totalEstimate": "$126" },
-      "economyGarage": { "parkingCost": "$70 (7 x $10 online)", "totalEstimate": "$70" },
+      "shortTermGarage": { "parkingCost": "$224 (7 x $32)", "totalEstimate": "$224" },
+      "longTermGarage": { "parkingCost": "$182 (7 x $26)", "totalEstimate": "$182" },
+      "economyGarage": { "parkingCost": "$154 (7 x $22)", "totalEstimate": "$154" },
       "valetParking": { "parkingCost": "$224 (7 x $32)", "totalEstimate": "$224" }
     },
     "offSiteWithShuttle": {
-      "safewayParking": { "parkingCost": "$34.93 (7 x $4.99 pre-booked)", "savingsVsLongTerm": "~$91 saved", "caveat": "NO shuttle — must arrange own ride ($5-8 rideshare each way)" },
-      "godfreyHotel": { "parkingCost": "$42.00 (7 x $6.00 pre-booked)", "savingsVsLongTerm": "~$84 saved", "caveat": "Shuttle included, verify hours" },
-      "doubletreeWestshore": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsLongTerm": "~$70 saved", "caveat": "24/7 shuttle — most reliable" }
+      "safewayParking": { "parkingCost": "$34.93 (7 x $4.99 pre-booked)", "savingsVsLongTerm": "~$147 saved", "caveat": "NO shuttle — must arrange own ride ($5-8 rideshare each way)" },
+      "godfreyHotel": { "parkingCost": "$42.00 (7 x $6.00 pre-booked)", "savingsVsLongTerm": "~$140 saved", "caveat": "Shuttle included, verify hours" },
+      "doubletreeWestshore": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsLongTerm": "~$126 saved", "caveat": "24/7 shuttle — most reliable" }
     },
     "publicTransit": {
       "hartBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "30-40 min to downtown Tampa", "note": "$2.00 per ride. Cheapest option but slow and limited frequency." },
       "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than parking for trips of any length if coming from nearby Westshore/downtown" }
     },
-    "keyDifference": "TPA's Economy Garage at $10/day (online) is the sweet spot — covered garage parking with a free SkyConnect people mover is hard to beat. Off-site lots save $3-5/day but add shuttle time and hassle. The Economy Garage's 11,000-space capacity means it rarely fills up. For budget travelers, Safeway at $4.99/day is the cheapest but requires arranging your own ride to the terminal."
+    "keyDifference": "TPA's Economy Garage at $22/day (daily maximums rose $4 on 4 Aug 2026) gives covered garage parking and a free SkyConnect people mover, and its 11,000-space capacity means it rarely fills up. Off-site, the Grand Hyatt Tampa Bay (about $8/day, with an airport shuttle) is the lot Triply sells near TPA: a week there (~$57 at rate x 7) costs less than half of a week in the Economy Garage ($154)."
   },
   "uniqueFeatures": {
     "bestAirportInAmerica": "TPA is consistently ranked the #1 large airport in the U.S. for customer satisfaction — back-to-back J.D. Power #1 rankings (2022-2023), #2 in 2024-2025, and three consecutive ACI Airport Service Quality #1 awards. Condé Nast Traveler ranked TPA the #2 airport in the world. Travelers routinely cite TPA as the best airport experience in the United States.",

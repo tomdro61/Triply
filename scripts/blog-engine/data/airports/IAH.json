@@ -1,7 +1,7 @@
 {
   "code": "IAH",
   "fullName": "George Bush Intercontinental Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "Houston, Texas — 23 miles north of downtown Houston, in unincorporated Harris County",
     "iataCode": "IAH",
@@ -151,38 +151,38 @@
     },
     "hotelShuttles": "Many nearby hotels offer complimentary shuttle service — check with your hotel before booking. Most airport-area hotels along JFK Boulevard, Greens Road, and Will Clayton Parkway provide shuttle service to IAH."
   },
-  "parkingRates": "On-airport: Terminal Garages $5/hr ($25/day max), Valet $30/day, ecopark uncovered ~$6.47/day, ecopark covered ~$8.31/day. Off-site: from ~$3.99/day with shuttle. Book online at fly2houston.com for discounts.",
+  "parkingRates": "On-airport (rates include tax): Terminal Garages $5 first hour, $25/day max; Valet $30/day; ecopark uncovered $10/day, ecopark covered $12/day; ecopark2 covered $12/day (reservation only since 1 June 2026). Off-site: from ~$6/day with shuttle (Hilton Garden Inn Houston/Bush). Book online at fly2houston.com.",
   "onAirportParking": {
     "terminalGarages": {
       "name": "Terminal Garages (A/B, C, D/E)",
-      "rate": "$5.00 per hour",
+      "rate": "$5 first hour",
       "dailyMax": 25,
-      "maxStay": "30 days",
+      "maxStay": "60 days",
       "serves": "Each terminal has its own adjacent garage — Terminal A/B Garage, Terminal C Garage, Terminal D/E Garage",
       "features": "Direct covered walkway to terminals. Best for short stays and travelers who prioritize convenience. EV charging on Level 4 of Terminal A/B and Terminal CDE garages.",
       "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
     },
     "ecopark": {
       "name": "ecopark (Economy Parking)",
-      "uncoveredRate": "$6.47/day (plus tax)",
-      "coveredRate": "$8.31/day (plus tax)",
+      "uncoveredRate": "$10.00 per 24 hours (tax included)",
+      "coveredRate": "$12.00 per 24 hours (tax included)",
       "location": "JFK Boulevard, near airport entrance",
-      "connection": "FREE 24/7 shuttle service to all terminals, every 10-15 minutes",
+      "connection": "FREE 24/7 shuttle service to all terminals, about every 10 minutes (one route serves Terminal A, the other Terminals C, D and E)",
       "features": "Best budget option for on-airport parking. Both covered and uncovered available. Free EV charging (Blink stations). 24/7 shuttle service. Book online for best rates.",
       "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
     },
     "ecopark2": {
       "name": "ecopark 2",
-      "coveredRate": "$7.39/day (plus tax)",
+      "coveredRate": "$12.00 per 24 hours (tax included); reservation required, no drive-up since 1 June 2026",
       "location": "Will Clayton Parkway",
       "connection": "FREE 24/7 shuttle service to all terminals",
-      "features": "Newer economy lot with covered parking. Free EV charging (Blink stations). Competitive rates between ecopark uncovered and covered.",
+      "features": "Newer economy lot with covered parking. Free EV charging (Blink stations). Same rate as ecopark covered ($12/day). Reservation-only since 1 June 2026: a reservation is required for entry.",
       "preBookingUrl": "https://www.fly2houston.com/iah/parking/"
     },
     "valetParking": {
       "name": "Valet Parking",
       "rate": "$30.00 per day",
-      "locations": "Available at Terminal A, Terminal C, and Terminal E departures level",
+      "locations": "Terminal A street level, Terminal C Level 4 (Blue Garage), Terminal E (Purple Garage)",
       "features": "Premium drop-off option. Car is parked for you and retrieved upon return. Best for business travelers and short trips."
     },
     "cellPhoneLot": {
@@ -204,7 +204,7 @@
     },
     "accessibleParking": "Accessible parking available on ground level of all terminal garages and in ecopark lots. Van-accessible spaces available.",
     "totalCapacity": "~40,000 parking spaces across all airport facilities",
-    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Online pre-booking at fly2houston.com.",
+    "paymentMethods": "Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay. Cash NOT accepted (cash-to-card machine on Level 2). Online pre-booking at fly2houston.com.",
     "garageServiceAreas": "Terminal A/B Garage → Terminals A and B. Terminal C Garage → Terminal C. Terminal D/E Garage → Terminals D and E. Use Skyway or Subway to reach other terminals."
   },
   "parkingLots": [
@@ -220,7 +220,9 @@
       "distanceFromAirport": "2.4 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Shuttle every 5-7 minutes is among the most frequent off-site options at IAH. Free luggage assistance. EV charging available on first-come basis. Valet option for premium service."
+      "notes": "Shuttle every 5-7 minutes is among the most frequent off-site options at IAH. Free luggage assistance. EV charging available on first-come basis. Valet option for premium service.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot (IAH)",
@@ -234,7 +236,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "4-7 minutes",
       "freeCancellation": true,
-      "notes": "3 IAH locations on JFK Blvd. Spot Club rewards earn free parking days. Covered parking available at a premium. Reliable national chain."
+      "notes": "3 IAH locations on JFK Blvd. Spot Club rewards earn free parking days. Covered parking available at a premium. Reliable national chain.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "PreFlight Airport Parking (IAH)",
@@ -248,7 +252,9 @@
       "distanceFromAirport": "2.4 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Best value for long-term parking — 7-day rate drops to $3.99/day uncovered. Same location as Fine Airport Parking on Greens Road. Budget pick."
+      "notes": "Best value for long-term parking — 7-day rate drops to $3.99/day uncovered. Same location as Fine Airport Parking on Greens Road. Budget pick.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fast Park & Relax (IAH)",
@@ -262,7 +268,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "4-6 minutes",
       "freeCancellation": true,
-      "notes": "All covered parking — important in Houston's extreme heat and frequent rain. Staffed 24/7 for security. Good mid-range option."
+      "notes": "All covered parking — important in Houston's extreme heat and frequent rain. Staffed 24/7 for security. Good mid-range option.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Comfort Suites Houston IAH Airport (Parking)",
@@ -276,7 +284,9 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "6-10 minutes",
       "freeCancellation": true,
-      "notes": "Good for park-sleep-fly combo. Check shuttle hours before booking for early/late flights."
+      "notes": "Good for park-sleep-fly combo. Check shuttle hours before booking for early/late flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hilton Garden Inn Houston/Bush IAH (Parking)",
@@ -290,10 +300,12 @@
       "distanceFromAirport": "3.5 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Hilton brand quality. Park-sleep-fly packages good value for early morning flights. Verify shuttle hours."
+      "notes": "Hilton brand quality. Park-sleep-fly packages good value for early morning flights. Verify shuttle hours.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-13"
     }
   ],
-  "shuttleInfo": "On-airport: FREE Skyway people mover and Subway train connect all five terminals 24/7. ecopark and ecopark 2 have free 24/7 shuttle service every 10-15 minutes. Free rental car shuttle runs 24/7 to Rental Car Center. Off-site: Most lots include free shuttle — Fine Airport Parking runs every 5-7 min (best frequency), The Parking Spot every 15 min, PreFlight and Fast Park every 10-15 min. All major off-site lots run 24/7 shuttles.",
+  "shuttleInfo": "On-airport: FREE Skyway people mover and Subway train connect all five terminals 24/7. ecopark and ecopark 2 have free 24/7 shuttle service about every 10 minutes. Free rental car shuttle runs 24/7 to Rental Car Center. Off-site: Most lots include free shuttle — Fine Airport Parking runs every 5-7 min (best frequency), The Parking Spot every 15 min, PreFlight and Fast Park every 10-15 min. All major off-site lots run 24/7 shuttles.",
   "distanceFromCity": "23 miles north of downtown Houston. 25-40 minutes by car (traffic dependent — Houston traffic can be severe). ~35-45 minutes by Route 500 Downtown Direct ($4.50). Houston's primary international airport.",
   "keyDistances": {
     "toDowntownHouston": "23 miles, 25-40 min by car, 35-45 min by Route 500 ($4.50), $35-50 rideshare, $55-65 taxi",
@@ -544,8 +556,8 @@
     "onAirport": {
       "terminalGarage": { "parkingCost": "$175 (7 x $25)", "totalEstimate": "$175" },
       "valetParking": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
-      "ecoparkUncovered": { "parkingCost": "$45.29 (7 x $6.47)", "totalEstimate": "$45.29" },
-      "ecoparkCovered": { "parkingCost": "$58.17 (7 x $8.31)", "totalEstimate": "$58.17" }
+      "ecoparkUncovered": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" },
+      "ecoparkCovered": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" }
     },
     "offSiteWithShuttle": {
       "preFlightParking": { "parkingCost": "$27.93 (7 x $3.99 pre-booked 7-day rate)", "savingsVsGarage": "~$147 saved", "caveat": "24/7 shuttle, cheapest option" },
@@ -557,14 +569,14 @@
       "metroBus102RoundTrip": { "costPerPersonRoundTrip": "$2.50", "travelTime": "45-90 min to downtown", "note": "$1.25 per ride. Cheapest but slowest option." },
       "rideshareRoundTrip": { "costForCouple": "$70-$100 (UberX downtown round trip)", "note": "Still cheaper than terminal garage for 3+ day trips" }
     },
-    "keyDifference": "IAH's ecopark lots ($6.47-8.31/day) are among the cheapest on-airport economy parking in major U.S. airports. Off-site PreFlight at $3.99/day (7-day rate) is exceptional value. The terminal garages at $25/day are expensive — avoid for stays beyond a few hours. Unlike airports with rail connections, IAH relies on bus/shuttle/car — factor in ground transportation costs to your parking decision."
+    "keyDifference": "IAH's ecopark lots ($10-12/day, tax included) are the budget on-airport option. Off-site, the Hilton Garden Inn Houston/Bush (about $6/day) is the cheapest lot Triply sells. The terminal garages at $25/day are expensive — avoid for stays beyond a few hours. Unlike airports with rail connections, IAH relies on bus/shuttle/car — factor in ground transportation costs to your parking decision."
   },
   "uniqueFeatures": {
     "unitedSecondLargestHub": "IAH is United Airlines' second-largest hub worldwide (after Chicago O'Hare). United dominates Terminals B, C, and E with 700+ daily departures. This makes IAH an excellent connecting hub for Star Alliance travelers.",
     "fiveTerminalLayout": "IAH's sprawling 10,000-acre campus has 5 separate terminals — the most of any airport in Texas. Terminals are connected by the Skyway (above ground, inside security) and Subway (underground, outside security). Allow extra time for inter-terminal connections.",
     "mickeyLelandTerminal": "Terminal D is named after Mickey Leland, a Houston congressman who died in a 1989 plane crash in Ethiopia while on a hunger relief mission. The terminal was renamed in his honor and serves as IAH's primary international gateway.",
     "houstonOilCapital": "Houston is the energy capital of the world — IAH serves the headquarters of ExxonMobil, Chevron, ConocoPhillips, Shell USA, and dozens of oil & gas companies. Business travel is a major driver of IAH traffic, particularly midweek.",
-    "cheapEconomyParking": "IAH's ecopark lots at $6.47-8.31/day are among the cheapest on-airport economy parking at any major U.S. airport. Combined with free EV charging, IAH is one of the most parking-friendly major airports.",
+    "cheapEconomyParking": "IAH's ecopark lots at $10-12/day (tax included) are the budget on-airport option. Combined with free EV charging, IAH is one of the most parking-friendly major airports.",
     "freeEvCharging": "IAH offers free EV charging via Blink stations across ecopark lots and terminal garages — a significant advantage over airports like MIA that charge $0.38/kWh.",
     "nasaProximity": "IAH is the closest major airport to NASA's Johnson Space Center (45 miles) — home of Mission Control and astronaut training. 'Houston, we have a problem' was directed to the Johnson Space Center.",
     "dualAirportCity": "Houston has two commercial airports: IAH (international, United hub, north Houston) and HOU/Hobby (domestic, Southwest hub, south Houston, 12 miles from downtown). IAH handles international flights while Hobby focuses on domestic Southwest service.",

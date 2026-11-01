@@ -244,7 +244,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "24/7 shuttle is a strong advantage. Free bottle of water on departure. One of the most popular off-site lots at BWI."
+      "notes": "24/7 shuttle is a strong advantage. Free bottle of water on departure. One of the most popular off-site lots at BWI.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot (West)",
@@ -258,7 +260,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Former Econopark location now operated by The Parking Spot. Same shuttle frequency and amenities as East location."
+      "notes": "Former Econopark location now operated by The Parking Spot. Same shuttle frequency and amenities as East location.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "FastPark & Relax (BWI)",
@@ -272,7 +276,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3 minutes",
       "freeCancellation": true,
-      "notes": "Closest off-site lot with covered parking option. 3-minute shuttle ride is the fastest among off-site lots. Pre-booking online saves ~$1/day."
+      "notes": "Closest off-site lot with covered parking option. 3-minute shuttle ride is the fastest among off-site lots. Pre-booking online saves ~$1/day.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "FastPark 2 (BWI)",
@@ -286,7 +292,9 @@
       "distanceFromAirport": "1.2 mi",
       "driveTime": "2 minutes",
       "freeCancellation": true,
-      "notes": "Covered parking at a competitive rate. 2-minute shuttle is the fastest off-site option. Pre-booking recommended for best rates."
+      "notes": "Covered parking at a competitive rate. 2-minute shuttle is the fastest off-site option. Pre-booking recommended for best rates.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "DoubleTree by Hilton BWI Airport",
@@ -300,7 +308,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Best pre-book rate among off-site lots at $5.95/day. Hotel amenities available if combining with park-sleep-fly package."
+      "notes": "Best pre-book rate among off-site lots at $5.95/day. Hotel amenities available if combining with park-sleep-fly package.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Aloft BWI Baltimore Washington International Airport",
@@ -314,7 +324,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Park & Fly package is good value if you need a hotel night. Standalone parking rate is higher than competitors. Marriott Bonvoy points eligible for hotel stays."
+      "notes": "Park & Fly package is good value if you need a hotel night. Standalone parking rate is higher than competitors. Marriott Bonvoy points eligible for hotel stays.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE shuttle connects terminal to Long-Term Lots, Express Parking, Daily Garage, and BWI Rail Station (MARC/Amtrak). Runs every 10-15 minutes (every 25 minutes between 1-5 AM). Off-site: All major off-site lots (The Parking Spot, FastPark) include free 24/7 shuttle running every 5-10 minutes. Hotel shuttles pick up at designated zones on lower level.",

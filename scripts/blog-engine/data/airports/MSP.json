@@ -1,7 +1,7 @@
 {
   "code": "MSP",
   "fullName": "Minneapolis-Saint Paul International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "Unincorporated Hennepin County, Minnesota — between Minneapolis and Saint Paul, adjacent to the cities of Richfield, Bloomington, Eagan, and Mendota Heights",
     "iataCode": "MSP",
@@ -117,7 +117,7 @@
     },
     "hotelShuttles": "Many nearby hotels in Bloomington (Mall of America area), Eagan, and Richfield offer complimentary shuttle service. The InterContinental MSP Airport hotel is connected to Terminal 1 via skyway. Check with your hotel before booking."
   },
-  "parkingRates": "On-airport: Terminal 1 Daily Ramps $30/day ($5 first hour, $3/hr after), Valet $50/day, Value Parking (Terminal 2) $21/day, Quick Ride Ramp $19/day with free shuttle. Off-site: from ~$7.95/day with shuttle. Pre-booking recommended for holiday travel.",
+  "parkingRates": "On-airport (rates before tax): Terminal 1 Daily Ramps $30/day ($5 first hour, $3/hr after), Valet $55/day, Value Parking (Terminal 2 Orange and Purple Ramps) $23/day, Quick Ride Ramp $19/day with free 24/7 shuttle. Off-site: from ~$10/day with shuttle (Hyatt Regency Bloomington). Pre-booking recommended for holiday travel.",
   "onAirportParking": {
     "terminal1DailyParking": {
       "name": "Terminal 1 Daily Parking Ramps (Green, Gold, Blue, Red, Silver, Pink, Brown)",
@@ -131,22 +131,22 @@
     "valetParking": {
       "name": "Valet Parking",
       "rate": "$10.00 first hour, $3.00 each additional hour",
-      "dailyMax": 50,
+      "dailyMax": 55,
       "maxStay": "30 days",
       "location": "Terminal 1, upper east roadway near Door 2",
       "features": "Premium drop-off option at Terminal 1 only. Vehicle is parked for you and returned when you call ahead upon landing."
     },
     "valueParking": {
-      "name": "Value Parking (Terminal 2 Orange Ramp)",
-      "rate": "$21.00 per day",
-      "dailyMax": 21,
+      "name": "Value Parking (Terminal 2 Orange and Purple Ramps)",
+      "rate": "$5.00 first hour, $3.00 each additional hour, $23.00 daily maximum",
+      "dailyMax": 23,
       "serves": "Terminal 2 — Humphrey. Connected to Terminal 1 via free METRO Blue Line (~10 min).",
       "features": "Best on-airport budget option for Terminal 2 travelers. Covered ramp parking. METRO Blue Line station on north side of Orange Ramp provides free connection to Terminal 1. EV charging available on Level 7 (FREE).",
       "evCharging": "Free EV charging stations on Level 7 of Orange Ramp (first-come, first-served, no time limit)"
     },
     "quickRideRamp": {
       "name": "Quick Ride Ramp",
-      "rate": "$19.00 per day",
+      "rate": "$3.00 first hour, $19.00 daily maximum",
       "dailyMax": 19,
       "address": "5315 Northwest Drive, Saint Paul, MN 55111",
       "connection": "FREE 24/7 curbside shuttle service to both terminals",
@@ -170,7 +170,7 @@
     "accessibleParking": "Accessible parking available in all ramps at both terminals. ADA-compliant spaces on lower levels closest to terminal access points.",
     "totalCapacity": "~26,000 vehicles across all on-airport parking facilities",
     "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
-    "garageServiceAreas": "Terminal 1: Green, Gold, Blue, Red, Silver, Pink, Brown Ramps. Terminal 2: Orange Ramp (Value Parking). Quick Ride Ramp serves both terminals via shuttle."
+    "garageServiceAreas": "Terminal 1: Green, Gold, Blue, Red, Silver, Pink, Brown Ramps. Terminal 2: Orange and Purple Ramps (Value Parking). Quick Ride Ramp serves both terminals via shuttle."
   },
   "parkingLots": [
     {
@@ -185,7 +185,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Long-running MSP off-site parking operator with strong reputation. 1 free day per 7 days is excellent for week-long trips. 24/7 shuttle is reliable."
+      "notes": "Long-running MSP off-site parking operator with strong reputation. 1 free day per 7 days is excellent for week-long trips. 24/7 shuttle is reliable.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Shepard Road Airport Parking",
@@ -200,7 +202,9 @@
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
       "coveredRate": 16.00,
-      "notes": "Only off-site lot with a covered ramp option — important for Minnesota winters. Shuttle frequency (every 5-10 min peak) is among the best. $16/day covered is still nearly half the on-airport rate."
+      "notes": "Only off-site lot with a covered ramp option — important for Minnesota winters. Shuttle frequency (every 5-10 min peak) is among the best. $16/day covered is still nearly half the on-airport rate.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park 'N Go (MSP)",
@@ -215,7 +219,9 @@
       "driveTime": "8-12 minutes",
       "freeCancellation": true,
       "address": "7901 International Drive, Bloomington, MN 55425",
-      "notes": "Premium off-site option — shuttle every 5-10 min is fast and reliable. Attendant-assisted parking. Pre-book online for $16/day vs $20 walk-up."
+      "notes": "Premium off-site option — shuttle every 5-10 min is fast and reliable. Attendant-assisted parking. Pre-book online for $16/day vs $20 walk-up.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Comfort Inn Minneapolis Airport (Park & Fly)",
@@ -229,7 +235,9 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Budget-friendly option. Park-sleep-fly packages available if you need a hotel night before early flights. Verify shuttle hours for late arrivals."
+      "notes": "Budget-friendly option. Park-sleep-fly packages available if you need a hotel night before early flights. Verify shuttle hours for late arrivals.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "InterContinental MSP Airport (Garage Parking)",
@@ -243,7 +251,9 @@
       "distanceFromAirport": "0.1 mi (connected via skyway)",
       "driveTime": "0 minutes (walk via skyway)",
       "freeCancellation": true,
-      "notes": "Most convenient off-site option — skyway-connected to Terminal 1, no shuttle or outdoor walk needed. Premium pricing but worth it for winter travel. Park-stay-fly packages include 1-night hotel + up to 15 nights parking."
+      "notes": "Most convenient off-site option — skyway-connected to Terminal 1, no shuttle or outdoor walk needed. Premium pricing but worth it for winter travel. Park-stay-fly packages include 1-night hotel + up to 15 nights parking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fairfield Inn & Suites Minneapolis Airport (Park & Fly)",
@@ -257,7 +267,9 @@
       "distanceFromAirport": "2.8 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Marriott-brand reliability with 24/7 shuttle. Good mid-range option between budget lots and premium covered parking."
+      "notes": "Marriott-brand reliability with 24/7 shuttle. Good mid-range option between budget lots and premium covered parking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: Quick Ride Ramp provides free 24/7 curbside shuttle to both terminals. Free METRO Blue Line light rail connects Terminal 1 and Terminal 2 every ~10 minutes, 24/7. Off-site: Most lots include free shuttle — EZ Air Park and Park 'N Go shuttle every 5-15 minutes, 24/7. Shepard Road runs every 5-10 minutes during peak. Hotel lots vary — verify shuttle hours before booking for early/late flights. CRITICAL: In winter, allow extra shuttle time due to snow and ice conditions.",
@@ -467,8 +479,8 @@
     "scenario": "7-day trip for 2 travelers",
     "onAirport": {
       "terminal1DailyRamp": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
-      "valetParking": { "parkingCost": "$350 (7 x $50)", "totalEstimate": "$350" },
-      "valueParking": { "parkingCost": "$147 (7 x $21)", "totalEstimate": "$147" },
+      "valetParking": { "parkingCost": "$385 (7 x $55)", "totalEstimate": "$385" },
+      "valueParking": { "parkingCost": "$161 (7 x $23)", "totalEstimate": "$161" },
       "quickRideRamp": { "parkingCost": "$133 (7 x $19)", "totalEstimate": "$133" }
     },
     "offSiteWithShuttle": {
@@ -480,7 +492,7 @@
       "blueLineRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "25 min to downtown Minneapolis", "note": "$2.00 per ride. Cheapest option for downtown-bound travelers." },
       "rideshareRoundTrip": { "costForCouple": "$50-$90 (UberX downtown round trip)", "note": "Rideshare prices fluctuate — METRO Blue Line is more predictable and cheaper" }
     },
-    "keyDifference": "MSP offers a clear parking cost hierarchy: off-site hotel lots ($8.95-10.95/day) < off-site dedicated lots ($12.95-16/day) < Quick Ride Ramp ($19/day) < Value Parking ($21/day) < Terminal 1 ramps ($30/day) < Valet ($50/day). The METRO Blue Line at $2.00 is unbeatable for downtown Minneapolis travelers. For winter travel, covered parking (Shepard Road ramp $16/day or InterContinental $25/day) is worth the premium to avoid snow-buried cars and dead batteries."
+    "keyDifference": "MSP offers a clear parking cost hierarchy: the off-site lot Triply sells (Hyatt Regency Bloomington, ~$10/day) < Quick Ride Ramp ($19/day) < Value Parking ($23/day) < Terminal 1 ramps ($30/day) < Valet ($55/day). The METRO Blue Line at $2.00 is unbeatable for downtown Minneapolis travelers. For winter travel, covered parking (Shepard Road ramp $16/day or InterContinental $25/day) is worth the premium to avoid snow-buried cars and dead batteries."
   },
   "uniqueFeatures": {
     "deltaSecondLargestHub": "MSP is Delta Air Lines' second-largest hub after Atlanta. Delta operates approximately 70% of all flights from Terminal 1, with over 200 daily departures. This concentration means excellent connection options and frequency to domestic and international destinations.",

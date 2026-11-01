@@ -1,0 +1,501 @@
+{
+  "code": "MKE",
+  "fullName": "Milwaukee Mitchell International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "South side of Milwaukee, Wisconsin — about 5.8 miles south of downtown Milwaukee, between I-41/I-94 and Howell Avenue (WI 38). Renamed from 'General Mitchell International' in February 2019; the FAA and U.S. government still use the old name.",
+    "iataCode": "MKE",
+    "icaoCode": "KMKE",
+    "faaLid": "MKE",
+    "elevation": "728 feet above mean sea level",
+    "acreage": 2314,
+    "coordinates": "42.9429N, 87.9144W",
+    "passengerVolume": "5,874,372 passengers in 2025 (down 7.0% year over year)",
+    "aircraftOperations": "97,823 (2025)",
+    "cargoVolume": "About 111.4 million lb of cargo and mail in 2025",
+    "distinction": "Wisconsin's busiest airport. Southwest is the largest carrier (~42% of passengers, Jul 2025-Jun 2026), followed by Delta (~15%). Home of the Mitchell Gallery of Flight museum and the Wisconsin Air National Guard's 128th Air Refueling Wing. Has its own Amtrak station (Milwaukee Airport Rail Station) linked by free shuttle.",
+    "operator": "Milwaukee County Aviation Department",
+    "owner": "Milwaukee County",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "totalGates": 38,
+    "runways": 5,
+    "runwayDetails": [
+      { "designation": "01L/19R", "length": "9,990 ft (3,045 m)", "surface": "verify" },
+      { "designation": "07R/25L", "length": "8,300 ft (2,530 m)", "surface": "verify" },
+      { "designation": "13/31", "length": "5,537 ft (1,688 m)", "surface": "verify" },
+      { "designation": "07L/25R", "length": "4,797 ft (1,462 m)", "surface": "verify" },
+      { "designation": "01R/19L", "length": "4,182 ft (1,275 m)", "surface": "verify" }
+    ],
+    "dominantAirline": "Southwest Airlines (~42% of passengers, Jul 2025-Jun 2026); Delta second (~15%)",
+    "totalAirlines": "verify — Southwest, Delta, American, United, Frontier, Alaska, Air Canada and regional partners (check mitchellairport.com/flights)",
+    "nonstopDestinations": "verify on mitchellairport.com",
+    "founded": "1920 as Hamilton Airport; bought by Milwaukee County 1926; current terminal opened July 20, 1955",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No light rail. MCTS GreenLine (Baggage roadway island outside Exit 2) and Route 80 (Ticketing curb near the American/United entrance). Amtrak Hiawatha/Borealis at Milwaukee Airport Rail Station, linked by free 24/7 shuttle.",
+    "peopleMover": "None — single terminal with Concourses C and D reached on foot after security."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal — Concourse C",
+      "status": "Active",
+      "airlines": ["Southwest Airlines", "United Airlines (verify current gate assignments)"],
+      "gates": "C gates (verify count)",
+      "notes": "Southwest, MKE's largest carrier, operates here."
+    },
+    {
+      "name": "Main Terminal — Concourse D",
+      "status": "Active",
+      "airlines": ["Delta Air Lines", "most other airlines (verify on mitchellairport.com)"],
+      "gates": "D gates (verify count)",
+      "notes": "Delta Sky Club is in Concourse D (verify exact location and hours on delta.com)."
+    },
+    {
+      "name": "Concourse E (redevelopment)",
+      "status": "Under redevelopment into a new international concourse — work began ~September 2025, completion expected 2027 (verify). The current International Arrivals Building closes once it opens.",
+      "airlines": [],
+      "gates": "Planned 2-5 gates",
+      "notes": "Not a passenger gate area during construction."
+    }
+  ],
+  "roads": ["Interstate 41/94 (main access from north and south)", "WIS 119 / Airport Spur (I-94 to terminal)", "Howell Avenue (WIS 38) — Triply hotel and valet lots", "South 13th Street (Crowne Plaza)", "Layton Avenue", "Grange Avenue", "Air Cargo Way (Saver Lot)", "South 6th Street (Airport Rail Station)"],
+  "transit": ["MCTS GreenLine (Bayshore - downtown - airport)", "MCTS Route 80 (downtown / MATC - airport - MATC-South)", "Amtrak Hiawatha and Borealis at Milwaukee Airport Rail Station (free shuttle)", "Coach USA, Lamers, Badger Coaches, FlixBus intercity coaches (Baggage Claim Exit 2)"],
+  "neighborhoods": ["Downtown Milwaukee", "Bay View", "Cudahy", "St. Francis", "Oak Creek", "South Milwaukee", "Greenfield", "Franklin"],
+  "authority": "Milwaukee County Aviation Department",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Single terminal; Concourses C and D are walkable after security."
+    },
+    "groundTransportZones": {
+      "rideshare": "Uber & Lyft: follow the signs near Carousel 2.",
+      "taxi": "Outside Baggage Claim 3 — cross the Baggage Claim roadway and follow signs to the taxi lane behind the rental car area.",
+      "coaches": "Coach USA, Lamers, Badger Coaches and FlixBus stop outside Baggage Claim Exit 2.",
+      "hotelShuttles": "Hotel courtesy shuttle pickup point not published on mitchellairport.com — Triply lots say to call the hotel after you collect bags (verify the exact curb with each hotel).",
+      "source": "https://www.mitchellairport.com/parking-transportation/ground-transportation"
+    },
+    "mctsBus": {
+      "operator": "Milwaukee County Transit System (MCTS)",
+      "routes": ["GreenLine (Baggage roadway island outside Exit 2)", "Route 80 (Ticketing curb near the American/United entrance)"],
+      "fare": "verify on ridemcts.com/airport",
+      "accessFromTerminal": "GreenLine: Baggage Claim Exit 2 island. Route 80: Ticketing level curb. Real-time arrival map near Carousel 1.",
+      "phone": "414-344-6711",
+      "note": "Transit Plus (paratransit): 414-343-1700, TDD 414-343-1704."
+    },
+    "amtrak": {
+      "station": "Milwaukee Airport Rail Station (MARS), 5601 S. 6th Street",
+      "service": "Amtrak Hiawatha (Chicago-Milwaukee) and Borealis",
+      "shuttle": "To the station: Baggage Claim Door #5, board any Saver Parking shuttle and tell the driver. Every 5-10 minutes, 24 hours. From the station: call 414-747-4561 or use the courtesy phone.",
+      "hours": "5:45 a.m.-10 p.m. Mon-Sat; 7:15 a.m.-10 p.m. Sun",
+      "parking": "$2/hr for the first two hours, max $11 per 24 hours (Amtrak passengers only)",
+      "phone": "1-800-872-7245"
+    },
+    "taxi": {
+      "fareType": "verify",
+      "pickup": "Outside Baggage Claim 3, taxi lane behind the rental car area",
+      "providers": "Not named on mitchellairport.com — verify",
+      "phone": "verify",
+      "note": "Fares not published by the airport."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Follow the signs near Carousel 2",
+      "note": "The app confirms the exact pickup spot."
+    },
+    "rentalCars": {
+      "location": "verify — mitchellairport.com does not give the counter/pickup location; car return clearance 6 ft 11 in",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Turo (car sharing)"],
+      "totalBrands": 8,
+      "note": "Turo car sharing also operates at MKE."
+    },
+    "otherShuttles": {
+      "goRiteway": "GO Riteway door-to-door shuttle (SE Wisconsin, northern Illinois, Chicago): 1-800-236-5450",
+      "coachUSA": "Coach USA (Milwaukee, Waukesha, Racine, Kenosha counties): 262-542-8861",
+      "lamers": "Lamers (Wausau, Stevens Point, Appleton, Oshkosh, Fond du Lac): 1-800-261-6600",
+      "badgerCoaches": "Badger Coaches (Madison, La Crosse, Minneapolis): 414-276-7490",
+      "flixBus": "FlixBus (WI, MN, IL, IN, OH)"
+    },
+    "hotelShuttles": "Triply's four MKE lots are all within ~2.2 miles: Royle Hotel, Best Western Plus and ExecPark on S. Howell Ave (0.7-0.8 mi), Crowne Plaza on S. 13th St (2.2 mi). Call the lot after you collect your bags."
+  },
+  "parkingRates": "On-airport (daily max): Saver Lot $11 (shuttle, credit card only), Daily Garage $18, Surface Lot $18, Hourly Garage (floors 3-4) $27, Valet $28; all $2/hr. First 30 min free in Hourly, Surface and Cell Phone lots. Off-site via Triply: four lots on Howell Ave / S. 13th St from ~$5.50/day.",
+  "onAirportParking": {
+    "saverLot": {
+      "name": "MKE Saver Parking",
+      "rate": "$11/day ($2/hr)",
+      "dailyMax": 11,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking",
+      "location": "Air Cargo Way",
+      "connection": "Free shuttle every 5-10 minutes, 24 hours. 'Trunk to Terminal' — shuttle picks up at your car; Parking Ambassadors give you a card with your car's location; on return you're dropped at your vehicle. Most shuttles have wheelchair lifts.",
+      "features": "Lowest-cost on-airport option. Credit card only. ChargePoint EV chargers just east of the main entrance ($5/charge)."
+    },
+    "dailyGarage": {
+      "name": "MKE Daily Parking (Garage)",
+      "rate": "$18/day ($2/hr)",
+      "dailyMax": 18,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking",
+      "serves": "Main terminal (walk via Skywalks)",
+      "features": "All garage floors. Max height 6'11\". ChargePoint EV chargers on level 3, yellow section, aisle E."
+    },
+    "surfaceLot": {
+      "name": "MKE Surface Parking",
+      "rate": "$18/day ($2/hr)",
+      "dailyMax": 18,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking",
+      "serves": "Main terminal (walk)",
+      "features": "Immediately south of the garage. Accepts tall vehicles. First 30 minutes free."
+    },
+    "hourlyGarage": {
+      "name": "MKE Hourly Parking (Garage floors 3-4)",
+      "rate": "$27/day ($2/hr)",
+      "dailyMax": 27,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking",
+      "serves": "Main terminal (walk)",
+      "features": "3rd and 4th floors, RED area. Max height 6'11\". First 30 minutes free.",
+      "hourlyRates": "$2/hr"
+    },
+    "valetParking": {
+      "name": "MKE Valet Parking",
+      "rate": "$28/day",
+      "dailyMax": 28,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking",
+      "location": "Left side of the ticketing roadway, across from the terminal",
+      "features": "Hours — verify."
+    },
+    "motorcycle": {
+      "name": "Motorcycle Parking",
+      "rate": "$11/day",
+      "dailyMax": 11,
+      "location": "Covered area on the Baggage Claim roadway; pay by QR code",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking"
+    },
+    "railStationParking": {
+      "name": "Airport Rail Station Parking (Amtrak passengers only)",
+      "rate": "$11/day ($2/hr)",
+      "dailyMax": 11,
+      "location": "S. 6th Street, south of Grange Avenue",
+      "note": "Amtrak passengers only — not for air travelers.",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot",
+      "location": "Immediately south of the parking structure, within walking distance of the terminal",
+      "cost": "FREE for 30 minutes or less (then $2/hr — verify)",
+      "rules": "Stays of 30 minutes or less are free",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking"
+    },
+    "evCharging": {
+      "locations": ["Daily Garage — level 3, yellow section, aisle E", "Saver Lot — just east of the main entrance"],
+      "totalPorts": "verify — count not published",
+      "cost": "$5 per charge plus regular parking rates",
+      "note": "ChargePoint network.",
+      "source": "https://www.mitchellairport.com/parking-transportation/parking"
+    },
+    "parkingAdvantageProgram": {
+      "name": "Smart Park Rewards",
+      "status": "Linked from the parking page; program details not published there — verify",
+      "earning": "verify",
+      "redemption": "verify",
+      "note": "Login at parking.mitchellairport.com. The MKE SmartPark app lets you enter and exit facilities by smartphone.",
+      "source": "https://parking.mitchellairport.com/customer/login/"
+    },
+    "reservations": "Online 'Book Airport Parking' form on mitchellairport.com (promo code field). Full refund if you contact customer service up to 2 hours before the reservation starts.",
+    "accessibleParking": "Not detailed on the parking page — verify with MKE Parking (414-747-4561). Most Saver shuttles have wheelchair lifts; a shelter phone can request one.",
+    "paymentMethods": "All major credit cards in all lots and the garage; Saver is credit card only. Pay stations at each Skywalk and in Baggage Claim (30 minutes to exit after paying). MKE SmartPark app.",
+    "parkingContact": "Parking Customer Service (24/7): 414-747-4561; info@mitchellairport.com",
+    "garageServiceAreas": "Hourly, Daily, Surface and Valet → walk to terminal. Saver → 24/7 shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "Royle Hotel",
+      "slug": "royle-hotel",
+      "dailyRate": 5.49,
+      "reservationRate": 5.49,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access", "Free Internet/Wifi"],
+      "shuttleInfo": "4:00 AM-8:00 AM every 30 minutes; 8:00 AM-1:00 AM on demand; no shuttle 1:00 AM-4:00 AM. Check in at the front desk before parking and show your reservation receipt. Arrive at least 20 minutes before you want to be at the terminal. On return, call 414-481-2400 after collecting luggage.",
+      "overview": "Hotel park-and-fly lot on South Howell Avenue, 0.8 mi from MKE, with a complimentary airport shuttle, 24-hour front desk and accessible parking.",
+      "address": "5311 South Howell Avenue, Milwaukee, WI 53207",
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "verify",
+      "phone": "414-481-2400",
+      "notes": "Lowest sellable rate at MKE on 2026-10-16 ($47.28 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). Minimum booking 2 days. No shuttle 1-4 AM. Listing name is 'Royle Hotel' but its own description says 'Royce Hotel' — verify spelling before publishing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Best Western Plus",
+      "slug": "best-western-plus",
+      "dailyRate": 7.30,
+      "reservationRate": 7.30,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access", "Fitness Center", "Free Internet/Wifi", "Breakfast Included"],
+      "shuttleInfo": "Every day 4 AM-12 AM, on demand. Bring proof of booking (phone or printed) to the front desk. To be picked up at the airport, call (414) 769-2100. Arrive at least 30 minutes before you want to be at the terminal.",
+      "overview": "Best Western Plus Milwaukee Airport Hotel & Conference Center, across the street from MKE on South Howell Avenue, with an on-demand shuttle.",
+      "address": "5105 S Howell Avenue, Milwaukee, WI 53207",
+      "distanceFromAirport": "0.8 mi",
+      "driveTime": "verify",
+      "phone": "414-769-2100",
+      "notes": "$61.44 grand total for Nov 2-9 (8 billed days), same on all three test weeks. No shuttle 12-4 AM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Crowne Plaza Milwaukee Airport",
+      "slug": "crowne-plaza-milwaukee-airport",
+      "dailyRate": 8.70,
+      "reservationRate": 8.70,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "4:00 AM-11:00 PM on demand; no shuttle 11:00 PM-4:00 AM. Check in at the front desk before parking (a vehicle waiver form is required). For pickup call 414-764-5300. First come, first served — airline crews get priority; arrive 20-30 minutes earlier than you'd like to leave.",
+      "overview": "Hotel lot minutes from MKE. Free shuttle with online purchase, no room reservation required, and no extra charge for full-size vans, pickup trucks and large SUVs.",
+      "address": "6401 South 13th Street, Milwaukee, WI 53221",
+      "distanceFromAirport": "2.2 mi",
+      "driveTime": "verify",
+      "phone": "414-764-5300",
+      "notes": "$69.58 grand total for Nov 2-9 (8 billed days). Minimum booking 2 days. Crew members get shuttle priority — build in a buffer. Good pick for oversized vehicles. No shuttle 11 PM-4 AM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "ExecPark Valet Parking & Shuttle",
+      "slug": "execpark-valet-parking-shuttle",
+      "dailyRate": 13.94,
+      "reservationRate": 13.94,
+      "parkingType": "Valet (fenced, well-lit lot)",
+      "amenities": ["24/7 Front Desk", "Valet", "Security", "Wheelchair Access"],
+      "shuttleInfo": "24/7 on-demand pickup from the airport. Stop outside the office doors to check in (have your email confirmation ready), then ride the shuttle to your airline's ticket counter. On return, call ExecPark after claiming luggage.",
+      "overview": "Valet lot 5-10 minutes' drive from MKE with a 24-hour office, fenced lot under 24/7 video surveillance, snow and ice cleared from windows in winter, and free jump-starts (not EVs). Diesel/heating plug-ins and car care for an added charge. Spaces for oversized vehicles.",
+      "address": "5151 S Howell Ave, Milwaukee, WI 53207",
+      "distanceFromAirport": "0.7 mi",
+      "driveTime": "5-10 minutes (per listing)",
+      "phone": "(414) 747-1000",
+      "notes": "$103.45 grand total for Nov 2-9 (8 billed days). Lot accepts arrivals only 2:30 AM-7 PM CST — closed for drop-off 7 PM-2:30 AM (office 24/7). Only Triply MKE lot with 24/7 shuttle and winter snow clearing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Saver Lot shuttle every 5-10 minutes, 24 hours, 'Trunk to Terminal' pickup at your car. Off-site: Triply's four MKE lots are 0.7-2.2 mi away. ExecPark runs 24/7 on demand; Royle Hotel (no shuttle 1-4 AM), Best Western Plus (4 AM-12 AM) and Crowne Plaza (4 AM-11 PM) do not run overnight. Call the lot after collecting bags.",
+  "distanceFromCity": "About 5.8 miles south of downtown Milwaukee (~15 minutes by car via I-94 — verify drive time).",
+  "keyDistances": {
+    "toDowntownMilwaukee": "~5.8 miles; MCTS GreenLine and Route 80",
+    "toHowellAveLots": "0.7-0.8 mi (Triply lots: Royle Hotel, Best Western Plus, ExecPark)",
+    "to13thStreetLot": "2.2 mi (Triply lot: Crowne Plaza Milwaukee Airport)",
+    "toAirportRailStation": "~3/4 mile; free 24/7 shuttle",
+    "toChicagoOHare": "verify",
+    "competitiveAdvantage": "Three of Triply's four MKE lots are under a mile from the terminal on Howell Ave, so shuttle rides are very short; ExecPark adds valet, 24/7 shuttle and winter snow clearing."
+  },
+  "construction2026": {
+    "status": "Concourse E is being redeveloped into a new international concourse (began ~September 2025; completion expected 2027 — verify on mitchellairport.com).",
+    "projects": [
+      "Concourse E international concourse redevelopment (2-5 gates planned); current International Arrivals Building to close after completion."
+    ],
+    "travelImpact": "No parking facility closures identified as of 2026-10-16 — verify current alerts before travel.",
+    "timeline": {
+      "start": "~September 2025 (verify)",
+      "expectedCompletion": "2027 (verify)"
+    }
+  },
+  "securityAndScreening": {
+    "checkpointHours": "verify — not captured from mitchellairport.com",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck available — enroll at tsa.gov/tsa-precheck (verify lanes)"
+    },
+    "clear": {
+      "note": "verify whether CLEAR operates at MKE"
+    },
+    "globalEntry": {
+      "note": "International arrivals processed at the International Arrivals Building until the Concourse E facility opens (verify)."
+    },
+    "standardWaitTimes": {
+      "average": "verify",
+      "peakHours": "Early-morning departure bank — verify",
+      "tips": "Southwest (Concourse C) dominates early departures."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (standard TSA guidance — verify airport guidance)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    },
+    "source": "verify"
+  },
+  "lounges": {
+    "concourseC": [],
+    "concourseD": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse D (verify exact gate area)",
+        "hours": "Third-party listings conflict (closes 6:30-7:30 PM) — verify on delta.com",
+        "access": "Delta Sky Club members, eligible Delta/SkyTeam premium passengers and cardholders"
+      }
+    ],
+    "other": "Delta Sky Club is reported as the only lounge at MKE (verify). USO room on site."
+  },
+  "wifi": {
+    "networkName": "verify on arrival",
+    "cost": "verify",
+    "coverage": "Terminal and concourses (verify)"
+  },
+  "evCharging": {
+    "dailyGarage": {
+      "chargers": "verify",
+      "location": "Level 3, yellow section, aisle E",
+      "type": "ChargePoint",
+      "cost": "$5/charge plus Daily rate ($18/day)"
+    },
+    "saverLot": {
+      "chargers": "verify",
+      "location": "Just east of the main entrance",
+      "type": "ChargePoint",
+      "cost": "$5/charge plus Saver rate ($11/day)"
+    },
+    "totalPorts": "verify",
+    "note": "Regular parking rates apply on top of the $5 charging fee. ExecPark offers free jump-starts but not for EVs.",
+    "source": "https://www.mitchellairport.com/parking-transportation/parking"
+  },
+  "luggageStorage": {
+    "onSite": "verify",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": "verify",
+    "locations": [],
+    "note": "verify on mitchellairport.com",
+    "source": "verify"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early morning departures", "verify afternoon peaks"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August, incl. Summerfest), spring break, Thanksgiving and Christmas/New Year. Winter getaways to Florida/Arizona drive demand January-March.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental: cold, snowy winters and warm summers moderated by Lake Michigan.",
+    "commonDisruptions": "Snow and lake-effect squalls (November-March); summer thunderstorms; lake fog.",
+    "bestMonths": "June, September",
+    "worstMonths": "January-February",
+    "winterNote": "Allow extra time for snow and ice on I-94 and on hotel shuttle runs. ExecPark clears snow and ice from windows; other off-site lots are self-park.",
+    "note": "Bring a scraper in winter if you park at a self-park hotel lot."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle combos on South Howell Avenue and South 13th Street. Triply sells parking-only at the hotels below; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$5.50/day (2026-10-16 quote); room package pricing — verify with hotel",
+    "popularHotels": [
+      { "name": "Royle Hotel", "distance": "0.8 miles (S. Howell Ave)", "parkingIncluded": "verify with hotel", "shuttleHours": "4-8 AM every 30 min; 8 AM-1 AM on demand", "highlight": "Cheapest Triply rate at MKE." },
+      { "name": "Best Western Plus", "distance": "0.8 miles (S. Howell Ave)", "parkingIncluded": "verify with hotel", "shuttleHours": "4 AM-12 AM on demand", "highlight": "Across the street from MKE; breakfast included." },
+      { "name": "Crowne Plaza Milwaukee Airport", "distance": "2.2 miles (S. 13th St)", "parkingIncluded": "verify with hotel", "shuttleHours": "4 AM-11 PM on demand", "highlight": "No extra charge for vans, pickups and large SUVs." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures assume 8 days at the daily max (partial-day billing — verify).",
+    "onAirport": {
+      "saverLot": { "parkingCost": "$88 (8 x $11)", "totalEstimate": "$88" },
+      "dailyGarage": { "parkingCost": "$144 (8 x $18)", "totalEstimate": "$144" },
+      "surfaceLot": { "parkingCost": "$144 (8 x $18)", "totalEstimate": "$144" },
+      "hourlyGarage": { "parkingCost": "$216 (8 x $27)", "totalEstimate": "$216" },
+      "valetParking": { "parkingCost": "$224 (8 x $28)", "totalEstimate": "$224" }
+    },
+    "offSiteWithShuttle": {
+      "royleHotel": { "parkingCost": "$47.28 quoted grand total (~$5.50/day before fees)", "savingsVsSaverLot": "~$41 saved", "savingsVsDailyGarage": "~$97 saved", "caveat": "No shuttle 1-4 AM" },
+      "bestWesternPlus": { "parkingCost": "$61.44 quoted grand total (~$7.30/day before fees)", "savingsVsSaverLot": "~$27 saved", "savingsVsDailyGarage": "~$83 saved", "caveat": "No shuttle 12-4 AM" },
+      "crownePlazaMilwaukeeAirport": { "parkingCost": "$69.58 quoted grand total (~$8.70/day before fees)", "savingsVsSaverLot": "~$18 saved", "savingsVsDailyGarage": "~$74 saved", "caveat": "No shuttle 11 PM-4 AM; crews get priority" },
+      "execParkValet": { "parkingCost": "$103.45 quoted grand total (~$12.21/day before fees)", "savingsVsSaverLot": "costs ~$15 more", "savingsVsDailyGarage": "~$41 saved", "caveat": "Valet + 24/7 shuttle + snow clearing; no drop-off 7 PM-2:30 AM" }
+    },
+    "publicTransit": {
+      "mctsRoundTrip": { "costPerPersonRoundTrip": "verify on ridemcts.com", "travelTime": "verify", "note": "GreenLine or Route 80 to downtown Milwaukee." }
+    },
+    "keyDifference": "MKE's Saver Lot is cheap at $11/day, so anchor big savings against the $18 Daily/Surface and $27 Hourly garage. Royle Hotel and Best Western Plus still undercut Saver; ExecPark costs slightly more than Saver but adds valet, 24/7 shuttle and winter snow clearing."
+  },
+  "uniqueFeatures": {
+    "billyMitchell": "Named for Brigadier General Billy Mitchell, a Milwaukee native often called a father of the U.S. Air Force.",
+    "nameChange": "Renamed Milwaukee Mitchell International in February 2019; formerly General Mitchell International (FAA still uses the old name).",
+    "amtrakStation": "One of few U.S. airports with its own Amtrak station (Hiawatha to Chicago), linked by free 24/7 shuttle.",
+    "galleryOfFlight": "Mitchell Gallery of Flight aviation museum in the terminal.",
+    "airGuard": "Wisconsin Air National Guard's 128th Air Refueling Wing (KC-135 tankers) is based on airport property.",
+    "southwestLargest": "Southwest carries ~42% of MKE passengers."
+  },
+  "emergencyContacts": {
+    "airportInfo": "414-747-5300",
+    "airportMain": "414-747-5300",
+    "airportWebsite": "mitchellairport.com",
+    "parkingInfo": "mitchellairport.com/parking-transportation/parking",
+    "parkingPhone": "414-747-4561 (24/7)",
+    "lostAndFound": "verify",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "mcts": "414-344-6711",
+    "amtrak": "1-800-872-7245",
+    "emergency": "911 — state you are at Milwaukee Mitchell Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.mitchellairport.com/",
+      "parking": "https://www.mitchellairport.com/parking-transportation/parking",
+      "parkingReservations": "https://parking.mitchellairport.com/",
+      "smartParkRewards": "https://parking.mitchellairport.com/customer/login/",
+      "groundTransportation": "https://www.mitchellairport.com/parking-transportation/ground-transportation",
+      "drivingDirections": "https://www.mitchellairport.com/parking-transportation/driving-directions",
+      "saverParkingMap": "https://goo.gl/maps/E4B9NKTYcJ52"
+    },
+    "transit": {
+      "mctsAirport": "https://www.ridemcts.com/airport",
+      "amtrakMARS": "https://wisconsindot.gov/Pages/projects/multimodal/mars.aspx"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/mke/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=MKE"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "lounges": {
+      "flightqueue": "https://flightqueue.com/lounges/mke"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KMKE",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/MKE"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Milwaukee_Mitchell_International_Airport"
+    },
+    "newsAndMedia": {
+      "jsonline": "https://www.jsonline.com/",
+      "wisn": "https://www.wisn.com/",
+      "biztimes": "https://biztimes.com/"
+    }
+  }
+}

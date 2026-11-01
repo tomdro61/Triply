@@ -140,7 +140,9 @@
     "parkingGarage": {
       "name": "Parking Garage (Short-Term/Hourly)",
       "rate": "$5.00 per hour",
-      "dailyMax": 35,
+      "dailyMax": 45,
+      "lastVerified": "2026-09-15",
+      "source": "https://slcairport.com/parking-and-transportation/parking/",
       "maxStay": "30 days",
       "serves": "All airlines — direct covered walkway to terminal",
       "valetAvailable": false,
@@ -210,7 +212,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "Best shuttle frequency (every 5-7 min) of any off-site lot. National chain with loyalty rewards program. Pre-book on app for best rates."
+      "notes": "Best shuttle frequency (every 5-7 min) of any off-site lot. National chain with loyalty rewards program. Pre-book on app for best rates.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park 'n Jet (SLC)",
@@ -225,7 +229,9 @@
       "distanceFromAirport": "1.2 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "Closest off-airport parking facility to SLC. Family-owned for 30+ years with loyal customer base. Shuttle picks up at your vehicle — no walking to shuttle stop."
+      "notes": "Closest off-airport parking facility to SLC. Family-owned for 30+ years with loyal customer base. Shuttle picks up at your vehicle — no walking to shuttle stop.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park 'n Jet Arch Lot (SLC)",
@@ -239,7 +245,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "4-6 minutes",
       "freeCancellation": true,
-      "notes": "Best budget off-site option at $6.50/day pre-booked. Same shuttle service as main Park 'n Jet lot."
+      "notes": "Best budget off-site option at $6.50/day pre-booked. Same shuttle service as main Park 'n Jet lot.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Diamond Airport Parking (SLC)",
@@ -255,7 +263,9 @@
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
       "phone": "(801) 355-7275",
-      "notes": "Best full-service option — valet available, covered parking option, free bottled water, and 'We Care Program' for roadside-style assistance. 24/7 shuttle."
+      "notes": "Best full-service option — valet available, covered parking option, free bottled water, and 'We Care Program' for roadside-style assistance. 24/7 shuttle.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Maas Airport Parking (SLC)",
@@ -270,7 +280,9 @@
       "distanceFromAirport": "1.4 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "24-hour lot attendant is a nice security feature. Shuttle every 10-15 minutes is reliable. Good mid-range off-site option."
+      "notes": "24-hour lot attendant is a nice security feature. Shuttle every 10-15 minutes is reliable. Good mid-range off-site option.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hyatt Place Salt Lake City Airport (SLC)",
@@ -284,7 +296,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Good for park-sleep-fly combo. Verify shuttle schedule before booking — hotel shuttles may have limited hours."
+      "notes": "Good for park-sleep-fly combo. Verify shuttle schedule before booking — hotel shuttles may have limited hours.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE 24/7 shuttle from Economy Lot every 8-10 minutes. Off-site: Most lots include free shuttle — The Parking Spot runs every 5-7 min (best frequency), Park 'n Jet and Diamond run on-demand 24/7, Maas runs every 10-15 min. Ski resort shuttles available in baggage claim from authorized providers (Canyon Transportation, All Resort Express, Park City Transportation). UTA TRAX light rail is an alternative to shuttles for downtown-bound travelers.",

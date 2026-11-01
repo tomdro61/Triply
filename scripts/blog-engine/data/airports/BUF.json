@@ -1,0 +1,524 @@
+{
+  "code": "BUF",
+  "fullName": "Buffalo Niagara International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "4200 Genesee Street, Cheektowaga, New York (mailing address Buffalo, NY 14225) — about 11 miles east of downtown Buffalo in Erie County",
+    "iataCode": "BUF",
+    "icaoCode": "KBUF",
+    "faaLid": "BUF",
+    "elevation": "approx. 717-727 feet above mean sea level (sources differ — verify)",
+    "acreage": "approx. 1,000 acres",
+    "coordinates": "42.9405N, 78.7322W",
+    "passengerVolume": "About 5.02 million passengers in 2025 (BTS, via Wikipedia)",
+    "aircraftOperations": "72,777 (2025, via Wikipedia)",
+    "cargoVolume": "Cargo service by FedEx Express, UPS Airlines and Ameriflight",
+    "distinction": "Third-busiest airport in New York State and the main airport for the Buffalo–Niagara Falls region. Marketed heavily to Canadian travelers from the Niagara Peninsula, Hamilton and the Greater Toronto Area as a lower-fare alternative to Toronto Pearson — the airport itself says it is 'mere miles from the Canadian border and the QEW'. Historically a large share of BUF passengers have been Canadian (cited at 47% in 2012 and about one in three more recently). Single terminal opened in 1997, expanded in 2001 and renovated/expanded again in an $80M project that began in 2017.",
+    "operator": "Niagara Frontier Transportation Authority (NFTA)",
+    "owner": "Niagara Frontier Transportation Authority (NFTA)",
+    "activeTerminals": 1,
+    "totalGates": "approx. 24-25 (sources differ — verify)",
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "5/23", "length": "8,829 ft (2,691 m)", "surface": "Asphalt", "note": "Primary runway; Cat I ILS both directions. Multi-phase rehabilitation (runway surface, lighting, navaids) with project close-out expected early 2026." },
+      { "designation": "14/32", "length": "7,161 ft (2,183 m)", "surface": "Asphalt", "note": "Cat I ILS on runway 32 only" }
+    ],
+    "dominantAirline": "Southwest Airlines (about 28% market share, Nov 2024–Oct 2025), followed by JetBlue (~17%), American (~11%) and Delta (~10%)",
+    "totalAirlines": "7 passenger carriers: Southwest, JetBlue, American, Delta, Frontier, United and Sun Country (seasonal)",
+    "nonstopDestinations": "The airport advertises up to 100 nonstop flights per day to about 30 airport destinations; busiest route is Orlando",
+    "founded": "1926 (as Buffalo Municipal Airport); current terminal opened November 3, 1997",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail to the airport. NFTA Metro Bus Route 24 Genesee (and 24X Airport/Downtown Express on limited trips) connects the airport with downtown Buffalo. $2 one-way fare.",
+    "canadianMarket": "BUF actively courts Ontario travelers: no customs/immigration stop on flights to U.S. destinations because you clear the land border by car, and the airport cites an average peak security wait of 12 minutes versus Pearson's 3-hours-early guidance."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal (single terminal)",
+      "status": "Active — single two-level terminal. Departures, ticketing, the security checkpoint and gates are on the upper level; baggage claim and ground transportation are on the lower (arrivals) level.",
+      "airlines": ["Southwest Airlines", "JetBlue", "American Airlines / American Eagle", "Delta Air Lines / Delta Connection", "Frontier Airlines", "United Airlines / United Express", "Sun Country Airlines (seasonal)"],
+      "gates": "Gates numbered 1 through about 25 (the airport lists power charge poles at gates up to #25) — verify gate assignments on airport displays",
+      "notes": "One central security checkpoint with TSA PreCheck and CLEAR lanes. The Club BUF (Priority Pass) is the only lounge, past security near Gates 6-7. The Daily/Hourly Garage (red signs) is directly adjacent to the terminal; all surface lots use a free 24/7 shuttle. Pet relief: outside on the lower arrivals level (exit right) and post-security on the departures level between Gates 11 and 14."
+    }
+  ],
+  "roads": ["NY Route 33 (Kensington Expressway — ends at the airport, ~10-15 min to downtown)", "Genesee Street (airport main entrance, 4200 Genesee St)", "I-90 New York State Thruway", "I-290 Youngmann Expressway", "Holtz Drive (Park & Ride / hotel row)", "Buell Avenue", "Transit Road (NY 78)", "Walden Avenue", "I-190 Niagara Thruway (to the Peace Bridge and Niagara Falls bridges)"],
+  "transit": ["NFTA Metro Bus Route 24 Genesee (airport ↔ downtown Buffalo, $2 one-way)", "NFTA Metro 24X Airport/Downtown Express (limited weekday trips via Route 33, also serves the Holtz Drive Park & Ride)", "Greyhound intercity service to Toronto and New York City (from Buffalo, not the terminal — verify)", "Hotel shuttles from Genesee St / Holtz Dr / Buell Ave / Transit Rd / Walden Ave hotels"],
+  "neighborhoods": ["Cheektowaga", "Buffalo (Genesee St corridor)", "Amherst", "Williamsville", "Lancaster", "Depew", "Clarence", "Downtown Buffalo", "Orchard Park", "Niagara Falls NY", "Niagara Falls ON", "St. Catharines ON", "Fort Erie ON", "Hamilton ON"],
+  "authority": "Niagara Frontier Transportation Authority (NFTA)",
+  "groundTransportation": {
+    "airportShuttle": {
+      "description": "Free on-airport shuttle between the terminal and the Long Term (orange), Preferred (green) and Economy (blue) surface lots",
+      "fare": "FREE",
+      "frequency": "verify",
+      "hours": "24/7",
+      "note": "The Daily/Hourly Garage (red signs) is a short walk from the terminal and is not on the shuttle route."
+    },
+    "metroBus": {
+      "operator": "Niagara Frontier Transportation Authority (NFTA Metro)",
+      "routes": ["Route 24 Genesee (airport ↔ downtown Buffalo; 24L limited-stop variant on weekdays)", "24X Airport/Downtown Express (4 inbound AM / 4 outbound PM trips via Route 33, serves Holtz Drive Park & Ride)"],
+      "fare": "$2.00 one-way",
+      "accessFromTerminal": "Lower level, outside arrivals — follow Ground Transportation signs (verify exact stop)",
+      "note": "Bus is the only public transit to BUF; no Metro Rail connection. Schedules at metro.nfta.com/schedules/route/24.",
+      "phone": "716-855-7300"
+    },
+    "taxi": {
+      "fareType": "Metered / quoted — verify with provider",
+      "pickup": "Lower level ground transportation area",
+      "providers": "Airport Taxi is the official on-airport taxi provider: (716) 633-8294 or (800) 551-9369, buffaloairporttaxi.com",
+      "note": "Many other taxi, limo and cross-border operators are licensed to serve BUF (see Canadian ground transportation)."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Designated rideshare/TNC pickup area outside the lower-level arrivals/baggage claim — exact spot assigned in the app (verify on arrival)",
+      "note": "The airport site lists Uber (833) 873-8237 and Lyft (855) 865-9553 but does not publish a pickup diagram; follow 'Ground Transportation' and rideshare signs from baggage claim."
+    },
+    "canadianGroundTransportation": {
+      "description": "Licensed cross-border shuttles, limos and taxis between BUF and Ontario",
+      "providers": [
+        "AA Limo Niagara, Inc. — (905) 321-3206 / (905) 735-8294",
+        "AYR Coach Lines — (519) 747-1230 / (888) 338-8279",
+        "Coventry Connections (Niagara) Inc — (905) 346-4000 ext 4241 (day) / (905) 380-3980 (night)",
+        "Regional Limousine — (289) 876-9699",
+        "Wheelz Niagara — (289) 296-1966",
+        "Buffalo Canada Airport Taxi — (716) 957-8900"
+      ],
+      "note": "Fares and border-crossing times vary by provider and bridge — contact providers directly."
+    },
+    "rentalCars": {
+      "location": "Rental car counters on the lower level (baggage claim); verify ready-return lot location",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National"],
+      "totalBrands": 7
+    },
+    "hotelShuttles": "Hotels along Genesee Street, Holtz Drive, Buell Avenue, Transit Road and Walden Avenue run shuttles to BUF; several (Sleep Inn & Suites, Buffalo Airport Hotel, Quality Inn, Salvatore's Grand Hotel, M Hotel) sell park-and-fly parking through Triply. Hampton Inn & Suites' shuttle is currently suspended."
+  },
+  "parkingRates": "On-airport (new rates effective Sept 15, 2026, plus 8.75% NYS sales tax): Economy Lot (blue) $12/day max, Long Term Lot (orange) $15/day max, Preferred Lot (green) $18/day max, Daily/Hourly Garage (red) $31/day max, Reserved Covered (garage Level 1) $30-31/day + $3/day reservation fee. Off-site hotel parking via Triply: from ~$7.67/day (lot rate before Triply service fee).",
+  "onAirportParking": {
+    "dailyHourlyGarage": {
+      "name": "Daily/Hourly Parking Garage (Red Signs)",
+      "shortTermRate": "$5.60 per hour",
+      "dailyMax": 31,
+      "taxNote": "Plus 8.75% NYS sales tax",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/",
+      "serves": "Main terminal — walking distance, no shuttle needed",
+      "features": "Closest parking to the terminal. Home of Reserved Covered Parking (Level 1) and the free EV chargers (Level 1, Section F-2).",
+      "preBookingUrl": "https://parking.buffaloairport.com/"
+    },
+    "reservedCoveredParking": {
+      "name": "Reserved Covered Parking (Daily/Hourly Garage, Level 1)",
+      "rate": "$5.40 per hour, $30 per 24 hours (main rate table) plus $3 reservation fee per 24 hours — the lot's own page shows a $31 daily max; verify at booking",
+      "dailyMax": 30,
+      "reservationFee": "$3.00 per 24 hours, prepaid",
+      "taxNote": "Plus 8.75% NYS sales tax",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/parking-information-reserved-covered-parking/",
+      "features": "The only covered parking at BUF. Limited spaces, must be reserved online. Follow red signs to the garage, then 'Reserved Covered Parking' signs on Level 1.",
+      "preBookingUrl": "https://parking.buffaloairport.com/parking-information-reserved-covered-parking/"
+    },
+    "preferredLot": {
+      "name": "Preferred Parking Lot (Green Signs)",
+      "rate": "$1.40 per hour, $18 daily maximum",
+      "dailyMax": 18,
+      "taxNote": "Plus 8.75% NYS sales tax",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/",
+      "connection": "FREE shuttle to the terminal, 24/7",
+      "preBookingUrl": "https://parking.buffaloairport.com/parking-information-preferred-parking-lot-green-signs/"
+    },
+    "longTermLot": {
+      "name": "Long Term Parking Lot (Orange Signs)",
+      "rate": "$1.40 per hour, $15 daily maximum",
+      "dailyMax": 15,
+      "taxNote": "Plus 8.75% NYS sales tax. First 10 minutes free.",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/",
+      "connection": "FREE shuttle to the terminal, 24/7",
+      "note": "The lot page's calculator still showed the pre-Sept 15 rate ($1.25/hr, $13 max) at time of check — the main rate table ($15) governs.",
+      "preBookingUrl": "https://parking.buffaloairport.com/parking-information-long-term-parking-lot-orange-signs/"
+    },
+    "economyLot": {
+      "name": "Economy Parking Lot (Blue Signs)",
+      "rate": "$1.40 per hour, $12 daily maximum (per Sept 15, 2026 rate table)",
+      "dailyMax": 12,
+      "taxNote": "Plus 8.75% NYS sales tax",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/",
+      "status": "verify — the airport parking contact page lists 'Economy Parking Lot (Blue Signs) – CLOSED' while the rate table still prices it",
+      "connection": "FREE shuttle to the terminal, 24/7 (when open)"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot",
+      "location": "Off-terminal, near Holtz Drive / Buell Avenue (official pages cite both — verify), under half a mile from the terminal; doubles as a Park & Ride",
+      "cost": "FREE",
+      "lastVerified": "2026-10-13",
+      "source": "https://parking.buffaloairport.com/services/",
+      "rules": "For drivers waiting to pick up arriving passengers. Stay with your vehicle."
+    },
+    "evCharging": {
+      "locations": ["Daily/Hourly Parking Garage — Level 1, Section F-2"],
+      "totalPorts": "3 charging stations",
+      "cost": "FREE charging (standard garage parking rates apply)",
+      "lastVerified": "2026-10-13",
+      "source": "https://buffaloairport.com/traveler-info/in-the-terminal/amenities",
+      "note": "First-come, first-served."
+    },
+    "frequentParkerProgram": {
+      "name": "Frequent Parker Program (Express Pass)",
+      "cost": "Free membership; $40 lost-pass replacement (or 400 points)",
+      "contact": "fppinfo@parkbuffaloairport.com, 1-877-735-9280 (Mon-Fri 8am-5pm ET)",
+      "source": "https://parking.buffaloairport.com/express-pass/fpp-faq/"
+    },
+    "corporateParkerProgram": {
+      "name": "Corporate Parker Program",
+      "source": "https://parking.buffaloairport.com/corporateparking/"
+    },
+    "reservationsRequired": "No — reservations are not required except for Reserved Covered Parking",
+    "parkingPhone": "716-630-6191",
+    "garageServiceAreas": "Daily/Hourly Garage → walk to terminal. Preferred, Long Term and Economy lots → free 24/7 shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "Buffalo Airport Hotel",
+      "slug": "buffalo-airport-hotel",
+      "dailyRate": 7.67,
+      "reservationRate": 7.67,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees and tax: $57.00.",
+      "parkingType": "Uncovered, self-park (gated hotel lot)",
+      "amenities": ["Free 24/7 On-Demand Shuttle", "Gated Lot", "Security Cameras", "Open 24 Hours", "24/7 Front Desk", "Restaurant", "Fitness Center"],
+      "shuttleInfo": "Free shuttle 24/7 on demand. Check in at the front desk, sign the parking waiver, display the parking pass, then board. On return, call (716) 634-6969 after collecting bags.",
+      "overview": "Hotel parking on Genesee Street with a gated, camera-monitored lot open 24 hours and an on-demand shuttle around the clock — the cheapest Triply rate at BUF.",
+      "address": "4600 Genesee St, Buffalo, NY 14225",
+      "distanceFromAirport": "0.9 mi (hotel's own description says ~2 mi)",
+      "phone": "(716) 634-6969",
+      "notes": "Lowest Triply rate at BUF. 24/7 on-demand shuttle makes it safe for first-wave 6am departures.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Sleep Inn & Suites Buffalo Airport",
+      "slug": "sleep-inn-suites-buffalo-airport",
+      "dailyRate": 7.86,
+      "reservationRate": 7.86,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees: $55.05 (no tax line).",
+      "parkingType": "Uncovered, self-park (secured hotel lot)",
+      "amenities": ["Free 24/7 On-Demand Shuttle", "Security", "24/7 Front Desk", "Wheelchair Access", "Keep Your Keys", "No Oversize Surcharge"],
+      "shuttleInfo": "Free shuttle 24/7 on demand. Check in at the front desk with your confirmation, sign the parking waiver, display the parking pass, then board. On return, call (716) 626-4000 for pickup.",
+      "overview": "Off-site, secured hotel lot 0.8 mi from BUF on Holtz Drive. Park your own car and keep the key. No extra charge for full-size vans, pickups or large SUVs; no room reservation required.",
+      "address": "100 Holtz Drive, Cheektowaga, NY 14225",
+      "distanceFromAirport": "0.8 mi",
+      "phone": "(716) 626-4000",
+      "notes": "Lowest all-in 7-day total in the Nov 2-8 sample. Good pick for trucks and large SUVs (no oversize charge).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Quality Inn Buffalo Airport",
+      "slug": "quality-inn-buffalo-airport",
+      "dailyRate": 7.88,
+      "reservationRate": 7.88,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees and tax: $60.91.",
+      "parkingType": "Uncovered, self-park (hotel long-term lot)",
+      "amenities": ["Free Scheduled Shuttle", "24/7 Front Desk", "Restaurant", "Free WiFi", "Walkable to Terminal"],
+      "shuttleInfo": "Scheduled shuttle every 30 minutes starting 4:00 AM (listing reads '4AM to 12PM', skipping the 7:00 AM, 3:00 PM and 11:00 PM runs — confirm end time with the hotel). Park by the front door, get a parking pass at the desk (have your plate number), follow the shuttle to the long-term lot, then ride to the terminal. Your booked check-in time sets your shuttle slot.",
+      "overview": "Directly across Genesee Street from the terminal — the closest Triply lot to BUF, and the terminal is walkable (under 5 minutes) if you'd rather not wait for the shuttle.",
+      "address": "4217 Genesee St, Building A, Buffalo, NY 14225",
+      "distanceFromAirport": "0.7 mi (directly across the street)",
+      "phone": "716-633-5500",
+      "notes": "Closest sellable lot. Shuttle is scheduled, not on-demand, and skips some slots — arrive before your booked check-in time.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Salvatores Grand Hotel",
+      "slug": "salvatores-grand-hotel",
+      "dailyRate": 7.3,
+      "reservationRate": 7.3,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees and tax: $62.33.",
+      "parkingType": "Uncovered, self-park (well-lit hotel lot)",
+      "amenities": ["Free On-Demand Shuttle (7am-10pm)", "24/7 Security Cameras", "Well-Lit Lot", "Handicap Parking", "24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "On-demand shuttle 7:00 AM-10:00 PM ET; NO shuttle 10:00 PM-7:00 AM. Check in at the front desk, sign the parking waiver, display the pass, then board. On return, call (716) 636-4900 for pickup.",
+      "overview": "Hotel lot on Transit Road with 24/7 cameras and designated accessible spaces. Parking is at your own risk per the hotel.",
+      "address": "6675 Transit Rd, Buffalo, NY 14221",
+      "distanceFromAirport": "2.1 mi (hotel's own description says ~3 mi)",
+      "phone": "(716) 636-4900",
+      "notes": "No overnight shuttle — not suitable for flights before ~8:30-9:00 AM or late-night returns after 10 PM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "M Hotel Buffalo Airport",
+      "slug": "m-hotel-buffalo-airport",
+      "dailyRate": 8.39,
+      "reservationRate": 8.39,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees and tax: $63.62.",
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle (every 30 min)", "24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "Shuttle runs 24/7 every 30 minutes. Check in at the front desk with your booking. For return pickup from the airport, call (716) 681-2400.",
+      "overview": "Hotel on Walden Avenue in the Cheektowaga business district with a round-the-clock shuttle; about 10 minutes from the University at Buffalo.",
+      "address": "2040 Walden Ave, Buffalo, NY 14225",
+      "distanceFromAirport": "2.6 mi (hotel's own description says ~4 mi)",
+      "phone": "(716) 681-2400",
+      "notes": "24/7 scheduled shuttle — fine for early departures; allow for up to a 30-minute wait.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hampton Inn & Suites",
+      "slug": "hampton-inn-suites",
+      "dailyRate": 9.20,
+      "reservationRate": 9.20,
+      "rateNote": "Lowest lot rate per day for a Nov 2-8, 2026 search (7 billable days), before Triply's service fee. 7-day quote total incl. lot fees: $64.43.",
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "No Oversize Surcharge"],
+      "shuttleInfo": "Shuttle suspended. You may park here and take Uber/Lyft to the terminal at your own expense.",
+      "shuttleSuspended": true,
+      "overview": "Hotel lot on Buell Avenue near the airport. The listing description still mentions a free shuttle, but the lot's shuttle field reads 'Shuttle suspended' / 'NO SHUTTLE'.",
+      "address": "133 Buell Avenue, Cheektowaga, NY 14225",
+      "distanceFromAirport": "0.9 mi",
+      "phone": "716-631-0200",
+      "notes": "SHUTTLE SUSPENDED — no hotel shuttle to BUF; budget for a rideshare each way. Highest Triply rate at BUF. Do not use as a CTA lot until the shuttle resumes.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE 24/7 shuttle connects the terminal with the Long Term (orange), Preferred (green) and Economy (blue) lots; the Daily/Hourly Garage is a walk. Off-site (Triply hotel lots): Sleep Inn & Suites and Buffalo Airport Hotel run 24/7 on-demand shuttles; M Hotel runs 24/7 every 30 minutes; Quality Inn runs a scheduled 30-minute shuttle from 4 AM (and is walkable across Genesee St); Salvatore's Grand Hotel runs on demand 7 AM-10 PM only; Hampton Inn & Suites' shuttle is SUSPENDED.",
+  "distanceFromCity": "About 11 miles east of downtown Buffalo — roughly 10-15 minutes via NY Route 33 (Kensington Expressway) outside rush hour. Bus Route 24 / 24X to downtown. Located in Cheektowaga, NY.",
+  "keyDistances": {
+    "toDowntownBuffalo": "~11 miles, 10-20 min by car via Route 33",
+    "toPeaceBridge": "~12-14 miles (via Route 33 / I-190), ~20 min plus border wait — verify",
+    "toNiagaraFallsNY": "~20-25 miles, ~30 min via I-290 / I-190 — verify",
+    "toRainbowBridgeAndLewistonQueenston": "~22-28 miles, ~30-35 min plus border wait — verify",
+    "toTorontoON": "~106 miles by road (60 mi by air), roughly 1.75-2.5 hours plus border wait",
+    "toOrchardParkHighmarkStadium": "~15-18 miles, ~25 min (Bills home games) — verify",
+    "toAmherstUB": "~5 miles, ~10 min (University at Buffalo North Campus) — verify",
+    "competitiveAdvantage": "For Niagara and GTA-west travelers, BUF trades a border crossing for lower U.S.-bound fares, short security lines and no U.S. preclearance step. The airport's own family-of-four Orlando example (Mar 2025 analysis) showed $335.99 (34%) savings vs Pearson."
+  },
+  "construction2026": {
+    "status": "Runway 5-23 rehabilitation (surface, lighting, navaids) — Phases 1-2 complete (Sept 2023, Oct 2024), Taxiway A Phase 3 scheduled to finish Nov 2025, project close-out expected early 2026. No published terminal or parking closures for 2026 — verify.",
+    "projects": [
+      "Runway 5-23 Rehabilitation — runway surface, lighting and navigational aids; close-out early 2026 (NFTA)",
+      "Airport Master Plan — allows for a future pier south of the existing east concourse (planning stage)",
+      "New on-airport parking rates effective September 15, 2026"
+    ],
+    "travelImpact": "Minimal passenger impact expected from the runway close-out. The biggest 2026 change for drivers is the Sept 15 parking rate increase.",
+    "timeline": {
+      "runway523CloseOut": "Early 2026",
+      "parkingRateIncrease": "September 15, 2026"
+    }
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "terminals": ["Main Terminal"],
+      "note": "Single central checkpoint on the upper level with TSA PreCheck lanes. NEXUS members should add their PASSID/KTN to the reservation to get PreCheck on the boarding pass."
+    },
+    "clear": {
+      "terminals": ["Main Terminal"],
+      "note": "CLEAR launched at BUF in 2023 with a dedicated lane to the TSA checkpoint; CLEAR also runs a TSA PreCheck enrollment location at BUF (verify hours)."
+    },
+    "globalEntry": {
+      "note": "verify — BUF's international service is seasonal; Canadian travelers clear U.S. border inspection at the land crossing, not the airport."
+    },
+    "standardWaitTimes": {
+      "average": "The airport cites an average PEAK security wait of 12 minutes",
+      "peakHours": "Early-morning departure bank (approx. 4:30-7:00 AM) — verify",
+      "tips": "Short lines are part of BUF's pitch to Canadian travelers. Holiday Sunday mornings and Bills/spring-break weekends run longer."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (airline guidance; hotel lots ask you to arrive before this window)",
+      "international": "3 hours before departure",
+      "holidays": "2.5 hours, plus border-crossing time if driving from Ontario"
+    }
+  },
+  "lounges": {
+    "mainTerminal": [
+      {
+        "name": "The Club BUF",
+        "location": "Post-security, concourse level near Gates 6-7 (verify)",
+        "hours": "Launch hours were 4:00 AM - 8:00 PM daily; later listings differ — verify",
+        "access": "Priority Pass, LoungeKey, Lounge Club; day passes sold subject to availability (~$50 online — verify)",
+        "amenities": "Complimentary food and drinks, Wi-Fi. Only lounge at BUF; serves all airlines."
+      }
+    ]
+  },
+  "wifi": {
+    "networkName": "BUF Free WiFi",
+    "cost": "Free — unlimited 45-minute sessions",
+    "coverage": "Terminal",
+    "source": "https://buffaloairport.com/traveler-info/in-the-terminal/wifi-access"
+  },
+  "evCharging": {
+    "dailyHourlyGarage": {
+      "chargers": 3,
+      "location": "Level 1, Section F-2, Daily/Hourly Parking Garage",
+      "type": "verify",
+      "cost": "FREE (garage parking rates apply — $31/day max)"
+    },
+    "totalPorts": "3 EV charging stations",
+    "note": "Free to use, first-come first-served. None of the Triply hotel lots list EV charging."
+  },
+  "luggageStorage": {
+    "onSite": "No luggage storage or lockers listed by the airport. SmarteCarte carts in lower-level baggage claim.",
+    "offSiteAlternatives": "verify (Bounce / LuggageHero availability in downtown Buffalo and Niagara Falls)"
+  },
+  "petFacilities": {
+    "total": "2 pet relief areas",
+    "locations": ["Lower level arrivals, outside — exit right out of the terminal (signed)", "Departures level, post-security between Gates 11 and 14"],
+    "source": "https://buffaloairport.com/traveler-info/in-the-terminal/amenities"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning departure bank (approx. 5:00-7:00 AM)", "Late afternoon / evening departures — verify"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Winter sun season (Florida — Orlando is BUF's busiest route), February/March school breaks on both sides of the border (U.S. winter break and Ontario March Break), Thanksgiving, Christmas/New Year, and summer. Bills home games (Sept-Jan) bring weekend inbound traffic.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5 hours — add Peace Bridge / Lewiston-Queenston wait if coming from Ontario"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental climate with warm summers and cold, snowy winters dominated by Lake Erie lake-effect snow.",
+    "commonDisruptions": "Lake-effect snow bands (November-February) can drop several feet in narrow areas while other parts of the metro stay clear; whiteouts and travel bans on roads can matter more than airport closures. Freezing rain, wind and occasional summer thunderstorms cause delays.",
+    "bestMonths": "June through September",
+    "worstMonths": "December-February (lake-effect snow peaks Nov-Dec before Lake Erie freezes)",
+    "winterNote": "BUF is known for strong snow-removal operations and rarely closes, but roads to the airport (Route 33, I-90, Thruway south of the city) can be restricted during major lake-effect events. Brush-off time for a car parked in an open lot for a week can be significant — covered parking at BUF is limited to Reserved Covered spaces on garage Level 1; all Triply hotel lots are uncovered.",
+    "lakeEffectSnow": "Buffalo averages roughly 95 inches of snow per season; the heaviest bands often hit the Southtowns while the airport (east of the city) sees less, but conditions change fast.",
+    "note": "Pack a snow brush and leave buffer time on winter return trips. Check NWS Buffalo and the airport's flight status before leaving."
+  },
+  "parkSleepFly": {
+    "description": "Several BUF-area hotels sell parking to non-guests through Triply (no room required) and may offer park-sleep-fly packages directly. Triply sells the parking-only product; verify hotel package terms with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$7.67/day (lot rate before service fee); room-plus-parking package prices — verify with hotel",
+    "popularHotels": [
+      { "name": "Buffalo Airport Hotel", "distance": "0.9 mi", "parkingIncluded": "Parking-only sold via Triply; package — verify", "shuttleHours": "24/7 on demand", "highlight": "Lowest Triply daily rate at BUF; gated, camera-monitored lot; restaurant and fitness center." },
+      { "name": "Sleep Inn & Suites Buffalo Airport", "distance": "0.8 mi", "parkingIncluded": "Parking-only sold via Triply; package — verify", "shuttleHours": "24/7 on demand", "highlight": "Keep your keys; no oversize charge for vans, pickups and large SUVs." },
+      { "name": "Quality Inn Buffalo Airport", "distance": "0.7 mi (across the street)", "parkingIncluded": "Parking-only sold via Triply; package — verify", "shuttleHours": "Scheduled every 30 min from 4 AM (verify end time)", "highlight": "Closest to the terminal — you can walk over in under 5 minutes." },
+      { "name": "M Hotel Buffalo Airport", "distance": "2.6 mi", "parkingIncluded": "Parking-only sold via Triply; package — verify", "shuttleHours": "24/7 every 30 min", "highlight": "Round-the-clock shuttle; near University at Buffalo." },
+      { "name": "Salvatores Grand Hotel", "distance": "2.1 mi", "parkingIncluded": "Parking-only sold via Triply; package — verify", "shuttleHours": "7 AM-10 PM on demand only", "highlight": "Well-lit lot with 24/7 cameras; best for mid-day flights." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "N/A — no valet listed at BUF"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip (7 billable days), on-airport daily maximums vs Triply hotel lots — Nov 2-8, 2026 quotes",
+    "onAirport": {
+      "dailyHourlyGarage": { "parkingCost": "$217 (7 x $31) + 8.75% tax", "totalEstimate": "~$235.99" },
+      "reservedCovered": { "parkingCost": "$210 (7 x $30) + $21 reservation fees + 8.75% tax (if tax applies to fee — verify)", "totalEstimate": "~$251" },
+      "preferredLot": { "parkingCost": "$126 (7 x $18) + 8.75% tax", "totalEstimate": "~$137.03" },
+      "longTermLot": { "parkingCost": "$105 (7 x $15) + 8.75% tax", "totalEstimate": "~$114.19" },
+      "economyLot": { "parkingCost": "$84 (7 x $12) + 8.75% tax", "totalEstimate": "~$91.35", "caveat": "Lot may be closed — verify" }
+    },
+    "offSiteWithShuttle": {
+      "sleepInnSuites": { "parkingCost": "$55.05 (7-day lot quote incl. lot fees)", "savingsVsLongTerm": "~$59 saved", "caveat": "24/7 on-demand shuttle; plus Triply service fee" },
+      "buffaloAirportHotel": { "parkingCost": "$57.00 (7-day lot quote incl. fees and tax)", "savingsVsLongTerm": "~$57 saved", "caveat": "24/7 on-demand shuttle; plus Triply service fee" },
+      "qualityInn": { "parkingCost": "$60.91 (7-day lot quote incl. fees and tax)", "savingsVsLongTerm": "~$53 saved", "caveat": "Scheduled shuttle / walkable; plus Triply service fee" },
+      "salvatoresGrandHotel": { "parkingCost": "$62.33 (7-day lot quote incl. fees and tax)", "savingsVsLongTerm": "~$52 saved", "caveat": "No shuttle 10 PM-7 AM; plus Triply service fee" },
+      "mHotel": { "parkingCost": "$63.62 (7-day lot quote incl. fees and tax)", "savingsVsLongTerm": "~$51 saved", "caveat": "24/7 shuttle every 30 min; plus Triply service fee" }
+    },
+    "publicTransit": {
+      "metroBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "verify", "note": "Route 24 / 24X to downtown Buffalo, $2 each way" },
+      "rideshareRoundTrip": { "costForCouple": "verify", "note": "Rideshare fares not published by the airport" }
+    },
+    "keyDifference": "BUF's cheapest confirmed on-airport option for a week is the Long Term Lot at ~$114 with tax (Economy may be closed). Triply's hotel lots run $55-64 all-in for the same 7 days before the Triply service fee — roughly half the Long Term Lot and about a quarter of the garage. Hampton Inn & Suites is excluded because its shuttle is suspended."
+  },
+  "uniqueFeatures": {
+    "canadianGateway": "BUF markets itself to Ontario travelers as a cheaper, faster alternative to Toronto Pearson: lower U.S.-bound fares, no international taxes/fees on U.S. flights, average 12-minute peak security wait. Canadians clear U.S. border inspection at the Peace Bridge, Rainbow Bridge or Lewiston-Queenston Bridge before reaching the airport.",
+    "freeEvCharging": "Three free EV chargers on Level 1 (Section F-2) of the Daily/Hourly Garage.",
+    "reservedCovered": "The only covered parking at BUF is a limited block of Reserved Covered spaces on garage Level 1 — reservation required with a $3/day fee. Valuable in lake-effect season.",
+    "theClubLounge": "The Club BUF is the airport's only lounge and accepts Priority Pass.",
+    "lakeEffectWinter": "Lake Erie lake-effect snow makes winter parking strategy (covered vs open lot, shuttle hours, brush-off time) a real decision at BUF.",
+    "billsTraffic": "Buffalo Bills home games at Highmark Stadium in Orchard Park drive inbound weekend demand from September through January."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(716) 630-6000",
+    "airportTollFree": "(877) 359-2642",
+    "airportEmail": "buf@nfta.com",
+    "airportWebsite": "buffaloairport.com",
+    "parkingInfo": "parking.buffaloairport.com",
+    "parkingPhone": "716-630-6191",
+    "frequentParkerProgram": "1-877-735-9280",
+    "tsa": "(866) 289-9673",
+    "nftaMetro": "716-855-7300",
+    "airportTaxi": "(716) 633-8294"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-13. NOTE: parking.buffaloairport.com is behind an Incapsula WAF that blocks scripted fetches — open in a browser.",
+    "officialAirport": {
+      "home": "https://www.buffaloairport.com/",
+      "parking": "https://parking.buffaloairport.com/",
+      "parkingServices": "https://parking.buffaloairport.com/services/",
+      "dailyHourlyGarage": "https://parking.buffaloairport.com/parking-information-dailyhourly-parking-garage-red-signs/",
+      "reservedCovered": "https://parking.buffaloairport.com/parking-information-reserved-covered-parking/",
+      "preferredLot": "https://parking.buffaloairport.com/parking-information-preferred-parking-lot-green-signs/",
+      "longTermLot": "https://parking.buffaloairport.com/parking-information-long-term-parking-lot-orange-signs/",
+      "economyLot": "https://parking.buffaloairport.com/parking-information-economy-parking-lot-blue-signs/",
+      "parkingMapsDirections": "https://parking.buffaloairport.com/maps-and-directions/",
+      "frequentParker": "https://parking.buffaloairport.com/express-pass/",
+      "corporateParker": "https://parking.buffaloairport.com/corporateparking/",
+      "parkingContact": "https://parking.buffaloairport.com/contact-us/",
+      "groundTransportation": "https://buffaloairport.com/parking-and-transportation/ground-transportation/",
+      "rideshare": "https://buffaloairport.com/parking-and-transportation/ground-transportation/ride-sharing",
+      "taxisShuttles": "https://buffaloairport.com/parking-and-transportation/ground-transportation/shuttles-vans-and-taxis",
+      "canadianGroundTransportation": "https://buffaloairport.com/parking-and-transportation/ground-transportation/canadian-ground-transportation",
+      "publicTransportation": "https://buffaloairport.com/parking-and-transportation/ground-transportation/public-transportation",
+      "canadianSaveTimeMoney": "https://www.buffaloairport.com/canadian-info/save-time-save-money",
+      "terminalMaps": "https://buffaloairport.com/traveler-info/in-the-terminal/airport-maps",
+      "amenities": "https://buffaloairport.com/traveler-info/in-the-terminal/amenities",
+      "wifi": "https://buffaloairport.com/traveler-info/in-the-terminal/wifi-access",
+      "tsaPreCheck": "https://buffaloairport.com/traveler-info/in-the-terminal/traveler-info/tsa-precheck",
+      "masterPlan": "https://buffaloairport.com/airport-info/planning-and-construction/master-plan",
+      "runway523": "https://www.nfta.com/about/capital-improvement/runway-5-23-rehabilitation"
+    },
+    "transit": {
+      "nftaMetroRoute24": "https://metro.nfta.com/schedules/route/24",
+      "nftaLimitedStop": "https://metro.nfta.com/getting-around/limited-stop-service"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/buf/",
+      "lyft": "https://www.lyft.com/rider/airports/buf"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=BUF",
+      "airportParkingReservations": "https://airportparkingreservations.com/buf/airport-parking",
+      "way": "https://www.way.com/buf",
+      "rightwayParking": "https://rightwayparking.com/airport-parking/buffalo-international-airport-buf"
+    },
+    "border": {
+      "peaceBridge": "https://www.peacebridge.com/",
+      "niagaraFallsBridgeCommission": "https://www.niagarafallsbridges.com/",
+      "cbpBorderWaitTimes": "https://bwt.cbp.gov/"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsa.gov/travel/security-screening/wait-times",
+      "clear": "https://www.clearme.com"
+    },
+    "lounges": {
+      "theClubBUF": "https://www.prioritypass.com/"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KBUF",
+      "faaDelays": "https://nasstatus.faa.gov/",
+      "nwsBuffalo": "https://www.weather.gov/buf/"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Buffalo_Niagara_International_Airport"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "code": "ORD",
   "fullName": "Chicago O'Hare International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Unincorporated area of Cook County, Illinois — 14 miles northwest of downtown Chicago (the Loop)",
     "iataCode": "ORD",
@@ -142,7 +142,7 @@
     },
     "hotelShuttles": "Many nearby hotels in Rosemont, Des Plaines, Schiller Park, and Elk Grove Village offer complimentary shuttle service to/from ORD. Check with your hotel before booking. The Hilton O'Hare is directly connected to Terminal 2 via walkway."
   },
-  "parkingRates": "On-airport: Main Garages (Terminals 1, 2, 3, 5) $43/day, Economy Lot E $17/day, Economy Lot F (covered) $22/day, Economy Lot G $15/day. Off-site: from ~$7.99/day with shuttle. Book ahead at flychicago.com or SpotHero for guaranteed space.",
+  "parkingRates": "On-airport (flychicago.com, rates include tax): Main Garages (Terminals 1, 2, 3, 5) $43/day, Economy Lot F (covered) $30/day, Economy Lots G and H $16/day. Off-site: from ~$11/day (Super 8, no shuttle); from ~$13/day with shuttle (Crowne Plaza). Book ahead at flychicago.com or SpotHero for guaranteed space.",
   "onAirportParking": {
     "terminal1Garage": {
       "name": "Terminal 1 Garage",
@@ -182,30 +182,30 @@
       "payment": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay"
     },
     "economyLotE": {
-      "name": "Economy Lot E",
-      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs",
-      "dailyMax": 17,
+      "name": "Economy Lot E (not listed on flychicago.com as of Oct 2026)",
+      "rate": "Not listed on flychicago.com's economy parking page (only Lots F, G and H are, Oct 2026): do not quote a Lot E rate. Use Lots G/H ($16/day) as the budget option.",
+      "dailyMax": null,
       "connection": "FREE ATS people mover to all terminals",
-      "features": "Budget on-airport option at $17/day. Connected via free ATS to all terminals. Open-air surface lot.",
-      "note": "Good budget alternative to garages — saves $26/day vs garage parking. ATS ride adds 10-15 minutes."
+      "features": "Not listed on flychicago.com's economy page as of Oct 2026. Use Economy Lots G and H ($16/day) or covered Lot F ($30/day) instead.",
+      "note": "Do not quote a Lot E rate; the old $17/day figure is no longer published."
     },
     "economyLotF": {
       "name": "Economy Lot F (Multi-Modal Facility)",
-      "rate": "$22/day",
-      "dailyMax": 22,
+      "rate": "$3 first hour, $6 for 2 hrs, $10 for 3 hrs, $14 for 4 hrs, $30/day max",
+      "dailyMax": 30,
       "connection": "FREE ATS people mover to all terminals",
       "evCharging": "24 EV charging stations for public use",
       "features": "Covered parking on Levels 4-5 of the Multi-Modal Facility (MMF). Rental car center on lower levels. Pace bus connections and Metra O'Hare Transfer station accessible. Pet relief area available. 24 EV chargers.",
-      "note": "Only covered economy option. $22/day is a premium over Lots E and G but provides weather protection — valuable during Chicago winters. Also serves as the rental car hub."
+      "note": "Only covered economy option (8'4\" clearance). $30/day is a premium over Lots G and H ($16/day) but provides weather protection — valuable during Chicago winters. Also serves as the rental car hub."
     },
     "economyLotG": {
       "name": "Economy Lot G",
-      "rate": "$3 first hour, then $15/day max",
-      "dailyMax": 15,
-      "connection": "FREE ATS people mover to all terminals",
+      "rate": "$3 first hour, then $16/day max",
+      "dailyMax": 16,
+      "connection": "Shuttle bus to the Multi-Modal Facility, then the FREE ATS people mover to all terminals (buses and ATS every 5-10 min, 24 hours)",
       "evCharging": "EV charging stations available",
-      "features": "Cheapest on-airport parking at $15/day. Open-air surface lot. EV chargers available. Connected to all terminals via free ATS.",
-      "note": "Best value on-airport parking. Can fill up during peak travel periods — arrive early or pre-book online. $15/day saves $28/day vs terminal garages."
+      "features": "Cheapest on-airport parking at $16/day (same as Lot H, which is credit card only). Open-air surface lot. EV chargers available. Shuttle bus to the Multi-Modal Facility, then the free ATS to all terminals.",
+      "note": "Best value on-airport parking. Can fill up during peak travel periods — arrive early or pre-book online. $16/day saves $27/day vs terminal garages."
     },
     "cellPhoneLot": {
       "name": "Cell Phone Waiting Lot",
@@ -244,7 +244,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Well-established ORD off-site lot with strong reviews. Indoor option is great for Chicago winters. 24/7 shuttle runs every 10-15 minutes — one of the most frequent among off-site lots."
+      "notes": "Well-established ORD off-site lot with strong reviews. Indoor option is great for Chicago winters. 24/7 shuttle runs every 10-15 minutes — one of the most frequent among off-site lots.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "PreFlight Airport Parking",
@@ -259,7 +261,9 @@
       "distanceFromAirport": "2.3 mi",
       "driveTime": "6-8 minutes",
       "freeCancellation": true,
-      "notes": "Premium off-site option with one of the fastest shuttle frequencies (every 5-10 min). Indoor covered parking is valuable during Chicago winters. EV charging available — unusual for off-site lots."
+      "notes": "Premium off-site option with one of the fastest shuttle frequencies (every 5-10 min). Indoor covered parking is valuable during Chicago winters. EV charging available — unusual for off-site lots.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "WallyPark Premier Airport Parking",
@@ -274,7 +278,9 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Premium option — higher rate but fully covered garage with valet. Good for travelers who want a hassle-free experience. Luggage assistance is a nice touch. $16.95/day pre-booked still saves vs $43/day terminal garages."
+      "notes": "Premium option — higher rate but fully covered garage with valet. Good for travelers who want a hassle-free experience. Luggage assistance is a nice touch. $16.95/day pre-booked still saves vs $43/day terminal garages.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Loews Chicago O'Hare Hotel Parking",
@@ -289,7 +295,9 @@
       "distanceFromAirport": "3.5 mi",
       "driveTime": "8-12 minutes",
       "freeCancellation": true,
-      "notes": "Upscale hotel parking option. 24/7 shuttle every 15 min is reliable. Close to Rosemont entertainment district (MB Financial Park, Fashion Outlets). Good option if you want hotel amenities before an early flight."
+      "notes": "Upscale hotel parking option. 24/7 shuttle every 15 min is reliable. Close to Rosemont entertainment district (MB Financial Park, Fashion Outlets). Good option if you want hotel amenities before an early flight.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hilton Chicago O'Hare Airport",
@@ -304,13 +312,15 @@
       "distanceFromAirport": "0 mi (inside airport)",
       "driveTime": "0 minutes (walkway to Terminal 2)",
       "freeCancellation": true,
-      "notes": "Most convenient option — walk to Terminal 2 in minutes. Price is premium ($39/day valet only) but comparable to terminal garages. Best for business travelers, early flights, or avoiding shuttle logistics. Only on-airport hotel."
+      "notes": "Most convenient option — walk to Terminal 2 in minutes. Price is premium ($39/day valet only) but comparable to terminal garages. Best for business travelers, early flights, or avoiding shuttle logistics. Only on-airport hotel.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Routes Airport Parking",
       "slug": "routes-airport-parking-ord",
-      "dailyRate": 9.95,
-      "reservationRate": 7.95,
+      "dailyRate": 15.66,
+      "reservationRate": 15.66,
       "parkingType": "Outdoor, self-park",
       "amenities": ["Free 24/7 Shuttle", "Security Cameras", "Fenced Lot", "24/7 Attendant"],
       "shuttleInfo": "24/7 complimentary shuttle to all ORD terminals",
@@ -319,7 +329,11 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Budget-friendly option on the Mannheim Road corridor. $7.95/day pre-booked is solid value. 24/7 shuttle. Good for price-conscious long-term parkers."
+      "notes": "Budget-friendly option on the Mannheim Road corridor. $7.95/day pre-booked is solid value. 24/7 shuttle. Good for price-conscious long-term parkers.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE Airport Transit System (ATS) automated people mover connects all terminals (1, 2, 3, 5), Multi-Modal Facility, Economy Lots, and Kiss 'n' Fly — trains every 3-5 minutes, 24/7. Off-site: Most Mannheim Road lots (Park 'N Jet, PreFlight, WallyPark) offer free 24/7 shuttle every 5-15 minutes, with 7-10 minute ride to terminals. The Hilton O'Hare requires no shuttle — it's connected directly to Terminal 2.",
@@ -589,19 +603,19 @@
     "scenario": "7-day trip for 2 travelers",
     "onAirport": {
       "terminalGarage": { "parkingCost": "$301 (7 x $43)", "totalEstimate": "$301" },
-      "economyLotF": { "parkingCost": "$154 (7 x $22)", "totalEstimate": "$154" },
-      "economyLotG": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" }
+      "economyLotF": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "economyLotG": { "parkingCost": "$112 (7 x $16)", "totalEstimate": "$112" }
     },
     "offSiteWithShuttle": {
       "parkNJet": { "parkingCost": "$55.93 (7 x $7.99 pre-booked)", "savingsVsGarage": "~$245 saved", "caveat": "24/7 shuttle, 7-10 min to terminals" },
       "preFlightOutdoor": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$231 saved", "caveat": "24/7 shuttle every 5-10 min, fastest frequency" },
-      "routesAirportParking": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$245 saved", "caveat": "24/7 shuttle" }
+      "routesAirportParking": { "parkingCost": "$109.62 (7 x $15.66)", "savingsVsGarage": "~$191 saved", "caveat": "24/7 shuttle" }
     },
     "publicTransit": {
-      "blueLineRoundTrip": { "costPerPersonRoundTrip": "$10.00", "travelTime": "~45 min to Loop", "note": "$5.00 per ride. Cheapest option by far — $10 round trip per person vs $105-301 for parking." },
+      "blueLineRoundTrip": { "costPerPersonRoundTrip": "$10.00", "travelTime": "~45 min to Loop", "note": "$5.00 per ride. Cheapest option by far — $10 round trip per person vs $112-301 for parking." },
       "rideshareRoundTrip": { "costForCouple": "$50-$90 (UberX downtown round trip)", "note": "Cheaper than parking for trips up to ~5 days. Subject to surge pricing." }
     },
-    "keyDifference": "ORD's on-airport garages at $43/day are among the most expensive in the country. Off-site lots on Mannheim Road save $30+/day with free 24/7 shuttles. Economy Lot G at $15/day is the best on-airport value. The CTA Blue Line at $5/day is unbeatable for downtown-bound travelers — 24/7 service means it works for any flight time. For trips over 3 days, pre-booked off-site parking ($7.99/day) saves dramatically vs garages."
+    "keyDifference": "ORD's on-airport garages at $43/day are among the most expensive in the country. Off-site lots Triply sells cost about $11-19/day, saving roughly $24-32/day vs the garages. Economy Lots G and H at $16/day are the best on-airport value: only Super 8 (~$11, no shuttle) and Crowne Plaza (~$13) are clearly cheaper. The CTA Blue Line at $5/ride is unbeatable for downtown-bound travelers — 24/7 service means it works for any flight time. For trips over 3 days, off-site parking (from about $11/day) saves dramatically vs garages."
   },
   "uniqueFeatures": {
     "dualLegacyHub": "ORD is one of only two U.S. airports (along with LAX) serving as a primary hub for two legacy carriers — United Airlines (Terminal 1) and American Airlines (Terminal 3). This creates exceptional route coverage and competitive fares.",

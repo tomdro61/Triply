@@ -1,0 +1,462 @@
+{
+  "code": "RDU",
+  "fullName": "Raleigh-Durham International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Morrisville, Wake County, North Carolina — between Raleigh and Durham, next to Research Triangle Park (RTP) and William B. Umstead State Park. The airport's mailing addresses are in Morrisville (e.g., Cell Lot at 1000 Trade Drive, Morrisville, NC 27560).",
+    "iataCode": "RDU",
+    "icaoCode": "KRDU",
+    "faaLid": "RDU",
+    "elevation": "435 feet above mean sea level (verify)",
+    "acreage": "about 5,000 acres (verify)",
+    "coordinates": "35.8776N, 78.7875W",
+    "passengerVolume": "About 15.5 million passengers in 2024 (record, per RDU's 2024 year-end release); third-party data shows ~15.65 million in 2025 — verify against an official RDU release before citing 2025.",
+    "aircraftOperations": "verify",
+    "cargoVolume": "verify",
+    "distinction": "North Carolina's second-busiest airport (after Charlotte) and the gateway to the Research Triangle (Raleigh, Durham, Chapel Hill, Cary, RTP). The primary runway 5L-23R is being replaced (~$400M program, groundbreaking Oct 2023, completion expected 2029).",
+    "operator": "Raleigh-Durham Airport Authority",
+    "owner": "Raleigh-Durham Airport Authority (jointly appointed by the cities of Raleigh and Durham and Wake and Durham counties — verify)",
+    "activeTerminals": 2,
+    "totalConcourses": "Terminal 1 and Terminal 2 (Terminal 2 has Concourses C and D — verify)",
+    "totalGates": "verify",
+    "runways": "3 (5L/23R, 5R/23L, 14/32 — verify)",
+    "runwayDetails": [
+      { "designation": "5L/23R", "length": "Replacement runway 10,639 ft, built 537 ft from the current alignment; old runway becomes a taxiway", "surface": "Concrete (verify)" },
+      { "designation": "5R/23L", "length": "verify", "surface": "verify" },
+      { "designation": "14/32", "length": "verify", "surface": "verify" }
+    ],
+    "dominantAirline": "verify — Delta, American and Southwest are the largest carriers by seats (verify current shares)",
+    "totalAirlines": "verify on rdu.com/flights/airlines",
+    "nonstopDestinations": "verify on rdu.com/nonstop-destinations",
+    "founded": "1943 (Raleigh-Durham Airport Authority) — verify",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail. GoTriangle Route 100 and the RDU Shuttle serve the airport. Stops: Terminal 1 between Zone 2 and Zone 3; Terminal 2 between Zone 6 and Zone 7.",
+    "peopleMover": "None. Terminal 1 and Terminal 2 are separate buildings across the central parking garage — walk between them (verify walk time)."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1",
+      "status": "Active",
+      "airlines": ["verify per-terminal airline assignments on rdu.com/flights/airlines"],
+      "gates": "A gates (verify count)",
+      "notes": "Ride-app and prearranged pickup at Zone 1 outside baggage claim. GoTriangle bus stop between Zone 2 and Zone 3."
+    },
+    {
+      "name": "Terminal 2",
+      "status": "Active — RDU's flagship terminal with the angular roof and cable-stayed tower.",
+      "airlines": ["verify per-terminal airline assignments on rdu.com/flights/airlines"],
+      "gates": "C and D gates (verify count)",
+      "notes": "Ride-app and prearranged pickup at Zone 8 outside baggage claim. GoTriangle bus stop between Zone 6 and Zone 7. The runway program allows a future Terminal 2 concourse expansion."
+    }
+  ],
+  "roads": ["Interstate 40 (exit 284 Airport Blvd — verify)", "Interstate 540 (exit 4 Aviation Pkwy / Lumley Rd — verify)", "Airport Blvd", "Aviation Pkwy", "John Brantley Blvd", "Aerial Center Pkwy (Morrisville hotel corridor)", "Airgate Dr (Morrisville hotel corridor)", "Emperor Blvd / Page Rd (RTP, Durham)", "Harrison Oaks Blvd (Cary)"],
+  "transit": ["GoTriangle Route 100 (Raleigh – RDU – RTP)", "RDU Shuttle (GoTriangle)", "Hotel courtesy shuttles at the red curb zones outside each terminal", "ParkRDU Economy and Express shuttles (24/7)"],
+  "neighborhoods": ["Morrisville", "Cary", "Research Triangle Park", "Durham", "Raleigh", "Apex", "Chapel Hill"],
+  "authority": "Raleigh-Durham Airport Authority",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "No people mover — two separate terminals linked by walkways around the central garage",
+      "fare": "FREE",
+      "frequency": "n/a",
+      "hours": "n/a",
+      "note": "Confirm which terminal your airline uses before parking or booking a hotel shuttle."
+    },
+    "groundTransportZones": {
+      "terminal1": "Ride apps / prearranged pickup: Zone 1 outside baggage claim. Public bus: between Zone 2 and Zone 3.",
+      "terminal2": "Ride apps / prearranged pickup: Zone 8 outside baggage claim. Public bus: between Zone 6 and Zone 7.",
+      "hotelShuttles": "Hotel shuttles pick up and drop off in the designated red curb zones outside each terminal.",
+      "source": "https://www.rdu.com/ground-transportation"
+    },
+    "goTriangle": {
+      "operator": "GoTriangle",
+      "routes": ["Route 100", "RDU Shuttle"],
+      "fare": "verify on gotriangle.org",
+      "accessFromTerminal": "Terminal 1 between Zone 2 and Zone 3; Terminal 2 between Zone 6 and Zone 7",
+      "phone": "919-485-7433",
+      "note": "Schedules at https://gotriangle.org/rdu-shuttle/",
+      "source": "https://www.rdu.com/ground-transportation/bus-and-rail-service"
+    },
+    "taxi": {
+      "fareType": "verify",
+      "pickup": "Taxi zones at both terminals (see terminal maps)",
+      "providers": "Taxi Taxi (airport taxi provider); also bookable through Curb",
+      "phone": "919-333-3333",
+      "note": "Fares not published on rdu.com.",
+      "source": "https://www.rdu.com/ground-transportation/taxis"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Outside baggage claim: Terminal 1 Zone 1, Terminal 2 Zone 8",
+      "note": "rdu.com does not name providers; Uber and Lyft operate at RDU (verify).",
+      "source": "https://www.rdu.com/ground-transportation/taxis"
+    },
+    "rentalCars": {
+      "location": "verify on rdu.com/rental-cars — rdu.com says facilities are on or near the airport with shuttle service where needed",
+      "companies": ["verify"],
+      "totalBrands": "verify",
+      "note": "Do not invent a rental car center address."
+    },
+    "hotelShuttles": "Hotel shuttles use the red curb zones outside each terminal. All five Triply lots are hotel lots in Morrisville, Cary and Durham (RTP) with free shuttles — call the hotel after you collect bags."
+  },
+  "parkingRates": "On-airport (per day, rdu.com 2026-10-16): ParkRDU Economy $14.50, ParkRDU Express $18.50, ParkRDU Central $22.75, ParkRDU Premier $34. Cashless (credit cards, Apple Pay, Google Pay). Off-site via Triply: hotel park-and-fly lots in Morrisville, Cary and Durham/RTP from ~$7.66/day with free shuttle.",
+  "onAirportParking": {
+    "operatorBrand": "ParkRDU (bookable at parkrdu.com — book at least 24 hours ahead to guarantee a space; license plate opens the gate)",
+    "economy": {
+      "name": "ParkRDU Economy",
+      "rate": "$14.50/day",
+      "dailyMax": 14.5,
+      "hourlyRate": "$3.65/hour",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.rdu.com/parking/",
+      "connection": "Free 24/7 shuttle every 20 minutes",
+      "features": "Lowest-cost on-airport parking. Parking maps label it 'ParkRDU Economy 3' (verify lot numbering)."
+    },
+    "express": {
+      "name": "ParkRDU Express",
+      "rate": "$18.50/day",
+      "dailyMax": 18.5,
+      "hourlyRate": "$4.65/hour",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.rdu.com/parking/",
+      "connection": "Free 24/7 trunk-to-terminal shuttle with luggage assistance and complimentary bottled water",
+      "features": "Mid-priced shuttle lot."
+    },
+    "central": {
+      "name": "ParkRDU Central",
+      "rate": "$22.75/day",
+      "dailyMax": 22.75,
+      "hourlyRate": "$5.70/hour",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.rdu.com/parking/",
+      "serves": "Both terminals (walk) — centrally located between Terminal 1 and Terminal 2",
+      "features": "Covered and outdoor spaces."
+    },
+    "premier": {
+      "name": "ParkRDU Premier",
+      "rate": "$34/day",
+      "dailyMax": 34,
+      "hourlyRate": "$8.50/hour",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.rdu.com/parking/",
+      "serves": "Both terminals (walk) — steps from both terminals",
+      "features": "Covered spaces on the garage ground level."
+    },
+    "valetParking": {
+      "name": "Valet",
+      "rate": "Not listed on rdu.com/parking as of 2026-10-16 — do not claim RDU offers valet without verifying",
+      "source": "https://www.rdu.com/parking/"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Lot",
+      "location": "1000 Trade Drive, Morrisville, NC 27560",
+      "cost": "FREE",
+      "rules": "Drivers must stay with their vehicles. No restrooms, food, beverage or vending. Time limit not published.",
+      "source": "https://www.rdu.com/maps-and-directions/cell-lot"
+    },
+    "evCharging": {
+      "locations": ["verify — rdu.com FAQ asks the question but the answer was not readable on 2026-10-16"],
+      "totalPorts": "verify",
+      "cost": "verify",
+      "note": "Embassy Suites by Hilton Research Triangle (Triply lot) lists 4 EV charging spots on-site.",
+      "source": "https://www.rdu.com/parking/parking-faq"
+    },
+    "accessibleParking": "rdu.com FAQ covers handicapped parking and discounts, but the answer was not readable on 2026-10-16 — verify with RDU Parking (919-840-2140).",
+    "oversizedVehicles": "rdu.com FAQ covers oversized vehicles/campers and garage height limits — answer not readable 2026-10-16; verify. Triply lots with no oversize fee: Embassy Suites, Cambria, Microtel, Quality Inn & Suites.",
+    "lostTicket": "Not published on rdu.com/parking/parking-ticket-information — contact RDU Parking (919-840-2140, Mon-Fri 8 AM-5 PM).",
+    "paymentMethods": "Cashless: major credit cards, Apple Pay, Google Pay; Parking Mobile Pay via the ticket QR code (no app); pay-on-foot kiosks; exit-lane pay stations; tap/insert card on entry and exit. Cash-to-card prepaid cards at ReadySTATION kiosks in Terminal 1, Terminal 2 and the garage exit plaza lobby (1050 Cargo Drive). 30 minutes to exit after paying.",
+    "parkingContact": "RDU Parking office, Mon-Fri 8 AM-5 PM, 919-840-2140",
+    "parkingCitations": "Appeal within 5 days of issuance; $50 administrative fee if unpaid after 20 days; in-person payment Mon-Fri 8 AM-4 PM (no cash). Appeals 919-840-7550 / 919-840-7010.",
+    "garageServiceAreas": "Premier and Central (garage) → walk to both terminals. Express and Economy → free 24/7 shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "Sheraton Imperial Raleigh-Durham Airport",
+      "slug": "sheraton-imperial-raleigh-durham-airport",
+      "dailyRate": 8.36,
+      "reservationRate": 8.36,
+      "sampleQuote": "$65.61 total for Nov 2-9, 2026 (subtotal $58.32 + fees $2.92 + tax $4.37); Nov 16-23 quoted $78.44",
+      "parkingType": "Self-park hotel lot (type not specified in listing)",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "24/7, every hour; pickups on demand. On return, call (919) 941-5050 after collecting luggage.",
+      "overview": "Sheraton Imperial Hotel Raleigh-Durham Airport at Research Triangle Park, about a 10-minute drive from RDU, with a complimentary airport shuttle. Bilingual (English/Spanish) staff and vending on site. About 10 miles from PNC Arena and 11 miles from the North Carolina Museum of Art.",
+      "address": "4700 Emperor Blvd, Durham, NC 27703",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "(919) 941-5050",
+      "notes": "Cheapest sellable RDU lot on 2026-10-16 and the only one with a 24/7 shuttle. Present your reservation at the front desk for a validation code, then register your vehicle via QR code and park in any space not marked 'Reserved'. Arrive before the airline's 2-hour pre-flight window. Listing address also shows '282 Page Rd I-40' — verify.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Embassy Suites by Hilton Research Triangle",
+      "slug": "embassy-suites-by-hilton-research-triangle",
+      "dailyRate": 8.29,
+      "reservationRate": 8.29,
+      "sampleQuote": "$69.42 total for Nov 2-9, 2026 (same quote Nov 9-16 and Nov 16-23)",
+      "parkingType": "Self-park hotel lot (type not specified in listing)",
+      "amenities": ["Security", "Restaurant", "EV Charging (4 spots, per listing description)", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "4:00 AM-12:00 AM every 30 minutes, departing on the hour and half-hour. No shuttle midnight-4 AM. Be at the shuttle 15 minutes early — drivers cannot wait. On return, call 919-677-1840.",
+      "overview": "Embassy Suites in Cary, minutes from RDU. Free shuttle with every online booking, no hotel room required, no extra cost for full-size vans, pickup trucks and large SUVs, and 4 EV charging spots on site.",
+      "address": "201 Harrison Oaks Blvd, Cary, NC 27513",
+      "distanceFromAirport": "3.2 mi",
+      "phone": "919-677-1840",
+      "notes": "Most consistent price across Nov dates (marked 'lowest total' on Nov 16-23). Bring the email confirmation (phone or printed). Booking asks for license plate and number of passengers. No shuttle midnight-4 AM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Cambria Hotel Raleigh - Durham Airport",
+      "slug": "cambria-hotel-raleigh-durham-airport",
+      "dailyRate": 10.2,
+      "reservationRate": 10.2,
+      "sampleQuote": "$81.59 total for Nov 2-9, 2026 (same quote all three Nov weeks)",
+      "parkingType": "Self-park hotel lot (type not specified in listing)",
+      "amenities": ["Restaurant", "Wheelchair Access", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "4:15 AM-midnight, every 30 minutes at :15 and :45 past the hour; pickups on demand. No shuttle midnight-4:15 AM. Call 919-361-3311 from the airport for pickup.",
+      "overview": "Closest Triply lot to RDU (1.7 mi) on Airgate Drive in Morrisville. Free shuttle with online purchase; no extra charge for full-size vans, pickup trucks and large trucks.",
+      "address": "300 Airgate Drive, Morrisville, NC 27560",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "919-361-3311",
+      "notes": "Go inside to sign in and get a parking sign for your vehicle. Be on site at least 30 minutes before you need the shuttle. No overnight shuttle.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Microtel Inn & Suites",
+      "slug": "microtel-inn-suites",
+      "dailyRate": 10.83,
+      "reservationRate": 10.83,
+      "sampleQuote": "$90.55 total for Nov 2-9, 2026 (same Nov 9-16); not returned for Nov 16-23 (likely sold out that week)",
+      "parkingType": "Self-park hotel lot (type not specified in listing)",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access", "Camera Surveillance", "ADA-Compliant Aisle Access", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "4:15 AM-11:45 PM every 30 minutes to the airport; pickups from the airport on demand. No shuttle outside those hours. On return, call 919-462-0061.",
+      "overview": "Microtel in Morrisville, minutes from RDU, with camera-monitored parking, ADA-compliant aisle access and a 24-hour front desk. Free shuttle with online purchase; no hotel room required; no extra charge for full-size vans, pickups or large SUVs.",
+      "address": "104 Factory Shops Rd, Morrisville, NC 27560",
+      "distanceFromAirport": "2.0 mi",
+      "phone": "919-462-0061",
+      "notes": "Show your reservation (phone, email or printed) at check-in. No shuttle 11:45 PM-4:15 AM. Missing from the Nov 16-23 search — availability can run out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Quality Inn & Suites",
+      "slug": "quality-inn-suites",
+      "dailyRate": 11.88,
+      "reservationRate": 11.88,
+      "sampleQuote": "$99.55 total for Nov 2-9, 2026 (same quote all three Nov weeks)",
+      "parkingType": "Self-park hotel lot (type not specified in listing)",
+      "amenities": ["Wheelchair Access", "Camera Surveillance", "ADA/Aisle Access", "No Oversize-Vehicle Fee"],
+      "shuttleInfo": "4 AM-midnight, every 30 minutes to and from the airport. No shuttle outside these hours. Call (919) 481-3600 from the airport for pickup.",
+      "overview": "Quality Inn & Suites on Aerial Center Pkwy in Morrisville, minutes from RDU. Camera surveillance, ADA/aisle access, free shuttle with online purchase, no room reservation needed, and no extra charge for full-size vans, pickups and large SUVs.",
+      "address": "1001 Aerial Center Pkwy, Morrisville, NC 27560",
+      "distanceFromAirport": "2.1 mi",
+      "phone": "(919) 481-3600",
+      "notes": "Check in at the front desk on arrival. Highest-priced sellable lot but still well under ParkRDU Economy ($14.50). Slug is shared with the CVG Quality Inn & Suites listing — refer to it as 'Quality Inn & Suites Morrisville' in copy to avoid confusion.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: ParkRDU Economy shuttle 24/7 every 20 minutes; ParkRDU Express 24/7 trunk-to-terminal shuttle with luggage help. Off-site: all five Triply lots are hotel lots with free shuttles using the red curb hotel-shuttle zones outside each terminal — call the hotel after you collect bags. Only Sheraton Imperial runs 24/7 (hourly); Embassy Suites (4 AM-12 AM), Quality Inn & Suites (4 AM-12 AM), Cambria (4:15 AM-12 AM) and Microtel (4:15 AM-11:45 PM) do not run overnight.",
+  "distanceFromCity": "About 15 miles northwest of downtown Raleigh and about 12 miles southeast of downtown Durham via I-40 (verify exact mileage). Located in Morrisville, Wake County, next to Research Triangle Park.",
+  "keyDistances": {
+    "toDowntownRaleigh": "~15 miles via I-40 (verify)",
+    "toDowntownDurham": "~12 miles via I-40 / NC-147 (verify)",
+    "toChapelHill": "~20 miles (verify)",
+    "toMorrisville": "~2 miles (Triply lots: Cambria, Microtel, Quality Inn & Suites)",
+    "toCary": "~3 miles (Triply lot: Embassy Suites by Hilton Research Triangle)",
+    "toResearchTrianglePark": "~3 miles (Triply lot: Sheraton Imperial, Durham)",
+    "competitiveAdvantage": "Every Triply RDU lot sits 1.7-3.2 miles from the terminals, and the cheapest (~$7.66-8.24/day) is roughly half the $14.50 ParkRDU Economy rate."
+  },
+  "construction2026": {
+    "status": "Runway 5L-23R replacement under construction (groundbreaking Oct 2023, completion expected 2029). No parking-facility closures confirmed on rdu.com as of 2026-10-16 — verify current alerts before travel.",
+    "projects": [
+      "Runway 5L-23R replacement: new 10,639 ft runway built 537 ft from the current one; old runway becomes a taxiway; ~$400M program (Balfour Beatty construction manager). Airside — not passenger-facing.",
+      "Vision 2040 master plan (verify current phases, including any Terminal 2 concourse expansion and parking projects)."
+    ],
+    "travelImpact": "No parking impacts identified. Check rdu.com for alerts.",
+    "timeline": { "runwayGroundbreaking": "October 2023", "runwayCompletionExpected": "2029" },
+    "source": "https://www.rdu.com/transform-runway/"
+  },
+  "securityAndScreening": {
+    "checkpointHours": "verify on rdu.com — one checkpoint area per terminal",
+    "tsaPreCheck": { "note": "TSA PreCheck available — enroll at tsa.gov/precheck (verify lanes per terminal)" },
+    "clear": { "note": "verify whether CLEAR operates at RDU" },
+    "globalEntry": { "note": "International arrivals processed at Terminal 2 (verify)" },
+    "standardWaitTimes": {
+      "average": "verify",
+      "peakHours": "Early-morning departure bank (5-7 AM) — verify",
+      "tips": "Confirm your terminal first; Terminal 1 and Terminal 2 have separate checkpoints."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (airline guidance repeated in every Triply lot listing)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    }
+  },
+  "lounges": {
+    "terminal1": [],
+    "terminal2": [
+      { "name": "Delta Sky Club", "location": "Terminal 2 (verify)", "hours": "verify", "access": "Delta Sky Club members and eligible passengers" },
+      { "name": "American Airlines Admirals Club", "location": "Terminal 2 (verify)", "hours": "verify", "access": "Admirals Club members and eligible passengers" }
+    ],
+    "other": "verify any USO or independent lounge before citing"
+  },
+  "wifi": {
+    "networkName": "verify on arrival",
+    "cost": "Free (verify)",
+    "coverage": "Both terminals"
+  },
+  "evCharging": {
+    "onAirport": "verify — not readable on rdu.com 2026-10-16",
+    "triplyLots": "Embassy Suites by Hilton Research Triangle lists 4 EV charging spots on site",
+    "note": "Do not invent RDU charger counts."
+  },
+  "luggageStorage": {
+    "onSite": "verify — not listed on pages read 2026-10-16",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": "verify on rdu.com/special-assistance",
+    "locations": [],
+    "note": "verify"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning departures", "verify afternoon peaks"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer, spring break, Thanksgiving and Christmas/New Year. University calendars (NC State, Duke, UNC) and RTP business travel drive Sunday-evening and Monday-morning demand.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical: hot, humid summers and mild winters with occasional ice and light snow.",
+    "commonDisruptions": "Summer thunderstorms (June-August); occasional winter ice storms; tropical-storm remnants in late summer and fall.",
+    "bestMonths": "April, May, October",
+    "worstMonths": "July-August (storms), January (ice)",
+    "winterNote": "Even light ice can slow I-40 and hotel shuttle runs — leave extra time.",
+    "note": "Off-site hotel lots are not listed as covered; ParkRDU Premier and Central have covered spaces."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle combos in the Morrisville, Cary and RTP hotel corridors 1.7-3.2 miles from RDU. Triply sells parking-only at the hotels below; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$7.66/day (2026-10-16 quote); room package pricing — verify with hotel",
+    "popularHotels": [
+      { "name": "Sheraton Imperial Raleigh-Durham Airport", "distance": "2.9 miles (Durham/RTP)", "parkingIncluded": "verify with hotel", "shuttleHours": "24/7, hourly + on demand", "highlight": "Cheapest Triply rate and the only 24/7 shuttle." },
+      { "name": "Embassy Suites by Hilton Research Triangle", "distance": "3.2 miles (Cary)", "parkingIncluded": "verify with hotel", "shuttleHours": "4 AM-12 AM every 30 min", "highlight": "4 EV charging spots; no oversize fee." },
+      { "name": "Cambria Hotel Raleigh - Durham Airport", "distance": "1.7 miles (Morrisville)", "parkingIncluded": "verify with hotel", "shuttleHours": "4:15 AM-12 AM", "highlight": "Closest Triply lot to RDU." },
+      { "name": "Microtel Inn & Suites", "distance": "2.0 miles (Morrisville)", "parkingIncluded": "verify with hotel", "shuttleHours": "4:15 AM-11:45 PM", "highlight": "24-hour front desk; camera-monitored lot." },
+      { "name": "Quality Inn & Suites", "distance": "2.1 miles (Morrisville)", "parkingIncluded": "verify with hotel", "shuttleHours": "4 AM-12 AM", "highlight": "Camera surveillance; no oversize fee." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, drop-off 10 AM, pickup 2 PM — Triply bills 8 days), quoted 2026-10-16. On-airport totals assume the extra 4 hours hits the daily maximum (4 x hourly rate >= daily rate for every ParkRDU product).",
+    "onAirport": {
+      "economy": { "parkingCost": "$116 (8 x $14.50)", "totalEstimate": "$116" },
+      "express": { "parkingCost": "$148 (8 x $18.50)", "totalEstimate": "$148" },
+      "central": { "parkingCost": "$182 (8 x $22.75)", "totalEstimate": "$182" },
+      "premier": { "parkingCost": "$272 (8 x $34)", "totalEstimate": "$272" }
+    },
+    "offSiteWithShuttle": {
+      "sheratonImperial": { "parkingCost": "$65.61 quoted total", "savingsVsEconomy": "~$50 saved", "savingsVsCentral": "~$116 saved", "caveat": "24/7 hourly shuttle" },
+      "embassySuitesResearchTriangle": { "parkingCost": "$69.42 quoted total", "savingsVsEconomy": "~$47 saved", "savingsVsCentral": "~$113 saved", "caveat": "No shuttle 12-4 AM" },
+      "cambriaRaleighDurhamAirport": { "parkingCost": "$81.59 quoted total", "savingsVsEconomy": "~$34 saved", "savingsVsCentral": "~$100 saved", "caveat": "No shuttle 12-4:15 AM" },
+      "microtelInnSuites": { "parkingCost": "$90.55 quoted total", "savingsVsEconomy": "~$25 saved", "savingsVsCentral": "~$91 saved", "caveat": "No shuttle 11:45 PM-4:15 AM" },
+      "qualityInnSuites": { "parkingCost": "$99.55 quoted total", "savingsVsEconomy": "~$16 saved", "savingsVsCentral": "~$82 saved", "caveat": "No shuttle 12-4 AM" }
+    },
+    "publicTransit": {
+      "goTriangle": { "costPerPersonRoundTrip": "verify on gotriangle.org", "travelTime": "verify", "note": "Practical mainly for downtown Raleigh/RTP travelers." }
+    },
+    "keyDifference": "ParkRDU Economy is $14.50/day; Triply's cheapest RDU lots (Sheraton Imperial, Embassy Suites) cost ~$66-69 for a 7-night trip vs $116 at Economy and $182 at Central."
+  },
+  "uniqueFeatures": {
+    "researchTriangleGateway": "RDU sits between Raleigh and Durham next to Research Triangle Park — the airport for NC State, Duke, UNC-Chapel Hill and RTP employers.",
+    "twoTerminals": "Two separate terminals (1 and 2) — always check your airline's terminal before choosing a lot or shuttle zone.",
+    "terminal2Architecture": "Terminal 2's angular roof and cable-stayed tower are a landmark.",
+    "runwayReplacement": "The primary runway 5L-23R is being rebuilt (~$400M, 2023-2029)."
+  },
+  "emergencyContacts": {
+    "airportWebsite": "rdu.com",
+    "parkingInfo": "rdu.com/parking",
+    "parkingPhone": "919-840-2140 (Mon-Fri 8 AM-5 PM)",
+    "parkingCitationAppeals": "919-840-7550 / 919-840-7010",
+    "airportMain": "verify on rdu.com/contact-us",
+    "lostAndFound": "verify on rdu.com",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "goTriangle": "919-485-7433",
+    "taxiTaxi": "919-333-3333",
+    "greyhound": "800-231-2222",
+    "emergency": "911 — state you are at RDU Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.rdu.com/",
+      "parking": "https://www.rdu.com/parking/",
+      "parkingReservations": "https://parkrdu.com/RaleighDurhamBooking/",
+      "parkingFaq": "https://www.rdu.com/parking/parking-faq",
+      "parkingTickets": "https://www.rdu.com/parking/parking-ticket-information",
+      "parkingTerms": "https://www.rdu.com/parking/terms-conditions",
+      "employeeParking": "https://www.rdu.com/parking/employee",
+      "parkingMaps": "https://www.rdu.com/maps-and-directions/maps-and-parking-at-rdu",
+      "cellLot": "https://www.rdu.com/maps-and-directions/cell-lot",
+      "groundTransportation": "https://www.rdu.com/ground-transportation",
+      "taxisAndRideApps": "https://www.rdu.com/ground-transportation/taxis",
+      "hotelShuttles": "https://www.rdu.com/ground-transportation/hotel-shuttles",
+      "busAndRail": "https://www.rdu.com/ground-transportation/bus-and-rail-service",
+      "rentalCars": "https://www.rdu.com/rental-cars",
+      "airlines": "https://www.rdu.com/flights/airlines",
+      "nonstopDestinations": "https://www.rdu.com/nonstop-destinations",
+      "travelTips": "https://www.rdu.com/travel-tips",
+      "specialAssistance": "https://www.rdu.com/special-assistance",
+      "runwayProgram": "https://www.rdu.com/transform-runway/",
+      "newsroom": "https://www.rdu.com/newsroom",
+      "contact": "https://www.rdu.com/contact-us"
+    },
+    "transit": {
+      "goTriangleRduShuttle": "https://gotriangle.org/rdu-shuttle/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/rdu/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=RDU"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KRDU",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/RDU"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Raleigh%E2%80%93Durham_International_Airport"
+    },
+    "newsAndMedia": {
+      "newsObserver": "https://www.newsobserver.com/",
+      "wral": "https://www.wral.com/",
+      "cbs17": "https://www.cbs17.com/"
+    }
+  }
+}

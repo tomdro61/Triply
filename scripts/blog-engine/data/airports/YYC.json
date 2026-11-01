@@ -1,0 +1,639 @@
+{
+  "code": "YYC",
+  "fullName": "Calgary International Airport",
+  "lastVerified": "2026-10-26",
+  "currency": "CAD",
+  "currencySymbol": "C$",
+  "currencyNote": "All prices are Canadian dollars. Write \"C$\", never bare \"$\". Alberta charges 5% GST only (no PST/HST). Triply lot daily rates are shown before 5% GST, which is added at checkout; yyc.com parking rates also exclude GST.",
+  "country": "Canada",
+  "overview": {
+    "location": "Northeast Calgary, Alberta, about 17 km (11 mi) northeast of downtown Calgary, near Deerfoot Trail and Stoney Trail",
+    "iataCode": "YYC",
+    "icaoCode": "CYYC",
+    "elevation": "3,606 ft (1,099 m)",
+    "coordinates": "51.1139N, 114.0203W",
+    "landArea": "20.82 square kilometres (5,144 acres)",
+    "passengerVolume": "19.4 million passengers in 2025",
+    "aircraftOperations": "205,086 aircraft movements (2025)",
+    "operator": "Calgary Airport Authority (not-for-profit; leases the site from Transport Canada)",
+    "founded": "1938 (first runway opened 25 September 1938 as McCall Field)",
+    "activeTerminals": 2,
+    "terminalsNote": "Domestic Terminal (Concourses A, B, C) and International Terminal (opened 31 October 2016: Concourse D for international and some domestic flights, Concourse E for U.S. transborder flights). The YYC Link shuttle connects the two terminals.",
+    "runways": 3,
+    "runwayDetails": [
+      {
+        "designation": "17L/35R",
+        "length": "4,267 m (14,000 ft)",
+        "surface": "Concrete",
+        "note": "Longest runway in Canada when it opened in 2014"
+      },
+      {
+        "designation": "17R/35L",
+        "length": "3,863 m (12,675 ft)",
+        "surface": "Asphalt",
+        "note": "West runway rehabilitation completed November 2025"
+      },
+      {
+        "designation": "11/29",
+        "length": "2,438 m (8,000 ft)",
+        "surface": "Asphalt"
+      }
+    ],
+    "passengerBoardingBridges": 57,
+    "dominantAirline": "WestJet (headquarters and primary global hub)",
+    "hubCarriers": [
+      "WestJet"
+    ],
+    "focusCarriers": [
+      "Air Canada",
+      "Air North"
+    ],
+    "operatingBases": [
+      "Flair Airlines",
+      "Central Mountain Air"
+    ],
+    "metroAccess": "No rail link to the terminal. Calgary Transit Route 500 Airport Express (formerly Route 300) runs to downtown via Centre Street; Route 100 connects to Saddletowne CTrain station (Blue Line) and North Pointe.",
+    "internationalNote": "U.S.-bound passengers clear U.S. Customs and Border Protection (CBP) preclearance at YYC before departure, in the International Terminal (Concourse E). Since 2025 U.S.-bound travellers can enter security and U.S. customs no more than two hours before scheduled departure.",
+    "airportImprovementFee": "C$40 per departing passenger plus applicable taxes, from January 1, 2026 (up from C$35)",
+    "source": "https://www.yyc.com/en-us/about-us/facts-figures"
+  },
+  "terminals": [
+    {
+      "name": "Domestic Terminal",
+      "status": "Active",
+      "concourses": [
+        "A",
+        "B (closed for restoration)",
+        "C"
+      ],
+      "airlines": [
+        "WestJet",
+        "Air Canada",
+        "Flair Airlines",
+        "Air North"
+      ],
+      "notes": "Four-storey terminal. Domestic security is consolidated into one centralized screening area between Doors 4 and 7. Air Canada Maple Leaf Lounge (Concourse C) and WestJet Elevation Lounge (across from Concourse B) are here. Parkade P1 serves this terminal.",
+      "source": "https://en.wikipedia.org/wiki/Calgary_International_Airport"
+    },
+    {
+      "name": "International Terminal — Concourse D",
+      "status": "Active",
+      "airlines": [
+        "WestJet",
+        "Air Canada",
+        "international carriers"
+      ],
+      "gates": "Gates 70-97 across Concourses D and E",
+      "notes": "Non-U.S. international flights and some domestic flights. Aspire International Lounge at the D gates. Parkade P2 serves this terminal.",
+      "source": "https://en.wikipedia.org/wiki/Calgary_International_Airport"
+    },
+    {
+      "name": "International Terminal — Concourse E (Transborder)",
+      "status": "Active",
+      "airlines": [
+        "WestJet",
+        "Air Canada",
+        "U.S. carriers"
+      ],
+      "notes": "U.S.-bound flights; U.S. CBP preclearance happens here before departure. Aspire Lounge Transborder beside the food court.",
+      "source": "https://en.wikipedia.org/wiki/Calgary_International_Airport"
+    }
+  ],
+  "roads": [
+    "Deerfoot Trail (Highway 2)",
+    "Stoney Trail (Highway 201)",
+    "Airport Trail NE",
+    "Barlow Trail NE",
+    "McKnight Boulevard NE",
+    "16 Avenue NE (Trans-Canada Highway 1)",
+    "36 Street NE"
+  ],
+  "transit": [
+    "Calgary Transit Route 500 Airport Express (formerly Route 300) to downtown via Centre Street",
+    "Calgary Transit Route 100 to Saddletowne CTrain (Blue Line) and North Pointe",
+    "YYC Link shuttle between Domestic and International terminals"
+  ],
+  "neighborhoods": [
+    "Downtown Calgary",
+    "Saddle Ridge",
+    "Skyview Ranch",
+    "Martindale",
+    "Taradale",
+    "Airdrie",
+    "Horizon industrial district",
+    "Sunridge"
+  ],
+  "authority": "Calgary Airport Authority",
+  "groundTransportation": {
+    "calgaryTransit": {
+      "operator": "Calgary Transit",
+      "routes": [
+        "Route 500 Airport Express: express bus between downtown and YYC via Centre Street, limited stops (renamed from Route 300 in the 2026 500-series rollout; routing unchanged)",
+        "Route 100: connects to Saddletowne LRT station (Blue Line) and North Pointe Bus Terminal"
+      ],
+      "accessFromTerminal": "Domestic: cross the roadway at Door 2 toward Pillar 7. International: exit Door 15 on the Arrivals level and cross toward Pillar 32. Ticket vending machines at both stops take debit, credit or cash; tickets also sold at the 7-Eleven on Arrivals near Door 11.",
+      "note": "Routes 32 and 57 serve the airport area but do not reach the main terminal. Fares are on Calgary Transit's site.",
+      "source": "https://www.yyc.com/en-us/transportation/public-transit"
+    },
+    "rideshare": {
+      "providers": [
+        "Uber",
+        "Lyft"
+      ],
+      "pickupLocation": "Arrivals level by Doors 3, 12 or 15; at peak times also Departures level Doors 5 and 11",
+      "airportFees": "Pick-up C$5.10 + GST (terminal only); drop-off C$4.60 + GST (airport campus); XL C$7.24 + GST; Green C$4.00 + GST",
+      "note": "Uber and Lyft are the only authorized ride-share operators at YYC.",
+      "source": "https://www.yyc.com/en-us/transportation/ride-app-pick-up"
+    },
+    "taxi": {
+      "pickup": "Taxi stands on the Arrivals level at Doors 1, 9 and 15; sedans beside them at Doors 2, 11 and 15",
+      "fareType": "Metered taxi; flat-rate sedan",
+      "fareToDowntown": "Taxi about C$40-45 under normal conditions; sedan flat rate C$68.75 to downtown",
+      "providers": "Associated Cab (403) 299-1111; Checker Cabs (403) 299-9999 (both wheelchair accessible)",
+      "note": "A C$11 Airport Access Fee applies per sedan pick-up.",
+      "source": "https://www.yyc.com/en-us/transportation/taxis-sedans"
+    },
+    "rentalCars": {
+      "location": "Rental Car Centre on the Departures level, across the roadway from the Domestic Terminal (also reachable via the elevator lobby across from the Arrivals entrance). Off-site companies pick up at Bus Bay #22 on the Arrivals roadway.",
+      "companies": [
+        "Alamo",
+        "Avis",
+        "Budget",
+        "Dollar",
+        "Enterprise",
+        "Hertz",
+        "National",
+        "Thrifty"
+      ],
+      "offSiteCompanies": [
+        "Zoom Rent A Car",
+        "Routes Car Rental",
+        "U-Save Car & Truck Rental"
+      ],
+      "totalBrands": 8,
+      "source": "https://www.yyc.com/en-us/transportation/car-rentals"
+    },
+    "hotelShuttles": {
+      "pickup": "Arrivals level, across from the terminal. Bus Bays 16 and 17: exit Door 4. Bus Bay 37: exit Door 16.",
+      "triplyLots": "Radisson Hotel Calgary Airport tells guests to wait at Pillar #37 (across from Gate #16) for international arrivals or Pillar #16 (across from Gate #4) for domestic. DoubleTree's front desk gives the pickup spot when you call. Hilton Garden Inn: call after you collect bags.",
+      "source": "https://www.yyc.com/en-us/transportation/hotel-shuttles"
+    },
+    "curbside": {
+      "pickUp": "Lower Arrivals level: Doors 4-7 (domestic) or Doors 16-17 (international)",
+      "dropOff": "Upper Departures level",
+      "rules": "No waiting or unattended vehicles at the curb; vehicles may be ticketed and towed. Retrieval fee C$170 plus the daily parking cost and GST.",
+      "source": "https://www.yyc.com/en-us/park/pick-up-and-drop-off"
+    },
+    "limousines": "Allied Limousine and Sedan Service (403) 299-9555; AM/PM Limo (403) 475-5555; Ambassador Limousine (403) 299-4910; Banff Transportation (403) 762-0000; most require advance booking"
+  },
+  "parkingRates": "All prices CAD, before 5% GST. On-airport (yyc.com, 2026-10-16): Economy Lot C$16/day, C$80 first week (reduced availability during improvements); Long-term P1 (Domestic) and P2 (International) C$32/day, C$160 first week; Short-term P1 & P2 C$40/day, C$200 first week, first 20 min free then C$5 per 20 min; Overheight lot C$27/day, C$135 first week. Drive-up hourly C$10 (not on reservations). AMA members save 20%. Cellphone waiting lot free up to 60 minutes. Off-site via Triply (Nov 2026 live search, C$/day before GST): Radisson Hotel Calgary Airport C$8.35, DoubleTree Calgary Airport C$8.35, Hilton Garden Inn Calgary Airport C$9.44.",
+  "onAirportParking": {
+    "currencyWarning": "ALL PRICES FOR YYC ARE CANADIAN DOLLARS. Write C$ (e.g. C$16), never a bare $ or US$. YYC parking rates exclude 5% GST; Triply lot daily rates are before 5% GST, added at checkout.",
+    "economyLot": {
+      "name": "Economy Lot (terminal adjacent)",
+      "rate": "C$16/day; C$80 for the first week",
+      "dailyMaxCAD": 16,
+      "weeklyMaxCAD": 80,
+      "covered": false,
+      "maxStay": "60 days",
+      "connection": "Terminal-adjacent surface lot. yyc.com: shuttle service to and from surface lots and parkades is not offered at this time.",
+      "features": "Lowest-priced YYC product. Reduced availability due to ongoing improvements. Block heaters partially available.",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.yyc.com/park"
+    },
+    "longTermP1": {
+      "name": "Long-term Parkade P1 (Domestic Terminal)",
+      "rate": "C$32/day; C$160 for the first week; drive-up hourly C$10",
+      "dailyMaxCAD": 32,
+      "weeklyMaxCAD": 160,
+      "covered": true,
+      "serves": "Domestic Terminal",
+      "heightLimit": "2.0 m (6.5 ft)",
+      "maxStay": "60 days",
+      "features": "EV chargers on P1 (electricity included with paid parking). No block heaters in P1. Accessible stalls on levels 2 and 4.",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.yyc.com/park"
+    },
+    "longTermP2": {
+      "name": "Long-term Parkade P2 (International Terminal)",
+      "rate": "C$32/day; C$160 for the first week; drive-up hourly C$10",
+      "dailyMaxCAD": 32,
+      "weeklyMaxCAD": 160,
+      "covered": true,
+      "serves": "International Terminal",
+      "heightLimit": "2.3 m (7.5 ft)",
+      "maxStay": "60 days",
+      "features": "No block heaters in P2. Accessible stalls on levels 3 to 7.",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.yyc.com/park"
+    },
+    "shortTermP1P2": {
+      "name": "Short-term Parking P1 & P2",
+      "rate": "First 20 minutes free, then C$5 per 20 minutes; C$40/day; C$200 for the first week",
+      "dailyMaxCAD": 40,
+      "weeklyMaxCAD": 200,
+      "covered": true,
+      "heightLimit": "P1 2.0 m (6.5 ft); P2 2.7 m (8.8 ft)",
+      "maxStay": "30 days",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.yyc.com/park"
+    },
+    "overheightLot": {
+      "name": "Overheight Lot",
+      "rate": "C$27/day; C$135 for the first week; drive-up hourly C$10",
+      "dailyMaxCAD": 27,
+      "weeklyMaxCAD": 135,
+      "covered": false,
+      "features": "For vehicles over 2.0 m tall. Block heaters partially available. Accessible stalls.",
+      "lastVerified": "2026-10-16",
+      "source": "https://www.yyc.com/park"
+    },
+    "valetParking": {
+      "status": "No valet product is listed on the yyc.com parking rate table on 2026-10-16.",
+      "source": "https://www.yyc.com/park"
+    },
+    "cellPhoneLot": {
+      "name": "Cellphone Waiting Lot",
+      "cost": "FREE",
+      "maxWait": "60 minutes",
+      "location": "From Airport Road take the first right, go straight, take the first exit at the traffic circle and follow the signs",
+      "rules": "Stay with your vehicle; do not wait at the curb. Head to the Arrivals curb only once your guest has bags and is waiting outside.",
+      "source": "https://www.yyc.com/en-us/park/cellphone-waiting-lot"
+    },
+    "evCharging": {
+      "locations": [
+        "Parkade P1 level 4: four universal and eight Tesla chargers",
+        "Parkade P1 level 2: universal chargers"
+      ],
+      "cost": "Electricity included with paid parking; first come, first served; cannot be reserved",
+      "source": "https://www.yyc.com/park/parking-information"
+    },
+    "reservations": "Pre-book at parkingres.yyc.com up to 12 months ahead and until 30 minutes before entry. Since June 2026 YYC-owned facilities use licence plate recognition: pre-booked customers drive in and out without a ticket. Overstays are charged at the drive-up rate. Hourly rates are drive-up only. Accessible stalls cannot be reserved. Refund cancellation window: yyc.com states two hours before entry on one page and three hours in its FAQ.",
+    "discounts": "AMA members save 20% on all YYC parking products. Corporate parking program for businesses. Promotions are sent through the YYC newsletter; no public promo codes on the promotions page (2026-10-16).",
+    "accessibleParking": "Accessible stalls in P1 short-term, P1 long-term (levels 2 and 4), P2 short-term, P2 long-term (levels 3-7) and the Overheight Lot; first come, first served.",
+    "paymentMethods": "Credit and debit cards at drive-up exit stations; licence plate recognition for pre-booked stays.",
+    "motoristServices": "Complimentary battery boosting, tire inflation and vehicle location: call 403-735-1500.",
+    "parkingContact": "Parking (24/7): (403) 735-1500; Parking@yyc.com (Mon-Fri 8 AM-4 PM); Parkade availability hot line (403) 250-7275",
+    "officialWeekCosts": "7 days: Economy C$80, Long-term P1/P2 C$160, Overheight C$135, Short-term C$200 (before GST)",
+    "ratesVerified": "2026-10-16",
+    "ratesSource": "https://www.yyc.com/park"
+  },
+  "parkingLots": [
+    {
+      "name": "Radisson Hotel Calgary Airport",
+      "slug": "radisson-hotel-calgary-airport",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 5% GST; totalFor8Days includes GST",
+      "totalFor8Days": 69.32,
+      "sampleQuote": "C$69.32 total for Nov 2-9, 2026 (billed as 8 days: C$63.60 + C$3.18 lot fees + C$2.54 GST), before any Triply service fee; identical for Nov 16-23",
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Fitness Center",
+        "Free Internet/Wifi",
+        "Room Service"
+      ],
+      "shuttleInfo": "Shuttle runs every hour 7:00 AM-10:30 PM; no shuttle 10:30 PM-7:00 AM (outside those hours arrange your own Uber or cab). The listing description instead says on request at the top of each hour 5:00 AM-11:00 PM except statutory holidays; this plan uses the 7:00 AM-10:30 PM shuttle schedule. Check in at the front desk before parking. On return, call 403-475-1111 after collecting luggage, then wait at Pillar #37 (across from Gate #16) for international arrivals or Pillar #16 (across from Gate #4) for domestic.",
+      "overview": "Radisson Hotel & Conference Centre Calgary Airport, about a 10-minute drive from YYC, sells parking without a room stay, with a complimentary hourly shuttle.",
+      "address": "6620 36 St NE, Calgary, AB T3J 4C8",
+      "distanceFromAirport": "1.6 mi (2.6 km)",
+      "driveTime": "About 10 minutes (listing)",
+      "phone": "403-475-1111",
+      "reslabLocationId": 319,
+      "triplyListingName": "Radisson Hotel Calgary Airport",
+      "freeCancellation": true,
+      "notes": "Lowest total at YYC on Triply (C$69.32 for Nov 2-9). Shuttle-hour conflict in the listing (7:00 AM-10:30 PM schedule vs 5 AM-11 PM in the description). yyc.com's hotel-shuttle page lists (403) 291-4666 for this hotel, which is the DoubleTree number; use the listing number 403-475-1111.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 2.54,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Doubletree Hotel Calgary Airport",
+      "slug": "doubletree-hotel-calgary-airport",
+      "brandName": "DoubleTree by Hilton (yyc.com lists it as DoubleTree by Hilton Calgary North)",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 5% GST; totalFor8Days includes GST",
+      "totalFor8Days": 69.96,
+      "sampleQuote": "C$69.96 total for Nov 2-9, 2026 (billed as 8 days: C$63.60 + C$3.18 lot fees + C$3.18 GST), before any Triply service fee; identical for Nov 16-23",
+      "parkingType": "Self-park (open hotel lot, 24/7 camera surveillance)",
+      "amenities": [
+        "Restaurant",
+        "Wheelchair Access",
+        "24/7 surveillance cameras"
+      ],
+      "shuttleInfo": "Shuttle every hour on the hour 6:00 AM-1:00 PM, on demand 1:00 PM-11:00 PM, no shuttle 11:00 PM-6:00 AM. Check in at the front desk to complete parking paperwork; you get a parking tag and a designated spot. Arrive early, as shuttle space may be limited. On return, call 403-291-4666; the front desk gives the pickup location and expected arrival time.",
+      "overview": "DoubleTree hotel lot about a 10-minute drive from YYC. No overnight stay required; open lot monitored 24/7 by cameras, with wheelchair-accessible spaces.",
+      "address": "2120 16 Ave NE, Calgary, AB T2E 1L4",
+      "distanceFromAirport": "3.7 mi (6.0 km)",
+      "driveTime": "About 10 minutes (listing)",
+      "phone": "403-291-4666",
+      "reslabLocationId": 373,
+      "triplyListingName": "Doubletree Hotel Calgary Airport",
+      "freeCancellation": true,
+      "minimumBookingDays": 4,
+      "notes": "Same daily rate as Radisson (C$8.35) but C$69.96 total. 4-day minimum. Farthest of the three (3.7 mi), on 16 Ave NE (Trans-Canada). No shuttle 11 PM-6 AM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 3.18,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hilton Garden Inn Calgary Airport",
+      "slug": "hilton-garden-inn-calgary-airport",
+      "dailyRate": 9.44,
+      "reservationRate": 9.44,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 5% GST; totalFor8Days includes GST",
+      "totalFor8Days": 78.4,
+      "sampleQuote": "C$78.40 total for Nov 2-9, 2026 (billed as 8 days: C$71.92 + C$3.60 lot fees + C$2.88 GST), before any Triply service fee; identical for Nov 16-23",
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "Free shuttle 24/7, every hour on the hour. You must call the front desk 24 HOURS in advance at 403-717-1999 to book the hotel-to-airport shuttle. Check in at the front desk before parking to get a parking tag. From the airport, call 403-717-1999 after claiming luggage.",
+      "overview": "Hilton Garden Inn Calgary Airport, about 10 minutes south of YYC across from the Horizon industrial district, with a free 24-hour shuttle.",
+      "address": "2335 Pegasus Road NE, Calgary, AB T2E 8C3",
+      "distanceFromAirport": "2.0 mi (3.2 km)",
+      "driveTime": "About 10 minutes (listing)",
+      "phone": "403-717-1999",
+      "reslabLocationId": 206,
+      "triplyListingName": "Hilton Garden Inn Calgary Airport",
+      "freeCancellation": true,
+      "minimumBookingDays": 4,
+      "notes": "Only Triply YYC lot with a 24/7 shuttle, but the outbound ride must be booked by phone 24 hours ahead. 4-day minimum.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 2.88,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "YYC Economy Lot",
+      "parkingType": "Airport-owned surface lot",
+      "dailyRateCAD": 16,
+      "notes": "Airport product (yyc.com). Not sold on Triply.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "YYC Long-term Parkades P1 and P2",
+      "parkingType": "Airport-owned parkade",
+      "dailyRateCAD": 32,
+      "notes": "Airport product (yyc.com). Not sold on Triply.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "YYC Overheight Lot",
+      "parkingType": "Airport-owned surface lot",
+      "dailyRateCAD": 27,
+      "notes": "Airport product (yyc.com). Not sold on Triply.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Park & Jet",
+      "parkingType": "Private off-site lot with shuttle",
+      "location": "Airport Trail and Barlow Trail area, NE Calgary",
+      "notes": "Independent off-site lot near YYC. Not sold on Triply; rates not checked.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: YYC runs no shuttle to its surface lots or parkades (Economy Lot is terminal adjacent). YYC Link shuttle connects the two terminals. Off-site: Triply's three YYC hotel lots are 1.6-3.7 mi away. Hilton Garden Inn runs 24/7 hourly but the hotel-to-airport ride must be booked by phone 24 hours ahead; Radisson runs hourly 7 AM-10:30 PM (none 10:30 PM-7 AM); DoubleTree runs hourly 6 AM-1 PM and on demand 1-11 PM (none 11 PM-6 AM). Call the hotel after collecting bags.",
+  "distanceFromCity": "About 17 km (11 mi) northeast of downtown Calgary.",
+  "keyDistances": {
+    "toDowntownCalgary": "About 17 km (11 mi); Route 500 Airport Express bus; taxi about C$40-45",
+    "toRadisson": "1.6 mi (2.6 km), 36 St NE (Triply lot)",
+    "toHiltonGardenInn": "2.0 mi (3.2 km), Pegasus Road NE (Triply lot)",
+    "toDoubleTree": "3.7 mi (6.0 km), 16 Ave NE (Triply lot)",
+    "competitiveAdvantage": "All three Triply YYC lots total C$69-79 for a 7-night November trip including GST, versus C$192 before GST for a long-term parkade week plus a day."
+  },
+  "construction2026": {
+    "status": "Concourse B (Domestic Terminal, gates 31-40) has been closed since the August 5, 2024 hailstorm and is being rebuilt; YYC says it will reopen in phases starting in 2027. Domestic security is consolidated into a centralized screening area between Doors 4 and 7, with two more lanes planned by early 2027. The Economy Lot has reduced availability due to ongoing improvements.",
+    "projects": [
+      "Concourse B restoration after the August 2024 hailstorm (phased reopening from 2027)",
+      "Centralized domestic passenger screening (CATSA Plus CT X-ray lanes; two more lanes planned by early 2027)",
+      "Economy Lot improvements (reduced availability)",
+      "Terminal washroom refresh",
+      "West runway (17R/35L) rehabilitation completed November 2025"
+    ],
+    "travelImpact": "Economy Lot space is reduced, so the cheapest on-airport product can fill; pre-book or use a Triply hotel lot.",
+    "source": "https://www.yyc.com/en-us/about-us/major-projects"
+  },
+  "securityAndScreening": {
+    "agency": "CATSA (Canadian Air Transport Security Authority), not TSA",
+    "checkpoints": "Domestic: one centralized screening area between Doors 4 and 7 of the Domestic Terminal, with a designated queue for Verified Traveller (CATSA) eligible passengers. International and transborder screening in the International Terminal.",
+    "catsaPlus": "CATSA Plus CT X-ray lanes in the centralized domestic checkpoint (trialled in the International Terminal since 2024): passengers do not need to remove large electronics, medical devices or permitted liquids from carry-ons.",
+    "usPreclearance": "U.S.-bound passengers clear U.S. Customs and Border Protection preclearance at YYC before boarding (International Terminal, Concourse E). Travellers to the U.S. can access screening and U.S. customs no more than two hours before scheduled departure.",
+    "waitTimes": "yyc.com shows current security wait times.",
+    "source": "https://www.yyc.com/en-us/flights/security-screening"
+  },
+  "lounges": [
+    {
+      "name": "Air Canada Maple Leaf Lounge",
+      "terminal": "Domestic Terminal, Concourse C, post-security",
+      "hours": "4:00 AM-1:00 AM",
+      "access": "Air Canada premium cabins, Aeroplan Elite/Super Elite, Maple Leaf Club and eligible cardholders, Star Alliance Gold"
+    },
+    {
+      "name": "WestJet Elevation Lounge",
+      "terminal": "Domestic Terminal, Post-security, across from Concourse B",
+      "hours": "5:00 AM-10:15 PM",
+      "access": "Pay-per-use; free for eligible WestJet Rewards tiers and 787 business-cabin guests"
+    },
+    {
+      "name": "YYC Quiet Space Lounge",
+      "terminal": "Domestic Terminal, Beside Gate A24, post-security",
+      "hours": "24 hours"
+    },
+    {
+      "name": "Aspire International Lounge",
+      "terminal": "International Terminal, D gates, between Vin Room and Chili's",
+      "hours": "6:00 AM-8:30 PM",
+      "access": "All airlines; Priority Pass, DragonPass, Amex, LoungeKey and others",
+      "cost": "C$55 + tax pay-in"
+    },
+    {
+      "name": "Aspire Lounge Transborder",
+      "terminal": "International Terminal, E gates (U.S.), beside the food court",
+      "hours": "4:30 AM-7:00 PM",
+      "access": "Same as Aspire International",
+      "cost": "C$55 + tax pay-in"
+    }
+  ],
+  "evCharging": {
+    "parkadeP1": {
+      "location": "P1 level 4 (four universal and eight Tesla chargers) and P1 level 2 (universal chargers)",
+      "cost": "Electricity included with paid parking (Long-term P1 C$32/day)"
+    },
+    "note": "First come, first served; cannot be reserved. None of the three Triply YYC hotel lots lists EV charging.",
+    "source": "https://www.yyc.com/park/parking-information"
+  },
+  "peakTravelTimes": {
+    "busiestDays": [
+      "Friday",
+      "Sunday"
+    ],
+    "seasonalPeak": "Summer (incl. Calgary Stampede in July), Christmas/New Year, and winter sun getaways January-March and spring break",
+    "arrivalRecommendation": {
+      "general": "The Triply hotel listings note airlines suggest arriving at the airport 2 hours before your flight; arrive at the hotel lot before that window.",
+      "transborder": "U.S. screening and preclearance open to you no more than 2 hours before departure."
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Cold semi-arid/continental: long cold winters broken by chinook warm spells, dry sunny conditions, and summer thunderstorms with hail.",
+    "commonDisruptions": "Snow and deep cold in winter; sudden temperature swings during chinooks; summer hail (the August 5, 2024 hailstorm closed Concourse B and damaged WestJet aircraft).",
+    "winterNote": "Block heaters are only partially available in the Economy and Overheight lots and not in the P1/P2 parkades. None of the three Triply hotel lots lists block-heater plug-ins and all are open-air, so bring a scraper. Ask YYC (403-735-1500) for a free battery boost if you park on-airport.",
+    "source": "https://www.yyc.com/park/parking-information"
+  },
+  "parkSleepFly": {
+    "description": "Three hotels near YYC sell parking without a room stay through Triply, each with an airport shuttle. Room-plus-parking packages are booked with the hotels directly (not a Triply product).",
+    "priceRange": "Parking-only via Triply C$8.35-9.44/day before GST (2026-10-16 quote)",
+    "popularHotels": [
+      {
+        "name": "Radisson Hotel Calgary Airport",
+        "distance": "1.6 mi (6620 36 St NE, Calgary, AB T3J 4C8)",
+        "parkOnlyRate": "C$8.35/day before GST (Nov 2026 live search)",
+        "shuttle": "Hourly 7:00 AM-10:30 PM; none 10:30 PM-7:00 AM",
+        "highlight": "Lowest total at YYC on Triply (C$69.32 for a 7-night November trip)."
+      },
+      {
+        "name": "Doubletree Hotel Calgary Airport",
+        "distance": "3.7 mi (2120 16 Ave NE, Calgary, AB T2E 1L4)",
+        "parkOnlyRate": "C$8.35/day before GST (Nov 2026 live search; 4-day minimum)",
+        "shuttle": "Hourly 6 AM-1 PM, on demand 1-11 PM; none 11 PM-6 AM",
+        "highlight": "Open lot with 24/7 cameras; parking tag from the front desk."
+      },
+      {
+        "name": "Hilton Garden Inn Calgary Airport",
+        "distance": "2.0 mi (2335 Pegasus Road NE, Calgary, AB T2E 8C3)",
+        "parkOnlyRate": "C$9.44/day before GST (Nov 2026 live search; 4-day minimum)",
+        "shuttle": "24/7, hourly on the hour; call 24 hours ahead to book the ride to the airport",
+        "highlight": "Only Triply YYC lot with round-the-clock shuttle service."
+      }
+    ],
+    "bookingSites": [
+      "triplypro.com"
+    ]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "C$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically 15-20%",
+    "skycap": "C$2-3 per bag"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip, Nov 2 10 AM - Nov 9 2 PM, 2026 (Triply bills 8 days), quoted 2026-10-16. Off-site = live Triply checkout total incl. lot fees and 5% GST, before any Triply service fee. On-airport = yyc.com first-week rate plus one extra day for the final 4 hours, shown before and after 5% GST.",
+    "onAirport": {
+      "economyLot": {
+        "parkingCost": "C$96 (C$80 first week + C$16) before GST",
+        "totalEstimate": "C$100.80 with GST"
+      },
+      "longTermP1P2": {
+        "parkingCost": "C$192 (C$160 first week + C$32) before GST",
+        "totalEstimate": "C$201.60 with GST"
+      },
+      "overheightLot": {
+        "parkingCost": "C$162 (C$135 first week + C$27) before GST",
+        "totalEstimate": "C$170.10 with GST"
+      },
+      "shortTermP1P2": {
+        "parkingCost": "C$240 (C$200 first week + C$40) before GST",
+        "totalEstimate": "C$252 with GST"
+      }
+    },
+    "offSiteWithShuttle": {
+      "radissonHotelCalgaryAirport": {
+        "parkingCost": "C$69.32",
+        "savingsVsEconomyLot": "~C$31 less",
+        "savingsVsLongTermParkade": "~C$132 less",
+        "caveat": "No shuttle 10:30 PM-7 AM"
+      },
+      "doubletreeHotelCalgaryAirport": {
+        "parkingCost": "C$69.96",
+        "savingsVsEconomyLot": "~C$31 less",
+        "savingsVsLongTermParkade": "~C$132 less",
+        "caveat": "4-day minimum; no shuttle 11 PM-6 AM"
+      },
+      "hiltonGardenInnCalgaryAirport": {
+        "parkingCost": "C$78.40",
+        "savingsVsEconomyLot": "~C$22 less",
+        "savingsVsLongTermParkade": "~C$123 less",
+        "caveat": "4-day minimum; book the outbound shuttle by phone 24 hours ahead"
+      }
+    },
+    "keyDifference": "YYC's Economy Lot (C$16/day) is the cheap on-airport anchor but has reduced availability during improvements; Triply hotel lots still save ~C$22-31 against it and ~C$123-132 against the C$32/day long-term parkades. AMA members get 20% off YYC parking (Economy week + day ~C$80.64 with GST), which narrows the Economy gap to a few dollars."
+  },
+  "uniqueFeatures": {
+    "westjetHub": "WestJet's headquarters and primary global hub.",
+    "longestRunway": "Runway 17L/35R (4,267 m / 14,000 ft) was the longest runway in Canada when it opened in 2014.",
+    "usPreclearance": "One of the Canadian airports with U.S. border preclearance: U.S.-bound passengers arrive in the U.S. as domestic travellers.",
+    "hailstorm2024": "The August 5, 2024 hailstorm closed Concourse B; it is being rebuilt with phased reopening from 2027.",
+    "licencePlateParking": "Ticketless licence plate recognition parking in YYC-owned facilities since June 2026."
+  },
+  "emergencyContacts": {
+    "airportMain": "(403) 735-1234",
+    "airportTollFree": "1 (877) 254-7427",
+    "airportEmail": "calgaryairport@yyc.com",
+    "airportWebsite": "yyc.com",
+    "parkingInfo": "yyc.com/park",
+    "parkingPhone": "(403) 735-1500 (24/7)",
+    "parkadeHotLine": "(403) 250-7275",
+    "lostAndFound": "(403) 735-1234; yyclostandfound@yyc.com (items lost on board: contact the airline)",
+    "taxi": "Associated Cab (403) 299-1111; Checker Cabs (403) 299-9999",
+    "emergency": "911 — state you are at Calgary International Airport (YYC)",
+    "source": "https://www.yyc.com/en-us/at-the-airport/lost-found"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Checked 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.yyc.com/",
+      "parking": "https://www.yyc.com/park",
+      "parkingInformation": "https://www.yyc.com/park/parking-information",
+      "parkingReservations": "https://parkingres.yyc.com/calgarybooking/",
+      "cellphoneWaitingLot": "https://www.yyc.com/en-us/park/cellphone-waiting-lot",
+      "pickUpDropOff": "https://www.yyc.com/en-us/park/pick-up-and-drop-off",
+      "parkingPromotions": "https://www.yyc.com/en-us/park/parking-promotions",
+      "securityScreening": "https://www.yyc.com/en-us/flights/security-screening",
+      "lounges": "https://www.yyc.com/en-us/shop-dine-relax/lounges",
+      "majorProjects": "https://www.yyc.com/en-us/about-us/major-projects",
+      "factsFigures": "https://www.yyc.com/en-us/about-us/facts-figures",
+      "lostFound": "https://www.yyc.com/en-us/at-the-airport/lost-found"
+    },
+    "transit": {
+      "publicTransitAtYYC": "https://www.yyc.com/en-us/transportation/public-transit",
+      "calgaryTransit": "https://www.calgarytransit.com/",
+      "rideApp": "https://www.yyc.com/en-us/transportation/ride-app-pick-up",
+      "taxis": "https://www.yyc.com/en-us/transportation/taxis-sedans",
+      "carRentals": "https://www.yyc.com/en-us/transportation/car-rentals",
+      "hotelShuttles": "https://www.yyc.com/en-us/transportation/hotel-shuttles"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=YYC",
+      "triplyAirportPage": "https://triplypro.com/calgary-yyc/airport-parking"
+    },
+    "security": {
+      "catsa": "https://www.catsa-acsta.gc.ca/en",
+      "cbpPreclearance": "https://www.cbp.gov/border-security/ports-entry/operations/preclearance"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/CYYC",
+      "environmentCanada": "https://weather.gc.ca/city/pages/ab-52_metric_e.html"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Calgary_International_Airport"
+    }
+  }
+}

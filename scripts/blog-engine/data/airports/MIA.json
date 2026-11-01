@@ -241,7 +241,9 @@
       "distanceFromAirport": "2.1 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market."
+      "notes": "24/7 shuttle is a strong advantage. Valet option at $6.95/day is one of the cheapest in the market.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Green Airport Parking (MIA)",
@@ -255,7 +257,9 @@
       "distanceFromAirport": "1.1 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance."
+      "notes": "WARNING: No shuttle outside 8 AM - 8 PM. Not suitable for early morning or late night flights. Closest off-site lot by distance.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "EVEN Hotel Miami Airport (MIA)",
@@ -284,13 +288,15 @@
       "driveTime": "12-15 minutes",
       "freeCancellation": true,
       "rating": "4.5/5",
-      "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers."
+      "notes": "Furthest off-site lot but 24/7 shuttle. Good for budget-conscious long-term parkers.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "La Quinta Inn & Suites Miami Airport East",
       "slug": "la-quinta-miami-airport-east-mia",
-      "dailyRate": 7.95,
-      "reservationRate": 7.95,
+      "dailyRate": 9.23,
+      "reservationRate": 9.23,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Shuttle", "Gated Lot", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
       "shuttleInfo": "Hourly shuttle 5 AM - 10 PM. No shuttle outside those hours.",
@@ -298,7 +304,11 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times."
+      "notes": "Shuttle only runs 5 AM - 10 PM hourly. Not ideal for late night flights but covers most departure times.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hampton Inn Miami Airport West",
@@ -313,7 +323,9 @@
       "driveTime": "10-15 minutes",
       "freeCancellation": true,
       "rating": "4.8/5",
-      "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces."
+      "notes": "4:30 AM first shuttle covers early morning flights. On-demand pickup from airport is nice. Limited handicap spaces.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE MIA Mover connects terminal to Miami Intermodal Center (Metrorail, Tri-Rail, rental cars) every 2-3 minutes, 24/7. Economy Park & Ride has free 24/7 shuttle. Off-site: Most lots include free shuttle — frequency varies from on-demand (Deal Airport Parking, EVEN Hotel) to hourly (La Quinta, Hampton Inn). CRITICAL: Some off-site lots have NO shuttle outside limited hours — verify before booking for early/late flights.",

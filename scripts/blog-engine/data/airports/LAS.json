@@ -1,7 +1,7 @@
 {
   "code": "LAS",
   "fullName": "Harry Reid International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "Paradise, unincorporated Clark County, Nevada — 5 miles south of downtown Las Vegas",
     "iataCode": "LAS",
@@ -116,69 +116,69 @@
     },
     "hotelShuttles": "Some Strip hotels offer complimentary airport shuttle, but most have discontinued this service. Check with your specific hotel. Many off-Strip hotels near the airport (Best Western, DoubleTree, Red Roof Inn) offer free airport shuttle."
   },
-  "parkingRates": "On-airport: Short-term garages $3/hr ($36/day max), Long-term garages $18/day, Economy lots $12/day, Valet $30/day. Reserved parking: T1 $28/day, T3 $21/day. Off-site: from ~$5-8/day with shuttle.",
+  "parkingRates": "On-airport (rates effective July 1, 2026): Short-term garages $4 first hour ($38/day max), Long-term garages $20/day, Economy lots $14/day (short walk to terminal), Remote Lot $14/day (free shuttle), Valet $34/day. Reserved parking: T1 $30/day, T3 $23/day. Off-site: from ~$7/day (Fairfield Inn, no shuttle) and ~$8/day with free 24/7 shuttle (DoubleTree).",
   "onAirportParking": {
     "terminal1ShortTerm": {
       "name": "Terminal 1 Short-Term Parking Garage",
-      "rate": "Free first 15 minutes. $3.00 first hour, $4.00 each additional hour",
-      "dailyMax": 36,
+      "rate": "Free first 15 minutes. $4.00 first hour, $8.00 for 1-2 hours, $5.00 each additional hour",
+      "dailyMax": 38,
       "serves": "Terminal 1 — Concourses A, B, C (direct walkway to terminal)",
       "features": "Covered multi-level garage attached to Terminal 1. Best for pickups/drop-offs and short trips. Expensive for overnight parking.",
       "note": "Use economy lot instead for trips longer than 1 day."
     },
     "terminal1LongTerm": {
       "name": "Terminal 1 Long-Term Parking Garage",
-      "rate": "$2.00 per hour",
-      "dailyMax": 18,
+      "rate": "$12.00 first 2 hours, $4.00 each additional hour",
+      "dailyMax": 20,
       "serves": "Terminal 1 — connected via covered walkway",
       "features": "Covered garage parking at a more reasonable daily rate than short-term. Good for 1-3 day trips.",
       "note": "Economy lot saves $6/day for trips longer than 2-3 days."
     },
     "terminal1Economy": {
       "name": "Terminal 1 Economy Lot",
-      "rate": "$4.00 first 2 hours, $2.00 each additional hour",
-      "dailyMax": 12,
-      "serves": "Terminal 1 via free shuttle",
-      "connection": "FREE 24/7 shuttle to Terminal 1",
-      "features": "Uncovered surface lot. Best value for on-airport parking. Shuttle service runs continuously.",
-      "note": "Best budget on-airport option at $12/day. Fills up during holidays and major conventions — arrive early or pre-book."
+      "rate": "$6.00 first 2 hours, $2.00 each additional hour",
+      "dailyMax": 14,
+      "serves": "Terminal 1 (short walk; lot is next to the Long-Term garage)",
+      "connection": "Short walk to Terminal 1 (the airport describes no Economy shuttle; the Remote Lot at 7150 Gilespie St has free shuttles)",
+      "features": "Uncovered surface lot next to the Long-Term garage. Best value for on-airport parking. No overnight oversize vehicles.",
+      "note": "Best budget on-airport option at $14/day. Fills up during holidays and major conventions — arrive early or pre-book."
     },
     "terminal3ShortTerm": {
       "name": "Terminal 3 Short-Term Parking Garage",
-      "rate": "Free first 15 minutes. $3.00 first hour, $4.00 each additional hour",
-      "dailyMax": 36,
+      "rate": "Free first 15 minutes. $4.00 first hour, $8.00 for 1-2 hours, $5.00 each additional hour",
+      "dailyMax": 38,
       "serves": "Terminal 3 — Concourse E (direct walkway to terminal)",
       "features": "Covered multi-level garage attached to Terminal 3. Direct access to check-in and baggage claim.",
       "note": "Same rate structure as Terminal 1 short-term."
     },
     "terminal3LongTerm": {
       "name": "Terminal 3 Long-Term Parking Garage",
-      "rate": "$2.00 per hour",
-      "dailyMax": 18,
+      "rate": "$12.00 first 2 hours, $4.00 each additional hour",
+      "dailyMax": 20,
       "serves": "Terminal 3 — connected via covered walkway",
       "features": "Covered garage parking. Walking distance to Terminal 3 check-in.",
       "note": "Same rate as Terminal 1 long-term."
     },
     "terminal3Economy": {
       "name": "Terminal 3 Economy Lot",
-      "rate": "$4.00 first 2 hours, $2.00 each additional hour",
-      "dailyMax": 12,
-      "serves": "Terminal 3 via free shuttle",
-      "connection": "FREE 24/7 shuttle to Terminal 3",
+      "rate": "$6.00 first 2 hours, $2.00 each additional hour",
+      "dailyMax": 14,
+      "serves": "Terminal 3 (short walk; lot is next to the Long-Term garage)",
+      "connection": "Short walk to Terminal 3 (the airport describes no Economy shuttle; the Remote Lot at 7150 Gilespie St has free shuttles)",
       "features": "Uncovered surface lot. Budget-friendly for longer trips.",
       "note": "Same rate as Terminal 1 economy."
     },
     "valetParking": {
       "name": "Valet Parking",
-      "rate": "$10.00 first hour, $2.00 each additional hour, $30/day max",
+      "rate": "$34/day",
       "maxStay": "30 days",
       "locations": "Available at both Terminal 1 and Terminal 3",
       "features": "Premium drop-off and pick-up. Car returned to you at curbside upon return."
     },
     "reservedParking": {
       "name": "Reserved Parking",
-      "rateTerminal1": "$28/day",
-      "rateTerminal3": "$21/day",
+      "rateTerminal1": "$30/day",
+      "rateTerminal3": "$23/day",
       "description": "Guaranteed parking spot in the garage. Book online at harryreidairport.com. Premium for peace of mind during peak travel.",
       "note": "New program launched 2025. Useful during CES, major fights, and holiday weekends when lots can fill."
     },
@@ -214,13 +214,15 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available."
+      "notes": "One of the closest off-site lots. Park-sleep-fly packages include 1 night + up to 7 days parking. Good budget option with hotel amenities available.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "DoubleTree by Hilton Las Vegas Airport",
       "slug": "doubletree-hilton-las-vegas-airport-las",
-      "dailyRate": 9.95,
-      "reservationRate": 7.95,
+      "dailyRate": 7.88,
+      "reservationRate": 7.88,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Airport Shuttle", "24/7 Security", "Gated Lot", "Pool Access", "Restaurant"],
       "shuttleInfo": "Complimentary 24/7 airport shuttle",
@@ -229,7 +231,12 @@
       "driveTime": "4-6 minutes",
       "freeCancellation": true,
       "rating": "4.3/5",
-      "notes": "Best option for travelers wanting hotel-quality amenities (pool, restaurant, fitness center). 24/7 shuttle is reliable. Slightly pricier than budget lots but better service."
+      "notes": "Best option for travelers wanting hotel-quality amenities (pool, restaurant, fitness center). 24/7 shuttle is reliable. Slightly pricier than budget lots but better service.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "rateSpreadPct": 24.71
     },
     {
       "name": "Red Roof Inn Las Vegas",
@@ -243,7 +250,9 @@
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "One of the cheapest pre-book rates at $5.49/day. Verify shuttle hours before booking for early/late flights."
+      "notes": "One of the cheapest pre-book rates at $5.49/day. Verify shuttle hours before booking for early/late flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fortune Hotel and Suites",
@@ -257,7 +266,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "6-10 minutes",
       "freeCancellation": true,
-      "notes": "All-suite hotel means extra space if doing park-sleep-fly. Pool is a nice perk for hot Las Vegas days. Verify shuttle schedule."
+      "notes": "All-suite hotel means extra space if doing park-sleep-fly. Pool is a nice perk for hot Las Vegas days. Verify shuttle schedule.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fairfield Inn & Suites Las Vegas Convention Center",
@@ -271,7 +282,9 @@
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly."
+      "notes": "Ideal for convention attendees — close to LVCC. Marriott quality at budget parking rates. Breakfast included with park-sleep-fly.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-13"
     },
     {
       "name": "Tahiti All-Suite Resort",
@@ -285,7 +298,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "7-10 minutes",
       "freeCancellation": true,
-      "notes": "Suites with kitchenettes are useful for early departures (make breakfast). Slightly farther from airport but competitive rates."
+      "notes": "Suites with kitchenettes are useful for early departures (make breakfast). Slightly farther from airport but competitive rates.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Super 8 by Wyndham Las Vegas Strip Area",
@@ -299,10 +314,12 @@
       "distanceFromAirport": "2.2 mi",
       "driveTime": "6-10 minutes",
       "freeCancellation": true,
-      "notes": "Cheapest pre-book rate in the market at ~$5/day. Basic amenities but gets the job done for budget-conscious travelers. Verify shuttle hours."
+      "notes": "Cheapest pre-book rate in the market at ~$5/day. Basic amenities but gets the job done for budget-conscious travelers. Verify shuttle hours.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
-  "shuttleInfo": "On-airport: FREE shuttles connect economy lots to terminals (both T1 and T3). FREE rental car shuttle runs every 5 minutes to McCarran Rent-A-Car Center. Off-site: Most hotel-based lots include free airport shuttle — frequency varies. VERIFY shuttle hours before booking — some lots have limited shuttle windows and do not run 24/7. During major conventions (CES, SEMA) and events, allow extra time for shuttle and ground transportation congestion.",
+  "shuttleInfo": "On-airport: Economy lots are a short walk from T1 and T3 (no Economy shuttle described by the airport); FREE shuttles connect the Remote Lot (7150 Gilespie St) to the terminals. FREE rental car shuttle runs every 5 minutes to McCarran Rent-A-Car Center. Off-site: Most hotel-based lots include free airport shuttle — frequency varies. VERIFY shuttle hours before booking — some lots have limited shuttle windows and do not run 24/7. During major conventions (CES, SEMA) and events, allow extra time for shuttle and ground transportation congestion.",
   "distanceFromCity": "5 miles south of downtown Las Vegas. The Las Vegas Strip begins approximately 1 mile west of the airport. 10-20 minutes to mid-Strip by car. The airport's proximity to the Strip is one of LAS's biggest advantages.",
   "keyDistances": {
     "toMidStrip": "3 miles, 8-15 min by car, $12-25 rideshare, $20-30 taxi",
@@ -529,21 +546,21 @@
   "savingsComparison": {
     "scenario": "7-day trip for 2 travelers",
     "onAirport": {
-      "shortTermGarage": { "parkingCost": "$252 (7 x $36)", "totalEstimate": "$252" },
-      "longTermGarage": { "parkingCost": "$126 (7 x $18)", "totalEstimate": "$126" },
-      "economyLot": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" },
-      "valetParking": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" }
+      "shortTermGarage": { "parkingCost": "$266 (7 x $38)", "totalEstimate": "$266" },
+      "longTermGarage": { "parkingCost": "$140 (7 x $20)", "totalEstimate": "$140" },
+      "economyLot": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" },
+      "valetParking": { "parkingCost": "$238 (7 x $34)", "totalEstimate": "$238" }
     },
     "offSiteWithShuttle": {
-      "redRoofInn": { "parkingCost": "$38.43 (7 x $5.49 pre-booked)", "savingsVsLongTerm": "~$88 saved", "caveat": "Check shuttle hours" },
-      "bestWestern": { "parkingCost": "$41.93 (7 x $5.99 pre-booked)", "savingsVsLongTerm": "~$84 saved", "caveat": "Shuttle included" },
-      "doubleTree": { "parkingCost": "$55.65 (7 x $7.95)", "savingsVsLongTerm": "~$70 saved", "caveat": "24/7 shuttle, best quality" }
+      "redRoofInn": { "parkingCost": "$38.43 (7 x $5.49 pre-booked)", "savingsVsLongTerm": "~$102 saved", "caveat": "Check shuttle hours" },
+      "bestWestern": { "parkingCost": "$87.85 (7 x $12.55)", "savingsVsLongTerm": "~$52 saved", "caveat": "Shuttle included" },
+      "doubleTree": { "parkingCost": "$55.16 (7 x $7.88)", "savingsVsLongTerm": "~$85 saved", "caveat": "24/7 shuttle, best quality" }
     },
     "rideshareComparison": {
       "roundTripUberXMidStrip": { "costForCouple": "$24-$50 round trip", "note": "Cheapest for short trips if NOT during surge. Watch for $4.50 airport surcharge each way." },
       "roundTripDuringSurge": { "costForCouple": "$60-$150 round trip", "note": "During CES, NYE, or fight nights, surge pricing makes rideshare the most expensive option" }
     },
-    "keyDifference": "LAS economy parking at $12/day is already cheap by major airport standards. Off-site lots save another $6-7/day ($38-56 for a week vs $84 on-airport economy). For Strip visitors on short trips (1-3 nights), rideshare ($10-25 each way) often beats parking entirely. The real savings differentiator at LAS is avoiding surge pricing during events — pre-booked parking eliminates that risk."
+    "keyDifference": "LAS economy parking at $14/day (rates raised July 1, 2026) is still cheap by major airport standards. Off-site lots Triply sells save about $1-7/day (~$51-88 for a week vs $98 in on-airport economy). For Strip visitors on short trips (1-3 nights), rideshare ($10-25 each way) often beats parking entirely. The real savings differentiator at LAS is avoiding surge pricing during events — pre-booked parking eliminates that risk."
   },
   "uniqueFeatures": {
     "slotMachines": "Over 1,300 slot machines and video poker terminals throughout both terminals — available to travelers 21 and over. LAS is one of only two U.S. airports with gambling (the other is Reno-Tahoe). Slot machines are in gate areas, near restaurants, and at baggage claim. Maximum payouts are typically lower than casino floors but jackpots do happen.",

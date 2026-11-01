@@ -1,7 +1,7 @@
 {
   "code": "SEA",
   "fullName": "Seattle-Tacoma International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "City of SeaTac, Washington — 14 miles south of downtown Seattle and 20 miles north of Tacoma",
     "iataCode": "SEA",
@@ -13,7 +13,7 @@
     "passengerVolume": "52.7 million passengers in 2025 (record year)",
     "aircraftOperations": "435,896 annually (2025)",
     "cargoVolume": "427,971 metric tons (2025)",
-    "distinction": "The largest airport in the Pacific Northwest and the primary hub for Alaska Airlines. Major international gateway for Delta Air Lines. 9th busiest airport in the United States by passenger traffic. Originally opened in 1944 during World War II as a military airfield, then converted to commercial use in 1947. Over 37 airlines serve 96 domestic and 36 international nonstop destinations. Home to the largest parking garage under one roof in North America (13,000+ spaces).",
+    "distinction": "The largest airport in the Pacific Northwest and the primary hub for Alaska Airlines. Major international gateway for Delta Air Lines. 9th busiest airport in the United States by passenger traffic. Originally opened in 1944 during World War II as a military airfield, then converted to commercial use in 1947. Over 37 airlines serve 96 domestic and 36 international nonstop destinations. Home to one of the largest parking garages under one roof in North America (11,000+ spaces).",
     "operator": "Port of Seattle",
     "owner": "Port of Seattle",
     "activeTerminals": 1,
@@ -152,23 +152,23 @@
       "pickup": "3rd floor of the parking garage"
     }
   },
-  "parkingRates": "On-airport: General Parking $5/hr, $32/day, $149/week. Reserved Parking (Floor 4) $39/day, $273/week. Cell Phone Lot FREE. Off-site: from ~$9.95/day with shuttle. EV charging FREE in garage (48 stations).",
+  "parkingRates": "On-airport (rates include taxes and fees): General Parking $8/hr, $37/day, $222/week. Reserved Parking (Floor 4, reservation only; expanding to Level 5) $47/day ($329 for 7 days). Cell Phone Lot FREE. Off-site: from ~$9/day (Motel 6) to ~$19/day (Seattle Airport Marriott), the lots Triply sells. EV charging FREE in garage (94 stalls).",
   "onAirportParking": {
     "generalParking": {
       "name": "General Parking (Floors 1-3, 5-8)",
-      "rate": "$5.00 per hour",
-      "dailyMax": 32,
-      "weeklyRate": 149,
+      "rate": "$8.00 per hour",
+      "dailyMax": 37,
+      "weeklyRate": 222,
       "serves": "All concourses — connected to terminal via skybridge",
-      "features": "SEA's main parking garage is the largest under one roof in North America with over 13,000 spaces across 8 floors. Floors 1-3 and 5-8 are General Parking. Skybridge connects directly to the main terminal. Free EV charging available.",
+      "features": "SEA's main parking garage is one of the largest under one roof in North America, with more than 11,000 spaces across 8 floors. Floors 1-3 and 5-8 are General Parking. Skybridge connects directly to the main terminal. Free EV charging on Floor 7 (64 stalls). Over-height vehicles (over 6'10\") use a separate 78-stall outdoor lot.",
       "preBookingUrl": "https://www.portseattle.org/sea-tac/parking"
     },
     "reservedParking": {
       "name": "Reserved Parking (Floor 4)",
-      "rate": "$39/day",
-      "weeklyRate": 273,
+      "rate": "$47 per 24-hour day (overstay $10/hour up to the daily maximum)",
+      "weeklyRate": 329,
       "serves": "All concourses — premium reserved spaces on Floor 4",
-      "features": "Formerly called Terminal Direct. Drive-up parking discontinued March 2024 — reservation required. Guaranteed space on Floor 4 closest to terminal skybridge. Best for short trips where convenience matters.",
+      "features": "Formerly called Terminal Direct. Drive-up parking discontinued March 2024 — reservation required through the Port's ReserveSEA site, at least 6 hours before entry and up to 120 days ahead (QR code entry). Expands to Level 5 from 13 Oct 2026. Guaranteed space on Floor 4 closest to terminal skybridge. Best for short trips where convenience matters.",
       "preBookingUrl": "https://www.portseattle.org/sea-tac/parking",
       "note": "Must be pre-booked online. No drive-up availability for Floor 4."
     },
@@ -180,15 +180,15 @@
     },
     "evCharging": {
       "locations": [
-        "Main parking garage — 48 ChargePoint Level 2 stations spread across multiple floors"
+        "Floor 7 (General Parking, rows E and F) — 64 free Level 2 stalls; Floor 4 (Reserved Parking) — 30 free Level 2 stalls"
       ],
-      "totalPorts": "48 EV charging stations",
+      "totalPorts": "94 EV charging stalls",
       "cost": "FREE for parking garage users (included in parking fee)",
-      "note": "SEA leads all North American airports in free EV charging. 48 ChargePoint Level 2 stations available on a first-come, first-served basis. Compatible with most electric and plug-in hybrid vehicles."
+      "note": "94 free Level 2 charging stalls for parking customers (64 on Floor 7, 30 on Floor 4), first-come, first-served, not reservable."
     },
     "accessibleParking": "Accessible parking spaces available on all garage floors, closest to elevators and skybridge. ADA-compliant with proper signage.",
-    "totalCapacity": "~13,000 vehicles in the main parking garage",
-    "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, contactless payment",
+    "totalCapacity": "11,000+ vehicles in the main parking garage",
+    "paymentMethods": "Cash and cards at staffed exit lanes; pay machines (exit lanes and Floor 4) take cards only.",
     "garageServiceAreas": "Single garage serves all concourses. Skybridge connects to main terminal between Concourses B and C. Follow signs to your concourse after entering terminal."
   },
   "parkingLots": [
@@ -205,7 +205,9 @@
       "driveTime": "3 minutes",
       "address": "2626 S 170th St, SeaTac, WA 98188",
       "freeCancellation": true,
-      "notes": "Closest off-site lot. 50+ years in business. 3-minute shuttle is fastest of all off-site options. Early booking saves up to 30%."
+      "notes": "Closest off-site lot. 50+ years in business. 3-minute shuttle is fastest of all off-site options. Early booking saves up to 30%.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "WallyPark Premier Garage",
@@ -220,7 +222,9 @@
       "driveTime": "5 minutes",
       "address": "18613 International Blvd, SeaTac, WA 98188",
       "freeCancellation": true,
-      "notes": "Best covered off-site option. Premium amenities (WiFi, coffee, water). Text-for-shuttle return service is convenient."
+      "notes": "Best covered off-site option. Premium amenities (WiFi, coffee, water). Text-for-shuttle return service is convenient.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "WallyPark Outdoor Self Park",
@@ -234,7 +238,9 @@
       "distanceFromAirport": "1.0 mi",
       "driveTime": "5 minutes",
       "freeCancellation": true,
-      "notes": "Same great shuttle and amenities as WallyPark Premier but uncovered and cheaper. Good value for budget-conscious travelers."
+      "notes": "Same great shuttle and amenities as WallyPark Premier but uncovered and cheaper. Good value for budget-conscious travelers.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "MasterPark Lot A",
@@ -250,7 +256,9 @@
       "address": "2217 S 170th St, SeaTac, WA 98188",
       "phone": "206-244-5363",
       "freeCancellation": true,
-      "notes": "38+ years in business. EV charging available. Rewards program for frequent parkers. Largest shuttle fleet at SEA."
+      "notes": "38+ years in business. EV charging available. Rewards program for frequent parkers. Largest shuttle fleet at SEA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "MasterPark Garage",
@@ -266,7 +274,9 @@
       "address": "16826 International Blvd, SeaTac, WA 98188",
       "phone": "206-244-5363",
       "freeCancellation": true,
-      "notes": "Covered garage option from MasterPark. Valet available. Good for travelers concerned about Seattle rain."
+      "notes": "Covered garage option from MasterPark. Valet available. Good for travelers concerned about Seattle rain.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Jiffy Airport Parking",
@@ -282,7 +292,9 @@
       "address": "18836 International Blvd, SeaTac, WA 98188",
       "freeCancellation": true,
       "weeklyRate": 69.95,
-      "notes": "Good budget option with 24/7 shuttle and car-side pickup. Weekly rate ($69.95) is competitive for longer trips."
+      "notes": "Good budget option with 24/7 shuttle and car-side pickup. Weekly rate ($69.95) is competitive for longer trips.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "ShuttlePark2",
@@ -298,7 +310,9 @@
       "address": "3610 S 158th St, Tukwila, WA 98188",
       "freeCancellation": true,
       "weeklyRate": 80.00,
-      "notes": "Convenient self-park and lock — no waiting for valet. Pre-pay online for best rates. Shuttle drops at garage level for easy terminal access."
+      "notes": "Convenient self-park and lock — no waiting for valet. Pre-pay online for best rates. Shuttle drops at garage level for easy terminal access.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Ajax Parking R Us",
@@ -312,7 +326,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Competitive budget option. Online pre-booking recommended for best rates."
+      "notes": "Competitive budget option. Online pre-booking recommended for best rates.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE rental car shuttle runs 24/7 from 1st floor of parking garage. Off-site: All major lots (Doug Fox, WallyPark, MasterPark, Jiffy, ShuttlePark2) include free 24/7 shuttle service with rides every 5-20 minutes. Most shuttles drop off/pick up at the 3rd floor of the parking garage (Courtesy Vehicle area). Doug Fox has the fastest shuttle (~3 minutes) as the closest lot.",
@@ -455,13 +471,13 @@
   },
   "evCharging": {
     "mainGarage": {
-      "chargers": 48,
-      "location": "Multiple floors of the main parking garage",
+      "chargers": 94,
+      "location": "Floor 7 (General Parking, rows E and F: 64) and Floor 4 (Reserved Parking: 30)",
       "type": "ChargePoint Level 2",
       "cost": "FREE (included with paid parking)"
     },
-    "totalPorts": "48 EV charging stations",
-    "note": "SEA leads all North American airports in free EV charging. All 48 ChargePoint Level 2 stations are free for garage parkers — included in the daily parking rate. First-come, first-served basis."
+    "totalPorts": "94 EV charging stalls",
+    "note": "SEA leads all North American airports in free EV charging. All 94 Level 2 stalls are free for garage parkers — included in the daily parking rate. First-come, first-served, not reservable."
   },
   "luggageStorage": {
     "onSite": "Luggage storage is NOT available on-site at SEA Airport.",
@@ -534,26 +550,26 @@
   "savingsComparison": {
     "scenario": "7-day trip for 2 travelers",
     "onAirport": {
-      "generalParking": { "parkingCost": "$224 (7 x $32)", "totalEstimate": "$224" },
-      "reservedParking": { "parkingCost": "$273 (7 x $39)", "totalEstimate": "$273" }
+      "generalParking": { "parkingCost": "$222 (weekly rate)", "totalEstimate": "$222" },
+      "reservedParking": { "parkingCost": "$329 (7 x $47)", "totalEstimate": "$329" }
     },
     "offSiteWithShuttle": {
-      "dougFoxParking": { "parkingCost": "$83.65 (7 x $11.95 pre-booked)", "savingsVsGarage": "~$140 saved", "caveat": "24/7 shuttle, closest lot" },
-      "wallyParkOutdoor": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$154 saved", "caveat": "Shuttle every 15-20 min, WiFi + coffee" },
-      "masterParkLotA": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$154 saved", "caveat": "24/7 shuttle, EV charging, rewards" },
-      "jiffyParking": { "parkingCost": "$69.95 (weekly rate)", "savingsVsGarage": "~$154 saved", "caveat": "24/7 shuttle, car-side pickup" }
+      "dougFoxParking": { "parkingCost": "$83.65 (7 x $11.95 pre-booked)", "savingsVsGarage": "~$138 saved", "caveat": "24/7 shuttle, closest lot" },
+      "wallyParkOutdoor": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$152 saved", "caveat": "Shuttle every 15-20 min, WiFi + coffee" },
+      "masterParkLotA": { "parkingCost": "$69.65 (7 x $9.95 pre-booked)", "savingsVsGarage": "~$152 saved", "caveat": "24/7 shuttle, EV charging, rewards" },
+      "jiffyParking": { "parkingCost": "$69.95 (weekly rate)", "savingsVsGarage": "~$152 saved", "caveat": "24/7 shuttle, car-side pickup" }
     },
     "publicTransit": {
       "lightRailRoundTrip": { "costPerPersonRoundTrip": "$6.00", "travelTime": "38 min to downtown Seattle", "note": "$3.00 per ride. Cheapest option for downtown-bound travelers. Often faster than driving during rush hour." },
       "rideshareRoundTrip": { "costForCouple": "$60-$100 (UberX downtown round trip)", "note": "Cheaper than 7 days of parking but expensive for a couple compared to off-site lots" }
     },
-    "keyDifference": "SEA's on-airport parking ($32-39/day) is expensive, but off-site lots offer excellent value at $9.95-14.95/day with free shuttle. Pre-booking online saves 20-30% at most lots. Link Light Rail at $3.00 is unbeatable for downtown Seattle travelers — often faster than driving during I-5 rush hour. Off-site lots save $100-150+ on a 7-day trip vs. the airport garage."
+    "keyDifference": "SEA's on-airport parking ($37/day General, $47/day Reserved) is expensive, but the off-site lots Triply sells cost about $9-19/day. Pre-booking online saves 20-30% at most lots. Link Light Rail at $3.00 is unbeatable for downtown Seattle travelers — often faster than driving during I-5 rush hour. Off-site lots Triply sells save about $90-155 on a 7-day trip vs. General Parking's $222 weekly rate."
   },
   "uniqueFeatures": {
     "alaskaAirlinesHub": "SEA is the primary hub for Alaska Airlines, the dominant carrier in the Pacific Northwest. Alaska operates more flights from SEA than any other airline, with connectivity across the West Coast, Hawaii, Mexico, and select international destinations.",
     "deltaInternationalGateway": "Delta Air Lines has rapidly expanded SEA into a major international gateway, particularly for Asia-Pacific routes. Delta operates nonstop flights to Tokyo, Seoul, Shanghai, Osaka, and other Asian destinations from SEA.",
-    "largestParkingGarageInNorthAmerica": "SEA's single parking structure with 13,000+ spaces is the largest parking garage under one roof in North America.",
-    "freeEVCharging": "SEA leads all North American airports in free EV charging with 48 ChargePoint stations — free for anyone parking in the garage.",
+    "largestParkingGarageInNorthAmerica": "SEA's single parking structure, with more than 11,000 spaces, is one of the largest parking garages under one roof in North America.",
+    "freeEVCharging": "SEA leads all North American airports in free EV charging with 94 Level 2 stalls — free for anyone parking in the garage.",
     "linkLightRailAccess": "One of the best airport rail connections in the western U.S. Link Light Rail provides direct, affordable ($3.00) service to downtown Seattle, Capitol Hill, University of Washington, and Northgate every 8-15 minutes.",
     "pacificNorthwestGateway": "SEA is the primary gateway to the Pacific Northwest, serving as the closest major airport to Mount Rainier, Olympic National Park, San Juan Islands, and the Cascade Range. Also the primary airport for Alaska cruise departures from Port of Seattle.",
     "cruisePortProximity": "Port of Seattle cruise terminal (Pier 91) is 16 miles from SEA — the departure point for Alaska cruises on major lines. Over 1 million cruise passengers annually. Link Light Rail + taxi/rideshare from International District is the most affordable route.",

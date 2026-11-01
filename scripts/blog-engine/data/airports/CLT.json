@@ -1,7 +1,7 @@
 {
   "code": "CLT",
   "fullName": "Charlotte Douglas International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-13",
   "overview": {
     "location": "Charlotte, North Carolina — 6 miles west of Uptown Charlotte",
     "iataCode": "CLT",
@@ -141,7 +141,7 @@
   "onAirportParking": {
     "hourlyDeck": {
       "name": "Hourly Deck",
-      "rate": "Free first 15 min, then $4/hour",
+      "rate": "Free first 15 min, then $8/hour (credit card only)",
       "dailyMax": 35,
       "location": "Directly in front of terminal — closest parking to gates",
       "rentalCarFacility": "Rental Car Facility located on Level 2",
@@ -194,7 +194,7 @@
     "valetParking": {
       "name": "Curbside Valet Parking",
       "rate": "$50/day",
-      "hours": "5:00 AM - 11:00 PM daily",
+      "hours": "24/7 (book online at least 3 hours ahead)",
       "location": "Departures level curbside",
       "features": "Premium drop-off and pick-up at the curb. Valet attendant parks your car. Most convenient option for business travelers.",
       "preBookingUrl": "https://parkCLT.com"
@@ -232,7 +232,9 @@
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
       "rating": "4.4/5",
-      "notes": "Best-known off-site lot at CLT. 24/7 shuttle is reliable. Covered parking adds a few dollars more per day. Weekly rate approximately $49/week when pre-booked."
+      "notes": "Best-known off-site lot at CLT. 24/7 shuttle is reliable. Covered parking adds a few dollars more per day. Weekly rate approximately $49/week when pre-booked.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Red Lion Hotel Charlotte Airport",
@@ -246,7 +248,9 @@
       "distanceFromAirport": "3.5 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Cheapest off-site parking option at CLT. Verify shuttle hours before booking — may not run 24/7. Good for budget-conscious travelers with standard departure times."
+      "notes": "Cheapest off-site parking option at CLT. Verify shuttle hours before booking — may not run 24/7. Good for budget-conscious travelers with standard departure times.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Microtel Inn & Suites Charlotte Airport",
@@ -260,7 +264,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Good mid-range option. Close to airport with free shuttle. Pre-booking saves over $1/day."
+      "notes": "Good mid-range option. Close to airport with free shuttle. Pre-booking saves over $1/day.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Royal Inn CLT Airport Parking",
@@ -274,7 +280,9 @@
       "distanceFromAirport": "2.2 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "WARNING: No shuttle service included. You must rideshare or get dropped off at the terminal separately. Only suitable if you have someone to drive you to/from the airport. Cheapest raw rate but factor in rideshare costs."
+      "notes": "WARNING: No shuttle service included. You must rideshare or get dropped off at the terminal separately. Only suitable if you have someone to drive you to/from the airport. Cheapest raw rate but factor in rideshare costs.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Country Inn & Suites Charlotte Airport",
@@ -288,7 +296,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "6-8 minutes",
       "freeCancellation": true,
-      "notes": "24-hour shuttle is a strong advantage over competitors with limited hours. Gated lot provides extra security. Good value at $6.50/day when pre-booked."
+      "notes": "24-hour shuttle is a strong advantage over competitors with limited hours. Gated lot provides extra security. Good value at $6.50/day when pre-booked.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "DoubleTree by Hilton Charlotte Airport",
@@ -302,7 +312,9 @@
       "distanceFromAirport": "4.5 mi",
       "driveTime": "10-12 minutes",
       "freeCancellation": true,
-      "notes": "Hilton brand provides reliability. Further from airport than other options but shuttle is included. Good option for travelers who want a Park Sleep Fly package."
+      "notes": "Hilton brand provides reliability. Further from airport than other options but shuttle is included. Good option for travelers who want a Park Sleep Fly package.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: Free shuttle service from Long Term Lots 1 & 2 and Daily North to terminal. All other on-airport parking (Hourly Deck, Daily Decks, Express Decks) is walkable to terminal via covered walkways. Off-site: Most lots include free shuttle — The Parking Spot runs 24/7 every 5-10 minutes. CRITICAL: Royal Inn has NO shuttle — verify shuttle service before booking any off-site lot.",

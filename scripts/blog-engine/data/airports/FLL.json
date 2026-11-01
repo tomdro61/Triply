@@ -247,7 +247,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Well-known local provider. Note: lot may undergo construction/relocation — check website for current status before booking."
+      "notes": "Well-known local provider. Note: lot may undergo construction/relocation — check website for current status before booking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "FastTrack Fort Lauderdale Airport Parking",
@@ -261,7 +263,9 @@
       "distanceFromAirport": "2.2 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Valet option is convenient for travelers in a rush. Pre-book online for best rate ($6.99 vs $9.95 walk-up)."
+      "notes": "Valet option is convenient for travelers in a rush. Pre-book online for best rate ($6.99 vs $9.95 walk-up).",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Gold Coast FLL Airport Parking",
@@ -275,7 +279,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
-      "notes": "On-demand shuttle means less waiting. Fenced and monitored lot. Pre-book for $7.49 vs $9.95 walk-up."
+      "notes": "On-demand shuttle means less waiting. Fenced and monitored lot. Pre-book for $7.49 vs $9.95 walk-up.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Best Western Plus Fort Lauderdale Airport & Cruise Port (FLL)",
@@ -289,7 +295,9 @@
       "distanceFromAirport": "2.3 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Also serves Port Everglades cruise passengers. Hourly shuttle — plan accordingly for early/late flights. Gated lot adds security."
+      "notes": "Also serves Port Everglades cruise passengers. Hourly shuttle — plan accordingly for early/late flights. Gated lot adds security.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Rodeway Inn & Suites FLL Airport Parking",
@@ -303,7 +311,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Best budget off-site option at $5.95/day pre-booked. Basic lot but gets the job done. Verify shuttle hours before booking for early/late flights."
+      "notes": "Best budget off-site option at $5.95/day pre-booked. Basic lot but gets the job done. Verify shuttle hours before booking for early/late flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: Free Breeze shuttle connects all four terminals. Free shuttle from Cypress Garage to terminals. Rental Car Center shuttle from arrivals level. Off-site: Most lots include free shuttle — frequency ranges from every 10 minutes (Park By The Ports, FastTrack) to hourly (Best Western). Brightline Airport Connector shuttle available from arrivals level ($12 with same-day Brightline ticket). CRITICAL: Verify shuttle hours for early morning and late night flights — some off-site lots have limited shuttle schedules.",
