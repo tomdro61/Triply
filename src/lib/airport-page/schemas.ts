@@ -42,6 +42,9 @@ function buildProductSchema(
     name: `${airport.code} Airport Parking`,
     description: `Off-airport parking near ${airport.name}`,
     url: `${BASE_URL}/${airport.slug}/airport-parking`,
+    // No aggregateRating here: this page lists several lots, and Google wants a rating to be
+    // about one item, not a list. Each lot's own verified rating is on its lot page (seo/lot-schema.ts).
+    brand: { "@type": "Brand", name: "Triply" },
     offers: {
       "@type": "AggregateOffer",
       lowPrice: data.priceRange.min.toFixed(2),
