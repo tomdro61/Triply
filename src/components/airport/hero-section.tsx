@@ -1,6 +1,5 @@
 import { Airport } from "@/config/airports";
 import { AirportPageData } from "@/lib/airport-page/data";
-import { airportRating } from "@/lib/airport-page/schemas";
 import { Star, ShieldCheck, Clock } from "lucide-react";
 import { SearchWidget } from "./search-widget";
 
@@ -11,8 +10,6 @@ interface HeroSectionProps {
 
 export function HeroSection({ airport, data }: HeroSectionProps) {
   const { totalLots, cheapestPrice } = data;
-  // Same figure as the Product JSON-LD's aggregateRating (schemas.ts), which Google requires be visible.
-  const rating = totalLots > 0 ? airportRating(data.lots) : null;
 
   return (
     <section className="relative bg-gradient-to-br from-brand-dark via-brand-dark to-[#2a2a4e] py-16 lg:py-20">
@@ -29,16 +26,6 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
               ? `Compare ${totalLots} parking ${totalLots === 1 ? "lot" : "lots"} near ${airport.code}${cheapestPrice ? ` from $${cheapestPrice.toFixed(2)}/day` : ""}. Book online & save.`
               : `Find and compare parking options near ${airport.name}.`}
           </p>
-
-          {rating && (
-            <p className="flex items-center justify-center gap-1.5 mt-3 text-sm text-gray-300">
-              <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span className="font-semibold text-white">{rating.average.toFixed(1)}</span>
-              <span>
-                from {rating.count} verified {rating.count === 1 ? "rating" : "ratings"} by Triply guests
-              </span>
-            </p>
-          )}
 
           {/* Trust badges */}
           <div className="flex flex-wrap justify-center gap-4 md:gap-6 mt-6">
