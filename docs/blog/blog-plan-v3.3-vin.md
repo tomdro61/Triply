@@ -103,7 +103,7 @@ Legend: ✅ live · 🌑 merged but off behind a flag · 🔁 open PR · 🛠 bu
 
 1. **Step vs test** (the rule above). A step adds, corrects or protects. Removing, redirecting or rewriting a page that earns anything is a test.
 2. **One page per question per airport.** Rates ≈ cost ≈ price ≈ fees is one question; long-term, hourly, each terminal/garage are different questions. Hubs are never merged.
-3. **Answer first.** The direct answer and the key numbers (official rate, the range of what we sell computed from the lot list, shuttle frequency, distance, "as of <month>") in the title and first paragraph, phrased the way the question is asked. On airport booking pages prices come only from the live table (§2.2).
+3. **Answer first.** The direct answer and the key numbers (official rate, shuttle frequency, distance, "as of <month>") in the title and first paragraph, phrased the way the question is asked. Our lot prices come from the live table, not copy, on airport pages and blog hubs (decision 10); spokes may quote a range computed from the lot list, dated.
 4. **Keep the breadth; move the answers.** A merged copy's unique facts go into the destination as a section before its URL redirects. Nothing a reader or an assistant found disappears.
 5. **Name our lots.** Every page that names a lot names at least one we sell, its price taken from the lot list and dated ("as of"). Naming lots we don't sell is fine; implying we sell them is not. `/api/search` is the only source of truth for what we sell (ResLab's test lots excluded since #144); the catalogue JSONs are editorial. A lot with no shuttle is described without one; a lot whose transfer is paid on top never leads a "from $X" line (Tom, #143).
 6. **Honest comparisons.** "Cheaper than the terminal garage" (true at the median everywhere measured). Never "nothing is added after checkout" (some lots charge extras at the lot). Never "cheaper than the economy lot" without the airport's actual number, because at eleven airports we aren't.
@@ -194,8 +194,8 @@ its spokes; spoke → its intent page and the hub. Descriptive anchors; under ~4
 - **B-7 Sitemap + Bing**: submit the sitemap in Bing Webmaster (GSC token is read-only); weekly indexed-URL counts in both as the early warning.
 - **B-8 Weekly index-health file**: URL Inspection on the fixed 75-post sample monthly, plus every destination page's status (v3.2 §7).
 - **B-9 Hub rebuild** (hubs get about a third of a spoke's clicks; the hub should be the page an assistant cites for "parking at <airport>"). For each hub, highest-traffic airports first, through preview → apply, `contentUpdatedAt` stamped because facts change:
-  1. Answer first: cheapest official option, the range of what we sell (computed from the lot list at apply time, "as of"), the garage gap from the index.
-  2. One comparison table: every official lot (dated official rate) + every lot we sell — distance or shuttle time, hours, extras paid at the lot. Our lot prices only as computed from the lot list and dated, no "cheapest / best value" ranking in copy, and the booking page's live table linked as the current price (decision 10).
+  1. Answer first: cheapest official option (dated official rate), the garage gap from the index, and a pointer to the live lot list for what we sell today (decision 10).
+  2. One comparison table: every official lot (dated official rate) + every lot we sell — distance or shuttle time, hours, extras paid at the lot. **No per-lot $ for our lots**: the live table / booking widget carries the price. No "cheapest / best value" ranking in copy.
   3. A real map where the title promises one.
   4. "Park or rideshare?" — a short table by distance (C-5).
   5. The booking page above the fold; links to every intent page, the spokes, and the latest index.
@@ -307,7 +307,7 @@ Mass deletion · monthly new posts · bulk date bumps · year batch · live pric
 7. Hub rebuilds stamp `contentUpdatedAt` (facts change) and run at non-pilot airports first.
 8. Q3 lot list: keep tagged live search, or build the endpoint.
 9. Q5 log drain vendor and cost.
-10. Blog hubs and price-led posts: carry dated lot prices computed from the lot list (refreshed monthly, W3a), or follow the airport-page rule and point at the live table with no per-lot $.
+10. ~~Blog hubs: dated lot prices or the live table?~~ **Decided 2 Nov (Vin): the live table.** Blog hubs follow the airport-page rule — lot facts in copy, no per-lot $, no lot counts, no "cheapest / best value" ranking; the current price is the booking widget / airport page's live lot list. Tom to confirm.
 
 ## 14. Review ledger (v3.3 → v3.4)
 
@@ -332,7 +332,7 @@ Not adopted: none. The reviewer's dating ("by mid-November") is not carried into
 | 1 | #141 merged: engine in `main`; publish path fixed | Step 2 ticked; step 2a (run everything from `main`) added; §2.1, §4, §5 Q2 |
 | 2 | #142 merged: redirects + preview → apply, hardened | Steps 17–18 confirmed; W4/P3c unparked → step 35a; §5 Q4 |
 | 3 | #143 merged: 48 data files, 90-day data guard, lot list the only price/name source; paid transfers never lead; no-shuttle lots may lead, never claim a shuttle | Principles 3 and 5; §2.1 rows; monthly refresh in §10 and the monthly line |
-| 4 | 4771cf2 + #114: airport-page copy keeps lot facts, prices only from the live table; "nothing added after checkout" false at some lots | §2.2 rows corrected; principle 6; B-9 items 1–2; decision 10 |
+| 4 | 4771cf2 + #114: airport-page copy keeps lot facts, prices only from the live table; "nothing added after checkout" false at some lots | §2.2 rows corrected; principle 6; decision 10 decided by Vin: **blog hubs use the live table too** → principle 3, B-9 items 1–2 |
 | 5 | #144: ResLab test lots hidden | Principle 5; §2.2; step 9a |
 | 6 | #119 + #125 merged, flag off | §2.2 row; D-7 / E-3 wait on the flag (Marketing Plan) |
 
@@ -381,7 +381,7 @@ The blog roadmap as one ordered checklist. No dates: a step starts when the one 
 ### Block 6 — Readout, hubs, December index, links and mentions, new pages, repairs
 - [x] **24.** **Readout** — Oct 13–17 + Oct 23–24 new-airport pages: indexed, impressions, citations, sessions by source, bookings per airport; what to replicate. Vin.
 - [x] **25.** **B-2** — linking pass, airports 11–30. Vin.
-- [ ] **26.** **B-9** — hub rebuilds 1–10 (non-pilot airports) through preview → apply. Vin + Claude.
+- [ ] **26.** **B-9** — hub rebuilds 1–10 (non-pilot airports) through preview → apply; lot facts in copy, prices from the live table (decision 10). Vin + Claude.
 - [ ] **27.** **C-2** — December index live + D-1 pitch. Vin + Claude.
 - [ ] **28.** **D-3** — "Book on Triply" badge + sentence offered to every lot we sell (email via the tracker). Vin.
 - [ ] **29.** **D-5** — unlinked-mention sweep #1; link asks sent. Vin.
