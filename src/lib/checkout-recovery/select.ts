@@ -183,7 +183,7 @@ export function latestLocalWallClock(nowMs: number): string {
 }
 
 export interface SelectionOptions {
-  /** ResLab locations hidden from the site (BLOCKED_RESLAB_LOCATION_IDS):
+  /** ResLab locations hidden from the site (hiddenReslabLocationIds(): the blocked list, plus the test lots in production):
    *  never invite anyone back to a lot we have deliberately pulled. */
   blockedLocationIds?: ReadonlySet<number>;
 }
