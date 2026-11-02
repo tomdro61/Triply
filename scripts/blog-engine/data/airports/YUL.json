@@ -1,0 +1,461 @@
+{
+  "code": "YUL",
+  "fullName": "Montréal-Pierre Elliott Trudeau International Airport",
+  "lastVerified": "2026-10-26",
+  "currency": "CAD",
+  "currencySymbol": "C$",
+  "currencyNote": "All prices are Canadian dollars. Write \"C$\", never bare \"$\". Triply lot prices are shown before Quebec GST (5%) + QST (9.975%) = 14.975%, added at checkout.",
+  "country": "Canada",
+  "overview": {
+    "location": "Dorval, Quebec, on the Island of Montreal, about 20 km (12 mi) west of downtown Montreal",
+    "iataCode": "YUL",
+    "icaoCode": "CYUL",
+    "coordinates": "45.4706N, 73.7408W",
+    "passengerVolume": "Canada's third-busiest airport (about 22 million passengers a year) (verify)",
+    "operator": "Aéroports de Montréal (ADM)",
+    "activeTerminals": 1,
+    "terminalsNote": "One terminal with three sectors: domestic (Canada), transborder (U.S.) and international (verify gate numbering)",
+    "dominantAirline": "Air Canada (hub); Air Transat (base) (verify)",
+    "metroAccess": "STM 747 express bus between YUL and downtown (Lionel-Groulx metro and René-Lévesque Blvd stops), 24/7 (fare about C$11 (verify)); REM light-rail airport station not yet open (verify)",
+    "internationalNote": "U.S.-bound flights clear U.S. Customs and Border Protection preclearance at YUL before departure; allow extra time. Security screening is by CATSA, not TSA. (verify)",
+    "languageNote": "Quebec is French-first: road and parking signs are in French (Stationnement = parking, Départs = departures, Arrivées = arrivals, Navette = shuttle)."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal (single building)",
+      "airlines": [
+        "Air Canada",
+        "Air Transat",
+        "WestJet",
+        "Porter Airlines",
+        "Air France",
+        "British Airways",
+        "American Airlines",
+        "Delta Air Lines",
+        "United Airlines"
+      ],
+      "notes": "One terminal split into domestic, transborder (U.S. preclearance) and international sectors. Official lots P4 and P10 have free Express drop-off zones with free shuttles to the terminal; the in-terminal Marriott hosts HotelParc. (verify airline list)"
+    }
+  ],
+  "roads": [
+    "Autoroute 20",
+    "Autoroute 520 (Côte-de-Liesse)",
+    "Autoroute 13",
+    "Autoroute 40 (Trans-Canada / Metropolitan)",
+    "Boulevard Cardinal",
+    "Chemin de la Côte-de-Liesse",
+    "Boulevard Montréal-Toronto",
+    "Avenue Marshall"
+  ],
+  "transit": [
+    "STM 747 YUL Aéroport / Centre-Ville express bus (24/7)",
+    "Express bus 815 from REM Des Sources station (2026 service per La Presse; verify)",
+    "STM local buses to Dorval station (verify routes)",
+    "exo and VIA Rail Dorval station (verify connection)",
+    "REM airport station (under construction; not open as of Oct 2026) (verify)"
+  ],
+  "neighborhoods": [
+    "Dorval",
+    "Saint-Laurent",
+    "Pointe-Claire",
+    "Lachine",
+    "Mount Royal (Town of Mount Royal)",
+    "West Island",
+    "Downtown Montreal"
+  ],
+  "authority": "Aéroports de Montréal (ADM)",
+  "groundTransportation": {
+    "stm747": {
+      "description": "STM 747 express bus between YUL and downtown Montreal (Lionel-Groulx metro, René-Lévesque Blvd stops)",
+      "fare": "About C$11; fare includes 24 h of STM network travel (verify)",
+      "frequency": "24/7 (verify frequency)",
+      "travelTime": "About 45-70 minutes to downtown depending on traffic (verify)"
+    },
+    "rem": {
+      "description": "REM light-rail airport station is under construction; not in service as of Oct 2026 (verify)"
+    },
+    "expressDropOff": {
+      "description": "Free Express drop-off zones in P4 and P10, open 24/7, with free shuttles to the terminal in a few minutes; busiest 1-8 PM (La Presse, Jul 2026)"
+    },
+    "hotelShuttles": "Park-only parking with a shuttle can be booked on Triply at Baymont Inn (Saint-Laurent) and Quality Hotel Montreal Airport (Côte-de-Liesse). Off-site shuttle/valet lots on Triply: Autoparc RM Montreal Airport, AutoParc Prime and Eyepark Airport."
+  },
+  "parkingRates": "All prices CAD. On-airport (admtl.com blocked 2026-10-16; secondary sources - verify every figure): AéroParc A1 C$30 per 24 h, first 40 min free (Time Out, Jan 2026); EconoParc P9 C$30/day; P4 C$34/day; Short-term C$43/day; HotelParc C$45/day; ValetParc C$50/day (way.com Oct 2026; milesopedia Oct 2026 confirms ValetParc C$50 and HotelParc C$45). Multi-level garage and EconoParc P5 are permanently closed (Time Out, 2026). Online booking is up to 10% off the gate price (La Presse). Off-site bookable on Triply (Nov 2026 live search, C$ per day incl. lot fees, before 14.975% GST+QST): Autoparc RM Montreal Airport C$12.55 (3-day min); AutoParc Prime C$14.65 (7-day min); Baymont Inn C$14.69 (3-day min); Quality Hotel Montreal Airport C$15.70 (4-day min); Eyepark Airport C$19.90.",
+  "onAirportParking": {
+    "currencyWarning": "ALL PRICES FOR YUL ARE CANADIAN DOLLARS. Write C$ (e.g. C$30), never a bare $ or US$. Triply lot prices below are before 14.975% GST+QST, added at checkout.",
+    "aeroParcA1": {
+      "name": "AéroParc A1",
+      "rate": "C$30 per 24 hours; first 40 minutes free; valet available subject to availability (verify)",
+      "dailyMaxCAD": 30,
+      "address": "400 McMillan Blvd, Dorval, QC H9P 1C8",
+      "connection": "Free shuttle at all hours, about 15 minutes (verify)",
+      "spaces": "1,000 (opened Jan 2026)",
+      "lastVerified": "2026-10-16",
+      "source": "Time Out Montreal, 30 Jan 2026; admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "econoParcP9": {
+      "name": "EconoParc P9",
+      "rate": "C$30 per day (verify)",
+      "dailyMaxCAD": 30,
+      "connection": "Free shuttle to the terminal (verify)",
+      "lastVerified": "2026-10-16",
+      "source": "way.com/yul (rates updated Oct 2026, third-party); milesopedia gives EconoParcs C$30-36/day; admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "p4": {
+      "name": "P4 (covered, multi-storey)",
+      "rate": "C$34 per day (verify)",
+      "dailyMaxCAD": 34,
+      "covered": true,
+      "connection": "Free shuttle to the terminal in a few minutes; free Express drop-off zone 24/7",
+      "lastVerified": "2026-10-16",
+      "source": "way.com/yul (rates updated Oct 2026, third-party); La Presse, 5 Jul 2026; admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "p10": {
+      "name": "P10",
+      "rate": "Rate not found (verify)",
+      "connection": "Free Express drop-off zone 24/7 with free shuttle to the terminal",
+      "lastVerified": "2026-10-16",
+      "source": "La Presse, 5 Jul 2026; admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "shortTerm": {
+      "name": "Short-term parking (at the terminal)",
+      "rate": "C$43 per day; about C$8-10 per 20 minutes (verify)",
+      "dailyMaxCAD": 43,
+      "serves": "Walk to the terminal",
+      "lastVerified": "2026-10-16",
+      "source": "way.com/yul (rates updated Oct 2026, third-party); admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "hotelParc": {
+      "name": "HotelParc (indoor, in-terminal Marriott)",
+      "rate": "C$45 per day (verify)",
+      "dailyMaxCAD": 45,
+      "covered": true,
+      "serves": "Walk to the terminal",
+      "lastVerified": "2026-10-16",
+      "source": "milesopedia.com guide (updated 5 Oct 2026); way.com/yul (rates updated Oct 2026, third-party); admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "valetParc": {
+      "name": "ValetParc",
+      "rate": "C$50 per day (verify)",
+      "dailyMaxCAD": 50,
+      "serves": "Valet at the terminal",
+      "lastVerified": "2026-10-16",
+      "source": "milesopedia.com guide (updated 5 Oct 2026); way.com/yul (rates updated Oct 2026, third-party); admtl.com returned 403 to WebFetch and curl 2026-10-16"
+    },
+    "closed": {
+      "name": "Multi-level garage and EconoParc P5",
+      "status": "Permanently closed (Time Out Montreal, Jan-Feb 2026). Do not recommend.",
+      "source": "Time Out Montreal 30 Jan 2026 and Feb 2026"
+    },
+    "cellPhoneLot": {
+      "name": "CellParc",
+      "cost": "FREE",
+      "maxWait": "2 hours",
+      "rules": "Stay with the vehicle; recently moved closer to the terminal (La Presse, Jul 2026) (verify location)"
+    },
+    "officialWeekCosts": {
+      "source": "Derived as 7 x daily rate (no weekly caps found); admtl.com blocked 2026-10-16",
+      "first7Days": {
+        "aeroParcA1": 210,
+        "econoParcP9": 210,
+        "p4": 238,
+        "shortTerm": 301,
+        "hotelParc": 315,
+        "valetParc": 350
+      },
+      "note": "Simple 7 x daily rate; ADM weekly caps and whether rates include GST+QST are unconfirmed (verify)"
+    },
+    "currency": "CAD",
+    "ratesVerified": "2026-10-16",
+    "ratesSource": "https://www.admtl.com/en-CA/",
+    "verificationStatus": "NOT read from admtl.com on 2026-10-16 (HTTP 403 to WebFetch and curl). Secondary sources: way.com (Oct 2026), milesopedia (updated 5 Oct 2026), Time Out Montreal (Jan-Feb 2026), La Presse (Jul 2026). Every figure needs a check before publishing.",
+    "unverified": "P10 rate, weekly caps, whether rates include GST+QST, hourly rates, EV charger counts and fees, lost-ticket fee, oversize-vehicle rules, P6/P7 status. The up-to-40% summer online promo ended 30 Sep 2026."
+  },
+  "parkingLots": [
+    {
+      "name": "Autoparc RM Montreal Airport",
+      "slug": "autoparc-rm-montreal-airport-yul",
+      "parkingType": "Off-site outdoor lot (gated; lot locked midnight-6 AM)",
+      "amenities": [
+        "Valet",
+        "Shuttle on demand 6:15 AM-11:30 PM (call ahead; none 11:30 PM-6:15 AM)"
+      ],
+      "shuttleInfo": "6:15 AM - 11:30 PM: Shuttle runs on demand. 11:30 PM - 6:15 AM: No shuttle. Lot is locked",
+      "overview": "Off-site lot at 6000 ave Royalmount, Montreal (Town of Mount Royal area), 3.6 mi from YUL; the listing says 15-20 minutes from the airport. Lot is LOCKED between midnight and 6 AM.",
+      "notes": "C$12.55/day before GST+QST. 3-day minimum. Lot locked midnight-6 AM and no shuttle 11:30 PM-6:15 AM, so it does not suit red-eye departures or late-night returns. Large SUVs and pick-ups must book the large-vehicle rate. Shuttle fits 2 passengers + 2 regular bags; call ahead for more. One complimentary round trip; extra trips cost extra. Return pickup at Gate 9, Departure Level.",
+      "driveTime": "15-20 minutes (listing)",
+      "dailyRate": 12.55,
+      "reservationRate": 12.55,
+      "totalFor8Days": 111.83,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 14.975% GST+QST; totalFor8Days includes taxes",
+      "sampleQuote": "C$111.83 total for Nov 2-9, 2026 (billed as 8 days: C$95.60 + C$4.78 lot fees + C$11.45 tax), before Triply service fee",
+      "address": "6000 ave Royalmount, Montreal, QC H4P 2T1",
+      "distanceFromAirport": "3.6 mi",
+      "phone": "(263) 362-1717",
+      "reslabLocationId": 330,
+      "triplyListingName": "Autoparc RM Montreal Airport",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "taxesFor8Days": 11.45,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "AutoParc Prime",
+      "slug": "autoparc-prime-yul",
+      "parkingType": "Off-site valet lot (attendant parks the car)",
+      "amenities": [
+        "Valet",
+        "Shuttle on demand 6:15 AM-11:30 PM (none 11:30 PM-6:15 AM)"
+      ],
+      "shuttleInfo": "6:15 AM - 11:30 PM: Shuttle runs on demand. 11:30 PM - 6:15 AM: No shuttle.",
+      "overview": "Off-site lot at 1005 Bd Montreal-Toronto, Dorval, 1.6 mi from YUL (listing says 1.5 km). An on-site attendant verifies the reservation and parks the car.",
+      "notes": "C$14.65/day before GST+QST. 7-DAY MINIMUM. Listing hours are contradictory (\"open 6:00am-12:00pm daily\"; shuttle text says 6:15pm-11:30pm in one place and 6:15 AM-11:30 PM in the summary) (verify). Arrival shuttle-confirmation number in the listing is (263) 362-1717, the same as Autoparc RM; return pickup number is 514-219-8586 (verify). Oversized vehicles must book the large-vehicle rate; no oversized luggage. Return pickup at Gate 9, Departure Level.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 14.65,
+      "reservationRate": 14.65,
+      "totalFor8Days": 133.89,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 14.975% GST+QST; totalFor8Days includes taxes",
+      "sampleQuote": "C$133.89 total for Nov 2-9, 2026 (billed as 8 days: C$111.60 + C$5.58 lot fees + C$16.71 tax), before Triply service fee",
+      "address": "1005 Bd Montréal-Toronto, Dorval, QC H9S 3C2",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "514-219-8586",
+      "reslabLocationId": 434,
+      "triplyListingName": "AutoParc Prime",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 7,
+      "taxesFor8Days": 16.71,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Baymont Inn",
+      "slug": "baymont-inn-yul",
+      "parkingType": "Hotel lot (self-park; no room reservation needed)",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Free Internet/Wifi",
+        "Breakfast Included",
+        "Shuttle every 30 min 4-8:30 AM, hourly 9:15 AM-3:15 AM"
+      ],
+      "shuttleInfo": "4:00 AM - 8:30 AM: Shuttle runs every 30 minutes. 8:30 AM - 9:15 AM: No shuttle. 9:15 AM - 3:15 AM: Shuttle runs every 1 hour. 3:15 AM - 4:00 AM: No shuttle.",
+      "overview": "Hotel lot at 3660 Rue Griffith, Saint-Laurent, 2.4 mi from YUL, off the Cote-de-Liesse service road (behind a closed restaurant). No extra charge for full-size vans, pick-ups and large SUVs.",
+      "notes": "C$14.69/day before GST+QST. 3-day minimum. No shuttle 8:30-9:15 AM and 3:15-4 AM. The lot does not clear snow from cars or around them (relevant Nov-Mar). Return pickup at Departure Level, Door 8; call 514-735-5702.",
+      "driveTime": "~5-10 minutes (verify)",
+      "dailyRate": 14.69,
+      "reservationRate": 14.69,
+      "totalFor8Days": 130.93,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 14.975% GST+QST; totalFor8Days includes taxes",
+      "sampleQuote": "C$130.93 total for Nov 2-9, 2026 (billed as 8 days: C$111.92 + C$5.60 lot fees + C$13.41 tax), before Triply service fee",
+      "address": "3660 Rue Griffith, Saint-Laurent, QC H4T 1A7",
+      "distanceFromAirport": "2.4 mi",
+      "phone": "514-735-5702",
+      "reslabLocationId": 178,
+      "triplyListingName": "Baymont Inn",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "taxesFor8Days": 13.41,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Quality Hotel Montreal Airport",
+      "slug": "quality-hotel-montreal-airport-yul",
+      "parkingType": "Hotel lot (fully fenced, two gated entrances, 24/7 cameras)",
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Free Internet/Wifi",
+        "Room Service",
+        "Shuttle every 30 min 5 AM-11 PM; on demand 11 PM-5 AM"
+      ],
+      "shuttleInfo": "5:00 AM - 11:00 PM: Shuttle runs every 30 minutes. 11:00 PM - 5:00 AM: Shuttle runs on demand.",
+      "overview": "Quality Hotel Dorval at 7700 Cote-de-Liesse Rd, Montreal, 2.0 mi from YUL (listing: 7-minute drive, 5 km). Fully fenced lot with two gated entrances and 24/7 camera coverage. Check in at the front desk for a dashboard pass and gate card.",
+      "notes": "C$15.70/day before GST+QST. 4-day minimum. Shuttle every 30 min 5 AM-11 PM, on demand overnight; airport pickups on demand 24/7. Do NOT confuse with the Quality Inn & Suites shuttle on Herron. Return pickup at Departure Level, Gate 8; call 514-731-7821. Listing advises arriving 3 hours before the flight; traffic heavy 3-8 PM.",
+      "driveTime": "~7 minutes (listing)",
+      "dailyRate": 15.7,
+      "reservationRate": 15.7,
+      "totalFor8Days": 143.49,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 14.975% GST+QST; totalFor8Days includes taxes",
+      "sampleQuote": "C$143.49 total for Nov 2-9, 2026 (billed as 8 days: C$119.60 + C$5.98 lot fees + C$17.91 tax), before Triply service fee",
+      "address": "7700 De la Côte-de-Liesse Rd, Montreal, QC H4T 1E7",
+      "distanceFromAirport": "2 mi",
+      "phone": "514-731-7821 ext 2",
+      "reslabLocationId": 324,
+      "triplyListingName": "Quality Hotel Montreal Airport",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 4,
+      "taxesFor8Days": 17.91,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Eyepark Airport",
+      "slug": "eyepark-airport-yul",
+      "parkingType": "Valet-only off-site parking (car stored in a secured garage)",
+      "amenities": [
+        "Valet",
+        "24/7 Front Desk",
+        "Shuttle 24/7 every 15 minutes"
+      ],
+      "shuttleInfo": "Shuttle runs 24/7 every 15 minutesFast Turn-around: From Eyepark arrival to YUL Terminal in under 15 minutes",
+      "overview": "Valet-only service from a drop-off lot at 635 Avenue Marshall, Dorval, 1.3 mi from YUL. Cars move to a nearby secured garage with controlled access and 24/7 CCTV; the shuttle to the terminal takes about 10-15 minutes.",
+      "notes": "C$19.90/day before GST+QST. Closest and priciest sellable YUL lot. Keys must be left with the valet; EV/Tesla drivers must bring a physical key or key card or the booking may be refused. 24/7 shuttle every 15 minutes; request return pickup via the SMS link. No minimum stay shown.",
+      "driveTime": "~5 minutes (listing)",
+      "dailyRate": 20.03,
+      "reservationRate": 20.03,
+      "totalFor8Days": 178.51,
+      "currency": "CAD",
+      "priceNote": "C$ per day incl. lot fees, before 14.975% GST+QST; totalFor8Days includes taxes",
+      "sampleQuote": "C$177.34 total for Nov 2-9, 2026 (billed as 8 days: C$151.60 + C$7.58 lot fees + C$18.16 tax), before Triply service fee",
+      "address": "635 Avenue Marshall, Dorval, QC H9P 1E1",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "514-416-2223",
+      "reslabLocationId": 473,
+      "triplyListingName": "Eyepark Airport",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 18.28,
+      "paymentMethod": "Pay Online"
+    }
+  ],
+  "shuttleInfo": "On-airport: free shuttles from P4, P10 and AéroParc A1 (about 15 min, all hours) to the terminal (verify); short-term, HotelParc and ValetParc are at the terminal. Off-site (Triply): Eyepark Airport valet with a 24/7 shuttle every 15 min; Quality Hotel Montreal Airport every 30 min 5 AM-11 PM and on demand overnight; Baymont Inn every 30 min 4-8:30 AM then hourly 9:15 AM-3:15 AM; Autoparc RM and AutoParc Prime on demand 6:15 AM-11:30 PM only (Autoparc RM lot locked midnight-6 AM). Off-site return pickups are at the Departure Level (Door/Gate 8 or 9).",
+  "distanceFromCity": "About 20 km (12 mi) west of downtown Montreal; 20-45 min by car depending on Autoroute 20/Turcot traffic; 45-70 min by STM 747 bus. (verify)",
+  "keyDistances": {
+    "toDowntownMontreal": "20 km (12 mi), 20-45 min by car (verify)",
+    "toLaval": "20 km, 20-30 min by car (verify)",
+    "toLongueuil": "30 km, 30-45 min by car (verify)",
+    "toWestIsland": "5-15 km, 10-20 min by car (verify)",
+    "toOttawa": "190 km, about 2 hours by car (verify)",
+    "toQuebecCity": "260 km, about 2.75 hours by car (verify)",
+    "toMontTremblant": "140 km, about 1.5 hours by car (verify)"
+  },
+  "securityAndScreening": {
+    "agency": "CATSA (Canadian Air Transport Security Authority) - not TSA",
+    "usPreclearance": "U.S.-bound passengers clear U.S. CBP preclearance at YUL before boarding (verify hours and NEXUS/Global Entry lanes)",
+    "advice": "Parking listings advise arriving 3 hours early; La Presse and Time Out advise extra time in busy periods (verify)"
+  },
+  "evCharging": {
+    "note": "EV charging at YUL official lots not verified on 2026-10-16 (verify). Eyepark Airport requires EV/Tesla drivers to bring a physical key or key card."
+  },
+  "peakTravelTimes": {
+    "note": "Terminal approach congestion 3-8 PM daily (Quality Hotel listing); Express drop-off busiest 1-8 PM (La Presse). Peaks around March break, the Quebec construction holiday (late July) and Christmas (verify)."
+  },
+  "weatherPatterns": {
+    "note": "Snow from about November to April. Baymont Inn does not clear snow from parked cars; covered P4/HotelParc avoid snow clearing. (verify)"
+  },
+  "parkSleepFly": {
+    "description": "Two hotels near YUL sell parking without a room stay through Triply, each with an airport shuttle. Room-plus-parking packages are booked with hotels directly (not a Triply product).",
+    "popularHotels": [
+      {
+        "name": "Baymont Inn",
+        "distance": "2.4 mi (3660 Rue Griffith, Saint-Laurent, QC H4T 1A7)",
+        "parkOnlyRate": "C$14.69/day before GST+QST (Nov 2026 live search; 3-day minimum)",
+        "shuttle": "4:00 AM - 8:30 AM: Shuttle runs every 30 minutes. 8:30 AM - 9:15 AM: No shuttle. 9:15 AM - 3:15 AM: Shuttle runs every 1 hour. 3:15 AM - 4:00 AM: No shuttle."
+      },
+      {
+        "name": "Quality Hotel Montreal Airport",
+        "distance": "2 mi (7700 De la Côte-de-Liesse Rd, Montreal, QC H4T 1E7)",
+        "parkOnlyRate": "C$15.70/day before GST+QST (Nov 2026 live search; 4-day minimum)",
+        "shuttle": "5:00 AM - 11:00 PM: Shuttle runs every 30 minutes. 11:00 PM - 5:00 AM: Shuttle runs on demand."
+      }
+    ]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "C$2-5 per person",
+    "valet": "C$5",
+    "taxi": "15-20% of fare"
+  },
+  "savingsComparison": {
+    "scenario": "Nov 2 10 AM - Nov 9 2 PM, 2026. Off-site = live Triply checkout total incl. lot fees and GST+QST (billed as 8 days), before Triply service fee. On-airport = 7 x posted daily rate (verify; the Nov 9 extra hours may add a day).",
+    "onAirport": {
+      "aeroParcA1": {
+        "parkingCost": "C$210 (7 x C$30 (verify))"
+      },
+      "econoParcP9": {
+        "parkingCost": "C$210 (7 x C$30 (verify))"
+      },
+      "p4": {
+        "parkingCost": "C$238 (7 x C$34 (verify))"
+      },
+      "shortTerm": {
+        "parkingCost": "C$301 (7 x C$43 (verify))"
+      },
+      "hotelParc": {
+        "parkingCost": "C$315 (7 x C$45 (verify))"
+      },
+      "valetParc": {
+        "parkingCost": "C$350 (7 x C$50 (verify))"
+      }
+    },
+    "offSiteWithShuttle": {
+      "autoparcRm": {
+        "parkingCost": "C$111.83",
+        "savingsVsAeroParcA1Week": "~C$98 less (verify A1 rate)",
+        "caveat": "3-day minimum"
+      },
+      "baymontInn": {
+        "parkingCost": "C$130.93",
+        "savingsVsAeroParcA1Week": "~C$79 less (verify A1 rate)",
+        "caveat": "3-day minimum"
+      },
+      "autoparcPrime": {
+        "parkingCost": "C$133.89",
+        "savingsVsAeroParcA1Week": "~C$76 less (verify A1 rate)",
+        "caveat": "7-DAY MINIMUM"
+      },
+      "qualityHotel": {
+        "parkingCost": "C$143.49",
+        "savingsVsAeroParcA1Week": "~C$67 less (verify A1 rate)",
+        "caveat": "4-day minimum"
+      },
+      "eyepark": {
+        "parkingCost": "C$177.34",
+        "savingsVsAeroParcA1Week": "~C$33 less (verify A1 rate)",
+        "caveat": "Closest and priciest sellable YUL lot"
+      }
+    }
+  },
+  "emergencyContacts": {
+    "airportWebsite": "admtl.com",
+    "parkingInfo": "admtl.com parking section (URL not confirmed; site blocked bots 2026-10-16)"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. admtl.com returns 403 to bots; verify by hand.",
+    "officialAirport": {
+      "home": "https://www.admtl.com/en-CA/"
+    },
+    "transit": {
+      "stm747": "https://www.stm.info/en/info/networks/bus-network/747-yul-aeroport-centre-ville",
+      "rem": "https://rem.info/en"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=YUL",
+      "way": "https://www.way.com/yul",
+      "milesopedia": "https://milesopedia.com/en/guide/strategy/save-parking-airport/"
+    },
+    "news": {
+      "timeoutAeroParcA1": "https://www.timeout.com/montreal/news/new-montreal-yul-airport-parking-lot-open-with-1-000-additional-spaces-including-valet-service-013026",
+      "timeoutClosures": "https://www.timeout.com/montreal/news/montreal-trudeau-airport-travel-warnings-for-march-break-parking-transit-and-check-in-guidance-022726",
+      "laPresseSummer2026": "https://www.lapresse.ca/xtra/2026-07-05/yul-aeroport-international-montreal-trudeau/petit-guide-pour-bien-planifier-vos-deplacements-vers-yul-cet-ete.php"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Montr%C3%A9al%E2%80%93Trudeau_International_Airport"
+    }
+  }
+}

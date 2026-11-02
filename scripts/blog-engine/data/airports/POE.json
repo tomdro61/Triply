@@ -1,0 +1,662 @@
+{
+  "code": "POE",
+  "fullName": "Port Everglades Cruise Port",
+  "destinationType": "seaport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Fort Lauderdale, Hollywood and Dania Beach, Broward County, Florida. Main address: 1850 Eller Drive, Fort Lauderdale, FL 33316. 1.8 miles from Fort Lauderdale-Hollywood International Airport (FLL).",
+    "operator": "Broward County Port Everglades Department",
+    "passengerVolume": "4,773,873 cruise passengers in fiscal year 2025 (preliminary; FY ends Sept 30), a record and up about 16% year over year",
+    "passengerVolumeSource": "https://www.seatrade-cruise.com/ports-destinations/port-everglades-confirms-2025-record-4-77m-cruise-moves",
+    "distinction": "World's third-busiest cruise homeport in FY2025, behind Port Canaveral and PortMiami. Disney Cruise Line's second year-round homeport. Royal Caribbean's Icon-class Legend of the Seas begins sailing from the port in November 2026.",
+    "cruiseLines": [
+      "Balearia Caribbean (daily ferry to the Bahamas)",
+      "Celebrity Cruises",
+      "Crystal",
+      "Disney Cruise Line",
+      "Holland America Line",
+      "Princess Cruises",
+      "Ritz-Carlton Yacht Collection",
+      "Royal Caribbean International",
+      "Silversea Cruises",
+      "Viking"
+    ],
+    "cruiseLinesSource": "https://www.porteverglades.net/cruise/cruise-lines/",
+    "cruiseLinesNote": "As listed by the port on 2026-10-13. Carnival, MSC and Norwegian are NOT on the port's current cruise-lines page. Do not write content saying they sail from Port Everglades without re-verifying.",
+    "numberOfCruiseTerminals": 8,
+    "cruiseTerminalNumbers": [
+      "2",
+      "4",
+      "18",
+      "19",
+      "21",
+      "25",
+      "26",
+      "29"
+    ],
+    "contacts": {
+      "cruiseServices": "954-468-3720",
+      "cruiseEmail": "CruisePortEverglades@broward.org",
+      "general": "954-523-3404"
+    },
+    "lastVerified": "2026-10-13",
+    "source": "https://www.porteverglades.net/cruise/"
+  },
+  "terminals": [
+    {
+      "name": "Cruise Terminal 2",
+      "area": "Northport",
+      "status": "Active. 85,504 sq ft, 30 check-in stations, Ocean Medallion technology.",
+      "cruiseLines": [
+        "Princess Cruises"
+      ],
+      "assignmentSource": "Port page photo caption says the terminal 'services Princess Cruises'",
+      "parking": "Heron Parking Garage (1,818 spaces). Air-conditioned passenger bridge from the garage's 5th floor to the terminal.",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-2/"
+    },
+    {
+      "name": "Cruise Terminal 4",
+      "area": "Northport",
+      "status": "Active. Opened Fall 2023. 104,162 sq ft, 28 check-in stations, covered guest drop-off, Finding Nemo theme.",
+      "cruiseLines": [
+        "Disney Cruise Line"
+      ],
+      "assignmentSource": "Port page names it the Disney Cruise Line terminal",
+      "parking": "Heron Parking Garage (connected)",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-4/"
+    },
+    {
+      "name": "Cruise Terminal 18",
+      "area": "Midport",
+      "status": "Active. Largest terminal: 259,370 sq ft, 90 check-in stations.",
+      "cruiseLines": [
+        "verify (widely reported as Royal Caribbean; the port's page names no line)"
+      ],
+      "parking": "Parking Lot C (600 spaces), Parking Lot B (400 spaces); Lot D also adjacent",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-18/"
+    },
+    {
+      "name": "Cruise Terminal 19",
+      "area": "Midport",
+      "status": "Active. 95,000 sq ft, 50 check-in stations.",
+      "cruiseLines": [
+        "verify (port page names no line)"
+      ],
+      "parking": "Parking Lot B (400 spaces) or Palm Parking Garage (1,966 spaces); Lot A is also near",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-19/"
+    },
+    {
+      "name": "Cruise Terminal 21",
+      "area": "Midport",
+      "status": "Active. 138,700 sq ft, 50 check-in stations.",
+      "cruiseLines": [
+        "verify (port page names no line)"
+      ],
+      "parking": "Palm Parking Garage, located next to Terminal 21",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-21/"
+    },
+    {
+      "name": "Cruise Terminal 25",
+      "area": "Midport",
+      "status": "Active. 157,800 sq ft after a $100M+ renovation, 48 check-in stations.",
+      "cruiseLines": [
+        "Celebrity Cruises"
+      ],
+      "assignmentSource": "Port page: 'Primarily used by Celebrity Cruises' most innovative ships' (Celebrity Edge, Celebrity Xcel; port cruise page also names Apex and Beyond)",
+      "parking": "Palm Parking Garage",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-25/"
+    },
+    {
+      "name": "Cruise Terminal 26",
+      "area": "Midport",
+      "status": "Active. 115,581 sq ft, 25 check-in stations.",
+      "cruiseLines": [
+        "verify (port page names no line)"
+      ],
+      "parking": "Palm Parking Garage; Lot A is also near",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-26/"
+    },
+    {
+      "name": "Cruise Terminal 29",
+      "area": "Midport (southernmost)",
+      "status": "Active. 80,200 sq ft, 50 check-in stations.",
+      "cruiseLines": [
+        "verify (port page names no line)"
+      ],
+      "parking": "Palm Parking Garage, with a free shuttle between the garage and Terminal 29",
+      "source": "https://www.porteverglades.net/cruise/terminals/terminal-29/"
+    }
+  ],
+  "terminalAssignmentNote": "Terminal assignments change by sailing. The port shows ship names and terminal assignments on digital signs at the entrances and publishes Today's Ship Schedule (https://pevvesseltraffic.broward.org/webx/). Always tell readers to confirm the terminal on their cruise documents. Only T2 (Princess), T4 (Disney) and T25 (Celebrity) are confirmed by the port's own pages.",
+  "roads": [
+    "I-595 East to the Port Everglades exit (Eller Drive) - main entrance, Checkpoint 1, open 24/7",
+    "I-95: Exit 26 southbound or Exit 24 northbound to I-595 East",
+    "I-75: Exit 19 to I-595 East",
+    "Florida's Turnpike: Exit 54 to I-595 East",
+    "US-1 (Federal Highway)",
+    "State Road 84 at Spangler Blvd - Checkpoint 2, 6 AM-6 PM",
+    "SE 17th Street (17th Street Causeway) at Eisenhower Blvd - Checkpoint 3, 6 AM-6 PM"
+  ],
+  "transit": [
+    "Broward County Transit (BCT) buses stop at the Northport section on SE 17th St. Schedules: 954-357-8400",
+    "No rail service into the port"
+  ],
+  "neighborhoods": [
+    "Fort Lauderdale",
+    "17th Street / Harbor Beach",
+    "Dania Beach",
+    "Hollywood",
+    "Davie",
+    "Plantation",
+    "Pembroke Pines",
+    "Boca Raton",
+    "Miami"
+  ],
+  "authority": "Broward County Port Everglades Department",
+  "groundTransportation": {
+    "fromFLL": {
+      "distance": "1.8 miles (port FAQ)",
+      "allowTime": "Port advises allowing 45 minutes to 1 hour for the airport-to-port transfer, and at least 45 minutes between flight arrival and cruise check-in",
+      "taxi": "Average taxi fare FLL to Port Everglades $18-$21, subject to change (port Getting Here page)",
+      "rideshare": "Uber/Lyft roughly $15-$25 per car one way (third-party estimates; surge pricing on embarkation mornings). Enter your exact terminal number as the destination.",
+      "source": "https://www.porteverglades.net/cruise/getting-here/"
+    },
+    "fromMIA": "27 miles; port advises 2-3 hours for the airport-to-port transfer",
+    "fromPBI": "50 miles; port advises 3-4 hours for the airport-to-port transfer",
+    "betweenTerminalsTaxi": "Flat $8 taxi rate between terminals; no negotiated rideshare rate",
+    "taxiRideshareZones": "Taxis, rideshare, coaches and hotel vehicles use designated areas outside each terminal",
+    "cellPhoneLots": "Free cell phone waiting lots for people picking up debarking guests: Port Administration Building (1850 Eller Drive, just past the security checkpoint) and a lot north of Cruise Terminal 18",
+    "cruiseLineTransfers": "Many cruise packages include airport/hotel transfers - check with the cruise line",
+    "hotelTransfers": "Within Triply's POE inventory, only Courtyard Fort Lauderdale Airport and Marriott Fort Lauderdale Airport sell a port transfer ($20 per person one way). Park By The Ports Cruise Parking includes the port shuttle for up to 4 passengers.",
+    "lastVerified": "2026-10-13"
+  },
+  "parkingRates": "Port garages and lots (Heron Garage, Palm Garage, Lots A-D): $25 daily maximum, hourly from $5. Oversized vehicles up to 24 ft: $18 first 5 hours, $35 per 24 hours. No reservations or pre-payment - pay on site. Off-site: Park By The Ports Cruise Parking from ~$13.45/day lot rate with included port shuttle (up to 4 passengers). Source: porteverglades.net/cruise/parking (verified 2026-10-13).",
+  "onAirportParking": {
+    "_note": "Key name kept for engine compatibility. These are the PORT'S OWN garages and surface lots, not airport parking. The port's current pages name them Heron and Palm garages; older guides call them Northport and Midport - do not state a rename as fact.",
+    "heronGarage": {
+      "name": "Heron Parking Garage (Northport)",
+      "spaces": 1818,
+      "clearance": "7 ft",
+      "serves": "Cruise Terminals 2 and 4. Elevated air-conditioned passenger bridge from the 5th floor to Terminal 2; moving walkways.",
+      "dailyMax": 25,
+      "hourlyRates": "$5 up to 1 hr; $10 1-5 hrs; $13 5-6 hrs; $14 6-7 hrs; $18 7-9 hrs; $20 9-11 hrs; $23 11-12 hrs; $25 over 12 hrs (daily max)",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/parking/"
+    },
+    "palmGarage": {
+      "name": "Palm Parking Garage (Midport)",
+      "spaces": 1966,
+      "clearance": "7 ft",
+      "serves": "Cruise Terminals 19, 21, 25, 26 and 29. Located next to Terminal 21; free shuttle to Terminal 29.",
+      "dailyMax": 25,
+      "hourlyRates": "Same schedule as Heron Garage",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/parking/"
+    },
+    "surfaceLots": {
+      "lotA": "770 spaces, near Terminals 19 and 26",
+      "lotB": "404 spaces, between Terminals 18 and 19",
+      "lotC": "600 spaces, adjacent to Terminal 18",
+      "lotD": "850 spaces, adjacent to Terminal 18",
+      "dailyMax": 25,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/parking/"
+    },
+    "oversizedVehicles": {
+      "rule": "Vehicles exceeding standard space width/height; limited spaces for vehicles up to 24 feet, including those too tall for garage upper floors",
+      "rates": "$18 first 5 hours or portion; $35 up to 24 hours",
+      "phone": "954-468-3680",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/parking/"
+    },
+    "paymentRules": {
+      "reservations": "The port does not accept reservations or pre-payment for parking",
+      "methods": "Cash, credit or debit on site; contactless payment machines on the first floor of the garages",
+      "tip": "Bring the parking ticket on the cruise and pay at the machine before returning to the car to speed exit",
+      "clock": "Daily rates begin when you pull the ticket at the garage or lot entry",
+      "afterDebarkation": "Vehicles must leave after debarkation on the return morning; facilities are not staffed 24/7 or on non-cruise days",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/faqs/"
+    },
+    "disabledParking": {
+      "description": "All public garages and surface lots include disabled parking 'with unimpeded access to crosswalks and elevators'. Terminals are described as fully accessible. No separate disabled rate is published.",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.porteverglades.net/cruise/faqs/"
+    },
+    "assignmentNote": "Parking assignments may change; check the port parking page / interactive map on cruise day",
+    "interactiveMap": "https://www.porteverglades.net/parking-custom-map/"
+  },
+  "parkingLots": [
+    {
+      "name": "Homewood Suites",
+      "slug": "homewood-suites",
+      "reservationRate": 6.25,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $43.73",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "4:00 AM - 1:00 AM: Shuttle runs every 1 hour. pickups on demand 1:00 AM - 4:00 AM: No shuttle.",
+      "cruiseShuttle": "not-available",
+      "overview": "Located just minutes of drive from Fort Lauderdale-Hollywood International Airport (FLL), this parking facility offers a convenient and hassle-free option for travelers. Complimentary shuttle service to and from the airport terminal is included with every online reservation, and no hotel stay is required to park.The facility accommodates full-size vans, pickup trucks, and large SUVs at no additional charge.",
+      "address": "2061 Griffin Rd, Fort Lauderdale, FL",
+      "distanceFromAirport": "3.9 mi from Port Everglades (Triply API distance)",
+      "notes": "AIRPORT PARKING ONLY - the operator states there is no cruise/port shuttle. Never recommend to cruisers. Operator conditions: This lot does not accept oversized vehicles (trucks, campers, etc); size will be determined by lot management.Please note that cruise shuttle service is not available.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-967-9063",
+      "dailyRate": 6.25,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Springhill Suites",
+      "slug": "springhill-suites",
+      "reservationRate": 8.17,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $49.64",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Free Internet/Wifi"
+      ],
+      "shuttleInfo": "Sun-Thu4:30 AM - 11:30 PM: Shuttle runs every 1 hour.  11:30 PM - 4:30 AM: No shuttle.  Fri-Sat4:30 AM - 12:45 AM: Shuttle runs every 1 hour.  12:45 AM - 4:30 AM: No shuttle.",
+      "cruiseShuttle": "not-stated",
+      "overview": "Located just minutes from Fort Lauderdale–Hollywood International Airport, this facility offers free shuttle service to and from the airport with every online purchase. There are no extra charges for full-size vans, pickup trucks, or large SUVs, and no hotel stay is required — simply park and go. The lot is conveniently situated directly across from the Oakwood Boulevard Mall off Stirling Road.Please note that vehicles are parked at the owner’s risk.",
+      "address": "151 Southwest 18th Court, Dania Beach, FL",
+      "distanceFromAirport": "4.3 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-920-9696 - press \"7\"",
+      "dailyRate": 8.17,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 15.17
+    },
+    {
+      "name": "Residence Inn Fort Lauderdale Airport",
+      "slug": "residence-inn-fort-lauderdale-airport",
+      "reservationRate": 11.02,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $62.40",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "5:00 AM - 11:00 PM: Shuttle runs every 1 hour. Top of the hour 11:00 PM - 5:00 AM: No shuttle.",
+      "cruiseShuttle": "not-stated",
+      "overview": "Residence Inn Fort Lauderdale Airport Hotel Parking is located just 1.4 miles from Fort Lauderdale-Hollywood International Airport, providing travelers with a convenient parking solution.Enjoy free shuttle service to and from the airport with every booking. The lot is open 24 hours a day and monitored by security cameras to ensure added peace of mind throughout your trip.Lobby access is available for all parking guests.",
+      "address": "4801 Anglers Ave, Fort Lauderdale",
+      "distanceFromAirport": "4.1 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "(954) 989-3636",
+      "dailyRate": 11.02,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 18.3
+    },
+    {
+      "name": "Fairfield Inn & Suites",
+      "slug": "fairfield-inn-suites",
+      "reservationRate": 9.4,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $65.78",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "24 hours every hour on the hour; Pickups are on demand.",
+      "cruiseShuttle": "not-available",
+      "overview": "Located just minutes from Fort Lauderdale-Hollywood International Airport (FLL), this parking facility offers a convenient and accessible option for air travelers. Complimentary shuttle service to and from the airport terminal is included with every online purchase, and no hotel room reservation is required to park. Please note that this lot provides airport parking only; cruise parking is not available.Guests benefit from a 24/7 front desk for assistance at any time of day or night.",
+      "address": "2081 Griffin Road, Fort Lauderdale, FL",
+      "distanceFromAirport": "4 mi from Port Everglades (Triply API distance)",
+      "notes": "AIRPORT PARKING ONLY - the operator states there is no cruise/port shuttle. Never recommend to cruisers. Operator conditions: Airport parking only, This location does not offer cruise parking (transportation to/from port).This lot does not accept oversized vehicles (trucks, campers, etc).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-981-2700",
+      "dailyRate": 9.4,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Park By The Ports AIRPORT Parking",
+      "slug": "park-by-the-ports-airport-parking",
+      "reservationRate": 14.5,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $67.21",
+      "parkingType": "Uncovered, self-park (fenced open-air lot)",
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "24/7 on Demand",
+      "cruiseShuttle": "not-stated",
+      "overview": "Located just 5 minutes from Fort Lauderdale–Hollywood International Airport (FLL), this secure, well-monitored facility offers convenient self-parking, clean customer restrooms, and some of the most competitive rates in the area. Enjoy free shuttle service to and from the airport with every online reservation — making your travel experience fast, easy, and worry-free.Directions:We recommend taking I-595 to US-1 to avoid potential train delays.From North:1. Take I-95 South.2. Exit I-595 East.3.",
+      "address": "100 Fronton Blvd, Dania, FL",
+      "distanceFromAirport": "3 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel. Operator conditions: No RV, motor homes, boats, or trailersFree shuttle transportation for up to 4 passengers; every additional is $10.00 per person.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-727-5566",
+      "dailyRate": 14.5,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 40.16
+    },
+    {
+      "name": "Home2 Suites by Hilton Ft. Lauderdale Airport",
+      "slug": "home2-suites-by-hilton-ft-lauderdale-airport",
+      "reservationRate": 9.4,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $70.17",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "5:00 AM - 10:30 PM: Shuttle runs every 1 hour. Pickups from Airport on demand 10:30 PM - 5:00 AM: No shuttle.",
+      "cruiseShuttle": "not-stated",
+      "overview": "Located just 5-10 minutes drive from Fort Lauderdale-Hollywood International Airport (FLL), Home2 Suites by Hilton Ft. Lauderdale Airport offers a convenient and efficient parking solution near the terminals.Guests can enjoy self-parking in a well-lit and maintained parking area, offering a dependable and comfortable parking experience. Complimentary WiFi is available on-site, and the property is pet-friendly, making it a flexible option for travelers.",
+      "address": "161 SW 19th Ct, Dania Beach, FL",
+      "distanceFromAirport": "4.4 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "(954) 998-0200",
+      "dailyRate": 9.4,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "The Harrison Hotel Downtown Hollywood",
+      "slug": "the-harrison-hotel-downtown-hollywood",
+      "reservationRate": 10.5,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $78.40",
+      "parkingType": "Covered garage, hotel parking",
+      "amenities": [
+        "Covered/Garage",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Fitness Center",
+        "Free Internet/Wifi",
+        "Room Service"
+      ],
+      "shuttleInfo": "5:30 AM - 9:30 PM: Shuttle runs on demand.  9:30 PM - 5:30 AM: No shuttle.",
+      "cruiseShuttle": "not-stated",
+      "overview": "Located 10–15 minutes drive from Fort Lauderdale–Hollywood International Airport, The Harrison Hotel Ascend Collection offers a boutique, vintage South Florida atmosphere in the heart of Downtown Hollywood, the property is perfectly positioned for travelers.We prioritize your peace of mind with 24-hour front desk service, controlled access, security cameras, and well-lit parking areas.",
+      "address": "1925 Harrison St, Hollywood, FL",
+      "distanceFromAirport": "6.1 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "(954) 704-6944",
+      "dailyRate": 10.5,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Aloft by Marriott Fort Lauderdale Airport",
+      "slug": "aloft-by-marriott-fort-lauderdale-airport",
+      "reservationRate": 10.99,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $81.75",
+      "parkingType": "Covered garage / valet",
+      "amenities": [
+        "Valet",
+        "Covered/Garage",
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "24/7 every hour on the hour",
+      "cruiseShuttle": "not-stated",
+      "overview": "Located just a 10-minute drive from Fort Lauderdale-Hollywood International Airport (FLL), Aloft FLL Airport Parking offers a convenient and reliable parking solution for travelers.The facility focuses on providing a stress-free travel experience with easy-access parking for your journey. It is an ideal choice for anyone flying out of FLL Airport looking for a smooth, straightforward, and efficient transition to the terminals.",
+      "address": "501 SE 24th St, Fort Lauderdale, Florida",
+      "distanceFromAirport": "1.5 mi from Port Everglades (Triply API distance)",
+      "notes": "Airport-shuttle lot; operator does not mention cruise port transport. Treat as airport-only - do not recommend to cruisers unless verified with the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "(754) 285-4848",
+      "dailyRate": 10.99,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Courtyard Fort Lauderdale Airport",
+      "slug": "courtyard-fort-lauderdale-airport",
+      "reservationRate": 12.25,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $85.74",
+      "parkingType": "Uncovered, hotel self-park",
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Free Internet/Wifi"
+      ],
+      "shuttleInfo": "5:00 AM - midnight every 30 minutes pick ups are on demand within shuttle hours",
+      "cruiseShuttle": "paid-$20pp-one-way",
+      "overview": "Located minutes away from Fort Lauderdale-Hollywood International Airport. Free shuttle service to and from airport included with online purchase. No extra charges for full-size vans, pick-up trucks and large SUV's.  No room reservation required to park here!",
+      "address": "400 Gulf Stream Way, Dania Beach, FL",
+      "distanceFromAirport": "4 mi from Port Everglades (Triply API distance)",
+      "notes": "Included shuttle is FLL AIRPORT ONLY. Cruise port shuttle costs $20 per person one way (verify return-trip arrangements with the hotel). Use as a stay-park-cruise or covered-parking option, always with the $20pp caveat. Operator conditions: This reservation includes complimentary AIRPORT shuttle.Cruise port shuttle is $20 per person",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-342-8333",
+      "dailyRate": 12.25,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Marriott Fort Lauderdale Airport",
+      "slug": "marriott-fort-lauderdale-airport",
+      "reservationRate": 12.55,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $93.69",
+      "parkingType": "Covered garage, valet",
+      "amenities": [
+        "Valet",
+        "Covered/Garage",
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "24/7 Shuttle every hour - Top of the hourPick-ups from airport On-Demand",
+      "cruiseShuttle": "paid-$20pp-one-way",
+      "overview": "Park with ease at the Marriott Fort Lauderdale Airport, located just 2.5 miles (about 7 minutes) from Fort Lauderdale-Hollywood International Airport (FLL). Enjoy valet parking with your vehicle safely stored in a multi-level garage with 24/7 security.A complimentary shuttle to and from the airport ensures a smooth and stress-free travel experience.Garage clearance: 7' 0\" (accommodates most large SUVs and pickup trucks)Convenience, and peace of mind—reserve your spot today!",
+      "address": "166 N Compass way, Dania beach, FL",
+      "distanceFromAirport": "3.9 mi from Port Everglades (Triply API distance)",
+      "notes": "Included shuttle is FLL AIRPORT ONLY. Cruise port shuttle costs $20 per person one way (verify return-trip arrangements with the hotel). Use as a stay-park-cruise or covered-parking option, always with the $20pp caveat. Operator conditions: Shuttle included in the reservations for Airport ONLY",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-802-7543",
+      "dailyRate": 12.55,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Park By The Ports Cruise Parking",
+      "slug": "park-by-the-ports-cruise-parking",
+      "reservationRate": 21.7,
+      "reservationRateNote": "Lot rate per day before Triply service fee; quote for Nov 2-8, 2026 (7 days). 7-day grand total incl. fees: $100.48",
+      "parkingType": "Uncovered, self-park (fenced open-air lot)",
+      "amenities": [
+        "Security"
+      ],
+      "shuttleInfo": "7 AM to 2 PM",
+      "cruiseShuttle": "included",
+      "overview": "The Park By The Ports' Port Everglades cruise port parking facility is perfect for those with a cruise departing from Ft Lauderdale. Some of the main features include a secure monitored lot, self parking, and customer restrooms, not to mention competitive Port Everglades cruise port parking.Check out the Park By The Ports parking service for your next cruise.Our location is a fenced in, open-air parking lot located on the NE corner of the Casino @ Dania Beach's parking lot.",
+      "address": "100 Fronton Blvd, Dania Beach, FL",
+      "distanceFromAirport": "3 mi from Port Everglades (Triply API distance)",
+      "notes": "The only Triply POE lot with port transportation included. Cruise shuttle 7 AM-2 PM, on demand every 15-30 min; free for up to 4 passengers, $10 each additional. Check in at the orange trailer; return pickup requested via trackmyshuttle.com/3824. Cruise ships only - no Balearia/ferry transport. No RVs, motor homes, boats or trailers. Primary CTA for cruise content. Operator conditions: Transportation included for up to 4 passengers per vehicle; every additional passenger is $10/person.No Balearia or Ferry transportation.No R/V, motor homes, boats, or trailers.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "phone": "954-727-5566",
+      "dailyRate": 21.7,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "Port: free shuttle between Palm Garage and Terminal 29. Off-site: Park By The Ports Cruise Parking runs on-demand port shuttles 7 AM-2 PM every 15-30 minutes (free for up to 4 passengers, $10 each additional); return pickups requested by link, every 20-30 min 7-9 AM and every 40-50 min 9-11 AM. Courtyard and Marriott Fort Lauderdale Airport: included shuttle is airport-only; port transfer $20 per person one way. Park By The Ports Cruise Parking is the only lot with the port shuttle included; every other lot in the list is airport-only or does not state a cruise shuttle.",
+  "distanceFromCity": "Inside Fort Lauderdale's 17th Street / Harbor Beach area, about 3 miles south of downtown Fort Lauderdale and 1.8 miles from FLL airport. Miami is 27 miles south.",
+  "keyDistances": {
+    "toFLL": "1.8 miles; port advises 45-60 min for the transfer including bags",
+    "toMIA": "27 miles; port advises 2-3 hours",
+    "toPBI": "50 miles; port advises 3-4 hours",
+    "toParkByThePortsCruise": "~3 miles (100 Fronton Blvd, Dania Beach, NE corner of the Casino @ Dania Beach lot)"
+  },
+  "construction2026": {
+    "status": "No active construction notice found on the port cruise pages (checked 2026-10-13)",
+    "projects": []
+  },
+  "securityAndScreening": {
+    "secureFacility": "Port Everglades is a secure seaport. Every road entrance has a security checkpoint, and cruise guests may enter only the cruise area.",
+    "idRequirement": "Guests and visitors 18 and older must show a government-issued photo ID (driver's license or passport) plus cruise documents at the checkpoint",
+    "checkpoints": [
+      "Checkpoint 1 - Eller Dr. / I-595: 24/7",
+      "Checkpoint 2 - State Road 84 / Spangler Blvd: 6 AM-6 PM",
+      "Checkpoint 3 - SE 17th St. / Eisenhower Blvd: 6 AM-6 PM"
+    ],
+    "vehicleScreening": "Vehicles may be screened at any checkpoint",
+    "parkingPlacard": "Drivers receive a placard to display on the rear-view mirror or driver-side dashboard",
+    "noUnattendedVehicles": "Do not leave vehicles unattended in No Parking zones, fire lanes or drop-off areas",
+    "weapons": "Florida Statute 311.12(7) makes it unlawful to possess a weapon on a seaport or keep one in your vehicle there",
+    "prohibitedItems": "Firearms, ammunition, stun guns/tasers, explosives, fireworks, flares, fuels, chlorine, liquid bleach, tear gas and similar",
+    "tsaPreCheck": "Not applicable - cruise screening is run by the cruise lines at the terminal",
+    "lastVerified": "2026-10-13",
+    "source": "https://www.porteverglades.net/cruise/security/"
+  },
+  "lounges": {
+    "notApplicable": "Seaport - no airport lounges. Terminals have VIP areas for cruise-line priority guests."
+  },
+  "wifi": {
+    "cost": "Free",
+    "coverage": "Port says each air-conditioned cruise terminal offers free Wi-Fi",
+    "source": "https://www.porteverglades.net/cruise/terminals/"
+  },
+  "evCharging": {
+    "note": "verify - not stated on the port's parking page"
+  },
+  "luggageStorage": {
+    "onSite": "The port cannot store luggage for security reasons",
+    "porters": "Cruise-line porters at the front of each terminal take tagged bags to your cabin; if driving, drop bags at the terminal before parking. Tipping optional.",
+    "source": "https://www.porteverglades.net/cruise/faqs/"
+  },
+  "petFacilities": {
+    "note": "verify - not stated on port pages"
+  },
+  "peakTravelTimes": {
+    "cruiseSeason": "Peak Caribbean cruise season is roughly November through April; the port's fiscal-year cruise season begins in October",
+    "fy2026": "40 cruise ships from 9 lines plus a daily ferry (port forecast for FY2026)",
+    "embarkationDay": "Arrive at the check-in time your cruise line assigns - the port advises not arriving earlier. Debarkation typically 7-9 AM, so garages, rideshare and the airport roads are busiest mid-morning.",
+    "airportTiming": "Airlines at FLL may only check bags up to 2 hours before the flight - avoid booking flights earlier than about 11 AM-noon on debarkation day",
+    "multiShipDays": "verify - check Today's Ship Schedule (https://pevvesseltraffic.broward.org/webx/) for days with several ships in port",
+    "holidayPeaks": "Thanksgiving, Christmas-New Year, Presidents' Day and spring break weeks"
+  },
+  "weatherPatterns": {
+    "climate": "Tropical monsoon climate: warm year-round, wet season May-October",
+    "hurricaneSeason": "June 1 - November 30 (peak August-October). Storms can shift embarkation dates or close the port; check your cruise line and the port's alerts.",
+    "tips": "Afternoon thunderstorms are common in summer - covered port garages or a covered hotel garage keep cars cooler; most off-site cruise lots are open-air"
+  },
+  "parkSleepFly": {
+    "description": "'Stay, park and cruise' hotel packages. In Triply's POE inventory, only two FLL-airport hotels offer a port transfer, and it is PAID: Courtyard Fort Lauderdale Airport and Marriott Fort Lauderdale Airport - parking includes an airport shuttle only; the cruise port shuttle is $20 per person one way.",
+    "hotelsWithPortTransfer": [
+      {
+        "name": "Courtyard Fort Lauderdale Airport",
+        "address": "400 Gulf Stream Way, Dania Beach, FL",
+        "portTransfer": "$20 per person one way",
+        "includedShuttle": "Airport only, 5 AM-midnight every 30 min"
+      },
+      {
+        "name": "Marriott Fort Lauderdale Airport",
+        "address": "166 N Compass Way, Dania Beach, FL",
+        "portTransfer": "$20 per person one way",
+        "includedShuttle": "Airport only, 24/7 hourly",
+        "garageClearance": "7 ft 0 in, valet"
+      }
+    ],
+    "doNotRecommendForCruise": [
+      "Homewood Suites (cruise shuttle not available)",
+      "Fairfield Inn & Suites (airport parking only, no cruise parking)",
+      "Springhill Suites, Residence Inn FLL Airport, Home2 Suites, The Harrison Hotel Hollywood, Aloft FLL, Park By The Ports AIRPORT Parking - cruise transfer not stated; treat as airport-only"
+    ],
+    "bookingHorizon": "Triply reservations open about 2 months (59 days) before check-in"
+  },
+  "tippingGuide": {
+    "porters": "Optional; commonly $1-2 per bag",
+    "cruiseShuttleDriver": "Not required at Park By The Ports, cash or Zelle/CashApp/Venmo appreciated",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app"
+  },
+  "savingsComparison": {
+    "scenario": "7-night cruise, 2 travelers, one car. Off-site prices scaled from Triply's live Nov 2-8, 2026 quote (7 billing days incl. Triply fees) to 8 billing days.",
+    "portGarage": {
+      "parkingCost": "$175-$200 (7-8 x $25 daily max; clock starts at ticket pull)",
+      "transfer": "$0 - walk or garage shuttle",
+      "totalEstimate": "$175-$200"
+    },
+    "parkByThePortsCruise": {
+      "parkingCost": "~$115 (~$14.35/day incl. fees x 8)",
+      "transfer": "$0 - port shuttle included for up to 4 passengers",
+      "totalEstimate": "~$115",
+      "savingsVsPortGarage": "~$60-$85"
+    },
+    "courtyardFLL": {
+      "parkingCost": "~$98 (~$12.25/day lot rate, $85.74 for 7 days incl. fees, x 8/7)",
+      "transfer": "$80 ($20 pp each way x 2 people x 2 ways)",
+      "totalEstimate": "~$178",
+      "savingsVsPortGarage": "~$0-$22"
+    },
+    "marriottFLL": {
+      "parkingCost": "~$107 ($93.69 for 7 days incl. fees, x 8/7)",
+      "transfer": "$80 ($20 pp each way x 2 people x 2 ways)",
+      "totalEstimate": "~$187",
+      "savingsVsPortGarage": "~$0-$13"
+    },
+    "rideshareRoundTrip": {
+      "cost": "$30-$50 per car round trip from FLL (third-party estimate); plus your home-to-airport cost",
+      "note": "Only relevant if flying in"
+    },
+    "keyDifference": "Park By The Ports Cruise Parking is the only Triply lot at POE with an included port shuttle and is the clear saver (~$115 vs $175-$200). The two Marriott-brand hotels only beat the port garage by a few dollars for couples once the $20pp transfer is added; they make sense for a pre-cruise hotel night or covered/valet parking, not pure savings. Rates verified 2026-10-13."
+  },
+  "uniqueFeatures": {
+    "heronBridge": "Heron Garage connects to Terminal 2 by an elevated, air-conditioned passenger bridge from its 5th floor, with moving walkways",
+    "terminal4": "Disney's Terminal 4 (opened Fall 2023) has a Finding Nemo theme and a Dale Chihuly glass installation",
+    "terminal25": "Terminal 25 received a $100M+ renovation and hosts Celebrity's Edge-class ships",
+    "iconClass": "Legend of the Seas is the first Icon-class ship to sail from Port Everglades (from November 2026)"
+  },
+  "emergencyContacts": {
+    "cruiseServices": "954-468-3720",
+    "cruiseEmail": "CruisePortEverglades@broward.org",
+    "portGeneral": "954-523-3404",
+    "oversizedParking": "954-468-3680",
+    "bct": "954-357-8400",
+    "securityExemptions": "pevsecurity@broward.org",
+    "portWebsite": "porteverglades.net"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-13.",
+    "officialPort": {
+      "home": "https://www.porteverglades.net/",
+      "cruise": "https://www.porteverglades.net/cruise/",
+      "parking": "https://www.porteverglades.net/cruise/parking/",
+      "parkingMap": "https://www.porteverglades.net/parking-custom-map/",
+      "terminals": "https://www.porteverglades.net/cruise/terminals/",
+      "gettingHere": "https://www.porteverglades.net/cruise/getting-here/",
+      "arrivingAndDeparting": "https://www.porteverglades.net/cruise/arriving-and-departing/",
+      "cruiseLines": "https://www.porteverglades.net/cruise/cruise-lines/",
+      "security": "https://www.porteverglades.net/cruise/security/",
+      "faqs": "https://www.porteverglades.net/cruise/faqs/",
+      "cruiseGuide2026": "https://www.porteverglades.net/cruise/cruise-guide/",
+      "cruiseStatistics": "https://www.porteverglades.net/about-us/statistics/cruise-statistics/",
+      "todaysShipSchedule": "https://pevvesseltraffic.broward.org/webx/"
+    },
+    "offSiteOperators": {
+      "parkByThePorts": "https://www.parkbytheports.com/",
+      "parkByThePortsReturnShuttle": "https://trackmyshuttle.com/3824"
+    },
+    "news": {
+      "fy2025Record": "https://www.seatrade-cruise.com/ports-destinations/port-everglades-confirms-2025-record-4-77m-cruise-moves"
+    }
+  }
+}

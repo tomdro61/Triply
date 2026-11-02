@@ -1,0 +1,535 @@
+{
+  "code": "CLE",
+  "fullName": "Cleveland Hopkins International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "5300 Riverside Dr, Cleveland, Ohio 44135 — on the city's southwest side next to Brook Park, about 10 miles southwest of downtown Cleveland (verify mileage).",
+    "iataCode": "CLE",
+    "icaoCode": "KCLE",
+    "faaLid": "CLE",
+    "elevation": "~791 feet above mean sea level (verify)",
+    "acreage": "verify",
+    "coordinates": "41.4117N, 81.8498W",
+    "passengerVolume": "verify — roughly 10 million passengers a year (2024/2025 figure not confirmed on clevelandairport.com)",
+    "aircraftOperations": "verify",
+    "cargoVolume": "verify",
+    "distinction": "Ohio's busiest airport (verify). Owned by the City of Cleveland; widely cited as the first municipally owned airport in the U.S. (1925) and the first U.S. airport with a direct rail link to downtown (RTA Red Line, 1968) — verify both claims before stating as fact.",
+    "operator": "City of Cleveland, Department of Port Control",
+    "owner": "City of Cleveland",
+    "activeTerminals": 1,
+    "totalConcourses": "verify — Concourses A, B and C active; Concourse D closed (verify)",
+    "totalGates": "verify",
+    "runways": 3,
+    "runwayDetails": [
+      {
+        "designation": "6L/24R",
+        "length": "verify",
+        "surface": "verify"
+      },
+      {
+        "designation": "6R/24L",
+        "length": "verify",
+        "surface": "verify"
+      },
+      {
+        "designation": "10/28",
+        "length": "verify",
+        "surface": "verify"
+      }
+    ],
+    "dominantAirline": "verify — no hub carrier (former United hub, de-hubbed 2014)",
+    "totalAirlines": "verify",
+    "nonstopDestinations": "verify",
+    "founded": "1925 (verify)",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "RTA Red Line rapid-transit station on the lower level of the main terminal (elevators/escalators in the center of the ticketing and baggage claim levels). Trains every 15 minutes most of the day; under 30 minutes to downtown via Tower City Station. Source: clevelandairport.com public-transportation page.",
+    "peopleMover": "None — single terminal with concourses reached on foot."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal",
+      "status": "Active — single terminal with multiple concourses (verify concourse/gate counts on clevelandairport.com)",
+      "airlines": [
+        "verify per-concourse airline assignments on clevelandairport.com"
+      ],
+      "gates": "verify",
+      "notes": "RTA Red Line station on the lower level. Smart Parking Garage connects by skywalk (Level 3) and walkway (Level 1). Curbside Valet on the upper roadway by Door 1."
+    }
+  ],
+  "roads": [
+    "Interstate 71 (from downtown Cleveland and Columbus)",
+    "Interstate 480",
+    "Brookpark Road",
+    "Riverside Drive",
+    "Engle Road (Brook Park / Middleburg Heights hotel corridor)",
+    "Rocky River Drive (Brown Lot)",
+    "Inner Drive / Park Road (on-airport lots)"
+  ],
+  "transit": [
+    "RTA Red Line (CLE to Tower City / downtown Cleveland)",
+    "Hotel courtesy shuttles",
+    "Brown Lot shuttle (every ~15 min to the Ground Transportation Center)",
+    "Off-site lot shuttles (Triply partners)"
+  ],
+  "neighborhoods": [
+    "Brook Park",
+    "Middleburg Heights",
+    "Berea",
+    "Parma",
+    "Fairview Park",
+    "North Olmsted",
+    "Strongsville",
+    "Lakewood",
+    "West Park",
+    "Downtown Cleveland"
+  ],
+  "authority": "City of Cleveland, Department of Port Control",
+  "groundTransportation": {
+    "rtaRedLine": {
+      "operator": "Greater Cleveland Regional Transit Authority (RTA)",
+      "routes": [
+        "Red Line (CLE – Tower City downtown)"
+      ],
+      "fare": "verify on riderta.com — fare not published on clevelandairport.com",
+      "accessFromTerminal": "Lower level of the main terminal; elevators/escalators in the center of the ticketing and baggage claim levels",
+      "frequency": "Every 15 minutes for the majority of the day",
+      "travelTime": "Under 30 minutes to Tower City (downtown)",
+      "phone": "(216) 566-5100",
+      "source": "https://www.clevelandairport.com/parking-transportation/public-transportation"
+    },
+    "groundTransportationCenter": {
+      "description": "Brown Lot shuttles drop off and pick up at the Ground Transportation Center (per clevelandairport.com). Crowne Plaza Airport Hotel tells guests to wait at Ground Transportation Bay #7.",
+      "note": "Exact bay assignments for other shuttles, rideshare and taxis — verify on clevelandairport.com."
+    },
+    "taxi": {
+      "fareType": "METERED (verify)",
+      "pickup": "verify",
+      "providers": "verify",
+      "note": "Taxi details not confirmed from clevelandairport.com (taxi/rideshare page returned 404 on 2026-10-16)."
+    },
+    "rideshare": {
+      "providers": [
+        "Uber",
+        "Lyft"
+      ],
+      "pickupLocation": "verify — not confirmed from clevelandairport.com",
+      "note": "Third-party sources say drivers stage in the cell phone lot off Jackson Road; confirm the current pickup spot in the app."
+    },
+    "rentalCars": {
+      "location": "verify — CLE uses an off-terminal consolidated rental car facility reached by shuttle (verify address and pickup)",
+      "companies": [
+        "verify"
+      ],
+      "totalBrands": "verify",
+      "note": "verify"
+    },
+    "hotelShuttles": "Hotel courtesy shuttles pick up at the Ground Transportation Center (verify bay). Crowne Plaza Airport Hotel specifies Ground Transportation Bay #7 only. CLE Park picks up on the ticketing level, not baggage claim. Airport Express Parking tells guests to call on landing because its pickup spot can change month to month."
+  },
+  "parkingRates": "On-airport (per day): Brown Lot $15 ($13 reserved online), Orange Lot $21, Blue Lot $24, Smart Parking Garage $26 ($7/hr), Premium Reserved Red Lot $29 (reservation only), Curbside Valet $37. Credit cards only. Off-site via Triply: four shuttle lots in Cleveland, Brook Park and Middleburg Heights from ~$7.61/day.",
+  "onAirportParking": {
+    "brownLot": {
+      "name": "CLE Brown Lot",
+      "rate": "$15/day ($13/day with online reservation)",
+      "dailyMax": 15,
+      "reservedDailyRate": 13,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "location": "4960 Rocky River Drive, north of the I-480 underpass at Rocky River Drive and Brookpark Road",
+      "capacity": "599 spaces, 6 bus shelters",
+      "connection": "Shuttle every ~15 minutes to/from the Ground Transportation Center",
+      "features": "Lowest-cost on-airport option."
+    },
+    "orangeLot": {
+      "name": "CLE Orange Lot",
+      "rate": "$21/day",
+      "dailyMax": 21,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "location": "Across Park Road from the Smart Garage (turn left from Inner Drive onto Park Road before the baggage deck)",
+      "connection": "Skywalk to the Smart Garage; covered access to the terminal",
+      "features": "Credit card only."
+    },
+    "blueLot": {
+      "name": "CLE Blue Lot",
+      "rate": "$24/day",
+      "dailyMax": 24,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "location": "Airport property just north of the terminal (Inner Drive to Park Road before the arrivals deck)",
+      "features": "Covered parking. Credit card only. Showed \"Full\" on 2026-10-16."
+    },
+    "smartParkingGarage": {
+      "name": "CLE Smart Parking Garage",
+      "rate": "$26/day",
+      "dailyMax": 26,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "serves": "Main terminal (walk via Level 3 skywalk or Level 1 walkway)",
+      "features": "Space-availability signage and LED guidance; 24/7 security patrols; Smarte Cartes $6 in Level 1 and 3 elevator lobbies; reservations open 24 hours in advance.",
+      "hourlyRates": "$7/hour"
+    },
+    "premiumReservedRedLot": {
+      "name": "CLE Premium Reserved Red Lot",
+      "rate": "$29/day",
+      "dailyMax": 29,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "features": "Reservation only. Covered parking with covered walkway to the terminal, directly north of the terminal across from the Blue Lot. Showed \"Full\" on 2026-10-16.",
+      "preBookingUrl": "https://parking.clevelandairport.com/book/CLE/Parking?parkingCmd=collectParkingDetails"
+    },
+    "valetParking": {
+      "name": "CLE Curbside Valet",
+      "rate": "$37/day",
+      "dailyMax": 37,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking",
+      "location": "Upper (departures) roadway by Door 1",
+      "features": "Available 24/7, concierge services. (216) 862-2738."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot",
+      "location": "verify — third-party sources place it off Jackson Road east of the airport",
+      "cost": "FREE (verify)",
+      "rules": "verify",
+      "source": "not confirmed on clevelandairport.com"
+    },
+    "evCharging": {
+      "locations": [
+        "verify — not listed on clevelandairport.com parking pages"
+      ],
+      "totalPorts": "verify",
+      "cost": "verify",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking"
+    },
+    "parkingAdvantageProgram": {
+      "name": "none found",
+      "status": "No loyalty/discount program listed on clevelandairport.com parking pages (2026-10-16)",
+      "source": "https://www.clevelandairport.com/parking-transportation/parking"
+    },
+    "accessibleParking": "Not described on clevelandairport.com parking pages — verify with the parking operator.",
+    "paymentMethods": "Credit cards only at all airport lots. Brown Lot, Smart Garage and Red Lot can be reserved online.",
+    "parkingContact": "Standard Parking (operator) (216) 267-5030; Curbside Valet (216) 862-2738",
+    "garageServiceAreas": "Smart Garage, Orange, Blue and Red lots: walk to terminal. Brown Lot: shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "2 Birds Shuttle and Detail",
+      "slug": "2-birds-shuttle-and-detail",
+      "dailyRate": 7.61,
+      "reservationRate": 7.61,
+      "sampleQuote": "$64.61 total for Nov 2-9, 2026 (8 billing days) incl. $2.90 fees + $3.71 tax; same on Nov 9-16 and Nov 16-23",
+      "parkingType": "Fenced self-park lot",
+      "amenities": [
+        "Security"
+      ],
+      "shuttleInfo": "4 AM-1 AM every 30 minutes (10 and 40 past the hour) to the airport; airport pickups on demand. No shuttle 1 AM-4 AM. Call 216-905-3680 for entrance to the lot; you get a card with return-shuttle info.",
+      "overview": "Fenced lot with security personnel and cameras about 3 miles from CLE on W 150th St. Free shuttle included with online purchase. Cheapest sellable lot at CLE.",
+      "address": "4226 W 150th St, Cleveland, OH 44135",
+      "distanceFromAirport": "3 mi",
+      "phone": "216-905-3680",
+      "notes": "Minimum booking 4 days. Free shuttle covers max 3 people per reservation; extra riders $25 payable at the lot (drop the party at the terminal first to avoid it). Arrive before the 2-hour pre-flight window.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Crowne Plaza Airport Hotel",
+      "slug": "crowne-plaza-airport-hotel",
+      "dailyRate": 10.11,
+      "reservationRate": 10.11,
+      "sampleQuote": "$79.97 total for Nov 2-9 and Nov 9-16, 2026 (8 billing days); $83.13 for Nov 16-23",
+      "parkingType": "Self-park hotel lot",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "4 AM-midnight every 30 minutes (on the hour and half hour). No shuttle midnight-4 AM. Call the hotel to reserve a shuttle seat at least 2 hours before arrival. On return, call 440-243-4040 after collecting bags; pickup at Ground Transportation Bay #7 only.",
+      "overview": "Hotel park-and-fly lot about 7 minutes' drive from CLE in Middleburg Heights, with security camera monitoring, marked handicap-accessible spaces and an accessible shuttle on advance notice.",
+      "address": "7230 Engle Road, Middleburg Heights, OH 44130",
+      "distanceFromAirport": "3.1 mi",
+      "driveTime": "~7 minutes",
+      "phone": "440-243-4040",
+      "notes": "Check in at the front desk before parking. Return pickup is Ground Transportation Bay #7 only. No overnight shuttle (12-4 AM).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Airport Express Parking",
+      "slug": "airport-express-parking",
+      "dailyRate": 13.16,
+      "reservationRate": 13.16,
+      "sampleQuote": "$112.08 total for Nov 2-9, 9-16 and 16-23, 2026 (8 billing days)",
+      "parkingType": "Gated/fenced self-park lot",
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "Shuttles to the airport start at 4 AM (no earlier) until the last flight; shuttles from the airport 24/7 as needed. Call 216-212-2727 after you have your bags — the pickup location can change month to month. Call 30 minutes ahead for same-day bookings or flight changes.",
+      "overview": "Closest Triply lot to CLE on Brookpark Road. Open 24/7 with free shuttle on every online purchase, security cameras and gated/fenced parking. No extra charge for full-size vans, pickup trucks and large SUVs.",
+      "address": "18100 Brookpark Road, Cleveland, OH 44135",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "216-212-2727",
+      "notes": "Minimum booking 5 days. Daily rate is close to the Brown Lot's $13 reserved / $15 drive-up rate — sell on the 24/7 return shuttle and oversize-vehicle policy, not on price vs Brown Lot.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "CLE Park",
+      "slug": "cle-park",
+      "dailyRate": 13.28,
+      "reservationRate": 13.28,
+      "sampleQuote": "$113.04 total for Nov 2-9, 9-16 and 16-23, 2026 (8 billing days)",
+      "parkingType": "Gated self-park lot",
+      "amenities": [
+        "24/7 Front Desk"
+      ],
+      "shuttleInfo": "Check-in shuttles start at 4 AM (no earlier); check-out shuttles 24/7 as needed. Call 216-870-4100 when you have your bags. Airport pickup is on the TICKETING level, not baggage claim. Pull up to the gate and call the number on it to be let in.",
+      "overview": "Lot on Engle Road in Brook Park about 1.6 miles from CLE, open 24 hours with a free shuttle to and from the airport.",
+      "address": "5775 Engle Road, Brookpark, OH 44142",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "216-870-4100",
+      "notes": "Minimum booking 5 days. Not the airport's own lot despite the name. Daily rate is close to the Brown Lot's $13-15 — sell on the 24/7 return shuttle, not on price vs Brown Lot.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Brown Lot shuttle every ~15 minutes to the Ground Transportation Center; all other airport lots are walk-in. Off-site Triply lots: Airport Express Parking and CLE Park run return shuttles 24/7 (outbound from 4 AM); 2 Birds runs 4 AM-1 AM; Crowne Plaza runs 4 AM-midnight and returns from Ground Transportation Bay #7. CLE Park picks up on the ticketing level. No Triply lot runs outbound shuttles before 4 AM.",
+  "distanceFromCity": "About 10 miles southwest of downtown Cleveland via I-71 (verify mileage); RTA Red Line under 30 minutes to Tower City.",
+  "keyDistances": {
+    "toDowntownCleveland": "~10 miles by car (verify); RTA Red Line <30 min",
+    "toBrookPark": "~1.5 miles (Triply lots: Airport Express Parking, CLE Park)",
+    "toMiddleburgHeights": "~3 miles (Triply lot: Crowne Plaza Airport Hotel)",
+    "toW150thSt": "~3 miles (Triply lot: 2 Birds Shuttle and Detail)",
+    "toAkron": "verify",
+    "competitiveAdvantage": "All four Triply CLE lots are 1.4-3.1 miles from the terminal; two run return shuttles 24/7. The two cheapest (2 Birds ~$7.61/day, Crowne Plaza ~$9.29/day) undercut even the $13-15 Brown Lot."
+  },
+  "construction2026": {
+    "status": "verify — CLE has a multi-year terminal modernization program (CLEvolution); scope and 2026 timeline not confirmed on clevelandairport.com as of 2026-10-16.",
+    "projects": [
+      "Terminal modernization program (CLEvolution) — verify phase, cost and dates"
+    ],
+    "travelImpact": "Blue Lot and Premium Reserved Red Lot showed \"Full\" on clevelandairport.com on 2026-10-16 — check lot status before driving.",
+    "timeline": {}
+  },
+  "securityAndScreening": {
+    "checkpointHours": "verify — Triply lot listings say TSA opens at 4:15 AM",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck — verify availability per checkpoint at tsa.gov"
+    },
+    "clear": {
+      "note": "verify CLEAR availability at CLE"
+    },
+    "globalEntry": {
+      "note": "verify"
+    },
+    "standardWaitTimes": {
+      "average": "verify",
+      "peakHours": "Early-morning bank once TSA opens (~4:15 AM per lot operators) — verify",
+      "tips": "verify"
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (airline guidance cited by lot operators)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    },
+    "source": "verify on clevelandairport.com"
+  },
+  "lounges": {
+    "other": "verify — lounge list not confirmed from clevelandairport.com on 2026-10-16"
+  },
+  "wifi": {
+    "networkName": "verify",
+    "cost": "Free (verify)",
+    "coverage": "Terminal and concourses (verify)"
+  },
+  "evCharging": {
+    "note": "No EV charging listed on clevelandairport.com parking pages (2026-10-16) — verify before writing any EV article.",
+    "source": "https://www.clevelandairport.com/parking-transportation/parking"
+  },
+  "luggageStorage": {
+    "onSite": "verify",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": "verify",
+    "locations": [],
+    "note": "verify on clevelandairport.com accessibility page"
+  },
+  "peakTravelTimes": {
+    "busiestHours": [
+      "Early-morning departures (TSA opens ~4:15 AM per lot operators — verify)"
+    ],
+    "busiestDays": [
+      "Friday",
+      "Sunday",
+      "Monday"
+    ],
+    "quietestDays": [
+      "Tuesday",
+      "Wednesday",
+      "Saturday"
+    ],
+    "seasonalPeak": "Summer, spring break, Thanksgiving and Christmas/New Year; Browns home games and downtown events add weekend demand (verify).",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental: warm summers, cold snowy winters with Lake Erie lake-effect snow.",
+    "commonDisruptions": "Lake-effect snow and ice (November-March); summer thunderstorms.",
+    "bestMonths": "May, September, October",
+    "worstMonths": "December-February",
+    "winterNote": "Lake-effect snow bands can slow I-71/I-480 and shuttle runs — leave extra time.",
+    "note": "Triply's off-site lots are not listed as covered; the airport's Blue and Red lots are covered."
+  },
+  "parkSleepFly": {
+    "description": "Crowne Plaza Airport Hotel (Middleburg Heights) is the only hotel among Triply's sellable CLE lots. Triply sells parking-only; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply ~$9.29/day (2026-10-16 quote); room package pricing — verify with hotel",
+    "popularHotels": [
+      {
+        "name": "Crowne Plaza Airport Hotel",
+        "distance": "3.1 miles (Middleburg Heights)",
+        "parkingIncluded": "verify with hotel",
+        "shuttleHours": "4 AM-midnight every 30 min",
+        "highlight": "Hotel lot with accessible shuttle on advance notice; return pickup Bay #7."
+      }
+    ],
+    "bookingSites": [
+      "triplypro.com"
+    ]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026 — billed as 8 days), quoted 2026-10-16",
+    "onAirport": {
+      "brownLot": {
+        "parkingCost": "$120 (8 x $15) or $104 reserved online (8 x $13)",
+        "totalEstimate": "$104-120"
+      },
+      "orangeLot": {
+        "parkingCost": "$168 (8 x $21)",
+        "totalEstimate": "$168"
+      },
+      "blueLot": {
+        "parkingCost": "$192 (8 x $24)",
+        "totalEstimate": "$192"
+      },
+      "smartParkingGarage": {
+        "parkingCost": "$208 (8 x $26)",
+        "totalEstimate": "$208"
+      },
+      "premiumReservedRedLot": {
+        "parkingCost": "$232 (8 x $29)",
+        "totalEstimate": "$232"
+      },
+      "valetParking": {
+        "parkingCost": "$296 (8 x $37)",
+        "totalEstimate": "$296"
+      }
+    },
+    "offSiteWithShuttle": {
+      "twoBirdsShuttleAndDetail": {
+        "parkingCost": "$64.61 quoted total (~$7.61/day)",
+        "savingsVsBrownLot": "~$39-55 saved",
+        "savingsVsSmartGarage": "~$143 saved",
+        "caveat": "No shuttle 1-4 AM; 3-person shuttle limit; 4-day minimum"
+      },
+      "crownePlazaAirportHotel": {
+        "parkingCost": "$79.97 quoted total (~$9.29/day)",
+        "savingsVsBrownLot": "~$24-40 saved",
+        "savingsVsSmartGarage": "~$128 saved",
+        "caveat": "No shuttle 12-4 AM; reserve shuttle 2 hrs ahead"
+      },
+      "airportExpressParking": {
+        "parkingCost": "$112.08 quoted total (~$13.05/day)",
+        "savingsVsBrownLot": "~$8 saved vs $15 drive-up; ~$8 MORE than $13 reserved",
+        "savingsVsSmartGarage": "~$96 saved",
+        "caveat": "5-day minimum; 24/7 return shuttle"
+      },
+      "clePark": {
+        "parkingCost": "$113.04 quoted total (~$13.17/day)",
+        "savingsVsBrownLot": "~$7 saved vs $15 drive-up; ~$9 MORE than $13 reserved",
+        "savingsVsSmartGarage": "~$95 saved",
+        "caveat": "5-day minimum; 24/7 return shuttle; pickup on ticketing level"
+      }
+    },
+    "publicTransit": {
+      "rtaRedLineRoundTrip": {
+        "costPerPersonRoundTrip": "verify on riderta.com",
+        "travelTime": "<30 min to Tower City",
+        "note": "Practical for downtown travelers near Red Line stations."
+      }
+    },
+    "keyDifference": "CLE's Brown Lot is $13-15/day, so only 2 Birds (~$7.61) and Crowne Plaza (~$9.29) clearly beat it; all four Triply lots are 49-71% cheaper than the $26 Smart Garage."
+  },
+  "uniqueFeatures": {
+    "rtaRedLine": "Rail station inside the terminal — Red Line to downtown in under 30 minutes (often cited as the first U.S. airport rail link, 1968 — verify).",
+    "municipalHistory": "Often cited as the first municipally owned airport in the U.S. (1925) — verify.",
+    "coveredLots": "Blue Lot and Premium Reserved Red Lot are covered with walkways to the terminal."
+  },
+  "emergencyContacts": {
+    "airportMain": "(216) 265-6000",
+    "airportWebsite": "clevelandairport.com",
+    "parkingInfo": "clevelandairport.com/parking-transportation/parking",
+    "parkingPhone": "(216) 267-5030 (Standard Parking)",
+    "valetPhone": "(216) 862-2738",
+    "rta": "(216) 566-5100",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "lostAndFound": "verify",
+    "emergency": "911 — state you are at Cleveland Hopkins Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.clevelandairport.com/",
+      "parking": "https://www.clevelandairport.com/parking-transportation/parking",
+      "parkingMap": "https://www.clevelandairport.com/parking-transportation/parking-map-locations",
+      "parkingReservations": "https://parking.clevelandairport.com/book/CLE/Parking?parkingCmd=collectParkingDetails",
+      "publicTransportation": "https://www.clevelandairport.com/parking-transportation/public-transportation"
+    },
+    "transit": {
+      "rta": "https://www.riderta.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/cle/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=CLE"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KCLE",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/CLE"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Cleveland_Hopkins_International_Airport"
+    },
+    "newsAndMedia": {
+      "cleveland19": "https://www.cleveland19.com/",
+      "clevelandCom": "https://www.cleveland.com/"
+    }
+  }
+}

@@ -201,6 +201,36 @@ export function captureNonCheckoutPayment(context: {
 }
 
 /**
+ * An Apple Pay / Google Pay sheet that closed without paying: elements.submit()
+ * answered `validation_error` / `incomplete` with a wallet selected. Nothing
+ * was staged or confirmed. Usually the customer closed it, but the client
+ * cannot tell that from a sheet that failed and closed itself (a live-mode
+ * domain / merchant-validation problem looks identical), so this is recorded
+ * at info level, one fingerprint per method ("unknown" when the Payment
+ * Element's change event had not fired; "card" / "link" if the bare code ever
+ * comes from them): a jump after a deploy or a live-mode change is visible,
+ * and a single close never pages as a payment error.
+ */
+export function captureWalletSheetClosed(context: {
+  method: string;
+  stripePaymentIntentId?: string;
+  amount: number;
+}) {
+  Sentry.withScope((scope) => {
+    scope.setLevel("info");
+    scope.setTag("payment.walletClosed", context.method);
+    if (context.stripePaymentIntentId) scope.setTag("payment.intentId", context.stripePaymentIntentId);
+    scope.setFingerprint(["elements-submit", "wallet-closed", context.method]);
+    scope.setContext("payment", { amount: context.amount, method: context.method });
+    Sentry.captureMessage(
+      context.method === "apple_pay" || context.method === "google_pay"
+        ? `Wallet sheet closed without paying (${context.method})`
+        : `Bare \`incomplete\` from elements.submit() with ${context.method} selected — wallet close not confirmed`
+    );
+  });
+}
+
+/**
  * The pre-charge "lot-declared fields" check in /api/reservations/pending.
  *
  * Deliberately NOT capturePaymentError: nothing here is a payment failure, and

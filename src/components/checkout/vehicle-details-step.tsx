@@ -30,13 +30,27 @@ interface VehicleDetailsStepProps {
   isLoading?: boolean;
 }
 
+/**
+ * Plate jurisdictions offered at checkout. The value travels to the lot as
+ * free text (`license_plate_state`) and is printed next to the plate on the
+ * lot's notice, so a province code is as good as a state code to them.
+ * Canadian customers could not book at all while this list was US-only
+ * (customer report, October 27, 2026).
+ */
 const US_STATES = [
-  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DC", "DE", "FL", "GA",
   "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
   "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
   "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
   "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
 ];
+
+const CANADIAN_PROVINCES = [
+  "AB", "BC", "MB", "NB", "NL", "NS", "NT", "NU", "ON", "PE", "QC", "SK", "YT",
+];
+
+/** Sent as the plate "state" for a plate from outside the US and Canada. */
+const OTHER_PLATE_REGION = "OTHER";
 
 const CAR_COLORS = [
   "Black", "White", "Silver", "Gray", "Red", "Blue", "Brown", "Green", "Other"
@@ -201,7 +215,7 @@ export function VehicleDetailsStep({
         {/* State */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            State *
+            State / Province *
           </label>
           <select
             data-funnel-field="state"
@@ -212,12 +226,22 @@ export function VehicleDetailsStep({
             }`}
             required
           >
-            <option value="">Select state</option>
-            {US_STATES.map((state) => (
-              <option key={state} value={state}>
-                {state}
-              </option>
-            ))}
+            <option value="">Select state / province</option>
+            <optgroup label="United States">
+              {US_STATES.map((state) => (
+                <option key={state} value={state}>
+                  {state}
+                </option>
+              ))}
+            </optgroup>
+            <optgroup label="Canada">
+              {CANADIAN_PROVINCES.map((province) => (
+                <option key={province} value={province}>
+                  {province}
+                </option>
+              ))}
+            </optgroup>
+            <option value={OTHER_PLATE_REGION}>Other (outside US / Canada)</option>
           </select>
           {errors.state && (
             <p className="text-red-500 text-xs mt-1">{errors.state}</p>

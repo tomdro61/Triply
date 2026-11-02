@@ -4,7 +4,7 @@ import { ArrowLeft, FileText } from "lucide-react";
 import { PG_NONREFUNDABLE_SUMMARY } from "@/lib/parkguard/plans";
 
 export const metadata = {
-  title: "Terms of Service | Triply",
+  title: "Terms of Service",
   description: "Terms and conditions for using Triply airport parking services.",
   alternates: { canonical: "/terms" },
 };

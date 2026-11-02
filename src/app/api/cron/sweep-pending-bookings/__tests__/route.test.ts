@@ -18,6 +18,11 @@ vi.mock("@/lib/stripe/client", () => ({ stripe: { paymentIntents: { retrieve, ca
 vi.mock("@/lib/booking/create-booking", () => ({ createBooking, redriveDirectBookingSends }));
 vi.mock("@/lib/sentry", () => ({ capturePaymentError }));
 vi.mock("@/lib/direct/lot-notice", () => ({ sendLotCancelNotice }));
+const scheduleReconciliationAlert = vi.hoisted(() => vi.fn(async (_input: unknown) => undefined));
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  RECONCILIATION_ALERT_COLUMNS: "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source",
+  scheduleReconciliationAlert,
+}));
 
 import { GET } from "../route";
 
@@ -547,5 +552,50 @@ describe("GET /api/cron/sweep-pending-bookings — direct-lot send backstop (4b 
       expect.objectContaining({ message: expect.stringMatching(/direct send backstop re-drive threw for pi_throws: Stripe read timed out/) }),
       expect.objectContaining({ stripePaymentIntentId: "pi_throws" })
     );
+  });
+});
+
+describe("GET /api/cron/sweep-pending-bookings — give-up after 4 days fires the reconciliation alert (P1b)", () => {
+  const DAY = 24 * HOUR;
+  const liveStuck = (over: Record<string, unknown> = {}) => ({
+    stripe_payment_intent_id: "pi_old",
+    status: "pending",
+    livemode: true,
+    reslab_reservation_number: null,
+    last_error: null,
+    created_at: ago(5 * DAY),
+    updated_at: ago(5 * DAY),
+    customer: { firstName: "Ada", lastName: "L", email: "ada@example.com" },
+    location_name: "PARK AC JFK",
+    airport_code: "JFK",
+    from_date: "2026-11-11 07:00:00",
+    to_date: "2026-11-12 07:00:00",
+    inventory_source: "reslab",
+    ...over,
+  });
+
+  it("a live row unresolved for 5 days with money held → needs_reconciliation + ONE alert with source 'sweep' and the row", async () => {
+    db.seed("pending_bookings", [liveStuck()]);
+    retrieve.mockResolvedValue({ id: "pi_old", status: "requires_capture", amount: 2537 });
+    const body = await (await GET(req())).json();
+    expect(body).toMatchObject({ ok: true, escalated: 1 });
+    expect(db.tables.pending_bookings[0].status).toBe("needs_reconciliation");
+    expect(createBooking).not.toHaveBeenCalled();
+    expect(scheduleReconciliationAlert).toHaveBeenCalledTimes(1);
+    expect(scheduleReconciliationAlert.mock.calls[0][0]).toMatchObject({
+      stripePaymentIntentId: "pi_old",
+      status: "needs_reconciliation",
+      source: "sweep",
+      reason: expect.stringContaining("unresolved after 5d"),
+      row: expect.objectContaining({ livemode: true, location_name: "PARK AC JFK" }),
+    });
+  });
+
+  it("no money on the card → no give-up into reconciliation, no alert", async () => {
+    db.seed("pending_bookings", [liveStuck()]);
+    retrieve.mockResolvedValue({ id: "pi_old", status: "requires_payment_method", amount: 2537 });
+    await GET(req());
+    expect(db.tables.pending_bookings[0].status).not.toBe("needs_reconciliation");
+    expect(scheduleReconciliationAlert).not.toHaveBeenCalled();
   });
 });

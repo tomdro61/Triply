@@ -95,8 +95,6 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
     // leave `lots` empty and bake the zero-lot render — empty, indexable
     // airport pages, strictly worse than the thin page we actually have.
     lots = result.results;
-    // Verified Triply reviews onto the lot cards (never throws; off → unchanged).
-    lots = withReviews(lots, await fetchLotReviewSummaries(lots, "airport-page"), 1);
     locationsConsidered = result.locationsConsidered;
 
     // A THIN location list does not throw — searchParking returns successfully
@@ -147,6 +145,11 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
         { directLotsReadFailed: true }
       );
     }
+    // Verified Triply ratings onto the lot cards — rating + count only, no
+    // review text on a page cached for an hour. After the guards above, so a
+    // render that will be refused makes no database read. Served from the
+    // module's per-instance copy; never throws; off → unchanged.
+    lots = withReviews(lots, await fetchLotReviewSummaries(lots, "airport-page"), 0);
   } catch (err) {
     // searchParking throws on a real ResLab failure, and also when our own
     // location-list circuit breaker is open (a cold instance backing off after

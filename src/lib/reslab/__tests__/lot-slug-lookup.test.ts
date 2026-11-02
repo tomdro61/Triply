@@ -205,6 +205,25 @@ describe("blocked lots (BLOCKED_RESLAB_LOCATION_IDS)", () => {
     expect(await getLotFromReslab(416, FROM, TO)).toBeNull();
     expect(reslabMock.getLocation).not.toHaveBeenCalled();
   });
+
+  it("a ResLab test lot (194) is not-found in production, found on staging", async () => {
+    searchMock.getChannelLocationsCached.mockResolvedValue({
+      data: [loc(194, "TEST - Due at location with taxes")],
+      incomplete: false,
+      stale: false,
+    });
+    reslabMock.getLocation.mockResolvedValue(loc(194, "TEST - Due at location with taxes"));
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    try {
+      expect(await findLotBySlug("test-due-at-location-with-taxes", FROM, TO)).toBeNull();
+      expect(await getLotFromReslab(194, FROM, TO)).toBeNull();
+      expect(reslabMock.getLocation).not.toHaveBeenCalled();
+      vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+      expect(await getLotFromReslab(194, FROM, TO)).not.toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
 
 describe("getLotFromReslab — per-lot pricing window (same-day, 2026-10-06)", () => {

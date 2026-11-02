@@ -27,7 +27,7 @@ Triply is an airport parking aggregator that helps travelers find and book affor
 
 Key facts:
 - Tagline: "Your Trip Simplified"
-- Customers save an average of 60% compared to on-site airport parking
+- Off-airport lots often cost 40-60% less than on-airport parking ("save up to 60%"); Triply does not measure individual savings
 - Founded on values of Transparency, Trust, and Simplicity
 - Triply acts as an intermediary between customers and parking facility operators
 
@@ -47,10 +47,10 @@ Q: How do I make a reservation?
 A: Enter your airport, travel dates, and times on our homepage or search page. Browse available parking options, select your preferred lot, and complete the checkout process. You'll receive a confirmation email with all the details you need.
 
 Q: Can I modify my reservation?
-A: Yes, you can modify your reservation up to 24 hours before your scheduled check-in time. Log into your account, go to My Reservations, and select the booking you want to modify. Changes may affect pricing based on availability.
+A: There is no edit option yet. If check-in is more than 24 hours away, cancel the reservation from My Reservations (free — everything paid online comes back) and book again with the new details. Closer to check-in, or for a guest booking the customer can't see, email support@triplypro.com.
 
 Q: How do I cancel my reservation?
-A: Log into your account and go to My Reservations. Select the booking you want to cancel and click "Cancel Reservation". Cancellations made more than 24 hours before check-in receive a full refund. Cancellations within 24 hours may be subject to a cancellation fee.
+A: Sign in to the account the reservation is linked to (a guest booking: sign in with the booking email first), go to My Reservations, select the booking and click "Cancel Reservation". More than 24 hours before check-in you get back everything you paid online. Within 24 hours of check-in, and for no-shows, cancellation can't be done online and isn't refunded online — contact support, handled case by case.
 
 Q: What if I need to extend my parking?
 A: Contact the parking facility directly using the phone number on your confirmation. Extensions are subject to availability and will be charged at the daily rate.
@@ -63,10 +63,10 @@ Q: What payment methods do you accept?
 A: We accept all major credit cards (Visa, Mastercard, American Express, Discover), as well as Apple Pay and Google Pay for a seamless checkout experience. All payments are processed securely through Stripe.
 
 Q: When will I be charged?
-A: Your card is charged at the time of booking. The amount includes all taxes and fees with no hidden charges. Some facilities may place a hold for incidentals which is released after your stay.
+A: Your card is charged when you book. At some lots part of the price is paid on arrival — checkout shows it separately as "Due at Location" (or "Due at the lot" for an oversized-vehicle surcharge), and it is not charged to the card. Some facilities charge on site for oversized vehicles or for staying past the booked time; check the lot's details.
 
 Q: Are there any hidden fees?
-A: No, the price you see is the price you pay. All taxes, fees, and charges are included in the total shown at checkout. We believe in transparent pricing.
+A: The total shown at checkout includes taxes and fees. At some lots part of it is paid on arrival, shown separately as "Due at Location" before paying. Some lots charge on site for oversized vehicles or overstays; those are listed in the lot's details.
 
 Q: How do promo codes work?
 A: Enter your promo code during checkout in the designated field. Valid codes will automatically apply the discount to your total. Promo codes cannot be combined and have specific terms and expiration dates.
@@ -75,7 +75,7 @@ Q: What parking protection plans are offered?
 A: Parking Protection is an optional plan administered by Park Guard, a third-party administrator, that helps with the cost of certain damages or theft while your vehicle is parked at the lot. At checkout you can choose ${PG_TIER_SUMMARY}, or skip it and park at your own risk. The plan helps with door dings, fender benders, and stolen items up to the limit you chose (${PG_LIMIT_SUMMARY}) per claim. To start a claim, visit triplypro.com/claims within 72 hours of leaving the lot (theft needs a police report). Full terms: parkguard.com/terms-of-use-triplypro.
 
 Q: What is your refund policy?
-A: If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}) and the rest is returned. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours may incur a fee. Refunds go to your original payment method and usually appear within 5-10 business days.
+A: If you cancel more than 24 hours before check-in, you get back everything you paid online — parking, taxes, and the Triply service fee. If you added a Park Guard protection plan, a portion of the plan price is non-refundable (${PG_NONREFUNDABLE_SUMMARY}) and the rest is returned. Anything marked as due at the lot was never charged by us, so it isn't part of the refund. Cancellations within 24 hours of check-in can't be done online and aren't refunded online — contact support and we'll do what we can; no-shows aren't refunded. Refunds go to your original payment method and usually appear within 5-10 business days.
 
 == FAQ: PARKING & CHECK-IN ==
 Q: How do I find the parking facility?
@@ -108,16 +108,16 @@ A: Remove all valuables, electronics, and important documents from your vehicle.
 
 == FAQ: ACCOUNT & SUPPORT ==
 Q: Do I need an account to book?
-A: No, you can book as a guest without creating an account. However, creating an account lets you easily view and manage your reservations, save your information for faster checkout, and access exclusive deals.
+A: No, you can book as a guest without creating an account. However, creating an account lets you see your reservations in one place, cancel an eligible one yourself, and check out faster next time.
 
 Q: How do I reset my password?
 A: Click "Forgot your password?" on the login page and enter your email address. We'll send you a link to reset your password. The link expires after 24 hours for security.
 
 Q: How can I contact customer support?
-A: You can reach us by email at support@triplypro.com. Our support team responds within 24-48 hours. For urgent parking issues, contact the facility directly using the number on your confirmation.
+A: Email support@triplypro.com — we reply within 24-48 hours on business days. Triply does not have a phone line. For urgent parking issues, contact the facility directly using the number on your confirmation.
 
 Q: Where can I see my past reservations?
-A: Log into your account and go to My Reservations. You'll see all your upcoming and past bookings. You can view details, download receipts, and rebook previous parking spots.
+A: Log into your account and go to My Reservations. You'll see all your upcoming and past bookings with their details, and you can cancel an eligible upcoming reservation from there.
 
 == CONTACT INFORMATION ==
 - General support: support@triplypro.com (24-48 hour response time)
@@ -136,7 +136,7 @@ A: Log into your account and go to My Reservations. You'll see all your upcoming
 
 == PRIVACY SUMMARY ==
 - Data collected: name, email, phone, payment info (processed by Stripe), booking details
-- Data shared with: Stripe (payments), Supabase (database), Resend (emails), Vercel (hosting), Google Analytics (anonymized analytics, only after cookie consent)
+- Data shared with: Stripe (payments), Reservations Lab (passes the reservation to the lot), Park Guard (only if a protection plan is added), Supabase (database and sign-in), Resend (emails), Vercel (hosting), Google Analytics and Microsoft Clarity (analytics, subject to the visitor's cookie choices), Sentry (error monitoring), Mapbox (maps), Anthropic (this assistant), Discord (internal booking alerts) — full list at triplypro.com/privacy
 - Data retention: 7 years for financial records
 - Users can request data deletion by contacting privacy@triplypro.com
 - Full policy at: triplypro.com/privacy
@@ -144,7 +144,7 @@ A: Log into your account and go to My Reservations. You'll see all your upcoming
 == TERMS SUMMARY ==
 - Triply is an intermediary — we connect travelers with parking facility operators
 - Triply is not responsible for the parking facility's services directly
-- 24-hour cancellation window for full refund
+- Cancel more than 24 hours before check-in → refund of everything paid online, except Park Guard's non-refundable portion
 - Disputes handled through support@triplypro.com
 - Full terms at: triplypro.com/terms
 

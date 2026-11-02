@@ -13,6 +13,7 @@ let seq = 0;
 function row(o: Partial<ReviewRow> = {}): ReviewRow {
   seq++;
   return {
+    id: `id-${seq}`,
     reslab_location_id: 10,
     direct_lot_id: null,
     rating: 5,

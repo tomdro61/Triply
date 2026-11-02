@@ -6,6 +6,7 @@
  */
 
 import { getAirportByCode, Airport } from "@/config/airports";
+import { TEST_RESLAB_LOCATION_IDS } from "@/config/admin";
 import {
   reslab,
   ReslabError,
@@ -69,6 +70,27 @@ export { generateSlug };
 //   416 — Parking 4 Airport (JFK): repeatedly refused Triply customers on
 //         arrival (2026-09-15). Ask ResLab to unlink it from our channel too.
 export const BLOCKED_RESLAB_LOCATION_IDS: ReadonlySet<number> = new Set([416]);
+
+// ResLab's TEST locations (194–197, see TEST_RESLAB_LOCATION_IDS) are real,
+// bookable listings in the production channel: "TEST - Due at location with
+// taxes" showed up under CVG and "TEST - Canadian location…" under YUL in
+// production search and in the sitemap (2026-11-02). Production never shows
+// them; preview/staging/development keep them, because that is where Tom's
+// test bookings are made.
+const HIDDEN_IN_PRODUCTION: ReadonlySet<number> = new Set([
+  ...BLOCKED_RESLAB_LOCATION_IDS,
+  ...TEST_RESLAB_LOCATION_IDS,
+]);
+const TEST_LOT_ENVIRONMENTS = new Set(["preview", "staging", "development"]);
+
+/** Every ResLab location hidden from customers in THIS deployment: the blocked list, plus the test lots outside preview/staging/development ("unknown" counts as production — fail closed). */
+export function hiddenReslabLocationIds(): ReadonlySet<number> {
+  return TEST_LOT_ENVIRONMENTS.has(resolveEnv()) ? BLOCKED_RESLAB_LOCATION_IDS : HIDDEN_IN_PRODUCTION;
+}
+
+export function isHiddenReslabLocation(locationId: number): boolean {
+  return hiddenReslabLocationIds().has(locationId);
+}
 
 /**
  * Transform ResLab location to UnifiedLot format
@@ -1505,9 +1527,9 @@ export async function searchParking(
     directLots.map((l) => l.reslabLocationId).filter((id): id is number => id !== null)
   );
 
-  // Drop lots we've deliberately hidden (see BLOCKED_RESLAB_LOCATION_IDS).
+  // Drop lots we've deliberately hidden (blocked list + test lots in production — see hiddenReslabLocationIds).
   locations = locations.filter(
-    (loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id) && !suppressedReslabIds.has(loc.id)
+    (loc) => !isHiddenReslabLocation(loc.id) && !suppressedReslabIds.has(loc.id)
   );
   const locationsConsidered = locations.length + directLots.length;
 

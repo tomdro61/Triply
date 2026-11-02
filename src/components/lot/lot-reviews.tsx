@@ -73,7 +73,7 @@ export function LotReviews({ reviews }: LotReviewsProps) {
           <div className="flex items-center gap-2">
             <Stars rating={reviews.average} size={16} />
             <span className="font-bold text-gray-900">{reviews.average.toFixed(1)}</span>
-            <span className="text-sm text-gray-500">({reviews.count} reviews)</span>
+            <span className="text-sm text-gray-500">({reviews.count} ratings)</span>
           </div>
         )}
       </div>

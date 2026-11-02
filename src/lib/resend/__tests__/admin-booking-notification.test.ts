@@ -28,6 +28,8 @@ async function html(props: Partial<Parameters<typeof sendAdminBookingNotificatio
 
 beforeEach(() => {
   send.mockResolvedValue({ data: { id: "em_admin" }, error: null });
+  // These pin the EMAIL; never post to a webhook a developer's shell happens to export.
+  vi.stubEnv("DISCORD_BOOKING_ALERTS_WEBHOOK_URL", "");
 });
 
 describe("admin booking notification — the cost breakdown (plan 2026-10-12)", () => {

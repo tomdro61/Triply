@@ -196,6 +196,32 @@ describe("POST /api/checkout/lot — ResLab body is unchanged except the explici
     expect(createPI.mock.calls[0][1]).toMatchObject({ inventorySource: "reslab", locationId: "42" });
     expect(createPI.mock.calls[0][1]).not.toHaveProperty("directSurcharges");
   });
+
+  it("a hidden lot (blocked, or a ResLab test lot in production) is 404 before any ResLab call or PaymentIntent", async () => {
+    const body = {
+      lotId: "reslab-194",
+      locationId: 194,
+      checkin: "2026-10-10",
+      checkout: "2026-10-15",
+      checkinTime: "10:00 AM",
+      checkoutTime: "10:00 AM",
+      parkingTypeId: 7,
+      customerEmail: "ada@example.com",
+      protectionPlanCode: null,
+    };
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    expect((await post(body)).status).toBe(404);
+    expect((await post({ ...body, lotId: "reslab-416", locationId: 416 })).status).toBe(404);
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+    // staging (where test bookings are made) still prices lot 194
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+    getCost.mockResolvedValue({
+      costs_token: "tok",
+      reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 0 },
+    });
+    expect((await post(body)).status).toBe(200);
+  });
 });
 
 describe("GET /api/checkout/lot — direct", () => {

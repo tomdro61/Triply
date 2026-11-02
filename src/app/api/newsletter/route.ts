@@ -54,6 +54,7 @@ import {
 } from "@/lib/attribution/limiter";
 import { getAirportByCode } from "@/config/airports";
 import { isPromoCodeUsable } from "@/lib/promo/usable";
+import { welcomeBookUrl, welcomeBookLabel } from "@/lib/newsletter/welcome-link";
 
 const MAX_BODY_BYTES = 2048;
 
@@ -345,7 +346,15 @@ async function stampWelcomeSentAt(supabase: AdminClient, subscriberId: string): 
  * "the email did not go out": neither may be swallowed into a silent
  * success, matching every sender in src/lib/resend/.
  */
-async function sendWelcomeEmail(email: string, code: string): Promise<boolean> {
+async function sendWelcomeEmail(
+  email: string,
+  code: string,
+  airportCode: string | undefined
+): Promise<boolean> {
+  // The button goes to the signup airport's search (it runs at once with
+  // default dates), or the homepage when no sellable airport is known.
+  const bookUrl = welcomeBookUrl(airportCode);
+  const bookLabel = welcomeBookLabel(airportCode);
   try {
     const { data, error } = await resend.emails.send({
       from: FROM_EMAIL,
@@ -366,8 +375,8 @@ async function sendWelcomeEmail(email: string, code: string): Promise<boolean> {
               <p style="font-size: 13px; color: #9ca3af; margin: 8px 0 0;">Valid for 30 days &bull; One-time use</p>
             </div>
             <div style="text-align: center; margin: 30px 0;">
-              <a href="https://www.triplypro.com" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
-                Book Now &amp; Save 10%
+              <a href="${bookUrl}" style="background-color: #f87356; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+                ${bookLabel}
               </a>
             </div>
             <p style="font-size: 14px; color: #9ca3af; text-align: center;">
@@ -717,7 +726,7 @@ export async function POST(request: NextRequest) {
 
         if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
 
-        const sent = await sendWelcomeEmail(emailLower, usableCode.code);
+        const sent = await sendWelcomeEmail(emailLower, usableCode.code, airportCode);
         if (sent) await stampWelcomeSentAt(supabase, existing.id);
         return NextResponse.json({
           success: true,
@@ -776,7 +785,7 @@ export async function POST(request: NextRequest) {
       // Past this point nothing in this branch can still 503.
       if (source) await recordSourceAttribution(supabase, existing.id, source, airportCode, slug);
 
-      const sent = await sendWelcomeEmail(emailLower, minted.code);
+      const sent = await sendWelcomeEmail(emailLower, minted.code, airportCode);
       if (sent) await stampWelcomeSentAt(supabase, existing.id);
       return NextResponse.json({
         success: true,
@@ -857,7 +866,7 @@ export async function POST(request: NextRequest) {
       await recordSourceAttribution(supabase, subscriberId, source, airportCode, slug);
     }
 
-    const sent = await sendWelcomeEmail(emailLower, minted.code);
+    const sent = await sendWelcomeEmail(emailLower, minted.code, airportCode);
     if (sent) await stampWelcomeSentAt(supabase, subscriberId);
 
     return NextResponse.json({

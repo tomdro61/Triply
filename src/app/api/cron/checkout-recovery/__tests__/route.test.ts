@@ -32,6 +32,7 @@ vi.mock("@/lib/reslab/client", () => ({ reslab: { getLocation }, ReslabError: Fa
 // blocked-id set are reachable from it.
 vi.mock("@/lib/reslab/search", () => ({
   BLOCKED_RESLAB_LOCATION_IDS: new Set([416]),
+  hiddenReslabLocationIds: () => new Set([416]),
   getChannelLocationsNoSweep: noSweep,
 }));
 vi.mock("@sentry/nextjs", () => ({

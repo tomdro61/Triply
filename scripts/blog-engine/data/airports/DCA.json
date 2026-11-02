@@ -1,7 +1,7 @@
 {
   "code": "DCA",
   "fullName": "Ronald Reagan Washington National Airport",
-  "lastVerified": "2026-04-03",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Arlington County, Virginia — directly across the Potomac River from Washington, D.C., 5 miles south of the White House",
     "iataCode": "DCA",
@@ -105,7 +105,7 @@
         "toTysonsCorner": "~40 minutes (Silver Line via transfer)",
         "toDullesAirport": "~60 minutes (Silver Line via transfer at Rosslyn)"
       },
-      "competitorNote": "At $2.25 off-peak, Metro is the cheapest and often fastest way to reach downtown DC. A round-trip Metro fare ($4.50-$13.50) is dramatically cheaper than even one day of airport parking ($25-$29). For trips of any length, Metro beats parking on cost. This is DCA's single biggest competitive advantage over IAD and BWI.",
+      "competitorNote": "At $2.25 off-peak, Metro is the cheapest and often fastest way to reach downtown DC. A round-trip Metro fare ($4.50-$13.50) is dramatically cheaper than even one day of airport parking ($25-$35). For trips of any length, Metro beats parking on cost. This is DCA's single biggest competitive advantage over IAD and BWI.",
       "accessibility": "Elevator access, wheelchair-accessible platforms, priority seating"
     },
     "metrobus": {
@@ -159,7 +159,7 @@
       },
       "surgePricing": "Standard surge pricing during peak hours, weather events, and holidays",
       "pinVerification": "PIN or QR verification may be required",
-      "competitiveAdvantage": "DCA is only 5 miles from downtown DC — rideshare is very affordable. Round-trip Uber at $24-40 beats even 1 day of terminal parking ($29). For solo travelers, Metro at $2.25-$6.75 is even cheaper."
+      "competitiveAdvantage": "DCA is only 5 miles from downtown DC — rideshare is very affordable. Round-trip Uber at $24-40 beats even 1 day of terminal parking ($35). For solo travelers, Metro at $2.25-$6.75 is even cheaper."
     },
     "rentalCars": {
       "onAirport": {
@@ -178,7 +178,7 @@
     },
     "hotelShuttles": "Many Crystal City and Pentagon City hotels offer free courtesy shuttles to/from the airport, including Hyatt Regency Crystal City, Crystal Gateway Marriott, Hilton Crystal City, Westin Crystal City, and Sheraton Pentagon City."
   },
-  "parkingRates": "On-airport: Parking 1 (Terminal 1 Garage) $35/day, Parking 2 (Terminal 2 Garage) $29/day, Economy Lot $25/day. First 60 minutes FREE in garages. Cell Phone Lot: Temporarily CLOSED (construction). Off-site: from ~$8.50/day (DoubleTree Crystal City, Sheraton Pentagon). Pre-booking strongly recommended — Economy Lot capacity reduced ~40% during new garage construction.",
+  "parkingRates": "On-airport: Parking 1 (Terminal 1 Garage) $35/day, Parking 2 (Terminal 2 Garage) $35/day, Economy Lot $25/day. First 60 minutes FREE in garages. Cell Phone Lot: Temporarily CLOSED (construction). Off-site: from ~$9/day (Sheraton Suites Old Town Alexandria). Pre-booking strongly recommended — Economy Lot capacity reduced ~40% during new garage construction.",
   "onAirportParking": {
     "parking1": {
       "name": "Parking 1 (Terminal 1 Garage)",
@@ -192,11 +192,11 @@
     },
     "parking2": {
       "name": "Parking 2 (Terminal 2 Garage)",
-      "rate": "$6 per hour after first 60 minutes free",
-      "dailyMax": 29,
+      "rate": "$7 per hour after first 60 minutes free",
+      "dailyMax": 35,
       "terminals": "Terminal 2 (Concourses B, C, D, E)",
       "heightClearance": "8 ft 2 in",
-      "evCharging": "101 EV charging stations on Level 1, complimentary for parking customers",
+      "evCharging": "101 EV charging stations (72 on the ground level, 29 on Level 2), first come first served, complimentary for parking customers",
       "features": "Adjacent to Terminal 2 and Metro station. First 60 minutes free. Largest garage at DCA.",
       "preBookingUrl": "https://reserve.flyreagan.com"
     },
@@ -221,7 +221,7 @@
     },
     "totalCapacity": "8,500 vehicles across all DCA parking facilities",
     "preBookingUrl": "https://reserve.flyreagan.com",
-    "paymentMethods": "Credit cards, debit cards accepted. Pre-booking available online at reserve.flyreagan.com.",
+    "paymentMethods": "Cash (attended lanes), Visa, Mastercard, Amex, Discover. Pre-booking available online at reserve.flyreagan.com.",
     "freePickupDropoff": "First 60 minutes FREE in Parking 1 and Parking 2 garages — use for passenger pickup/drop-off instead of cell phone lot during construction."
   },
   "parkingLots": [
@@ -240,7 +240,9 @@
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Online discounts available through theparkingspot.com"],
-      "notes": "Garage parking (covered). Shuttle NOT 24/7 (5 AM - 11:30 PM). Not suitable for very early/late flights."
+      "notes": "Garage parking (covered). Shuttle NOT 24/7 (5 AM - 11:30 PM). Not suitable for very early/late flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Sheraton Pentagon City Hotel",
@@ -257,7 +259,9 @@
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Pre-book via airportparkingreservations.com from $9/day"],
-      "notes": "Shuttle runs once per hour only. NOT 24/7 (6 AM - 11:15 PM). Allow extra time for shuttle wait."
+      "notes": "Shuttle runs once per hour only. NOT 24/7 (6 AM - 11:15 PM). Allow extra time for shuttle wait.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Crystal Gateway Marriott",
@@ -275,7 +279,9 @@
       "driveTime": "5 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Book via cheapairportparking.org from $10/day", "Book via parkon.com for competitive rates"],
-      "notes": "Covered garage parking. Convenient Crystal City location near Metro. Shuttle every 30 min. One of the best value DCA off-site options."
+      "notes": "Covered garage parking. Convenient Crystal City location near Metro. Shuttle every 30 min. One of the best value DCA off-site options.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Renaissance Arlington Capital View",
@@ -292,7 +298,9 @@
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Book via parkon.com from $10/day"],
-      "notes": "Newer hotel with good amenities. Free shuttle included."
+      "notes": "Newer hotel with good amenities. Free shuttle included.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hyatt Regency Crystal City",
@@ -310,14 +318,16 @@
       "driveTime": "5 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Pre-book online for $12/day valet parking"],
-      "notes": "Covered valet parking — your car stays in a garage. Higher rate but premium service. Close to Metro if you prefer train to shuttle."
+      "notes": "Covered valet parking — your car stays in a garage. Higher rate but premium service. Close to Metro if you prefer train to shuttle.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Westin Crystal City (DCA)",
       "slug": "westin-crystal-city-dca",
-      "dailyRate": 12.90,
-      "reservationRate": 12.90,
-      "totalFor8Days": 103.22,
+      "dailyRate": 11.5,
+      "reservationRate": 11.5,
+      "totalFor8Days": 91.98,
       "parkingType": "Self-park (covered, hotel garage)",
       "amenities": ["Free Shuttle", "Covered Parking", "Security", "24/7 Access", "Hotel Amenities", "Restaurant", "Near Metro"],
       "shuttleInfo": "Complimentary airport shuttle service to and from DCA. No hotel reservation required to park.",
@@ -327,14 +337,19 @@
       "distanceFromAirport": "0.8 mi",
       "driveTime": "3 minutes",
       "freeCancellation": true,
-      "notes": "Closest off-site option. Covered parking is a differentiator — most DCA off-site lots are uncovered. $12.90/day is competitive for covered."
+      "notes": "Closest off-site option. Covered parking is a differentiator — most DCA off-site lots are uncovered. $12.90/day is competitive for covered.",
+      "taxesFor8Days": 0,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Sheraton Suites Old Town Alexandria (DCA)",
       "slug": "sheraton-suites-old-town-alexandria-dca",
-      "dailyRate": 8.50,
-      "reservationRate": 8.50,
-      "totalFor8Days": 68.00,
+      "dailyRate": 8.93,
+      "reservationRate": 8.93,
+      "totalFor8Days": 71.4,
       "parkingType": "Self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Security", "24/7 Access", "Restaurant", "Wheelchair Access"],
       "shuttleInfo": "Complimentary shuttle to DCA. Limited availability — book early.",
@@ -345,7 +360,12 @@
       "driveTime": "10 minutes",
       "freeCancellation": true,
       "knownCoupons": [],
-      "notes": "Budget option but limited availability — often sells out. Furthest off-site lot at 2.6 mi but cheapest at $8.50/day."
+      "notes": "Budget option but limited availability — often sells out. Furthest off-site lot at 2.6 mi but cheapest at $8.50/day.",
+      "taxesFor8Days": 0,
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "DoubleTree by Hilton Crystal City",
@@ -362,7 +382,9 @@
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Book via cheapairportparking.org from $8.50/day"],
-      "notes": "Best budget option for DCA off-site parking. Pre-book to secure lowest rate."
+      "notes": "Best budget option for DCA off-site parking. Pre-book to secure lowest rate.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hilton Crystal City at Washington Reagan National Airport",
@@ -379,7 +401,9 @@
       "driveTime": "5 minutes",
       "freeCancellation": true,
       "knownCoupons": ["Park-Sleep-Fly packages available via parksleepfly.com"],
-      "notes": "Good balance of price and amenities. Walking distance to Crystal City Metro for downtown DC access."
+      "notes": "Good balance of price and amenities. Walking distance to Crystal City Metro for downtown DC access.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "Most off-site hotel lots include free shuttle to DCA. Frequency varies: Crystal Gateway Marriott (every 30 min, 5:30 AM-midnight), Sheraton Pentagon (hourly, 6 AM-11:15 PM), Hyatt Regency (on schedule), Westin (on demand). Economy Lot has its own shuttle. NOTE: Most hotel shuttles are NOT 24/7 — check hours for early morning/late night flights. Metro is the backup: Crystal City station is walking distance from most hotels, Yellow/Blue Line direct to airport.",
@@ -517,7 +541,7 @@
     },
     "parking2": {
       "chargers": 101,
-      "location": "Level 1",
+      "location": "Ground level (72) and Level 2 (29)",
       "type": "EV charging stations",
       "cost": "Complimentary for parking customers"
     },
@@ -639,20 +663,20 @@
     "scenario": "5-day trip for 2 travelers",
     "onAirport": {
       "parking1Terminal1": { "parkingCost": "$175 (5 x $35)", "totalEstimate": "$175" },
-      "parking2Terminal2": { "parkingCost": "$145 (5 x $29)", "totalEstimate": "$145" },
+      "parking2Terminal2": { "parkingCost": "$175 (5 x $35)", "totalEstimate": "$175" },
       "economyLot": { "parkingCost": "$125 (5 x $25)", "totalEstimate": "$125" }
     },
     "offSiteWithShuttle": {
-      "doubleTreeCrystalCity": { "parkingCost": "$42.50 (5 x ~$8.50 pre-booked)", "savingsVsTerminal": "~$102 saved vs Parking 2", "caveat": "Shuttle — check hours" },
-      "sheratonPentagon": { "parkingCost": "$45 (5 x ~$9 pre-booked)", "savingsVsTerminal": "~$100 saved vs Parking 2", "caveat": "Shuttle hourly, 6 AM-11:15 PM" },
-      "crystalGatewayMarriott": { "parkingCost": "$50 (5 x $10)", "savingsVsTerminal": "~$95 saved vs Parking 2", "caveat": "Covered garage, shuttle every 30 min" },
-      "hyattRegency": { "parkingCost": "$60 (5 x $12 pre-booked)", "savingsVsTerminal": "~$85 saved vs Parking 2", "caveat": "Covered valet" }
+      "doubleTreeCrystalCity": { "parkingCost": "$42.50 (5 x ~$8.50 pre-booked)", "savingsVsTerminal": "~$132 saved vs Parking 2", "caveat": "Shuttle — check hours" },
+      "sheratonPentagon": { "parkingCost": "$45 (5 x ~$9 pre-booked)", "savingsVsTerminal": "~$130 saved vs Parking 2", "caveat": "Shuttle hourly, 6 AM-11:15 PM" },
+      "crystalGatewayMarriott": { "parkingCost": "$50 (5 x $10)", "savingsVsTerminal": "~$125 saved vs Parking 2", "caveat": "Covered garage, shuttle every 30 min" },
+      "hyattRegency": { "parkingCost": "$60 (5 x $12 pre-booked)", "savingsVsTerminal": "~$115 saved vs Parking 2", "caveat": "Covered valet" }
     },
     "publicTransit": {
       "metroRoundTrip": { "costPerPersonRoundTrip": "$4.50-$13.50", "travelTime": "10-19 min to downtown DC", "note": "Every 6-12 min, direct service. The cheapest option by far." },
       "rideshareRoundTrip": { "costForCouple": "$24-$40 (UberX downtown)", "note": "Cheaper than ANY parking for trips under 2 days" }
     },
-    "keyDifference": "DCA's Metro connection is a game-changer. A round-trip Metro fare for 2 people ($9-$27) costs less than ONE day of terminal parking ($29-$35). For travelers coming from anywhere on the Yellow/Blue Line, there is zero reason to pay for parking. Even off-site lots at $8.50/day can't compete with $2.25 Metro fare. The parking vs. transit calculus at DCA is uniquely tilted toward transit."
+    "keyDifference": "DCA's Metro connection is a game-changer. A round-trip Metro fare for 2 people ($9-$27) costs less than ONE day of terminal parking ($35). For travelers coming from anywhere on the Yellow/Blue Line, there is zero reason to pay for parking. Even off-site lots at about $9/day can't compete with $2.25 Metro fare. The parking vs. transit calculus at DCA is uniquely tilted toward transit."
   },
   "uniqueFeatures": {
     "perimeterRule": "Most nonstop flights limited to 1,250 statute miles. This means no direct flights to most West Coast cities (except via limited beyond-perimeter exemption slots). Travelers to LAX, SFO, SEA have limited flight options from DCA. Originally implemented in 1966 at 650 miles to protect Dulles Airport traffic.",

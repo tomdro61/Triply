@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLotById } from "@/lib/reslab/get-lot";
-import { isLocationBackoffError } from "@/lib/reslab/search";
+import { isHiddenReslabLocation, isLocationBackoffError } from "@/lib/reslab/search";
 import { reslab, ReslabError } from "@/lib/reslab/client";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -274,6 +274,12 @@ export async function POST(request: NextRequest) {
       promoCode,
       protectionPlanCode,
     } = result.data;
+
+    // A hidden lot (blocked list, or a ResLab test lot in production) never gets a PaymentIntent: the GET above already
+    // 404s it, but a stale checkout or a hand-built POST would otherwise pay for it (Codex review, 2026-11-02).
+    if (isHiddenReslabLocation(locationId)) {
+      return NextResponse.json({ error: "Lot not found" }, { status: 404 });
+    }
 
     // Build dates for ResLab API
     const checkinTime24 = convertTo24Hour(checkinTime);

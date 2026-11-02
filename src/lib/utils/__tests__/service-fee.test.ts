@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { calculateServiceFee, customerTotalFromPricing } from "../service-fee";
+import { calculateServiceFee, customerPerDayFromPricing, customerTotalFromPricing } from "../service-fee";
 
 /**
  * Pins the service-fee formula: max($5.95, 6% of the parking base), rounded to
@@ -34,5 +34,18 @@ describe("calculateServiceFee", () => {
     ).toBe(64.71 + 5.95);
     expect(customerTotalFromPricing({ grandTotal: 300, subtotal: 280, feesTotal: 0 })).toBe(300 + 16.8);
     expect(customerTotalFromPricing(undefined)).toBeNull();
+  });
+
+  it("customerPerDayFromPricing spreads the fee-inclusive total over the billed days", () => {
+    expect(
+      customerPerDayFromPricing({ grandTotal: 64.71, subtotal: 51.39, feesTotal: 3, taxTotal: 5.37, numberOfDays: 3 })
+    ).toBeCloseTo((64.71 + 5.95) / 3, 10);
+  });
+
+  it("customerPerDayFromPricing is null without a total or a day count, never a fee-less rate", () => {
+    expect(customerPerDayFromPricing({ subtotal: 50, numberOfDays: 3 })).toBeNull();
+    expect(customerPerDayFromPricing({ grandTotal: 64.71, subtotal: 51.39 })).toBeNull();
+    expect(customerPerDayFromPricing({ grandTotal: 64.71, subtotal: 51.39, numberOfDays: 0 })).toBeNull();
+    expect(customerPerDayFromPricing(undefined)).toBeNull();
   });
 });

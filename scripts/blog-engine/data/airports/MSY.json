@@ -1,0 +1,397 @@
+{
+  "code": "MSY",
+  "fullName": "Louis Armstrong New Orleans International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "City of Kenner, Jefferson Parish, Louisiana — about 11 miles west of downtown New Orleans, off I-10. Address: 1 Terminal Drive, Kenner, LA 70062. The current terminal (north side of the airfield) opened in November 2019; the old south terminal is no longer used by passengers.",
+    "iataCode": "MSY",
+    "icaoCode": "KMSY",
+    "faaLid": "MSY",
+    "elevation": "4 feet above mean sea level",
+    "acreage": 1500,
+    "passengerVolume": "About 12.5 million passengers in 2025 (down ~5% year over year; 13,177,660 in 2024)",
+    "aircraftOperations": "110,433 (2025)",
+    "distinction": "Louisiana's busiest airport. Named for jazz great Louis Armstrong in July 2001 (his 100th birthday year); the MSY code comes from its original name, Moisant Field. Its $1.3 billion single terminal opened in November 2019. Southwest is the largest carrier (~33% of passengers, Jun 2025-May 2026).",
+    "operator": "New Orleans Aviation Board",
+    "owner": "City of New Orleans",
+    "activeTerminals": 1,
+    "totalConcourses": 3,
+    "totalGates": 35,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "11/29", "length": "10,104 ft (3,080 m)", "surface": "Concrete" },
+      { "designation": "02/20", "length": "7,001 ft (2,134 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (~33% of passengers, Jun 2025-May 2026); Delta (~17%), American (~17%) and United (~14%) follow",
+    "totalAirlines": "13 listed on flymsy.com/airlines: Air Canada, Alaska, Allegiant, American, Breeze, British Airways, Caesars Rewards Air (charter), Delta, Frontier, JetBlue, Southwest, Sun Country, United",
+    "nonstopDestinations": "Around 60 nonstop destinations, including London Heathrow (British Airways), Toronto (Air Canada) and Cancun",
+    "founded": "Commercial service began May 1946 as Moisant Field; renamed New Orleans International in 1961 and Louis Armstrong New Orleans International in July 2001; current terminal opened November 2019",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail. JET bus E1 (Veterans-Airport) and RTA Airport Express 202 stop outside Level 1 Baggage Claim Door 2, Zones B4 and B5.",
+    "peopleMover": "None — one terminal with Concourses A, B and C reached on foot after the single Level 2 checkpoint."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal (opened November 2019)",
+      "status": "Active",
+      "airlines": ["Air Canada", "Alaska Airlines", "Allegiant Air", "American Airlines", "Breeze Airways", "British Airways", "Delta Air Lines", "Frontier Airlines", "JetBlue", "Southwest Airlines", "Sun Country Airlines", "United Airlines"],
+      "gates": "35 gates across Concourses A, B and C",
+      "notes": "One consolidated security checkpoint on Level 2 opens at 3:30 AM. International arrivals and customs are in Concourse A. Level 1 is Baggage Claim and all ground transportation."
+    }
+  ],
+  "roads": ["Interstate 10 (main access; flyover ramp at Loyola Drive)", "Loyola Drive (I-10 exit to the terminal)", "Terminal Drive", "Airline Drive / Airline Highway (US 61) — Economy Garage, Hilton and Comfort Inn lots", "Veterans Memorial Boulevard — DoubleTree lot", "Williams Boulevard", "Rental Boulevard (Rental Car Center)"],
+  "transit": ["JET Veterans-Airport (E1) — airport to City Park Avenue, New Orleans", "RTA Airport Express (202) — airport to downtown New Orleans (Elk Place / Union Passenger Terminal)"],
+  "neighborhoods": ["Kenner", "Metairie", "St. Rose", "Harahan", "River Ridge", "Destrehan", "LaPlace", "Downtown New Orleans / CBD", "French Quarter"],
+  "authority": "New Orleans Aviation Board",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Single terminal; Concourses A, B and C are walkable after security."
+    },
+    "groundTransportZones": {
+      "rideshare": "Level 1 Baggage Claim, middle curb. Lyft: exit Doors 7-9. Uber: exit Doors 9-11. Uber non-UberX: Zone 3, middle curb.",
+      "taxi": "Dedicated taxi loading zone on the Arrivals Curb outside Level 1 Baggage Claim Door 7.",
+      "publicBus": "Level 1 Baggage Claim outside Door 2, Zones B4 and B5.",
+      "hotelShuttles": "Ground Transportation Center outside Level 1 Baggage Claim Doors 1-5. Triply's Comfort Inn and Hilton lots say pickup is at B5 (Comfort Inn: outside Door 3).",
+      "economyAndRentalShuttles": "Door 9, far curb by the Long Term Parking Garage — Economy Garage and Rental Car Center shuttles (not hotels).",
+      "source": "https://flymsy.com/passengers/shuttles/"
+    },
+    "publicBus": {
+      "routes": ["JET Veterans-Airport (E1): airport to City Park Avenue", "RTA Airport Express (202): airport to downtown (Elk Place at Cleveland, or Union Passenger Terminal Bus Bay 2)"],
+      "fare": "E1: $1.50 within Jefferson Parish, $2.00 into New Orleans. 202: $1.25. Only the Le Pass Regional Ride day pass works on both systems.",
+      "accessFromTerminal": "Level 1 Baggage Claim outside Door 2, Zones B4 and B5",
+      "note": "Schedules on jptransit.org and norta.com.",
+      "source": "https://flymsy.com/public-transportation/"
+    },
+    "taxi": {
+      "fareType": "Flat fare to the CBD / French Quarter (west of Elysian Fields): $36 total for up to two passengers; $15 per passenger for three or more",
+      "pickup": "Arrivals Curb outside Level 1 Baggage Claim Door 7",
+      "note": "Taxis must accept credit cards.",
+      "source": "https://flymsy.com/taxis-2/"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Level 1 Baggage Claim, middle curb (Lyft Doors 7-9; Uber Doors 9-11)",
+      "note": "Lyft Fast Match available. DoubleTree New Orleans Airport (a Triply lot) has NO shuttle — guests ride Uber/Lyft between the hotel and the terminal both ways.",
+      "source": "https://flymsy.com/ride-app-2/"
+    },
+    "rentalCars": {
+      "location": "Rental Car Center, 600 Rental Boulevard, Kenner — reached by the 24/7 MSY Rental Car Lot Shuttle from in front of the Long Term Parking Garage (Level 1 Baggage Claim side); ~15-20 minute trip, shuttles about every 5 minutes",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 10,
+      "source": "https://flymsy.com/car-rentals/"
+    },
+    "hotelShuttles": "Triply's MSY lots: Hilton New Orleans Airport (901 Airline Dr) runs a 24/7 shuttle every 15 minutes; Comfort Inn New Orleans Airport South (St. Rose) runs on demand only 6-11 AM and 5-11 PM; DoubleTree New Orleans Airport (Veterans Memorial Blvd) has no shuttle — take Uber/Lyft. Hotel shuttles pick up outside Baggage Claim Doors 1-5 (B5)."
+  },
+  "parkingRates": "On-airport (daily max, per flymsy.com): Economy Garage $12 (remote, 24/7 shuttle), Surface Lot $20, Long Term Garage $22, Short Term Garage $26, Valet $36 (6 AM-12 AM). Billed per half hour ($3 per additional half hour; Economy $2). First half hour free in Short Term and Surface. Credit card only. Off-site via Triply: Comfort Inn New Orleans Airport South ~$8.95/day, Hilton New Orleans Airport ~$8.95/day, DoubleTree New Orleans Airport ~$9.00/day (no shuttle).",
+  "onAirportParking": {
+    "economyGarage": {
+      "name": "MSY Economy Garage",
+      "rate": "$12/day max ($4 first half hour, $2 each additional half hour)",
+      "dailyMax": 12,
+      "lastVerified": "2026-10-16",
+      "source": "https://flymsy.com/economy-parking",
+      "location": "900 Airline Drive, Kenner (remote — the former long-term garage at the old terminal); 2,438 spaces",
+      "connection": "Free shuttle 24/7 from Level 1 of the garage to the far curb outside Baggage Claim Door 9. 15-minute ride guarantee — if the ride takes longer you get a 50%-off parking voucher at exit. Track the shuttle in the Ride Systems app.",
+      "features": "Cheapest on-airport option. EV charging spaces on the 1st floor. Free airline bag check (Park MSY Express, via Bags) for American, Delta and United domestic flights, 4 AM-4 PM, arrive 90+ minutes before departure. Credit card only."
+    },
+    "surfaceLot": {
+      "name": "MSY Surface Lot",
+      "rate": "$20/day max (first half hour free, then $3 per half hour)",
+      "dailyMax": 20,
+      "lastVerified": "2026-10-16",
+      "source": "https://flymsy.com/parking",
+      "serves": "Main terminal (walk)",
+      "features": "Adjacent to the terminal. Credit card only."
+    },
+    "longTermGarage": {
+      "name": "MSY Long Term Garage",
+      "rate": "$22/day max ($4 first half hour, then $3 per half hour)",
+      "dailyMax": 22,
+      "lastVerified": "2026-10-16",
+      "source": "https://flymsy.com/parking",
+      "serves": "Main terminal (walk)",
+      "features": "Adjacent to the terminal; the Rental Car Center and Economy shuttles stop in front of it. Credit card only."
+    },
+    "shortTermGarage": {
+      "name": "MSY Short Term Garage",
+      "rate": "$26/day max (first half hour free, then $3 per half hour)",
+      "dailyMax": 26,
+      "lastVerified": "2026-10-16",
+      "source": "https://flymsy.com/parking",
+      "serves": "Main terminal (walk)",
+      "features": "Closest to the terminal. Pre-security pet relief area nearby. Credit card only.",
+      "hourlyRates": "First 30 min free; $3 per additional half hour"
+    },
+    "valetParking": {
+      "name": "MSY Valet Parking",
+      "rate": "$36/day",
+      "dailyMax": 36,
+      "lastVerified": "2026-10-16",
+      "source": "https://flymsy.com/parking",
+      "features": "Available 6 AM-12 AM."
+    },
+    "evCharging": {
+      "locations": ["Economy Garage — 1st floor"],
+      "note": "Dedicated EV charging spaces; charger count and fees not published on flymsy.com.",
+      "source": "https://flymsy.com/economy-parking"
+    },
+    "reservations": "All facilities can be reserved at park.flymsy.com. Reservations are NON-REFUNDABLE if canceled; no changes within 24 hours; you must enter within two hours of your reservation time. Scan the QR code from the confirmation email to enter and exit — do not pull a ticket or you will be charged again. Staying past your window may cost the difference.",
+    "paymentMethods": "Credit card only in all facilities.",
+    "parkingContact": "New South Parking: (504) 471-1301. Airport main line: 504-303-7500.",
+    "garageServiceAreas": "Short Term, Long Term, Surface and Valet → walk to the terminal. Economy → 24/7 shuttle to Door 9."
+  },
+  "parkingLots": [
+    {
+      "name": "Comfort Inn New Orleans Airport South",
+      "slug": "comfort-inn-new-orleans-airport-south",
+      "dailyRate": 9.4,
+      "reservationRate": 9.4,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "On demand 6:00 AM-11:00 AM and 5:00 PM-11:00 PM only. NO shuttle 11:00 AM-5:00 PM or 11:00 PM-6:00 AM. Check in at the front desk to show your reservation and get a parking registration tag for your vehicle. On return, call 504-443-5100 after collecting bags; pickup is at B5, outside Door 3.",
+      "overview": "Hotel park-and-fly lot in St. Rose, a 5-10 minute drive west of MSY, with on-site staff daily, 24/7 camera coverage, a well-lit lot (not gated) and wheelchair-accessible parking.",
+      "address": "10151 E Airline Hwy, St Rose, LA 70087",
+      "distanceFromAirport": "2 mi",
+      "driveTime": "5-10 minutes (per listing)",
+      "phone": "504-443-5100",
+      "notes": "Lowest grand total at MSY on 2026-10-16: $78.76 for a 7-night Nov 2-9 stay (8 billed days; $71.60 subtotal + fees/tax); same on Nov 9-16 and 16-23. Shuttle gaps 11 AM-5 PM and 11 PM-6 AM — midday and red-eye travelers need a backup plan (rideshare) or the Hilton.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "DoubleTree New Orleans Airport",
+      "slug": "doubletree-new-orleans-airport",
+      "dailyRate": 9.45,
+      "reservationRate": 9.45,
+      "parkingType": "Self-park (hotel lot, no shuttle)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "NO SHUTTLE. Guests must arrange their own rideshare (Uber or Lyft) between the hotel and the airport, both ways. Check in at the front desk with your emailed confirmation, then park in any space in the back lot not marked 'Reserved.'",
+      "overview": "DoubleTree by Hilton park-and-fly lot in Kenner, operated by Towne Park, with ADA accommodations. Main entrance on the north side of Veterans Memorial Blvd between Idaho Ave and Williams Blvd (westbound); alternate entrance at 2816 Idaho Ave.",
+      "address": "2150 Veterans Memorial Blvd, Kenner, LA 70062",
+      "distanceFromAirport": "1.5 mi",
+      "driveTime": "About 5 minutes (per listing)",
+      "phone": "504-467-3111",
+      "notes": "$81.22 grand total for Nov 2-9 (8 billed days; $72.00 subtotal + fees/tax), same on all three test weeks. No shuttle — add two rideshare trips to the real cost. No in/out privileges: once you exit, you cannot re-enter on the same reservation. Listing description says 2.2 miles; the search API says 1.5 mi.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hilton New Orleans Airport",
+      "slug": "hilton-new-orleans-airport",
+      "dailyRate": 10.47,
+      "reservationRate": 10.47,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "Free shuttle 24/7, every 15 minutes, to the airport. A license plate reader is in place — check in at the front desk for a validation code. Arrive early to allow for delays. Return pickup is at B5; shuttle questions: 504-469-5000.",
+      "overview": "Hilton on Airline Drive with a free 24-hour airport shuttle, 24/7 front desk and accessible parking; about 20 minutes from the French Quarter.",
+      "address": "901 Airline Dr, Kenner, LA 70062",
+      "distanceFromAirport": "0.8 mi",
+      "phone": "504-469-5000",
+      "notes": "$83.77 grand total for Nov 2-9 (8 billed days; $71.60 subtotal + $12.17 fees), same on all three test weeks. Minimum booking 2 days. The only Triply MSY lot with a 24/7 shuttle. Listing description says 'three miles' from the airport; the search API says 0.8 mi — it sits next to the Economy Garage (900 Airline Dr).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "NOLA Airport Parking",
+      "slug": "nola-airport-parking",
+      "parkingType": "Self-park (uncovered off-site lot)",
+      "address": "1601 Airline Dr, Kenner, LA 70062",
+      "notes": "Independent off-site lot with its own airport shuttle. Not sold on Triply — mention only as a comparison, never as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Days Inn / Ramada New Orleans Airport",
+      "slug": "days-inn-ramada-new-orleans-airport",
+      "parkingType": "Self-park (hotel lot)",
+      "address": "1021 Airline Dr, Kenner, LA 70062",
+      "notes": "Hotel park-and-fly on Airline Drive. Not sold on Triply — mention only as a comparison, never as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Garage shuttle runs 24/7 to the far curb outside Door 9 with a 15-minute ride guarantee. Off-site via Triply: Hilton New Orleans Airport runs a 24/7 shuttle every 15 minutes; Comfort Inn New Orleans Airport South runs on demand only 6-11 AM and 5-11 PM (none 11 AM-5 PM or 11 PM-6 AM); DoubleTree New Orleans Airport has NO shuttle — use Uber/Lyft. Hotel shuttles pick up at the Ground Transportation Center, Baggage Claim Doors 1-5 (B5).",
+  "distanceFromCity": "About 11 miles west of downtown New Orleans via I-10.",
+  "keyDistances": {
+    "toDowntownNewOrleans": "~11 miles; RTA Airport Express 202 or JET E1",
+    "toFrenchQuarter": "About 20 minutes by car from the Hilton (per listing); taxi flat fare $36 for up to two",
+    "toAirlineDriveLots": "Hilton New Orleans Airport 0.8 mi (Triply); Economy Garage at 900 Airline Dr",
+    "toVeteransBlvdLot": "DoubleTree New Orleans Airport 1.5 mi (Triply, no shuttle)",
+    "toStRoseLot": "Comfort Inn New Orleans Airport South 2 mi west (Triply)",
+    "competitiveAdvantage": "All three Triply MSY lots are within ~2 miles and cost $78.76-$83.77 for a 7-night trip — less than the $96 Economy Garage and roughly half the $160-$208 terminal lots. Hilton is the round-the-clock pick (24/7 shuttle every 15 min)."
+  },
+  "construction2026": {
+    "status": "No parking facility closures identified on flymsy.com as of 2026-10-16. The I-10 flyover ramp at Loyola Drive opened September 29, 2023. Airport officials said in July 2025 that growth will require ~15 more gates and a new parking garage by around 2031 (planning stage).",
+    "projects": [
+      "Baggage explosive-detection system upgrade (~$45 million), late-2026 target",
+      "Shuttle-only road linking the north (current) terminal and the old south terminal area (first phase, ~$52 million)",
+      "Long-range expansion planning: ~15 new gates, new parking garage, expanded ticketing/security/baggage claim"
+    ],
+    "travelImpact": "No traveler-facing parking impact announced — tell readers to check flymsy.com for current alerts."
+  },
+  "securityAndScreening": {
+    "checkpointHours": "3:30 AM until 30 minutes before the last scheduled departure",
+    "checkpointLocation": "One consolidated checkpoint on Level 2 of the terminal",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck lanes at the Level 2 checkpoint; enroll at tsa.gov"
+    },
+    "clear": {
+      "note": "CLEAR available for all airlines, with dedicated lanes for Standard and PreCheck screening; on-site CLEAR enrollment (bring a passport) and PreCheck enrollment through CLEAR"
+    },
+    "globalEntry": {
+      "note": "International arrivals and customs are processed in Concourse A."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (MSY guidance)",
+      "international": "3 hours before departure (MSY guidance)",
+      "holidays": "Add time around Mardi Gras, Jazz Fest, Essence Fest, Sugar Bowl and holiday weekends"
+    },
+    "source": "https://flymsy.com/security-checkpoint/"
+  },
+  "lounges": {
+    "other": "A Delta Sky Club and a Priority Pass lounge (The Club MSY) are reported at MSY — lounge locations and hours are not published on flymsy.com; tell readers to check the lounge operator's site."
+  },
+  "luggageStorage": {
+    "onSite": "None — MSY says lockers are not available for storage.",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": 2,
+    "locations": ["Pre-security near the Short Term Parking Garage", "Post-security near Shake Shack"],
+    "source": "https://flymsy.com/faqs/"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning departure bank (checkpoint opens 3:30 AM)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Mardi Gras (February/March), French Quarter Fest and Jazz Fest (April-May), Essence Festival (July 4th weekend), Sugar Bowl and New Year's, Thanksgiving and Christmas, plus big Saints and Superdome events.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during festival and holiday peaks"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical: hot, humid summers and mild winters.",
+    "commonDisruptions": "Afternoon thunderstorms (summer), heavy rain and street flooding, tropical storms and hurricanes (season June 1-November 30), occasional winter fog.",
+    "bestMonths": "March-May, October-November",
+    "worstMonths": "August-September (peak hurricane season)",
+    "hurricaneNote": "During a hurricane threat, check flymsy.com and your airline before driving to a lot; all Triply MSY lots are outdoor surface lots.",
+    "note": "Summer heat: pre-cool the car on return; Hilton's 24/7 shuttle avoids long waits in the heat at night."
+  },
+  "parkSleepFly": {
+    "description": "Hotel parking + shuttle near MSY. Triply sells parking-only at the three hotels below; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$8.95/day (2026-10-16 quote)",
+    "popularHotels": [
+      { "name": "Hilton New Orleans Airport", "distance": "0.8 miles (Airline Dr)", "shuttleHours": "24/7, every 15 minutes", "highlight": "Only Triply MSY lot with a round-the-clock shuttle." },
+      { "name": "Comfort Inn New Orleans Airport South", "distance": "2 miles (E Airline Hwy, St. Rose)", "shuttleHours": "6-11 AM and 5-11 PM on demand", "highlight": "Lowest MSY grand total ($78.76 for 7 nights); shuttle gaps midday and overnight." },
+      { "name": "DoubleTree New Orleans Airport", "distance": "1.5 miles (Veterans Memorial Blvd)", "shuttleHours": "No shuttle — Uber/Lyft", "highlight": "Parking only; budget for two rideshare trips; no in/out." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures assume 8 days at the official daily max.",
+    "onAirport": {
+      "economyGarage": { "parkingCost": "$96 (8 x $12)", "totalEstimate": "$96" },
+      "surfaceLot": { "parkingCost": "$160 (8 x $20)", "totalEstimate": "$160" },
+      "longTermGarage": { "parkingCost": "$176 (8 x $22)", "totalEstimate": "$176" },
+      "shortTermGarage": { "parkingCost": "$208 (8 x $26)", "totalEstimate": "$208" },
+      "valetParking": { "parkingCost": "$288 (8 x $36)", "totalEstimate": "$288" }
+    },
+    "offSiteWithShuttle": {
+      "comfortInnNewOrleansAirportSouth": { "parkingCost": "$78.76 quoted grand total (~$8.95/day before fees)", "savingsVsEconomyGarage": "~$17 saved", "savingsVsLongTermGarage": "~$97 saved", "caveat": "Shuttle only 6-11 AM and 5-11 PM" },
+      "hiltonNewOrleansAirport": { "parkingCost": "$83.77 quoted grand total (~$8.95/day before fees)", "savingsVsEconomyGarage": "~$12 saved", "savingsVsLongTermGarage": "~$92 saved", "caveat": "24/7 shuttle every 15 min; 2-day minimum" }
+    },
+    "offSiteNoShuttle": {
+      "doubleTreeNewOrleansAirport": { "parkingCost": "$81.22 quoted grand total (~$9.00/day before fees)", "savingsVsEconomyGarage": "~$15 less on parking, but two Uber/Lyft trips usually erase that", "savingsVsLongTermGarage": "~$95 less on parking before rideshare", "caveat": "No shuttle; no in/out privileges" }
+    },
+    "publicTransit": {
+      "busRoundTrip": { "costPerPersonRoundTrip": "$2.50 on RTA 202; $3-4 on JET E1", "note": "RTA Airport Express 202 to downtown; JET E1 to City Park Ave." }
+    },
+    "keyDifference": "MSY's Economy Garage is cheap at $12/day ($96 a week), so Triply lots save only ~$12-17 against it — be honest about that. The big savings are against the terminal lots: Surface $160, Long Term $176, Short Term $208, Valet $288 for the same week. Hilton's 24/7 shuttle is the like-for-like Economy alternative; DoubleTree has no shuttle, so rideshare costs make it a poor pick versus Economy unless you are staying at the hotel."
+  },
+  "uniqueFeatures": {
+    "louisArmstrong": "Named for New Orleans jazz trumpeter Louis Armstrong in July 2001; live local music plays in the terminal.",
+    "moisantCode": "The MSY code comes from Moisant Field (Moisant Stock Yards), named for aviator John Moisant.",
+    "newTerminal": "$1.3 billion single terminal opened November 2019 on the north side of the airfield, replacing the 1959 terminal.",
+    "economyBagCheck": "Free airline bag check at the Economy Garage (Park MSY Express) for American, Delta and United domestic flights.",
+    "shuttleGuarantee": "Economy shuttle 15-minute ride guarantee or 50% off parking.",
+    "southwestLargest": "Southwest carries ~33% of MSY passengers."
+  },
+  "emergencyContacts": {
+    "airportInfo": "504-303-7500",
+    "airportMain": "504-303-7500",
+    "airportWebsite": "flymsy.com",
+    "parkingInfo": "flymsy.com/parking",
+    "parkingPhone": "New South Parking (504) 471-1301",
+    "lostAndFound": "(504) 303-7790 (Mon-Fri 8 AM-4 PM)",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "emergency": "911 — state you are at Louis Armstrong New Orleans International Airport in Kenner"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://flymsy.com/",
+      "parking": "https://flymsy.com/parking/",
+      "economyParking": "https://flymsy.com/economy-parking",
+      "parkingReservations": "https://park.flymsy.com/",
+      "groundTransportation": "https://flymsy.com/ground-transportation/",
+      "rideApps": "https://flymsy.com/ride-app-2/",
+      "taxis": "https://flymsy.com/taxis-2/",
+      "shuttles": "https://flymsy.com/passengers/shuttles/",
+      "publicTransportation": "https://flymsy.com/public-transportation/",
+      "carRentals": "https://flymsy.com/car-rentals/",
+      "securityCheckpoint": "https://flymsy.com/security-checkpoint/",
+      "airlines": "https://flymsy.com/airlines/",
+      "faqs": "https://flymsy.com/faqs/",
+      "facilityMaps": "https://flymsy.com/facility-maps/"
+    },
+    "transit": {
+      "rta": "https://www.norta.com/",
+      "jet": "https://www.jptransit.org/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/msy/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=MSY"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KMSY",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/MSY",
+      "nhc": "https://www.nhc.noaa.gov/"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Louis_Armstrong_New_Orleans_International_Airport"
+    },
+    "newsAndMedia": {
+      "nola": "https://www.nola.com/",
+      "wwltv": "https://www.wwltv.com/",
+      "wwno": "https://www.wwno.org/"
+    }
+  }
+}

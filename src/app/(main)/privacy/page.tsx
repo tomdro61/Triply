@@ -4,7 +4,7 @@ import { CookieSettings } from "@/components/shared/cookie-settings";
 import { ArrowLeft, Shield } from "lucide-react";
 
 export const metadata = {
-  title: "Privacy Policy | Triply",
+  title: "Privacy Policy",
   description: "How Triply collects, uses, and protects your personal information.",
   alternates: { canonical: "/privacy" },
 };
@@ -30,7 +30,7 @@ export default function PrivacyPage() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">Privacy Policy</h1>
-                <p className="text-gray-600">Last updated: January 31, 2026</p>
+                <p className="text-gray-600">Last updated: October 29, 2026</p>
               </div>
             </div>
           </div>
@@ -91,11 +91,17 @@ export default function PrivacyPage() {
             <h3>4.2 Service Providers</h3>
             <p>We work with trusted third parties who help us operate our business:</p>
             <ul>
-              <li><strong>Stripe:</strong> Payment processing</li>
-              <li><strong>Supabase:</strong> Database and authentication</li>
+              <li><strong>Stripe:</strong> Payment processing (including Apple Pay and Google Pay)</li>
+              <li><strong>Reservations Lab:</strong> The booking platform that passes your reservation (name, contact details, vehicle details, dates) to the parking facility</li>
+              <li><strong>Park Guard:</strong> Administers the optional parking protection plan; receives your name, contact details, vehicle and reservation details when you add a plan</li>
+              <li><strong>Supabase:</strong> Database and authentication (including Google sign-in)</li>
               <li><strong>Resend:</strong> Email delivery</li>
               <li><strong>Vercel:</strong> Website hosting</li>
-              <li><strong>Google Analytics:</strong> Website analytics</li>
+              <li><strong>Google Analytics and Microsoft Clarity:</strong> Website analytics and usage recordings, subject to your cookie choices</li>
+              <li><strong>Sentry:</strong> Error monitoring (technical details of a failed page or request)</li>
+              <li><strong>Mapbox:</strong> Maps on search and lot pages</li>
+              <li><strong>Anthropic:</strong> Powers the AI assistant when it is available; your conversation with it is processed to answer you</li>
+              <li><strong>Discord:</strong> Internal booking and operations alerts to our team (they include the booking&rsquo;s details)</li>
             </ul>
 
             <h3>4.3 Legal Requirements</h3>

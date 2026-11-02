@@ -9,13 +9,16 @@
  *    dashboard's old "Cancelled" tile did) misses most of them.
  *  - The denominator is every booking that became a real reservation, i.e. all
  *    rows except `payment_failed` (never a reservation).
- *  - Months are the BOOKING's month (`created_at`, UTC `YYYY-MM`): "of the
+ *  - Months are the BOOKING's month (`created_at` as an Eastern `YYYY-MM`,
+ *    like the dashboard's date filter that selects these rows): "of the
  *    bookings made in May, how many were cancelled" — a cohort rate. There is
  *    no cancelled-at timestamp to bucket by.
  *  - NULL reason = `unknown` (every pre-032 row, and a customer who skipped
  *    the optional dropdown).
  */
 import { CANCELLATION_REASONS, type CancellationReason } from "./reason-codes";
+import { calendarDayIn } from "@/lib/digest/window";
+import { ADMIN_TZ } from "@/lib/admin/eastern-day";
 
 export interface CancellationReportRow {
   status: string;
@@ -83,7 +86,7 @@ export function buildCancellationReport(
 
   for (const row of rows) {
     if (!isBooking(row.status)) continue;
-    const month = row.created_at.slice(0, 7);
+    const month = calendarDayIn(ADMIN_TZ, new Date(row.created_at)).slice(0, 7);
     const lotName = row.location_name?.trim() || "Unknown lot";
     const m =
       months.get(month) ?? { month, bookings: 0, cancelled: 0, rate: 0, byReason: emptyReasons() };

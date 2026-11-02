@@ -14,7 +14,7 @@ import { deriveAvailability } from "./availability";
 // One-way dependency: search.ts does NOT import get-lot.ts, so no cycle.
 import {
   getChannelLocationsCached,
-  BLOCKED_RESLAB_LOCATION_IDS,
+  isHiddenReslabLocation,
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
@@ -204,9 +204,10 @@ export async function getLotFromReslab(
   airportCoords?: AirportCoords,
   pricingWindowFor?: ReslabPricingWindowFn
 ): Promise<UnifiedLot | null> {
-  // Deliberately hidden lot — treated as not found on every path (slug and
-  // numeric id) so it can't be reached via the detail page or /api/checkout/lot.
-  if (BLOCKED_RESLAB_LOCATION_IDS.has(locationId)) return null;
+  // Deliberately hidden lot (blocked, or a ResLab test lot in production) —
+  // treated as not found on every path (slug and numeric id) so it can't be
+  // reached via the detail page or /api/checkout/lot.
+  if (isHiddenReslabLocation(locationId)) return null;
 
   try {
     // Get location details
@@ -298,7 +299,7 @@ export async function findLotBySlug(
   // a deliberately hidden lot must stay a 404, never a retryable 503, during
   // exactly the degraded windows where a thin list would otherwise 503 it.
   const allMatches = locations.filter((loc) => generateSlug(loc.name) === slug);
-  const matches = allMatches.filter((loc) => !BLOCKED_RESLAB_LOCATION_IDS.has(loc.id));
+  const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id));
   if (allMatches.length > 0 && matches.length === 0) return null;
   let match = matches[0];
   if (matches.length > 1 && airportCoords) {

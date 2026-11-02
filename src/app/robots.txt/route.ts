@@ -9,7 +9,8 @@ Disallow: /checkout/
 Disallow: /confirmation/
 Disallow: /account/
 Disallow: /reservations/
-Disallow: /auth/`;
+Disallow: /auth/
+Disallow: /park-stay`;
 
   const robotsTxt = `User-agent: *
 Allow: /
