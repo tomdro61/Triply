@@ -39,7 +39,8 @@
     "delete-post": "tsx src/delete-post.ts",
     "monthly-prices": "tsx src/monthly-prices.ts",
     "differentiate-titles": "tsx src/differentiate-titles.ts",
-    "index-coverage": "tsx src/index-coverage.ts"
+    "index-coverage": "tsx src/index-coverage.ts",
+    "apply-edit": "tsx src/apply-edit.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
