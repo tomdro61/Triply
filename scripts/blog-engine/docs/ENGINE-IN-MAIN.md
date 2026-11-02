@@ -62,7 +62,8 @@ npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --preview
 npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --apply [--stamp]
 ```
 
-`edit.json` holds `fields` (title, excerpt, seo, faqItems) and/or `insert`
+`edit.json` holds `fields` (title, excerpt, seo, faqItems — **`faqItems` replaces the whole list**, so send every
+item you want to keep; the preview diff shows what goes) and/or `insert`
 (`{ "underHeading": "...", "html": "<p>...</p>", "position": "end" | "start" }`).
 - `--preview` reads the post by slug in any status and applies the edit in memory. It runs the lint
   (existing-post rules), the **P3 price check** and the link/image guard. It then writes

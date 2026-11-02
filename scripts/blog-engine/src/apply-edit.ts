@@ -53,9 +53,10 @@ export const EditSchema = z
   .object({
     fields: z
       .object({
-        title: z.string().min(1).optional(),
-        excerpt: z.string().min(1).optional(),
-        seo: z.object({ metaTitle: z.string().min(1).optional(), metaDescription: z.string().min(1).optional() }).strict().optional(),
+        // Limits are the CMS's own (triply-cms Posts.ts maxLength): Payload would refuse the PATCH with a 400 otherwise.
+        title: z.string().min(1).max(100).optional(),
+        excerpt: z.string().min(1).max(300).optional(),
+        seo: z.object({ metaTitle: z.string().min(1).max(60).optional(), metaDescription: z.string().min(1).max(160).optional() }).strict().optional(),
         // An empty array would wipe the FAQ schema; send the full list or leave the key out.
         faqItems: z.array(FaqItem).min(1).optional(),
       })
@@ -125,7 +126,7 @@ export function insertUnderHeading(content: Doc, underHeading: string, html: str
   const nodes: Node[] = JSON.parse(JSON.stringify(htmlToLexical(html).root.children))
   const sectionText = norm(kids.slice(at + 1, end).map(nodeText).join(' '))
   const newText = norm(nodes.map(nodeText).join(' '))
-  if (newText && sectionText.includes(newText)) throw new Error(`the inserted text is already under "${underHeading}" — nothing to add`)
+  if (newText && sectionText.includes(newText)) throw new Error(`the inserted text is already under "${underHeading}" (possibly inside a longer paragraph) — nothing to add`)
   const insertAt = position === 'start' ? at + 1 : end
   return { ...content, root: { ...content.root, children: [...kids.slice(0, insertAt), ...nodes, ...kids.slice(insertAt)] } }
 }
@@ -157,7 +158,8 @@ export function applyEdit(post: PostLike, edit: EditSpec): EditResult {
     if (!same) {
       after.faqItems = next
       patch.faqItems = next
-      fieldText.push(...next.map((x) => `${x.question} ${x.answer}`))
+      const had = new Set((post.faqItems || []).map((x) => `${x.question}\u0000${x.answer}`))
+      fieldText.push(...next.filter((x) => !had.has(`${x.question}\u0000${x.answer}`)).map((x) => `${x.question} ${x.answer}`))
     }
   }
   if (edit.insert) {
@@ -169,7 +171,7 @@ export function applyEdit(post: PostLike, edit: EditSpec): EditResult {
 
 // A source is an EXTERNAL link; a Triply link is a CTA (same rule as lint.ts EXTERNAL_SOURCE_LINK).
 const EXTERNAL_SOURCE_LINK = /<a\s[^>]*href=["']https?:\/\/(?!(?:www\.)?triplypro\.com)[^"']+["']/i
-const MONEY = /(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)(?:\s?[-–]\s?\$?(\d[\d,]*(?:\.\d{1,2})?))?/g
+const MONEY = /(?:C\$|CA\$|US\$|\$)\s?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?)(?:\s?[-–]\s?\$?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?))?/g
 
 /**
  * P3 price check (deny by default). `known` = the figures the writer prompt sees for this airport
@@ -224,6 +226,46 @@ function postText(p: PostLike): string {
     ...(p.faqItems || []).map((f) => `${f.question} ${f.answer}`)].filter(Boolean).join('\n')
 }
 
+/**
+ * The price allow-list: money-bearing figures only — "$24/day" in prose, and numeric fields whose key says
+ * price (dailyRate, parkOnlyRate, dailyMax, total, fee…). `collectFigures` takes EVERY number, so "Terminal 5",
+ * "2026-11-01" and "Lot 20" would have passed "$5", "$2026" and "$20" (pass-2 review of #142).
+ */
+export function collectMoneyFigures(data: unknown, out: number[] = [], key = ''): number[] {
+  if (typeof data === 'number' && Number.isFinite(data)) {
+    if (/rate|price|cost|max|total|fee|min\b|surcharge|premium/i.test(key)) out.push(data)
+  } else if (typeof data === 'string') {
+    for (const m of data.matchAll(/(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g)) out.push(Number(m[1].replace(/,/g, '')))
+  } else if (Array.isArray(data)) {
+    for (const v of data) collectMoneyFigures(v, out, key)
+  } else if (data && typeof data === 'object') {
+    for (const [k, v] of Object.entries(data as Record<string, unknown>)) collectMoneyFigures(v, out, k)
+  }
+  return out
+}
+
+/**
+ * Is every field of `patch` live on `live`? Unlike perf-apply's editIsLive, this compares EVERYTHING this
+ * command can send: title, excerpt, seo, full FAQ pairs, body text, and the stamp. A refused excerpt-only
+ * PATCH had been reported "applied + verified" (pass-2 review of #142).
+ */
+export function editLive(live: PostLike & { contentUpdatedAt?: string }, patch: Record<string, unknown>): boolean {
+  if (patch.title !== undefined && live.title !== patch.title) return false
+  if (patch.excerpt !== undefined && (live.excerpt ?? '') !== patch.excerpt) return false
+  if (patch.seo !== undefined) {
+    const want = patch.seo as { metaTitle?: string; metaDescription?: string }
+    if ((live.seo?.metaTitle ?? '') !== (want.metaTitle ?? '') || (live.seo?.metaDescription ?? '') !== (want.metaDescription ?? '')) return false
+  }
+  if (patch.faqItems !== undefined) {
+    const a = (live.faqItems || []).map((f) => `${f.question}\u0000${f.answer}`)
+    const b = (patch.faqItems as { question: string; answer: string }[]).map((f) => `${f.question}\u0000${f.answer}`)
+    if (JSON.stringify(a) !== JSON.stringify(b)) return false
+  }
+  if (patch.content !== undefined && lexicalText(live.content) !== lexicalText(patch.content)) return false
+  if (patch.contentUpdatedAt !== undefined && live.contentUpdatedAt !== patch.contentUpdatedAt) return false
+  return true
+}
+
 export interface CheckResult { blockers: string[]; warnings: LintFinding[]; preexisting: LintFinding[] }
 
 /**
@@ -241,8 +283,25 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
   const key = (e: LintFinding) => `${e.rule}|${e.message}`
   const old = new Set(before.errors.map(key))
   const preexisting = after.errors.filter((e) => old.has(key(e)))
-  const fresh = after.errors.filter((e) => !old.has(key(e)))
   const insertedHtml = edit.insert?.html || ''
+  // The NEW material is linted on its own too: the lint reports only the first match per rule, so a new
+  // "save up to 70%" after an old "save up to 60%" reads as the same, pre-existing error (pass-2 review).
+  const f = edit.fields || {}
+  const seo = res.patch.seo as { metaTitle?: string; metaDescription?: string } | undefined
+  const faqNew = res.patch.faqItems
+    ? (res.patch.faqItems as { question: string; answer: string }[]).filter((x) => !(post.faqItems || []).some((o) => o.question === x.question && o.answer === x.answer))
+    : undefined
+  const fresh = [
+    ...after.errors.filter((e) => !old.has(key(e))),
+    ...lintArticle({
+      title: (res.patch.title as string | undefined) ?? post.title,
+      metaTitle: seo && f.seo?.metaTitle !== undefined ? seo.metaTitle : undefined,
+      metaDescription: seo && f.seo?.metaDescription !== undefined ? seo.metaDescription : undefined,
+      html: insertedHtml, excerpt: res.patch.excerpt as string | undefined, faqItems: faqNew,
+      keyword: post.slug.replace(/-/g, ' '), slug: post.slug, isNew: false,
+      knownFigures: known ? [...known].map((c) => c / 100) : undefined,
+    }).errors,
+  ].filter((e, i, arr) => arr.findIndex((x) => key(x) === key(e)) === i)
   const hasPrice = /(?:C\$|CA\$|US\$|\$)\s?\d/.test(stripTags(insertedHtml) + res.fieldText)
   const badPrices = known ? priceCheck(insertedHtml, res.fieldText, known) : []
   const loss = guardLoss(post.content, res.after.content)
@@ -272,7 +331,7 @@ export function previewMismatch(meta: Partial<PreviewMeta> | null, now: PreviewM
 export interface ApplyDeps {
   updatePost: (id: string, data: Record<string, unknown>) => Promise<unknown>
   readPost: () => Promise<PostLike | null>
-  editIsLive: (live: PostLike, patch: Record<string, unknown>) => boolean
+  editIsLive?: (live: PostLike, patch: Record<string, unknown>) => boolean
   log: (m: string) => void
 }
 
@@ -293,7 +352,7 @@ export async function applyWithSettle(id: string, patch: Record<string, unknown>
     } catch {
       return 'unknown'
     }
-    return live && deps.editIsLive(live, patch) ? 'applied' : 'not-live'
+    return live && (deps.editIsLive ?? editLive)(live, patch) ? 'applied' : 'not-live'
   }
 }
 
@@ -311,12 +370,11 @@ async function main() {
   const { loadAirportData } = await import('./airport-data.js')
   const { pingIndexNow, postUrlFor } = await import('./indexnow.js')
   const { figureSource } = await import('./prompts/write.js')
-  const { collectFigures } = await import('./lint.js')
-  const { editIsLive } = await import('./perf-apply.js')
 
-  // Reads go through payloadFetch (30 s timeout + retry), any status.
+  // Reads go through payloadFetch (30 s timeout + retry), any status, depth 0: at the default depth every
+  // upload node carries the populated media doc, and the PATCH would write that copy back into the body.
   const read = async (): Promise<PostLike> => {
-    const post = (await findPostBySlug(slug)) as PostLike | null
+    const post = (await findPostBySlug(slug, { depth: 0 })) as PostLike | null
     if (!post) throw new Error(`no post with slug ${slug} (any status)`)
     return post
   }
@@ -329,7 +387,7 @@ async function main() {
 
   // The price allow-list is what the writer prompt sees for this airport, not every number in the file.
   const airportData = post.airportCode ? loadAirportData(post.airportCode) : null
-  const known = airportData ? new Set(collectFigures(figureSource(airportData, slug.replace(/-/g, ' '))).map((n) => Math.round(n * 100))) : null
+  const known = airportData ? new Set(collectMoneyFigures(figureSource(airportData, slug.replace(/-/g, ' '))).map((n) => Math.round(n * 100))) : null
   const check = checkEdit(post, res, edit, known)
 
   console.log(`\n${post.slug} (#${post.id}, ${post.status})  fields: ${Object.keys(res.patch).join(', ')}`)
@@ -360,16 +418,16 @@ async function main() {
   const patch = { ...res.patch, ...stampField({ factsChanged: res.factsDiff.changed, reason: `${res.factsDiff.added.length} fact sentence(s) added, ${res.factsDiff.removed.length} removed (body + FAQ)` }) }
   const outcome = await applyWithSettle(String(post.id), patch, {
     updatePost,
-    readPost: async () => (await findPostBySlug(slug)) as PostLike | null,
-    editIsLive: (live, p) => editIsLive(live, p),
+    readPost: async () => (await findPostBySlug(slug, { depth: 0 })) as PostLike | null,
     log: (m) => console.log(m),
   })
-  if (outcome === 'not-live') { console.error(`⛔ the PATCH was refused and nothing changed on the live post. Backup: ${backup}`); process.exit(1) }
+  if (outcome === 'not-live') { console.error(`⛔ the PATCH threw and the edit is not live at re-read (a late commit is still possible) — re-run --preview before retrying. Backup: ${backup}`); process.exit(1) }
   if (outcome === 'unknown') { console.error(`⛔ the PATCH threw AND the post could not be re-read — the edit may or may not be live. Check the CMS before retrying. Backup: ${backup}`); process.exit(1) }
 
   const back = await read()
   const lost = guardLoss(res.after.content, back.content)
   if (lost) { console.error(`POST-SAVE CHECK FAILED: ${lost}. Restore from ${backup}`); process.exit(1) }
+  if (!editLive(back, patch)) { console.error(`POST-SAVE CHECK FAILED: the re-read post does not carry every field of the patch. Compare with ${backup}`); process.exit(1) }
   console.log(`✓ applied + verified (#${post.id})`)
   if (back.status === 'published') await pingIndexNow([postUrlFor(slug)])
 }

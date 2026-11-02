@@ -90,8 +90,9 @@ export async function updatePost(id: string, data: Record<string, unknown>) {
   })
 }
 
-export async function findPostBySlug(slug: string) {
-  const result = await payloadFetch(`/posts?where[slug][equals]=${encodeURIComponent(slug)}&limit=1`)
+export async function findPostBySlug(slug: string, opts: { depth?: number } = {}) {
+  const depth = opts.depth === undefined ? '' : `&depth=${opts.depth}`
+  const result = await payloadFetch(`/posts?where[slug][equals]=${encodeURIComponent(slug)}&limit=1${depth}`)
   return result.docs?.[0] || null
 }
 

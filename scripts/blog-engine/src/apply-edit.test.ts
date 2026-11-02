@@ -1,8 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyEdit, insertUnderHeading, priceCheck, guardLoss, textDiff, parseEdit, checkEdit, previewMismatch, applyWithSettle, sha256 } from './apply-edit.js'
+import { applyEdit, insertUnderHeading, priceCheck, guardLoss, textDiff, parseEdit, checkEdit, previewMismatch, applyWithSettle, sha256, editLive, collectMoneyFigures } from './apply-edit.js'
 import type { PostLike } from './apply-edit.js'
-import { editIsLive } from './perf-apply.js'
+import { loadAirportData } from './airport-data.js'
+import { figureSource } from './prompts/write.js'
 
 const text = (t: string) => ({ type: 'text', text: t, format: 0, detail: 0, mode: 'normal', style: '', version: 1 })
 const h = (tag: string, t: string) => ({ type: 'heading', tag, children: [text(t)], direction: 'ltr', format: '', indent: 0, version: 1 })
@@ -22,6 +23,8 @@ test('parseEdit is strict: unknown keys, a bad position, an empty FAQ and an emp
   assert.throws(() => parseEdit({ fields: { faqItems: [] } }), /faqItems/)
   assert.throws(() => parseEdit({}), /needs "fields" and\/or "insert"/)
   assert.throws(() => parseEdit({ insert: { underHeading: 'Rates', html: 42 } }), /html/)
+  assert.throws(() => parseEdit({ fields: { excerpt: 'x'.repeat(301) } }), /excerpt/, 'the CMS limit (300) is checked at preview')
+  assert.throws(() => parseEdit({ fields: { seo: { metaDescription: 'x'.repeat(161) } } }), /metaDescription/)
   assert.equal(parseEdit({ insert: { underHeading: 'Rates', html: '<p>x</p>' } }).insert?.position, 'end')
 })
 
@@ -51,6 +54,10 @@ test('applyEdit patches only changed fields; unchanged seo is not patched; facts
   assert.deepEqual(Object.keys(titleOnly.patch), ['title'])
   assert.equal(titleOnly.factsDiff.changed, false)
   assert.equal(titleOnly.fieldText, 'EWR Parking Rates 2026')
+  // FAQ: only new or changed items are field text (untouched answers are not re-checked for prices)
+  const withFaq = { ...post(), faqItems: [{ question: 'Q1', answer: 'Old $99 answer' }] }
+  const faq = applyEdit(withFaq, { fields: { faqItems: [{ question: 'Q1', answer: 'Old $99 answer' }, { question: 'Q2', answer: 'New' }] } })
+  assert.equal(faq.fieldText, 'Q2 New')
 })
 
 test('priceCheck: only the writer figures pass; an external link exempts its paragraph, a Triply link does not; both ends of a range; field text has no exemption', () => {
@@ -62,6 +69,34 @@ test('priceCheck: only the writer figures pass; an external link exempts its par
   assert.deepEqual(priceCheck('<p>Lot B is $9/day, <a href="https://www.triplypro.com/search?airport=EWR">book</a>.</p>', '', known), ['$9'])
   assert.deepEqual(priceCheck('<p>Rates run $18–77/day.</p>', '', known), ['$77'])
   assert.deepEqual(priceCheck('', 'From $9/day near EWR', known), ['$9'])
+})
+
+test('checkEdit: a new violation of a rule the old post already breaks still blocks (the new material is linted alone)', () => {
+  const old = post()
+  old.content.root.children.push(p('Save up to 60% when you book early.'))
+  const e = { insert: ins('Shuttle', '<p>You can save up to 70% off with our partners.</p>') }
+  const c = checkEdit(old, applyEdit(old, e), e, new Set([1800]))
+  assert.ok(c.blockers.some((b) => b.includes('save up to 70%')), c.blockers.join(' | '))
+  assert.ok(c.preexisting.some((x) => x.message.includes('60%')))
+})
+
+test('collectMoneyFigures: only money, so "Terminal 5" and "2026-11-01" never make $5 or $2026 a known price', () => {
+  const data = { lastVerified: '2026-11-01', terminals: [{ name: 'Terminal 5' }], parkingRates: 'Garage $24/day, C$12/day', parkingLots: [{ name: 'A', dailyRate: 12.5, reslabLocationId: 422 }] }
+  assert.deepEqual([...new Set(collectMoneyFigures(data))].sort((a, b) => a - b), [12, 12.5, 24])
+  const jfk = loadAirportData('JFK')!
+  const known = new Set(collectMoneyFigures(figureSource(jfk, 'jfk parking')).map((n) => Math.round(n * 100)))
+  assert.deepEqual(priceCheck('<p>Only $2026, $5 or $10 — but $0.</p>', '', known), ['$2026', '$5', '$10', '$0'].filter((x) => !known.has(Math.round(Number(x.slice(1)) * 100))))
+  assert.ok(!known.has(202600), '$2026 is not a known price at JFK ($5 legitimately is: "$5 first hour")')
+})
+
+test('editLive compares every field the command can send, including excerpt, FAQ answers and the stamp', () => {
+  const live = { ...post(), excerpt: 'old', faqItems: [{ question: 'Q', answer: 'A' }], contentUpdatedAt: '2026-10-01T00:00:00.000Z' }
+  assert.equal(editLive(live, { excerpt: 'old' }), true)
+  assert.equal(editLive(live, { excerpt: 'new' }), false)
+  assert.equal(editLive(live, { faqItems: [{ question: 'Q', answer: 'B' }] }), false)
+  assert.equal(editLive(live, { faqItems: [{ question: 'Q', answer: 'A' }] }), true)
+  assert.equal(editLive(live, { contentUpdatedAt: '2026-11-02T00:00:00.000Z' }), false)
+  assert.equal(editLive(live, { title: 'EWR Parking Rates', content: post().content }), true)
 })
 
 test('checkEdit: a lint error already in the live post is reported, not blocking; a new one blocks; a lost link blocks', () => {
@@ -104,8 +139,10 @@ test('applyWithSettle: a thrown PATCH is settled by re-reading — live = applie
   const patch = { title: 'New' }
   const log = () => {}
   const boom = async () => { throw new Error('Payload API error 502') }
-  assert.equal(await applyWithSettle('7', patch, { updatePost: async () => ({}), readPost: async () => null, editIsLive, log }), 'applied')
-  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => ({ ...post(), title: 'New' }), editIsLive, log }), 'applied')
-  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => post(), editIsLive, log }), 'not-live')
-  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => { throw new Error('ECONNRESET') }, editIsLive, log }), 'unknown')
+  assert.equal(await applyWithSettle('7', patch, { updatePost: async () => ({}), readPost: async () => null, log }), 'applied')
+  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => ({ ...post(), title: 'New' }), log }), 'applied')
+  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => post(), log }), 'not-live')
+  assert.equal(await applyWithSettle('7', patch, { updatePost: boom, readPost: async () => { throw new Error('ECONNRESET') }, log }), 'unknown')
+  // a refused excerpt-only PATCH is NOT "applied" (perf-apply's editIsLive ignored excerpt)
+  assert.equal(await applyWithSettle('7', { excerpt: 'x'.repeat(10) }, { updatePost: boom, readPost: async () => ({ ...post(), excerpt: 'old' }), log }), 'not-live')
 })
