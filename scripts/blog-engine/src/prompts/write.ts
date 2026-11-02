@@ -176,7 +176,8 @@ function formatParkingLots(data: AirportData, keyword: string): string {
   if (lead.length) {
     const lo = lead[0].dailyRate as number
     const hi = lead[lead.length - 1].dailyRate as number
-    lines.push(`\nPrice range (lots that may lead a recommendation): ${cur}${lo}/day — ${cur}${hi}/day across ${lead.length} lot${lead.length === 1 ? '' : 's'}; the others above carry a caveat.`)
+    const others = lead.length < lots.length ? '; the others above carry a caveat' : ''
+    lines.push(`\nPrice range (lots that may lead a recommendation): ${cur}${lo}/day — ${cur}${hi}/day across ${lead.length} lot${lead.length === 1 ? '' : 's'}${others}.`)
   }
 
   return lines.join('\n')
@@ -329,10 +330,13 @@ const STALE_META = /\bold\b|is false|outdated|no longer/i
 /** True when a notes sentence quotes the lot's OWN price in any form (goes stale on every refresh); fee sentences are not stale. */
 function staleLotPrice(s: string): boolean {
   if (!ANY_DOLLAR.test(s)) return false
-  if (STALE_META.test(s) || WEEK_QUOTE.test(s) || QUOTED_PRICE.test(s)) return true
+  if (STALE_META.test(s) || WEEK_QUOTE.test(s)) return true
+  const feeAround = (i: number, len: number) => FEE_CONTEXT.test(s.slice(Math.max(0, i - 60), i + len + 25))
+  // A quoted or per-day figure is the lot's own price unless the words around it make it a fee ("surcharge at $12/day").
+  const q = s.match(QUOTED_PRICE)
+  if (q && !feeAround(q.index ?? 0, q[0].length)) return true
   for (const m of s.matchAll(DAY_PRICE)) {
-    const i = m.index ?? 0
-    if (!FEE_CONTEXT.test(s.slice(Math.max(0, i - 60), i + m[0].length + 25))) return true
+    if (!feeAround(m.index ?? 0, m[0].length)) return true
   }
   return false
 }
@@ -413,7 +417,7 @@ const PAID_TRANSFER = /shuttle is not free|(?:shuttle|transfer) fee|(?:C\$|\$)\s
 const EXTRA_PASSENGER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
 // "1:00 AM - 4:00 AM: No shuttle", "NO shuttle 10 PM - 7 AM", "no shuttle outside those hours": a gap in service, not no service.
 const GAP_BEFORE = /\d{1,2}(?::\d{2})?\s*(?:AM|PM)[^.;]{0,30}:\s*no (?:airport |free )?shuttle\.?/gi
-const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;]{0,40}?(?:\d{1,2}(?::\d{2})?\s?[-–]\s?\d{1,2}(?::\d{2})?\s*(?:AM|PM)|\d{1,2}(?::\d{2})?\s*(?:AM|PM)|overnight|midnight|outside (?:these|those|shuttle|service|operating) hours|after \d|before \d|between \d|until \d)|\s+(?:between|after|before|overnight|during))/gi
+const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;:]{0,40}?(?:\d{1,2}(?::\d{2})?\s?[-–]\s?\d{1,2}(?::\d{2})?\s*(?:AM|PM)|\d{1,2}(?::\d{2})?\s*(?:AM|PM)|overnight|midnight|outside (?:these|those|shuttle|service|operating) hours|after \d|before \d|between \d|until \d)|\s+(?:between|after|before|overnight|during))/gi
 // Words that mean the customer finds their own ride — they overrule a "valet" mention elsewhere in the lot's text.
 const OWN_RIDE = /own (?:ride|transportation|way)|(?<!no |without |not |never )(?:uber|lyft|taxi|rideshare|cab\b)/i
 const stripGaps = (t: string) => t.replace(GAP_BEFORE, '').replace(GAP_AFTER, '')
