@@ -1,7 +1,7 @@
 {
   "code": "BNA",
   "fullName": "Nashville International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Southeast Nashville, Tennessee — 8 miles southeast of downtown Nashville",
     "iataCode": "BNA",
@@ -137,7 +137,9 @@
     "terminalGarage1": {
       "name": "Terminal Garage 1",
       "rate": "$4.00 per 20 minutes (first 20 minutes FREE)",
-      "dailyMax": 26,
+      "dailyMax": 36,
+      "lastVerified": "2026-09-15",
+      "source": "https://flynashville.com/park-at-bna",
       "serves": "Concourses A (when open), B, and ticketing/check-in",
       "valetAvailable": true,
       "valetRate": "$40/day",
@@ -149,7 +151,9 @@
     "terminalGarage2": {
       "name": "Terminal Garage 2",
       "rate": "$4.00 per 20 minutes (first 20 minutes FREE)",
-      "dailyMax": 26,
+      "dailyMax": 36,
+      "lastVerified": "2026-09-15",
+      "source": "https://flynashville.com/park-at-bna",
       "serves": "Concourses C, D, and T Gates. Ground Transportation Center on Level 1.",
       "evCharging": "EV charging stations on Levels 2-3",
       "features": "Connected to terminal. Ground Transportation Center (taxis, rideshare, rental cars, shuttles) on Level 1. First 20 minutes free.",
@@ -210,13 +214,15 @@
       "distanceFromAirport": "1.4 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "24/7 shuttle is a strong advantage. One of the most established off-site lots near BNA. Fenced with continuous video surveillance."
+      "notes": "24/7 shuttle is a strong advantage. One of the most established off-site lots near BNA. Fenced with continuous video surveillance.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Cambria Hotel Nashville Airport",
       "slug": "cambria-hotel-nashville-airport-bna",
-      "dailyRate": 10.00,
-      "reservationRate": 9.00,
+      "dailyRate": 9.9,
+      "reservationRate": 9.9,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Security Cameras", "Hotel Amenities Available", "Well-Lit"],
       "shuttleInfo": "Complimentary shuttle 5:00 AM - 11:00 PM, runs every 30 minutes. NO shuttle outside those hours.",
@@ -224,7 +230,11 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "4-6 minutes",
       "freeCancellation": true,
-      "notes": "WARNING: No shuttle outside 5 AM - 11 PM. Not suitable for red-eye or very late flights. Good option for standard departure times."
+      "notes": "WARNING: No shuttle outside 5 AM - 11 PM. Not suitable for red-eye or very late flights. Good option for standard departure times.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Comfort Suites BNA Airport",
@@ -238,7 +248,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Hourly shuttle frequency is less convenient than other options. Good budget choice if your schedule aligns with shuttle times."
+      "notes": "Hourly shuttle frequency is less convenient than other options. Good budget choice if your schedule aligns with shuttle times.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "GLo Best Western Nashville Airport",
@@ -252,7 +264,9 @@
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "One of the cheapest off-site options near BNA. Verify shuttle hours before booking for early/late flights."
+      "notes": "One of the cheapest off-site options near BNA. Verify shuttle hours before booking for early/late flights.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Sheraton Music City Hotel (BNA)",
@@ -266,13 +280,15 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Full-service hotel with upscale amenities. Good park-sleep-fly option. Shuttle included."
+      "notes": "Full-service hotel with upscale amenities. Good park-sleep-fly option. Shuttle included.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Holiday Inn Express Nashville Airport",
       "slug": "holiday-inn-express-nashville-airport-bna",
-      "dailyRate": 10.00,
-      "reservationRate": 9.00,
+      "dailyRate": 10.45,
+      "reservationRate": 10.45,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Security Cameras", "Handicap Accessible", "Hotel Amenities"],
       "shuttleInfo": "Free shuttle to and from BNA. Runs during scheduled hours.",
@@ -280,7 +296,11 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "4-6 minutes",
       "freeCancellation": true,
-      "notes": "Reliable IHG brand with shuttle service. Good mid-range option for park-and-fly."
+      "notes": "Reliable IHG brand with shuttle service. Good mid-range option for park-and-fly.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE shuttle from Economy Lots B and C to terminal every 10-15 minutes, 24/7. Off-site: Most lots include free shuttle — frequency varies from every 15 minutes (Executive Travel) to hourly (Comfort Suites). CRITICAL: Some off-site hotel lots have limited shuttle hours (e.g., Cambria 5 AM-11 PM only) — verify before booking for early morning or late night flights.",

@@ -1,0 +1,370 @@
+{
+  "code": "RIC",
+  "fullName": "Richmond International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Sandston, Virginia (unincorporated Henrico County) — about 7 miles southeast of downtown Richmond, between I-64 and Williamsburg Road (US 60), reached by Airport Drive. Dedicated in 1927 as Richard Evelyn Byrd Flying Field; renamed Richmond International Airport in 1984.",
+    "iataCode": "RIC",
+    "icaoCode": "KRIC",
+    "faaLid": "RIC",
+    "elevation": "167 feet above mean sea level",
+    "acreage": 2500,
+    "coordinates": "37.5050N, 77.3194W",
+    "passengerVolume": "4,922,994 passengers in 2025 (up 0.8% year over year)",
+    "aircraftOperations": "108,527 (2025)",
+    "cargoVolume": "About 223 million lb of cargo and mail in 2025; the airport is a Foreign Trade Zone",
+    "distinction": "Busiest airport in central Virginia and third-busiest in the state. American Airlines is the largest carrier (~19% market share, May 2025-Apr 2026); Atlanta (Delta) is the top route. Parking is more than 40% of the airport's operating revenue and the public facilities (about 10,500 spaces) regularly run 85-90% full.",
+    "operator": "Capital Region Airport Commission",
+    "owner": "Capital Region Airport Commission (created 1975 by the Virginia General Assembly; represents Chesterfield, Hanover and Henrico counties and the City of Richmond)",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "16/34", "length": "9,003 ft (2,744 m)", "surface": "Asphalt" },
+      { "designation": "02/20", "length": "6,607 ft (2,014 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "American Airlines (~19% market share, May 2025-Apr 2026)",
+    "totalAirlines": "Allegiant, American, Breeze, Delta, Frontier, JetBlue, Southwest, Sun Country and United (plus regional partners) — current list at flyrichmond.com",
+    "founded": "1927 as Richard Evelyn Byrd Flying Field; Richard E. Byrd Airport 1950; Richmond International Airport 1984. Two-level terminal completed spring 2007; Concourse A expansion completed 2021.",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail. GRTC Route 7 (7A/7B) serves the airport and is fare-free until further notice (per GRTC's June 2025 schedule); GRTC also runs an on-demand early-morning airport connection (4-6 AM).",
+    "peopleMover": "None — one two-level terminal with Concourses A and B reached on foot."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal — Concourse A",
+      "status": "Active",
+      "airlines": [],
+      "notes": "Expanded in 2021. Has its own TSA checkpoint (three lanes per Wikipedia). Airline gate assignments: check flyrichmond.com/terminal-map."
+    },
+    {
+      "name": "Main Terminal — Concourse B",
+      "status": "Active",
+      "airlines": [],
+      "notes": "Own TSA checkpoint (expanded from four to six lanes in June 2019). Airline gate assignments: check flyrichmond.com/terminal-map."
+    }
+  ],
+  "roads": ["Interstate 64 (Exit 197, Airport Drive)", "Interstate 295", "Airport Drive", "Williamsburg Road (US 60)", "Terminal Drive (cell phone lot, garages)", "Ferncroft Road (Economy lot)", "Airport Square Lane (Best Western Plus)", "International Center Drive (DoubleTree)", "Eubank Road (Sheraton)"],
+  "transit": ["GRTC Route 7A / 7B (downtown Richmond - Nine Mile Road - airport), fare-free until further notice", "GRTC On-Demand Early Morning Airport Connection (4-6 AM)"],
+  "neighborhoods": ["Downtown Richmond", "Sandston", "Highland Springs", "Varina", "Mechanicsville", "Short Pump", "Midlothian", "Glen Allen"],
+  "authority": "Capital Region Airport Commission",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Single terminal; Concourses A and B are walkable."
+    },
+    "groundTransportZones": {
+      "rideshare": "Follow the green 'Ride App Pickup' signs. Upper Departures Level for travelers without checked bags; Lower Arrivals Level (Baggage Claim) for travelers with checked bags. Choose the level in the app.",
+      "hotelShuttles": "RIC does not publish a hotel-shuttle curb. The Sheraton listing says to exit the terminal and look for the hotel shuttle signs after calling the hotel.",
+      "prearranged": "Limousine and group-transport operators listed on flyrichmond.com, booked in advance.",
+      "source": "https://flyrichmond.com/airport-parking/ground-transportation"
+    },
+    "grtcBus": {
+      "operator": "Greater Richmond Transit Company (GRTC)",
+      "routes": ["Route 7A", "Route 7B"],
+      "fare": "Fare-free until further notice (GRTC Route 7A schedule, June 2025) — check ridegrtc.com for current status",
+      "note": "Route 7 offers airport service starting at 5:00 AM; an on-demand early-morning airport connection covers 4-6 AM.",
+      "source": "https://www.ridegrtc.com/wp-content/uploads/2025/06/Route-7A.pdf"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Green 'Ride App Pickup' signs — Upper Departures Level (no checked bags) or Lower Arrivals Level (checked bags)",
+      "note": "The app confirms the exact spot."
+    },
+    "rentalCars": {
+      "location": "Counters near the central entrance of the terminal, Lower Level",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless"],
+      "totalBrands": 8,
+      "note": "Rental car parking and staging space is being expanded (nearly tripled, per RIC)."
+    },
+    "otherShuttles": {
+      "prearrangedOperators": "RIC lists 15 prearranged limousine/sedan/bus operators (e.g. Richmond Limousine 804-266-2800, James Limousine 804-273-1540, RVA Transit 804-360-2122, Winn Transportation 804-358-9466).",
+      "groundTransportationOffice": "804-226-3000, parking@flyrichmond.com"
+    },
+    "hotelShuttles": "Triply's three RIC lots are 1.1-1.6 miles from the terminal in Sandston. DoubleTree (shuttle 5 AM-12 AM) and Sheraton (4 AM-1 AM) run free shuttles — call after you collect your bags. Best Western Plus has NO shuttle: you need your own ride (rideshare, taxi or drop-off) between the hotel lot and the terminal."
+  },
+  "parkingRates": "On-airport (daily max, effective July 1, 2025): Economy $10 ($1/hr, 24/7 shuttle), Daily Garage $15 ($3/hr), Valet $30 ($2/hr after the first 24 hours), Hourly Garage $40 ($4/hr, first 60 minutes free). Cell phone lot free. Off-site via Triply: three Sandston hotel lots from ~$4.95/day.",
+  "onAirportParking": {
+    "economyLot": {
+      "name": "RIC Economy Parking",
+      "rate": "$10/day ($1/hr, fractional)",
+      "dailyMax": 10,
+      "lastVerified": "2026-10-16",
+      "source": "https://flyrichmond.com/airport-parking",
+      "location": "On-airport, off Airport Drive on Ferncroft Road, about 1/2 mile from the terminal",
+      "connection": "Free shuttle 24/7. Frequency not published.",
+      "features": "Lowest-cost on-airport option; gated lot; no reservation needed. Went from $7 to $10 on July 1, 2025."
+    },
+    "dailyGarage": {
+      "name": "RIC Daily Parking (North & South Garages)",
+      "rate": "$15/day ($3/hr, fractional)",
+      "dailyMax": 15,
+      "lastVerified": "2026-10-16",
+      "source": "https://flyrichmond.com/airport-parking",
+      "serves": "Main terminal (walk — directly across from the terminal)",
+      "features": "Garages built 1995; LED lighting replacement approved 2026. Clearance height not published."
+    },
+    "hourlyGarage": {
+      "name": "RIC Hourly Parking (North & South Garages, Terminal Level 1)",
+      "rate": "$40/day ($4/hr, fractional)",
+      "dailyMax": 40,
+      "lastVerified": "2026-10-16",
+      "source": "https://flyrichmond.com/airport-parking",
+      "serves": "Main terminal (short walk)",
+      "features": "First 60 minutes free. Meant for short meet-and-greet stays — the most expensive product for multi-day trips.",
+      "hourlyRates": "$4/hr"
+    },
+    "valetParking": {
+      "name": "RIC Valet Parking",
+      "rate": "$30/day ($2/hr after the first 24 hours)",
+      "dailyMax": 30,
+      "lastVerified": "2026-10-16",
+      "source": "https://flyrichmond.com/airport-parking",
+      "location": "Arrivals Level, right before the terminal",
+      "features": "Can be pre-arranged by calling 804-226-3089. Accepts cash and major credit cards."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Off Terminal Drive near the South Parking Garage (about a 1-minute drive); follow the blue signs",
+      "cost": "FREE",
+      "rules": "Wait in the lot until your passenger calls to say they are curbside.",
+      "source": "https://flyrichmond.com/airport-parking"
+    },
+    "evCharging": {
+      "locations": ["Valet Parking (archived RIC page: EV charging for valet customers, first come, first served)"],
+      "cost": "Not published",
+      "note": "The current RIC parking page does not list EV charging; an archived RIC page offered it to valet customers only. Tell readers to ask valet (804-226-3089).",
+      "source": "https://flyrichmond.com/archive-economy-parking"
+    },
+    "reservations": "Not needed for Economy, Daily or Hourly. Valet can be pre-arranged by phone. RIC plans an online parking reservation system and a parking guidance system as part of its parking upgrades.",
+    "paymentMethods": "AutoExpress pay stations in the terminal or garages; major credit cards at the exit plaza; Apple Pay and Google Pay; cash at exit-plaza cashiers 24/7. Valet takes cash and major credit cards.",
+    "parkingContact": "Ground Transportation / Parking: 804-226-3000, parking@flyrichmond.com; Valet: 804-226-3089",
+    "garageServiceAreas": "Hourly, Daily and Valet → walk to terminal. Economy → free 24/7 shuttle.",
+    "futureParking": "A conceptual new garage would add about 5,500 spaces to the current ~10,500 public spaces; RIC's CEO said to expect incremental parking rate increases over the next few years."
+  },
+  "parkingLots": [
+    {
+      "name": "Best Western Plus Richmond Airport",
+      "slug": "best-western-plus-richmond-airport",
+      "dailyRate": 5.2,
+      "reservationRate": 5.2,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Restaurant", "Wheelchair Access", "Free Internet/Wifi"],
+      "shuttleInfo": "No shuttle. You need your own ride between the hotel lot and the terminal (rideshare, taxi or a drop-off).",
+      "overview": "Hotel park-and-fly lot in Sandston, minutes from RIC. No room reservation needed and no extra charge for full-size vans, pickup trucks and large SUVs. The listing has no airport shuttle.",
+      "address": "5300 Airport Square Lane, Sandston, VA 23150",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "804-222-8200",
+      "notes": "Lowest sellable rate at RIC on 2026-10-16 ($41.58 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). NO SHUTTLE — never describe it as having one; frame as cheapest but you need a ride, which can eat the saving vs Economy ($80).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "DoubleTree by Hilton Richmond Airport",
+      "slug": "doubletree-by-hilton-richmond-airport",
+      "dailyRate": 10.45,
+      "reservationRate": 10.45,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Security", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "To the airport every 30 minutes, 5:00 AM-12:00 AM; from the airport on demand within those hours — call 804-236-1111 or 804-892-6222 after you collect your luggage. No shuttle 12 AM-5 AM (use rideshare). Check in at the front desk with proof of booking; arrive before the 2-hour pre-flight window.",
+      "overview": "Hotel lot minutes from RIC. Complimentary shuttle with every online reservation, no room booking required, and no extra fee for full-size vans, pickup trucks or large SUVs.",
+      "address": "445 International Center Drive, Sandston, VA 23150",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "804-236-1111",
+      "notes": "$83.58 grand total for Nov 2-9 (8 billed days), same on all three test weeks. About $4 more than RIC Economy ($80) for the week, ~$36 less than the Daily Garage ($120). No shuttle 12-5 AM.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Sheraton Richmond Airport",
+      "slug": "sheraton-richmond-airport",
+      "dailyRate": 10.49,
+      "reservationRate": 10.49,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "4:00 AM-1:00 AM every 30 minutes to the airport and on demand from the airport; no shuttle 1:00 AM-4:00 AM. Check in at the front desk. On return, call 804-226-6400 after collecting luggage, exit the terminal and wait at the hotel shuttle signs. Arrive before the 2-hour pre-flight window.",
+      "overview": "Hotel lot close to RIC with a free shuttle included with online purchase, no room reservation needed, and no extra charge for full-size vans, pickup trucks and large SUVs.",
+      "address": "5501 Eubank Road, Sandston, VA 23150",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "804-226-6400",
+      "notes": "$83.92 grand total for Nov 2-9 (8 billed days). Closest Triply RIC lot and the longest shuttle window (4 AM-1 AM). About $4 more than RIC Economy ($80) for the week, ~$36 less than the Daily Garage ($120).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Four Points by Sheraton Richmond Airport",
+      "parkingType": "Hotel park-and-fly (not on Triply)",
+      "notes": "Comparison only — not sold on Triply. Do not use as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Courtyard by Marriott Richmond Airport",
+      "parkingType": "Hotel park-and-fly (not on Triply)",
+      "notes": "Comparison only — not sold on Triply. Do not use as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Lot free shuttle 24/7 (frequency not published). Off-site: Triply's RIC lots are 1.1-1.6 mi away in Sandston. Sheraton runs 4 AM-1 AM (none 1-4 AM); DoubleTree 5 AM-12 AM (none 12-5 AM); Best Western Plus has NO shuttle — you need your own ride. Call the hotel after collecting bags.",
+  "distanceFromCity": "About 7 miles southeast of downtown Richmond via I-64.",
+  "keyDistances": {
+    "toDowntownRichmond": "~7 miles; GRTC Route 7A/7B",
+    "toSheraton": "1.1 mi (Triply lot, Eubank Road)",
+    "toBestWesternPlus": "1.5 mi (Triply lot, Airport Square Lane — no shuttle)",
+    "toDoubleTree": "1.6 mi (Triply lot, International Center Drive)",
+    "toEconomyLot": "~1/2 mile; free 24/7 shuttle",
+    "competitiveAdvantage": "RIC Economy is cheap at $10/day, so Triply's shuttle lots (DoubleTree, Sheraton) are roughly the same price as Economy for a week and ~$36 less than the $15 Daily Garage. Best Western Plus is the cheapest parking at RIC ($41.58/week) but has no shuttle."
+  },
+  "construction2026": {
+    "status": "RIC plans to consolidate its two security checkpoints (Concourse A and B) into one large checkpoint with new concessions and a proposed lounge (~$253M per Aug 2026 reporting). The Commission is procuring a construction manager (RFQ, Sept 2026); enabling projects were expected from Q3 2026, construction about two years once funded. Garage LED lighting replacement ($2.16M) approved 2026.",
+    "projects": [
+      "Consolidated security checkpoint (two checkpoints into one; up to 14 lanes proposed)",
+      "Garage LED lighting replacement (North and South Garages)",
+      "Rental car parking/staging expansion",
+      "Conceptual new parking garage (~5,500 spaces)"
+    ],
+    "travelImpact": "No parking facility closures identified as of 2026-10-16 — check flyrichmond.com for current alerts before travel.",
+    "timeline": {
+      "start": "Enabling work expected from Q3 2026; main construction start not announced",
+      "expectedCompletion": "Not announced (about two years of construction once funded)"
+    },
+    "sources": ["https://richmondbizsense.com/2026/08/31/ric-to-issue-rfq-this-week-for-bids-on-253m-security-checkpoint-upgrade-project/", "https://www.12onyourside.com/2025/12/01/richmond-international-airport-plans-major-security-checkpoint-consolidation"]
+  },
+  "securityAndScreening": {
+    "checkpoints": "Two checkpoints today — one for Concourse A (three lanes) and one for Concourse B (six lanes). Checkpoint hours are not published on flyrichmond.com.",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck — enroll at tsa.gov/precheck; lane availability per checkpoint not published by RIC"
+    },
+    "arrivalRecommendation": {
+      "domestic": "90 minutes before departure at non-peak times; 2 hours during peak travel periods (RIC guidance)",
+      "international": "Check with your airline",
+      "holidays": "2 hours or more around Thanksgiving, Christmas and spring break"
+    },
+    "source": "https://flyrichmond.com/tsa-info-and-travel-tips"
+  },
+  "lounges": {
+    "other": "No airline lounge is published on flyrichmond.com. A lounge is proposed as part of the consolidated-checkpoint project."
+  },
+  "luggageStorage": {
+    "offSiteAlternatives": []
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning departure bank (6-8 AM)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August), spring break, Thanksgiving and Christmas/New Year. Parking regularly runs 85-90% full.",
+    "arrivalRecommendation": {
+      "domestic": "90 minutes off-peak; 2 hours at peak",
+      "international": "Check with your airline",
+      "holidays": "2 hours or more"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical: hot, humid summers and mild winters with occasional snow and ice.",
+    "commonDisruptions": "Summer thunderstorms; tropical-storm remnants (August-October); occasional winter snow and ice storms.",
+    "bestMonths": "April-May, October",
+    "worstMonths": "July-August (storms), January (ice)",
+    "note": "All three Triply RIC lots are outdoor hotel lots; only the airport garages are covered."
+  },
+  "parkSleepFly": {
+    "description": "Hotel parking (and park-sleep-fly packages booked with the hotel) in Sandston. Triply sells parking-only at the three hotels below; room packages are booked directly with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$4.95/day (2026-10-16 quote); room package pricing set by each hotel",
+    "popularHotels": [
+      { "name": "Best Western Plus Richmond Airport", "distance": "1.5 miles (Airport Square Lane)", "shuttleHours": "No shuttle", "highlight": "Cheapest parking at RIC; you need your own ride to the terminal." },
+      { "name": "DoubleTree by Hilton Richmond Airport", "distance": "1.6 miles (International Center Drive)", "shuttleHours": "5 AM-12 AM (every 30 min to airport; on demand back)", "highlight": "Free shuttle with online reservation; no oversize fee." },
+      { "name": "Sheraton Richmond Airport", "distance": "1.1 miles (Eubank Road)", "shuttleHours": "4 AM-1 AM (every 30 min; on demand back)", "highlight": "Closest Triply lot; longest shuttle window; 24/7 front desk." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures assume 8 days at the daily max (actual airport billing may differ for partial days; valet charges $2/hr after the first 24 hours).",
+    "onAirport": {
+      "economyLot": { "parkingCost": "$80 (8 x $10)", "totalEstimate": "$80" },
+      "dailyGarage": { "parkingCost": "$120 (8 x $15)", "totalEstimate": "$120" },
+      "valetParking": { "parkingCost": "$240 (8 x $30)", "totalEstimate": "$240" },
+      "hourlyGarage": { "parkingCost": "$320 (8 x $40)", "totalEstimate": "$320" }
+    },
+    "offSiteWithShuttle": {
+      "doubleTreeRichmondAirport": { "parkingCost": "$83.58 quoted grand total (~$9.95/day before fees)", "savingsVsEconomy": "costs ~$4 more", "savingsVsDailyGarage": "~$36 saved", "caveat": "No shuttle 12-5 AM" },
+      "sheratonRichmondAirport": { "parkingCost": "$83.92 quoted grand total (~$9.99/day before fees)", "savingsVsEconomy": "costs ~$4 more", "savingsVsDailyGarage": "~$36 saved", "caveat": "No shuttle 1-4 AM" }
+    },
+    "offSiteNoShuttle": {
+      "bestWesternPlusRichmondAirport": { "parkingCost": "$41.58 quoted grand total (~$4.95/day before fees)", "savingsVsEconomy": "~$38 saved before the cost of getting to the terminal", "savingsVsDailyGarage": "~$78 saved before ride costs", "caveat": "NO shuttle — two rideshare/taxi trips (or a drop-off and pickup) are needed, which can erase the saving vs Economy" }
+    },
+    "keyDifference": "RIC's Economy Lot is cheap at $10/day with a 24/7 shuttle, so Triply's shuttle lots (DoubleTree, Sheraton) cost about $4 more than Economy for a week — anchor savings against the $15 Daily Garage (~$36 saved), $30 Valet and $40 Hourly. Best Western Plus is the cheapest parking at RIC but has no shuttle; it wins when someone can drop you off."
+  },
+  "uniqueFeatures": {
+    "byrdField": "Originally Richard Evelyn Byrd Flying Field (1927), named for the polar explorer and Virginia native.",
+    "parkingRevenue": "Parking is over 40% of RIC's operating revenue; July 2025 brought the first across-the-board rate increase in 22 years.",
+    "fareFreeBus": "GRTC Route 7 to the airport has been fare-free.",
+    "armyGuard": "Hosts a Virginia Army National Guard Aviation Support Facility (224th Aviation Regiment).",
+    "foreignTradeZone": "The airport is a Foreign Trade Zone."
+  },
+  "emergencyContacts": {
+    "airportWebsite": "flyrichmond.com",
+    "parkingInfo": "flyrichmond.com/airport-parking",
+    "parkingPhone": "804-226-3000 (Ground Transportation); parking@flyrichmond.com",
+    "valetPhone": "804-226-3089",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "emergency": "911 — state you are at Richmond International Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://flyrichmond.com/",
+      "parking": "https://flyrichmond.com/airport-parking",
+      "parkingRates2025": "https://flyrichmond.com/new-parking-rates-go-into-effect-at-ric-on-july-1/",
+      "parkingMap": "https://flyrichmond.com/ric-parking-map",
+      "groundTransportation": "https://flyrichmond.com/airport-parking/ground-transportation",
+      "terminalMap": "https://flyrichmond.com/terminal-map",
+      "tsaInfo": "https://flyrichmond.com/tsa-info-and-travel-tips",
+      "accessibility": "https://flyrichmond.com/airport-accessibility",
+      "faqs": "https://flyrichmond.com/faqs"
+    },
+    "transit": {
+      "grtcRoute7A": "https://www.ridegrtc.com/wp-content/uploads/2025/06/Route-7A.pdf",
+      "grtc": "https://www.ridegrtc.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/ric/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=RIC"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KRIC",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/RIC"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Richmond_International_Airport"
+    },
+    "newsAndMedia": {
+      "richmondBizSense": "https://richmondbizsense.com/",
+      "nbc12": "https://www.12onyourside.com/",
+      "richmonder": "https://www.richmonder.org/"
+    }
+  }
+}

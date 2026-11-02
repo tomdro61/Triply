@@ -1,7 +1,7 @@
 {
   "code": "AUS",
   "fullName": "Austin-Bergstrom International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Southeastern Austin, Texas — 5 miles southeast of downtown Austin, built on the former Bergstrom Air Force Base",
     "iataCode": "AUS",
@@ -109,7 +109,7 @@
     },
     "hotelShuttles": "Several airport-area hotels offer complimentary shuttle service, including the Hilton Austin Airport (on airport grounds, 2-minute shuttle), Hyatt Place Austin Airport, and Hampton Inn & Suites Austin Airport. Check with your hotel before booking."
   },
-  "parkingRates": "On-airport: Red Garage $35/day ($7/hr), Blue Garage $26/day ($5/hr), Economy Lot $12/day (free 24/7 shuttle). Off-site: from ~$10.81/day with shuttle. Yellow Garage Phase 1 (3,000 new spaces) opening in 2026. Pre-book at austintexas.gov/airport.",
+  "parkingRates": "On-airport: Red Garage $35/day ($7/hr), Blue Garage $26/day ($5/hr), Economy Lot $14/day since 12 May 2026 (free 24/7 shuttle). Off-site: from ~$10/day with shuttle (Comfort Suites Austin Airport). Yellow Garage Phase 1 (3,000 new spaces) opening in 2026. Pre-book at austintexas.gov/airport.",
   "onAirportParking": {
     "redGarage": {
       "name": "Red Garage (Short-Term / Premium)",
@@ -132,8 +132,8 @@
     },
     "economyLot": {
       "name": "Economy Lot (Long-Term Uncovered)",
-      "rate": "$12.00 per day",
-      "dailyMax": 12,
+      "rate": "$14.00 per day (since 12 May 2026; was $12)",
+      "dailyMax": 14,
       "capacity": "2,400+ spaces",
       "address": "3600 Presidential Blvd, Austin, TX 78719",
       "connection": "FREE 24/7 shuttle service to Barbara Jordan Terminal (every 10-15 minutes)",
@@ -188,7 +188,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3 minutes",
       "freeCancellation": true,
-      "notes": "Best off-site option overall — covered parking + 24/7 shuttle + 3-minute ride. Pre-book online for $10.81/day (vs. $13.99 drive-up). Excellent for protecting cars from Texas sun."
+      "notes": "Best off-site option overall — covered parking + 24/7 shuttle + 3-minute ride. Pre-book online for $10.81/day (vs. $13.99 drive-up). Excellent for protecting cars from Texas sun.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot East AUS",
@@ -202,7 +204,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Reliable national chain with frequent shuttles. Loyalty program earns free days. Covered option available at premium. Pre-book for $13.25/day."
+      "notes": "Reliable national chain with frequent shuttles. Loyalty program earns free days. Covered option available at premium. Pre-book for $13.25/day.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot West AUS",
@@ -216,7 +220,9 @@
       "distanceFromAirport": "2.2 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Same as Parking Spot East — choose based on which direction you're coming from. West location may be slightly less crowded."
+      "notes": "Same as Parking Spot East — choose based on which direction you're coming from. West location may be slightly less crowded.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park & Zoom AUS",
@@ -231,7 +237,9 @@
       "driveTime": "3 minutes (no public road traffic)",
       "freeCancellation": true,
       "valetRate": 16.95,
-      "notes": "Unique advantage: located ON airport property so shuttles skip public road traffic. Covered valet at $16.95/day is a great mid-price option. Self-park at $12.95 pre-booked competes with on-airport Economy Lot."
+      "notes": "Unique advantage: located ON airport property so shuttles skip public road traffic. Covered valet at $16.95/day is a great mid-price option. Self-park at $12.95 pre-booked competes with on-airport Economy Lot.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hilton Austin Airport",
@@ -245,13 +253,15 @@
       "distanceFromAirport": "0.5 mi (on airport grounds)",
       "driveTime": "2 minutes",
       "freeCancellation": true,
-      "notes": "Closest hotel to AUS — literally on airport grounds. 2-minute shuttle is unbeatable. Higher daily rate but excellent for park-sleep-fly packages."
+      "notes": "Closest hotel to AUS — literally on airport grounds. 2-minute shuttle is unbeatable. Higher daily rate but excellent for park-sleep-fly packages.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Comfort Suites Austin Airport",
       "slug": "comfort-suites-austin-airport-aus",
-      "dailyRate": 16.95,
-      "reservationRate": 14.95,
+      "dailyRate": 10.11,
+      "reservationRate": 10.11,
       "parkingType": "Uncovered self-park (hotel lot)",
       "amenities": ["Free Shuttle", "Hotel Amenities", "Gated Lot", "Security Cameras", "Handicap Accessible"],
       "shuttleInfo": "Complimentary shuttle service to terminal during operating hours",
@@ -259,7 +269,11 @@
       "distanceFromAirport": "1.8 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Gated hotel lot with decent security. Shuttle operates during standard hours — verify late night/early morning availability before booking."
+      "notes": "Gated hotel lot with decent security. Shuttle operates during standard hours — verify late night/early morning availability before booking.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot has FREE 24/7 shuttle every 10-15 minutes (~5-7 minute ride). Off-site: FastPark & Relax runs 24/7 shuttles every 5-10 minutes (3-minute ride). The Parking Spot East/West runs 24/7 shuttles every 5-7 minutes. Park & Zoom has shuttles on airport property (no public road traffic). Hotel lots (Hilton, Comfort Suites) offer complimentary shuttles. During SXSW and ACL Festival weekends, shuttle and curbside traffic is significantly heavier — allow extra time.",
@@ -467,7 +481,7 @@
     "onAirport": {
       "redGarage": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" },
       "blueGarage": { "parkingCost": "$182 (7 x $26)", "totalEstimate": "$182" },
-      "economyLot": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" }
+      "economyLot": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" }
     },
     "offSiteWithShuttle": {
       "fastParkRelax": { "parkingCost": "$75.67 (7 x $10.81 pre-booked)", "savingsVsBlueGarage": "~$106 saved", "caveat": "24/7 shuttle, covered parking, 3-min ride" },
@@ -478,7 +492,7 @@
       "busRoundTrip": { "costPerPersonRoundTrip": "$3.50", "travelTime": "35 min to downtown", "note": "$1.75 per ride via Capital Metro Route 20. Cheapest option — runs 24/7." },
       "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than any parking option for trips of any length if coming from central Austin" }
     },
-    "keyDifference": "AUS parking is relatively expensive: Red Garage at $35/day is among the highest on-airport rates in Texas. The Economy Lot at $12/day is the budget on-airport option. Off-site FastPark & Relax at $10.81/day pre-booked with covered parking and 24/7 shuttle is the best overall value. For downtown Austin travelers, a $15-25 rideshare each way beats parking costs for any trip over 2 days."
+    "keyDifference": "AUS parking is relatively expensive: Red Garage at $35/day is among the highest on-airport rates in Texas. The Economy Lot at $14/day (since 12 May 2026) is the budget on-airport option. Off-site, the Comfort Suites Austin Airport (about $10/day) is the lot Triply sells near AUS. For downtown Austin travelers, a $15-25 rideshare each way beats parking costs for any trip over 2 days."
   },
   "uniqueFeatures": {
     "liveMusicCapital": "Austin is 'The Live Music Capital of the World,' and AUS brings that culture into the terminal. A live music stage in the central marketplace hosts performances by local Austin artists. KUTX 98.9 FM (local public radio) curates a live-streamed playlist of Austin music throughout the terminal since 2019.",

@@ -31,10 +31,10 @@ const rec = (over: Record<string, unknown> = {}) => ({
 
 // ── rateAgeDays ──────────────────────────────────────────────────────────────
 
-test('rateAgeDays returns a positive age for a real airport', () => {
+test('rateAgeDays returns a non-negative age for a real airport', () => {
   const days = rateAgeDays('JFK')
   assert.equal(typeof days, 'number')
-  assert.ok((days as number) > 0)
+  assert.ok((days as number) >= 0) // 0 on the day the file is refreshed
 })
 
 test('rateAgeDays is null for an unknown airport', () => {

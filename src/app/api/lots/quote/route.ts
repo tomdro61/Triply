@@ -22,7 +22,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { reslab, ReslabError } from "@/lib/reslab/client";
-import { BLOCKED_RESLAB_LOCATION_IDS } from "@/lib/reslab/search";
+import { isHiddenReslabLocation } from "@/lib/reslab/search";
 import { quoteDirectCheckout } from "@/lib/direct/checkout-quote";
 import { isDirectCheckoutOpen } from "@/lib/direct/flag";
 import { parseDirectLotUnifiedId } from "@/lib/direct/store";
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
   }
 
   const locationId = Number(lotId.slice("reslab-".length));
-  if (BLOCKED_RESLAB_LOCATION_IDS.has(locationId)) {
+  if (isHiddenReslabLocation(locationId)) {
     return NextResponse.json({ error: "Lot not found" }, { status: 404, headers: NO_STORE });
   }
   try {

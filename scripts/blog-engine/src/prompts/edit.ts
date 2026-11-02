@@ -1,3 +1,4 @@
+import { dropOffSiteSentences } from './write.js'
 import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { PublishedPost } from '../payload.js'
 import { currencySymbol, type AirportData } from '../airport-data.js'
@@ -99,7 +100,8 @@ Verify this article covers the identified gaps. If a recommended H2 topic is ent
     ? (() => {
         const cur = currencySymbol(airportData)
         const lines = ['\n**Verified rates (fact-check only — correct any wrong prices/names):**']
-        lines.push(`- Official rates: ${airportData.parkingRates}`)
+        lines.push(`- Official on-airport rates: ${dropOffSiteSentences(airportData.parkingRates, airportData.unsellableLotNames, (airportData.parkingLots ?? []).map((l) => String((l as Record<string, unknown>).name ?? '')))}`)
+        lines.push(`- Off-site lot prices: ONLY the lot list below (older notes carried off-site prices that are stale — never "correct" the article back to one)`)
         if (airportData.parkingLots && airportData.parkingLots.length > 0) {
           const lots = (airportData.parkingLots as Record<string, unknown>[])
             .filter(l => typeof l.dailyRate === 'number')

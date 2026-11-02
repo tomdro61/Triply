@@ -1,7 +1,7 @@
 {
   "code": "ATL",
   "fullName": "Hartsfield-Jackson Atlanta International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "College Park, Georgia — 7 miles south of downtown Atlanta",
     "iataCode": "ATL",
@@ -253,7 +253,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "Best off-site option for covered/indoor parking. 24/7 shuttle to BOTH terminals is a major advantage. EV charging available. Book online for best rates (~$8.99/day)."
+      "notes": "Best off-site option for covered/indoor parking. 24/7 shuttle to BOTH terminals is a major advantage. EV charging available. Book online for best rates (~$8.99/day).",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot 1 (ATL)",
@@ -267,7 +269,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Formerly Park N Fly. Domestic shuttle every 5-7 min is very frequent. International Terminal shuttle only every 30 min — plan accordingly. Nearby Jiffy Lube, car wash, and pet boarding at The Parking Spot Plus."
+      "notes": "Formerly Park N Fly. Domestic shuttle every 5-7 min is very frequent. International Terminal shuttle only every 30 min — plan accordingly. Nearby Jiffy Lube, car wash, and pet boarding at The Parking Spot Plus.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "WallyPark Premier (ATL)",
@@ -282,7 +286,9 @@
       "driveTime": "4-7 minutes",
       "freeCancellation": true,
       "rating": "4.5/5",
-      "notes": "Pre-book online for $7.49/day — one of the cheapest off-site rates. 24/7 shuttle. Valet service available for premium convenience. Car detailing service while you travel."
+      "notes": "Pre-book online for $7.49/day — one of the cheapest off-site rates. 24/7 shuttle. Valet service available for premium convenience. Car detailing service while you travel.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "FastPark & Relax (ATL)",
@@ -296,7 +302,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "Best off-site option for International Terminal travelers. Covered parking protects from Atlanta's summer heat and storms. Complimentary coffee in the lobby."
+      "notes": "Best off-site option for International Terminal travelers. Covered parking protects from Atlanta's summer heat and storms. Complimentary coffee in the lobby.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "ATL Economy Parking by PreFlight (ATL)",
@@ -310,7 +318,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
-      "notes": "Pre-booking at $6.25/day makes this the cheapest ATL parking option. Uncovered lot — consider covered options during summer months. 24/7 shuttle is reliable."
+      "notes": "Pre-booking at $6.25/day makes this the cheapest ATL parking option. Uncovered lot — consider covered options during summer months. 24/7 shuttle is reliable.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park N Go (ATL)",
@@ -324,7 +334,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Reliable mid-range option with 24/7 shuttle. Covered parking available at slightly higher rate. Good reviews for shuttle reliability."
+      "notes": "Reliable mid-range option with 24/7 shuttle. Covered parking available at slightly higher rate. Good reviews for shuttle reliability.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Quality Inn Atlanta Airport (Park & Fly)",
@@ -338,7 +350,67 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-10 minutes",
       "freeCancellation": true,
-      "notes": "Shuttle only runs 5 AM - 11 PM every 30 min. Not ideal for late-night flights or very early departures. Budget-friendly option for daytime travelers."
+      "notes": "Shuttle only runs 5 AM - 11 PM every 30 min. Not ideal for late-night flights or very early departures. Budget-friendly option for daytime travelers.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Four Points by Sheraton Atlanta Airport (ATL)",
+      "slug": "four-points-by-sheraton-atlanta-airport",
+      "dailyRate": 10.01,
+      "address": "1556 Phoenix Boulevard, College Park, GA 30349",
+      "reslabLocationId": 121,
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "5:00 AM - 12:00 AM: Shuttle runs every 30 minutes. 12:00 AM - 5:00 AM: No shuttle.",
+      "overview": "Located just minutes from Hartsfield-Jackson Atlanta International Airport, Four Points by Sheraton Atlanta Airport (ATL) offers a convenient parking solution for travelers. Every online purchase includes complimentary shuttle service to and from the airport, and no room reservation is required to park here.Full-size vans, pickup trucks, and large SUVs are welcome at no extra charge, provided the ",
+      "distanceFromAirport": "2 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 121). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Sky Lot Atlanta Airport Parking (ATL)",
+      "slug": "sky-lot-atlanta-airport-parking",
+      "dailyRate": 11.55,
+      "address": "3802 Washington Rd, Atlanta, GA 30344",
+      "reslabLocationId": 366,
+      "amenities": [
+        "24/7 Front Desk"
+      ],
+      "shuttleInfo": "24/7 Shuttle, every 15 minutes",
+      "overview": "Sky Lot Parking (ATL) is conveniently located just 6 minutes from Atlanta Hartsfield-Jackson International Airport, making it an excellent choice for Park and Fly travelers. The lot offers a range of features for your comfort and peace of mind:ADA accessibleSecured with an electric fence24-hour surveillance camerasOn-site security personnelWell-lit throughout for nighttime visibilityImportant Note",
+      "distanceFromAirport": "3.6 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 366). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Routes Atlanta Airport Parking (ATL)",
+      "slug": "routes-atlanta-airport-parking",
+      "dailyRate": 20.69,
+      "address": "2144 Sullivan Rd, College Park, GA 30337",
+      "reslabLocationId": 262,
+      "amenities": [],
+      "shuttleInfo": "6:00 AM - 11:30 PM: Shuttle runs on demand. 11:30 PM - 6:00 AM: No shuttle.",
+      "overview": "Located just a few minutes' drive from Hartsfield-Jackson Atlanta International Airport, Routes Airport Parking offers reliable service at competitive rates for travelers. Every reservation includes a complimentary roundtrip shuttle service directly to and from the terminal.The facility operates daily from 6:00 AM to 12:00 AM. Please note that during rare instances of very high demand, valet assis",
+      "distanceFromAirport": "2.2 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 262). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE Plane Train connects all 7 concourses every 2 minutes, 24/7. FREE ATL SkyTrain connects to Rental Car Center every 3-5 minutes, 24/7. Domestic Park-Ride and ATL Select lots have free 24/7 shuttle. Off-site: Most off-site lots include free shuttle — frequency varies from every 5-7 minutes (The Parking Spot) to every 30 minutes (hotel lots). Allow 30-45 extra minutes for off-site parking + shuttle during peak travel periods.",

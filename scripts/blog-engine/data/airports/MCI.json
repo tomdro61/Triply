@@ -1,0 +1,591 @@
+{
+  "code": "MCI",
+  "fullName": "Kansas City International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Platte County, Missouri — about 15 miles north-northwest of downtown Kansas City (straight-line), roughly 20 road miles via I-29",
+    "address": "1 Kansas City Boulevard, Kansas City, MO 64153",
+    "iataCode": "MCI",
+    "icaoCode": "KMCI",
+    "faaLid": "MCI",
+    "localAlias": "KCI — the name most Kansas Citians use for the airport",
+    "elevation": "1,026 feet above mean sea level",
+    "acreage": 10680,
+    "coordinates": "39.2976N, 94.7139W",
+    "passengerVolume": "11,459,954 passengers in 2025 (down 5.46% from the 2024 record of 12,121,778)",
+    "aircraftOperations": "117,030 (2025)",
+    "cargoVolume": "247,468,761 lbs of freight and mail (2025)",
+    "distinction": "Single new terminal opened February 28, 2023 — a $1.5 billion project designed by Skidmore, Owings & Merrill and the largest single infrastructure project in Kansas City history. It replaced the 1972 three-terminal 'drive to your gate' layout (Terminals A, B, C). Originally named Mid-Continent International Airport, which is where the MCI code comes from.",
+    "operator": "Kansas City Aviation Department",
+    "owner": "City of Kansas City, Missouri",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "totalGates": 40,
+    "gateNote": "40 gates at opening (Concourse A: 13 gates numbered A1-A20; Concourse B: 27 gates numbered B40-B69), designed to expand to 50",
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "01L/19R", "length": "10,801 ft (3,292 m)", "surface": "Asphalt" },
+      { "designation": "01R/19L", "length": "9,500 ft (2,896 m)", "surface": "Concrete" },
+      { "designation": "09/27", "length": "9,501 ft (2,896 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "Southwest Airlines (49.0% of passengers, June 2025 - May 2026)",
+    "marketShare": "Southwest 49.0%, Delta 17.3%, American 15.4%, United 11.3%, Alaska 2.7%, other 4.4% (June 2025 - May 2026)",
+    "totalAirlines": "verify — listed carriers include Air Canada, Alaska, Allegiant, American, Delta, Frontier, JetBlue, Southwest, Sun Country, United and Viva Aerobus",
+    "nonstopDestinations": "verify at flykc.com/nonstop-destinations",
+    "founded": "November 11, 1972 (as Mid-Continent International Airport)",
+    "hubCarriers": [],
+    "hubNote": "Not a hub today. Former hub for TWA, Braniff, Eastern, Midwest and Vanguard.",
+    "slotControlled": false,
+    "metroAccess": "No rail. RideKC Route 229 (Boardwalk-KCI) bus connects the terminal to the Northland, roughly hourly. RideKC bus fares resumed June 1, 2026 ($2 single ride).",
+    "garage": "Seven-story garage directly across from the terminal — 6,219 spaces, 8-foot clearance, row-by-row green/red availability lights"
+  },
+  "terminals": [
+    {
+      "name": "KCI Terminal — Concourse A",
+      "status": "Active — 13 gates (A1-A20, odd numbering). International arrivals processed at gates A12, A14 and A16.",
+      "airlines": ["verify current assignments — at opening, carriers other than Southwest, Spirit, United and Delta were assigned to Concourse A"],
+      "gates": "A1-A6, A8, A10, A12, A14, A16, A18, A20",
+      "notes": "Escape Lounge (pay-per-visit, open to any airline) is near gate A5. Pet relief near gate A8 and at the south end near Urban Café. Customs and immigration on level 1 with baggage claim."
+    },
+    {
+      "name": "KCI Terminal — Concourse B",
+      "status": "Active — 27 gates (B40-B69). Largest concourse; Southwest's gates are here.",
+      "airlines": ["Southwest Airlines", "Delta Air Lines", "United Airlines (verify current assignments)"],
+      "gates": "B40-B69",
+      "notes": "Reached via a 635-foot walkway with moving walkways. Delta Sky Club (11,200 sq ft, two outdoor patios) is at the concourse hub on the upper level. Pet relief opposite gate B54."
+    }
+  ],
+  "roads": ["Interstate 29 (main route from downtown Kansas City)", "Interstate 435 (beltway, connects to I-29 south of the airport)", "NW Cookingham Drive", "NW 112th Street (Hilton / hotel district)", "NW Prairie View Road", "N Ambassador Drive", "Brasilia Avenue (cell phone lot / rideshare staging, Marriott)", "Kansas City Boulevard (terminal address)"],
+  "transit": ["RideKC Route 229 Boardwalk-KCI (bus, roughly hourly, $2 single ride since June 1, 2026)", "Free Economy (Blue) Bus — terminal to Economy Lots, 24/7", "Free Rental Car (Gray) Bus — terminal to Rental Car Facility, 24/7"],
+  "neighborhoods": ["Kansas City North / Northland", "Platte City", "Parkville", "Riverside", "Gladstone", "Liberty", "North Kansas City", "Weston", "Downtown Kansas City", "Crossroads", "Country Club Plaza", "Overland Park, KS", "Lenexa, KS", "Olathe, KS"],
+  "authority": "Kansas City Aviation Department",
+  "groundTransportation": {
+    "economyBus": {
+      "description": "Free Economy (Blue) Bus between the terminal and the Economy Parking lots",
+      "fare": "FREE",
+      "frequency": "Every 15-20 minutes (flykc.com getting-to-and-from page); parking page says about every 20 minutes",
+      "hours": "24/7",
+      "phone": "816-243-5201",
+      "note": "Wheelchair-accessible kneeling buses. Courtesy phone in each Economy Lot shelter, or call 816-243-5544. You cannot walk from the Economy Lots to the terminal."
+    },
+    "rentalCarBus": {
+      "description": "Free Gray Rental Car Bus between the terminal and the Rental Car Facility",
+      "fare": "FREE",
+      "frequency": "Every 5-10 minutes",
+      "hours": "24/7",
+      "pickup": "Lower Arrivals level — cross the crosswalk to the Commercial Curb and look for the Rental Car Bus stop"
+    },
+    "rideKC": {
+      "operator": "Kansas City Area Transportation Authority (RideKC)",
+      "routes": ["Route 229 Boardwalk-KCI"],
+      "fare": "$2.00 single ride, $4 day pass (fares resumed June 1, 2026; no cash on board — contactless card or RideKCGO app)",
+      "accessFromTerminal": "KCI Airport New Terminal stop",
+      "travelTimes": {
+        "toBoardwalkSquareNorthland": "verify — roughly hourly service; connects to other RideKC routes for downtown"
+      },
+      "note": "Weekday departures from KCI roughly 6:00 AM to 10:10 PM; weekend schedule differs. Practical for Northland trips; slow for downtown."
+    },
+    "taxi": {
+      "fareType": "METERED",
+      "fare": "$2.50 plus $2.10 per mile (may vary with traffic and waiting time)",
+      "dispatchPhone": "816-243-2345",
+      "complaintsPhone": "816-243-5237",
+      "estimatedMeteredFares": {
+        "toDowntownKansasCity": "verify — roughly $45-$50 at the posted per-mile rate for ~20 road miles, before traffic/waiting time"
+      },
+      "note": "Call dispatch with your exact location. Shared fares allowed if the first passenger agrees. Drivers may not refuse short trips — report refusals to 816-243-5237."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "zTrip", "Iris"],
+      "pickupLocation": "Arrivals (lower) level Commercial Curb — look for the purple signposts 2K-N. Book only after you have your bags and are at the curb.",
+      "driverStaging": "684 Brasilia Ave (flykc.com also lists 680 Brasilia Ave for the cell phone lot/rideshare staging — verify)",
+      "estimatedFares": {
+        "uberXToDowntownKansasCity": "verify"
+      },
+      "surgePricing": "Expect surge after Chiefs home games, major conventions and holiday weekends",
+      "note": "Limited spots at the designated rideshare curb."
+    },
+    "rentalCars": {
+      "location": "Rental Car Facility, 1 Nassau Circle, Kansas City, MO 64153 — reached by the free Gray Rental Car Bus",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 10,
+      "note": "Consolidated off-terminal facility; the Gray bus runs every 5-10 minutes, 24/7."
+    },
+    "curbside": "Drop-off on the upper (Departures) level; pick-up on the lower (Arrivals) level. No parking or waiting at either curb — use the free cell phone lot.",
+    "hotelShuttles": "flykc.com does not list hotel shuttles. Hotel lots near KCI (Kansas City Airport Marriott on Brasilia Ave, Hilton on NW 112th St, Super 8, Days Inn and Quality Inn) run their own shuttles — hours vary by hotel."
+  },
+  "parkingRates": "On-airport (effective Sept 15, 2026): Economy Lots $9/day, Surface Lot $22/day, Garage $30/day, Valet $40/day. Park Air Express (off-site, SP+ operated) reported at $10/day outdoor, $20/day indoor. Hotel lots bookable on Triply from about $6.46-$10.57/day before Triply's service fee (Nov 2026 quotes).",
+  "onAirportParking": {
+    "garage": {
+      "name": "Garage Parking (KCI Parking Garage)",
+      "shortTermRate": "$5 first hour, $10 1-2 hours, $15 2-3 hours, $20 3-4 hours",
+      "dailyMax": 30,
+      "rateEffective": "2026-09-15 (raised from $28)",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flykc.com/parking",
+      "capacity": "More than 6,000 spaces (6,219 per Wikipedia)",
+      "clearance": "8 feet",
+      "stallWidth": "9 feet",
+      "serves": "The single terminal — directly across from the terminal building",
+      "features": "Covered, open 24/7/365. Row availability lights (green = open, red = full). 52 EV charging spaces plus 4 ADA EV spaces on Level 4, Row E. Garage info: 816-243-5870.",
+      "preBookingUrl": "https://www.flykc.com/parking"
+    },
+    "surfaceLot": {
+      "name": "Surface Lot",
+      "shortTermRate": "$5 first hour, $10 1-2 hours, $15 2-3 hours, $20 3-4 hours",
+      "dailyMax": 22,
+      "rateEffective": "2026-09-15 (raised from $20)",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flykc.com/parking",
+      "serves": "The terminal — walking distance",
+      "features": "Uncovered, sections A through F. 6 EV chargers and 1 ADA EV space in row B2."
+    },
+    "economyLot": {
+      "name": "Economy Parking",
+      "rate": "$9.00 per 24-hour period",
+      "dailyMax": 9,
+      "rateEffective": "Unchanged in the Sept 15, 2026 increase",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flykc.com/parking",
+      "capacity": "More than 15,000 spaces",
+      "connection": "FREE Economy (Blue) Bus about every 15-20 minutes, 24/7",
+      "features": "Cheapest on-airport option. Wheelchair-accessible buses. Courtesy phone in each shelter or call 816-243-5544. 24 EV charging spaces in Lot C."
+    },
+    "valetParking": {
+      "name": "Valet Parking",
+      "rate": "$20 for 0-4 hours; $40 for 4-24 hours",
+      "dailyMax": 40,
+      "rateEffective": "2026-09-15 (raised from $35)",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flykc.com/parking",
+      "features": "24/7/365, 8-foot clearance, EV charging offered with valet. Call 816-243-2019 to have your vehicle brought up. Tips accepted."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "50 Bern St (flykc.com lists 680 Brasilia Ave for rideshare)",
+      "cost": "FREE",
+      "rules": "45-minute maximum. Driver must stay with vehicle — unattended vehicles are towed. Public restroom on site.",
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flykc.com/parking"
+    },
+    "evCharging": {
+      "locations": [
+        "Garage — Level 4, Row E (52 spaces + 4 ADA)",
+        "Surface Lot — row B2 (6 chargers + 1 ADA)",
+        "Economy Lot C (24 spaces)",
+        "Valet (charging offered)"
+      ],
+      "totalPorts": "87 EV charging spaces (incl. 5 ADA) across garage, surface and economy",
+      "cost": "Requires a free Evergy Clean Charge Network card or ChargePoint account; charging fees — verify",
+      "source": "https://www.flykc.com/parking"
+    },
+    "rewards": {
+      "frequentParker": "Free membership (flykcrewards.com) — earn points per visit toward free parking; ticketless entry/exit, no blackout dates. Help: 1-877-735-9280.",
+      "corporateParker": "10% off all on-airport facilities for qualifying companies.",
+      "coupons": "As of 2026-10-13 flykc.com says no coupons are available for Economy Parking.",
+      "source": "https://www.flykc.com/rewards-and-coupons"
+    },
+    "motoristServices": "Free jump-starts, tire air, lock-outs, snow dig-out and lost vehicle location at all airport-operated facilities.",
+    "receipts": "Receipts from prior visits: (816) 243-8019",
+    "accessibleParking": "Accessible parking in all airport-operated lots; accessible EV spaces in the garage and surface lot.",
+    "oversizedVehicles": "Garage and valet clearance is 8 feet — taller vehicles must use surface or economy lots (verify RV/trailer policy with the airport).",
+    "lostTicket": "verify — fee not published on flykc.com",
+    "paymentMethods": "verify",
+    "employeeParking": "Old Terminal B/C garages were retained for employee and public parking after the terminals were demolished (verify current employee lot assignments)."
+  },
+  "parkingLots": [
+    {
+      "name": "Kansas City Airport Marriott",
+      "slug": "kansas-city-airport-marriott",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $58.43",
+      "parkingType": "Uncovered, self-park (hotel lot — designated park & fly area, northwest corner)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "24/7, departs every 15 minutes. On return, go to the designated airport shuttle pickup for the scheduled shuttle.",
+      "overview": "On airport grounds — the closest Triply lot to the KCI terminal (0.9 mi) with the most frequent hotel shuttle.",
+      "address": "775 Brasilia Ave, Kansas City, MO 64153",
+      "distanceFromAirport": "0.9 mi",
+      "phone": "816-464-2200",
+      "notes": "Check in at the front desk; you get a validation code and register the vehicle via QR code, then park in the northwest-corner park & fly area. Every-15-minute shuttle is the best frequency of any Triply KCI lot.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hilton Kansas City Airport",
+      "slug": "hilton-kansas-city-airport",
+      "dailyRate": 7.35,
+      "reservationRate": 7.35,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $51.45",
+      "parkingType": "Uncovered, self-park (hotel lot operated by Towne Park)",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "24/7, departs every hour on the hour. For return pickup call the front desk at 816-891-8900 after you have your bags.",
+      "overview": "Full-service Hilton right off I-29, 1.7 mi from KCI, with a complimentary 24-hour shuttle and on-site restaurant.",
+      "address": "8801 NW 112th Street, Kansas City, MO 64153 (alternate entrance 11168 N Ambassador Drive)",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "(816) 891-8900",
+      "notes": "Show your parking pass at the front desk. NO in/out privileges — you cannot enter and exit more than once. Hourly shuttle means timing matters: arrive well before the 2-hour pre-flight window.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Super 8 Kansas City Airport",
+      "slug": "super-8-kansas-city-airport",
+      "dailyRate": 6.46,
+      "reservationRate": 6.46,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $51.48 (payment due at location)",
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Free 24/7 Shuttle", "Security", "24/7 Front Desk", "Wheelchair Access"],
+      "shuttleInfo": "24/7 on demand. From the airport call 816-464-2002 or 816-806-9055; hotel shuttle pickup sign is on the ground floor across the street from baggage claim.",
+      "overview": "Budget hotel lot 1.9 mi from KCI with a free on-demand 24/7 shuttle.",
+      "address": "11900 NW Plaza Circle, Kansas City, MO 64153",
+      "distanceFromAirport": "1.9 mi",
+      "phone": "816-464-2002",
+      "paymentMethod": "Pay at Location",
+      "notes": "Lowest-priced Triply KCI lot with a free 24/7 shuttle. Payment is collected at the hotel.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Days Inn Kansas City Airport",
+      "slug": "days-inn-kansas-city-airport",
+      "dailyRate": 10.57,
+      "reservationRate": 10.57,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $74.00",
+      "parkingType": "Uncovered, self-park (hotel lot, well-lit, cameras)",
+      "amenities": ["Free Shuttle", "24/7 Front Desk", "Restaurant", "Wheelchair Access", "Security Cameras"],
+      "shuttleInfo": "Every 30 minutes 4:00-7:30 AM; on demand 7:30 AM-11:00 PM; NO shuttle 11:00 PM-4:00 AM. For pickup call (816) 746-1666 after collecting bags.",
+      "overview": "Days Inn KCI Airport, about 2 miles from the terminal, with a complimentary shuttle and simple one-way entry/exit lot.",
+      "address": "11120 N Ambassador Dr, Kansas City, MO 64153",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "(816) 746-1666",
+      "notes": "No shuttle between 11 PM and 4 AM — not for red-eye returns. At $10.57/day it costs more than the on-airport Economy Lot ($9/day), so position it on convenience, not price.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Quality Inn Kansas City Airport",
+      "slug": "quality-inn-kansas-city-airport",
+      "dailyRate": 4.13,
+      "reservationRate": 4.13,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $26.12",
+      "parkingType": "Uncovered, self-park (hotel lot, fully lit, camera-monitored)",
+      "amenities": ["Security", "24/7 Front Desk", "Wheelchair Access"],
+      "shuttleInfo": "24/7 every 30 minutes — shuttle is NOT free: $10 each way.",
+      "overview": "Lowest parking rate of any shuttle-served Triply lot at KCI, about 3 miles (5-minute drive) from the airport.",
+      "address": "7611 NW 97th Terrace, Kansas City, MO 64153",
+      "distanceFromAirport": "3.1 mi",
+      "phone": "+1 816-226-4383",
+      "notes": "Shuttle costs $10 each way (per the listing) — for 2 travelers a round trip adds up to ~$40 if charged per person (verify per-person vs per-trip), which can erase the savings. Listing description text says 'Sleep Inn' — copy inconsistency in the source feed; use the Quality Inn name.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Travelodge (Platte City)",
+      "slug": "travelodge",
+      "dailyRate": 3.95,
+      "reservationRate": 3.95,
+      "rateNote": "Triply online rate before service fee; 7-day quote Nov 2-8, 2026 = $29.07",
+      "parkingType": "Uncovered, self-park (hotel lot)",
+      "amenities": ["Wheelchair Access", "No extra charge for full-size vans, pickups and large SUVs"],
+      "shuttleInfo": "Shuttle suspended — no airport shuttle. You must pay for Uber/Lyft to and from the airport.",
+      "shuttleSuspended": true,
+      "overview": "Hotel lot in Platte City, about 5 miles from KCI. Parking only; no shuttle at present.",
+      "address": "504 Prairie View Road, Platte City, MO 64079",
+      "distanceFromAirport": "5.0 mi",
+      "phone": "816-858-4588",
+      "notes": "SHUTTLE SUSPENDED: the shuttle is shut down temporarily, so you need a paid rideshare each way. Do NOT use in CTAs or recommend as a park-and-fly option. Only relevant as a note for oversized vehicles (no extra charge for full-size vans/pickups/large SUVs).",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: FREE Economy (Blue) Bus every 15-20 minutes, 24/7, between the terminal and the Economy Lots; FREE Gray Rental Car Bus every 5-10 minutes, 24/7. Garage and Surface Lot are walking distance. Off-site hotel lots run their own shuttles: Kansas City Airport Marriott every 15 min 24/7; Super 8 on demand 24/7 (free); Hilton hourly on the hour 24/7; Days Inn every 30 min 4-7:30 AM then on demand to 11 PM, none 11 PM-4 AM; Quality Inn every 30 min 24/7 but $10 each way. Travelodge Platte City shuttle is suspended.",
+  "distanceFromCity": "About 15 miles north-northwest of downtown Kansas City straight-line, roughly 20 road miles via I-29 (allow ~25-30 minutes without traffic). Located in Platte County, Missouri. No rail — RideKC bus, taxi or rideshare only.",
+  "keyDistances": {
+    "toDowntownKansasCity": "~20 road miles via I-29, ~25-30 min by car (verify); taxi $2.50 + $2.10/mile",
+    "toNorthKansasCity": "verify",
+    "toCountryClubPlaza": "verify",
+    "toArrowheadStadium": "verify — GEHA Field at Arrowhead is southeast of downtown; allow extra time on Chiefs game days",
+    "toOverlandParkKS": "verify",
+    "toPlatteCity": "~5 miles (Travelodge Platte City listing)",
+    "competitiveAdvantage": "KCI's single terminal means one garage, one security checkpoint and one curb — short walks from the garage and surface lot. The on-airport Economy Lot at $9/day is unusually cheap, so off-site hotel lots compete mainly on shuttle frequency and closeness (Marriott, 0.9 mi, shuttle every 15 min) rather than on big price gaps."
+  },
+  "construction2026": {
+    "status": "New terminal fully operational since February 28, 2023. Former Terminals B and C closed that day; demolition began July 15, 2024 (Spirtas Wrecking, ~$17.5M contract, ~10 months planned). Current 2026 status — verify.",
+    "projects": [
+      "Old Terminal B/C site converted to aircraft apron and deicing pads; the old terminal garages were retained for employee and public parking.",
+      "Security queue re-layout opened April 10, 2026 — general, TSA PreCheck, TSA touchless ID and one ADA lane now sit side by side mid-check-in-hall; CLEAR uses lanes at either end.",
+      "Parking rate increase effective September 15, 2026 (garage $30, surface $22, valet $40; economy unchanged at $9)."
+    ],
+    "travelImpact": "No terminal or parking closures known as of 2026-10-13. Check flykc.com for roadway notices before you drive.",
+    "timeline": {
+      "oldTerminalDemolition": "Began July 15, 2024",
+      "securityRelayout": "April 10, 2026",
+      "parkingRateIncrease": "September 15, 2026"
+    }
+  },
+  "securityAndScreening": {
+    "checkpoint": "One centralized checkpoint on the Departures level, 16 lanes (expandable to 18)",
+    "tsaPreCheck": {
+      "terminals": ["Single terminal — centralized checkpoint"],
+      "note": "Dedicated TSA PreCheck lanes; hours vary — check TSA before travel. TSA touchless ID lane also available (since April 2026)."
+    },
+    "clear": {
+      "terminals": ["Single terminal — lanes at either end of the security queue"],
+      "note": "CLEAR lanes reported 4 AM - 1 AM (verify)"
+    },
+    "globalEntry": {
+      "note": "Global Entry kiosks in international arrivals (level 1). International arrivals use gates A12, A14 and A16."
+    },
+    "standardWaitTimes": {
+      "average": "verify — one checkpoint usually moves quickly",
+      "peakHours": "5:00-7:00 AM morning departure bank; holiday rushes",
+      "tips": "Because there is one checkpoint for all 40 gates, a long line affects everyone — check the TSA app on peak mornings and after Chiefs home weekends."
+    },
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (airline guidance; hotel lots ask you to arrive at the lot before this window)",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours for Thanksgiving, Christmas and spring break"
+    }
+  },
+  "lounges": {
+    "concourseA": [
+      {
+        "name": "Escape Lounge",
+        "location": "Concourse A, near Gate A5 (airside)",
+        "hours": "4:30 AM - 9:00 PM daily",
+        "access": "Open to any airline passenger with a same-day boarding pass, departing within 3 hours. Pay per visit — from ~$45 online, ~$55 walk-up (verify). Free for Amex Platinum and Delta SkyMiles Reserve cardholders flying Delta that day.",
+        "amenities": "Food, drinks, seating, WiFi. Opened April 2025."
+      }
+    ],
+    "concourseB": [
+      {
+        "name": "Delta Sky Club",
+        "location": "Concourse B, hub of the concourse, upper level",
+        "hours": "verify",
+        "access": "Delta Sky Club membership and eligible Delta passengers; no day passes",
+        "amenities": "11,200 sq ft, capacity ~200, two outdoor patios, floor-to-ceiling windows. Opened with the terminal Feb 28, 2023."
+      }
+    ],
+    "uso": "flykc.com lists a USO room under 'Lounges & USO Room' — location and hours verify"
+  },
+  "wifi": {
+    "networkName": "KCI_FREE_WiFi",
+    "cost": "Free",
+    "coverage": "Terminal-wide"
+  },
+  "evCharging": {
+    "garage": {
+      "chargers": 56,
+      "location": "Level 4, Row E (52 spaces + 4 ADA)",
+      "type": "verify",
+      "cost": "Requires free Evergy Clean Charge Network card or ChargePoint account"
+    },
+    "surfaceLot": {
+      "chargers": 7,
+      "location": "Row B2 (6 chargers + 1 ADA)",
+      "type": "verify",
+      "cost": "Evergy / ChargePoint"
+    },
+    "economyLot": {
+      "chargers": 24,
+      "location": "Lot C",
+      "type": "verify",
+      "cost": "Evergy / ChargePoint"
+    },
+    "valet": "EV charging offered with valet",
+    "totalPorts": "87 EV spaces across garage, surface and economy (incl. 5 ADA)",
+    "note": "One of the larger EV charging footprints at a mid-size US airport, and charging spans every price tier — including the $9/day Economy Lot C."
+  },
+  "luggageStorage": {
+    "onSite": "No luggage storage facilities at MCI (verify).",
+    "offSiteAlternatives": [
+      { "provider": "Bounce", "rate": "verify", "locations": "Kansas City metro (verify)" },
+      { "provider": "LuggageHero", "rate": "verify", "locations": "Kansas City metro (verify)" }
+    ]
+  },
+  "petFacilities": {
+    "total": "Pet relief areas in both concourses",
+    "locations": ["Concourse A — south end near Urban Café", "Concourse A — near Gate A8", "Concourse B — opposite Gate B54"],
+    "note": "Verify current locations on the flykc.com terminal map."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["5:00-7:00 AM (morning departure bank at the single checkpoint)"],
+    "busiestDays": ["Friday", "Sunday", "Monday (verify)"],
+    "quietestDays": ["Tuesday", "Wednesday (verify)"],
+    "seasonalPeak": "Summer vacation season, Thanksgiving, Christmas/New Year and spring break. Chiefs home games and big conventions spike rideshare demand and weekend traffic.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak travel periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental — hot, humid summers and cold winters with snow and ice.",
+    "commonDisruptions": "Winter snow and freezing rain/ice (December-February) cause deicing delays. Spring and early-summer severe thunderstorms (and tornado watches) cause ground stops and delays. Summer heat and afternoon storms.",
+    "bestMonths": "September-October (verify)",
+    "worstMonths": "January-February (ice and snow); May-June (severe storms)",
+    "winterNote": "Ice storms are the bigger problem than total snowfall. Economy Lot users: the airport offers free snow dig-out at airport-operated lots.",
+    "note": "The new apron/deicing pads on the old terminal site are part of the post-2023 airfield reuse."
+  },
+  "parkSleepFly": {
+    "description": "Several hotels near KCI sell parking without a room — the Triply-bookable ones are the Kansas City Airport Marriott, Hilton Kansas City Airport, Super 8 Kansas City Airport, Days Inn Kansas City Airport and Quality Inn Kansas City Airport. Room + parking package pricing — verify with each hotel.",
+    "priceRange": "Parking-only from $6.46/day (Super 8) to $10.57/day (Days Inn) on Triply before service fee; Quality Inn $4.13/day but shuttle $10 each way. Room + parking packages — verify.",
+    "popularHotels": [
+      {
+        "name": "Kansas City Airport Marriott",
+        "distance": "0.9 miles (on airport grounds)",
+        "parkingIncluded": "verify",
+        "shuttleHours": "24/7, every 15 minutes",
+        "highlight": "Closest hotel lot to the terminal; best shuttle frequency."
+      },
+      {
+        "name": "Hilton Kansas City Airport",
+        "distance": "1.7 miles",
+        "parkingIncluded": "verify",
+        "shuttleHours": "24/7, hourly on the hour",
+        "highlight": "Full-service hotel with restaurant; no in/out privileges on the lot."
+      },
+      {
+        "name": "Super 8 Kansas City Airport",
+        "distance": "1.9 miles",
+        "parkingIncluded": "verify",
+        "shuttleHours": "24/7 on demand",
+        "highlight": "Budget pick with a free on-demand shuttle; pay at the hotel."
+      },
+      {
+        "name": "Days Inn Kansas City Airport",
+        "distance": "1.7 miles",
+        "parkingIncluded": "verify",
+        "shuttleHours": "4 AM - 11 PM (none 11 PM - 4 AM)",
+        "highlight": "Restaurant on site; not suited to late-night returns."
+      },
+      {
+        "name": "Quality Inn Kansas City Airport",
+        "distance": "3.1 miles",
+        "parkingIncluded": "verify",
+        "shuttleHours": "24/7 every 30 min ($10 each way)",
+        "highlight": "Lowest parking rate; shuttle fee applies."
+      }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5 (KCI valet says tips are accepted)"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip (on-airport rates effective Sept 15, 2026; Triply lot rates from a live Nov 2-8, 2026 quote, before Triply's service fee)",
+    "onAirport": {
+      "economyLot": { "parkingCost": "$63 (7 x $9)", "totalEstimate": "$63" },
+      "surfaceLot": { "parkingCost": "$154 (7 x $22)", "totalEstimate": "$154" },
+      "garage": { "parkingCost": "$210 (7 x $30)", "totalEstimate": "$210" },
+      "valetParking": { "parkingCost": "$280 (7 x $40)", "totalEstimate": "$280" }
+    },
+    "offSiteWithShuttle": {
+      "super8": { "parkingCost": "$45.22 (7 x $6.46)", "savingsVsEconomyLot": "~$18 saved", "savingsVsGarage": "~$165 saved", "caveat": "Free 24/7 on-demand shuttle; pay at the hotel" },
+      "hilton": { "parkingCost": "$51.45 (7 x $7.35)", "savingsVsEconomyLot": "~$12 saved", "savingsVsGarage": "~$159 saved", "caveat": "Hourly shuttle; no in/out privileges" },
+      "marriott": { "parkingCost": "$58.45 (7 x $8.35)", "savingsVsEconomyLot": "~$5 saved", "savingsVsGarage": "~$152 saved", "caveat": "0.9 mi, shuttle every 15 min — best convenience" },
+      "daysInn": { "parkingCost": "$73.99 (7 x $10.57)", "savingsVsEconomyLot": "~$11 MORE than Economy", "savingsVsGarage": "~$136 saved", "caveat": "No shuttle 11 PM-4 AM" },
+      "qualityInn": { "parkingCost": "$28.91 (7 x $4.13) + $20-$40 shuttle fees", "savingsVsEconomyLot": "From ~$6 more to ~$14 saved, depending on whether the $10 shuttle fee is per person", "savingsVsGarage": "~$141-$161 saved", "caveat": "Shuttle $10 each way" }
+    },
+    "publicTransit": {
+      "rideKCRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "verify — roughly hourly Route 229 to the Northland", "note": "$2 per ride since June 1, 2026. Slow for downtown." },
+      "taxiRoundTrip": { "costForCouple": "verify — ~$90-$100 downtown round trip at $2.50 + $2.10/mile", "note": "Rideshare/taxi beats parking only on short trips." }
+    },
+    "keyDifference": "KCI's own Economy Lot at $9/day is the price benchmark — and it's hard to beat by much. Triply's hotel lots save the most against the garage ($30/day) and surface lot ($22/day): $136-$165 on a week vs the garage. Against Economy, Super 8 and Hilton save $12-$18 a week and the Marriott wins on convenience (0.9 mi, shuttle every 15 min). Triply's service fee (max of $4.95 or 6%) applies on top of these lot rates, so lead with garage/surface comparisons and with shuttle convenience — not with 'cheaper than Economy'."
+  },
+  "uniqueFeatures": {
+    "singleTerminal": "KCI replaced its famous 1972 three-ring 'drive to your gate' layout with one terminal on February 28, 2023 — one curb, one checkpoint, one garage. The $1.5B project was the largest single infrastructure project in Kansas City history.",
+    "garageAcrossTheStreet": "The seven-story, 6,219-space garage sits directly across from the terminal with green/red row lights showing open spaces — no shuttle needed.",
+    "cheapEconomyLot": "The 15,000+ space Economy Lot is $9/day and was left unchanged in the September 2026 rate increase — one of the lowest on-airport economy rates among US airports its size (verify ranking).",
+    "evCharging": "More than 80 EV charging spaces across the garage, surface lot and Economy Lot C — charging available at every price tier.",
+    "escapeLounge": "The Escape Lounge near Gate A5 (opened 2025) is the only lounge open to any airline passenger by paid entry.",
+    "southwestStronghold": "Southwest carries nearly half of all KCI passengers (49%); Southwest gates are in Concourse B.",
+    "motoristAssist": "Free jump-starts, tire air, lock-out help, snow dig-out and lost-vehicle location at airport-operated lots.",
+    "kciAlias": "The airport code is MCI (from Mid-Continent International), but locals call it KCI — useful for search."
+  },
+  "emergencyContacts": {
+    "airportWebsite": "flykc.com",
+    "parkingInfo": "flykc.com/parking",
+    "garagePhone": "816-243-5870",
+    "economyLotCourtesyPhone": "816-243-5544",
+    "valetPhone": "816-243-2019",
+    "parkingReceipts": "(816) 243-8019",
+    "shuttles": "816-243-5201",
+    "taxiDispatch": "816-243-2345",
+    "taxiComplaints": "816-243-5237",
+    "frequentParkerHelp": "1-877-735-9280",
+    "tsa": "(866) 289-9673",
+    "airportMainLine": "verify"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-13. NOTE: the official domain is flykc.com — flykci.com does not resolve.",
+    "officialAirport": {
+      "home": "https://www.flykc.com/",
+      "parking": "https://www.flykc.com/parking",
+      "evCharging": "https://www.flykc.com/parking#electric-charging",
+      "rewardsAndCoupons": "https://www.flykc.com/rewards-and-coupons",
+      "groundTransportation": "https://www.flykc.com/getting-to-and-from",
+      "terminalMaps": "https://www.flykc.com/terminal-maps",
+      "security": "https://www.flykc.com/security",
+      "lounges": "https://www.flykc.com/lounges-and-meeting-rooms",
+      "wifi": "https://www.flykc.com/wi-fi",
+      "newTerminalProject": "https://www.flykc.com/new-terminal-project",
+      "trafficStatistics": "https://www.flykc.com/traffic-statistics",
+      "aviationDepartment": "https://www.kcairports.com/"
+    },
+    "transit": {
+      "rideKC229": "https://ridekc.org/getting-around/routes-in-service/229-boardwalk-kci/",
+      "rideKCFares": "https://www.kcata.org/news/bus-fares-return-june-1-2026"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/mci/",
+      "lyft": "https://www.lyft.com/rider/airports/mci"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=MCI",
+      "parkAirExpress": "https://www.parkairexpress.com/",
+      "rateIncreaseNews": "https://www.kctv5.com/2026/09/14/kci-parking-rates-increasing-across-garage-surface-valet-lots/",
+      "kshbRateIncrease": "https://www.kshb.com/news/local-news/parking-rates-to-rise-next-week-at-kci-garage-surface-lot-valet-service"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsa.gov/mobile",
+      "securityRelayout2026": "https://www.kctv5.com/2026/04/09/kci-debut-new-centralized-security-queue-layout-friday/"
+    },
+    "lounges": {
+      "escapeLounge": "https://escapelounges.com/us/airport-lounges/kansas-city/",
+      "deltaSkyClub": "https://www.delta.com/us/en/delta-sky-club/locations",
+      "nerdwallet": "https://www.nerdwallet.com/travel/learn/the-guide-to-kansas-city-airport-lounges"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KMCI",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/MCI",
+      "faaDelays": "https://www.fly.faa.gov/flyfaa/flyfaaindex.jsp?p=0&ARPT=mci"
+    },
+    "comprehensiveGuides": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/kansas-city-international-mci-airport/",
+      "wikipedia": "https://en.wikipedia.org/wiki/Kansas_City_International_Airport"
+    },
+    "newsAndMedia": {
+      "kctv5": "https://www.kctv5.com/",
+      "kshb": "https://www.kshb.com/",
+      "fox4kc": "https://fox4kc.com/",
+      "kcur": "https://www.kcur.org/"
+    }
+  }
+}

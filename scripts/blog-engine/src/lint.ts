@@ -58,6 +58,7 @@ export interface LintResult {
 }
 
 const ARTIFACT_PHRASES: RegExp[] = [
+  /\[price omitted\]/i, // the writer prompt's placeholder for a removed stale figure (prompts/write.ts printableNotes)
   /\bwait,/i,
   /let'?s be precise/i,
   /competitor(?:'s)? article/i,
