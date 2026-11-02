@@ -304,7 +304,7 @@ function buildFAQs(
     if (ctx.allInDaily !== null && ctx.allInTotal !== null && ctx.days) {
       faqs.push({
         question: `What does ${airport.code} parking actually cost on Triply after fees?`,
-        answer: `Triply's cheapest ${airport.code} lot is ${money(ctx.triplyFrom)}/day, and the all-in total for a ${ctx.days}-day trip is ${money(ctx.allInTotal)} — about ${money(ctx.allInDaily)} per day including the Triply service fee. The fee is a flat minimum, so it costs proportionally less on longer trips. The full total is shown before you pay; there is no fee added after checkout.`,
+        answer: `Triply's cheapest ${airport.code} lot is ${money(ctx.triplyFrom)}/day, and the all-in total for a ${ctx.days}-day trip is ${money(ctx.allInTotal)} — about ${money(ctx.allInDaily)} per day including the Triply service fee (the greater of $5.95 or 6% of the parking price). That total is shown before you pay. Some lots charge extras at the lot, such as a shuttle fare or an oversized-vehicle surcharge — check the lot page before you book.`,
       });
     }
 

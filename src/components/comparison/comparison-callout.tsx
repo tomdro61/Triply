@@ -19,6 +19,7 @@ export function ComparisonCallout({ airport }: { airport: Airport }) {
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
         href={`/${airport.slug}/spothero-vs-airportparkingreservations-vs-triply`}
+        prefetch={false}
         className="group flex items-start gap-4 rounded-xl border border-gray-200 bg-white p-5 hover:border-brand-orange transition-colors max-w-4xl"
       >
         <span className="rounded-lg bg-brand-orange/10 p-2.5 shrink-0">

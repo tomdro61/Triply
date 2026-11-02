@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAirportBySlug } from "@/config/airports";
 import { fetchAirportPageData } from "@/lib/airport-page/data";
-import { getComparisonBySlug, liveComparisons } from "@/data/comparison";
+import { getComparisonBySlug } from "@/data/comparison";
 import { buildComparisonView, buildComparisonSchemas, comparisonUrl } from "@/lib/comparison/build";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { Navbar, Footer } from "@/components/shared";
@@ -29,9 +29,12 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  // Only "live" comparisons prerender. A "draft" entry still resolves through
-  // the dynamic segment, and is 404'd in the component below.
-  return liveComparisons.map((c) => ({ slug: c.slug }));
+  // Nothing prerenders — same as the sibling airport hub (PR #68): `next build`
+  // must make 0 ResLab calls, and fetchAirportPageData swallows a build-phase
+  // failure, which would bake a 0-lot comparison into ISR on every deploy. A
+  // live comparison renders on first request; a draft one 404s in the
+  // component below.
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

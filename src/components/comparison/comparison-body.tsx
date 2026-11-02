@@ -53,7 +53,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
           </li>
           <li className="flex items-center">
             <ChevronRight className="w-4 h-4 mx-2 text-gray-400" />
-            <Link href={hubHref} className="hover:text-brand-orange transition-colors">
+            <Link href={hubHref} prefetch={false} className="hover:text-brand-orange transition-colors">
               {airport.city} ({airport.code})
             </Link>
           </li>
@@ -118,8 +118,9 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
                 <span>
                   <strong>All-in, after the Triply service fee:</strong>{" "}
                   {money(view.triplyAllInTotal)} for {view.triplyDays} days —
-                  about {money(view.triplyAllInDaily)}/day. Nothing is added
-                  after checkout.
+                  about {money(view.triplyAllInDaily)}/day. Some lots charge
+                  extras at the lot (a shuttle fare, oversized vehicles) —
+                  check the lot page before you book.
                 </span>
               </li>
             )}
@@ -149,6 +150,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
           </ul>
           <Link
             href={hubHref}
+            prefetch={false}
             className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-orange hover:underline"
           >
             See all {view.triplyLotCount} {airport.code} lots and live rates
@@ -201,7 +203,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
               </tr>
               <tr className="border-b border-gray-100">
                 <td className="py-3.5 pr-4 text-sm text-gray-600">
-                  All-in price shown before checkout
+                  Total incl. service fee shown before checkout
                 </td>
                 <td className="py-3.5 px-4 text-sm font-medium text-gray-900">
                   {view.triplyAllInDaily !== null
@@ -210,7 +212,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
                 </td>
                 {view.competitors.map((c) => (
                   <td key={c.key} className="py-3.5 px-4 text-sm text-gray-500">
-                    Rate shown before taxes &amp; fees
+                    Not checked — advertised daily rate only (read {longDate(c.verifiedOn)})
                   </td>
                 ))}
               </tr>
@@ -346,6 +348,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
             <p className="text-sm text-gray-700 mb-3">{view.bestFor.triply}</p>
             <Link
               href={hubHref}
+              prefetch={false}
               className="text-sm font-medium text-brand-orange hover:underline inline-flex items-center gap-1"
             >
               See {airport.code} lots <ArrowRight className="w-3.5 h-3.5" />
@@ -412,6 +415,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
               <Link
                 key={c.slug}
                 href={`/${c.slug}/spothero-vs-airportparkingreservations-vs-triply`}
+                prefetch={false}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-brand-orange hover:text-brand-orange transition-colors"
               >
                 SpotHero vs APR vs Triply — {c.code}
@@ -420,6 +424,7 @@ export function ComparisonBody({ view }: { view: ComparisonView }) {
             ))}
             <Link
               href="/airport-parking"
+              prefetch={false}
               className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:border-brand-orange hover:text-brand-orange transition-colors"
             >
               All airports

@@ -71,9 +71,33 @@ export interface AirportComparison {
   /** Must match the Airport.slug in @/config/airports. */
   slug: string;
   /**
-   * "live"  → prerendered, sitemapped, linked from the airport hub.
+   * "live"  → rendered on request, sitemapped, linked from the airport hub.
    * "draft" → 404s and stays out of the sitemap. Use this when the live
    *            numbers don't support publishing the page yet.
+   *
+   * BEFORE SETTING ANY ENTRY TO "live" (review of PR #114, Nov 2026 — these
+   * are latent while everything is draft, and the gate for publishing):
+   *  1. Tokenise every competitor figure in `verdict.lede` ({aprFrom},
+   *     {spotheroFrom}) and validate the FULL ordering the lede asserts, not
+   *     just the winner (BOS's lede names both competitors as cheaper).
+   *  2. Move every price/ranking phrase out of `strengths`, `weaknesses` and
+   *     `bestFor` ("Lowest advertised rate…", "the most sub-$9 lots", "$15–$34/
+   *     day") — they bypass the 45-day staleness guard and the live
+   *     re-derivation, and reach FAQPage JSON-LD.
+   *  3. Give Triply's cheapest lot the same no-shuttle / paid-at-lot caveat the
+   *     competitors get (PHX: La Quinta has no shuttle; BOS: Broadway's shuttle
+   *     is $16 each way; DEN: Embassy Suites charges an $8 shuttle fee).
+   *  4. Source or delete subjective competitor claims ("Best mobile app",
+   *     "deep review counts", "updated by hand") — each needs a source + date.
+   *  5. Age the snapshot from the competitor's OWN stamp (APR prints "Prices
+   *     last updated"), set WebPage.dateModified from `verifiedOn`, not the
+   *     render date; drop the hardcoded year from the title.
+   *  6. Round `triplyFrom` to cents, treat a tie as no winner; count only
+   *     priced lots for {under9}/{lotCount}/offerCount (a $0 minPrice is the
+   *     "Reserve enabled" swallow); mirror the hub's 0-lot handling (noindex).
+   *  7. Match same-lot rows by ResLab location id, not a name substring; drop
+   *     "same shuttle"; table a11y (row headers, caption); `prefetch={false}`
+   *     is already set on the links.
    */
   status: "live" | "draft";
   /** One line explaining a "draft" status. Shown to nobody; read by humans. */
