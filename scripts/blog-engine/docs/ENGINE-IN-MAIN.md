@@ -49,8 +49,11 @@ now feeds two places through `src/lib/blog/blog-redirects.mjs`:
 - `src/components/blog/RichText.tsx`: any link to `/blog/<old>` renders as `/blog/<new>`, whether it is
   absolute (`triplypro.com`, with or without `www`) or relative, and keeps any trailing slash, query or `#fragment`.
   Readers and crawlers never hop through the redirect.
-The map stays empty until the W2 merge test. Tests: `src/lib/blog/__tests__/blog-redirects.test.ts` and
-`src/config/__tests__/blog-redirects.test.ts` (no chains, no loops).
+The map stays empty until the W2 merge test. `buildBlogRedirects` validates the map at build time (slug → slug,
+no self-redirect, no chain) and fails `next build` on a bad entry — a 308 is cached by browsers, so a wrong
+entry must never ship. Tests: `src/lib/blog/__tests__/blog-redirects.test.ts` and
+`src/config/__tests__/blog-redirects.test.ts`. The sitemap and post cards build URLs from CMS slugs, so a merged
+post must also be unpublished, or the sitemap keeps listing a URL that redirects.
 
 **`apply-edit` (B-4): the one way to change an existing post.**
 
@@ -71,7 +74,15 @@ npx tsx src/apply-edit.ts --slug <slug> --edit edit.json --apply [--stamp]
   of the body is spliced untouched. It re-reads to confirm no link or image was lost and pings IndexNow
   when the post is published.
 - `contentUpdatedAt` moves only with `--stamp` **and** a non-empty facts diff, meaning a number-bearing
-  sentence was added or removed.
+  sentence was added or removed in the body or the FAQ (stamp.ts rule: titles and metadata are not facts).
+- Review fixes (Nov 2026): `edit.json` is validated strictly (unknown keys, a bad `position`, an empty
+  `faqItems` are refused); a heading that is missing or appears twice is refused, as is an insert whose text is
+  already under the heading (a retry after a lost PATCH response would otherwise add it twice); the price
+  allow-list is what the writer prompt sees for the airport (`figureSource`), not every number in the file, and
+  only an **external** link sources a paragraph; `--apply` refuses unless it is the same post, unchanged, with
+  the same `edit.json` producing the same patch as the preview (hashes in `.meta.json`); a PATCH that throws is
+  settled by re-reading the post (applied / not live / unknown, naming the backup); lint errors already in the
+  live post are reported, not blocking (this command cannot change old body text).
 
 ## Flags
 

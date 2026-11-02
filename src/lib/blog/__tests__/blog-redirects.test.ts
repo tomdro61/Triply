@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBlogRedirects, resolveBlogHref } from "../blog-redirects.mjs";
+import { buildBlogRedirects, resolveBlogHref, validateBlogRedirectMap } from "../blog-redirects.mjs";
 import liveMap from "../../../config/blog-redirects.json";
 
 const map = { "ewr-parking-prices": "newark-airport-parking-rates" };
@@ -12,6 +12,14 @@ describe("buildBlogRedirects", () => {
   });
   it("is empty for the committed map (nothing merged yet)", () => {
     expect(buildBlogRedirects(liveMap as Record<string, string>)).toEqual([]);
+  });
+  it("fails the build on a self-redirect, a chain, a bad slug or a non-object map", () => {
+    expect(() => buildBlogRedirects({ a: "a" })).toThrow(/redirects to itself/);
+    expect(() => buildBlogRedirects({ a: "b", b: "c" })).toThrow(/chain/);
+    expect(() => buildBlogRedirects({ "Bad Slug": "b" })).toThrow(/not a slug/);
+    expect(() => buildBlogRedirects({ a: "b/c" })).toThrow(/not a slug/);
+    expect(validateBlogRedirectMap([])).toEqual(["must be a flat { oldSlug: newSlug } object"]);
+    expect(validateBlogRedirectMap({ a: "b", c: "b" })).toEqual([]);
   });
 });
 
@@ -33,6 +41,8 @@ describe("resolveBlogHref", () => {
     "https://example.com/blog/ewr-parking-prices",
     "/newark-ewr/airport-parking",
     "mailto:hi@triplypro.com",
+    "/blog/constructor",
+    "/blog/x/sub",
   ])("leaves %s alone", (href) => {
     expect(resolveBlogHref(href, map)).toBe(href);
   });
