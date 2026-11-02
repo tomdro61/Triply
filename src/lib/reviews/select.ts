@@ -68,6 +68,14 @@ export interface ReviewBookingRow {
 
 export interface ReviewLedgerRow {
   bookingId: string;
+  /** The lowercased recipient (review_emails.email). The backfill reads the
+   *  whole ledger and judges "already asked" by this, so an ask on a booking
+   *  outside the candidate read (older, later refunded) still counts. */
+  email?: string | null;
+  /** The mode of the deployment that sent it (review_emails.livemode). The
+   *  backfill reads the whole shared ledger, so a parked `retry` row of the
+   *  OTHER mode must be ignored, not re-sent or alarmed as expired. */
+  livemode?: boolean | null;
   kind: ReviewEmailKind;
   status: "claimed" | "retry" | "sent" | "failed" | "unconfirmed";
   sentAt: string | null;

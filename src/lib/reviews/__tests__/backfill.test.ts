@@ -132,6 +132,81 @@ describe("selectBackfillSends", () => {
     });
   });
 
+  it("re-sends a backfill email parked in retry, for the SAME booking, ahead of everyone", () => {
+    const parked = booking({ email: "p@example.com", checkOut: "2026-03-01T10:00:00", locationName: "Parked Lot" });
+    booking({ email: "p@example.com", checkOut: "2026-08-20T10:00:00", locationName: "Newer Lot" });
+    const fresh = booking({ email: "f@example.com", checkOut: "2026-09-20T10:00:00" });
+    const { candidates, retrying, skipped } = run([parked, fresh], [
+      { bookingId: parked.id, kind: "backfill", status: "retry", sentAt: null, email: "p@example.com" },
+    ]);
+    expect(candidates.map((c) => c.bookingId)).toEqual([parked.id, fresh.id]);
+    expect(candidates[0]).toMatchObject({ lotName: "Parked Lot", checkoutDate: "2026-03-01", linkFromDate: CAMPAIGN });
+    expect(retrying).toBe(1);
+    expect(skipped.alreadyAsked).toBe(0);
+  });
+
+  it("an ask recorded on a booking the read never saw still counts, by address", () => {
+    const b = booking({ email: "asked@example.com", checkOut: "2026-05-01T10:00:00" });
+    const { candidates, skipped } = run([b], [
+      // e.g. the booking was refunded after the email, or is older than the window
+      { bookingId: "00000000-0000-4000-8000-ffffffffffff", kind: "initial", status: "sent", sentAt: "2026-10-01T23:00:00Z", email: "Asked@Example.com" },
+    ]);
+    expect(candidates).toEqual([]);
+    expect(skipped.alreadyAsked).toBe(1);
+  });
+
+  it("a parked retry is held when the address's latest trip is still inside the daily email's windows", () => {
+    const parked = booking({ email: "p@example.com", checkOut: "2026-03-01T10:00:00" });
+    const today = booking({ email: "p@example.com", checkOut: "2026-10-09T10:00:00" });
+    const { candidates, retrying, skipped } = run([parked, today], [
+      { bookingId: parked.id, kind: "backfill", status: "retry", sentAt: null, email: "p@example.com" },
+    ]);
+    expect(candidates).toEqual([]);
+    expect(retrying).toBe(0);
+    expect(skipped.tooRecent).toBe(1);
+  });
+
+  it("a parked retry that can no longer be re-sent is reported with its booking id, not dropped quietly", () => {
+    const stale = booking({ email: "s@example.com", checkOut: "2025-10-05T10:00:00" }); // now > 365 days
+    const { candidates, expiredRetries, skipped } = run([stale], [
+      { bookingId: stale.id, kind: "backfill", status: "retry", sentAt: null, email: "s@example.com" },
+      { bookingId: "00000000-0000-4000-8000-eeeeeeeeeeee", kind: "backfill", status: "retry", sentAt: null, email: "gone@example.com" }, // booking outside the read
+    ]);
+    expect(candidates).toEqual([]);
+    expect(expiredRetries.sort()).toEqual(["00000000-0000-4000-8000-eeeeeeeeeeee", stale.id].sort());
+    expect(skipped.retryExpired).toBe(2);
+  });
+
+  it("a parked retry of the OTHER mode (shared database) is neither re-sent, counted as asked, nor alarmed", () => {
+    const b = booking({ email: "x@example.com", checkOut: "2026-05-01T10:00:00" });
+    const { candidates, retrying, expiredRetries, skipped } = run([b], [
+      { bookingId: "00000000-0000-4000-8000-dddddddddddd", kind: "backfill", status: "retry", sentAt: null, email: "x@example.com", livemode: false },
+    ]);
+    expect(candidates.map((c) => c.bookingId)).toEqual([b.id]); // asked afresh in THIS mode
+    expect(retrying).toBe(0);
+    expect(expiredRetries).toEqual([]);
+    expect(skipped.retryExpired).toBe(0);
+  });
+
+  it("a parked retry is held too when the address has a trip ahead", () => {
+    const parked = booking({ email: "p@example.com", checkOut: "2026-03-01T10:00:00" });
+    const ahead = booking({ email: "p@example.com", checkOut: "2026-11-20T10:00:00" });
+    const { candidates, retrying, skipped } = run([parked, ahead], [
+      { bookingId: parked.id, kind: "backfill", status: "retry", sentAt: null, email: "p@example.com" },
+    ]);
+    expect(candidates).toEqual([]);
+    expect(retrying).toBe(0);
+    expect(skipped.upcomingTrip).toBe(1);
+  });
+
+  it("an address with a trip still ahead is left to the daily email entirely", () => {
+    const old = booking({ email: "soon@example.com", checkOut: "2026-05-01T10:00:00" });
+    const ahead = booking({ email: "soon@example.com", checkOut: "2026-11-20T10:00:00" });
+    const { candidates, skipped } = run([old, ahead]);
+    expect(candidates).toEqual([]);
+    expect(skipped).toMatchObject({ notCheckedOut: 1, upcomingTrip: 1 });
+  });
+
   it("orders the freshest trips first and summarizes without addresses", () => {
     const a = booking({ checkOut: "2026-04-10T10:00:00", airportCode: "EWR", locationName: "Lot A" });
     const b = booking({ checkOut: "2026-09-10T10:00:00" });

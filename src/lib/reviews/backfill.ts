@@ -43,26 +43,42 @@ export const BACKFILL_MIN_DAYS_AFTER = REMINDER_MAX_DAYS_AFTER + 1;
 /** Older trips are not asked: memory of the lot fades, and so does consent to hear from us. */
 export const BACKFILL_MAX_DAYS_AFTER = 365;
 
+export type BackfillSkipped = {
+  notReviewable: number;
+  cancelling: number;
+  otherMode: number;
+  testLot: number;
+  noEmail: number;
+  invalidCheckout: number;
+  notCheckedOut: number;
+  optedOut: number;
+  /** The address already had a review email of any kind, or left a review. */
+  alreadyAsked: number;
+  /** The address's most recent trip is still inside the daily email's windows. */
+  tooRecent: number;
+  tooOld: number;
+  /** Older trips of an address whose most recent trip was the one considered. */
+  olderTripSameAddress: number;
+  /** The address has a trip that has not checked out yet: the daily email will
+   *  ask about THAT one, so the backfill stays silent ("We'll only ask once"). */
+  upcomingTrip: number;
+  /** A backfill row parked in `retry` that can no longer be re-sent: its trip
+   *  is now older than a year, or its booking is outside the read. The row
+   *  stays parked; the route alarms with the ids (`expiredRetries`). */
+  retryExpired: number;
+};
+
 export interface BackfillSelection {
-  /** Most recent check-out first — the freshest memories go out first under a cap. */
+  /** Most recent check-out first — the freshest memories go out first under a
+   *  cap. A backfill email parked in `retry` (a Resend 429, a stopped run) is
+   *  re-emitted for ITS booking ahead of everyone, so a transient failure never
+   *  drops a customer for good (the claim re-uses the row). */
   candidates: ReviewCandidate[];
-  skipped: {
-    notReviewable: number;
-    cancelling: number;
-    otherMode: number;
-    testLot: number;
-    noEmail: number;
-    invalidCheckout: number;
-    notCheckedOut: number;
-    optedOut: number;
-    /** The address already had a review email of any kind, or left a review. */
-    alreadyAsked: number;
-    /** The address's most recent trip is still inside the daily email's windows. */
-    tooRecent: number;
-    tooOld: number;
-    /** Older trips of an address whose most recent trip was the one considered. */
-    olderTripSameAddress: number;
-  };
+  /** How many of `candidates` are those re-emitted `retry` rows. */
+  retrying: number;
+  /** Booking ids of parked `retry` rows that will never be re-sent (see skipped.retryExpired). */
+  expiredRetries: string[];
+  skipped: BackfillSkipped;
 }
 
 export interface BackfillOptions extends SelectOptions {
@@ -77,7 +93,7 @@ export function selectBackfillSends(
   nowMs: number,
   options: BackfillOptions
 ): BackfillSelection {
-  const skipped: BackfillSelection["skipped"] = {
+  const skipped: BackfillSkipped = {
     notReviewable: 0,
     cancelling: 0,
     otherMode: 0,
@@ -90,21 +106,45 @@ export function selectBackfillSends(
     tooRecent: 0,
     tooOld: 0,
     olderTripSameAddress: 0,
+    upcomingTrip: 0,
+    retryExpired: 0,
   };
+  const expiredRetries: string[] = [];
   const testLots = options.testLocationIds ?? new Set<number>();
   const suppressed = options.suppressed ?? new Set<string>();
-  const askedBookings = new Set(ledger.map((r) => r.bookingId));
 
-  // Addresses already asked or already reviewed, from ANY of their bookings —
-  // including ones that are not themselves reviewable today.
+  // A backfill row parked in `retry` was claimed but never delivered: not an
+  // ask. Its booking is re-emitted below (the route's claim re-uses the row).
+  // The ledger is the whole SHARED table: a parked row of the other mode
+  // (a staging test, seen from production or the reverse) is nobody's to
+  // re-send or alarm here — ignored. Delivered rows of either mode still
+  // count as asked (conservative).
+  const otherModeRetry = (r: ReviewLedgerRow) =>
+    r.status === "retry" && r.livemode !== undefined && r.livemode !== null && r.livemode !== options.live;
+  const ledgerInMode = ledger.filter((r) => !otherModeRetry(r));
+  const retryBookingIds = new Set(ledgerInMode.filter((r) => r.kind === "backfill" && r.status === "retry").map((r) => r.bookingId));
+  const askedBookings = new Set(ledgerInMode.filter((r) => !retryBookingIds.has(r.bookingId)).map((r) => r.bookingId));
+
+  // Addresses already asked or already reviewed. The ledger carries the
+  // recipient, so an ask on a booking the candidate read never saw (older than
+  // the window, since refunded or disputed) still counts; booking ids cover
+  // rows without one (older fixtures) and the reviews, which only ever follow
+  // an ask.
   const askedAddresses = new Set<string>();
+  for (const r of ledgerInMode) {
+    const email = normalizedEmail(r.email ?? null);
+    if (email && !retryBookingIds.has(r.bookingId)) askedAddresses.add(email);
+  }
   for (const b of bookings) {
     const email = normalizedEmail(b.email);
     if (email && (askedBookings.has(b.id) || reviewedBookingIds.has(b.id))) askedAddresses.add(email);
   }
 
-  // Each address's most recent trip that actually happened.
+  // Each address's most recent trip that actually happened; addresses with a
+  // trip still ahead (the daily email's job) are held back entirely.
+  const upcomingAddresses = new Set<string>();
   const latestByAddress = new Map<string, { b: ReviewBookingRow; checkout: string; localNow: string }>();
+  const retryByAddress = new Map<string, { b: ReviewBookingRow; checkout: string; localNow: string }>();
   for (const b of bookings) {
     if (!REVIEWABLE_STATUSES.includes(b.status)) {
       skipped.notReviewable++;
@@ -135,8 +175,10 @@ export function selectBackfillSends(
     const localNow = localWallClockAt(nowMs, b.locationTimezone, b.airportCode);
     if (checkout > localNow) {
       skipped.notCheckedOut++;
+      upcomingAddresses.add(email);
       continue;
     }
+    if (retryBookingIds.has(b.id)) retryByAddress.set(email, { b, checkout, localNow });
     const prev = latestByAddress.get(email);
     if (!prev) {
       latestByAddress.set(email, { b, checkout, localNow });
@@ -146,8 +188,19 @@ export function selectBackfillSends(
     }
   }
 
+  // A parked retry whose booking the read no longer holds (older than the
+  // window): nothing can re-send it; say so rather than lose it quietly.
+  const loadedIds = new Set(bookings.map((b) => b.id));
+  for (const id of retryBookingIds) {
+    if (!loadedIds.has(id)) {
+      skipped.retryExpired++;
+      expiredRetries.push(id);
+    }
+  }
+
   const candidates: ReviewCandidate[] = [];
-  for (const [email, { b, checkout, localNow }] of latestByAddress) {
+  const retries: ReviewCandidate[] = [];
+  for (const [email, latest] of latestByAddress) {
     if (suppressed.has(email)) {
       skipped.optedOut++;
       continue;
@@ -156,12 +209,42 @@ export function selectBackfillSends(
       skipped.alreadyAsked++;
       continue;
     }
-    const checkoutDate = checkout.slice(0, 10);
-    const daysSince = daysBetween(checkoutDate, localNow.slice(0, 10));
-    if (daysSince < BACKFILL_MIN_DAYS_AFTER) {
+    if (upcomingAddresses.has(email)) {
+      // Also holds a parked retry: the daily email will ask about the trip
+      // ahead, and that ask then counts as this address's one ask.
+      skipped.upcomingTrip++;
+      continue;
+    }
+    const latestDaysSince = daysBetween(latest.checkout.slice(0, 10), latest.localNow.slice(0, 10));
+    if (latestDaysSince < BACKFILL_MIN_DAYS_AFTER) {
+      // Still inside the daily email's windows — also holds a parked retry,
+      // which would otherwise land days before the daily email for this trip.
       skipped.tooRecent++;
       continue;
     }
+    const retry = retryByAddress.get(email);
+    if (retry) {
+      if (daysBetween(retry.checkout.slice(0, 10), retry.localNow.slice(0, 10)) > BACKFILL_MAX_DAYS_AFTER) {
+        skipped.retryExpired++; // parked too long; the row stays parked, never re-sent
+        expiredRetries.push(retry.b.id);
+        continue;
+      }
+      // The row already names this booking; the ask must be about the same trip.
+      retries.push({
+        bookingId: retry.b.id,
+        kind: "backfill",
+        email,
+        firstName: retry.b.firstName?.trim() || null,
+        lotName: retry.b.locationName,
+        airportCode: linkableAirportCode(retry.b.airportCode),
+        checkoutDate: retry.checkout.slice(0, 10),
+        linkFromDate: options.campaignDate,
+      });
+      continue;
+    }
+    const { b, checkout } = latest;
+    const checkoutDate = checkout.slice(0, 10);
+    const daysSince = latestDaysSince;
     if (daysSince > BACKFILL_MAX_DAYS_AFTER) {
       skipped.tooOld++;
       continue;
@@ -178,7 +261,7 @@ export function selectBackfillSends(
     });
   }
   candidates.sort((x, y) => (x.checkoutDate > y.checkoutDate ? -1 : x.checkoutDate < y.checkoutDate ? 1 : 0));
-  return { candidates, skipped };
+  return { candidates: [...retries, ...candidates], retrying: retries.length, expiredRetries, skipped };
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

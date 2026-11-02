@@ -20,6 +20,7 @@ vi.mock("@sentry/nextjs", () => ({
 }));
 
 import { GET } from "../route";
+import * as Sentry from "@sentry/nextjs";
 
 const CRON_SECRET = process.env.CRON_SECRET as string;
 const SAVED_STRIPE_KEY = process.env.STRIPE_SECRET_KEY;
@@ -181,6 +182,26 @@ describe("GET /api/cron/post-trip-review", () => {
     expect(await second.json()).toMatchObject({ sent: 1 });
     expect(db.tables.review_emails).toMatchObject([{ booking_id: b.id, status: "sent" }]);
     expect(db.tables.review_emails).toHaveLength(1);
+  });
+
+  it("a rate limit between successful sends never stops the run; three in a row do", async () => {
+    for (let i = 0; i < 6; i++) booking();
+    resendSend
+      .mockResolvedValueOnce({ data: null, error: { message: "rate limited", statusCode: 429, name: "rate_limit_exceeded" } })
+      .mockResolvedValueOnce({ data: { id: "e1" }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "rate limited", statusCode: 429, name: "rate_limit_exceeded" } })
+      .mockResolvedValueOnce({ data: { id: "e2" }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "rate limited", statusCode: 429, name: "rate_limit_exceeded" } })
+      .mockResolvedValueOnce({ data: { id: "e3" }, error: null });
+    const res = await GET(req());
+    expect(await res.json()).toMatchObject({ ok: true, sent: 3, stoppedEarly: null });
+    expect(resendSend).toHaveBeenCalledTimes(6);
+
+    resendSend.mockReset();
+    resendSend.mockResolvedValue({ data: null, error: { message: "rate limited", statusCode: 429, name: "rate_limit_exceeded" } });
+    const second = await GET(req()); // the 3 parked rows: 429, 429, 429 → stop
+    expect(await second.json()).toMatchObject({ stoppedEarly: "quota", sent: 0 });
+    expect(resendSend).toHaveBeenCalledTimes(3);
   });
 
   it("marks a permanent rejection failed and never retries it", async () => {
@@ -403,6 +424,8 @@ describe("GET /api/cron/post-trip-review?backfill=…", () => {
     ]) {
       expect((await GET(bfReq(q))).status, q).toBe(400);
     }
+    // One campaign date serves every batch for weeks: up to 30 days back is fine.
+    expect((await GET(bfReq("backfill=send&campaign=2026-09-15&limit=5"))).status).toBe(200);
     expect(resendSend).not.toHaveBeenCalled();
   });
 
@@ -413,17 +436,133 @@ describe("GET /api/cron/post-trip-review?backfill=…", () => {
     const first = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=1"));
     expect(await first.json()).toMatchObject({ ok: true, backfill: true, sent: 1, backfillCandidates: 2 });
     expect(resendSend).toHaveBeenCalledTimes(1);
-    expect(resendSend.mock.calls[0][1]).toEqual({ idempotencyKey: `post-trip-review/${newer.id}/backfill` });
+    expect(resendSend.mock.calls[0][1]).toEqual({ idempotencyKey: `post-trip-review/${newer.id}/backfill/2026-10-09` });
     expect(resendSend.mock.calls[0][0].subject).toBe("How was Jet Parking JFK in September 2026?");
     expect(db.tables.review_emails).toMatchObject([{ booking_id: newer.id, kind: "backfill", status: "sent" }]);
 
     await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
     expect(resendSend).toHaveBeenCalledTimes(2);
-    expect(resendSend.mock.calls[1][1]).toEqual({ idempotencyKey: `post-trip-review/${older.id}/backfill` });
+    expect(resendSend.mock.calls[1][1]).toEqual({ idempotencyKey: `post-trip-review/${older.id}/backfill/2026-10-09` });
 
     const third = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
     expect(await third.json()).toMatchObject({ ok: true, sent: 0, backfillCandidates: 0 });
     expect(resendSend).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads the whole year in pages under PostgREST's 1,000-row cap; refuses past its own cap; fails closed on a read error", async () => {
+    db.maxRows = 1000; // the server-side truncation a single wide range would hit
+    try {
+      for (let i = 0; i < 1001; i++) booking({ check_out: "2026-07-15T10:00:00" });
+      const res = await GET(bfReq("backfill=preview"));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ ok: true, preview: true, scanned: 1001, wouldAsk: { total: 1001 } });
+
+      db.failOnce("bookings", "select", "connection reset");
+      const failed = await GET(bfReq("backfill=preview"));
+      expect(failed.status).toBe(500);
+      expect(await failed.json()).toMatchObject({ ok: false, error: expect.stringContaining("backfill bookings read failed") });
+
+      for (let i = 0; i < 9000; i++) booking({ check_out: "2026-07-15T10:00:00" }); // 10,001 > BACKFILL_ROW_CAP
+      const capped = await GET(bfReq("backfill=preview"));
+      expect(capped.status).toBe(500);
+      expect(await capped.json()).toMatchObject({ ok: false, error: expect.stringContaining("exceeds 10000 rows") });
+      expect(resendSend).not.toHaveBeenCalled();
+    } finally {
+      db.maxRows = null;
+    }
+  });
+
+  it("asks a pre-snapshot-era GUEST checkout through its customer record; a signed-in account's and a later one without a snapshot are skipped", async () => {
+    booking({ check_out: "2026-05-01T10:00:00", stripe_payment_intent_id: "pi_old", created_at: "2026-05-01T12:00:00+00:00" });
+    const account = booking({ check_out: "2026-06-01T10:00:00", stripe_payment_intent_id: "pi_acct", created_at: "2026-06-01T12:00:00+00:00" });
+    const row = db.tables.customers.find((c) => c.id === account.customer_id);
+    if (row) row.user_id = "user-1"; // the pre-rework handler attached a signed-in booking to the ACCOUNT's row
+    booking({ check_out: "2026-09-01T10:00:00", stripe_payment_intent_id: "pi_new", created_at: "2026-09-01T12:00:00+00:00" });
+    const res = await GET(bfReq("backfill=preview"));
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      wouldAsk: { total: 1, byCheckoutMonth: { "2026-05": 1 } },
+      viaCustomerRecord: 1,
+      legacyAccountHolder: 1,
+      noGuestSnapshot: 1,
+    });
+  });
+
+  it("stops on Resend's daily quota, parks the row, and re-sends it first on the next run", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    const a = booking({ check_out: "2026-09-01T10:00:00" });
+    booking({ check_out: "2026-08-01T10:00:00" });
+    booking({ check_out: "2026-07-01T10:00:00" });
+    resendSend.mockResolvedValueOnce({ data: null, error: { message: "quota", statusCode: 429, name: "daily_quota_exceeded" } });
+    const first = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await first.json()).toMatchObject({ stoppedEarly: "quota", sent: 0, remaining: 3 }); // 2 not reached + 1 parked
+    expect(resendSend).toHaveBeenCalledTimes(1);
+    expect(db.tables.review_emails).toMatchObject([{ booking_id: a.id, kind: "backfill", status: "retry" }]);
+
+    const second = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await second.json()).toMatchObject({ ok: true, sent: 3, retrying: 1, remaining: 0 });
+    expect(resendSend).toHaveBeenCalledTimes(4);
+    expect(resendSend.mock.calls[1][1]).toEqual({ idempotencyKey: `post-trip-review/${a.id}/backfill/2026-10-09` });
+    expect(db.tables.review_emails).toHaveLength(3);
+    expect(db.tables.review_emails.every((r) => r.status === "sent")).toBe(true);
+  });
+
+  it("a single rate limit on the last candidate still counts as remaining", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    booking({ check_out: "2026-09-01T10:00:00" });
+    booking({ check_out: "2026-08-01T10:00:00" });
+    resendSend
+      .mockResolvedValueOnce({ data: { id: "e1" }, error: null })
+      .mockResolvedValueOnce({ data: null, error: { message: "rate limited", statusCode: 429, name: "rate_limit_exceeded" } });
+    const res = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await res.json()).toMatchObject({ ok: true, sent: 1, stoppedEarly: null, remaining: 1 });
+  });
+
+  it("a failed claim still counts as remaining; two in a row stop the run", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    booking({ check_out: "2026-09-01T10:00:00" });
+    booking({ check_out: "2026-08-01T10:00:00" });
+    booking({ check_out: "2026-07-01T10:00:00" });
+    db.failAlways("review_emails", "insert", "new row violates check constraint", "23514"); // migration 044 not applied
+    try {
+      const res = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+      expect(await res.json()).toMatchObject({ ok: false, stoppedEarly: "claim", claimFailed: 2, sent: 0, remaining: 3 });
+      expect(resendSend).not.toHaveBeenCalled();
+    } finally {
+      db.clearFailures();
+    }
+  });
+
+  it("a legacy guest-checkout send uses the generic greeting (the row's first name may be another guest's)", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    booking({ check_out: "2026-05-01T10:00:00", stripe_payment_intent_id: "pi_old", created_at: "2026-05-01T12:00:00+00:00" });
+    const res = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=5"));
+    expect(await res.json()).toMatchObject({ ok: true, sent: 1, viaCustomerRecord: 1 });
+    expect(resendSend.mock.calls[0][0].text).toMatch(/^Hi,/m);
+    expect(resendSend.mock.calls[0][0].text).not.toContain("Hi Sam");
+  });
+
+  it("alarms when a parked backfill row can never be re-sent", async () => {
+    vi.mocked(Sentry.captureMessage).mockClear();
+    db.tables.review_emails.push({ id: "led-x", booking_id: "00000000-0000-4000-8000-eeeeeeeeeeee", kind: "backfill", status: "retry", sent_at: null, email: "gone@example.com", livemode: true });
+    // A staging run's parked row (livemode false) is not this deployment's: no alarm, no count.
+    db.tables.review_emails.push({ id: "led-y", booking_id: "00000000-0000-4000-8000-dddddddddddd", kind: "backfill", status: "retry", sent_at: null, email: "test@example.com", livemode: false });
+    booking({ check_out: "2026-07-15T10:00:00" });
+    const res = await GET(bfReq("backfill=preview"));
+    expect(await res.json()).toMatchObject({ ok: true, wouldAsk: { total: 1 }, skipped: { retryExpired: 1 } });
+    const messages = vi.mocked(Sentry.captureMessage).mock.calls.map((c) => String(c[0]));
+    expect(messages.some((m) => /parked backfill email/.test(m))).toBe(true);
+  });
+
+  it("reaching the batch limit is reported as remaining, not alarmed as a deferral", async () => {
+    process.env.REVIEW_BACKFILL_ENABLED = "true";
+    vi.mocked(Sentry.captureMessage).mockClear();
+    booking({ check_out: "2026-09-01T10:00:00" });
+    booking({ check_out: "2026-08-01T10:00:00" });
+    const res = await GET(bfReq("backfill=send&campaign=2026-10-09&limit=1"));
+    expect(await res.json()).toMatchObject({ ok: true, sent: 1, remaining: 1 });
+    const messages = vi.mocked(Sentry.captureMessage).mock.calls.map((c) => String(c[0]));
+    expect(messages.filter((m) => /deferred|capped/.test(m))).toEqual([]);
   });
 
   it("the daily run still works with backfill rows in the ledger", async () => {

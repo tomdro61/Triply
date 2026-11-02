@@ -197,8 +197,12 @@ export function buildReviewEmail(c: ReviewCandidate, footerInfo: ReviewEmailFoot
 /** One key per booking + kind. The payload is byte-stable for a booking: the
  *  token's expiry derives from the check-out date and the unsubscribe link
  *  from the booking id, never from "now". */
-export const reviewIdempotencyKey = (bookingId: string, kind: ReviewCandidate["kind"]) =>
-  `post-trip-review/${bookingId}/${kind}`;
+/** A backfill key carries its campaign date: the payload's links depend on it,
+ *  and a row parked in `retry` (nothing was sent) may be re-sent under a later
+ *  date — a different payload under the SAME key would be a Resend 409. The
+ *  ledger's UNIQUE (booking_id, kind) is what prevents a second send. */
+export const reviewIdempotencyKey = (bookingId: string, kind: ReviewCandidate["kind"], linkFromDate?: string) =>
+  kind === "backfill" && linkFromDate ? `post-trip-review/${bookingId}/${kind}/${linkFromDate}` : `post-trip-review/${bookingId}/${kind}`;
 
 export async function sendReviewEmail(c: ReviewCandidate, built: BuiltReviewEmail): Promise<void> {
   const { subject, html, text, unsubscribeUrl } = built;
@@ -218,7 +222,7 @@ export async function sendReviewEmail(c: ReviewCandidate, built: BuiltReviewEmai
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     },
-    { idempotencyKey: reviewIdempotencyKey(c.bookingId, c.kind) }
+    { idempotencyKey: reviewIdempotencyKey(c.bookingId, c.kind, c.linkFromDate) }
   );
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
