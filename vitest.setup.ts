@@ -31,3 +31,9 @@ process.env.PARKGUARD_API_KEY ||= "dummy";
 
 process.env.WAITLIST_SIGNING_SECRET ||= "test-waitlist-secret-at-least-32-chars";
 process.env.CRON_SECRET ||= "dummy_cron_secret";
+process.env.REVIEW_SIGNING_SECRET ||= "test-review-secret-at-least-32-chars";
+
+// Plain assignment, not ||=: a developer's shell could export it "true", and the
+// search / lot-page / airport-page suites would then reach Supabase through
+// src/lib/reviews/summary.ts. Its own tests set it per test.
+process.env.LOT_REVIEWS_DISPLAY_ENABLED = "false";

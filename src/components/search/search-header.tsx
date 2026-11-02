@@ -57,6 +57,9 @@ export function SearchHeader({
     ? `${airportInfo.code}`
     : airport;
 
+  // Same look as the homepage hero's field labels.
+  const labelClass = "block text-xs font-bold text-gray-500 uppercase mb-1";
+
   return (
     <div className="bg-white border-b border-gray-200 z-30 shadow-sm relative flex-shrink-0">
       {/* Mobile: Compact summary bar */}
@@ -90,6 +93,7 @@ export function SearchHeader({
           <div className="px-4 pb-4 border-t border-gray-100">
             {/* Location */}
             <div className="mt-3 mb-3">
+              <span className={labelClass}>Departure airport</span>
               <AirportCombobox
                 value={airport}
                 onChange={onAirportChange}
@@ -109,8 +113,10 @@ export function SearchHeader({
             >
               {({ startTriggerProps, endTriggerProps }) => (
                 <>
+                  <label htmlFor="search-checkin-mobile" className={labelClass}>Parking check-in</label>
                   <div className="mb-3 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
                     <button
+                      id="search-checkin-mobile"
                       type="button"
                       ref={startTriggerProps.ref}
                       onClick={startTriggerProps.onClick}
@@ -123,8 +129,10 @@ export function SearchHeader({
                     </button>
                   </div>
 
+                  <label htmlFor="search-checkout-mobile" className={labelClass}>Parking check-out</label>
                   <div className="mb-3 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
                     <button
+                      id="search-checkout-mobile"
                       type="button"
                       ref={endTriggerProps.ref}
                       onClick={endTriggerProps.onClick}
@@ -162,6 +170,7 @@ export function SearchHeader({
         <div className="flex flex-col xl:flex-row gap-3">
           {/* Location */}
           <div className="flex-grow xl:w-1/4">
+            <span className={labelClass}>Departure airport</span>
             <AirportCombobox
               value={airport}
               onChange={onAirportChange}
@@ -182,33 +191,41 @@ export function SearchHeader({
             {({ startTriggerProps, endTriggerProps }) => (
               <div className="flex flex-col sm:flex-row gap-3 xl:w-2/3">
                 {/* Depart */}
-                <div className="flex-1 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <button
-                    type="button"
-                    ref={startTriggerProps.ref}
-                    onClick={startTriggerProps.onClick}
-                    className="flex items-center w-full text-left cursor-pointer text-sm"
-                  >
-                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                    <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                      {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
-                    </span>
-                  </button>
+                <div className="flex-1">
+                  <label htmlFor="search-checkin" className={labelClass}>Parking check-in</label>
+                  <div className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      id="search-checkin"
+                      type="button"
+                      ref={startTriggerProps.ref}
+                      onClick={startTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={departDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {departDate ? format(parse(departDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Depart date"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Return */}
-                <div className="flex-1 py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
-                  <button
-                    type="button"
-                    ref={endTriggerProps.ref}
-                    onClick={endTriggerProps.onClick}
-                    className="flex items-center w-full text-left cursor-pointer text-sm"
-                  >
-                    <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
-                    <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
-                      {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
-                    </span>
-                  </button>
+                <div className="flex-1">
+                  <label htmlFor="search-checkout" className={labelClass}>Parking check-out</label>
+                  <div className="py-2.5 px-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <button
+                      id="search-checkout"
+                      type="button"
+                      ref={endTriggerProps.ref}
+                      onClick={endTriggerProps.onClick}
+                      className="flex items-center w-full text-left cursor-pointer text-sm"
+                    >
+                      <CalendarIcon size={20} className="mr-2 text-brand-blue opacity-80 flex-shrink-0" />
+                      <span className={returnDate ? "text-gray-900 font-medium truncate" : "text-gray-400 truncate"}>
+                        {returnDate ? format(parse(returnDate, "yyyy-MM-dd", new Date()), "MMM d, yyyy") : "Return date"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -217,7 +234,7 @@ export function SearchHeader({
           {/* Update Button */}
           <button
             onClick={onSearch}
-            className="bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
+            className="xl:self-end bg-brand-orange hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg shadow-sm transition-all active:scale-95 whitespace-nowrap"
           >
             Update
           </button>

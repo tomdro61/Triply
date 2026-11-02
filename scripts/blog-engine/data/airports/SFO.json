@@ -1,7 +1,7 @@
 {
   "code": "SFO",
   "fullName": "San Francisco International Airport",
-  "lastVerified": "2026-04-04",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Unincorporated San Mateo County, California — 12 miles south of downtown San Francisco",
     "passengerVolume": "54.5 million passengers per year (2025) — 13th busiest in the U.S., 2nd busiest in California after LAX",
@@ -694,6 +694,20 @@
       "busyPeriods": "2.5+ hours before departure (especially during 2026 construction/FAA restrictions)"
     }
   },
+  "peakTravelTimes": {
+    "busiestHours": [
+      "6:00-9:00 AM (morning departure bank — heaviest security queues)",
+      "4:00-7:00 PM (afternoon and early-evening peak)"
+    ],
+    "busiestDays": ["Monday", "Thursday", "Friday", "Sunday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August) is the heaviest season and coincides with peak marine-layer fog delays. Thanksgiving week and the Christmas/New Year stretch are the busiest periods of the year. SFO also sees sharp business-travel spikes around major Bay Area conferences. In 2026 the permanent FAA parallel-approach restriction and the runway 1R closure (March 30 - October 2, 2026) compound congestion during all of these periods.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5+ hours during holidays, summer fog season, and the 2026 construction/FAA restriction period"
+    }
+  },
   "weatherAndDelays": {
     "overview": "SFO ranks among the top U.S. airports for weather-related delays due to its unique geography. Marine fog from the Pacific regularly reduces visibility, forcing single-runway operations that halve arrival capacity.",
     "onTimePerformance": {
@@ -798,7 +812,9 @@
       "amenities": ["Free Shuttle", "Hotel Amenities"],
       "shuttleInfo": "Free shuttle to SFO terminals",
       "freeCancellation": true,
-      "notes": "Budget option. Hotel parking lot available to non-guests."
+      "notes": "Budget option. Hotel parking lot available to non-guests.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Travelodge SFO Airport Parking",
@@ -813,7 +829,9 @@
       "freeCancellation": true,
       "googleRating": "4.6/5 (457 reviews)",
       "knownCoupons": [],
-      "notes": "Budget-friendly option with strong reviews. Hotel parking lot."
+      "notes": "Budget-friendly option with strong reviews. Hotel parking lot.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Aloft Westin SFO Airport Parking",
@@ -828,7 +846,9 @@
       "freeCancellation": true,
       "googleRating": "4.7/5 (757 reviews)",
       "knownCoupons": [],
-      "notes": "Closest off-site lot at 0.8 mi. Best seller on multiple platforms. Minimum 2-day booking."
+      "notes": "Closest off-site lot at 0.8 mi. Best seller on multiple platforms. Minimum 2-day booking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Burlingame Airport Parking",
@@ -839,7 +859,9 @@
       "shuttleInfo": "Free shuttle to SFO terminals",
       "freeCancellation": true,
       "knownCoupons": [],
-      "notes": "Mid-range option in Burlingame."
+      "notes": "Mid-range option in Burlingame.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Hyatt Regency SFO Parking",
@@ -850,7 +872,9 @@
       "shuttleInfo": "Free shuttle to SFO terminals",
       "freeCancellation": true,
       "knownCoupons": [],
-      "notes": "Hotel parking with upscale amenities. Park-sleep-fly packages available (5 days self-parking included with overnight stay)."
+      "notes": "Hotel parking with upscale amenities. Park-sleep-fly packages available (5 days self-parking included with overnight stay).",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Westin SFO Parking",
@@ -865,7 +889,9 @@
       "freeCancellation": true,
       "googleRating": "4.5/5 (304 reviews)",
       "knownCoupons": [],
-      "notes": "Close proximity (0.9 mi). Frequently sells out — book in advance. Minimum 2-day booking."
+      "notes": "Close proximity (0.9 mi). Frequently sells out — book in advance. Minimum 2-day booking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park N Fly SFO",
@@ -880,7 +906,9 @@
       "freeCancellation": true,
       "googleRating": "5.0/5 (971 reviews)",
       "knownCoupons": [],
-      "notes": "Highest-rated SFO lot (5.0/5 with 971 reviews). Premium pricing but excellent service. Established airport parking operator with locations nationwide."
+      "notes": "Highest-rated SFO lot (5.0/5 with 971 reviews). Premium pricing but excellent service. Established airport parking operator with locations nationwide.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Crowne Plaza SFO Parking",
@@ -891,7 +919,95 @@
       "shuttleInfo": "Free shuttle to SFO terminals",
       "freeCancellation": true,
       "knownCoupons": [],
-      "notes": "Premium hotel parking. Park-sleep-fly packages available (7 days complimentary parking with overnight stay). Highest off-site rate — only worth it with hotel package."
+      "notes": "Premium hotel parking. Park-sleep-fly packages available (7 days complimentary parking with overnight stay). Highest off-site rate — only worth it with hotel package.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Best Western Grosvenor Hotel (SFO)",
+      "slug": "best-western-grosvenor-hotel",
+      "dailyRate": 9.4,
+      "address": "380 S Airport Blvd, South San Francisco, CA 94080",
+      "reslabLocationId": 111,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "5:00 AM - 10:15 AM: Shuttle runs every 45 minutes. 10:15 AM - 5:00 PM: No shuttle. 5:00 PM - 10:25 PM: Shuttle runs every 45 minutes. 10:25 PM - 5:00 AM: No shuttle.",
+      "overview": "Convenient Parking Just Minutes from San Francisco International Airport:-24/7 Front Desk, Accessible Parking-Complimentary Shuttle Service to and from the airport, included with your online booking-No Extra Charges for full-size vans, pickup trucks, and large SUVs-Hassle-Free Parking with no hotel room reservation requiredBook now for a seamless airport parking experience.",
+      "distanceFromAirport": "2.1 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 111). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hampton Inn (SFO)",
+      "slug": "hampton-inn",
+      "dailyRate": 10.24,
+      "address": "300 Gateway Blvd, South San Francisco, CA 94080",
+      "reslabLocationId": 55,
+      "amenities": [
+        "24/7 Front Desk",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "No shuttle",
+      "overview": "Located just off Highway 101 and about 2 miles north of San Francisco International Airport (SFO), Hampton Inn SFO offers convenient airport parking for travelers departing from SFO. No hotel stay is required to park at this location.",
+      "distanceFromAirport": "2.7 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 55). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Courtyard San Francisco Airport (SFO)",
+      "slug": "courtyard-san-francisco-airport",
+      "dailyRate": 10.49,
+      "address": "1050 Bayhill Dr, San Bruno, CA 94066",
+      "reslabLocationId": 400,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "No shuttle. Please arrange for your own Uber/Lyft when you park",
+      "overview": "The Courtyard by Marriott San Francisco Airport is approximately 2 miles from San Francisco International Airport (SFO) — about a 5-minute drive, providing a convenient spot for your vehicle while you travel.Plans changed? No problem — our flexible cancellation policy lets you cancel up to the minute before check-in and receive a full refund.",
+      "distanceFromAirport": "2.3 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 400). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Home2Suites by Hilton (SFO)",
+      "slug": "home2suites-by-hilton",
+      "dailyRate": 24,
+      "address": "550 Gateway Blvd, South San Francisco, CA 94080",
+      "reslabLocationId": 44,
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "No shuttle",
+      "overview": "Located minutes away from San Francisco International Airport (SFO).and within minutes of downtown San Francisco’s finest restaurants and bars. Right off US-101 in the birthplace of biotechnology, we’re a short walk from the Genentech campus along with BART and Caltrain stations.No extra charges for full-size vans, pick-up trucks and large SUV's.",
+      "distanceFromAirport": "2.7 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 44). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
     }
   ],
   "shuttleInfo": "All off-site lots include free shuttle service to SFO terminals. On-airport Long-Term Garage connects via free AirTrain Blue Line (24/7 service, every 4 minutes). Rental Car Center also connected via AirTrain Blue Line.",

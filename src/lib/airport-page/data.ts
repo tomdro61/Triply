@@ -4,6 +4,7 @@ import { searchParking, isLocationBackoffError } from "@/lib/reslab/search";
 import { ReslabError } from "@/lib/reslab/client";
 import { UnifiedLot } from "@/types/lot";
 import { captureAPIError } from "@/lib/sentry";
+import { fetchLotReviewSummaries, withReviews } from "@/lib/reviews/summary";
 
 // Throttles the failure report below to one event per window per instance.
 const AIRPORT_PAGE_REPORT_INTERVAL_MS = 10 * 60 * 1000;
@@ -144,6 +145,11 @@ export const fetchAirportPageData = cache(async function fetchAirportPageData(
         { directLotsReadFailed: true }
       );
     }
+    // Verified Triply ratings onto the lot cards — rating + count only, no
+    // review text on a page cached for an hour. After the guards above, so a
+    // render that will be refused makes no database read. Served from the
+    // module's per-instance copy; never throws; off → unchanged.
+    lots = withReviews(lots, await fetchLotReviewSummaries(lots, "airport-page"), 0);
   } catch (err) {
     // searchParking throws on a real ResLab failure, and also when our own
     // location-list circuit breaker is open (a cold instance backing off after

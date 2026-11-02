@@ -1,8 +1,25 @@
 import { DOMAIN, BLOG_BASE_URL } from '../config.js'
 import type { QueueItem } from '../queue.js'
-import type { AirportData } from '../airport-data.js'
+import { currencySymbol, isCanadianAirport, type AirportData } from '../airport-data.js'
 import type { PublishedPost } from '../payload.js'
-import { getExternalLinks, formatExternalLinksForPrompt } from '../external-links.js'
+import { getExternalLinks, formatExternalLinksForPrompt, COMPETITOR_LIVE_SOURCE_CATEGORIES, isOwnSiteUrl, isUsOnlyUrl, COMPETITOR_NAME_RE } from '../external-links.js'
+import { loadApprovedCodes, loadApprovedOffers } from '../lint.js'
+
+/**
+ * Rule 39 (feature our own promo code) is emitted only for a code the lint will accept: COUPON_CODE must be listed in
+ * src/config/approved-promo-codes.json with a percentOff, and the percent comes from that file, never from the env.
+ * Otherwise the writer would be told to feature a code the lint then refuses — after the whole Claude spend.
+ */
+function ownCodeRule(airportCode: string): string {
+  const code = (process.env.COUPON_CODE || '').trim().toUpperCase()
+  if (!code) return ''
+  const pct = loadApprovedOffers()[code]
+  if (!loadApprovedCodes().map((c) => c.toUpperCase()).includes(code) || typeof pct !== 'number') {
+    console.warn(`  ⚠ COUPON_CODE=${code} is not in src/config/approved-promo-codes.json with a percentOff — the promo-code rule is left out of the prompt`)
+    return ''
+  }
+  return `39. TRIPLY PROMO CODE (coupon-intent articles only): If the focus keyword involves coupons, promo codes, discounts, or deals, feature Triply's own code as the FIRST direct answer near the top: an H2 "Promo code ${code}: ${pct}% off" followed by a short paragraph stating that ${code} takes ${pct}% off the parking rate on bookings made on triplypro.com, entered in the promo code field at checkout, with a link to https://www.${DOMAIN}/search?airport=${airportCode} in that same paragraph, plus the terms line "Applies to bookings made on triplypro.com." Never call it verified or working, never promise one use per customer, NEVER write that no codes exist. Third-party code discussion comes after ours and names only codes the airport or the lot itself publishes.`
+}
 
 interface AnalysisResult {
   commonTopics: string[]
@@ -35,14 +52,14 @@ function getArticleTypeInstructions(item: QueueItem): string {
 - Each H2 section should briefly introduce a subtopic and include a CTA link to the sub-pillar article
 - Use links in this format: <a href="${BLOG_BASE_URL}/[sub-pillar-slug]">Read our complete guide to [topic]</a>
 - The tone should be authoritative and comprehensive — this is THE definitive guide
-- Target length: 2000-2500 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '3000-3500 words'}`
 
     case 'sub-pillar':
       return `This is a SUB-PILLAR article — a detailed guide on a specific aspect of ${item.airportCode} airport parking.
 - Start the introduction with a link back to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
 - Go deep on this specific topic — more detail than the hub provides
 - You MUST include at least 2 contextual links to sibling articles (not just the hub). Use natural anchor text containing the sibling's primary keyword. Place cross-links within relevant H2 sections, not bunched in one paragraph.
-- Target length: 1500-2000 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '2000-2500 words'}`
 
     case 'spoke':
       return `This is a SPOKE article — a focused, specific piece about ${item.airportCode} airport parking.
@@ -50,7 +67,7 @@ function getArticleTypeInstructions(item: QueueItem): string {
 - Include a link to the hub: <a href="${BLOG_BASE_URL}/${item.hubSlug}">Complete ${item.airportCode} Airport Parking Guide</a>
 - You MUST include at least 1 contextual link to a sibling article. Use natural anchor text containing the sibling's primary keyword.
 - Very focused on one specific question or niche topic
-- Target length: 800-1200 words`
+- Target length: ${item.targetWords ? `${item.targetWords}-${item.targetWords + 500} words` : '1000-1500 words'}`
 
     default:
       return `Write a standard blog article about airport parking.
@@ -58,10 +75,24 @@ function getArticleTypeInstructions(item: QueueItem): string {
   }
 }
 
-type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
+type ArticleStyle = 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | 'rescue'
 
 function getStyleInstructions(style: ArticleStyle, item: QueueItem): string {
   switch (style) {
+    case 'rescue':
+      return `**Article Style: RESCUE**
+This reader has a problem right now: they are flying soon and just found out ${item.airportCode} parking is unavailable. Write for that moment.
+- Open on the problem in the FIRST sentence, then immediately reassure — this is common and solvable. Never bury the answer behind background.
+- Lead with the live-status check: how to verify current ${item.airportCode} availability (official airport page/app from the verified sources) BEFORE any advice about alternatives.
+- Then give alternatives in descending order of how fast they solve the problem: (1) off-site lots bookable right now, (2) park-and-ride and public transit, (3) same-day emergency options — rideshare, fixed-rate taxi, park-sleep-fly hotels.
+- Name REAL lots with REAL rates and drive times from the verified data. Never write "several off-site options are available" — list them by name.
+- Include ONE comparison table: on-airport vs off-site vs park-and-ride vs valet, with daily rate, shuttle, and who each option suits best.
+- Frame off-site parking as the better-value choice, not a consolation prize. The reader should finish feeling they got an upgrade, not a downgrade.
+- Close with a prevention section (the peak periods when ${item.airportCode} parking actually fills up) and a short backup-plan recap.
+- Use statement headings that name the problem or the fix ("Best Off-Site Alternatives When ${item.airportCode} Parking Is Sold Out"), not abstract topic labels.
+- Keep the tone calm and practical. The urgency comes from the structure and the ordering, never from hype or exclamation marks.
+- FAQs (in the faqItems JSON field) must be rescue-framed — what to do on arrival, whether walk-ins are possible, refunds/cancellation, shuttle reliability, how early to book for the next trip.`
+
     case 'narrative':
       return `**Article Style: NARRATIVE**
 - Open with a traveler scenario (2-3 sentences painting a relatable situation), then deliver the direct answer.
@@ -114,34 +145,478 @@ function formatParkingLots(data: AirportData, keyword: string): string {
     .slice(0, 20)
 
   if (lots.length === 0) return ''
+  const cur = currencySymbol(data)
 
   const lines: string[] = ['\n**Off-Site Parking Lots (sorted by price — use these EXACT names and rates in tables and text, NEVER generalize into categories):**']
   for (const lot of lots) {
     const l = lot as Record<string, unknown>
-    let line = `- **${l.name}**: $${l.dailyRate}/day`
+    let line = `- **${l.name}**: ${cur}${l.dailyRate}/day`
     if (l.driveTime) line += ` | ${l.driveTime} from airport`
     if (l.parkingType) line += ` | ${l.parkingType}`
-    if (l.shuttleInfo) line += ` | Shuttle: ${(l.shuttleInfo as string).slice(0, 100)}`
+    if (l.shuttleInfo) line += ` | Shuttle: ${cutAt(l.shuttleInfo as string, 240)}`
     if (l.amenities && Array.isArray(l.amenities) && l.amenities.length > 0) {
       line += ` | Amenities: ${(l.amenities as string[]).join(', ')}`
     }
-    if (l.knownCoupons && Array.isArray(l.knownCoupons) && l.knownCoupons.length > 0) {
-      line += ` | Coupons: ${(l.knownCoupons as string[]).join('; ')}`
-    }
+    // knownCoupons are NOT printed: they are competitor-site pitches ("Pre-book via airportparkingreservations.com from
+    // $13/day" on a $26.99 lot) and unapproved codes — both refused by the lint (review of #143).
     if (l.freeCancellation) line += ' | Free cancellation'
+    // Operator caveats the writer must respect (review of #143: POE lots marked "AIRPORT PARKING ONLY — never
+    // recommend to cruisers" and an LGA lot noted as closed reached the writer as plain cheap rows).
+    if (typeof l.cruiseShuttle === 'string' && l.cruiseShuttle) line += ` | Cruise-port shuttle: ${l.cruiseShuttle}`
+    const rateNote = printableNotes(l.rateNote, true)
+    if (rateNote) line += ` | Rate note: ${cutAt(rateNote, 160)}`
+    const notes = printableNotes(l.notes)
+    if (notes) line += ` | Notes: ${cutAt(notes, 400)}`
     lines.push(line)
   }
 
-  const cheapest = lots[0] as Record<string, unknown>
-  const mostExpensive = lots[lots.length - 1] as Record<string, unknown>
-  lines.push(`\nPrice range: $${cheapest.dailyRate}/day — $${mostExpensive.dailyRate}/day across ${lots.length} verified lots.`)
+  // The footer spans only lots that may lead (pass-3 review of #143: it had spanned every lot, so POE's "$6.25" airport-only
+  // lot and MCI's suspended-shuttle lot led the "Price range" while the facts line above excluded them).
+  const lead = leadEligibleLots(data, keyword)
+  if (lead.length) {
+    const lo = lead[0].dailyRate as number
+    const hi = lead[lead.length - 1].dailyRate as number
+    const others = lead.length < lots.length ? '; the others above carry a caveat' : ''
+    lines.push(`\nPrice range (lots that may lead a recommendation): ${cur}${lo}/day — ${cur}${hi}/day across ${lead.length} lot${lead.length === 1 ? '' : 's'}${others}.`)
+  }
 
   return lines.join('\n')
+}
+
+/**
+ * Render a camelCase key as a readable label ("busiestHours" → "Busiest hours").
+ */
+function humanizeKey(key: string): string {
+  const spaced = key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase()
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * Flatten an arbitrarily-shaped value (string | string[] | object) into a single line.
+ *
+ * The 30 airport JSONs were bootstrapped in generations and their sub-object shapes are NOT
+ * uniform — e.g. peakTravelTimes has `quietestDays` at most airports but `quietestDay` +
+ * `quietDays` at JFK, and popularHotels is an object array at 26 airports but a string array
+ * at JFK/LAX/LGA/SFO. Walking whatever keys exist is the only safe approach; hardcoding a
+ * known key list silently drops data at the airports that differ.
+ */
+function flattenValue(value: unknown): string {
+  if (value === null || value === undefined) return ''
+  if (typeof value === 'string' || typeof value === 'number') return String(value)
+  if (Array.isArray(value)) {
+    return value.map(flattenValue).filter(Boolean).join('; ')
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .filter(([k]) => !k.startsWith('_'))
+      .map(([k, v]) => {
+        const flat = flattenValue(v)
+        return flat ? `${humanizeKey(k)}: ${flat}` : ''
+      })
+      .filter(Boolean)
+      .join(' | ')
+  }
+  return ''
+}
+
+/**
+ * Format a top-level object field as a bullet list, one line per key.
+ * Returns '' when the field is absent or empty so callers can concatenate unconditionally.
+ */
+function formatObjectSection(value: unknown, header: string): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const entries = Object.entries(value as Record<string, unknown>).filter(([k]) => !k.startsWith('_'))
+  if (entries.length === 0) return ''
+
+  const lines: string[] = [header]
+  for (const [key, val] of entries) {
+    const flat = flattenValue(val)
+    if (flat) lines.push(`- ${humanizeKey(key)}: ${flat}`)
+  }
+  return lines.length > 1 ? '\n' + lines.join('\n') : ''
+}
+
+function formatPeakTravelTimes(data: AirportData): string {
+  return formatObjectSection(
+    data.peakTravelTimes,
+    '**Peak Travel Periods (use for the "when does parking fill up" section — do NOT invent dates or holidays):**',
+  )
+}
+
+/**
+ * Airport-level prose (`parkingRates`, `savingsComparison`) was hand-written with off-site lot prices that go stale the
+ * moment refresh-rates re-prices the lots (review of #143: BOS "~$12-20/day" vs lots at $22-30; MCO "from ~$4/day" vs
+ * $28; SAN Aladdin "$13" vs $26.99; EWR/CLT/DFW naming lots we no longer sell). The sellable lot list is the only
+ * source for off-site lot prices and names, so those sentences/entries are dropped at format time and replaced by
+ * figures computed from the lots. The on-airport figures keep their own dates in the text.
+ */
+const OFF_SITE_SENTENCE = /off-?site|via triply|bookable on triply|triply sells|lots triply|triply (?:lot|rate|checkout)/i
+// Sentence boundary: ". " followed by a capital — "$6.25/day" has no space after its dot, "July 1, 2026. Off-site" does —
+// and not after common abbreviations ("incl. 13% HST", "e.g. Nov").
+const SENTENCE_BREAK = /(?<![Ii]ncl|[Ee]xcl|[Aa]pprox|\bvs|\be\.g|\bi\.e|\bSt|\bAve|\bBlvd|\bRd|\bHwy|\bNo|\bMt|\b[A-Z])\.\s+(?=[A-Z0-9"“(])/
+
+// Only the em-dash splits a sentence into clauses: "; " also separates items inside parentheses ("(Best Rate; shuttle 4 AM-10 PM only)").
+const CLAUSE_BREAK = /\s+—\s+/
+// "can save up to 50%" in the rates text: the lint blocks the writer for repeating it without a linked source (SAVE_UP_TO).
+const UNSOURCED_SAVINGS = /save up to \d+ ?%|up to \d+ ?% (?:off|less|cheaper|savings?)/i
+
+/**
+ * The part of a lot name that identifies it in prose: no "(JFK)" / "(Parking)" suffix, no trailing "Airport Parking" /
+ * "Parking" / "Airport" ("Ausby Airport Parking" → "ausby", "Doug Fox Airport Parking" → "doug fox"), case-folded.
+ * '' when too short to match safely.
+ */
+function lotNameKey(name: string): string {
+  let key = name.replace(/\s*\([^)]*\)\s*$/, '').trim()
+  // "Royal Inn CLT Airport Parking", "The Parking Spot East AUS": suffix words and a bare airport code, in either order.
+  for (let i = 0; i < 2; i++) {
+    key = key.replace(/\s+(?:airport\s+parking|airport|parking|valet\s+parking)\s*$/i, '').replace(/\s+[A-Z]{3}$/, '').trim()
+  }
+  key = key.toLowerCase().replace(/[\s-]+/g, ' ')
+  return key.length >= 4 ? key : ''
+}
+
+function nameRegex(key: string): RegExp {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/[\s-]+/g, '[\\s-]+')
+  return new RegExp(`\\b${escaped}\\b`, 'i')
+}
+
+/**
+ * Notes without the provenance line and without sentences that quote a lot price (per-day, pre-booked, walk-up, "from $",
+ * "~$" — they go stale on every refresh). Sentences about fees, surcharges and what is paid at the lot stay: those are the
+ * caveats rule 38a makes binding. `strict` drops any sentence with a dollar figure (rate notes: their week quotes include
+ * fees and disagree with rate × days).
+ */
+export function printableNotes(notes: unknown, strict = false): string {
+  if (typeof notes !== 'string' || !notes) return ''
+  // "Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = …" — the domain's dot is not the sentence end.
+  const body = notes.replace(/^Added \d{4}-\d{2}-\d{2} from live \S+ search[^.]*\.\s*/i, '').trim()
+  const kept = body
+    .split(SENTENCE_BREAK)
+    .map((s) => {
+      if (strict) return ANY_DOLLAR.test(s) ? '' : s
+      if (!staleLotPrice(s)) return s
+      // A sentence that is also a caveat keeps its words with the figures blanked (DTW "adds ~27% tax", SJC "do not
+      // promise covered parking at that price") — dropping it whole lost the caveat (pass-6 review).
+      if (!CAVEAT.test(s)) return ''
+      // Figures out, parentheticals that only held figures out; a sentence that still needs two placeholders was a quote
+      // breakdown, not a caveat (pass-7 review: "[price omitted] subtotal + fees/tax" carried nothing).
+      const scrubbed = s
+        .replace(MONEY_TOKEN, PLACEHOLDER)
+        .replace(/\s*\([^()]*\[price omitted\][^()]*\)/g, '')
+        .replace(/\s+([,;.])/g, '$1')
+        .replace(/ {2,}/g, ' ')
+        .trim()
+      const n = scrubbed.split(PLACEHOLDER).length - 1
+      return n <= 1 && CAVEAT.test(scrubbed) ? scrubbed : ''
+    })
+    .filter(Boolean)
+  let out = kept.join('. ').trim()
+  if (out && !/[.!?]$/.test(out)) out += '.'
+  return out
+}
+const ANY_DOLLAR = /(?:C\$|\$)\s?\d/
+const MONEY_TOKEN = /~?(?:C\$|\$)\s?\d[\d.,]*(?:\s?[-–]\s?(?:C\$|\$)?\d[\d.,]*)?(?:\s*\/\s*(?:day|night|24 ?h(?:ou)?rs?)|\s+(?:per|a)\s+(?:day|night))?/g
+// Words that make a priced sentence a caveat worth keeping (with its figures blanked). Plain comparisons ("$1 more in
+// fees", "cheapest at …") are not caveats and are dropped whole.
+const CAVEAT = /adds? ~?\d+% tax|plus tax|tax(?:es)? (?:added|extra|at the lot)|(?<!no )minimum|do not|don't|never|caution|warning|not bookable|at the lot|at the curb|due at location|surcharge|late fee|oversized|larger? vehicles|grace period|position it on/i
+const PLACEHOLDER = '[price omitted]'
+const DAY_PRICE = /(?:C\$|\$)\s?\d[\d.,]*(?:\s*\/\s*|\s+per\s+|\s+a\s+)(?:day|night|24)/gi
+// A dollar figure that is a fee, not the lot's own rate: judged on the 40 characters around it.
+const FEE_CONTEXT = /extra|surcharges?|\bfees?\b|oversized|larger? vehicles?|additional|plus tax|at the lot|at the curb|payable|per person|\d+ ?pp\b|per vehicle|each way|one[- ]way|toll|\btips?\b|late fee/i
+const QUOTED_PRICE = /(?:pre-?book\w*|walk-?up|drive-?up|online|from|~|around|about|rate(?: of| is)?|was|old|now)\s*(?:is\s*|of\s*|for\s*|the\s*|at\s*)?["“]?(?:C\$|\$)\s?\d|(?:C\$|\$)\s?\d[\d.,]*["”]?\s*(?:pre-?booked|walk-?up|drive-?up|online|is false|was|vs\.?)|\bat (?:C\$|\$)\s?\d|\((?:C\$|\$)\s?\d[\d.,]*\)/i
+const WEEK_QUOTE = /grand total|\btotal\b|\bquoted?\b|for (?:a )?\d+[- ](?:night|day)|for (?:[A-Z][a-z]{2}\.? )?\d{1,2}\s?[-–]\s?\d{1,2}\b|[A-Z][a-z]{2}\.? \d{1,2}\s?[-–]\s?\d{1,2}\s*:\s*(?:C\$|\$)|\d+ billed days|all-in/i
+const STALE_META = /\bold\b|is false|outdated|no longer/i
+
+/** True when a notes sentence quotes the lot's OWN price in any form (goes stale on every refresh); fee sentences are not stale. */
+function staleLotPrice(s: string): boolean {
+  if (!ANY_DOLLAR.test(s)) return false
+  if (STALE_META.test(s) || WEEK_QUOTE.test(s)) return true
+  const feeAround = (i: number, len: number) => FEE_CONTEXT.test(s.slice(Math.max(0, i - 60), i + len + 25))
+  // A quoted or per-day figure is the lot's own price unless the words around it make it a fee ("surcharge at $12/day").
+  const q = s.match(QUOTED_PRICE)
+  if (q && !feeAround(q.index ?? 0, q[0].length)) return true
+  for (const m of s.matchAll(DAY_PRICE)) {
+    if (!feeAround(m.index ?? 0, m[0].length)) return true
+  }
+  return false
+}
+
+/** Cut long text at a sentence or clause boundary before `n` chars (never mid-number or mid-word). */
+export function cutAt(text: string, n: number): string {
+  if (text.length <= n) return text
+  const head = text.slice(0, n)
+  const at = Math.max(head.lastIndexOf('. '), head.lastIndexOf('; '))
+  if (at >= n / 2) return head.slice(0, at + 1)
+  const sp = head.lastIndexOf(' ')
+  return (sp > n / 2 ? head.slice(0, sp) : head).replace(/[\s,;:-]+$/, '') + '…'
+}
+
+/**
+ * Drop the sentences of an airport-level text that price or name off-site lots. A sentence that ALSO carries an on-airport
+ * fact ("AirTrain costs $8.50/person one-way — off-site lots save this") keeps its non-off-site clauses. `unsellableNames`
+ * (the raw file's `sellable: false` lots) drops any sentence that names a lot we no longer sell — the shuttle text used to
+ * name The Parking Spot, Ausby, Parking 4 Airport (blocked) and the like as if they were ours.
+ */
+export function dropOffSiteSentences(text: string, unsellableNames: readonly string[] = [], sellableNames: readonly string[] = []): string {
+  if (!text) return text
+  const protect = sellableNames.map((n) => n.toLowerCase())
+  const keys = unsellableNames
+    .map(lotNameKey)
+    .filter((k) => k && !protect.some((p) => p.includes(k))) // a brand we also sell ("Motel 6") must not drop true sentences
+    .map(nameRegex)
+  const bad = (s: string) => OFF_SITE_SENTENCE.test(s) || UNSOURCED_SAVINGS.test(s) || keys.some((re) => re.test(s))
+  const parts = text.split(SENTENCE_BREAK)
+  let changed = false
+  const kept: string[] = []
+  for (const part of parts) {
+    if (!bad(part)) { kept.push(part); continue }
+    changed = true
+    // Salvage only the LEADING clause of a mixed sentence, and only when it states a figure ("AirTrain costs $8.50/person
+    // one-way — off-site lots save this"). A trailing clause has lost its subject ("— most run 24/7") and is dropped.
+    const first = part.split(CLAUSE_BREAK)[0].trim()
+    if (first && first !== part.trim() && /\d/.test(first) && !bad(first)) kept.push(first.replace(/[.;:,\s]+$/, ''))
+  }
+  if (!changed) return text
+  let out = kept.join('. ').trim()
+  if (out && !/[.!?]$/.test(out)) out += '.'
+  return out
+}
+
+function sellableNames(data: AirportData): string[] {
+  return ((data.parkingLots ?? []) as Record<string, unknown>[]).map((l) => String(l.name ?? ''))
+}
+
+function sellableLots(data: AirportData): Record<string, unknown>[] {
+  return ((data.parkingLots ?? []) as Record<string, unknown>[])
+    .filter((l) => typeof l.dailyRate === 'number')
+    .sort((a, b) => (a.dailyRate as number) - (b.dailyRate as number))
+}
+
+/** A lot whose own notes bar it from leading (suspended shuttle, "do not use in CTAs", airport-only on a cruise page). */
+const DO_NOT_LEAD = /do not use in ctas?|not a lead recommendation|do not present it as general|shuttle (?:is )?suspended|confirm the airport shuttle before recommending/i
+
+/** A cruise-port page: POE, or any file whose lots carry a `cruiseShuttle` field. A cruise KEYWORD at an airport page is not
+ *  one — those files have no cruise-shuttle data to filter on, so every lot stays eligible and rule 38a's caveats apply. */
+function cruiseContext(data: AirportData, _keyword: string): boolean {
+  return data.code === 'POE' || ((data.parkingLots ?? []) as Record<string, unknown>[]).some((l) => typeof l.cruiseShuttle === 'string')
+}
+
+/**
+ * Sellable lots that may lead a range, a CTA or a computed savings row: no suspended shuttle, no "do not use in CTAs"
+ * note, and on a cruise page only lots with a cruise-port shuttle (included or paid). Everything else still appears in
+ * the lot list with its caveat. (Pass-2 review of #143: the first version put POE's airport-only lots and MCI's
+ * suspended-shuttle lot at the top of the savings block.)
+ */
+/**
+ * A transfer the customer pays on top of the lot rate: "$10 each way", "~$15-25 each way", "C$8 fee", "shuttle is NOT
+ * free", cruiseShuttle "paid-…". "$10 per person" for EXTRA passengers on a free shuttle is not a paid transfer. A lot with
+ * NO shuttle may lead (Tom, Nov 2 2026): the lot line says so and rule 38a forbids claiming one; nothing is added to its price.
+ */
+const PAID_TRANSFER = /shuttle is not free|(?:shuttle|transfer) fee|(?:C\$|\$)\s?\d[\d.]*(?:\s?[-–]\s?(?:C\$|\$)?\d[\d.]*)?\s*(?:pp\b|per person|each way|one[- ]way|round[- ]trip|per (?:trip|ride|transfer|car|vehicle)|fee\b)/gi
+const EXTRA_PASSENGER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
+/** Why a lot's transfer keeps it from leading ('' when it may lead): the matched text, for probes and reviews. */
+export function transferBlocker(l: Record<string, unknown>): string {
+  const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
+  if (cs.startsWith('paid')) return `cruiseShuttle ${cs}`
+  for (const t of [l.shuttleInfo, l.notes]) {
+    if (typeof t !== 'string') continue
+    for (const m of t.matchAll(PAID_TRANSFER)) {
+      if (!EXTRA_PASSENGER.test(t.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0))) return `paid: "${m[0]}"`
+    }
+  }
+  return ''
+}
+
+export function paidOrNoTransfer(l: Record<string, unknown>): boolean {
+  return transferBlocker(l) !== ''
+}
+
+export function leadEligibleLots(data: AirportData, keyword = ''): Record<string, unknown>[] {
+  const cruise = cruiseContext(data, keyword)
+  return sellableLots(data).filter((l) => {
+    if (l.shuttleSuspended === true) return false
+    if (typeof l.notes === 'string' && DO_NOT_LEAD.test(l.notes)) return false
+    // A paid transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip
+    // (pass-4/5 reviews: POE Courtyard $98 vs ~$178 with the $20pp port transfer; LGA Hearthstone "~$15-25 each way").
+    if (paidOrNoTransfer(l)) return false
+    if (cruise) return (typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : '') === 'included'
+    return true
+  })
+}
+
+/** "from $X/day to $Y/day across N lots Triply sells" over the lead-eligible lots — '' when the file has no priced sellable lot. */
+export function sellableLotRange(data: AirportData, keyword = ''): string {
+  if (sellableLots(data).length === 0) return ''
+  const lots = leadEligibleLots(data, keyword)
+  if (lots.length === 0) return 'none may lead a recommendation (every lot carries a caveat — read the lot notes)'
+  const cur = currencySymbol(data)
+  const lo = lots[0].dailyRate as number
+  const hi = lots[lots.length - 1].dailyRate as number
+  if (lots.length === 1) return `${cur}${lo}/day (one lot)`
+  if (lo === hi) return `${cur}${lo}/day across ${lots.length} lots`
+  return `from ${cur}${lo}/day to ${cur}${hi}/day across ${lots.length} lots`
+}
+
+/**
+ * Billed days of a savings scenario: an explicit "billed as 8 days" / "8 billing days" / "bills 8 days" wins; else
+ * "N-day trip" = N; "N-night" = N + 1 (a 10 AM drop-off / 2 PM pickup bills one more day than nights). null = unknown.
+ */
+export function scenarioBilledDays(scenario: unknown): number | null {
+  if (typeof scenario !== 'string') return null
+  const explicit = scenario.match(/(?:billed as|bills?)\s*(\d+)\s*(?:billing |billable )?days?/i)
+  if (explicit) return Number(explicit[1])
+  // "…(7 billing days incl. fees) to 8 billing days" — the last one is the scenario's own count
+  const billing = [...scenario.matchAll(/(\d+)\s*(?:billing|billable)\s+days/gi)]
+  if (billing.length) return Number(billing[billing.length - 1][1])
+  const days = scenario.match(/(\d+)-day/i)
+  if (days) return Number(days[1])
+  const nights = scenario.match(/(\d+)[- ]nights?/i)
+  if (nights) return Number(nights[1]) + 1
+  return null
+}
+
+const SAVINGS_KEEP = /^(scenario|onAirport|publicTransit|loganExpress|rideshare|portGarage|billingDayNote)/i // triplyFeeNote: STL still says the $4.95 minimum ($5.95 since Sept 14)
+
+export interface OffSiteRow { name: string; rate: number; days: number | null; total: number | null }
+
+/** The off-site side of the savings scenario, computed from the lead-eligible lots (also feeds the lint's known figures). */
+export function offSiteScenarioRows(data: AirportData, keyword = ''): OffSiteRow[] {
+  const sc = data.savingsComparison
+  const days = sc && typeof sc === 'object' && !Array.isArray(sc) ? scenarioBilledDays((sc as Record<string, unknown>).scenario) : null
+  return leadEligibleLots(data, keyword).slice(0, 8).map((l) => {
+    const rate = l.dailyRate as number
+    return { name: String(l.name), rate, days, total: days ? Number((rate * days).toFixed(2)) : null }
+  })
+}
+
+function formatSavingsComparison(data: AirportData, keyword = ''): string {
+  const sc = data.savingsComparison
+  if (!sc || typeof sc !== 'object' || Array.isArray(sc)) return ''
+  const kept: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(sc as Record<string, unknown>)) if (SAVINGS_KEEP.test(k)) kept[k] = v
+  // "Off-site = live Triply checkout total incl. fees" would contradict the computed rows below.
+  if (typeof kept.scenario === 'string') kept.scenario = dropOffSiteSentences(kept.scenario)
+  let out = formatObjectSection(
+    kept,
+    '**Worked Savings Scenario (use for the cost-comparison section — the on-airport and transit figures are verified; the off-site side is computed below from the lots Triply sells, never from older notes):**',
+  )
+  if (sellableLots(data).length === 0) return out
+  const rows = offSiteScenarioRows(data, keyword)
+  const cur = currencySymbol(data)
+  const days = rows[0]?.days ?? null
+  const lines = [
+    rows.length === 0
+      ? '- Off-site via Triply: no lot may lead this comparison (every lot carries a caveat — see the lot notes); describe the on-airport side only.'
+      : days
+        ? `- Off-site via Triply, ${days} billed days (lot rate × days; Triply fees and any tax show at checkout; only lots that may lead are listed):`
+        : '- Off-site via Triply (multiply a lot rate by the scenario\'s billed days; fees and tax show at checkout; only lots that may lead are listed):',
+  ]
+  for (const r of rows) lines.push(r.total !== null ? `  - ${r.name}: ${cur}${r.rate}/day × ${r.days} = ${cur}${r.total.toFixed(2)}` : `  - ${r.name}: ${cur}${r.rate}/day`)
+  if (!out) out = '\n**Worked Savings Scenario:**'
+  return out + '\n' + lines.join('\n')
+}
+
+/**
+ * What the lint may treat as a sourced figure: the data as the writer sees it — off-site prose dropped, only the kept
+ * savings entries, coupon pitches out — plus the computed off-site totals.
+ */
+export function figureSource(data: AirportData, keyword = ''): unknown {
+  const { parkingRates, shuttleInfo, savingsComparison, parkingLots, parkSleepFly, couponCodes: _cc, uniqueFeatures: _uf, ...rest } = data
+  const sc = savingsComparison && typeof savingsComparison === 'object' && !Array.isArray(savingsComparison)
+    ? Object.fromEntries(Object.entries(savingsComparison as Record<string, unknown>).filter(([k]) => SAVINGS_KEEP.test(k)))
+    : undefined
+  if (sc && typeof sc.scenario === 'string') sc.scenario = dropOffSiteSentences(sc.scenario) // same as the printed block
+  // Only the lot fields the lot line prints (an `overview` "~$45/day" or a `sampleQuote` is not a figure the writer saw).
+  const lots = ((parkingLots ?? []) as Record<string, unknown>[]).map((l) => ({
+    name: l.name, dailyRate: l.dailyRate, driveTime: l.driveTime, parkingType: l.parkingType, amenities: l.amenities,
+    shuttleInfo: typeof l.shuttleInfo === 'string' ? cutAt(l.shuttleInfo, 240) : undefined,
+    cruiseShuttle: l.cruiseShuttle, rateNote: cutAt(printableNotes(l.rateNote, true), 160), notes: cutAt(printableNotes(l.notes), 400),
+  }))
+  return {
+    ...rest,
+    parkingRates: dropOffSiteSentences(parkingRates, data.unsellableLotNames, sellableNames(data)),
+    shuttleInfo: dropOffSiteSentences(shuttleInfo, data.unsellableLotNames, sellableNames(data)),
+    savingsComparison: sc,
+    parkSleepFly: filteredParkSleepFly(data),
+    parkingLots: lots,
+    computedOffSiteTotals: offSiteScenarioRows(data, keyword).map((r) => r.total).filter((t): t is number => t !== null),
+  }
+}
+
+/**
+ * parkSleepFly as the writer may see it: the description keeps product truths ("Triply sells parking-only; room packages
+ * are booked with the hotel") and loses only priced off-site sentences; priceRange / extendedParking are filtered like the
+ * other prose and dropped when empty; popularHotels keeps only hotels whose lot we sell, without their price fields
+ * (pass-4 review: LAS listed two unsellable hotels at $5.49/$5.99, AUS a sellable one at $14.95 against $10.11 in the list).
+ */
+// Unverified hotel package claims ("7-14 days of free parking with a one-night stay") are not ours to repeat.
+const PACKAGE_CLAIM = /days? of (?:free )?parking|free parking (?:for|with|included)|park(?:ing)? free|parking included/i
+
+function filteredParkSleepFly(data: AirportData): Record<string, unknown> | undefined {
+  const p = data.parkSleepFly
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return undefined
+  const out = { ...(p as Record<string, unknown>) }
+  const sellable = sellableNames(data)
+  if (typeof out.description === 'string') {
+    const kept = out.description.split(SENTENCE_BREAK).filter((s) => !(OFF_SITE_SENTENCE.test(s) && ANY_DOLLAR.test(s)) && !PACKAGE_CLAIM.test(s))
+    out.description = kept.join('. ').replace(/\s+$/, '')
+    if (out.description && !/[.!?]$/.test(out.description as string)) out.description += '.'
+  }
+  for (const k of ['priceRange', 'extendedParking']) {
+    // Hotel package prices ("From ~$69/night") are unverified and go stale; only non-priced sentences stay.
+    if (typeof out[k] === 'string') out[k] = printableNotes(dropOffSiteSentences(out[k] as string, data.unsellableLotNames, sellable), true)
+    if (!out[k]) delete out[k]
+  }
+  if (!out.description) delete out.description
+  if (Array.isArray(out.popularHotels)) {
+    const sellableKeys = sellable.map(lotNameKey).filter(Boolean)
+    const sells = (name: string) => {
+      const k = lotNameKey(name)
+      return !!k && sellableKeys.some((sk) => sk.includes(k) || k.includes(sk))
+    }
+    out.popularHotels = (out.popularHotels as unknown[])
+      .map((h) => {
+        if (typeof h === 'string') return sells(h) ? h : null
+        if (!h || typeof h !== 'object') return null
+        const entry = h as Record<string, unknown>
+        if (typeof entry.name !== 'string' || !sells(entry.name)) return null
+        // name / distance / shuttle only: `highlight` and `parkingIncluded` carried old prices and package claims
+        return Object.fromEntries(Object.entries(entry).filter(([k]) => /^(name|distance|shuttleHours|shuttle)$/.test(k)))
+      })
+      .filter(Boolean)
+    if ((out.popularHotels as unknown[]).length === 0) delete out.popularHotels
+  }
+  return out
+}
+
+function formatParkSleepFly(data: AirportData): string {
+  const psf = data.parkSleepFly
+  if (!psf || typeof psf !== 'object' || Array.isArray(psf)) return ''
+  const p = filteredParkSleepFly(data) ?? (psf as Record<string, unknown>)
+
+  const lines: string[] = [
+    '\n**Park-Sleep-Fly Hotel Packages (same-day fallback when lots are full):**',
+  ]
+  if (typeof p.description === 'string' && p.description) lines.push(`- ${p.description}`)
+  if (typeof p.priceRange === 'string' && p.priceRange) lines.push(`- Price range: ${p.priceRange}`)
+  if (!Array.isArray(p.popularHotels) || p.popularHotels.length === 0) lines.push('- Hotels: only the lots in the lot list above sell parking through Triply; do not name any other hotel.')
+
+  // popularHotels is an object array at most airports but a plain string array at JFK/LAX/LGA/SFO.
+  if (Array.isArray(p.popularHotels)) {
+    for (const hotel of p.popularHotels.slice(0, 5)) {
+      const flat = flattenValue(hotel)
+      if (flat) lines.push(`- ${flat}`)
+    }
+  }
+  if (typeof p.extendedParking === 'string' && p.extendedParking) lines.push(`- Extended parking: ${p.extendedParking}`)
+
+  return lines.length > 1 ? lines.join('\n') : ''
 }
 
 function formatOnAirportParking(data: AirportData): string {
   if (!data.onAirportParking) return ''
   const parking = data.onAirportParking as Record<string, Record<string, unknown>>
+  const cur = currencySymbol(data)
   const lines: string[] = ['\n**On-Airport Parking Options:**']
   for (const [key, info] of Object.entries(parking)) {
     if (typeof info === 'string') {
@@ -150,8 +625,10 @@ function formatOnAirportParking(data: AirportData): string {
     }
     const parts: string[] = [`- **${key}**`]
     if (info.rate) parts.push(`${info.rate}`)
-    if (info.dailyMax) parts.push(`max $${info.dailyMax}/day`)
-    if (info.preBookRate) parts.push(`pre-book $${info.preBookRate}/day`)
+    if (info.dailyMax && typeof info.dailyMax === 'object') {
+      parts.push(`max ${Object.entries(info.dailyMax as Record<string, unknown>).map(([k, v]) => `${humanizeKey(k).toLowerCase()} ${cur}${v}`).join(' / ')} per day`)
+    } else if (info.dailyMax) parts.push(`max ${cur}${info.dailyMax}/day`)
+    if (info.preBookRate) parts.push(`pre-book ${cur}${info.preBookRate}/day`)
     if (info.terminals) parts.push(`near ${info.terminals}`)
     if (info.location) parts.push(`at ${info.location}`)
     if (info.connection) parts.push(`(${info.connection})`)
@@ -179,7 +656,12 @@ function formatConstruction(data: AirportData): string {
   const lines: string[] = ['\n**Active Construction (mention for freshness):**']
   if (construction.status) lines.push(`- Status: ${construction.status}`)
   if (Array.isArray(construction.projects)) {
-    for (const p of construction.projects) lines.push(`- ${p}`)
+    // projects is a string array at most airports but an object array at LAX/SFO; a bare
+    // template literal renders those as "[object Object]" straight into the prompt.
+    for (const p of construction.projects) {
+      const flat = flattenValue(p)
+      if (flat) lines.push(`- ${flat}`)
+    }
   }
   if (construction.travelImpact) lines.push(`- Travel impact: ${construction.travelImpact}`)
   return lines.join('\n')
@@ -216,11 +698,13 @@ function formatAirportData(data: AirportData, keyword?: string): string {
 - Transit: ${data.transit.join(', ')}
 - Neighborhoods: ${data.neighborhoods.join(', ')}
 - Authority: ${data.authority}
-- Official parking rates: ${data.parkingRates}
-- Shuttle info: ${data.shuttleInfo}
+- Official on-airport parking rates: ${dropOffSiteSentences(data.parkingRates, data.unsellableLotNames, sellableNames(data))}
+- Off-site lots Triply sells: ${sellableLotRange(data, kw) || 'none priced — do not name or price any off-site lot'} (the lot list below is the ONLY source for off-site lot names and prices; ignore any other off-site figure; this range leaves out lots whose notes bar them from leading)
+- Shuttle info (general; for a specific lot's shuttle use its line in the lot list, and never name a lot that is not in the list): ${dropOffSiteSentences(data.shuttleInfo, data.unsellableLotNames, sellableNames(data))}
 - Distance: ${data.distanceFromCity}
+- Data checked: ${data.lastVerified} (the month for every "as of <Month YYYY>" in the article — never an older month; an on-airport rate that states its own effective date may add "effective <date>" alongside, never instead)
 
-When citing specific numbers (rates, distances, shuttle frequency), use ONLY the data above. For claims you're unsure about, use hedging language ("typically", "around", "based on current rates").
+When citing specific numbers (rates, distances, shuttle frequency), use ONLY the data above. If a number is not in this data or on a cited official page, leave it out — never estimate, round or hedge a figure ("typically", "around", "roughly").
 ${formatLiveSources(data)}`
 
   // Always include parking lot details — this is the core value
@@ -234,6 +718,30 @@ ${formatLiveSources(data)}`
   if (kw.includes('lounge') || kw.includes('premium') || kw.includes('ameniti')) {
     result += formatLounges(data)
   }
+  // Capacity/availability intent — the "rescue" family (sold out / full / status / availability)
+  // plus any cost-comparison keyword, which is what the savings scenario is for.
+  if (
+    kw.includes('sold out') ||
+    kw.includes('full') ||
+    kw.includes('status') ||
+    kw.includes('availab') ||
+    kw.includes('busy') ||
+    kw.includes('peak')
+  ) {
+    result += formatPeakTravelTimes(data)
+    result += formatParkSleepFly(data)
+  }
+  if (
+    kw.includes('sold out') ||
+    kw.includes('cost') ||
+    kw.includes('price') ||
+    kw.includes('rate') ||
+    kw.includes('cheap') ||
+    kw.includes('save') ||
+    kw.includes('compar')
+  ) {
+    result += formatSavingsComparison(data, kw)
+  }
   // Always include construction for freshness signals
   result += formatConstruction(data)
 
@@ -244,10 +752,15 @@ function formatLiveSources(data: AirportData): string {
   if (!data.liveSources) return ''
 
   const lines: string[] = ['\n**Verified Reference URLs (use these for external links — do NOT invent URLs):**']
+  const canadian = isCanadianAirport(data.code ?? '', data)
   for (const [category, value] of Object.entries(data.liveSources)) {
     if (category.startsWith('_')) continue
     if (typeof value === 'string') continue
-    const urls = Object.entries(value as Record<string, string>)
+    // Competing booking sites are never offered as reference URLs (only our own search link survives from those
+    // categories), and US-only sources (TSA, CLEAR) are dropped for Canadian airports — same rules as the links DB.
+    const urls = Object.entries(value as Record<string, string>).filter(
+      ([, url]) => (!COMPETITOR_LIVE_SOURCE_CATEGORIES.has(category) || isOwnSiteUrl(url)) && !(canadian && isUsOnlyUrl(url))
+    )
     if (urls.length === 0) continue
     lines.push(`- ${category}: ${urls.map(([label, url]) => `${label} <${url}>`).join(', ')}`)
   }
@@ -320,7 +833,7 @@ Write an SEO-optimized blog article with the following parameters:
 **Generate an article title** (50-65 characters) that:
 - Contains the EXACT focus keyword, placed as close to the front as possible
 - Is compelling and specific — generated based on competitive analysis of what ranks
-- Omits the year unless content is genuinely time-sensitive
+- Include the year (${new Date().getFullYear()}) in the title when the content covers rates, deals, construction, policies, or any data that changes annually. Omit the year only for truly evergreen concepts.
 - Hub = authoritative guide title; Sub-pillar = deep-dive title; Spoke = specific answer title
 - Do NOT include any brand suffix like "| Triply" — the website template appends it automatically
 
@@ -339,7 +852,7 @@ ${airportData ? formatAirportData(airportData, item.keyword) + '\n\n' : ''}${(()
 - Average tables: ${analysis.competitorBenchmarks.avgTableCount}
 - Average links: ${analysis.competitorBenchmarks.avgLinkCount}
 ` : ''}**Topics to cover (from competitor analysis):** ${analysis.commonTopics.join(', ')}
-**Content gaps to fill (unique angles):** ${analysis.gaps.join(', ')}${analysis.topicGaps?.length ? `\n**Topic gaps (NO competitor covers these — high-value differentiation):** ${analysis.topicGaps.join(', ')}` : ''}${analysis.depthGaps?.length ? `\n**Depth gaps (competitors mention but cover shallowly):** ${analysis.depthGaps.join(', ')}` : ''}${analysis.dataGaps?.length ? `\n**Data gaps (specific missing data points):** ${analysis.dataGaps.join(', ')}` : ''}${analysis.entityFrequency?.length ? `\n**Key entities to mention (by competitor frequency):** ${analysis.entityFrequency.slice(0, 8).map(e => `${e.entity} (${e.mentions}x)`).join(', ')}` : ''}${analysis.structuralPatterns?.length ? `\n**Structural patterns to match:** ${analysis.structuralPatterns.join('; ')}` : ''}
+**Content gaps to fill (unique angles):** ${analysis.gaps.join(', ')}${analysis.topicGaps?.length ? `\n**Topic gaps (NO competitor covers these — high-value differentiation):** ${analysis.topicGaps.join(', ')}` : ''}${analysis.depthGaps?.length ? `\n**Depth gaps (competitors mention but cover shallowly):** ${analysis.depthGaps.join(', ')}` : ''}${analysis.dataGaps?.length ? `\n**Data gaps (specific missing data points):** ${analysis.dataGaps.join(', ')}` : ''}${(() => { const ents = (analysis.entityFrequency || []).filter((e) => !COMPETITOR_NAME_RE.test(e.entity)).slice(0, 8); return ents.length ? `\n**Key entities to mention (by competitor frequency — skip any parking lot or company not in the verified data above):** ${ents.map(e => `${e.entity} (${e.mentions}x)`).join(', ')}` : '' })()}${analysis.structuralPatterns?.length ? `\n**Structural patterns to match:** ${analysis.structuralPatterns.join('; ')}` : ''}
 
 **Writing rules:**
 1. Output ONLY clean HTML using these tags: h2, h3, p, ul, ol, li, a, strong, em, blockquote, table, thead, tbody, tr, th, td, img
@@ -347,14 +860,14 @@ ${airportData ? formatAirportData(airportData, item.keyword) + '\n\n' : ''}${(()
 3. Do NOT include the article title as an h1 — it's handled separately
 4. All internal links use format: ${BLOG_BASE_URL}/[slug]
 5. External links: USE the verified external links database and liveSources URLs provided above. Pick the most relevant links for this topic. Add rel="nofollow" where specified. Use the suggested anchor text (vary it naturally). Do NOT invent external URLs — ONLY use URLs from the databases provided above.
-6. Use natural keyword placement — target keyword in first paragraph, 2-3 H2s, and conclusion
+6. EXACT KEYWORD (ranking-critical — do NOT paraphrase): The focus keyword "${item.keyword}" must appear VERBATIM (identical words, identical order) at least once in the opening paragraph — it can be the 2nd or 3rd sentence, so it coexists with the definition-first opening in rule 34 — plus in at least 2 H2 headings and once near the conclusion. Repeat the exact phrase naturally 3-6 times across the article so keyword density lands between 0.5% and 2.5%. Search engines match the exact string, so reordered or paraphrased variants do not count.
 7. Write in a friendly, helpful, authoritative voice — not corporate
 8. Include specific details: prices, distances, shuttle times, tips
 9. Use "Triply" or "TriplyPro" when referencing our service with a link to https://www.${DOMAIN}
 
 **Booking CTAs (CRITICAL for conversions — must be CONTEXTUAL, not generic):**
-10. EARLY CTA: Within the first 500 words, include a booking CTA that references something specific from the surrounding content. If the section discusses Terminal 4 options, say "Compare Terminal 4 parking rates." If it discusses budget options, say "Find deals starting under $10/day." The CTA must feel like a natural extension of the paragraph, not a generic insert. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}. Do NOT use generic phrases like "Compare rates on Triply" — always tie the CTA to a specific detail mentioned nearby (a terminal, a price range, a parking type, the airport name).
-11. CLOSING CTA: In the final section, include a CTA that ties back to the article's main promise. If the article is about saving money, close with "Start comparing rates to find your best deal." If it's about convenience, close with "Book your spot now and skip the stress on travel day." Reference the specific airport (${item.airportCode}). Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
+10. EARLY CTA: Within the first 500 words, include a booking CTA that references something specific from the surrounding content. The CTA MUST include the airport name or code ("LaGuardia", "LGA", "JFK", etc.) AND a specific detail from the article (a terminal, price range, or parking type). Example: "Compare LaGuardia Terminal B parking from [the lowest sellable lot rate in the data block, with its currency sign]/day on Triply." Do NOT use generic phrases like "Compare rates on Triply" — always include the airport name. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
+11. CLOSING CTA: In the final section, include a CTA that ties back to the article's main promise AND mentions the airport by name or code. Example: "Find your best LGA parking deal — compare rates from [the lowest sellable lot rate in the data block]/day on Triply." The airport name/code (${item.airportCode}) MUST appear in every CTA. Link to https://www.${DOMAIN}/search?airport=${item.airportCode}.
 
 **Readability (CRITICAL — target Flesch-Kincaid grade 6-9):**
 12. SENTENCE LENGTH: Keep sentences SHORT. Average sentence length should be 15-20 words. Mix it up: some sentences 8-12 words, some 20-25, but never exceed 30 words in a single sentence. Break complex ideas into multiple simple sentences.
@@ -370,26 +883,33 @@ BAD: "For travelers seeking to minimize their overall parking expenditure while 
 GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shuttle ride to the terminals. For most travelers, the savings outweigh the extra time."
 
 **AI Search & Featured Snippet Optimization (CRITICAL — follow these closely):**
-16. OPENING ANSWER: The very first paragraph must be a concise, direct answer to the main query implied by the title. It should be extractable on its own — if someone only read this one paragraph, they'd get the core answer. AI search engines pull this as the primary citation.
+16. OPENING ANSWER (GEO-critical — AI Overviews quote this paragraph): The first paragraph must COMPLETELY answer the main query within its first ~50 words AND, when the data block has one, state the single most important figure — the actual price/rate with its currency sign, taken from the data block (never invented for a topic that has no figure, such as shuttles or cell-phone lots). Lead with the answer; never build up to it. It must be self-contained and quotable: if an AI engine lifted only this paragraph, it would be a complete, accurate answer including the key figure. In the zero-click/AI-Overview era, being the most directly quotable answer-with-data is how you get cited.
+16b. PROMO / COUPON / DEAL POSTS (W1.5): frame the article as "how to save on <airport> parking" — booking ahead, off-site lots, long-term vs garage, the airport's own published offers. Name a third-party code ONLY if the airport or the lot publishes it, and link that official page next to it. Never invent, list or "round up" codes; never "verified", "working" or "updated" codes; never "save up to N%" without a linked source.
+16a. ANSWER FIRST — RATES/COST/PRICE POSTS (hard rule, checked by a lint that blocks the write): the first paragraph carries the direct answer with AT LEAST ONE sourced figure written with its currency sign ("$18/day", "C$12/day") AND the phrase "as of <Month YYYY>" (the "Data checked" month in the airport data block, never an older or a guessed month). Phrase the sentence the way the question is asked ("Parking at EWR costs $18/day in the economy lot as of October 2026"). The title also names the key number where one exists. Every figure comes from the airport data block or a cited official URL — never from a competitor page.
 17. KEY TAKEAWAYS: For standard, data-heavy, and comparison styles, immediately after the opening answer include a "Key Takeaways" section using a <ul> with 4-6 bullet points summarizing the most important facts. Bold the lead phrase of each bullet with <strong>. Skip this for narrative style (weave facts into prose instead) and listicle style (the numbered format serves this purpose).
 18. USE LISTS NATURALLY: Include <ul> or <ol> lists in most sections where they fit — options, steps, tips, comparisons, pros/cons. Don't force a list into a section that reads better as narrative, but when you're presenting multiple items, always use a list rather than burying them in paragraph form.
 19. ANSWER-FIRST SECTIONS: Begin each H2 section with a concise 1-2 sentence direct answer before elaborating. AI systems extract the first clear statement after a heading.
 20. QUESTION HEADINGS: For standard and data-heavy styles, frame H2s as questions where natural (e.g., "How Much Does JFK Parking Cost?" not "JFK Parking Costs"). For listicle style, keep numbered headings as statements. For narrative style, prefer statement headings. This rule is OVERRIDDEN by the style instructions above when they conflict.
 21. DEFINITION PATTERN: When genuinely introducing a new concept the reader may not know, use the "What is X? X is..." pattern as an H3. Don't overuse this — it's for terms that actually need defining (e.g., "off-site parking", "cell phone lot"), not for obvious concepts.
 22. COMPARISONS: Include at least one comparison section using a structured list (e.g., "<h3>On-Site vs Off-Site Parking</h3>" with a <ul> comparing key differences side by side).
-23. SOURCE ATTRIBUTION: When citing facts you're confident about, attribute them to real sources (e.g., "the Port Authority of NY & NJ", "JFK's official parking page", "TSA guidelines"). NEVER fabricate a source or attribution — if you're not sure who published a fact, use softer language like "travelers typically find" or "based on current rates" instead.
-24. E-E-A-T SIGNALS: Use phrases like "based on current rates", "travelers frequently report", "we compared options across providers" to signal expertise and first-hand experience.
+23. SOURCE ATTRIBUTION: When citing facts you're confident about, attribute them to real sources (e.g., "the Port Authority of NY & NJ", "JFK's official parking page", "TSA guidelines"). NEVER fabricate a source or attribution — if you're not sure who published a fact, leave the claim out.
+24. E-E-A-T SIGNALS (include at least 4 different ones, spread naturally): Signal expertise with credibility phrases that name a checkable source: "according to <named source>", "per the Port Authority"/the relevant airport authority, "official airport data", "published rates", "as of <Month YYYY>". Use at least four distinct phrases across the article. Never claim research Triply did not do ("based on our analysis", "travelers frequently report", "we compared options across providers") and never fabricate a source or attribution.
 25. BOLD KEY TERMS: Use <strong> to highlight key terms, names, and important phrases throughout the article. This helps AI systems identify the most important concepts for extraction.
 26. ENTITY COVERAGE: Mention related entities thoroughly — terminal names (Terminal 1, Terminal 4, Terminal 8), airline hubs (JetBlue T5, Delta T4), nearby roads (Van Wyck Expressway, Belt Parkway), shuttle services, and neighborhood names (Jamaica, Howard Beach). Entity density helps NLP systems gauge content depth.
-27. FRESHNESS SIGNALS: For things that genuinely change (rates, policies, construction updates), include timeframe references like "as of 2026" or "current rates". Don't add year references to evergreen facts that don't change — it just dates the content unnecessarily.
+27. FRESHNESS SIGNALS: For things that genuinely change (rates, policies, construction updates), include timeframe references like "as of <Month YYYY>" (the Data checked month) or "current rates". Don't add year references to evergreen facts that don't change — it just dates the content unnecessarily.
 28. PARAGRAPH LENGTH: Keep paragraphs to 3-5 sentences (80-120 words). Long enough to develop a point, short enough for AI to parse and extract. Never exceed 5 sentences in a single paragraph.
 29. NO FILLER: Every sentence must contain a fact, a tip, or a specific actionable detail. Remove any sentence that exists just to fill space or transition generically.
 30. COMPARISON TABLES: For pricing data and side-by-side comparisons, use HTML tables (<table>, <thead>, <tbody>, <tr>, <th>, <td>). Tables are especially valuable in data-heavy and comparison style articles. Include at least one table when comparing parking options, rates, or features across providers. CRITICAL: Every row in a parking comparison table MUST use an ACTUAL named facility from the verified data above (e.g., "PARK AC", "ARB Parking", "Bolt Parking"). NEVER use generic categories like "Budget (Jamaica)" or "Premium (Near terminals)" — readers need real lot names they can search for and book.
-31. VERIFICATION DATES: When citing promo codes, specific rates, or time-sensitive facts, add "(verified [Month Year])" inline — e.g., "The early bird rate is $18/day (verified February 2026)." This builds trust and signals freshness.
+31. AS-OF DATES: When citing specific rates or time-sensitive facts, add "(as of [Month Year])" inline — e.g., "The early bird rate is $18/day (as of <Month YYYY>)" — the Data checked month. Never write "verified" or "working" next to a promo code.
 32. PAA TARGETS: Include 2-3 "People Also Ask" style questions as H2 or H3 headings, targeting common related queries that searchers ask about this topic. For example, if writing about JFK parking deals, include headings like "Is There Free Parking at JFK?" or "How Early Should I Book JFK Parking?"
 33. NO FAQ SECTION IN HTML: Do NOT include a "Frequently Asked Questions" section in the HTML body. FAQs are returned separately in the faqItems JSON field and rendered as a dedicated accordion component on the page. Including them in the HTML causes duplicate rendering.
-34. DEFINITION-FIRST OPENING: The very first sentence of the article MUST be a clear, standalone definition using the "X is..." pattern. It must pass the "island test" — if this sentence appeared alone on a search results page with no surrounding context, the reader would understand what the article is about. Example: "Off-site JFK parking is a budget-friendly alternative where private lots near the airport offer shuttle service to terminals at rates 40-60% below on-airport garages." This is DIFFERENT from rule 16 (opening answer paragraph) — rule 16 is about answering the query; this rule is about the sentence structure of the FIRST sentence being a definition.
-35. VERIFIABLE STATISTICS: Include at least 3-5 specific, data-backed statistics per article drawn from the verified parking lot data and airport facts provided above. Present savings as percentages ("save up to 55% vs on-airport rates"), distances in exact miles, shuttle frequencies in minutes, and price ranges with specific dollar amounts. Bold statistics with <strong> so AI engines can extract them. Attribute data to its source (e.g., "based on current Triply rates" or "per [airport authority name]"). NEVER fabricate statistics — only use numbers derivable from the data provided.
+34. DEFINITION-FIRST OPENING: The very first sentence of the article MUST be a clear, standalone definition using the "X is..." pattern. It must pass the "island test" — if this sentence appeared alone on a search results page with no surrounding context, the reader would understand what the article is about. Example: "Off-site JFK parking is a budget-friendly alternative where private lots near the airport offer shuttle service to terminals for less than the on-airport garages." This is DIFFERENT from rule 16 (opening answer paragraph) — rule 16 is about answering the query; this rule is about the sentence structure of the FIRST sentence being a definition.
+35. VERIFIABLE STATISTICS: Include at least 3-5 specific, data-backed statistics per article drawn from the verified parking lot data and airport facts provided above. Present savings as the two rates side by side ("$12/day at <lot> vs $46/day at the terminal garage") — never as a percentage unless the same sentence links its source (a lint blocks unsourced "save up to N%") — distances in exact miles, shuttle frequencies in minutes, and price ranges with specific dollar amounts. Bold statistics with <strong> so AI engines can extract them. Attribute data to its source (e.g., "based on current Triply rates" or "per [airport authority name]"). NEVER fabricate statistics — only use numbers derivable from the data provided.
+36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
+37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest rate in the "Off-site lots Triply sells" line, with its currency sign — never a lot whose notes bar it from leading) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
+38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of <Month YYYY>, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
+38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. "[price omitted]" in a lot's notes marks a stale figure that was removed — never print it and never put a number in its place (a lint blocks the write). A lot whose line says it has no shuttle is described without one — never claim or imply a shuttle, and say how to reach the terminal only when the line says. Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
+${ownCodeRule(item.airportCode)}
 Respond with ONLY valid JSON in this exact format:
 {
   "title": "Display title for the article (50-65 chars, keyword-rich, compelling)",
@@ -398,7 +918,7 @@ Respond with ONLY valid JSON in this exact format:
   "metaTitle": "SEO title (max 60 chars, shorter variant of title)",
   "metaDescription": "SEO description (max 160 chars)",
   "earlyCta": "The exact text of your early CTA (e.g., 'Compare Terminal 4 parking rates on Triply')",
-  "closingCta": "The exact text of your closing CTA (e.g., 'Reserve your JFK parking spot and save up to 60%')",
+  "closingCta": "The exact text of your closing CTA (e.g., 'Reserve your JFK parking spot on Triply')",
   "faqItems": [
     {"question": "Question?", "answer": "Answer text"},
     ...
@@ -415,26 +935,33 @@ Respond with ONLY valid JSON in this exact format:
 export function getWritingRulesBlock(airportCode: string): string {
   return `**Condensed writing rules for ${DOMAIN} (airport: ${airportCode}):**
 1. Output ONLY clean HTML: h2, h3, p, ul, ol, li, a, strong, em, blockquote, table, thead, tbody, tr, th, td, img. No h1/div/span/styles/classes/IDs.
-2. Internal links: ${BLOG_BASE_URL}/[slug]. External links: ONLY from verified database. Add rel="nofollow" where specified.
+2. Internal links: ${BLOG_BASE_URL}/[slug]. External links: ONLY from verified database. Add rel="nofollow" where specified. Include year (${new Date().getFullYear()}) in title for rates/deals/construction/policies content.
 3. Natural keyword placement in first paragraph, 2-3 H2s, conclusion. Friendly authoritative voice.
 4. EARLY CTA within 500 words (contextual, specific). CLOSING CTA in final section. Both link to https://www.${DOMAIN}/search?airport=${airportCode}.
 5. Readability: grade 6-9. Sentences 15-20 words avg, never >30. Simple words. Active voice.
-6. Opening answer paragraph (extractable standalone). Key Takeaways <ul> after (standard/data-heavy/comparison only).
+6. Opening answer paragraph (extractable standalone); rates/cost posts: first paragraph has a $ figure + "as of <Month YYYY>" (lint-enforced). Key Takeaways <ul> after (standard/data-heavy/comparison/rescue only).
 7. Question H2s where natural. Answer-first sections. Lists where they fit.
 8. Real source attribution. E-E-A-T language. Bold key terms. Entity coverage.
 9. Freshness signals for time-sensitive data. 3-5 sentence paragraphs. Zero filler.
 10. Comparison tables use REAL lot names from verified data (never generic categories).
-11. Verification dates: "(verified [Month ${new Date().getFullYear()}])". 2-3 PAA question headings.
+11. As-of dates: "(as of [Month ${new Date().getFullYear()}])", never "verified" next to a code. 2-3 PAA question headings.
 12. NO FAQ section in HTML (goes in faqItems JSON). No brand suffix in title.
 13. Definition-first opening: First sentence MUST be "X is..." standalone definition (island test). Different from opening answer paragraph — this is about sentence structure.
-14. Include 3-5+ verifiable statistics per article from provided data. Bold stats with <strong>. Attribute sources. Never fabricate numbers.`
+14. Include 3-5+ verifiable statistics per article from provided data. Bold stats with <strong>. Attribute sources. Never fabricate numbers.
+15. NO AI SLOP: Never use: "In conclusion", "It's worth noting", "Whether you're a", "game-changer", "invaluable", "Let's dive in", "Read on to learn", "When it comes to", "At the end of the day", "Without further ado". Write like a human.
+16. Meta description MUST be 120-160 characters. Include a price point when available (e.g., "from $8.95/day") — prices boost CTR. Start with direct answer, add differentiator, end with CTA.`
 }
 
 /**
  * Get formatted airport data block for prompt caching.
  */
 export function getAirportDataBlock(airportData: AirportData, keyword: string): string {
-  return formatAirportData(airportData, keyword)
+  // Vin 14 Oct 2026: never name off-site lots we can't sell, even if competitor articles do
+  const onlySellable = "\n\nOFF-SITE LOTS: name ONLY the off-site lots listed above (all bookable on Triply). Never name any other off-site lot, hotel parking or parking company, even if competitor articles mention them. The airport's own on-airport parking may be named for comparison. Never name competing booking sites or apps (SpotHero, Way.com, ParkWhiz, ParkSleepFly and the like) or send readers to them for codes; if the focus keyword names one (e.g. Groupon), cover it without recommending it."
+  const currencyRule = currencySymbol(airportData) === 'C$'
+    ? "\n\nCURRENCY: this is a Canadian airport. Every price in the article is Canadian dollars, written C$ (e.g. C$12/day), including on-airport rates, examples and comparisons. Never a bare $."
+    : ''
+  return formatAirportData(airportData, keyword) + onlySellable + currencyRule
 }
 
 /**

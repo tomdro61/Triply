@@ -1,0 +1,388 @@
+{
+  "code": "OAK",
+  "fullName": "Oakland San Francisco Bay Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Oakland, California — about 7 miles south of downtown Oakland and 12 miles east of San Francisco, off I-880 via Hegenberger Road / Airport Drive. Formerly Metropolitan Oakland International Airport; renamed Oakland San Francisco Bay Airport in July 2025 after a 2024 rename ('San Francisco Bay Oakland International Airport') was blocked by a November 2024 injunction won by San Francisco (SFO). The dispute was settled in April 2026: OAK keeps 'Oakland San Francisco Bay Airport' and its IATA code, 'Oakland' must come first, and the name drops 'International'.",
+    "iataCode": "OAK",
+    "icaoCode": "KOAK",
+    "faaLid": "OAK",
+    "elevation": "9 feet above mean sea level",
+    "acreage": 2600,
+    "coordinates": "37.7214N, 122.2208W",
+    "passengerVolume": "9,210,509 passengers in 2025 (down from 10,820,939 in 2024)",
+    "aircraftOperations": "196,017 (2025)",
+    "distinction": "The East Bay's main airport and, per the Port of Oakland, the closest airport to a majority of Bay Area residents. Southwest carries ~78% of passengers (Aug 2025-Jul 2026) and has an operating base here. FedEx Express runs a West Coast cargo hub on the airport. Linked to BART by the Oakland Airport Connector (opened 2014). Not affiliated with San Francisco International (SFO).",
+    "operator": "Port of Oakland",
+    "owner": "Port of Oakland (since 1927)",
+    "activeTerminals": 2,
+    "totalGates": 29,
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "12/30", "length": "10,520 ft (3,206 m)", "surface": "Asphalt (South Field — commercial and cargo)" },
+      { "designation": "10R/28L", "length": "6,213 ft (1,894 m)", "surface": "Asphalt (North Field)" },
+      { "designation": "10L/28R", "length": "5,458 ft (1,664 m)", "surface": "Asphalt (North Field)" },
+      { "designation": "15/33", "length": "3,376 ft (1,029 m)", "surface": "Asphalt (North Field)" }
+    ],
+    "dominantAirline": "Southwest Airlines (~77.9% of passengers, Aug 2025-Jul 2026)",
+    "totalAirlines": "Southwest, Alaska, Delta Connection, Frontier, Hawaiian, Volaris, Volaris El Salvador, Advanced Air and JSX (JSX from its own facility) — check iflyoak.com/fly/wherewefly for the current list",
+    "founded": "Opened September 17, 1927",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "BART Oakland Airport Connector: Oakland Airport station across the street from the terminals, ~8-9 minutes to Coliseum station (links to the whole BART system). AC Transit Line 73 (every 15 min, ~4:56 a.m.-12:06 a.m.) and late-night Line 805 (hourly ~12:35-4:30 a.m.) to Coliseum BART.",
+    "peopleMover": "None inside the terminals — Terminals 1 and 2 are connected on foot; the BART connector is an automated guideway to Coliseum station, not an inter-terminal train."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1",
+      "status": "Active",
+      "airlines": ["Alaska Airlines", "Delta Connection", "Frontier Airlines", "Hawaiian Airlines", "Volaris", "Volaris El Salvador", "Advanced Air", "Southwest Airlines (some flights)"],
+      "gates": "16 gates",
+      "notes": "Handles all non-precleared international arrivals. Escape Lounge is here, near Gate 8 (between Gates 8 and 8A, across from Gate 9) — open to passengers of any airline by booking."
+    },
+    {
+      "name": "Terminal 2",
+      "status": "Active",
+      "airlines": ["Southwest Airlines"],
+      "gates": "13 gates",
+      "notes": "Southwest-only terminal. Trader Vic's and Plum Market opened here October 15, 2026. From the Daily, Hourly and Premier lots, Terminal 2 is on the far side of the elevated BART station."
+    }
+  ],
+  "roads": ["Interstate 880 (Nimitz Freeway) — exit Hegenberger Road", "Hegenberger Road (Spring Park lot at 250 Hegenberger)", "98th Avenue (Express Park Fly at 195 98th Ave, Airpark at 111 98th Ave)", "Airport Drive (terminal loop)", "Doolittle Drive (CA-61, from Alameda / San Leandro)", "Earhart Road (Rental Car Center, North Field)"],
+  "transit": ["BART Oakland Airport Connector to Coliseum station (~8-9 min)", "AC Transit Line 73 (OAK - Coliseum BART)", "AC Transit Line 805 (late-night, OAK - Coliseum BART - downtown Oakland)", "Amtrak at Oakland Jack London Square (Capitol Corridor, Coast Starlight, California Zephyr) — no direct airport link"],
+  "neighborhoods": ["Downtown Oakland", "East Oakland", "Alameda", "San Leandro", "Hayward", "Castro Valley", "Berkeley", "Fremont", "Walnut Creek", "San Ramon"],
+  "authority": "Port of Oakland",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None inside the terminals",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "BART's Oakland Airport Connector runs from the station across the street to Coliseum BART (BART fare applies)."
+    },
+    "groundTransportZones": {
+      "rideshare": "Uber, Lyft and Wingz: 3rd Curb, Sections 3C2-3C9.",
+      "rentalCarShuttle": "Rental Car Shuttle: 3rd curb outside Terminals 1 and 2 (Stops 3A and 3D).",
+      "offAirportParkingShuttles": "Off-airport parking shuttles pick up at the 4th curb — Airpark's listing gives Section 4F.",
+      "parkAndCall": "Park & Call waiting lot: free for up to 30 minutes; passenger pickup is not allowed in the lot — meet passengers at the first curb in front of Terminals 1 and 2.",
+      "source": "https://www.iflyoak.com/ground-transportation/rideshare/"
+    },
+    "bart": {
+      "operator": "Bay Area Rapid Transit (BART)",
+      "routes": ["Oakland Airport Connector: Oakland Airport station <-> Coliseum station"],
+      "travelTime": "About 8-9 minutes to Coliseum",
+      "hours": "Weekdays 5 a.m.-midnight, Saturdays 6 a.m.-midnight, Sundays 8 a.m.-midnight",
+      "frequency": "About every 6 minutes in the daytime, every 20 minutes 11 p.m.-midnight",
+      "fare": "Mileage-based BART fare with an airport surcharge — use BART's fare calculator; Clipper, contactless cards, Apple Pay and Google Pay accepted",
+      "accessFromTerminal": "The BART station is across the street from the terminals.",
+      "source": "https://www.bart.gov/guide/airport/inbound_oak"
+    },
+    "acTransit": {
+      "operator": "AC Transit",
+      "routes": ["Line 73 (OAK - Coliseum BART, every 15 min, ~4:56 a.m.-12:06 a.m.)", "Line 805 (late-night, hourly ~12:35-4:30 a.m., OAK - Coliseum BART - downtown Oakland)"],
+      "source": "https://www.iflyoak.com/ground-transportation/public-transportation/"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "Wingz"],
+      "pickupLocation": "3rd Curb, Sections 3C2-3C9",
+      "note": "Confirm the car and driver match the app before getting in."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center, 7600 Earhart Road, Oakland, CA 94621 (North Field), reached by the Rental Car Shuttle from the 3rd curb (Stops 3A and 3D). Waits typically ~10 minutes, up to 20; buses staged at both ends 11:30 PM-4 AM. Shuttle questions: 510-453-1522.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Thrifty", "Turo (car sharing)"],
+      "totalBrands": 9,
+      "note": "Counter hours: Hertz/Dollar/Thrifty 6 AM-1 AM; Avis/Budget 6 AM-11 PM; Enterprise/Alamo/National 7 AM-10:30 PM.",
+      "source": "https://www.iflyoak.com/ground-transportation/car-rentals/"
+    },
+    "amtrak": {
+      "station": "Oakland Jack London Square (not at the airport)",
+      "service": "Capitol Corridor, Coast Starlight, California Zephyr",
+      "note": "No direct airport link — combine with BART/AC Transit or rideshare."
+    },
+    "hotelShuttles": "Triply's three OAK lots are 1.3-1.7 mi from the terminals on 98th Avenue and Hegenberger Road. Airpark's shuttle loops the 4th curb (Section 4F); Express Park Fly (510-899-2014) and Spring Park (510-333-6603) are on demand — call after you collect your bags."
+  },
+  "parkingRates": "On-airport (24-hour max, incl. 20% City of Oakland Parking Tax): Economy $18 ($3 per 30 min, shuttle), Daily $26 ($4 per 30 min, walk), Hourly $36 ($4 per 30 min), Premier $40 ($5 per 30 min, in front of the terminals). Park & Call free 30 minutes. Off-site via Triply: Express Park Fly and Spring Park from ~$6.95/day, Airpark Oakland ~$12/day.",
+  "onAirportParking": {
+    "economyLot": {
+      "name": "OAK Economy Lot",
+      "rate": "$18/day ($3 per 30 minutes; daily max reached after 2 hours)",
+      "dailyMax": 18,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.iflyoak.com/park/book-parking/",
+      "location": "Long-term lot beyond the Daily lot",
+      "connection": "Free shuttle buses from 7 stops in the lot, every 15-20 minutes. Overnight service is on demand at 510-563-3890 (the airport's pages give both 11 PM-5 AM and 2-5 AM as the on-demand window — tell readers to check the shelter sign).",
+      "features": "Lowest-cost on-airport option. Free EV charging at M1."
+    },
+    "dailyLot": {
+      "name": "OAK Daily Lot",
+      "rate": "$26/day ($4 per 30 minutes; daily max after 2 hours)",
+      "dailyMax": 26,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.iflyoak.com/park/book-parking/",
+      "serves": "Terminals 1 and 2 (5-8 minute walk on protected walkways)",
+      "features": "Quick Gate reservations-only lane: reserve, add your plate, the camera opens the gate (front plate required). Free EV charging at L6. No shuttle."
+    },
+    "hourlyLot": {
+      "name": "OAK Hourly Lot",
+      "rate": "$36/day ($4 per 30 minutes)",
+      "dailyMax": 36,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.iflyoak.com/park/book-parking/",
+      "serves": "Terminals 1 and 2 (walk) — second-closest lot",
+      "features": "ADA placard holders without a reservation can pay the Daily rate by exiting through the cashier lane with placard and ID.",
+      "hourlyRates": "$4 per 30 minutes"
+    },
+    "premierLot": {
+      "name": "OAK Premier Lot",
+      "rate": "$40/day ($5 per 30 minutes; daily max after 2 hours)",
+      "dailyMax": 40,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.iflyoak.com/park/book-parking/",
+      "serves": "Directly in front of the terminals (walk)",
+      "features": "Closest parking. Most free EV chargers (G2, J2, K2)."
+    },
+    "cellPhoneLot": {
+      "name": "Park & Call",
+      "cost": "FREE for up to 30 minutes",
+      "rules": "Wait in your vehicle; no passenger pickup in the lot — meet passengers at the first curb in front of Terminals 1 and 2. For longer waits use the Hourly Lot.",
+      "source": "https://www.iflyoak.com/park/frequently-asked-questions/"
+    },
+    "evCharging": {
+      "locations": ["Premier Lot — G2, J2, K2", "Daily Lot — L6", "Economy Lot — M1"],
+      "cost": "Free charging (regular parking rates apply)",
+      "note": "Level 2 cords provided; bring your own cord for Level 1. EV stalls limited to 30 days; non-EVs in EV stalls are towed.",
+      "source": "https://www.iflyoak.com/park/frequently-asked-questions/"
+    },
+    "reservations": "Book at book.iflyoak.com at least 2 hours ahead ('discounted rates' — amounts unpublished); $1.99 service fee; modify/cancel up to 4 hours ahead; guarantees entry; no partial refunds for early exit; overstays billed at the regular rate. Departing-flight delay/cancellation refunds by email with proof.",
+    "accessibleParking": "ADA spaces in all lots along protected walkways. Hourly Lot: placard holders without a reservation pay the Daily rate via the cashier lane. Regular rates in Economy and Premier.",
+    "paymentMethods": "Cash; Visa, Mastercard, Discover, American Express, Diners Club; Apple Pay, Google Pay, Samsung Pay. 'Credit Card In and Out' can't be combined with coupons or promotions. Rates include the 20% City of Oakland Parking Tax.",
+    "oversizedVehicles": "RVs and motorhomes allowed — charged by the number of spaces used. Trucks and SUVs use the right exit lane (taller scanner). Motorcycles allowed.",
+    "receipts": "Reservation confirmation email is the receipt; download from Manage Booking or use iflyoak.com/park/request-a-receipt; overstay receipts from the pay machine before exit.",
+    "parkingContact": "Parking help, jump starts, lockouts: 510-563-3200; Economy on-demand shuttle: 510-563-3890",
+    "garageServiceAreas": "Premier, Hourly and Daily → walk to Terminals 1 and 2. Economy → shuttle."
+  },
+  "parkingLots": [
+    {
+      "name": "Express Park Fly",
+      "slug": "express-park-fly",
+      "dailyRate": 8.01,
+      "reservationRate": 8.01,
+      "parkingType": "Self-park (fenced, gated lot; outdoor and indoor options per listing)",
+      "amenities": ["Covered/Garage", "Security", "24/7 Front Desk"],
+      "shuttleInfo": "24/7, on demand. Check in with on-site staff on arrival and show your reservation. On return, call 510-899-2014 after collecting your bags to request pickup.",
+      "overview": "Fully fenced and gated lot about 5 minutes from OAK with security cameras and on-site staff, open and staffed 24/7. Listing says outdoor and indoor parking options are available.",
+      "address": "195 98th Ave, Oakland, CA 94603",
+      "distanceFromAirport": "1.7 mi",
+      "driveTime": "About 5 minutes (per listing)",
+      "phone": "510-899-2014",
+      "notes": "Lowest grand total at OAK on 2026-10-16: $75.50 for a 7-night Nov 2-9 stay (8 billed days; $55.60 subtotal + fees + 20% tax); same on Nov 9-16 and 16-23. The listing mentions indoor parking but does not say a Triply booking gets a covered space — do not promise covered parking.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Spring Park Airport Parking",
+      "slug": "spring-park-airport-parking",
+      "dailyRate": 8.3,
+      "reservationRate": 8.3,
+      "parkingType": "Self-park (attendant-directed)",
+      "amenities": ["24/7 Front Desk"],
+      "shuttleInfo": "24/7, on demand. Check in with an attendant at the entrance and show your confirmation number (phone is fine); you get a parking ticket — keep it, you need it to retrieve your car. Arrive at least 20 minutes before you want to be at the airport. On return, call 510-333-6603 after collecting luggage.",
+      "overview": "Lot on Hegenberger Road minutes from Oakland San Francisco Bay Airport with a 24/7 on-demand shuttle; staff guide you to a space.",
+      "address": "250 Hegenberger Rd, Oakland, CA 94621",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "510-333-6603",
+      "notes": "$76.50 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Same $6.95/day as Express Park Fly but $1 more in fees. Listing description says '0.5 miles' of drive; Triply's search measures 1.4 mi — use 1.4 mi.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Airpark Oakland Parking",
+      "slug": "airpark-oakland-parking",
+      "dailyRate": 13.01,
+      "reservationRate": 13.01,
+      "parkingType": "Self-park (valet at no extra charge when near capacity)",
+      "amenities": ["24/7 Front Desk", "Wheelchair Access", "Valet", "Security"],
+      "shuttleInfo": "24 hours, departing every 10 minutes to the airport. Arrive 15 minutes before you plan to be at the terminal. On return, go to the off-airport parking pickup area at the 4th curb, Section 4F; buses rotate continuously until midnight — after that, or if you can't find the shuttle, call 510-568-1221.",
+      "overview": "Long-standing lot (serving travelers since 1979) about a 5-minute drive east of OAK, with a 24/7 front desk, 24-hour surveillance and a complimentary shuttle included with every online reservation.",
+      "address": "111 98th Avenue, Oakland, CA 94603",
+      "distanceFromAirport": "1.3 mi",
+      "driveTime": "About 5 minutes (per listing)",
+      "phone": "510-568-1221",
+      "specialConditions": "No RVs, no Sprinter vans, no dually trucks.",
+      "notes": "$121.16 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Must be booked at least 24 hours ahead. Only Triply OAK lot with a scheduled (every-10-minute) shuttle and a fixed curb pickup (4F); after midnight call for pickup. Wheelchair access listed.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Park 'N Fly Oakland",
+      "slug": "park-n-fly-oakland",
+      "parkingType": "Off-airport lot with shuttle",
+      "address": "82 98th Ave, Oakland, CA 94603",
+      "notes": "Major off-airport operator on 98th Avenue. Not sold on Triply — comparison only; never use as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "VIP Airport Parking",
+      "slug": "vip-airport-parking-oakland",
+      "parkingType": "Off-airport lot with shuttle",
+      "address": "303 Hegenberger Rd, Oakland, CA 94621",
+      "notes": "Off-airport operator on Hegenberger Road. Not sold on Triply — comparison only; never use as a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Lot shuttle every 15-20 minutes from 7 stops, on demand overnight (510-563-3890); Daily, Hourly and Premier are walkable. Off-site: Triply's three OAK lots are 1.3-1.7 mi away and all run 24/7 — Express Park Fly and Spring Park on demand (call after bags), Airpark every 10 minutes from the 4th curb (Section 4F), continuous until midnight then call 510-568-1221.",
+  "distanceFromCity": "About 7 miles south of downtown Oakland and 12 miles east of San Francisco.",
+  "keyDistances": {
+    "toDowntownOakland": "~7 miles; BART via Coliseum, AC Transit 805 late night",
+    "toSanFrancisco": "~12 miles (across the Bay Bridge); BART via Coliseum",
+    "to98thAveLots": "1.3-1.7 mi (Triply lots: Airpark Oakland, Express Park Fly)",
+    "toHegenbergerLot": "1.4 mi (Triply lot: Spring Park Airport Parking)",
+    "toColiseumBart": "~8-9 minutes on the BART connector",
+    "competitiveAdvantage": "All three Triply OAK lots sit within 1.7 miles of the terminals off Hegenberger Road and 98th Avenue and all run 24/7 shuttles; two of them cost less than half of OAK's $18/day Economy Lot over a week."
+  },
+  "construction2026": {
+    "status": "Terminal Modernization and Development Project: Final EIR released October 17, 2024 (new terminal north of Terminal 1, modernized Terminals 1 and 2, expanded international arrivals, roadway and parking changes). No construction schedule is published on iflyoak.com as of 2026-10-16.",
+    "projects": [
+      "Terminal Modernization and Development Project (planning/environmental stage complete; up to 16 net new gates in the plan)"
+    ],
+    "travelImpact": "No parking facility closures identified as of 2026-10-16 — tell readers to check iflyoak.com before travel."
+  },
+  "securityAndScreening": {
+    "tsaPreCheck": {
+      "note": "TSA PreCheck — enroll at tsa.gov/precheck; check lane hours in the MyTSA app"
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (standard airline guidance)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    },
+    "note": "Southwest flights use Terminal 2 (and some Terminal 1 gates); check your boarding pass for the terminal before choosing where to be dropped off. Checkpoint hours, CLEAR and wait times are not published on iflyoak.com — use the MyTSA app."
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "Escape Lounge",
+        "location": "Terminal 1, near Gate 8 (between Gates 8 and 8A, across from Gate 9)",
+        "access": "Open to all passengers on any airline and class — register and book through iflyoak.com/visit/escape-lounge"
+      }
+    ],
+    "terminal2": [],
+    "other": "Escape Lounge (Terminal 1) is the only lounge listed on iflyoak.com."
+  },
+  "luggageStorage": {
+    "offSiteAlternatives": []
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning Southwest departure bank"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer, spring break, Thanksgiving and Christmas/New Year. Top domestic routes (Aug 2025-Jul 2026): Las Vegas, San Diego, Burbank, Seattle/Tacoma, Phoenix.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Mild Mediterranean: cool, wet winters and dry summers moderated by San Francisco Bay.",
+    "commonDisruptions": "Winter rainstorms (atmospheric rivers), morning fog and low clouds around the Bay; occasional delays tied to Bay Area air traffic flow programs.",
+    "bestMonths": "September, October",
+    "worstMonths": "December-February (rain)",
+    "winterNote": "No snow — rain is the main issue. Allow extra time on I-880 in wet weather.",
+    "note": "Outdoor lots are fine year-round; covered parking mainly matters for sun and rain."
+  },
+  "parkSleepFly": {
+    "description": "Triply sells parking-only at three OAK lots near Hegenberger Road and 98th Avenue; none of them is a hotel, so there are no room packages.",
+    "priceRange": "Parking-only via Triply from ~$6.95/day (2026-10-16 quote)",
+    "popularHotels": [],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures assume 8 days at the 24-hour max (tax included).",
+    "onAirport": {
+      "economyLot": { "parkingCost": "$144 (8 x $18)", "totalEstimate": "$144" },
+      "dailyLot": { "parkingCost": "$208 (8 x $26)", "totalEstimate": "$208" },
+      "hourlyLot": { "parkingCost": "$288 (8 x $36)", "totalEstimate": "$288" },
+      "premierLot": { "parkingCost": "$320 (8 x $40)", "totalEstimate": "$320" }
+    },
+    "offSiteWithShuttle": {
+      "expressParkFly": { "parkingCost": "$75.50 quoted grand total (~$6.95/day before fees and tax)", "savingsVsEconomyLot": "~$68 saved", "savingsVsDailyLot": "~$132 saved", "caveat": "On-demand shuttle — call 510-899-2014 after bags" },
+      "springParkAirportParking": { "parkingCost": "$76.50 quoted grand total (~$6.95/day before fees and tax)", "savingsVsEconomyLot": "~$67 saved", "savingsVsDailyLot": "~$131 saved", "caveat": "Keep your parking ticket; call 510-333-6603 after bags" },
+      "airparkOaklandParking": { "parkingCost": "$121.16 quoted grand total (~$12.00/day before fees and tax)", "savingsVsEconomyLot": "~$23 saved", "savingsVsDailyLot": "~$87 saved", "caveat": "Book 24h ahead; no RVs, Sprinters or duallies; after midnight call for pickup" }
+    },
+    "keyDifference": "OAK's cheapest official lot (Economy, $18/day) still costs about twice what Express Park Fly or Spring Park cost over a week. Airpark is the priciest Triply lot but still beats Economy by ~$23 and adds a scheduled every-10-minute shuttle. The airport's own online reservations advertise 'discounted rates' without publishing them — tell readers to check book.iflyoak.com."
+  },
+  "uniqueFeatures": {
+    "nameChange": "Renamed 'San Francisco Bay Oakland International Airport' in May 2024; a federal injunction (Nov 2024) won by San Francisco blocked it. The Port adopted 'Oakland San Francisco Bay Airport' in July 2025, and an April 2026 settlement lets OAK keep that name — 'Oakland' must come first and 'San Francisco' can't be shown larger than 'Oakland'. Write 'Oakland San Francisco Bay Airport (OAK)' or 'Oakland airport'; never 'San Francisco Airport', 'SF Airport' or 'San Francisco Bay Oakland International'.",
+    "bartConnector": "BART's Oakland Airport Connector (2014) runs from across the street to Coliseum station in ~8-9 minutes.",
+    "southwestBase": "Southwest carries ~78% of OAK passengers and operates a base here; Terminal 2 is Southwest-only.",
+    "fedexHub": "FedEx Express has run a cargo hub at OAK since 1988.",
+    "since1927": "Opened in 1927; Amelia Earhart's final 1937 flight attempt departed from OAK's North Field."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(510) 563-3300",
+    "airportMain": "(510) 563-3300",
+    "airportWebsite": "iflyoak.com (oaklandairport.com redirects here)",
+    "parkingInfo": "iflyoak.com/park/book-parking",
+    "parkingPhone": "510-563-3200 (parking help, jump starts, lockouts)",
+    "economyShuttle": "510-563-3890 (on-demand overnight)",
+    "rentalCarShuttle": "510-453-1522",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "emergency": "911 — state you are at Oakland airport (OAK)"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Checked 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.iflyoak.com/",
+      "parking": "https://www.iflyoak.com/park/book-parking/",
+      "parkingReservations": "https://book.iflyoak.com/",
+      "parkingFaq": "https://www.iflyoak.com/park/frequently-asked-questions/",
+      "parkingReceipt": "https://www.iflyoak.com/park/request-a-receipt/",
+      "groundTransportation": "https://www.iflyoak.com/ground-transportation/",
+      "rideshare": "https://www.iflyoak.com/ground-transportation/rideshare/",
+      "carRentals": "https://www.iflyoak.com/ground-transportation/car-rentals/",
+      "publicTransportation": "https://www.iflyoak.com/ground-transportation/public-transportation/",
+      "terminalMap": "https://maps.iflyoak.com/",
+      "escapeLounge": "https://www.iflyoak.com/visit/escape-lounge/",
+      "terminalModernization": "https://www.iflyoak.com/business/terminal-modernization/",
+      "employeeParking": "https://www.iflyoak.com/business/employee-parking/"
+    },
+    "transit": {
+      "bartToOak": "https://www.bart.gov/guide/airport/inbound_oak"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=OAK"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KOAK",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/OAK"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Oakland_San_Francisco_Bay_Airport"
+    },
+    "newsAndMedia": {
+      "nameSettlementKqed": "https://www.kqed.org/news/12081612/oaklands-airport-name-dispute-finally-lands-after-2-years-of-legal-turbulence",
+      "nameSettlementSf": "https://www.sf.gov/news-san-francisco-and-port-of-oakland-reach-settlement-in-airport-renaming-lawsuit"
+    }
+  }
+}

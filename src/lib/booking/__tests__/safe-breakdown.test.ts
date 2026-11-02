@@ -5,6 +5,11 @@
  */
 import { describe, it, expect, vi } from "vitest";
 
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  RECONCILIATION_ALERT_COLUMNS: "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source",
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+  scheduleReconciliationAlert: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/supabase/server", () => ({ createAdminClient: async () => ({}) }));
 vi.mock("@/lib/reslab/client", () => ({ reslab: {}, stripHtml: (s: string | null) => s ?? "" }));
 vi.mock("@/lib/resend/send-booking-confirmation", () => ({ sendBookingConfirmation: vi.fn() }));

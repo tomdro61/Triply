@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
-import { env, SCRAPE_DELAY_MS, SCRAPE_TIMEOUT_MS } from './config.js'
+import { SCRAPE_DELAY_MS, SCRAPE_TIMEOUT_MS } from './config.js'
+import { serpApiSearch, hasSerpApiKey } from './serpapi.js'
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -28,25 +29,20 @@ export interface ScrapedArticle {
 }
 
 export async function searchGoogle(keyword: string, numResults = 5): Promise<string[]> {
-  if (!env.SERPAPI_API_KEY) {
+  if (!hasSerpApiKey()) {
     console.log('  ⚠ No SERPAPI_API_KEY — skipping Google search. Use manual competitor URLs.')
     return []
   }
 
-  const params = new URLSearchParams({
-    api_key: env.SERPAPI_API_KEY,
-    q: keyword,
-    num: String(numResults),
-    engine: 'google',
-  })
+  // serpApiSearch auto-rotates to the backup key when the primary is out of searches.
+  // Long cache TTL (30d): a keyword's competitor set barely moves, so re-generating
+  // or re-running a cluster reuses the same result instead of spending a credit.
+  const data = await serpApiSearch(
+    { q: keyword, num: String(numResults), engine: 'google' },
+    { cacheTtlHours: 720 },
+  )
+  if (!data) return []
 
-  const res = await fetch(`https://serpapi.com/search?${params.toString()}`)
-  if (!res.ok) {
-    console.error(`  SerpAPI error ${res.status}: ${await res.text()}`)
-    return []
-  }
-
-  const data = await res.json()
   return (data.organic_results || [])
     .map((r: { link?: string }) => r.link)
     .filter(Boolean) as string[]

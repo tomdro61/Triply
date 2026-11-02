@@ -1,7 +1,6 @@
 "use client";
 
 import { Marker } from "react-map-gl/mapbox";
-import { MapPin } from "lucide-react";
 
 /**
  * A Park & Stay map pin: PriceMarker's look, but it shows a label it is
@@ -44,7 +43,7 @@ export function ParkStayPriceMarker({
         role="button"
         tabIndex={0}
         aria-label={`${name}, ${label}`}
-        className={`cursor-pointer transition-all duration-300 ${isHovered ? "scale-110" : ""}`}
+        className={`cursor-pointer origin-bottom transition-all duration-300 ${isHovered ? "scale-110" : ""}`}
         onMouseEnter={() => onHover(id)}
         onMouseLeave={() => onHover(null)}
         onFocus={() => onHover(id)}
@@ -59,16 +58,13 @@ export function ParkStayPriceMarker({
         <div className="group relative flex flex-col items-center">
           <div
             className={`mb-1 whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-bold shadow-md transition-colors ${
-              isHovered ? "border-brand-dark bg-brand-dark text-white" : "border-gray-200 bg-white text-gray-900"
+              isHovered ? "border-brand-orange bg-brand-orange text-white" : "border-brand-dark bg-brand-dark text-white"
             }`}
           >
             {label}
           </div>
-          <div className={`-mt-2.5 h-3 w-3 rotate-45 transform border-b border-r border-gray-200 ${isHovered ? "bg-brand-dark" : "bg-white"}`} />
-          <MapPin
-            size={isHovered ? 28 : 24}
-            className={`-mt-1 drop-shadow-md transition-colors ${isHovered ? "fill-brand-orange text-brand-orange" : "fill-brand-blue text-brand-blue"}`}
-          />
+          {/* The tag's pointer marks the lot (anchor="bottom") — no separate pin, same as parking. */}
+          <div className={`-mt-2.5 h-3 w-3 rotate-45 transform border-b border-r ${isHovered ? "border-brand-orange bg-brand-orange" : "border-brand-dark bg-brand-dark"}`} />
         </div>
       </div>
     </Marker>

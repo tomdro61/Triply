@@ -8,6 +8,8 @@ import { renderToStaticMarkup } from "react-dom/server";
  * the tab strip, once, and portals its panel only while active.
  */
 
+// The AI Assistant tab is part of the baseline: pin the kill switch to "unset".
+vi.stubEnv("NEXT_PUBLIC_AI_CHAT_ENABLED", undefined);
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {}, replace: () => {}, prefetch: () => {} }) }));
 vi.mock("@/components/chat", () => ({ HeroChatInput: () => createElement("div", { "data-mock": "hero-chat-input" }) }));
 

@@ -1,7 +1,7 @@
 {
   "code": "DFW",
   "fullName": "Dallas/Fort Worth International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Unincorporated areas of Tarrant and Dallas counties, Texas — between Dallas and Fort Worth, straddling the cities of Irving, Euless, Grapevine, and Coppell",
     "iataCode": "DFW",
@@ -258,7 +258,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "On-demand shuttle is a strong advantage — no fixed schedule to worry about. Covered parking protects from Texas sun and hail. Loyalty rewards program available."
+      "notes": "On-demand shuttle is a strong advantage — no fixed schedule to worry about. Covered parking protects from Texas sun and hail. Loyalty rewards program available.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "The Parking Spot Premium (DFW)",
@@ -272,7 +274,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Best off-site option for frequent travelers who want covered parking + priority shuttle. Higher rate justified by priority service and covered spots."
+      "notes": "Best off-site option for frequent travelers who want covered parking + priority shuttle. Higher rate justified by priority service and covered spots.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "The Parking Spot South (DFW)",
@@ -286,7 +290,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Best option for travelers approaching from the south (Fort Worth, Arlington). On-demand shuttle is reliable. Same quality as North location."
+      "notes": "Best option for travelers approaching from the south (Fort Worth, Arlington). On-demand shuttle is reliable. Same quality as North location.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Ausby Airport Parking (DFW)",
@@ -300,7 +306,9 @@
       "distanceFromAirport": "3.5 mi",
       "driveTime": "8-12 minutes",
       "freeCancellation": true,
-      "notes": "WARNING: Shuttle only runs free 10 AM - 9:30 PM. After-hours pickup costs $25 extra. Not ideal for early morning or late night flights unless you factor in the after-hours fee. Budget rate is attractive for daytime travelers."
+      "notes": "WARNING: Shuttle only runs free 10 AM - 9:30 PM. After-hours pickup costs $25 extra. Not ideal for early morning or late night flights unless you factor in the after-hours fee. Budget rate is attractive for daytime travelers.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Days Inn by Wyndham DFW Airport North (Parking)",
@@ -314,7 +322,9 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Budget hotel parking option. Confirm current shuttle schedule before booking — hours may vary. Good option for park-sleep-fly packages."
+      "notes": "Budget hotel parking option. Confirm current shuttle schedule before booking — hours may vary. Good option for park-sleep-fly packages.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Red Roof Inn Dallas DFW Airport North (Parking)",
@@ -328,13 +338,15 @@
       "distanceFromAirport": "3.5 mi",
       "driveTime": "8-12 minutes",
       "freeCancellation": true,
-      "notes": "Budget option near north DFW entrance. 24/7 front desk is helpful for late arrivals. Confirm shuttle hours before booking."
+      "notes": "Budget option near north DFW entrance. 24/7 front desk is helpful for late arrivals. Confirm shuttle hours before booking.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
-      "name": "Clarion Inn & Suites North DFW Airport (Parking)",
+      "name": "Clarion Inn & Suites North",
       "slug": "clarion-inn-suites-north-dfw",
-      "dailyRate": 8.99,
-      "reservationRate": 6.49,
+      "dailyRate": 4.5,
+      "reservationRate": 4.5,
       "parkingType": "Uncovered, self-park (hotel lot)",
       "amenities": ["Shuttle Service", "24/7 Security", "Hotel Amenities", "Handicap Accessible"],
       "shuttleInfo": "Complimentary shuttle to all DFW terminals during scheduled hours.",
@@ -342,7 +354,34 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Mid-range off-site option with hotel-quality security. Good for park-sleep-fly packages. Confirm shuttle schedule before booking."
+      "notes": "Mid-range off-site option with hotel-quality security. Good for park-sleep-fly packages. Confirm shuttle schedule before booking.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "The Westin Dallas-Fort Worth (DFW)",
+      "slug": "the-westin-dallas-fort-worth",
+      "dailyRate": 9.96,
+      "address": "4545 West John Carpenter Freeway, Irving, TX 75063",
+      "reslabLocationId": 70,
+      "amenities": [
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "24/7 every hour on the hourPick-ups are on demand.",
+      "overview": "Located just minutes drive from Dallas Fort Worth International Airport. The Westin Dallas-Fort Worth (DFW) offers an affordable and reliable experience for travelers looking to streamline their trip.Complimentary shuttle service to and from airport included with online purchase and 24 hours of operation. No extra charges for full-size vans, pick-up trucks and large SUV's. No room reservations req",
+      "distanceFromAirport": "2.2 mi",
+      "freeCancellation": true,
+      "bookableOnTriply": true,
+      "notes": "Added 2026-10-06 from live triplypro.com search (ResLab 70). Rate = all-in daily for a 7-day stay booked 3 weeks out.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
     }
   ],
   "shuttleInfo": "On-airport: FREE Skylink connects all terminals airside every 2 minutes, 24/7. Rental Car Shuttle runs every 10-15 minutes 24/7 from lower level of all terminals. Remote parking shuttle every 15-20 minutes 24/7. Express parking has on-demand 24/7 shuttle. Off-site: The Parking Spot offers 24/7 on-demand shuttle. Ausby shuttle runs 10 AM-9:30 PM (after-hours $25 fee). Hotel lots have scheduled shuttle service — verify hours before booking. CRITICAL: Some off-site lots charge extra for after-hours shuttle — confirm before booking for early/late flights.",

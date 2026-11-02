@@ -253,6 +253,12 @@ function recoveryField(d: DigestData): string {
   return `Sent ${r.sent}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ in progress or stuck ${r.waiting} (check the recovery cron)` : ""} · opted out ${r.optOuts} · bookings through the email link ${m(r.recoveredBookings)}`;
 }
 
+function reviewEmailsField(section: NonNullable<DigestData["reviewEmails"]>): string {
+  if (!section.ok) return `unavailable (${clamp(section.error, 80)})`;
+  const r = section.data;
+  return `Sent ${r.sent}${r.unconfirmed ? ` · ⚠️ unconfirmed ${r.unconfirmed} (check Resend)` : ""}${r.failed ? ` · failed ${r.failed}` : ""}${r.waiting ? ` · ⚠️ in progress or stuck ${r.waiting} (check the review cron)` : ""} · opted out ${r.optOuts} · reviews saved ${r.reviews}`;
+}
+
 function whereFromField(d: DigestData): string {
   if (!d.whereFrom.ok) return `unavailable (${d.whereFrom.error})`;
   const w = d.whereFrom.data;
@@ -423,6 +429,9 @@ export function renderEmbed(d: DigestData, read: ReadResult | null, extraFlags: 
     { field: { name: "Lead time & extras", value: clamp(leadTimeField(d), FIELD_VALUE_LIMIT) }, keep: 5 },
     { field: { name: "Lost sales", value: clamp(lostSalesField(d), FIELD_VALUE_LIMIT) }, keep: 7 },
     { field: { name: "Abandoned-checkout emails (last 7 days)", value: clamp(recoveryField(d), FIELD_VALUE_LIMIT) }, keep: 4 },
+    ...(d.reviewEmails
+      ? [{ field: { name: "Review emails (last 7 days)", value: clamp(reviewEmailsField(d.reviewEmails), FIELD_VALUE_LIMIT) }, keep: 3.5 }]
+      : []),
     { field: { name: "Search detail", value: clamp(searchDetailField(d), FIELD_VALUE_LIMIT) }, keep: 3 },
     { field: { name: "Engagement", value: clamp(engagementField(d), FIELD_VALUE_LIMIT) }, keep: 2 },
     { field: { name: "Health", value: clamp(healthField(d), FIELD_VALUE_LIMIT) }, keep: 8 },

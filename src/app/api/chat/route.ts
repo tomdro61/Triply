@@ -12,6 +12,7 @@ import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { captureAPIError } from "@/lib/sentry";
 import { CmsAuthError, getPublishedPosts } from "@/lib/cms";
 import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { isAiChatEnabled } from "@/lib/ai/flag";
 
 // Build airport code enum from config
 const airportCodes = enabledAirports.map((a) => a.code) as [string, ...string[]];
@@ -59,6 +60,11 @@ function lexicalToPlainText(content: unknown): string {
 export const maxDuration = 60;
 
 export async function POST(request: NextRequest) {
+  // Kill switch (NEXT_PUBLIC_AI_CHAT_ENABLED=false): the UI is hidden, and a
+  // stray or cached client gets a plain 503 instead of a call to Anthropic.
+  if (!isAiChatEnabled()) {
+    return Response.json({ error: "chat_disabled" }, { status: 503 });
+  }
   try {
     // Get client IP for rate limiting
     const ip =

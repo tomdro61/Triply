@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
+import { anchorStepCard } from "@/lib/checkout/step-anchor";
 import { useRouter } from "next/navigation";
 import { UnifiedLot } from "@/types/lot";
 import { createClient } from "@/lib/supabase/client";
@@ -31,6 +32,9 @@ import {
 } from "@/lib/analytics/gtag";
 import { bucketCheckoutFailure, deviceToday, fieldList, leadDays } from "@/lib/analytics/checkout-funnel";
 import { markPurchaseToTrack } from "@/lib/analytics/purchase-once";
+import { postAuthActionFor } from "@/lib/checkout/post-auth-outcome";
+import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
+import { StageUnreachableError } from "@/lib/checkout/submit-report";
 import {
   PROTECTION_PLANS,
   protectionChoiceToCode,
@@ -97,6 +101,11 @@ export function CheckoutForm({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [isCreatingPaymentIntent, setIsCreatingPaymentIntent] = useState(false);
+  // Bumped once per update-pi that succeeded and is still the latest click.
+  // StripePaymentForm re-syncs the Payment Element on each bump
+  // (elements.fetchUpdates) so the Apple Pay / Google Pay sheet shows the
+  // new total, not the one the Element learned at mount. 0 = nothing to sync.
+  const [priceVersion, setPriceVersion] = useState(0);
 
   // --- Direct lots: oversized-vehicle choice (vehicle-surcharge plan §1.5) ---
   // The terms are the server's: from the checkout GET, then replaced by the
@@ -245,6 +254,20 @@ export function CheckoutForm({
     };
   }, [currentStep]);
 
+  // On a step change (Next or Back) bring the card — step indicator first —
+  // back under the navbar, so the new step never opens with its first fields
+  // already scrolled past. Not on first render: the page loads at the top.
+  // A ref, not state: nothing here can change a step or the payment flow.
+  const anchoredStepRef = useRef<CheckoutStep | null>(null);
+  useEffect(() => {
+    if (anchoredStepRef.current === currentStep) return;
+    const isFirstRender = anchoredStepRef.current === null;
+    anchoredStepRef.current = currentStep;
+    if (isFirstRender) return;
+    const area = formAreaRef.current;
+    if (area) anchorStepCard(area);
+  }, [currentStep]);
+
   // Calculate price breakdown using API data when available
   const priceBreakdown = useMemo<PriceBreakdown>(() => {
     const start = new Date(checkIn);
@@ -349,7 +372,7 @@ export function CheckoutForm({
       errors.licensePlate = "License plate is required";
     }
     if (!vehicleDetails.state) {
-      errors.state = "State is required";
+      errors.state = "State or province is required";
     }
 
     setVehicleErrors(errors);
@@ -561,6 +584,9 @@ export function CheckoutForm({
     // back on the vehicle step could end up paying the old (stale) amount.
     setClientSecret(null);
     setPaymentIntentId(null);
+    // A fresh PaymentIntent means a fresh Element that reads the amount on
+    // mount; no catch-up sync is owed on re-entry.
+    setPriceVersion(0);
     // The choice is deliberately KEPT: re-entering the payment step creates a
     // fresh PI from it, so a customer who picked "none" is not re-defaulted to
     // Plan A. Stale-toggle protection is the sequence-ID bump above, not a
@@ -703,6 +729,11 @@ export function CheckoutForm({
         setProtectionPlanChoice(previous);
       }
       setProtectionChoiceError(errorMessage);
+    } else {
+      // The server amount changed and this is the latest click: tell the
+      // Payment Element (see priceVersion). Pay stays disabled in
+      // StripePaymentForm until the sync resolves.
+      setPriceVersion((v) => v + 1);
     }
     setProtectionPlanUpdating(false);
   };
@@ -898,18 +929,30 @@ export function CheckoutForm({
    * charge becomes an orphan. Blocking checkout is the strictly better failure.
    */
   const stagePendingBooking = async (stripePaymentIntentId: string) => {
-    // fetch() does NOT reject on 4xx/5xx — the status must be checked explicitly
-    // or a failed stage would silently let the charge proceed.
-    const response = await fetch("/api/reservations/pending", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...(isDirect
-          ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
-          : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))),
-        confirmationParams: confirmationParams(),
-      }),
+    // Built BEFORE the fetch so a throw from the builders (a code bug) is not
+    // mistaken for a network failure below.
+    const body = JSON.stringify({
+      ...(isDirect
+        ? buildDirectBookingBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
+        : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))),
+      confirmationParams: confirmationParams(),
     });
+
+    // fetch() does NOT reject on 4xx/5xx — the status must be checked explicitly
+    // or a failed stage would silently let the charge proceed. It DOES reject
+    // when the request never reaches the server (offline, DNS, blocked); that
+    // is tagged so the payment form words it ("check your connection") instead
+    // of showing the browser's "Failed to fetch".
+    let response: Response;
+    try {
+      response = await fetch("/api/reservations/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+      });
+    } catch (networkError) {
+      throw new StageUnreachableError(networkError);
+    }
 
     if (!response.ok) {
       const detail = await response.json().catch(() => null);
@@ -918,8 +961,11 @@ export function CheckoutForm({
       // finishing page, and still throw so confirmPayment never runs again
       // (4b plan §9 M-A, §10 F-9). Never "you have not been charged" here.
       if (response.status === 409 && detail?.code === "already_authorized") {
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-        router.push(
+        rememberLotForNextPage();
+        saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
+        // replace, not push: Back from the finishing page must not land on a
+        // blank checkout that invites a second booking (and a second hold).
+        router.replace(
           `/checkout/complete?payment_intent=${encodeURIComponent(
             stripePaymentIntentId
           )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
@@ -933,11 +979,67 @@ export function CheckoutForm({
     }
   };
 
-  // Handle successful Stripe payment - then create ResLab reservation
+  // The confirmation / finishing pages read the lot from this cache when they
+  // have it, and work without it. Storage can throw (blocked site data, quota)
+  // and a throw here, AFTER the card is authorized, would surface as a raw
+  // "QuotaExceededError" over a held card with Pay Now live again — so never
+  // let it.
+  const rememberLotForNextPage = () => {
+    try {
+      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
+    } catch {
+      // best effort — see above
+    }
+  };
+
+  // Handle successful Stripe payment - then create ResLab reservation.
+  //
+  // From here on the customer's card is AUTHORIZED. The only answers that keep
+  // them on this page are the ones in which the engine has released that hold
+  // (402 / 409). Everything else — in flight, unknown, unreadable — hands off to
+  // /checkout/complete, which polls the engine for the truth. The rule itself
+  // is `postAuthActionFor` (pure, unit-tested).
   const handlePaymentSuccess = async (stripePaymentIntentId: string) => {
     setIsSubmitting(true);
     setSubmitError(null);
 
+    const handOff = (reason: string) => {
+      rememberLotForNextPage();
+      // So a refresh of the complete page (which scrubs its own URL) resumes
+      // the same payment instead of "we couldn't identify this payment".
+      saveRecoveryMarker({ paymentIntentId: stripePaymentIntentId, clientSecret: clientSecret ?? "" });
+      if (reason !== "pending") {
+        // Count how often the post-authorization recovery path fires, and why
+        // — one issue per reason. WITH the PaymentIntent id: for a network
+        // failure or a gateway timeout the server may have been killed
+        // mid-fulfilment and sent nothing to Sentry, so this is the only
+        // pointer ops has to the payment. No customer data.
+        capturePaymentError(
+          new Error(`checkout: handed off to /checkout/complete after payment (${reason})`),
+          {
+            stripePaymentIntentId,
+            fingerprint: ["post-auth-handoff", reason],
+            inventorySource: isDirect ? "direct" : "reslab",
+          }
+        );
+      }
+      // BOTH params are required. /checkout/complete authenticates against the
+      // client secret — Stripe supplies it on its own redirects, and this
+      // in-app hand-off must too. Sending only payment_intent made the page
+      // fail its first check and show "we couldn't identify this payment" to a
+      // customer whose card had just been authorized successfully.
+      //
+      // replace, not push: Back from the finishing page must not land on a
+      // blank checkout that invites a second booking (and a second hold).
+      router.replace(
+        `/checkout/complete?payment_intent=${encodeURIComponent(
+          stripePaymentIntentId
+        )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+      );
+    };
+
+    let status = 0;
+    let body: unknown = null;
     try {
       const response = await fetch("/api/reservations", {
         method: "POST",
@@ -948,46 +1050,39 @@ export function CheckoutForm({
             : buildReservationBody(stripePaymentIntentId, requireProtectionChoice(stripePaymentIntentId))
         ),
       });
+      status = response.status;
+      // A gateway 502/504 answers with an HTML page, not JSON. That is a
+      // hand-off (status kept, body null), never a thrown "Payment Error".
+      body = await response.json().catch(() => null);
+    } catch (error) {
+      console.error("Reservation request failed after payment:", error);
+      status = 0;
+      body = null;
+    }
 
-      const result = await response.json();
+    const action = postAuthActionFor({ status, body });
 
-      // 202 = another path (the webhook) is completing this booking, or the
-      // payment is still settling. Hand off to /checkout/complete, which polls
-      // until the reservation exists rather than showing a false failure.
-      if (response.status === 202) {
-        sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-        // BOTH params are required. /checkout/complete authenticates against the
-        // client secret — Stripe supplies it on its own redirects, and this
-        // in-app hand-off must too. Sending only payment_intent made the page
-        // fail its first check and show "we couldn't identify this payment" to a
-        // customer whose card had just been authorized successfully.
+    switch (action.kind) {
+      case "confirmed": {
+        // Store lot data for confirmation page
+        rememberLotForNextPage();
+        // The confirmation page sends the GA4 purchase only for this mark.
+        markPurchaseToTrack(action.reservationNumber);
+
+        // Redirect to confirmation page
         router.push(
-          `/checkout/complete?payment_intent=${encodeURIComponent(
-            stripePaymentIntentId
-          )}&payment_intent_client_secret=${encodeURIComponent(clientSecret ?? "")}`
+          `/confirmation/${action.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
         );
         return;
       }
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create reservation");
-      }
-
-      // Store lot data for confirmation page
-      sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
-      // The confirmation page sends the GA4 purchase only for this mark.
-      markPurchaseToTrack(result.reservation.reservationNumber);
-
-      // Redirect to confirmation page
-      router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
-      );
-    } catch (error) {
-      console.error("Reservation error after payment:", error);
-      setSubmitError(
-        error instanceof Error ? error.message : "Payment succeeded but reservation failed. Please contact support."
-      );
-      setIsSubmitting(false);
+      case "handoff":
+        handOff(action.reason);
+        return;
+      case "stay":
+        console.error("Reservation refused after payment:", action.message);
+        setSubmitError(action.message);
+        setIsSubmitting(false);
+        return;
     }
   };
 
@@ -1227,6 +1322,8 @@ export function CheckoutForm({
                   protectionPlanUpdating={protectionPlanUpdating}
                   protectionChoiceError={protectionChoiceError}
                   protectionStateAmbiguous={protectionStateAmbiguous}
+                  priceVersion={priceVersion}
+                  paymentIntentId={paymentIntentId ?? undefined}
                   vehicleSizeAnswered={vehicleSizeAnswered}
                   renderVehicleSize={
                     isDirect && directTerms && directTerms.vehicleSurcharges.length > 0

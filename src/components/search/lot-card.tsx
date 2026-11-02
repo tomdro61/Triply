@@ -42,6 +42,7 @@ interface LotCardProps {
 }
 
 export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, extraBadge }: LotCardProps) {
+  const topReview = lot.reviews?.published[0];
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -112,7 +113,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
 
   return (
     <div
-      className={`group bg-white rounded-xl border transition-all duration-300 flex flex-col sm:flex-row overflow-hidden hover:shadow-lg ${
+      className={`group bg-white rounded-xl border transition-all duration-300 flex flex-col @lg:flex-row overflow-hidden hover:shadow-lg ${
         isHovered
           ? "ring-2 ring-brand-orange border-transparent shadow-lg"
           : "border-gray-200 shadow-sm"
@@ -121,13 +122,14 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
       onMouseLeave={() => onHover(null)}
     >
       {/* Image */}
-      <div className="sm:w-48 sm:h-auto h-48 relative flex-shrink-0">
+      <div className="@lg:w-48 @lg:h-auto h-48 relative flex-shrink-0">
         <Image
           src={mainImage}
           alt={lot.name}
           fill
           className="object-cover"
-          sizes="(max-width: 640px) 100vw, 192px"
+          // Full card width when stacked: phones, and the narrow list on 1024–1279 px screens.
+          sizes="(max-width: 640px) 100vw, (min-width: 1024px) and (max-width: 1279px) 480px, 192px"
           loading={isFirst ? "eager" : "lazy"}
           fetchPriority={isFirst ? "high" : "auto"}
         />
@@ -139,10 +141,12 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-4 flex flex-col">
+      <div className="flex-1 min-w-0 p-4 flex flex-col">
         {/* Header Row */}
-        <div className="flex justify-between items-start mb-1">
-          <div>
+        {/* The price column never shrinks: on a narrow list (1024–1279 px) the
+            name wraps instead of the total and "Taxes & fees included" clipping. */}
+        <div className="flex justify-between items-start gap-2 mb-1">
+          <div className="min-w-0">
             <LotBadges badges={lot.badges} className="mb-1.5" />
             <h3 className="font-bold text-gray-900 text-lg leading-tight">
               {lot.name}
@@ -155,7 +159,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
             </div>
             {extraBadge}
           </div>
-          <div className="text-right">
+          <div className="text-right shrink-0">
             {total !== null ? (
               <>
                 {perDay !== null && (
@@ -202,6 +206,15 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
           </div>
         )}
 
+        {/* Newest verified Triply review with consented text. The quote is
+            clamped on its own so the attribution never gets cut off. */}
+        {topReview && (
+          <div className="mb-3 text-xs text-gray-600">
+            <p className="italic line-clamp-2">&ldquo;{topReview.comment}&rdquo;</p>
+            <p className="text-gray-400 mt-0.5">— {topReview.name ? `${topReview.name}, verified stay` : "Verified guest"}</p>
+          </div>
+        )}
+
         {/* Footer Row */}
         <div className="mt-auto flex items-end justify-between border-t border-gray-50 pt-3">
           <div className="flex items-center">
@@ -217,7 +230,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                   </span>
                 </div>
                 <span className="text-xs text-gray-400 ml-2">
-                  ({lot.reviewCount || 0} reviews)
+                  ({lot.reviewCount || 0} ratings)
                 </span>
               </>
             )}
