@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { isAdminEmail } from "@/config/admin";
+import { etDayBounds } from "@/lib/admin/eastern-day";
 import { captureAPIError } from "@/lib/sentry";
 
 export async function GET(request: NextRequest) {
@@ -85,8 +86,7 @@ export async function GET(request: NextRequest) {
     }));
 
     // Get stats
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const { todayStart } = etDayBounds();
 
     const { count: totalCount } = await supabase
       .from("chat_sessions")
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
     const { count: todayCount } = await supabase
       .from("chat_sessions")
       .select("*", { count: "exact", head: true })
-      .gte("created_at", today.toISOString());
+      .gte("created_at", todayStart);
 
     const { count: authCount } = await supabase
       .from("chat_sessions")

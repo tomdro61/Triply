@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { getAirportByCode } from "@/config/airports";
 import { directLotFromRow } from "../store";
 import { directLotToUnified } from "../adapter";
+import { computeDirectQuote, directDays } from "../pricing";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
 import { directLotRow } from "./fixtures";
 
 const JFK = getAirportByCode("JFK")!;
@@ -49,6 +51,19 @@ describe("directLotToUnified", () => {
       grandTotal: 54.91,
       currencyCode: "USD",
     });
+  });
+
+  it("the search card's total equals what checkout charges for the same window (before protection, no promo)", () => {
+    // 5 days stays on the $5.95 service-fee floor; 25 days crosses to 6 %.
+    for (const window of [WINDOW, { fromDate: "2026-10-10 10:00:00", toDate: "2026-11-04 10:00:00" }]) {
+      const lot = lotOf();
+      const days = directDays(window.fromDate, window.toDate);
+      if (!days.ok) throw new Error("window should parse");
+      const charged = computeDirectQuote({ rateCents: lot.rateCents, days: days.days, taxRatePercent: lot.taxRatePercent });
+      const pricing = directLotToUnified(lot, JFK, window).pricing;
+      expect(Math.round(customerTotalFromPricing(pricing)! * 100)).toBe(charged.chargeCents);
+      expect(customerPerDayFromPricing(pricing)).toBeCloseTo(charged.chargeCents / 100 / days.days, 10);
+    }
   });
 
   it("keeps the daily rate but no totals when there is no window or it does not parse — never a $0 lot, never a fabricated total", () => {

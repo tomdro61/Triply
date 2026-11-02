@@ -1,14 +1,22 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { MapPin, Bus, Shield, Warehouse, Sun } from "lucide-react";
 import { UnifiedLot } from "@/types/lot";
-import { customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { customerPerDayFromPricing, customerTotalFromPricing } from "@/lib/utils/service-fee";
+import { TaxesAndFeesIncluded } from "@/components/shared/taxes-fees-included";
 import { LotBadges } from "./lot-badges";
 
 interface MobileMapCardProps {
   lot: UnifiedLot;
   onSelect: (lot: UnifiedLot) => void;
+  /**
+   * An optional extra badge under the distance line. Unset renders nothing.
+   * A link in it must stop the click's propagation: this card's root opens
+   * the lot slider.
+   */
+  extraBadge?: ReactNode;
 }
 
 function getTopAmenityIcon(name: string) {
@@ -20,10 +28,13 @@ function getTopAmenityIcon(name: string) {
   return null;
 }
 
-export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
+export function MobileMapCard({ lot, onSelect, extraBadge }: MobileMapCardProps) {
   const mainImage = lot.photos[0]?.url || "/placeholder-lot.jpg";
   const price = lot.pricing?.minPrice ?? 0;
+  // Headline = the whole stay for the searched dates, taxes and our service fee
+  // included, before optional protection or a promo (see lot-card.tsx).
   const grandTotal = customerTotalFromPricing(lot.pricing);
+  const perDay = customerPerDayFromPricing(lot.pricing);
   const topAmenities = lot.amenities.slice(0, 3);
 
   return (
@@ -59,20 +70,30 @@ export function MobileMapCard({ lot, onSelect }: MobileMapCardProps) {
                   : lot.address}
               </span>
             </div>
+            {extraBadge}
           </div>
 
           {/* Price */}
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xl font-bold text-gray-900">
-              ${price.toFixed(2)}
-            </span>
-            <span className="text-xs text-gray-500">/day</span>
-            {grandTotal != null && (
-              <span className="text-xs text-gray-400 ml-1">
-                ${grandTotal.toFixed(2)} total
+          {grandTotal !== null ? (
+            <div className="mt-1">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-xl font-bold text-gray-900">
+                  ${grandTotal.toFixed(2)}
+                </span>
+                {perDay !== null && (
+                  <span className="text-xs text-gray-500">${perDay.toFixed(2)}/day</span>
+                )}
+              </div>
+              <TaxesAndFeesIncluded className="text-[11px]" />
+            </div>
+          ) : (
+            <div className="flex items-baseline gap-1 mt-1">
+              <span className="text-xl font-bold text-gray-900">
+                ${price.toFixed(2)}
               </span>
-            )}
-          </div>
+              <span className="text-xs text-gray-500">/day</span>
+            </div>
+          )}
         </div>
       </div>
 

@@ -16,6 +16,7 @@ import {
   X,
   LineChart,
   Calculator,
+  BarChart3,
 } from "lucide-react";
 import { isAdminEmail } from "@/config/admin";
 
@@ -110,6 +111,7 @@ export default function AdminLayout({
   const navLinks = [
     { href: "/admin", icon: LayoutDashboard, label: "Dashboard" },
     { href: "/admin/numbers", icon: LineChart, label: "Monthly numbers" },
+    { href: "/admin/analytics", icon: BarChart3, label: "Analytics" },
     { href: "/admin/accounting", icon: Calculator, label: "Accounting" },
     { href: "/admin/bookings", icon: Ticket, label: "Bookings" },
     { href: "/admin/chats", icon: MessageCircle, label: "Chat Sessions" },

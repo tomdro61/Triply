@@ -172,3 +172,29 @@ export function checkContactRateLimit(key: string, now = Date.now()): boolean {
 export function __resetContactRateLimitForTests(): void {
   contactLimiter.reset();
 }
+
+// Park & Stay search fans out into one LiteAPI rates call per request (and one
+// bounded ResLab min-price per mapped hotel lot). A per-lambda brake only, like
+// the others — the durable daily supplier-call counter is the real boundary.
+const parkStaySearchLimiter = createBoundedRateLimiter({ limit: 20, windowMs: 60_000, maxKeys: 5000 });
+
+export function checkParkStaySearchRateLimit(key: string, now = Date.now()): boolean {
+  return parkStaySearchLimiter.check(key, now);
+}
+
+export function __resetParkStaySearchRateLimitForTests(): void {
+  parkStaySearchLimiter.reset();
+}
+
+// The Park & Stay hotel page prices fresh on every view (one LiteAPI ticket +
+// one parking quote), so it gets its own per-IP brake, separate from search so
+// browsing results doesn't starve the detail page (plan v3 §8.1).
+const parkStayHotelLimiter = createBoundedRateLimiter({ limit: 20, windowMs: 60_000, maxKeys: 5000 });
+
+export function checkParkStayHotelRateLimit(key: string, now = Date.now()): boolean {
+  return parkStayHotelLimiter.check(key, now);
+}
+
+export function __resetParkStayHotelRateLimitForTests(): void {
+  parkStayHotelLimiter.reset();
+}

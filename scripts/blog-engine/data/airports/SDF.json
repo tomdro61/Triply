@@ -1,0 +1,525 @@
+{
+  "code": "SDF",
+  "fullName": "Louisville Muhammad Ali International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "South side of Louisville, Kentucky, at the intersection of I-65 and I-264. Terminal address: 600 Terminal Dr, Louisville, KY 40209. Formerly Standiford Field and Louisville International Airport; the Louisville Regional Airport Authority voted on January 16, 2019 to rename it for Muhammad Ali.",
+    "iataCode": "SDF",
+    "icaoCode": "KSDF",
+    "faaLid": "SDF",
+    "elevation": "501 feet above mean sea level",
+    "acreage": 1500,
+    "coordinates": "38.1744N, 85.7360W",
+    "passengerVolume": "4,594,949 passengers in 2025 (down 4.59% year over year); the airport calls it approximately 4.6 million, its third-busiest year",
+    "aircraftOperations": "189,006 (2025)",
+    "cargoVolume": "Nearly 7.5 billion lb of cargo in 2025 (7,487,860,762 lb) — third in North America and fifth in the world for total cargo",
+    "distinction": "Home of UPS Worldport, UPS's worldwide air hub (about 5.2 million sq ft, 155 miles of sorting conveyor, between the parallel runways), which makes SDF one of the busiest cargo airports in the world. Southwest is the largest passenger carrier (~24% of passengers in 2025). The Kentucky Air National Guard's 123rd Airlift Wing (C-130s) is co-located at the Louisville Air National Guard Base.",
+    "operator": "Louisville Regional Airport Authority (LRAA)",
+    "owner": "Louisville Regional Airport Authority",
+    "activeTerminals": 1,
+    "totalConcourses": 2,
+    "totalGates": 25,
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "17R/35L", "length": "11,890 ft", "surface": "Concrete" },
+      { "designation": "17L/35R", "length": "8,580 ft", "surface": "Concrete" },
+      { "designation": "11/29", "length": "7,250 ft", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (1,086,000 passengers, 24.42% share in 2025)",
+    "totalAirlines": "Eight passenger airlines per flylouisville.com: Allegiant, American, Breeze, Delta, MGM Air Charter (Sun Country), Southwest, Sun Country and United (Wikipedia also lists Air Canada Express)",
+    "nonstopDestinations": "More than 40 nonstop destinations (flylouisville.com)",
+    "founded": "Built in 1941 by the Army Corps of Engineers; opened to the public in 1947. Renamed Louisville International in 1995 and Louisville Muhammad Ali International in 2019.",
+    "hubCarriers": ["UPS Airlines (cargo — UPS Worldport)"],
+    "slotControlled": false,
+    "metroAccess": "No rail. TARC buses serve Louisville; the New TARC Network (new routes, route numbers and stops) launched August 2, 2026 — check ridetarc.org for the current airport route.",
+    "peopleMover": "None — single terminal (Jerry E. Abramson Terminal) with Concourses A and B joined by a central rotunda after security."
+  },
+  "terminals": [
+    {
+      "name": "Jerry E. Abramson Terminal — Concourse A",
+      "status": "Active",
+      "airlines": [],
+      "gates": "A gates",
+      "notes": "Mothers' Room midway down Concourse A. Gate A8 closed early September to late October 2026 for renovation (SDF Next). New pet relief area by Gate A1 due to open in early October 2026."
+    },
+    {
+      "name": "Jerry E. Abramson Terminal — Concourse B",
+      "status": "Active",
+      "airlines": [],
+      "gates": "B gates",
+      "notes": "ATM near the entrance to Concourse B and the Distillery District Marketplace. Gates B6 and B7 were closed late July to early September 2026 for renovation."
+    },
+    {
+      "name": "Rotunda and Security Checkpoint",
+      "status": "Active — rotunda skylight replacement mid-September 2026 to mid-April 2027 (scaffolding and detours; concessions stay open). New 10-lane checkpoint under construction, scheduled to open by early 2027.",
+      "airlines": [],
+      "gates": "N/A",
+      "notes": "Single TSA checkpoint serves both concourses. Ticketing on the upper level; baggage claim and rental car counters on the lower level."
+    }
+  ],
+  "roads": ["Interstate 65 (Exit 131 to I-264 West)", "Interstate 264 (Watterson Expressway, Exit 11)", "Interstate 64 and I-71 (to I-264)", "Terminal Drive", "Administration Drive (Express Shuttle Lot / Cell Phone Waiting Area)", "Phillips Lane (Triply hotel lots; Freedom Way ramp)", "Preston Highway (local access to Phillips Lane)", "Crittenden Drive"],
+  "transit": ["TARC buses (New TARC Network launched August 2, 2026 — see ridetarc.org)", "TARC 3 paratransit (502) 213-3217"],
+  "neighborhoods": ["Downtown Louisville", "Kentucky Exposition Center / Fairgrounds", "Churchill Downs", "University of Louisville", "Okolona", "Germantown", "Old Louisville", "Southern Indiana (Jeffersonville, New Albany)"],
+  "authority": "Louisville Regional Airport Authority",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Single terminal; Concourses A and B are walkable from the rotunda after security."
+    },
+    "groundTransportZones": {
+      "rideshare": "Uber & Lyft: exit the terminal on the west side of baggage claim (lower level).",
+      "taxi": "Commercial curb outside baggage claim.",
+      "hotelShuttles": "All hotel courtesy vans pick up in the Commercial Ground Transportation Lot, baggage claim level, west side of the terminal.",
+      "dropOff": "Upper level (ticketing). Pickups on the lower level (baggage claim). Vehicles at the curb must be occupied at all times.",
+      "source": "https://www.flylouisville.com/courtesy-vans/"
+    },
+    "tarcBus": {
+      "operator": "Transit Authority of River City (TARC)",
+      "routes": [],
+      "note": "TARC rolled out the New TARC Network on August 2, 2026 with new routes, route numbers, schedules and stops — use the trip planner at ridetarc.org for the current airport route and fare.",
+      "paratransit": "TARC 3: (502) 213-3217",
+      "source": "https://www.ridetarc.org/newtarcnetwork/"
+    },
+    "taxi": {
+      "pickup": "Commercial curb outside baggage claim",
+      "providers": "zTrip",
+      "phone": "(502) 777-7777",
+      "note": "Fares not published by the airport."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Baggage claim level, west side of the terminal",
+      "discounts": "Airport-sponsored $5 off rides to SDF through 2026: Lyft Pass code SDF2026; Uber voucher code RWUCQDWJPPS (valid through 12/31/26).",
+      "note": "The app confirms the exact pickup spot.",
+      "source": "https://www.flylouisville.com/save5/"
+    },
+    "rentalCars": {
+      "location": "Counters on the lower level (baggage claim), with access to the rental car facility on Level 1 of the attached parking garage",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Thrifty"],
+      "totalBrands": 9,
+      "source": "https://www.flylouisville.com/rental-cars/"
+    },
+    "otherShuttles": {
+      "ableCare": "Able Care Transportation (medical/accessible): (502) 267-1911",
+      "alphaMedical": "Alpha Medical: (502) 936-9154",
+      "careConextion": "CareConextion: (502) 466-7000"
+    },
+    "hotelShuttles": "Triply's three SDF lots are all on Phillips Lane, 1.2 mi from the terminal: Hampton Inn (800), SpringHill Suites (820) and Residence Inn (700). All three run 24/7 on-demand shuttles and appear on the airport's own courtesy-van list. Hotel vans pick up in the Commercial Ground Transportation Lot (baggage claim level, west side) — call the hotel after you collect your bags."
+  },
+  "parkingRates": "On-airport (daily max, plus 6% KY sales tax): Express Shuttle Lot $9 ($6/day if pre-booked online), Surface Lot $13, Premier East $15, Premier West $15, Garage $22, Valet $35. Rates effective July 1, 2026. Off-site via Triply: three Phillips Lane hotel lots (Hampton Inn, SpringHill Suites, Residence Inn) at ~$8.35/day, 24/7 shuttles.",
+  "onAirportParking": {
+    "expressShuttleLot": {
+      "name": "SDF Express Shuttle Parking Lot",
+      "rate": "$9/day drive-up; $6/day pre-booked online (save $3/day); first 2 hours free",
+      "dailyMax": 9,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/express-shuttle-parking-lot",
+      "location": "Administration Drive (past the upper-level departures drop-off), area of the former cell phone lot",
+      "connection": "Shuttle runs 24 hours a day. Scan the QR code at the pickup points to track the shuttle in real time, or call (502) 363-3490 to request a pickup. Luggage loads directly onto the shuttle.",
+      "hourlyRates": "First 2 hours free; 2-3 hrs $2; 3-4 hrs $4; 4-5 hrs $6; daily max $9 (plus tax)",
+      "features": "Cheapest on-airport option. Automated lot — credit card, Apple Pay and Google Pay only. Doubles as the Cell Phone Waiting Area. Opened January 2020 (about 970 spaces). Handicap spaces available (no discount here)."
+    },
+    "surfaceLot": {
+      "name": "SDF Surface Parking Lot (long-term)",
+      "rate": "$13/day",
+      "dailyMax": 13,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/surface-lot-parking",
+      "serves": "Main terminal (walk via covered pedestrian walkways to the garage and terminal)",
+      "hourlyRates": "First 10 min free; up to 1 hr $2; 1-2 hrs $4; 2-3 hrs $6; 3-4 hrs $8; 4-5 hrs $10; 5-6 hrs $12; 6-24 hrs $13; each additional day $13",
+      "features": "Uncovered. No shuttle from the Surface Lot. Enter in the left lane after following 'Parking' signs. Handicap spaces available (no discount here)."
+    },
+    "premierEastLot": {
+      "name": "SDF Premier East Lot",
+      "rate": "$15/day",
+      "dailyMax": 15,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/premier-lot",
+      "serves": "Main terminal (walk) — east side of the terminal",
+      "hourlyRates": "First 10 min free; up to 1 hr $2; 1-2 hrs $4; 2-3 hrs $6; 3-4 hrs $8; 4-5 hrs $10; 5-6 hrs $12; 6-24 hrs $15; each additional day $15",
+      "features": "Walking distance to the terminal. Automated — credit card, Apple Pay and Google Pay only. Reached via the upper level, past the terminal (follow Premier/Express signs)."
+    },
+    "premierWestLot": {
+      "name": "SDF Premier West Lot",
+      "rate": "$15/day",
+      "dailyMax": 15,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/premier-west-lot",
+      "serves": "Main terminal (walk) — west side of the terminal",
+      "features": "Walking distance to the terminal. Automated — credit card, Apple Pay and Google Pay only. Daily rate $15 per the airport's July 1, 2026 rate notice."
+    },
+    "garage": {
+      "name": "SDF Parking Garage",
+      "rate": "$22/day",
+      "dailyMax": 22,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/parking-garage",
+      "serves": "Main terminal (attached)",
+      "hourlyRates": "First 10 min free; up to 1 hr $4; 1-2 hrs $6; 2-3 hrs $8; 3-4 hrs $10; 4-5 hrs $12; 5-6 hrs $14; 6-7 hrs $16; 7-24 hrs $22; each additional day $22",
+      "features": "Public parking on Levels 2-4 (about 2,000 spaces), clearance 7'7\". Park Assist color-coded space lights. Free EV charging on Level 3 (end of row N). Booking the garage does not guarantee a covered space — if levels 2-3 are full, use level 4. Handicap placard holders pay the Surface Lot rate on all-day stays (Customer Assistance lane; not on prepaid bookings)."
+    },
+    "valetParking": {
+      "name": "SDF Valet Parking",
+      "rate": "$35/day",
+      "dailyMax": 35,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.sdfpark.com/valet-parking",
+      "location": "Upper-level (departures) curb, terminal's east side near Southwest Airlines curbside check-in",
+      "features": "Opens daily at 3:30 AM until one hour after the last flight lands. Prepaid valet reservations available. EV charging offered with valet. Not part of SDF Rewards. Info: (502) 536-1069."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Area (Express Shuttle Lot)",
+      "location": "The Express Shuttle Lot on Administration Drive — also an aircraft observation area",
+      "cost": "FREE for stays under 2 hours; then the Express Shuttle Lot rates apply ($2 for 2-3 hrs up to the $9 daily max)",
+      "rules": "Pull a ticket at the entrance (or drive in with Metropolis from November 2, 2026) and exit within 2 hours for no charge",
+      "source": "https://www.sdfpark.com/cell-phone-waiting-area"
+    },
+    "evCharging": {
+      "locations": ["Parking Garage — Level 3, end of row N (two stations)", "Valet Parking"],
+      "totalPorts": "Two charging stations in the garage",
+      "cost": "Free of charge (regular parking rates apply); first come, first served",
+      "source": "https://www.sdfpark.com/faqs"
+    },
+    "parkingAdvantageProgram": {
+      "name": "SDF Rewards (frequent parker program)",
+      "status": "Active; free to join at SDFrewards.com",
+      "earning": "1 point per dollar spent in on-airport lots (not valet, not prepaid reservations). Uses an SDF Rewards Automated Pass (mailed free, 7-10 business days) or a hard-case RiverLink E-ZPass transponder.",
+      "redemption": "Points per free day: Garage 220, Premier East & West 150, Surface Lot 130, Express Shuttle Lot 90.",
+      "note": "Administration office: 877-735-9280 (Mon-Fri 8am-5pm ET), info@SDFrewards.com. Cannot be combined with prepaid reservations. Lost pass: $10 or 100 points.",
+      "source": "https://www.sdfpark.com/faqs"
+    },
+    "ticketlessParking": {
+      "name": "Metropolis ticketless parking",
+      "start": "November 2, 2026",
+      "description": "Paper tickets end November 2, 2026: register a license plate and card once (app.metropolis.io) and drive in and out; non-members can Text-to-Pay at the exit. Prepaid reservations are recognized automatically by plate. If you parked before November 2 with a paper ticket, exit through an attended lane.",
+      "source": "https://www.sdfpark.com/how-to-park"
+    },
+    "reservations": "Prepaid online reservations (book via sdfpark.com / booking.flylouisville.com): Express Shuttle Lot $6/day plus tax; valet prepaid also available. Modify or cancel via the confirmation email up to 2 hours before the booked arrival. Reservations are not a guaranteed space — on rare peak days a facility can fill. Handicap discount does not apply to prepaid bookings.",
+    "accessibleParking": "Accessible spaces in every lot and on every garage level, first come, first served (cannot be reserved). Placard/plate holders get the Garage discounted to the Surface Lot rate ($13) on all-day stays — use the Customer Assistance lane. No AAA, AARP or military discounts.",
+    "paymentMethods": "Main Exit Plaza (staffed 24/7): cash, all major credit cards, Apple Pay, Google Pay. Premier and Express Shuttle Lots: card, Apple Pay and Google Pay only. 6% Kentucky sales tax added. From November 2, 2026: Metropolis plate-recognition / Text-to-Pay.",
+    "parkingContact": "SP+ / Metropolis parking customer service: (502) 363-3490 (jump-starts, tire inflation, lost vehicle, shuttle pickup). Valet: (502) 536-1069.",
+    "garageServiceAreas": "Garage, Surface, Premier East and Premier West → walk to terminal. Express Shuttle Lot → 24/7 shuttle. Valet → upper-level curb.",
+    "otherRules": "Lost ticket: go to the cashier lane with your driver's license; the fee is calculated from your plate's entry time. Vehicles parked 30+ days must be reported to (502) 363-3490 or may be towed. Oversized vehicles using more than one space pay for each space. Motorcycles use a regular space at posted rates."
+  },
+  "parkingLots": [
+    {
+      "name": "Hampton Inn",
+      "slug": "hampton-inn",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant"],
+      "shuttleInfo": "24/7 on demand. Check in at the front desk with your confirmation number and license plate number, ahead of the airlines' 2-hour window. To request pickup from the hotel or from the airport after you collect your luggage, call 502-366-8100. Shuttle service may be unavailable on major holidays.",
+      "overview": "Hampton Inn Louisville Airport on Phillips Lane, minutes from SDF, with a complimentary 24/7 on-demand airport shuttle included with every reservation. No hotel stay required; no extra charge for full-size vans, pickup trucks or large SUVs.",
+      "address": "800 Phillips Lane, Louisville, KY 40209",
+      "distanceFromAirport": "1.2 mi",
+      "phone": "502-366-8100",
+      "notes": "$66.78 grand total for a 7-night Nov 2-9, 2026 stay (8 billed days, 10 AM drop-off / 2 PM pickup), same on Nov 16-23; tagged 'lowest total' on Triply. Shuttle may not run on major holidays — flag this for Thanksgiving/Christmas trips. Listed on the airport's courtesy-van page as 'Hampton Inn Airport'.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "SpringHill Suites",
+      "slug": "springhill-suites",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["Restaurant"],
+      "shuttleInfo": "24/7 on demand to and from the airport. Check in at the front desk, ahead of the airlines' 2-hour window. Call 502-361-9009 to request the shuttle from the hotel, and again after you collect your luggage for the airport pickup.",
+      "overview": "SpringHill Suites Louisville Airport on Phillips Lane, minutes from SDF. Complimentary shuttle included with every online parking reservation; no room reservation required; no extra charge for full-size vans, pickup trucks or large SUVs.",
+      "address": "820 Phillips Lane, Louisville, KY 40209",
+      "distanceFromAirport": "1.2 mi",
+      "phone": "502-361-9009",
+      "notes": "$66.78 grand total for Nov 2-9, 2026 (8 billed days), same on Nov 16-23. Minimum booking 1 day. Next door to Hampton Inn on Phillips Lane.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Residence Inn",
+      "slug": "residence-inn",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [],
+      "shuttleInfo": "24 hours on demand to and from the airport. Check in at the front desk, ahead of the airlines' 2-hour window. After you collect your luggage, call 502-363-8800 to arrange your airport pickup.",
+      "overview": "Residence Inn Louisville Airport on Phillips Lane, minutes from SDF: secure, affordable parking with a 24/7 front desk and a free 24-hour shuttle included with every online purchase. No room reservation required; no extra charge for full-size vans, pickup trucks or large SUVs.",
+      "address": "700 Phillips Lane, Louisville, KY 40209",
+      "distanceFromAirport": "1.2 mi",
+      "phone": "502-363-8800",
+      "notes": "$66.78 grand total for Nov 2-9, 2026 (8 billed days), same on Nov 16-23. Minimum booking 1 day. Listing description mentions a 24/7 front desk.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "SDF Express Shuttle Parking Lot",
+      "slug": "sdf-express-shuttle-parking-lot",
+      "parkingType": "Airport-owned economy lot (24/7 shuttle)",
+      "address": "Administration Drive, Louisville Muhammad Ali International Airport",
+      "dailyRate": 9,
+      "notes": "$6/day if pre-booked online. Not sold on Triply.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SDF Surface Parking Lot",
+      "slug": "sdf-surface-parking-lot",
+      "parkingType": "Airport-owned surface lot (walk)",
+      "dailyRate": 13,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SDF Premier East Lot",
+      "slug": "sdf-premier-east-lot",
+      "parkingType": "Airport-owned surface lot (walk)",
+      "dailyRate": 15,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SDF Premier West Lot",
+      "slug": "sdf-premier-west-lot",
+      "parkingType": "Airport-owned surface lot (walk)",
+      "dailyRate": 15,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SDF Parking Garage",
+      "slug": "sdf-parking-garage",
+      "parkingType": "Airport-owned garage (attached)",
+      "dailyRate": 22,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SDF Valet Parking",
+      "slug": "sdf-valet-parking",
+      "parkingType": "Airport valet (upper-level curb)",
+      "dailyRate": 35,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Holiday Inn Express (Bishop Lane)",
+      "slug": "holiday-inn-express-bishop-lane",
+      "parkingType": "Hotel park-and-fly lot",
+      "address": "Bishop Lane, Louisville, KY",
+      "phone": "502-456-4411",
+      "notes": "On the airport's courtesy-van list. Not returned by Triply search on 2026-10-16.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Express Shuttle Lot shuttle runs 24 hours (real-time QR tracking; call (502) 363-3490). No shuttle from the Surface Lot; Garage and Premier lots are walkable. Off-site: Triply's three Phillips Lane lots (Hampton Inn, SpringHill Suites, Residence Inn), 1.2 mi away, all run 24/7 on-demand shuttles; Hampton Inn warns service may be unavailable on major holidays. Hotel vans use the Commercial Ground Transportation Lot (baggage claim level, west side). Call the hotel after collecting bags.",
+  "distanceFromCity": "South of downtown Louisville at the I-65 / I-264 interchange.",
+  "keyDistances": {
+    "toPhillipsLaneLots": "1.2 mi (Triply lots: Hampton Inn, SpringHill Suites, Residence Inn)",
+    "toKentuckyExpoCenter": "Phillips Lane runs past the Fairgrounds; the Freedom Way ramp from Phillips Lane (across from Fairgrounds Gate 1) leads into the airport",
+    "competitiveAdvantage": "All three Triply SDF lots sit side by side on Phillips Lane, 1.2 mi from the terminal, each with a 24/7 on-demand shuttle and no oversize-vehicle fee — cheaper than the airport's Surface, Premier, Garage and Valet products, about level with the $9 Express Shuttle drive-up rate."
+  },
+  "construction2026": {
+    "status": "SDF Next capital program (over $1 billion; $364M completed through 2025, ~$570M more expected over the next two years). No parking facility closures listed as of 2026-10-16.",
+    "projects": [
+      "Security checkpoint expansion ($45M, 30,000 sq ft, up to 10 lanes) — scheduled to be operational by early 2027",
+      "Rotunda skylight replacement — mid-September 2026 to mid-April 2027; scaffolding and detours between the checkpoint, Concourses A/B and baggage claim",
+      "Gate renovations (A1, A3, A4, A6, B2, B4, B5 done; B6/B7 closed late Jul-early Sep 2026; A8 closed early Sep-late Oct 2026)",
+      "Gate A1 restrooms and new pet relief area — reopening early October 2026",
+      "Arrivals-curb refresh and departures-curb canopy (no dates published)",
+      "Federal Inspection Services facility at Gate 4 for international passenger flights (no date published)",
+      "Parking: Metropolis ticketless entry/exit goes live November 2, 2026"
+    ],
+    "travelImpact": "Expect rotunda detours through April 2027. Parking changes from paper tickets to plate-recognition on November 2, 2026.",
+    "timeline": {
+      "start": "SDF Next ongoing (multi-year)",
+      "expectedCompletion": "Checkpoint early 2027; rotunda skylight mid-April 2027"
+    },
+    "source": "https://www.flylouisville.com/sdf-next/"
+  },
+  "securityAndScreening": {
+    "checkpointHours": "Opens approximately 90 minutes before the first departure of the day; scheduled to close at 9 PM daily (screen before 9 PM even if your flight is delayed)",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck available; enroll at tsa.gov/precheck"
+    },
+    "clear": {
+      "note": "CLEAR lists an SDF location on Level 2 near the American Airlines check-in counter and the checkpoint (clearme.com)"
+    },
+    "standardWaitTimes": {
+      "tips": "Single checkpoint for both concourses; a larger 10-lane checkpoint is due by early 2027. Check the MyTSA app for live waits."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (the guidance Triply's SDF lots quote)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Kentucky Derby week, Thanksgiving and Christmas"
+    },
+    "source": "https://www.flylouisville.com/security-and-tsa/"
+  },
+  "lounges": {
+    "concourseA": [],
+    "concourseB": [],
+    "other": "The airport's amenities and services pages list no airline or pay-in lounge."
+  },
+  "wifi": {
+    "cost": "Free",
+    "coverage": "Terminal and concourses; AC outlets and USB ports in Concourses A and B"
+  },
+  "evCharging": {
+    "garage": {
+      "chargers": "Two stations",
+      "location": "Level 3, end of row N",
+      "cost": "Free (garage rate $22/day applies); first come, first served"
+    },
+    "valet": {
+      "location": "Valet Parking (upper-level curb)",
+      "cost": "Offered with valet ($35/day)"
+    },
+    "note": "None of the three Triply SDF lots lists EV charging.",
+    "source": "https://www.sdfpark.com/faqs"
+  },
+  "luggageStorage": {
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": 2,
+    "locations": ["Landside: outside the baggage claim doors, across the lower-level roadway near the covered walkway", "Airside: stairwell next to the elevator in the rotunda"],
+    "note": "A new airside pet relief area near Gate A1 was due to open in early October 2026 (SDF Next).",
+    "source": "https://www.flylouisville.com/services/"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning departure bank"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Kentucky Derby (first Saturday in May) and Thunder Over Louisville, summer, Thanksgiving and Christmas/New Year; convention traffic around the Kentucky Exposition Center.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical: hot, humid summers and cool winters with occasional snow and ice.",
+    "commonDisruptions": "Spring and summer thunderstorms (severe-weather season March-June); winter ice and light snow events; morning fog along the Ohio River valley.",
+    "bestMonths": "September, October",
+    "worstMonths": "January-February (ice), April-May (storms)",
+    "winterNote": "All three Triply SDF lots are outdoor hotel lots — bring a scraper on winter trips. Only the airport garage is covered.",
+    "note": "Check flight status before leaving for a Phillips Lane lot; the 24/7 shuttles cover early and late flights."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle on Phillips Lane, 1.2 mi from SDF. Triply sells parking-only at the hotels below; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply ~$8.35/day ($66.78 for a 7-night Nov 2026 trip, quoted 2026-10-16)",
+    "popularHotels": [
+      { "name": "Hampton Inn", "distance": "1.2 miles (800 Phillips Lane)", "shuttleHours": "24/7 on demand (may be unavailable on major holidays)", "highlight": "Tagged lowest total on Triply; 24/7 front desk; no oversize-vehicle fee." },
+      { "name": "SpringHill Suites", "distance": "1.2 miles (820 Phillips Lane)", "shuttleHours": "24/7 on demand", "highlight": "No room reservation needed; 1-day minimum; no oversize-vehicle fee." },
+      { "name": "Residence Inn", "distance": "1.2 miles (700 Phillips Lane)", "shuttleHours": "24 hours on demand", "highlight": "24/7 front desk; no room reservation needed; no oversize-vehicle fee." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures = 7 days at the daily max plus the published 3-4 hour tier for the extra 4 hours, before 6% KY sales tax; the 8-days-at-max figure is shown as the upper bound.",
+    "onAirport": {
+      "expressShuttlePrebooked": { "parkingCost": "$48 (8 x $6 pre-booked) + tax", "totalEstimate": "~$51 with 6% tax" },
+      "expressShuttleLot": { "parkingCost": "$67 (7 x $9 + $4) to $72 (8 x $9) + tax", "totalEstimate": "~$71-76 with 6% tax" },
+      "surfaceLot": { "parkingCost": "$99 (7 x $13 + $8) to $104 (8 x $13) + tax", "totalEstimate": "~$105-110 with 6% tax" },
+      "premierEastLot": { "parkingCost": "$113 (7 x $15 + $8) to $120 (8 x $15) + tax", "totalEstimate": "~$120-127 with 6% tax" },
+      "garage": { "parkingCost": "$164 (7 x $22 + $10) to $176 (8 x $22) + tax", "totalEstimate": "~$174-187 with 6% tax" },
+      "valetParking": { "parkingCost": "$280 (8 x $35)", "totalEstimate": "~$280+" }
+    },
+    "offSiteWithShuttle": {
+      "hamptonInn": { "parkingCost": "$66.78 quoted grand total (~$8.35/day incl. fees)", "savingsVsExpressShuttleDriveUp": "~$4-10 saved", "savingsVsGarage": "~$107-120 saved", "caveat": "Costs ~$16 more than the airport's $6/day pre-booked Express Shuttle rate; shuttle may not run on major holidays" },
+      "springHillSuites": { "parkingCost": "$66.78 quoted grand total (~$8.35/day incl. fees)", "savingsVsExpressShuttleDriveUp": "~$4-10 saved", "savingsVsGarage": "~$107-120 saved", "caveat": "Costs ~$16 more than the pre-booked Express Shuttle rate" },
+      "residenceInn": { "parkingCost": "$66.78 quoted grand total (~$8.35/day incl. fees)", "savingsVsExpressShuttleDriveUp": "~$4-10 saved", "savingsVsGarage": "~$107-120 saved", "caveat": "Costs ~$16 more than the pre-booked Express Shuttle rate" }
+    },
+    "keyDifference": "SDF's own Express Shuttle Lot is cheap ($9 drive-up, $6 pre-booked) with a 24/7 shuttle, so Triply's $8.35/day Phillips Lane lots roughly tie the drive-up rate and cost more than the pre-booked rate. Anchor real savings against the Surface ($13), Premier ($15), Garage ($22) and Valet ($35). Triply's edge: guaranteed hotel-lot space when airport lots fill (Derby, holidays), no oversize-vehicle fee, and 24/7 front desks."
+  },
+  "uniqueFeatures": {
+    "upsWorldport": "UPS Worldport, UPS's worldwide air hub, sits between SDF's parallel runways — about 5.2 million sq ft and 155 miles of conveyor, connecting Louisville to 220 countries and territories; SDF ranks third in North America for cargo.",
+    "muhammadAli": "Renamed for Louisville native Muhammad Ali in 2019 (vote on January 16, 2019); formerly Standiford Field and Louisville International.",
+    "airGuard": "Kentucky Air National Guard's 123rd Airlift Wing (C-130s) at the co-located Louisville Air National Guard Base.",
+    "kentuckyDerby": "Derby week (first Saturday in May) is the airport's signature demand spike.",
+    "planeSpotting": "The Cell Phone Waiting Area / Express Shuttle Lot doubles as an aircraft observation area — free under 2 hours.",
+    "sdfRewards": "SDF Rewards frequent parker program accepts RiverLink E-ZPass transponders."
+  },
+  "emergencyContacts": {
+    "airportInfo": "Information Booth (502) 380-8277",
+    "airportWebsite": "flylouisville.com",
+    "parkingInfo": "sdfpark.com",
+    "parkingPhone": "(502) 363-3490",
+    "valetPhone": "(502) 536-1069",
+    "sdfRewards": "877-735-9280 (Mon-Fri 8am-5pm ET)",
+    "lostAndFound": "flylouisville.com/lostandfound/",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "taxi": "zTrip (502) 777-7777",
+    "tarc3": "(502) 213-3217",
+    "emergency": "911 — state you are at Louisville Muhammad Ali International Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.flylouisville.com/",
+      "parking": "https://www.sdfpark.com/",
+      "parkingFaqs": "https://www.sdfpark.com/faqs",
+      "parkingGarage": "https://www.sdfpark.com/parking-garage",
+      "expressShuttleLot": "https://www.sdfpark.com/express-shuttle-parking-lot",
+      "valet": "https://www.sdfpark.com/valet-parking",
+      "cellPhoneWaitingArea": "https://www.sdfpark.com/cell-phone-waiting-area",
+      "howToParkMetropolis": "https://www.sdfpark.com/how-to-park",
+      "parkingReservations": "https://booking.flylouisville.com/",
+      "sdfRewards": "https://www.sdfrewards.com/",
+      "rateNotice2026": "https://www.flylouisville.com/louisville-muhammad-ali-international-airport-updates-parking-rates-2/",
+      "discounts": "https://www.flylouisville.com/save5/",
+      "groundTransportation": "https://www.flylouisville.com/getting-to-and-from-the-airport/",
+      "pickupDropoff": "https://www.flylouisville.com/picking-up-or-dropping-off/",
+      "courtesyVans": "https://www.flylouisville.com/courtesy-vans/",
+      "rentalCars": "https://www.flylouisville.com/rental-cars/",
+      "airlines": "https://www.flylouisville.com/airlines/",
+      "security": "https://www.flylouisville.com/security-and-tsa/",
+      "services": "https://www.flylouisville.com/services/",
+      "sdfNext": "https://www.flylouisville.com/sdf-next/",
+      "airportFacts": "https://www.flylouisville.com/corporate/louisville-muhammad-ali-international-airport-sdf/",
+      "drivingDirections": "https://www.sdfpark.com/driving-directions"
+    },
+    "transit": {
+      "tarc": "https://www.ridetarc.org/newtarcnetwork/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/sdf/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SDF"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com/all-locations/louisville-muhammad-ali-international-airport"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KSDF",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SDF"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Louisville_Muhammad_Ali_International_Airport"
+    },
+    "newsAndMedia": {
+      "courierJournal": "https://www.courier-journal.com/",
+      "wdrb": "https://www.wdrb.com/",
+      "whas11": "https://www.whas11.com/"
+    }
+  }
+}

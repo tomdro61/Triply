@@ -79,7 +79,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<
     if (timer !== undefined) clearTimeout(timer);
   }
 }
-function isSessionMissing(error: {
+export function isSessionMissing(error: {
   name?: string;
   message?: string;
   status?: number;

@@ -1,7 +1,7 @@
 {
   "code": "PHX",
   "fullName": "Phoenix Sky Harbor International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "3 miles east of downtown Phoenix, Maricopa County, Arizona",
     "iataCode": "PHX",
@@ -21,15 +21,32 @@
     "totalGates": 119,
     "runways": 3,
     "runwayDetails": [
-      { "designation": "8/26", "length": "11,489 ft (3,502 m)", "surface": "Concrete/Grooved" },
-      { "designation": "7L/25R", "length": "10,300 ft (3,139 m)", "surface": "Concrete/Grooved" },
-      { "designation": "7R/25L", "length": "7,800 ft (2,377 m)", "surface": "Concrete/Grooved" }
+      {
+        "designation": "8/26",
+        "length": "11,489 ft (3,502 m)",
+        "surface": "Concrete/Grooved"
+      },
+      {
+        "designation": "7L/25R",
+        "length": "10,300 ft (3,139 m)",
+        "surface": "Concrete/Grooved"
+      },
+      {
+        "designation": "7R/25L",
+        "length": "7,800 ft (2,377 m)",
+        "surface": "Concrete/Grooved"
+      }
     ],
     "dominantAirline": "American Airlines (largest hub — operates from Terminal 4, ~40% market share)",
     "totalAirlines": "20+ airlines",
     "nonstopDestinations": "120+ destinations (including international service to Canada, Mexico, London, Frankfurt, Paris)",
     "founded": "1935 (as Scenic Airways Airport; renamed Sky Harbor in 1935)",
-    "hubCarriers": ["American Airlines (primary hub)", "Southwest Airlines (largest focus city)", "Frontier Airlines (focus city)", "Spirit Airlines (focus city)"],
+    "hubCarriers": [
+      "American Airlines (primary hub)",
+      "Southwest Airlines (largest focus city)",
+      "Frontier Airlines (focus city)",
+      "Spirit Airlines (focus city)"
+    ],
     "slotControlled": false,
     "metroAccess": "Valley Metro Rail accessible via free PHX Sky Train from Terminal 3 or 4 to 44th St/Washington station — $2.00 single ride fare to downtown Phoenix, Tempe, and Mesa",
     "skyTrain": "Free automated people mover connecting Terminal 3 → Terminal 4 → East Economy Parking → 44th St Valley Metro Rail station → 24th St station → Rental Car Center. Trains run 24/7 every 3-5 minutes.",
@@ -39,21 +56,73 @@
     {
       "name": "Terminal 3 — John McCain Terminal",
       "status": "Active — 27 gates (Concourses E and F). $326M North Concourse expansion underway, adding 6 new gates. Completion 2027.",
-      "airlines": ["Alaska Airlines", "Delta Air Lines", "Frontier Airlines", "Hawaiian Airlines", "Sun Country Airlines", "United Airlines"],
+      "airlines": [
+        "Alaska Airlines",
+        "Delta Air Lines",
+        "Frontier Airlines",
+        "Hawaiian Airlines",
+        "Sun Country Airlines",
+        "United Airlines"
+      ],
       "gates": "E1-E10, F1-F15 (27 gates total)",
       "notes": "Terminal 3 primarily serves Delta, United, Alaska, and Frontier. Delta Sky Club and United Club lounges located here. $326M North 2 Concourse construction began April 2025 — adds 6 gates, new lounge, food/beverage options, and Camelback Mountain views. A pedestrian bridge connecting Terminal 3 to Terminal 4 post-security is included in the expansion. Terminal 3 Parking Garage serves this terminal."
     },
     {
       "name": "Terminal 4 — Barry M. Goldwater Terminal",
       "status": "Active — 92 gates across 4 concourses (A, B, C, D). PHX's largest and busiest terminal. Modernization ongoing.",
-      "airlines": ["Aeromexico", "Air Canada", "Air France", "American Airlines", "Boutique Air", "British Airways", "Condor", "Contour Airlines", "JetBlue Airways", "Southwest Airlines", "Spirit Airlines", "Sun Country Airlines", "Volaris", "WestJet"],
+      "airlines": [
+        "Aeromexico",
+        "Air Canada",
+        "Air France",
+        "American Airlines",
+        "Boutique Air",
+        "British Airways",
+        "Condor",
+        "Contour Airlines",
+        "JetBlue Airways",
+        "Southwest Airlines",
+        "Spirit Airlines",
+        "Sun Country Airlines",
+        "Volaris",
+        "WestJet"
+      ],
       "gates": "A1-A30, B1-B28, C1-C19, D1-D8 (92 gates total)",
       "notes": "Terminal 4 is the primary hub for American Airlines and Southwest Airlines, which together handle over 70% of PHX traffic. Home to 3 American Airlines Admirals Club lounges, American Express Centurion Lounge (across from Gate B22), Chase Sapphire Lounge by The Club, and Escape Lounge. International arrivals processed here. Terminal 4 Parking Garage serves this terminal."
     }
   ],
-  "roads": ["Interstate 10 (Maricopa Freeway)", "State Route 51 (Piestewa Freeway)", "State Route 143 (Hohokam Expressway)", "State Route 202 (Red Mountain/Santan Freeway)", "Loop 101 (Pima Freeway)", "24th Street", "44th Street", "Sky Harbor Boulevard", "University Drive", "Washington Street"],
-  "transit": ["Valley Metro Rail via PHX Sky Train to 44th St/Washington station ($2.00 — direct to downtown Phoenix, Tempe, Mesa)", "PHX Sky Train (free automated people mover — Terminal 3, Terminal 4, East Economy, 44th St station, 24th St station, Rental Car Center)", "Valley Metro Bus Routes 13 and Sky Harbor Express", "Greyhound Bus (Phoenix station ~4 miles from airport)"],
-  "neighborhoods": ["Downtown Phoenix", "Tempe", "Scottsdale", "Mesa", "Chandler", "Gilbert", "Glendale", "Arcadia", "Biltmore", "Paradise Valley", "Ahwatukee", "Camelback Corridor", "Old Town Scottsdale"],
+  "roads": [
+    "Interstate 10 (Maricopa Freeway)",
+    "State Route 51 (Piestewa Freeway)",
+    "State Route 143 (Hohokam Expressway)",
+    "State Route 202 (Red Mountain/Santan Freeway)",
+    "Loop 101 (Pima Freeway)",
+    "24th Street",
+    "44th Street",
+    "Sky Harbor Boulevard",
+    "University Drive",
+    "Washington Street"
+  ],
+  "transit": [
+    "Valley Metro Rail via PHX Sky Train to 44th St/Washington station ($2.00 — direct to downtown Phoenix, Tempe, Mesa)",
+    "PHX Sky Train (free automated people mover — Terminal 3, Terminal 4, East Economy, 44th St station, 24th St station, Rental Car Center)",
+    "Valley Metro Bus Routes 13 and Sky Harbor Express",
+    "Greyhound Bus (Phoenix station ~4 miles from airport)"
+  ],
+  "neighborhoods": [
+    "Downtown Phoenix",
+    "Tempe",
+    "Scottsdale",
+    "Mesa",
+    "Chandler",
+    "Gilbert",
+    "Glendale",
+    "Arcadia",
+    "Biltmore",
+    "Paradise Valley",
+    "Ahwatukee",
+    "Camelback Corridor",
+    "Old Town Scottsdale"
+  ],
   "authority": "City of Phoenix Aviation Department",
   "groundTransportation": {
     "skyTrain": {
@@ -61,13 +130,22 @@
       "fare": "FREE",
       "frequency": "Every 3-5 minutes",
       "hours": "24/7",
-      "stations": ["Terminal 3", "Terminal 4", "East Economy", "44th St/Washington (Valley Metro Rail)", "24th Street", "Rental Car Center"],
+      "stations": [
+        "Terminal 3",
+        "Terminal 4",
+        "East Economy",
+        "44th St/Washington (Valley Metro Rail)",
+        "24th Street",
+        "Rental Car Center"
+      ],
       "note": "The PHX Sky Train is the backbone of ground transportation at Sky Harbor. It connects everything — terminals, parking, transit, and rental cars. Terminal-to-terminal travel takes 2-4 minutes. The 44th St station provides a direct transfer to Valley Metro Rail."
     },
     "valleyMetroRail": {
       "stationName": "44th St/Washington (accessible via PHX Sky Train)",
       "operator": "Valley Metro",
-      "lines": ["Valley Metro Rail (light rail)"],
+      "lines": [
+        "Valley Metro Rail (light rail)"
+      ],
       "fare": "$2.00 single ride. Day pass: $4.00. Payment: Valley Metro app, contactless tap, ticket vending machines at stations.",
       "hours": "Approximately 4:40 AM to 11:00 PM weekdays, 5:00 AM to 11:00 PM weekends (varies by direction)",
       "frequency": "Every 12-15 minutes (peak), every 15-20 minutes (off-peak)",
@@ -101,7 +179,10 @@
       "note": "Taxis are metered at PHX. Cash and credit cards accepted. Available 24/7 at designated taxi stands outside baggage claim."
     },
     "rideshare": {
-      "providers": ["Uber", "Lyft"],
+      "providers": [
+        "Uber",
+        "Lyft"
+      ],
       "pickupLocation": "Arrivals level at Terminal 3 and Terminal 4. Follow 'Ride Share' signs to designated pickup areas.",
       "estimatedFares": {
         "uberXToDowntownPhoenix": "$15-$25",
@@ -119,77 +200,91 @@
     },
     "rentalCars": {
       "location": "PHX Rental Car Center — accessible via free PHX Sky Train from Terminal 3 or Terminal 4",
-      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Sixt", "Thrifty"],
+      "companies": [
+        "Alamo",
+        "Avis",
+        "Budget",
+        "Dollar",
+        "Enterprise",
+        "Hertz",
+        "National",
+        "Sixt",
+        "Thrifty"
+      ],
       "totalBrands": 9,
       "note": "All major rental car companies are consolidated at the Rental Car Center. Take the PHX Sky Train (free, 24/7) from your terminal. The RCC opened in 2006 and was connected to the Sky Train Stage 2 extension in December 2022."
     },
     "hotelShuttles": "Many nearby hotels along 44th Street, University Drive, and in Tempe offer complimentary airport shuttle service. Check with your hotel before booking. Most airport-area hotels provide pickup from Terminal 3 or 4 ground level."
   },
-  "parkingRates": "On-airport: Terminal Garages $33/day ($6/hr), Premium Parking $37/day, Valet $43/day. East Economy Garage $16/day, East Economy Uncovered $14/day. Off-site: from ~$3.50/day with shuttle. Pre-booking recommended during peak travel periods.",
+  "parkingRates": "On-airport (skyharbor.com, verified 2026-10-13; all $6 first hour + $3 per extra 30 min): Terminal 3/4 Garages $33/day, Premium $37/day, Valet $18 first hour / $43/day, East Economy Garages A&B $19/day, East Economy Uncovered $16/day, West Economy Garage $19/day, 24th Street Station $16/day, West Economy Park & Walk (seasonal) $10/day. Off-site bookable on Triply (Nov 2026 live quotes, incl. lot fees): from $4.19/day (La Quinta Tempe, no shuttle), $5.25 (Howard Johnson, no shuttle), $9.35-10.83 (DoubleTree, Holiday Inn, Crowne Plaza hotel shuttles), $14.23-14.61 (PreFlight, Sky Harbor Airport Parking - 24/7 shuttles).",
   "onAirportParking": {
     "terminal3Garage": {
       "name": "Terminal 3 Parking Garage",
-      "rate": "$6.00 per hour",
+      "rate": "$6 first hour, $3 each additional 30 minutes",
       "dailyMax": 33,
-      "maxStay": "30 days",
+      "maxStay": "30 days (not stated on skyharbor.com rates page - verify)",
       "serves": "Terminal 3 (Delta, United, Alaska, Frontier)",
       "valetAvailable": true,
-      "valetRate": "$12/hr, $43/day max",
+      "valetRate": "$18 first hour, $43/day max",
       "features": "Direct covered walkway to Terminal 3. Self-park and valet available. Short-term hourly parking on lower levels.",
       "premiumParking": "$37/day — wider spaces, closer to terminal entrance",
       "preBookingUrl": "https://www.skyharbor.com/parking/"
     },
     "terminal4Garage": {
       "name": "Terminal 4 Parking Garage",
-      "rate": "$6.00 per hour",
+      "rate": "$6 first hour, $3 each additional 30 minutes",
       "dailyMax": 33,
-      "maxStay": "30 days",
+      "maxStay": "30 days (not stated on skyharbor.com rates page - verify)",
       "serves": "Terminal 4 (American Airlines, Southwest, JetBlue, international carriers)",
       "valetAvailable": true,
-      "valetRate": "$12/hr, $43/day max",
+      "valetRate": "$18 first hour, $43/day max",
       "features": "PHX's largest parking structure. Direct covered access to Terminal 4. Premium parking spaces available closer to the terminal entrance.",
       "premiumParking": "$37/day — wider spaces, closer to terminal entrance",
       "preBookingUrl": "https://www.skyharbor.com/parking/"
     },
     "eastEconomyGarage": {
       "name": "East Economy Garage (Garages A & B)",
-      "rate": "$4.00 per hour",
-      "dailyMax": 16,
+      "rate": "$6 first hour, $3 each additional 30 minutes",
+      "dailyMax": 19,
       "serves": "Terminal 3 and Terminal 4 via PHX Sky Train",
-      "connection": "FREE PHX Sky Train to both terminals, 24/7, every 3-5 minutes",
-      "features": "Covered parking at the lowest on-airport daily rate for garages. PHX Sky Train station located at the garage. Best value for multi-day covered parking.",
+      "connection": "FREE PHX Sky Train to Terminals 3 and 4, trains about every 3 minutes",
+      "features": "Covered garages A & B. Scan the QR code at the shuttle stop for a text/email reminder of where you parked.",
       "preBookingUrl": "https://www.skyharbor.com/parking/"
     },
     "eastEconomyUncovered": {
       "name": "East Economy Uncovered Lot",
-      "rate": "$4.00 per hour",
-      "dailyMax": 14,
+      "rate": "$6 first hour, $3 each additional 30 minutes",
+      "dailyMax": 16,
       "serves": "Terminal 3 and Terminal 4 via PHX Sky Train",
       "connection": "FREE PHX Sky Train to both terminals, 24/7",
       "features": "Cheapest on-airport parking option. Open-air lot — vehicle will be exposed to Arizona sun and heat. PHX Sky Train access included.",
-      "note": "Vehicles parked in uncovered lots are exposed to extreme Phoenix heat (110-120F in summer). Consider covered East Economy Garage ($2/day more) or a covered off-site lot to protect your vehicle."
+      "note": "Vehicles parked in uncovered lots are exposed to extreme Phoenix heat (110-120F in summer). The covered East Economy Garage is $3/day more ($19 vs $16)."
     },
     "westEconomyGarage": {
-      "name": "West Economy (24th Street)",
-      "rate": "$4.00 per hour",
-      "dailyMax": 16,
-      "serves": "Terminal 3 and Terminal 4 via PHX Sky Train Stage 2",
-      "connection": "FREE PHX Sky Train from 24th Street station to terminals",
-      "features": "Accessible via PHX Sky Train Stage 2. Good for travelers approaching from west Phoenix, I-17, and central Phoenix.",
+      "name": "West Economy Garage",
+      "rate": "$6 first hour, $3 each additional 30 minutes",
+      "dailyMax": 19,
+      "serves": "Terminal 3 (walk)",
+      "connection": "About a 12-minute walk to Terminal 3; no shuttle",
+      "features": "Covered economy garage near Terminal 3.",
       "preBookingUrl": "https://www.skyharbor.com/parking/"
     },
     "valetParking": {
       "name": "Valet Parking",
-      "rate": "$12/hour, $43/day max",
+      "rate": "$18 first hour, $43/day max",
       "maxStay": "30 days",
       "locations": "Terminal 3 and Terminal 4 (upper departures level)",
       "features": "Premium drop-off option. Pull up to the departures level and hand off your keys. Available at both terminals."
     },
     "cellPhoneLot": {
-      "name": "Cell Phone Waiting Lot",
-      "location": "Off Sky Harbor Boulevard between Terminal 3 and Terminal 4",
-      "cost": "FREE",
-      "rules": "For passenger pickup only. Driver must remain with vehicle. No commercial vehicles. Monitor arrival time and proceed to terminal when passenger is ready."
+      "name": "Cell Phone Waiting Lots (3)",
+      "cost": "FREE, 24 hours",
+      "lots": [
+        "East Cell Phone Lot - 90 spaces, flight display, portable restroom",
+        "West Cell Phone Lot - 90 spaces, flight display, portable restroom",
+        "44th Street PHX Sky Train Station lot - 25 spaces, restrooms in station"
+      ],
+      "rules": "Drivers must stay in their vehicles; unattended vehicles may be towed or fined. Waits should be 30 minutes or less."
     },
     "evCharging": {
       "locations": [
@@ -199,83 +294,167 @@
       "totalPorts": "14 EVPassport Level 2 charging stations",
       "note": "EVPassport is the primary EV charging provider at PHX. Level 2 chargers available in both terminal garages. Check EVPassport app for availability and pricing."
     },
-    "accessibleParking": "Accessible parking spaces available on ground level and near elevators in all garages. ADA-compliant parking at both terminal garages and economy facilities.",
+    "accessibleParking": "ADA accessible parking is available at all parking facilities.",
     "totalCapacity": "~18,000 parking spaces across all on-airport facilities",
     "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, Apple Pay, Google Pay",
-    "garageServiceAreas": "Terminal 3 Garage → Terminal 3. Terminal 4 Garage → Terminal 4. East Economy → Both terminals via Sky Train. West Economy → Both terminals via Sky Train."
+    "garageServiceAreas": "Terminal 3 Garage -> Terminal 3. Terminal 4 Garage -> Terminal 4. East Economy -> both terminals via Sky Train. West Economy Garage / Park & Walk -> Terminal 3 on foot (12-15 min). 24th Street Station -> Sky Train.",
+    "westEconomyParkAndWalk": {
+      "name": "West Economy Park & Walk (seasonal)",
+      "rate": "$6 first hour, $3 each additional 30 minutes",
+      "dailyMax": 10,
+      "serves": "Terminal 3 (walk)",
+      "connection": "About a 15-minute walk to Terminal 3; no shuttle",
+      "features": "Seasonal lot - open dates not listed (verify). Cheapest official rate."
+    },
+    "twentyFourthStreetStation": {
+      "name": "24th Street Station lot",
+      "rate": "$6 first hour, $3 each additional 30 minutes",
+      "dailyMax": 16,
+      "serves": "Terminals 3 and 4 via PHX Sky Train (24th Street station)",
+      "features": "Listed on skyharbor.com as a seasonal lot (verify open dates)."
+    },
+    "premiumParking": {
+      "name": "Premium Parking (Terminals 3 & 4 Garages)",
+      "dailyMax": 37,
+      "note": "Reservation service; $37 shown on skyharbor.com rates page."
+    },
+    "loyaltyProgram": "Free PHX parking loyalty program: earn points with each online parking reservation toward free parking (terms on skyharbor.com).",
+    "onlineBooking": "Drive-up rates are the maximum; skyharbor.com offers \"best available rates\" when booked online.",
+    "ratesVerified": "2026-10-13",
+    "ratesSource": "https://www.skyharbor.com/parking/parking-rates-directions/",
+    "unverified": "Max stay, lost-ticket fee, garage height clearance and EV charger details are not on the official rates page."
   },
   "parkingLots": [
     {
       "name": "The Parking Spot 1 (Washington St)",
       "slug": "the-parking-spot-1-phx",
-      "dailyRate": 16.00,
+      "dailyRate": 16.0,
       "reservationRate": 11.95,
       "parkingType": "Covered (all 800 spaces covered)",
-      "amenities": ["Free Shuttle", "Covered Parking", "24/7 Security", "Surveillance Cameras", "Luggage Assistance", "Car Care Services"],
+      "amenities": [
+        "Free Shuttle",
+        "Covered Parking",
+        "24/7 Security",
+        "Surveillance Cameras",
+        "Luggage Assistance",
+        "Car Care Services"
+      ],
       "shuttleInfo": "Free shuttle to terminals, running every 5-10 minutes, 24/7",
       "overview": "The closest off-airport lot to Sky Harbor on Washington Street. All 800 spaces are covered — critical for protecting vehicles from extreme Arizona sun. Friendly shuttle drivers.",
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
       "rating": "4.7/5",
-      "notes": "Best rated off-site lot at PHX. All-covered parking protects your car from 110F+ summer heat. Closest off-site option via 44th Street."
+      "notes": "Best rated off-site lot at PHX. All-covered parking protects your car from 110F+ summer heat. Closest off-site option via 44th Street.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot 2 (Van Buren St)",
       "slug": "the-parking-spot-2-phx",
-      "dailyRate": 16.00,
+      "dailyRate": 16.0,
       "reservationRate": 11.95,
       "parkingType": "Covered and uncovered options (extra-wide uncovered spaces available)",
-      "amenities": ["Free Shuttle", "Covered Parking", "Uncovered Parking", "24/7 Security", "Surveillance Cameras", "Luggage Assistance"],
+      "amenities": [
+        "Free Shuttle",
+        "Covered Parking",
+        "Uncovered Parking",
+        "24/7 Security",
+        "Surveillance Cameras",
+        "Luggage Assistance"
+      ],
       "shuttleInfo": "Free shuttle to terminals, running every 5-10 minutes, 24/7",
       "overview": "Convenient for travelers coming from Paradise Valley, Scottsdale, and points north/west. Offers both covered and uncovered parking with extra-wide uncovered spaces.",
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Good option for Scottsdale/Paradise Valley travelers. Extra-wide uncovered spaces are a plus for larger vehicles. Covered option recommended in summer."
+      "notes": "Good option for Scottsdale/Paradise Valley travelers. Extra-wide uncovered spaces are a plus for larger vehicles. Covered option recommended in summer.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot South (formerly Blue Sky)",
       "slug": "the-parking-spot-south-phx",
-      "dailyRate": 11.00,
+      "dailyRate": 11.0,
       "reservationRate": 7.25,
       "parkingType": "Covered parking with free shuttle",
-      "amenities": ["Free Shuttle", "Covered Parking", "24/7 Security", "Surveillance Cameras", "Luggage Assistance"],
+      "amenities": [
+        "Free Shuttle",
+        "Covered Parking",
+        "24/7 Security",
+        "Surveillance Cameras",
+        "Luggage Assistance"
+      ],
       "shuttleInfo": "Free shuttle, approximately 3-minute ride to terminals",
       "overview": "Most efficient option for travelers coming from the Southeast Valley (Chandler, Gilbert, Ahwatukee). Covered parking at a lower rate than Parking Spot 1 and 2.",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Best value covered off-site parking at $7.25/day pre-booked. 3-minute shuttle ride. Ideal for Southeast Valley travelers."
+      "notes": "Best value covered off-site parking at $7.25/day pre-booked. 3-minute shuttle ride. Ideal for Southeast Valley travelers.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "PreFlight Airport Parking (PHX)",
       "slug": "preflight-airport-parking-phx",
-      "dailyRate": 10.99,
-      "reservationRate": 7.99,
-      "parkingType": "Covered and uncovered options",
-      "amenities": ["Free 24/7 Shuttle", "Covered Parking", "Security Cameras", "Gated Lot", "EV Charging"],
-      "shuttleInfo": "24/7 complimentary shuttle to all terminals",
-      "overview": "Popular off-site lot with both covered and uncovered parking options. One of the few off-site lots with EV charging stations. 24/7 shuttle service included.",
-      "distanceFromAirport": "2.0 mi",
-      "driveTime": "5-7 minutes",
+      "dailyRate": 14.23,
+      "reservationRate": 14.23,
+      "parkingType": "Covered garage (level 2) and uncovered rooftop (level 3)",
+      "amenities": [
+        "Free 24/7 Shuttle",
+        "Covered Parking",
+        "Uncovered Rooftop Parking",
+        "Security",
+        "Gated Lot",
+        "24/7 Staffed"
+      ],
+      "shuttleInfo": "Free shuttle 24/7 (live listing: every 15 minutes; description: every 7-10 minutes, 3-5 minute ride). Terminal pickup: T3 North Side Door 5 (center median), T4 North Side Door 7 (ground level). Dispatch (480) 925-9630; wheelchair-accessible shuttle needs 24 hours notice.",
+      "overview": "Off-airport self-park about 5 minutes from PHX with a covered garage and uncovered rooftop spaces; well-lit, gated and staffed 24/7.",
+      "distanceFromAirport": "1.4 mi",
+      "driveTime": "~5 minutes",
       "freeCancellation": true,
-      "rating": "4.5/5",
-      "notes": "EV charging available — rare for off-site lots. 24/7 shuttle is reliable. Good balance of price and amenities."
+      "notes": "Pull a ticket on entry and keep it; pay/validate at the West Lobby cashier on return. EV charging was listed previously but is not in the live listing (verify). T3 curb pickup closed 10 PM-6 AM from 2/08 to 4/26 - use the Sky Train to T4.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "totalFor8Days": 117.02,
+      "sampleQuote": "$117.02 total for Nov 2-9, 2026 (billed as 8 days, incl. $9.95 lot fees), before Triply service fee",
+      "address": "44 N 44th St, Phoenix, AZ 85034",
+      "phone": "(602) 267-0166",
+      "reslabLocationId": 433,
+      "taxesFor8Days": 3.15
     },
     {
       "name": "Howard Johnson Airport Downtown (PHX)",
       "slug": "howard-johnson-airport-downtown-phx",
-      "dailyRate": 5.00,
-      "reservationRate": 3.50,
-      "parkingType": "Uncovered, self-park (hotel lot)",
-      "amenities": ["Hourly Shuttle", "Security Cameras", "Hotel Amenities Available"],
-      "shuttleInfo": "Complimentary shuttle runs every hour, 24/7",
-      "overview": "Budget option 3.5 miles from PHX. Cheapest off-site parking available near Sky Harbor at $3.50/day pre-booked. Hourly shuttle service included.",
-      "distanceFromAirport": "3.5 mi",
-      "driveTime": "8-12 minutes",
+      "dailyRate": 5.25,
+      "reservationRate": 5.25,
+      "parkingType": "Uncovered self-park behind the hotel",
+      "amenities": [
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Free Wi-Fi",
+        "Oversized Vehicles OK"
+      ],
+      "shuttleInfo": "No shuttle - hotel shuttle service has been suspended. Arrange your own ride to the terminals.",
+      "overview": "Budget hotel lot on East Van Buren Street minutes from PHX. No room reservation needed; full-size vans, pickups and large SUVs at no extra charge.",
+      "distanceFromAirport": "1.3 mi",
+      "driveTime": "~5 minutes",
       "freeCancellation": true,
-      "notes": "Cheapest off-site lot near PHX but furthest distance. Hourly shuttle (not on-demand) means longer wait times. Uncovered lot — vehicle exposed to Arizona heat. Best for extreme budget travelers on longer trips."
+      "notes": "Park in the lot behind the hotel; display the printed reservation on the dashboard or email the reservation and car details to the hotel, or the car may be towed. No shuttle - only cheap if you have a free drop-off/rideshare.",
+      "totalFor8Days": 42,
+      "sampleQuote": "$42.00 total for Nov 2-9, 2026 (billed as 8 days, incl. $2.00 lot fees), before Triply service fee",
+      "shuttleSuspended": true,
+      "address": "4120 East Van Buren Street, Phoenix, AZ 85008",
+      "phone": "(602) 275-5746",
+      "reslabLocationId": 179,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 0,
+      "paymentMethod": "Pay Online"
     },
     {
       "name": "PHX Park Place",
@@ -283,16 +462,162 @@
       "dailyRate": 8.99,
       "reservationRate": 5.99,
       "parkingType": "Uncovered, self-park",
-      "amenities": ["Free Shuttle", "24/7 Security", "Surveillance Cameras", "Fenced Lot"],
+      "amenities": [
+        "Free Shuttle",
+        "24/7 Security",
+        "Surveillance Cameras",
+        "Fenced Lot"
+      ],
       "shuttleInfo": "Free shuttle to terminals, runs frequently during operating hours",
       "overview": "Mid-range off-site parking option with competitive pre-booking rates. Fenced and secured lot with shuttle service to both terminals.",
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Good mid-range option between the budget Howard Johnson and premium Parking Spot lots. Uncovered — consider covered alternatives in summer months."
+      "notes": "Good mid-range option between the budget Howard Johnson and premium Parking Spot lots. Uncovered — consider covered alternatives in summer months.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Sky Harbor Airport Parking (PHX)",
+      "slug": "sky-harbor-airport-parking-phx",
+      "dailyRate": 14.61,
+      "reservationRate": 14.61,
+      "totalFor8Days": 120.68,
+      "sampleQuote": "$120.68 total for Nov 2-9, 2026 (billed as 8 days, incl. $5.29 lot fees), before Triply service fee",
+      "parkingType": "Covered and uncovered self-park (paved lot)",
+      "amenities": [
+        "Free 24/7 Shuttle",
+        "Covered Parking",
+        "Uncovered Parking",
+        "Security",
+        "24/7 Front Desk",
+        "Wheelchair Access",
+        "Luggage Assistance"
+      ],
+      "shuttleInfo": "Free shuttle 24/7 every 7-10 minutes; driver meets you at your car within ~5 minutes of arrival. Return pickup at the North curb by the \"Courtesy\" sign; call 602-273-7007 after midnight.",
+      "overview": "Phoenix's largest off-airport parking facility, about 5 minutes' drive from Terminal 4, with covered and uncovered spaces. Drivers help with luggage, wait with female guests at night until they are in their cars, and can help with dead batteries or flat tires.",
+      "address": "402 South 40th Street, Phoenix, AZ 85034",
+      "distanceFromAirport": "0.8 mi",
+      "phone": "602-273-7007",
+      "reslabLocationId": 193,
+      "notes": "Closest sellable lot (0.8 mi). Most of the total is paid at the lot (live quote: $101.15 due at location of $120.68).",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "dueAtLocation": true,
+      "dueAtLocationAmount": 101.15,
+      "taxesFor8Days": 3.79,
+      "paymentMethod": "Pay at Location"
+    },
+    {
+      "name": "DoubleTree Suites by Hilton Phoenix",
+      "slug": "doubletree-suites-by-hilton-phoenix",
+      "dailyRate": 9.35,
+      "reservationRate": 9.35,
+      "totalFor8Days": 76.82,
+      "sampleQuote": "$76.82 total for Nov 2-9, 2026 (billed as 8 days, incl. $3.56 lot fees), before Triply service fee",
+      "parkingType": "Uncovered self-park (hotel lot)",
+      "amenities": [
+        "Free Shuttle (4 AM-11 PM)",
+        "24/7 Front Desk",
+        "Restaurant"
+      ],
+      "shuttleInfo": "Shuttle 4:00 AM-11:00 PM every 30 minutes; airport pickups on demand - call (602) 225-0500. No shuttle 11:00 PM-4:00 AM.",
+      "overview": "Hotel park-and-fly about an 8-minute drive from PHX on 44th Street. Present the reservation at the front desk for a validation code and register the vehicle by QR code.",
+      "address": "320 N 44th St, Phoenix, AZ 85008",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "(602) 225-0500",
+      "reslabLocationId": 397,
+      "notes": "No shuttle 11 PM-4 AM - flag for red-eyes and very early flights. Parking type (covered/uncovered) not stated in the live listing (verify).",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 2.06,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Holiday Inn & Suites Phoenix Airport North",
+      "slug": "holiday-inn-suites-phoenix-airport-north",
+      "dailyRate": 9.44,
+      "reservationRate": 9.44,
+      "totalFor8Days": 77.19,
+      "sampleQuote": "$77.19 total for Nov 2-9, 2026 (billed as 8 days, incl. $3.60 lot fees), before Triply service fee",
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [
+        "Free Shuttle (4 AM-12 AM)",
+        "Wheelchair Access",
+        "Well-lit Lot"
+      ],
+      "shuttleInfo": "Shuttle 4:00 AM-12:00 AM every 30 minutes (on the hour and half-hour); return pickups on demand until 12:00 AM - call (602) 244-8800, allow up to 30 minutes.",
+      "overview": "Hotel lot on North 44th Street with a free shuttle included with every online parking reservation - no room stay required.",
+      "address": "1515 North 44th Street, Phoenix, AZ 85008",
+      "distanceFromAirport": "2.3 mi",
+      "phone": "(602) 244-8800",
+      "reslabLocationId": 99,
+      "notes": "No shuttle midnight-4 AM. Parking type (covered/uncovered) not stated in the live listing (verify).",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 1.67,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Crowne Plaza Phoenix Airport",
+      "slug": "crowne-plaza-phoenix-airport",
+      "dailyRate": 10.83,
+      "reservationRate": 10.83,
+      "totalFor8Days": 78.6,
+      "sampleQuote": "$78.60 total for Nov 2-9, 2026 (billed as 8 days, incl. $6.60 lot fees), before Triply service fee",
+      "parkingType": "Five-level parking garage with rooftop level (indoor space not guaranteed at peak)",
+      "amenities": [
+        "Free 24/7 Shuttle",
+        "Covered/Garage",
+        "Security",
+        "24/7 Front Desk",
+        "Restaurant",
+        "QR Code Entry"
+      ],
+      "shuttleInfo": "Free shuttle 24/7 every 30 minutes on the hour from the ground-floor shuttle area; airport pickups on demand - call (602) 273-7778.",
+      "overview": "Hotel garage on East Washington Street minutes from PHX and downtown. Scan the booking QR code to enter and exit - do not pull a ticket.",
+      "address": "4300 East Washington Street, Phoenix, AZ 85034",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "602-273-7778",
+      "reslabLocationId": 120,
+      "notes": "Maximum vehicle height 7 ft. At peak times guests may be directed to the uncovered rooftop level. License plate required at booking.",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "taxesFor8Days": 0,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "La Quinta Inn & Suites Tempe University",
+      "slug": "la-quinta-inn-suites-tempe-university",
+      "dailyRate": 4.19,
+      "reservationRate": 4.19,
+      "totalFor8Days": 33.52,
+      "sampleQuote": "$33.52 total for Nov 2-9, 2026 (billed as 8 days, incl. $1.60 lot fees), before Triply service fee",
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [
+        "24/7 Front Desk",
+        "ADA Parking"
+      ],
+      "shuttleInfo": "No shuttle - you must arrange your own transportation to and from the airport.",
+      "overview": "Hotel lot in Tempe on East University Drive, about a 10-minute drive from PHX. Check in at the front desk on arrival.",
+      "address": "1375 E University Dr, Tempe, AZ 85281",
+      "distanceFromAirport": "3.9 mi",
+      "phone": "(480) 774-2500",
+      "reslabLocationId": 287,
+      "notes": "Cheapest sellable lot but NO shuttle and in Tempe (3.9 mi); live availability \"limited\". Only suits travelers with a drop-off/rideshare plan or staying in Tempe.",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "availability": "limited",
+      "taxesFor8Days": 0,
+      "paymentMethod": "Pay Online"
     }
   ],
-  "shuttleInfo": "On-airport: FREE PHX Sky Train connects Terminal 3, Terminal 4, East Economy, 44th St Valley Metro Rail station, 24th St station, and Rental Car Center — runs 24/7 every 3-5 minutes. Off-site: Most lots include free shuttle service. The Parking Spot locations run shuttles every 5-10 minutes. Howard Johnson runs hourly shuttles. IMPORTANT: In extreme summer heat (June-September), covered parking or frequent shuttle service is recommended to avoid long waits in 110F+ temperatures.",
+  "shuttleInfo": "On-airport: FREE PHX Sky Train connects Terminal 3, Terminal 4, East Economy, 44th St Valley Metro Rail station, 24th St station, and Rental Car Center - 24/7, about every 3 minutes. West Economy Garage and Park & Walk are walk-only to Terminal 3 (12-15 min). Off-site: PreFlight and Sky Harbor Airport Parking run 24/7 shuttles; Crowne Plaza 24/7 every 30 min; DoubleTree (4 AM-11 PM) and Holiday Inn (4 AM-12 AM) every 30 min with on-demand pickups; Howard Johnson and La Quinta Tempe have NO shuttle. IMPORTANT: In extreme summer heat (June-September), covered parking or a frequent shuttle is recommended.",
   "distanceFromCity": "3 miles east of downtown Phoenix. 10-20 minutes by car. ~20 minutes by Valley Metro Rail ($2.00). Arizona's primary commercial airport serving the 5th-largest U.S. metro area.",
   "keyDistances": {
     "toDowntownPhoenix": "3 miles, 10-20 min by car, 20 min by Valley Metro Rail ($2.00), $15-25 rideshare",
@@ -333,11 +658,17 @@
   },
   "securityAndScreening": {
     "tsaPreCheck": {
-      "terminals": ["Terminal 3", "Terminal 4"],
+      "terminals": [
+        "Terminal 3",
+        "Terminal 4"
+      ],
       "note": "TSA PreCheck available at all security checkpoints in both terminals. Touchless ID launched at PHX in February 2026 — facial recognition allows PreCheck travelers to go through security without showing ID."
     },
     "clear": {
-      "terminals": ["Terminal 3", "Terminal 4"],
+      "terminals": [
+        "Terminal 3",
+        "Terminal 4"
+      ],
       "note": "CLEAR+ available at security checkpoints in both Terminal 3 and Terminal 4."
     },
     "globalEntry": {
@@ -440,20 +771,46 @@
   "luggageStorage": {
     "onSite": "Luggage storage is NOT available on-site at PHX Sky Harbor.",
     "offSiteAlternatives": [
-      { "provider": "Bounce", "rate": "From $5.95/day", "locations": "Downtown Phoenix, Tempe, Scottsdale" },
-      { "provider": "LuggageHero", "rate": "From $1.49/hour", "locations": "Various Phoenix metro locations" },
-      { "provider": "Vertoe", "rate": "From $5.95/day", "locations": "Downtown Phoenix, Tempe" }
+      {
+        "provider": "Bounce",
+        "rate": "From $5.95/day",
+        "locations": "Downtown Phoenix, Tempe, Scottsdale"
+      },
+      {
+        "provider": "LuggageHero",
+        "rate": "From $1.49/hour",
+        "locations": "Various Phoenix metro locations"
+      },
+      {
+        "provider": "Vertoe",
+        "rate": "From $5.95/day",
+        "locations": "Downtown Phoenix, Tempe"
+      }
     ]
   },
   "petFacilities": {
     "total": "Pet relief areas (Service Animal Relief Areas) available post-security in both Terminal 3 and Terminal 4",
-    "locations": ["Terminal 3 (post-security)", "Terminal 4 (post-security, near Concourse B)"],
+    "locations": [
+      "Terminal 3 (post-security)",
+      "Terminal 4 (post-security, near Concourse B)"
+    ],
     "note": "Indoor pet relief areas with artificial turf, waste bags, and sanitizing stations. Check airport maps for exact locations. Pre-security pet relief areas also available on the terminal curb level."
   },
   "peakTravelTimes": {
-    "busiestHours": ["5:00-7:00 AM (morning departure bank)", "11:00 AM-1:00 PM (midday)", "4:00-6:00 PM (evening departures)"],
-    "busiestDays": ["Friday", "Sunday", "Monday"],
-    "quietestDays": ["Tuesday", "Wednesday"],
+    "busiestHours": [
+      "5:00-7:00 AM (morning departure bank)",
+      "11:00 AM-1:00 PM (midday)",
+      "4:00-6:00 PM (evening departures)"
+    ],
+    "busiestDays": [
+      "Friday",
+      "Sunday",
+      "Monday"
+    ],
+    "quietestDays": [
+      "Tuesday",
+      "Wednesday"
+    ],
     "seasonalPeak": "January-April is peak season (snowbird season + spring training + major events). The Waste Management Phoenix Open (late January/early February), Super Bowl (when hosted in Phoenix), and MLB Spring Training (February-March) create massive spikes. October-December also busy with pleasant weather attracting tourists. Summer (June-August) is the slowest period due to extreme heat.",
     "arrivalRecommendation": {
       "domestic": "2 hours before departure",
@@ -472,35 +829,51 @@
     "note": "PHX's desert location means weather disruptions are relatively rare compared to eastern airports, but extreme heat is a unique concern. Winter weather is nearly perfect for flying — Phoenix averages 299 sunny days per year."
   },
   "parkSleepFly": {
-    "description": "Hotel + parking + shuttle packages near PHX. Most hotels along 44th Street, University Drive, and in Tempe offer park-sleep-fly packages.",
-    "priceRange": "From ~$109/night (1-night stay + up to 14 days parking + free airport shuttle)",
+    "description": "Hotels near PHX that sell parking without a room stay through Triply, most with a free airport shuttle. Park-sleep-fly room packages are booked with the hotel directly (rates verify).",
     "popularHotels": [
       {
-        "name": "The Parking Spot South (Park & Fly)",
-        "distance": "2.5 miles",
-        "parkingIncluded": "Up to 14 days",
-        "shuttleHours": "24/7",
-        "parkOnlyRate": "$7.25/day (pre-booked)",
-        "highlight": "Covered parking. Fast 3-minute shuttle ride. Best value park-and-fly."
+        "name": "Crowne Plaza Phoenix Airport",
+        "distance": "1.4 mi",
+        "shuttleHours": "24/7, every 30 min + on demand",
+        "parkOnlyRate": "$10.83/day (Nov 2026 live quote)",
+        "highlight": "Garage parking (7 ft max height), 24/7 shuttle."
       },
       {
-        "name": "Howard Johnson Airport Downtown",
-        "distance": "3.5 miles",
-        "parkingIncluded": "Up to 14 days",
-        "shuttleHours": "Hourly 24/7",
-        "parkOnlyRate": "$3.50/day (pre-booked)",
-        "highlight": "Cheapest park-sleep-fly option. Budget-friendly for long trips."
+        "name": "DoubleTree Suites by Hilton Phoenix",
+        "distance": "1.5 mi",
+        "shuttleHours": "4 AM-11 PM, every 30 min + on demand",
+        "parkOnlyRate": "$9.35/day (Nov 2026 live quote)",
+        "highlight": "44th Street location; no shuttle overnight."
       },
       {
-        "name": "PreFlight Airport Parking",
-        "distance": "2.0 miles",
-        "parkingIncluded": "Up to 14 days",
-        "shuttleHours": "24/7",
-        "parkOnlyRate": "$7.99/day (pre-booked)",
-        "highlight": "Covered parking with EV charging. 24/7 shuttle. Good for EV owners."
+        "name": "Holiday Inn & Suites Phoenix Airport North",
+        "distance": "2.3 mi",
+        "shuttleHours": "4 AM-12 AM, every 30 min + on demand",
+        "parkOnlyRate": "$9.44/day (Nov 2026 live quote)",
+        "highlight": "No room stay required."
+      },
+      {
+        "name": "Howard Johnson (Van Buren St)",
+        "distance": "1.3 mi",
+        "shuttleHours": "None - shuttle suspended",
+        "parkOnlyRate": "$5.25/day (Nov 2026 live quote)",
+        "highlight": "Cheap, oversized vehicles OK, but no shuttle."
+      },
+      {
+        "name": "La Quinta Inn & Suites Tempe University",
+        "distance": "3.9 mi (Tempe)",
+        "shuttleHours": "None",
+        "parkOnlyRate": "$4.19/day (Nov 2026 live quote, limited availability)",
+        "highlight": "Cheapest; suits Tempe stays with own transport."
       }
     ],
-    "bookingSites": ["parksleepfly.com", "parksleephotels.com", "parkingaccess.com", "book2park.com", "airportparkingreservations.com"]
+    "bookingSites": [
+      "parksleepfly.com",
+      "parksleephotels.com",
+      "parkingaccess.com",
+      "book2park.com",
+      "airportparkingreservations.com"
+    ]
   },
   "tippingGuide": {
     "shuttleDriver": "$2-5 per person",
@@ -510,23 +883,78 @@
     "valet": "$3-5"
   },
   "savingsComparison": {
-    "scenario": "7-day trip for 2 travelers",
+    "scenario": "One week. On-airport = 7 x official daily max (skyharbor.com, 2026-10-13). Off-site = live Triply quote for Nov 2 10 AM - Nov 9 2 PM, 2026 (billed as 8 days, incl. lot fees, before Triply service fee).",
     "onAirport": {
-      "terminalGarage": { "parkingCost": "$231 (7 x $33)", "totalEstimate": "$231" },
-      "valetParking": { "parkingCost": "$301 (7 x $43)", "totalEstimate": "$301" },
-      "eastEconomyGarage": { "parkingCost": "$112 (7 x $16)", "totalEstimate": "$112" },
-      "eastEconomyUncovered": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" }
+      "terminalGarage": {
+        "parkingCost": "$231 (7 x $33)",
+        "totalEstimate": "$231"
+      },
+      "premiumParking": {
+        "parkingCost": "$259 (7 x $37)",
+        "totalEstimate": "$259"
+      },
+      "valetParking": {
+        "parkingCost": "$301 (7 x $43)",
+        "totalEstimate": "$301"
+      },
+      "eastEconomyGarage": {
+        "parkingCost": "$133 (7 x $19)",
+        "totalEstimate": "$133"
+      },
+      "eastEconomyUncovered": {
+        "parkingCost": "$112 (7 x $16)",
+        "totalEstimate": "$112"
+      }
     },
     "offSiteWithShuttle": {
-      "parkingSpotSouth": { "parkingCost": "$50.75 (7 x $7.25 pre-booked)", "savingsVsGarage": "~$180 saved", "caveat": "Covered parking, 24/7 shuttle" },
-      "preFlightParking": { "parkingCost": "$55.93 (7 x $7.99 pre-booked)", "savingsVsGarage": "~$175 saved", "caveat": "Covered, 24/7 shuttle, EV charging" },
-      "howardJohnson": { "parkingCost": "$24.50 (7 x $3.50 pre-booked)", "savingsVsGarage": "~$207 saved", "caveat": "Uncovered, hourly shuttle, furthest lot" }
+      "crownePlaza": {
+        "parkingCost": "$78.60",
+        "savingsVsGarage": "~$152 vs terminal garage, ~$33 vs East Economy Uncovered",
+        "caveat": "Garage (7 ft max), 24/7 shuttle every 30 min"
+      },
+      "doubleTree": {
+        "parkingCost": "$76.82",
+        "savingsVsGarage": "~$154 vs garage, ~$35 vs East Economy Uncovered",
+        "caveat": "Shuttle 4 AM-11 PM only"
+      },
+      "holidayInnNorth": {
+        "parkingCost": "$77.19",
+        "savingsVsGarage": "~$154 vs garage, ~$35 vs East Economy Uncovered",
+        "caveat": "Shuttle 4 AM-12 AM only"
+      },
+      "preFlightParking": {
+        "parkingCost": "$117.02",
+        "savingsVsGarage": "~$114 vs garage; about the same as East Economy",
+        "caveat": "Covered garage, 24/7 shuttle"
+      },
+      "skyHarborAirportParking": {
+        "parkingCost": "$120.68",
+        "savingsVsGarage": "~$110 vs garage; about the same as East Economy",
+        "caveat": "Closest (0.8 mi), covered option, 24/7 shuttle; most paid at lot"
+      }
+    },
+    "offSiteNoShuttle": {
+      "laQuintaTempe": {
+        "parkingCost": "$33.52",
+        "caveat": "No shuttle, Tempe 3.9 mi, limited availability"
+      },
+      "howardJohnson": {
+        "parkingCost": "$42.00",
+        "caveat": "No shuttle (suspended), 1.3 mi"
+      }
     },
     "publicTransit": {
-      "valleyMetroRailRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "12-20 min to Tempe/downtown", "note": "$2.00 per ride. Cheapest option for downtown Phoenix and Tempe travelers." },
-      "rideshareRoundTrip": { "costForCouple": "$30-$50 (UberX downtown round trip)", "note": "Cheaper than parking for any trip length if headed downtown" }
+      "valleyMetroRailRoundTrip": {
+        "costPerPersonRoundTrip": "$4.00",
+        "travelTime": "12-20 min to Tempe/downtown",
+        "note": "$2.00 per ride. Cheapest option for downtown Phoenix and Tempe travelers."
+      },
+      "rideshareRoundTrip": {
+        "costForCouple": "$30-$50 (UberX downtown round trip)",
+        "note": "Cheaper than parking for any trip length if headed downtown"
+      }
     },
-    "keyDifference": "PHX offers excellent off-site parking value — $3.50-7.99/day with shuttle vs $33/day terminal garages. The East Economy Garage at $16/day is the best on-airport option for multi-day trips. Valley Metro Rail at $2.00 is unbeatable for downtown Phoenix and Tempe travelers. CRITICAL: Choose covered parking in summer — the Arizona sun can damage vehicle interiors and make steering wheels too hot to touch."
+    "keyDifference": "Hotel lots with shuttles (Crowne Plaza, DoubleTree, Holiday Inn: ~$9-11/day) undercut the official East Economy Uncovered lot ($16/day) by about $35 a week and the $33 terminal garages by ~$150. PreFlight and Sky Harbor Airport Parking (~$14-15/day) cost about the same as East Economy but add covered spaces and 24/7 door-to-door shuttles. The two cheapest bookable lots (La Quinta Tempe, Howard Johnson) have no shuttle. Choose covered parking in summer."
   },
   "uniqueFeatures": {
     "phxSkyTrain": "The PHX Sky Train is a free, 24/7 automated people mover that connects both terminals, parking facilities, Valley Metro Rail, and the Rental Car Center. It's one of the best airport transit systems in the country — no waiting for shuttles, no additional cost.",

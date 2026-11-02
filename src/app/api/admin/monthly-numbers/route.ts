@@ -29,7 +29,7 @@ import { isAdminEmail, isAtTestLot } from "@/config/admin";
 import { productionAirports } from "@/config/airports";
 import { captureAPIError } from "@/lib/sentry";
 import { resolveEnv } from "@/lib/env";
-import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, hiddenReslabLocationIds } from "@/lib/reslab/search";
 import {
   bookingsByMonth,
   paidAfterWindow,
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
       const list = await getChannelLocationsNoSweep();
       if (!list) return null;
       return {
-        rows: lotsPerAirport(list, productionAirports, BLOCKED_RESLAB_LOCATION_IDS),
+        rows: lotsPerAirport(list, productionAirports, hiddenReslabLocationIds()),
         totalLocations: list.length,
       };
     })().catch((e: unknown) => {

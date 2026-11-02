@@ -1,0 +1,547 @@
+{
+  "code": "STL",
+  "fullName": "St. Louis Lambert International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Unincorporated St. Louis County, Missouri, between Berkeley and Bridgeton — 14 miles northwest of downtown St. Louis",
+    "iataCode": "STL",
+    "icaoCode": "KSTL",
+    "faaLid": "STL",
+    "elevation": "605 feet above mean sea level",
+    "acreage": 3793,
+    "coordinates": "38.7472N, 90.3614W",
+    "passengerVolume": "15.30 million passengers in 2025 (down 4.0% from nearly 16 million in 2024)",
+    "aircraftOperations": "161,300 (2025)",
+    "distinction": "Opened in 1928 and named for aviator Albert Bond Lambert. Charles Lindbergh flew airmail from the field and stopped there before his 1927 Paris flight. Terminal 1's domed main terminal by Minoru Yamasaki (completed 1956, fourth dome added 1965) is a landmark of mid-century airport design. Former TWA hub (through 2001) and American Airlines hub (2001-2010); today Southwest is the largest carrier, operating out of Terminal 2.",
+    "operator": "City of St. Louis (St. Louis Airport Authority)",
+    "owner": "City of St. Louis",
+    "activeTerminals": 2,
+    "activeConcourses": "3 (A and C in Terminal 1; E in Terminal 2). Concourses B and D closed in 2009-2010.",
+    "totalGates": 54,
+    "gateNote": "Wikipedia: 36 gates in Terminal 1 (Concourses A and C) + 18 gates in Terminal 2 (Concourse E). Verify against flystl.com terminal maps before quoting.",
+    "runways": 4,
+    "runwayDetails": [
+      { "designation": "12R/30L", "length": "11,020 ft (3,359 m)", "surface": "Concrete" },
+      { "designation": "12L/30R", "length": "9,013 ft (2,747 m)", "surface": "Concrete" },
+      { "designation": "11/29", "length": "9,000 ft (2,743 m)", "surface": "Concrete" },
+      { "designation": "6/24", "length": "7,603 ft (2,317 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (largest carrier; all Southwest flights use Terminal 2, Concourse E)",
+    "nonstopDestinations": "60+ nonstop destinations in the U.S., Canada, Mexico, the Caribbean and Europe",
+    "internationalService": "Lufthansa to Frankfurt (since June 2022) and seasonal British Airways to London-Heathrow, both from Terminal 2 gate E29. Icelandair to Reykjavik-Keflavik announced to begin May 14, 2027.",
+    "founded": "1928 (city purchase of Lambert-St. Louis Flying Field; airfield use dates to 1920s)",
+    "hubCarriers": ["Southwest Airlines (largest carrier / operating base)", "Southern Airways Express (hub)"],
+    "slotControlled": false,
+    "metroAccess": "MetroLink Red Line has two airport stations — Lambert Airport Terminal 1 (Exit Door 1, Ticketing Level) and Lambert Airport Terminal 2 (Exit Door 12, through the parking garage). Direct rail to downtown St. Louis.",
+    "terminalConnection": "Terminals are NOT connected airside and there is no walking route. Free 24-hour Terminal Shuttle every 8-15 minutes (MetroLink also links the two stations)."
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1 — Concourses A and C (domed main terminal)",
+      "status": "Active. Serves all airlines except Southwest, British Airways and Lufthansa.",
+      "airlines": ["Air Canada", "Alaska Airlines", "American Airlines", "Delta", "Frontier Airlines", "Southern Airways Express", "United", "Charter flights"],
+      "gates": "Concourse A (Air Canada A17; Delta A2-A10; United A14-A21) and Concourse C (American C6-C24; Alaska C15; Frontier C19, C23; Southern Airways Express C1, C3)",
+      "securityCheckpoints": "A Gates checkpoint 3:30 AM-7:00 PM (Air Canada, Delta, United, charters); C Gates checkpoint 3:30 AM-10:00 PM (Alaska, American, Frontier)",
+      "parking": "Terminal 1 Garage (attached) and Lot A (connected by tunnel)",
+      "notes": "Home to the American Airlines Admirals Club (Concourse C) and a USO center. MetroLink station at Exit Door 1, Ticketing Level. Concourse A is scheduled to close around August 2027 when the Concourse C extension / new Concourse D opens (verify — schedule has slipped before)."
+    },
+    {
+      "name": "Terminal 2 — Concourse E",
+      "status": "Active. Southwest Airlines terminal plus international arrivals (British Airways, Lufthansa, international charters).",
+      "airlines": ["Southwest Airlines", "British Airways", "Lufthansa", "Frontier (international arrivals)", "Charter flights (international arrivals)"],
+      "gates": "Southwest E4-E40; British Airways and Lufthansa E29",
+      "securityCheckpoints": "E/F Gates checkpoint 3:30 AM-10:00 PM",
+      "parking": "Terminal 2 Garage (attached) and Lot E (reservation-only, directly east of Terminal 2)",
+      "notes": "Wingtips (Priority Pass) lounge near gate E22. MetroLink station at Exit Door 12 through the parking garage. Rideshare pickup at Door 12, Arrivals Level."
+    }
+  ],
+  "roads": ["Interstate 70 (main access — Exit 238A Lambert International Blvd westbound, Exit 235C Cypress Road eastbound)", "Interstate 170 (northbound Exit 7C to I-70)", "Interstate 270", "Lambert International Boulevard", "Natural Bridge Road (airport hotel and parking corridor)", "Cypress Road", "Airflight Drive", "Pear Tree Lane"],
+  "transit": ["MetroLink Red Line (Lambert Airport Terminal 1 and Terminal 2 stations to downtown St. Louis, Clayton connections and Illinois)", "MetroBus (Bus Port just south of Terminal 1 on Lambert International Blvd)", "Free 24-hour Terminal Shuttle between Terminals 1 and 2 (every 8-15 minutes)", "Free Super Park shuttles to Lots A, B, C, D, E (24/7, every 8-15 minutes; live tracking via Passio GO)"],
+  "neighborhoods": ["Bridgeton", "Berkeley", "St. Ann", "Woodson Terrace", "Hazelwood", "Florissant", "Maryland Heights", "Overland", "Clayton", "Downtown St. Louis", "Central West End", "St. Charles"],
+  "authority": "St. Louis Airport Authority (City of St. Louis)",
+  "groundTransportation": {
+    "metroLink": {
+      "operator": "Metro Transit (Bi-State Development)",
+      "line": "Red Line",
+      "stations": ["Lambert Airport Terminal 1 — Exit Door 1, Ticketing Level, east of all ticket counters", "Lambert Airport Terminal 2 — Exit Door 12, through the parking garage"],
+      "fare": "$2.50 cash base fare (rail); $5.00 One-Day Pass (bus/rail). Advance fare required — buy at station ticket machines or in the Transit app.",
+      "fareSource": "https://www.metrostlouis.org/fares-and-passes/",
+      "hours": "Approximately 5 AM to 1 AM daily (verify with Metro timetable)",
+      "travelTimes": { "toDowntownStLouis": "~35-40 minutes (verify)" },
+      "systemSize": "38 stations, 46 miles",
+      "note": "STL is one of the few mid-size U.S. airports with direct rail to downtown. Some airport ticket machines may default to a pricier pass — verify the fare before buying."
+    },
+    "terminalShuttle": {
+      "description": "Free Terminal Shuttle connecting Terminal 1 and Terminal 2",
+      "fare": "FREE",
+      "frequency": "Every 8-15 minutes",
+      "hours": "24/7",
+      "note": "There is no walking route between terminals. Bus Port shuttle stops: T1 Door 12, T2 Door 10."
+    },
+    "taxi": {
+      "fareType": "METERED (regulated by the Metropolitan Taxicab Commission)",
+      "pickup": "Terminal 1: Door 14 to Garage Yellow Level. Terminal 2: across from Door 12 in the T2 Garage.",
+      "airportUseFee": "$4 per pickup",
+      "complaints": "314-535-7700 (Metropolitan Taxicab Commission)",
+      "note": "Fares depend on destination; the airport does not publish a fare table."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Terminal 1: Door 6, Departure Level. Terminal 2: Door 12, Arrivals Level.",
+      "note": "Follow signs to the rideshare zone; it is not at the general arrivals curb."
+    },
+    "rentalCars": {
+      "pickup": "On-airport counters/pickup — T1 outside exit 17 (west end of island curb) and Brown Level of the T1 Garage (Door 15); T2 outside exit 12 (inside curb of Arrivals Blvd)",
+      "returnLocations": [
+        "Alamo / National — 10124 Natural Bridge Rd",
+        "Avis / Budget / Payless — 10482 Natural Bridge Rd",
+        "Enterprise — 9636 Natural Bridge Rd",
+        "Dollar — 4358 Cypress Rd, St. Ann",
+        "Hertz — off-site; shuttle pickup at T1 east end of Arriving Flights Drive (across from Door 12, lower level) and T2 outside exit 16"
+      ],
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless"],
+      "note": "Rental returns are along Natural Bridge Road with free company shuttles back to the terminals."
+    },
+    "busPort": "MetroBus/Greyhound Bus Port is just south of Terminal 1 on Lambert International Blvd, also reachable by tunnel from the T1 Garage Yellow Level (outside exit 16). Metro trip planning: 314-231-2345.",
+    "hotelShuttles": "Most airport hotels sit 1-2 miles away along Natural Bridge Road, Pear Tree Lane and Lone Eagle Drive and run complimentary airport shuttles (Renaissance, Hilton, Marriott, Crowne Plaza, Quality Inn)."
+  },
+  "parkingRates": "On-airport (Super Park, effective July 1, 2026, tax included): Terminal 1 Garage $31/day, Terminal 2 Garage $33/day, Lot E (reservation-only, next to T2) $27/day + $10 reservation fee, Lot A $20/day, Lot C $15 covered / $12 uncovered, Lot B $14/day, Lot D $11/day. Off-site hotel/shuttle lots bookable on Triply from ~$6.50/day.",
+  "onAirportParking": {
+    "operator": "Super Park (airport-run) — 314-890-2800, contact@superparkinglot.com",
+    "terminal1Garage": {
+      "name": "Terminal 1 Garage",
+      "rates": { "0-2 hours": "$5.00", "2-4 hours": "$14.00", "4-6 hours": "$20.00", "6-12 hours": "$26.00", "12-24 hours": "$31.00" },
+      "dailyMax": 31,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/terminal-1-parking/",
+      "serves": "Terminal 1 (Air Canada, Alaska, American, Delta, Frontier, United, Southern Airways Express)",
+      "accessibleParking": "Rows G-L on each level near the elevators; van-accessible spaces on the top level only",
+      "features": "Attached to Terminal 1. Pay at exit (cash, Visa, MasterCard, Amex). Tax included."
+    },
+    "terminal2Garage": {
+      "name": "Terminal 2 Garage",
+      "rates": { "0-2 hours": "$5.00", "2-4 hours": "$14.00", "4-6 hours": "$20.00", "6-12 hours": "$27.00", "12-24 hours": "$33.00" },
+      "dailyMax": 33,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/terminal-2-parking/",
+      "serves": "Terminal 2 (Southwest, British Airways, Lufthansa)",
+      "accessibleParking": "Row C on each level, closest to the elevators",
+      "features": "Walking access to Terminal 2. Most expensive daily rate at STL. Pay at exit. Tax included."
+    },
+    "lotA": {
+      "name": "Lot A",
+      "rates": { "0-6 hours": "$11.00", "6-12 hours": "$17.00", "12-24 hours": "$20.00" },
+      "dailyMax": 20,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/lot-a-parking/",
+      "connection": "Connected to Terminal 1 by an adjoining tunnel; free shuttle 24/7 every 8-15 minutes",
+      "accessibleParking": "Row G North",
+      "features": "Closest surface lot to Terminal 1. Airport has historically offered free EV charging here (5 stations) — verify current status."
+    },
+    "lotB": {
+      "name": "Lot B",
+      "rates": { "0-24 hours": "$14.00", "weekendOvernight0-24 hours": "$14.00" },
+      "dailyMax": 14,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/lot-b-parking/",
+      "connection": "Free shuttle 24/7 every 8-15 minutes",
+      "accessibleParking": "Row A-2",
+      "features": "Flat daily rate. Pay at exit (Visa, MasterCard, Amex, Discover)."
+    },
+    "lotC": {
+      "name": "Lot C",
+      "rates": {
+        "covered": { "0-6 hours": "$8.00", "6-12 hours": "$10.00", "12-24 hours": "$15.00" },
+        "uncovered": { "0-6 hours": "$7.00", "6-12 hours": "$9.00", "12-24 hours": "$12.00" }
+      },
+      "dailyMax": { "covered": 15, "uncovered": 12 },
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/lot-c-parking/",
+      "connection": "Free shuttle 24/7 every 8-15 minutes",
+      "accessibleParking": "Row C-5",
+      "features": "Only on-airport lot with covered surface parking. Accommodates oversized vehicles — trucks, vehicles with trailers, pickups with campers, SUVs, vans, minivans and buses."
+    },
+    "lotD": {
+      "name": "Lot D",
+      "rates": { "0-24 hours": "$11.00" },
+      "dailyMax": 11,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/lot-d-parking/",
+      "connection": "Free shuttle 24/7 every 8-15 minutes",
+      "accessibleParking": "Row 4",
+      "features": "Cheapest on-airport option. Off Natural Bridge Road / Cypress Road (follow Lot D signs)."
+    },
+    "lotE": {
+      "name": "Lot E (reservation-only)",
+      "rates": { "0-2 hours": "$5.00", "2-4 hours": "$15.00", "4-6 hours": "$22.00", "6-24 hours": "$27.00", "reservationFee": "$10.00 one-time" },
+      "dailyMax": 27,
+      "lastVerified": "2026-10-13",
+      "source": "https://www.flystl.com/parking-transportation/lot-E-parking/",
+      "location": "Directly east of Terminal 2 — short walk to T2; free shuttle 24/7 every 8-15 minutes",
+      "features": "Reservation-only since July 1, 2026; paid at booking. The only on-airport lot you can pre-book. Spots are limited.",
+      "preBookingUrl": "https://www.flystl.com/parking-transportation/lot-E-parking/"
+    },
+    "valetParking": "No airport-operated valet is listed on flystl.com (verify).",
+    "cellPhoneLot": {
+      "name": "Cell Phone Lots (free)",
+      "locations": [
+        "Terminal 1 — 10985 Lambert International Blvd, St. Louis, MO 63044 (1/3 mile east of the Cypress intersection, north side of the road)",
+        "Terminal 2 — 9837 Air Cargo Road, St. Louis, MO 63044 (inside Lambert's Air Cargo complex)"
+      ],
+      "cost": "FREE",
+      "rules": "Wait until your passenger is curbside. Vehicles are not permitted to remain stopped in the Arrivals areas.",
+      "source": "https://www.flystl.com/parking-transportation/"
+    },
+    "oversizedVehicles": "Lot C accepts trucks, trailers, campers, vans and buses. At the terminals, oversized vehicles follow signs to DEPARTURES; large-vehicle space is just past Entry 6 at Terminal 1 and Entry 3 at Terminal 2 (flystl.com FAQ).",
+    "rewardsProgram": "Super Park Frequent Parker / Rewards — 1 point per dollar spent",
+    "shuttleTracking": "https://www.flystl.com/super-park-shuttle-tracking (Passio GO web/app)",
+    "paymentMethods": "Pay at exit — cash, Visa, MasterCard, Amex (Discover at Lots B, D, E). All posted rates include taxes and fees. Lot E is prepaid at reservation.",
+    "disabledVeteranParking": "No free-parking program for disabled veterans is published on flystl.com — verify with Super Park (314-890-2800).",
+    "lostTicket": "Lost-ticket policy is not published on flystl.com — verify with Super Park (314-890-2800).",
+    "garageServiceAreas": "Terminal 1 Garage + Lot A → Terminal 1 (A and C gates). Terminal 2 Garage + Lot E → Terminal 2 (Southwest, international). Lots B, C, D → both terminals via free Super Park shuttle.",
+    "arrivalTip": "Airport advises allowing 30 extra minutes for parking."
+  },
+  "parkingLots": [
+    {
+      "name": "Quality Inn",
+      "slug": "quality-inn",
+      "dailyRate": 6.50,
+      "reservationRate": 6.50,
+      "sampleQuote": "$45.50 total for Nov 2-8, 2026 (7 billing days), $0 lot fees/tax, before Triply service fee",
+      "parkingType": "Self-park hotel lot (valet listed as amenity)",
+      "amenities": ["Free Airport Shuttle", "Valet", "Restaurant"],
+      "shuttleInfo": "To the airport 4:30 AM-11 PM every 30 minutes; pickup from the airport on demand. No shuttle outside those hours. Call the hotel the day BEFORE drop-off to get on the shuttle list (314-427-5955 or 314-630-6924).",
+      "overview": "Quality Inn St. Louis Airport at 10232 Natural Bridge Rd (Woodson Terrace area), about 1 mile from STL. The cheapest sellable lot at STL — no hotel room required, complimentary shuttle included with every online booking.",
+      "address": "10232 Natural Bridge Rd, St. Louis, MO 63134",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "314-427-5955 or 314-630-6924",
+      "notes": "Best price at STL but the most restrictive shuttle: no runs to the airport before 4:30 AM or after 11 PM, and you must call ahead the day before. Bring the email confirmation. Arrive at the lot before the 2-hour pre-flight window.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Renaissance St. Louis Airport",
+      "slug": "renaissance-st-louis-airport",
+      "dailyRate": 6.77,
+      "reservationRate": 6.77,
+      "sampleQuote": "$47.41 total for Nov 2-8, 2026 (incl. $2.26 lot fees), before Triply service fee",
+      "parkingType": "Self-park hotel lot (designated area)",
+      "amenities": ["Free Airport Shuttle", "24/7 Front Desk", "Restaurant (Eero's)", "Fitness Center", "Room Service", "Indoor Pool"],
+      "shuttleInfo": "Every 20-30 minutes 4:00 AM-midnight; on demand midnight-4:00 AM. Return: call 314-429-1100 after collecting luggage.",
+      "overview": "Full-service Marriott-brand hotel about a 5-minute drive from STL with round-the-clock shuttle coverage at the second-lowest rate in the market.",
+      "address": "9801 Natural Bridge Rd, St. Louis, MO 63134",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "314-429-1100",
+      "notes": "Check in at the front desk for a validation code, then register your vehicle via the QR code at the desk and park in the area staff assign. Allow extra time for check-in. Good value pick for early flights because the shuttle runs on demand overnight.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hilton St. Louis Airport",
+      "slug": "hilton-st-louis-airport",
+      "dailyRate": 15.74,
+      "reservationRate": 15.74,
+      "sampleQuote": "$58.73 total for Nov 2-8, 2026 (incl. $2.80 lot fees), before Triply service fee",
+      "parkingType": "Uncovered self-park hotel lot",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant", "EV Charging", "Oversized Vehicles Accepted (full-size vans, pickups, large SUVs at no extra cost)"],
+      "shuttleInfo": "24/7, every 30 minutes, up to 14 passengers per shuttle. Return pickup: Terminal 2 (Southwest) Door 16; Terminal 1 (all other airlines) Door 18. Help: (314) 426-5500.",
+      "overview": "Hilton directly across from the terminals, about a mile from STL, with secure self-parking, 24/7 staffing and fixed return pickup doors at both terminals.",
+      "address": "10330 Natural Bridge Rd, St. Louis, MO 63134",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "(314) 426-5500",
+      "notes": "Show the reservation on your phone to the attendant. One of the few STL off-site lots that advertises EV charging and accepts full-size trucks/vans at no surcharge. Online booking required for the discounted rate.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 28.2
+    },
+    {
+      "name": "The Parking Spot 3",
+      "slug": "the-parking-spot-3",
+      "dailyRate": 9.74,
+      "reservationRate": 9.74,
+      "sampleQuote": "$69.76 total for Nov 2-8, 2026 (incl. $1.66 fees + $1.60 tax), before Triply service fee",
+      "parkingType": "Covered and uncovered self-park (dedicated parking facility)",
+      "amenities": ["Free 24/7 Shuttle", "Covered/Garage", "24/7 Staffed", "Door-to-Door Shuttle Pickup at Your Car", "Shuttle Tracking", "Baggage Assistance", "Contactless QR Entry/Exit", "Fully Fenced & Well-Lit"],
+      "shuttleInfo": "24/7, runs continuously. Shuttle picks you up at your car; on return follow the Locator Slip instructions and the shuttle drops you at your vehicle.",
+      "overview": "Dedicated airport-parking facility off I-70 Exit 236 on Airflight Drive, less than 1 mile from STL, just south of The Parking Spot 1 between the garage and the Marriott.",
+      "address": "4607 Airflight Dr, St. Louis, MO 63134",
+      "distanceFromAirport": "0.9 mi",
+      "phone": "314-428-4204",
+      "notes": "Covered parking clearance is 9'6\" — tall vans/lifted trucks should book uncovered. Scan the QR code in your confirmation to enter and exit. Only sellable STL option with covered parking and continuous shuttle.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 22.57
+    },
+    {
+      "name": "Marriott St. Louis Airport",
+      "slug": "marriott-st-louis-airport",
+      "dailyRate": 12.55,
+      "reservationRate": 12.55,
+      "sampleQuote": "$73.13 total for Nov 2-8, 2026 (incl. $3.48 lot fees), before Triply service fee",
+      "parkingType": "Uncovered self-park, gated hotel lot",
+      "amenities": ["Free 24/7 Shuttle", "24/7 Front Desk", "Restaurant", "Gated Lot"],
+      "shuttleInfo": "24/7 every 20 minutes. Return: call (314) 423-9700 after getting luggage; shuttle meets you at the designated airport pickup area.",
+      "overview": "Gated Marriott lot on Pear Tree Lane, the closest sellable lot to STL at 0.8 miles, with the most frequent hotel shuttle (every 20 minutes, 24/7).",
+      "address": "10700 Pear Tree Ln, St. Louis, MO 63134",
+      "distanceFromAirport": "0.8 mi",
+      "phone": "(314) 423-9700",
+      "notes": "Show reservation to the attendant on arrival; drive out on return with no check-out. Availability was 'limited' on the Nov 2-8 test search — book early.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Crowne Plaza Airport",
+      "slug": "crowne-plaza-airport",
+      "dailyRate": 19.94,
+      "reservationRate": 19.94,
+      "sampleQuote": "$73.43 total for Nov 2-8, 2026 (incl. $3.50 lot fees), before Triply service fee",
+      "parkingType": "Uncovered self-park, gated hotel lot",
+      "amenities": ["Free 24/7 Shuttle", "Security / On-site Cameras", "24/7 Front Desk", "Restaurant", "Gated Lot"],
+      "shuttleInfo": "24/7 every 30 minutes; airport pickups on demand — call (314) 291-6700 after collecting luggage for your airline's pickup spot. Shuttle may make unscheduled stops for pilot transfers at the training center.",
+      "overview": "Crowne Plaza St. Louis Airport in Bridgeton on Lone Eagle Drive, about 1.6 miles from STL, with gated, camera-monitored parking and contactless service.",
+      "address": "11228 Lone Eagle Dr, Bridgeton, MO 63044",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "(314) 291-6700",
+      "notes": "Online reservation is required to use the lot and shuttle without a hotel room. Only sellable lot on the Bridgeton (west) side of the airport.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "rateSpreadPct": 26.68
+    }
+  ],
+  "shuttleInfo": "On-airport: free Super Park shuttles serve Lots A-E 24/7 every 8-15 minutes (live tracking on flystl.com via Passio GO), and a free Terminal Shuttle connects Terminals 1 and 2 24/7 every 8-15 minutes — there is no walking route between terminals. Off-site: every sellable hotel/lot includes a free shuttle; The Parking Spot 3 runs continuously, Marriott every 20 minutes 24/7, Hilton and Crowne Plaza every 30 minutes 24/7, Renaissance every 20-30 minutes (on demand overnight), Quality Inn 4:30 AM-11 PM only with a call-ahead requirement.",
+  "distanceFromCity": "14 miles northwest of downtown St. Louis via I-70. MetroLink Red Line runs directly from both terminals to downtown.",
+  "keyDistances": {
+    "toDowntownStLouis": "14 miles via I-70; MetroLink Red Line direct ($2.50 base fare)",
+    "competitiveAdvantage": "STL has direct light rail to downtown and very cheap on-airport surface lots ($11-14/day at Lots D and B), so off-site savings are biggest versus the terminal garages ($31-33/day) and Lot A/E ($20-27/day)."
+  },
+  "construction2026": {
+    "status": "Single-terminal program in design. ~$3 billion consolidated terminal on the Terminal 1 site with up to 62 gates; latest reporting (April 2026) targets opening in 2032.",
+    "projects": [
+      "New consolidated terminal — design ~30% complete as of spring 2026; final design and potential groundbreaking targeted for 2027.",
+      "Concourse C extension / new Concourse D — Concourse A in Terminal 1 slated to close around August 2027 when these open.",
+      "Terminals 1 and 2 slated to fully close in November 2031 once the new terminal opens (Terminal 2 to be demolished or repurposed)."
+    ],
+    "travelImpact": "No major parking closures announced for 2026. Expect terminal and parking changes from 2027 onward — verify on flystl.com before each trip.",
+    "timeline": {
+      "concourseAClosure": "~August 2027 (per April 2026 reporting)",
+      "newTerminalOpening": "2032 (per April 2026 reporting)"
+    },
+    "sources": ["https://www.firstalert4.com/2026/04/14/new-details-emerge-lamberts-single-terminal-project-airline-shifts/", "https://www.firstalert4.com/2026/03/25/lambert-airport-moves-closer-new-terminal-design-work-progresses"]
+  },
+  "securityAndScreening": {
+    "checkpoints": [
+      { "name": "Terminal 1 — A Gates", "hours": "3:30 AM-7:00 PM", "airlines": "Air Canada, Delta, United, charters" },
+      { "name": "Terminal 1 — C Gates", "hours": "3:30 AM-10:00 PM", "airlines": "Alaska, American, Frontier" },
+      { "name": "Terminal 2 — E/F Gates", "hours": "3:30 AM-10:00 PM", "airlines": "Southwest, international charter arrivals" }
+    ],
+    "tsaPreCheck": {
+      "terminals": ["Terminal 1 (Concourse A and C checkpoints)", "Terminal 2 (Concourse E checkpoint)"],
+      "note": "PreCheck lanes at all three checkpoints. The Terminal 1 PreCheck enrollment center has closed."
+    },
+    "clear": {
+      "note": "flystl.com references CLEAR enrollment pods outside the security checkpoints; whether CLEAR expedited lanes operate at STL is unconfirmed — verify."
+    },
+    "waitTimes": "flystl.com publishes live estimated wait times (MyTSA historical ranges) on its homepage and TSA page.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "parking": "Add 30 minutes for parking (airport guidance); add shuttle time for off-site lots",
+      "source": "https://www.flystl.com/faqs/"
+    }
+  },
+  "lounges": {
+    "terminal1": [
+      {
+        "name": "American Airlines Admirals Club",
+        "location": "Terminal 1, Concourse C (past security)",
+        "access": "Admirals Club members, eligible American premium-cabin and elite travelers, day passes per American's terms",
+        "hours": "Verify — third-party sources list early-morning opening"
+      },
+      {
+        "name": "USO",
+        "location": "Terminal 1",
+        "access": "Active-duty military and families"
+      }
+    ],
+    "terminal2": [
+      {
+        "name": "Wingtips Lounge",
+        "location": "Terminal 2, Concourse E near gate E22 (verify)",
+        "access": "Priority Pass, LoungeKey, Wingtips membership, or day pass (~$45 — verify)",
+        "hours": "Varies by day, with midday closures reported — verify before travel"
+      }
+    ]
+  },
+  "wifi": {
+    "provider": "Boingo (per third-party guides — verify)",
+    "cost": "Limited free time per day reported; verify current terms on flystl.com",
+    "coverage": "Both terminals"
+  },
+  "evCharging": {
+    "onAirport": "The airport has offered free EV charging at Super Park Lot A (5 stations, across from Terminal 1, standard parking rate applies) — not listed on the current Lot A page, so verify.",
+    "offSiteSellable": "Hilton St. Louis Airport advertises EV charging for parkers.",
+    "note": "Confirm charger availability before relying on it."
+  },
+  "luggageStorage": {
+    "onSite": "None. flystl.com: 'We are unable to provide any lockers or other storage spaces for belongings at this time.'",
+    "source": "https://www.flystl.com/faqs/"
+  },
+  "petFacilities": {
+    "total": "Indoor service-animal relief area(s) inside security plus outdoor relief areas at both terminals",
+    "locations": ["Terminal 2 post-security near gate E4 (opened 2016)", "Outdoor: Terminal 1 near Door 6 and Terminal 2 near Door 15 (2016 airport announcement — verify current doors)"],
+    "note": "Locations based on a 2016 City of St. Louis announcement; check flystl.com terminal maps for current spots."
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early morning departure bank (checkpoints open 3:30 AM)", "Late afternoon / early evening"],
+    "seasonalPeak": "Summer, Thanksgiving, Christmas/New Year and spring break. Cardinals home stands and major downtown conventions add weekend volume.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "Allow extra time during major holidays (airport guidance)"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental/humid subtropical transition — hot, humid summers and cold winters with variable snow and ice.",
+    "commonDisruptions": "Spring and summer severe thunderstorms (STL's Terminal 1 was struck by a tornado on April 22, 2011), and winter ice/snow events that cause de-icing delays.",
+    "bestMonths": "September-October (mild, fewer storms)",
+    "worstMonths": "December-February (ice and snow) and April-June (severe storms)",
+    "note": "For winter trips, covered parking (Lot C covered, The Parking Spot 3 covered) avoids scraping ice on return."
+  },
+  "parkSleepFly": {
+    "description": "Several Triply-sellable lots are full hotels, so travelers can book a night's stay directly with the hotel and park through Triply — or check the hotel's own park-sleep-fly package. Hotel park-sleep-fly package terms (included parking days) not verified.",
+    "popularHotels": [
+      { "name": "Renaissance St. Louis Airport", "distance": "1.7 miles", "shuttleHours": "4 AM-midnight every 20-30 min; on demand overnight", "highlight": "Full-service with Eero's restaurant, indoor pool, fitness center; Triply parking from $6.77/day." },
+      { "name": "Hilton St. Louis Airport", "distance": "1.1 miles", "shuttleHours": "24/7 every 30 min", "highlight": "Across from the terminals; EV charging; Triply parking from $8.39/day." },
+      { "name": "Marriott St. Louis Airport", "distance": "0.8 miles", "shuttleHours": "24/7 every 20 min", "highlight": "Closest hotel lot; gated; Triply parking from $10.45/day." },
+      { "name": "Crowne Plaza St. Louis Airport", "distance": "1.6 miles (Bridgeton)", "shuttleHours": "24/7 every 30 min", "highlight": "Gated, camera-monitored lot; Triply parking from $10.49/day." },
+      { "name": "Quality Inn St. Louis Airport", "distance": "1.1 miles", "shuttleHours": "4:30 AM-11 PM (call ahead)", "highlight": "Budget option; Triply parking from $6.50/day — check shuttle hours against early flights." }
+    ]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-day trip (7 billing days, e.g. Nov 2-8, 2026)",
+    "onAirport": {
+      "terminal2Garage": { "parkingCost": "$231 (7 x $33)", "totalEstimate": "$231" },
+      "terminal1Garage": { "parkingCost": "$217 (7 x $31)", "totalEstimate": "$217" },
+      "lotE": { "parkingCost": "$199 (7 x $27 + $10 reservation fee)", "totalEstimate": "$199" },
+      "lotA": { "parkingCost": "$140 (7 x $20)", "totalEstimate": "$140" },
+      "lotCCovered": { "parkingCost": "$105 (7 x $15)", "totalEstimate": "$105" },
+      "lotB": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" },
+      "lotCUncovered": { "parkingCost": "$84 (7 x $12)", "totalEstimate": "$84" },
+      "lotD": { "parkingCost": "$77 (7 x $11)", "totalEstimate": "$77" }
+    },
+    "offSiteWithShuttle": {
+      "qualityInn": { "parkingCost": "$45.50 lot total (Triply quote, Nov 2-8)", "savingsVsTerminal1Garage": "~$171", "savingsVsLotD": "~$31", "caveat": "Shuttle 4:30 AM-11 PM only; call day before" },
+      "renaissance": { "parkingCost": "$47.41 lot total", "savingsVsTerminal1Garage": "~$170", "savingsVsLotD": "~$30", "caveat": "Shuttle on demand overnight" },
+      "hilton": { "parkingCost": "$58.73 lot total", "savingsVsTerminal1Garage": "~$158", "savingsVsLotD": "~$18", "caveat": "24/7 shuttle; EV charging; oversized OK" },
+      "theParkingSpot3": { "parkingCost": "$69.76 lot total", "savingsVsTerminal1Garage": "~$147", "savingsVsLotCCovered": "~$35 (covered vs covered)", "caveat": "Covered option; continuous door-to-door shuttle" },
+      "marriott": { "parkingCost": "$73.13 lot total", "savingsVsTerminal1Garage": "~$144", "caveat": "Closest lot; shuttle every 20 min" },
+      "crownePlaza": { "parkingCost": "$73.43 lot total", "savingsVsTerminal1Garage": "~$144", "caveat": "Gated, monitored" }
+    },
+    "triplyFeeNote": "Off-site figures are lot totals before Triply's service fee (max of $4.95 or 6%), added at checkout.",
+    "publicTransit": {
+      "metroLinkRoundTrip": { "costPerPersonRoundTrip": "$5.00 ($2.50 each way) or $5.00 day pass", "note": "Direct Red Line from both terminals — cheapest option if you live near a MetroLink station." }
+    },
+    "keyDifference": "Off-site lots save ~$145-185 vs the STL terminal garages ($31-33/day) and ~$65-95 vs Lot A, but only ~$4-31 vs the airport's own Lot D ($11/day). The off-site pitch at STL is 'garage convenience is overpriced' and covered parking (The Parking Spot 3) or 24/7 hotel shuttles — not 'beat the economy lot by a mile'."
+  },
+  "uniqueFeatures": {
+    "yamasakiDomes": "Terminal 1's concrete-shell domed main terminal by Minoru Yamasaki (1956, fourth dome 1965) is a mid-century modern landmark and will be retained in the new single-terminal plan.",
+    "lindberghHeritage": "Charles Lindbergh flew airmail from Lambert Field and stopped here before his 1927 transatlantic flight; the Spirit of St. Louis name ties the city to aviation history.",
+    "metroLinkToTerminals": "Two MetroLink Red Line stations — one at each terminal — make STL one of the few mid-size U.S. airports with direct rail to downtown.",
+    "twoTerminalSplit": "Southwest (the largest carrier) and international flights use Terminal 2; everyone else uses Terminal 1. Parking at the wrong terminal means a shuttle ride — there is no walking route.",
+    "cheapOnAirportLots": "STL's airport-run Super Park lots are among the cheapest on-airport options in the U.S. ($11/day Lot D, $12 uncovered Lot C, $14 Lot B).",
+    "singleTerminalProgram": "A ~$3B consolidated terminal with up to 62 gates is in design, targeting 2032."
+  },
+  "emergencyContacts": {
+    "airportAdministration": "314-426-8000 (8:30 AM-5:00 PM)",
+    "stlInformationBooth": "314-890-1333 (7:00 AM-11:00 PM)",
+    "airportWebsite": "flystl.com",
+    "parkingInfo": "flystl.com/parking-transportation",
+    "superParkPhone": "314-890-2800",
+    "airportPolice": "314-426-8100 (24 hours)",
+    "lostAndFound": "314-890-1370 (Mon-Fri 9 AM-4 PM)",
+    "adaTitleVI": "314-426-8094",
+    "metroTransitInfo": "314-231-2345",
+    "taxicabCommission": "314-535-7700",
+    "tsa": "(866) 289-9673"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-13.",
+    "officialAirport": {
+      "home": "https://www.flystl.com/",
+      "parkingTransportation": "https://www.flystl.com/parking-transportation/",
+      "terminal1Parking": "https://www.flystl.com/parking-transportation/terminal-1-parking/",
+      "terminal2Parking": "https://www.flystl.com/parking-transportation/terminal-2-parking/",
+      "lotA": "https://www.flystl.com/parking-transportation/lot-a-parking/",
+      "lotB": "https://www.flystl.com/parking-transportation/lot-b-parking/",
+      "lotC": "https://www.flystl.com/parking-transportation/lot-c-parking/",
+      "lotD": "https://www.flystl.com/parking-transportation/lot-d-parking/",
+      "lotE": "https://www.flystl.com/parking-transportation/lot-E-parking/",
+      "shuttleTracking": "https://www.flystl.com/super-park-shuttle-tracking",
+      "tsaSecurity": "https://www.flystl.com/tsa-security/",
+      "terminalMaps": "https://www.flystl.com/terminal-maps/",
+      "flightsAirlines": "https://www.flystl.com/flights-airlines/",
+      "faqs": "https://www.flystl.com/faqs/",
+      "accessibility": "https://www.flystl.com/accessibility-accommodations/",
+      "contact": "https://www.flystl.com/contact-us/",
+      "newsroom": "https://www.flystl.com/about/newsroom/"
+    },
+    "transit": {
+      "metroStLouis": "https://www.metrostlouis.org/",
+      "metroFares": "https://www.metrostlouis.org/fares-and-passes/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/stl/",
+      "lyft": "https://www.lyft.com/rider/airports/stl"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=STL",
+      "theParkingSpot": "https://theparkingspot.com/locations/st-louis",
+      "airportParkingReservations": "https://airportparkingreservations.com/stl/airport-parking",
+      "spothero": "https://spothero.com/airport/st-louis/stl-parking"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsa.gov/travel/security-screening/wait-times"
+    },
+    "lounges": {
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/st-louis-lambert-international-stl-airport/",
+      "nerdwalletWingtips": "https://www.nerdwallet.com/article/travel/wingtips-lounge"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KSTL",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/STL"
+    },
+    "construction": {
+      "firstAlert4April2026": "https://www.firstalert4.com/2026/04/14/new-details-emerge-lamberts-single-terminal-project-airline-shifts/",
+      "aviationWeekMasterPlan": "https://aviationweek.com/air-transport/airports-networks/st-louis-lambert-airport-eyes-new-terminal-after-faa-approves"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/St._Louis_Lambert_International_Airport",
+      "upgradedPoints": "https://upgradedpoints.com/travel/airports/st-louis-lambert-international-stl-airport/"
+    },
+    "newsAndMedia": {
+      "stlPublicRadio": "https://www.stlpr.org/",
+      "ksdk": "https://www.ksdk.com/",
+      "firstAlert4": "https://www.firstalert4.com/",
+      "stlToday": "https://www.stltoday.com/"
+    }
+  }
+}

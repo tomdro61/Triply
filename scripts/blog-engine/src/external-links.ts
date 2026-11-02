@@ -33,7 +33,62 @@ interface ExternalLinksDB {
   _usageGuidelines: Record<string, unknown>
 }
 
+import { isCanadianAirport } from './airport-data.js'
+
 let _cache: ExternalLinksDB | null = null
+
+// US-only sources: never offer them for Canadian airports (YYZ articles linked the US TSA, 14 Oct 2026)
+export const US_ONLY_DOMAINS: ReadonlySet<string> = new Set(['tsa.gov', 'faa.gov', 'transtats.bts.gov', 'clearme.com'])
+
+/** True for a URL on a US-only source (TSA, FAA, CLEAR…): never offered for a Canadian airport, from any list. */
+export function isUsOnlyUrl(url: string): boolean {
+  try {
+    return US_ONLY_DOMAINS.has(new URL(url).hostname.replace(/^www\./, ''))
+  } catch {
+    return false
+  }
+}
+
+/** Competing booking sites and aggregators — never handed to the writer as "entities to mention" (review of #141). */
+export const COMPETITOR_NAME_RE = /spot\s?hero|way\.com|park\s?whiz|park\s?sleep\s?fly|park\s?'?n\s?fly|groupon|on\s?air\s?parking|airport\s?parking\s?reservations|parking\s?access|cheap\s?airport\s?parking|airportparking\.com|book\s?a\s?parking\s?spot|parkos|parkvia|looking4|holiday\s?extras/i
+
+function isCanadian(code: string): boolean {
+  let data: { currency?: unknown } | null = null
+  try {
+    const dataPath = path.resolve(__dirname, '..', 'data', 'airports', `${code}.json`)
+    if (fs.existsSync(dataPath)) data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
+  } catch {
+    data = null
+  }
+  // Falls back to the code list, so an unreadable file never fails open to US sources.
+  return isCanadianAirport(code, data as { currency?: string } | null)
+}
+
+/**
+ * Competing booking sites are never offered as links or approved domains: the writer
+ * prompt forbids naming them (PR #96), so the link lists must agree. Covers the
+ * external-links DB (SpotHero, APR, OnAir, ParkSleepFly) and the liveSources
+ * categories that list them (review of #96).
+ */
+function isCompetitorLink(link: ExternalLink): boolean {
+  return link.category === 'parking-aggregator' || link.subcategory === 'park-sleep-fly'
+}
+export const COMPETITOR_LIVE_SOURCE_CATEGORIES: ReadonlySet<string> = new Set(['parkingRatesAndCoupons', 'couponAggregators', 'parkSleepFly'])
+/** A liveSources URL the writer may still use from a competitor category: only our own site. */
+export function isOwnSiteUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    return host === 'triplypro.com' || host.endsWith('.triplypro.com')
+  } catch {
+    return false
+  }
+}
+
+function matchesAirport(link: ExternalLink, code: string, canadian: boolean): boolean {
+  if (isCompetitorLink(link)) return false
+  if (canadian && US_ONLY_DOMAINS.has(link.domain.replace(/^www\./, ''))) return false
+  return link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+}
 
 function loadDB(): ExternalLinksDB {
   if (_cache) return _cache
@@ -57,10 +112,11 @@ export function getExternalLinks(
 ): ExternalLink[] {
   const db = loadDB()
   const code = airportCode.toUpperCase()
+  const canadian = isCanadian(code)
 
   return db.links.filter((link) => {
     if (link.status !== 'active' && link.status !== 'cloudflare-blocked') return false
-    const airportMatch = link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+    const airportMatch = matchesAirport(link, code, canadian)
     const typeMatch = link.relevantArticleTypes.includes(articleType)
     return airportMatch && typeMatch
   })
@@ -74,11 +130,12 @@ export function getApprovedDomains(airportCode: string): Set<string> {
   const domains = new Set<string>()
   const db = loadDB()
   const code = airportCode.toUpperCase()
+  const canadian = isCanadian(code)
 
   // Add domains from external links DB
   for (const link of db.links) {
     if (link.status !== 'active' && link.status !== 'cloudflare-blocked') continue
-    const airportMatch = link.relevantAirports.includes(code) || link.relevantAirports.includes('all')
+    const airportMatch = matchesAirport(link, code, canadian)
     if (airportMatch) {
       domains.add(link.domain.replace(/^www\./, ''))
     }
@@ -90,10 +147,13 @@ export function getApprovedDomains(airportCode: string): Set<string> {
     if (fs.existsSync(dataPath)) {
       const data = JSON.parse(fs.readFileSync(dataPath, 'utf-8'))
       if (data.liveSources) {
-        for (const [, value] of Object.entries(data.liveSources)) {
+        for (const [category, value] of Object.entries(data.liveSources)) {
           if (typeof value === 'string') continue
+          const competitorCategory = COMPETITOR_LIVE_SOURCE_CATEGORIES.has(category)
           if (value && typeof value === 'object') {
             for (const url of Object.values(value as Record<string, string>)) {
+              if (competitorCategory && !isOwnSiteUrl(url)) continue
+              if (canadian && isUsOnlyUrl(url)) continue // same rule as the links DB: no TSA/CLEAR for YYZ
               try {
                 domains.add(new URL(url).hostname.replace(/^www\./, ''))
               } catch { /* skip malformed URLs */ }

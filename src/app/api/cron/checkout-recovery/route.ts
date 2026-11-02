@@ -5,7 +5,7 @@ import { TZDate } from "@date-fns/tz";
 import { createAdminClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { reslab, ReslabError, type ReslabLocation } from "@/lib/reslab/client";
-import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, hiddenReslabLocationIds } from "@/lib/reslab/search";
 import { resolveAirportCode } from "@/lib/attribution/airport";
 import { getAirportByCode } from "@/config/airports";
 import { convertTo24Hour, isValidTimeZone, SAME_DAY_LEAD_MINUTES } from "@/lib/utils/time";
@@ -690,7 +690,7 @@ async function run(postalAddress: string) {
   }
 
   const { candidates: selected, skipped } = selectRecoveryCandidates(pis, nowMs, {
-    blockedLocationIds: BLOCKED_RESLAB_LOCATION_IDS,
+    blockedLocationIds: hiddenReslabLocationIds(),
   });
 
   const supabase = await createAdminClient();

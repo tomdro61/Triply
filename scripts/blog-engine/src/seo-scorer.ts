@@ -33,7 +33,7 @@ interface ScorerInput {
   excerpt: string
   faqItems: { question: string; answer: string }[]
   articleType: 'hub' | 'sub-pillar' | 'spoke'
-  articleStyle?: 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison'
+  articleStyle?: 'standard' | 'narrative' | 'listicle' | 'data-heavy' | 'comparison' | 'rescue'
   targetWords: number
   hasImage: boolean
   imageAlt: string | null
@@ -225,6 +225,10 @@ const CTA_PATTERNS = [
   /search\s*(for\s+)?parking/i,
   /view\s*(all\s+)?lots/i,
   /see\s*(current\s+)?rates/i,
+  // House-style CTAs mandated by the writer prompt (rules 10/11), e.g.
+  // "Compare LaGuardia Terminal B parking rates..." / "Find your best LGA parking deal..."
+  /compare\b[^<.]{0,50}\b(rates?|parking|prices?|lots?|deals?|options?)/i,
+  /find\b[^<.]{0,50}\b(parking|deal|spot|lot|rate)/i,
 ]
 
 // ── Scoring Functions ───────────────────────────────────────────────────────
@@ -234,8 +238,14 @@ function scoreKeywordOptimization(input: ScorerInput, root: HTMLElement, fullTex
   const kw = input.keyword.toLowerCase()
 
   // 1. Keyword in first paragraph (4 pts) — Rank Math + Yoast
+  // Pass on the exact phrase OR all significant keyword words present — consistent
+  // with the meta-title/slug checks below. Exact-only over-penalized reordered
+  // long-tail keywords (e.g. "parking cost msp airport terminal 2") that read
+  // naturally as "Terminal 2 parking at MSP costs...".
   const firstPara = getFirstParagraph(root).toLowerCase()
-  const kwInFirst = firstPara.includes(kw)
+  const kwSignificantWords = kw.split(/\s+/).filter((w) => w.length > 3)
+  const kwInFirst = firstPara.includes(kw) ||
+    (kwSignificantWords.length > 0 && kwSignificantWords.every((w) => firstPara.includes(w)))
   checks.push({
     name: 'Keyword in first paragraph',
     passed: kwInFirst,
@@ -843,6 +853,42 @@ function scoreStyleAdherence(input: ScorerInput, root: HTMLElement, fullText: st
       })
       break
     }
+    case 'rescue': {
+      // Budgeted to exactly 5 maxPoints to match data-heavy/comparison. scoreStyleAdherence
+      // returns a dynamic denominator while REVISION_THRESHOLDS is fixed, so a different
+      // budget would silently move the effective pass bar for rescue articles only.
+
+      // The defining trait of the style: tell the reader how to check live availability
+      // BEFORE offering alternatives. This is the first thing a generic rewrite drops.
+      const statusPattern = /status|availab|sold out|\bfull\b|check|before you (leave|go)/i
+      const statusLeadIdx = h2Texts.findIndex(t => statusPattern.test(t))
+      const statusLeads = statusLeadIdx >= 0 && statusLeadIdx < 2
+      checks.push({
+        name: 'Rescue: live-status check leads',
+        passed: statusLeads,
+        points: statusLeads ? 3 : statusLeadIdx >= 0 ? 1 : 0,
+        maxPoints: 3,
+        detail: statusLeads
+          ? `Status-check section is H2 #${statusLeadIdx + 1}`
+          : statusLeadIdx >= 0
+            ? `Status-check section present but buried at H2 #${statusLeadIdx + 1} (should be in the first 2)`
+            : 'No live-status / how-to-check section found',
+      })
+
+      // The same-day fallback section is the reason the article exists; a standard rewrite
+      // turns it into generic "book early" advice.
+      const hasEmergency = /rideshare|uber|lyft|taxi|park.?sleep.?fly|park and fly|last.?minute|same.?day/i.test(fullText)
+      checks.push({
+        name: 'Rescue: same-day emergency options',
+        passed: hasEmergency,
+        points: hasEmergency ? 2 : 0,
+        maxPoints: 2,
+        detail: hasEmergency
+          ? 'Contains same-day / emergency fallback options'
+          : 'Missing same-day emergency options (rideshare, taxi, park-sleep-fly)',
+      })
+      break
+    }
     case 'comparison': {
       const hasVsHeading = h2Texts.some(t => /\bvs\.?\b/i.test(t))
       checks.push({
@@ -864,7 +910,20 @@ function scoreStyleAdherence(input: ScorerInput, root: HTMLElement, fullText: st
     }
     case 'standard':
     default: {
-      const hasTakeaways = /key takeaway/i.test(fullText)
+      // Match the same patterns as the AI search optimization Key Takeaways check:
+      // text-based labels OR structural detection (early list after first paragraph)
+      const hasTakeawaysText = /key takeaway|takeaway|at a glance|quick summary|key points|key facts|highlights/i.test(fullText)
+      const topElements = root.childNodes.filter((n) => n instanceof HTMLElement).slice(0, 8) as HTMLElement[]
+      let hasEarlyListStructural = false
+      let seenParagraph = false
+      for (const el of topElements) {
+        if (el.tagName === 'P') seenParagraph = true
+        if (seenParagraph && (el.tagName === 'UL' || el.tagName === 'OL')) {
+          hasEarlyListStructural = true
+          break
+        }
+      }
+      const hasTakeaways = hasTakeawaysText || hasEarlyListStructural
       checks.push({
         name: 'Standard: Key Takeaways present',
         passed: hasTakeaways,
@@ -936,15 +995,26 @@ function scoreExternalLinkValidation(input: ScorerInput, root: HTMLElement): Cat
 
 function scoreCtaRelevance(input: ScorerInput): CategoryScore {
   const checks: Check[] = []
-  // Include keyword words AND airport code for matching
+  // Include keyword words AND airport code/name for matching
   const kwWords = input.keyword.toLowerCase().split(/\s+/).filter(w => w.length > 2)
   const airportCode = input.airportCode?.toLowerCase() || ''
 
-  // Check if CTAs reference the article topic — match on keyword words OR airport code
+  // Map airport codes to common names so "LaGuardia" matches LGA, "JFK" matches JFK, etc.
+  const airportNames: Record<string, string[]> = {
+    lga: ['laguardia', 'la guardia'],
+    jfk: ['jfk', 'john f kennedy', 'kennedy'],
+    ewr: ['newark', 'ewr'],
+    ord: ['ohare', "o'hare"],
+    lax: ['lax', 'los angeles'],
+    sfo: ['sfo', 'san francisco'],
+  }
+  const airportAliases = [airportCode, ...(airportNames[airportCode] || [])]
+
+  // Check if CTAs reference the article topic — match on keyword words OR airport code/name
   const earlyCta = input.earlyCta?.toLowerCase() || ''
   const closingCta = input.closingCta?.toLowerCase() || ''
-  const earlyHasKeyword = kwWords.some(w => earlyCta.includes(w)) || !!(airportCode && earlyCta.includes(airportCode))
-  const closingHasKeyword = kwWords.some(w => closingCta.includes(w)) || !!(airportCode && closingCta.includes(airportCode))
+  const earlyHasKeyword = kwWords.some(w => earlyCta.includes(w)) || airportAliases.some(a => a && earlyCta.includes(a))
+  const closingHasKeyword = kwWords.some(w => closingCta.includes(w)) || airportAliases.some(a => a && closingCta.includes(a))
   const ctaRelevant = earlyHasKeyword || closingHasKeyword
 
   checks.push({

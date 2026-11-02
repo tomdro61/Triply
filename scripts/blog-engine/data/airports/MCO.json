@@ -1,7 +1,7 @@
 {
   "code": "MCO",
   "fullName": "Orlando International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-11-01",
   "overview": {
     "location": "Orlando, Orange County, Florida — 6 miles southeast of downtown Orlando",
     "iataCode": "MCO",
@@ -56,7 +56,7 @@
       "status": "Active — 15 gates (expanding to 23 by winter 2025). Opened September 2022. Standalone terminal 1 mile south of North Terminal Complex. Brightline station integrated.",
       "airlines": ["Aer Lingus", "Azul", "British Airways", "Caribbean Airlines", "Emirates", "Eurowings Discover", "GOL", "Icelandair", "JetBlue Airways (international + select domestic)", "Lufthansa", "Norse Atlantic Airways", "Silver Airways", "Sunwing"],
       "gates": "Gates 230-245 (expanding to 253 with Phase 1)",
-      "notes": "MCO's newest and most modern terminal. Houses the Brightline Orlando high-speed rail station — connected via 450-foot elevated pedestrian bridge. Handles all non-U.S. international carriers plus JetBlue. Plaza Premium Lounge available (Priority Pass accepted). Parking Garage C serves Terminal C ($17/day vs $19 at Garages A/B). Phase 1 expansion adding 8 gates — substantial completion winter 2025. Future phases will add 4 boarding piers to handle 10-12 million additional passengers annually."
+      "notes": "MCO's newest and most modern terminal. Houses the Brightline Orlando high-speed rail station — connected via 450-foot elevated pedestrian bridge. Handles all non-U.S. international carriers plus JetBlue. Plaza Premium Lounge available (Priority Pass accepted). Parking Garage C serves Terminal C ($24/day, same as Garages A/B). Phase 1 expansion adding 8 gates — substantial completion winter 2025. Future phases will add 4 boarding piers to handle 10-12 million additional passengers annually."
     }
   ],
   "roads": ["SR-528 (Beachline Expressway — connects to I-4 and Cocoa Beach)", "SR-417 (Central Florida GreeneWay — toll road)", "SR-436 (Semoran Boulevard)", "Jeff Fuqua Boulevard (main airport access road)", "Boggy Creek Road", "Interstate 4 (via SR-528)", "Florida's Turnpike (via SR-417 or SR-528)"],
@@ -149,60 +149,64 @@
     },
     "hotelShuttles": "Many International Drive, Lake Buena Vista, and Kissimmee hotels offer complimentary airport shuttle service — verify with your hotel before booking. Disney World and Universal Orlando no longer offer free airport shuttles (replaced by paid Mears Connect and SuperStar Shuttle)."
   },
-  "parkingRates": "On-airport: Garages A & B $19/day, Garage C $17/day, Terminal Top $19/day, North/South Park Place Economy $10/day, Valet $28.76/day max. Off-site: from ~$4.99/day with shuttle. Pre-booking recommended during peak theme park seasons.",
+  "parkingRates": "On-airport: Garages A, B & C $24/day, Terminal Top $24/day, North/South Park Place and West Park economy $14/day (free 24/7 shuttles), Valet $35/day. Off-site: from ~$4/day with shuttle (Best Rate Airport Parking; shuttle 4 AM-10 PM only). Pre-booking recommended during peak theme park seasons.",
   "onAirportParking": {
     "garageA": {
       "name": "Parking Garage A",
-      "rate": "$2.00 per 21-30 min, then $1.00 per 15 min",
-      "dailyMax": 19,
+      "rate": "First 20 min free, $2.00 for 21-30 min, then $1.00 per additional 15 min",
+      "dailyMax": 24,
+      "lastVerified": "2026-10-12",
+      "source": "https://flymco.com/parking-information/parking-garage-a/",
       "serves": "Terminal A — Airsides 1 & 2 (Southwest, Frontier, Spirit, JetBlue domestic)",
       "features": "Directly connected to Terminal A via covered walkway. Closest parking to Terminal A gates.",
       "preBookingUrl": "https://flymco.com/parking/"
     },
     "garageB": {
       "name": "Parking Garage B",
-      "rate": "$2.00 per 21-30 min, then $1.00 per 15 min",
-      "dailyMax": 19,
+      "rate": "First 20 min free, $2.00 for 21-30 min, then $1.00 per additional 15 min",
+      "dailyMax": 24,
+      "lastVerified": "2026-10-12",
+      "source": "https://flymco.com/parking-information/parking-garage-a/",
       "serves": "Terminal B — Airsides 3 & 4 (American, Delta, United, Alaska, Breeze)",
       "features": "Directly connected to Terminal B via covered walkway. Closest parking to Terminal B gates.",
       "preBookingUrl": "https://flymco.com/parking/"
     },
     "garageC": {
       "name": "Parking Garage C",
-      "rate": "$2.00 per 21-30 min, then $1.00 per 15 min",
-      "dailyMax": 17,
+      "rate": "First 20 min free, $2.00 for 21-30 min, then $1.00 per additional 15 min",
+      "dailyMax": 24,
       "serves": "Terminal C (JetBlue, Emirates, British Airways, Aer Lingus, all international carriers)",
       "evCharging": "EV charging stations on Levels 3 and 5 (free charging — parking fees still apply)",
-      "features": "Newest garage, $2/day cheaper than Garages A/B. Free EV charging on Levels 3 and 5. Direct access to Terminal C and Brightline station.",
+      "features": "Newest garage, same $24/day max as Garages A/B (reserved spaces on Level 4 cost $32 per 24 hours). Free EV charging on Levels 3 and 5. Direct access to Terminal C and Brightline station.",
       "preBookingUrl": "https://flymco.com/parking/"
     },
     "terminalTopParking": {
       "name": "Terminal Top Parking",
-      "rate": "$2.00 per 21-30 min, then $1.00 per 15 min",
-      "dailyMax": 19,
+      "rate": "First 20 min free, $2.00 for 21-30 min, then $1.00 per additional 15 min",
+      "dailyMax": 24,
       "serves": "Terminals A & B (rooftop level)",
       "features": "Open-air rooftop parking atop Terminals A and B. Same rates as garages. Convenient but uncovered — consider Florida sun and rain."
     },
     "northParkPlace": {
       "name": "North Park Place (Economy)",
-      "rate": "$10/day",
-      "dailyMax": 10,
-      "serves": "All terminals via free shuttle",
-      "connection": "Free continuous shuttle to Terminals A, B, and C",
-      "features": "Best budget on-airport option. Free shuttle runs continuously. Economy lot north of the terminal complex."
+      "rate": "First 10 min free, $5 for 11 min to 3 hours, $14 per 24 hours",
+      "dailyMax": 14,
+      "serves": "Terminal A via free shuttle",
+      "connection": "Free 24/7 shuttle to Terminal A",
+      "features": "Best budget on-airport option. Free 24/7 shuttle to Terminal A. Uncovered, fenced lot patrolled by the Orlando Police airport division. Max stay 90 days."
     },
     "southParkPlace": {
       "name": "South Park Place (Economy)",
-      "rate": "$10/day",
-      "dailyMax": 10,
-      "serves": "All terminals via free shuttle",
-      "connection": "Free continuous shuttle to Terminals A, B, and C",
-      "features": "Economy lot south of the terminal complex. Same rates and shuttle service as North Park Place."
+      "rate": "First 10 min free, $5 for 11 min to 3 hours, $14 per 24 hours",
+      "dailyMax": 14,
+      "serves": "Terminals B and C via free shuttle",
+      "connection": "Free 24/7 shuttle to Terminals B and C",
+      "features": "Economy lot, uncovered. Same rates as North Park Place and West Park ($14 per 24 hours); its shuttle serves Terminals B and C (West Park's serves Terminals A and C)."
     },
     "valetParking": {
       "name": "Valet Parking",
-      "rate": "$9.59/hour, max $28.76/day",
-      "locations": "Available at Terminal A and Terminal B drop-off areas",
+      "rate": "$4 first 20 min, then $1 per additional 20 min up to 3 hours, max $35 per 24 hours",
+      "locations": "Terminal A, B and C departure curbs, 6 AM to 11 PM",
       "features": "Premium drop-off service at terminal curb. Vehicle returned to you upon arrival at baggage claim level."
     },
     "cellPhoneLot": {
@@ -223,7 +227,7 @@
     "accessibleParking": "Accessible parking available in all garages and economy lots. Vehicles with ramps/lifts, Florida toll exemption permits, or disabled veteran plates park FREE.",
     "totalCapacity": "~20,000 vehicles across all airport parking facilities",
     "paymentMethods": "Cash, Visa, Mastercard, Amex, Discover, contactless payment",
-    "garageServiceAreas": "Garage A → Terminal A (Airsides 1 & 2). Garage B → Terminal B (Airsides 3 & 4). Garage C → Terminal C. Economy lots shuttle to all terminals."
+    "garageServiceAreas": "Garage A → Terminal A (Airsides 1 & 2). Garage B → Terminal B (Airsides 3 & 4). Garage C → Terminal C. Economy shuttles: North Park Place → Terminal A, South Park Place → Terminals B and C, West Park → Terminals A and C."
   },
   "parkingLots": [
     {
@@ -238,7 +242,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Established national brand with consistent service. Covered parking costs more but protects from Florida sun and afternoon thunderstorms. Loyalty rewards program available. 24/7 shuttle is reliable."
+      "notes": "Established national brand with consistent service. Covered parking costs more but protects from Florida sun and afternoon thunderstorms. Loyalty rewards program available. 24/7 shuttle is reliable.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "WallyPark (MCO)",
@@ -252,7 +258,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "One of the few off-site lots with EV charging. Covered parking ideal for Florida weather. Continuous-loop shuttle minimizes wait times."
+      "notes": "One of the few off-site lots with EV charging. Covered parking ideal for Florida weather. Continuous-loop shuttle minimizes wait times.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Fast Park & Relax (MCO)",
@@ -266,7 +274,9 @@
       "distanceFromAirport": "2.0 mi",
       "driveTime": "5 minutes",
       "freeCancellation": true,
-      "notes": "All covered parking — important advantage in Florida's heat and rain. Fast check-in process speeds up drop-off. Good mid-range option."
+      "notes": "All covered parking — important advantage in Florida's heat and rain. Fast check-in process speeds up drop-off. Good mid-range option.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Drive & Park (MCO)",
@@ -280,7 +290,9 @@
       "distanceFromAirport": "2.5 mi",
       "driveTime": "5-8 minutes",
       "freeCancellation": true,
-      "notes": "Best budget off-site option at MCO. Locally owned. Uncovered parking — consider Florida sun exposure on your vehicle. 24-hour cancellation policy required for refund."
+      "notes": "Best budget off-site option at MCO. Locally owned. Uncovered parking — consider Florida sun exposure on your vehicle. 24-hour cancellation policy required for refund.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Renaissance Orlando Airport Hotel Parking",
@@ -294,7 +306,9 @@
       "distanceFromAirport": "1.5 mi",
       "driveTime": "3-5 minutes",
       "freeCancellation": true,
-      "notes": "Closest covered off-site option. Hotel-quality parking garage. Good for travelers wanting protection from Florida weather at a mid-range price."
+      "notes": "Closest covered off-site option. Hotel-quality parking garage. Good for travelers wanting protection from Florida weather at a mid-range price.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
     },
     {
       "name": "Homewood Suites Orlando Airport Parking",
@@ -308,10 +322,89 @@
       "distanceFromAirport": "3.0 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Good value hotel parking. Gated lot adds security. Popular park-sleep-fly option when combined with overnight stay."
+      "notes": "Good value hotel parking. Gated lot adds security. Popular park-sleep-fly option when combined with overnight stay.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-01"
+    },
+    {
+      "name": "Gold Park Orlando Airport",
+      "slug": "gold-park-orlando-airport",
+      "dailyRate": 6.41,
+      "reservationRate": 6.41,
+      "amenities": [
+        "24/7 Front Desk",
+        "Valet"
+      ],
+      "shuttleInfo": "24/7 Shuttle, every 15 minutes",
+      "overview": "Conveniently located just 1 mile from Orlando International Airport (MCO), Gold Park offers travelers an easy, affordable and reliable parking experience. The lot is fully gated and fenced, with staff onsite 24/7.",
+      "address": "7350 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "407-601-4508",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Omni Airport Parking",
+      "slug": "omni-airport-parking",
+      "dailyRate": 6.89,
+      "reservationRate": 6.89,
+      "shuttleInfo": "24/7 every 20 minutes",
+      "overview": "Located just a quick 5-7 minute drive from Orlando International Airport, Omni MCO Parking is a modern operation featuring a professional office and complimentary shuttles.",
+      "address": "7640 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "(407) 326-6676",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Holiday Inn Orlando Airport",
+      "slug": "holiday-inn-orlando-airport",
+      "dailyRate": 11.06,
+      "reservationRate": 11.06,
+      "amenities": [
+        "Restaurant"
+      ],
+      "shuttleInfo": "24/7 every 30 minutes",
+      "overview": "Located just minutes of drive from Orlando International Airport (MCO) and the Brightline Train Station, this property offers affordable park and fly rates and convenient access for travelers.",
+      "address": "5750 T G Lee Blvd, 32822",
+      "distanceFromAirport": "2.0 mi",
+      "phone": "407-851-6400",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-11-01"
+    },
+    {
+      "name": "Best Rate Airport Parking",
+      "slug": "best-rate-airport-parking",
+      "dailyRate": 28,
+      "reservationRate": 28,
+      "amenities": [
+        "Valet",
+        "Security",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "4:00 AM - 10:00 PM: Shuttle runs every 30 minutes.  10:00 PM - 4:00 AM: No shuttle.",
+      "overview": "Located just an 8 minute drive (4.5 miles) from Orlando International Airport (MCO), Best Rate Airport Parking offers efficient and reliable valet service with friendly staff to assist with quick drop-offs and pickups.",
+      "address": "7652 Narcoossee Rd, Orlando, FL, 32822",
+      "distanceFromAirport": "2.9 mi",
+      "phone": "1-888-422-3782",
+      "notes": "Added 2026-11-01 from live Triply search; details from the lot listing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-11-01",
+      "paymentMethod": "Pay at Location",
+      "rateVerified": "2026-11-01",
+      "rateSpreadPct": 246.82
     }
   ],
-  "shuttleInfo": "On-airport: Free continuous shuttles connect North and South Park Place economy lots to all terminals. Off-site: All major off-site lots include free shuttle service — most run 24/7 with 5-15 minute frequency. Theme park shuttles: Mears Connect to Disney ($32 RT), SuperStar Shuttle to Universal ($39 RT). CRITICAL: Disney's free Magical Express no longer exists — all MCO-to-Disney transportation is now paid.",
+  "shuttleInfo": "On-airport: Free 24/7 shuttles connect the economy lots to the terminals (North Park Place → Terminal A, South Park Place → Terminals B and C, West Park → Terminals A and C). Off-site: All major off-site lots include free shuttle service — most run 24/7 with 5-15 minute frequency. Theme park shuttles: Mears Connect to Disney ($32 RT), SuperStar Shuttle to Universal ($39 RT). CRITICAL: Disney's free Magical Express no longer exists — all MCO-to-Disney transportation is now paid.",
   "distanceFromCity": "6 miles southeast of downtown Orlando. 15-25 minutes by car. ~45 minutes by Lynx bus ($2.00). Orlando's primary gateway for Central Florida's $75 billion tourism industry.",
   "keyDistances": {
     "toDowntownOrlando": "12 miles, 15-25 min by car, $25-37 rideshare",
@@ -443,7 +536,7 @@
       "Terminal B, Level 2 (limited)"
     ],
     "totalPorts": "Limited — Garage C has the most stations",
-    "note": "Garage C offers FREE EV charging (you still pay $17/day parking). Terminal A/B stations are limited. MCO is expanding EV infrastructure as part of its sustainability plan."
+    "note": "Garage C offers FREE EV charging (you still pay up to $24/day parking). Terminal A/B stations are limited. MCO is expanding EV infrastructure as part of its sustainability plan."
   },
   "luggageStorage": {
     "onSite": "Luggage storage is NOT available on-site at MCO.",
@@ -535,21 +628,21 @@
   "savingsComparison": {
     "scenario": "7-day trip for 2 travelers (typical theme park vacation)",
     "onAirport": {
-      "garageAorB": { "parkingCost": "$133 (7 x $19)", "totalEstimate": "$133" },
-      "garageC": { "parkingCost": "$119 (7 x $17)", "totalEstimate": "$119" },
-      "economyParkPlace": { "parkingCost": "$70 (7 x $10)", "totalEstimate": "$70" },
-      "valetParking": { "parkingCost": "$201 (7 x $28.76)", "totalEstimate": "$201" }
+      "garageAorB": { "parkingCost": "$168 (7 x $24)", "totalEstimate": "$168" },
+      "garageC": { "parkingCost": "$168 (7 x $24)", "totalEstimate": "$168" },
+      "economyParkPlace": { "parkingCost": "$98 (7 x $14)", "totalEstimate": "$98" },
+      "valetParking": { "parkingCost": "$245 (7 x $35)", "totalEstimate": "$245" }
     },
     "offSiteWithShuttle": {
-      "driveAndPark": { "parkingCost": "$34.93 (7 x $4.99 pre-booked)", "savingsVsGarage": "~$98 saved", "caveat": "24/7 shuttle, uncovered" },
-      "fastParkRelax": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$77 saved", "caveat": "24/7 shuttle, covered parking" },
-      "wallyPark": { "parkingCost": "$62.65 (7 x $8.95 pre-booked)", "savingsVsGarage": "~$70 saved", "caveat": "24/7 shuttle, covered + EV charging" }
+      "driveAndPark": { "parkingCost": "$34.93 (7 x $4.99 pre-booked)", "savingsVsGarage": "~$133 saved", "caveat": "24/7 shuttle, uncovered" },
+      "fastParkRelax": { "parkingCost": "$55.65 (7 x $7.95 pre-booked)", "savingsVsGarage": "~$112 saved", "caveat": "24/7 shuttle, covered parking" },
+      "wallyPark": { "parkingCost": "$62.65 (7 x $8.95 pre-booked)", "savingsVsGarage": "~$105 saved", "caveat": "24/7 shuttle, covered + EV charging" }
     },
     "publicTransit": {
       "lynxBusRoundTrip": { "costPerPersonRoundTrip": "$4.00", "travelTime": "45 min to downtown Orlando", "note": "$2.00 per ride. Cheapest option but slow. No direct bus to theme parks." },
       "rideshareRoundTrip": { "costForCouple": "$50-$74 (UberX to downtown Orlando round trip)", "note": "Faster than bus. Cheaper than parking for short trips." }
     },
-    "keyDifference": "MCO offers excellent off-site parking value — $4.99-8.95/day with shuttle vs $17-19/day on-airport garages. Economy lots at $10/day are the budget on-airport option. For theme park travelers on 7+ day trips, off-site parking saves $70-100. Rideshare to Disney ($35-55) is competitive with parking for shorter trips. Brightline in Terminal C is the best car-free option to South Florida."
+    "keyDifference": "MCO offers excellent off-site parking value — the lots Triply sells cost about $4-11/day vs $24/day in the on-airport garages. Economy lots (North/South Park Place, West Park) at $14/day are the budget on-airport option. For theme park travelers on 7+ day trips, off-site parking saves roughly $90-140 vs the garages. Rideshare to Disney ($35-55) is competitive with parking for shorter trips. Brightline in Terminal C is the best car-free option to South Florida."
   },
   "uniqueFeatures": {
     "themeParksGateway": "MCO is the primary airport for the most-visited tourist destination in the United States. Walt Disney World (4 theme parks), Universal Orlando (3 theme parks + Epic Universe opening 2025), SeaWorld, LEGOLAND, and dozens more attractions are all within 45 minutes. Over 75 million tourists visit Orlando annually.",

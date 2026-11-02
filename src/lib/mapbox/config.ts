@@ -1,6 +1,9 @@
 export const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
-export const MAPBOX_STYLE = "mapbox://styles/mapbox/light-v11";
+// Mapbox Standard — Mapbox's current default colour map (was light-v11, grey
+// and white; needs mapbox-gl v3+). Used by
+// every map: search, lot page, Park & Stay.
+export const MAPBOX_STYLE = "mapbox://styles/mapbox/standard";
 
 export const DEFAULT_MAP_CONFIG = {
   // New York area as default center (MVP is JFK + LGA)

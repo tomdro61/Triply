@@ -1,4 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/booking/reconciliation-alert", () => ({
+  RECONCILIATION_ALERT_COLUMNS: "stripe_payment_intent_id, livemode, customer, location_name, airport_code, from_date, to_date, reslab_reservation_number, inventory_source",
+  alertNeedsReconciliation: vi.fn(async () => ({ team: "discord", customer: "sent" })),
+  scheduleReconciliationAlert: vi.fn(async () => undefined),
+}));
 import { directCartKey, directPayloadFromRow, directStaleness } from "../fulfilment";
 import { fromSnapshot } from "@/lib/booking/fulfilled-reservation";
 import { readDirectMetadataMoney } from "../metadata-money";

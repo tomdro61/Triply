@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const denContent: AirportContent = {
   metaDescription:
-    "Compare 7+ off-airport DEN parking lots from $7.49/day. Save vs $17–$45/day on-airport rates. Free shuttle, free EV charging on-airport, A Line train to downtown for $10.50. Free cancellation.",
+    "Compare bookable off-airport DEN parking lots, including 24/7 shuttle lots, at today's prices. Save vs $17–$45/day on-airport rates. Free EV charging on-airport, A Line train to downtown for $10.50. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,29 @@ const denContent: AirportContent = {
 
 DEN sits 25 miles northeast of downtown Denver. That distance — combined with Denver's iconic mountain weather — makes parking choice especially important. Rideshare to downtown costs $35–$55 each way. The flat-rate taxi to downtown is $56.
 
-On-airport parking ranges from $7/day at the 61st & Pena Lot to $45/day for Premium Reserved. East/West Garages are $28/day. Economy Lots are $17/day. Off-airport parking through Triply starts at around $7.49/day pre-booked — saving up to 75% compared to terminal garages.`,
+On-airport parking ranges from $7/day at the 61st & Pena Lot to $45/day for Premium Reserved. East/West Garages are $28/day. Economy Lots are $17/day. Off-airport parking through Triply typically costs a third or less of the East/West Garage rate; the lot list on this page shows current per-day rates (and any lot added since this guide was written), and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near DEN",
-      body: `**Fine Airport Parking** — Around $7.49/day pre-booked. Standout feature: complimentary EV charging for parked vehicles. 24/7 shuttle every 5–10 minutes. Indoor parking option at $19/day pre-booked.
+      body: `**Park2Jet Denver** — **Dedicated lot with a 24/7 shuttle**, 5.5 miles out, with outdoor and covered spaces. Shuttle to the airport every 10–15 minutes around the clock; from the airport it runs 4 AM–midnight, and overnight you call (303) 558-9790 for a pickup.
 
-**WallyPark Premier** — Around $7.95/day pre-booked. The closest off-site lot at just 3 miles, located on airport property between Enterprise and Hertz rental car facilities. Best-in-class shuttle frequency every 5–10 minutes.
+**Canopy Denver Airport Parking** — **Closest bookable lot** at 5 miles. Free 24/7 shuttle every 15 minutes with luggage help. Open-air, covered and valet parking, EV charging stations in the covered and valet areas, and free Wi-Fi, coffee and snacks in the lobby.
 
-**The Parking Spot South / West** — Around $8/day pre-booked. Self-park (keep your keys), 24/7 shuttle. Free water bottle on return. Loyalty program earns free parking days.
+**Embassy Suites Denver Airport** — Low pre-booked rates, 5.8 miles out. Shuttle runs 24/7 every 30 minutes, but you pay an $8 round-trip shuttle fee at the front desk, must call ahead to reserve a seat, and drop-off is at the West Terminal only.
 
-**Park2Jet Denver** — Around $9.99/day pre-booked outdoor (or $12.99 indoor/covered). 5 miles out. 24/7 shuttle every 10–15 minutes (4 AM–midnight automatically; midnight–4 AM requires phone call to (303) 558-9790).
+**Hyatt Place Denver Airport** — Hotel lot 8.8 miles out. Free on-demand shuttle 4 AM–midnight.
 
-**Canopy Airport Parking** — Around $9/day pre-booked outdoor (or $26/day covered). The most amenities of any DEN off-site lot — free WiFi, coffee, snacks in the lobby, EV charging, valet option.
+**Hyatt Place Peña Station** — Hotel lot 6.6 miles out. Shuttle 4 AM–midnight, every 30 minutes (hourly from noon to 5 PM).
 
-**ParkDIA** — Around $12/day pre-booked uncovered (or $18/day covered). 2.6 miles from DEN — second-closest off-site lot. Text-to-dispatch shuttle every 5–7 minutes is unique.`,
+**Residence Inn Denver Airport at Gateway Park** — Hotel lot 8.7 miles out. Shuttle 4 AM–midnight, every 30 minutes.
+
+**Holiday Inn Express Denver Airport** — Hotel lot 5.6 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — call the front desk to reserve a seat.
+
+**Hyatt House Denver Airport** — Hotel lot 5.5 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes (hourly from noon to 5 PM).
+
+**Aloft Denver Airport at Gateway Park** — Hotel lot 8.7 miles out. Shuttle 3:45 AM–midnight, every 30 minutes.
+
+**DoubleTree Denver Airport** — Hotel lot 5.7 miles out. Shuttle 3:30 AM–1:30 AM, every 30 minutes — no need to call for the return pickup.`,
     },
     {
       heading: "Skip Parking — The RTD A Line Train",
@@ -53,8 +61,8 @@ The Great Hall is fully operational despite construction. Allow extra time durin
     },
     {
       heading: "Tips for Parking at DEN",
-      body: `• **Pre-book online** — Most off-site lots offer significant pre-book discounts. Fine Airport Parking drops from $15 walk-up to $7.49 pre-booked.
-• **Free EV charging on-airport** — DEN offers FREE Level 2 EV charging in both East and West Garages on Level 1. Just pay standard parking rates ($28/day). 36 stations total. Off-site, Fine Airport Parking includes free EV charging.
+      body: `• **Check the shuttle before you book** — Most DEN hotel lots stop their shuttle somewhere between midnight and 4 AM. For red-eyes, pick a 24/7 lot: Park2Jet, Canopy, or Embassy Suites (which adds an $8 shuttle fee and needs a call ahead).
+• **Free EV charging on-airport** — DEN offers FREE Level 2 EV charging in both East and West Garages on Level 1. Just pay standard parking rates ($28/day). 36 stations total. Off-site, Canopy Denver Airport Parking has EV charging stations in its covered and valet areas.
 • **The 61st & Pena Lot is cheapest on-airport** — At $7/day with free shuttle, it's the most affordable on-airport option at DEN. Pikes Peak and Longs Peak Shuttle Lots are $10/day.
 • **Use DEN Reserve to skip security lines** — Free time-slot booking at West Security 2 checkpoint via flydenver.com. Eliminates standard queuing entirely.
 • **Watch for blizzards November–April** — DEN averages 57 inches of snow per year. The 6-runway design helps maintain operations during snow events, but major blizzards can shut everything down. Travel insurance recommended for winter travel.
@@ -67,17 +75,22 @@ The Great Hall is fully operational despite construction. Allow extra time durin
     {
       question: "What is the cheapest parking at Denver airport?",
       answer:
-        "Fine Airport Parking at around $7.49/day pre-booked is the cheapest off-airport option, and includes free EV charging. WallyPark Premier follows at $7.95/day pre-booked. The cheapest on-airport option is the 61st & Pena Lot at $7/day. All prices are based on a sample 7-day booking and may vary.",
+        "The hotel lots usually have the lowest pre-booked rates — Embassy Suites Denver Airport among them, though it adds an $8 round-trip shuttle fee at the front desk. Park2Jet Denver and Canopy include a free 24/7 shuttle. The cheapest on-airport option is the 61st & Pena Lot at $7/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at DEN?",
       answer:
-        "On-airport parking at DEN ranges from $7/day (61st & Pena Lot) to $45/day (Premium Reserved). East/West Garages are $28/day, Economy Lots $17/day, Pikes Peak/Longs Peak Shuttle Lots $10/day. Off-airport parking through Triply starts at around $7.49/day pre-booked — saving up to 75% compared to terminal garages.",
+        "On-airport parking at DEN ranges from $7/day (61st & Pena Lot) to $45/day (Premium Reserved). East/West Garages are $28/day, Economy Lots $17/day, Pikes Peak/Longs Peak Shuttle Lots $10/day. Off-airport parking through Triply typically costs a third or less of the garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does DEN have free EV charging?",
       answer:
-        "Yes. Both East and West Garages offer FREE Level 2 EV charging on Level 1 — you only pay standard parking rates. 36 EV charging ports total (West Garage has 25 ports including 10 Level 2). Off-site, Fine Airport Parking also offers free EV charging for parked vehicles.",
+        "Yes. Both East and West Garages offer FREE Level 2 EV charging on Level 1 — you only pay standard parking rates. 36 EV charging ports total (West Garage has 25 ports including 10 Level 2). Off-site, Canopy Denver Airport Parking has EV charging stations in its covered and valet areas.",
+    },
+    {
+      question: "Do DEN off-airport parking lots run shuttles 24/7?",
+      answer:
+        "Three bookable lots do: Park2Jet Denver (every 10–15 minutes; call for airport pickups midnight–4 AM), Canopy Denver Airport Parking (every 15 minutes), and Embassy Suites Denver Airport (every 30 minutes, call ahead, $8 round-trip shuttle fee). The hotel lots — Hyatt Place, Hyatt Place Peña Station, Residence Inn, Holiday Inn Express, Hyatt House, Aloft, and DoubleTree — stop their shuttles for a few hours overnight, so check the lot page if you have a red-eye.",
     },
     {
       question: "How do I get from DEN to downtown Denver?",

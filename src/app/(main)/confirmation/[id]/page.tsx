@@ -64,7 +64,8 @@ interface ReservationDataBase {
     type: string;
     fromDate: string;
     toDate: string;
-    numberOfDays: number;
+    /** Absent when the API couldn't read a day count (e.g. an hourly rate line). */
+    numberOfDays?: number;
     numberOfSpots: number;
   }>;
   location: {
@@ -304,9 +305,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkInTime = convertTo12Hour(reservationCheckInTime24 || "");
   const checkOutTime = convertTo12Hour(reservationCheckOutTime24 || "");
 
-  // Duration from the reservation. Money comes ONLY from the API's
-  // costBreakdown / cardPayment — the page never invents a total.
-  const days = reservation?.items[0]?.numberOfDays || 1;
+  // Duration from the reservation; null when the API couldn't read a day
+  // count (the Duration row is then hidden, never a guessed "1 day"). Money
+  // comes ONLY from the API's costBreakdown / cardPayment — the page never
+  // invents a total.
+  const days = reservation?.items[0]?.numberOfDays ?? null;
 
   // The plain fallback's figures when the breakdown was refused — both decided
   // server-side (a missing or doubted due amount is "untrusted", never 0).

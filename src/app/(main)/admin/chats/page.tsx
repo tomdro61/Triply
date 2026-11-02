@@ -14,6 +14,7 @@ import {
   Shield,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/utils";
+import { adminDateRange } from "@/lib/admin/eastern-day";
 
 interface ChatSession {
   id: string;
@@ -98,31 +99,10 @@ export default function AdminChatsPage() {
         params.set("search", search);
       }
 
-      if (dateRange !== "all") {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        if (dateRange === "today") {
-          params.set("startDate", today.toISOString());
-          const tomorrow = new Date(today);
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          params.set("endDate", tomorrow.toISOString());
-        } else if (dateRange === "week") {
-          const weekStart = new Date(today);
-          weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-          params.set("startDate", weekStart.toISOString());
-        } else if (dateRange === "month") {
-          const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-          params.set("startDate", monthStart.toISOString());
-        } else if (dateRange === "custom" && customStartDate) {
-          params.set("startDate", new Date(customStartDate).toISOString());
-          if (customEndDate) {
-            const endDate = new Date(customEndDate);
-            endDate.setDate(endDate.getDate() + 1);
-            params.set("endDate", endDate.toISOString());
-          }
-        }
-      }
+      // Eastern calendar days.
+      const { startDate, endDate } = adminDateRange(dateRange, { start: customStartDate, end: customEndDate });
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
 
       const res = await fetch(`/api/admin/chats?${params}`);
       const data = await res.json();

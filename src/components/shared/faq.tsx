@@ -15,17 +15,17 @@ export function FAQ() {
     {
       question: "How does Triply save me money?",
       answer:
-        "Triply aggregates real-time pricing from parking facilities near major airports. By comparing all available options instantly, we highlight exclusive deals and lower rates that you might miss by booking directly. Most customers save 40-60% compared to on-site airport parking rates.",
+        "Triply aggregates real-time pricing from parking facilities near major airports, so you compare every available lot in one place instead of hunting for them one by one. Off-airport lots often cost 40-60% less than parking at the airport itself.",
     },
     {
       question: "What airports do you serve?",
       answer:
-        "We currently serve JFK (John F. Kennedy International Airport) and LGA (LaGuardia Airport) in New York. We're actively expanding to more airports across the country - subscribe to our newsletter to be notified when we add your airport!",
+        "Triply covers 85+ airports across the United States and Canada — JFK, LaGuardia, Newark, Boston, Los Angeles and many more. Search your airport to see the lots available for your dates; a few airports have no online availability yet.",
     },
     {
       question: "Is cancellation really free?",
       answer:
-        "Yes, for the vast majority of our bookings! Look for the 'Free Cancellation' tag on any parking option. You can usually cancel up to 24-48 hours before your check-in time for a full refund.",
+        "Yes, on the vast majority of bookings. Cancel up to 24 hours before check-in from the account the booking is linked to and you get back everything you paid online — if you booked as a guest, sign in with the same email first. If you added Park Guard protection, its small non-refundable portion stays. Within 24 hours of check-in, email support@triplypro.com.",
     },
     {
       question: "How do I get to the parking lot?",
@@ -35,12 +35,12 @@ export function FAQ() {
     {
       question: "Is my car safe?",
       answer:
-        "Absolutely! We only partner with verified, reputable parking facilities. Most lots feature 24/7 security, surveillance cameras, fenced perimeters, and well-lit areas. Look for security amenities listed on each lot's detail page.",
+        "Our lots come from established booking partners, and we remove any lot that lets customers down. Many lots have 24/7 security, surveillance cameras, fenced perimeters, and well-lit areas — check the security amenities listed on each lot's detail page before you book.",
     },
     {
       question: "How do I modify my booking?",
       answer:
-        "You can manage your booking through the confirmation email we send you. If you need help, our 24/7 support team is available to assist with any changes.",
+        "There's no edit option yet. More than 24 hours before check-in, cancel the booking from My Reservations for free and book again with the new details. Otherwise email support@triplypro.com — we reply within 24-48 hours on business days.",
     },
     {
       question: "How far in advance should I book?",
@@ -50,7 +50,7 @@ export function FAQ() {
     {
       question: "What if my flight is delayed?",
       answer:
-        "Most of our parking partners offer flexibility for flight delays. Your spot is reserved for your entire booking period, so a delayed return won't affect your reservation. If you need to extend your stay, contact our support team.",
+        "Your spot is reserved for your whole booking period, and most lots are used to delayed flights. Some charge on site for staying past your booked time (see the lot's details), so if you'll be back late, contact the lot using the number on your confirmation.",
     },
   ];
 
@@ -98,7 +98,7 @@ export function FAQ() {
               <div
                 className={`px-6 transition-all duration-300 ease-in-out overflow-hidden ${
                   openIndex === index
-                    ? "max-h-40 pb-6 opacity-100"
+                    ? "max-h-[40rem] pb-6 opacity-100"
                     : "max-h-0 opacity-0"
                 }`}
               >

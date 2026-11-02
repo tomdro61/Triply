@@ -111,6 +111,17 @@ export interface ReslabLocation {
   parking_commission_type: "percentage" | "flat";
   port_type: "airport" | "port";
   reservations_count?: number;
+  // Present on the wire (location list snapshot, 18 Oct 2026) but not in the
+  // v1.10 spec; read by Park & Stay's hotel-lot guard. Optional: a missing
+  // value must fail that guard closed, never default.
+  /** e.g. "parking" or "parking_room" (a hotel's own lot). */
+  type?: string;
+  /** Room check-in / check-out, "HH:mm" lot-local. */
+  checkin_time?: string | null;
+  checkout_time?: string | null;
+  free_shuttle?: boolean | number;
+  /** IATA code of the airport the lot serves, e.g. "JFK". */
+  port_code?: string;
   // Related data
   photos: ReslabPhoto[];
   facility_photos?: ReslabPhoto[];
@@ -384,6 +395,15 @@ async function getToken(): Promise<string> {
   } finally {
     clear();
   }
+}
+
+/**
+ * Fetch (or reuse) the auth token without making a call — lets a caller
+ * authenticate once before fanning out N parallel requests (each would
+ * otherwise POST /authenticate on a cold instance). Added for Park & Stay.
+ */
+export async function warmReslabToken(): Promise<void> {
+  await getToken();
 }
 
 // =============================================================================

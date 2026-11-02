@@ -1,0 +1,819 @@
+{
+  "code": "YYZ",
+  "fullName": "Toronto Pearson International Airport",
+  "lastVerified": "2026-10-26",
+  "currency": "CAD",
+  "currencySymbol": "C$",
+  "currencyNote": "All prices are Canadian dollars. Write \"C$\", never bare \"$\". Triply lot prices are shown before 13% Ontario HST, which is added at checkout.",
+  "country": "Canada",
+  "overview": {
+    "location": "Mississauga, Ontario, about 22 km (14 mi) northwest of downtown Toronto",
+    "iataCode": "YYZ",
+    "icaoCode": "CYYZ",
+    "coordinates": "43.6777N, 79.6248W",
+    "passengerVolume": "Canada's busiest airport (about 46 million passengers a year) (verify)",
+    "operator": "Greater Toronto Airports Authority (GTAA)",
+    "activeTerminals": 2,
+    "terminalsNote": "Terminal 1 and Terminal 3 (there is no Terminal 2), linked by the free Terminal Link train",
+    "dominantAirline": "Air Canada (main hub, Terminal 1); WestJet at Terminal 3 (verify)",
+    "metroAccess": "UP Express train from Terminal 1 to Union Station (about 25 min, every 15 min, about C$12.35 adult one-way (verify)); TTC 900 Airport Express bus to Kipling Station (C$3.30 (verify))",
+    "internationalNote": "U.S.-bound flights clear U.S. Customs and Border Protection preclearance at Pearson before departure; allow extra time. (verify)"
+  },
+  "terminals": [
+    {
+      "name": "Terminal 1",
+      "airlines": [
+        "Air Canada",
+        "Air Canada Rouge",
+        "United Airlines",
+        "Lufthansa",
+        "Swiss",
+        "Austrian Airlines",
+        "Turkish Airlines",
+        "Emirates"
+      ],
+      "notes": "Air Canada and most Star Alliance carriers. Daily Park T1 garage, Express Park, Preferred Park, Fast Track and Valet Care are here. UP Express station. (verify)"
+    },
+    {
+      "name": "Terminal 3",
+      "airlines": [
+        "WestJet",
+        "Delta Air Lines",
+        "American Airlines",
+        "British Airways",
+        "Air France",
+        "KLM",
+        "Porter Airlines"
+      ],
+      "notes": "WestJet plus SkyTeam/oneworld and other carriers. Daily Park T3 garage. (verify)"
+    }
+  ],
+  "roads": [
+    "Highway 401",
+    "Highway 427",
+    "Highway 409",
+    "Highway 410",
+    "Airport Road",
+    "Dixon Road",
+    "Derry Road",
+    "Highway 403"
+  ],
+  "transit": [
+    "UP Express (Union Pearson Express) train to Union Station",
+    "TTC 900 Airport Express to Kipling Station",
+    "Terminal Link train (free, T1-T3-Viscount)",
+    "MiWay (Mississauga Transit)",
+    "GO Transit bus"
+  ],
+  "neighborhoods": [
+    "Malton",
+    "Etobicoke",
+    "Mississauga",
+    "Rexdale",
+    "Brampton",
+    "Woodbridge",
+    "Downtown Toronto"
+  ],
+  "authority": "Greater Toronto Airports Authority",
+  "groundTransportation": {
+    "upExpress": {
+      "description": "UP Express train from Terminal 1 to Union Station with stops at Weston and Bloor",
+      "fare": "About C$12.35 adult one-way (lower with PRESTO - verify)",
+      "frequency": "Every 15 minutes (verify)",
+      "travelTime": "About 25 minutes to Union Station"
+    },
+    "ttc900": {
+      "description": "TTC 900 Airport Express bus to Kipling Station (Line 2)",
+      "fare": "C$3.30 adult (PRESTO/card) (verify)"
+    },
+    "terminalLink": {
+      "description": "Free 24-hour automated train linking Terminal 1, Terminal 3 and Viscount station (Value Park) (verify)"
+    },
+    "hotelShuttles": "Park-only parking with a shuttle can be booked on Triply at NU Hotel, The Westin Toronto Airport (C$8 shuttle to the airport) and Best Western Premier Toronto Airport Carlingview."
+  },
+  "parkingRates": "All prices CAD. On-airport (torontopearson.com via parkingguidehub.com, Oct 2026 - verify): Daily Park T1/T3 garages C$42/day, C$235 first 7 days; Value Park Garage C$32/day, C$160 first 7 days (free Terminal Link train); Value Park Lot and Viscount Reserved Lot online only (price varies); Express Park T1 C$59/day; Preferred Park T1 C$46/day; Fast Track T1 C$53/day; Valet Care T1 C$56/day + C$20 fee. Off-site bookable on Triply (Nov 2026 live search, C$ per day before 13% HST): Chandni Victoria C$6.25 (3-day min); Drop N Park Valet C$6.50 (3-day min); EZ Airport Parking C$7.46; Jetway Parking C$7.61 (3-day min); Park For U C$8.35 (3-day min); Simply Park Toronto Pearson C$8.35; Routes Toronto Pearson Airport Parking C$9.89; Best Western Premier Toronto Airport Carlingview C$12.02 (4-day min); The Westin Toronto Airport C$12.50 (2-day min); NU Hotel C$12.55; Car Park Pearson C$13.60; Skyway Park North lot C$14.87 (3-day min); Park One Toronto Curbside Valet Parking C$26.20 (7-day min).",
+  "onAirportParking": {
+    "currencyWarning": "ALL PRICES FOR YYZ ARE CANADIAN DOLLARS. Write C$ (e.g. C$32), never a bare $ or US$. Triply lot prices below are before 13% HST, added at checkout.",
+    "dailyParkT1": {
+      "name": "Daily Park - Terminal 1 Garage",
+      "rate": "C$42 daily max; C$235 max for the first 7 days; short stays C$8 per 20 min (noon-7:59 PM) / C$7 per 20 min (8 PM-11:59 AM) (verify)",
+      "dailyMaxCAD": 42,
+      "weeklyMaxCAD": 235,
+      "serves": "Terminal 1 (walk from the garage)",
+      "covered": true,
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "dailyParkT3": {
+      "name": "Daily Park - Terminal 3 Garage",
+      "rate": "C$42 daily max; C$235 max for the first 7 days; short stays C$7 per 20 min (noon-7:59 PM) / C$6 per 20 min (8 PM-11:59 AM) (verify)",
+      "dailyMaxCAD": 42,
+      "weeklyMaxCAD": 235,
+      "serves": "Terminal 3 (walk from the garage)",
+      "covered": true,
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "valueParkGarage": {
+      "name": "Value Park Garage",
+      "rate": "C$32 per day drive-up; C$160 max for the first 7 days (verify)",
+      "dailyMaxCAD": 32,
+      "weeklyMaxCAD": 160,
+      "covered": true,
+      "connection": "Free 24-hour Terminal Link train to Terminals 1 and 3 (about 6-12 minutes) (verify)",
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "valueParkLot": {
+      "name": "Value Park Lot",
+      "rate": "Online booking only; price varies by date (not stated) (verify)",
+      "covered": false,
+      "connection": "Terminal Link train",
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "viscountReservedLot": {
+      "name": "Viscount Station Reserved Lot",
+      "rate": "Online booking only; price varies by date (not stated) (verify)",
+      "covered": false,
+      "connection": "Terminal Link train from Viscount station",
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "expressParkT1": {
+      "name": "Express Park - Terminal 1",
+      "rate": "C$59 daily max (verify)",
+      "dailyMaxCAD": 59,
+      "serves": "Terminal 1, about a 2-3 minute walk (verify)",
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "preferredPark": {
+      "name": "Preferred Park (T1 drive-up; T3 online only)",
+      "rate": "T1 C$46 per day, C$255 for the first 7 days (verify)",
+      "dailyMaxCAD": 46,
+      "weeklyMaxCAD": 255,
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "fastTrackT1": {
+      "name": "Fast Track - Terminal 1 (key drop)",
+      "rate": "C$53 per day, C$265 for the first 7 days (verify)",
+      "dailyMaxCAD": 53,
+      "weeklyMaxCAD": 265,
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "valetParking": {
+      "name": "Valet Care - Terminal 1",
+      "rate": "C$56 per day + C$20 one-time valet fee; C$275 for the first 7 days (verify)",
+      "dailyMaxCAD": 56,
+      "weeklyMaxCAD": 275,
+      "oneTimeFeeCAD": 20,
+      "locations": "Curbside at T1 Departures, Post 9 (verify)",
+      "lastVerified": "2026-10-14",
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14"
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Area",
+      "cost": "FREE",
+      "maxWait": "45 minutes (verify)",
+      "rules": "Driver must stay with the vehicle."
+    },
+    "expressPass": {
+      "name": "Express Pass (pickup/drop-off in the T1/T3 garages)",
+      "cost": "Free for up to 20 minutes; reservation required (verify)"
+    },
+    "terminalLink": {
+      "name": "Terminal Link train",
+      "cost": "Free",
+      "hours": "24 hours (verify)",
+      "connects": "Terminal 1, Terminal 3 and Viscount station (Value Park lots)"
+    },
+    "officialWeekCosts": {
+      "source": "parkingguidehub.com (reviewed Oct 2026, cites torontopearson.com); torontopearson.com blocked by captcha 2026-10-14",
+      "first7Days": {
+        "dailyParkT1": 235,
+        "dailyParkT3": 235,
+        "valueParkGarage": 160,
+        "preferredParkT1": 255,
+        "fastTrackT1": 265,
+        "valetCareT1": 275
+      },
+      "note": "Caps for the first 7 days. Whether posted rates include 13% HST is not confirmed (verify)"
+    },
+    "currency": "CAD",
+    "ratesVerified": "2026-10-14",
+    "ratesSource": "https://www.torontopearson.com/en/transportation-and-parking/parking",
+    "verificationStatus": "NOT read from torontopearson.com on 2026-10-14 (captcha). Secondary source: parkingguidehub.com, reviewed Oct 2026. Every figure needs a check before publishing.",
+    "unverified": "Hourly (non-20-minute) rates, whether rates include HST, Value Park Lot / Viscount prices, lost-ticket fee, EV charger counts, max stay, oversize-vehicle rules."
+  },
+  "parkingLots": [
+    {
+      "name": "Chandni Victoria",
+      "slug": "chandni-victoria-yyz",
+      "parkingType": "Self-park hotel lot (well-lit, monitored)",
+      "amenities": [
+        "24/7 Front Desk",
+        "NO shuttle (5-minute Uber/Lyft ride to the terminals)"
+      ],
+      "shuttleInfo": "NO shuttle. Check in at the front desk on arrival; the listing says the terminals are a quick 5-minute Uber/Lyft ride (rideshare cost not included).",
+      "overview": "Hotel lot at 2939 Drew Rd, Mississauga, 2.6 mi from Pearson: well-lit, fully monitored, 24/7 staffed front desk.",
+      "notes": "Cheapest YYZ lot on Triply (C$6.25/day before HST) but has NO shuttle: add two rideshare rides. 3-day minimum.",
+      "driveTime": "~5 minutes (listing)",
+      "dailyRate": 6.25,
+      "reservationRate": 6.25,
+      "totalFor8Days": 54.93,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$54.93 total for Nov 2-9, 2026 (billed as 8 days: C$47.60 + C$2.38 lot fees + C$4.95 HST), before Triply service fee",
+      "address": "2939 Drew Rd, Mississauga, ON L4T 0A1",
+      "distanceFromAirport": "2.6 mi",
+      "phone": "647-965-3823",
+      "reslabLocationId": 425,
+      "triplyListingName": "Chandni Victoria",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "taxesFor8Days": 4.95,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Drop N Park Valet",
+      "slug": "drop-n-park-valet-yyz",
+      "parkingType": "Valet: a driver takes you to the terminal in YOUR car",
+      "amenities": [
+        "24/7 Valet to your terminal in your own car",
+        "24/7 Front Desk",
+        "Free Wi-Fi",
+        "Fully fenced, 24/7 cameras, regular patrols",
+        "Wheelchair assistance"
+      ],
+      "shuttleInfo": "No shuttle: drive to the lot and call 942-200-0043; a valet meets you at your car and drives you to your terminal in your own vehicle. Return: call once you have your luggage, then again at the pickup zone; the valet meets you there with your car.",
+      "overview": "Valet-style lot at 6865 Airport Rd, Mississauga, 1.8 mi (7-8 minutes) from Pearson. Fully fenced, 24/7 surveillance cameras and regular patrols.",
+      "notes": "Second-cheapest on Triply (C$6.50/day before HST). Valet in your own car (keys handed over). 3-day minimum.",
+      "driveTime": "7-8 minutes",
+      "dailyRate": 6.29,
+      "reservationRate": 6.29,
+      "totalFor8Days": 55.3,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$57.15 total for Nov 2-9, 2026 (billed as 8 days: C$49.52 + C$2.48 lot fees + C$5.15 HST), before Triply service fee",
+      "address": "6865 Airport Rd, Mississauga, ON L4V 1L1",
+      "distanceFromAirport": "1.8 mi",
+      "phone": "942-200-0043",
+      "reslabLocationId": 435,
+      "triplyListingName": "Drop N Park Valet",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "taxesFor8Days": 4.98,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "EZ Airport Parking",
+      "slug": "ez-airport-parking-yyz",
+      "parkingType": "Valet-park lot (keys left with staff); covered/garage listed",
+      "amenities": [
+        "Free Shuttle (24/7, every 30 min)",
+        "Security (24/7/365 staff and cameras)",
+        "Valet",
+        "Covered/Garage",
+        "24/7 Front Desk"
+      ],
+      "shuttleInfo": "Free shuttle with every online reservation, 24 hours, every 30 minutes to and from the airport. Return: call 905-672-2575 from the airport to arrange the shuttle.",
+      "overview": "Lot at 3356 Elmbank Road, Mississauga, 1.3 mi from Pearson, monitored 24/7/365 by security staff and cameras. You leave your keys.",
+      "notes": "C$7.46/day before HST, no minimum stay. Large vehicles (bigger than a 7-seater, pickups, cargo vans) pay C$12/day extra AT THE LOT. Keys must be left.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 8.01,
+      "reservationRate": 8.01,
+      "totalFor8Days": 70.45,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$65.55 total for Nov 2-9, 2026 (billed as 8 days: C$56.80 + C$2.84 lot fees + C$5.91 HST), before Triply service fee",
+      "address": "3356 Elmbank Road, Mississauga, ON L4V1A6",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "905-672-2575",
+      "reslabLocationId": 73,
+      "triplyListingName": "EZ Airport Parking",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "specialConditions": "EZ will require customers to leave their keys upon leaving their cars. Additional Charges apply to large vehicles (bigger than a 7-seater, pickup trucks, cargo vans, etc.): $12/day payable at location",
+      "taxesFor8Days": 6.35,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Jetway Parking",
+      "slug": "jetway-parking-yyz",
+      "parkingType": "Valet park (keys left) in a gated, enclosed lot",
+      "amenities": [
+        "Free Shuttle (24/7 on demand)",
+        "Valet",
+        "Security (gated, 24/7 CCTV)",
+        "24/7 Front Desk",
+        "Car wash, detailing, tire and oil services (extra cost)"
+      ],
+      "shuttleInfo": "Complimentary shuttle 24/7: call on arrival at the lot and they take you to your terminal. Return: call 416-675-3329 once you have your luggage. A C$10 surcharge applies if a curbside customer wants the shuttle.",
+      "overview": "Valet lot at 934 Dixon Road, Etobicoke, a 5-minute drive (1.5 mi) from Pearson: fully enclosed, gated, restricted entry, 24/7 CCTV. In peak periods cars may be moved to a gated overflow lot on Derry Rd.",
+      "notes": "C$7.61/day before HST. 3-day minimum. Keys left with valet; overflow storage on Derry Rd at peak.",
+      "driveTime": "~5 minutes",
+      "dailyRate": 7.61,
+      "reservationRate": 7.61,
+      "totalFor8Days": 68.44,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$68.44 total for Nov 2-9, 2026 (billed as 8 days: C$58.00 + C$2.90 lot fees + C$7.54 HST), before Triply service fee",
+      "address": "934 Dixon Road, Etobicoke, Toronto M9W 5G1",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "416-675-3329",
+      "reslabLocationId": 80,
+      "triplyListingName": "Jetway Parking",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "specialConditions": "If we experience an overflow of customers, vehicles may need to be moved to our storage lot located at Derry Rd.  This is a fully gated area.",
+      "taxesFor8Days": 7.54,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Park For U",
+      "slug": "park-for-u-yyz",
+      "parkingType": "Valet: an agent drives you to the terminal in YOUR car",
+      "amenities": [
+        "24/7 curbside valet in your own car",
+        "24/7 Front Desk",
+        "Wheelchair Access"
+      ],
+      "shuttleInfo": "No shuttle: text your name and vehicle details to 289-302-4727 at the lot; a valet drops you at your terminal in your own car and helps with luggage. Return: call 905-677-7275 or 1-844-675-7171 when you land and again when ready; your car is brought to the assigned post. Allow 15-20 minutes for check-in. Take time-stamped photos of the car and odometer (Park For U keeps none).",
+      "overview": "Valet service from 30 Fasken Drive, Etobicoke, 1.5 mi from Pearson; open 24/7.",
+      "notes": "C$8.35/day before HST. 3-day minimum. Late fee if your return is delayed past a 3-hour grace period (listing says C$10/day in one place and C$8.99 + tax in another - verify).",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "totalFor8Days": 73.39,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$73.39 total for Nov 2-9, 2026 (billed as 8 days: C$63.60 + C$3.18 lot fees + C$6.61 HST), before Triply service fee",
+      "address": "30 Fasken Drive, Etobicoke, ON M9W1K5",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "905-677-7275",
+      "reslabLocationId": 79,
+      "triplyListingName": "Park For U",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "taxesFor8Days": 6.61,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Simply Park Toronto Pearson",
+      "slug": "simply-park-toronto-pearson-yyz",
+      "parkingType": "Terminal valet (meet-and-greet at departures); fenced, gated lot",
+      "amenities": [
+        "Valet (meets you at the terminal)",
+        "Security (fenced, gated, lit, cameras, 24/7 patrols)",
+        "24/7 Front Desk",
+        "Detailing and oil changes (extra cost)"
+      ],
+      "shuttleInfo": "No shuttle: call 647-334-7275 15 minutes before reaching the departure terminal and the team meets you AT the terminal to take the car. Return: call after collecting luggage and they bring the car to you at the terminal.",
+      "overview": "Lot at 225 Belfield Rd, Etobicoke (about a 10-minute drive, 2.2 mi per listing; 2.6 mi in search) from Pearson: fully fenced and gated, lit, camera-monitored, 24/7 staff patrols.",
+      "notes": "C$8.35/day before HST, no minimum stay. Curbside/terminal valet. Missing from the Nov 16-23 search (availability varies).",
+      "driveTime": "~10 minutes",
+      "dailyRate": 8.35,
+      "reservationRate": 8.35,
+      "totalFor8Days": 73.39,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$73.39 total for Nov 2-9, 2026 (billed as 8 days: C$63.60 + C$3.18 lot fees + C$6.61 HST), before Triply service fee",
+      "address": "225 Belfield Rd, Etobicoke, ON M9W 5A8",
+      "distanceFromAirport": "2.6 mi",
+      "phone": "647-334-7275",
+      "reslabLocationId": 565,
+      "triplyListingName": "Simply Park Toronto Pearson",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "availabilityChecked": {
+        "2026-11-02": "available",
+        "2026-11-09": "available",
+        "2026-11-16": "not listed"
+      },
+      "taxesFor8Days": 6.61,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Routes Toronto Pearson Airport Parking",
+      "slug": "routes-toronto-pearson-airport-parking-yyz",
+      "parkingType": "Valet park lot",
+      "amenities": [
+        "Shuttle every 15 min, 7 AM-11 PM only",
+        "Valet",
+        "Security",
+        "Free Wi-Fi"
+      ],
+      "shuttleInfo": "Shuttle every 15 minutes 7:00 AM-11:00 PM; NO shuttle 11 PM-7 AM. If already at the airport, call 647-660-4420.",
+      "overview": "Valet lot at 3035 Orlando Drive, Mississauga, 1.3 mi from Pearson.",
+      "notes": "C$9.89/day before HST, no minimum. LOT IS LOCKED 11 PM-7 AM every day: no access to your car; late or delayed arrivals pick up the next day. Listing recommends arriving 3 hours before your flight.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 10.3,
+      "reservationRate": 10.3,
+      "totalFor8Days": 90.21,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$86.60 total for Nov 2-9, 2026 (billed as 8 days: C$71.92 + C$7.20 lot fees + C$7.48 HST), before Triply service fee",
+      "address": "3035 Orlando Drive Mississauga, Ontario L4V 1L6",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "647-660-4420",
+      "reslabLocationId": 279,
+      "triplyListingName": "Routes Toronto Pearson Airport Parking",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "specialConditions": "The lot is LOCKED and inaccessible outside business hours (11 PM - 7 AM on all Days)",
+      "taxesFor8Days": 7.79,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Best Western Premier Toronto Airport Carlingview",
+      "slug": "best-western-premier-toronto-airport-carlingview-yyz",
+      "parkingType": "Covered indoor hotel garage (self-park)",
+      "amenities": [
+        "Free Shuttle (book a day ahead; no shuttle 1:30-4 AM)",
+        "Covered/Garage",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Free Wi-Fi"
+      ],
+      "shuttleInfo": "Hotel to airport: call 416-637-7000 a day before departure to book; every 30 min 4 AM-12 PM, hourly 12-6 PM, every 30 min 6 PM-1:30 AM, none 1:30-4 AM. Return by request: call the hotel; pickup T1 Post S5, T3 Post 37.",
+      "overview": "Hotel at 35 Carlingview Drive, Toronto, 1.7 mi from Pearson, with an indoor garage (covered parking) and complimentary airport transfers.",
+      "notes": "C$12.02/day before HST. 4-day minimum. Covered.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 12.02,
+      "reservationRate": 12.02,
+      "totalFor8Days": 105.71,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$105.71 total for Nov 2-9, 2026 (billed as 8 days: C$91.60 + C$4.58 lot fees + C$9.53 HST), before Triply service fee",
+      "address": "35 Carlingview Drive M9W 5E7",
+      "distanceFromAirport": "1.7 mi",
+      "phone": "416-637-7000",
+      "reslabLocationId": 278,
+      "triplyListingName": "Best Western Premier Toronto Airport Carlingview",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 4,
+      "taxesFor8Days": 9.53,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "The Westin Toronto Airport",
+      "slug": "the-westin-toronto-airport-yyz",
+      "parkingType": "Hotel lot (self-park), open 24 hours",
+      "amenities": [
+        "Shuttle 24/7 every 30 min (C$8 hotel-to-airport fee; return free)",
+        "Security (CCTV, overnight security agent)",
+        "Restaurant"
+      ],
+      "shuttleInfo": "Hotel to airport: 24 hours, every 30 minutes, C$8 fee. Airport to hotel: free, on demand; call 416-675-9444.",
+      "overview": "Hotel at 950 Dixon Road, Toronto, 1.5 mi (1.8 km per listing) from Pearson; lot open 24 hours with CCTV and an overnight security agent. Register the car at reception.",
+      "notes": "C$12.50/day before HST. 2-day minimum. The C$8 outbound shuttle fee is NOT in the Triply price.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 12.5,
+      "reservationRate": 12.5,
+      "totalFor8Days": 112.41,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$112.41 total for Nov 2-9, 2026 (billed as 8 days: C$87.60 + C$12.38 lot fees + C$12.43 HST), before Triply service fee",
+      "address": "950 Dixon Road, Toronto, ON M9W 5N4",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "416-675-9444",
+      "reslabLocationId": 339,
+      "triplyListingName": "The Westin Toronto Airport",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 2,
+      "taxesFor8Days": 12.43,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "NU Hotel",
+      "slug": "nu-hotel-yyz",
+      "parkingType": "Hotel lot (self-park)",
+      "amenities": [
+        "Free Shuttle (24 hours, every 30 min)",
+        "24/7 Front Desk",
+        "Restaurant",
+        "Wheelchair Access",
+        "Monitored 24/7/365 by staff and video"
+      ],
+      "shuttleInfo": "Free with online purchase: 24 hours, every 30 minutes, on the hour and half-hour; expect a possible 20-30 minute wait. Arrive at the hotel at least 1 hour before you need to leave for the airport. Return: call 905-612-1119 (or numbers on your arrival printout).",
+      "overview": "Hotel at 6465 Airport Rd, Mississauga: the closest self-park hotel lot on Triply at 1.1 mi; monitored by staff and video 24/7/365.",
+      "notes": "C$12.55/day before HST, no minimum. May ask for a credit card on arrival (only used if you overstay). Larger vehicles (over 7 seats, vans, pickups, motor homes, trailers) pay C$12/day plus tax at the lot.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 12.55,
+      "reservationRate": 12.55,
+      "totalFor8Days": 110.32,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$110.32 total for Nov 2-9, 2026 (billed as 8 days: C$95.60 + C$4.78 lot fees + C$9.94 HST), before Triply service fee",
+      "address": "6465 Airport Rd, Mississauga, ON L4V 1E4",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "905-612-1119",
+      "reslabLocationId": 77,
+      "triplyListingName": "NU Hotel",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "specialConditions": "Additional charges will apply to larger vehicles (i.e. above 7 seats vehicles like cargo vans, pick up trucks, motor homes and trailers).Regular daily rate of $12/day plus taxes will apply . Extra day charge is $12/day plus taxes. This is payable at the location; cash or credit card.",
+      "taxesFor8Days": 9.94,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Car Park Pearson",
+      "slug": "car-park-pearson-yyz",
+      "parkingType": "Gated multi-level garage (indoor level 2, rooftop level 3)",
+      "amenities": [
+        "Free Shuttle (24/7 on demand)",
+        "Covered/Garage",
+        "24/7 Front Desk",
+        "CCTV"
+      ],
+      "shuttleInfo": "24/7 on demand: call 416-806-6024 at the garage. Return: call when ready; T1 pickup A1 (domestic) or E1 (international); T3 post 3-13 (domestic) or post 41 (international).",
+      "overview": "Gated multi-level garage at 6695 Airport Rd (#6655), Mississauga, 1.5 mi from Pearson, with CCTV. Indoor parking on level 2, rooftop on level 3.",
+      "notes": "C$13.60/day before HST, no minimum. Covered. Garage clearance 7 ft 6 in.",
+      "driveTime": "~5 minutes (verify)",
+      "dailyRate": 13.6,
+      "reservationRate": 13.6,
+      "totalFor8Days": 119.55,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$119.55 total for Nov 2-9, 2026 (billed as 8 days: C$103.60 + C$5.18 lot fees + C$10.77 HST), before Triply service fee",
+      "address": "6695 Airport Rd #6655, Mississauga, ON L4V 1W7",
+      "distanceFromAirport": "1.5 mi",
+      "phone": "416-806-6024",
+      "reslabLocationId": 558,
+      "triplyListingName": "Car Park Pearson",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "specialConditions": "Garage Clearance 7'6''",
+      "taxesFor8Days": 10.77,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Skyway Park North lot",
+      "slug": "skyway-park-north-lot-yyz",
+      "parkingType": "Lot with valet option; no in/out privileges",
+      "amenities": [
+        "Free Shuttle (24/7 on demand, luggage help)",
+        "24/7 Front Desk",
+        "Valet",
+        "Detailing, washes and vehicle services (extra cost)"
+      ],
+      "shuttleInfo": "Free 24/7 on-demand shuttle with luggage assistance: call (416) 294-0348 or 1-800-474-3820 at the lot. Return: call after collecting luggage and clearing customs; the dispatcher gives the post number. Shuttle holds up to 8; larger groups call 416-674-1754.",
+      "overview": "Lot at 7855 Finch Ave W, Toronto, 4.4 mi from Pearson (the farthest Triply lot). Check in at the counter.",
+      "notes": "C$14.87/day before HST. 3-day minimum. NO in/out privileges. Listing says drive to the counter and \"pay the balance\" although Triply shows nothing due at the lot (verify).",
+      "driveTime": "~10 minutes (verify)",
+      "dailyRate": 14.87,
+      "reservationRate": 14.87,
+      "totalFor8Days": 130.72,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$130.72 total for Nov 2-9, 2026 (billed as 8 days: C$113.28 + C$5.66 lot fees + C$11.78 HST), before Triply service fee",
+      "address": "7855 Finch Ave W. Toronto, ON L6T 0B2",
+      "distanceFromAirport": "4.4 mi",
+      "phone": "416-674-1754",
+      "reslabLocationId": 374,
+      "triplyListingName": "Skyway Park North lot",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 3,
+      "specialConditions": "This facility does NOT allow in/out privileges. You CANNOT enter & exit more than once.",
+      "taxesFor8Days": 11.78,
+      "paymentMethod": "Pay Online"
+    },
+    {
+      "name": "Park One Toronto Curbside Valet Parking",
+      "slug": "park-one-toronto-curbside-valet-parking-yyz",
+      "parkingType": "Curbside valet at the departures level",
+      "amenities": [
+        "Curbside valet at your terminal (24/7)",
+        "Security (24-hour)",
+        "24/7 Front Desk"
+      ],
+      "shuttleInfo": "No shuttle: drive to departures. T1: outside laneway between posts 20-32; T3: between posts 17-21. Hand over keys and pay the balance (card machine). Return: T1 arrivals Post D-1; T3 between posts 22-28. Help: 416-580-0307 or 1-833-629-2218.",
+      "overview": "Curbside valet; cars stored at a 24-hour-secured lot at 5015 Maingate Dr, Mississauga (0.5 mi).",
+      "notes": "Dearest on Triply (C$26.20/day before HST). 7-DAY MINIMUM. Most of the price is paid at the curb (C$180.44 of C$230.34 for Nov 2-9). Availability \"limited\" on Nov 2. Book exact times; read the emailed instructions.",
+      "driveTime": "n/a (curbside)",
+      "dailyRate": 26.2,
+      "reservationRate": 26.2,
+      "totalFor8Days": 230.34,
+      "currency": "CAD",
+      "priceNote": "C$ per day before 13% HST; totalFor8Days includes HST",
+      "sampleQuote": "C$230.34 total for Nov 2-9, 2026 (billed as 8 days: C$199.60 + C$9.98 lot fees + C$20.76 HST), before Triply service fee; C$180.44 of it is paid at the lot/curb",
+      "address": "5015 Maingate Dr, Mississauga, ON L5P 1B2",
+      "distanceFromAirport": "0.5 mi",
+      "phone": "416-580-0307",
+      "reslabLocationId": 379,
+      "triplyListingName": "Park One Toronto Curbside Valet Parking",
+      "freeCancellation": true,
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "minimumBookingDays": 7,
+      "paymentMethod": "Pay at Location",
+      "dueAtLocation": true,
+      "dueAtLocationAmount": 180.44,
+      "specialConditions": "Be sure to book the correct times and read the emailed instructions",
+      "availabilityChecked": {
+        "2026-11-02": "limited",
+        "2026-11-09": "available",
+        "2026-11-16": "available"
+      },
+      "taxesFor8Days": 20.76
+    }
+  ],
+  "shuttleInfo": "On-airport: the free 24-hour Terminal Link train links Terminals 1 and 3 with Viscount station (Value Park Garage/Lot and Viscount Reserved Lot) (verify); the Daily Park garages are walk-in. Off-site (Triply): free 24/7 shuttles at EZ Airport Parking (every 30 min), Jetway Parking, NU Hotel (every 30 min), Car Park Pearson and Skyway Park North lot (on demand); The Westin Toronto Airport every 30 min 24/7 (C$8 to the airport, free back); Best Western Premier Carlingview (book a day ahead, none 1:30-4 AM); Routes 7 AM-11 PM only (lot locked overnight). Valet in your own car or at the curb: Drop N Park Valet, Park For U, Simply Park Toronto Pearson, Park One Toronto Curbside Valet. Chandni Victoria has NO shuttle (5-minute rideshare).",
+  "distanceFromCity": "About 22 km (14 mi) northwest of downtown Toronto; 25-45 min by car depending on Highway 401/427 traffic; about 25 min by UP Express to Union Station. (verify)",
+  "keyDistances": {
+    "toDowntownToronto": "22 km (14 mi), 25-45 min by car, 25 min by UP Express (verify)",
+    "toMississaugaCityCentre": "15 km, 15-25 min by car (verify)",
+    "toBrampton": "15 km, 15-25 min by car (verify)",
+    "toVaughan": "20 km, 20-30 min by car (verify)",
+    "toHamilton": "60 km, 45-60 min by car (verify)",
+    "toNiagaraFalls": "120 km, 1.5 hours by car (verify)"
+  },
+  "savingsComparison": {
+    "scenario": "Nov 2 10 AM - Nov 9 2 PM, 2026. Off-site = live Triply checkout total incl. lot fees and HST (billed as 8 days), before Triply service fee. On-airport = posted first-7-day caps (verify; the Nov 9 extra hours may add a day).",
+    "onAirport": {
+      "dailyParkT1": {
+        "parkingCost": "C$235 (first 7 days (verify))"
+      },
+      "dailyParkT3": {
+        "parkingCost": "C$235 (first 7 days (verify))"
+      },
+      "valueParkGarage": {
+        "parkingCost": "C$160 (first 7 days (verify))"
+      },
+      "preferredParkT1": {
+        "parkingCost": "C$255 (first 7 days (verify))"
+      },
+      "fastTrackT1": {
+        "parkingCost": "C$265 (first 7 days (verify))"
+      },
+      "valetCareT1": {
+        "parkingCost": "C$275 (first 7 days (verify))"
+      }
+    },
+    "offSiteWithShuttle": {
+      "chandniVictoria": {
+        "parkingCost": "C$54.93",
+        "savingsVsValueParkGarage": "~C$105 less",
+        "caveat": "3-day minimum; no shuttle (rideshare)"
+      },
+      "dropNParkValet": {
+        "parkingCost": "C$57.15",
+        "savingsVsValueParkGarage": "~C$103 less",
+        "caveat": "3-day minimum; valet in your own car"
+      },
+      "ezAirportParking": {
+        "parkingCost": "C$65.55",
+        "savingsVsValueParkGarage": "~C$94 less",
+        "caveat": "none stated"
+      },
+      "jetwayParking": {
+        "parkingCost": "C$68.44",
+        "savingsVsValueParkGarage": "~C$92 less",
+        "caveat": "3-day minimum"
+      },
+      "parkForU": {
+        "parkingCost": "C$73.39",
+        "savingsVsValueParkGarage": "~C$87 less",
+        "caveat": "3-day minimum; valet in your own car"
+      },
+      "simplyParkTorontoPearson": {
+        "parkingCost": "C$73.39",
+        "savingsVsValueParkGarage": "~C$87 less",
+        "caveat": "terminal valet"
+      },
+      "routesTorontoPearsonAirportParking": {
+        "parkingCost": "C$86.60",
+        "savingsVsValueParkGarage": "~C$73 less",
+        "caveat": "lot locked 11 PM-7 AM"
+      },
+      "bestWesternPremierTorontoAirportCarlingview": {
+        "parkingCost": "C$105.71",
+        "savingsVsValueParkGarage": "~C$54 less",
+        "caveat": "4-day minimum"
+      },
+      "theWestinTorontoAirport": {
+        "parkingCost": "C$112.41",
+        "savingsVsValueParkGarage": "~C$48 less",
+        "caveat": "2-day minimum; C$8 shuttle to the airport extra"
+      },
+      "nuHotel": {
+        "parkingCost": "C$110.32",
+        "savingsVsValueParkGarage": "~C$50 less",
+        "caveat": "none stated"
+      },
+      "carParkPearson": {
+        "parkingCost": "C$119.55",
+        "savingsVsValueParkGarage": "~C$40 less",
+        "caveat": "none stated"
+      },
+      "skywayParkNorthLot": {
+        "parkingCost": "C$130.72",
+        "savingsVsValueParkGarage": "~C$29 less",
+        "caveat": "3-day minimum; 4.4 mi; no in/out"
+      },
+      "parkOneTorontoCurbsideValetParking": {
+        "parkingCost": "C$230.34",
+        "savingsVsValueParkGarage": "costs ~C$70 MORE",
+        "caveat": "7-day minimum; C$180.44 paid at the curb"
+      }
+    },
+    "publicTransit": {
+      "upExpressRoundTrip": {
+        "costPerPersonRoundTrip": "About C$24.70 (verify)",
+        "travelTime": "25 min to Union Station"
+      }
+    },
+    "keyDifference": "For a week, Pearson's cheapest posted drive-up cap is Value Park Garage at C$160 (Daily Park garages C$235). Every Triply lot except Park One curbside valet comes in under C$160 for Nov 2-9 incl. HST: from Chandni Victoria C$54.93 (no shuttle) and Drop N Park Valet C$57.15 to Skyway Park North lot C$130.72. Prices CAD; verify official caps."
+  },
+  "parkSleepFly": {
+    "description": "Three hotels near Pearson sell parking without a room stay through Triply, each with an airport shuttle. Room-plus-parking packages are booked with hotels directly (not a Triply product).",
+    "popularHotels": [
+      {
+        "name": "Best Western Premier Toronto Airport Carlingview",
+        "distance": "1.7 mi (35 Carlingview Drive M9W 5E7)",
+        "parkOnlyRate": "C$12.02/day before HST (Nov 2026 live search; 4-day minimum)",
+        "shuttle": "Hotel to airport: call 416-637-7000 a day before departure to book; every 30 min 4 AM-12 PM, hourly 12-6 PM, every 30 min 6 PM-1:30 AM, none 1:30-4 AM"
+      },
+      {
+        "name": "The Westin Toronto Airport",
+        "distance": "1.5 mi (950 Dixon Road, Toronto, ON M9W 5N4)",
+        "parkOnlyRate": "C$12.50/day before HST (Nov 2026 live search; 2-day minimum)",
+        "shuttle": "Hotel to airport: 24 hours, every 30 minutes, C$8 fee"
+      },
+      {
+        "name": "NU Hotel",
+        "distance": "1.1 mi (6465 Airport Rd, Mississauga, ON L4V 1E4)",
+        "parkOnlyRate": "C$12.55/day before HST (Nov 2026 live search)",
+        "shuttle": "Free with online purchase: 24 hours, every 30 minutes, on the hour and half-hour; expect a possible 20-30 minute wait"
+      }
+    ]
+  },
+  "evCharging": {
+    "note": "EV charging exists in the Pearson garages; counts and fees not verified on 2026-10-14 (verify)"
+  },
+  "tippingGuide": {
+    "shuttleDriver": "C$2-5 per person",
+    "valet": "C$5",
+    "taxi": "15-20% of fare"
+  },
+  "emergencyContacts": {
+    "airportWebsite": "torontopearson.com",
+    "parkingInfo": "torontopearson.com/en/transportation-and-parking/parking"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. torontopearson.com blocks bots; verify by hand.",
+    "officialAirport": {
+      "home": "https://www.torontopearson.com/",
+      "parking": "https://www.torontopearson.com/en/transportation-and-parking/parking",
+      "expressPark": "https://www.torontopearson.com/en/transportation-and-parking/parking/express-park",
+      "preferredPark": "https://www.torontopearson.com/en/transportation-and-parking/parking/preferred-park"
+    },
+    "transit": {
+      "upExpress": "https://www.upexpress.com/",
+      "ttc": "https://www.ttc.ca/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=YYZ",
+      "parkingGuideHub": "https://parkingguidehub.com/yyz-toronto-pearson-airport-parking/"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Toronto_Pearson_International_Airport"
+    }
+  }
+}

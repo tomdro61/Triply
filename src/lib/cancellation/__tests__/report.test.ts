@@ -24,15 +24,20 @@ describe("buildCancellationReport", () => {
 
   it("buckets by booking month, newest first, with a per-month reason split", () => {
     const r = buildCancellationReport([
-      row({ created_at: "2026-06-01T00:00:00Z" }),
-      row({ created_at: "2026-06-02T00:00:00Z", status: "refunded", cancellation_reason: "plans_changed" }),
-      row({ created_at: "2026-07-01T00:00:00Z", status: "cancelled", cancellation_reason: "lot_turned_away" }),
+      row({ created_at: "2026-06-01T12:00:00Z" }),
+      row({ created_at: "2026-06-02T12:00:00Z", status: "refunded", cancellation_reason: "plans_changed" }),
+      row({ created_at: "2026-07-01T12:00:00Z", status: "cancelled", cancellation_reason: "lot_turned_away" }),
     ]);
     expect(r.byMonth.map((m) => m.month)).toEqual(["2026-07", "2026-06"]);
     const june = r.byMonth[1];
     expect(june).toMatchObject({ bookings: 2, cancelled: 1, rate: 0.5 });
     expect(june.byReason.plans_changed).toBe(1);
     expect(june.byReason.lot_turned_away).toBe(0);
+  });
+
+  it("months are Eastern: 9 PM ET on Oct 31 is October, though UTC says November", () => {
+    const r = buildCancellationReport([row({ created_at: "2026-11-01T01:00:00Z" })]);
+    expect(r.byMonth.map((m) => m.month)).toEqual(["2026-10"]);
   });
 
   it("NULL and unrecognised reasons count as unknown (pre-032 rows)", () => {

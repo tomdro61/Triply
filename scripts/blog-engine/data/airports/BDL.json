@@ -1,0 +1,485 @@
+{
+  "code": "BDL",
+  "fullName": "Bradley International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Windsor Locks, Connecticut — about halfway between Hartford and Springfield, Massachusetts, off I-91 Exit 40. The airport puts the drive at about 15-20 minutes to Hartford and 15 minutes to Springfield. Address: Schoephoester Road, Windsor Locks, CT 06096.",
+    "iataCode": "BDL",
+    "icaoCode": "KBDL",
+    "faaLid": "BDL",
+    "elevation": "173 feet above mean sea level",
+    "acreage": 2432,
+    "coordinates": "41.9392N, 72.6833W",
+    "passengerVolume": "6,661,871 passengers in 2025 (about +0.1% year over year, FAA figures via Wikipedia); the airport cites 6.7 million for 2024",
+    "aircraftOperations": "77,685 (12 months ending July 31, 2023)",
+    "distinction": "Connecticut's busiest airport and the second-busiest in New England after Boston Logan. Condé Nast Traveler top-ten U.S. airport for seven-plus straight years. One of a handful of U.S. airports with a full-service hotel (Sheraton) attached to the main terminal. Breeze Airways base since 2022.",
+    "operator": "Connecticut Airport Authority",
+    "owner": "Connecticut Airport Authority (State of Connecticut)",
+    "activeTerminals": 2,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "6/24", "length": "9,510 ft (2,899 m)", "surface": "Asphalt" },
+      { "designation": "15/33", "length": "6,847 ft (2,087 m)", "surface": "Asphalt" }
+    ],
+    "dominantAirline": "No dominant carrier — American (~17.1%), Delta (~16.9%), Southwest (~16.8%), JetBlue (~16.3%) and Breeze (~11.1%) by passenger share, Mar 2025-Feb 2026",
+    "totalAirlines": "9 — Aer Lingus, American, Breeze, Delta, Frontier, JetBlue, Southwest, Sun Country, United",
+    "nonstopDestinations": "40+ nonstop destinations (airport figure)",
+    "founded": "1941 as Bradley Field, a WWII Army air base named for 2nd Lt. Eugene M. Bradley; commercial flights began 1947",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail at the terminal. CTtransit 30-Bradley Flyer to downtown Hartford (Union Station, Convention Center) and Route 24 to Windsor Locks rail station (Hartford Line / Amtrak), both from Terminal A Door #6, outer curb.",
+    "peopleMover": "None — Terminal A is a single building; the Ground Transportation Center is reached by a sheltered walkway (connector by Door #6, level 2)."
+  },
+  "terminals": [
+    {
+      "name": "Terminal A — East Concourse (Gates 1-12)",
+      "status": "Active",
+      "airlines": ["Aer Lingus", "Delta Air Lines", "Frontier Airlines", "JetBlue", "Southwest Airlines", "Sun Country Airlines"],
+      "gates": "1-12",
+      "notes": "Escape Lounge is past security near Gate 1. Aer Lingus Dublin flights pre-clear U.S. Customs in Dublin and arrive at Terminal A."
+    },
+    {
+      "name": "Terminal A — Gates 18-30 (incl. new 18-20 concourse and West Concourse)",
+      "status": "Active",
+      "airlines": ["American Airlines", "Breeze Airways", "United Airlines"],
+      "gates": "18-20 and 21-30",
+      "notes": "The airport lists American, Breeze and United in the 20-30 gate section. A nursing room is in the new gates 18-20 concourse."
+    },
+    {
+      "name": "Terminal B — International Arrivals Building",
+      "status": "Active (international arrivals needing U.S. Customs processing only)",
+      "airlines": [],
+      "notes": "Cancun arrivals and international charters clear CBP here. Airport shuttles connect Terminal B to Terminal A and the parking lots. Park & Walk Lot 2 is across from Terminal B (connecting crosswalk)."
+    }
+  ],
+  "roads": ["Interstate 91 (Exit 40 — main access from every direction)", "Bradley Airport Connector (Route 20)", "Schoephoester Road (loops through the airport; Economy Lot 4 and The Parking Spot)", "Ella Grasso Turnpike (Route 75) — Days Inn and other off-site lots", "Light Lane (Cell Phone Waiting Lot, Lot 5B, new post office access)", "Old County Road (Econo Lodge)", "National Drive (Motel 6)"],
+  "transit": ["CTtransit 30-Bradley Flyer (semi-express to downtown Hartford, ~30 min)", "CTtransit Route 24 (to Windsor Locks rail station)", "CTrail Hartford Line / Amtrak at Windsor Locks station (~3 miles, via Route 24)", "Seemo Shuttle (Five College area, MA) and pre-arranged limousine services"],
+  "neighborhoods": ["Windsor Locks", "Windsor", "East Windsor", "Suffield", "Enfield", "Downtown Hartford", "West Hartford", "Springfield, MA"],
+  "authority": "Connecticut Airport Authority",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Ground Transportation Center (rental cars + 830 public spaces) is a walk from Terminal A via a sheltered walkway."
+    },
+    "groundTransportZones": {
+      "rideshare": "Uber and Lyft: 'Ride App Pick-up' sign on the curb outside Door #2, Arrivals/Baggage Claim level. Drivers are staged nearby (3-5 minutes).",
+      "taxi": "Arrivals/Baggage Claim level between exit Doors 2 and 3; an attendant assigns taxis. Schedule or ask about fares: (860) 627-3128.",
+      "bus": "CTtransit 30-Bradley Flyer and Route 24: Terminal A baggage claim/arrivals level, Door #6, outer curb ('Local Buses/CTtransit').",
+      "hotelShuttles": "Triply lot listings say to follow ground transportation signs to the lower-level (arrivals) curb designated for hotel shuttles and call the lot after you collect bags.",
+      "source": "https://bradleyairport.com/directions-parking/taxi-limo-rideapp/"
+    },
+    "ctTransitBus": {
+      "operator": "CTtransit",
+      "routes": ["30-Bradley Flyer — semi-express to the Connecticut Convention Center and Union Station, Hartford (~30 min; every 40 min weekdays and Saturdays, about hourly early morning, late night and Sundays)", "Route 24 — to Windsor Locks Railroad Station (every 20 min, 4:10 AM-12:30 AM weekdays)"],
+      "accessFromTerminal": "Terminal A arrivals level, Door #6, outer curb",
+      "note": "Fares are set by CTtransit — tell readers to check cttransit.com.",
+      "source": "https://bradleyairport.com/directions-parking/public/"
+    },
+    "rail": {
+      "station": "Windsor Locks station (South Main Street at Stanton Road), ~3 miles from the airport",
+      "service": "CTrail Hartford Line and Amtrak (New Haven-Hartford-Springfield)",
+      "connection": "CTtransit Route 24 bus; or Bradley Flyer to Hartford Union Station",
+      "phone": "Amtrak 1-800-872-7245"
+    },
+    "taxi": {
+      "pickup": "Between Doors 2 and 3, Arrivals/Baggage Claim level (attendant on site)",
+      "phone": "(860) 627-3128",
+      "note": "Fares not published by the airport — call the number above."
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft"],
+      "pickupLocation": "Outside Door #2, Arrivals/Baggage Claim level ('Ride App Pick-up' sign)",
+      "note": "Uber and Lyft are the only authorized ride apps."
+    },
+    "rentalCars": {
+      "location": "Ground Transportation Center, 180 Schoephoester Road — walk from Terminal A via the connector by Door #6 (level 2). No shuttle needed. Floor 2: Avis, Budget, Payless. Floor 3: Enterprise, National, Alamo. Floor 4: Hertz, Dollar, Thrifty.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Hertz", "National", "Payless", "Thrifty"],
+      "totalBrands": 9,
+      "note": "No parking for personal vehicles at the rental car pick-up area — park in an airport lot first. Opened 2022 ($210 million, 2,800 rental car spaces)."
+    },
+    "otherShuttles": {
+      "seemoShuttle": "Seemo Shuttle — Bradley to the Five College area, Western MA: (413) 586-1120",
+      "limousines": "Limousines must be pre-arranged; the airport lists authorized providers on its taxi/limo page."
+    },
+    "hotelShuttles": "Triply's three BDL lots are all 1.1-1.3 mi from the terminal in Windsor Locks: Days Inn (Ella Grasso Tpke, 1.1 mi), Econo Lodge Inn & Suites (Old County Rd, 1.2 mi) and Motel 6 (National Drive, 1.3 mi). Call the lot after you collect your bags."
+  },
+  "parkingRates": "On-airport (official daily rates, taxes included): Economy Lot 4 $7 ($42/week), Economy Lot 3 $8 ($48/week), Park & Walk Lot 2 $10 ($60/week, no shuttle, credit card only), Express Lot 1 $12 ($72/week), Garage $30 ($135/week); Lot 5B overflow $35/week when open. No reservations — arrive and park. Off-site via Triply: three Windsor Locks hotel lots from ~$5.49/day.",
+  "onAirportParking": {
+    "economyLot4": {
+      "name": "BDL Economy Lot 4",
+      "rate": "$7/day (2-24 hrs); $42/week (6-7 days); $5 first hour, $6 1-2 hrs",
+      "dailyMax": 7,
+      "weeklyRate": 42,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/lot-4",
+      "location": "Farther south along Route 75 (23 Schoephoester Rd area)",
+      "connection": "Free shuttle to Terminal A on a continuous loop, 24/7; trunk-to-trunk service, drivers help with luggage.",
+      "features": "Cheapest everyday official lot. Lost car locate, tire inflate and battery jump available."
+    },
+    "economyLot3": {
+      "name": "BDL Economy Lot 3",
+      "rate": "$8/day (4-24 hrs); $48/week (6-7 days); $5 first hour, $6 1-2 hrs, $7 2-3 hrs",
+      "dailyMax": 8,
+      "weeklyRate": 48,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/lot-3",
+      "location": "Southeast of the terminals",
+      "connection": "Free shuttle to Terminal A on a continuous loop, 24/7; trunk-to-trunk service.",
+      "features": "Being expanded — the old Postal Road was permanently closed for the Lot 3 expansion. Lost car locate, tire inflate, battery jump."
+    },
+    "parkAndWalkLot2": {
+      "name": "BDL Park & Walk Lot 2",
+      "rate": "$10/day (4-24 hrs); $60/week (6-7 days); $5 first hour up to $8 at 3-4 hrs",
+      "dailyMax": 10,
+      "weeklyRate": 60,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/lot-2",
+      "location": "Across from Terminal B (International Arrivals Building)",
+      "connection": "No shuttle — short walk to Terminal A and Terminal B (crosswalk).",
+      "features": "Credit card only. Best lot for meeting Terminal B international arrivals."
+    },
+    "expressLot1": {
+      "name": "BDL Express Lot 1",
+      "rate": "$12/day (5-24 hrs); $72/week (6-7 days); $5 first hour up to $9 at 4-5 hrs",
+      "dailyMax": 12,
+      "weeklyRate": 72,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/lot-1",
+      "location": "Near Terminal B",
+      "connection": "Dedicated free shuttle to Terminal A on a continuous loop, 24/7; also a short walk to Terminal A and Terminal B.",
+      "features": "Lost car locate, tire inflate, battery jump."
+    },
+    "garage": {
+      "name": "BDL Garage",
+      "rate": "$30/day (4-24 hrs); $135/week (5-7 days); $4 first 30 min, $6 to 1 hr, then +$2 per 30 min to $18 at 3.5-4 hrs",
+      "dailyMax": 30,
+      "weeklyRate": 135,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/garage",
+      "serves": "Terminal A (closest parking to all airlines)",
+      "features": "Covered. Blended short- and long-term rate. Height limit 6'8\" except ground floor 9'6\". Lost car locate, tire inflate, battery jump."
+    },
+    "lot5B": {
+      "name": "BDL Lot 5B (overflow)",
+      "rate": "$35/week (6-7 days)",
+      "weeklyRate": 35,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.parkbradleyairport.com/lot-5b",
+      "location": "Light Lane, just north of the Cell Phone Lot",
+      "note": "Overflow lot open only when needed. Pay the cashier on entry; credit/debit card only. Overflow Lots 5A and 5D also appear on the parking map."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Lot",
+      "location": "Light Lane, under 3 minutes' drive from Terminal A",
+      "cost": "FREE",
+      "rules": "No waiting at the curb or the arrivals pick-up area; wait here until your passenger calls.",
+      "source": "https://bradleyairport.com/directions-parking/cell-phone-lot/"
+    },
+    "evCharging": {
+      "locations": ["Cell Phone Waiting Lot (2 charging stations)"],
+      "totalPorts": "2 stations published (Cell Phone Lot)",
+      "note": "No EV chargers are listed for the Garage or economy lots on the official parking site.",
+      "source": "https://bradleyairport.com/directions-parking/cell-phone-lot/"
+    },
+    "parkingAdvantageProgram": {
+      "name": "sPARK Rewards (Frequent Parker Program)",
+      "status": "Active",
+      "earning": "1 point per $1 spent (after tax) in any BDL lot or garage; one-time $30 automated pass; points do not expire, no blackout dates; accounts with no activity for 18 months are closed",
+      "redemption": "1 free day: Garage 300 pts, Lot 1 120, Lot 2 100, Lot 3 80, Lot 4 70. 1 free week: Garage 1,350, Lot 1 720, Lot 2 600, Lot 3 480, Lot 4 420 (as of Oct 1, 2025). Redemption does not reserve a space.",
+      "note": "Questions: (877) 735-9280, Mon-Fri 8 AM-5 PM ET, info@parkbradley.com.",
+      "source": "https://www.parkbradleyairport.com/faqs"
+    },
+    "reservations": "None — the airport says no reservation is needed: arrive and park. Lot status (Available / Full) shows on parkbradleyairport.com.",
+    "accessibleParking": "Not detailed on parkbradleyairport.com — call Parking (860) 627-3555 (24/7).",
+    "paymentMethods": "Lot 2 is credit card only; Lot 5B is credit/debit only (pay cashier on entry). sPARK Rewards automated passes charge a card on file.",
+    "parkingContact": "BDL Parking (SP Plus), 24/7/365: (860) 627-3555",
+    "garageServiceAreas": "Garage and Lot 2 → walk to Terminal A. Lots 1, 3, 4 → free 24/7 shuttle (airport FAQ: every ten minutes)."
+  },
+  "parkingLots": [
+    {
+      "name": "Econo Lodge Inn & Suites",
+      "slug": "econo-lodge-inn-suites",
+      "dailyRate": 6.33,
+      "reservationRate": 6.33,
+      "parkingType": "Limited valet (hotel lot — front desk parks your car)",
+      "amenities": ["24/7 Front Desk", "Valet"],
+      "shuttleInfo": "Complimentary shuttle every 30 minutes, leaving at :15 and :45 past the hour. For a ride to the terminal between 3:15 AM and 5:15 AM you must call the hotel at least 24 hours ahead — seats are limited and not guaranteed. Leave your keys with the front desk and keep the claim check. On return, call (860) 623-2533 after collecting luggage and board the van marked Econo Lodge at the lower-level arrivals curb for hotel shuttles.",
+      "overview": "Hotel park-and-fly lot minutes from Bradley with a free shuttle, no room reservation needed and no extra charge for full-size vans, pickup trucks or large SUVs. Limited valet: front desk staff park your car and return your keys against a claim check.",
+      "address": "34 Old County Rd, Windsor Locks, CT 06096",
+      "distanceFromAirport": "1.2 mi",
+      "phone": "860-623-2533",
+      "notes": "Lowest sellable rate at BDL on 2026-10-16 ($52.90 grand total for a 7-night Nov 2-9 stay, 8 billed days; same on Nov 9-16 and 16-23). No box trucks, RVs or commercial vehicles. Early flights: 3:15-5:15 AM rides need a call 24 hours ahead. Overstays are settled at the front desk before you get your keys.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Motel 6 Windsor Locks",
+      "slug": "motel-6-windsor-locks",
+      "dailyRate": 6.25,
+      "reservationRate": 6.25,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": [],
+      "shuttleInfo": "Complimentary shuttle 24/7, every 30-45 minutes. On arrival, fill in the parking registration form at the front desk and show your online reservation confirmation before parking. Shuttle has limited accessibility equipment — call ahead if you need special transport. On return, call 860-370-5350 after collecting luggage; staff will tell you the pickup spot. Sign the checkout form at the desk before leaving.",
+      "overview": "Hotel lot about 1.2-1.3 mi from Bradley with well-lit exterior parking under 24/7 CCTV, designated accessible spaces, and a 24/7 airport shuttle. Free lobby coffee 5-9 AM for registered guests.",
+      "address": "3 National Drive, Windsor Locks, CT 06096",
+      "distanceFromAirport": "1.3 mi",
+      "phone": "860-370-5350",
+      "notes": "$53.00 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Only Triply BDL lot with a 24/7 shuttle and no advance-call window. If your return is delayed, call the hotel — unannounced late pickups can mean extra fees or towing.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Days Inn Windsor Locks Bradley",
+      "slug": "days-inn-windsor-locks-bradley",
+      "dailyRate": 9.35,
+      "reservationRate": 9.35,
+      "parkingType": "Self-park (hotel lot)",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi", "Breakfast Included"],
+      "shuttleInfo": "Every 30 minutes 3:25 AM-9:25 AM; on demand 9:25 AM-3:20 AM. Register your vehicle at the front desk for a dashboard tag. Outside shuttle hours, guests must arrange their own Uber, Lyft or taxi. On return, call (860) 623-9417 after collecting luggage.",
+      "overview": "Days Inn by Wyndham Windsor Locks Bradley Airport, about a 3-minute drive from BDL, with free shuttle on every reservation, Wi-Fi and restrooms for parkers, and staff on site 24 hours.",
+      "address": "185 Ella Grasso Turnpike, Windsor Locks, CT 06096",
+      "distanceFromAirport": "1.1 mi",
+      "driveTime": "About 3 minutes (per listing)",
+      "phone": "(860) 623-9417",
+      "notes": "$78.82 grand total for Nov 2-9 (8 billed days), same on all three test weeks. Closest Triply BDL lot. Scheduled shuttles from 3:25 AM suit 5-6 AM departures.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "The Parking Spot (BDL)",
+      "address": "9 Schoephoester Rd, Windsor Locks, CT 06096",
+      "parkingType": "Covered valet and uncovered self-park (off-airport operator)",
+      "phone": "860-627-8201",
+      "notes": "Major off-airport operator near BDL. Not sold on Triply — comparison only; never use in a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "LAZ Fly Airport Parking",
+      "address": "Ella Grasso Turnpike (Route 75), Windsor Locks, CT 06096",
+      "parkingType": "Valet and self-park lots (off-airport operator)",
+      "notes": "Off-airport operator with lots on Route 75. Not sold on Triply — comparison only; never use in a CTA.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Express Lot 1, Economy Lot 3 and Economy Lot 4 run free shuttles to Terminal A on a continuous 24/7 loop (airport FAQ: every ten minutes); Lot 2 and the Garage are walk-to. Off-site: Triply's three BDL lots are 1.1-1.3 mi away. Motel 6 runs 24/7 every 30-45 min; Days Inn every 30 min from 3:25 AM, on demand otherwise (none 3:20-3:25 AM); Econo Lodge every 30 min but 3:15-5:15 AM rides must be booked 24 hours ahead. Call the lot after collecting bags.",
+  "distanceFromCity": "About 15-20 minutes' drive north of downtown Hartford via I-91 (airport figures); about 15 minutes south of Springfield, MA.",
+  "keyDistances": {
+    "toDowntownHartford": "15-20 minutes by car; ~30 minutes on the CTtransit 30-Bradley Flyer",
+    "toSpringfieldMA": "~15 minutes by car",
+    "toWindsorLocksRailStation": "~3 miles (CTtransit Route 24)",
+    "toTriplyLots": "1.1-1.3 mi (Days Inn, Econo Lodge Inn & Suites, Motel 6 — all in Windsor Locks)",
+    "toBostonMA": "~2 hours by car",
+    "competitiveAdvantage": "All three Triply BDL lots are within ~1.3 miles and bookable in advance — BDL's own lots take no reservations and can fill at peak times."
+  },
+  "construction2026": {
+    "status": "Terminal A improvement program (more than $250 million; current projects 2025-2030): new 80,000 sq ft inline baggage screening facility, new exit lanes on both sides of the terminal, expanded TSA checkpoint, and a new three-gate concourse. Economy Lot 3 is being expanded.",
+    "projects": [
+      "Inline baggage screening facility and new exit lanes (vertical circulation)",
+      "New three-gate concourse in Terminal A (Wikipedia reports it is used by Breeze)",
+      "Economy Lot 3 expansion — old Postal Road permanently closed; post office now reached via a new road off Light Lane",
+      "Taxiway T extension (final environmental assessment published)"
+    ],
+    "travelImpact": "The airport says the Postal Road change affects post office access only, not terminal traffic. It also warns parking can be at or near capacity at times — allow extra time or use alternative parking on Schoephoester Road or Routes 20 and 75.",
+    "source": "https://bradleyairport.com/about/planning/"
+  },
+  "securityAndScreening": {
+    "checkpoints": "Main TSA checkpoint in the departures-level lobby (general lanes, CLEAR). Second checkpoint between the United ticket counter and the hallway to the Sheraton — TSA PreCheck (and PreCheck + CLEAR) only.",
+    "tsaPreCheck": {
+      "note": "PreCheck lanes moved to the second checkpoint, between the United ticket counter and the Sheraton hallway."
+    },
+    "clear": {
+      "note": "CLEAR available at both checkpoints."
+    },
+    "globalEntry": {
+      "note": "BDL has a Global Entry Enrollment Center. Cancun and charter arrivals clear CBP in Terminal B; Aer Lingus (Dublin) passengers pre-clear and arrive at Terminal A."
+    },
+    "standardWaitTimes": {
+      "peakHours": "4:00-7:30 AM and 3:00-5:30 PM (airport FAQ)",
+      "tips": "Most airline ticket counters open 4-5 AM; terminals are open 24 hours. Flippit mail-back box near the main checkpoint ($29) for prohibited items."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 90 minutes before departure (airport guidance)",
+      "international": "3 hours before departure",
+      "holidays": "Add time at peak periods — parking may be near capacity"
+    },
+    "source": "https://bradleyairport.com/learn/faq/"
+  },
+  "lounges": {
+    "terminalA": [
+      {
+        "name": "Escape Lounge",
+        "location": "Past security, near Gate 1",
+        "hours": "4:30 AM-8 PM daily",
+        "access": "$45 pre-book / $60 walk-up; Priority Pass (pre-book); free for Amex Platinum and Delta SkyMiles Reserve cardholders on Delta flights"
+      }
+    ],
+    "other": "Escape Lounge is the only lounge at BDL. Pets are not allowed in the lounge."
+  },
+  "wifi": {
+    "networkName": "BDLPublic",
+    "cost": "Free",
+    "coverage": "All terminals; free charging stations throughout"
+  },
+  "evCharging": {
+    "cellPhoneLot": {
+      "chargers": "2 stations",
+      "location": "Cell Phone Waiting Lot, Light Lane"
+    },
+    "note": "No EV chargers are listed for the Garage or economy lots on the official parking site. None of the Triply BDL lots list EV charging.",
+    "source": "https://bradleyairport.com/directions-parking/cell-phone-lot/"
+  },
+  "luggageStorage": {
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": 2,
+    "locations": ["Outdoor relief area, lower level next to Door #1", "Indoor relief area in Terminal A near the iStore"],
+    "note": "Pets must stay in kennels in the terminal (service animals excepted); no pets in the Escape Lounge.",
+    "source": "https://bradleyairport.com/learn/traveling-with-pets/"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["4:00-7:30 AM departure bank", "3:00-5:30 PM"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Spring break (heavy Florida demand on Breeze, JetBlue, Southwest), summer, Thanksgiving and Christmas/New Year. Winter getaways to Florida and the Caribbean drive January-March demand.",
+    "arrivalRecommendation": {
+      "domestic": "At least 90 minutes before departure (airport guidance)",
+      "international": "3 hours before departure",
+      "holidays": "Allow extra time to park and clear security during peaks"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid continental: cold, snowy winters and warm, humid summers in the Connecticut River valley.",
+    "commonDisruptions": "Snow, ice and nor'easters (December-March); summer thunderstorms; fog.",
+    "bestMonths": "June, September, October",
+    "worstMonths": "January-February",
+    "winterNote": "Allow extra time for snow on I-91 and for clearing your car. BDL lots offer battery jumps, tire inflation and lost-car locate. Econo Lodge's limited valet means staff move your car; Motel 6 and Days Inn are outdoor self-park.",
+    "note": "Bring a scraper if you park at an outdoor lot. Only the BDL Garage (and part of the Ground Transportation Center parking) is covered."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle combos in Windsor Locks. Triply sells parking-only at the three hotels below; room packages are booked with the hotel. The Sheraton Bradley is attached to Terminal A.",
+    "priceRange": "Parking-only via Triply from ~$5.49/day (2026-10-16 quote); room package pricing — ask the hotel",
+    "popularHotels": [
+      { "name": "Econo Lodge Inn & Suites", "distance": "1.2 miles (Old County Rd)", "shuttleHours": "Every 30 min; 3:15-5:15 AM by advance call", "highlight": "Cheapest Triply rate at BDL; limited valet; no oversize charge for vans, pickups and large SUVs." },
+      { "name": "Motel 6 Windsor Locks", "distance": "1.3 miles (National Drive)", "shuttleHours": "24/7, every 30-45 min", "highlight": "24/7 shuttle and CCTV-monitored lot." },
+      { "name": "Days Inn Windsor Locks Bradley", "distance": "1.1 miles (Ella Grasso Tpke)", "shuttleHours": "Every 30 min 3:25-9:25 AM; on demand to 3:20 AM", "highlight": "Closest Triply lot; breakfast included." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. On-airport figures = 8 x the official daily rate. BDL also publishes weekly rates for 6-7 day stays (Garage 5-7) — Lot 4 $42, Lot 3 $48, Lot 2 $60, Lot 1 $72, Garage $135 — and does not publish how an 8th day is billed, so a weekly-plus-one-day bill could be lower (e.g. Lot 4 ~$49).",
+    "onAirport": {
+      "economyLot4": { "parkingCost": "$56 (8 x $7)", "totalEstimate": "$56" },
+      "economyLot3": { "parkingCost": "$64 (8 x $8)", "totalEstimate": "$64" },
+      "parkAndWalkLot2": { "parkingCost": "$80 (8 x $10)", "totalEstimate": "$80" },
+      "expressLot1": { "parkingCost": "$96 (8 x $12)", "totalEstimate": "$96" },
+      "garage": { "parkingCost": "$240 (8 x $30)", "totalEstimate": "$240" }
+    },
+    "offSiteWithShuttle": {
+      "econoLodgeInnSuites": { "parkingCost": "$52.90 quoted grand total (~$5.49/day before fees)", "savingsVsEconomyLot4": "~$3 saved (but roughly even or slightly dearer if Lot 4's weekly rate applies)", "savingsVsGarage": "~$187 saved", "caveat": "Limited valet; 3:15-5:15 AM shuttle rides need a call 24 hours ahead" },
+      "motel6WindsorLocks": { "parkingCost": "$53.00 quoted grand total (~$5.95/day before fees)", "savingsVsEconomyLot4": "~$3 saved (roughly even if Lot 4's weekly rate applies)", "savingsVsGarage": "~$187 saved", "caveat": "Self-park; register and sign out at the front desk" },
+      "daysInnWindsorLocksBradley": { "parkingCost": "$78.82 quoted grand total (~$7.95/day before fees)", "savingsVsEconomyLot4": "costs ~$23 more", "savingsVsExpressLot1": "~$17 saved", "savingsVsGarage": "~$161 saved", "caveat": "No shuttle 3:20-3:25 AM; breakfast included" }
+    },
+    "keyDifference": "BDL's own Economy Lot 4 ($7/day, $42/week) is one of the cheapest official airport lots in the U.S., so never claim Triply 'saves big' versus Lot 4 — Econo Lodge and Motel 6 only roughly match it, and Days Inn costs more. Anchor savings against the $30 Garage and $12 Express Lot 1, and sell Triply on a reserved spot (BDL takes no reservations and lots can fill), Econo Lodge's valet and Motel 6's 24/7 shuttle."
+  },
+  "uniqueFeatures": {
+    "eugeneBradley": "Named for 2nd Lt. Eugene M. Bradley, a 24-year-old pilot killed in a 1941 training flight at the field.",
+    "attachedHotel": "The Sheraton Hartford Hotel at Bradley is attached to Terminal A — walk from gate to front desk.",
+    "concorde": "One of three U.S. diversion airports for the Concorde; a British Airways Concorde diverted here in February 2003.",
+    "newEnglandAirMuseum": "The New England Air Museum sits next to the airport.",
+    "airGuard": "Home of the Connecticut Air National Guard's 103rd Airlift Wing (C-130s) and Connecticut Army National Guard aviation units.",
+    "breezeBase": "Breeze Airways has operated a base at BDL since 2022.",
+    "groundTransportationCenter": "$210 million Ground Transportation Center (2022) consolidated all rental cars and added 830 public parking spaces, more than half covered."
+  },
+  "emergencyContacts": {
+    "airportInfo": "(860) 292-2000",
+    "airportMain": "(860) 292-2000",
+    "airportWebsite": "bradleyairport.com",
+    "parkingInfo": "parkbradleyairport.com",
+    "parkingPhone": "(860) 627-3555 (24/7)",
+    "sparkRewards": "(877) 735-9280 (Mon-Fri 8 AM-5 PM ET)",
+    "lostAndFound": "Connecticut State Police (items found on airport grounds): (860) 292-7400; TSA checkpoint items via tsa.gov; on-board items via your airline",
+    "taxi": "(860) 627-3128",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "amtrak": "1-800-872-7245",
+    "emergency": "911 — state you are at Bradley International Airport, Windsor Locks"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://bradleyairport.com/",
+      "parkingSite": "https://www.parkbradleyairport.com/",
+      "garage": "https://www.parkbradleyairport.com/garage",
+      "expressLot1": "https://www.parkbradleyairport.com/lot-1",
+      "parkAndWalkLot2": "https://www.parkbradleyairport.com/lot-2",
+      "economyLot3": "https://www.parkbradleyairport.com/lot-3",
+      "economyLot4": "https://www.parkbradleyairport.com/lot-4",
+      "lot5B": "https://www.parkbradleyairport.com/lot-5b",
+      "parkingMap": "https://www.parkbradleyairport.com/parking-map",
+      "parkingFaqs": "https://www.parkbradleyairport.com/faqs",
+      "sparkRewards": "https://www.parkbradleyairport.com/spark-rewards",
+      "cellPhoneLot": "https://bradleyairport.com/directions-parking/cell-phone-lot/",
+      "directions": "https://bradleyairport.com/directions-parking/",
+      "publicTransportation": "https://bradleyairport.com/directions-parking/public/",
+      "taxiRideApp": "https://bradleyairport.com/directions-parking/taxi-limo-rideapp/",
+      "rentalCars": "https://bradleyairport.com/directions-parking/rental-cars/",
+      "groundTransportationCenter": "https://bradleyairport.com/transport/ground-transportation-center/",
+      "airlines": "https://bradleyairport.com/journey/airlines/",
+      "securityPrograms": "https://bradleyairport.com/learn/security-screening-programs/",
+      "faq": "https://bradleyairport.com/learn/faq/",
+      "travelAdvisories": "https://bradleyairport.com/journey/travel-advisories/",
+      "airportImprovements": "https://bradleyairport.com/about/planning/",
+      "internationalTravel": "https://bradleyairport.com/learn/international-travel/",
+      "escapeLounge": "https://bradleyairport.com/enjoy/escape-lounge/",
+      "pets": "https://bradleyairport.com/learn/traveling-with-pets/",
+      "wifi": "https://bradleyairport.com/learn/wi-fi-charging-stations/",
+      "lostAndFound": "https://bradleyairport.com/learn/lost-found/"
+    },
+    "transit": {
+      "cttransit": "https://www.cttransit.com/",
+      "hartfordLine": "https://www.hartfordline.com/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/bdl/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=BDL"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KBDL",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/BDL"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/Bradley_International_Airport"
+    },
+    "newsAndMedia": {
+      "courant": "https://www.courant.com/",
+      "wfsb": "https://www.wfsb.com/",
+      "nbcConnecticut": "https://www.nbcconnecticut.com/"
+    }
+  }
+}

@@ -18,7 +18,7 @@ import type { Metadata } from "next";
 import CheckoutCompleteClient from "./complete-client";
 
 export const metadata: Metadata = {
-  title: "Confirming your booking | Triply",
+  title: "Confirming your booking",
   // Never let a URL carrying a payment client_secret be indexed or sent as a
   // referrer to a third party.
   robots: { index: false, follow: false },

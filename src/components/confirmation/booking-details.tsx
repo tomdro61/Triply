@@ -55,7 +55,8 @@ interface BookingDetailsProps {
   checkOut: string;
   checkInTime: string;
   checkOutTime: string;
-  days: number;
+  /** Billed days; null → the Duration row is not shown. */
+  days: number | null;
   customerName?: string;
   customerEmail?: string;
   customerPhone?: string;
@@ -292,16 +293,18 @@ export function BookingDetails({
           </div>
         </div>
 
-        {/* Duration */}
-        <div className="flex items-center p-4 bg-brand-orange/10 rounded-lg mb-6">
-          <Clock size={20} className="text-brand-orange mr-3" />
-          <div>
-            <p className="text-sm text-gray-600">Duration</p>
-            <p className="font-bold text-gray-900">
-              {days} {days === 1 ? "day" : "days"}
-            </p>
+        {/* Duration — hidden when the day count is unknown (never a guessed figure) */}
+        {days !== null && (
+          <div className="flex items-center p-4 bg-brand-orange/10 rounded-lg mb-6">
+            <Clock size={20} className="text-brand-orange mr-3" />
+            <div>
+              <p className="text-sm text-gray-600">Duration</p>
+              <p className="font-bold text-gray-900">
+                {days} {days === 1 ? "day" : "days"}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Payment summary — rendered from the server's checked breakdown,
             or the plain fallback when it was refused. */}
