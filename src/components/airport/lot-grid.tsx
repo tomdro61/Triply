@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Airport } from "@/config/airports";
 import { UnifiedLot } from "@/types/lot";
-import { MapPin, Bus, ArrowRight } from "lucide-react";
+import { MapPin, Bus, ArrowRight, Star } from "lucide-react";
 
 interface LotGridProps {
   airport: Airport;
@@ -38,6 +38,15 @@ function LotCard({ lot, airportSlug }: { lot: UnifiedLot; airportSlug: string })
         <h3 className="font-semibold text-gray-900 text-sm line-clamp-1 group-hover:text-brand-orange transition-colors">
           {lot.name}
         </h3>
+
+        {/* Verified Triply rating (src/lib/reviews/summary.ts); unset below the minimum count */}
+        {lot.rating !== undefined && (
+          <div className="flex items-center gap-1 mt-1 text-xs">
+            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+            <span className="font-semibold text-gray-800">{lot.rating.toFixed(1)}</span>
+            <span className="text-gray-400">({lot.reviewCount ?? 0} ratings)</span>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 mt-2 text-xs text-gray-500">
           {distance !== undefined && (
