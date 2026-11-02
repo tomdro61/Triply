@@ -16,6 +16,32 @@ const c: ReviewCandidate = {
 const NOW = Date.UTC(2026, 9, 9, 23, 0);
 const FOOTER = { postalAddress: "88 Broadway, Revere, MA 02151" };
 
+describe("buildReviewEmail — backfill", () => {
+  const old: ReviewCandidate = { ...c, kind: "backfill", checkoutDate: "2026-03-14", linkFromDate: "2026-10-09" };
+
+  it("names the trip's month, says it asks once, and keys idempotency on 'backfill'", () => {
+    const { subject, text } = buildReviewEmail(old, FOOTER);
+    expect(subject).toBe("How was Jet <Parking> JFK in March 2026?");
+    expect(text).toContain("in March 2026");
+    expect(text).toContain("We'll only ask once.");
+    expect(reviewIdempotencyKey(old.bookingId, "backfill")).toBe(`post-trip-review/${old.bookingId}/backfill`);
+  });
+
+  it("runs the link from the campaign date, so a months-old trip still gets a live link", () => {
+    const { text } = buildReviewEmail(old, FOOTER);
+    const token = /\/review\/([^?\s]+)\?r=1/.exec(text)?.[1] ?? "";
+    expect(verifyReviewToken(token, NOW).ok).toBe(true);
+    // Measured from the trip it would have died in May.
+    const { text: tripBased } = buildReviewEmail({ ...old, kind: "initial" }, FOOTER);
+    const dead = /\/review\/([^?\s]+)\?r=1/.exec(tripBased)?.[1] ?? "";
+    expect(verifyReviewToken(dead, NOW)).toEqual({ ok: false, reason: "expired" });
+  });
+
+  it("refuses to build without a campaign date", () => {
+    expect(() => buildReviewEmail({ ...old, linkFromDate: undefined }, FOOTER)).toThrow(/linkFromDate/);
+  });
+});
+
 describe("buildReviewEmail", () => {
   it("has the lot in the subject and five signed star links, ?r=1..5", () => {
     const { subject, text, html } = buildReviewEmail(c, FOOTER);

@@ -45,7 +45,9 @@ export const REMINDER_MIN_HOURS_AFTER_INITIAL = 48;
  *  refunded, payment_failed and disputed are never asked for a review. */
 export const REVIEWABLE_STATUSES: readonly string[] = ["confirmed", "completed"];
 
-export type ReviewEmailKind = "initial" | "reminder";
+/** "backfill" is the one-time ask to past customers (src/lib/reviews/backfill.ts);
+ *  selectReviewSends only ever produces "initial" and "reminder". */
+export type ReviewEmailKind = "initial" | "reminder" | "backfill";
 
 export interface ReviewBookingRow {
   id: string;
@@ -66,6 +68,14 @@ export interface ReviewBookingRow {
 
 export interface ReviewLedgerRow {
   bookingId: string;
+  /** The lowercased recipient (review_emails.email). The backfill reads the
+   *  whole ledger and judges "already asked" by this, so an ask on a booking
+   *  outside the candidate read (older, later refunded) still counts. */
+  email?: string | null;
+  /** The mode of the deployment that sent it (review_emails.livemode). The
+   *  backfill reads the whole shared ledger, so a parked `retry` row of the
+   *  OTHER mode must be ignored, not re-sent or alarmed as expired. */
+  livemode?: boolean | null;
   kind: ReviewEmailKind;
   status: "claimed" | "retry" | "sent" | "failed" | "unconfirmed";
   sentAt: string | null;
@@ -83,6 +93,9 @@ export interface ReviewCandidate {
   airportCode: string | null;
   /** Literal "YYYY-MM-DD" check-out date. */
   checkoutDate: string;
+  /** Backfill only: the campaign's "YYYY-MM-DD". Its review links expire
+   *  relative to this date — a trip months old would otherwise get a dead link. */
+  linkFromDate?: string;
 }
 
 export interface ReviewSelection {

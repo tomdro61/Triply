@@ -13,6 +13,7 @@ import {
   type ReviewCandidate,
   type ReviewLedgerRow,
 } from "@/lib/reviews/select";
+import { BACKFILL_MAX_DAYS_AFTER, selectBackfillSends, summarizeBackfill } from "@/lib/reviews/backfill";
 import {
   buildReviewEmail,
   classifySendFailure,
@@ -58,6 +59,17 @@ import {
  * Opted-out addresses (review opt-outs, recovery opt-outs, unsubscribed
  * newsletter/waitlist) are skipped; an unreadable opt-out list sends nothing.
  *
+ * BACKFILL (run by hand, never scheduled): the ONE-TIME review ask to past
+ * customers, src/lib/reviews/backfill.ts. `?backfill=preview` reads the last
+ * year of bookings and returns who WOULD be asked (counts by airport, lot and
+ * check-out month; no addresses) — it writes nothing and sends nothing, so it
+ * runs with the flags off. `?backfill=send&campaign=YYYY-MM-DD&limit=N` sends
+ * up to N (≤ MAX_SENDS_PER_RUN) through the same ledger as the daily email
+ * (kind 'backfill', migration 044); it additionally needs
+ * REVIEW_BACKFILL_ENABLED=true, and `campaign` must be today or up to 30 days
+ * back (links expire 60 days after it; ONE date for the whole campaign). Run it again for the next batch: the
+ * ledger skips everyone already asked.
+ *
  * Gated by POST_TRIP_REVIEW_EMAILS_ENABLED=true so the code can merge dark.
  * Needs REVIEW_SIGNING_SECRET (links) and TRIPLY_POSTAL_ADDRESS (the footer of
  * commercial mail); refuses with 503 without either.
@@ -79,6 +91,25 @@ const LOOKBACK_DAYS = 8;
 const STALE_CLAIM_MS = 15 * 60_000;
 /** PostgREST's default row cap; hitting it means rows may be missing. */
 const ROW_CAP = 1000;
+/** The backfill pages its year-long reads under ROW_CAP up to this many rows; past it, it refuses. */
+const BACKFILL_ROW_CAP = 10_000;
+/** The backfill also reads trips AHEAD (booking window 100 days + a stay), so a
+ *  customer with a trip coming up is left to the daily email, not asked twice. */
+const BACKFILL_LOOKAHEAD_DAYS = 120;
+/** Checkout bookings created before this carry no pending_bookings guest
+ *  snapshot (the table arrived with migration 015; measured Nov 1, 2026: every
+ *  live booking without one was created before 15:57 UTC on July 22, every one
+ *  after 17:32 UTC has one). For a GUEST checkout (customers.user_id NULL) the
+ *  customers row was found or created by the email typed at checkout, so it is
+ *  the booked guest and the backfill may use it. A signed-in customer's booking
+ *  was attached to the ACCOUNT's row first (the pre-rework handler looked up
+ *  by user_id before email), which may not be who travelled — those are
+ *  skipped and counted (legacyAccountHolder). Accepted residual risk: an
+ *  account deleted since (customers.user_id ON DELETE SET NULL) whose holder
+ *  booked for someone else before July 22 would pass as a guest checkout —
+ *  three rare conditions at once, and the only alternative evidence is a
+ *  Stripe read per legacy booking. The daily run never sees such rows. */
+const GUEST_SNAPSHOT_SINCE = "2026-07-22T17:00:00Z";
 /** Ids per `.in()` filter, so the request URL stays short. */
 const IN_CHUNK = 150;
 /** Addresses per opt-out lookup; small enough that a full page means trouble. */
@@ -126,6 +157,7 @@ function fail(stage: string, message: string) {
 const customerSchema = z.object({
   email: z.string().nullable(),
   first_name: z.string().nullable(),
+  user_id: z.string().nullish(),
 });
 
 const bookingRowSchema = z.object({
@@ -140,15 +172,18 @@ const bookingRowSchema = z.object({
   location_timezone: z.string().nullable(),
   livemode: z.boolean().nullable(),
   stripe_payment_intent_id: z.string().nullable(),
+  created_at: z.string().nullish(),
   // PostgREST returns a many-to-one embed as an object; accept an array too.
   customers: z.union([customerSchema, z.array(customerSchema)]).nullable(),
 });
 
 const ledgerRowSchema = z.object({
   booking_id: z.string(),
-  kind: z.enum(["initial", "reminder"]),
+  kind: z.enum(["initial", "reminder", "backfill"]),
   status: z.enum(["claimed", "retry", "sent", "failed", "unconfirmed"]),
   sent_at: z.string().nullable(),
+  email: z.string().nullish(),
+  livemode: z.boolean().nullish(),
 });
 
 /** pending_bookings.customer — the guest the booking was made for. */
@@ -158,7 +193,7 @@ const guestSchema = z.object({
 });
 
 const BOOKING_COLS =
-  "id, status, cancel_state, check_out, location_name, airport_code, reslab_location_id, direct_lot_id, location_timezone, livemode, stripe_payment_intent_id, customers!inner(email, first_name)";
+  "id, status, cancel_state, check_out, location_name, airport_code, reslab_location_id, direct_lot_id, location_timezone, livemode, stripe_payment_intent_id, created_at, customers!inner(email, first_name, user_id)";
 
 type Guest = { email: string; firstName: string | null };
 
@@ -272,25 +307,72 @@ async function readState(
     const [l, r] = await Promise.all([
       supabase
         .from("review_emails")
-        .select("booking_id, kind, status, sent_at")
+        .select("booking_id, kind, status, sent_at, email, livemode")
         .in("booking_id", ids)
         .abortSignal(dbSignal()),
       supabase.from("booking_reviews").select("booking_id").in("booking_id", ids).abortSignal(dbSignal()),
     ]);
     if (l.error) throw new Error(`review_emails read failed: ${l.error.message}`);
     if (r.error) throw new Error(`booking_reviews read failed: ${r.error.message}`);
-    for (const raw of l.data ?? []) {
-      const p = ledgerRowSchema.safeParse(raw);
-      if (!p.success) throw new Error(`review_emails row failed validation: ${p.error.message}`);
-      ledger.push({ bookingId: p.data.booking_id, kind: p.data.kind, status: p.data.status, sentAt: p.data.sent_at });
-    }
-    for (const raw of r.data ?? []) {
-      const p = z.object({ booking_id: z.string() }).safeParse(raw);
-      if (!p.success) throw new Error(`booking_reviews row failed validation: ${p.error.message}`);
-      reviewed.add(p.data.booking_id);
-    }
+    for (const raw of l.data ?? []) ledger.push(toLedgerRow(raw));
+    for (const raw of r.data ?? []) reviewed.add(toReviewedId(raw));
   }
   return { ledger, reviewed };
+}
+
+function toLedgerRow(raw: unknown): ReviewLedgerRow {
+  const p = ledgerRowSchema.safeParse(raw);
+  if (!p.success) throw new Error(`review_emails row failed validation: ${p.error.message}`);
+  return {
+    bookingId: p.data.booking_id,
+    kind: p.data.kind,
+    status: p.data.status,
+    sentAt: p.data.sent_at,
+    email: p.data.email ?? null,
+    livemode: p.data.livemode ?? null,
+  };
+}
+
+function toReviewedId(raw: unknown): string {
+  const p = z.object({ booking_id: z.string() }).safeParse(raw);
+  if (!p.success) throw new Error(`booking_reviews row failed validation: ${p.error.message}`);
+  return p.data.booking_id;
+}
+
+/** Every page of a table in a stable order, under PostgREST's row cap, up to
+ *  `cap` rows. Throws on a read error or past the cap (the caller fails closed). */
+async function readAllPages(
+  label: string,
+  cap: number,
+  page: (from: number, to: number) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
+): Promise<unknown[]> {
+  const rows: unknown[] = [];
+  for (let from = 0; from <= cap; from += ROW_CAP) {
+    const to = Math.min(from + ROW_CAP - 1, cap);
+    const { data, error } = await page(from, to);
+    if (error) throw new Error(`${label} read failed: ${error.message}`);
+    const got = data ?? [];
+    rows.push(...got);
+    if (got.length < to - from + 1) break;
+  }
+  if (rows.length > cap) throw new Error(`${label} read exceeds ${cap} rows; refusing to judge a partial set`);
+  return rows;
+}
+
+/** The WHOLE ledger and every reviewed booking, for the backfill's "asked at
+ *  most once, ever" — judged by recipient address, so an ask on a booking the
+ *  candidate read never saw (older than a year, since refunded or disputed)
+ *  still counts. Both tables are small (one row per email sent / review left). */
+async function readWholeState(supabase: Supabase): Promise<{ ledger: ReviewLedgerRow[]; reviewed: Set<string> }> {
+  const [l, r] = await Promise.all([
+    readAllPages("review_emails", BACKFILL_ROW_CAP, (from, to) =>
+      supabase.from("review_emails").select("booking_id, kind, status, sent_at, email, livemode").order("id").range(from, to).abortSignal(dbSignal())
+    ),
+    readAllPages("booking_reviews", BACKFILL_ROW_CAP, (from, to) =>
+      supabase.from("booking_reviews").select("booking_id").order("id").range(from, to).abortSignal(dbSignal())
+    ),
+  ]);
+  return { ledger: l.map(toLedgerRow), reviewed: new Set(r.map(toReviewedId)) };
 }
 
 /** Old `claimed` rows: never-reached-Resend ones are removed (the booking is
@@ -438,8 +520,23 @@ export async function GET(request: NextRequest) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const plan = parsePlan(request, Date.now());
+  if ("error" in plan) return NextResponse.json({ ok: false, error: plan.error }, { status: 400 });
+  if (plan.kind === "backfill" && plan.mode === "preview") {
+    // Reads only: no send, no ledger write, so no flag, secret or address needed.
+    const mode = stripeKeyMode();
+    if (!mode) return respond({ ok: false, error: "deployment mode is unknown" }, 503);
+    try {
+      return await run({ postalAddress: "" }, mode === "live", plan);
+    } catch (error) {
+      return fail("unhandled", errorMessage(error));
+    }
+  }
   if (process.env.POST_TRIP_REVIEW_EMAILS_ENABLED !== "true") {
     return NextResponse.json({ ok: true, disabled: true });
+  }
+  if (plan.kind === "backfill" && process.env.REVIEW_BACKFILL_ENABLED !== "true") {
+    return NextResponse.json({ ok: true, disabled: true, backfill: true });
   }
   try {
     assertReviewSigningSecret();
@@ -463,39 +560,87 @@ export async function GET(request: NextRequest) {
     return respond({ ok: false, error: "deployment mode is unknown" }, 503);
   }
   try {
-    return await run({ postalAddress }, mode === "live");
+    return await run({ postalAddress }, mode === "live", plan);
   } catch (error) {
     return fail("unhandled", errorMessage(error));
   }
 }
 
-async function run(footer: ReviewEmailFooter, live: boolean) {
+type RunPlan =
+  | { kind: "daily" }
+  | { kind: "backfill"; mode: "preview" }
+  | { kind: "backfill"; mode: "send"; campaignDate: string; limit: number };
+
+/** How far back a campaign date may be: its links expire 60 days after it. One
+ *  campaign = ONE date across every batch, so every link in the campaign
+ *  expires on the same day (the backfill idempotency key carries the date, so a
+ *  re-sent `retry` row under another date is a new key, not a 409); at ≤ 40 a
+ *  day a campaign runs for weeks, hence 30. */
+const BACKFILL_CAMPAIGN_MAX_AGE_DAYS = 30;
+
+/** The scheduled call has no query; anything else must be a well-formed backfill. */
+function parsePlan(request: NextRequest, nowMs: number): RunPlan | { error: string } {
+  const q = request.nextUrl.searchParams;
+  const backfill = q.get("backfill");
+  if (backfill === null) return { kind: "daily" };
+  if (backfill === "preview") return { kind: "backfill", mode: "preview" };
+  if (backfill !== "send") return { error: "backfill must be 'preview' or 'send'" };
+  const campaign = q.get("campaign") ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(campaign) || Number.isNaN(Date.parse(`${campaign}T00:00:00Z`))) {
+    return { error: "campaign must be a YYYY-MM-DD date" };
+  }
+  const today = new Date(nowMs).toISOString().slice(0, 10);
+  const oldest = new Date(nowMs - BACKFILL_CAMPAIGN_MAX_AGE_DAYS * 86_400_000).toISOString().slice(0, 10);
+  if (campaign > today || campaign < oldest) {
+    return { error: `campaign must be between ${oldest} and ${today}` };
+  }
+  const limitRaw = q.get("limit") ?? "";
+  const limit = /^\d{1,3}$/.test(limitRaw) ? Number(limitRaw) : Number.NaN;
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SENDS_PER_RUN) {
+    return { error: `limit must be 1..${MAX_SENDS_PER_RUN}` };
+  }
+  return { kind: "backfill", mode: "send", campaignDate: campaign, limit };
+}
+
+async function run(footer: ReviewEmailFooter, live: boolean, plan: RunPlan) {
   const nowMs = Date.now();
-  const elapsed = () => Date.now() - nowMs;
   const supabase = await createAdminClient();
-  const stale = await sweepStaleClaims(supabase, nowMs);
+  const preview = plan.kind === "backfill" && plan.mode === "preview";
+  const stale = preview ? { released: 0, alarmed: 0 } : await sweepStaleClaims(supabase, nowMs);
 
   // check_out is a literal TIMESTAMP; bounding it by two UTC calendar dates
   // (a day of slack each side) never converts the stored value — the
-  // selector makes the real, airport-local decision.
-  const from = new Date(nowMs - LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
-  const to = new Date(nowMs + 2 * 86_400_000).toISOString().slice(0, 10);
-  let query = supabase
-    .from("bookings")
-    .select(BOOKING_COLS)
-    .in("status", [...REVIEWABLE_STATUSES])
-    .gte("check_out", from)
-    .lt("check_out", to);
-  // .or() is fine on a SELECT (PostgREST rejects it only on UPDATE/DELETE).
-  query = live ? query.or("livemode.is.null,livemode.eq.true") : query.eq("livemode", false);
-  const { data, error } = await query
-    .order("check_out", { ascending: true })
-    .limit(ROW_CAP)
-    .abortSignal(dbSignal());
-  if (error) return fail("bookings_read", `bookings read failed: ${error.message}`);
-  const rawRows = data ?? [];
-  if (rawRows.length >= ROW_CAP) {
-    alarm("post_trip_review_row_cap", `post-trip-review: bookings read hit the ${ROW_CAP}-row cap; some trips may be skipped`, "warning");
+  // selector makes the real, airport-local decision. A backfill reads the
+  // whole year, so each address's latest trip and earlier asks are all seen.
+  const backfill = plan.kind === "backfill";
+  const lookbackDays = backfill ? BACKFILL_MAX_DAYS_AFTER + 2 : LOOKBACK_DAYS;
+  const lookaheadDays = backfill ? BACKFILL_LOOKAHEAD_DAYS : 2;
+  const from = new Date(nowMs - lookbackDays * 86_400_000).toISOString().slice(0, 10);
+  const to = new Date(nowMs + lookaheadDays * 86_400_000).toISOString().slice(0, 10);
+  const bookingsQuery = () => {
+    const q = supabase.from("bookings").select(BOOKING_COLS).in("status", [...REVIEWABLE_STATUSES]).gte("check_out", from).lt("check_out", to);
+    // .or() is fine on a SELECT (PostgREST rejects it only on UPDATE/DELETE).
+    return live ? q.or("livemode.is.null,livemode.eq.true") : q.eq("livemode", false);
+  };
+  let rawRows: unknown[];
+  if (backfill) {
+    // A year (plus the trips ahead) is more than one page: read every page in a
+    // stable order; past BACKFILL_ROW_CAP, refuse — a partial year could hide an
+    // address's latest trip.
+    try {
+      rawRows = await readAllPages("backfill bookings", BACKFILL_ROW_CAP, (f, t) =>
+        bookingsQuery().order("check_out", { ascending: true }).order("id").range(f, t).abortSignal(dbSignal())
+      );
+    } catch (e) {
+      return fail("bookings_read", errorMessage(e));
+    }
+  } else {
+    const { data, error } = await bookingsQuery().order("check_out", { ascending: true }).limit(ROW_CAP).abortSignal(dbSignal());
+    if (error) return fail("bookings_read", `bookings read failed: ${error.message}`);
+    rawRows = data ?? [];
+    if (rawRows.length >= ROW_CAP) {
+      alarm("post_trip_review_row_cap", `post-trip-review: bookings read hit the ${ROW_CAP}-row cap; some trips may be skipped`, "warning");
+    }
   }
 
   const parsed: z.infer<typeof bookingRowSchema>[] = [];
@@ -512,7 +657,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     });
   }
   if (parsed.length === 0) {
-    return respond({ ok: true, live, scanned: rawRows.length, invalidRows, sent: 0, staleClaims: stale });
+    return respond({ ok: true, ...(preview && { preview: true }), live, scanned: rawRows.length, invalidRows, sent: 0, staleClaims: stale });
   }
 
   let guests: Map<string, Guest>;
@@ -529,23 +674,44 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   // no PaymentIntent at all (manual recoveries).
   const noGuest: string[] = [];
   const bookings: ReviewBookingRow[] = [];
+  // Backfill only: bookings from before the snapshot era, served by their
+  // customers row (GUEST_SNAPSHOT_SINCE). Reported so the plan can see them.
+  const viaCustomerRecord = new Set<string>();
+  let legacyAccountHolder = 0;
+  let snapshotEra = 0;
   for (const r of parsed) {
     const pi = r.stripe_payment_intent_id;
     const guest = pi ? guests.get(pi) : undefined;
+    const legacy = backfill && !!pi && !!r.created_at && r.created_at < GUEST_SNAPSHOT_SINCE;
+    if (pi && !legacy) snapshotEra++;
     if (pi && !guest) {
-      noGuest.push(r.id);
+      if (!legacy) {
+        noGuest.push(r.id);
+        continue;
+      }
+      const cust = Array.isArray(r.customers) ? (r.customers[0] ?? null) : r.customers;
+      if (cust?.user_id) {
+        legacyAccountHolder++;
+        continue;
+      }
+      viaCustomerRecord.add(r.id);
+      // The row's first_name is overwritten by every later booking on it, so
+      // it may be another guest's: the generic greeting, never a wrong name.
+      bookings.push({ ...toBookingRow(r, undefined), firstName: null });
       continue;
     }
     bookings.push(toBookingRow(r, guest));
   }
   // Most checkout bookings missing a snapshot means the payload shape drifted
   // (guestSchema), not a one-off: every review email would stop. Fail the run.
-  const withPi = parsed.filter((r) => r.stripe_payment_intent_id).length;
+  // Judged over snapshot-era bookings only, so the backfill's legacy rows
+  // can't trip it.
+  const withPi = snapshotEra;
   const guestDrift = noGuest.length >= 2 && noGuest.length * 2 > withPi;
   if (noGuest.length > 0) {
     alarm(
-      "post_trip_review_no_guest_snapshot",
-      `post-trip-review: ${noGuest.length} of ${withPi} checkout booking(s) have no readable guest snapshot in pending_bookings and were skipped${guestDrift ? " — most of them: the snapshot shape has likely changed" : ""}`,
+      backfill ? "post_trip_review_backfill_no_guest_snapshot" : "post_trip_review_no_guest_snapshot",
+      `post-trip-review${backfill ? " (backfill)" : ""}: ${noGuest.length} of ${withPi} checkout booking(s) have no readable guest snapshot in pending_bookings and were skipped${guestDrift ? " — most of them: the snapshot shape has likely changed" : ""}`,
       guestDrift ? "error" : "warning",
       { bookingIds: noGuest.slice(0, 50) }
     );
@@ -554,13 +720,65 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   let state: { ledger: ReviewLedgerRow[]; reviewed: Set<string> };
   let suppressed: Set<string>;
   try {
-    state = await readState(supabase, bookings.map((b) => b.id));
+    state = backfill ? await readWholeState(supabase) : await readState(supabase, bookings.map((b) => b.id));
     const emails = [
       ...new Set(bookings.map((b) => b.email?.trim().toLowerCase()).filter((v): v is string => !!v)),
     ];
     suppressed = await readSuppressed(supabase, emails);
   } catch (e) {
     return fail("state_read", errorMessage(e));
+  }
+
+  if (plan.kind === "backfill") {
+    const today = new Date(nowMs).toISOString().slice(0, 10);
+    const backfill = selectBackfillSends(bookings, state.ledger, state.reviewed, nowMs, {
+      live,
+      testLocationIds: TEST_RESLAB_LOCATION_IDS,
+      suppressed,
+      campaignDate: plan.mode === "send" ? plan.campaignDate : today,
+    });
+    const legacyCandidates = backfill.candidates.filter((c) => viaCustomerRecord.has(c.bookingId)).length;
+    if (backfill.expiredRetries.length > 0) {
+      alarm(
+        "post_trip_review_backfill_retry_expired",
+        `post-trip-review (backfill): ${backfill.expiredRetries.length} parked backfill email(s) can no longer be re-sent (trip older than a year, or outside the read); the rows stay 'retry' — set them to failed by hand`,
+        "warning",
+        { bookingIds: backfill.expiredRetries.slice(0, 50) }
+      );
+    }
+    if (plan.mode === "preview") {
+      // Counts only: never an address, never a booking id.
+      return respond({
+        ok: true,
+        preview: true,
+        live,
+        scanned: rawRows.length,
+        invalidRows,
+        noGuestSnapshot: noGuest.length,
+        wouldAsk: summarizeBackfill(backfill.candidates),
+        // Of wouldAsk.total: asked through the customers row (guest checkouts
+        // from before the guest-snapshot era) / re-sends of rows parked in retry.
+        viaCustomerRecord: legacyCandidates,
+        // Pre-era bookings by a signed-in account, left out (the row may be the
+        // account holder, not who travelled).
+        legacyAccountHolder,
+        retrying: backfill.retrying,
+        skipped: backfill.skipped,
+      });
+    }
+    return sendAll(supabase, footer, live, backfill.candidates, Math.min(plan.limit, MAX_SENDS_PER_RUN), nowMs, {
+      backfill: true,
+      campaignDate: plan.campaignDate,
+      scanned: rawRows.length,
+      invalidRows,
+      noGuestSnapshot: noGuest.length,
+      backfillCandidates: backfill.candidates.length,
+      viaCustomerRecord: legacyCandidates,
+      legacyAccountHolder,
+      retrying: backfill.retrying,
+      staleClaims: stale,
+      skipped: backfill.skipped,
+    }, guestDrift, true);
   }
 
   const selection = selectReviewSends(bookings, state.ledger, state.reviewed, nowMs, {
@@ -579,14 +797,37 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     );
   }
 
-  const result = {
-    live,
+  return sendAll(supabase, footer, live, toSend, MAX_SENDS_PER_RUN, nowMs, {
     scanned: rawRows.length,
     invalidRows,
     noGuestSnapshot: noGuest.length,
     initialCandidates: initial.length,
     reminderCandidates: reminder.length,
     staleClaims: stale,
+    skipped,
+  }, guestDrift, false);
+}
+
+/** The claim → send → mark loop, shared by the daily run and the backfill.
+ *  `report` is merged into the response as-is (counts and skips only). A
+ *  backfill run alarms under its own fingerprints (a hand-run batch must not
+ *  bury the daily cron's signals), and reaching its `limit` is normal, not a
+ *  deferral. */
+async function sendAll(
+  supabase: Supabase,
+  footer: ReviewEmailFooter,
+  live: boolean,
+  toSend: readonly ReviewCandidate[],
+  maxSends: number,
+  nowMs: number,
+  report: Record<string, unknown>,
+  guestDrift: boolean,
+  backfill: boolean
+) {
+  const elapsed = () => Date.now() - nowMs;
+  const fp = (name: string) => (backfill ? `post_trip_review_backfill_${name}` : `post_trip_review_${name}`);
+  const result = {
+    live,
     sent: 0,
     unconfirmed: 0,
     alreadyClaimed: 0,
@@ -604,10 +845,20 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
   // Two consecutive sends with an unknown outcome mean Resend (or our network)
   // is down: stop rather than mark the whole batch `unconfirmed` for good.
   let uncertainInARow = 0;
+  // Resend's daily quota, or three rate limits in a row: every further send
+  // would park another row — stop instead (the rows come back next run).
+  let rateLimitedInARow = 0;
+  // Two claim errors in a row (e.g. the kind CHECK before migration 044 is
+  // applied) would otherwise walk every candidate with one Sentry event each.
+  let claimErrorsInARow = 0;
+  // Rows this run parked as `retry` (a later run re-sends them): still owed.
+  let parkedThisRun = 0;
+  // Candidates whose claim failed (no row, or a re-claim that matched nothing): still owed.
+  let unclaimedThisRun = 0;
   // Why the run stopped before its candidates ran out (a cap is not a stop).
-  let stoppedEarly: "build" | "resend_unreachable" | "config" | "systematic_rejection" | null = null;
+  let stoppedEarly: "build" | "resend_unreachable" | "config" | "systematic_rejection" | "quota" | "claim" | null = null;
   for (const [i, c] of toSend.entries()) {
-    if (attempted >= MAX_SENDS_PER_RUN || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
+    if (attempted >= maxSends || elapsed() + CANDIDATE_RESERVE_MS > RUN_DEADLINE_MS) {
       result.deferredToNextRun = toSend.length - i;
       break;
     }
@@ -635,8 +886,20 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     }
     if (claim === "error") {
       result.claimFailed++;
+      unclaimedThisRun++;
+      if (++claimErrorsInARow >= 2) {
+        result.deferredToNextRun += toSend.length - i - 1;
+        alarm(
+          fp("claim_errors"),
+          `post-trip-review: two claims in a row failed; run stopped (the database, or for a backfill migration 044 not applied — see the 'claim' events)`,
+          "error"
+        );
+        stoppedEarly = "claim";
+        break;
+      }
       continue;
     }
+    claimErrorsInARow = 0;
     const rowId = claim.id;
     attempted++;
 
@@ -654,6 +917,7 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
         { ...CTX, stage: "send_start" }
       );
       await markRow(supabase, rowId, { status: "retry", last_error: "send_started_at write failed" }, result);
+      parkedThisRun++;
       continue;
     }
 
@@ -666,17 +930,18 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
         result.unconfirmed++;
         uncertainInARow++;
         alarm(
-          "post_trip_review_unconfirmed",
+          fp("unconfirmed"),
           `post-trip-review: ${c.kind} send for booking ${c.bookingId} has an unknown outcome (the email may be out); marked unconfirmed — check Resend, it will not be retried`,
           "warning",
           { rowId, bookingId: c.bookingId, kind: c.kind, error: message }
         );
         await markRow(supabase, rowId, { status: "unconfirmed", last_error: message }, result);
         lastRejection = null;
+        rateLimitedInARow = 0;
         if (uncertainInARow >= 2) {
           result.deferredToNextRun += toSend.length - i - 1;
           alarm(
-            "post_trip_review_resend_unreachable",
+            fp("resend_unreachable"),
             `post-trip-review: two sends in a row had an unknown outcome; run stopped (Resend or the network is likely down)`,
             "error",
             { lastError: message }
@@ -692,24 +957,40 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
       if (kind === "config") {
         // Not this row's fault, and every later send would fail the same way.
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
+        parkedThisRun++;
         result.deferredToNextRun += toSend.length - i - 1;
         stoppedEarly = "config";
         break;
       }
       if (kind === "retry") {
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
+        parkedThisRun++;
         lastRejection = null;
+        const quota = error instanceof ReviewSendError && error.resendName === "daily_quota_exceeded";
+        if (quota || ++rateLimitedInARow >= 3) {
+          result.deferredToNextRun += toSend.length - i - 1;
+          alarm(
+            fp("quota"),
+            `post-trip-review: Resend ${quota ? "daily quota exceeded" : "rate-limited three sends in a row"}; run stopped, the rows are parked for a later run`,
+            "warning",
+            { error: message }
+          );
+          stoppedEarly = "quota";
+          break;
+        }
         continue;
       }
+      rateLimitedInARow = 0;
       const key =
         error instanceof ReviewSendError ? `${error.statusCode ?? "?"}/${error.resendName ?? "?"}` : "?/?";
       if (lastRejection && lastRejection.key === key) {
         // Same rejection twice in a row: put both rows back for a later run.
         await markRow(supabase, rowId, { status: "retry", last_error: message }, result);
         await markRow(supabase, lastRejection.rowId, { status: "retry", last_error: message }, result);
+        parkedThisRun += 2;
         result.deferredToNextRun += toSend.length - i - 1;
         alarm(
-          "post_trip_review_systematic_rejection",
+          fp("systematic_rejection"),
           `post-trip-review: Resend rejected two emails in a row with ${key}; run stopped and both rows set to retry — likely a problem with our payload or sender setup (if both addresses are genuinely bad, set the rows to failed by hand)`,
           "error",
           {
@@ -730,14 +1011,17 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
 
     lastRejection = null;
     uncertainInARow = 0;
+    rateLimitedInARow = 0;
     await markRow(supabase, rowId, { status: "sent", sent_at: new Date().toISOString(), last_error: null }, result);
     result.sent++;
   }
 
-  if (result.deferredToNextRun > 0) {
+  // A backfill batch that simply reached its limit is the normal case: the
+  // remainder is reported, not alarmed. Everything else that cut a run short is.
+  if (result.deferredToNextRun > 0 && !(backfill && stoppedEarly === null)) {
     alarm(
-      "post_trip_review_capped",
-      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${MAX_SENDS_PER_RUN} / ${RUN_DEADLINE_MS} ms deadline, or the run stopped early)`,
+      fp("capped"),
+      `post-trip-review: ${result.deferredToNextRun} email(s) deferred to the next run (cap ${maxSends} / ${RUN_DEADLINE_MS} ms deadline, or the run stopped early)`,
       "warning"
     );
   }
@@ -749,10 +1033,14 @@ async function run(footer: ReviewEmailFooter, live: boolean) {
     guestDrift;
   if (result.sendFailed + result.claimFailed + result.markFailed > 0) {
     alarm(
-      "post_trip_review_failures",
+      fp("failures"),
       `post-trip-review: ${result.sendFailed} send / ${result.claimFailed} claim / ${result.markFailed} mark failure(s); ${result.sent} sent`,
       allFailed ? "error" : "warning"
     );
   }
-  return respond({ ok: !allFailed, stoppedEarly, guestDrift, ...result, skipped }, allFailed ? 500 : 200);
+  return respond(
+    // `remaining` = still owed after this batch: not reached + parked for a later run + unclaimed.
+    { ok: !allFailed, stoppedEarly, guestDrift, ...report, ...result, ...(backfill && { remaining: result.deferredToNextRun + parkedThisRun + unclaimedThisRun }) },
+    allFailed ? 500 : 200
+  );
 }

@@ -224,6 +224,11 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
 }
 
 export class FakeSupabase {
+  /** PostgREST silently caps every response at `max-rows` (1,000 on Supabase)
+   *  whatever `.limit()`/`.range()` asked for. Off by default so older suites
+   *  keep their shape; a paging test sets it to 1000 so a single wide
+   *  `.range(0, 9999)` can't pass for real paging. */
+  maxRows: number | null = null;
   tables: Record<string, Row[]> = {
     pending_bookings: [],
     bookings: [],
@@ -551,6 +556,7 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     // first_name only when the select asks for it (the review cron does).
     const embed: Row = { email: cust.email };
     if (this.selectStr.includes("first_name")) embed.first_name = cust.first_name ?? null;
+    if (this.selectStr.includes("user_id")) embed.user_id = cust.user_id ?? null;
     return { ...row, customers: embed };
   }
 
@@ -739,7 +745,8 @@ class FakeQuery implements PromiseLike<{ data: unknown; error: unknown; count?: 
     // PostgREST returns, and a backlog check that counted only the limited
     // page would under-report exactly when the backlog is worst.
     const start = this.rangeFrom ?? 0;
-    const limited = this.limitN == null ? ordered.slice(start) : ordered.slice(start, start + this.limitN);
+    const asked = this.limitN == null ? ordered.slice(start) : ordered.slice(start, start + this.limitN);
+    const limited = this.db.maxRows != null ? asked.slice(0, this.db.maxRows) : asked;
     if (this.countMode || this.headOnly) {
       return {
         data: this.headOnly ? null : limited.map((r) => this.embeddedCustomer({ ...r })),
