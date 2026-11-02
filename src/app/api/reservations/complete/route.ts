@@ -23,6 +23,7 @@ import {
 } from "@/lib/booking/create-booking";
 import { capturePaymentError } from "@/lib/sentry";
 import { moneyOnCard } from "@/lib/stripe/money-on-card";
+import { confirmationAuthParam } from "@/lib/confirmation/link-key";
 
 export const maxDuration = 60;
 
@@ -34,9 +35,11 @@ function secretsMatch(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
-/** Rebuild the customer's confirmation URL. The `email` param is REQUIRED —
- *  /confirmation's guest branch 403s without it — and is derived server-side
- *  from the PaymentIntent, never taken from the request. */
+/** Rebuild the customer's confirmation URL. A guest credential is REQUIRED —
+ *  /confirmation's guest branch 403s without it: the signed `k` key when
+ *  CONFIRMATION_LINK_SECRET is set (keeps the address out of the URL, which
+ *  analytics records), else the legacy `email`, derived server-side from the
+ *  PaymentIntent, never taken from the request. */
 async function buildConfirmationUrl(
   reservationNumber: string,
   piId: string,
@@ -56,10 +59,10 @@ async function buildConfirmationUrl(
   > | null;
   if (stored) {
     for (const [k, v] of Object.entries(stored)) {
-      if (k !== "email" && typeof v === "string") params.set(k, v);
+      if (k !== "email" && k !== "k" && typeof v === "string") params.set(k, v);
     }
   }
-  params.set("email", derivedEmail);
+  params.set(...confirmationAuthParam(reservationNumber, derivedEmail));
 
   return `/confirmation/${encodeURIComponent(
     reservationNumber

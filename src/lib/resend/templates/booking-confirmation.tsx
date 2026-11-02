@@ -3,6 +3,7 @@ import { formatDate } from "@/lib/utils";
 import { bulletLines } from "@/lib/utils/bullet-lines";
 import { formatUsd, type CostBreakdown, type CostBreakdownResult } from "@/lib/booking/cost-breakdown";
 import type { AnchoredFallback } from "../anchored-fallback";
+import { confirmationAuthParam } from "@/lib/confirmation/link-key";
 
 /**
  * A Triply DIRECT-lot booking (4b plan §3.4). Absent for every ResLab booking,
@@ -216,6 +217,9 @@ export function BookingConfirmationEmail({
   // Lot notes written as "- " lines render as a list (same rule as the lot page).
   const conditionBullets = bulletLines(specialConditions);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://www.triplypro.com";
+  // Signed key when CONFIRMATION_LINK_SECRET is set — keeps the address out of
+  // the page URL, which GA4/Clarity record. Legacy ?email= otherwise.
+  const [authName, authValue] = confirmationAuthParam(confirmationNumber, customerEmail);
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(confirmationNumber)}`;
   const directionsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lotAddress)}`;
   const paidOnline = dueAtLocation && dueAtLocation > 0 ? totalAmount - dueAtLocation : totalAmount;
@@ -502,10 +506,10 @@ export function BookingConfirmationEmail({
           </table>
         </div>
 
-        {/* CTA Button — email param lets guest customers (not logged in) view their booking */}
+        {/* CTA Button — the k (or legacy email) param lets guests (not logged in) view their booking */}
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
           <a
-            href={`${appUrl}/confirmation/${confirmationNumber}?email=${encodeURIComponent(customerEmail)}`}
+            href={`${appUrl}/confirmation/${confirmationNumber}?${authName}=${encodeURIComponent(authValue)}`}
             style={{
               display: "inline-block",
               backgroundColor: "#f87356",

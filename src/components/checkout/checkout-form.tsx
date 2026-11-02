@@ -22,10 +22,12 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
+import { rememberConfirmationEmail } from "@/lib/confirmation/guest-email";
 import {
   trackBeginCheckout,
   trackAddPaymentInfo,
   trackCheckoutBack,
+  trackCheckoutFirstField,
   trackCheckoutPaymentInitFailed,
   trackCheckoutStepView,
   trackCheckoutValidationError,
@@ -171,13 +173,13 @@ export function CheckoutForm({
   const [promoDiscountPercent, setPromoDiscountPercent] = useState<number>(0);
   const [serverCostsToken, setServerCostsToken] = useState<string | null>(null);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-  // null = no decision yet (details / vehicle steps). On entering the payment
-  // step Plan A is PRE-SELECTED (Tom, 2026-09-17): the PaymentIntent is created
-  // with the Plan A premium included, so the selected radio, the summary and
-  // the charged amount agree from the first render. The customer can switch
-  // tiers or pick "none" via the existing update-pi flow. Never reset back to
-  // null once decided — that would silently re-default a "none" customer to
-  // Plan A when they come back to the payment step.
+  // null = no decision yet. Nothing is pre-selected (2026-11-02, reverses the
+  // 2026-09-17 Plan A default): the payment step opens with every option
+  // unticked and the PaymentIntent created parking-only, so the summary and
+  // the hold both show the price the customer compared on the search card.
+  // Pay Now stays disabled until they pick a tier or "none"; the pick goes
+  // through the existing update-pi flow. Never reset back to null once
+  // decided — re-entry after Back keeps the customer's own choice.
   const [protectionPlanChoice, setProtectionPlanChoice] = useState<ProtectionChoice | null>(null);
   const [protectionPlanUpdating, setProtectionPlanUpdating] = useState(false);
   // Toggle errors are kept SEPARATE from submitError so the StripePaymentForm
@@ -252,6 +254,23 @@ export function CheckoutForm({
       area.removeEventListener("invalid", onInvalid, true);
       if (timer) clearTimeout(timer);
     };
+  }, [currentStep]);
+
+  // First field touched, once per checkout load: separates "never started the
+  // form" from "started and quit" at the details step. focusin bubbles.
+  const firstFieldTrackedRef = useRef(false);
+  useEffect(() => {
+    const area = formAreaRef.current;
+    if (!area) return;
+    const onFocusIn = (e: FocusEvent) => {
+      if (firstFieldTrackedRef.current) return;
+      const key = e.target instanceof HTMLElement ? e.target.dataset.funnelField : undefined;
+      if (!key) return;
+      firstFieldTrackedRef.current = true;
+      trackCheckoutFirstField({ step: currentStep, field: key });
+    };
+    area.addEventListener("focusin", onFocusIn);
+    return () => area.removeEventListener("focusin", onFocusIn);
   }, [currentStep]);
 
   // On a step change (Next or Back) bring the card — step indicator first —
@@ -406,11 +425,11 @@ export function CheckoutForm({
       return;
     }
 
-    // In dev mode, skip payment intent creation. Mirror the production
-    // pre-selection so the dev payment step arrives with a decision in state
+    // In dev mode, skip payment intent creation. The dev button has no
+    // protection selector, so it books with "none" unless a choice exists
     // (requireProtectionChoice would otherwise throw on "Complete Booking (Dev)").
     if (DEV_SKIP_PAYMENT) {
-      setProtectionPlanChoice((prev) => prev ?? "A");
+      setProtectionPlanChoice((prev) => prev ?? "none");
       setCurrentStep("payment");
       return;
     }
@@ -421,14 +440,13 @@ export function CheckoutForm({
     try {
 
       // The PaymentIntent is created WITH the protection choice so the amount
-      // Stripe holds matches what the payment step shows. First visit: Plan A
-      // (the pre-selected default). Re-entry after Back: whatever the customer
-      // last chose (a tier, or null for "none" → parking-only). The server
-      // applies the premium and stamps the tier metadata pair at creation;
-      // later changes go through /api/checkout/lot/update-pi. The key is always
-      // present (explicit null for "none") — required at the API boundary.
-      const protectionPlanCodeForPI: ProtectionPlanCode | null =
-        protectionPlanChoice === null ? "A" : selectedPlanCode;
+      // Stripe holds matches what the payment step shows. First visit: no
+      // choice yet → parking-only (null). Re-entry after Back: whatever the
+      // customer last chose (a tier, or null for "none"). The server applies
+      // the premium and stamps the tier metadata pair at creation; later
+      // changes go through /api/checkout/lot/update-pi. The key is always
+      // present (explicit null) — required at the API boundary.
+      const protectionPlanCodeForPI: ProtectionPlanCode | null = selectedPlanCode;
       let requestBody: Record<string, unknown>;
       if (isDirect) {
         // Direct lots (A-28): the server prices from its own lot read; no
@@ -533,17 +551,11 @@ export function CheckoutForm({
       if (data.costsToken) {
         setServerCostsToken(data.costsToken);
       }
-      // Reflect the pre-selection in state only now that the PI carrying its
-      // premium exists — the radio, the summary line and the charge flip
-      // together. Writes ONLY when undecided, so it can never overwrite a
-      // choice the update-pi flow already made.
-      if (protectionPlanChoice === null) {
-        setProtectionPlanChoice("A");
-      }
+      // No pre-selection: an undecided customer stays undecided (Pay Now is
+      // gated on a pick), and the PI above is parking-only until they choose.
       setCurrentStep("payment");
-      // Report the SERVER-verified total (it includes the pre-selected premium);
-      // this render's priceBreakdown predates the state update above and would
-      // under-report first-entry sessions by $12.99 relative to re-entries.
+      // Report the SERVER-verified total (it includes any premium a returning
+      // customer already chose).
       const trackedTotal =
         typeof data.verifiedTotal === "number" ? data.verifiedTotal : priceBreakdown.total;
       trackBeginCheckout({ lotId: lot.id, lotName: lot.name, total: trackedTotal });
@@ -812,6 +824,20 @@ export function CheckoutForm({
   };
 
   /**
+   * The confirmation page URL for a finished booking. The guest's email is
+   * handed over in sessionStorage, not the URL — GA4 and Clarity record page
+   * URLs (see lib/confirmation/guest-email.ts). Only when storage is
+   * unavailable does it ride in ?email= (the page strips it on arrival), so a
+   * private-window guest can still open their booking.
+   */
+  const confirmationHref = (reservationNumber: string): string => {
+    const href = `/confirmation/${reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`;
+    return rememberConfirmationEmail(reservationNumber, customerDetails.email)
+      ? href
+      : `${href}&email=${encodeURIComponent(customerDetails.email)}`;
+  };
+
+  /**
    * The customer's vehicle choice on a direct lot, or throw — Pay Now is
    * disabled until one exists (R8), so null here is a state bug.
    */
@@ -1071,7 +1097,7 @@ export function CheckoutForm({
 
         // Redirect to confirmation page
         router.push(
-          `/confirmation/${action.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
+          confirmationHref(action.reservationNumber)
         );
         return;
       }
@@ -1112,7 +1138,7 @@ export function CheckoutForm({
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
 
           router.push(
-            `/confirmation/${confirmationId}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
+            confirmationHref(confirmationId)
           );
           return;
         }
@@ -1176,7 +1202,7 @@ export function CheckoutForm({
 
       // Redirect to confirmation page with reservation number
       router.push(
-        `/confirmation/${result.reservation.reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}&email=${encodeURIComponent(customerDetails.email)}`
+        confirmationHref(result.reservation.reservationNumber)
       );
     } catch (error) {
       console.error("Reservation error:", error);

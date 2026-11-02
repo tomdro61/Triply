@@ -21,6 +21,11 @@ import { trackPurchase } from "@/lib/analytics/gtag";
 import { takePurchaseToTrack } from "@/lib/analytics/purchase-once";
 import { convertTo12Hour } from "@/lib/utils/time";
 import { captureBookingError } from "@/lib/sentry";
+import {
+  recallConfirmationEmail,
+  rememberConfirmationEmail,
+  stripEmailFromAddressBar,
+} from "@/lib/confirmation/guest-email";
 import type { AtLotEstimateView } from "@/lib/direct/reservation-view";
 import type { CostBreakdownResult, FallbackDue } from "@/lib/booking/cost-breakdown";
 import type { CardSummary } from "@/lib/booking/confirmation-payment";
@@ -123,6 +128,11 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
   const checkOutParam = searchParams.get("checkout");
   const serviceFeeParam = searchParams.get("serviceFee");
   const emailParam = searchParams.get("email");
+  // Signed link key (?k=) from the confirmation email — see lib/confirmation/link-key.ts.
+  const keyParam = searchParams.get("k");
+  // A legacy ?email= link: kept from the first render, because the effect
+  // below strips it from the address bar (GA4/Clarity record page URLs).
+  const arrivalEmailRef = useRef(emailParam);
 
   const [reservation, setReservation] = useState<ReservationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,15 +186,28 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     getUser();
   }, [supabase.auth]);
 
-  // Fetch reservation data from API. Forward ?email= so guests (not logged in)
-  // can authenticate via the email verification path in /api/reservations/[id].
+  // Legacy ?email= arrival: remember the address for reloads, then take it
+  // out of the URL before analytics records it.
+  useEffect(() => {
+    const arrivalEmail = arrivalEmailRef.current;
+    if (!arrivalEmail) return;
+    rememberConfirmationEmail(confirmationId, arrivalEmail);
+    stripEmailFromAddressBar();
+  }, [confirmationId]);
+
+  // Fetch reservation data from API. Guests (not logged in) prove ownership
+  // with the signed key (?k=) or the checkout email — sent as a header, never
+  // in the URL — via /api/reservations/[id].
   useEffect(() => {
     const fetchReservation = async () => {
       try {
-        const url = emailParam
-          ? `/api/reservations/${confirmationId}?email=${encodeURIComponent(emailParam)}`
+        const guestEmail = arrivalEmailRef.current ?? recallConfirmationEmail(confirmationId);
+        const url = keyParam
+          ? `/api/reservations/${confirmationId}?k=${encodeURIComponent(keyParam)}`
           : `/api/reservations/${confirmationId}`;
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: guestEmail ? { "x-booking-email": guestEmail } : undefined,
+        });
         if (response.ok) {
           const data = await response.json();
           setReservation(data.reservation);
@@ -212,7 +235,7 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
     };
 
     fetchReservation();
-  }, [confirmationId, emailParam]);
+  }, [confirmationId, keyParam]);
 
   // Get lot data - either from reservation, sessionStorage, or mock data
   const lot = useMemo<UnifiedLot | null>(() => {
@@ -442,8 +465,9 @@ function ConfirmationContent({ confirmationId }: { confirmationId: string }) {
                 : "grid grid-cols-1 lg:grid-cols-2 gap-8"
             }
           >
-            {/* Left Column */}
-            <div className="space-y-6">
+            {/* Left Column — masked in Clarity recordings: it shows the
+                guest's name, contact and vehicle details (see /privacy §6). */}
+            <div className="space-y-6" data-clarity-mask="true">
               <BookingDetails
                 lot={lot}
                 checkIn={checkIn}

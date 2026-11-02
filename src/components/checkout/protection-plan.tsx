@@ -90,7 +90,7 @@ export function ProtectionPlan({
         <div className="flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-gray-900">Parking Protection</span>
-            {/* "Recommended" lives on the Plan A card (the pre-selected default). */}
+            {/* "Recommended" lives on the Plan A card. Nothing is pre-selected. */}
             {isUpdating && (
               <span className="flex items-center gap-1 text-xs text-emerald-700">
                 <Loader2 size={14} className="animate-spin" />

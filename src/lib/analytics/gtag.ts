@@ -448,6 +448,37 @@ export function trackCheckoutBack(fromStep: string) {
 }
 
 /**
+ * The first form field a checkout visitor focuses, once per checkout load
+ * (2026-11-02). Splits the details-step drop (the biggest leak: −41%) into
+ * people who never touched the form — browsing, price-checking — and people
+ * who started typing and quit. Field KEY only, never what was typed.
+ */
+export function trackCheckoutFirstField(params: { step: string; field: string }) {
+  sendCheckoutEvent("checkout_first_field", {
+    checkout_step: params.step,
+    checkout_fields: params.field,
+  });
+}
+
+/**
+ * A drop-off or pick-up time picked on a lot page or the search slider
+ * (2026-11-02). Shows how often visitors move off the default times before
+ * booking, and to what — times are a "clock time" choice (e.g. "6:30 AM"),
+ * never personal data.
+ */
+export function trackBookingTimeChange(params: {
+  surface: "lot_page" | "search_slider";
+  which: "checkin" | "checkout";
+  time: string;
+}) {
+  sendCheckoutEvent("booking_time_change", {
+    time_surface: params.surface,
+    time_which: params.which,
+    time_value: params.time,
+  });
+}
+
+/**
  * Track a post-trip review submitted from /review/[token] (the optional form,
  * not the bare star tap). rating 1–5; airport_code only when it is an airport
  * we sell.

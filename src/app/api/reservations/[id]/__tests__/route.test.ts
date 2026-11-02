@@ -11,7 +11,7 @@
  *     unknown, plus the fallback's `cardPayment` (Stripe's own amount,
  *     a released hold, or unknown — never a row-computed "charged").
  */
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { directRow } from "@/lib/direct/__tests__/reservation-view-fixtures";
 
@@ -133,6 +133,7 @@ vi.mock("@/lib/booking/cost-breakdown", async (importOriginal) => {
 vi.mock("@/lib/stripe/client", () => ({ stripe: { paymentIntents: { retrieve: h.retrievePi } } }));
 
 import { GET } from "../route";
+import { mintConfirmationKey } from "@/lib/confirmation/link-key";
 import { __resetCostBreakdownReportsForTests } from "@/lib/booking/read-card-payment";
 
 const EMAIL = "dana@example.com";
@@ -443,6 +444,42 @@ describe("direct booking", () => {
     const res = await call("RTL123");
     expect(res.status).toBe(500);
     expect(h.getReservation).not.toHaveBeenCalled();
+  });
+
+  describe("guest credentials kept out of the URL (2026-11-02)", () => {
+    const get = (url: string, headers?: Record<string, string>) =>
+      GET(new NextRequest(url, { headers }), { params: Promise.resolve({ id: TRP }) });
+    const original = process.env.CONFIRMATION_LINK_SECRET;
+    beforeEach(() => {
+      process.env.CONFIRMATION_LINK_SECRET = "test-secret";
+    });
+    afterEach(() => {
+      process.env.CONFIRMATION_LINK_SECRET = original;
+    });
+
+    it("the checkout email in the x-booking-email header opens the booking", async () => {
+      h.state.detailRow = { data: row(), error: null };
+      const res = await get(`https://x.test/api/reservations/${TRP}`, { "x-booking-email": EMAIL });
+      expect(res.status).toBe(200);
+    });
+
+    it("the signed ?k= key opens the booking with no email at all", async () => {
+      h.state.authRow = ownedBy("someone-else@example.com");
+      h.state.detailRow = { data: row(), error: null };
+      const k = mintConfirmationKey(TRP)!;
+      const res = await get(`https://x.test/api/reservations/${TRP}?k=${k}`);
+      expect(res.status).toBe(200);
+    });
+
+    it("another booking's key, or a key without the secret, is refused", async () => {
+      h.state.authRow = ownedBy("someone-else@example.com");
+      h.state.pendingRow = { data: { customer: { email: "also-someone-else@example.com" } }, error: null };
+      const wrong = mintConfirmationKey("TRP-OTHER000")!;
+      expect((await get(`https://x.test/api/reservations/${TRP}?k=${wrong}`)).status).toBe(403);
+      const k = mintConfirmationKey(TRP)!;
+      delete process.env.CONFIRMATION_LINK_SECRET;
+      expect((await get(`https://x.test/api/reservations/${TRP}?k=${k}`)).status).toBe(403);
+    });
   });
 
   it("guest with the wrong email → 403 before anything is read", async () => {

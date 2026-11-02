@@ -128,7 +128,22 @@ export default function RootLayout({
                   ad_personalization: 'denied',
                 });
                 gtag('js', new Date());
-                gtag('config', '${GA_MEASUREMENT_ID}');
+                // Never send a customer's address to GA (its terms forbid
+                // PII): a legacy confirmation link can land with ?email=,
+                // and this can run before the page strips it. The page_view
+                // goes out with it removed; page_location is set on the
+                // event only, so later page views keep their own URLs.
+                var _pl = null;
+                try {
+                  var _u = new URL(location.href);
+                  if (_u.searchParams.has('email')) { _u.searchParams.delete('email'); _pl = _u.toString(); }
+                } catch(e) {}
+                if (_pl) {
+                  gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
+                  gtag('event', 'page_view', { page_location: _pl });
+                } else {
+                  gtag('config', '${GA_MEASUREMENT_ID}');
+                }
               `}
             </Script>
           </>
@@ -140,6 +155,16 @@ export default function RootLayout({
           // opt-out itself, the same way gtag-init does for GA.
           <Script id="clarity-init" strategy="lazyOnload">
             {`
+              // Clarity records the page URL: drop a legacy ?email= first
+              // (the confirmation page normally has already; this runs after
+              // hydration, so Next's router picks the change up).
+              try {
+                var _cu = new URL(location.href);
+                if (_cu.pathname.indexOf('/confirmation/') === 0 && _cu.searchParams.has('email')) {
+                  _cu.searchParams.delete('email');
+                  history.replaceState(history.state, '', _cu.pathname + _cu.search + _cu.hash);
+                }
+              } catch(e) {}
               (function(c,l,a,r,i,t,y){
                 c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
                 t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;

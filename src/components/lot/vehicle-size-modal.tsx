@@ -141,8 +141,7 @@ export function VehicleSizeModal({
                 </div>
                 <p className="text-xs text-gray-500 -mt-1">
                   Parking, tax and service fee for {quote.days} day{quote.days === 1 ? "" : "s"}. Plus Parking Protection if you
-                  keep it — {PROTECTION_PLANS.A.label} ({formatCents(Math.round(PROTECTION_PLANS.A.price * 100))}) is
-                  pre-selected at checkout and you can remove it.
+                  add it at checkout — {PROTECTION_PLANS.A.label} is {formatCents(Math.round(PROTECTION_PLANS.A.price * 100))}.
                 </p>
                 {estimate.atLotCents > 0 && (
                   <>
