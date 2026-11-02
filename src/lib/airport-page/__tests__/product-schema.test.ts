@@ -71,7 +71,7 @@ describe("Product JSON-LD", () => {
     expect(product(pageData(lots))?.aggregateRating).toEqual({
       "@type": "AggregateRating",
       ratingValue: "4.8",
-      reviewCount: 12,
+      ratingCount: 12,
       bestRating: 5,
       worstRating: 1,
     });

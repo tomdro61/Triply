@@ -35,7 +35,7 @@ export function HeroSection({ airport, data }: HeroSectionProps) {
               <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
               <span className="font-semibold text-white">{rating.average.toFixed(1)}</span>
               <span>
-                from {rating.count} verified {rating.count === 1 ? "stay" : "stays"} booked on Triply
+                from {rating.count} verified {rating.count === 1 ? "rating" : "ratings"} by Triply guests
               </span>
             </p>
           )}

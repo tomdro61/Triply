@@ -79,7 +79,8 @@ function buildProductSchema(
       aggregateRating: {
         "@type": "AggregateRating",
         ratingValue: rating.average.toFixed(1),
-        reviewCount: rating.count,
+        // ratingCount, as on lot pages (src/lib/seo/lot-schema.ts): the count includes star-only ratings.
+        ratingCount: rating.count,
         bestRating: 5,
         worstRating: 1,
       },
