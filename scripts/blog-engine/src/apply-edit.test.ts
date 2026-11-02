@@ -81,8 +81,8 @@ test('checkEdit: a new violation of a rule the old post already breaks still blo
 })
 
 test('collectMoneyFigures: only money, so "Terminal 5" and "2026-11-01" never make $5 or $2026 a known price', () => {
-  const data = { lastVerified: '2026-11-01', terminals: [{ name: 'Terminal 5' }], parkingRates: 'Garage $24/day, C$12/day', parkingLots: [{ name: 'A', dailyRate: 12.5, reslabLocationId: 422 }] }
-  assert.deepEqual([...new Set(collectMoneyFigures(data))].sort((a, b) => a - b), [12, 12.5, 24])
+  const data = { lastVerified: '2026-11-01', terminals: [{ name: 'Terminal 5', totalGates: 192 }], parkingRates: 'Garage $24/day, C$12/day', parkingLots: [{ name: 'A', dailyRate: 12.5, reslabLocationId: 422, dailyMax: 40 }], transit: { fare10Trip: 26.5, mtaStateTax: 0.5, chargers: 8, maxHourlySlots: 67 } }
+  assert.deepEqual([...new Set(collectMoneyFigures(data))].sort((a, b) => a - b), [0.5, 12, 12.5, 24, 26.5, 40], 'counts (totalGates, chargers, maxHourlySlots) are not prices; fares, taxes and daily maxima are')
   const jfk = loadAirportData('JFK')!
   const known = new Set(collectMoneyFigures(figureSource(jfk, 'jfk parking')).map((n) => Math.round(n * 100)))
   assert.deepEqual(priceCheck('<p>Only $2026, $5 or $10 — but $0.</p>', '', known), ['$2026', '$5', '$10', '$0'].filter((x) => !known.has(Math.round(Number(x.slice(1)) * 100))))
@@ -97,6 +97,17 @@ test('editLive compares every field the command can send, including excerpt, FAQ
   assert.equal(editLive(live, { faqItems: [{ question: 'Q', answer: 'A' }] }), true)
   assert.equal(editLive(live, { contentUpdatedAt: '2026-11-02T00:00:00.000Z' }), false)
   assert.equal(editLive(live, { title: 'EWR Parking Rates', content: post().content }), true)
+})
+
+test('checkEdit: an error in the OLD title or meta never blocks an edit that leaves them alone', () => {
+  const old = { ...post(), title: 'Cheap JFK Parking From 15 a Day', seo: { metaTitle: 'MT', metaDescription: 'Wait, is it cheaper?' } }
+  const e = { fields: { excerpt: 'A plain new excerpt about parking.' } }
+  const c = checkEdit(old, applyEdit(old, e), e, new Set([1800]))
+  assert.deepEqual(c.blockers, [], c.blockers.join(' | '))
+  assert.ok(c.preexisting.some((x) => x.rule === 'bare-money'))
+  const titleEdit = { fields: { title: 'Cheap JFK Parking From 15 a Day Still' } }
+  const ct = checkEdit(old, applyEdit(old, titleEdit), titleEdit, new Set([1800]))
+  assert.ok(ct.blockers.some((b) => b.includes('bare-money')), 'a NEW title that repeats the error blocks')
 })
 
 test('checkEdit: a lint error already in the live post is reported, not blocking; a new one blocks; a lost link blocks', () => {

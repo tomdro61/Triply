@@ -233,7 +233,8 @@ function postText(p: PostLike): string {
  */
 export function collectMoneyFigures(data: unknown, out: number[] = [], key = ''): number[] {
   if (typeof data === 'number' && Number.isFinite(data)) {
-    if (/rate|price|cost|max|total|fee|min\b|surcharge|premium/i.test(key)) out.push(data)
+    // Case-sensitive on purpose: "totalGates" / "totalReliefAreas" are counts; "fare10Trip" / "mtaStateTax" / "dailyMax" are money.
+    if (/(?:^|[a-z])(?:[Rr]ate|[Pp]rice|[Cc]ost|[Ff]ee|[Ff]are|[Ss]urcharge|[Pp]remium|[Tt]ax(?:es)?|[Cc]harge|Max|[Tt]otals)(?![a-z])/.test(key)) out.push(data)
   } else if (typeof data === 'string') {
     for (const m of data.matchAll(/(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g)) out.push(Number(m[1].replace(/,/g, '')))
   } else if (Array.isArray(data)) {
@@ -293,10 +294,11 @@ export function checkEdit(post: PostLike, res: EditResult, edit: EditSpec, known
     : undefined
   const fresh = [
     ...after.errors.filter((e) => !old.has(key(e))),
+    // Only what the edit CHANGES: an error in the old title or old meta is pre-existing, never a blocker (pass-3 review).
     ...lintArticle({
-      title: (res.patch.title as string | undefined) ?? post.title,
-      metaTitle: seo && f.seo?.metaTitle !== undefined ? seo.metaTitle : undefined,
-      metaDescription: seo && f.seo?.metaDescription !== undefined ? seo.metaDescription : undefined,
+      title: (res.patch.title as string | undefined) ?? '',
+      metaTitle: seo && f.seo?.metaTitle !== undefined && f.seo.metaTitle !== post.seo?.metaTitle ? seo.metaTitle : undefined,
+      metaDescription: seo && f.seo?.metaDescription !== undefined && f.seo.metaDescription !== post.seo?.metaDescription ? seo.metaDescription : undefined,
       html: insertedHtml, excerpt: res.patch.excerpt as string | undefined, faqItems: faqNew,
       keyword: post.slug.replace(/-/g, ' '), slug: post.slug, isNew: false,
       knownFigures: known ? [...known].map((c) => c / 100) : undefined,
