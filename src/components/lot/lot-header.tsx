@@ -36,7 +36,7 @@ export function LotHeader({ lot, backUrl }: LotHeaderProps) {
                 {lot.rating.toFixed(1)}
               </span>
               <span className="text-gray-500">
-                ({lot.reviewCount || 0} reviews)
+                ({lot.reviewCount || 0} ratings)
               </span>
             </div>
           )}

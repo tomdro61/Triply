@@ -73,7 +73,7 @@ describe("buildLotSchema", () => {
     expect(buildLotSchema({ ...LOT, rating: 4.6 }, "new-york-jfk", LOT.slug)).not.toHaveProperty("aggregateRating");
     expect(buildLotSchema({ ...LOT, rating: 4.6, reviewCount: 0 }, "new-york-jfk", LOT.slug)).not.toHaveProperty("aggregateRating");
     const rated = buildLotSchema({ ...LOT, rating: 4.6, reviewCount: 7 }, "new-york-jfk", LOT.slug);
-    expect(rated.aggregateRating).toEqual({ "@type": "AggregateRating", ratingValue: "4.6", reviewCount: 7, bestRating: "5", worstRating: "1" });
+    expect(rated.aggregateRating).toEqual({ "@type": "AggregateRating", ratingValue: "4.6", ratingCount: 7, bestRating: "5", worstRating: "1" });
   });
 });
 

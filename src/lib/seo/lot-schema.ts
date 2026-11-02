@@ -76,13 +76,15 @@ export function buildLotSchema(lot: UnifiedLot, airportSlug: string, urlLotSlug:
     ...(lot.phone && { telephone: lot.phone }),
     // Only real Triply guest reviews. rating/reviewCount stay unset until
     // booking_reviews has enough for a lot (#119) — never a placeholder.
+    // `ratingCount`, not `reviewCount`: the count includes star-only ratings
+    // (a review row needs no text), which is what schema.org's ratingCount means.
     ...(lot.rating &&
       lot.reviewCount &&
       lot.reviewCount > 0 && {
         aggregateRating: {
           "@type": "AggregateRating",
           ratingValue: lot.rating.toFixed(1),
-          reviewCount: lot.reviewCount,
+          ratingCount: lot.reviewCount,
           bestRating: "5",
           worstRating: "1",
         },

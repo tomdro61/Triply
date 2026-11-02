@@ -4,3 +4,4 @@ export { LotOverview } from "./lot-overview";
 export { LotAmenities } from "./lot-amenities";
 export { LotLocation } from "./lot-location";
 export { BookingWidget } from "./booking-widget";
+export { LotReviews } from "./lot-reviews";

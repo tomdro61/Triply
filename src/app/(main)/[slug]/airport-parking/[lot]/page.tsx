@@ -10,6 +10,7 @@ import {
   LotAmenities,
   LotLocation,
   BookingWidget,
+  LotReviews,
 } from "@/components/lot";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAirportBySlug } from "@/config/airports";
@@ -22,6 +23,7 @@ import { lotLinkQuery, type LinkParam } from "@/lib/utils/link-date";
 import { shiftIsoDate } from "@/lib/digest/window";
 import { buildLotSchema, canonicalAirportFor, lotCanonicalPath } from "@/lib/seo/lot-schema";
 import type { UnifiedLot } from "@/types/lot";
+import { fetchLotReviewSummaries, withReviews } from "@/lib/reviews/summary";
 
 /**
  * How the lot page PRICES the lot: the URL's times when present and still
@@ -184,6 +186,10 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
     notFound();
   }
 
+  // Verified Triply reviews (booking_reviews). Off / failing → the page renders
+  // exactly as before: no rating, no reviews section.
+  lot = withReviews([lot], await fetchLotReviewSummaries([lot], "lot-page"))[0] ?? lot;
+
   // Structured data (src/lib/seo/lot-schema.ts): fee-inclusive price only,
   // no placeholder image, canonical on the airport that owns the lot.
   const parkingSchema = buildLotSchema(lot, canonicalAirportFor(lot, airport).slug, lotSlug);
@@ -241,6 +247,7 @@ async function LotPageContent({ params, searchParams }: LotPageProps) {
                 tag={limitedSpotsTag(lot.availability, { checkin, checkout })}
               />
               <LotOverview lot={lot} />
+              <LotReviews reviews={lot.reviews} />
               <LotAmenities amenities={lot.amenities} />
               <LotLocation lot={lot} />
             </div>

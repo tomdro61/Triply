@@ -42,6 +42,7 @@ interface LotCardProps {
 }
 
 export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, extraBadge }: LotCardProps) {
+  const topReview = lot.reviews?.published[0];
   const getAmenityConfig = (name: string) => {
     const key = name.toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
 
@@ -205,6 +206,15 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
           </div>
         )}
 
+        {/* Newest verified Triply review with consented text. The quote is
+            clamped on its own so the attribution never gets cut off. */}
+        {topReview && (
+          <div className="mb-3 text-xs text-gray-600">
+            <p className="italic line-clamp-2">&ldquo;{topReview.comment}&rdquo;</p>
+            <p className="text-gray-400 mt-0.5">— {topReview.name ? `${topReview.name}, verified stay` : "Verified guest"}</p>
+          </div>
+        )}
+
         {/* Footer Row */}
         <div className="mt-auto flex items-end justify-between border-t border-gray-50 pt-3">
           <div className="flex items-center">
@@ -220,7 +230,7 @@ export function LotCard({ lot, isHovered, onHover, onSelect, isFirst = false, ex
                   </span>
                 </div>
                 <span className="text-xs text-gray-400 ml-2">
-                  ({lot.reviewCount || 0} reviews)
+                  ({lot.reviewCount || 0} ratings)
                 </span>
               </>
             )}
