@@ -118,6 +118,19 @@ describe("searchParking — locationsConsidered", () => {
     expect(r.locationsConsidered).toBe(1);
   });
 
+  it("excludes ResLab's test lots (194–197) in production only — staging keeps them for test bookings", async () => {
+    reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(194)]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice());
+    vi.stubEnv("NEXT_PUBLIC_APP_ENV", "production");
+    try {
+      expect((await search()).locationsConsidered).toBe(1);
+      vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
+      expect((await search()).locationsConsidered).toBe(2);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("is 0 when no lots are listed near the airport", async () => {
     reslabMock.searchLocations.mockResolvedValue([]);
     const r = await search();

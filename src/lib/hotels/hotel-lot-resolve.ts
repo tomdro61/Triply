@@ -21,7 +21,7 @@
  */
 
 import { reslab, ReslabError, stripHtml, warmReslabToken, type ReslabLocation } from "@/lib/reslab/client";
-import { BLOCKED_RESLAB_LOCATION_IDS, getChannelLocationsNoSweep } from "@/lib/reslab/search";
+import { getChannelLocationsNoSweep, isHiddenReslabLocation } from "@/lib/reslab/search";
 import { keyFingerprint } from "@/lib/reslab/location-snapshot";
 import { captureAPIError } from "@/lib/sentry";
 import { bounded, BoundedTimeoutError } from "@/lib/utils/bounded";
@@ -319,7 +319,7 @@ const truthy = (v: boolean | number | undefined | null) => v === true || v === 1
  * lot, every parking policy refunds 100 %). Pure.
  */
 export function guardLot(entry: HotelLotEntry, expectedId: number, location: ReslabLocation): { ok: true } | { ok: false; reason: LotGuardFailure; detail: string } {
-  if (BLOCKED_RESLAB_LOCATION_IDS.has(location.id)) return { ok: false, reason: "blocked", detail: `lot ${location.id} is in BLOCKED_RESLAB_LOCATION_IDS` };
+  if (isHiddenReslabLocation(location.id)) return { ok: false, reason: "blocked", detail: `lot ${location.id} is hidden from the site (blocked list, or a test lot in production)` };
   if (location.id !== expectedId) return { ok: false, reason: "wrong_id", detail: `asked for ${expectedId}, got ${location.id}` };
   if (normaliseLotName(location.name ?? "") !== normaliseLotName(entry.reslab.name)) {
     return { ok: false, reason: "renamed", detail: `ResLab name ${JSON.stringify(location.name)} ≠ map ${JSON.stringify(entry.reslab.name)}` };
