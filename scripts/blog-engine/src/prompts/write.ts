@@ -408,37 +408,21 @@ function cruiseContext(data: AirportData, _keyword: string): boolean {
  * suspended-shuttle lot at the top of the savings block.)
  */
 /**
- * A transfer the customer pays on top of the lot rate — or has to arrange: "$10 each way", "~$15-25 each way",
- * "C$8 fee", "shuttle is NOT free", cruiseShuttle "paid-…", and lots with NO shuttle at all (the ride to the terminal is a
- * paid rideshare, so "from $X/day" would understate the trip just the same). "$10 per person" for EXTRA passengers on a
- * free shuttle is not a paid transfer. A "1:00 AM - 4:00 AM: No shuttle" gap is not "no shuttle".
+ * A transfer the customer pays on top of the lot rate: "$10 each way", "~$15-25 each way", "C$8 fee", "shuttle is NOT
+ * free", cruiseShuttle "paid-…". "$10 per person" for EXTRA passengers on a free shuttle is not a paid transfer. A lot with
+ * NO shuttle may lead (Tom, Nov 2 2026): the lot line says so and rule 38a forbids claiming one; nothing is added to its price.
  */
 const PAID_TRANSFER = /shuttle is not free|(?:shuttle|transfer) fee|(?:C\$|\$)\s?\d[\d.]*(?:\s?[-–]\s?(?:C\$|\$)?\d[\d.]*)?\s*(?:pp\b|per person|each way|one[- ]way|round[- ]trip|per (?:trip|ride|transfer|car|vehicle)|fee\b)/gi
 const EXTRA_PASSENGER = /(?:additional|extra|beyond|more than \d)[^.]{0,30}$/i
-// "1:00 AM - 4:00 AM: No shuttle", "NO shuttle 10 PM - 7 AM", "no shuttle outside those hours": a gap in service, not no service.
-const GAP_BEFORE = /\d{1,2}(?::\d{2})?\s*(?:AM|PM)[^.;]{0,30}:\s*no (?:airport |free )?shuttle\.?/gi
-const GAP_AFTER = /\bno (?:airport |free )?shuttle\b(?:[^.;:]{0,40}?(?:\d{1,2}(?::\d{2})?\s?[-–]\s?\d{1,2}(?::\d{2})?\s*(?:AM|PM)|\d{1,2}(?::\d{2})?\s*(?:AM|PM)|overnight|midnight|outside (?:these|those|shuttle|service|operating) hours|after \d|before \d|between \d|until \d)|\s+(?:between|after|before|overnight|during))/gi
-// Words that mean the customer finds their own ride — they overrule a "valet" mention elsewhere in the lot's text.
-const OWN_RIDE = /own (?:ride|transportation|way)|(?<!no |without |not |never )(?:uber|lyft|taxi|rideshare|cab\b)/i
-const stripGaps = (t: string) => t.replace(GAP_BEFORE, '').replace(GAP_AFTER, '')
-// A valet lot has no shuttle because a driver takes you to the terminal in your own car: not a paid transfer.
-const VALET = /valet|drives? you|in your (?:own )?(?:car|vehicle)|meet-and-greet|curb(?:side)?|drive to departures|departures level|agent (?:drives|takes)/i
-const NO_SHUTTLE = /\bno (?:airport |free |traditional )?shuttle\b|own (?:ride|transportation|way)|uber\/lyft recommended|rideshare (?:required|needed|recommended|to the terminal)|add two rideshare|rideshare cost not included/i
-
 /** Why a lot's transfer keeps it from leading ('' when it may lead): the matched text, for probes and reviews. */
 export function transferBlocker(l: Record<string, unknown>): string {
   const cs = typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : ''
   if (cs.startsWith('paid')) return `cruiseShuttle ${cs}`
-  for (const t of [l.shuttleInfo, l.notes, l.parkingType]) {
+  for (const t of [l.shuttleInfo, l.notes]) {
     if (typeof t !== 'string') continue
     for (const m of t.matchAll(PAID_TRANSFER)) {
       if (!EXTRA_PASSENGER.test(t.slice(Math.max(0, (m.index ?? 0) - 40), m.index ?? 0))) return `paid: "${m[0]}"`
     }
-    const m = stripGaps(t).match(NO_SHUTTLE)
-    if (!m) continue
-    if (OWN_RIDE.test(t)) return `no shuttle: "${m[0]}" (own ride)`
-    if (VALET.test(t) || (typeof l.parkingType === 'string' && VALET.test(l.parkingType))) continue
-    return `no shuttle: "${m[0]}"`
   }
   return ''
 }
@@ -452,7 +436,7 @@ export function leadEligibleLots(data: AirportData, keyword = ''): Record<string
   return sellableLots(data).filter((l) => {
     if (l.shuttleSuspended === true) return false
     if (typeof l.notes === 'string' && DO_NOT_LEAD.test(l.notes)) return false
-    // A paid (or absent) transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip
+    // A paid transfer is not in the lot rate, so "from $X/day" and rate × days would understate the trip
     // (pass-4/5 reviews: POE Courtyard $98 vs ~$178 with the $20pp port transfer; LGA Hearthstone "~$15-25 each way").
     if (paidOrNoTransfer(l)) return false
     if (cruise) return (typeof l.cruiseShuttle === 'string' ? l.cruiseShuttle : '') === 'included'
@@ -924,7 +908,7 @@ GOOD: "The economy lot is the cheapest option at $18/day. It's a 10-minute shutt
 36. NO AI SLOP: Never use these phrases — they are an instant quality fail: "In conclusion", "It's worth noting", "Whether you're a seasoned traveler or", "It's important to note", "invaluable", "game-changer", "Let's dive in", "Read on to learn", "In this guide we'll cover", "Without further ado", "In today's world", "Look no further", "Navigating the world of", "Ever-evolving", "It goes without saying", "Needless to say", "At the end of the day", "When it comes to". Write like a knowledgeable human, not a chatbot.
 37. META DESCRIPTION: 120-160 characters (hard requirement). Include a specific price point when the data block has one (the lowest rate in the "Off-site lots Triply sells" line, with its currency sign — never a lot whose notes bar it from leading) — prices in meta descriptions measurably increase CTR. Start with a direct answer to the search query, add a key differentiator, end with a CTA.
 38. CITABLE STAT SENTENCES (GEO — the strongest AI-citation lever): Throughout the article, phrase key facts as self-contained, quotable sentences that pair a specific number with attribution — e.g., "MSP Terminal 1 General Parking costs $36/day as of <Month YYYY>, per the Metropolitan Airports Commission." AI engines preferentially cite sentences that combine a concrete statistic with a credible source. Include several such standalone citable sentences across the article (a clear stat-bearing sentence to open key sections), not buried mid-paragraph. Combine with rule 24 attribution phrasing.
-38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. "[price omitted]" in a lot's notes marks a stale figure that was removed — never print it and never put a number in its place (a lint blocks the write). Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
+38a. LOT NAMES AND PRICES: The "Off-Site Parking Lots" list is the only source for the name and price of any off-site lot. "[price omitted]" in a lot's notes marks a stale figure that was removed — never print it and never put a number in its place (a lint blocks the write). A lot whose line says it has no shuttle is described without one — never claim or imply a shuttle, and say how to reach the terminal only when the line says. Never name an off-site lot that is not in that list (older airport-level notes mention lots Triply no longer sells), and where any other sentence gives a different figure for a listed lot, the list wins. A lot line's "Notes" or "Cruise-port shuttle" caveat is binding: a lot marked airport-only is never recommended for a cruise, a lot whose notes say "do not use in CTAs" or "suspended" never leads a section or a CTA.
 ${ownCodeRule(item.airportCode)}
 Respond with ONLY valid JSON in this exact format:
 {
