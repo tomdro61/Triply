@@ -1,3 +1,4 @@
+import { figureSource } from './prompts/write.js'
 import { Command } from 'commander'
 import fs from 'fs'
 import path from 'path'
@@ -715,7 +716,7 @@ program
             title: resolvedTitle, metaTitle: result.metaTitle, metaDescription: result.metaDescription,
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
-            knownFigures: airportData ? collectFigures(airportData) : undefined,
+            knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
           if (!lint.ok) {

@@ -1,0 +1,522 @@
+{
+  "code": "SJC",
+  "fullName": "San José Mineta International Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "North San José, California — about 3 miles northwest of downtown San José, bounded by US-101, I-880 and SR 87 (Guadalupe Freeway). Renamed for Norman Y. Mineta (former San José mayor, congressman and U.S. Secretary of Commerce and Transportation) in November 2001.",
+    "iataCode": "SJC",
+    "icaoCode": "KSJC",
+    "faaLid": "SJC",
+    "elevation": "62 feet above mean sea level",
+    "acreage": 1050,
+    "coordinates": "37.3639N, 121.9289W",
+    "passengerVolume": "10,675,167 passengers in 2025 (down 9.9% from 11,851,270 in 2024); record was about 15.65 million in 2019",
+    "aircraftOperations": "164,886 (2024)",
+    "distinction": "Second-busiest Bay Area airport by passengers after SFO and the airport for Silicon Valley. Southwest is by far the largest carrier (~58% of passengers, Aug 2025-Jul 2026), followed by Alaska (~14%) and Delta (~11%). U.S. Customs and Border Protection port of entry. Airfield named for former mayor Ernie Renzel (2003).",
+    "operator": "City of San José Airport Department",
+    "owner": "City of San José",
+    "activeTerminals": 2,
+    "totalConcourses": 2,
+    "totalGates": 36,
+    "runways": 2,
+    "runwayDetails": [
+      { "designation": "12L/30R", "length": "11,000 ft (3,353 m)", "surface": "Asphalt/concrete" },
+      { "designation": "12R/30L", "length": "11,000 ft (3,353 m)", "surface": "Asphalt/concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (~58.4% of passengers, Aug 2025-Jul 2026); Alaska second (~14.3%), Delta third (~11.4%)",
+    "founded": "1939 as San José Municipal Airport; Terminal A opened 1990 (renovated 2009); Terminal B opened June 30, 2010; old Terminal C closed and demolished 2010",
+    "hubCarriers": [],
+    "slotControlled": false,
+    "metroAccess": "No rail at the terminals. Free VTA Route 60 'Airport Flyer' bus from Terminal A (Stop 7) and Terminal B (Stop 5) to Metro/Airport light rail, Milpitas BART and Winchester Station; Caltrain/ACE via Santa Clara Transit Center; Amtrak via Diridon Station.",
+    "peopleMover": "None. Free SJC shuttle buses link Terminal A, Terminal B, the Rental Car Center and Economy Lot 1; Terminals A and B are also connected airside by a walkway (between Gates 16 and 17).",
+    "source": "https://en.wikipedia.org/wiki/San_Jose_Mineta_International_Airport"
+  },
+  "terminals": [
+    {
+      "name": "Terminal A",
+      "status": "Active",
+      "airlines": ["American Airlines", "Delta Air Lines", "Frontier Airlines", "United Airlines", "Volaris"],
+      "gates": "Gates 1-16 (16 gates)",
+      "notes": "Opened 1990, renovated 2009. Includes the international arrivals facility (rideshare for international arrivals picks up at Terminal A Stop 1). Served by Hourly Lot 2 (Terminal A Garage). Both Club SJC lounges are in Terminal A (near Gate A15 and Gate A8)."
+    },
+    {
+      "name": "Terminal B",
+      "status": "Active",
+      "airlines": ["Southwest Airlines", "Alaska Airlines", "Hawaiian Airlines", "ZIPAIR"],
+      "gates": "Gates 17-36 (20 gates)",
+      "notes": "Opened June 30, 2010; LEED Silver. Southwest, SJC's largest carrier, operates here. Served by Hourly Lot 3 (Terminal B Garage), Daily Lot 4 and Hourly & Daily Lot 5; the Rental Car Center is directly across the street."
+    }
+  ],
+  "roads": ["US-101 (Bayshore Freeway)", "I-880 (Nimitz Freeway)", "SR 87 (Guadalupe Freeway)", "Airport Boulevard (all airport lots)", "Skyport Drive", "Technology Drive (Spring Park)", "N 4th Street (Joy Park Fly)", "E Gish Road (Holiday Inn San Jose Airport)", "Coleman Avenue", "Brokaw Road", "Trimble Road"],
+  "transit": ["VTA Route 60 Airport Flyer (free from SJC) — Terminal A Stop 7, Terminal B Stop 5", "VTA Blue and Green light rail via Metro/Airport Station (fare required)", "BART via Milpitas Station", "Caltrain and ACE via Santa Clara Transit Center", "Amtrak and Greyhound via San José Diridon Station", "Groome Transportation scheduled shuttle SJC-SFO"],
+  "neighborhoods": ["Downtown San José", "North San José", "Santa Clara", "Milpitas", "Sunnyvale", "Mountain View", "Cupertino", "Campbell", "Los Gatos", "Fremont"],
+  "authority": "City of San José Airport Department",
+  "groundTransportation": {
+    "peopleMover": {
+      "description": "None",
+      "fare": "N/A",
+      "frequency": "N/A",
+      "hours": "N/A",
+      "note": "Free SJC shuttle buses run between Terminal A, Terminal B, the Rental Car Center and Economy Lot 1."
+    },
+    "groundTransportZones": {
+      "rideshare": "Drop-off at the departures curb of either terminal. Pickup: Terminal A Stop 1 (curbside at the parking garage, left side of the street; also used for international arrivals); Terminal B Stops 8, 9 and 10 (island across from the Rental Car Center).",
+      "waymo": "Terminal A Stop 9; Terminal B Stop 7 (at the Rental Car Center).",
+      "taxi": "On-demand: Terminal A Stop 2, Terminal B Stop 1. Pre-arranged: Terminal A Stop 3, Terminal B Stop 11.",
+      "hotelShuttles": "Terminal A: Ground Transportation Center, Stop 8. Terminal B: Stop 12, directly south of Baggage Claim (to the right as you exit). Most hotels require a call for pickup.",
+      "vta": "VTA Route 60: Terminal A Stop 7, Terminal B Stop 5.",
+      "source": "https://www.flysanjose.com/hotel-shuttles"
+    },
+    "vtaBus": {
+      "operator": "Santa Clara Valley Transportation Authority (VTA)",
+      "routes": ["Route 60 Airport Flyer — Milpitas BART to Winchester Station via SJC and Metro/Airport light rail"],
+      "fare": "Free to ride in either direction from SJC; light rail and other connections charge their own fare",
+      "accessFromTerminal": "Terminal A Stop 7; Terminal B Stop 5",
+      "note": "To SFO: Route 60 to Santa Clara Caltrain (1001 Railroad Ave), Caltrain north to Millbrae, BART to SFO. To OAK: Route 60 to Milpitas BART, then BART toward Oakland.",
+      "source": "https://www.flysanjose.com/public-transit"
+    },
+    "railConnections": {
+      "bart": "Milpitas BART Station via VTA Route 60",
+      "caltrain": "Santa Clara Transit Center (Caltrain and ACE) via Route 60 to Winchester, or Route 60 direct to Santa Clara Caltrain per the airport's SFO directions",
+      "amtrak": "San José Diridon Station: Route 60 to Metro/Airport, then VTA Green Line southbound (fare applies)",
+      "lightRail": "Metro/Airport Station (VTA Blue and Green lines)",
+      "source": "https://www.flysanjose.com/public-transit"
+    },
+    "taxi": {
+      "fareType": "Metered",
+      "pickup": "On-demand: Terminal A Stop 2, Terminal B Stop 1. Pre-arranged: Terminal A Stop 3, Terminal B Stop 11.",
+      "providers": "American Cab 408-444-5555; Bay Area Taxi 408-444-4111; Checker Cab of Silicon Valley 650-999-9999 (accessible vehicles, call ahead); Yellow Cab 408-777-7777 (accessible vehicles, call ahead)",
+      "source": "https://www.flysanjose.com/taxis"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "Waymo"],
+      "pickupLocation": "Terminal A Stop 1; Terminal B Stops 8-10. Waymo: Terminal A Stop 9, Terminal B Stop 7.",
+      "note": "The app confirms the exact pickup spot. International arrivals use the Terminal A location."
+    },
+    "rentalCars": {
+      "location": "Rental Car Center, 1639 Airport Blvd, directly across from Terminal B. From Terminal A take any airport shuttle bus.",
+      "companies": ["Alamo", "Avis", "Budget", "Dollar", "Enterprise", "Fox", "Hertz", "National", "Payless", "Sixt", "Thrifty"],
+      "totalBrands": 11,
+      "note": "Counters open roughly 6-7 a.m. to 11 p.m.-midnight depending on brand; vehicle drop-off 24/7.",
+      "source": "https://www.flysanjose.com/rental-cars"
+    },
+    "otherShuttles": {
+      "groome": "Groome Transportation scheduled shuttle between SJC and SFO"
+    },
+    "hotelShuttles": "Triply's three SJC lots are all 0.8-1.2 mi from the terminals and run free 24/7 on-demand shuttles: Spring Park (Technology Dr, 0.8 mi), Holiday Inn San Jose Airport (E Gish Rd, 1.1 mi) and Joy Park Fly (N 4th St, 1.2 mi). Call the lot after you collect your bags; hotel shuttles pick up at Terminal A Stop 8 and Terminal B Stop 12."
+  },
+  "parkingRates": "On-airport (daily rate, full rate accrues at the start of each 24-hour period): Economy Lot 1 $19 (shuttle every 7-10 min, 24/7), Hourly Lot 2 / Terminal A Garage $25 ($4 per 30 min first day), Daily Lot 4 $31, Hourly & Daily Lot 5 $31, Hourly Lot 3 / Terminal B Garage $41 ($5 per 30 min first day); Premium Reserved (Lot 2, 2nd floor) $40/day reservation-only. Off-site via Triply: Joy Park Fly, Spring Park and Holiday Inn San Jose Airport from ~$7.79/day.",
+  "onAirportParking": {
+    "economyLot1": {
+      "name": "Economy Lot 1 (Lot & Garage)",
+      "rate": "$19/day",
+      "dailyMax": 19,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/parking/economy-lot-1-parking-lot-garage",
+      "location": "2300 Airport Blvd, San José, CA 95110",
+      "connection": "Free SJC shuttle buses to Terminals A and B every 7-10 minutes, 24/7 (trackable in the Transit app).",
+      "features": "Mix of covered (garage) and uncovered (surface) spaces. Garage clearance 8'2\"; surface lot has no height limit and takes RVs/oversized vehicles (contact Parking Services in advance; charged by spaces used). Dedicated motorcycle parking on the southwest side of the garage. 24-hour lighting; patrolled by SJPD and airport staff. Reservable online."
+    },
+    "hourlyLot2": {
+      "name": "Hourly Lot 2 (Terminal A Garage)",
+      "rate": "$25/day ($4 per 30 minutes, first day only)",
+      "dailyMax": 25,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/parking/hourly-lot-2-terminal-garage",
+      "location": "2075 Airport Blvd, San José, CA 95110",
+      "serves": "Terminal A (walk); about 15 minutes' walk to Terminal B",
+      "features": "Covered, 24-hour lighting. Clearance 7'0\". 3 free ChargePoint EV stations (6 vehicles). Bike racks and lockers. North garage exit closed for construction — use the south exit. Reservable online.",
+      "hourlyRates": "$4 per 30 minutes (first day only)"
+    },
+    "premiumReserved": {
+      "name": "Premium Reserved Parking (Hourly Lot 2, 2nd floor)",
+      "rate": "$40/day, reservation only",
+      "dailyMax": 40,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/faq?type=2",
+      "location": "Dedicated VIP section on the second floor of the Terminal A Garage, under a one-minute walk to Terminal A",
+      "features": "Launched July 23, 2026 with a limited-time launch promo (code LOT2VIP, $10/day off plus double Park Perks points)."
+    },
+    "hourlyLot3": {
+      "name": "Hourly Lot 3 (Terminal B Garage)",
+      "rate": "$41/day ($5 per 30 minutes, first day only)",
+      "dailyMax": 41,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/parking/hourly-lot-3-terminal-b-garage",
+      "location": "1659 Airport Blvd, San José, CA 95110",
+      "serves": "Terminal B (walk); about 15 minutes' walk to Terminal A",
+      "features": "Covered, 24-hour lighting, clearance 8'4\". Bike racks and lockers. Most expensive public product at SJC. No online reservations listed.",
+      "hourlyRates": "$5 per 30 minutes (first day only)"
+    },
+    "dailyLot4": {
+      "name": "Daily Lot 4",
+      "rate": "$31/day ($4 per 30 minutes, first day only)",
+      "dailyMax": 31,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/parking/daily-lot-4",
+      "location": "1639 Airport Blvd, south of the Rental Car Center garage; entrance on the east side off Airport Blvd",
+      "serves": "About 10 minutes' walk to Terminal B, 25 minutes to Terminal A",
+      "features": "Uncovered surface lot, 24-hour lighting, patrolled. Reservable online."
+    },
+    "hourlyDailyLot5": {
+      "name": "Hourly & Daily Lot 5",
+      "rate": "$31/day ($4 per 30 minutes, first day only)",
+      "dailyMax": 31,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.flysanjose.com/parking/hourly-daily-lot-5",
+      "location": "1661 Airport Blvd",
+      "serves": "About 10 minutes' walk to Terminal B, 20 minutes to Terminal A",
+      "features": "Uncovered. 5 free ChargePoint EV stations (9 vehicles). 24-hour lighting, patrolled. Reservable online."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Waiting Area",
+      "location": "2470 Airport Blvd",
+      "cost": "FREE",
+      "rules": "Open 24 hours; wait up to 30 minutes; driver must stay with the vehicle (unattended vehicles ticketed and towed); no commercial vehicles; ADA-accessible portable restroom.",
+      "source": "https://www.flysanjose.com/parking/cell-phone-waiting-area"
+    },
+    "evCharging": {
+      "locations": ["Hourly Lot 2 (Terminal A Garage) — 3 stations, 6 vehicles", "Hourly & Daily Lot 5 — 5 stations, 9 vehicles"],
+      "totalPorts": "8 stations serving 15 vehicles",
+      "cost": "Free to charge; regular parking rates apply",
+      "note": "ChargePoint, first-come first-served.",
+      "source": "https://www.flysanjose.com/faq?type=2"
+    },
+    "parkingAdvantageProgram": {
+      "name": "SJC Park Perks",
+      "status": "Free loyalty program for online parking reservations",
+      "earning": "1 point per $1 spent on online reservations; points post after the stay; tier points reset each January 1; points valid 36 months",
+      "redemption": "Sightseer (0-149 pts): 100 pts = $10 off; Jetsetter (150-499): up to 400 pts = $40 off; Voyager (500-999): up to 855 pts = $90 off; World Traveler (1,000+): up to 900 pts = $100 off. Not combinable with promo codes unless stated.",
+      "note": "Redeem at parking.flysanjose.com.",
+      "source": "https://www.flysanjose.com/parkperks"
+    },
+    "reservations": "Online at parking.flysanjose.com for Economy Lot 1, Hourly Lot 2, Premium Reserved, Daily Lot 4 and Lot 5 (not Lot 3). Full refund if cancelled before the reservation start date and time; refunds for unused time after that go through an online form and carry a 1-day fee. Mobile car wash (Future Wash) can be added.",
+    "accessibleParking": "Accessible and van-accessible spaces in every lot, first-come first-served, at posted rates — no discounts for accessible parking. If accessible spaces are full, ADA placard holders may use 1-Hour Express spaces in Lot 2 or Lot 5 for up to 30 days. Spaces: Economy Lot 1 garage 25 + surface 11, Lot 2 34, Lot 3 10, Lot 4 15, Lot 5 20. Help: (408) 441-5570.",
+    "paymentMethods": "Pay stations in all facilities; most take cash, credit cards and contactless, some are card/contactless only. Cards accepted at exit gates; ticket QR code can be scanned to pay by phone.",
+    "maximumStay": "30 days in all lots; longer stays need Airport Parking Services approval or the vehicle may be towed.",
+    "parkingContact": "Airport Parking Services: 408-441-5570, ParkingSJC@sjc.org",
+    "garageServiceAreas": "Lot 2 → Terminal A (walk). Lot 3, Lot 4, Lot 5 → Terminal B (walk). Economy Lot 1 → 24/7 shuttle to both terminals."
+  },
+  "parkingLots": [
+    {
+      "name": "Joy Park Fly",
+      "slug": "joy-park-fly",
+      "dailyRate": 7.88,
+      "reservationRate": 7.88,
+      "parkingType": "Self-park or complimentary valet (fenced lot)",
+      "amenities": ["24/7 Front Desk", "Valet", "Security"],
+      "shuttleInfo": "Free shuttle 24/7/365, every 5-15 minutes or on demand; 3-4 minute ride to the terminals; drivers help with luggage. On return, call (408) 598-7128 for pickup at the terminal's designated area.",
+      "overview": "Long-term lot on North 4th Street, 1.2 mi from SJC: fenced, lighted, staffed 24/7, with a choice of self-park or complimentary valet and a free 24/7 on-demand shuttle.",
+      "address": "1785 N 4th St, San Jose, CA 95112",
+      "distanceFromAirport": "1.2 mi",
+      "driveTime": "3-4 minute shuttle ride (per listing)",
+      "phone": "408-598-7128",
+      "notes": "Lowest sellable rate at SJC on 2026-10-16: $67.07 grand total for a 7-night Nov 2-9 stay (8 billed days; $55.92 subtotal + $6.40 fees + $4.75 tax); identical on Nov 16-23. Minimum booking 1 day.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Spring Park San Jose Airport Parking",
+      "slug": "spring-park-san-jose-airport-parking",
+      "dailyRate": 8.15,
+      "reservationRate": 8.15,
+      "parkingType": "Garage — covered (indoor) or uncovered (rooftop), depending on product purchased",
+      "amenities": ["Covered/Garage", "24/7 Front Desk"],
+      "shuttleInfo": "24/7 on-demand shuttle. Show your confirmation (printed or on phone) to staff on arrival and arrange the shuttle right after check-in; arrive 15-20 minutes before you want to be at the terminal. On return, call 408-858-5250 from the terminal exit after collecting luggage.",
+      "overview": "Parking garage on Technology Drive, the closest Triply lot to SJC (0.8 mi), with indoor covered levels and rooftop uncovered spaces, 24/7 on-site security and a 24/7 on-demand shuttle.",
+      "address": "1652 Technology Dr, San Jose, CA 95110",
+      "distanceFromAirport": "0.8 mi",
+      "phone": "408-858-5250",
+      "notes": "$75.50 grand total for Nov 2-9 (8 billed days; $55.60 subtotal + $8.78 fees + $11.12 tax); identical on Nov 16-23. Covered vs rooftop assignment depends strictly on the product bought — the $8.05/day Triply minimum may be the rooftop (uncovered) product; do not promise covered parking at that price.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Holiday Inn San Jose Airport",
+      "slug": "holiday-inn-san-jose-airport",
+      "dailyRate": 8.9,
+      "reservationRate": 8.9,
+      "parkingType": "Self-park (hotel lot, gated)",
+      "amenities": ["24/7 Front Desk"],
+      "shuttleInfo": "Free 24/7 on-demand shuttle. Enter at 42 Gish Road, follow the 'Flight Parking' sign and self-park in the marked area (southeast corner of the lot), then call 408-512-3153 and the shuttle picks you up at your car. Call the same number for pickup at the airport.",
+      "overview": "Hotel park-and-fly lot on East Gish Road, 1.1 mi from SJC: secure gated lot with security cameras and a free 24/7 on-demand shuttle.",
+      "address": "42 E Gish Rd, San Jose, CA 95112",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "408-512-3153",
+      "notes": "$76.91 grand total for Nov 2-9 (8 billed days; $63.92 subtotal + $6.60 fees + $6.39 tax); identical on Nov 16-23. Minimum booking 1 day.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "SJC Economy Lot 1",
+      "slug": "sjc-economy-lot-1",
+      "parkingType": "Airport-owned lot & garage (shuttle)",
+      "address": "2300 Airport Blvd, San José, CA 95110",
+      "dailyRate": 19,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SJC Hourly Lot 2 (Terminal A Garage)",
+      "slug": "sjc-hourly-lot-2-terminal-a-garage",
+      "parkingType": "Airport-owned covered garage",
+      "address": "2075 Airport Blvd, San José, CA 95110",
+      "dailyRate": 25,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SJC Hourly Lot 3 (Terminal B Garage)",
+      "slug": "sjc-hourly-lot-3-terminal-b-garage",
+      "parkingType": "Airport-owned covered garage",
+      "address": "1659 Airport Blvd, San José, CA 95110",
+      "dailyRate": 41,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SJC Daily Lot 4",
+      "slug": "sjc-daily-lot-4",
+      "parkingType": "Airport-owned surface lot",
+      "address": "1639 Airport Blvd, San José, CA 95110",
+      "dailyRate": 31,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "SJC Hourly & Daily Lot 5",
+      "slug": "sjc-hourly-daily-lot-5",
+      "parkingType": "Airport-owned surface lot",
+      "address": "1661 Airport Blvd, San José, CA 95110",
+      "dailyRate": 31,
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    },
+    {
+      "name": "Sonesta Select San Jose Airport",
+      "slug": "sonesta-select-san-jose-airport",
+      "parkingType": "Hotel lot (shuttle)",
+      "address": "1727 Technology Dr, San Jose, CA",
+      "distanceFromAirport": "0.8 mi",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: Economy Lot 1 shuttle every 7-10 minutes, 24/7; free SJC shuttle buses also link Terminal A, Terminal B and the Rental Car Center. Off-site: all three Triply SJC lots run free 24/7 on-demand shuttles — Spring Park (0.8 mi), Holiday Inn San Jose Airport (1.1 mi) and Joy Park Fly (1.2 mi, every 5-15 min, 3-4 minute ride). Call the lot after collecting bags.",
+  "distanceFromCity": "About 3 miles northwest of downtown San José via SR 87.",
+  "keyDistances": {
+    "toDowntownSanJose": "~3 miles; VTA Route 60 to Metro/Airport, then light rail",
+    "toTechnologyDrLot": "0.8 mi (Triply lot: Spring Park San Jose Airport Parking)",
+    "toGishRdLot": "1.1 mi (Triply lot: Holiday Inn San Jose Airport)",
+    "toN4thStLot": "1.2 mi (Triply lot: Joy Park Fly)",
+    "competitiveAdvantage": "All three Triply SJC lots are within 1.2 miles and run 24/7 shuttles, so early and late flights are covered. Spring Park is a garage with covered indoor and rooftop products; Joy Park Fly adds complimentary valet."
+  },
+  "construction2026": {
+    "status": "No major terminal construction confirmed for 2026. Hourly Lot 2 (Terminal A Garage) north exit is closed for construction — use the south exit. Premium Reserved parking opened in Lot 2 on July 23, 2026.",
+    "projects": [
+      "Hourly Lot 2 north garage exit closure (use south exit)",
+      "Premium Reserved parking section on Lot 2's second floor (launched July 23, 2026)"
+    ],
+    "travelImpact": "No full parking facility closures identified as of 2026-10-16; check flysanjose.com/parking for live availability before you drive.",
+    "source": "https://www.flysanjose.com/parking/hourly-lot-2-terminal-garage"
+  },
+  "securityAndScreening": {
+    "checkpointHours": "Terminal A checkpoint opens 4:00 a.m.; Terminal B opens 4:15 a.m.; standard close 11 p.m. (stays open later for late departures)",
+    "tsaPreCheck": {
+      "note": "TSA PreCheck at the Terminal A and Terminal B checkpoints"
+    },
+    "clear": {
+      "note": "CLEAR kiosks at the Terminal A and Terminal B checkpoints"
+    },
+    "globalEntry": {
+      "note": "International arrivals are processed at Terminal A (U.S. Customs and Border Protection port of entry)."
+    },
+    "standardWaitTimes": {
+      "peakHours": "Early-morning departure bank right after checkpoints open",
+      "tips": "Southwest (Terminal B) carries most SJC passengers. Terminals are connected airside between Gates 16 and 17."
+    },
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure (standard TSA guidance)",
+      "international": "3 hours recommended",
+      "holidays": "2.5-3 hours around Thanksgiving, Christmas and spring break"
+    },
+    "source": "https://www.flysanjose.com/faq"
+  },
+  "lounges": {
+    "terminalA": [
+      {
+        "name": "The Club SJC",
+        "location": "Terminal A, across from Gate A15 (third level)",
+        "access": "Day pass, Priority Pass, LoungeKey; reachable from Terminal B airside"
+      },
+      {
+        "name": "The Club SJC (Gate 8)",
+        "location": "Terminal A, near Gate A8",
+        "access": "Day pass (check lounge site for memberships accepted)"
+      }
+    ],
+    "terminalB": [],
+    "other": "No airline-branded lounges identified at SJC. Hours and day-pass prices differ between sources — check theclubairportlounges.com before you go.",
+    "source": "https://www.flysanjose.com/things-do/club-sjc"
+  },
+  "wifi": {
+    "networkName": "sjcfreewifi",
+    "cost": "No password; provided as a courtesy",
+    "coverage": "Terminals A and B"
+  },
+  "evCharging": {
+    "hourlyLot2": {
+      "chargers": "3 stations (6 vehicles)",
+      "location": "Terminal A Garage",
+      "type": "ChargePoint",
+      "cost": "Free to charge plus Lot 2 rate ($25/day)"
+    },
+    "hourlyDailyLot5": {
+      "chargers": "5 stations (9 vehicles)",
+      "location": "Lot 5, near Terminal B",
+      "type": "ChargePoint",
+      "cost": "Free to charge plus Lot 5 rate ($31/day)"
+    },
+    "totalPorts": "8 stations serving 15 vehicles",
+    "note": "First-come, first-served. None of the three Triply SJC listings mention EV charging.",
+    "source": "https://www.flysanjose.com/faq?type=2"
+  },
+  "luggageStorage": {
+    "onSite": "None — SJC has no public storage lockers (security restrictions).",
+    "offSiteAlternatives": []
+  },
+  "petFacilities": {
+    "total": 3,
+    "locations": ["Pre-security: outside Terminal A, north of ticketing", "Pre-security: outside Terminal B, north of ticketing", "Post-security: walkway between Gates 16 and 17"],
+    "source": "https://www.flysanjose.com/faq"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early morning departures (checkpoints open 4:00-4:15 a.m.)"],
+    "busiestDays": ["Friday", "Sunday", "Monday"],
+    "quietestDays": ["Tuesday", "Wednesday", "Saturday"],
+    "seasonalPeak": "Summer (June-August), spring break, Thanksgiving and Christmas/New Year; weekday business travel tied to Silicon Valley.",
+    "arrivalRecommendation": {
+      "domestic": "At least 2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "2.5-3 hours during peak periods"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Mediterranean: mild, rainy winters and warm, dry summers; far less fog than SFO.",
+    "commonDisruptions": "Winter rainstorms (November-March); delays often arrive via fog or weather at connecting airports such as SFO.",
+    "bestMonths": "April-May, September-October",
+    "worstMonths": "December-February (rain)",
+    "winterNote": "No snow; allow extra time on US-101 and I-880 in rain. Covered parking: Lot 2, Lot 3, part of Economy Lot 1, and Spring Park's indoor product.",
+    "note": "In summer, covered parking keeps the car cooler; Spring Park sells covered indoor spaces."
+  },
+  "parkSleepFly": {
+    "description": "Hotel + parking + shuttle near SJC. Triply sells parking-only at Holiday Inn San Jose Airport; room packages are booked with the hotel.",
+    "priceRange": "Parking-only via Triply from ~$8.82/day at Holiday Inn San Jose Airport (2026-10-16 quote)",
+    "popularHotels": [
+      { "name": "Holiday Inn San Jose Airport", "distance": "1.1 miles (42 E Gish Rd)", "shuttleHours": "24/7 on demand", "highlight": "Gated lot with security cameras; shuttle picks you up at your car." }
+    ],
+    "bookingSites": ["triplypro.com"]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically $3-5 or 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip (Nov 2-9, 2026, 10 AM drop-off / 2 PM pickup — Triply bills 8 days), quoted 2026-10-16. SJC charges the full daily rate at the start of each 24-hour period, so 7 days 4 hours = 8 daily charges at posted drive-up rates.",
+    "onAirport": {
+      "economyLot1": { "parkingCost": "$152 (8 x $19)", "totalEstimate": "$152" },
+      "hourlyLot2TerminalA": { "parkingCost": "$200 (8 x $25)", "totalEstimate": "$200" },
+      "dailyLot4": { "parkingCost": "$248 (8 x $31)", "totalEstimate": "$248" },
+      "hourlyDailyLot5": { "parkingCost": "$248 (8 x $31)", "totalEstimate": "$248" },
+      "premiumReserved": { "parkingCost": "$320 (8 x $40)", "totalEstimate": "$320" },
+      "hourlyLot3TerminalB": { "parkingCost": "$328 (8 x $41)", "totalEstimate": "$328" }
+    },
+    "offSiteWithShuttle": {
+      "joyParkFly": { "parkingCost": "$67.07 quoted grand total (~$7.79/day before fees)", "savingsVsEconomyLot1": "~$85 saved", "savingsVsTerminalAGarage": "~$133 saved", "caveat": "1.2 mi; 24/7 shuttle; optional complimentary valet" },
+      "springPark": { "parkingCost": "$75.50 quoted grand total (~$8.05/day before fees)", "savingsVsEconomyLot1": "~$76 saved", "savingsVsTerminalAGarage": "~$124 saved", "caveat": "Covered vs rooftop depends on product bought" },
+      "holidayInnSanJoseAirport": { "parkingCost": "$76.91 quoted grand total (~$8.82/day before fees)", "savingsVsEconomyLot1": "~$75 saved", "savingsVsTerminalAGarage": "~$123 saved", "caveat": "Gated hotel lot; call for shuttle at your car" }
+    },
+    "publicTransit": {
+      "vta60": { "costPerPersonRoundTrip": "Free on Route 60 to/from SJC; connecting light rail, BART or Caltrain fares extra", "note": "Route 60 links Metro/Airport light rail, Milpitas BART and Winchester Station." }
+    },
+    "keyDifference": "SJC's cheapest public option, Economy Lot 1, is $19/day ($152 for this trip), so every Triply SJC lot saves roughly $75-85 against it and $120+ against the Terminal A Garage. On-airport figures are posted drive-up rates; online airport reservations and Park Perks can lower them."
+  },
+  "uniqueFeatures": {
+    "normanMineta": "Named for Norman Y. Mineta, San José mayor, congressman and the first Asian American cabinet secretary (Commerce and Transportation); renamed November 2001.",
+    "siliconValley": "The Silicon Valley airport and the Bay Area's second busiest after SFO.",
+    "freeAirportFlyer": "VTA Route 60 is free to ride from SJC to Metro/Airport light rail, Milpitas BART and Winchester Station.",
+    "parkPerks": "SJC Park Perks loyalty program rewards online parking reservations (1 point per $1).",
+    "handsArtwork": "Public artwork 'Hands' covers the façade of the Terminal B garage.",
+    "southwestLargest": "Southwest carries ~58% of SJC passengers."
+  },
+  "emergencyContacts": {
+    "airportInfo": "408-392-3600",
+    "airportMain": "408-392-3600",
+    "airportWebsite": "flysanjose.com",
+    "parkingInfo": "flysanjose.com/parking",
+    "parkingPhone": "408-441-5570 (Airport Parking Services; ParkingSJC@sjc.org)",
+    "lostAndFound": "408-392-3559 — 1701 Airport Blvd, Suite B-1130 (between Terminals A and B); Mon-Thu 8 a.m.-5 p.m., Fri 8 a.m.-4:30 p.m.",
+    "tsa": "(866) 289-9673",
+    "tsaCares": "(855) 787-2227",
+    "emergency": "911 — state you are at San José Mineta International Airport"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Checked 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.flysanjose.com/",
+      "parking": "https://www.flysanjose.com/parking",
+      "parkingReservations": "https://parking.flysanjose.com/",
+      "parkPerks": "https://www.flysanjose.com/parkperks",
+      "parkingFaq": "https://www.flysanjose.com/faq?type=2",
+      "cellPhoneLot": "https://www.flysanjose.com/parking/cell-phone-waiting-area",
+      "accessibleParking": "https://www.flysanjose.com/parking/accessible-and-handicap-parking",
+      "publicTransit": "https://www.flysanjose.com/public-transit",
+      "taxis": "https://www.flysanjose.com/taxis",
+      "hotelShuttles": "https://www.flysanjose.com/hotel-shuttles",
+      "rentalCars": "https://www.flysanjose.com/rental-cars",
+      "lostAndFound": "https://www.flysanjose.com/lost-found"
+    },
+    "transit": {
+      "vtaRoute60": "https://www.vta.org/",
+      "caltrain": "https://www.caltrain.com/",
+      "bart": "https://www.bart.gov/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/sjc/"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=SJC",
+      "triplyBookingPage": "https://triplypro.com/san-jose-sjc/airport-parking"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsawaittimes.com/",
+      "tsaPreCheck": "https://www.tsa.gov/precheck",
+      "clear": "https://www.clearme.com"
+    },
+    "lounges": {
+      "clubSjc": "https://www.flysanjose.com/things-do/club-sjc",
+      "flightqueue": "https://flightqueue.com/lounges/sjc"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KSJC",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/SJC"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/San_Jose_Mineta_International_Airport"
+    },
+    "newsAndMedia": {
+      "mercuryNews": "https://www.mercurynews.com/",
+      "sanJoseSpotlight": "https://sanjosespotlight.com/",
+      "nbcBayArea": "https://www.nbcbayarea.com/"
+    }
+  }
+}

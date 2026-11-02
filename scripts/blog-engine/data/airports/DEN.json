@@ -1,7 +1,7 @@
 {
   "code": "DEN",
   "fullName": "Denver International Airport",
-  "lastVerified": "2026-04-09",
+  "lastVerified": "2026-10-26",
   "overview": {
     "location": "Unincorporated Adams County, Colorado — 25 miles northeast of downtown Denver",
     "iataCode": "DEN",
@@ -41,7 +41,7 @@
     {
       "name": "Jeppesen Terminal",
       "status": "Active — landside terminal with ticketing, baggage claim, and ground transportation. Connected to all 3 concourses via underground train (AGTS). Great Hall renovation ongoing through 2027.",
-      "airlines": "All airlines check in at the Jeppesen Terminal. No gates — passengers proceed to concourses via the underground Automated Guideway Transit System (AGTS) train.",
+      "airlines": [],
       "gates": "None — terminal is landside only",
       "notes": "Iconic white tent-roof structure designed by Fentress Architects to evoke the Rocky Mountains. Named after aviation pioneer Elrey Jeppesen. Level 5: Arrivals and ground transportation. Level 6: Departures, ticketing, and security checkpoints (East and West). Great Hall renovation ($2B) in final phase — new security checkpoints, international arrivals facility, and retail/dining. Westin Denver International Airport hotel connected to the terminal."
     },
@@ -217,8 +217,8 @@
     {
       "name": "Canopy Airport Parking",
       "slug": "canopy-airport-parking-den",
-      "dailyRate": 15.00,
-      "reservationRate": 9.00,
+      "dailyRate": 11.23,
+      "reservationRate": 11.23,
       "parkingType": "Outdoor self-park ($15/day), Covered ($26/day), Valet ($30/day)",
       "amenities": ["Free 24/7 Shuttle", "Covered Parking Option", "Valet Service", "EV Charging", "Free WiFi in Lobby", "Free Coffee & Snacks", "Luggage Assistance", "24/7 Security", "Surveillance Cameras", "Fenced & Gated"],
       "shuttleInfo": "24/7 complimentary shuttle with luggage assistance. Every 15-25 minutes. ~10 minute ride to terminal.",
@@ -228,7 +228,11 @@
       "driveTime": "10 minutes",
       "freeCancellation": true,
       "rating": "4.5/5",
-      "notes": "Best off-site lot for amenities. EV charging is a unique offering. Covered parking at $26/day is still cheaper than on-airport garages ($28/day). Pre-book online for best rates (~$9/day outdoor)."
+      "notes": "Best off-site lot for amenities. EV charging is a unique offering. Covered parking at $26/day is still cheaper than on-airport garages ($28/day). Pre-book online for best rates (~$9/day outdoor).",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot - South",
@@ -243,7 +247,9 @@
       "distanceFromAirport": "6 mi",
       "driveTime": "10-12 minutes",
       "freeCancellation": true,
-      "notes": "Great for travelers who prefer keeping their keys. Book online early for $8/day rates. Loyalty program earns free parking days. Free water bottle on return is a nice touch."
+      "notes": "Great for travelers who prefer keeping their keys. Book online early for $8/day rates. Loyalty program earns free parking days. Free water bottle on return is a nice touch.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "The Parking Spot - West",
@@ -258,13 +264,15 @@
       "distanceFromAirport": "5 mi",
       "driveTime": "8-10 minutes",
       "freeCancellation": true,
-      "notes": "Choose between South and West locations based on your approach route. Same rates and service quality at both."
+      "notes": "Choose between South and West locations based on your approach route. Same rates and service quality at both.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Park2Jet Denver",
       "slug": "park2jet-denver-den",
-      "dailyRate": 19.99,
-      "reservationRate": 9.99,
+      "dailyRate": 9.45,
+      "reservationRate": 9.45,
       "parkingType": "Outdoor ($9.99 pre-booked) and Indoor/Covered ($12.99 pre-booked) self-park",
       "amenities": ["Free 24/7 Shuttle", "Indoor Parking Option", "24/7 Surveillance", "Gated Access", "On-Site Security Personnel", "Fenced Lot"],
       "shuttleInfo": "Free shuttle every 10-15 minutes, 24/7. Airport-to-lot shuttle runs 4 AM - midnight every 10-15 min; midnight-4 AM call (303) 558-9790 for pickup. ~7-minute ride.",
@@ -273,7 +281,11 @@
       "distanceFromAirport": "5 mi",
       "driveTime": "7 minutes",
       "freeCancellation": true,
-      "notes": "Indoor parking at $12.99/day pre-booked is excellent value vs. on-airport garages ($28/day). NOTE: After-hours pickup (midnight-4 AM) requires phone call — not ideal for very late arrivals without planning."
+      "notes": "Indoor parking at $12.99/day pre-booked is excellent value vs. on-airport garages ($28/day). NOTE: After-hours pickup (midnight-4 AM) requires phone call — not ideal for very late arrivals without planning.",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "WallyPark Premier",
@@ -288,7 +300,9 @@
       "distanceFromAirport": "3 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Closest off-site lot to DEN — located on airport property. 5-10 minute shuttle frequency is best-in-class. Pre-book for $7.95/day. Valet option available for premium service."
+      "notes": "Closest off-site lot to DEN — located on airport property. 5-10 minute shuttle frequency is best-in-class. Pre-book for $7.95/day. Valet option available for premium service.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "Fine Airport Parking",
@@ -303,7 +317,9 @@
       "distanceFromAirport": "6 mi",
       "driveTime": "10-12 minutes",
       "freeCancellation": true,
-      "notes": "FREE EV charging is a major differentiator — charge your EV while you travel at no extra cost. Indoor parking at $19/day is cheaper than on-airport garages. Pre-book for $7.49/day outdoor."
+      "notes": "FREE EV charging is a major differentiator — charge your EV while you travel at no extra cost. Indoor parking at $19/day is cheaper than on-airport garages. Pre-book for $7.49/day outdoor.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     },
     {
       "name": "ParkDIA",
@@ -318,7 +334,9 @@
       "distanceFromAirport": "2.6 mi",
       "driveTime": "5-7 minutes",
       "freeCancellation": true,
-      "notes": "Second-closest off-site lot to DEN at 2.6 miles. Text-to-dispatch shuttle is convenient. Shuttle frequency (every 5-7 min) is among the best. Covered parking at $18/day still saves $10/day vs. on-airport garages."
+      "notes": "Second-closest off-site lot to DEN at 2.6 miles. Text-to-dispatch shuttle is convenient. Shuttle frequency (every 5-7 min) is among the best. Covered parking at $18/day still saves $10/day vs. on-airport garages.",
+      "sellable": false,
+      "sellableCheckedOn": "2026-10-26"
     }
   ],
   "shuttleInfo": "On-airport: FREE 24/7 shuttles connect Economy Lots and Pikes Peak/Longs Peak Shuttle Lots to Jeppesen Terminal every 7-10 minutes. Off-site: All major off-site lots include free shuttle — frequency ranges from every 5 minutes (WallyPark, ParkDIA) to every 15-25 minutes (Canopy). Most shuttles run 24/7. CRITICAL: Park2Jet after-hours pickup (midnight-4 AM) requires a phone call — plan ahead for late arrivals.",

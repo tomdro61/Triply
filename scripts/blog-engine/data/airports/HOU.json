@@ -1,0 +1,394 @@
+{
+  "code": "HOU",
+  "fullName": "William P. Hobby Airport",
+  "lastVerified": "2026-10-26",
+  "overview": {
+    "location": "Greater Hobby neighborhood, southeast Houston, Texas — about 7 miles southeast of downtown Houston. NOT George Bush Intercontinental (IAH), Houston's larger airport ~23 miles north of downtown.",
+    "iataCode": "HOU",
+    "icaoCode": "KHOU",
+    "faaLid": "HOU",
+    "elevation": "46 feet above mean sea level",
+    "acreage": 1304,
+    "coordinates": "29.6454N, 95.2789W",
+    "passengerVolume": "13.94 million passengers in 2025 (Wikipedia, citing Houston Airport System)",
+    "aircraftOperations": "196,253 (2025)",
+    "distinction": "Opened in June 1927 as a private landing field; renamed Houston Municipal (1937), Howard R. Hughes Airport (1938), Houston International (1954) and William P. Hobby Airport (1967) after the former Texas governor. Southwest Airlines' operating base — Southwest carried ~94.6% of HOU passengers (June 2025-May 2026). Southwest began international flights from the West Concourse on October 15, 2015; in February 2020 HOU became the first Texas airport with full biometric entry and exit for international passengers.",
+    "operator": "Houston Airport System (City of Houston)",
+    "owner": "City of Houston",
+    "activeTerminals": 1,
+    "activeConcourses": "2 (Central Concourse and West Concourse)",
+    "totalGates": 30,
+    "gateNote": "Wikipedia: Central Concourse 25 gates + West Concourse 5 gates (international-capable). A 7-gate West Concourse expansion is under construction (see construction2026). Verify gate counts on the fly2houston.com interactive map before quoting.",
+    "runways": 3,
+    "runwayDetails": [
+      { "designation": "04/22", "length": "7,602 ft (2,317 m)", "surface": "Concrete" },
+      { "designation": "13R/31L", "length": "7,602 ft (2,317 m)", "surface": "Asphalt" },
+      { "designation": "13L/31R", "length": "5,148 ft (1,569 m)", "surface": "Concrete" }
+    ],
+    "dominantAirline": "Southwest Airlines (operating base; ~94.6% of passengers)",
+    "nonstopDestinations": "Domestic network dominated by Southwest, plus Southwest international service to Mexico, Central America and the Caribbean from the West Concourse (verify current destinations on fly2houston.com)",
+    "internationalService": "Southwest international flights from the West Concourse (Federal Inspection Services on site) since October 15, 2015.",
+    "founded": "1927",
+    "hubCarriers": ["Southwest Airlines (operating base)"],
+    "slotControlled": false,
+    "metroAccess": "METRO 500 Downtown Direct was extended to Hobby on February 22, 2026 ($4.50 one-way, links HOU, downtown/George R. Brown Convention Center and IAH — verify current schedule). Local METRO buses stop at Curb Zone 3: routes 40, 50, 73 (connects to the Red Line rail) and 88 (Wikipedia — verify).",
+    "terminalConnection": "Single terminal; Central and West Concourses are connected airside. Red Garage and Blue Garage sit next to the terminal (walk). ecopark is served by a continuous shuttle (about every 10 minutes) to the terminal curb."
+  },
+  "terminals": [
+    {
+      "name": "Main Terminal — Central Concourse and West Concourse",
+      "status": "Active. Single terminal serving all airlines.",
+      "airlines": ["Southwest Airlines", "Delta", "American Airlines / American Eagle", "Allegiant", "JSX", "Sun Country"],
+      "gates": "30 gates: Central Concourse (25) and West Concourse (5, international-capable). Verify airline-to-gate assignments on the fly2houston.com interactive map.",
+      "securityCheckpoints": "TSA checkpoint hours not published in text on fly2houston.com/hou/security (live wait-time widget only) — verify",
+      "parking": "Red Garage (valet on Level 2) and Blue Garage attached/adjacent; ecopark surface lot by shuttle",
+      "notes": "CLEAR available Sunday-Friday 4:30 AM-8:00 PM and Saturday 4:30 AM-7:00 PM (fly2houston.com/hou/security). Southwest international arrivals clear customs in the West Concourse."
+    }
+  ],
+  "roads": ["Interstate 45 (Gulf Freeway) — main access from downtown Houston and Galveston", "Airport Boulevard (terminal entrance)", "Broadway Street", "Telephone Road", "Monroe Road", "Loop 610 (South Loop) and Beltway 8 (Sam Houston Tollway) for regional access"],
+  "transit": ["METRO 500 Downtown Direct (HOU-downtown-IAH, $4.50 one-way, since Feb 22, 2026 — verify schedule)", "METRO local buses at Curb Zone 3: 40, 50, 73 (to Red Line), 88 (verify)", "ecopark shuttle (continuous, about every 10 minutes)"],
+  "neighborhoods": ["Greater Hobby", "Park Place", "Meadowbrook", "Pasadena", "South Houston", "Pearland", "Clear Lake / NASA area", "Downtown Houston", "Texas Medical Center", "League City", "Friendswood"],
+  "authority": "Houston Airport System (City of Houston)",
+  "groundTransportation": {
+    "metro500": {
+      "operator": "METRO (Metropolitan Transit Authority of Harris County)",
+      "route": "500 Downtown Direct",
+      "fare": "$4.50 one-way (verify)",
+      "start": "Hobby extension began February 22, 2026",
+      "note": "Links HOU with downtown (incl. George R. Brown Convention Center) and IAH; dedicated luggage space and Wi-Fi reported. Verify current timetable on ridemetro.org.",
+      "source": "https://fly2houston.com/airport-business/newsroom/press-releases/item/metro-expands-500-downtown-direct-service-to-hou"
+    },
+    "taxi": {
+      "fareType": "Zone/flat fares published by the airport (excluding gratuity)",
+      "pickup": "Curb Zone 2 outside Baggage Claim/Arrivals Level — follow 'Ground Transportation' then 'Taxis' signs",
+      "fares": { "toDowntown": "$29", "toMedicalCenterNRGPark": "$35", "toNASASpaceCenter": "$41", "toGalleria": "$59", "toIAH": "$76" },
+      "surcharges": "$1.25 departure fee; $1.00 late-night surcharge 8:00 PM-6:00 AM; seniors 10% discount",
+      "source": "https://www.fly2houston.com/hou/ground-transportation/taxi-and-ride-apps/"
+    },
+    "rideshare": {
+      "providers": ["Uber", "Lyft", "Wingz", "Get Me", "GreenLight (GLT)"],
+      "pickupLocation": "Curb Zone 5 outside Baggage Claim/Arrivals Level — exit through the door nearest Baggage Claim Carousel 4 and follow 'Ride App' signs",
+      "source": "https://www.fly2houston.com/hou/ground-transportation/taxi-and-ride-apps/"
+    },
+    "rentalCars": {
+      "pickup": "Not verified — fly2houston.com rental-car page did not load (404) on 2026-10-16. Verify location and companies before quoting.",
+      "companies": [],
+      "note": "Do not state a rental car facility location until verified."
+    },
+    "busPort": "METRO local buses at Curb Zone 3 (Wikipedia — verify).",
+    "hotelShuttles": "Sellable hotel lots sit 1.1-1.6 miles from HOU along Airport Blvd, Monroe Rd and the Gulf Freeway (I-45). DoubleTree, Marriott South and Hobby Airport Parking run their own 24/7 shuttles; Hampton Inn uses a complimentary Lyft booked through the hotel 24 hours ahead. Hotel/shuttle pickup curb zone at HOU not verified."
+  },
+  "parkingRates": "On-airport (fly2houston.com, tax included, verified 2026-10-16): Red/Blue terminal garages $25/day max ($1 for 0-10 min, $5 for 11 min-1 hr, $2.50 each additional 30 min), ecopark $10/day (16 min-24 hrs; continuous shuttle), Valet $30 per 24 hrs (Red Garage Level 2). Garages switch to pre-booked reservations only once 85% full. Off-site hotel/shuttle lots bookable on Triply from ~$4.73/day.",
+  "onAirportParking": {
+    "operator": "SP+ (SP+ GLOBAL / IMS) for the Houston Airport System — 281-233-1786 (parking info), 281-233-1729 (Parking Plus / customer service)",
+    "terminalGarages": {
+      "name": "Terminal Garages (Red Garage and Blue Garage)",
+      "rates": { "0-10 minutes": "$1.00", "11 minutes-1 hour": "$5.00", "each additional 30 minutes": "$2.50", "dailyMax": "$25.00" },
+      "ratesBeforeTax": { "0-10 minutes": "$0.92", "11 minutes-1 hour": "$4.62", "each additional 30 minutes": "$2.31", "dailyMax": "$23.09" },
+      "dailyMax": 25,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.fly2houston.com/parking/hou-parking-rates/",
+      "serves": "Main terminal (walk)",
+      "features": "Adjacent to the terminal; Parking Guidance System with overhead lights to open spaces. Once garage capacity reaches 85%, only pre-booked reservations may park. Oversized vehicles allowed if under 6'7\" height; taller ADA vehicles use Red Garage Level 1 (garage rates) or ecopark."
+    },
+    "ecopark": {
+      "name": "ecopark (economy surface lot)",
+      "rates": { "0-15 minutes": "listed without a price on the rate page (verify)", "16 minutes-24 hours": "$10.00" },
+      "ratesBeforeTax": { "16 minutes-24 hours": "$9.24" },
+      "dailyMax": 10,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.fly2houston.com/parking/hou-parking-rates/",
+      "connection": "Uncovered lot; shuttle runs continuously about every 10 minutes and drops at the terminal curb (fly2houston.com HOU parking tips page). Shuttle hours not published — verify.",
+      "features": "Cheapest on-airport option. Airport recommends a reservation at ecopark. Write down the facility and shelter letter / row number when you park. EV charging (Blink) at ecopark per the EV page.",
+      "address": "Not published on fly2houston.com — verify"
+    },
+    "valetParking": {
+      "name": "HOU Valet Parking",
+      "rates": { "0-24 hours": "$30.00" },
+      "ratesBeforeTax": { "0-24 hours": "$27.71" },
+      "dailyMax": 30,
+      "lastVerified": "2026-10-16",
+      "source": "https://www.fly2houston.com/hou/parking/valet-parking/",
+      "location": "Second level of the Red Garage, off the departures ramp",
+      "features": "Covered spaces, advance online reservations, car wash available, free bottle of water. Valet booth 713-845-6698."
+    },
+    "cellPhoneLot": {
+      "name": "Cell Phone Lot (free)",
+      "location": "Not verified on fly2houston.com (page 404 on 2026-10-16). Third-party sources place it on the airport access road off Airport Blvd — verify before quoting.",
+      "cost": "FREE (verify)",
+      "source": "https://www.fly2houston.com/hou/ground-transportation/"
+    },
+    "evCharging": {
+      "locations": ["ecopark lot (fly2houston.com EV charging page)", "Blue Garage Level 2, Row D for self-parkers and Red Garage Level 2 for valet (fly2houston.com HOU parking tips page)"],
+      "network": "Blink — Blink InCard or smartphone QR guest code; support +1-888-998-2546",
+      "cost": "Charging sessions free; standard parking rate applies",
+      "note": "The two official pages disagree on location — verify before quoting a specific spot.",
+      "source": "https://www.fly2houston.com/hou/parking/ev-charging/"
+    },
+    "parkingPlusProgram": {
+      "name": "Parking Plus (free frequent parking program, IAH + HOU)",
+      "earning": "Points at all terminal garages and ecopark lots; credited automatically at end of stay; card on file charged on exit",
+      "redemption": "Free days redeemed online; redemption does not reserve a space; must enter on the redeemed date",
+      "contact": "281-233-1729, NSPTX.SERVICE@spplus.com",
+      "source": "https://www.fly2houston.com/hou/parking/parking-plus/"
+    },
+    "veteranParking": {
+      "summary": "Complimentary parking for veterans with an active Texas Veteran specialty plate, registration receipt in the veteran's name and the veteran in the car at exit: up to 60 consecutive days at HOU ecopark OR up to 5 consecutive days in a garage. Not valid for valet or with an online reservation (drive-up program). New reservation-based option for pre-qualified veterans begins November 2, 2026 (reservation fee waived).",
+      "outOfState": "'OUT OF STATE - Disabled Veteran' appears in the approved plate list",
+      "source": "https://www.fly2houston.com/hou/parking/veteran-parking/"
+    },
+    "maxStay": "Up to 60 days in any garage or ecopark without notice; longer stays call SP+ at 281-233-1786",
+    "paymentMethods": "Cashless. Debit, Visa, Mastercard, American Express, Discover, Apple Pay, Google Pay. Cash-to-card machine available.",
+    "lostTicket": "Not published on fly2houston.com — verify with SP+ (281-233-1786). Entry is by inserting the same card in and out (cashless entry).",
+    "reservations": "Online reservations via fly2houston.com 'Book your parking'; prepaid reservations cancellable up to 3 hours before check-in (refund less convenience fee); arrive within 3 hours of the booked check-in time (SP+ terms).",
+    "chargeDisputes": "Form on fly2houston.com/hou/parking/faq",
+    "garageServiceAreas": "Red and Blue Garages → main terminal (walk). ecopark → terminal curb by shuttle.",
+    "arrivalTip": "Garages go reservation-only at 85% capacity — book ahead on busy dates or use an off-site lot."
+  },
+  "parkingLots": [
+    {
+      "name": "DoubleTree Houston Hobby Airport",
+      "slug": "doubletree-houston-hobby-airport",
+      "dailyRate": 4.73,
+      "reservationRate": 4.73,
+      "sampleQuote": "$40.77 total for Nov 2-9, 2026 (8 billing days: $36.00 subtotal + $1.80 fees + $2.97 tax), before Triply service fee",
+      "parkingType": "Gated hotel lot with full in/out privileges",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Wheelchair Access"],
+      "shuttleInfo": "24/7 every 15 minutes. Visit the front desk first for a validation code, then scan the on-site QR code to register the vehicle. Return: call 713-645-3000 after collecting luggage.",
+      "overview": "DoubleTree on Airport Blvd about a 5-minute drive from HOU — the lowest sellable rate at Hobby, gated lot with full in/out privileges and a complimentary shuttle that also runs within a three-mile radius.",
+      "address": "8181 Airport Blvd, Houston, TX 77061",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "713-645-3000",
+      "notes": "Cheapest at HOU on 2026-10-16 (same $4.73/day across Nov 2-9, 9-16 and 16-23 searches). All vehicles must be registered via QR code after front-desk validation. Badge 'lowest_total' on search.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Houston Hobby Marriott South",
+      "slug": "houston-hobby-marriott-south",
+      "dailyRate": 5.20,
+      "reservationRate": 5.20,
+      "sampleQuote": "$41.58 total for Nov 2-9, 2026 (8 billing days: $39.60 subtotal + $1.98 fees, $0 tax), before Triply service fee",
+      "parkingType": "Hotel lot (vehicles of all sizes)",
+      "amenities": ["Restaurant", "EV Charging (per listing description)", "Oversized Vehicles Accepted (full-size vans, pickups, large SUVs at no extra charge)"],
+      "shuttleInfo": "24/7, every 30 minutes on the hour and half-hour. Check in at the front desk for parking instructions. Return: call (713) 943-7979.",
+      "overview": "Houston Marriott South on the Gulf Freeway (I-45), about 5 minutes from HOU, with a 24/7 half-hourly shuttle, on-site EV charging and no surcharge for full-size vans, pickups or large SUVs.",
+      "address": "9100 Gulf Fwy, Houston, TX 77017",
+      "distanceFromAirport": "1.6 mi",
+      "phone": "(713) 943-7979",
+      "notes": "Daily-rate lot (minimum 1 booking day). Hotel offers room-and-parking packages directly. Arrive before the 2-hour pre-flight window.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hobby Airport Parking",
+      "slug": "hobby-airport-parking",
+      "dailyRate": 5.34,
+      "reservationRate": 5.34,
+      "sampleQuote": "$45.93 total for Nov 2-9, 2026 (8 billing days: $39.60 subtotal + $2.98 fees + $3.35 tax), before Triply service fee",
+      "parkingType": "Well-lit lot with 24/7 security cameras",
+      "amenities": ["24/7 Front Desk", "Security"],
+      "shuttleInfo": "24/7, every 15 minutes on a set schedule (accessible shuttle per listing). Check in at the front desk for a validation code and register via QR code (plate, phone, stay length, code). If the shuttle hasn't come within 20 minutes, call the shuttle directly.",
+      "overview": "Independent parking lot on Monroe Rd near HOU with round-the-clock camera surveillance and a scheduled 24/7 shuttle every 15 minutes.",
+      "address": "7625 Monroe Rd, Houston, TX 77061",
+      "distanceFromAirport": "1.4 mi",
+      "phone": "1-844-376-2435",
+      "notes": "Listing description says 'half a mile' from HOU but the search result distance is 1.4 mi — use 1.4 mi. Listing says 'hotel front desk' check-in; confirm what the check-in point is before describing it in detail.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    },
+    {
+      "name": "Hampton Inn Houston Hobby Airport",
+      "slug": "hampton-inn-houston-hobby-airport",
+      "dailyRate": 6.96,
+      "reservationRate": 6.96,
+      "sampleQuote": "$59.32 total for Nov 2-9, 2026 (8 billing days: $47.60 subtotal + $7.38 fees + $4.34 tax), before Triply service fee",
+      "parkingType": "Hotel lot",
+      "amenities": ["24/7 Front Desk", "Restaurant", "Fitness Center", "Free Internet/Wifi", "Breakfast Included"],
+      "shuttleInfo": "Complimentary Lyft rideshare (partnered), available 24/7 — must be booked through the hotel at least 24 hours in advance by calling 713-641-6400. Travelers who book outside normal hours must arrange their own transport. Return: call 713-641-6400 and go to the HOU rideshare pickup area (Curb Zone 5).",
+      "overview": "Hampton Inn about a 3-minute drive (one mile) from HOU, right off I-45, with a complimentary Lyft transfer instead of a hotel shuttle; parkers get restroom and Wi-Fi access.",
+      "address": "8620 Airport Blvd, Houston, TX 77061",
+      "distanceFromAirport": "1.1 mi",
+      "phone": "713-641-6400",
+      "notes": "NOT a shuttle lot — the transfer is a hotel-booked Lyft that needs 24 hours' notice. Flag this clearly in every article.",
+      "sellable": true,
+      "sellableCheckedOn": "2026-10-26",
+      "paymentMethod": "Pay Online",
+      "rateVerified": "2026-10-26"
+    }
+  ],
+  "shuttleInfo": "On-airport: ecopark shuttle runs continuously about every 10 minutes to the terminal curb (hours not published — verify); Red and Blue Garages are walk-in. Off-site: DoubleTree (24/7 every 15 min) and Hobby Airport Parking (24/7 every 15 min) run the most frequent shuttles; Marriott South runs 24/7 every 30 minutes; Hampton Inn uses a complimentary Lyft booked 24 hours ahead.",
+  "distanceFromCity": "About 7 miles southeast of downtown Houston via I-45 (Gulf Freeway). METRO 500 Downtown Direct links HOU and downtown ($4.50).",
+  "keyDistances": {
+    "toDowntownHouston": "~7 miles via I-45; taxi flat $29; METRO 500 $4.50",
+    "toIAH": "~30+ miles; taxi $76 (verify distance)",
+    "toNASASpaceCenter": "Taxi $41 (airport-published fare)",
+    "competitiveAdvantage": "HOU's own ecopark is only $10/day, so off-site savings vs ecopark are modest (~$3-5/day). The big gap is vs the Red/Blue garages ($25/day) and valet ($30/day), and the fact that garages go reservation-only at 85% capacity."
+  },
+  "construction2026": {
+    "status": "West Concourse expansion under construction — 7 new gates; announced 2022 at $250M, cost rose to $470M at construction start in November 2024; completion scheduled for 2027 (Wikipedia — verify).",
+    "projects": ["West Concourse expansion (+7 gates)"],
+    "travelImpact": "No parking closures verified for 2026. Check fly2houston.com/hou/redevelopment before each trip.",
+    "timeline": { "westConcourseCompletion": "2027 (verify)" },
+    "sources": ["https://en.wikipedia.org/wiki/William_P._Hobby_Airport", "https://www.fly2houston.com/hou/redevelopment/"]
+  },
+  "securityAndScreening": {
+    "checkpoints": [
+      { "name": "HOU main checkpoint(s)", "hours": "Not published in text — verify (fly2houston.com shows live wait times)", "airlines": "All" }
+    ],
+    "tsaPreCheck": { "note": "PreCheck availability not stated on fly2houston.com/hou/security — verify." },
+    "clear": { "hours": "Sunday-Friday 4:30 AM-8:00 PM; Saturday 4:30 AM-7:00 PM", "source": "https://www.fly2houston.com/hou/security/" },
+    "tsaConfirmID": "Travelers without acceptable ID can pay a $45 fee to use TSA ConfirmID",
+    "waitTimes": "Live wait times on fly2houston.com/hou/security",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure (airline guidance per sellable-lot listings — verify airport guidance)",
+      "international": "3 hours before departure (verify)",
+      "parking": "Add time for hotel check-in + shuttle; Hampton Inn's Lyft must be booked 24 hours ahead"
+    }
+  },
+  "lounges": {
+    "terminal": [
+      { "name": "Not verified", "note": "No airline club lounge confirmed at HOU on 2026-10-16 — do not name a lounge without checking fly2houston.com/hou/shop-dine-relax." }
+    ]
+  },
+  "wifi": {
+    "provider": "verify",
+    "cost": "verify on fly2houston.com",
+    "coverage": "Terminal"
+  },
+  "evCharging": {
+    "onAirport": "Free Blink charging (parking fee applies) — at ecopark per the EV page; Blue Garage Level 2 Row D (self-park) and Red Garage Level 2 (valet) per the parking-tips page. Verify location.",
+    "offSiteSellable": "Houston Hobby Marriott South listing says EV charging stations are on site.",
+    "note": "Confirm charger availability before relying on it."
+  },
+  "luggageStorage": {
+    "onSite": "Not verified — do not state",
+    "source": "verify"
+  },
+  "petFacilities": {
+    "total": "Not verified — fly2houston.com has a 'Traveling With Pets' page; check before quoting",
+    "locations": [],
+    "note": "verify"
+  },
+  "peakTravelTimes": {
+    "busiestHours": ["Early-morning Southwest departure bank", "Late afternoon / early evening"],
+    "seasonalPeak": "Spring break, summer, Thanksgiving, Christmas/New Year; Houston Livestock Show & Rodeo (Feb-Mar) and big NRG Park events add volume.",
+    "arrivalRecommendation": {
+      "domestic": "2 hours before departure",
+      "international": "3 hours before departure",
+      "holidays": "Book parking ahead — garages go reservation-only at 85% capacity"
+    }
+  },
+  "weatherPatterns": {
+    "climate": "Humid subtropical — hot, humid summers, mild winters, heavy rain.",
+    "commonDisruptions": "Summer thunderstorms, tropical storms and hurricanes (June-November), street flooding during heavy rain; occasional winter freezes.",
+    "bestMonths": "October-November and March-April",
+    "worstMonths": "June-September (heat, storms, hurricane season)",
+    "note": "Of the sellable lots, none advertises covered parking; valet (Red Garage) is the only covered option verified."
+  },
+  "parkSleepFly": {
+    "description": "Three sellable HOU lots are hotels, so travelers can book a room directly with the hotel and park through Triply — or check the hotel's own room-and-parking package (Marriott South offers them). Package terms not verified.",
+    "popularHotels": [
+      { "name": "DoubleTree Houston Hobby Airport", "distance": "1.1 miles", "shuttleHours": "24/7 every 15 min", "highlight": "Gated lot with in/out privileges; Triply parking from $4.73/day." },
+      { "name": "Houston Hobby Marriott South", "distance": "1.6 miles", "shuttleHours": "24/7 every 30 min", "highlight": "EV charging, oversized vehicles at no extra cost; Triply parking from $5.20/day." },
+      { "name": "Hampton Inn Houston Hobby Airport", "distance": "1.1 miles", "shuttleHours": "Complimentary Lyft, book 24 hrs ahead", "highlight": "Breakfast included, Wi-Fi; Triply parking from $6.87/day." }
+    ]
+  },
+  "tippingGuide": {
+    "shuttleDriver": "$2-5 per person",
+    "taxi": "15-20% of fare",
+    "rideshare": "In-app, typically 15-20%",
+    "skycap": "$2-3 per bag",
+    "valet": "$3-5"
+  },
+  "savingsComparison": {
+    "scenario": "7-night trip, Nov 2-9, 2026 (8 billing days on Triply for 10 AM drop-off / 2 PM pick-up)",
+    "onAirport": {
+      "valet": { "parkingCost": "$240 (8 x $30)", "totalEstimate": "$240" },
+      "terminalGarage": { "parkingCost": "$200 (8 x $25)", "totalEstimate": "$200" },
+      "ecopark": { "parkingCost": "$80 (8 x $10)", "totalEstimate": "$80" }
+    },
+    "offSiteWithShuttle": {
+      "doubleTree": { "parkingCost": "$40.77 lot total (Triply quote, Nov 2-9)", "savingsVsGarage": "~$159", "savingsVsEcopark": "~$39", "caveat": "Front-desk validation + QR registration" },
+      "marriottSouth": { "parkingCost": "$41.58 lot total", "savingsVsGarage": "~$158", "savingsVsEcopark": "~$38", "caveat": "Shuttle every 30 min" },
+      "hobbyAirportParking": { "parkingCost": "$45.93 lot total", "savingsVsGarage": "~$154", "savingsVsEcopark": "~$34", "caveat": "Shuttle every 15 min, 24/7" },
+      "hamptonInn": { "parkingCost": "$59.32 lot total", "savingsVsGarage": "~$141", "savingsVsEcopark": "~$21", "caveat": "Lyft transfer, book 24 hrs ahead" }
+    },
+    "triplyFeeNote": "Off-site figures are lot totals before Triply's service fee, added at checkout.",
+    "billingDayNote": "On-airport comparison assumes 8 charged 24-hour periods to match the Triply 8-day quote; airport billing by 24-hour block may differ — verify.",
+    "publicTransit": {
+      "metro500RoundTrip": { "costPerPersonRoundTrip": "$9.00 ($4.50 each way, verify)", "note": "Cheapest if you live near a 500 stop downtown." }
+    },
+    "keyDifference": "Off-site lots save ~$140-160 vs the HOU garages ($25/day) and ~$180-200 vs valet, but only ~$20-40 per week vs ecopark ($10/day). The HOU pitch is 'skip the $25 garage and the 85%-full reservation-only rule' and 'shuttle every 15 minutes' — not 'beat ecopark by a mile'."
+  },
+  "uniqueFeatures": {
+    "southwestBase": "Southwest carries ~95% of HOU passengers — most Hobby parkers are Southwest flyers.",
+    "notIAH": "Houston has two commercial airports. HOU (Hobby) is 7 miles southeast of downtown; IAH (Bush Intercontinental) is ~23 miles north. Searchers mix them up — say which airport early.",
+    "garageReservationRule": "HOU garages accept only pre-booked reservations once 85% full.",
+    "texasVeteranParking": "Free parking for qualifying Texas Veteran plates: 60 days at ecopark or 5 days in a garage.",
+    "biometricFirst": "First Texas airport with full biometric entry/exit for international passengers (Feb 2020).",
+    "historicTerminal": "The 1940 Art Deco terminal now houses the 1940 Air Terminal Museum (verify before quoting)."
+  },
+  "emergencyContacts": {
+    "airportWebsite": "fly2houston.com/hou",
+    "parkingInfo": "fly2houston.com/hou/parking",
+    "parkingSPplus": "+1.281.233.1786",
+    "parkingPlusAndCustomerService": "281-233-1729 (sgi.service@spplus.com)",
+    "valetBooth": "713-845-6698",
+    "metroInfo": "(713) 635-4000",
+    "tsa": "(866) 289-9673",
+    "blinkSupport": "+1-888-998-2546",
+    "airportPolice": "verify"
+  },
+  "liveSources": {
+    "_description": "Authoritative URLs for article generation. Verified 2026-10-16.",
+    "officialAirport": {
+      "home": "https://www.fly2houston.com/hou/",
+      "parking": "https://www.fly2houston.com/hou/parking/",
+      "parkingRates": "https://www.fly2houston.com/parking/hou-parking-rates/",
+      "valet": "https://www.fly2houston.com/hou/parking/valet-parking/",
+      "parkingPlus": "https://www.fly2houston.com/hou/parking/parking-plus/",
+      "veteranParking": "https://www.fly2houston.com/hou/parking/veteran-parking/",
+      "evCharging": "https://www.fly2houston.com/hou/parking/ev-charging/",
+      "parkingFaq": "https://www.fly2houston.com/hou/parking/faq/",
+      "parkingTerms": "https://www.fly2houston.com/hou/parking/terms-and-conditions/",
+      "parkingTips": "https://www.fly2houston.com/hou/related-content/parking-at-hou-airport-top-insider-tips/",
+      "groundTransportation": "https://www.fly2houston.com/hou/ground-transportation/",
+      "taxiAndRideApps": "https://www.fly2houston.com/hou/ground-transportation/taxi-and-ride-apps/",
+      "security": "https://www.fly2houston.com/hou/security/",
+      "map": "https://www.fly2houston.com/hou/map/",
+      "redevelopment": "https://www.fly2houston.com/hou/redevelopment/",
+      "metro500Release": "https://fly2houston.com/airport-business/newsroom/press-releases/item/metro-expands-500-downtown-direct-service-to-hou"
+    },
+    "transit": {
+      "metro": "https://www.ridemetro.org/"
+    },
+    "rideshare": {
+      "uber": "https://www.uber.com/global/en/r/airports/hou/",
+      "lyft": "https://www.lyft.com/rider/airports/hou"
+    },
+    "parkingRatesAndCoupons": {
+      "triplySearch": "https://www.triplypro.com/search?airport=HOU"
+    },
+    "security": {
+      "tsaWaitTimes": "https://www.tsa.gov/travel/security-screening/wait-times"
+    },
+    "weatherAndDelays": {
+      "flightaware": "https://www.flightaware.com/live/airport/KHOU",
+      "flightstats": "https://www.flightstats.com/v2/airport-conditions/HOU"
+    },
+    "comprehensiveGuides": {
+      "wikipedia": "https://en.wikipedia.org/wiki/William_P._Hobby_Airport"
+    },
+    "newsAndMedia": {
+      "houstonChronicle": "https://www.houstonchronicle.com/",
+      "houstonPublicMedia": "https://www.houstonpublicmedia.org/"
+    }
+  }
+}
