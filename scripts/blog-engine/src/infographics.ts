@@ -4,6 +4,9 @@ import { env, CLAUDE_MODEL, DOMAIN } from './config.js'
 import { trackUsage } from './claude.js'
 import { uploadMedia } from './payload.js'
 import { isCanadianAirport, type AirportData } from './airport-data.js'
+import {
+  chartAlt, chartFileName, chartInputFor, chartSvg, loadPriceSnapshot, MAX_SNAPSHOT_AGE_DAYS, pricesOffSiteLots, rateChartInsertAt, snapshotAgeDays,
+} from './rate-chart.js'
 
 const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
 
@@ -41,9 +44,13 @@ function extractVisualizableData(airportData: AirportData): Record<string, unkno
     data.onAirportParking = airportData.onAirportParking
   }
 
-  // Include off-airport parking lots
+  // Off-airport lots WITHOUT their prices (chart redraw, Nov 2026): a free-form chart of lot prices goes stale and
+  // undated the day it is drawn, and the October ones labelled lots we don't sell "bookable on Triply". Lot prices
+  // reach a post only through the dated standard chart (rate-chart.ts, added below).
   if (airportData.parkingLots && airportData.parkingLots.length > 0) {
-    data.parkingLots = airportData.parkingLots
+    data.parkingLots = airportData.parkingLots.map((l) => ({
+      name: l.name, distanceFromAirport: l.distanceFromAirport, driveTime: l.driveTime, shuttleInfo: l.shuttleInfo, parkingType: l.parkingType, amenities: l.amenities,
+    }))
   }
 
   // Include AirTrain / transit fare data
@@ -74,20 +81,12 @@ function extractVisualizableData(airportData: AirportData): Record<string, unkno
     data.lounges = airportData.lounges
   }
 
-  // Include savings comparisons if present
-  if (airportData['savingsComparisons']) {
-    data.savingsComparisons = airportData['savingsComparisons']
-  }
-
   // Include shuttle/transport info
   if (airportData['shuttleServices']) {
     data.shuttleServices = airportData['shuttleServices']
   }
 
-  // Fallback parking string
-  if (airportData.parkingRates) {
-    data.parkingRates = airportData.parkingRates
-  }
+  // savingsComparisons and the parkingRates prose are left out: both quote off-site lot prices (see parkingLots above).
 
   return data
 }
@@ -122,6 +121,8 @@ Create 1–2 SVG infographics that add the most value for readers.
 - Use only <svg>, <rect>, <circle>, <ellipse>, <line>, <polyline>, <polygon>, <path>, <text>, <tspan>, <g>, <defs>, <clipPath>, <pattern> elements
 - All colors must be inline (fill="..." or style="..."), not via external CSS classes
 - Use data from the airport JSON — do NOT invent numbers
+- NEVER chart, list or print the price of an off-site lot, a hotel lot or anything "on Triply" / "bookable on Triply" — no lot prices are given to you on purpose. A dated price chart of the lots Triply sells is added to the article separately. Off-site lots may appear by name, distance and shuttle only.
+- On-airport parking rates may be charted only with the line "Posted airport rates; check the airport's site for today's price" on the image. Never print a "checked"/"verified"/"as of" date — the data has none you can rely on
 - Round dollar amounts to nearest dollar for readability
 ${vizData.currency === 'CAD' ? '- Prices are Canadian dollars: write every price as C$ (e.g. C$12), in the SVG and in the alt text. Never a bare $.\n' : ''}- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
 
@@ -301,17 +302,77 @@ function findInsertionPoint(html: string, placement: string): number {
   return -1
 }
 
+/** The figure markup both paths insert (matches the format resolveInlineImages uses). */
+function figureTag(mediaId: string, mediaUrl: string, alt: string): string {
+  const escapedAlt = alt.replace(/"/g, '&quot;')
+  const captionText = alt.replace(/</g, '&lt;')
+  return `<figure><img data-media-id="${mediaId}" src="${mediaUrl}" alt="${escapedAlt}" data-width="800" data-height="500" /><figcaption>${captionText}</figcaption></figure>`
+}
+
+/** Today in New York, the date the price snapshot's "as of" is written in. */
+const nyToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
+
 /**
- * Main entry point: generate infographics for an article.
- *
+ * The one way a new post gets lot prices in a picture: the standard daily chart from the dated price snapshot
+ * (data/chart-prices.json, refreshed monthly by reports/chart-redraw/prices.mts), placed after the first paragraph
+ * under the post's first cost/price heading. No snapshot, a snapshot older than MAX_SNAPSHOT_AGE_DAYS, no lot we
+ * sell at the airport, or no price section → no chart (logged), never an undated one.
+ */
+export async function addRateChart(html: string, airportCode: string): Promise<InfographicResult> {
+  const at = rateChartInsertAt(html)
+  if (at === -1) return { html, count: 0 }
+  const snap = loadPriceSnapshot()
+  if (!snap) { console.log('  Rate chart skipped: no data/chart-prices.json (run reports/chart-redraw/prices.mts)'); return { html, count: 0 } }
+  const age = snapshotAgeDays(snap, nyToday())
+  if (age > MAX_SNAPSHOT_AGE_DAYS || age < 0) { console.log(`  Rate chart skipped: the prices are dated ${snap.asOf} (${age} days from today) — re-run reports/chart-redraw/prices.mts`); return { html, count: 0 } }
+  const d = chartInputFor(airportCode, snap)
+  if (!d || d.lots.length === 0) {
+    const row = snap.airports[airportCode.toUpperCase()]
+    const why = !row ? 'not in the price snapshot' : row.status === 'error' ? row.reason ?? 'search unusable' : 'no lot Triply sells here'
+    console.log(`  Rate chart skipped for ${airportCode} (${snap.asOf} prices): ${why}`)
+    return { html, count: 0 }
+  }
+  const alt = chartAlt(d, 'daily')
+  const media = await uploadMedia(svgToPng(chartSvg(d, 'daily')), chartFileName(d, 'daily'), alt)
+  const fig = figureTag(String(media.doc?.id || media.id), String(media.doc?.url || media.url), alt)
+  console.log(`  ✓ Rate chart (prices as of ${snap.asOf}) added`)
+  return { html: `${html.slice(0, at)}\n${fig}\n${html.slice(at)}`, count: 1 }
+}
+
+/**
+ * Main entry point: free-form infographics (Claude SVG → PNG → Payload), then the dated rate chart. A free-form
+ * failure doesn't cost the post its rate chart.
+ */
+export async function generateInfographics(html: string, airportData: AirportData, airportCode: string): Promise<InfographicResult> {
+  let out: InfographicResult = { html, count: 0 }
+  try {
+    out = await generateFreeformInfographics(html, airportData, airportCode)
+  } catch (err) {
+    console.log(`  ⚠ Free-form infographics failed: ${err instanceof Error ? err.message : err} — continuing with the rate chart`)
+  }
+  // A failed rate chart (bad snapshot file, CMS upload error) must not throw away the free-form infographics
+  // already uploaded above — the caller would fall back to the article without any of them.
+  try {
+    const chart = await addRateChart(out.html, airportCode)
+    return { html: chart.html, count: out.count + chart.count }
+  } catch (err) {
+    console.log(`  ⚠ Rate chart failed: ${err instanceof Error ? err.message : err} — keeping the other infographics`)
+    return out
+  }
+}
+
+/**
  * Calls Claude to analyze the article + airport data and produce SVG infographics,
  * converts them to PNG, uploads to Payload, and injects <img> tags into the HTML.
+ * An infographic that prices an off-site lot is dropped (see pricesOffSiteLots).
  */
-export async function generateInfographics(
+async function generateFreeformInfographics(
   html: string,
   airportData: AirportData,
   airportCode: string,
 ): Promise<InfographicResult> {
+  const lotNames = (airportData.parkingLots ?? []).map((l) => l.name).filter((n): n is string => typeof n === 'string')
+  const airportWords = `${airportData.fullName ?? ''} ${airportCode}`.split(/[^A-Za-z]+/).filter(Boolean)
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
   // Same Canadian rule as the writer and editor prompts (currency field OR the code list), so the SVG never prints $ where the article prints C$.
@@ -366,6 +427,10 @@ export async function generateInfographics(
       console.log(`  ⚠ Skipping ${label}: ${validation.error}`)
       continue
     }
+    if (pricesOffSiteLots(spec.svg, lotNames, airportWords) || pricesOffSiteLots(spec.alt, lotNames, airportWords)) {
+      console.log(`  ⚠ Skipping ${label}: it prices off-site lots (only the dated rate chart may)`)
+      continue
+    }
 
     // Convert SVG to PNG
     let pngBuffer: Buffer
@@ -391,11 +456,7 @@ export async function generateInfographics(
       continue
     }
 
-    // Build the <img> tag (matches the format resolveInlineImages uses)
-    const escapedAlt = spec.alt.replace(/"/g, '&quot;')
-    const captionText = spec.alt.replace(/</g, '&lt;')
-    const imgTag = `<img data-media-id="${mediaId}" src="${mediaUrl}" alt="${escapedAlt}" data-width="800" data-height="500" />`
-    const wrappedImg = `<figure>${imgTag}<figcaption>${captionText}</figcaption></figure>`
+    const wrappedImg = figureTag(mediaId, mediaUrl, spec.alt)
 
     // Find insertion point and inject
     const insertPos = findInsertionPoint(modifiedHtml, spec.placement)

@@ -135,6 +135,19 @@ export function protectionChoiceToCode(
   return choice === "none" ? null : choice;
 }
 
+/**
+ * The tier a NEW PaymentIntent is created with. Nothing is pre-selected
+ * (2026-11-02, reversing the 2026-09-17 Plan A default): undecided → null
+ * (parking-only), the same as an explicit "none"; a returning customer's tier
+ * → that tier. Pay Now stays disabled until the customer picks, so an
+ * undecided PaymentIntent is never paid as created.
+ */
+export function planCodeForNewPaymentIntent(
+  choice: ProtectionChoice | null
+): ProtectionPlanCode | null {
+  return choice === null ? null : protectionChoiceToCode(choice);
+}
+
 /** "$1,000" — locale pinned so a de-DE browser doesn't render "1.000". */
 export function formatLimit(limitDollars: number): string {
   return `$${limitDollars.toLocaleString("en-US")}`;

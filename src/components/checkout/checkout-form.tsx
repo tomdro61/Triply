@@ -39,6 +39,7 @@ import { saveRecoveryMarker } from "@/lib/checkout/recovery-marker";
 import { StageUnreachableError } from "@/lib/checkout/submit-report";
 import {
   PROTECTION_PLANS,
+  planCodeForNewPaymentIntent,
   protectionChoiceToCode,
   type ProtectionChoice,
   type ProtectionPlanCode,
@@ -198,8 +199,9 @@ export function CheckoutForm({
   // clobber the latest state. Prevents the rapid-click race condition.
   const inflightChoiceId = useRef(0);
   // Wire value for the current choice: a tier code, or null for BOTH "none"
-  // and undecided. Undecided never reaches the API — Pay Now stays disabled
-  // until the customer picks, so a null here at submit time means "declined".
+  // and undecided. Undecided reaches the API only when the PaymentIntent is
+  // created (parking-only) — Pay Now stays disabled until the customer picks,
+  // so a null here at submit time means "declined".
   const selectedPlanCode =
     protectionPlanChoice === null ? null : protectionChoiceToCode(protectionPlanChoice);
   const selectedPlan = selectedPlanCode ? PROTECTION_PLANS[selectedPlanCode] : null;
@@ -446,7 +448,8 @@ export function CheckoutForm({
       // the premium and stamps the tier metadata pair at creation; later
       // changes go through /api/checkout/lot/update-pi. The key is always
       // present (explicit null) — required at the API boundary.
-      const protectionPlanCodeForPI: ProtectionPlanCode | null = selectedPlanCode;
+      const protectionPlanCodeForPI: ProtectionPlanCode | null =
+        planCodeForNewPaymentIntent(protectionPlanChoice);
       let requestBody: Record<string, unknown>;
       if (isDirect) {
         // Direct lots (A-28): the server prices from its own lot read; no
@@ -600,9 +603,9 @@ export function CheckoutForm({
     // mount; no catch-up sync is owed on re-entry.
     setPriceVersion(0);
     // The choice is deliberately KEPT: re-entering the payment step creates a
-    // fresh PI from it, so a customer who picked "none" is not re-defaulted to
-    // Plan A. Stale-toggle protection is the sequence-ID bump above, not a
-    // reset. (protectionStateAmbiguous already nulls the choice itself when a
+    // fresh PI from it, so the customer doesn't have to choose again. Stale-
+    // toggle protection is the sequence-ID bump above, not a reset.
+    // (protectionStateAmbiguous already nulls the choice itself when a
     // network failure made the server state unknown — that stays.)
     setProtectionChoiceError(null);
     setProtectionStateAmbiguous(false);
