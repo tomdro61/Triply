@@ -178,3 +178,20 @@ test("an on-airport infographic that names its own airport is not mistaken for a
   assert.equal(pricesOffSiteLots('<svg><text>Houston Hobby garage $25/day</text></svg>', ['Houston Hobby Marriott South'], words), false)
   assert.equal(pricesOffSiteLots('<svg><text>Houston Hobby Marriott South $5.94/day</text></svg>', ['Houston Hobby Marriott South'], words), true)
 })
+
+// ── Review pass 3: lot-name keys ──
+
+import { lotKeys, lotShortWords } from './rate-chart.js'
+
+test('two-word keys never end in a connector ("Park & Jet" must not match every park-and-fly)', () => {
+  const keys = lotKeys(['Park & Jet', 'Park N Fly', 'Park By The Ports', 'Parking Place', 'Parking 4 Airport', 'The Parking Spot North'])
+  for (const bad of ['park &', 'park n', 'park by', 'parking 4']) assert.ok(!keys.includes(bad), bad)
+  assert.ok(keys.includes('parking place'), 'a full lot name is always a key (LGA "Parking Place")')
+  assert.ok(keys.includes('parking spot'))
+  assert.ok(keys.includes('park & jet'))
+})
+test('short forms: distinctive single words of the lot names, not common or airport words', () => {
+  const w = lotShortWords(['PreFlight Airport Parking (BOS)', 'Cambria Hotel Raleigh-Durham Airport', 'Holiday Inn Express'], ['Raleigh', 'Durham', 'International', 'Airport', 'RDU'])
+  assert.ok(w.includes('preflight') && w.includes('cambria'))
+  for (const bad of ['airport', 'parking', 'express', 'raleigh', 'hotel']) assert.ok(!w.includes(bad), bad)
+})

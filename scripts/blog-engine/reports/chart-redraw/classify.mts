@@ -27,14 +27,14 @@ const PRICE = /(?:C\$|\$)\s?\d/
 const TRIPLY = /triply|bookable/i
 const PARKING = /park|\blots?\b|garage|valet|economy|\/day|per day|daily/i
 const RATE_WORDS = /daily rates?|rates? in (?:cad|canadian)|per day|\/day|parking (?:rates|costs|prices)/i
-const WEEK = /\btable\b|7-day|7 day|7 nights|seven|weekly|\bweek\b|total|for \d+ (?:days|nights)/i
+const WEEK = /\btable\b|7-day|7 day|\d+[- ]nights?|seven|weekly|\bweek\b|total|for \d+ (?:days|nights)/i
 /** A subject that is a parking-price comparison (the October charts' own wording). */
 const RATE_SUBJECT = /parking (?:rates?|costs?|prices?|lots?|comparison|savings|stay)|daily rates?|(?:7|seven|8|eight)[- ](?:day|night) (?:parking )?(?:costs?|totals?|trip)|parking (?:cost|price|rate) (?:comparison|breakdown)|rates? compar|park(?:ing)?[- ](?:and|&|n)[- ]fly|park,? sleep|off-(?:site|airport) (?:parking|lots?|options)|lots? (?:near|bookable)|cruise parking/i
 /**
  * Another subject, ANYWHERE in the caption, even when the image also prices a lot: a rate chart would drop what the
  * post needs (clearance, chargers, fares, steps). Errs toward holding — a held image keeps its old picture for Tom.
  */
-const OTHER_SUBJECT = /\bmap\b|timeline|arrival|how early|step-by-step|\bsteps?\b|process|flow ?chart|wait times?|\btsa\b|catsa|security program|\buber\b|\blyft\b|rideshare|taxi|\bbus\b|\btrain\b|transit|lounge|\bev\b|electric vehicle|charging|charger|rental car|oversi[sz]ed|over-?height|clearance|\bada\b|disabled|accessible|veteran|motorcycle|lost (?:parking )?ticket|receipt|pick-?up|drop-?off|cell phone|game day|terminal guide|which terminal|\bclear\b|precheck|wi-?fi|restaurant|weather|construction|transportation|hourly|free parking|rewards?|loyalty|points/i
+const OTHER_SUBJECT = /\bmap\b|timeline|arrival|how early|step-by-step|\bsteps?\b|process|flow ?chart|wait times?|\btsa\b|catsa|security program|\buber\b|\blyft\b|rideshare|taxi|\bbus\b|\btrain\b|transit|lounge|\bev\b|electric vehicle|charging|charger|rental car|oversi[sz]ed|over-?height|clearance|\bada\b|disabled|accessible|veteran|motorcycle|lost (?:parking )?ticket|receipt|pick-?up|drop-?off|cell phone|game day|terminal guide|which terminal|\bclear\b|precheck|wi-?fi|restaurant|weather|construction|transportation|hourly|free parking|rewards?|loyalty|points|metrolink|light rail|\brail\b|employee|\bshifts?\b|monthly|\/month|jump-?start/i
 
 function codeOf(r: Raw): string {
   const m = r.filename.match(/^([a-z]{3})-(?:parking-rates|rate-chart|infographic)-/)

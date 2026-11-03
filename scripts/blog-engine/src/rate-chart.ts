@@ -437,6 +437,8 @@ export const LOT_BRANDS = /\b(?:inn|hotel|suites|marriott|hilton|hyatt|westin|sh
  * when neither is one of the airport's own name words ("houston hobby", "sky harbor", "kansas city" would match an
  * on-airport chart that names the airport). A full name made only of such words is dropped too.
  */
+/** Second words that make a two-word key generic English ("park &" → "park and" matches every park-and-fly). */
+const CONNECTORS = new Set(['and', '&', 'n', "'n", 'by', 'for', 'of', 'the', 'at', 'to', 'in', 'on', 'one', 'place', 'lot', 'lots', 'airport'])
 export function lotKeys(lotNames: string[], airportWords: string[] = []): string[] {
   const own = new Set(airportWords.map((w) => w.toLowerCase()).concat(['airport', 'international']))
   // "parking" alone isn't distinctive for a whole name, but "parking spot" is a brand: keep two-word keys that use it.
@@ -446,9 +448,25 @@ export function lotKeys(lotNames: string[], airportWords: string[] = []): string
     const full = n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').replace(/^the\s+/, '').replace(/\s+/g, ' ').trim()
     const two = full.split(' ').slice(0, 2)
     if (full.length >= 6 && full.split(' ').some((w) => !generic.has(w))) keys.add(full)
-    if (two.join(' ').length >= 6 && two.length === 2 && two.every((w) => !own.has(w)) && two.some((w) => !generic.has(w))) keys.add(two.join(' '))
+    const wordy = two.length === 2 && two.every((w) => /^[a-z][a-z'’.-]+$/.test(w)) && !CONNECTORS.has(two[1])
+    if (wordy && two.join(' ').length >= 6 && two.every((w) => !own.has(w)) && two.some((w) => !generic.has(w))) keys.add(two.join(' '))
   }
   return [...keys]
+}
+
+/** Common words that are never a lot's short form on their own. */
+const COMMON = new Set(['airport', 'parking', 'international', 'hotel', 'suites', 'express', 'garden', 'premier', 'downtown', 'north', 'south', 'east', 'west', 'central', 'economy', 'valet', 'shuttle', 'secure', 'cruise', 'plaza', 'center', 'centre', 'park', 'parkade', 'garage', 'airways', 'travel', 'quality', 'comfort', 'select', 'place', 'value', 'smart', 'grand', 'royal', 'metro', 'world', 'national', 'regional', 'convention', 'university', 'springs', 'harbor', 'county', 'city'])
+/**
+ * Single distinctive words a post uses as a lot's short form ("PreFlight", "Cambria", "Microtel", "Marriott"): words of
+ * 5+ letters from the lot names that are not the airport's own name words or common parking words.
+ */
+export function lotShortWords(lotNames: string[], airportWords: string[] = []): string[] {
+  const own = new Set(airportWords.map((w) => w.toLowerCase()))
+  const words = new Set<string>()
+  for (const n of lotNames) {
+    for (const w of n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').split(/[^a-z]+/)) if (w.length >= 5 && !own.has(w) && !COMMON.has(w)) words.add(w)
+  }
+  return [...words]
 }
 
 /**

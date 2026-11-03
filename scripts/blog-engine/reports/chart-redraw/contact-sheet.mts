@@ -28,14 +28,14 @@ const groupOf = (d: Decision): Group => {
   if (d.blockers.some((b) => b.includes('checkout charges'))) return 'currency'
   if (d.blockers.length) return 'other'
   const f = postFlags(d.post_id)
-  return f.has('unsold') || f.has('count') ? 'text' : 'prices'
+  return f.has('unsold') || f.has('count') || f.has('lotpost') ? 'text' : 'prices'
 }
 const G: Record<Group, Decision[]> = { swap: [], prices: [], text: [], notrate: [], currency: [], other: [] }
 for (const d of D) G[groupOf(d)].push(d)
 const GROUP_TITLE: Record<Group, string> = {
   swap: 'Swap: no lot prices or lot claims in the text around the chart',
   prices: 'Held: the text quotes off-site lot prices',
-  text: "Held: the text names a lot we don't sell, or gives the wrong number of lots",
+  text: "Held: the text names a lot we don't sell, gives the wrong number of lots, or the post is about one lot",
   notrate: 'Held: not a rate chart (prices lots inside another topic)',
   currency: 'Held: Canadian airport (checkout currency question)',
   other: 'Held: another airport, or a third chart in one post',
@@ -47,8 +47,8 @@ const codes = [...new Set(D.map((d) => d.code))].sort()
 const fallbackCount = plan.charts.filter((c) => c.fallback).length / 2
 const notrateUnsold = G.notrate.filter((d) => d.captionUnsold.length)
 
-const FLAG_LABEL: Record<Flag, string> = { unsold: "names a lot we don't sell", prices: 'quotes lot prices', count: 'wrong lot count', missing: 'lot sold out these dates' }
-const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', prices: 'warn', count: 'warn', missing: 'info' }
+const FLAG_LABEL: Record<Flag, string> = { unsold: "names a lot we don't sell", prices: 'quotes lot prices', count: 'wrong lot count', lotpost: 'post about one lot', missing: 'lot not in this search' }
+const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', prices: 'warn', count: 'warn', lotpost: 'info', missing: 'info' }
 const chip = (f: Flag) => `<span class="sev ${FLAG_CLASS[f]}">${FLAG_LABEL[f]}</span>`
 const transfer: Record<ChartLot['transfer'], string> = { shuttle: 'Shuttle', valet: 'Valet', paid: 'Paid shuttle', none: 'No shuttle', unknown: '—' }
 const blog = (slug: string) => `https://www.triplypro.com/blog/${slug}`
@@ -194,7 +194,7 @@ mark { background: var(--mark); color: inherit; padding: 0 2px; border-radius: 3
       <li><b>Do the charts look right?</b> Each airport below shows both charts, their captions and the lots behind them. ${fallbackCount ? `${fallbackCount} airport(s) get the airport-only chart (Triply sells nothing there).` : 'No airport in scope needs the airport-only chart this run.'}</li>
       ${decideItem('swap', 'The text around the chart quotes no off-site lot price, names no lot we don\'t sell and gives no lot count, so the new dated chart contradicts nothing.', 'Swap these in the pilot, then the rest.')}
       ${decideItem('prices', 'The text near the chart quotes lot prices from October, mostly before taxes and fees (e.g. "about $7/day"); the chart shows today\'s total ("$8.61/day, taxes and fees included"). Next to each other they read as two prices. The text check does not try to judge which figures are still right: prose prices drift every month.', 'Swap anyway: the old chart is wrong (unsold lots "bookable on Triply", undated) and the new one is dated. Take per-lot prices out of the prose in the planned text pass (roadmap). The alternative is to keep the old charts until that pass.')}
-      ${decideItem('text', "The text near the chart names a lot we don't sell, or says how many lots we sell and the number is wrong.", 'Swap the chart and put these posts first in the text pass: the text itself is selling lots we don\'t sell.')}
+      ${decideItem('text', "The text near the chart names a lot we don't sell, or says how many lots we sell and the number is wrong (\"all eight JFK lots\", today 10), or the whole post is about one lot (a Cambria or Marriott post) and a generic airport chart may not show that lot at the post's price.", "Swap the chart for the first two kinds and put those posts first in the text pass: the text itself sells lots we don't sell. Keep the old chart on single-lot posts until each gets a look.")}
       ${decideItem('notrate', `Maps, arrival timelines, step-by-step guides, transport and special-topic images (oversized, EV, hourly) that also price lots at October prices. A rate chart can't replace them. ${n(notrateUnsold.length)} of them name a lot we don't sell in their own caption.`, `Remove the ${n(notrateUnsold.length)} whose caption names a lot we don't sell; keep the rest for now (some are real rate comparisons the sorter held to be safe).`)}
       ${decideItem('currency', "Toronto, Montreal and Calgary. ResLab prices these lots in Canadian dollars, and our checkout charges the same number in US dollars. A chart can't say which price is real until that's settled.", 'Decide the checkout currency first (separate from this work: 5 live bookings since Oct 18). Then these airports get charts.')}
       ${decideItem('other', 'Posts about Love Field, Toronto-vs-Buffalo and Hobby-vs-IAH that are filed under DFW, BUF and HOU.', 'Keep the old chart for now; these need a per-post look.')}

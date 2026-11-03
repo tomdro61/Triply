@@ -8,7 +8,7 @@
 // Writes reports/chart-redraw/out/charts/<code>-<kind>.{png,svg} and out/plan.json.
 //   npx tsx reports/chart-redraw/render.mts
 import fs from 'fs'
-import { chartAlt, chartFileName, chartInputFor, chartSvg, fmtStay, loadPriceSnapshot, lotKeys, OFF_SITE_WORDS, svgToPng, type ChartInput, type ChartKind } from '../../src/rate-chart.js'
+import { chartAlt, chartFileName, chartInputFor, chartSvg, fmtStay, loadPriceSnapshot, LOT_BRANDS, lotKeys, lotShortWords, OFF_SITE_WORDS, svgToPng, type ChartInput, type ChartKind } from '../../src/rate-chart.js'
 import type { Item } from './classify.mts'
 
 const OUT = 'reports/chart-redraw/out'
@@ -18,15 +18,17 @@ const inv: { airports: string[]; items: Item[] } = JSON.parse(fs.readFileSync(`$
 
 /**
  * What the text around a chart says:
- *   prices  — quotes a price next to an off-site lot, "off-site", "Triply" or a hotel word (any $ figure within ~150
- *             characters in the same block): a dated chart next to it reads as a second price
+ *   prices  — a price, or a savings percentage, in a sentence that (or whose previous sentence) names an off-site lot
+ *             (full name, two-word key or short form), says "off-site" / "Triply", or uses a hotel or brand word:
+ *             a dated chart next to it reads as a second price
  *   unsold  — names a lot the airport's data file marks not sellable, and today's search doesn't return it
- *   count   — says how many lots Triply sells here, and today's search lists a different number
+ *   count   — a sentence about Triply gives a number of lots that isn't the airport's chart list
+ *   lotpost — the post is about one lot (its slug names it); a generic chart may not show it, or show another price
  *   missing — names a lot marked sellable that today's search didn't return (sold out for the stay, or gone) — info only
  */
-export type Flag = 'prices' | 'unsold' | 'count' | 'missing'
+export type Flag = 'prices' | 'unsold' | 'count' | 'lotpost' | 'missing'
 /** Flags that hold a swap for Tom (the approved plan holds text-vs-chart mismatches). A lot sold out for the stay doesn't. */
-export const HOLDING_FLAGS: readonly Flag[] = ['prices', 'unsold', 'count']
+export const HOLDING_FLAGS: readonly Flag[] = ['prices', 'unsold', 'count', 'lotpost']
 export interface Chart { code: string; kind: ChartKind; file: string; mediaName: string; alt: string; fallback: boolean }
 export interface Decision {
   post_id: number; slug: string; block: number; media_id: number; code: string; cls: Item['cls']; oldAlt: string; oldKind: ChartKind
@@ -78,16 +80,22 @@ function fileLots(code: string): FileLot[] {
 }
 const airportWords = (code: string) => `${airportFile(code).fullName ?? ''} ${code}`.split(/[^A-Za-z]+/).filter(Boolean)
 
-/** Lots a piece of text names that Triply doesn't sell (unsold) or sells but the search didn't return (missing). */
-function namedLots(code: string, text: string): { unsold: string[]; missing: string[] } {
+/**
+ * Lots a piece of text names that Triply doesn't sell (unsold) or sells but the search didn't return (missing).
+ * `fullOnly`: match whole lot names only (used before recommending an image's removal — a two-word key can be shared).
+ */
+function namedLots(code: string, text: string, fullOnly = false): { unsold: string[]; missing: string[] } {
   const ctx = ` ${norm(text)} `
   const live = (snap!.airports[code]?.lots ?? []).map((l) => norm(l.name))
-  const inLive = (k: string) => live.some((s) => s === k || s.includes(k) || k.includes(s))
+  // A live name inside the key counts only when it is most of it: live "best western" is not "best western mccarran inn".
+  const inLive = (k: string) => live.some((s) => s === k || s.includes(k) || (k.includes(s) && s.length >= 0.7 * k.length))
   const files = fileLots(code), words = airportWords(code)
+  const fullKeys = new Set(files.map((l) => norm(l.name.replace(/\s*\([A-Z]{3}\)/g, '').replace(/^the\s+/i, ''))))
   const unsold: string[] = [], missing: string[] = []
   const seen = new Set<string>()
   for (const key of lotKeys(files.map((l) => l.name), words)) {
     const k = norm(key)
+    if (fullOnly && !fullKeys.has(k)) continue
     if (seen.has(k) || !ctx.includes(` ${k} `)) continue
     seen.add(k)
     // A two-word key shared by a lot we sell today ("parking spot") is fine.
@@ -99,10 +107,16 @@ function namedLots(code: string, text: string): { unsold: string[]; missing: str
   return { unsold, missing }
 }
 
-const MONEY = /(?:C\$|\$)\s?\d[\d,]*(?:\.\d{1,2})?/g
-const OFF_MARK = new RegExp(`${OFF_SITE_WORDS.source}|triply|bookable|hotel|\\binn\\b|suites|shuttle lot`, 'gi')
-const COUNT = /\b(?:sells?|lists?|offers?|has|have)\s+(?:only\s+)?(one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:(?:verified|off-site|off-airport|hotel|partner|bookable|nearby)\s+)*(?:parking\s+)?lots\b|\b(?:all|the|these)\s+(one|two|three|four|five|six|seven|eight|nine|ten|\d{1,2})\s+(?:(?:verified|off-site|off-airport|hotel|partner|bookable)\s+)*(?:parking\s+)?lots\b/gi
-const NUMBERS: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 }
+// A price or a price claim: "$9", "C$12.50", "$1,050", and percentages ("56% to 76% less") — savings claims are prices too.
+const MONEY = /(?:C\$|\$)\s?\d[\d,]*(?:\.\d{1,2})?|\b\d{1,3}(?:\.\d)?\s?%/g
+const OFF_MARK = new RegExp(`${OFF_SITE_WORDS.source}|${LOT_BRANDS.source}|triply|bookable|hotel|\\binn\\b|suites|shuttle lot|park,? shuttle (?:&|and) fly`, 'gi')
+const NUMBER_WORDS = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty']
+const NUMBER = new RegExp(`\\b(${NUMBER_WORDS.join('|')}|\\d{1,2})\\b`, 'gi')
+// The number must sit right before what it counts ("five off-site lots", "three Triply lots", "The three Triply
+// sells"): at most two describing words between, never "of" ("three of the four lots") or "on-airport".
+const COUNTED = /^(?:\s+(?!of\b|on-airport\b|on-site\b)[\w'’-]+){0,2}?\s+(?:lots|listings|locations|hotels)\b|^\s+triply\b/i
+/** Sentences of a block (blocks are joined by " || "). */
+const sentencesOf = (block: string) => block.split(/(?<=[.!?])\s+(?=[A-Z0-9"“$])/)
 
 function textCheck(code: string, context: string): { flags: Flag[]; notes: string[] } {
   const flags = new Set<Flag>(), notes: string[] = []
@@ -110,31 +124,43 @@ function textCheck(code: string, context: string): { flags: Flag[]; notes: strin
   if (unsold.length) { flags.add('unsold'); notes.push(`names ${unsold.map((s) => `"${s}"`).join(', ')}, which Triply doesn't sell`) }
   if (missing.length) { flags.add('missing'); notes.push(`names ${missing.map((s) => `"${s}"`).join(', ')}: marked sellable, but not in the ${fmtStay(snap!.checkin, snap!.checkout)} search`) }
 
-  // Any money figure near an off-site marker or a lot name, in the same block (blocks are joined by " || ").
+  // A price in a paragraph that names an off-site lot (full name, two-word key or its short form: "PreFlight",
+  // "Cambria"), says off-site / Triply, or uses a hotel or brand word. Paragraph-wide on purpose: "…four are hotel lots
+  // with no shuttle. None of them matches the AirTrain. Rates start at about $9/day" puts the price two sentences away.
   const lotNames = [...fileLots(code).map((l) => l.name), ...(snap!.airports[code]?.lots ?? []).map((l) => l.name)]
-    .map((n) => n.toLowerCase().replace(/\s*\([a-z]{3}\)/, '').trim()).filter((n) => n.length >= 6)
-  const keys = lotKeys(lotNames, airportWords(code))
+  const words = airportWords(code)
+  const keys = [...lotKeys(lotNames, words), ...lotShortWords(lotNames, words)]
+  const marked = (s: string) => { const lower = s.toLowerCase(); return new RegExp(OFF_MARK.source, 'i').test(s) || keys.some((k) => new RegExp(`\\b${k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(lower)) }
   const quoted: string[] = []
   for (const block of context.split(' || ')) {
-    const lower = block.toLowerCase()
-    const marks = [...lower.matchAll(OFF_MARK)].map((m) => m.index!)
-    for (const k of keys) for (let i = lower.indexOf(k); i >= 0; i = lower.indexOf(k, i + 1)) marks.push(i)
-    if (!marks.length) continue
-    for (const m of block.matchAll(MONEY)) if (marks.some((i) => Math.abs(i - m.index!) <= 150) && !quoted.includes(m[0])) quoted.push(m[0])
+    const prices = block.match(MONEY)
+    if (!prices || !marked(block)) continue
+    for (const p of prices) if (!quoted.includes(p.trim())) quoted.push(p.trim())
   }
   if (quoted.length) { flags.add('prices'); notes.push(`quotes off-site prices: ${quoted.slice(0, 5).join(', ')}${quoted.length > 5 ? ` (+${quoted.length - 5})` : ''}`) }
 
-  // "Triply sells three lots here" in the same sentence as the count.
-  const listed = snap!.airports[code]?.listed ?? (snap!.airports[code]?.lots ?? []).length
-  for (const sentence of context.split(/(?<=[.!?])\s+| \|\| /)) {
-    if (!/triply/i.test(sentence)) continue
-    const m = [...sentence.matchAll(COUNT)][0]
-    if (!m) continue
-    const word = (m[1] ?? m[2]).toLowerCase()
-    const n = NUMBERS[word] ?? Number(word)
-    if (n !== listed) { flags.add('count'); notes.push(`says "${m[0].trim()}"; today's search lists ${listed}`); break }
+  // Any number of lots in a sentence about Triply ("Triply sells twelve lots", "All five Triply lots", "The three
+  // Triply sells") must equal the lots on this airport's chart list (after cruise-port lots are left off).
+  const shown = (snap!.airports[code]?.lots ?? []).length
+  for (const block of context.split(' || ')) for (const s of sentencesOf(block)) {
+    if (!/triply/i.test(s)) continue
+    // Several counts in one sentence ("three of the five lots Triply sells"): the sentence is right if any count is.
+    const counts = [...s.matchAll(NUMBER)].filter((m) => COUNTED.test(s.slice(m.index! + m[0].length)))
+      .map((m) => ({ m, n: NUMBER_WORDS.includes(m[1].toLowerCase()) ? NUMBER_WORDS.indexOf(m[1].toLowerCase()) + 1 : Number(m[1]) }))
+    if (counts.length && !counts.some((c) => c.n === shown)) {
+      const m = counts[0].m
+      flags.add('count'); notes.push(`says "${s.slice(Math.max(0, m.index! - 30), m.index! + 40).trim()}…"; the chart's list has ${shown}`)
+    }
+    if (flags.has('count')) break
   }
   return { flags: [...flags], notes }
+}
+
+/** The lot a post is about, from its slug ("cambria-raleigh-durham-airport-parking" → "cambria"): its chart may not show it. */
+function lotInSlug(code: string, slug: string): string | undefined {
+  const names = [...fileLots(code).map((l) => l.name), ...(snap!.airports[code]?.lots ?? []).map((l) => l.name)]
+  const tokens = new Set(slug.toLowerCase().split('-'))
+  return lotShortWords(names, airportWords(code)).find((w) => tokens.has(w))
 }
 
 // ── Another airport, or a special topic? ──
@@ -153,7 +179,7 @@ const NEIGHBOURS: Record<string, string[]> = {
 }
 const otherAirport = (code: string, slug: string) => (NEIGHBOURS[code] ?? []).find((p) => `-${slug.toLowerCase()}-`.includes(`-${p}-`))
 /** A post about something other than parking prices, where a one-off image would carry topic content a rate chart lacks. */
-const TOPIC_SLUG = /(?:^|-)(?:taxi|uber|lyft|rideshare|oversized|over-height|rv|ev|charging|electric|lost|ticket|receipt|hourly|free|veteran|veterans|disabled|ada|handicap|motorcycle|cell-phone|pickup|pick-up|drop-off|rental|bus|train|transit|map|terminal-guide|tsa|lounge|wait|arrival|how-early|rewards|points|loyalty)(?:-|$)/
+const TOPIC_SLUG = /(?:^|-)(?:taxi|uber|lyft|rideshare|oversized|over-height|rv|ev|charging|electric|lost|ticket|receipt|hourly|free|veteran|veterans|disabled|ada|handicap|motorcycle|cell-phone|pickup|pick-up|drop-off|rental|bus|train|transit|map|terminal-guide|tsa|lounge|wait|arrival|how-early|rewards|points|loyalty|metrolink|rail|employee|employees|monthly|jump-start)(?:-|$)/
 
 // ── Decide per post ──
 const byPost = new Map<number, { item: Item; use: Item['uses'][number] }[]>()
@@ -182,17 +208,23 @@ for (const [, uses] of byPost) {
     const elsewhere = otherAirport(item.code, use.slug)
     if (elsewhere) blockers.push(`post may be about another airport (slug says "${elsewhere}"), not ${item.code}`)
     const { flags, notes } = textCheck(item.code, use.context ?? '')
-    const captionUnsold = kind === null ? namedLots(item.code, item.alt).unsold : []
+    const aboutLot = lotInSlug(item.code, use.slug)
+    if (aboutLot) { flags.push('lotpost'); notes.push(`the post is about one lot ("${aboutLot}" in the slug): check the chart shows it at the price the post gives`) }
+    const captionUnsold = kind === null ? namedLots(item.code, item.alt, true).unsold : []
     const holds = flags.some((f) => HOLDING_FLAGS.includes(f))
     decisions.push({ post_id: use.post_id, slug: use.slug, block: use.block, media_id: item.media_id, code: item.code, cls: item.cls, oldAlt: item.alt, oldKind: item.kind, kind, action: blockers.length || holds ? 'hold' : 'swap', blockers, flags, notes, captionUnsold, context: use.context ?? '' })
   }
 }
-// The text belongs to the post, not to one chart: a mismatch near one chart holds every chart in that post.
+// The text belongs to the post, not to one chart: a mismatch near one chart holds every chart in that post. So does a
+// held image whose own caption prices off-site lots (an October table next to a new dated chart reads as two prices).
+const pricesLots = (alt: string) => /(?:C\$|\$)\s?\d|\d\s?%|\brates?\b|\bcosts?\b|\bprices?\b|savings/i.test(alt) && new RegExp(OFF_MARK.source, 'i').test(alt)
 for (const [postId] of byPost) {
   const mine = decisions.filter((x) => x.post_id === postId)
   const textHold = mine.find((x) => x.flags.some((f) => HOLDING_FLAGS.includes(f)))
-  if (!textHold) continue
-  for (const x of mine) if (x.action === 'swap') { x.action = 'hold'; x.notes.push(`held with the rest of the post: ${textHold.notes[0]}`) }
+  const pricedImage = mine.find((x) => x.kind === null && pricesLots(x.oldAlt))
+  if (!textHold && !pricedImage) continue
+  const why = textHold ? textHold.notes[0] : `another image in this post (media ${pricedImage!.media_id}) prices lots at October prices and is held`
+  for (const x of mine) if (x.action === 'swap') { x.action = 'hold'; x.notes.push(`held with the rest of the post: ${why}`) }
 }
 
 fs.writeFileSync(`${OUT}/plan.json`, JSON.stringify({ asOf: snap.asOf, checkin: snap.checkin, checkout: snap.checkout, charts, noChart, decisions }, null, 1))
