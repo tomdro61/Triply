@@ -1,7 +1,7 @@
 {
   "code": "BUF",
   "fullName": "Buffalo Niagara International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "4200 Genesee Street, Cheektowaga, New York (mailing address Buffalo, NY 14225) — about 11 miles east of downtown Buffalo in Erie County",
     "iataCode": "BUF",
@@ -192,9 +192,9 @@
       "phone": "(716) 634-6969",
       "notes": "Lowest Triply rate at BUF. 24/7 on-demand shuttle makes it safe for first-wave 6am departures.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Sleep Inn & Suites Buffalo Airport",
@@ -211,9 +211,9 @@
       "phone": "(716) 626-4000",
       "notes": "Lowest all-in 7-day total in the Nov 2-8 sample. Good pick for trucks and large SUVs (no oversize charge).",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Quality Inn Buffalo Airport",
@@ -230,9 +230,9 @@
       "phone": "716-633-5500",
       "notes": "Closest sellable lot. Shuttle is scheduled, not on-demand, and skips some slots — arrive before your booked check-in time.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Salvatores Grand Hotel",
@@ -249,9 +249,9 @@
       "phone": "(716) 636-4900",
       "notes": "No overnight shuttle — not suitable for flights before ~8:30-9:00 AM or late-night returns after 10 PM.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "M Hotel Buffalo Airport",
@@ -268,9 +268,9 @@
       "phone": "(716) 681-2400",
       "notes": "24/7 scheduled shuttle — fine for early departures; allow for up to a 30-minute wait.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Hampton Inn & Suites",
@@ -288,9 +288,9 @@
       "phone": "716-631-0200",
       "notes": "SHUTTLE SUSPENDED — no hotel shuttle to BUF; budget for a rideshare each way. Highest Triply rate at BUF. Do not use as a CTA lot until the shuttle resumes.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: FREE 24/7 shuttle connects the terminal with the Long Term (orange), Preferred (green) and Economy (blue) lots; the Daily/Hourly Garage is a walk. Off-site (Triply hotel lots): Sleep Inn & Suites and Buffalo Airport Hotel run 24/7 on-demand shuttles; M Hotel runs 24/7 every 30 minutes; Quality Inn runs a scheduled 30-minute shuttle from 4 AM (and is walkable across Genesee St); Salvatore's Grand Hotel runs on demand 7 AM-10 PM only; Hampton Inn & Suites' shuttle is SUSPENDED.",

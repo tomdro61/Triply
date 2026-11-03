@@ -1,7 +1,7 @@
 {
   "code": "SJC",
   "fullName": "San José Mineta International Airport",
-  "lastVerified": "2026-10-26",
+  "lastVerified": "2026-11-02",
   "overview": {
     "location": "North San José, California — about 3 miles northwest of downtown San José, bounded by US-101, I-880 and SR 87 (Guadalupe Freeway). Renamed for Norman Y. Mineta (former San José mayor, congressman and U.S. Secretary of Commerce and Transportation) in November 2001.",
     "iataCode": "SJC",
@@ -213,9 +213,9 @@
       "phone": "408-598-7128",
       "notes": "Lowest sellable rate at SJC on 2026-10-16: $67.07 grand total for a 7-night Nov 2-9 stay (8 billed days; $55.92 subtotal + $6.40 fees + $4.75 tax); identical on Nov 16-23. Minimum booking 1 day.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Spring Park San Jose Airport Parking",
@@ -231,15 +231,15 @@
       "phone": "408-858-5250",
       "notes": "$75.50 grand total for Nov 2-9 (8 billed days; $55.60 subtotal + $8.78 fees + $11.12 tax); identical on Nov 16-23. Covered vs rooftop assignment depends strictly on the product bought — the $8.05/day Triply minimum may be the rooftop (uncovered) product; do not promise covered parking at that price.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "Holiday Inn San Jose Airport",
       "slug": "holiday-inn-san-jose-airport",
-      "dailyRate": 8.9,
-      "reservationRate": 8.9,
+      "dailyRate": 7.84,
+      "reservationRate": 7.84,
       "parkingType": "Self-park (hotel lot, gated)",
       "amenities": ["24/7 Front Desk"],
       "shuttleInfo": "Free 24/7 on-demand shuttle. Enter at 42 Gish Road, follow the 'Flight Parking' sign and self-park in the marked area (southeast corner of the lot), then call 408-512-3153 and the shuttle picks you up at your car. Call the same number for pickup at the airport.",
@@ -249,9 +249,9 @@
       "phone": "408-512-3153",
       "notes": "$76.91 grand total for Nov 2-9 (8 billed days; $63.92 subtotal + $6.60 fees + $6.39 tax); identical on Nov 16-23. Minimum booking 1 day.",
       "sellable": true,
-      "sellableCheckedOn": "2026-10-26",
+      "sellableCheckedOn": "2026-11-02",
       "paymentMethod": "Pay Online",
-      "rateVerified": "2026-10-26"
+      "rateVerified": "2026-11-02"
     },
     {
       "name": "SJC Economy Lot 1",
@@ -260,7 +260,7 @@
       "address": "2300 Airport Blvd, San José, CA 95110",
       "dailyRate": 19,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SJC Hourly Lot 2 (Terminal A Garage)",
@@ -269,7 +269,7 @@
       "address": "2075 Airport Blvd, San José, CA 95110",
       "dailyRate": 25,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SJC Hourly Lot 3 (Terminal B Garage)",
@@ -278,7 +278,7 @@
       "address": "1659 Airport Blvd, San José, CA 95110",
       "dailyRate": 41,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SJC Daily Lot 4",
@@ -287,7 +287,7 @@
       "address": "1639 Airport Blvd, San José, CA 95110",
       "dailyRate": 31,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "SJC Hourly & Daily Lot 5",
@@ -296,7 +296,7 @@
       "address": "1661 Airport Blvd, San José, CA 95110",
       "dailyRate": 31,
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     },
     {
       "name": "Sonesta Select San Jose Airport",
@@ -305,7 +305,7 @@
       "address": "1727 Technology Dr, San Jose, CA",
       "distanceFromAirport": "0.8 mi",
       "sellable": false,
-      "sellableCheckedOn": "2026-10-26"
+      "sellableCheckedOn": "2026-11-02"
     }
   ],
   "shuttleInfo": "On-airport: Economy Lot 1 shuttle every 7-10 minutes, 24/7; free SJC shuttle buses also link Terminal A, Terminal B and the Rental Car Center. Off-site: all three Triply SJC lots run free 24/7 on-demand shuttles — Spring Park (0.8 mi), Holiday Inn San Jose Airport (1.1 mi) and Joy Park Fly (1.2 mi, every 5-15 min, 3-4 minute ride). Call the lot after collecting bags.",
