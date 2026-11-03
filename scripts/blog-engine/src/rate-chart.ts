@@ -459,7 +459,7 @@ const COMMON = new Set(['airport', 'parking', 'international', 'hotel', 'suites'
   // English words found in lot names that posts use in other senses (review pass 4)
   'service', 'services', 'simply', 'formerly', 'points', 'point', 'gateway', 'purchase', 'station', 'spring', 'detail', 'connections', 'sleep', 'ports', 'routes', 'route', 'secured', 'security', 'airline', 'airlines', 'terminal', 'terminals', 'premium', 'budget', 'family', 'lodge', 'inn', 'suite', 'residence', 'home', 'house', 'tower', 'towers', 'garden', 'square', 'landing', 'village', 'crossing', 'corner', 'golden', 'liberty', 'victory', 'access', 'direct', 'first', 'great', 'super', 'best', 'western'])
 /** Lower case without accents ("GLō" → "glo"), so a name typed with a macron still matches the text. */
-const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const plain = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 /**
  * Single distinctive words a post uses as a lot's short form ("PreFlight", "Cambria", "Microtel", "Marriott"): words of
  * 5+ letters from the lot names that are not the airport's own name words or common parking words.

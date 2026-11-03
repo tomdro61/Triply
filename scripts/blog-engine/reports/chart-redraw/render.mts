@@ -85,7 +85,7 @@ for (const code of inv.airports) {
 
 // ── Text check ──
 // Accents dropped first ("GLō Best Western" → "glo best western").
-const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\([a-z]{3}\)/g, ' ').replace(/&/g, ' and ').replace(/[^a-z0-9$.]+/g, ' ').replace(/\bthe\b/g, ' ').replace(/\s+/g, ' ').trim()
+const norm = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\([a-z]{3}\)/g, ' ').replace(/&/g, ' and ').replace(/[^a-z0-9$.]+/g, ' ').replace(/\bthe\b/g, ' ').replace(/\s+/g, ' ').trim()
 interface FileLot { name: string; sellable: boolean }
 const airportFile = (code: string) => {
   const f = `data/airports/${code}.json`
