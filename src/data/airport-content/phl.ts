@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const phlContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 6+ off-airport PHL parking lots from $6.50/day. Save vs $15–$38/day on-airport rates. Free shuttle, SEPTA Airport Line directly at terminal for $5 to Center City. Free cancellation.",
 

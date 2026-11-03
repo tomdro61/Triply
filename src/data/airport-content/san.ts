@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const sanContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 7+ off-airport SAN parking lots from $8.95/day. Save vs $20–$40/day on-airport rates. Free shuttle, only 3 miles to downtown. FREE San Diego Flyer to Old Town. Free cancellation.",
 

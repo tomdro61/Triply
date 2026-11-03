@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const seaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 7+ off-airport SEA parking lots from $9.95/day. Save vs $32–$39/day on-airport rates. Free shuttle, free EV charging, Link Light Rail to downtown for $3. Free cancellation.",
 

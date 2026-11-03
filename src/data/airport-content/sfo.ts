@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const sfoContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 4+ off-airport SFO parking lots from $8/day. Save vs $27–$60/day on-airport rates. Free shuttle, BART directly at International Terminal for $11.80 to downtown SF. Free cancellation.",
 

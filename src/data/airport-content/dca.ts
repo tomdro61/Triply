@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const dcaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 9+ off-airport DCA parking lots from $8.50/day. Save vs $25–$35/day on-airport rates. Free shuttle to terminals, $2.25 Metro to downtown D.C. Free cancellation.",
 

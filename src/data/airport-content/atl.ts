@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const atlContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 7+ off-airport ATL parking lots from $6.25/day. Save vs $20–$35/day on-airport rates. Free 24/7 shuttle to terminals. MARTA to downtown for $2.50. Free cancellation.",
 

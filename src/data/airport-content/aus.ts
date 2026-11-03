@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const ausContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 6+ off-airport AUS parking lots from $10.81/day. Save vs $26–$35/day on-airport garages. Covered parking, free 24/7 shuttle, free EV charging on-airport. Free cancellation.",
 

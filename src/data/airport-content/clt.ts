@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const cltContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 6+ off-airport CLT parking lots from $5/day. Save vs $14–$50/day on-airport rates. Free shuttle, walkable single-terminal design, $2.20 Sprinter bus to Uptown. Free cancellation.",
 

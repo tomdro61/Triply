@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const miaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 6+ off-airport MIA parking lots from $6.95/day. Save vs $12–$39/day on-airport rates. Free shuttle to terminals, Metrorail to downtown for $2.25. Free cancellation.",
 

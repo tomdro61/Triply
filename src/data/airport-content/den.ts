@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const denContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-10-30",
   metaDescription:
     "Compare bookable off-airport DEN parking lots, including 24/7 shuttle lots, at today's prices. Save vs $17–$45/day on-airport rates. Free EV charging on-airport, A Line train to downtown for $10.50. Free cancellation.",
 

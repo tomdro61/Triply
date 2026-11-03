@@ -1,6 +1,8 @@
 import { AirportContent } from "./types";
 
 const lasContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-04-25",
   metaDescription:
     "Compare 7+ off-airport LAS parking lots from $5/day. Save vs $12–$36/day on-airport rates. Free shuttle, the Strip is just 1.5 miles away. Skip surge pricing during major events. Free cancellation.",
 
