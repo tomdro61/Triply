@@ -33,6 +33,7 @@ import { PriceFooter } from "@/components/lot/price-footer";
 import { bookableCheckinTimes, stillBookableCheckinTime } from "@/lib/utils/time";
 import { VehicleSizeModal } from "@/components/lot/vehicle-size-modal";
 import { directReserveQuote, surchargeRangeText } from "@/lib/direct/vehicle-display";
+import { trackBookingTimeChange } from "@/lib/analytics/gtag";
 
 const timeOptions = [
   "12:00 AM", "12:30 AM", "1:00 AM", "1:30 AM", "2:00 AM", "2:30 AM",
@@ -346,7 +347,10 @@ export function ProductDetailSlider({
                       <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
                         value={selectedCheckInTime}
-                        onChange={(e) => setLocalCheckInTime(e.target.value)}
+                        onChange={(e) => {
+                          setLocalCheckInTime(e.target.value);
+                          trackBookingTimeChange({ surface: "search_slider", which: "checkin", time: e.target.value });
+                        }}
                         className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
                           selectedCheckInTime
                             ? "bg-gray-50 border-gray-200 text-gray-900"
@@ -386,7 +390,10 @@ export function ProductDetailSlider({
                       <Clock size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
                         value={localCheckOutTime}
-                        onChange={(e) => setLocalCheckOutTime(e.target.value)}
+                        onChange={(e) => {
+                          setLocalCheckOutTime(e.target.value);
+                          trackBookingTimeChange({ surface: "search_slider", which: "checkout", time: e.target.value });
+                        }}
                         className={`w-full pl-7 pr-6 py-1 border rounded text-xs font-medium appearance-none cursor-pointer ${
                           localCheckOutTime
                             ? "bg-gray-50 border-gray-200 text-gray-900"
