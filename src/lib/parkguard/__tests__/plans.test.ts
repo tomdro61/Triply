@@ -9,6 +9,7 @@ import {
   getProtectionPlan,
   isProtectionPlanCode,
   protectionChoiceToCode,
+  planCodeForNewPaymentIntent,
   protectionPremiumCents,
   protectionMetadataPatch,
   readProtectionMetadata,
@@ -88,6 +89,14 @@ describe("helpers", () => {
   it("protectionChoiceToCode maps the explicit decline to null", () => {
     expect(protectionChoiceToCode("none")).toBeNull();
     expect(protectionChoiceToCode("C")).toBe("C");
+  });
+
+  it("planCodeForNewPaymentIntent adds no premium the customer didn't pick (nothing pre-selected since 2026-11-02)", () => {
+    expect(planCodeForNewPaymentIntent(null)).toBeNull();
+    expect(planCodeForNewPaymentIntent("none")).toBeNull();
+    for (const code of PROTECTION_PLAN_CODES) {
+      expect(planCodeForNewPaymentIntent(code)).toBe(code);
+    }
   });
 
   it("formatLimit pins en-US grouping", () => {

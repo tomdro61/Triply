@@ -234,10 +234,10 @@ const checkoutPostSchema = z.object({
   customerEmail: z.string().email(),
   promoCode: z.string().optional(),
   // Required key, nullable value — see validation/schemas.ts for rationale.
-  // Since 2026-09-17 the checkout form sends the pre-selected tier ("A" on
-  // first entry to the payment step, or the customer's kept choice after
-  // Back); null means "no protection". Later changes on the payment step go
-  // through /api/checkout/lot/update-pi.
+  // The checkout form sends the customer's kept choice after Back, or null on
+  // first entry (nothing is pre-selected since 2026-11-02; Plan A was the
+  // default 2026-09-17 → 2026-11-02). null means parking-only. Later changes
+  // on the payment step go through /api/checkout/lot/update-pi.
   protectionPlanCode: protectionPlanCodeSchema,
 });
 
@@ -337,7 +337,7 @@ export async function POST(request: NextRequest) {
     const parkingOnlyChargeAmountCents = Math.round(parkingOnlyChargeAmount * 100);
 
     // Refuse a non-positive PARKING baseline before any premium is added. Since
-    // the form pre-selects Plan A at creation, a heavy promo on a due-at-lot
+    // a returning customer's tier is applied at creation, a heavy promo on a due-at-lot
     // booking could otherwise mint a $12.99-only PaymentIntent whose baseline
     // is 0 — /update-pi then rejects every change (422), so the customer could
     // not decline protection, and the Pay button would read $0.00 against a
