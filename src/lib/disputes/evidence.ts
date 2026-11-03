@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { termsTextFor } from "@/lib/checkout/terms-acceptance";
 
 /**
  * Dispute evidence + playbook, built from the booking row alone.
@@ -33,6 +34,17 @@ export type DisputeBooking = {
 // run it through Date (CLAUDE.md anti-pattern).
 const localTime = (s: string | null) => (s ? s.slice(0, 16).replace("T", " ") : "unknown");
 const day = (s: string | null) => (s ? s.slice(0, 10) : undefined);
+
+const PASSED = new Set(["pass", "authenticated", "attempt_acknowledged"]);
+
+function cardCheckLines(f: PaymentFacts | null): string[] {
+  if (!f) return [];
+  const lines: string[] = [];
+  if (f.cvcCheck && PASSED.has(f.cvcCheck)) lines.push("Card security code (CVC) check: passed.");
+  if (f.postalCheck && PASSED.has(f.postalCheck)) lines.push("Billing postal code (AVS) check: passed.");
+  if (f.threeDSecure && PASSED.has(f.threeDSecure)) lines.push(`3D Secure: ${f.threeDSecure}.`);
+  return lines;
+}
 
 const CANCELLATION_POLICY =
   "Triply Terms of Service, section 5 (https://www.triplypro.com/terms#cancellation), linked from the payment step at checkout: " +
@@ -115,10 +127,34 @@ export function playbookFor(reason: string): Playbook {
   }
 }
 
-/** Text evidence for Stripe, from what the booking row already proves. */
+/** What the charge itself proves: the terms ticked, card checks, 3DS. */
+export type PaymentFacts = {
+  /** Checkbox wording agreed to, or null for charges made before versioning. */
+  termsText: string | null;
+  chargedAtISO: string | null;
+  cvcCheck: string | null;
+  postalCheck: string | null;
+  threeDSecure: string | null;
+};
+
+/** Facts from a PaymentIntent retrieved with `expand: ["latest_charge"]`. */
+export function paymentFactsFrom(pi: Stripe.PaymentIntent): PaymentFacts {
+  const charge = typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+  const card = charge?.payment_method_details?.card;
+  return {
+    termsText: termsTextFor(pi.metadata?.termsVersion),
+    chargedAtISO: charge ? new Date(charge.created * 1000).toISOString() : null,
+    cvcCheck: card?.checks?.cvc_check ?? null,
+    postalCheck: card?.checks?.address_postal_code_check ?? null,
+    threeDSecure: card?.three_d_secure?.result ?? null,
+  };
+}
+
+/** Text evidence for Stripe, from what the booking row and the charge prove. */
 export function buildEvidence(
   booking: DisputeBooking,
-  reason: string
+  reason: string,
+  facts: PaymentFacts | null = null
 ): Stripe.DisputeUpdateParams.Evidence {
   const c = booking.customers;
   const name = [c?.first_name, c?.last_name].filter(Boolean).join(" ") || undefined;
@@ -140,7 +176,17 @@ export function buildEvidence(
     `Reserved stay: check-in ${localTime(booking.check_in)} to check-out ${localTime(booking.check_out)}, airport local time.`,
     `Charged ${total}.`,
     `Reservation status before the dispute: ${status ?? "not recorded"}${booking.cancelled_by ? ` (cancelled by ${booking.cancelled_by}${booking.cancellation_reason ? `, reason: ${booking.cancellation_reason}` : ""})` : ""}.`,
+    // Only checks Stripe actually ran; "unavailable"/"unchecked" are left out
+    // rather than dressed up as proof.
+    ...cardCheckLines(facts),
   ].join("\n");
+
+  // The checkbox is required before Pay enables, so a versioned charge proves
+  // the exact words agreed to. Unversioned (older) charges quote nothing.
+  const agreed = facts?.termsText
+    ? ` Before paying, the customer ticked a required checkbox reading: "${facts.termsText}"` +
+      (facts.chargedAtISO ? ` (payment made ${facts.chargedAtISO.slice(0, 16).replace("T", " ")} UTC).` : "")
+    : "";
 
   const evidence: Stripe.DisputeUpdateParams.Evidence = {
     customer_name: name,
@@ -149,7 +195,7 @@ export function buildEvidence(
       `Prepaid airport parking reservation at ${lot || "a parking facility"}. ` +
       "Triply is the booking agent for the facility.",
     service_date: day(booking.check_in),
-    cancellation_policy_disclosure: CANCELLATION_POLICY,
+    cancellation_policy_disclosure: CANCELLATION_POLICY + agreed,
     refund_policy_disclosure: REFUND_POLICY,
     uncategorized_text: summary,
   };

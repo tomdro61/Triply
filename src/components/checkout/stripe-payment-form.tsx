@@ -17,6 +17,7 @@ import {
 import { PriceBreakdown } from "@/types/checkout";
 import type { ProtectionChoice } from "@/lib/parkguard/plans";
 import { ProtectionPlan } from "./protection-plan";
+import { TERMS_CHECKBOX_TAIL } from "@/lib/checkout/terms-acceptance";
 import { capturePaymentError, captureWalletSheetClosed } from "@/lib/sentry";
 import { ELEMENTS_SYNC_FAILED_MESSAGE, syncElementsAmount } from "@/lib/checkout/elements-sync";
 import { runPaymentSubmit } from "@/lib/checkout/payment-submit";
@@ -439,11 +440,8 @@ export function StripePaymentForm({
             <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-brand-orange hover:underline">
               Privacy Policy
             </a>
-            . I understand that my reservation is subject to the parking
-            facility&apos;s policies, that I can cancel for free up to 24 hours
-            before check-in (Park Guard protection plans are partly
-            non-refundable), and that later cancellations and no-shows may not
-            be refunded.
+            {/* Versioned: dispute evidence quotes this exact wording. */}
+            . {TERMS_CHECKBOX_TAIL}
           </span>
         </label>
       </div>

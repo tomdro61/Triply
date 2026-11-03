@@ -9,6 +9,7 @@ import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booki
 import Stripe from "stripe";
 import { recordCancellationReason } from "@/lib/cancellation/reason";
 import { handleDisputeChanged, handleDisputeCreated } from "@/lib/disputes/handle-dispute";
+import { handleEarlyFraudWarning } from "@/lib/disputes/fraud-warning";
 
 // This handler now CREATES bookings, so it inherits the full fulfilment budget:
 // ResLab, capture, Supabase, Park Guard, and two emails.
@@ -448,6 +449,12 @@ export async function POST(request: NextRequest) {
     case "charge.dispute.closed": {
       const dispute = event.data.object as Stripe.Dispute;
       if ((await handleDisputeChanged(supabase, dispute)).retryable) retryable = true;
+      break;
+    }
+
+    case "radar.early_fraud_warning.created": {
+      const warning = event.data.object as Stripe.Radar.EarlyFraudWarning;
+      if ((await handleEarlyFraudWarning(supabase, warning)).retryable) retryable = true;
       break;
     }
 

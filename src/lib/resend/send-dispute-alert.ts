@@ -87,6 +87,58 @@ export async function sendDisputeOpenedAlert(a: DisputeAlert) {
   if (error) throw new Error(`Dispute alert email failed: ${error.message}`);
 }
 
+/**
+ * Emails the payment-alert list on a Radar early fraud warning. Suggests a
+ * refund only; nothing is refunded automatically.
+ */
+export async function sendFraudWarningAlert(a: {
+  warningId: string;
+  chargeId: string | null;
+  fraudType: string;
+  actionable: boolean;
+  livemode: boolean;
+  confirmationNumber: string | null;
+  bookingStatus: string | null;
+  checkIn: string | null;
+  amount: string | null;
+}) {
+  const advice = a.actionable
+    ? "If the car was <strong>not</strong> parked, refund it in Stripe now: a refund before a dispute avoids the dispute fee. If it was parked, keep the lot's proof for the dispute that may follow."
+    : "Stripe marks this warning as not actionable (already refunded or disputed). Nothing to do unless a dispute opens.";
+  const rows: [string, string][] = [
+    ["Amount", a.amount ? esc(a.amount) : "—"],
+    ["Fraud type", esc(a.fraudType)],
+    ["Booking", a.confirmationNumber ? esc(a.confirmationNumber) : "<strong>No booking found for this charge</strong>"],
+    ["Status", a.bookingStatus ? esc(a.bookingStatus) : "—"],
+    ["Check-in", a.checkIn ? esc(a.checkIn.slice(0, 16).replace("T", " ")) : "—"],
+  ];
+  const link = a.chargeId
+    ? `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}payments/${encodeURIComponent(a.chargeId)}`
+    : `https://dashboard.stripe.com/${a.livemode ? "" : "test/"}radar/early-fraud-warnings`;
+
+  const { error } = await resend.emails.send({
+    from: FROM_EMAIL,
+    to: PAYMENT_ALERT_EMAILS,
+    subject: `⚠️ Likely fraud flagged${a.amount ? `: ${a.amount}` : ""}${a.confirmationNumber ? ` (${a.confirmationNumber})` : ""}${a.livemode ? "" : " [TEST]"}`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#111827;">
+        <h2 style="color:#d97706;margin-bottom:12px;">Card network flagged a charge as likely fraud</h2>
+        <table style="width:100%;border-collapse:collapse;">
+          ${rows
+            .map(
+              ([k, v]) =>
+                `<tr><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:12px;color:#6b7280;width:110px;">${k}</td><td style="padding:6px 10px;border-bottom:1px solid #e5e7eb;font-size:14px;">${v}</td></tr>`
+            )
+            .join("")}
+        </table>
+        <p style="font-size:14px;margin-top:18px;">${advice}</p>
+        <a href="${link}" style="display:inline-block;background:#f87356;color:#fff;text-decoration:none;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;">Open in Stripe</a>
+      </div>
+    `,
+  });
+  if (error) throw new Error(`Fraud warning email failed: ${error.message}`);
+}
+
 /** Emails the outcome when Stripe closes a dispute (won, lost, warning closed). */
 export async function sendDisputeClosedAlert(a: {
   disputeId: string;

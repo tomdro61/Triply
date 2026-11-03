@@ -8,6 +8,12 @@ When a customer disputes a charge, Stripe sends `charge.dispute.created` to `/ap
 2. Writes a row to the `disputes` table (migration 045) with the amount, reason, deadline and booking.
 3. Builds evidence from the booking record (customer, lot, dates, confirmation, cancellation and refund policy) and saves it on the dispute as a **draft**. It is **never submitted**, because Stripe allows only one submission per dispute.
 4. Emails `PAYMENT_ALERT_EMAILS` with the deadline, a reason-specific checklist of what to add by hand, and a link to the dispute.
+5. Adds the checkbox wording the customer ticked (every PaymentIntent carries `termsVersion`, see `src/lib/checkout/terms-acceptance.ts`) and the CVC / postal / 3DS checks that passed.
+6. Live disputes only: adds a High task to the Command Center, due 2 days before the deadline (needs `COMMAND_CENTER_MCP_URL` + `COMMAND_CENTER_MCP_TOKEN`; unset = skipped).
+
+On `radar.early_fraud_warning.created` (the card network's warning that a dispute is likely) it records the warning (`fraud_warnings`, migration 046), emails the alert list and, for actionable live warnings, adds a "decide: refund?" Command Center task. Nothing is refunded automatically.
+
+`/admin/disputes` lists every dispute with its deadline countdown, draft state and outcome, plus fraud warnings. **Mark submitted** records who submitted the evidence in Stripe. It sends nothing to Stripe.
 
 On `charge.dispute.updated` / `charge.dispute.closed` the row's status and deadline stay current. On close it records the outcome (won / lost) and emails it once.
 
@@ -34,5 +40,7 @@ Code: `src/lib/disputes/` (evidence + per-reason playbook, handler) and `src/lib
 
 ## One-time setup
 
-- Apply `supabase/migrations/045_disputes.sql` in the Supabase SQL editor.
-- In Stripe → Developers → Webhooks → the triplypro.com endpoint, make sure `charge.dispute.created`, `charge.dispute.updated` and `charge.dispute.closed` are all enabled.
+- Apply `supabase/migrations/045_disputes.sql`, then `046_dispute_tracking.sql`, in the Supabase SQL editor.
+- In Stripe → Developers → Webhooks → the triplypro.com endpoint, make sure `charge.dispute.created`, `charge.dispute.updated`, `charge.dispute.closed` and `radar.early_fraud_warning.created` are all enabled.
+- Optional, Vercel env (production): `COMMAND_CENTER_MCP_URL` and `COMMAND_CENTER_MCP_TOKEN` (Vin supplies them).
+- Changing the checkout checkbox wording? Add a new version in `terms-acceptance.ts`; never edit an old one.

@@ -5,6 +5,7 @@
  */
 
 import Stripe from "stripe";
+import { TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   console.warn("Missing STRIPE_SECRET_KEY environment variable");
@@ -79,7 +80,9 @@ export async function createPaymentIntent(
     ...(MANUAL_CAPTURE_DISABLED
       ? {}
       : { payment_method_options: { card: { capture_method: "manual" as const } } }),
-    metadata,
+    // termsVersion: the checkbox wording the customer must tick before Pay
+    // enables — dispute evidence quotes it (lib/checkout/terms-acceptance).
+    metadata: { ...metadata, termsVersion: TERMS_VERSION },
   });
 }
 

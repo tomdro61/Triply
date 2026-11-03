@@ -7,22 +7,31 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Stripe from "stripe";
 
-const { db, disputesUpdate, sentry, alerts } = await vi.hoisted(async () => {
+const { db, disputesUpdate, piRetrieve, cc, sentry, alerts } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     disputesUpdate: vi.fn(),
+    piRetrieve: vi.fn(),
+    cc: { commandCenterConfigured: vi.fn(), createCommandCenterTask: vi.fn() },
     sentry: { capturePaymentError: vi.fn() },
     alerts: { sendDisputeOpenedAlert: vi.fn(), sendDisputeClosedAlert: vi.fn() },
   };
 });
 
-vi.mock("@/lib/stripe/client", () => ({ stripe: { disputes: { update: disputesUpdate } } }));
+vi.mock("@/lib/stripe/client", () => ({
+  stripe: { disputes: { update: disputesUpdate }, paymentIntents: { retrieve: piRetrieve } },
+}));
+vi.mock("@/lib/command-center/create-task", async (orig) => ({
+  ...(await orig<typeof import("@/lib/command-center/create-task")>()),
+  ...cc,
+}));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
 
 import { handleDisputeCreated, handleDisputeChanged } from "../handle-dispute";
-import { buildEvidence, playbookFor } from "../evidence";
+import { buildEvidence, paymentFactsFrom, playbookFor } from "../evidence";
+import { TERMS_CHECKBOX_TEXT, TERMS_VERSION } from "@/lib/checkout/terms-acceptance";
 
 type Db = Parameters<typeof handleDisputeCreated>[0];
 const sb = db as unknown as Db; // test double only
@@ -60,6 +69,18 @@ const BOOKING = {
   customers: { email: "a@b.com", first_name: "Ann", last_name: "Lee" },
 };
 
+const PI = {
+  id: "pi_1",
+  metadata: { termsVersion: TERMS_VERSION },
+  latest_charge: {
+    id: "ch_1",
+    created: 1_759_320_000, // 2025-10-01T12:00:00Z
+    payment_method_details: {
+      card: { checks: { cvc_check: "pass", address_postal_code_check: "unavailable" }, three_d_secure: null },
+    },
+  },
+} as unknown as Stripe.PaymentIntent; // test double only
+
 function seedBooking(over: Record<string, unknown> = {}) {
   db.seed("bookings", [{ ...BOOKING, customer_id: "c1", ...over }]);
 }
@@ -69,6 +90,9 @@ beforeEach(() => {
   seedBooking();
   db.seed("customers", [{ id: "c1", email: "a@b.com", first_name: "Ann", last_name: "Lee" }]).seed("disputes", []);
   disputesUpdate.mockReset().mockResolvedValue({});
+  piRetrieve.mockReset().mockResolvedValue(PI);
+  cc.commandCenterConfigured.mockReset().mockReturnValue(false);
+  cc.createCommandCenterTask.mockReset().mockResolvedValue("task-1");
   sentry.capturePaymentError.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);
@@ -229,6 +253,46 @@ describe("handleDisputeCreated", () => {
     await handleDisputeCreated(sb, dispute({ status: "under_review" }));
     expect(disputesUpdate).not.toHaveBeenCalled();
   });
+  it("the draft quotes the checkbox the customer ticked and only the card checks that passed", async () => {
+    await handleDisputeCreated(sb, dispute());
+    expect(piRetrieve).toHaveBeenCalledWith("pi_1", { expand: ["latest_charge"] });
+    const ev = disputesUpdate.mock.calls[0][1].evidence;
+    expect(ev.cancellation_policy_disclosure).toContain(TERMS_CHECKBOX_TEXT[TERMS_VERSION]);
+    expect(ev.cancellation_policy_disclosure).toContain("payment made 2025-10-01 12:00 UTC");
+    expect(ev.uncategorized_text).toContain("CVC) check: passed");
+    expect(ev.uncategorized_text).not.toContain("AVS");
+  });
+
+  it("an unreadable PaymentIntent still saves the booking-only draft", async () => {
+    piRetrieve.mockRejectedValueOnce(new Error("Stripe 500"));
+    await handleDisputeCreated(sb, dispute());
+    expect(disputesUpdate).toHaveBeenCalledTimes(1);
+    expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("ticked");
+  });
+
+  it("a live dispute gets one Command Center task, due two days before the deadline", async () => {
+    cc.commandCenterConfigured.mockReturnValue(true);
+    await handleDisputeCreated(sb, dispute());
+    await handleDisputeCreated(sb, dispute());
+    expect(cc.createCommandCenterTask).toHaveBeenCalledTimes(1);
+    const task = cc.createCommandCenterTask.mock.calls[0][0];
+    expect(task.title).toBe("Answer $50.57 fraudulent dispute (RTL828863) by 2025-11-05");
+    expect(task.due).toBe("2025-11-02");
+    expect(db.tables.disputes[0].cc_task_id).toBe("task-1");
+  });
+
+  it("test-mode disputes never create a Command Center task", async () => {
+    cc.commandCenterConfigured.mockReturnValue(true);
+    await handleDisputeCreated(sb, dispute({ livemode: false }));
+    expect(cc.createCommandCenterTask).not.toHaveBeenCalled();
+  });
+
+  it("a failed Command Center task is reported, not retried", async () => {
+    cc.commandCenterConfigured.mockReturnValue(true);
+    cc.createCommandCenterTask.mockRejectedValueOnce(new Error("HTTP 500"));
+    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(false);
+    expect(sentry.capturePaymentError.mock.calls.at(-1)?.[0].message).toContain("Command Center task failed");
+  });
 });
 
 describe("handleDisputeChanged", () => {
@@ -289,6 +353,12 @@ describe("evidence", () => {
       expect(e.refund_refusal_explanation).toBeUndefined();
       expect(e.uncategorized_text).toContain("status before the dispute: not recorded");
     }
+  });
+
+  it("an unversioned (older) charge quotes no checkbox wording", () => {
+    const facts = paymentFactsFrom({ ...PI, metadata: {} } as Stripe.PaymentIntent);
+    expect(facts.termsText).toBeNull();
+    expect(buildEvidence(BOOKING, "general", facts).cancellation_policy_disclosure).not.toContain("ticked");
   });
 
   it("every reason has hand steps", () => {

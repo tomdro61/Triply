@@ -207,6 +207,12 @@ function violatedUnique(table: string, row: Row, rows: Row[]): string | null {
       return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind && r.source === row.source)
         ? "direct_lot_resends_booking_id_kind_source_key"
         : null;
+    case "disputes":
+      // 045: stripe_dispute_id is the PRIMARY KEY.
+      return rows.some((r) => r.stripe_dispute_id === row.stripe_dispute_id) ? "disputes_pkey" : null;
+    case "fraud_warnings":
+      // 046: stripe_warning_id is the PRIMARY KEY.
+      return rows.some((r) => r.stripe_warning_id === row.stripe_warning_id) ? "fraud_warnings_pkey" : null;
     case "review_emails":
       // 037: UNIQUE (booking_id, kind), the review cron's claim-before-send lock.
       return rows.some((r) => r.booking_id === row.booking_id && r.kind === row.kind)
