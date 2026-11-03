@@ -21,6 +21,11 @@ describe("ConfirmationHeader", () => {
     expect(html).not.toContain("Booking Cancelled");
   });
 
+  it("the email sits inside a Clarity-masked element (recordings never show it)", () => {
+    const html = render(false);
+    expect(html).toMatch(/<span data-clarity-mask="true">Confirmation sent to <strong>guest@example\.com<\/strong><\/span>/);
+  });
+
   it("a cancelled booking never says confirmed, and keeps its number", () => {
     const html = render(true);
     expect(html).toContain("Booking Cancelled");

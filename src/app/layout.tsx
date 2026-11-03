@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter, Poppins } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
+import { clarityInitScript, gtagInitScript } from "@/lib/privacy/inline-analytics-scripts";
 // globals.css is now imported in (main)/layout.tsx to isolate from Payload CMS
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
@@ -112,71 +113,19 @@ export default function RootLayout({
               src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
               strategy="afterInteractive"
             />
+            {/* Consent defaults + config; keeps the guest's email and a Stripe
+                client secret out of the first page_view (see the module). */}
             <Script id="gtag-init" strategy="afterInteractive">
-              {`
-                window.dataLayer = window.dataLayer || [];
-                function gtag(){dataLayer.push(arguments);}
-                var _optOut = false;
-                try {
-                  var _m = document.cookie.match(/triply_cookie_consent=([^;]+)/);
-                  if (_m) _optOut = JSON.parse(decodeURIComponent(_m[1])).analyticsOptOut === true;
-                } catch(e) {}
-                gtag('consent', 'default', {
-                  analytics_storage: _optOut ? 'denied' : 'granted',
-                  ad_storage: 'denied',
-                  ad_user_data: 'denied',
-                  ad_personalization: 'denied',
-                });
-                gtag('js', new Date());
-                // Never send a customer's address to GA (its terms forbid
-                // PII): a legacy confirmation link can land with ?email=,
-                // and this can run before the page strips it. The page_view
-                // goes out with it removed; page_location is set on the
-                // event only, so later page views keep their own URLs.
-                var _pl = null;
-                try {
-                  var _u = new URL(location.href);
-                  if (_u.searchParams.has('email')) { _u.searchParams.delete('email'); _pl = _u.toString(); }
-                } catch(e) {}
-                if (_pl) {
-                  gtag('config', '${GA_MEASUREMENT_ID}', { send_page_view: false });
-                  gtag('event', 'page_view', { page_location: _pl });
-                } else {
-                  gtag('config', '${GA_MEASUREMENT_ID}');
-                }
-              `}
+              {gtagInitScript(GA_MEASUREMENT_ID)}
             </Script>
           </>
         )}
         {CLARITY_ID && (
-          // Clarity waits for idle too. Because it now starts after the
-          // AnalyticsProvider's on-mount opt-out check has already run (and
-          // found no window.clarity to call), the snippet applies a stored
-          // opt-out itself, the same way gtag-init does for GA.
+          // Clarity waits for load + idle. Not started for an analytics
+          // opt-out, or while the URL / referrer carries the guest's email or
+          // a Stripe client secret (see the module).
           <Script id="clarity-init" strategy="lazyOnload">
-            {`
-              // Clarity records the page URL: drop a legacy ?email= first
-              // (the confirmation page normally has already; this runs after
-              // hydration, so Next's router picks the change up).
-              try {
-                var _cu = new URL(location.href);
-                if (_cu.pathname.indexOf('/confirmation/') === 0 && _cu.searchParams.has('email')) {
-                  _cu.searchParams.delete('email');
-                  history.replaceState(history.state, '', _cu.pathname + _cu.search + _cu.hash);
-                }
-              } catch(e) {}
-              (function(c,l,a,r,i,t,y){
-                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-              })(window, document, "clarity", "script", "${CLARITY_ID}");
-              try {
-                var _cm = document.cookie.match(/triply_cookie_consent=([^;]+)/);
-                if (_cm && JSON.parse(decodeURIComponent(_cm[1])).analyticsOptOut === true) {
-                  window.clarity('consent', false);
-                }
-              } catch(e) {}
-            `}
+            {clarityInitScript(CLARITY_ID)}
           </Script>
         )}
       </head>

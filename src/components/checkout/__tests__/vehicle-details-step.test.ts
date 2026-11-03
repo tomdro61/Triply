@@ -47,3 +47,23 @@ describe("VehicleDetailsStep plate jurisdiction", () => {
     expect(html).toContain("Select state / province");
   });
 });
+
+describe("checkout forms are masked in Clarity recordings (the Privacy page says so)", () => {
+  it("the vehicle form carries data-clarity-mask", () => {
+    expect(render()).toMatch(/^<form[^>]*data-clarity-mask="true"/);
+  });
+
+  it("the customer details form carries data-clarity-mask", async () => {
+    const { CustomerDetailsStep } = await import("../customer-details-step");
+    const html = renderToStaticMarkup(
+      createElement(CustomerDetailsStep, {
+        data: { firstName: "", lastName: "", email: "", phone: "" },
+        onChange: () => {},
+        onNext: () => {},
+        errors: {},
+        showFreeCancellation: false,
+      })
+    );
+    expect(html).toMatch(/^<form[^>]*data-clarity-mask="true"/);
+  });
+});

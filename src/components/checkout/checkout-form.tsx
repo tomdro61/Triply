@@ -22,7 +22,7 @@ import { VehicleDetailsStep } from "./vehicle-details-step";
 import { StripeProvider } from "./stripe-provider";
 import { StripePaymentForm } from "./stripe-payment-form";
 import { OrderSummary } from "./order-summary";
-import { rememberConfirmationEmail } from "@/lib/confirmation/guest-email";
+import { confirmationHandOff } from "@/lib/confirmation/guest-email";
 import {
   trackBeginCheckout,
   trackAddPaymentInfo,
@@ -258,21 +258,25 @@ export function CheckoutForm({
     };
   }, [currentStep]);
 
-  // First field touched, once per checkout load: separates "never started the
-  // form" from "started and quit" at the details step. focusin bubbles.
+  // First field filled in, once per checkout load: separates "never started
+  // the form" from "started and quit" at the details step. Listens for
+  // `input` (typing, autofill, picking from a select), not focus: the browser
+  // focuses the first invalid field after an empty submit, which is not the
+  // customer starting the form. `input` bubbles; a signed-in customer's
+  // prefilled fields set state and fire none, which is right.
   const firstFieldTrackedRef = useRef(false);
   useEffect(() => {
     const area = formAreaRef.current;
     if (!area) return;
-    const onFocusIn = (e: FocusEvent) => {
+    const onInput = (e: Event) => {
       if (firstFieldTrackedRef.current) return;
       const key = e.target instanceof HTMLElement ? e.target.dataset.funnelField : undefined;
       if (!key) return;
       firstFieldTrackedRef.current = true;
       trackCheckoutFirstField({ step: currentStep, field: key });
     };
-    area.addEventListener("focusin", onFocusIn);
-    return () => area.removeEventListener("focusin", onFocusIn);
+    area.addEventListener("input", onInput);
+    return () => area.removeEventListener("input", onInput);
   }, [currentStep]);
 
   // On a step change (Next or Back) bring the card — step indicator first —
@@ -827,17 +831,17 @@ export function CheckoutForm({
   };
 
   /**
-   * The confirmation page URL for a finished booking. The guest's email is
-   * handed over in sessionStorage, not the URL — GA4 and Clarity record page
-   * URLs (see lib/confirmation/guest-email.ts). Only when storage is
-   * unavailable does it ride in ?email= (the page strips it on arrival), so a
-   * private-window guest can still open their booking.
+   * Go to the confirmation page for a finished booking. The guest's email is
+   * handed over in sessionStorage, not the URL — GA4, Clarity and Sentry
+   * record page URLs (see lib/confirmation/guest-email.ts). Only when storage
+   * is unavailable does it ride in ?email=, and then by a FULL page load so
+   * the layout's guards run before anything records the URL.
    */
-  const confirmationHref = (reservationNumber: string): string => {
-    const href = `/confirmation/${reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`;
-    return rememberConfirmationEmail(reservationNumber, customerDetails.email)
-      ? href
-      : `${href}&email=${encodeURIComponent(customerDetails.email)}`;
+  const goToConfirmation = (reservationNumber: string) => {
+    const path = `/confirmation/${reservationNumber}?lot=${lot.id}&checkin=${checkIn}&checkout=${checkOut}&checkinTime=${encodeURIComponent(checkInTime)}&checkoutTime=${encodeURIComponent(checkOutTime)}&serviceFee=${priceBreakdown.serviceFee}`;
+    const { url, fullLoad } = confirmationHandOff(path, reservationNumber, customerDetails.email);
+    if (fullLoad) window.location.assign(url);
+    else router.push(url);
   };
 
   /**
@@ -1099,9 +1103,7 @@ export function CheckoutForm({
         markPurchaseToTrack(action.reservationNumber);
 
         // Redirect to confirmation page
-        router.push(
-          confirmationHref(action.reservationNumber)
-        );
+        goToConfirmation(action.reservationNumber);
         return;
       }
       case "handoff":
@@ -1140,9 +1142,7 @@ export function CheckoutForm({
           // Store lot data for confirmation page (in case lot ID isn't in mock data)
           sessionStorage.setItem(`lot-${lot.id}`, JSON.stringify(lot));
 
-          router.push(
-            confirmationHref(confirmationId)
-          );
+          goToConfirmation(confirmationId);
           return;
         }
 
@@ -1204,9 +1204,7 @@ export function CheckoutForm({
       markPurchaseToTrack(result.reservation.reservationNumber);
 
       // Redirect to confirmation page with reservation number
-      router.push(
-        confirmationHref(result.reservation.reservationNumber)
-      );
+      goToConfirmation(result.reservation.reservationNumber);
     } catch (error) {
       console.error("Reservation error:", error);
       setSubmitError(

@@ -448,8 +448,10 @@ export function trackCheckoutBack(fromStep: string) {
 }
 
 /**
- * The first form field a checkout visitor focuses, once per checkout load
- * (2026-11-02). Splits the details-step drop (the biggest leak: −41%) into
+ * The first form field a checkout visitor types into or picks (autofill
+ * counts), once per checkout load (2026-11-02; focus would also count the
+ * browser's own jump to an empty required field). Splits the details-step
+ * drop (the biggest leak: −41%) into
  * people who never touched the form — browsing, price-checking — and people
  * who started typing and quit. Field KEY only, never what was typed.
  */

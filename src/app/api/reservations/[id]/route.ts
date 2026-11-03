@@ -14,7 +14,6 @@ import {
 } from "@/lib/booking/confirmation-payment";
 import { readCardPayment, reportCostBreakdownFallback } from "@/lib/booking/read-card-payment";
 import { billedParkingDays } from "@/lib/reslab/billed-days";
-import { verifyConfirmationKey } from "@/lib/confirmation/link-key";
 
 /**
  * The guest as typed at checkout, for a direct booking's confirmation page: the
@@ -77,10 +76,27 @@ async function readStagedGuest(
 const sameEmail = (a: string | null | undefined, b: string | null | undefined): boolean =>
   !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase();
 
+/**
+ * Every answer varies by the guest's x-booking-email header. The service
+ * worker caches these GETs (NetworkFirst, next.config.mjs) so a customer can
+ * reopen their confirmation offline at the lot; with Vary a guest's cached
+ * booking is reused only for a request carrying the same email. A signed-in
+ * answer carries no header, so it can still match a later header-less request
+ * on the same browser — the same as before the email moved into the header.
+ */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> }
 ) {
+  const response = await getReservation(request, context);
+  response.headers.append("Vary", "x-booking-email");
+  return response;
+}
+
+async function getReservation(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
   const { id } = await params;
 
   if (!id) {
@@ -99,16 +115,8 @@ export async function GET(
     // --- Auth check (R1: IDOR protection) ---
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    // A signed confirmation link (?k=, see lib/confirmation/link-key.ts) proves
-    // the viewer got this booking's link from us — the same proof the emailed
-    // ?email= link gave, without the address in the URL. It opens the booking
-    // for anyone holding it, signed in or not (the guest is then read from the
-    // staged row below, as for any guest view).
-    const keyVerified = verifyConfirmationKey(id, request.nextUrl.searchParams.get("k"));
 
-    if (keyVerified) {
-      // Ownership proven by the signed link.
-    } else if (user) {
+    if (user) {
       // Logged-in user: verify they own this booking. Ownership is either the
       // user_id link OR — because that link is unreliably populated — a match
       // between the booking's customer email and the user's VERIFIED account
@@ -176,9 +184,10 @@ export async function GET(
       }
     } else {
       // Not logged in: require the checkout email for verification. The
-      // confirmation page sends it in the x-booking-email header (kept out of
-      // URLs, which analytics and logs record); ?email= stays accepted for
-      // pages and emailed links minted before that change.
+      // confirmation page sends it in the x-booking-email header, kept out of
+      // URLs (analytics, Sentry and logs record those; the server Sentry scrub
+      // redacts the header). ?email= is still accepted for older pages. When
+      // both are sent the header decides.
       const email =
         request.headers.get("x-booking-email") || request.nextUrl.searchParams.get("email");
       if (!email) {
