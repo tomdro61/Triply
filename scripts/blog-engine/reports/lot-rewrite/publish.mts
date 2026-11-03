@@ -37,13 +37,19 @@ for (const a of AIRPORTS) {
       if (live.slug !== nw.slug || live.updatedAt !== nw.updatedAt) { res.status = `SKIP: live post changed since export (${live.updatedAt})`; continue }
       const content = JSON.parse(JSON.stringify(nw.content))
       const imgs: { i: number; png: string; alt: string }[] = []
+      const undated: string[] = []
       content.root.children.forEach((b: any, i: number) => {
         if (b.type !== 'upload') return
         if (typeof b.value === 'object') b.value = b.value.id
         const meta = `${dir}/img/${nw.slug}-${i}.json`
         // NOIMG=1: text-only pass (small fixes); don't re-upload charts left over from an earlier pass
-        if (fs.existsSync(meta) && !process.env.NOIMG) imgs.push({ i, png: `${dir}/img/${nw.slug}-${i}.png`, alt: JSON.parse(fs.readFileSync(meta, 'utf8')).alt })
+        if (!fs.existsSync(meta) || process.env.NOIMG) return
+        const m = JSON.parse(fs.readFileSync(meta, 'utf8'))
+        // Only a dated chart from src/rate-chart.ts may go up (chart redraw, Nov 2026); make-infographics.mts PNGs are refused.
+        if (m.generator !== 'rate-chart' || !m.asOf) { undated.push(`${nw.slug}-${i}.png`); return }
+        imgs.push({ i, png: `${dir}/img/${nw.slug}-${i}.png`, alt: m.alt })
       })
+      if (undated.length) { res.status = `REFUSED: undated chart(s) from the retired make-infographics.mts (${undated.join(', ')}) — redraw with reports/chart-redraw, or NOIMG=1 for a text-only pass`; continue }
       res.newImages = imgs.length
       res.titleChanged = nw.title !== live.title
       if (!APPLY) { res.status = 'dry-run ok'; continue }

@@ -13,6 +13,11 @@ reports/lot-rewrite/*
 !reports/lot-rewrite/*.mts
 !reports/lot-rewrite/RULES.md
 !reports/publish-price-index.mts
+!reports/chart-redraw/
+reports/chart-redraw/*
+!reports/chart-redraw/*.mts
+!reports/chart-redraw/*.sql
+!reports/chart-redraw/README.md
 *.log
 temp-*
 test-output/

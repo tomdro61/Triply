@@ -1,0 +1,2341 @@
+{
+ "asOf": "2026-11-02",
+ "checkin": "2026-11-12",
+ "checkout": "2026-11-19",
+ "airports": {
+  "ATL": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Sky Lot Atlanta Airport Parking",
+     "perDay": 12.4,
+     "stayTotal": 86.8,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.55
+    },
+    {
+     "name": "Four Points by Sheraton Atlanta Airport",
+     "perDay": 10.86,
+     "stayTotal": 76.02,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.01
+    },
+    {
+     "name": "PreFlight Airport Parking Atlanta",
+     "perDay": 19.63,
+     "stayTotal": 137.41,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 18.52
+    },
+    {
+     "name": "Routes Atlanta Airport Parking",
+     "perDay": 21.93,
+     "stayTotal": 153.52,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.69
+    }
+   ],
+   "listed": 4
+  },
+  "AUS": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Comfort Suites Austin Airport",
+     "perDay": 11.7,
+     "stayTotal": 81.9,
+     "billedDays": 7,
+     "transfer": "unknown",
+     "mayLead": true,
+     "baseRate": 10.11
+    }
+   ],
+   "listed": 1
+  },
+  "BDL": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Motel 6 Windsor Locks",
+     "perDay": 7.47,
+     "stayTotal": 52.32,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.25
+    },
+    {
+     "name": "Econo Lodge Inn & Suites",
+     "perDay": 7.53,
+     "stayTotal": 52.73,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.33
+    },
+    {
+     "name": "Days Inn Windsor Locks Bradley",
+     "perDay": 10.6,
+     "stayTotal": 84.77,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.35
+    }
+   ],
+   "listed": 3
+  },
+  "BNA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Southwestern Airport Parking",
+     "perDay": 6.53,
+     "stayTotal": 45.71,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 5.2
+    },
+    {
+     "name": "Best Western Plus Nashville Airport",
+     "perDay": 12.1,
+     "stayTotal": 84.7,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.25
+    },
+    {
+     "name": "Holiday Inn Express Nashville Airport",
+     "perDay": 12.22,
+     "stayTotal": 85.52,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.45
+    },
+    {
+     "name": "Comfort Suites Nashville Airport",
+     "perDay": 12.29,
+     "stayTotal": 86.05,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.44
+    },
+    {
+     "name": "Cambria Hotel Nashville Airport",
+     "perDay": 13.06,
+     "stayTotal": 91.4,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.4
+    },
+    {
+     "name": "Fly Away Airport Parking Nashville",
+     "perDay": 12.19,
+     "stayTotal": 97.53,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.45
+    },
+    {
+     "name": "Avid Hotel Nashville Airport",
+     "perDay": 13.84,
+     "stayTotal": 110.7,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.2
+    }
+   ],
+   "listed": 7
+  },
+  "BOS": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Broadway Motor Service",
+     "perDay": 13.4,
+     "stayTotal": 93.78,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 12.55
+    },
+    {
+     "name": "Se-lect Airport Valet Parking - Boston Logan",
+     "perDay": 20.29,
+     "stayTotal": 142.02,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 19.14
+    },
+    {
+     "name": "PreFlight Airport Parking Boston",
+     "perDay": 21.97,
+     "stayTotal": 153.77,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.72
+    },
+    {
+     "name": "Ramada by Wyndham Boston",
+     "perDay": 22.2,
+     "stayTotal": 155.43,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.95
+    },
+    {
+     "name": "Park N Boston Logan Airport Parking",
+     "perDay": 23.36,
+     "stayTotal": 163.54,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 22.04
+    }
+   ],
+   "listed": 5
+  },
+  "BUF": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Salvatores Grand Hotel",
+     "perDay": 8.63,
+     "stayTotal": 60.44,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.3
+    },
+    {
+     "name": "Sleep Inn & Suites Buffalo Airport",
+     "perDay": 8.71,
+     "stayTotal": 61,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.86
+    },
+    {
+     "name": "Buffalo Airport Hotel",
+     "perDay": 8.99,
+     "stayTotal": 62.95,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.67
+    },
+    {
+     "name": "Quality Inn Buffalo Airport",
+     "perDay": 9.55,
+     "stayTotal": 66.86,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.88
+    },
+    {
+     "name": "M Hotel Buffalo Airport",
+     "perDay": 9.94,
+     "stayTotal": 69.57,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.39
+    },
+    {
+     "name": "Hampton Inn & Suites",
+     "perDay": 10.05,
+     "stayTotal": 70.38,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": false,
+     "baseRate": 9.2
+    }
+   ],
+   "listed": 6
+  },
+  "BWI": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Doubletree Baltimore",
+     "perDay": 7.01,
+     "stayTotal": 49.06,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.16
+    },
+    {
+     "name": "The Westin",
+     "perDay": 8.15,
+     "stayTotal": 57.03,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.3
+    },
+    {
+     "name": "Sheraton Hotel",
+     "perDay": 8.41,
+     "stayTotal": 58.89,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.56
+    },
+    {
+     "name": "Clarion Hotel BWI North",
+     "perDay": 9.2,
+     "stayTotal": 64.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    }
+   ],
+   "listed": 5
+  },
+  "CLE": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "2 Birds Shuttle and Detail",
+     "perDay": 7.26,
+     "stayTotal": 50.79,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.04
+    },
+    {
+     "name": "Crowne Plaza Airport Hotel",
+     "perDay": 10.94,
+     "stayTotal": 76.6,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.38
+    },
+    {
+     "name": "Airport Express Parking",
+     "perDay": 14.97,
+     "stayTotal": 104.77,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.16
+    },
+    {
+     "name": "CLE Park",
+     "perDay": 15.09,
+     "stayTotal": 105.61,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.28
+    }
+   ],
+   "listed": 4
+  },
+  "CLT": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Radisson Hotel Charlotte Airport",
+     "perDay": 8.86,
+     "stayTotal": 62,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.58
+    },
+    {
+     "name": "Sheraton Charlotte Airport Hotel",
+     "perDay": 11.44,
+     "stayTotal": 80.08,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.93
+    }
+   ],
+   "listed": 2
+  },
+  "CVG": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Holiday Inn Cincinnati Airport",
+     "perDay": 6.34,
+     "stayTotal": 44.41,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.2
+    },
+    {
+     "name": "Quality Inn & Suites",
+     "perDay": 6.11,
+     "stayTotal": 48.85,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.36
+    },
+    {
+     "name": "Holiday Inn Express & Suites",
+     "perDay": 7.04,
+     "stayTotal": 49.3,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.19
+    },
+    {
+     "name": "Hyatt Place Cincinnati Airport",
+     "perDay": 6.81,
+     "stayTotal": 54.48,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.07
+    },
+    {
+     "name": "Hilton Cincinnati Airport",
+     "perDay": 8.05,
+     "stayTotal": 56.35,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.84
+    }
+   ],
+   "listed": 5
+  },
+  "DCA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Sheraton Suites Old Town Alexandria",
+     "perDay": 9.78,
+     "stayTotal": 68.43,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.93
+    },
+    {
+     "name": "Westin Crystal City",
+     "perDay": 11.81,
+     "stayTotal": 82.65,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.96
+    }
+   ],
+   "listed": 2
+  },
+  "DEN": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Residence Inn Denver Airport at Gateway Park",
+     "perDay": 6.7,
+     "stayTotal": 46.89,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.85
+    },
+    {
+     "name": "Hyatt Place Peña Station - Denver Airport",
+     "perDay": 6.89,
+     "stayTotal": 48.21,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.04
+    },
+    {
+     "name": "Aloft Denver Airport at Gateway Park",
+     "perDay": 7.03,
+     "stayTotal": 49.24,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.18
+    },
+    {
+     "name": "Embassy Suites Denver Airport",
+     "perDay": 6.44,
+     "stayTotal": 51.49,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.69
+    },
+    {
+     "name": "Spark by Hilton Denver Airport",
+     "perDay": 7.94,
+     "stayTotal": 55.56,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.09
+    },
+    {
+     "name": "Hyatt Place Denver Airport",
+     "perDay": 7.2,
+     "stayTotal": 57.63,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.46
+    },
+    {
+     "name": "Holiday Inn Express Denver Airport",
+     "perDay": 9.22,
+     "stayTotal": 64.53,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.37
+    },
+    {
+     "name": "Hyatt House Denver Airport",
+     "perDay": 9.23,
+     "stayTotal": 64.6,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.38
+    },
+    {
+     "name": "DoubleTree Denver Airport",
+     "perDay": 9.23,
+     "stayTotal": 64.6,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.38
+    },
+    {
+     "name": "Park2Jet Denver",
+     "perDay": 10.3,
+     "stayTotal": 72.08,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.45
+    },
+    {
+     "name": "Canopy Denver Airport Parking",
+     "perDay": 12.08,
+     "stayTotal": 84.57,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.23
+    }
+   ],
+   "listed": 11
+  },
+  "DFW": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "The Westin Dallas-Fort Worth",
+     "perDay": 8.61,
+     "stayTotal": 68.87,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.87
+    }
+   ],
+   "listed": 1
+  },
+  "DTW": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Valet Connections",
+     "perDay": 12.71,
+     "stayTotal": 88.95,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.86
+    },
+    {
+     "name": "Wyndham Garden Romulus",
+     "perDay": 12.58,
+     "stayTotal": 88.05,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.09
+    },
+    {
+     "name": "Detroit Metro Airport Marriott",
+     "perDay": 12.73,
+     "stayTotal": 89.11,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.45
+    },
+    {
+     "name": "Radisson Hotel Detroit Metro Airport",
+     "perDay": 13.88,
+     "stayTotal": 97.16,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.5
+    },
+    {
+     "name": "Hampton Inn Detroit/Belleville",
+     "perDay": 12.82,
+     "stayTotal": 102.55,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.07
+    }
+   ],
+   "listed": 5
+  },
+  "EWR": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Red Carpet Inn",
+     "perDay": 6.32,
+     "stayTotal": 44.27,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 5.2
+    },
+    {
+     "name": "Apex Airport Parking",
+     "perDay": 11.49,
+     "stayTotal": 80.41,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.26
+    },
+    {
+     "name": "Motel 6 Newark Airport",
+     "perDay": 11.58,
+     "stayTotal": 81.06,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.78
+    },
+    {
+     "name": "Maas Parking Newark",
+     "perDay": 13.14,
+     "stayTotal": 91.97,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.45
+    },
+    {
+     "name": "ARB Parking Newark",
+     "perDay": 14.21,
+     "stayTotal": 99.46,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.33
+    },
+    {
+     "name": "Renaissance Newark Airport Hotel",
+     "perDay": 15.26,
+     "stayTotal": 106.81,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.71
+    },
+    {
+     "name": "Courtyard Newark Liberty",
+     "perDay": 15.42,
+     "stayTotal": 107.92,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.01
+    },
+    {
+     "name": "Embassy Suites Hilton Newark Airport",
+     "perDay": 16.5,
+     "stayTotal": 115.53,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.71
+    },
+    {
+     "name": "Courtyard by Marriott Newark Elizabeth",
+     "perDay": 16.66,
+     "stayTotal": 116.63,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.87
+    },
+    {
+     "name": "EWR Airport Parking",
+     "perDay": 20.39,
+     "stayTotal": 142.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 17.12
+    },
+    {
+     "name": "Snap Parking",
+     "perDay": 25.6,
+     "stayTotal": 179.21,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.7
+    }
+   ],
+   "listed": 11
+  },
+  "FLL": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Homewood Suites",
+     "perDay": 7.1,
+     "stayTotal": 49.68,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.25
+    },
+    {
+     "name": "Springhill Suites",
+     "perDay": 7.32,
+     "stayTotal": 51.21,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.47
+    },
+    {
+     "name": "Residence Inn Fort Lauderdale Airport",
+     "perDay": 9.76,
+     "stayTotal": 68.35,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.39
+    },
+    {
+     "name": "Fairfield Inn & Suites",
+     "perDay": 10.25,
+     "stayTotal": 71.73,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.4
+    },
+    {
+     "name": "Home2 Suites by Hilton Ft. Lauderdale Airport",
+     "perDay": 10.87,
+     "stayTotal": 76.12,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.4
+    },
+    {
+     "name": "Park By The Ports AIRPORT Parking",
+     "perDay": 10.25,
+     "stayTotal": 82,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.02
+    },
+    {
+     "name": "The Harrison Hotel Downtown Hollywood",
+     "perDay": 12.05,
+     "stayTotal": 84.35,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.5
+    },
+    {
+     "name": "Aloft by Marriott Fort Lauderdale Airport",
+     "perDay": 12.53,
+     "stayTotal": 87.7,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.99
+    },
+    {
+     "name": "Courtyard Fort Lauderdale Airport",
+     "perDay": 13.1,
+     "stayTotal": 91.69,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.25
+    },
+    {
+     "name": "Marriott Fort Lauderdale Airport",
+     "perDay": 14.23,
+     "stayTotal": 99.64,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.55
+    }
+   ],
+   "listed": 11
+  },
+  "HOU": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "DoubleTree Houston Hobby Airport",
+     "perDay": 5.95,
+     "stayTotal": 41.63,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 4.73
+    },
+    {
+     "name": "Hobby Airport Parking",
+     "perDay": 6.61,
+     "stayTotal": 46.27,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.34
+    },
+    {
+     "name": "Houston Hobby Marriott South",
+     "perDay": 5.94,
+     "stayTotal": 47.53,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.2
+    },
+    {
+     "name": "Hampton Inn Houston Hobby Airport",
+     "perDay": 8.36,
+     "stayTotal": 58.53,
+     "billedDays": 7,
+     "transfer": "unknown",
+     "mayLead": true,
+     "baseRate": 6.96
+    }
+   ],
+   "listed": 4
+  },
+  "IAD": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Hyatt Regency Dulles Airport",
+     "perDay": 10.28,
+     "stayTotal": 82.27,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.54
+    },
+    {
+     "name": "DoubleTree Washington Dulles Airport",
+     "perDay": 19.68,
+     "stayTotal": 137.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 18.57
+    }
+   ],
+   "listed": 2
+  },
+  "IAH": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Hilton Garden Inn Houston/Bush",
+     "perDay": 6.87,
+     "stayTotal": 48.1,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.59
+    },
+    {
+     "name": "Comfort Suites Houston Bush Airport",
+     "perDay": 8.72,
+     "stayTotal": 61.07,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.3
+    }
+   ],
+   "listed": 2
+  },
+  "JFK": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "PARK AC JFK Airport Parking",
+     "perDay": 15.13,
+     "stayTotal": 105.92,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13
+    },
+    {
+     "name": "The Parking Point JFK",
+     "perDay": 12.39,
+     "stayTotal": 86.74,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.95
+    },
+    {
+     "name": "ARB Parking",
+     "perDay": 21.99,
+     "stayTotal": 153.93,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 18.87
+    },
+    {
+     "name": "Purchase Park 2 Fly",
+     "perDay": 23.13,
+     "stayTotal": 161.9,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.09
+    },
+    {
+     "name": "DoubleTree by Hilton",
+     "perDay": 26.17,
+     "stayTotal": 183.22,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 22.54
+    },
+    {
+     "name": "A1 JFK Park",
+     "perDay": 27.75,
+     "stayTotal": 194.25,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 23.95
+    },
+    {
+     "name": "Bolt Parking",
+     "perDay": 24.7,
+     "stayTotal": 197.61,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 21.65
+    },
+    {
+     "name": "Hampton Inn John F. Kennedy Airport",
+     "perDay": 33.45,
+     "stayTotal": 234.14,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 29.11
+    },
+    {
+     "name": "Safe Park JFK",
+     "perDay": 36.94,
+     "stayTotal": 258.58,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 31.88
+    },
+    {
+     "name": "TWA Hotel",
+     "perDay": 44.09,
+     "stayTotal": 308.62,
+     "billedDays": 7,
+     "transfer": "unknown",
+     "mayLead": true,
+     "baseRate": 38.17
+    }
+   ],
+   "listed": 10
+  },
+  "LAS": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "DoubleTree by Hilton Las Vegas Airport",
+     "perDay": 8.73,
+     "stayTotal": 61.08,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.88
+    },
+    {
+     "name": "Fairfield Inn Las Vegas Convention Center",
+     "perDay": 8.73,
+     "stayTotal": 61.11,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 7.3
+    },
+    {
+     "name": "Best Western",
+     "perDay": 13.4,
+     "stayTotal": 93.78,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.55
+    }
+   ],
+   "listed": 3
+  },
+  "LAX": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "South Bay Airport Parking - 105",
+     "perDay": 10.5,
+     "stayTotal": 73.48,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.65
+    },
+    {
+     "name": "9750 AIRPORT BLVD (LAX) Formerly Four Points by Sheraton",
+     "perDay": 9.67,
+     "stayTotal": 67.72,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 8.15
+    },
+    {
+     "name": "405 Airport Parking",
+     "perDay": 12.05,
+     "stayTotal": 84.35,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.24
+    },
+    {
+     "name": "Simply Park",
+     "perDay": 12.29,
+     "stayTotal": 86.05,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.45
+    },
+    {
+     "name": "Fox Parking",
+     "perDay": 11.83,
+     "stayTotal": 94.6,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.16
+    },
+    {
+     "name": "Travelodge by Wyndham LAX South",
+     "perDay": 13.7,
+     "stayTotal": 95.92,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.3
+    },
+    {
+     "name": "Sonesta Los Angeles Airport",
+     "perDay": 26.06,
+     "stayTotal": 182.44,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 22.94
+    },
+    {
+     "name": "Sheraton Gateway Los Angeles Hotel",
+     "perDay": 32.45,
+     "stayTotal": 227.18,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 28.08
+    }
+   ],
+   "listed": 8
+  },
+  "LGA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Carvia Parking",
+     "perDay": 23.06,
+     "stayTotal": 161.4,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 19.9
+    },
+    {
+     "name": "Queens Crossing - LAZ Parking",
+     "perDay": 13.35,
+     "stayTotal": 93.48,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.63
+    },
+    {
+     "name": "Hyatt Place Flushing - LAZ Parking",
+     "perDay": 13.78,
+     "stayTotal": 96.47,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.8
+    },
+    {
+     "name": "Hearthstone Garage",
+     "perDay": 18.19,
+     "stayTotal": 127.33,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": false,
+     "baseRate": 15.7
+    },
+    {
+     "name": "Park For U LaGuardia",
+     "perDay": 19.07,
+     "stayTotal": 133.48,
+     "billedDays": 7,
+     "transfer": "valet",
+     "mayLead": true,
+     "baseRate": 16.45
+    },
+    {
+     "name": "Purchase Park 2 Fly LaGuardia Airport",
+     "perDay": 21.85,
+     "stayTotal": 152.96,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 19.05
+    },
+    {
+     "name": "Parking Place",
+     "perDay": 22.71,
+     "stayTotal": 158.96,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 19.6
+    },
+    {
+     "name": "New York LaGuardia Marriott Airport Hotel",
+     "perDay": 25.38,
+     "stayTotal": 177.66,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 21.9
+    }
+   ],
+   "listed": 8
+  },
+  "MCI": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Quality Inn Kansas City Airport",
+     "perDay": 4.58,
+     "stayTotal": 32.07,
+     "billedDays": 7,
+     "transfer": "paid",
+     "mayLead": false,
+     "baseRate": 4.13
+    },
+    {
+     "name": "Travelodge",
+     "perDay": 5,
+     "stayTotal": 35.02,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": false,
+     "baseRate": 3.95
+    },
+    {
+     "name": "Hilton Kansas City Airport",
+     "perDay": 8.2,
+     "stayTotal": 57.4,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.35
+    },
+    {
+     "name": "Super 8 Kansas City Airport",
+     "perDay": 8.2,
+     "stayTotal": 57.43,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.46
+    },
+    {
+     "name": "Kansas City Airport Marriott",
+     "perDay": 9.09,
+     "stayTotal": 72.73,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "Days Inn Kansas City Airport",
+     "perDay": 11.42,
+     "stayTotal": 79.95,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.57
+    }
+   ],
+   "listed": 6
+  },
+  "MCO": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Best Rate Airport Parking",
+     "perDay": 11.63,
+     "stayTotal": 81.43,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.13
+    },
+    {
+     "name": "Gold Park Orlando Airport",
+     "perDay": 7.67,
+     "stayTotal": 53.7,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.41
+    },
+    {
+     "name": "Omni Airport Parking",
+     "perDay": 8.13,
+     "stayTotal": 56.9,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.89
+    },
+    {
+     "name": "Holiday Inn Orlando Airport",
+     "perDay": 12.53,
+     "stayTotal": 87.71,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.06
+    }
+   ],
+   "listed": 4
+  },
+  "MIA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Holiday Inn Miami Airport",
+     "perDay": 10.11,
+     "stayTotal": 70.78,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.72
+    },
+    {
+     "name": "Courtyard by Marriott Miami Airport West/Doral",
+     "perDay": 9.35,
+     "stayTotal": 65.43,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.01
+    },
+    {
+     "name": "La Quinta Inn & Suites Miami Airport East",
+     "perDay": 10.25,
+     "stayTotal": 71.77,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.92
+    },
+    {
+     "name": "EVEN Hotel Miami",
+     "perDay": 11.79,
+     "stayTotal": 82.51,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.25
+    },
+    {
+     "name": "Hilton Miami Airport Blue Lagoon",
+     "perDay": 13.59,
+     "stayTotal": 95.12,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.11
+    }
+   ],
+   "listed": 8
+  },
+  "MKE": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Royle Hotel",
+     "perDay": 6.76,
+     "stayTotal": 47.31,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 5.49
+    },
+    {
+     "name": "Best Western Plus",
+     "perDay": 8.53,
+     "stayTotal": 59.71,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.3
+    },
+    {
+     "name": "Crowne Plaza Milwaukee Airport",
+     "perDay": 9.55,
+     "stayTotal": 66.83,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.7
+    },
+    {
+     "name": "ExecPark Valet Parking & Shuttle",
+     "perDay": 15.61,
+     "stayTotal": 109.3,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.94
+    }
+   ],
+   "listed": 4
+  },
+  "MSP": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Hyatt Regency Bloomington",
+     "perDay": 10.28,
+     "stayTotal": 82.27,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.54
+    }
+   ],
+   "listed": 1
+  },
+  "MSY": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "DoubleTree New Orleans Airport",
+     "perDay": 11,
+     "stayTotal": 77.01,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 9.45
+    },
+    {
+     "name": "Hilton New Orleans Airport",
+     "perDay": 11.32,
+     "stayTotal": 79.25,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.47
+    },
+    {
+     "name": "Comfort Inn New Orleans Airport South",
+     "perDay": 11.49,
+     "stayTotal": 80.46,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.15
+    }
+   ],
+   "listed": 3
+  },
+  "OAK": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Express Park Fly",
+     "perDay": 10.39,
+     "stayTotal": 72.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.01
+    },
+    {
+     "name": "Spring Park Airport Parking",
+     "perDay": 10.54,
+     "stayTotal": 73.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.3
+    },
+    {
+     "name": "Airpark Oakland Parking",
+     "perDay": 16.08,
+     "stayTotal": 112.59,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.01
+    }
+   ],
+   "listed": 3
+  },
+  "ORD": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Super 8 Chicago O'Hare Airport",
+     "perDay": 11.95,
+     "stayTotal": 83.65,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 10.5
+    },
+    {
+     "name": "Crowne Plaza",
+     "perDay": 14.11,
+     "stayTotal": 98.8,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.5
+    },
+    {
+     "name": "Routes Airport Parking",
+     "perDay": 16.6,
+     "stayTotal": 116.2,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.66
+    },
+    {
+     "name": "Hyatt Place Chicago/O'Hare",
+     "perDay": 18.75,
+     "stayTotal": 131.26,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 16.96
+    },
+    {
+     "name": "Pride Airport Parking",
+     "perDay": 19.7,
+     "stayTotal": 137.87,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.29
+    },
+    {
+     "name": "Marriott Suites O'Hare",
+     "perDay": 20.03,
+     "stayTotal": 160.27,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 18.9
+    }
+   ],
+   "listed": 6
+  },
+  "PDX": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Holiday Inn",
+     "perDay": 10.28,
+     "stayTotal": 82.27,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.54
+    },
+    {
+     "name": "Radisson Portland Airport",
+     "perDay": 12.9,
+     "stayTotal": 90.3,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.05
+    },
+    {
+     "name": "AirPark Portland",
+     "perDay": 16.03,
+     "stayTotal": 112.18,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.12
+    }
+   ],
+   "listed": 3
+  },
+  "PHL": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "ARB Parking Philadelphia",
+     "perDay": 9.95,
+     "stayTotal": 69.67,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.71
+    },
+    {
+     "name": "Motel 6",
+     "perDay": 8.06,
+     "stayTotal": 56.43,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 6.3
+    },
+    {
+     "name": "Regal Philly Parking",
+     "perDay": 8.17,
+     "stayTotal": 57.18,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.25
+    },
+    {
+     "name": "Red Carpet Inn Philadelphia Airport",
+     "perDay": 8.29,
+     "stayTotal": 58.03,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 6.3
+    },
+    {
+     "name": "MS Parking Philly",
+     "perDay": 9.71,
+     "stayTotal": 67.98,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.3
+    },
+    {
+     "name": "PHL Park & Ride - Holiday Inn Philadelphia Airport",
+     "perDay": 11.42,
+     "stayTotal": 79.93,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.96
+    }
+   ],
+   "listed": 6
+  },
+  "PHX": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Crowne Plaza",
+     "perDay": 10.73,
+     "stayTotal": 75.1,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.88
+    },
+    {
+     "name": "La Quinta Inn & Suites Tempe University",
+     "perDay": 5.04,
+     "stayTotal": 35.28,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 4.19
+    },
+    {
+     "name": "Howard Johnson",
+     "perDay": 6.1,
+     "stayTotal": 42.7,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": false,
+     "baseRate": 5.25
+    },
+    {
+     "name": "DoubleTree Suites by Hilton Phoenix",
+     "perDay": 10.45,
+     "stayTotal": 73.18,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.35
+    },
+    {
+     "name": "Holiday Inn & Suites Phoenix Airport North",
+     "perDay": 10.5,
+     "stayTotal": 73.49,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.44
+    },
+    {
+     "name": "PreFlight Airport Parking Phoenix",
+     "perDay": 11.79,
+     "stayTotal": 82.51,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.64
+    },
+    {
+     "name": "Sky Harbor Airport Parking",
+     "perDay": 16.01,
+     "stayTotal": 112.07,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 14.66
+    }
+   ],
+   "listed": 7
+  },
+  "POE": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Courtyard Fort Lauderdale Airport",
+     "perDay": 13.1,
+     "stayTotal": 91.69,
+     "billedDays": 7,
+     "transfer": "paid",
+     "mayLead": false,
+     "baseRate": 12.25
+    },
+    {
+     "name": "Marriott Fort Lauderdale Airport",
+     "perDay": 14.23,
+     "stayTotal": 99.64,
+     "billedDays": 7,
+     "transfer": "paid",
+     "mayLead": false,
+     "baseRate": 12.55
+    },
+    {
+     "name": "Park By The Ports Cruise Parking",
+     "perDay": 24.36,
+     "stayTotal": 194.84,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 21.61
+    }
+   ],
+   "listed": 11
+  },
+  "RDU": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Sheraton Imperial Raleigh-Durham Airport",
+     "perDay": 9.05,
+     "stayTotal": 63.36,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.65
+    },
+    {
+     "name": "Embassy Suites by Hilton Research Triangle",
+     "perDay": 9.58,
+     "stayTotal": 67.06,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.29
+    },
+    {
+     "name": "Cambria Hotel Raleigh - Durham Airport",
+     "perDay": 11.05,
+     "stayTotal": 77.34,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.2
+    },
+    {
+     "name": "Quality Inn & Suites",
+     "perDay": 13.47,
+     "stayTotal": 94.3,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.88
+    }
+   ],
+   "listed": 4
+  },
+  "RIC": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Best Western Plus Richmond Airport",
+     "perDay": 6.05,
+     "stayTotal": 42.33,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 5.2
+    },
+    {
+     "name": "DoubleTree by Hilton Richmond Airport",
+     "perDay": 11.3,
+     "stayTotal": 79.08,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.45
+    },
+    {
+     "name": "Sheraton Richmond Airport",
+     "perDay": 11.34,
+     "stayTotal": 79.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.49
+    }
+   ],
+   "listed": 3
+  },
+  "SAN": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "San Diego's Park Shuttle and Fly - LOT A",
+     "perDay": 21.62,
+     "stayTotal": 151.34,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.4
+    },
+    {
+     "name": "San Diego's Park Shuttle and Fly - LOT B",
+     "perDay": 21.62,
+     "stayTotal": 151.34,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 20.4
+    },
+    {
+     "name": "Aladdin Airport Parking",
+     "perDay": 24.99,
+     "stayTotal": 174.93,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 23.58
+    }
+   ],
+   "listed": 5
+  },
+  "SDF": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Hampton Inn",
+     "perDay": 9.2,
+     "stayTotal": 64.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "SpringHill Suites",
+     "perDay": 9.2,
+     "stayTotal": 64.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "Residence Inn",
+     "perDay": 9.2,
+     "stayTotal": 64.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    }
+   ],
+   "listed": 3
+  },
+  "SEA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Fox Parking SeaTac",
+     "perDay": 14.11,
+     "stayTotal": 98.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.11
+    },
+    {
+     "name": "Motel 6",
+     "perDay": 10.14,
+     "stayTotal": 81.13,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.4
+    },
+    {
+     "name": "Evods Parking at Spark by Hilton SEA-TAC Airport",
+     "perDay": 17.04,
+     "stayTotal": 119.28,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 14.69
+    },
+    {
+     "name": "Seattle Airport Marriott",
+     "perDay": 21.9,
+     "stayTotal": 153.28,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 18.93
+    }
+   ],
+   "listed": 4
+  },
+  "SFO": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Best Western Grosvenor Hotel",
+     "perDay": 10.14,
+     "stayTotal": 81.13,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.4
+    },
+    {
+     "name": "Hampton Inn",
+     "perDay": 10.02,
+     "stayTotal": 70.17,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 9.17
+    },
+    {
+     "name": "Courtyard San Francisco Airport",
+     "perDay": 12.33,
+     "stayTotal": 86.29,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 10.49
+    },
+    {
+     "name": "Home2Suites by Hilton",
+     "perDay": 12.55,
+     "stayTotal": 87.84,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 11.7
+    },
+    {
+     "name": "DoubleTree San Francisco Airport North Bayfront",
+     "perDay": 14.95,
+     "stayTotal": 104.67,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 12.89
+    }
+   ],
+   "listed": 5
+  },
+  "SJC": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Joy Park Fly",
+     "perDay": 9.32,
+     "stayTotal": 65.26,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.88
+    },
+    {
+     "name": "Holiday Inn San Jose Airport",
+     "perDay": 9.38,
+     "stayTotal": 65.69,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.84
+    },
+    {
+     "name": "Spring Park San Jose Airport Parking",
+     "perDay": 10.39,
+     "stayTotal": 72.76,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.15
+    }
+   ],
+   "listed": 3
+  },
+  "SLC": {
+   "status": "error",
+   "reason": "2 lots listed, none bookable for 2026-11-12 → 2026-11-19"
+  },
+  "STL": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Quality Inn",
+     "perDay": 7.35,
+     "stayTotal": 51.45,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.5
+    },
+    {
+     "name": "Renaissance St. Louis Airport",
+     "perDay": 7.62,
+     "stayTotal": 53.36,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 6.77
+    },
+    {
+     "name": "Hilton St. Louis Airport",
+     "perDay": 10.14,
+     "stayTotal": 70.98,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.29
+    },
+    {
+     "name": "Crowne Plaza Airport",
+     "perDay": 11.34,
+     "stayTotal": 79.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 10.49
+    },
+    {
+     "name": "Marriott St. Louis Airport",
+     "perDay": 12.2,
+     "stayTotal": 85.38,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.35
+    },
+    {
+     "name": "The Parking Spot 3",
+     "perDay": 16.25,
+     "stayTotal": 113.78,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.12
+    }
+   ],
+   "listed": 6
+  },
+  "TPA": {
+   "status": "ok",
+   "currency": "USD",
+   "lots": [
+    {
+     "name": "Grand Hyatt Tampa Bay",
+     "perDay": 9.92,
+     "stayTotal": 69.41,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.5
+    }
+   ],
+   "listed": 3
+  },
+  "YUL": {
+   "status": "error",
+   "currency": "CAD",
+   "lots": [
+    {
+     "name": "Autoparc RM Montreal Airport",
+     "perDay": 14.73,
+     "stayTotal": 117.85,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.55
+    },
+    {
+     "name": "AutoParc Prime",
+     "perDay": 17.61,
+     "stayTotal": 123.3,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 14.65
+    },
+    {
+     "name": "Baymont Inn",
+     "perDay": 18.43,
+     "stayTotal": 129.01,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.7
+    },
+    {
+     "name": "Quality Hotel Montreal Airport",
+     "perDay": 18.88,
+     "stayTotal": 151.02,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 15.7
+    },
+    {
+     "name": "Eyepark Airport",
+     "perDay": 22.48,
+     "stayTotal": 157.36,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 19.15
+    }
+   ],
+   "listed": 5,
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
+  },
+  "YYC": {
+   "status": "error",
+   "currency": "CAD",
+   "lots": [
+    {
+     "name": "Doubletree Hotel Calgary Airport",
+     "perDay": 9.59,
+     "stayTotal": 67.16,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "Hilton Garden Inn Calgary Airport",
+     "perDay": 10.65,
+     "stayTotal": 74.55,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.44
+    },
+    {
+     "name": "Radisson Hotel Calgary Airport",
+     "perDay": 9.41,
+     "stayTotal": 75.27,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 8.35
+    }
+   ],
+   "listed": 3,
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
+  },
+  "YYZ": {
+   "status": "error",
+   "currency": "CAD",
+   "lots": [
+    {
+     "name": "Chandni Victoria",
+     "perDay": 7.72,
+     "stayTotal": 54.01,
+     "billedDays": 7,
+     "transfer": "none",
+     "mayLead": true,
+     "baseRate": 6.25
+    },
+    {
+     "name": "Drop N Park Valet",
+     "perDay": 7.76,
+     "stayTotal": 54.34,
+     "billedDays": 7,
+     "transfer": "valet",
+     "mayLead": true,
+     "baseRate": 6.29
+    },
+    {
+     "name": "Jetway Parking",
+     "perDay": 9.41,
+     "stayTotal": 65.84,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.61
+    },
+    {
+     "name": "Park For U",
+     "perDay": 10.02,
+     "stayTotal": 70.17,
+     "billedDays": 7,
+     "transfer": "valet",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "EZ Airport Parking",
+     "perDay": 8.94,
+     "stayTotal": 71.5,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 7.46
+    },
+    {
+     "name": "Simply Park Toronto Pearson",
+     "perDay": 9.92,
+     "stayTotal": 79.34,
+     "billedDays": 8,
+     "transfer": "valet",
+     "mayLead": true,
+     "baseRate": 8.35
+    },
+    {
+     "name": "Routes Toronto Pearson Airport Parking",
+     "perDay": 13.38,
+     "stayTotal": 93.64,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 11.49
+    },
+    {
+     "name": "Best Western Premier Toronto Airport Carlingview",
+     "perDay": 14.06,
+     "stayTotal": 98.45,
+     "billedDays": 7,
+     "transfer": "paid",
+     "mayLead": false,
+     "baseRate": 12.02
+    },
+    {
+     "name": "NU Hotel",
+     "perDay": 14.64,
+     "stayTotal": 102.48,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 12.55
+    },
+    {
+     "name": "The Westin Toronto Airport",
+     "perDay": 15.06,
+     "stayTotal": 105.43,
+     "billedDays": 7,
+     "transfer": "paid",
+     "mayLead": false,
+     "baseRate": 12.64
+    },
+    {
+     "name": "Car Park Pearson",
+     "perDay": 15.79,
+     "stayTotal": 110.56,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 13.6
+    },
+    {
+     "name": "Skyway Park North lot",
+     "perDay": 17.23,
+     "stayTotal": 120.63,
+     "billedDays": 7,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 14.87
+    },
+    {
+     "name": "Park One Toronto Curbside Valet Parking",
+     "perDay": 30.36,
+     "stayTotal": 212.54,
+     "billedDays": 7,
+     "transfer": "valet",
+     "mayLead": true,
+     "baseRate": 26.2
+    }
+   ],
+   "listed": 13,
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
+  }
+ }
+}
