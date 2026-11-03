@@ -1,20 +1,20 @@
--- Chart redraw, step 1 (read-only): the October 2026 chart images and every post block that shows one.
+-- Chart redraw, step 1 (read-only): the chart images from October 2026 on, and every post block that shows one.
 -- Run once against the CMS database in a READ ONLY transaction (the REST API cannot search inside post content:
 -- `like` on content returns 500, and a JSON-path match compares the media id as a string). Save the rows as JSON to
 -- reports/chart-redraw/out/inventory-raw.json, then run classify.mts. Returns ids and short text only (~4 MB),
 -- not post bodies.
 --
--- Scope: media created in October 2026 that are one of the two chart families (`<code>-parking-rates-<hash>`,
+-- Scope: media created from October 2026 on that are one of the two chart families (`<code>-parking-rates-<hash>`,
 -- written by reports/lot-rewrite/publish.mts; `<code>-infographic-<n>-<ms>`, written by the engine) or whose alt
 -- (= the visible caption) mentions Triply / bookable / a 7-day figure. `context` = the text of the 3 blocks before
 -- and after the image, for the text-vs-chart check.
 with scope as (
   select id, filename, alt, created_at from payload.media
-  where (created_at >= '2026-10-01' and created_at < '2026-11-01'
-         and (filename like '%-parking-rates-%' or filename like '%-infographic-%'
-              or alt ilike '%triply%' or alt ilike '%bookable%' or alt ilike '%7 days%' or alt ilike '%7-day%' or alt ilike '%7 nights%'))
-     -- every redrawn chart since (any month), so the monthly re-run finds the blocks it swapped last time
-     or filename like '%-rate-chart-%'
+  -- From October on, with no end date: until the engine change is merged, the old engine can still make undated
+  -- `-infographic-` price charts; redrawn `-rate-chart-` images are included so the monthly re-run finds them.
+  where created_at >= '2026-10-01'
+    and (filename like '%-parking-rates-%' or filename like '%-infographic-%' or filename like '%-rate-chart-%'
+         or alt ilike '%triply%' or alt ilike '%bookable%' or alt ilike '%7 days%' or alt ilike '%7-day%' or alt ilike '%7 nights%')
 ), ups as (
   select p.id as post_id, p.slug, p.status::text as status, p.airport_code, p.updated_at, (t.ord - 1)::int as block_index,
     case jsonb_typeof(t.c->'value')

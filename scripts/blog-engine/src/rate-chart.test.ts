@@ -45,6 +45,16 @@ test('orderLots: cheapest first, paid-transfer lots after every other lot, max 6
   assert.deepEqual(orderLots([lot('Paid', 4, 'paid'), lot('B', 9)]).map((l) => l.name), ['B', 'Paid'])
   assert.deepEqual(orderLots([{ ...lot('Suspended', 3, 'none'), mayLead: false }, lot('B', 9)]).map((l) => l.name), ['B', 'Suspended'])
 })
+test('orderLots goes by the stay total: an 8-day lot that looks cheaper per day but costs more sorts after', () => {
+  // HOU, Nov 2: Marriott South $5.94/day × 8 = $47.52 vs DoubleTree $5.95/day × 7 = $41.65
+  assert.deepEqual(orderLots([lot('Marriott South', 5.94, 'shuttle', 8), lot('DoubleTree', 5.95)]).map((l) => l.name), ['DoubleTree', 'Marriott South'])
+})
+test('no stay window crosses a clock change', () => {
+  for (const today of ['2026-10-20', '2027-02-25', '2027-10-25']) {
+    const { checkin, checkout } = pickStayWindow(today)
+    for (const y of [2026, 2027]) for (const [a, b] of holidayWindows(y).slice(-2)) assert.ok(!(checkin <= b && checkout >= a), `${checkin}→${checkout} crosses ${a}`)
+  }
+})
 
 // ── Chart input ──
 
@@ -98,12 +108,16 @@ test('charts print the date and stay, the lots and no-shuttle marker', () => {
   assert.match(table, />\$83\.44</)
   assert.doesNotMatch(table, /\*/)
 })
-test('a lot that bills 8 days for the 7-day stay is starred in the table and explained', () => {
+test('a lot that bills 8 days for the 7-day stay is starred on both charts and in the caption', () => {
   const d = input([lot('Westin', 8.61, 'shuttle', 8)])
-  const table = tableSvg(d)
+  const table = tableSvg(d), bars = barsSvg(d)
   assert.match(table, />\$68\.88\*</)
-  assert.match(table, /\* The lot bills 8 days for this 7-day stay/)
-  assert.doesNotMatch(barsSvg(d), /bills 8 days/)
+  assert.match(bars, /\$8\.61\*\/day/)
+  for (const svg of [table, bars]) assert.match(svg, /\* Bills 8 days for this 7-day stay/)
+  assert.match(chartAlt(d, 'daily'), /Westin, \$8\.61\/day, billed as 8 days/)
+})
+test('caption counts the shown lots that may not lead', () => {
+  assert.match(chartAlt(input([lot('Paid', 3, 'paid'), lot('A', 10), lot('B', 12)]), 'daily'), /from \$10\.00\/day \(A\) to \$12\.00\/day \(B\), plus 1 with a paid shuttle or another caveat/)
 })
 test('a paid shuttle and a valet are noted after the price, the name keeps its width', () => {
   const bars = barsSvg(input([lot('Courtyard Fort Lauderdale Airport & Cruise Port', 13.1, 'paid'), lot('Drop N Park Valet', 7.76, 'valet')]))
@@ -128,15 +142,28 @@ test('file names are distinct from the October families', () => {
 
 import { pricesOffSiteLots, rateChartInsertAt } from './rate-chart.js'
 
-test('rate chart goes after the first paragraph under the first cost heading; none without one', () => {
+test('rate chart goes after the first paragraph under the first parking-cost heading; none without one', () => {
   const html = '<h2>Getting there</h2><p>Drive.</p><h2>How much does parking cost?</h2><p>It depends.</p><p>More.</p>'
   assert.equal(html.slice(0, rateChartInsertAt(html)).endsWith('<p>It depends.</p>'), true)
   assert.equal(rateChartInsertAt('<h2>Terminal map</h2><p>A.</p><h2>Hours</h2><p>B.</p>'), -1)
+})
+test('rate chart: whole words only, parking headings only, never the FAQ', () => {
+  for (const h of ['Parking Strategies', 'How Accurate Are CVG TSA Wait Times?', 'Lounge Day Pass Cost', 'Rental Car Prices', 'Parking FAQ: rates and refunds', 'Separate Terminals, Operated Lots']) {
+    assert.equal(rateChartInsertAt(`<h2>${h}</h2><p>x</p>`), -1, h)
+  }
+  assert.notEqual(rateChartInsertAt('<h2>Compare parking rates</h2><p>x</p>'), -1)
 })
 test('a free-form infographic that prices an off-site lot is caught; on-airport prices and the source line are not', () => {
   const lots = ['The Parking Spot North (DFW)', 'Westin Dallas-Fort Worth']
   assert.equal(pricesOffSiteLots('<svg><text>Parking Spot North $10.95/day</text></svg>', lots), true)
   assert.equal(pricesOffSiteLots('<svg><text>Off-site lots on Triply from $8/day</text></svg>', lots), true)
+  assert.equal(pricesOffSiteLots('<svg><text>Off-site lots from $8/day</text></svg>', lots), true)
+  assert.equal(pricesOffSiteLots('<svg><text>Airport hotels from $9/day</text></svg>', lots), true)
   assert.equal(pricesOffSiteLots('<svg><text>Terminal garage $37/day</text><text>Source: triplypro.com</text></svg>', lots), false)
   assert.equal(pricesOffSiteLots('<svg><text>The Westin Dallas-Fort Worth: free shuttle</text></svg>', lots), false)
+})
+test("an on-airport infographic that names its own airport is not mistaken for an off-site lot", () => {
+  const words = 'William P. Hobby Airport HOU'.split(/[^A-Za-z]+/)
+  assert.equal(pricesOffSiteLots('<svg><text>Houston Hobby garage $25/day</text></svg>', ['Houston Hobby Marriott South'], words), false)
+  assert.equal(pricesOffSiteLots('<svg><text>Houston Hobby Marriott South $5.94/day</text></svg>', ['Houston Hobby Marriott South'], words), true)
 })

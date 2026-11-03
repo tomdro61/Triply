@@ -1,6 +1,6 @@
 // Chart redraw, step 5 (no writes): one page with every new chart, its caption, the lots behind it and every post
-// block it would replace — held ones expanded with the text around them. Tom approves from this page.
-// Writes reports/chart-redraw/out/contact/index.html + charts/ (publish the folder as an artifact).
+// block it would replace, grouped by what Tom decides. Writes reports/chart-redraw/out/contact/index.html + charts/
+// (publish the folder as an artifact).
 //   npx tsx reports/chart-redraw/contact-sheet.mts
 import fs from 'fs'
 import { fmtDate, fmtStay, loadPriceSnapshot, money, type ChartLot } from '../../src/rate-chart.js'
@@ -15,61 +15,96 @@ const run = fs.existsSync(`${OUT}/prices-run-${snap.asOf}.json`) ? JSON.parse(fs
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const n = (x: number) => x.toLocaleString('en-US')
-const posts = (ds: Decision[]) => new Set(ds.map((d) => d.post_id)).size
 const D = plan.decisions
-const swaps = D.filter((d) => d.action === 'swap'), holds = D.filter((d) => d.action === 'hold')
-const flagged = (f: Flag) => D.filter((d) => d.flags.includes(f))
-const leftAlone = inv.items.filter((i) => i.cls === 'airport' || i.cls === 'not-rate')
-const orphans = inv.items.filter((i) => (i.cls === 'standard' || i.cls === 'one-off') && !i.uses.length)
-const codes = [...new Set(plan.charts.map((c) => c.code))].sort()
+const postsOf = (ds: Decision[]) => new Set(ds.map((d) => d.post_id)).size
 
-const FLAG_LABEL: Record<Flag, string> = { unsold: 'names a lot we don\'t sell', price: 'old price', 'pre-fee': 'pre-fee rate', missing: 'lot not in this search' }
-const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', price: 'warn', 'pre-fee': 'info', missing: 'info' }
+// ── One group per decision Tom makes (a post is in the first group that fits) ──
+type Group = 'swap' | 'prefee' | 'text' | 'notrate' | 'currency' | 'other'
+const groupOf = (d: Decision): Group => {
+  if (d.action === 'swap') return 'swap'
+  if (d.blockers.some((b) => b.startsWith('not a rate chart'))) return 'notrate'
+  if (d.blockers.some((b) => b.includes('checkout charges'))) return 'currency'
+  if (d.blockers.length) return 'other'
+  if (d.flags.some((f) => f === 'unsold' || f === 'price' || f === 'count')) return 'text'
+  // pre-fee only, or held with the rest of a post whose text is pre-fee only
+  return D.some((x) => x.post_id === d.post_id && x.flags.some((f) => f === 'unsold' || f === 'price' || f === 'count')) ? 'text' : 'prefee'
+}
+const G: Record<Group, Decision[]> = { swap: [], prefee: [], text: [], notrate: [], currency: [], other: [] }
+for (const d of D) G[groupOf(d)].push(d)
+const GROUP_TITLE: Record<Group, string> = {
+  swap: 'Swap: the text agrees with the new chart',
+  prefee: "Held: the text quotes a lot's rate before taxes and fees",
+  text: "Held: the text names a lot we don't sell, an old price, or an old lot count",
+  notrate: 'Held: not a rate chart (prices lots inside another topic)',
+  currency: 'Held: Canadian airport (checkout currency question)',
+  other: 'Held: another airport, or a third chart in one post',
+}
+
+const leftAlone = inv.items.filter((i) => i.cls === 'airport' || i.cls === 'not-rate')
+const unused = inv.items.filter((i) => (i.cls === 'standard' || i.cls === 'one-off' || i.cls === 'mixed') && !i.uses.length)
+const codes = [...new Set(D.map((d) => d.code))].sort()
+const fallbackCount = plan.charts.filter((c) => c.fallback).length / 2
+const notrateTriply = G.notrate.filter((d) => /triply|bookable/i.test(d.oldAlt))
+
+const FLAG_LABEL: Record<Flag, string> = { unsold: "names a lot we don't sell", price: 'old price', count: 'old lot count', 'pre-fee': 'pre-fee rate', missing: 'lot sold out these dates' }
+const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', price: 'warn', count: 'warn', 'pre-fee': 'info', missing: 'info' }
 const chip = (f: Flag) => `<span class="sev ${FLAG_CLASS[f]}">${FLAG_LABEL[f]}</span>`
 const transfer: Record<ChartLot['transfer'], string> = { shuttle: 'Shuttle', valet: 'Valet', paid: 'Paid shuttle', none: 'No shuttle', unknown: '—' }
+const blog = (slug: string) => `https://www.triplypro.com/blog/${slug}`
 
-/** The text around a chart, cut to the part a flag points at (a figure or a lot name), ~420 characters. */
+/** The text around a chart, cut to the part a note points at (a figure or a lot name), ~420 characters. */
 function excerpt(d: Decision): string {
   const ctx = d.context.replace(/\s+/g, ' ').replace(/ \|\| /g, ' ¶ ')
-  const needles = d.notes.flatMap((x) => [...x.matchAll(/"([^"]+)"|((?:C\$|\$)\d[\d.]*\/day)/g)].map((m) => (m[1] ?? m[2]).replace('/day', '')))
+  const needles = d.notes.flatMap((x) => [...x.matchAll(/"([^"]+)"|((?:C\$|\$)\d[\d.]*)/g)].map((m) => m[1] ?? m[2]))
   const at = needles.map((k) => ctx.indexOf(k)).filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? 0
   const from = Math.max(0, at - 200), to = Math.min(ctx.length, from + 420)
   let s = esc(ctx.slice(from, to))
   for (const k of needles) if (k.length >= 3) s = s.split(esc(k)).join(`<mark>${esc(k)}</mark>`)
   return `${from > 0 ? '… ' : ''}${s}${to < ctx.length ? ' …' : ''}`
 }
-
-const blog = (slug: string) => `https://www.triplypro.com/blog/${slug}`
-const decisionRow = (d: Decision) => `<li><a href="${blog(d.slug)}">${esc(d.slug)}</a> <span class="muted">· ${d.kind === 'week' ? '7-day table' : 'daily chart'}${d.kind !== d.oldKind ? ' (was the other kind)' : ''}</span> ${d.flags.map(chip).join(' ')}</li>`
+const oldCap = (d: Decision, max = 180) => `${esc(d.oldAlt.slice(0, max))}${d.oldAlt.length > max ? '…' : ''}`
+const kindLabel = (d: Decision) => (d.kind ? (d.kind === 'week' ? '7-day table' : 'daily chart') : 'no chart')
+const swapRow = (d: Decision) => `<li><a href="${blog(d.slug)}">${esc(d.slug)}</a> <span class="muted">→ ${kindLabel(d)}${d.flags.length ? ` ${d.flags.map(chip).join(' ')}` : ''} · old caption: ${oldCap(d, 140)}</span></li>`
+const holdCard = (d: Decision) => `<div class="hold"><div class="hhead"><a href="${blog(d.slug)}">${esc(d.slug)}</a> <span class="muted">${kindLabel(d)}</span> ${d.flags.map(chip).join(' ')}</div>
+  <ul class="notes">${[...d.blockers, ...d.notes].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+  ${d.context ? `<p class="ctx">${excerpt(d)}</p>` : ''}<p class="small muted">Old caption: ${oldCap(d, 240)}</p></div>`
 
 function airportSection(code: string): string {
   const row = snap.airports[code]
   const lots = row?.lots ?? []
+  const cur = row?.currency ?? 'USD'
   const charts = plan.charts.filter((c) => c.code === code)
   const ds = D.filter((d) => d.code === code)
-  const h = ds.filter((d) => d.action === 'hold'), s = ds.filter((d) => d.action === 'swap')
   const excluded = run.excluded[code] ?? []
-  const lotRows = [...lots].sort((a, b) => Number(b.mayLead) - Number(a.mayLead) || a.perDay - b.perDay).map((l, i) => `<tr${i >= 6 ? ' class="off"' : ''}>
-    <td>${esc(l.name)}</td><td class="num">${money(l.perDay, row!.currency ?? 'USD')}</td><td class="num">${money(l.stayTotal, row!.currency ?? 'USD')}${l.billedDays !== 7 ? ` <span class="muted">(${l.billedDays} days)</span>` : ''}</td>
+  const lotRows = [...lots].sort((a, b) => Number(b.mayLead) - Number(a.mayLead) || a.stayTotal - b.stayTotal).map((l, i) => `<tr${i >= 6 ? ' class="off"' : ''}>
+    <td>${esc(l.name)}</td><td class="num">${money(l.perDay, cur)}</td><td class="num">${money(l.stayTotal, cur)}${l.billedDays !== 7 ? ` <span class="muted">(${l.billedDays} days)</span>` : ''}</td>
     <td>${transfer[l.transfer]}</td><td>${l.mayLead ? '' : '<span class="sev warn">never first</span>'}${i >= 6 ? ' <span class="muted">not on chart (6 max)</span>' : ''}</td></tr>`).join('')
+  const groups = (Object.keys(G) as Group[]).map((g) => {
+    const xs = ds.filter((d) => groupOf(d) === g)
+    if (!xs.length) return ''
+    const body = g === 'swap' ? `<ul class="swaps">${xs.map(swapRow).join('')}</ul>` : xs.map(holdCard).join('')
+    return `<details${g === 'text' ? ' open' : ''}><summary>${GROUP_TITLE[g]} <span class="count">${n(xs.length)}</span></summary>${body}</details>`
+  }).join('')
+  const held = ds.filter((d) => d.action === 'hold').length
   return `<section class="airport" id="${code}">
-  <div class="ahead"><h2>${code}</h2><span class="muted">${n(ds.length)} chart spots in ${n(posts(ds))} posts · <b class="good">${n(s.length)} swap</b> · <b class="${h.length ? 'warnt' : 'muted'}">${n(h.length)} held</b></span></div>
-  <div class="charts">${charts.map((c) => `<figure><img src="${c.file}" alt="${esc(c.alt)}" width="800" height="500" loading="lazy"><figcaption><b>${c.kind === 'daily' ? 'Daily chart' : '7-day table'}</b> · caption on the post: ${esc(c.alt)}</figcaption></figure>`).join('')}</div>
-  <div class="tablewrap"><table><thead><tr><th>Lot in the ${esc(fmtStay(plan.checkin, plan.checkout))} search</th><th class="num">Per day</th><th class="num">7-day stay</th><th>To terminal</th><th></th></tr></thead><tbody>${lotRows}</tbody></table></div>
+  <div class="ahead"><h2>${code}</h2><span class="muted">${n(ds.length)} chart spots in ${n(postsOf(ds))} posts · <b class="good">${n(ds.length - held)} swap</b> · <b class="${held ? 'warnt' : 'muted'}">${n(held)} held</b></span></div>
+  ${charts.length ? `<div class="charts">${charts.map((c) => `<figure><img src="${c.file}" alt="${esc(c.alt)}" width="800" height="500" loading="lazy"><figcaption><b>${c.kind === 'daily' ? 'Daily chart' : '7-day table'}</b> · caption on the post: ${esc(c.alt)}</figcaption></figure>`).join('')}</div>`
+    : `<p class="note">No chart this run: ${esc(plan.noChart[code] ?? 'not searched')}.</p>`}
+  ${lots.length ? `<div class="tablewrap"><table><thead><tr><th>Lot in the ${esc(fmtStay(plan.checkin, plan.checkout))} search</th><th class="num">Per day</th><th class="num">7-day stay</th><th>To terminal</th><th></th></tr></thead><tbody>${lotRows}</tbody></table></div>` : ''}
   ${excluded.length ? `<p class="small muted">Left off: ${excluded.map(esc).join('; ')}.</p>` : ''}
-  ${h.length ? `<h3>Held (${n(h.length)})</h3>${h.map((d) => `<div class="hold"><div class="hhead"><a href="${blog(d.slug)}">${esc(d.slug)}</a> ${d.flags.map(chip).join(' ')}</div>
-    <ul class="notes">${[...d.blockers, ...d.notes].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-    <p class="ctx">${excerpt(d)}</p><p class="small muted">Old caption: ${esc(d.oldAlt.slice(0, 220))}${d.oldAlt.length > 220 ? '…' : ''}</p></div>`).join('')}` : ''}
-  ${s.length ? `<details><summary>Swap list (${n(s.length)})</summary><ul class="swaps">${s.map(decisionRow).join('')}</ul></details>` : ''}
+  ${groups}
 </section>`
 }
+
+const stat = (num: number, label: string) => `<div class="stat"><b>${n(num)}</b><span>${label}</span></div>`
+const decideItem = (g: Group, text: string, rec: string) => G[g].length ? `<li><b>${GROUP_TITLE[g]}: ${n(G[g].length)} charts in ${n(postsOf(G[g]))} posts.</b> ${text}<div class="rec">${rec}</div></li>` : ''
 
 const html = `<title>Chart Redraw Contact Sheet</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500;600&display=swap">
 <style>
-/* Triply review page: one column, airports in alphabetical order, decisions first. */
+/* Triply review page: decisions first, then one section per airport (charts, lots, grouped post list). */
 :root {
   --bg: #fbfaf9; --surface: #ffffff; --fg: #1e293b; --muted: #5d6676; --rule: #e7e3df;
   --navy: #1a1a2e; --accent: #e8603f; --accent-soft: #fdeae4;
@@ -92,7 +127,7 @@ const html = `<title>Chart Redraw Contact Sheet</title>
 body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; line-height: 1.55; margin: 0; }
 .wrap { max-width: 1000px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 h1, h2, h3 { font-family: var(--display); color: var(--navy); line-height: 1.2; text-wrap: balance; margin: 0; }
-h1 { font-size: 30px; } h2 { font-size: 22px; } h3 { font-size: 16px; margin-top: 18px; }
+h1 { font-size: 30px; } h2 { font-size: 22px; }
 p { margin: 0; }
 a { color: var(--accent); }
 .kicker { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 6px; }
@@ -104,13 +139,13 @@ a { color: var(--accent); }
 .stat span { font-size: 12.5px; color: var(--muted); }
 .decide { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 18px; margin-top: 26px; }
 .decide h2 { font-size: 19px; margin-bottom: 8px; }
-.decide ol { margin: 0; padding-left: 20px; } .decide li { margin: 8px 0; }
+.decide ol { margin: 0; padding-left: 20px; } .decide li { margin: 10px 0; }
 .rec { margin-top: 6px; padding: 8px 12px; background: var(--good-soft); border-left: 3px solid var(--good); border-radius: 0 8px 8px 0; font-size: 14px; }
+.note { margin-top: 12px; padding: 10px 14px; background: var(--warn-soft); border-radius: 10px; font-size: 14px; }
 .how { margin-top: 18px; font-size: 14px; color: var(--muted); }
 .how ul { margin: 6px 0 0; padding-left: 20px; } .how li { margin: 3px 0; }
 .toc { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 22px; }
-.toc a { font-size: 13px; text-decoration: none; padding: 3px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--navy); font-variant-numeric: tabular-nums; }
-.toc a.h { border-color: var(--warn); }
+.toc a { font-size: 13px; text-decoration: none; padding: 3px 9px; border: 1px solid var(--rule); border-radius: 999px; background: var(--surface); color: var(--navy); }
 .airport { margin-top: 34px; padding-top: 18px; border-top: 2px solid var(--rule); }
 .ahead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; }
 .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 12px; }
@@ -126,60 +161,77 @@ td:first-child { white-space: normal; min-width: 180px; }
 tr.off td { color: var(--muted); }
 .sev { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; white-space: nowrap; }
 .sev.stop { background: var(--stop-soft); color: var(--stop); } .sev.warn { background: var(--warn-soft); color: var(--warn); } .sev.info { background: var(--info-soft); color: var(--info); }
+details { margin-top: 12px; } summary { cursor: pointer; font-weight: 600; color: var(--navy); }
+summary .count { font-family: var(--display); color: var(--accent); margin-left: 6px; font-variant-numeric: tabular-nums; }
+summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .hold { background: var(--surface); border: 1px solid var(--rule); border-radius: 12px; padding: 10px 14px; margin-top: 8px; min-width: 0; }
 .hhead { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; font-weight: 600; overflow-wrap: anywhere; }
 .notes { margin: 6px 0 0; padding-left: 18px; font-size: 13.5px; }
 .ctx { font-size: 13px; margin-top: 8px; padding: 8px 10px; background: var(--bg); border-radius: 8px; overflow-wrap: anywhere; }
 mark { background: var(--mark); color: inherit; padding: 0 2px; border-radius: 3px; }
-details { margin-top: 12px; } summary { cursor: pointer; font-weight: 600; color: var(--navy); }
-summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.swaps { margin: 8px 0 0; padding-left: 18px; font-size: 13px; columns: 2 320px; } .swaps li { margin: 3px 0; break-inside: avoid; overflow-wrap: anywhere; }
+.swaps { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .swaps li { margin: 4px 0; overflow-wrap: anywhere; }
+.alone { margin: 8px 0 0; padding-left: 18px; font-size: 13px; } .alone li { margin: 3px 0; overflow-wrap: anywhere; }
 .foot { margin-top: 40px; color: var(--muted); font-size: 13px; }
 @media (max-width: 520px) { h1 { font-size: 25px; } }
 </style>
 <div class="wrap">
   <div class="kicker">Triply · blog chart redraw · stage 1 · ${esc(fmtDate(snap.asOf))}</div>
   <h1>New rate charts, before anything goes live</h1>
-  <p class="lede">One live triplypro.com search per airport on ${esc(fmtDate(snap.asOf))}, for a 7-day stay ${esc(fmtStay(snap.checkin, snap.checkout))}, drawn into a daily chart and a 7-day table for each airport. They would replace the October charts that call lots we don't sell "bookable on Triply". Nothing on the live site has changed.</p>
+  <p class="lede">One live triplypro.com search per airport on ${esc(fmtDate(snap.asOf))}, for a 7-day stay ${esc(fmtStay(snap.checkin, snap.checkout))}, drawn into a daily chart and a 7-day table per airport. They would replace the October charts that call lots we don't sell "bookable on Triply". Nothing on the live site has changed.</p>
 
   <div class="stats">
-    <div class="stat"><b>${plan.charts.length}</b><span>new charts, ${codes.length} airports</span></div>
-    <div class="stat"><b>${n(D.length)}</b><span>October charts in ${n(posts(D))} live posts</span></div>
-    <div class="stat"><b>${n(swaps.length)}</b><span>swap as proposed (${n(posts(swaps))} posts)</span></div>
-    <div class="stat"><b>${n(holds.length)}</b><span>held for you (${n(posts(holds))} posts)</span></div>
-    <div class="stat"><b>${n(leftAlone.length + orphans.length)}</b><span>left alone (no lot prices, or unused)</span></div>
+    ${stat(plan.charts.length, `new charts, ${plan.charts.length / 2} airports`)}
+    ${stat(D.length, `old charts in ${n(postsOf(D))} live posts`)}
+    ${stat(G.swap.length, `ready to swap (${n(postsOf(G.swap))} posts)`)}
+    ${stat(D.length - G.swap.length, `held for you (${n(postsOf(D.filter((d) => d.action === 'hold')))} posts)`)}
+    ${stat(leftAlone.length + unused.length, 'left alone (no lot prices, or unused)')}
   </div>
 
   <div class="decide">
     <h2>What you're deciding</h2>
     <ol>
-      <li><b>Do the charts look right?</b> Each airport below shows both charts, their captions and the lots behind them.</li>
-      <li><b>The ${n(posts(holds))} held posts.</b> The text next to the chart ${n(posts(flagged('unsold')))} times names a lot we don't sell, and ${n(posts(flagged('price')))} times quotes an October off-site price that no lot of ours has today. Swapping the chart puts today's dated price next to that old text; keeping the old chart keeps unsold lots marked "bookable on Triply".
-        <div class="rec">Recommended: swap these too, and list the posts for a text fix (removing per-lot prices from prose is already on the roadmap).</div></li>
-      <li><b>The pilot.</b> DFW (one lot), a new-airport post (BDL), YYZ (Canadian dollars, valet lots), JFK and LGA. No airport in scope needs the airport-only fallback chart this time.</li>
+      <li><b>Do the charts look right?</b> Each airport below shows both charts, their captions and the lots behind them. ${fallbackCount ? `${fallbackCount} airport(s) get the airport-only chart (Triply sells nothing there).` : 'No airport in scope needs the airport-only chart this run.'}</li>
+      ${decideItem('swap', 'Nothing in the text around the chart disagrees with it.', 'Swap these in the pilot, then the rest.')}
+      ${decideItem('prefee', 'The text quotes our lot prices before taxes and fees (e.g. "$7.87/day"), the chart shows the total ("$8.61/day, taxes and fees included"). Both are true, but they read as two prices.', 'Swap: the old chart is worse (it calls unsold lots bookable, undated). Fix the prose later, when per-lot prices come out of post text (roadmap).')}
+      ${decideItem('text', "The text near the chart names a lot we don't sell, quotes a price no lot of ours has today, or says how many lots we sell and the number is wrong. A dated chart next to that text contradicts it.", 'Swap the chart (it is right and the old one is wrong) and list these posts for a text fix. The other choice is to keep the old chart until the text is fixed.')}
+      ${decideItem('notrate', `Maps, arrival timelines, step-by-step guides and transport comparisons that also price lots at October prices. A rate chart can't replace them. ${n(notrateTriply.length)} of them say "Triply" or "bookable" in the caption.`, `Remove the image where the caption says Triply or bookable (${n(notrateTriply.length)}); keep the rest as they are.`)}
+      ${decideItem('currency', "Toronto, Montreal and Calgary. ResLab prices these lots in Canadian dollars, and our checkout charges the same number in US dollars. A chart can't say which price is real until that's settled.", 'Decide the checkout currency first (separate from this work: 5 live bookings since Oct 18). Then these airports get charts.')}
+      ${decideItem('other', 'Posts about Love Field, Toronto-vs-Buffalo and Hobby-vs-IAH that are filed under DFW, BUF and HOU.', 'Keep the old chart for now; these need a per-post look.')}
     </ol>
   </div>
 
   <div class="how">
     <b>How the numbers were made</b>
     <ul>
-      <li>Lot price = the search card's total for the stay (taxes, fees and our service fee included) ÷ the lot's billed days. Lots that bill 8 days for the 7-day stay are starred on the table.</li>
-      <li>Only lots the search returned that day. Up to 6 per chart, cheapest first; a lot with a paid shuttle or a "do not lead" note is never first.</li>
-      <li>"To terminal" comes from each lot's own shuttle text on our site: "No shuttle" only where the lot says so; "—" where it's neither a shuttle nor valet (a hotel Lyft, the AirTrain).</li>
-      <li>On-airport rows are the October postings, labelled "checked October 2026". YYZ's were never verified, so YYZ shows our lots only. Port Everglades shows only lots with a known cruise-port shuttle.</li>
-      <li>Also flagged but swapped: ${n(posts(flagged('pre-fee')))} posts quote a lot's rate before taxes and fees (the chart shows the total), and ${n(posts(flagged('missing')))} name a lot we sell that was sold out for these dates.</li>
-      <li>Left alone: ${n(inv.items.filter((i) => i.cls === 'airport').length)} charts with on-airport prices only, ${n(inv.items.filter((i) => i.cls === 'not-rate').length)} with no parking prices (arrival times, taxi fares, maps), ${n(orphans.length)} chart images no post uses.</li>
+      <li>Lot price = the search card's total for the stay (taxes, fees and our service fee included) ÷ the lot's billed days. Lots that bill 8 days for the 7-day stay are starred.</li>
+      <li>Only lots the search returned that day, in order of the stay's total, up to 6 per chart. A lot with a paid shuttle or a "do not lead" note is never first.</li>
+      <li>Cruise-port lots (their shuttle runs to the port, not the terminal) are left off airport charts; Port Everglades shows only lots with a known port shuttle.</li>
+      <li>"To terminal" comes from each lot's own shuttle text on our site: "No shuttle" only where the lot says so; "—" where it's neither a shuttle nor a valet.</li>
+      <li>On-airport rows are the October postings, labelled "checked October 2026". Airports without a checked row show our lots only.</li>
+      <li>Held text checks look at the 3 blocks before and after each chart: lot names (full or first two words), per-day prices, "from" prices against today's cheapest lot, 7-day totals and lot counts. A post with one held chart holds all its charts.</li>
+      <li>Left alone: ${n(inv.items.filter((i) => i.cls === 'airport').length)} images with on-airport prices only (listed at the bottom), ${n(inv.items.filter((i) => i.cls === 'not-rate').length)} with no parking prices, ${n(unused.length)} chart images no post uses.</li>
     </ul>
   </div>
 
-  <nav class="toc" aria-label="Airports">${codes.map((c) => `<a href="#${c}"${D.some((d) => d.code === c && d.action === 'hold') ? ' class="h"' : ''}>${c}</a>`).join('')}</nav>
+  <nav class="toc" aria-label="Airports">${codes.map((c) => `<a href="#${c}">${c}</a>`).join('')}<a href="#left-alone">Left alone</a></nav>
 
   ${codes.map(airportSection).join('\n')}
 
-  <p class="foot">Search window ${esc(snap.asOf)} (searches tagged "triply-chart-redraw"). Built by reports/chart-redraw/ in the blog engine; plan in notes/2026-11-02-chart-redraw-plan.md. Next step after your approval: the pilot write for the five airports, with a backup of every post first.</p>
+  <section class="airport" id="left-alone">
+    <h2>Left alone: on-airport prices only</h2>
+    <p class="small muted">Captions the sorter read as pricing only the airport's own parking. Skim for any that price an off-site lot.</p>
+    <details><summary>${n(inv.items.filter((i) => i.cls === 'airport' && i.uses.length).length)} images in use <span class="count"></span></summary>
+      <ul class="alone">${inv.items.filter((i) => i.cls === 'airport' && i.uses.length).map((i) => `<li><b>${i.code}</b> · ${esc(i.alt.slice(0, 200))}${i.alt.length > 200 ? '…' : ''} <span class="muted">(${i.uses.length} post${i.uses.length > 1 ? 's' : ''})</span></li>`).join('')}</ul>
+    </details>
+  </section>
+
+  <p class="foot">Searches on ${esc(snap.asOf)} are tagged "triply-chart-redraw" in the search log. Built by reports/chart-redraw/ in the blog engine; plan in notes/2026-11-02-chart-redraw-plan.md. After your decisions: a pilot write on five airports, with a backup of every post first.</p>
 </div>`
 
 fs.mkdirSync(`${OUT}/contact/charts`, { recursive: true })
+// Drop the previous run's chart copies (only this script's own <CODE>-<kind>.png files), so a held airport shows none.
+for (const f of fs.readdirSync(`${OUT}/contact/charts`)) if (/^[A-Z]{3}-(?:daily|week)\.png$/.test(f)) fs.rmSync(`${OUT}/contact/charts/${f}`)
 for (const c of plan.charts) fs.copyFileSync(`${OUT}/${c.file}`, `${OUT}/contact/${c.file}`)
 fs.writeFileSync(`${OUT}/contact/index.html`, html)
 console.log(`wrote ${OUT}/contact/index.html (${Math.round(html.length / 1024)} KB) + ${plan.charts.length} charts`)
+for (const g of Object.keys(G) as Group[]) console.log(`  ${g.padEnd(9)} ${String(G[g].length).padStart(4)} charts / ${String(postsOf(G[g])).padStart(4)} posts`)

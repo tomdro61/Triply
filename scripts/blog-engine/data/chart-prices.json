@@ -69,7 +69,7 @@
      "perDay": 7.47,
      "stayTotal": 52.32,
      "billedDays": 7,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 6.25
     },
@@ -303,15 +303,6 @@
      "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 7.56
-    },
-    {
-     "name": "Clarion Hotel BWI North",
-     "perDay": 9.2,
-     "stayTotal": 64.38,
-     "billedDays": 7,
-     "transfer": "paid",
-     "mayLead": false,
-     "baseRate": 8.35
     },
     {
      "name": "Clarion Hotel BWI North",
@@ -603,7 +594,7 @@
      "perDay": 12.58,
      "stayTotal": 88.05,
      "billedDays": 7,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 11.09
     },
@@ -632,7 +623,7 @@
      "billedDays": 8,
      "transfer": "shuttle",
      "mayLead": true,
-     "baseRate": 12.08
+     "baseRate": 12.07
     }
    ]
   },
@@ -791,15 +782,6 @@
      "baseRate": 9.4
     },
     {
-     "name": "Park By The Ports AIRPORT Parking",
-     "perDay": 10.25,
-     "stayTotal": 82,
-     "billedDays": 8,
-     "transfer": "shuttle",
-     "mayLead": true,
-     "baseRate": 9.02
-    },
-    {
      "name": "The Harrison Hotel Downtown Hollywood",
      "perDay": 12.05,
      "stayTotal": 84.35,
@@ -834,15 +816,6 @@
      "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 12.55
-    },
-    {
-     "name": "Park By The Ports Cruise Parking",
-     "perDay": 24.36,
-     "stayTotal": 194.84,
-     "billedDays": 8,
-     "transfer": "unknown",
-     "mayLead": true,
-     "baseRate": 21.62
     }
    ]
   },
@@ -1074,7 +1047,7 @@
      "perDay": 10.5,
      "stayTotal": 73.48,
      "billedDays": 7,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 9.65
     },
@@ -1346,15 +1319,6 @@
      "baseRate": 8.01
     },
     {
-     "name": "Bayfront Garage Miami",
-     "perDay": 9.81,
-     "stayTotal": 68.67,
-     "billedDays": 7,
-     "transfer": "none",
-     "mayLead": true,
-     "baseRate": 8.4
-    },
-    {
      "name": "La Quinta Inn & Suites Miami Airport East",
      "perDay": 10.25,
      "stayTotal": 71.77,
@@ -1380,24 +1344,6 @@
      "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 12.11
-    },
-    {
-     "name": "WePark in Miami Cruise Parking",
-     "perDay": 16.8,
-     "stayTotal": 134.41,
-     "billedDays": 8,
-     "transfer": "paid",
-     "mayLead": false,
-     "baseRate": 15.06
-    },
-    {
-     "name": "Premier Cruise Parking",
-     "perDay": 18.6,
-     "stayTotal": 148.76,
-     "billedDays": 8,
-     "transfer": "shuttle",
-     "mayLead": true,
-     "baseRate": 16.68
     }
    ]
   },
@@ -1662,7 +1608,7 @@
      "perDay": 9.71,
      "stayTotal": 67.98,
      "billedDays": 7,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 7.3
     },
@@ -1775,7 +1721,7 @@
      "billedDays": 8,
      "transfer": "unknown",
      "mayLead": true,
-     "baseRate": 21.62
+     "baseRate": 21.61
     }
    ]
   },
@@ -1859,15 +1805,6 @@
    "currency": "USD",
    "lots": [
     {
-     "name": "Fox Parking",
-     "perDay": 13.93,
-     "stayTotal": 97.54,
-     "billedDays": 7,
-     "transfer": "shuttle",
-     "mayLead": true,
-     "baseRate": 12.48
-    },
-    {
      "name": "San Diego's Park Shuttle and Fly - LOT A",
      "perDay": 21.62,
      "stayTotal": 151.34,
@@ -1893,15 +1830,6 @@
      "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 23.58
-    },
-    {
-     "name": "Aladdin Port Parking",
-     "perDay": 25.54,
-     "stayTotal": 178.8,
-     "billedDays": 7,
-     "transfer": "shuttle",
-     "mayLead": true,
-     "baseRate": 24.1
     }
    ]
   },
@@ -2065,8 +1993,8 @@
    ]
   },
   "SLC": {
-   "status": "none",
-   "currency": "USD"
+   "status": "error",
+   "reason": "2 lots listed, none bookable for 2026-11-12 → 2026-11-19"
   },
   "STL": {
    "status": "ok",
@@ -2122,7 +2050,7 @@
      "perDay": 16.25,
      "stayTotal": 113.78,
      "billedDays": 7,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 15.12
     }
@@ -2140,29 +2068,11 @@
      "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 8.5
-    },
-    {
-     "name": "Quality Inn & Suites Tampa/Ybor City",
-     "perDay": 9.21,
-     "stayTotal": 64.49,
-     "billedDays": 7,
-     "transfer": "shuttle",
-     "mayLead": false,
-     "baseRate": 7.88
-    },
-    {
-     "name": "241 Car Services - Secure Parking",
-     "perDay": 10.24,
-     "stayTotal": 71.7,
-     "billedDays": 7,
-     "transfer": "shuttle",
-     "mayLead": false,
-     "baseRate": 9.39
     }
    ]
   },
   "YUL": {
-   "status": "ok",
+   "status": "error",
    "currency": "CAD",
    "lots": [
     {
@@ -2210,10 +2120,11 @@
      "mayLead": true,
      "baseRate": 19.15
     }
-   ]
+   ],
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   },
   "YYC": {
-   "status": "ok",
+   "status": "error",
    "currency": "CAD",
    "lots": [
     {
@@ -2243,10 +2154,11 @@
      "mayLead": true,
      "baseRate": 8.35
     }
-   ]
+   ],
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   },
   "YYZ": {
-   "status": "ok",
+   "status": "error",
    "currency": "CAD",
    "lots": [
     {
@@ -2299,7 +2211,7 @@
      "perDay": 9.92,
      "stayTotal": 79.34,
      "billedDays": 8,
-     "transfer": "shuttle",
+     "transfer": "valet",
      "mayLead": true,
      "baseRate": 8.35
     },
@@ -2366,7 +2278,8 @@
      "mayLead": true,
      "baseRate": 26.2
     }
-   ]
+   ],
+   "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   }
  }
 }

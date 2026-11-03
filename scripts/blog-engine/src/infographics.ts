@@ -52,7 +52,6 @@ function extractVisualizableData(airportData: AirportData): Record<string, unkno
       name: l.name, distanceFromAirport: l.distanceFromAirport, driveTime: l.driveTime, shuttleInfo: l.shuttleInfo, parkingType: l.parkingType, amenities: l.amenities,
     }))
   }
-  if (airportData.lastVerified) data.lastVerified = airportData.lastVerified
 
   // Include AirTrain / transit fare data
   if (airportData['airTrain']) {
@@ -123,7 +122,7 @@ Create 1–2 SVG infographics that add the most value for readers.
 - All colors must be inline (fill="..." or style="..."), not via external CSS classes
 - Use data from the airport JSON — do NOT invent numbers
 - NEVER chart, list or print the price of an off-site lot, a hotel lot or anything "on Triply" / "bookable on Triply" — no lot prices are given to you on purpose. A dated price chart of the lots Triply sells is added to the article separately. Off-site lots may appear by name, distance and shuttle only.
-- On-airport parking rates may be charted only with the line "Posted rates, checked <Month Year>" on the image, using the month of lastVerified
+- On-airport parking rates may be charted only with the line "Posted airport rates; check the airport's site for today's price" on the image. Never print a "checked"/"verified"/"as of" date — the data has none you can rely on
 - Round dollar amounts to nearest dollar for readability
 ${vizData.currency === 'CAD' ? '- Prices are Canadian dollars: write every price as C$ (e.g. C$12), in the SVG and in the alt text. Never a bare $.\n' : ''}- Pick the chart type that best fits the data: bar chart, comparison table, icon grid, timeline, cost breakdown, process flow, etc.
 
@@ -325,7 +324,7 @@ export async function addRateChart(html: string, airportCode: string): Promise<I
   const snap = loadPriceSnapshot()
   if (!snap) { console.log('  Rate chart skipped: no data/chart-prices.json (run reports/chart-redraw/prices.mts)'); return { html, count: 0 } }
   const age = snapshotAgeDays(snap, nyToday())
-  if (age > MAX_SNAPSHOT_AGE_DAYS) { console.log(`  Rate chart skipped: prices are ${age} days old (re-run reports/chart-redraw/prices.mts)`); return { html, count: 0 } }
+  if (age > MAX_SNAPSHOT_AGE_DAYS || age < 0) { console.log(`  Rate chart skipped: the prices are dated ${snap.asOf} (${age} days from today) — re-run reports/chart-redraw/prices.mts`); return { html, count: 0 } }
   const d = chartInputFor(airportCode, snap)
   if (!d || d.lots.length === 0) { console.log(`  Rate chart skipped: no lot Triply sells at ${airportCode} in the ${snap.asOf} prices`); return { html, count: 0 } }
   const alt = chartAlt(d, 'daily')
@@ -346,8 +345,15 @@ export async function generateInfographics(html: string, airportData: AirportDat
   } catch (err) {
     console.log(`  ⚠ Free-form infographics failed: ${err instanceof Error ? err.message : err} — continuing with the rate chart`)
   }
-  const chart = await addRateChart(out.html, airportCode)
-  return { html: chart.html, count: out.count + chart.count }
+  // A failed rate chart (bad snapshot file, CMS upload error) must not throw away the free-form infographics
+  // already uploaded above — the caller would fall back to the article without any of them.
+  try {
+    const chart = await addRateChart(out.html, airportCode)
+    return { html: chart.html, count: out.count + chart.count }
+  } catch (err) {
+    console.log(`  ⚠ Rate chart failed: ${err instanceof Error ? err.message : err} — keeping the other infographics`)
+    return out
+  }
 }
 
 /**
@@ -361,6 +367,7 @@ async function generateFreeformInfographics(
   airportCode: string,
 ): Promise<InfographicResult> {
   const lotNames = (airportData.parkingLots ?? []).map((l) => l.name).filter((n): n is string => typeof n === 'string')
+  const airportWords = `${airportData.fullName ?? ''} ${airportCode}`.split(/[^A-Za-z]+/).filter(Boolean)
   // Extract the subset of airport data most useful for visualization
   const vizData = extractVisualizableData(airportData)
   // Same Canadian rule as the writer and editor prompts (currency field OR the code list), so the SVG never prints $ where the article prints C$.
@@ -415,7 +422,7 @@ async function generateFreeformInfographics(
       console.log(`  ⚠ Skipping ${label}: ${validation.error}`)
       continue
     }
-    if (pricesOffSiteLots(spec.svg, lotNames) || pricesOffSiteLots(spec.alt, lotNames)) {
+    if (pricesOffSiteLots(spec.svg, lotNames, airportWords) || pricesOffSiteLots(spec.alt, lotNames, airportWords)) {
       console.log(`  ⚠ Skipping ${label}: it prices off-site lots (only the dated rate chart may)`)
       continue
     }

@@ -161,12 +161,17 @@ export function holidayWindows(year: number): [string, string][] {
     around(nthWeekday(year, 9, 1, 2), 3, 1), // Canadian Thanksgiving
     around(thanksgiving, 5, 4), // US Thanksgiving week
     [`${year}-12-18`, `${year + 1}-01-04`],
+    // Clock changes (2nd Sunday of March, 1st Sunday of November): a stay across one is 167 or 169 hours, which
+    // some lots bill as an extra day.
+    around(nthWeekday(year, 2, 0, 2), 0, 0),
+    around(nthWeekday(year, 10, 0, 1), 0, 0),
   ]
 }
 
 /**
  * The stay a chart prices: the first Thursday at least 8 days after `today` whose 7-day stay (Thursday → Thursday,
- * 10:00 AM → 10:00 AM) touches no holiday window. Far enough out that same-week sell-outs don't thin the list.
+ * 10:00 AM → 10:00 AM airport time) touches no holiday window and no clock change. Far enough out that same-week
+ * sell-outs don't thin the list.
  */
 export function pickStayWindow(today: string): { checkin: string; checkout: string } {
   let t = parse(addDays(today, 8))
@@ -224,9 +229,13 @@ const TRANSFER_NOTE: Partial<Record<Transfer, string>> = { paid: ' + paid shuttl
 
 // ── Lot order + chart input ─────────────────────────────────────────────────────────────────────
 
-/** Display order: lots that may lead cheapest first, then the rest (paid transfer, caveats); at most `max`. */
+/**
+ * Display order: lots that may lead, cheapest STAY first, then the rest (paid transfer, caveats); at most `max`.
+ * By the stay's total, not per day: a lot that bills 8 days for the 7-day stay divides by 8 and would look cheaper
+ * per day than a cheaper 7-day lot (the search's own "Lowest total" badge goes by the total).
+ */
 export function orderLots(lots: ChartLot[], max = 6): ChartLot[] {
-  const byPrice = (a: ChartLot, b: ChartLot) => a.perDay - b.perDay || a.name.localeCompare(b.name)
+  const byPrice = (a: ChartLot, b: ChartLot) => a.stayTotal - b.stayTotal || a.perDay - b.perDay || a.name.localeCompare(b.name)
   const lead = lots.filter((l) => l.mayLead).sort(byPrice)
   const rest = lots.filter((l) => !l.mayLead).sort(byPrice)
   return [...lead, ...rest].slice(0, max)
@@ -288,9 +297,13 @@ function footer(d: ChartInput, kind: ChartKind): string {
       ? 'Off-site: the triplypro.com total for these dates, taxes and fees included, per billed day. Prices change by date.'
       : 'Off-site: the triplypro.com total for this 7-day stay, taxes and fees included. Prices change by date.')
     const odd = oddBilling(d)
-    if (kind === 'week' && odd.length) lines.push(`* The lot bills ${odd.length === 1 ? odd[0] : 'a different number of'} days for this 7-day stay; per day = total ÷ billed days.`)
+    if (odd.length) lines.push(`* Bills ${odd.length === 1 ? odd[0] : 'a different number of'} days for this 7-day stay; per day = total ÷ billed days. Lots are in order of the stay's total.`)
   }
-  if (d.onAirport.length) lines.push(`On-airport: the airport's posted ${kind === 'daily' ? 'daily maximum' : 'rate for 7 days'}, checked ${d.onAirportChecked}.`)
+  if (d.onAirport.length) {
+    lines.push(kind === 'daily'
+      ? `On-airport: the airport's posted daily maximum, checked ${d.onAirportChecked}.`
+      : `On-airport: the posted daily maximum × 7, or the airport's posted 7-day rate where it has one, checked ${d.onAirportChecked}.`)
+  }
   return lines.map((l, i) => txt(30, 488 - (lines.length - 1 - i) * 15, l, `font-size="11" fill="${C.gray}"`)).join('\n')
 }
 
@@ -302,10 +315,13 @@ ${body}
 interface Row { label: string; value: number; price: string; note: string; offSite: boolean; week: string; transfer: string }
 
 function rows(d: ChartInput): Row[] {
-  const lots = d.lots.map((l) => ({
-    label: shortName(l.name), value: l.perDay, price: `${money(l.perDay, d.currency)}/day`, note: TRANSFER_NOTE[l.transfer] ?? '', offSite: true,
-    week: money(l.stayTotal, d.currency) + (l.billedDays !== 7 ? '*' : ''), transfer: TRANSFER_LABEL[l.transfer],
-  }))
+  const lots = d.lots.map((l) => {
+    const star = l.billedDays !== 7 ? '*' : ''
+    return {
+      label: shortName(l.name), value: l.perDay, price: `${money(l.perDay, d.currency)}${star}/day`, note: TRANSFER_NOTE[l.transfer] ?? '', offSite: true,
+      week: money(l.stayTotal, d.currency) + star, transfer: TRANSFER_LABEL[l.transfer],
+    }
+  })
   const on = d.onAirport.map((r) => {
     const [wlo, whi] = weekOf(r)
     return { label: shortName(r.name), value: r.hi, price: `${postedMoney(r.lo, r.hi, d.currency)}/day`, note: '', offSite: false, week: postedMoney(wlo, whi, d.currency), transfer: '' }
@@ -321,7 +337,7 @@ export function barsSvg(d: ChartInput): string {
     const note = r.note ? `<tspan font-weight="normal" fill="${C.gray}">${esc(r.note)}</tspan>` : ''
     return `${txt(290, y + h / 2 + 5, r.label, `font-size="13" fill="${C.navy}" text-anchor="end"`)}
 <rect x="300" y="${(y + 4).toFixed(1)}" width="${w.toFixed(1)}" height="${(h - 8).toFixed(1)}" fill="${r.offSite ? C.green : C.navy}"/>
-<text x="${(308 + w).toFixed(1)}" y="${(y + h / 2 + 5).toFixed(1)}" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="${C.navy}">${esc(r.price)}${note}</text>`
+<text x="${(308 + w).toFixed(1)}" y="${(y + h / 2 + 5).toFixed(1)}" xml:space="preserve" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="${C.navy}">${esc(r.price)}${note}</text>`
   }).join('\n')
   const title = d.lots.length ? `${d.code} parking: daily rates compared` : `${d.code} airport parking: posted daily rates`
   return frame(`${header(d, title)}\n${body}\n${footer(d, 'daily')}`)
@@ -349,26 +365,28 @@ export function chartSvg(d: ChartInput, kind: ChartKind): string {
 // ── Alt text (the blog prints it as the visible caption) ────────────────────────────────────────
 
 /**
- * Caption for a chart. Every lot figure carries its date and stay; the range runs over lots that may lead (a
- * paid-transfer or caveated lot is never the "from" price); on-airport figures carry the month they were checked.
+ * Caption for a chart (the blog prints it under the image). Every lot figure carries its date and stay. The range is
+ * over the lots SHOWN that may lead, by the stay's total (a paid-transfer or caveated lot is never the "from" price);
+ * a lot billed as 8 days says so; on-airport figures carry the month they were checked.
  */
 export function chartAlt(d: ChartInput, kind: ChartKind): string {
   const cur = d.currency
+  const billed = (l: ChartLot) => (l.billedDays !== 7 ? `, billed as ${l.billedDays} days` : '')
   const lotPrice = (l: ChartLot) => (kind === 'daily' ? `${money(l.perDay, cur)}/day` : money(l.stayTotal, cur))
   const unit = kind === 'daily' ? 'daily rates' : '7-day costs'
   const clauses: string[] = []
   if (d.lots.length) {
-    const lead = d.lots.filter((l) => l.mayLead)
-    const named = (l: ChartLot) => `${lotPrice(l)} (${shortName(l.name, 60)})`
+    const lead = [...d.lots.filter((l) => l.mayLead)].sort((a, b) => a.stayTotal - b.stayTotal)
+    const rest = d.lots.length - lead.length
+    const named = (l: ChartLot) => `${lotPrice(l)} (${shortName(l.name, 60)}${billed(l)})`
     if (d.lots.length === 1) {
       const l = d.lots[0]
-      clauses.push(`the one lot bookable on Triply, ${shortName(l.name, 60)}, ${lotPrice(l)}${l.transfer === 'paid' ? ' plus a paid shuttle' : ''}`)
+      clauses.push(`the one lot bookable on Triply, ${shortName(l.name, 60)}, ${lotPrice(l)}${billed(l)}${l.transfer === 'paid' ? ', plus a paid shuttle' : ''}`)
     } else if (lead.length === 0) {
-      clauses.push(`lots bookable on Triply from ${named(d.lots[0])}, each with a transfer caveat (see the lot page)`)
+      clauses.push(`lots bookable on Triply from ${named(d.lots[0])}, each with a paid shuttle or another caveat (see the lot page)`)
     } else {
-      const sorted = (kind === 'daily' ? [...lead].sort((a, b) => a.perDay - b.perDay) : [...lead].sort((a, b) => a.stayTotal - b.stayTotal))
-      const lo = sorted[0], hi = sorted[sorted.length - 1]
-      clauses.push(lo === hi ? `lots bookable on Triply from ${named(lo)}` : `lots bookable on Triply from ${named(lo)} to ${named(hi)}`)
+      const lo = lead[0], hi = lead[lead.length - 1]
+      clauses.push(`${lo === hi ? `lots bookable on Triply from ${named(lo)}` : `lots bookable on Triply from ${named(lo)} to ${named(hi)}`}${rest ? `, plus ${rest} with a paid shuttle or another caveat` : ''}`)
     }
     clauses[0] += `, taxes and fees included, prices as of ${fmtDate(d.asOf)} for a 7-day stay ${fmtStay(d.checkin, d.checkout)}`
   }
@@ -387,27 +405,55 @@ export function chartAlt(d: ChartInput, kind: ChartKind): string {
 /** A snapshot older than this is not used for a new post: no chart rather than a stale one. */
 export const MAX_SNAPSHOT_AGE_DAYS = 35
 
-/** Where a new post gets its rate chart: after the first paragraph under the first H2 about cost/prices. -1 = no such section. */
+/**
+ * Where a new post gets its rate chart: after the first paragraph under the first H2 about PARKING cost or prices
+ * (whole words — "Strategies", "Operated" and "TSA wait times" don't count; an FAQ heading doesn't count, the FAQ is
+ * stripped from the body). -1 = no such section.
+ */
 export function rateChartInsertAt(html: string): number {
-  const h = /<h2[^>]*>(?:(?!<\/h2>)[\s\S])*?(?:cost|price|rate|cheap|compar|sav(?:e|ing)|budget|how much)(?:(?!<\/h2>)[\s\S])*?<\/h2>/i.exec(html)
-  if (!h) return -1
-  const p = html.indexOf('</p>', h.index + h[0].length)
-  return p === -1 ? -1 : p + '</p>'.length
+  for (const h of html.matchAll(/<h2[^>]*>((?:(?!<\/h2>)[\s\S])*)<\/h2>/gi)) {
+    const text = h[1].replace(/<[^>]+>/g, ' ')
+    if (!/\bparking\b/i.test(text) || /\bfaq\b|frequently asked/i.test(text)) continue
+    if (!/\b(?:costs?|prices?|pricing|rates?|cheap(?:est)?|compare|comparison|savings?|save|budget|how much)\b/i.test(text)) continue
+    const p = html.indexOf('</p>', h.index! + h[0].length)
+    return p === -1 ? -1 : p + '</p>'.length
+  }
+  return -1
+}
+
+/** Words that mark off-site parking in a caption or an infographic (shared with reports/chart-redraw/classify.mts). */
+export const OFF_SITE_WORDS = /off-site|offsite|off-airport|off airport|park[- ]?(?:and|&|n|'n)[- ]?fly|park,? sleep|hotel (?:lots?|parking)|airport hotels?|independent lots?|private lots?/i
+/** Brand and hotel words of off-site lots (shared with classify.mts). */
+export const LOT_BRANDS = /\b(?:inn|hotel|suites|marriott|hilton|hyatt|westin|sheraton|doubletree|hampton|radisson|crowne plaza|best western|la quinta|travelodge|courtyard|four points|embassy|wyndham|days inn|super 8|red roof|clarion|sonesta|holiday inn|econo lodge|motel 6|parking spot|park ?n ?fly|park ?2 ?fly|parkair|park air|airpark|jetway|fast park|wallypark|execpark|express park|joy park|spring park|autoparc|eyepark|2 birds)\b/i
+
+/**
+ * Lookup keys for an airport's off-site lot names: the full name (airport suffix dropped), and its first two words
+ * when neither is one of the airport's own name words ("houston hobby", "sky harbor", "kansas city" would match an
+ * on-airport chart that names the airport). A full name made only of such words is dropped too.
+ */
+export function lotKeys(lotNames: string[], airportWords: string[] = []): string[] {
+  const own = new Set(airportWords.map((w) => w.toLowerCase()).concat(['airport', 'international', 'parking', 'the']))
+  const keys = new Set<string>()
+  for (const n of lotNames) {
+    const full = n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').replace(/^the\s+/, '').replace(/\s+/g, ' ').trim()
+    const two = full.split(' ').slice(0, 2)
+    if (full.length >= 6 && full.split(' ').some((w) => !own.has(w))) keys.add(full)
+    if (two.join(' ').length >= 6 && two.length === 2 && two.every((w) => !own.has(w))) keys.add(two.join(' '))
+  }
+  return [...keys]
 }
 
 /**
- * True when a free-form infographic prices an off-site lot: its text has a money figure AND says Triply / bookable or
- * names one of the airport's off-site lots (first two words of the name). The "Source: triplypro.com" footer is ignored.
+ * True when a free-form infographic prices off-site parking: its text has a money figure AND says Triply / bookable,
+ * uses an off-site word ("off-site lots from $8/day", "airport hotels from $9/day"), or names one of the airport's
+ * off-site lots. The "Source: triplypro.com" footer is ignored.
  */
-export function pricesOffSiteLots(svg: string, lotNames: string[]): boolean {
+export function pricesOffSiteLots(svg: string, lotNames: string[], airportWords: string[] = []): boolean {
   const text = svg.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/Source:\s*triplypro\.com/gi, ' ')
   if (!/(?:C\$|\$)\s?\d/.test(text)) return false
-  if (/triply|bookable/i.test(text)) return true
+  if (/triply|bookable/i.test(text) || OFF_SITE_WORDS.test(text)) return true
   const lower = text.toLowerCase().replace(/\s+/g, ' ')
-  return lotNames.some((n) => {
-    const key = n.toLowerCase().replace(/\s*\([a-z]{3}\)/, '').replace(/^the\s+/, '').split(/\s+/).slice(0, 2).join(' ')
-    return key.length >= 6 && lower.includes(key)
-  })
+  return lotKeys(lotNames, airportWords).some((k) => lower.includes(k))
 }
 
 /** Media filename for a redrawn chart — distinct from the October families (`<code>-parking-rates-<hash>`, `<code>-infographic-…`). */
