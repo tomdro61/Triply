@@ -15,6 +15,7 @@ import { deriveAvailability } from "./availability";
 import {
   getChannelLocationsCached,
   isHiddenReslabLocation,
+  isUsdPricedLocation,
 } from "./search";
 import { cache } from "react";
 import { getAirportByCode } from "@/config/airports";
@@ -212,6 +213,9 @@ export async function getLotFromReslab(
   try {
     // Get location details
     const location = await reslab.getLocation(locationId);
+    // Not priced in USD (our Canadian lots): not sold until checkout converts
+    // — not found, like a blocked lot (isUsdPricedLocation).
+    if (!isUsdPricedLocation(location)) return null;
 
     // Get minimum price (which also returns parking type info)
     let minPriceData: ReslabMinPriceResponse | null = null;
@@ -299,7 +303,7 @@ export async function findLotBySlug(
   // a deliberately hidden lot must stay a 404, never a retryable 503, during
   // exactly the degraded windows where a thin list would otherwise 503 it.
   const allMatches = locations.filter((loc) => generateSlug(loc.name) === slug);
-  const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id));
+  const matches = allMatches.filter((loc) => !isHiddenReslabLocation(loc.id) && isUsdPricedLocation(loc));
   if (allMatches.length > 0 && matches.length === 0) return null;
   let match = matches[0];
   if (matches.length > 1 && airportCoords) {
