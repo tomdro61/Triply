@@ -38,7 +38,9 @@ import { fileURLToPath, pathToFileURL } from 'url'
 import { z } from 'zod'
 import { htmlToLexical } from './html-to-lexical.js'
 import { lexicalToHtml, countNodesOfType } from './lexical-to-html.js'
-import { lintArticle, formatLint, stripTags, type LintFinding } from './lint.js'
+import { lintArticle, formatLint, stripTags, priceCheck, collectMoneyFigures, type LintFinding } from './lint.js'
+// P3 price check + allow-list live in lint.ts (generate uses them too, W1.8 P3c); re-exported for callers and tests.
+export { priceCheck, collectMoneyFigures } from './lint.js'
 import { stampField, factsDiff, lexicalText, type FactsDiff } from './stamp.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -169,37 +171,6 @@ export function applyEdit(post: PostLike, edit: EditSpec): EditResult {
   return { patch, after, fieldText: fieldText.filter(Boolean).join('\n'), factsDiff: factsDiff(bodyFactsText(post), bodyFactsText(after)) }
 }
 
-// A source is an EXTERNAL link; a Triply link is a CTA (same rule as lint.ts EXTERNAL_SOURCE_LINK).
-const EXTERNAL_SOURCE_LINK = /<a\s[^>]*href=["']https?:\/\/(?!(?:www\.)?triplypro\.com)[^"']+["']/i
-const MONEY = /(?:C\$|CA\$|US\$|\$)\s?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?)(?:\s?[-–]\s?\$?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?))?/g
-
-/**
- * P3 price check (deny by default). `known` = the figures the writer prompt sees for this airport
- * (collectFigures(figureSource(data))) — NOT every number in the file. Inserted HTML is checked
- * paragraph by paragraph; a paragraph that links an EXTERNAL source is exempt. Field text (title,
- * meta, FAQ) has no exemption. A range "$12–18" checks both ends. Returns the figures that fail.
- */
-export function priceCheck(insertedHtml: string, fieldText: string, known: ReadonlySet<number>): string[] {
-  const bad: string[] = []
-  const check = (text: string) => {
-    for (const m of text.matchAll(MONEY)) {
-      for (const raw of [m[1], m[2]]) {
-        if (!raw) continue
-        const cents = Math.round(Number(raw.replace(/,/g, '')) * 100)
-        const label = `$${raw}`
-        if (!known.has(cents) && !bad.includes(label)) bad.push(label)
-      }
-    }
-  }
-  for (const chunk of insertedHtml.split(/<\/p>|<\/li>|<\/td>|<\/th>|<\/h[1-6]>/i)) {
-    if (EXTERNAL_SOURCE_LINK.test(chunk)) continue
-    check(stripTags(chunk))
-  }
-  check(fieldText)
-  return bad
-}
-
-/** Link/image guard: the edit may add links and images, never lose one. */
 export function guardLoss(before: Doc, after: Doc): string | null {
   const count = (d: Doc, t: string) => countNodesOfType(d as Parameters<typeof countNodesOfType>[0], t)
   const lb = count(before, 'link') + count(before, 'autolink'), la = count(after, 'link') + count(after, 'autolink')
@@ -224,25 +195,6 @@ function postText(p: PostLike): string {
     // One line per block so sentence splitting never glues a heading to the next paragraph.
     ...lexicalToHtml(p.content as Parameters<typeof lexicalToHtml>[0]).split(/<\/(?:p|h[1-6]|li|td|th|tr)>/i).map(stripTags).filter(Boolean),
     ...(p.faqItems || []).map((f) => `${f.question} ${f.answer}`)].filter(Boolean).join('\n')
-}
-
-/**
- * The price allow-list: money-bearing figures only — "$24/day" in prose, and numeric fields whose key says
- * price (dailyRate, parkOnlyRate, dailyMax, total, fee…). `collectFigures` takes EVERY number, so "Terminal 5",
- * "2026-11-01" and "Lot 20" would have passed "$5", "$2026" and "$20" (pass-2 review of #142).
- */
-export function collectMoneyFigures(data: unknown, out: number[] = [], key = ''): number[] {
-  if (typeof data === 'number' && Number.isFinite(data)) {
-    // Case-sensitive on purpose: "totalGates" / "totalReliefAreas" are counts; "fare10Trip" / "mtaStateTax" / "dailyMax" are money.
-    if (/(?:^|[a-z])(?:[Rr]ate|[Pp]rice|[Cc]ost|[Ff]ee|[Ff]are|[Ss]urcharge|[Pp]remium|[Tt]ax(?:es)?|[Cc]harge|Max|[Tt]otals)(?![a-z])/.test(key)) out.push(data)
-  } else if (typeof data === 'string') {
-    for (const m of data.matchAll(/(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g)) out.push(Number(m[1].replace(/,/g, '')))
-  } else if (Array.isArray(data)) {
-    for (const v of data) collectMoneyFigures(v, out, key)
-  } else if (data && typeof data === 'object') {
-    for (const [k, v] of Object.entries(data as Record<string, unknown>)) collectMoneyFigures(v, out, k)
-  }
-  return out
 }
 
 /**

@@ -41,6 +41,12 @@ export interface LintInput {
   approvedOffers?: Record<string, number>
   /** W1.3: every number in the airport data file. A $ figure not in here and not next to a link is flagged. */
   knownFigures?: number[]
+  /**
+   * W1.8 P3c: the P3 price allow-list (collectMoneyFigures(figureSource(...)), the figures the writer saw).
+   * When set, a $ figure that is not in it fails the write: body paragraphs that link an EXTERNAL source are
+   * exempt; title, meta, excerpt and FAQ have no exemption. Same check as apply-edit. `generate` sets it.
+   */
+  knownPrices?: number[]
   now?: Date
 }
 
@@ -254,9 +260,18 @@ export function lintArticle(input: LintInput): LintResult {
     }
   }
 
-  // W1.3: official figures come from the data file or a cited URL. Warning only (does not block the
-  // write) until the data files carry every figure the writer is allowed to quote.
-  if (input.knownFigures) {
+  // W1.8 P3c: every $ figure comes from the data the writer saw or sits next to its source. Fails the write.
+  if (input.knownPrices) {
+    const known = new Set(input.knownPrices.map((n) => Math.round(n * 100)))
+    const fieldText = [input.title, input.metaTitle, input.metaDescription, input.excerpt,
+      ...(input.faqItems || []).map((f) => `${f.question} ${stripTags(f.answer)}`)].filter(Boolean).join('\n')
+    const bad = priceCheck(input.html, fieldText, known)
+    if (bad.length) errors.push({ level: 'error', rule: 'unsourced-price', message: `prices not in the airport data file and not next to an outside source link: ${bad.slice(0, 8).join(', ')}${bad.length > 8 ? ` (+${bad.length - 8} more)` : ''}` })
+  }
+
+  // W1.3: official figures come from the data file or a cited URL. Warning only; skipped when the P3c
+  // check above runs, which covers the same figures and blocks.
+  if (input.knownFigures && !input.knownPrices) {
     const known = new Set(input.knownFigures.map((n) => Math.round(n * 100)))
     const flagged = new Set<string>()
     for (const p of paragraphs(input.html)) {
@@ -317,3 +332,52 @@ export function collectFigures(data: unknown, out: number[] = []): number[] {
   else if (data && typeof data === 'object') for (const v of Object.values(data)) collectFigures(v, out)
   return out
 }
+
+/**
+ * The price allow-list: money-bearing figures only — "$24/day" in prose, and numeric fields whose key says
+ * price (dailyRate, parkOnlyRate, dailyMax, total, fee…). `collectFigures` takes EVERY number, so "Terminal 5",
+ * "2026-11-01" and "Lot 20" would have passed "$5", "$2026" and "$20" (pass-2 review of #142).
+ */
+export function collectMoneyFigures(data: unknown, out: number[] = [], key = ''): number[] {
+  if (typeof data === 'number' && Number.isFinite(data)) {
+    // Case-sensitive on purpose: "totalGates" / "totalReliefAreas" are counts; "fare10Trip" / "mtaStateTax" / "dailyMax" are money.
+    if (/(?:^|[a-z])(?:[Rr]ate|[Pp]rice|[Cc]ost|[Ff]ee|[Ff]are|[Ss]urcharge|[Pp]remium|[Tt]ax(?:es)?|[Cc]harge|Max|[Tt]otals)(?![a-z])/.test(key)) out.push(data)
+  } else if (typeof data === 'string') {
+    for (const m of data.matchAll(/(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g)) out.push(Number(m[1].replace(/,/g, '')))
+  } else if (Array.isArray(data)) {
+    for (const v of data) collectMoneyFigures(v, out, key)
+  } else if (data && typeof data === 'object') {
+    for (const [k, v] of Object.entries(data as Record<string, unknown>)) collectMoneyFigures(v, out, k)
+  }
+  return out
+}
+
+const MONEY = /(?:C\$|CA\$|US\$|\$)\s?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?)(?:\s?[-–]\s?\$?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?))?/g
+
+/**
+ * P3 price check (deny by default). `known` = the figures the writer prompt sees for this airport
+ * (collectFigures(figureSource(data))) — NOT every number in the file. Inserted HTML is checked
+ * paragraph by paragraph; a paragraph that links an EXTERNAL source is exempt. Field text (title,
+ * meta, FAQ) has no exemption. A range "$12–18" checks both ends. Returns the figures that fail.
+ */
+export function priceCheck(insertedHtml: string, fieldText: string, known: ReadonlySet<number>): string[] {
+  const bad: string[] = []
+  const check = (text: string) => {
+    for (const m of text.matchAll(MONEY)) {
+      for (const raw of [m[1], m[2]]) {
+        if (!raw) continue
+        const cents = Math.round(Number(raw.replace(/,/g, '')) * 100)
+        const label = `$${raw}`
+        if (!known.has(cents) && !bad.includes(label)) bad.push(label)
+      }
+    }
+  }
+  for (const chunk of insertedHtml.split(/<\/p>|<\/li>|<\/td>|<\/th>|<\/h[1-6]>/i)) {
+    if (EXTERNAL_SOURCE_LINK.test(chunk)) continue
+    check(stripTags(chunk))
+  }
+  check(fieldText)
+  return bad
+}
+
+/** Link/image guard: the edit may add links and images, never lose one. */

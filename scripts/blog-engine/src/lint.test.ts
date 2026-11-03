@@ -85,3 +85,31 @@ test('a savings claim needs an OUTSIDE source; a Triply link or an FAQ with no l
   assert.ok(rules(lintArticle({ ...base, ...offers, html: goodHtml + '<p>Use TRIPLY10 for 10% off — and save up to 60% vs the garage.</p>' })).includes('unsourced-saving'))
   assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>TRIPLY10 takes 10% off the parking rate.</p>' })).includes('unsourced-saving'), 'a code with no documented offer sources nothing')
 })
+
+test('W1.8 P3c: with knownPrices, a $ figure the writer was not given fails the write', () => {
+  const knownPrices = [18, 40]
+  assert.deepEqual(lintArticle({ ...base, html: goodHtml, knownPrices }).errors, [], 'figures from the data pass')
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day.</p>', knownPrices })
+  assert.ok(rules(r).includes('unsourced-price'))
+  assert.match(r.errors.find((e) => e.rule === 'unsourced-price')!.message, /\$9/)
+  assert.ok(!rules(r).includes('unsourced-figure') && !r.warnings.some((w) => w.rule === 'unsourced-figure'), 'the W1.3 warning does not double up')
+})
+test('W1.8 P3c: an outside source link exempts its paragraph; a Triply or internal link does not', () => {
+  const knownPrices = [18, 40]
+  assert.ok(!rules(lintArticle({ ...base, html: goodHtml + '<p>The cell lot is $9/hour per <a href="https://www.newarkairport.com/parking">the airport</a>.</p>', knownPrices })).includes('unsourced-price'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day, <a href="https://www.triplypro.com/search?airport=EWR">book it</a>.</p>', knownPrices })).includes('unsourced-price'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day, <a href="/blog/ewr-x">see more</a>.</p>', knownPrices })).includes('unsourced-price'))
+})
+test('W1.8 P3c: title, meta, excerpt and FAQ have no exemption; both ends of a range count', () => {
+  const knownPrices = [18, 40]
+  assert.ok(rules(lintArticle({ ...base, title: 'EWR Parking From $9/Day (2026)', html: goodHtml, knownPrices })).includes('unsourced-price'))
+  assert.ok(rules(lintArticle({ ...base, metaDescription: 'Park near EWR from $9 a day.', html: goodHtml, knownPrices })).includes('unsourced-price'))
+  assert.ok(rules(lintArticle({ ...base, excerpt: 'Lots from $9/day.', html: goodHtml, knownPrices })).includes('unsourced-price'))
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml, faqItems: [{ question: 'How much?', answer: '<p>About $9/day per <a href="https://x.gov">x</a>.</p>' }], knownPrices })).includes('unsourced-price'), 'a link in a FAQ answer is not a source')
+  assert.ok(rules(lintArticle({ ...base, html: goodHtml + '<p>Rates run $18–77/day.</p>', knownPrices })).includes('unsourced-price'))
+})
+test('W1.8 P3c: without knownPrices (apply-edit, perf-apply, posts with no data file) nothing new blocks', () => {
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day.</p>', knownFigures: [18, 40] })
+  assert.ok(!rules(r).includes('unsourced-price'))
+  assert.ok(r.warnings.some((w) => w.rule === 'unsourced-figure'), 'the W1.3 warning still prints')
+})

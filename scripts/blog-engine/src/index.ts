@@ -65,7 +65,7 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
-import { lintArticle, formatLint, collectFigures } from './lint.js'
+import { lintArticle, formatLint, collectFigures, collectMoneyFigures } from './lint.js'
 import { stampField } from './stamp.js'
 import { rankBySimilarity } from './similarity.js'
 
@@ -717,6 +717,7 @@ program
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
             knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
+            knownPrices: airportData ? collectMoneyFigures(figureSource(airportData, item.keyword)) : undefined, // W1.8 P3c: blocks
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
           if (!lint.ok) {
