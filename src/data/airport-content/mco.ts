@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const mcoContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport MCO parking lots from $4.99/day. Save vs $10–$28/day on-airport rates. Free 24/7 shuttle, Brightline rail to South Florida from Terminal C. Free cancellation.",
+    "Compare bookable off-airport MCO parking lots, including 24/7 shuttle lots, at today's prices. Save vs $10–$28/day on-airport rates. Brightline rail to South Florida from Terminal C. Free cancellation.",
 
   sections: [
     {
@@ -11,23 +11,17 @@ const mcoContent: AirportContent = {
 
 Terminal C (opened September 2022) is the most modern airport terminal in the U.S. — it's also home to the only integrated Brightline high-speed rail station at any U.S. airport, connecting passengers to South Florida without changing modes.
 
-On-airport parking at MCO is moderate. Garages A & B are $19/day, Garage C is $17/day (cheapest of the three), Terminal Top $19/day, North/South Park Place Economy $10/day, Valet $28.76/day max. Off-airport parking through Triply starts at around $4.99/day pre-booked — saving up to 75% compared to terminal garages.
-
-For a 7-day trip for 2 travelers, off-site parking saves $70–$98 vs Garage A/B.`,
+On-airport parking at MCO is moderate. Garages A & B are $19/day, Garage C is $17/day (cheapest of the three), Terminal Top $19/day, North/South Park Place Economy $10/day, Valet $28.76/day max. Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Holiday Inn Orlando Airport, Gold Park and Omni Airport Parking all run a shuttle around the clock.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near MCO",
-      body: `**Drive & Park** — The cheapest at around $4.99/day pre-booked. 24/7 on-demand shuttle. Locally owned. 2.5 miles out. 24-hour cancellation policy required.
+      body: `**Holiday Inn Orlando Airport** — **Closest bookable lot** at 2.0 miles. Hotel lot with a free 24/7 shuttle every 30 minutes. Check in at the front desk for a validation code, then register your car by QR code. Minutes from the Brightline station.
 
-**Homewood Suites Orlando Airport Parking** — Around $6.95/day pre-booked. Hotel parking 3 miles out. Gated lot with security cameras.
+**Gold Park Orlando Airport** — **Free 24/7 on-demand shuttle**, 2.9 miles out, with typical waits of 10–15 minutes. Gated, fenced lot with staff on site 24/7. Airport pickup is at Level 1 Ground Transportation, A34–A37.
 
-**Fast Park & Relax** — Around $7.95/day pre-booked. **All covered parking** — important for protection from Florida sun and afternoon thunderstorms. 24/7 staffed with frequent shuttle.
+**Omni Airport Parking** — **Free 24/7 shuttle** every 20 minutes or less, 2.9 miles out. Mostly paved lot (gravel overflow) with CCTV, staff on site, and help with your luggage. No extra charge for full-size vans, pickups or large SUVs.
 
-**Renaissance Orlando Airport Hotel Parking** — Around $8/day pre-booked. **Closest covered off-site option** at 1.5 miles. Hotel-quality parking garage. Mid-range price.
-
-**WallyPark** — Around $8.95/day pre-booked. Both covered and uncovered economy options. EV charging stations available. 24/7 continuous-loop shuttle.
-
-**The Parking Spot** — Around $9.95/day pre-booked. Adjacent to the Renaissance Orlando Airport Hotel. Covered and uncovered options. Loyalty rewards program. National brand reliability.`,
+**Best Rate Airport Parking** — Valet lot 2.9 miles out. Shuttle runs 4 AM–10 PM every 30 minutes — **no shuttle overnight**, so check your flight time. Large SUVs, vans and large pickups must book the Large Vehicle rate (no RVs). Part of the price is paid at the lot when you arrive; the lot page shows the split.`,
     },
     {
       heading: "Brightline at Terminal C — Rail to South Florida and Orlando",
@@ -72,12 +66,12 @@ The most passenger-impactful is the Gate Link replacement — single tram operat
     {
       question: "What is the cheapest parking at Orlando airport?",
       answer:
-        "Drive & Park is the cheapest off-airport option at around $4.99/day pre-booked, with 24/7 on-demand shuttle. Homewood Suites at $6.95/day is also very competitive. The cheapest on-airport option is North or South Park Place Economy at $10/day with free continuous shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is North or South Park Place Economy at $10/day with free continuous shuttle. Off-airport lots usually cost less: Holiday Inn Orlando Airport, Gold Park and Omni Airport Parking include a free 24/7 shuttle, while Best Rate Airport Parking's shuttle stops 10 PM–4 AM. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at MCO?",
       answer:
-        "On-airport parking at MCO ranges from $10/day (North/South Park Place Economy) to $28.76/day max (Valet). Garages A & B are $19/day, Garage C is $17/day (cheapest of the three garages and includes free EV charging). Off-airport parking through Triply starts at around $4.99/day pre-booked — saving up to 75% compared to terminal garages.",
+        "On-airport parking at MCO ranges from $10/day (North/South Park Place Economy) to $28.76/day max (Valet). Garages A & B are $19/day, Garage C is $17/day (cheapest of the three garages and includes free EV charging). Off-airport parking through Triply typically costs a fraction of the terminal garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Can I take Brightline from Orlando airport to Miami?",
@@ -107,7 +101,7 @@ The most passenger-impactful is the Gate Link replacement — single tram operat
     {
       question: "Do MCO off-airport parking lots run shuttles 24/7?",
       answer:
-        "Yes — most major off-site lots include 24/7 free shuttle service. Drive & Park, WallyPark, and The Parking Spot all run 24/7. Hotel-based lots may have limited shuttle hours. Most run every 5–15 minutes. Verify before booking if you have a red-eye flight.",
+        "These bookable lots do: Gold Park Orlando Airport (on demand, typical wait 10–15 minutes), Omni Airport Parking (every 20 minutes or less), and Holiday Inn Orlando Airport (every 30 minutes). Best Rate Airport Parking runs its shuttle 4 AM–10 PM only. If you have a red-eye or very early flight, book one of the 24/7 lots.",
     },
   ],
 };

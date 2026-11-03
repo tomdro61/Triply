@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const dfwContent: AirportContent = {
   metaDescription:
-    "Compare 7+ off-airport DFW parking lots from $4.95/day. Save vs $10–$34/day on-airport rates. Free 24/7 shuttle, DART/TEXRail to Dallas/Fort Worth from $2.50. Free cancellation.",
+    "Compare bookable off-airport DFW parking lots, including 24/7 shuttle lots, at today's prices. Save vs $10–$34/day on-airport rates. DART/TEXRail to Dallas/Fort Worth from $2.50. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,15 @@ const dfwContent: AirportContent = {
 
 The airport sits between Dallas and Fort Worth, straddling four cities. Five terminals (A, B, C, D, E) are connected airside by the free Skylink automated people mover, running every 2 minutes 24/7.
 
-On-airport parking at DFW is moderate. Terminal Garages are $27/day, Express Parking is $10/day uncovered ($15 covered), Remote Parking is $10/day, and Valet is $34/day. Off-airport parking through Triply starts at around $4.95/day pre-booked — saving up to 80% compared to terminal garages. Pre-booking on dfwairport.com/park/ saves up to 50%.`,
+On-airport parking at DFW is moderate. Terminal Garages are $27/day, Express Parking is $10/day uncovered ($15 covered), Remote Parking is $10/day, and Valet is $34/day. Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Pre-booking on dfwairport.com/park/ saves up to 50% on-airport.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near DFW",
-      body: `**Ausby Airport Parking** — The cheapest at around $4.95/day pre-booked. **WARNING:** Free shuttle runs only 10 AM–9:30 PM. After-hours pickup (9:31 PM–9:59 AM) costs $25 + tax extra. Best for daytime travelers willing to plan around the shuttle window.
+      body: `**Clarion Inn & Suites North** — **Closest bookable lot** at 1.8 miles, in Irving. Free shuttle runs 24/7 every 40 minutes to the airport; pickups from the airport are on demand — call the hotel once you have your luggage. No extra charge for full-size vans, pickup trucks or large SUVs, and no hotel stay required.
 
-**Red Roof Inn Dallas DFW Airport North** — Around $5.49/day pre-booked. Hotel parking near the north entrance. 24/7 front desk helps with late arrivals. Confirm shuttle hours before booking.
+**The Westin Dallas-Fort Worth** — Hotel lot 2.2 miles out. Complimentary shuttle runs 24/7, every hour on the hour, with on-demand pickups from the airport. 24/7 front desk. No extra charge for full-size vans, pickup trucks or large SUVs.
 
-**Days Inn by Wyndham DFW Airport North** — Around $5.99/day pre-booked. Budget-friendly hotel parking 3 miles out. Verify shuttle schedule.
-
-**Clarion Inn & Suites North DFW Airport** — Around $6.49/day pre-booked. Mid-range option with hotel-quality security. Good for park-sleep-fly packages.
-
-**The Parking Spot North / South** — Around $8.95/day pre-booked. 24/7 on-demand shuttle — shuttles depart from your vehicle, no walking. Both covered and uncovered options. Loyalty rewards. Choose North or South based on your approach direction.
-
-**The Parking Spot Premium** — Around $11.95/day pre-booked. Premium tier with priority shuttle service. Covered parking + car wash service while you travel.`,
+**Red Roof Inn** — Hotel lot 2.3 miles out on Esters Blvd in Irving. Free shuttle 3:30 AM–1:00 AM, every 40 minutes — **no shuttle between 1:00 AM and 3:30 AM**. Return pickups are on demand (expect a 25–30 minute wait). Arrive at least 30 minutes early to check in at the front desk. No extra charge for oversized vehicles.`,
     },
     {
       heading: "Three Rail Lines, Two Cities — Transit from DFW",
@@ -55,11 +49,10 @@ Construction is ongoing but the airport remains fully operational. Some roadway 
     {
       heading: "Tips for Parking at DFW",
       body: `• **Pre-book on dfwairport.com/park/** — Saves up to 50% vs walk-up rates. The Express Parking at $10/day uncovered drops further when pre-booked.
-• **Verify off-site shuttle hours** — Ausby's free shuttle runs 10 AM–9:30 PM only ($25 after-hours fee). Days Inn, Red Roof Inn, and Clarion shuttles run on schedules. The Parking Spot North/South run 24/7 on-demand.
+• **Verify off-site shuttle hours** — Clarion Inn & Suites North (every 40 minutes) and The Westin Dallas-Fort Worth (hourly) run their shuttles 24/7. Red Roof Inn's shuttle stops between 1:00 AM and 3:30 AM, so pick a 24/7 lot for red-eyes.
 • **Skylink connects all terminals** — Free, every 2 minutes, 24/7. Full loop in ~13 minutes. Essential for connecting flights or if you arrive at the wrong terminal.
 • **Watch for ice storms in winter** — North Texas ice storms are DFW's Achilles heel. A major ice event can ground 1,000+ flights and strand travelers for 2–3 days. Travel insurance is strongly recommended for December–February travel.
 • **Tornado season March–June** — Severe thunderstorms with hail and tornadoes are common spring–early summer. Ground stops typically last 1–3 hours.
-• **Westin DFW is on-airport** — The only hotel directly on DFW property. Walk to Terminal A. Premium option for early flights or late arrivals.
 • **NTTA TollTag for Express/Remote** — Express and Remote parking lots accept credit cards or NTTA TollTag with credit card on file. NO cash at these lots.`,
     },
   ],
@@ -68,17 +61,17 @@ Construction is ongoing but the airport remains fully operational. Some roadway 
     {
       question: "What is the cheapest parking at DFW?",
       answer:
-        "Ausby Airport Parking at around $4.95/day pre-booked is the cheapest off-airport option — but the free shuttle runs only 10 AM–9:30 PM ($25 after-hours fee). Red Roof Inn at $5.49/day and Days Inn at $5.99/day are also low-cost options. The cheapest on-airport options are Express Parking and Remote Parking at $10/day. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport options are Express Parking and Remote Parking at $10/day. Off-airport lots — Clarion Inn & Suites North, The Westin Dallas-Fort Worth and Red Roof Inn — all include a free shuttle, and their prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. If you have an overnight flight, note that Red Roof Inn's shuttle doesn't run 1:00 AM–3:30 AM.",
     },
     {
       question: "How much does it cost to park at DFW?",
       answer:
-        "On-airport parking at DFW ranges from $10/day (Express uncovered, Remote) to $34/day (Valet). Terminal Garages are $27/day, Express covered $15/day. Off-airport parking through Triply starts at around $4.95/day pre-booked — saving up to 80% compared to terminal garages. Pre-booking on dfwairport.com saves up to 50%.",
+        "On-airport parking at DFW ranges from $10/day (Express uncovered, Remote) to $34/day (Valet). Terminal Garages are $27/day, Express covered $15/day. Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate — see the lot list on this page for current rates. Pre-booking on dfwairport.com saves up to 50% on-airport.",
     },
     {
       question: "Do off-airport DFW parking lots run shuttles 24/7?",
       answer:
-        "Some do. The Parking Spot North and South run 24/7 on-demand shuttles. CRITICAL: Ausby Airport Parking shuttle runs only 10 AM–9:30 PM (after-hours pickup costs $25 extra). Hotel-based lots like Days Inn and Red Roof Inn run on schedules. Verify shuttle hours before booking if you have an early-morning or late-night flight.",
+        "Two bookable lots do: Clarion Inn & Suites North (every 40 minutes, on-demand pickups from the airport) and The Westin Dallas-Fort Worth (every hour on the hour, on-demand pickups). Red Roof Inn runs its shuttle 3:30 AM–1:00 AM only. Verify shuttle hours before booking if you have an early-morning or late-night flight.",
     },
     {
       question: "How do I get from DFW to downtown Dallas?",

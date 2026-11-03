@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const iahContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport IAH parking lots from $3.99/day. Save vs $25/day on-airport garages. Free 24/7 shuttle, free EV charging, $4.50 express bus to downtown Houston. Free cancellation.",
+    "Compare bookable off-airport IAH parking lots, including hotel lots with airport shuttles, at today's prices. Save vs $25/day on-airport garages. Free EV charging on-airport, $4.50 express bus to downtown Houston. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,13 @@ const iahContent: AirportContent = {
 
 IAH parking is among the cheapest at any major U.S. airport. Terminal Garages cap at $25/day. Even more impressive: ecopark uncovered runs ~$6.47/day and ecopark covered ~$8.31/day with free 24/7 shuttle. Valet is $30/day.
 
-Off-airport parking through Triply starts at around $3.99/day pre-booked — savings of up to 84% compared to terminal garages. For a 7-day trip for 2 travelers, off-site parking saves $119–$147 vs the Terminal Garage.`,
+Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. The bookable lots are hotel lots with an airport shuttle, and none runs it around the clock, so check shuttle hours against your flight time.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near IAH",
-      body: `**PreFlight Airport Parking** — The cheapest at around $3.99/day pre-booked (7-day rate). 24/7 shuttle. 2.4 miles out on Greens Road. Best value for long-term parking.
+      body: `**Hilton Garden Inn Houston/Bush** — Hotel lot 3.4 miles out on John F Kennedy Blvd. Free shuttle 4:30 AM–10 PM every 30 minutes — no shuttle overnight, so check your flight time. No extra charge for full-size vans, pickup trucks or large SUVs. Check in at the hotel when you arrive; no room reservation needed.
 
-**Comfort Suites Houston IAH Airport** — Around $6.95/day pre-booked. Hotel parking 3 miles out. Park-sleep-fly packages also available.
-
-**Fine Airport Parking** — Around $6.99/day pre-booked. 24/7 shuttle every 5–7 minutes — best frequency at IAH. 20 EV charging spaces. Both self-park and valet options. Free luggage assistance.
-
-**Hilton Garden Inn Houston/Bush IAH** — Around $7.95/day pre-booked. Hilton brand quality. 3.5 miles out.
-
-**Fast Park & Relax** — Around $7.95/day pre-booked. **All covered parking** — important for Houston's extreme heat (95°F+ summer days). 24/7 staffed.
-
-**The Parking Spot** — Around $8.75/day pre-booked uncovered (or $11.25/day covered). 3 IAH locations on JFK Boulevard. 24/7 shuttle every 15 minutes. Spot Club rewards earn free parking. National brand reliability.`,
+**Comfort Suites Houston Bush Airport** — Hotel lot 3.3 miles out. The shuttle runs every 30 minutes from 5 AM to 11:30 AM and on demand from 3 PM to 11:30 PM — **no shuttle 11:30 AM–3 PM or overnight (11:30 PM–5 AM)**. You can book outside shuttle hours, but you'll need a rideshare to and from the terminal. Check in at the front desk before you park.`,
     },
     {
       heading: "Free EV Charging and Houston Heat Considerations",
@@ -33,10 +25,8 @@ Off-airport parking through Triply starts at around $3.99/day pre-booked — sav
 
 **Free EV charging** — Blink stations across ecopark, ecopark 2, Terminal A/B Garage Level 4, Terminal CDE Garage Level 4, and valet parking areas. 50+ EV charging ports total, all free. Need a Blink InCard or scan QR code on the charger touchscreen for guest access.
 
-**Covered parking matters in Houston** — Summer temperatures regularly exceed 95°F (35°C). Uncovered cars can hit 130°F+ inside. Covered options worth the small premium:
-• ecopark covered: $8.31/day
-• Fast Park & Relax: $7.95/day pre-booked (all covered)
-• The Parking Spot covered: $11.25/day pre-booked
+**Covered parking matters in Houston** — Summer temperatures regularly exceed 95°F (35°C). Uncovered cars can hit 130°F+ inside. The on-airport covered option is worth the small premium:
+• ecopark covered: $8.31/day, with free 24/7 shuttle
 
 For winter travel, Houston's main weather risk is fog (December–February) and rare ice events. The 2017 Hurricane Harvey shut down both Houston airports for days — travel insurance is recommended for hurricane season (June–November).`,
     },
@@ -56,7 +46,7 @@ The airport remains fully operational throughout. The Skyway people mover and un
     },
     {
       heading: "Tips for Parking at IAH",
-      body: `• **Pre-book PreFlight for $3.99/day** — Pre-booking the 7-day rate at PreFlight is one of the best parking deals at any major U.S. airport. 24/7 shuttle.
+      body: `• **Check the shuttle before you book** — Hilton Garden Inn's shuttle stops 10 PM–4:30 AM, and Comfort Suites has no shuttle 11:30 AM–3 PM or 11:30 PM–5 AM. For red-eyes or midday flights outside those hours, plan a rideshare or drop-off.
 • **Free EV charging via Blink** — Charge your EV for free while you travel. Available in ecopark, ecopark 2, terminal garages, and valet areas. Blink InCard or QR code required.
 • **Terminal B passengers check in at Terminal C** — Terminal B ticketing is closed through late 2026. Check in at Terminal C and Skyway to your B gate. Allow extra time.
 • **Skyway is the fastest way between terminals** — Free, every 2–4 minutes, 24/7, inside security. Use this if connecting between airlines. Subway runs outside security.
@@ -70,17 +60,17 @@ The airport remains fully operational throughout. The Skyway people mover and un
     {
       question: "What is the cheapest parking at IAH?",
       answer:
-        "PreFlight Airport Parking is the cheapest at around $3.99/day pre-booked (7-day rate). Fine Airport Parking and Comfort Suites are around $6.95–$6.99/day pre-booked. The cheapest on-airport option is ecopark uncovered at ~$6.47/day, with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is ecopark uncovered at ~$6.47/day, with free 24/7 shuttle. Off-airport, the bookable lots are Hilton Garden Inn Houston/Bush (3.4 miles, free shuttle 4:30 AM–10 PM) and Comfort Suites Houston Bush Airport (3.3 miles, shuttle 5–11:30 AM and 3–11:30 PM only). Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at IAH?",
       answer:
-        "On-airport parking at IAH ranges from ~$6.47/day (ecopark uncovered) to $30/day (Valet). Terminal Garages cap at $25/day. ecopark covered is ~$8.31/day. Off-airport parking through Triply starts at around $3.99/day pre-booked — saving up to 84% compared to terminal garages.",
+        "On-airport parking at IAH ranges from ~$6.47/day (ecopark uncovered) to $30/day (Valet). Terminal Garages cap at $25/day. ecopark covered is ~$8.31/day. Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Does IAH have free EV charging?",
       answer:
-        "Yes. IAH offers FREE EV charging via Blink stations across ecopark, ecopark 2, Terminal A/B Garage Level 4, Terminal CDE Garage Level 4, and valet parking. 50+ ports total. Need a Blink InCard or scan QR code on the charger touchscreen for guest access. Off-site, Fine Airport Parking has 20 additional EV charging spaces.",
+        "Yes. IAH offers FREE EV charging via Blink stations across ecopark, ecopark 2, Terminal A/B Garage Level 4, Terminal CDE Garage Level 4, and valet parking. 50+ ports total. Need a Blink InCard or scan QR code on the charger touchscreen for guest access.",
     },
     {
       question: "Where do I check in for Terminal B flights at IAH?",

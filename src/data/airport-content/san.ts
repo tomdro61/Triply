@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const sanContent: AirportContent = {
   metaDescription:
-    "Compare 7+ off-airport SAN parking lots from $8.95/day. Save vs $20–$40/day on-airport rates. Free shuttle, only 3 miles to downtown. FREE San Diego Flyer to Old Town. Free cancellation.",
+    "Compare bookable off-airport SAN parking lots, including 24/7 shuttle lots, at today's prices. Save vs $20–$40/day on-airport rates. Only 3 miles to downtown, FREE San Diego Flyer to Old Town. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,17 @@ const sanContent: AirportContent = {
 
 The brand-new $3.8 billion Terminal 1 opened Phase 1A in September 2025 with 19 gates. Phase 1B opens Spring 2026 with 3 more gates, and Phase 2 adds 8 more gates in early 2028 — bringing Terminal 1 to 30 gates at full build-out. Terminal 2 East and West together have 31 more gates.
 
-On-airport parking at SAN ranges from $20/day (Economy Lot) to $40/day (Valet). Terminal 1 and Terminal 2 garages all cap at $32/day. Off-airport parking through Triply starts at around $8.95/day pre-booked — saving up to 78% compared to terminal garages.`,
+On-airport parking at SAN ranges from $20/day (Economy Lot) to $40/day (Valet). Terminal 1 and Terminal 2 garages all cap at $32/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near SAN",
-      body: `**Four Points by Sheraton San Diego** — Around $8.95/day pre-booked. Cheapest off-site option. Hotel parking with shuttle. **Shuttle runs 6:00 AM – 12:30 AM only** — not for very early or late flights.
+      body: `**Aladdin Airport Parking** — **Fully indoor garage** 1.2 miles out (about a 5-minute drive). Complimentary 24/7 shuttle every 10–15 minutes and on demand, with staff to help with luggage. Self-park or quick valet, plus EV charging stations. Pull a ticket at entry and keep it — you'll show it with your confirmation at checkout.
 
-**Sheraton San Diego Hotel and Marina** — Around $12/day. **Closest off-site option** at just 0.3 miles on Harbor Island. Free shuttle 5 AM–midnight every 15–20 minutes. Marina views.
+**San Diego's Park, Shuttle & Fly (Lot A or Lot B)** — Fully fenced, well-lit lot 0.9 miles out, open and staffed 24/7. Free courtesy shuttle 24 hours on demand — call 619-291-1234 for your return pickup. A Lot A reservation is also valid at Lot B, and vice versa. SUVs, trucks and oversized vehicles must book the large-vehicle rate or pay the difference at the lot. Your reservation covers a set block of time: arrive early or leave late and the lot charges its flat walk-up rate plus a one-time $4.75 Airport Access fee.
 
-**Aladdin Airport Parking** — Around $13/day pre-booked. Long-established (525+ Yelp reviews). Open 24/7 with shuttle every 5–10 minutes — most frequent at SAN. Also serves cruise port and Amtrak. Covered parking available at premium.
+**Fox Parking** — Valet lot 0.8 miles from SAN, but **its listed shuttle runs to the San Diego Cruise Port**, not the airport terminals (on demand, 4:00 AM–12:30 AM). Best for cruise travelers — if you're flying, check the shuttle details on the lot page before you book. Complimentary luggage help. Medium SUVs/trucks pay $3/day and full-size SUVs/trucks $8/day extra at the lot.
 
-**San Diego Airport Parking (SDAP)** — Around $14/day pre-booked. Most-reviewed SAN off-site lot on Yelp (430+ reviews). Free valet and 24/7 shuttle. Vehicle size matters — SUVs $19/day, extra-large vehicles $20/day.
-
-**Park, Shuttle & Fly (Lot A or B)** — Around $18.95/day pre-booked. 24/7 free express shuttles. Free valet. Two locations on Pacific Highway. **Note: $4.75 Airport Access fee outside booked times.**
-
-**Fox Auto Parks** — Around $8/day pre-booked (best value!). 1.9 miles from airport. Free shuttle every 25 minutes or on-demand 24/7. Compact cars/SUVs at $19.95/day walk-up — major savings via pre-booking.`,
+Cruising instead of flying? **Aladdin Port Parking** uses the same indoor garage, but its 24/7 shuttle (every 15–25 minutes) runs to the cruise ship terminals, not the airport.`,
     },
     {
       heading: "Skip Parking Entirely — Transit and Rideshare from SAN",
@@ -39,7 +35,7 @@ On-airport parking at SAN ranges from $20/day (Economy Lot) to $40/day (Valet). 
 
 **MTS Route 992 Bus** — $2.50 to downtown San Diego (Santa Fe Depot) in 15 minutes. Every 15 minutes, 5 AM–12:30 AM. From the airport's elevated platform.
 
-**Rideshare** — $10–$18 to downtown, 7–12 minutes. Round-trip Uber for two ($20–$36) beats 2+ days of any parking option.
+**Rideshare** — $10–$18 to downtown, 7–12 minutes. Round-trip Uber for two ($20–$36) beats 2+ days in any on-airport lot.
 
 For Comic-Con week (July) and Padres game days, surge pricing kicks in. Pre-booked parking eliminates that risk.`,
     },
@@ -62,9 +58,9 @@ Terminal 2 (East with 12 gates and West with 19 gates plus international arrival
       heading: "Tips for Parking at SAN",
       body: `• **Use the free San Diego Flyer for transit** — Free shuttle to Old Town Transit Center connects to Trolley, COASTER, and Amtrak. The cheapest way to leave the airport.
 • **Free EV charging in Terminal 1 Plaza** — 185 Level 2 ports across 5 stories. Included with parking. Largest EV charging deployment among San Diego airports.
-• **Pre-book online** — Walk-up rates run $4–$12 higher than pre-book. Fox Auto Parks drops from $19.95 to $8/day pre-booked.
-• **Verify shuttle hours** — Four Points and Sheraton Hotel shuttles have limited hours (6 AM–12:30 AM and 5 AM–midnight respectively). Aladdin and SDAP run 24/7.
-• **Vehicle size matters at SDAP** — Standard cars $18, SUVs $19, extra-large $20. Factor into your total.
+• **Pre-book online** — Pre-booked rates are typically lower than walk-up rates, and pre-booking guarantees your space.
+• **Verify shuttle hours** — Aladdin Airport Parking and Park, Shuttle & Fly run 24/7. Fox Parking's shuttle serves the Cruise Port and stops 12:30 AM–4:00 AM.
+• **Vehicle size matters** — Park, Shuttle & Fly requires the large-vehicle rate for SUVs and trucks, and Fox Parking adds $3–$8/day at the lot for bigger vehicles. Factor that into your total.
 • **Comic-Con week is the worst time** — July's San Diego Comic-Con (130,000+ attendees) creates extreme rideshare surge. Pre-book parking weeks ahead.
 • **Approach over downtown is dramatic** — The Runway 27 approach passes directly over Balboa Park and downtown buildings. One of the most scenic approaches in U.S. commercial aviation.
 • **Curfew for departures** — No takeoffs 11:30 PM – 6:30 AM. Penalties up to $10,000.`,
@@ -75,17 +71,17 @@ Terminal 2 (East with 12 gates and West with 19 gates plus international arrival
     {
       question: "What is the cheapest parking at San Diego airport?",
       answer:
-        "Fox Auto Parks at around $8/day pre-booked is the cheapest off-airport option (vs $19.95 walk-up). Four Points by Sheraton at $8.95/day is also very cheap but with limited shuttle hours (6 AM–12:30 AM). The cheapest on-airport option is the Economy Lot at $20/day with free shuttle. All prices are based on a sample 5-day booking and may vary.",
+        "Off-airport lots booked through Triply typically cost a fraction of on-airport rates. Before comparing, check the extras: Fox Parking adds $3–$8/day at the lot for SUVs and trucks, and Park, Shuttle & Fly requires its large-vehicle rate for them. The cheapest on-airport option is the Economy Lot at $20/day with free shuttle. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at SAN?",
       answer:
-        "On-airport parking at SAN is $32/day across all three garages (Terminal 1 Parking Plaza, Terminal 2 Lot, Terminal 2 Parking Plaza). Economy Lot is $20/day with free shuttle. Valet is $40/day. Off-airport parking through Triply starts at around $8.95/day pre-booked — saving up to 78%.",
+        "On-airport parking at SAN is $32/day across all three garages (Terminal 1 Parking Plaza, Terminal 2 Lot, Terminal 2 Parking Plaza). Economy Lot is $20/day with free shuttle. Valet is $40/day. Off-airport parking through Triply typically costs a fraction of the garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "How do I get from SAN to downtown San Diego?",
       answer:
-        "Multiple options. The MTS Route 992 bus runs from the airport to Santa Fe Depot downtown in 15 minutes for $2.50, every 15 minutes. The free San Diego Flyer shuttle connects to Old Town Transit Center for Trolley/COASTER/Amtrak access. Rideshare is $10–$18 in 7–12 minutes. Round-trip Uber for two ($20–$36) often beats 2+ days of parking.",
+        "Multiple options. The MTS Route 992 bus runs from the airport to Santa Fe Depot downtown in 15 minutes for $2.50, every 15 minutes. The free San Diego Flyer shuttle connects to Old Town Transit Center for Trolley/COASTER/Amtrak access. Rideshare is $10–$18 in 7–12 minutes. Round-trip Uber for two ($20–$36) often beats 2+ days of on-airport parking.",
     },
     {
       question: "Does SAN have free EV charging?",
@@ -95,7 +91,7 @@ Terminal 2 (East with 12 gates and West with 19 gates plus international arrival
     {
       question: "Do SAN off-airport parking lots run shuttles 24/7?",
       answer:
-        "Some do. Aladdin Airport Parking, SDAP (San Diego Airport Parking), and Park Shuttle & Fly run 24/7 shuttles. Hotel-based lots have more limited hours: Four Points by Sheraton shuttle runs 6 AM–12:30 AM only; Sheraton San Diego Hotel runs 5 AM–midnight. Verify before booking for early/late flights.",
+        "Two bookable lots do: Aladdin Airport Parking (every 10–15 minutes and on demand) and San Diego's Park, Shuttle & Fly (24 hours on demand — call for your return pickup). Fox Parking's on-demand shuttle runs 4:00 AM–12:30 AM only and is listed as serving the Cruise Port. Verify before booking for early/late flights.",
     },
     {
       question: "How early should I arrive at SAN?",

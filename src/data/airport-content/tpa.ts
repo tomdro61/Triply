@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const tpaContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport TPA parking lots from $4.99/day. Save vs $12–$32/day on-airport rates. Free SkyConnect to terminal, free EV charging in all garages. Free cancellation.",
+    "Compare bookable off-airport TPA parking lots at today's prices. Save vs $12–$32/day on-airport rates. Free SkyConnect to terminal, free EV charging in all garages. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,17 @@ const tpaContent: AirportContent = {
 
 TPA pioneered the landside/airside terminal concept in 1971 — a central Main Terminal building handles ticketing, baggage claim, and ground transportation, while four separate airside satellite buildings house the gates (Airsides A, C, E, F). Automated People Movers (APMs) connect the Main Terminal to each Airside in under 2 minutes. This design became a model for airports worldwide.
 
-On-airport parking at TPA is one of the best deals at any major airport. The Economy Garage is $12/day ($10/day pre-booked online), Long-Term Garage $20/day ($18 online), Short-Term $24/day, Valet $32/day. Off-airport parking through Triply starts at around $4.99/day pre-booked — saving up to 84% compared to short-term.`,
+On-airport parking at TPA is one of the best deals at any major airport. The Economy Garage is $12/day ($10/day pre-booked online), Long-Term Garage $20/day ($18 online), Short-Term $24/day, Valet $32/day. Off-airport parking through Triply is worth comparing against those garage rates; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near TPA",
-      body: `**Safeway Parking** — Around $4.99/day pre-booked. Cheapest off-site rate at TPA. **WARNING:** No shuttle service. You must arrange your own ride to the terminal — best for travelers who can rideshare cheaply or get dropped off. Covered parking option (rare among Tampa off-site lots).
+      body: `**Grand Hyatt Tampa Bay** — **Closest bookable lot** at 1.3 miles (about a 5-minute drive), set on a 35-acre nature preserve. On-demand shuttle 5:00 AM–11:00 PM — **no shuttle 11:00 PM–5:00 AM**, so check your flight time. Check in at the front desk for a dashboard parking pass, then request the shuttle there; for your return, call 502-579-0053 from the hotel shuttle pickup area. 4 universal EV charging stations and on-site security cameras.
 
-**Fairfield Inn & Suites Tampa Fairgrounds** — Around $5.99/day pre-booked. Budget hotel parking 4.5 miles east of TPA. Up to 10 days included. Confirm shuttle hours.
+**Sailing from Port Tampa Bay instead?** Two bookable lots serve cruise passengers, not the airport — their shuttles go only to the port:
 
-**The Godfrey Hotel & Cabanas Tampa** — Around $6/day pre-booked. Hotel parking 2.5 miles out. Confirm shuttle schedule for early/late flights.
+**241 Car Services – Secure Parking** — Valet lot (you leave your keys) in a lighted, gated facility, 5.5 miles from TPA and under a mile from the port. On-demand shuttle 7:00 AM–3:00 PM to and from the Port of Tampa only. No extra charge for full-size cars, vans or large SUVs.
 
-**Holiday Inn Tampa Westshore** — Around $6.99/day pre-booked. **Up to 21 days of parking included** — ideal for extended trips or cruises. Hotel shuttle service.
-
-**DoubleTree by Hilton Tampa Airport - Westshore** — Around $7.95/day pre-booked. **24/7 complimentary airport shuttle** — only off-site lot at TPA with 24/7 shuttle. DoubleTree brand reliability.
-
-**Hyatt Place Tampa Airport/Westshore** — Around $7.95/day pre-booked. Hotel parking 1.7 miles out. Shuttle every 30 minutes 4–8 AM, on-demand after 8 AM. **Early 4 AM shuttle covers most morning flights.**`,
+**Quality Inn & Suites Tampa/Ybor City** — 7.9 miles from TPA. Port shuttle 10:00 AM–2:00 PM only, for an extra $10 per person round trip, paid at the front desk. Staffed and monitored 24 hours.`,
     },
     {
       heading: "TPA's Landside/Airside Design — Why It's Different",
@@ -69,7 +65,7 @@ The airport remains fully operational throughout. Airside D construction is on t
       body: `• **Pre-book online for $10/day Economy** — TPA's Economy Garage is already cheap at $12/day, but pre-booking at park.tampaairport.com drops it to $10/day. Excellent value with free SkyConnect to terminal.
 • **Free EV charging in all garages** — Short-Term has Level 2 (faster), Long-Term and Economy have Level 1. Cell Phone Lot also has Level 2.
 • **First hour free in Short-Term and Long-Term garages** — Both have free first hour. Short-Term is ideal for pickups/drop-offs, but Long-Term offers better daily rates ($18 online vs $24 short-term).
-• **Verify off-site shuttle hours** — DoubleTree runs 24/7 (only one). Hyatt Place runs every 30 min 4-8 AM, on-demand after. Holiday Inn and Fairfield Inn have limited hours. Safeway Parking has NO shuttle.
+• **Verify off-site shuttle hours** — Grand Hyatt Tampa Bay's airport shuttle runs 5 AM–11 PM, with none overnight. 241 Car Services and Quality Inn shuttle to the cruise port only, not the airport.
 • **SkyConnect is free and fast** — Free 1.5-mile APM connects Main Terminal (Levels 1-3) to Economy Parking and Rental Car Center. Every 2 minutes, 24/7, under 5-minute ride.
 • **TPA flat-rate taxi** — $35 to downtown Tampa or to Port Tampa Bay (cruise terminal). Reliable and avoids surge.
 • **Watch for hurricanes June–November** — Florida's Gulf Coast is hurricane-prone. Travel insurance recommended.
@@ -81,12 +77,12 @@ The airport remains fully operational throughout. Airside D construction is on t
     {
       question: "What is the cheapest parking at Tampa airport?",
       answer:
-        "Safeway Parking is the cheapest off-airport rate at around $4.99/day pre-booked, BUT it has NO shuttle service — you must arrange your own ride to the terminal. Fairfield Inn & Suites at $5.99/day and The Godfrey Hotel at $6/day are next cheapest with shuttles. The cheapest on-airport option is the Economy Garage at $10/day pre-booked online ($12/day at gate). All prices are based on a sample 7-day booking and may vary.",
+        "TPA's own garages are among the cheapest at any major airport: the Economy Garage is $10/day pre-booked online ($12/day at the gate), with free SkyConnect to the terminal. Off-airport, Grand Hyatt Tampa Bay (1.3 miles) runs an on-demand airport shuttle 5 AM–11 PM. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at TPA?",
       answer:
-        "On-airport parking at TPA ranges from $10/day (Economy Garage pre-booked online) to $32/day (Valet). Long-Term Garage is $18/day pre-booked, Short-Term $24/day. Off-airport parking through Triply starts at around $4.99/day pre-booked — saving up to 84% compared to Short-Term.",
+        "On-airport parking at TPA ranges from $10/day (Economy Garage pre-booked online) to $32/day (Valet). Long-Term Garage is $18/day pre-booked, Short-Term $24/day. See the lot list on this page for current off-airport rates.",
     },
     {
       question: "Does TPA have free EV charging?",

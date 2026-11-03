@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const dtwContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport DTW parking lots from $6/day. Save vs $14–$32/day on-airport rates. Free 24/7 shuttle to McNamara and Evans terminals. Free EV charging. Free cancellation.",
+    "Compare bookable off-airport DTW parking lots, all with 24/7 shuttles, at today's prices. Save vs $14–$32/day on-airport rates. Shuttles serve McNamara and Evans terminals. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,19 @@ const dtwContent: AirportContent = {
 
 McNamara's Concourse A stretches nearly one mile (4,850 feet) — one of the longest airport terminal buildings in the world. The free ExpressTram runs the full length, and the iconic 744-foot Tunnel of Light underground walkway with synchronized LED lights and music connects Concourse A to Concourses B/C. Big Blue Deck serves Evans Terminal.
 
-On-airport parking at DTW: Green Lots $14/day, Big Blue Deck $16-23/day, McNamara Garage $26-32/day, Valet $51/day. Off-airport parking through Triply starts at around $6/day pre-booked — saving up to 81% compared to McNamara Garage.`,
+On-airport parking at DTW: Green Lots $14/day, Big Blue Deck $16-23/day, McNamara Garage $26-32/day, Valet $51/day. Off-airport parking through Triply typically costs a fraction of the McNamara Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Every bookable lot includes a free shuttle that runs around the clock.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near DTW",
-      body: `**US Park (DTW)** — The cheapest at around $6/day pre-booked. 30-shuttle fleet running 24/7 on-demand — one of the largest at any U.S. airport. 2.5 miles from DTW. Best overall value.
+      body: `**Wyndham Garden Romulus** — **Closest bookable lot** at 1.8 miles, in Romulus. Free shuttle runs 24/7, every hour. Check in at the front desk for your parking pass; for the return, call the hotel to schedule your pickup. Well-lit lot with 24/7 surveillance and a 24/7 front desk.
 
-**Airlines Parking (DTW)** — Around $6.50/day pre-booked. One of the closest off-site lots at just 2 miles. 24/7 on-demand shuttle, ~5-minute ride to terminal.
+**Radisson Hotel Detroit Metro Airport** — Hotel lot 2 miles out. Free shuttle 24/7, every 30 minutes — no need to stop at the counter, just leave your printed confirmation on the dashboard and wait for the shuttle. Parties larger than 4 or with extra luggage should call the day before.
 
-**Clarion Hotel Detroit Metro Airport** — Around $10.99/day. Hotel parking 1.5 miles from DTW with 24/7 shuttle. Park-sleep-fly packages available with overnight stay.
+**Detroit Metro Airport Marriott** — Uncovered self-park lot 2.2 miles out on Flynn Dr. Free shuttle 24/7 on demand, with an estimated 30-minute wait — call when you're ready. In-and-out privileges during your booking.
 
-**Valet Connections (DTW)** — Around $11/day pre-booked. Valet service at off-site prices. 24/7 shuttle every 5–10 minutes — among the most frequent at DTW. 3 miles in Taylor, MI.
+**Valet Connections** — Valet lot 3 miles out in Taylor. Free shuttle to the airport 24 hours a day, every 10–15 minutes; pickups on demand. Outdoor parking (drop-off and pickup are indoors), 24/7 CCTV and front desk, and an onsite mechanic for car washes, oil changes and other services. No extra charge for full-size vans, pickups or large SUVs. Most of the price is paid at the lot, so the amount charged online is only part of the total — the lot page shows the split. Picking up later than your reservation costs extra.
 
-**Fast Lane Airport Parking (DTW)** — Around $10/day pre-booked. Mid-range option 4 miles out. Weekly rate of ~$102 available.
-
-**Qwik Park (DTW)** — Around $14/day pre-booked. The most full-service off-site lot — covered parking, valet option, plus car wash, oil change, and detailing services while you travel. Closest major off-site lot at 1.5 miles.`,
+**Hampton Inn Detroit/Belleville** — Hotel lot 7.1 miles out in Belleville. Free shuttle 24 hours, departing every hour on the hour; call for your airport pickup. No extra charge for oversized vehicles. Most of the price is paid at the lot when you arrive.`,
     },
     {
       heading: "Two Terminals, Two Garages — Make Sure You Know Yours",
@@ -33,7 +31,7 @@ On-airport parking at DTW: Green Lots $14/day, Big Blue Deck $16-23/day, McNamar
 
 **McNamara Terminal** — Delta Air Lines hub. Also serves Aeromexico, Air France, KLM, Korean Air, WestJet (all SkyTeam partners). Direct walkway from McNamara Garage and the on-airport Westin Hotel.
 
-**Evans Terminal** (formerly North Terminal — renamed April 4, 2022) — All non-SkyTeam carriers: Alaska, American, Delta? (no), Frontier, JetBlue, Lufthansa, Southwest, Spirit, Sun Country, United. Big Blue Deck connects directly.
+**Evans Terminal** (formerly North Terminal — renamed April 4, 2022) — All non-SkyTeam carriers: Alaska, American, Frontier, JetBlue, Lufthansa, Southwest, Spirit, Sun Country, United. Big Blue Deck connects directly.
 
 **Critical:** Verify your terminal before heading to the airport. Use Google Flights or your airline's app. Off-site shuttles serve both terminals — let the driver know which one you need.
 
@@ -57,7 +55,7 @@ Most travelers will use rideshare or rental cars from DTW.`,
     {
       heading: "Tips for Parking at DTW",
       body: `• **Confirm your terminal** — McNamara (Delta/SkyTeam) vs Evans (everyone else). Wrong terminal = 15-minute shuttle to fix it.
-• **Pre-book online** — US Park drops from $8 walk-up to $6 pre-booked; Airlines Parking from $8.50 to $6.50; Valet Connections from $12 to $11.
+• **Pre-book online** — The lot list on this page shows current per-day rates, and a search with your dates shows the total with taxes and fees. At Valet Connections and Hampton Inn Detroit/Belleville most of the price is paid at the lot.
 • **Free EV charging at DTW** — McNamara Garage Level 6 and Big Blue Deck long-term sections both have free Level 2 charging. 8 stations total — limited availability so arrive early.
 • **Westin is on-airport** — Connected directly to McNamara Terminal. Best park-sleep-fly option at DTW for early Delta flights.
 • **Watch for lake-effect snow November–March** — DTW averages 33+ inches of snow annually. Lake-effect bands can produce sudden, intense snowfall. The airport rarely closes entirely but 1–4 hour delays are common during winter storms.
@@ -70,12 +68,12 @@ Most travelers will use rideshare or rental cars from DTW.`,
     {
       question: "What is the cheapest parking at Detroit airport?",
       answer:
-        "US Park is the cheapest off-airport option at around $6/day pre-booked, with a 30-shuttle 24/7 on-demand fleet. Airlines Parking at $6.50/day pre-booked is also excellent value. The cheapest on-airport options are the Green Lots at $14/day with free shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is the Green Lots at $14/day with free shuttle. Off-airport lots near DTW — Wyndham Garden Romulus, Radisson Hotel Detroit Metro Airport, Detroit Metro Airport Marriott, Valet Connections and Hampton Inn Detroit/Belleville — all include a free 24/7 shuttle. Their prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at DTW?",
       answer:
-        "On-airport parking at DTW ranges from $14/day (Green Lots) to $51/day (Valet at McNamara). Big Blue Deck is $16/day short-term ($23/day long-term). McNamara Garage is $26/day short-term ($32/day long-term). Off-airport parking through Triply starts at around $6/day pre-booked — saving up to 81% compared to McNamara Garage.",
+        "On-airport parking at DTW ranges from $14/day (Green Lots) to $51/day (Valet at McNamara). Big Blue Deck is $16/day short-term ($23/day long-term). McNamara Garage is $26/day short-term ($32/day long-term). Off-airport parking through Triply typically costs a fraction of the McNamara Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Can I walk between McNamara and Evans terminals?",
@@ -85,7 +83,7 @@ Most travelers will use rideshare or rental cars from DTW.`,
     {
       question: "Do DTW off-airport parking lots run shuttles 24/7?",
       answer:
-        "Most major operators do. US Park, Airlines Parking, Clarion Hotel, and Valet Connections all run 24/7 shuttles. US Park has a 30-shuttle fleet for minimal wait times. Some hotel lots have limited shuttle hours — verify before booking if you have a red-eye or early-morning flight.",
+        "Yes — every bookable lot does. Valet Connections runs to the airport every 10–15 minutes, Wyndham Garden Romulus and Hampton Inn Detroit/Belleville every hour, the Radisson every 30 minutes, and the Detroit Metro Airport Marriott on demand (about a 30-minute wait). Return pickups at most lots are by phone — call once you have your luggage.",
     },
     {
       question: "How do I get from DTW to downtown Detroit?",

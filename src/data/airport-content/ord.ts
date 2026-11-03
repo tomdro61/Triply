@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const ordContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport ORD parking lots from $7.95/day. Save vs $15–$43/day on-airport rates. Free 24/7 shuttle, CTA Blue Line to downtown for $5. Free cancellation.",
+    "Compare bookable off-airport ORD parking lots, including 24/7 shuttle lots, at today's prices. Save vs $15–$43/day on-airport rates. CTA Blue Line to downtown for $5. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,21 @@ const ordContent: AirportContent = {
 
 ORD has 4 terminals (1, 2, 3, 5) connected by the free Airport Transit System (ATS) automated people mover. The new Concourse D ($1.3B, 19 gates) breaks ground in 2025 with vertical construction in spring 2026 and opening late 2028.
 
-On-airport parking at ORD is among the most expensive in the country. Terminal Garages cap at $43/day. Economy Lot E is $17/day, Economy Lot F (covered) $22/day, and Economy Lot G $15/day with free ATS access. Off-airport parking through Triply starts at around $7.95/day pre-booked — saving up to 81% compared to terminal garages.`,
+On-airport parking at ORD is among the most expensive in the country. Terminal Garages cap at $43/day. Economy Lot E is $17/day, Economy Lot F (covered) $22/day, and Economy Lot G $15/day with free ATS access. Off-airport parking through Triply typically costs a fraction of the terminal garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near ORD",
-      body: `**Park 'N Jet O'Hare** — Around $7.99/day pre-booked. Outdoor self-park or indoor covered ($10.99/day). 2.5 miles in Schiller Park. 24/7 shuttle every 10–15 minutes — one of the most frequent.
+      body: `**Pride Airport Parking** — **Closest bookable lot** at 2.0 miles. Valet lot with a 24/7 on-demand shuttle for up to 4 passengers — call for pickup after you collect your bags. Staff move your luggage to the shuttle, and car delivery and an on-site car wash are available. Part of the price is paid at the lot when you arrive; the lot page shows the split.
 
-**Routes Airport Parking** — Around $7.95/day pre-booked. Budget-friendly outdoor self-park on Mannheim Road. 24/7 shuttle. Fenced and secure.
+**Routes Airport Parking** — Valet lot 2.1 miles out on the O'Hare doorstep. Free 24/7 on-demand shuttle; call for pickup on your return. Gated, well-lit and on camera. You leave your keys. Oversize vehicles (F-250, 2500-series pickups, Transit and 12/15-passenger vans) may pay extra at the lot; no buses.
 
-**PreFlight Airport Parking** — Around $9.95/day pre-booked outdoor (or $12.95 indoor). 24/7 shuttle every 5–10 minutes — fastest at ORD. Car wash and EV charging available.
+**Crowne Plaza** — Hotel lot 2.2 miles out, near the Donald E. Stephens Convention Center. Free shuttle every 30 minutes, 5 AM–9:30 PM from the hotel; return shuttles run until 10 PM from Terminal 2, Lower Level, Door 2C, with no need to call. Outside those hours you arrange your own ride. 24/7 front desk.
 
-**Loews Chicago O'Hare Hotel Parking** — Around $15.95/day pre-booked. Upscale hotel parking in Rosemont. 24/7 shuttle every 15 minutes. Close to Rosemont entertainment district.
+**Hyatt Place Chicago/O'Hare** — Hotel lot 2.3 miles out. Free shuttle every 40 minutes, 5 AM–10:30 PM only. Allow about 20 minutes to park and 30–40 minutes for the ride. Cars and SUVs only — no trucks or buses — and your parking tag must hang on the mirror.
 
-**WallyPark Premier Airport Parking** — Around $16.95/day pre-booked. Premium fully-covered garage with valet. Luggage assistance and car wash. Higher rate but full-service experience.
+**Marriott Suites O'Hare** — Hotel self-park 2.6 miles out (you keep your keys). Free shuttle every 30 minutes, 5 AM–10 PM; the ride is about 10 minutes. Uncovered lot with staff on site and cameras; in-and-out privileges.
 
-**Hilton Chicago O'Hare Airport** — Around $35/day. The ONLY hotel directly inside ORD, connected to Terminal 2 via enclosed walkway. **No shuttle needed** — walk to Terminal 2 in minutes. Premium for business travelers and early flights.`,
+**Super 8 Chicago O'Hare Airport** — Hotel lot 2.7 miles out with **no shuttle** — plan on Uber, Lyft or a drop-off. EV charging stations on site, 24/7 front desk and camera monitoring.`,
     },
     {
       heading: "CTA Blue Line — 24/7 Rail to Chicago at $5",
@@ -57,12 +57,13 @@ Note: All rideshare pickups are centralized at Terminal 2 Upper Level — regard
     },
     {
       heading: "Tips for Parking at ORD",
-      body: `• **Pre-book on SpotHero or directly** — Most off-site lots offer significant pre-book savings. Walk-up rates run $1–$5/day higher.
-• **Indoor/covered parking is worth it in Chicago winters** — January–March can deliver 6+ inches of snow at a time. Park 'N Jet indoor ($10.99/day) and PreFlight indoor ($12.95/day) protect your vehicle.
+      body: `• **Pre-book your lot** — Booking ahead locks in your spot for holiday and convention weeks.
+• **Indoor/covered parking is worth it in Chicago winters** — January–March can deliver 6+ inches of snow at a time. On-airport Economy Lot F (covered, $22/day) and the Terminal Garages protect your vehicle.
 • **Use the Blue Line for downtown** — At $5.00, even with the premium, it beats the $40+ taxi. 24/7 service. 45 minutes to the Loop.
 • **The ATS connects everything** — Free Airport Transit System every 3–5 minutes 24/7 connects Terminals 1, 2, 3, 5, the Multi-Modal Facility (rental cars), Economy Lots, and Kiss 'n' Fly.
 • **Rideshare pickups at Terminal 2 only** — All Uber, Lyft pickups are centralized at Terminal 2 Upper Level. Color-coded zones direct you. Take ATS from other terminals.
 • **Watch for winter delays** — Major snowstorms can cause 200+ flight cancellations. Travel insurance recommended for January–February.
+• **Check the shuttle before you book** — Pride and Routes run 24/7 on demand; Crowne Plaza, Hyatt Place and Marriott Suites stop around 10 PM; Super 8 has no shuttle at all.
 • **Know your terminal** — Terminal 1 = United. Terminal 3 = American. Terminal 5 = Delta, Southwest, Frontier, Spirit, internationals. Terminal 2 = Air Canada, JetBlue, United Express.`,
     },
   ],
@@ -71,12 +72,12 @@ Note: All rideshare pickups are centralized at Terminal 2 Upper Level — regard
     {
       question: "What is the cheapest parking at O'Hare?",
       answer:
-        "Routes Airport Parking is the cheapest off-airport option at around $7.95/day pre-booked. Park 'N Jet O'Hare at $7.99/day is also very competitive with frequent 24/7 shuttle. The cheapest on-airport option is Economy Lot G at $15/day with free ATS access. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is Economy Lot G at $15/day with free ATS access. Off-airport lots usually cost less: Pride Airport Parking and Routes Airport Parking include a 24/7 on-demand shuttle, while Super 8 Chicago O'Hare Airport has no shuttle, so add a rideshare each way before comparing. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at ORD?",
       answer:
-        "On-airport parking at ORD ranges from $15/day (Economy Lot G) to $43/day (Terminal Garages). Economy Lot E is $17/day, Economy Lot F (covered) $22/day. Off-airport parking through Triply starts at around $7.95/day pre-booked — saving up to 81% compared to terminal garages.",
+        "On-airport parking at ORD ranges from $15/day (Economy Lot G) to $43/day (Terminal Garages). Economy Lot E is $17/day, Economy Lot F (covered) $22/day. Off-airport parking through Triply typically costs a fraction of the terminal garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Is the CTA Blue Line a good option from O'Hare?",
@@ -91,7 +92,7 @@ Note: All rideshare pickups are centralized at Terminal 2 Upper Level — regard
     {
       question: "Do off-airport ORD parking lots run shuttles 24/7?",
       answer:
-        "Yes. Park 'N Jet, PreFlight, WallyPark, Loews Chicago O'Hare, and Routes Airport Parking all offer free 24/7 shuttle service to ORD. Frequency ranges from every 5–10 minutes (PreFlight) to every 15 minutes (most others). Hilton O'Hare requires no shuttle — it's connected to Terminal 2 via enclosed walkway.",
+        "These bookable lots do: Pride Airport Parking and Routes Airport Parking, both on demand around the clock. Crowne Plaza runs every 30 minutes from 5 AM to 9:30 PM (last airport pickup 10 PM), Hyatt Place Chicago/O'Hare every 40 minutes from 5 AM to 10:30 PM, and Marriott Suites O'Hare every 30 minutes from 5 AM to 10 PM. Super 8 Chicago O'Hare Airport has no shuttle. For red-eyes, book Pride or Routes.",
     },
     {
       question: "How early should I arrive at ORD?",

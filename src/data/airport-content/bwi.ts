@@ -2,28 +2,28 @@ import { AirportContent } from "./types";
 
 const bwiContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport BWI parking lots from $5.95/day. Save vs $11–$30/day on-airport rates. Free 24/7 shuttle, free EV charging on-airport. MARC train to D.C. for $8. Free cancellation.",
+    "Compare bookable off-airport BWI parking lots, including 24/7 shuttle lots, at today's prices. Save vs $11–$30/day on-airport rates. Free EV charging on-airport, MARC train to D.C. for $8. Free cancellation.",
 
   sections: [
     {
       heading: "BWI Parking — One Airport, Two Major Cities",
       body: `BWI Marshall Airport sits 9 miles south of downtown Baltimore and 30 miles northeast of Washington, D.C., serving both metro areas. Named after Supreme Court Justice Thurgood Marshall, BWI handled 27.06 million passengers in 2024. Southwest Airlines operates roughly 70% of passenger traffic — making BWI the largest Southwest focus city on the East Coast and one of the cheapest major airports in the D.C./Baltimore region.
 
-On-airport parking at BWI is reasonably priced compared to peer airports. Long-Term Parking Lots are $11/day, the Daily Garage is $16/day, Express Parking is $14/day, and the Hourly Garage maxes at $30/day. Off-airport parking through Triply starts at around $5.95/day pre-booked — saving up to 65% compared to the Daily Garage.
+On-airport parking at BWI is reasonably priced compared to peer airports. Long-Term Parking Lots are $11/day, the Daily Garage is $16/day, Express Parking is $14/day, and the Hourly Garage maxes at $30/day. Off-airport parking through Triply typically costs a fraction of the Daily Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Three of the bookable hotel lots run a shuttle around the clock.
 
-For a 7-day trip for 2 travelers, off-site parking saves $60–$70 vs the Daily Garage. And BWI offers FREE Level 2 EV charging in the Hourly and Daily Garages — a perk most major airports don't match.`,
+BWI also offers FREE Level 2 EV charging in the Hourly and Daily Garages — a perk most major airports don't match.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near BWI",
-      body: `**DoubleTree by Hilton BWI Airport** — The cheapest pre-booked rate at around $5.95/day. 2.5 miles from BWI. Hotel lot with free shuttle. Park-sleep-fly packages also available.
+      body: `**Doubletree Baltimore** — Hotel lot 2.2 miles out with a **24-hour shuttle**: every 15 minutes from 5 AM to midnight, every 30 minutes overnight. The hotel is monitored with staff on site 24 hours a day, and parking guests can use the Wi-Fi and waiting lounge. Register your car at the front desk for a dashboard tag.
 
-**FastPark 2 (BWI)** — Around $6.50/day pre-booked. Covered parking just 1.2 miles from the terminal — 2-minute shuttle ride is the fastest at BWI. 24/7 shuttle.
+**The Westin** — Hotel lot 2.5 miles out. Free shuttle 24/7, every 30 minutes to the airport, with on-demand pickups (call the hotel once you have your bags). No extra charge for full-size vans, pickups or large SUVs, and no hotel stay required.
 
-**FastPark & Relax (BWI)** — Around $6.95/day pre-booked. Covered and uncovered options. 1.5 miles out, 3-minute shuttle. 24/7 shuttle every 5–10 minutes. Closest off-site lot with covered parking.
+**Sheraton Hotel** — Hotel lot 2.5 miles out. Free shuttle 24/7, every 30 minutes, with on-demand pickups. 24/7 front desk. No extra charge for full-size vans, pickups or large SUVs, and no room reservation required.
 
-**The Parking Spot East / West** — Around $7.50/day. Both East (Camp Meade Road) and West (Ridge Road, former Econopark) locations. Free 24/7 on-demand shuttle every 5–10 minutes. Free water bottle on departure.
+**Country Inn & Suites** — **Closest bookable lot** at 1.7 miles. Parking behind the hotel, monitored by security cameras, with a 24-hour front desk. On-demand shuttle about every 30 minutes, 4:30 AM–noon and 4 PM–midnight — **no shuttle noon–4 PM or midnight–4:30 AM**, so check your flight time. Don't park in the Chili's lot next door — cars there may be towed.
 
-**Aloft BWI Baltimore Washington International** — Around $8/day pre-booked. Marriott-brand hotel with Park & Fly packages. 8 days included; additional days $10/day.`,
+**Clarion Hotel BWI North** — **Cruise parking, not airport parking.** 3 miles out with 24/7 lot access, but its only shuttle goes to the Port of Baltimore (on demand 10 AM–2 PM, $25 round trip for up to 4 passengers, $5 each extra, paid at the hotel). No airport shuttle — book it only if you're sailing from Baltimore.`,
     },
     {
       heading: "Skip Parking Entirely — Rail Connections from BWI",
@@ -51,10 +51,10 @@ Both Concourses A and B are exclusive Southwest Airlines territory. The connecto
     },
     {
       heading: "Tips for Parking at BWI",
-      body: `• **Pre-book online for the best rates** — DoubleTree at $5.95/day pre-booked is the lowest. Walk-up rates run $7.95–$10/day at most off-site lots.
+      body: `• **Pre-book online for the best rates** — Pre-booked off-site rates beat walk-up rates; the lot list on this page shows today's rates.
 • **Free EV charging at BWI** — Hourly and Daily Garages both offer free Level 2 charging on the ground floor. DC fast chargers via BGE EVsmart available at the Cell Phone Lot. One of the best EV charging deals at any major U.S. airport.
 • **Use rail to skip parking** — For Baltimore travelers, Light Rail at $2 from the terminal beats every parking option. For D.C. travelers, MARC at $8 beats parking unless your trip is over a week.
-• **Verify shuttle hours at hotel lots** — DoubleTree, Aloft, and Country Inn shuttles run on schedule rather than 24/7 on-demand. Check hours match your flight times.
+• **Verify shuttle hours at hotel lots** — Country Inn & Suites has no shuttle noon–4 PM or midnight–4:30 AM. For red-eyes, pick a 24-hour shuttle lot (Doubletree, The Westin, Sheraton). Clarion Hotel BWI North shuttles to the cruise port only, not the airport.
 • **Southwest dominance affects timing** — Morning Southwest departure banks (5–7 AM) are the busiest hours. Allow extra time for security during peak periods.
 • **Watch for winter storms** — BWI is in the Mid-Atlantic snow belt. Nor'easters in January–February can cause 4–12 hour delays or full-day cancellations. Travel insurance recommended for winter travel.`,
     },
@@ -64,12 +64,12 @@ Both Concourses A and B are exclusive Southwest Airlines territory. The connecto
     {
       question: "What is the cheapest parking at BWI?",
       answer:
-        "DoubleTree by Hilton BWI Airport is the cheapest off-airport option at around $5.95/day when pre-booked. FastPark 2 is $6.50/day with covered parking. The cheapest on-airport option is Long-Term Parking at $11/day. All prices are based on a sample 7-day booking and may vary by date.",
+        "Off-airport hotel lots are usually the lowest-cost way to park at BWI. Doubletree Baltimore, The Westin and Sheraton Hotel run a 24-hour shuttle; Country Inn & Suites is the closest at 1.7 miles but pauses its shuttle midday and overnight. The cheapest on-airport option is Long-Term Parking at $11/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at BWI?",
       answer:
-        "On-airport parking at BWI ranges from $11/day (Long-Term Lots) to $30/day (Hourly Garage). Daily Garage is $16/day, Express Parking $14/day, and BWI Rail Station Garage $12/day. Off-airport parking through Triply starts at around $5.95/day pre-booked — saving up to 65% compared to the Daily Garage.",
+        "On-airport parking at BWI ranges from $11/day (Long-Term Lots) to $30/day (Hourly Garage). Daily Garage is $16/day, Express Parking $14/day, and BWI Rail Station Garage $12/day. Off-airport parking through Triply typically costs a fraction of the Daily Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Can I take MARC train from BWI to Washington D.C.?",

@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const slcContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport SLC parking lots from $6.50/day. Save vs $12–$60/day on-airport rates. Free shuttle, free EV charging on-airport, TRAX to downtown for $2.50. Free cancellation.",
+    "Check bookable off-airport SLC parking for your dates at today's prices. Save vs $12–$60/day on-airport rates. Free EV charging on-airport, TRAX to downtown for $2.50. Free cancellation.",
 
   sections: [
     {
@@ -11,25 +11,17 @@ const slcContent: AirportContent = {
 
 SLC's single 909,000-sq-ft terminal connects to two linear concourses: Concourse A (3,700 feet, 35 gates, primarily Delta) and Concourse B (3,400 feet, 40+ gates, expanding to fill out 94 total gates). The Central River Tunnel (opened October 2024) cuts walking time to mid-Concourse B in half.
 
-On-airport parking at SLC ranges from $12/day (Economy Lot with free 24/7 shuttle) to $60/day (Premium Reserved). Off-airport parking through Triply starts at around $6.50/day pre-booked — saving up to 89% compared to Premium Reserved.`,
+On-airport parking at SLC ranges from $12/day (Economy Lot with free 24/7 shuttle) to $60/day (Premium Reserved). The lot list on this page shows any off-airport lots bookable for your dates with current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
-      heading: "Best Off-Airport Parking Lots Near SLC",
-      body: `**Park 'n Jet Arch Lot** — Around $6.50/day pre-booked. **Cheapest off-site option** at SLC. Same shuttle service as the main Park 'n Jet location. Best budget pick for long-term parking.
+      heading: "Off-Airport Parking Near SLC",
+      body: `Off-airport parking availability at SLC changes with the season and your dates. The lot list on this page shows which off-airport lots are bookable for your dates and their current per-day rates, and a search with your dates shows your total with taxes and fees. Before you book, check each lot's shuttle hours and vehicle-size rules on its lot page — especially for red-eyes and ski trips with roof boxes or large SUVs.
 
-**Maas Airport Parking** — Around $7.95/day pre-booked. 24-hour lot attendant for added security. 24/7 shuttle every 10–15 minutes. Paved lot.
-
-**Hyatt Place Salt Lake City Airport** — Around $8.50/day pre-booked. Hotel parking 2 miles out. Park-sleep-fly packages available. Verify shuttle hours.
-
-**Park 'n Jet** — Around $8.95/day pre-booked. **Family-owned for 30+ years.** Closest off-airport at 1.2 miles. Shuttle picks up at your vehicle — no walking to shuttle stop. 24/7 service.
-
-**Diamond Airport Parking** — Around $9/day pre-booked. **Best full-service option** — valet available, covered parking option, free bottled water, and "We Care Program" offers free jump start or tire inflation. 24/7 shuttle.
-
-**The Parking Spot (SLC)** — Around $9.95/day pre-booked. **Best shuttle frequency at SLC** — every 5–7 minutes 24/7. National brand with loyalty rewards. 1.5 miles out at 123 S. 2400 W.`,
+If nothing off-airport fits your dates, the on-airport Economy Lot has a free 24/7 shuttle and free EV charging, and TRAX runs from the terminal to downtown.`,
     },
     {
       heading: "Ski Resorts and Park City — SLC's Unique Advantage",
-      body: `No other major U.S. airport can match SLC's proximity to world-class skiing. **Seven Cottonwood Canyon resorts** (Alta, Snowbird, Brighton, Solitude) are 30–45 minutes away. **Park City Mountain Resort and Deer Valley** are 35–50 minutes east via I-80.
+      body: `No other major U.S. airport can match SLC's proximity to world-class skiing. **Four Cottonwood Canyon resorts** (Alta, Snowbird, Brighton, Solitude) are 30–45 minutes away. **Park City Mountain Resort and Deer Valley** are 35–50 minutes east via I-80.
 
 Distances and ski shuttle costs:
 • **Snowbird** — 29 miles, 35–50 min via Little Cottonwood Canyon. Shuttle $35–$55/person.
@@ -66,7 +58,7 @@ Final paving and exterior work extends into early 2027. Bus operations facility 
 • **Pre-book during ski season** — December–March. Sundance (January) is the absolute peak. Book parking 2+ weeks ahead.
 • **Use TRAX for downtown** — At $2.50, TRAX Green Line beats the $15–$25 rideshare. Walk south from baggage claim to the platform. 25 minutes to downtown.
 • **Ski shuttle counters in baggage claim** — Multiple authorized providers (Canyon, All Resort Express, Park City Transportation). Pre-book during peak ski season.
-• **Verify off-site shuttle hours** — Park 'n Jet, Diamond, The Parking Spot, and Maas all run 24/7. Hotel-based lots may have limited hours.
+• **Verify off-site shuttle hours** — Check each off-airport lot's shuttle hours on its lot page before you book, especially for early or late flights.
 • **AWD/4WD for ski resorts** — Cottonwood Canyons can require tire chains in winter. Rental car counters are inside the parking garage ground floor — no shuttle needed.
 • **Watch for sudden snowstorms** — SLC sits at 4,227 feet elevation. Storms from the Wasatch Mountains can develop rapidly. Travel insurance recommended for January–February.`,
     },
@@ -76,12 +68,12 @@ Final paving and exterior work extends into early 2027. Bus operations facility 
     {
       question: "What is the cheapest parking at Salt Lake City airport?",
       answer:
-        "Park 'n Jet Arch Lot is the cheapest off-airport option at around $6.50/day pre-booked. Maas Airport Parking at $7.95/day and Hyatt Place SLC Airport at $8.50/day are also very competitive. The cheapest on-airport option is the Economy Lot at $12/day with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is the Economy Lot at $12/day with free 24/7 shuttle. Off-airport availability and prices change with your dates: the lot list on this page shows what's bookable and the current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at SLC?",
       answer:
-        "On-airport parking at SLC ranges from $12/day (Economy Lot with free 24/7 shuttle) to $60/day (Premium Reserved). The Parking Garage is $35/day, Lot E intermediate $21/day. Off-airport parking through Triply starts at around $6.50/day pre-booked — saving up to 89%.",
+        "On-airport parking at SLC ranges from $12/day (Economy Lot with free 24/7 shuttle) to $60/day (Premium Reserved). The Parking Garage is $35/day, Lot E intermediate $21/day. For off-airport options, see the lot list on this page for what's bookable on your dates and current rates.",
     },
     {
       question: "Does SLC have free EV charging?",

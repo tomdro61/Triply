@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const ausContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport AUS parking lots from $10.81/day. Save vs $26–$35/day on-airport garages. Covered parking, free 24/7 shuttle, free EV charging on-airport. Free cancellation.",
+    "Compare bookable off-airport AUS parking at today's prices. Save vs $26–$35/day on-airport garages. Complimentary 24/7 Lyft from the lot, free EV charging on-airport. Free cancellation.",
 
   sections: [
     {
@@ -11,19 +11,11 @@ const ausContent: AirportContent = {
 
 That single-terminal design makes connections and navigation easy, but it creates real capacity pressure during major events. The South Terminal closed permanently on March 31, 2026, sending Allegiant and Frontier into the main terminal. AUS set a single-day TSA screening record of 45,048 passengers during the October 2025 Formula 1 Grand Prix weekend.
 
-On-airport parking at AUS is among the most expensive in Texas. The Red Garage charges $35/day, the Blue Garage $26/day, and the Economy Lot $12/day with a free shuttle. Off-airport lots through Triply start at around $10.81/day pre-booked, saving up to 70% compared to the Red Garage.`,
+On-airport parking at AUS is among the most expensive in Texas. The Red Garage charges $35/day, the Blue Garage $26/day, and the Economy Lot $12/day with a free shuttle. Off-airport parking through Triply typically costs a fraction of the Red Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near AUS",
-      body: `**FastPark & Relax** — The best overall off-site option at around $10.81/day pre-booked. Covered parking, 24/7 shuttle every 5–10 minutes, and a 3-minute ride to the terminal. Located on Spirit of Texas Drive. Covered parking matters in Austin — summer highs of 100°F+ are routine.
-
-**Park & Zoom** — Around $12.95/day pre-booked self-park (or $16.95/day covered valet). Located on airport property at 9518 Hotel Drive — meaning shuttles skip public road traffic entirely. 3-minute ride to terminal.
-
-**The Parking Spot East / West** — Around $13.25/day pre-booked. Both covered and uncovered options. 24/7 shuttles every 5–7 minutes. Loyalty rewards program. Choose East or West based on your approach direction.
-
-**Hilton Austin Airport** — The only hotel located directly on AUS airport property at around $14.95/day pre-booked. 2-minute shuttle. Premium option for park-sleep-fly travelers.
-
-**Comfort Suites Austin Airport** — Hotel parking at around $14.95/day pre-booked with gated lot and security cameras. Located 1.8 miles from the terminal. Verify shuttle hours before booking — limited overnight service.`,
+      body: `**Comfort Suites Austin Airport** — Hotel lot 2.1 miles out (about a 5-minute drive). **Complimentary 24/7 Lyft** to and from the airport, or schedule the hotel shuttle by calling at least 24 hours ahead. Check in at the 24/7 front desk for your parking tag. Parking guests get on-site restrooms and free Wi-Fi.`,
     },
     {
       heading: "Journey With AUS — A $4 Billion Expansion",
@@ -48,8 +40,8 @@ Beyond events, AUS is also a tech-business airport. UT football weekends and Tes
     },
     {
       heading: "Tips for Parking at AUS",
-      body: `• **Pre-book online** — Pre-booking saves $2–$5/day vs. drive-up rates. The Hilton, Comfort Suites, and FastPark & Relax all reward advance booking.
-• **Covered parking is worth it in summer** — Austin summers see 100°F+ highs daily June–September. Covered options at FastPark & Relax, Park & Zoom, and The Parking Spot are worth the small premium.
+      body: `• **Pre-book online** — Pre-booking beats drive-up rates, and the lot list on this page shows current off-site rates.
+• **Covered parking is worth it in summer** — Austin summers see 100°F+ highs daily June–September. The on-airport Blue Garage is covered and worth the premium in peak heat.
 • **Free EV charging in the Blue Garage** — On-airport Blue Garage offers FREE Level 2 EV charging for parked vehicles on the ground floor (Rows A and B). One of the few major U.S. airports with complimentary EV charging.
 • **The CRCF is connected to the terminal** — Rental cars are inside the Consolidated Rental Car Facility, connected by covered walkway through the Blue Garage. No shuttle required.
 • **Allow extra time during peak events** — During SXSW, ACL, and F1, security can exceed 45 minutes. Arrive 2.5–3 hours before domestic flights.
@@ -61,22 +53,22 @@ Beyond events, AUS is also a tech-business airport. UT football weekends and Tes
     {
       question: "What is the cheapest parking at Austin airport?",
       answer:
-        "FastPark & Relax is the cheapest off-airport option at around $10.81/day when pre-booked, with covered parking and 24/7 shuttle. The cheapest on-airport option is the Economy Lot at $12/day with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary by date.",
+        "Off-airport lots are usually the lowest-cost way to park at AUS; Comfort Suites Austin Airport, 2.1 miles out with a complimentary 24/7 Lyft, is bookable on Triply. The cheapest on-airport option is the Economy Lot at $12/day with free 24/7 shuttle. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at AUS?",
       answer:
-        "On-airport parking at AUS ranges from $12/day (Economy Lot) to $35/day (Red Garage). The Blue Garage covered long-term is $26/day. Valet is $40/day. Off-airport parking through Triply starts at around $10.81/day pre-booked — saving up to 70% compared to the Red Garage.",
+        "On-airport parking at AUS ranges from $12/day (Economy Lot) to $35/day (Red Garage). The Blue Garage covered long-term is $26/day. Valet is $40/day. Off-airport parking through Triply typically costs a fraction of the Red Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Is there covered parking at Austin airport?",
       answer:
-        "Yes. The Blue Garage on-airport at $26/day is covered. Off-site, FastPark & Relax, Park & Zoom, and The Parking Spot all offer covered parking options at $10.81–$16.95/day pre-booked. Covered parking is worth the small premium given Austin's intense summer heat (100°F+ daily June–September).",
+        "Yes. The Blue Garage on-airport at $26/day is covered. Off-site, Comfort Suites Austin Airport does not list covered parking. Covered parking is worth the premium given Austin's intense summer heat (100°F+ daily June–September).",
     },
     {
       question: "Are AUS parking lots open 24/7?",
       answer:
-        "Yes for major operators. FastPark & Relax, The Parking Spot East/West, Park & Zoom, and the on-airport Economy Lot all run 24/7 shuttles. Some hotel lots like Comfort Suites have limited overnight shuttle hours — verify before booking if you have a red-eye or early-morning flight.",
+        "The on-airport Economy Lot runs a free 24/7 shuttle. Off-site, Comfort Suites Austin Airport has a 24/7 front desk and a complimentary 24/7 Lyft to the terminal; its hotel shuttle must be scheduled by phone at least 24 hours ahead, so book it early if you have a red-eye or early-morning flight.",
     },
     {
       question: "How early should I arrive at AUS?",

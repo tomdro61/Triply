@@ -2,7 +2,7 @@ import { AirportContent } from "./types";
 
 const pdxContent: AirportContent = {
   metaDescription:
-    "Compare 6+ off-airport PDX parking lots from $6.45/day. Save vs $12–$35/day on-airport rates. Free shuttle, MAX Red Line directly at terminal for $2.80 to downtown. Free cancellation.",
+    "Compare bookable off-airport PDX parking lots with 24/7 shuttles at today's prices. Save vs $12–$35/day on-airport rates. MAX Red Line at the terminal, $2.80 to downtown. Free cancellation.",
 
   sections: [
     {
@@ -11,21 +11,17 @@ const pdxContent: AirportContent = {
 
 PDX serves about 20 million passengers annually with a single compact terminal and four concourses (B, C, D, E). Alaska Airlines is the dominant carrier (~34% of traffic), with Delta, Southwest, and United as focus city operators. The MAX Red Line light rail station is built directly into the terminal — no shuttle, walk straight from baggage claim to the train.
 
-On-airport parking at PDX runs from $12/day (Economy Lots with free shuttle) to $35/day (Gold Key Valet). The Long-Term Garage is $24/day. Off-airport parking through Triply starts at around $6.45/day pre-booked — saving up to 81% compared to valet rates.`,
+On-airport parking at PDX runs from $12/day (Economy Lots with free shuttle) to $35/day (Gold Key Valet). The Long-Term Garage is $24/day. Off-airport parking through Triply typically costs a fraction of the garage and valet rates; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near PDX",
-      body: `**Holiday Inn Portland Airport Parking** — Around $6.45/day pre-booked. Cheapest off-site option. Hotel parking 1.8 miles out. Verify shuttle hours for early/late flights.
+      body: `**AirPark Portland** — **Closest bookable lot** at 1.4 miles. Free 24/7 on-demand shuttle, and the shuttle team picks you up at your car. Around-the-clock surveillance. Valet parking may be required at peak times, at no extra charge. No oversized vehicles — Sprinter or Transit vans, extended-bed or four-door pickups, or anything 20 feet and over.
 
-**Super 8 PDX Airport Parking** — Around $7.95/day pre-booked. Budget-friendly hotel parking 2 miles out. Park-sleep-fly packages available.
+**Radisson Portland Airport** — Hotel lot 1.6 miles out with a **24/7 shuttle** every 30 minutes (departing :15 and :45), plus on-demand airport pickups. Call the hotel within 24 hours before you arrive to reserve your shuttle seat. Up to 4 passengers per reservation. 24/7 front desk.
 
-**Jiffy Portland Airport Parking** — Around $8.93/day pre-booked. Closest 24/7 option at 1.4 miles. Free 24/7 on-demand shuttle every 10–15 minutes. Fenced, gated, and well-established.
+**Holiday Inn** — Gated hotel self-park 1.9 miles out with a **24/7 shuttle**: every 20 minutes from 3 AM to 11 AM, and on call the rest of the day. Airport pickup is on call 24/7. Check in at the 24/7 front desk for a validation code, then register your car by QR code.
 
-**Hampton Inn & Suites Portland Airport Parking** — Around $9.50/day pre-booked. Quality hotel option with reliable shuttle service. 4.5/5 rating.
-
-**Park Shuttle and Fly (PDX)** — Around $10/day pre-booked. Free shuttle every 15 minutes. 1.5 miles out, gated lot.
-
-**AirPark Portland Airport Parking** — Around $10.95/day pre-booked. The closest off-site lot at just 1.2 miles. **Personal pickup at your car** — driver takes you directly to the terminal. Free 24/7 service.`,
+Off-airport availability at PDX changes with your dates: the lot list on this page shows what's bookable and the current per-day rates, and a search with your dates shows your total with taxes and fees.`,
     },
     {
       heading: "MAX Red Line — Direct Light Rail at the Terminal",
@@ -64,11 +60,11 @@ The airport remains fully operational throughout. Most construction is complete 
     {
       heading: "Tips for Parking at PDX",
       body: `• **Use MAX Red Line** — At $2.80, it's the cheapest way to downtown. The station is at the terminal — no shuttle. For most downtown-bound travelers, MAX beats parking on cost for any trip length.
-• **Pre-book online** — Pre-booking saves $1–$3/day at most off-site lots. Walk-up rates are higher.
+• **Pre-book online** — Book ahead for summer and holiday weeks, when lots fill up.
 • **Free EV charging on-airport** — PDX has 48 EV charging ports total: 6 Level 2 in Short-Term Garage, 12 Level 1 each in Economy Red and Blue Lots. One of the largest installations at any U.S. airport.
-• **7th day free at on-airport Economy** — The Economy Lot's 7th-day-free promotion makes it $72/week — competitive with off-site lots.
+• **7th day free at on-airport Economy** — The Economy Lot's 7th-day-free promotion makes it $72/week.
 • **Two security checkpoints** — South Checkpoint serves Concourses B and C (3 AM–10 PM). North Checkpoint serves Concourses D and E (24/7). Verify your concourse before entering security.
-• **Verify off-site shuttle hours** — Holiday Inn, Super 8, and Hampton Inn shuttle hours vary. Jiffy and AirPark run 24/7.
+• **These off-site lots run 24/7** —AirPark Portland is on demand around the clock, Radisson Portland Airport runs every 30 minutes (call ahead to reserve a seat), and Holiday Inn runs every 20 minutes 3 AM–11 AM and on call the rest of the day.
 • **Watch for marine fog and rain** — Pacific Northwest weather can cause occasional delays. Morning fog in spring/fall is the most common disruption.`,
     },
   ],
@@ -77,12 +73,12 @@ The airport remains fully operational throughout. Most construction is complete 
     {
       question: "What is the cheapest parking at Portland airport?",
       answer:
-        "Holiday Inn Portland Airport Parking is the cheapest off-airport option at around $6.45/day pre-booked. Super 8 PDX at $7.95/day is also very competitive. The cheapest on-airport option is the Economy Lots (Red and Blue) at $12/day, with a 7th-day-free promotion making it ~$72/week. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is the Economy Lots (Red and Blue) at $12/day, with a 7th-day-free promotion making it ~$72/week. Off-airport, AirPark Portland (1.4 miles), Radisson Portland Airport (1.6 miles) and Holiday Inn (1.9 miles) all include a 24/7 shuttle. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at PDX?",
       answer:
-        "On-airport parking at PDX ranges from $12/day (Economy Red/Blue Lots) to $35/day (Gold Key Valet). Long-Term Garage is $24/day. Short-Term Garage maxes at $27/day. Off-airport parking through Triply starts at around $6.45/day pre-booked — saving up to 81% compared to valet.",
+        "On-airport parking at PDX ranges from $12/day (Economy Red/Blue Lots) to $35/day (Gold Key Valet). Long-Term Garage is $24/day. Short-Term Garage maxes at $27/day. Off-airport parking through Triply typically costs a fraction of the garage and valet rates — see the lot list on this page for current rates.",
     },
     {
       question: "How do I get from PDX to downtown Portland?",
