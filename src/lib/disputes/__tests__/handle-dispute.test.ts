@@ -149,6 +149,7 @@ describe("handleDisputeCreated", () => {
   });
 
   it("a row whose claims are already taken sends nothing again", async () => {
+    db.tables.bookings[0].status = "disputed"; // flipped by the first delivery
     db.seed("disputes", [
       { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", alert_sent_at: "t", closed_at: null },
     ]);
@@ -161,7 +162,25 @@ describe("handleDisputeCreated", () => {
   it("only the delivery that stores the status asks for the booking flip", async () => {
     alerts.sendDisputeOpenedAlert.mockRejectedValueOnce(new Error("Resend down"));
     expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: true, flipBooking: true });
+    db.tables.bookings[0].status = "disputed"; // the webhook's flip
     expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: false });
+  });
+
+  it("a delivery that died before its flip is flipped by the redelivery", async () => {
+    // Row written, alert sent, then the function timed out: booking never flipped.
+    db.seed("disputes", [
+      { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", alert_sent_at: "t", closed_at: null },
+    ]);
+    expect(await handleDisputeCreated(sb, dispute())).toEqual({ retryable: false, flipBooking: true });
+    expect(alerts.sendDisputeOpenedAlert).not.toHaveBeenCalled();
+  });
+
+  it("a redelivery never flips a booking whose status moved on since the dispute", async () => {
+    db.tables.bookings[0].status = "refunded";
+    db.seed("disputes", [
+      { stripe_dispute_id: "dp_1", booking_id: "b1", booking_status_at_dispute: "completed", draft_attempted_at: "t", alert_sent_at: "t", closed_at: null },
+    ]);
+    expect((await handleDisputeCreated(sb, dispute())).flipBooking).toBe(false);
   });
 
   it("a missing ledger table (migration not applied) degrades: no retry, flip the booking", async () => {

@@ -159,8 +159,15 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
     row = { ...row, ...link };
     storedStatus = true;
   }
-  // This delivery stored the pre-dispute status: it owns the booking flip.
-  const frozen = (o: DisputeOutcome): DisputeOutcome => ({ ...o, flipBooking: storedStatus });
+  // This delivery stored the pre-dispute status: it owns the booking flip. A
+  // redelivery also flips while the booking still has exactly that status —
+  // the earlier delivery died before its flip (e.g. a function timeout), and
+  // without this the booking would never read `disputed`. A booking whose
+  // status has moved on since (refunded, cancelled) is left alone.
+  const unflipped =
+    booking?.status != null && booking.status !== "disputed" && booking.status === row.booking_status_at_dispute;
+  const flip = storedStatus || unflipped;
+  const frozen = (o: DisputeOutcome): DisputeOutcome => ({ ...o, flipBooking: flip });
 
   // Evidence describes the booking as it was before the dispute.
   const asDisputed = booking ? { ...booking, status: row.booking_status_at_dispute } : null;

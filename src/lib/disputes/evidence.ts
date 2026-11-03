@@ -35,7 +35,7 @@ const localTime = (s: string | null) => (s ? s.slice(0, 16).replace("T", " ") : 
 const day = (s: string | null) => (s ? s.slice(0, 10) : undefined);
 
 const CANCELLATION_POLICY =
-  "Triply Terms of Service, section 5 (https://www.triplypro.com/terms#cancellation), shown and linked at checkout: " +
+  "Triply Terms of Service, section 5 (https://www.triplypro.com/terms#cancellation), linked from the payment step at checkout: " +
   "reservations can be cancelled online in My Reservations more than 24 hours before the scheduled check-in time, " +
   "for a full refund of the amount paid online (except the non-refundable portion of any Park Guard protection plan). Reservations cannot be cancelled online within 24 hours of check-in; " +
   "late cancellations are handled case by case, and no-shows are not refunded.";
