@@ -15,7 +15,7 @@ import fs from 'fs'
 import { LOT_BRANDS, OFF_SITE_WORDS, lotKeys, loadPriceSnapshot, type ChartKind } from '../../src/rate-chart.js'
 
 const OUT = 'reports/chart-redraw/out'
-interface Use { post_id: number; slug: string; status: string; airport: string | null; updated_at: string; block: number; context: string | null }
+interface Use { post_id: number; slug: string; status: string; airport: string | null; updated_at: string; block: number; context: string | null; post_text?: string | null }
 interface Raw { media_id: number; filename: string; alt: string | null; created_at: string; uses: Use[]; featured_in: unknown[] | null }
 export type ChartClass = 'standard' | 'one-off' | 'mixed' | 'airport' | 'not-rate'
 export interface Item { media_id: number; filename: string; alt: string; created_at: string; code: string; family: 'parking-rates' | 'rate-chart' | 'infographic' | 'other'; cls: ChartClass; kind: ChartKind; why: string; uses: Use[]; featured: boolean }

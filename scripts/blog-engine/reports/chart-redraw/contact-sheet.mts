@@ -18,28 +18,27 @@ const n = (x: number) => x.toLocaleString('en-US')
 const D = plan.decisions
 const postsOf = (ds: Decision[]) => new Set(ds.map((d) => d.post_id)).size
 
-// ── One group per decision Tom makes (a post is in the first group that fits) ──
-type Group = 'swap' | 'prices' | 'text' | 'notrate' | 'currency' | 'other'
-/** The post's text flags (the text check runs per chart; a post is judged as a whole). */
-const postFlags = (postId: number) => new Set(D.filter((x) => x.post_id === postId).flatMap((x) => x.flags))
+// ── One group per decision Tom makes (a chart spot is in the first group that fits). Groups are about the IMAGE; the
+// post text only ranks posts for the prose pass (every post in scope quotes off-site lot prices somewhere). ──
+type Group = 'swap' | 'notrate' | 'lotpost' | 'currency' | 'other'
 const groupOf = (d: Decision): Group => {
   if (d.action === 'swap') return 'swap'
-  if (d.blockers.some((b) => b.startsWith('not a rate chart'))) return 'notrate'
+  if (d.blockers.some((b) => b.startsWith('not a rate chart') || b.startsWith('not replaceable'))) return 'notrate'
   if (d.blockers.some((b) => b.includes('checkout charges'))) return 'currency'
-  if (d.blockers.length) return 'other'
-  const f = postFlags(d.post_id)
-  return f.has('unsold') || f.has('count') || f.has('lotpost') ? 'text' : 'prices'
+  if (d.blockers.some((b) => b.startsWith('post is about one lot'))) return 'lotpost'
+  return 'other'
 }
-const G: Record<Group, Decision[]> = { swap: [], prices: [], text: [], notrate: [], currency: [], other: [] }
+const G: Record<Group, Decision[]> = { swap: [], notrate: [], lotpost: [], currency: [], other: [] }
 for (const d of D) G[groupOf(d)].push(d)
 const GROUP_TITLE: Record<Group, string> = {
-  swap: 'Swap: no lot prices or lot claims in the text around the chart',
-  prices: 'Held: the text quotes off-site lot prices',
-  text: "Held: the text names a lot we don't sell, gives the wrong number of lots, or the post is about one lot",
-  notrate: 'Held: not a rate chart (prices lots inside another topic)',
-  currency: 'Held: Canadian airport (checkout currency question)',
-  other: 'Held: another airport, or a third chart in one post',
+  swap: 'Replaceable: the new chart can take this image\'s place',
+  notrate: "Can't replace: a one-off chart or another topic",
+  lotpost: 'Post about one lot: needs a look',
+  currency: 'Canadian airport: checkout currency question',
+  other: 'Another airport, a third chart in one post, or another price image in the post stays',
 }
+/** Posts whose text sells a lot we don't sell, or miscounts our lots: first in the prose pass. */
+const firstInTextPass = (ds: Decision[]) => new Set(ds.filter((d) => d.flags.includes('unsold') || d.flags.includes('count')).map((d) => d.post_id)).size
 
 const leftAlone = inv.items.filter((i) => i.cls === 'airport' || i.cls === 'not-rate')
 const unused = inv.items.filter((i) => (i.cls === 'standard' || i.cls === 'one-off' || i.cls === 'mixed') && !i.uses.length)
@@ -47,28 +46,25 @@ const codes = [...new Set(D.map((d) => d.code))].sort()
 const fallbackCount = plan.charts.filter((c) => c.fallback).length / 2
 const notrateUnsold = G.notrate.filter((d) => d.captionUnsold.length)
 
-const FLAG_LABEL: Record<Flag, string> = { unsold: "names a lot we don't sell", prices: 'quotes lot prices', count: 'wrong lot count', lotpost: 'post about one lot', missing: 'lot not in this search' }
-const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', prices: 'warn', count: 'warn', lotpost: 'info', missing: 'info' }
+const FLAG_LABEL: Record<Flag, string> = { unsold: "text names a lot we don't sell", prices: 'text quotes lot prices', count: 'text miscounts our lots', missing: 'text names a lot not in this search' }
+const FLAG_CLASS: Record<Flag, string> = { unsold: 'stop', prices: 'info', count: 'warn', missing: 'info' }
 const chip = (f: Flag) => `<span class="sev ${FLAG_CLASS[f]}">${FLAG_LABEL[f]}</span>`
 const transfer: Record<ChartLot['transfer'], string> = { shuttle: 'Shuttle', valet: 'Valet', paid: 'Paid shuttle', none: 'No shuttle', unknown: '—' }
 const blog = (slug: string) => `https://www.triplypro.com/blog/${slug}`
 
-/** The text around a chart, cut to the part a note points at (a figure or a lot name), ~420 characters. */
+/** The post text a note points at (render.mts cut it from the whole post), with the figures and names marked. */
 function excerpt(d: Decision): string {
-  const ctx = d.context.replace(/\s+/g, ' ').replace(/ \|\| /g, ' ¶ ')
-  const needles = d.notes.flatMap((x) => [...x.matchAll(/"([^"]+)"|((?:C\$|\$)\d[\d.]*)/g)].map((m) => m[1] ?? m[2]))
-  const at = needles.map((k) => ctx.indexOf(k)).filter((i) => i >= 0).sort((a, b) => a - b)[0] ?? 0
-  const from = Math.max(0, at - 200), to = Math.min(ctx.length, from + 420)
-  let s = esc(ctx.slice(from, to))
+  const needles = d.notes.flatMap((x) => [...x.matchAll(/"([^"]+)"|((?:C\$|\$)\d[\d.,]*|\d+%)/g)].map((m) => m[1] ?? m[2]))
+  let s = esc(d.excerpt)
   for (const k of needles) if (k.length >= 3) s = s.split(esc(k)).join(`<mark>${esc(k)}</mark>`)
-  return `${from > 0 ? '… ' : ''}${s}${to < ctx.length ? ' …' : ''}`
+  return s
 }
 const oldCap = (d: Decision, max = 180) => `${esc(d.oldAlt.slice(0, max))}${d.oldAlt.length > max ? '…' : ''}`
 const kindLabel = (d: Decision) => (d.kind ? (d.kind === 'week' ? '7-day table' : 'daily chart') : 'no chart')
 const swapRow = (d: Decision) => `<li><a href="${blog(d.slug)}">${esc(d.slug)}</a> <span class="muted">→ ${kindLabel(d)}${d.flags.length ? ` ${d.flags.map(chip).join(' ')}` : ''} · old caption: ${oldCap(d, 140)}</span></li>`
 const holdCard = (d: Decision) => `<div class="hold"><div class="hhead"><a href="${blog(d.slug)}">${esc(d.slug)}</a> <span class="muted">${kindLabel(d)}</span> ${d.flags.map(chip).join(' ')}</div>
   <ul class="notes">${[...d.blockers, ...d.notes].map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
-  ${d.context ? `<p class="ctx">${excerpt(d)}</p>` : ''}<p class="small muted">Old caption: ${oldCap(d, 240)}</p></div>`
+  ${d.excerpt ? `<p class="ctx">${excerpt(d)}</p>` : ''}<p class="small muted">Old caption: ${oldCap(d, 240)}</p></div>`
 
 function airportSection(code: string): string {
   const row = snap.airports[code]
@@ -84,7 +80,7 @@ function airportSection(code: string): string {
     const xs = ds.filter((d) => groupOf(d) === g)
     if (!xs.length) return ''
     const body = g === 'swap' ? `<ul class="swaps">${xs.map(swapRow).join('')}</ul>` : xs.map(holdCard).join('')
-    return `<details${g === 'text' ? ' open' : ''}><summary>${GROUP_TITLE[g]} <span class="count">${n(xs.length)}</span></summary>${body}</details>`
+    return `<details${g === 'swap' ? ' open' : ''}><summary>${GROUP_TITLE[g]} <span class="count">${n(xs.length)}</span></summary>${body}</details>`
   }).join('')
   const held = ds.filter((d) => d.action === 'hold').length
   return `<section class="airport" id="${code}">
@@ -192,12 +188,12 @@ mark { background: var(--mark); color: inherit; padding: 0 2px; border-radius: 3
     <h2>What you're deciding</h2>
     <ol>
       <li><b>Do the charts look right?</b> Each airport below shows both charts, their captions and the lots behind them. ${fallbackCount ? `${fallbackCount} airport(s) get the airport-only chart (Triply sells nothing there).` : 'No airport in scope needs the airport-only chart this run.'}</li>
-      ${decideItem('swap', 'The text around the chart quotes no off-site lot price, names no lot we don\'t sell and gives no lot count, so the new dated chart contradicts nothing.', 'Swap these in the pilot, then the rest.')}
-      ${decideItem('prices', 'The text near the chart quotes lot prices from October, mostly before taxes and fees (e.g. "about $7/day"); the chart shows today\'s total ("$8.61/day, taxes and fees included"). Next to each other they read as two prices. The text check does not try to judge which figures are still right: prose prices drift every month.', 'Swap anyway: the old chart is wrong (unsold lots "bookable on Triply", undated) and the new one is dated. Take per-lot prices out of the prose in the planned text pass (roadmap). The alternative is to keep the old charts until that pass.')}
-      ${decideItem('text', "The text near the chart names a lot we don't sell, or says how many lots we sell and the number is wrong (\"all eight JFK lots\", today 10), or the whole post is about one lot (a Cambria or Marriott post) and a generic airport chart may not show that lot at the post's price.", "Swap the chart for the first two kinds and put those posts first in the text pass: the text itself sells lots we don't sell. Keep the old chart on single-lot posts until each gets a look.")}
-      ${decideItem('notrate', `Maps, arrival timelines, step-by-step guides, transport and special-topic images (oversized, EV, hourly) that also price lots at October prices. A rate chart can't replace them. ${n(notrateUnsold.length)} of them name a lot we don't sell in their own caption.`, `Remove the ${n(notrateUnsold.length)} whose caption names a lot we don't sell; keep the rest for now (some are real rate comparisons the sorter held to be safe).`)}
+      ${decideItem('swap', `These are the October standard charts (${new Set(G.swap.map((d) => d.media_id)).size} images reused across posts: a daily chart and a 7-day table per airport, the ones that call unsold lots "bookable on Triply"). Each is replaced like for like: same airport, same kind of chart. But the post's text quotes October lot prices somewhere — every one of the ${n(postsOf(D))} posts does (often a template line like "lots on Triply from about $X/day") — so a new dated chart will sit beside older prose prices until the text pass. ${n(firstInTextPass(G.swap))} of these posts also name a lot we don't sell or miscount our lots.`, 'Swap now, before the text pass: the old charts are false (unsold lots "bookable on Triply", undated); the new ones are dated and true. Then the text pass takes per-lot prices out of the prose, starting with the posts that name lots we don\'t sell. The alternative is to wait until the text pass is done.')}
+      ${decideItem('notrate', `The engine's one-off charts (each its own comparison: 3-day costs, a hotel package, one garage highlighted…), plus maps, timelines, step-by-step guides and transport images that also price lots at October prices. The standard chart can't reliably stand in for them. ${n(notrateUnsold.length)} name a lot we don't sell in their own caption.`, `Keep them for now. ${notrateUnsold.length ? `Remove the ${n(notrateUnsold.length)} whose caption names a lot we don't sell. ` : ''}In the text pass, each post gets the standard chart where it fits, or loses the image.`)}
+      ${decideItem('lotpost', "Posts about one lot (Cambria, a Marriott, Fly Away…). The airport chart may not show that lot, or shows a different price from the post's.", 'Keep the old image for now; look at each with the text pass.')}
       ${decideItem('currency', "Toronto, Montreal and Calgary. ResLab prices these lots in Canadian dollars, and our checkout charges the same number in US dollars. A chart can't say which price is real until that's settled.", 'Decide the checkout currency first (separate from this work: 5 live bookings since Oct 18). Then these airports get charts.')}
-      ${decideItem('other', 'Posts about Love Field, Toronto-vs-Buffalo and Hobby-vs-IAH that are filed under DFW, BUF and HOU.', 'Keep the old chart for now; these need a per-post look.')}
+      ${!G.currency.length && Object.values(plan.noChart).some((r) => r.includes('checkout charges')) ? `<li><b>Canadian airports (${Object.entries(plan.noChart).filter(([, r]) => r.includes('checkout charges')).map(([c]) => c).join(', ')}): no chart this run.</b> ResLab prices their lots in Canadian dollars and our checkout charges the same number in US dollars (5 live bookings since Oct 18), so a chart can't say which price is real. Their October images are all one-offs, held above anyway.<div class="rec">Decide the checkout currency first; that is separate from this work.</div></li>` : ''}
+      ${decideItem('other', 'Posts filed under one airport but about another (Love Field under DFW), posts that would get a third chart, and posts where another image with October off-site prices stays.', 'Keep the old charts for now; these need a per-post look.')}
     </ol>
   </div>
 
@@ -209,8 +205,8 @@ mark { background: var(--mark); color: inherit; padding: 0 2px; border-radius: 3
       <li>Cruise-port lots (their shuttle runs to the port, not the terminal) are left off airport charts; Port Everglades shows only lots with a known port shuttle.</li>
       <li>"To terminal" comes from each lot's own shuttle text on our site: "No shuttle" only where the lot says so; "—" where it's neither a shuttle nor a valet.</li>
       <li>On-airport rows are the October postings, labelled "checked October 2026". Airports without a checked row show our lots only.</li>
-      <li>The text check reads the 3 blocks before and after each chart. It holds the post when any price sits near an off-site lot name, "off-site", "Triply" or a hotel word; when it names a lot we don't sell; or when it says how many lots we sell and the number is wrong. It doesn't try to judge whether a quoted price is still right. A post with one held chart holds all its charts.</li>
-      <li>Images whose caption is about another topic (maps, timelines, steps, taxis, rideshare, oversized vehicles, EV charging, hourly or free parking), or one-off images in posts about those topics, are never swapped for a rate chart.</li>
+      <li>Whether a chart can be swapped is decided on the image: a rate chart the new one fully replaces, at an airport with a chart, in a post about that airport and not about one lot. Images whose caption is about another topic (maps, timelines, steps, taxis, rideshare, oversized vehicles, EV charging, hourly or free parking), one-off images in posts about those topics, and one-off charts of the airport's own lots where our chart has no on-airport rows are never swapped.</li>
+      <li>The post text (all of it) is read only to rank posts for the text pass: lot prices, lots we don't sell, wrong lot counts. Four review rounds tried to find posts whose text agrees with a new chart; reading whole posts showed none does.</li>
       <li>Left alone: ${n(inv.items.filter((i) => i.cls === 'airport').length)} images with on-airport prices only (listed at the bottom), ${n(inv.items.filter((i) => i.cls === 'not-rate').length)} with no parking prices, ${n(unused.length)} chart images no post uses.</li>
     </ul>
   </div>

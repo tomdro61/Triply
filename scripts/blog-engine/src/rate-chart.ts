@@ -445,7 +445,7 @@ export function lotKeys(lotNames: string[], airportWords: string[] = []): string
   const generic = new Set([...own, 'parking'])
   const keys = new Set<string>()
   for (const n of lotNames) {
-    const full = n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').replace(/^the\s+/, '').replace(/\s+/g, ' ').trim()
+    const full = plain(n).replace(/\s*\([a-z]{3}\)/g, '').replace(/^the\s+/, '').replace(/\s+/g, ' ').trim()
     const two = full.split(' ').slice(0, 2)
     if (full.length >= 6 && full.split(' ').some((w) => !generic.has(w))) keys.add(full)
     const wordy = two.length === 2 && two.every((w) => /^[a-z][a-z'’.-]+$/.test(w)) && !CONNECTORS.has(two[1])
@@ -455,7 +455,11 @@ export function lotKeys(lotNames: string[], airportWords: string[] = []): string
 }
 
 /** Common words that are never a lot's short form on their own. */
-const COMMON = new Set(['airport', 'parking', 'international', 'hotel', 'suites', 'express', 'garden', 'premier', 'downtown', 'north', 'south', 'east', 'west', 'central', 'economy', 'valet', 'shuttle', 'secure', 'cruise', 'plaza', 'center', 'centre', 'park', 'parkade', 'garage', 'airways', 'travel', 'quality', 'comfort', 'select', 'place', 'value', 'smart', 'grand', 'royal', 'metro', 'world', 'national', 'regional', 'convention', 'university', 'springs', 'harbor', 'county', 'city'])
+const COMMON = new Set(['airport', 'parking', 'international', 'hotel', 'suites', 'express', 'garden', 'premier', 'downtown', 'north', 'south', 'east', 'west', 'central', 'economy', 'valet', 'shuttle', 'secure', 'cruise', 'plaza', 'center', 'centre', 'park', 'parkade', 'garage', 'airways', 'travel', 'quality', 'comfort', 'select', 'place', 'value', 'smart', 'grand', 'royal', 'metro', 'world', 'national', 'regional', 'convention', 'university', 'springs', 'harbor', 'county', 'city',
+  // English words found in lot names that posts use in other senses (review pass 4)
+  'service', 'services', 'simply', 'formerly', 'points', 'point', 'gateway', 'purchase', 'station', 'spring', 'detail', 'connections', 'sleep', 'ports', 'routes', 'route', 'secured', 'security', 'airline', 'airlines', 'terminal', 'terminals', 'premium', 'budget', 'family', 'lodge', 'inn', 'suite', 'residence', 'home', 'house', 'tower', 'towers', 'garden', 'square', 'landing', 'village', 'crossing', 'corner', 'golden', 'liberty', 'victory', 'access', 'direct', 'first', 'great', 'super', 'best', 'western'])
+/** Lower case without accents ("GLō" → "glo"), so a name typed with a macron still matches the text. */
+const plain = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 /**
  * Single distinctive words a post uses as a lot's short form ("PreFlight", "Cambria", "Microtel", "Marriott"): words of
  * 5+ letters from the lot names that are not the airport's own name words or common parking words.
@@ -464,7 +468,7 @@ export function lotShortWords(lotNames: string[], airportWords: string[] = []): 
   const own = new Set(airportWords.map((w) => w.toLowerCase()))
   const words = new Set<string>()
   for (const n of lotNames) {
-    for (const w of n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').split(/[^a-z]+/)) if (w.length >= 5 && !own.has(w) && !COMMON.has(w)) words.add(w)
+    for (const w of plain(n).replace(/\s*\([a-z]{3}\)/g, '').split(/[^a-z]+/)) if (w.length >= 5 && !own.has(w) && !COMMON.has(w)) words.add(w)
   }
   return [...words]
 }
