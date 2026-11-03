@@ -118,6 +118,16 @@ describe("searchParking — locationsConsidered", () => {
     expect(r.locationsConsidered).toBe(1);
   });
 
+  it("excludes lots priced in CAD (checkout charges USD, no conversion)", async () => {
+    reslabMock.searchLocations.mockResolvedValue([
+      fixtureLocation(1),
+      { ...fixtureLocation(558), currency: { id: 1, name: "Canadian Dollar", code: "CAD" } },
+    ]);
+    reslabMock.getMinPrice.mockResolvedValue(minPrice());
+    const r = await search();
+    expect(r.locationsConsidered).toBe(1);
+  });
+
   it("excludes ResLab's test lots (194–197) in production only — staging keeps them for test bookings", async () => {
     reslabMock.searchLocations.mockResolvedValue([fixtureLocation(1), fixtureLocation(194)]);
     reslabMock.getMinPrice.mockResolvedValue(minPrice());
