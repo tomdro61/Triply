@@ -43,7 +43,8 @@
      "mayLead": true,
      "baseRate": 20.69
     }
-   ]
+   ],
+   "listed": 4
   },
   "AUS": {
    "status": "ok",
@@ -58,7 +59,8 @@
      "mayLead": true,
      "baseRate": 10.11
     }
-   ]
+   ],
+   "listed": 1
   },
   "BDL": {
    "status": "ok",
@@ -91,7 +93,8 @@
      "mayLead": true,
      "baseRate": 9.35
     }
-   ]
+   ],
+   "listed": 3
   },
   "BNA": {
    "status": "ok",
@@ -160,7 +163,8 @@
      "mayLead": true,
      "baseRate": 12.2
     }
-   ]
+   ],
+   "listed": 7
   },
   "BOS": {
    "status": "ok",
@@ -211,7 +215,8 @@
      "mayLead": true,
      "baseRate": 22.04
     }
-   ]
+   ],
+   "listed": 5
   },
   "BUF": {
    "status": "ok",
@@ -271,7 +276,8 @@
      "mayLead": false,
      "baseRate": 9.2
     }
-   ]
+   ],
+   "listed": 6
   },
   "BWI": {
    "status": "ok",
@@ -310,10 +316,11 @@
      "stayTotal": 64.38,
      "billedDays": 7,
      "transfer": "shuttle",
-     "mayLead": false,
+     "mayLead": true,
      "baseRate": 8.35
     }
-   ]
+   ],
+   "listed": 5
   },
   "CLE": {
    "status": "ok",
@@ -355,7 +362,8 @@
      "mayLead": true,
      "baseRate": 13.28
     }
-   ]
+   ],
+   "listed": 4
   },
   "CLT": {
    "status": "ok",
@@ -379,7 +387,8 @@
      "mayLead": true,
      "baseRate": 9.93
     }
-   ]
+   ],
+   "listed": 2
   },
   "CVG": {
    "status": "ok",
@@ -430,7 +439,8 @@
      "mayLead": true,
      "baseRate": 6.84
     }
-   ]
+   ],
+   "listed": 5
   },
   "DCA": {
    "status": "ok",
@@ -454,7 +464,8 @@
      "mayLead": true,
      "baseRate": 10.96
     }
-   ]
+   ],
+   "listed": 2
   },
   "DEN": {
    "status": "ok",
@@ -559,7 +570,8 @@
      "mayLead": true,
      "baseRate": 11.23
     }
-   ]
+   ],
+   "listed": 11
   },
   "DFW": {
    "status": "ok",
@@ -574,7 +586,8 @@
      "mayLead": true,
      "baseRate": 7.87
     }
-   ]
+   ],
+   "listed": 1
   },
   "DTW": {
    "status": "ok",
@@ -625,7 +638,8 @@
      "mayLead": true,
      "baseRate": 12.07
     }
-   ]
+   ],
+   "listed": 5
   },
   "EWR": {
    "status": "ok",
@@ -730,7 +744,8 @@
      "mayLead": true,
      "baseRate": 20.7
     }
-   ]
+   ],
+   "listed": 11
   },
   "FLL": {
    "status": "ok",
@@ -782,6 +797,15 @@
      "baseRate": 9.4
     },
     {
+     "name": "Park By The Ports AIRPORT Parking",
+     "perDay": 10.25,
+     "stayTotal": 82,
+     "billedDays": 8,
+     "transfer": "shuttle",
+     "mayLead": true,
+     "baseRate": 9.02
+    },
+    {
      "name": "The Harrison Hotel Downtown Hollywood",
      "perDay": 12.05,
      "stayTotal": 84.35,
@@ -817,7 +841,8 @@
      "mayLead": true,
      "baseRate": 12.55
     }
-   ]
+   ],
+   "listed": 11
   },
   "HOU": {
    "status": "ok",
@@ -859,7 +884,8 @@
      "mayLead": true,
      "baseRate": 6.96
     }
-   ]
+   ],
+   "listed": 4
   },
   "IAD": {
    "status": "ok",
@@ -883,7 +909,8 @@
      "mayLead": true,
      "baseRate": 18.57
     }
-   ]
+   ],
+   "listed": 2
   },
   "IAH": {
    "status": "ok",
@@ -907,7 +934,8 @@
      "mayLead": true,
      "baseRate": 7.3
     }
-   ]
+   ],
+   "listed": 2
   },
   "JFK": {
    "status": "ok",
@@ -1003,7 +1031,8 @@
      "mayLead": true,
      "baseRate": 38.17
     }
-   ]
+   ],
+   "listed": 10
   },
   "LAS": {
    "status": "ok",
@@ -1036,7 +1065,8 @@
      "mayLead": true,
      "baseRate": 12.55
     }
-   ]
+   ],
+   "listed": 3
   },
   "LAX": {
    "status": "ok",
@@ -1114,7 +1144,8 @@
      "mayLead": true,
      "baseRate": 28.08
     }
-   ]
+   ],
+   "listed": 8
   },
   "LGA": {
    "status": "ok",
@@ -1192,7 +1223,8 @@
      "mayLead": true,
      "baseRate": 21.9
     }
-   ]
+   ],
+   "listed": 8
   },
   "MCI": {
    "status": "ok",
@@ -1252,7 +1284,8 @@
      "mayLead": true,
      "baseRate": 10.57
     }
-   ]
+   ],
+   "listed": 6
   },
   "MCO": {
    "status": "ok",
@@ -1294,7 +1327,8 @@
      "mayLead": true,
      "baseRate": 11.06
     }
-   ]
+   ],
+   "listed": 4
   },
   "MIA": {
    "status": "ok",
@@ -1345,7 +1379,8 @@
      "mayLead": true,
      "baseRate": 12.11
     }
-   ]
+   ],
+   "listed": 8
   },
   "MKE": {
    "status": "ok",
@@ -1387,7 +1422,8 @@
      "mayLead": true,
      "baseRate": 13.94
     }
-   ]
+   ],
+   "listed": 4
   },
   "MSP": {
    "status": "ok",
@@ -1402,7 +1438,8 @@
      "mayLead": true,
      "baseRate": 9.54
     }
-   ]
+   ],
+   "listed": 1
   },
   "MSY": {
    "status": "ok",
@@ -1435,7 +1472,8 @@
      "mayLead": true,
      "baseRate": 10.15
     }
-   ]
+   ],
+   "listed": 3
   },
   "OAK": {
    "status": "ok",
@@ -1468,7 +1506,8 @@
      "mayLead": true,
      "baseRate": 13.01
     }
-   ]
+   ],
+   "listed": 3
   },
   "ORD": {
    "status": "ok",
@@ -1528,7 +1567,8 @@
      "mayLead": true,
      "baseRate": 18.9
     }
-   ]
+   ],
+   "listed": 6
   },
   "PDX": {
    "status": "ok",
@@ -1561,7 +1601,8 @@
      "mayLead": true,
      "baseRate": 15.12
     }
-   ]
+   ],
+   "listed": 3
   },
   "PHL": {
    "status": "ok",
@@ -1621,7 +1662,8 @@
      "mayLead": true,
      "baseRate": 9.96
     }
-   ]
+   ],
+   "listed": 6
   },
   "PHX": {
    "status": "ok",
@@ -1690,7 +1732,8 @@
      "mayLead": true,
      "baseRate": 14.66
     }
-   ]
+   ],
+   "listed": 7
   },
   "POE": {
    "status": "ok",
@@ -1719,11 +1762,12 @@
      "perDay": 24.36,
      "stayTotal": 194.84,
      "billedDays": 8,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 21.61
     }
-   ]
+   ],
+   "listed": 11
   },
   "RDU": {
    "status": "ok",
@@ -1765,7 +1809,8 @@
      "mayLead": true,
      "baseRate": 11.88
     }
-   ]
+   ],
+   "listed": 4
   },
   "RIC": {
    "status": "ok",
@@ -1798,7 +1843,8 @@
      "mayLead": true,
      "baseRate": 10.49
     }
-   ]
+   ],
+   "listed": 3
   },
   "SAN": {
    "status": "ok",
@@ -1831,7 +1877,8 @@
      "mayLead": true,
      "baseRate": 23.58
     }
-   ]
+   ],
+   "listed": 5
   },
   "SDF": {
    "status": "ok",
@@ -1864,7 +1911,8 @@
      "mayLead": true,
      "baseRate": 8.35
     }
-   ]
+   ],
+   "listed": 3
   },
   "SEA": {
    "status": "ok",
@@ -1884,7 +1932,7 @@
      "perDay": 10.14,
      "stayTotal": 81.13,
      "billedDays": 8,
-     "transfer": "unknown",
+     "transfer": "shuttle",
      "mayLead": true,
      "baseRate": 9.4
     },
@@ -1906,7 +1954,8 @@
      "mayLead": true,
      "baseRate": 18.93
     }
-   ]
+   ],
+   "listed": 4
   },
   "SFO": {
    "status": "ok",
@@ -1957,7 +2006,8 @@
      "mayLead": true,
      "baseRate": 12.89
     }
-   ]
+   ],
+   "listed": 5
   },
   "SJC": {
    "status": "ok",
@@ -1990,7 +2040,8 @@
      "mayLead": true,
      "baseRate": 8.15
     }
-   ]
+   ],
+   "listed": 3
   },
   "SLC": {
    "status": "error",
@@ -2054,7 +2105,8 @@
      "mayLead": true,
      "baseRate": 15.12
     }
-   ]
+   ],
+   "listed": 6
   },
   "TPA": {
    "status": "ok",
@@ -2069,7 +2121,8 @@
      "mayLead": true,
      "baseRate": 8.5
     }
-   ]
+   ],
+   "listed": 3
   },
   "YUL": {
    "status": "error",
@@ -2121,6 +2174,7 @@
      "baseRate": 19.15
     }
    ],
+   "listed": 5,
    "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   },
   "YYC": {
@@ -2155,6 +2209,7 @@
      "baseRate": 8.35
     }
    ],
+   "listed": 3,
    "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   },
   "YYZ": {
@@ -2279,6 +2334,7 @@
      "baseRate": 26.2
     }
    ],
+   "listed": 13,
    "reason": "held: ResLab prices this airport in CAD but checkout charges the same number in USD (Tom to decide)"
   }
  }

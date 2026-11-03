@@ -44,6 +44,8 @@ export interface AirportPrices {
   lots?: ChartLot[]
   /** Why the airport has no chart data ('error'), for the run summary. */
   reason?: string
+  /** How many bookable lots the search returned, before any were left off a chart (cruise-port lots, twins) — what "Triply sells N lots here" means. */
+  listed?: number
 }
 
 export interface PriceSnapshot {
@@ -297,7 +299,7 @@ function footer(d: ChartInput, kind: ChartKind): string {
       ? 'Off-site: the triplypro.com total for these dates, taxes and fees included, per billed day. Prices change by date.'
       : 'Off-site: the triplypro.com total for this 7-day stay, taxes and fees included. Prices change by date.')
     const odd = oddBilling(d)
-    if (odd.length) lines.push(`* Bills ${odd.length === 1 ? odd[0] : 'a different number of'} days for this 7-day stay; per day = total ÷ billed days. Lots are in order of the stay's total.`)
+    if (odd.length) lines.push(`* Bills ${odd.length === 1 ? odd[0] : 'a different number of'} days for this 7-day stay; per day = total ÷ billed days.`)
   }
   if (d.onAirport.length) {
     lines.push(kind === 'daily'
@@ -376,17 +378,21 @@ export function chartAlt(d: ChartInput, kind: ChartKind): string {
   const unit = kind === 'daily' ? 'daily rates' : '7-day costs'
   const clauses: string[] = []
   if (d.lots.length) {
-    const lead = [...d.lots.filter((l) => l.mayLead)].sort((a, b) => a.stayTotal - b.stayTotal)
+    // The range is in the unit the chart prints: per day on the daily chart, the stay total on the 7-day table — so
+    // "from … to" is always the lowest and highest figure shown (an 8-day lot is cheaper per day, dearer per stay).
+    const value = (l: ChartLot) => (kind === 'daily' ? l.perDay : l.stayTotal)
+    const lead = [...d.lots.filter((l) => l.mayLead)].sort((a, b) => value(a) - value(b))
     const rest = d.lots.length - lead.length
     const named = (l: ChartLot) => `${lotPrice(l)} (${shortName(l.name, 60)}${billed(l)})`
     if (d.lots.length === 1) {
+      // "one lot", not "the one lot": the search may list others this chart leaves off (cruise-port lots).
       const l = d.lots[0]
-      clauses.push(`the one lot bookable on Triply, ${shortName(l.name, 60)}, ${lotPrice(l)}${billed(l)}${l.transfer === 'paid' ? ', plus a paid shuttle' : ''}`)
+      clauses.push(`one lot bookable on Triply, ${shortName(l.name, 60)}, ${lotPrice(l)}${billed(l)}${l.transfer === 'paid' ? ', plus a paid shuttle' : ''}`)
     } else if (lead.length === 0) {
       clauses.push(`lots bookable on Triply from ${named(d.lots[0])}, each with a paid shuttle or another caveat (see the lot page)`)
     } else {
       const lo = lead[0], hi = lead[lead.length - 1]
-      clauses.push(`${lo === hi ? `lots bookable on Triply from ${named(lo)}` : `lots bookable on Triply from ${named(lo)} to ${named(hi)}`}${rest ? `, plus ${rest} with a paid shuttle or another caveat` : ''}`)
+      clauses.push(`${value(lo) === value(hi) ? `lots bookable on Triply from ${named(lo)}` : `lots bookable on Triply from ${named(lo)} to ${named(hi)}`}${rest ? `, plus ${rest} with a paid shuttle or another caveat` : ''}`)
     }
     clauses[0] += `, taxes and fees included, prices as of ${fmtDate(d.asOf)} for a 7-day stay ${fmtStay(d.checkin, d.checkout)}`
   }
@@ -432,13 +438,15 @@ export const LOT_BRANDS = /\b(?:inn|hotel|suites|marriott|hilton|hyatt|westin|sh
  * on-airport chart that names the airport). A full name made only of such words is dropped too.
  */
 export function lotKeys(lotNames: string[], airportWords: string[] = []): string[] {
-  const own = new Set(airportWords.map((w) => w.toLowerCase()).concat(['airport', 'international', 'parking', 'the']))
+  const own = new Set(airportWords.map((w) => w.toLowerCase()).concat(['airport', 'international']))
+  // "parking" alone isn't distinctive for a whole name, but "parking spot" is a brand: keep two-word keys that use it.
+  const generic = new Set([...own, 'parking'])
   const keys = new Set<string>()
   for (const n of lotNames) {
     const full = n.toLowerCase().replace(/\s*\([a-z]{3}\)/g, '').replace(/^the\s+/, '').replace(/\s+/g, ' ').trim()
     const two = full.split(' ').slice(0, 2)
-    if (full.length >= 6 && full.split(' ').some((w) => !own.has(w))) keys.add(full)
-    if (two.join(' ').length >= 6 && two.length === 2 && two.every((w) => !own.has(w))) keys.add(two.join(' '))
+    if (full.length >= 6 && full.split(' ').some((w) => !generic.has(w))) keys.add(full)
+    if (two.join(' ').length >= 6 && two.length === 2 && two.every((w) => !own.has(w)) && two.some((w) => !generic.has(w))) keys.add(two.join(' '))
   }
   return [...keys]
 }

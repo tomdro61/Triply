@@ -326,7 +326,12 @@ export async function addRateChart(html: string, airportCode: string): Promise<I
   const age = snapshotAgeDays(snap, nyToday())
   if (age > MAX_SNAPSHOT_AGE_DAYS || age < 0) { console.log(`  Rate chart skipped: the prices are dated ${snap.asOf} (${age} days from today) — re-run reports/chart-redraw/prices.mts`); return { html, count: 0 } }
   const d = chartInputFor(airportCode, snap)
-  if (!d || d.lots.length === 0) { console.log(`  Rate chart skipped: no lot Triply sells at ${airportCode} in the ${snap.asOf} prices`); return { html, count: 0 } }
+  if (!d || d.lots.length === 0) {
+    const row = snap.airports[airportCode.toUpperCase()]
+    const why = !row ? 'not in the price snapshot' : row.status === 'error' ? row.reason ?? 'search unusable' : 'no lot Triply sells here'
+    console.log(`  Rate chart skipped for ${airportCode} (${snap.asOf} prices): ${why}`)
+    return { html, count: 0 }
+  }
   const alt = chartAlt(d, 'daily')
   const media = await uploadMedia(svgToPng(chartSvg(d, 'daily')), chartFileName(d, 'daily'), alt)
   const fig = figureTag(String(media.doc?.id || media.id), String(media.doc?.url || media.url), alt)

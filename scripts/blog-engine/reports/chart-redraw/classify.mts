@@ -29,9 +29,12 @@ const PARKING = /park|\blots?\b|garage|valet|economy|\/day|per day|daily/i
 const RATE_WORDS = /daily rates?|rates? in (?:cad|canadian)|per day|\/day|parking (?:rates|costs|prices)/i
 const WEEK = /\btable\b|7-day|7 day|7 nights|seven|weekly|\bweek\b|total|for \d+ (?:days|nights)/i
 /** A subject that is a parking-price comparison (the October charts' own wording). */
-const RATE_SUBJECT = /parking (?:rates?|costs?|prices?|options|lots?|comparison|savings|stay)|daily rates?|(?:7|seven|8|eight)[- ](?:day|night) (?:parking )?(?:costs?|totals?|trip)|(?:cost|price|rate) (?:comparison|breakdown)|rates? compar|park(?:ing)?[- ](?:and|&|n)[- ]fly|park,? sleep|off-(?:site|airport) (?:parking|lots?|options)|lots? (?:near|bookable)|cruise parking/i
-/** A subject that is something else, even when the image also prices a lot. */
-const OTHER_SUBJECT = /\bmap\b|timeline|arrival|how early|step-by-step|\bsteps?\b|process|flow ?chart|wait times?|\btsa\b|catsa|security|\buber\b|\blyft\b|rideshare|taxi|\bbus\b|train|transit|lounge|\bev\b|electric vehicle|charging|rental car|oversi[sz]ed|over-?height|\bada\b|disabled|accessible|veteran|lost (?:parking )?ticket|receipt|pick-?up|drop-?off|cell phone|game day|terminal guide|which terminal|\bclear\b|precheck|wi-?fi|restaurant|weather|construction|transportation/i
+const RATE_SUBJECT = /parking (?:rates?|costs?|prices?|lots?|comparison|savings|stay)|daily rates?|(?:7|seven|8|eight)[- ](?:day|night) (?:parking )?(?:costs?|totals?|trip)|parking (?:cost|price|rate) (?:comparison|breakdown)|rates? compar|park(?:ing)?[- ](?:and|&|n)[- ]fly|park,? sleep|off-(?:site|airport) (?:parking|lots?|options)|lots? (?:near|bookable)|cruise parking/i
+/**
+ * Another subject, ANYWHERE in the caption, even when the image also prices a lot: a rate chart would drop what the
+ * post needs (clearance, chargers, fares, steps). Errs toward holding — a held image keeps its old picture for Tom.
+ */
+const OTHER_SUBJECT = /\bmap\b|timeline|arrival|how early|step-by-step|\bsteps?\b|process|flow ?chart|wait times?|\btsa\b|catsa|security program|\buber\b|\blyft\b|rideshare|taxi|\bbus\b|\btrain\b|transit|lounge|\bev\b|electric vehicle|charging|charger|rental car|oversi[sz]ed|over-?height|clearance|\bada\b|disabled|accessible|veteran|motorcycle|lost (?:parking )?ticket|receipt|pick-?up|drop-?off|cell phone|game day|terminal guide|which terminal|\bclear\b|precheck|wi-?fi|restaurant|weather|construction|transportation|hourly|free parking|rewards?|loyalty|points/i
 
 function codeOf(r: Raw): string {
   const m = r.filename.match(/^([a-z]{3})-(?:parking-rates|rate-chart|infographic)-/)
@@ -50,15 +53,6 @@ function airportLotKeys(code: string): string[] {
   return keys
 }
 
-/** The first sentence of an alt (up to ":", " — " or the first full stop): where the LLM named what the image is about. */
-const subjectOf = (alt: string) => alt.split(/:\s|\s[—–]\s|\.\s/)[0]
-/** Which comes first in the subject: a rate-comparison phrase or another topic ("arrival times … parking" = arrival). */
-function firstTopic(subject: string): { rate: boolean; other: string | undefined } {
-  const r = subject.match(RATE_SUBJECT), o = subject.match(OTHER_SUBJECT)
-  if (r && (!o || r.index! < o.index!)) return { rate: true, other: undefined }
-  return { rate: false, other: o?.[0] }
-}
-
 function classify(r: Raw, code: string): Pick<Item, 'family' | 'cls' | 'kind' | 'why'> {
   const alt = r.alt ?? ''
   const kind: ChartKind = WEEK.test(alt) ? 'week' : 'daily'
@@ -74,9 +68,8 @@ function classify(r: Raw, code: string): Pick<Item, 'family' | 'cls' | 'kind' | 
   if (!hit) {
     return PARKING.test(alt) ? { family, cls: 'airport', kind, why: 'prices on-airport parking only' } : { family, cls: 'not-rate', kind, why: 'prices, but not parking (fares, lounges…)' }
   }
-  const { rate, other } = firstTopic(subjectOf(alt))
-  // No topic phrase in the first sentence (just "Bar chart comparing …"): a rate phrase anywhere decides it.
-  if (rate || (!other && RATE_SUBJECT.test(alt))) return { family, cls: 'one-off', kind, why: `rate comparison pricing off-site lots ("${hit}")` }
+  const other = alt.match(OTHER_SUBJECT)?.[0]
+  if (!other && RATE_SUBJECT.test(alt)) return { family, cls: 'one-off', kind, why: `rate comparison pricing off-site lots ("${hit}")` }
   return { family, cls: 'mixed', kind, why: `prices off-site lots ("${hit}") inside another subject${other ? ` ("${other}")` : ''}` }
 }
 

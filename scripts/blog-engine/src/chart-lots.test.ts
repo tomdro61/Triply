@@ -32,4 +32,12 @@ test('cruise-port lots are found by name, by their own shuttle text, or by an ex
   assert.notEqual(cruisePortLot(lot('Clarion', '10 AM - 2 PM'), note, true), '')
   assert.equal(cruisePortLot(lot('Clarion', '4:00 AM - 10:00 AM: Shuttle runs every 30 minutes.'), note, false), '', 'a shared data-file entry does not exclude the other listing')
   assert.equal(cruisePortLot(lot('Courtyard FLL', '5 AM - midnight', 'This reservation includes complimentary AIRPORT shuttle. Cruise port shuttle available for a fee.'), undefined, false), '')
+  assert.notEqual(cruisePortLot(lot('Fox Parking', '4:00 AM - 12:30 AM: Shuttle runs on demand.', 'Shuttle runs 4 AM to 12:30 AM, on-demand to and from the Cruise terminal'), undefined, false), '')
+})
+test("an operator's AIRPORT listing is kept even when its name says ports", () => {
+  assert.equal(cruisePortLot(lot('Park By The Ports AIRPORT Parking', '24/7 on Demand', 'Shuttle pickups at FLL Terminals 1-4.'), undefined, false), '')
+})
+test('labels: "once an hour, top of the hour" is a shuttle; a port lot with a confirmed port shuttle is a shuttle', () => {
+  assert.equal(transferOf(lot('Motel 6', 'once an hour top of the hour'), undefined, false), 'shuttle')
+  assert.equal(transferOf(lot('Park By The Ports Cruise Parking', '7 AM to 2 PM'), { cruiseShuttle: 'included' }, false), 'shuttle')
 })

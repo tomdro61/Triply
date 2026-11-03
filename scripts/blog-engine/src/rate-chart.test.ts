@@ -84,7 +84,7 @@ test('caption: dated range over lots that may lead; a paid-transfer lot is never
 })
 test('caption: one lot, 7-day total, Canadian dollars', () => {
   const alt = chartAlt(input([lot('Autoparc RM', 13.1)], 'YUL', 'CAD'), 'week')
-  assert.match(alt, /^YUL parking 7-day costs compared: the one lot bookable on Triply, Autoparc RM, C\$91\.70, taxes and fees included/)
+  assert.match(alt, /^YUL parking 7-day costs compared: one lot bookable on Triply, Autoparc RM, C\$91\.70, taxes and fees included/)
   assert.doesNotMatch(alt, /(?<!C)\$\d/)
 })
 test('caption: fallback chart never says Triply or bookable', () => {
@@ -115,6 +115,17 @@ test('a lot that bills 8 days for the 7-day stay is starred on both charts and i
   assert.match(bars, /\$8\.61\*\/day/)
   for (const svg of [table, bars]) assert.match(svg, /\* Bills 8 days for this 7-day stay/)
   assert.match(chartAlt(d, 'daily'), /Westin, \$8\.61\/day, billed as 8 days/)
+})
+test('daily caption range is the lowest and highest per-day price shown (DEN, Nov 2: an 8-day lot is cheapest per day)', () => {
+  const alt = chartAlt(input([lot('Eight', 6.44, 'shuttle', 8), lot('A', 6.7), lot('B', 7.2), lot('C', 7.94)]), 'daily')
+  assert.match(alt, /from \$6\.44\/day \(Eight, billed as 8 days\) to \$7\.94\/day \(C\)/)
+  assert.match(chartAlt(input([lot('Eight', 6.44, 'shuttle', 8), lot('A', 6.7), lot('C', 7.94)]), 'week'), /from \$46\.90 \(A\) to \$55\.58 \(C\)/)
+})
+test('a tie is one price, not "from $9.20 to $9.20"', () => {
+  assert.doesNotMatch(chartAlt(input([lot('Hampton', 9.2), lot('SpringHill', 9.2)]), 'daily'), / to \$9\.20/)
+})
+test('the "Parking Spot" brand still counts as a lot name', () => {
+  assert.equal(pricesOffSiteLots('<svg><text>The Parking Spot $9/day</text></svg>', ['The Parking Spot North (DFW)'], ['Dallas', 'Fort', 'Worth', 'DFW']), true)
 })
 test('caption counts the shown lots that may not lead', () => {
   assert.match(chartAlt(input([lot('Paid', 3, 'paid'), lot('A', 10), lot('B', 12)]), 'daily'), /from \$10\.00\/day \(A\) to \$12\.00\/day \(B\), plus 1 with a paid shuttle or another caveat/)

@@ -131,7 +131,8 @@ function toAirport(code: string, b: SearchBody, excluded: string[]): AirportPric
     // Leading follows the engine (leadEligibleLots): no paid transfer, no suspended shuttle, no "do not use in CTAs"
     // note. A lot with no shuttle may lead (Tom, Nov 2) — it just never gets a shuttle claim.
     const suspended = file?.shuttleSuspended === true || /shuttle (?:is )?suspended/i.test(sh.summary ?? '')
-    const mayLead = !paid && !suspended && !(typeof file?.notes === 'string' && DO_NOT_LEAD.test(file.notes))
+    // Notes count only on an exact match: BWI's two "Clarion Hotel BWI North" listings share one entry written for the port one.
+    const mayLead = !paid && !suspended && !(exact && typeof file?.notes === 'string' && DO_NOT_LEAD.test(file.notes))
     const base = typeof p.minPrice === 'number' && p.minPrice > 0 ? { baseRate: money2(p.minPrice) } : {}
     const lot: ChartLot = { name: live.name, perDay: money2(perDay), stayTotal: money2(stayTotal), billedDays: p.numberOfDays, transfer, mayLead, ...base }
     // Two listings with one name (BWI's two "Clarion Hotel BWI North") would print as identical rows: keep the cheaper stay.
@@ -145,8 +146,8 @@ function toAirport(code: string, b: SearchBody, excluded: string[]): AirportPric
     byName.set(key, lots.length)
     lots.push(lot)
   }
-  if (lots.length === 0) return { status: 'error', reason: `every listed lot was left off (${excluded.length})` }
-  return { status: 'ok', currency: expect, lots }
+  if (lots.length === 0) return { status: 'error', reason: `every listed lot was left off (${excluded.length})`, listed: results.length }
+  return { status: 'ok', currency: expect, lots, listed: results.length }
 }
 
 fs.mkdirSync(OUT, { recursive: true })
@@ -174,7 +175,17 @@ for (const code of CODES) {
   if (!FROM_SAVED) await new Promise((r) => setTimeout(r, 2_000))
 }
 
-const snapshot: PriceSnapshot = { asOf, checkin, checkout, airports }
+// A run on a few airports (`prices.mts ATL DFW`) updates those rows of the same run; it never replaces the whole file
+// (the engine would lose every other airport) and never mixes two runs' dates in one file.
+let merged = airports
+if (only.length && fs.existsSync(PRICE_SNAPSHOT_PATH)) {
+  const prev = JSON.parse(fs.readFileSync(PRICE_SNAPSHOT_PATH, 'utf-8')) as PriceSnapshot
+  if (prev.asOf !== asOf || prev.checkin !== checkin || prev.checkout !== checkout) {
+    throw new Error(`data/chart-prices.json holds the ${prev.asOf} run (${prev.checkin} → ${prev.checkout}); a partial run for ${asOf} would mix dates — run every airport instead. Searches saved in ${OUT}.`)
+  }
+  merged = { ...prev.airports, ...airports }
+}
+const snapshot: PriceSnapshot = { asOf, checkin, checkout, airports: Object.fromEntries(Object.entries(merged).sort(([a], [b]) => a.localeCompare(b))) }
 fs.writeFileSync(PRICE_SNAPSHOT_PATH, JSON.stringify(snapshot, null, 1) + '\n')
 const runFile = `${OUT}/prices-run-${asOf}.json`
 const prior = fs.existsSync(runFile) ? JSON.parse(fs.readFileSync(runFile, 'utf-8')) as { started?: string; finished?: string } : {}
