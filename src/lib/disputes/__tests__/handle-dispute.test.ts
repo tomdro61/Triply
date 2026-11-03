@@ -7,13 +7,12 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type Stripe from "stripe";
 
-const { db, disputesUpdate, piRetrieve, cc, sentry, alerts } = await vi.hoisted(async () => {
+const { db, disputesUpdate, piRetrieve, sentry, alerts } = await vi.hoisted(async () => {
   const { FakeSupabase } = await import("@/lib/booking/__tests__/supabase-fake");
   return {
     db: new FakeSupabase(),
     disputesUpdate: vi.fn(),
     piRetrieve: vi.fn(),
-    cc: { commandCenterConfigured: vi.fn(), createCommandCenterTask: vi.fn() },
     sentry: { capturePaymentError: vi.fn() },
     alerts: { sendDisputeOpenedAlert: vi.fn(), sendDisputeClosedAlert: vi.fn() },
   };
@@ -21,10 +20,6 @@ const { db, disputesUpdate, piRetrieve, cc, sentry, alerts } = await vi.hoisted(
 
 vi.mock("@/lib/stripe/client", () => ({
   stripe: { disputes: { update: disputesUpdate }, paymentIntents: { retrieve: piRetrieve } },
-}));
-vi.mock("@/lib/command-center/create-task", async (orig) => ({
-  ...(await orig<typeof import("@/lib/command-center/create-task")>()),
-  ...cc,
 }));
 vi.mock("@/lib/sentry", () => sentry);
 vi.mock("@/lib/resend/send-dispute-alert", () => alerts);
@@ -91,8 +86,6 @@ beforeEach(() => {
   db.seed("customers", [{ id: "c1", email: "a@b.com", first_name: "Ann", last_name: "Lee" }]).seed("disputes", []);
   disputesUpdate.mockReset().mockResolvedValue({});
   piRetrieve.mockReset().mockResolvedValue(PI);
-  cc.commandCenterConfigured.mockReset().mockReturnValue(false);
-  cc.createCommandCenterTask.mockReset().mockResolvedValue("task-1");
   sentry.capturePaymentError.mockReset();
   alerts.sendDisputeOpenedAlert.mockReset().mockResolvedValue(undefined);
   alerts.sendDisputeClosedAlert.mockReset().mockResolvedValue(undefined);
@@ -268,30 +261,6 @@ describe("handleDisputeCreated", () => {
     await handleDisputeCreated(sb, dispute());
     expect(disputesUpdate).toHaveBeenCalledTimes(1);
     expect(disputesUpdate.mock.calls[0][1].evidence.cancellation_policy_disclosure).not.toContain("ticked");
-  });
-
-  it("a live dispute gets one Command Center task, due two days before the deadline", async () => {
-    cc.commandCenterConfigured.mockReturnValue(true);
-    await handleDisputeCreated(sb, dispute());
-    await handleDisputeCreated(sb, dispute());
-    expect(cc.createCommandCenterTask).toHaveBeenCalledTimes(1);
-    const task = cc.createCommandCenterTask.mock.calls[0][0];
-    expect(task.title).toBe("Answer $50.57 fraudulent dispute (RTL828863) by 2025-11-05");
-    expect(task.due).toBe("2025-11-02");
-    expect(db.tables.disputes[0].cc_task_id).toBe("task-1");
-  });
-
-  it("test-mode disputes never create a Command Center task", async () => {
-    cc.commandCenterConfigured.mockReturnValue(true);
-    await handleDisputeCreated(sb, dispute({ livemode: false }));
-    expect(cc.createCommandCenterTask).not.toHaveBeenCalled();
-  });
-
-  it("a failed Command Center task is reported, not retried", async () => {
-    cc.commandCenterConfigured.mockReturnValue(true);
-    cc.createCommandCenterTask.mockRejectedValueOnce(new Error("HTTP 500"));
-    expect((await handleDisputeCreated(sb, dispute())).retryable).toBe(false);
-    expect(sentry.capturePaymentError.mock.calls.at(-1)?.[0].message).toContain("Command Center task failed");
   });
 });
 

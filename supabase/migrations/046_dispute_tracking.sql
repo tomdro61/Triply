@@ -3,9 +3,7 @@
 -- APPLY IN THE SUPABASE SQL EDITOR against Triply-prod (shared by staging +
 -- prod), AFTER 045. Additive only. Re-run-safe.
 --
--- disputes: two claim columns + who submitted.
---   cc_task_created_at  claim for the one Command Center task per dispute
---   cc_task_id          the task it created (null if the integration is off)
+-- disputes: who submitted the evidence.
 --   submitted_at / submitted_by  set from /admin/disputes after a person
 --                       submits the evidence in Stripe (Stripe has no event
 --                       for "evidence submitted" we act on, so it's manual)
@@ -18,13 +16,10 @@
 --
 -- ROLLBACK:
 --   DROP TABLE IF EXISTS fraud_warnings;
---   ALTER TABLE disputes DROP COLUMN IF EXISTS cc_task_created_at,
---     DROP COLUMN IF EXISTS cc_task_id, DROP COLUMN IF EXISTS submitted_at,
+--   ALTER TABLE disputes DROP COLUMN IF EXISTS submitted_at,
 --     DROP COLUMN IF EXISTS submitted_by;
 
 ALTER TABLE disputes
-  ADD COLUMN IF NOT EXISTS cc_task_created_at TIMESTAMPTZ,
-  ADD COLUMN IF NOT EXISTS cc_task_id TEXT,
   ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS submitted_by TEXT;
 

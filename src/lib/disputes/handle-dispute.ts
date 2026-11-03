@@ -10,7 +10,6 @@ import {
   type DisputeBooking,
   type PaymentFacts,
 } from "./evidence";
-import { commandCenterConfigured, createCommandCenterTask, dueTwoDaysBefore } from "@/lib/command-center/create-task";
 import type { createAdminClient } from "@/lib/supabase/server";
 
 type Db = Awaited<ReturnType<typeof createAdminClient>>;
@@ -232,7 +231,6 @@ export async function handleDisputeCreated(supabase: Db, d: Stripe.Dispute): Pro
     return frozen(fail("alert email failed", err instanceof Error ? err.message : String(err)));
   }
 
-  await addCommandCenterTask(supabase, d, booking?.reslab_reservation_number ?? null, ctx);
   return frozen({ retryable: false });
 }
 
@@ -250,38 +248,6 @@ async function chargeFacts(
       ctx
     );
     return null;
-  }
-}
-
-/**
- * One Command Center task per live dispute, due two days before Stripe's
- * deadline. Claimed like the email; a failure is reported, never retried —
- * the alert email has already gone out.
- */
-async function addCommandCenterTask(
-  supabase: Db,
-  d: Stripe.Dispute,
-  confirmationNumber: string | null,
-  ctx: { stripePaymentIntentId: string; amount: number }
-) {
-  if (!d.livemode || !commandCenterConfigured()) return;
-  try {
-    if (!(await claim(supabase, d.id, "cc_task_created_at"))) return;
-    const due = dueByISO(d);
-    const taskId = await createCommandCenterTask({
-      title: `Answer $${(d.amount / 100).toFixed(2)} ${d.reason} dispute${confirmationNumber ? ` (${confirmationNumber})` : ""} by ${due ? due.slice(0, 10) : "the Stripe deadline"}`,
-      priority: "High",
-      due: dueTwoDaysBefore(due),
-      why: "A missed dispute deadline is an automatic loss, plus the dispute fee.",
-      next_step: `Open https://dashboard.stripe.com/disputes/${d.id}, check the saved evidence draft, add the lot's proof, then submit (one shot). Mark it submitted in /admin/disputes.`,
-    });
-    const { error } = await supabase.from("disputes").update({ cc_task_id: taskId }).eq("stripe_dispute_id", d.id);
-    if (error) capturePaymentError(new Error(`Dispute ${d.id}: cc_task_id write failed: ${error.message}`), ctx);
-  } catch (err) {
-    capturePaymentError(
-      new Error(`Dispute ${d.id}: Command Center task failed: ${err instanceof Error ? err.message : String(err)}`),
-      ctx
-    );
   }
 }
 

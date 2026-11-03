@@ -1,7 +1,6 @@
 import type Stripe from "stripe";
 import { capturePaymentError } from "@/lib/sentry";
 import { sendFraudWarningAlert } from "@/lib/resend/send-dispute-alert";
-import { commandCenterConfigured, createCommandCenterTask } from "@/lib/command-center/create-task";
 import type { createAdminClient } from "@/lib/supabase/server";
 import type { DisputeOutcome } from "./handle-dispute";
 
@@ -22,7 +21,7 @@ type WarningBooking = {
  * radar.early_fraud_warning.created: the card network says this charge is
  * likely fraud, usually days before the dispute. Refunding first avoids the
  * dispute and its fee — but only a person decides (the parking may already
- * have been used). Ledger row, one alert email, one Command Center task.
+ * have been used). Ledger row and one alert email.
  * Nothing is refunded here.
  */
 export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.EarlyFraudWarning): Promise<DisputeOutcome> {
@@ -87,21 +86,5 @@ export async function handleEarlyFraudWarning(supabase: Db, w: Stripe.Radar.Earl
     return fail("alert email failed", { message: err instanceof Error ? err.message : String(err) });
   }
 
-  // Only actionable warnings can still be refunded ahead of a dispute.
-  if (w.livemode && w.actionable && commandCenterConfigured()) {
-    try {
-      await createCommandCenterTask({
-        title: `Decide: refund ${amount ?? "the"} booking${booking?.reslab_reservation_number ? ` ${booking.reslab_reservation_number}` : ""} flagged as likely fraud`,
-        priority: "High",
-        why: "A refund now avoids a dispute, its fee and a hit to the dispute rate.",
-        next_step: "Check with the lot whether the car was parked. Not used: refund in Stripe. Used: keep the proof for the dispute.",
-      });
-    } catch (err) {
-      capturePaymentError(
-        new Error(`Fraud warning ${w.id}: Command Center task failed: ${err instanceof Error ? err.message : String(err)}`),
-        ctx
-      );
-    }
-  }
   return { retryable: false };
 }
