@@ -8,6 +8,7 @@ import { parkGuard, ParkGuardError } from "@/lib/parkguard/client";
 import { createBooking, shouldStripeRedeliver } from "@/lib/booking/create-booking";
 import Stripe from "stripe";
 import { recordCancellationReason } from "@/lib/cancellation/reason";
+import { handleDisputeChanged, handleDisputeCreated } from "@/lib/disputes/handle-dispute";
 
 // This handler now CREATES bookings, so it inherits the full fulfilment budget:
 // ResLab, capture, Supabase, Park Guard, and two emails.
@@ -398,7 +399,17 @@ export async function POST(request: NextRequest) {
 
       console.error("Dispute created:", dispute.id, "for PI:", paymentIntentId);
 
-      if (paymentIntentId) {
+      // Ledger row, evidence draft (never submitted), alert email. Runs BEFORE
+      // the status flip below: the evidence must describe the booking as it
+      // was (cancelled or not), not as `disputed`.
+      const ledger = await handleDisputeCreated(supabase, dispute);
+      if (ledger.retryable) retryable = true;
+
+      // Flip once: on the delivery that stored the pre-dispute status (an
+      // earlier flip would make the redelivery read `disputed` and lose it),
+      // and never again on a redelivery that only retries the alert email —
+      // that would overwrite whatever status the booking has since.
+      if (paymentIntentId && ledger.flipBooking) {
         const { data: booking, error: lookupErr } = await supabase
           .from("bookings")
           .select("id")
@@ -430,6 +441,13 @@ export async function POST(request: NextRequest) {
         new Error(`Dispute created: ${dispute.reason || "unknown"} - amount: ${dispute.amount / 100}`),
         { stripePaymentIntentId: paymentIntentId || "unknown", amount: dispute.amount / 100 }
       );
+      break;
+    }
+
+    case "charge.dispute.updated":
+    case "charge.dispute.closed": {
+      const dispute = event.data.object as Stripe.Dispute;
+      if ((await handleDisputeChanged(supabase, dispute)).retryable) retryable = true;
       break;
     }
 
