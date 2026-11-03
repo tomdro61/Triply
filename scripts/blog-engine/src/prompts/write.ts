@@ -393,7 +393,7 @@ function sellableLots(data: AirportData): Record<string, unknown>[] {
 }
 
 /** A lot whose own notes bar it from leading (suspended shuttle, "do not use in CTAs", airport-only on a cruise page). */
-const DO_NOT_LEAD = /do not use in ctas?|not a lead recommendation|do not present it as general|shuttle (?:is )?suspended|confirm the airport shuttle before recommending/i
+export const DO_NOT_LEAD = /do not use in ctas?|not a lead recommendation|do not present it as general|shuttle (?:is )?suspended|confirm the airport shuttle before recommending/i
 
 /** A cruise-port page: POE, or any file whose lots carry a `cruiseShuttle` field. A cruise KEYWORD at an airport page is not
  *  one — those files have no cruise-shuttle data to filter on, so every lot stays eligible and rule 38a's caveats apply. */
