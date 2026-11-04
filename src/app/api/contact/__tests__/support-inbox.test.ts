@@ -160,6 +160,14 @@ describe("POST /api/contact — support inbox on", () => {
     expect(resendSend.mock.calls[1][0].html).toContain("Cancelled and refunded");
   });
 
+  it("the response never reveals booking state: an on-trip booking alone does not make `urgent` true", async () => {
+    db.booking = bookingRow({ check_in: "2026-11-09T06:00:00", check_out: "2026-11-12T18:00:00" }); // on the trip
+    const res = await POST(req({ ...form, subject: "Booking Help", message: "quick question" }));
+    expect((await res.json()).urgent).toBe(false); // the caller can't learn the customer is away
+    expect(db.inserted[0]).toMatchObject({ priority: "urgent" }); // the team still sees it as urgent
+    expect(discord.postToDiscord).toHaveBeenCalledTimes(1);
+  });
+
   it("a NULL booking status is never treated as a live booking", async () => {
     db.booking = bookingRow({ status: null, check_in: "2026-11-09T06:00:00", check_out: "2026-11-12T18:00:00" });
     const res = await POST(req({ ...form, subject: "Booking Help" }));

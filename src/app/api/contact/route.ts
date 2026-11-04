@@ -336,5 +336,10 @@ async function supportInboxFlow(data: ContactFormData) {
     if (updateError) reportSupport(new Error(`support ticket update failed: ${updateError}`));
   }
 
-  return NextResponse.json({ success: true, confirmationSent, ticketNumber, urgent: t.priority === "urgent" });
+  // The caller is unauthenticated: anyone who knows a customer's email and
+  // reservation number could submit as them. So the public `urgent` flag comes
+  // ONLY from what the caller typed (subject, words), never from the booking —
+  // otherwise it would reveal whether that customer is travelling right now.
+  const publicUrgent = triage({ subject, message, booking: null, selfCancelEnabled }).priority === "urgent";
+  return NextResponse.json({ success: true, confirmationSent, ticketNumber, urgent: publicUrgent });
 }
