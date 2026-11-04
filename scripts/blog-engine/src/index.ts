@@ -289,6 +289,7 @@ program
   .option('--stamp', 'Regenerating an existing slug: also set contentUpdatedAt (W1.7). Default off.')
   .option('--skip-duplicate-guard', 'DANGEROUS: write even when the keyword matches an existing page at the airport')
   .option('--allow-stale-data', 'Write even when the airport data file was verified more than 90 days ago')
+  .option('--price-gate', 'W1.8 P3c: refuse a post with a $ figure that is not in the airport data and not next to an outside source (default: warn only)')
   .option('--dry-run', 'Preview what would be generated without creating posts')
   .action(async (options) => {
     // Collect successfully published URLs → one bulk IndexNow ping at the end (in `finally`, so a fatal
@@ -717,7 +718,8 @@ program
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
             knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
-            knownPrices: airportData ? collectMoneyFigures(figureSource(airportData, item.keyword)) : undefined, // W1.8 P3c: blocks
+            knownPrices: airportData ? collectMoneyFigures(figureSource(airportData, item.keyword)) : undefined, // W1.8 P3c
+            priceGateWarnOnly: !options.priceGate, // blocks only with --price-gate until a test run shows the pass rate
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
           if (!lint.ok) {

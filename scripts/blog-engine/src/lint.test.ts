@@ -113,3 +113,8 @@ test('W1.8 P3c: without knownPrices (apply-edit, perf-apply, posts with no data 
   assert.ok(!rules(r).includes('unsourced-price'))
   assert.ok(r.warnings.some((w) => w.rule === 'unsourced-figure'), 'the W1.3 warning still prints')
 })
+test('W1.8 P3c rollout: priceGateWarnOnly reports the same figures as a warning and lets the write through', () => {
+  const r = lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day.</p>', knownPrices: [18, 40], priceGateWarnOnly: true })
+  assert.ok(r.ok && !rules(r).includes('unsourced-price'))
+  assert.match(r.warnings.find((w) => w.rule === 'unsourced-price')!.message, /\$9/)
+})

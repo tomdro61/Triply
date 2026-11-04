@@ -47,6 +47,8 @@ export interface LintInput {
    * exempt; title, meta, excerpt and FAQ have no exemption. Same check as apply-edit. `generate` sets it.
    */
   knownPrices?: number[]
+  /** W1.8 P3c rollout: report the knownPrices check as a warning instead of failing the write. */
+  priceGateWarnOnly?: boolean
   now?: Date
 }
 
@@ -266,7 +268,7 @@ export function lintArticle(input: LintInput): LintResult {
     const fieldText = [input.title, input.metaTitle, input.metaDescription, input.excerpt,
       ...(input.faqItems || []).map((f) => `${f.question} ${stripTags(f.answer)}`)].filter(Boolean).join('\n')
     const bad = priceCheck(input.html, fieldText, known)
-    if (bad.length) errors.push({ level: 'error', rule: 'unsourced-price', message: `prices not in the airport data file and not next to an outside source link: ${bad.slice(0, 8).join(', ')}${bad.length > 8 ? ` (+${bad.length - 8} more)` : ''}` })
+    if (bad.length) (input.priceGateWarnOnly ? warnings : errors).push({ level: input.priceGateWarnOnly ? 'warn' : 'error', rule: 'unsourced-price', message: `prices not in the airport data file and not next to an outside source link: ${bad.slice(0, 8).join(', ')}${bad.length > 8 ? ` (+${bad.length - 8} more)` : ''}` })
   }
 
   // W1.3: official figures come from the data file or a cited URL. Warning only; skipped when the P3c
