@@ -5,6 +5,19 @@ import { contactFormSchema, escapeHtml, CONTACT_HONEYPOT_FIELD } from "@/lib/val
 import { captureAPIError, captureContactHoneypotDrop } from "@/lib/sentry";
 import { clientKey } from "@/lib/http/origin";
 import { checkContactRateLimit, CONTACT_RATE_LIMIT_WINDOW_SECONDS } from "@/lib/attribution/limiter";
+import { createAdminClient } from "@/lib/supabase/server";
+import { normalizeReservationNumber, triage, canSelfCancel } from "@/lib/support/triage";
+import { renderAutoReply, renderTeamEmail, SUPPORT_EMAIL } from "@/lib/support/reply";
+import {
+  supportInboxEnabled,
+  lookupBooking,
+  insertTicket,
+  updateTicket,
+  urgentTicketEmbed,
+  alertUrgentTicket,
+  type BookingLookup,
+} from "@/lib/support/tickets";
+import type { ContactFormData } from "@/lib/validation/schemas";
 
 /**
  * POST /api/contact — the /contact and /partners forms.
@@ -66,6 +79,10 @@ export async function POST(request: NextRequest) {
     // Per-IP ceiling, charged only now that the request is a real, well-formed
     // submission (a person's 400s never burn their own allowance).
     if (!checkContactRateLimit(clientKey(request))) return tooMany();
+
+    // The support inbox (tickets, booking-aware instant reply, urgent alerts).
+    // Off = exactly the original two emails below.
+    if (supportInboxEnabled()) return await supportInboxFlow(result.data);
 
     const { name, email, subject, message } = result.data;
 
@@ -174,4 +191,150 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function reportSupport(error: unknown) {
+  captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+    endpoint: "/api/contact",
+    method: "POST",
+  });
+}
+
+/**
+ * ENABLE_SUPPORT_INBOX=true. Order matters for "never lose a message":
+ *   1. find the booking (only when the email matches) and triage — pure rules;
+ *   2. store the ticket — on failure, carry on by email alone;
+ *   3. team email — fails the request ONLY if there is no ticket either;
+ *   4. the instant reply to the customer;
+ *   5. urgent → Discord @here.
+ * Every failure after (1) is reported to Sentry, never swallowed.
+ */
+async function supportInboxFlow(data: ContactFormData) {
+  const { name, email, subject, message } = data;
+  const reservationNumber = normalizeReservationNumber(data.reservationNumber);
+  const selfCancelEnabled = process.env.ENABLE_SELF_SERVE_CANCEL === "true";
+  let db: Awaited<ReturnType<typeof createAdminClient>> | null = null;
+  try {
+    db = await createAdminClient();
+  } catch (dbError) {
+    reportSupport(dbError); // no ticket, no lookup — the emails below still go out
+  }
+
+  let lookup: BookingLookup = { match: "none", booking: null };
+  try {
+    if (db) lookup = await lookupBooking(db, reservationNumber, email);
+  } catch (lookupError) {
+    reportSupport(lookupError); // triage without the booking; the team sees the number + "lookup failed"
+    lookup = { match: "lookup_failed", booking: null };
+  }
+  const booking = lookup.booking;
+  const t = triage({ subject, message, booking, selfCancelEnabled });
+
+  let ticket: { id: string; ticketNumber: number } | null = null;
+  try {
+    if (db) ticket = await insertTicket(db, {
+      name,
+      email,
+      subject,
+      message,
+      reservationNumber,
+      bookingMatch: lookup.match,
+      bookingId: booking?.id ?? null,
+      priority: t.priority,
+      reasons: t.reasons,
+      replyKind: t.replyKind,
+    });
+  } catch (insertError) {
+    reportSupport(insertError);
+  }
+  const ticketNumber = ticket?.ticketNumber ?? null;
+
+  const team = renderTeamEmail({
+    ticketNumber,
+    name,
+    email,
+    subject,
+    message,
+    reservationNumber,
+    bookingMatch: lookup.match,
+    booking,
+    priority: t.priority,
+    reasons: t.reasons,
+    replyKind: t.replyKind,
+  });
+  // A throw is handled like a returned error: with a stored ticket the
+  // customer must still get their reply and the urgent alert.
+  let teamFailure: string | null = null;
+  try {
+    const { error: teamError } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: ALERT_EMAILS,
+      replyTo: email,
+      subject: team.subject,
+      html: team.html,
+    });
+    if (teamError) teamFailure = teamError.message;
+  } catch (teamThrow) {
+    teamFailure = teamThrow instanceof Error ? teamThrow.message : String(teamThrow);
+  }
+  if (teamFailure !== null) {
+    reportSupport(new Error(`support team email failed${ticket ? ` (ticket #${ticket.ticketNumber} stored)` : ""}: ${teamFailure}`));
+    if (!ticket) {
+      return NextResponse.json({ error: "Failed to send message. Please try again." }, { status: 500 });
+    }
+  }
+
+  const reply = renderAutoReply({
+    kind: t.replyKind,
+    subject,
+    ticketNumber,
+    booking,
+    canSelfCancel: canSelfCancel(booking, selfCancelEnabled),
+  });
+  let confirmationSent = true;
+  const emailDomain = email.split("@")[1]?.toLowerCase() ?? "";
+  try {
+    const { error: replyError } = await resend.emails.send({
+      from: FROM_EMAIL,
+      to: [email],
+      replyTo: SUPPORT_EMAIL,
+      subject: reply.subject,
+      html: reply.html,
+    });
+    if (replyError) {
+      confirmationSent = false;
+      reportSupport(new Error(`support instant reply not sent (${emailDomain}): ${replyError.message}`));
+    }
+  } catch (replyThrow) {
+    confirmationSent = false;
+    reportSupport(new Error(`support instant reply threw (${emailDomain}): ${replyThrow instanceof Error ? replyThrow.message : String(replyThrow)}`));
+  }
+
+  // Urgent → page the team even when the ticket store failed: the reply
+  // already told the customer the team has been alerted.
+  let alertedAt: string | null = null;
+  if (t.priority === "urgent") {
+    const alert = await alertUrgentTicket(
+      urgentTicketEmbed({
+        ticketNumber,
+        subject,
+        reasons: t.reasons,
+        reservationNumber,
+        bookingMatch: lookup.match,
+        booking,
+        tripPhase: t.tripPhase,
+      })
+    );
+    if (alert.ok) alertedAt = new Date().toISOString();
+    else reportSupport(new Error(`urgent support alert not posted for ${ticketNumber !== null ? `#${ticketNumber}` : "an unsaved request"}: ${alert.error}`));
+  }
+
+  if (ticket && db) {
+    const patch: { auto_reply_sent: boolean; alerted_at?: string } = { auto_reply_sent: confirmationSent };
+    if (alertedAt) patch.alerted_at = alertedAt;
+    const updateError = await updateTicket(db, ticket.id, patch);
+    if (updateError) reportSupport(new Error(`support ticket update failed: ${updateError}`));
+  }
+
+  return NextResponse.json({ success: true, confirmationSent, ticketNumber, urgent: t.priority === "urgent" });
 }
