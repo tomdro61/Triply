@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lintArticle, isRatesPost } from './lint.js'
+import { lintArticle, isRatesPost, priceAllowList } from './lint.js'
 
 const NOW = new Date('2026-10-30T12:00:00Z')
 const base = { title: 'EWR Airport Parking Rates: From $18/Day (2026)', metaTitle: 'EWR Parking Rates 2026', keyword: 'ewr airport parking rates', slug: 'ewr-airport-parking-rates', isNew: true, approvedCodes: ['TRIPLY10'], now: NOW }
@@ -117,4 +117,15 @@ test('W1.8 P3c rollout: priceGateWarnOnly reports the same figures as a warning 
   const r = lintArticle({ ...base, html: goodHtml + '<p>Lot B is $9/day.</p>', knownPrices: [18, 40], priceGateWarnOnly: true })
   assert.ok(r.ok && !rules(r).includes('unsourced-price'))
   assert.match(r.warnings.find((w) => w.rule === 'unsourced-price')!.message, /\$9/)
+})
+
+test('W1.8 P3c: allow-list takes N-day totals of daily rates and the rate chart prices, not invented figures', () => {
+  const known = priceAllowList([10.45, 15, 120], { status: 'ok', lots: [{ perDay: 6.05, stayTotal: 42.33, billedDays: 7, baseRate: 5.2 }], listed: 3 })
+  const html = '<p>A week at the DoubleTree lot is $73.15, the garage runs $105 for 7 days, and the chart shows $6.05/day ($42.33 total).</p>'
+  const ok = lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html, knownPrices: known })
+  assert.ok(!rules(ok).includes('unsourced-price'), JSON.stringify(ok.errors))
+  const bad = lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html: '<p>Lots start at $4.80/day.</p>', knownPrices: known })
+  assert.ok(rules(bad).includes('unsourced-price'))
+  assert.ok(!known.includes(7), 'billedDays is a count, not a price')
+  assert.ok(!priceAllowList([61]).includes(122), 'figures over $60 are not treated as daily rates')
 })

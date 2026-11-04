@@ -65,7 +65,8 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
-import { lintArticle, formatLint, collectFigures, collectMoneyFigures } from './lint.js'
+import { lintArticle, formatLint, collectFigures, collectMoneyFigures, priceAllowList } from './lint.js'
+import { loadPriceSnapshot, snapshotAgeDays, MAX_SNAPSHOT_AGE_DAYS } from './rate-chart.js'
 import { stampField } from './stamp.js'
 import { rankBySimilarity } from './similarity.js'
 
@@ -267,6 +268,15 @@ function printReport(report: ArticleReport) {
   console.log(`    Scraping: ${report.timing.scrapeSeconds}s | Analyze: ${report.timing.analyzeSeconds}s`)
   console.log(`    Write: ${report.timing.writeSeconds}s | Edit: ${report.timing.editSeconds}s`)
   console.log(`    Upload: ${report.timing.uploadSeconds}s`)
+}
+
+
+/** The rate chart's snapshot row for an airport, only while the chart would still print it (≤ MAX_SNAPSHOT_AGE_DAYS old). */
+function chartRowFor(airportCode: string): unknown {
+  const snap = loadPriceSnapshot()
+  if (!snap) return undefined
+  const age = snapshotAgeDays(snap, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
+  return age >= 0 && age <= MAX_SNAPSHOT_AGE_DAYS ? snap.airports[airportCode.toUpperCase()] : undefined
 }
 
 const program = new Command()
@@ -718,7 +728,7 @@ program
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
             knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
-            knownPrices: airportData ? collectMoneyFigures(figureSource(airportData, item.keyword)) : undefined, // W1.8 P3c
+            knownPrices: airportData ? priceAllowList(collectMoneyFigures(figureSource(airportData, item.keyword)), chartRowFor(item.airportCode)) : undefined, // W1.8 P3c
             priceGateWarnOnly: !options.priceGate, // blocks only with --price-gate until a test run shows the pass rate
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
