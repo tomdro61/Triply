@@ -171,6 +171,7 @@ export function applyEdit(post: PostLike, edit: EditSpec): EditResult {
   return { patch, after, fieldText: fieldText.filter(Boolean).join('\n'), factsDiff: factsDiff(bodyFactsText(post), bodyFactsText(after)) }
 }
 
+/** Link/image guard: the edit may add links and images, never lose one. */
 export function guardLoss(before: Doc, after: Doc): string | null {
   const count = (d: Doc, t: string) => countNodesOfType(d as Parameters<typeof countNodesOfType>[0], t)
   const lb = count(before, 'link') + count(before, 'autolink'), la = count(after, 'link') + count(after, 'autolink')

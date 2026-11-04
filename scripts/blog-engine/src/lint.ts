@@ -47,6 +47,8 @@ export interface LintInput {
    * exempt; title, meta, excerpt and FAQ have no exemption. Same check as apply-edit. `generate` sets it.
    */
   knownPrices?: number[]
+  /** W1.8 P3c: the allow-list for a figure written as a per-day price ("$12/day"): no N-day totals. */
+  knownDailyPrices?: number[]
   /** W1.8 P3c rollout: report the knownPrices check as a warning instead of failing the write. */
   priceGateWarnOnly?: boolean
   now?: Date
@@ -267,7 +269,8 @@ export function lintArticle(input: LintInput): LintResult {
     const known = new Set(input.knownPrices.map((n) => Math.round(n * 100)))
     const fieldText = [input.title, input.metaTitle, input.metaDescription, input.excerpt,
       ...(input.faqItems || []).map((f) => `${f.question} ${stripTags(f.answer)}`)].filter(Boolean).join('\n')
-    const bad = priceCheck(input.html, fieldText, known)
+    const perDay = input.knownDailyPrices ? new Set(input.knownDailyPrices.map((n) => Math.round(n * 100))) : undefined
+    const bad = priceCheck(input.html, fieldText, known, perDay)
     if (bad.length) (input.priceGateWarnOnly ? warnings : errors).push({ level: input.priceGateWarnOnly ? 'warn' : 'error', rule: 'unsourced-price', message: `prices not in the airport data file and not next to an outside source link: ${bad.slice(0, 8).join(', ')}${bad.length > 8 ? ` (+${bad.length - 8} more)` : ''}` })
   }
 
@@ -356,26 +359,54 @@ export function collectMoneyFigures(data: unknown, out: number[] = [], key = '')
 
 const MONEY = /(?:C\$|CA\$|US\$|\$)\s?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?)(?:\s?[-–]\s?\$?(\d(?:[\d,]*\d)?(?:\.\d{1,2})?))?/g
 
+/** Keys whose value is a per-day price: data-file lot rates, on-airport daily maxima/rates, the rate chart's perDay/baseRate. */
+const DAILY_RATE_KEY = /(?:^|[a-z])(?:[Dd]ailyRate|[Dd]ailyMax)|^(?:reservationRate|parkOnlyRate|preBookRate|preBookedRate|advanceReservationRate|onlineRate|coveredRate|uncoveredRate|valetRate|rateTerminal\w*|perDay|baseRate)$/
+
+/** Text right after a $ figure that makes it a per-day price ("$12/day", "$12 per day", "$12 a night", "$12 daily"). */
+export const PER_DAY_AFTER = /^\s*(?:\/\s*(?:day|night|24\s*h(?:ou)?rs?)\b|per[-\s]+(?:day|night|24\s*h(?:ou)?rs?)\b|(?:for|per|\/)\s*(?:the\s+)?first\s+24\s*h(?:ou)?rs?\b|an?\s+(?:day|night)\b|each\s+day\b|daily(?![-\w]))/i
+/** Text right before a $ figure that makes it a per-day price ("daily rate of $12", "per-day price: $12"). */
+export const PER_DAY_BEFORE = /\b(?:daily|per[-\s]day|nightly)\s+(?:rate|price|max(?:imum)?|cost|fee)\s*(?:of|is|was|:)?\s*(?:about|around|from|only|just|~)?\s*$/i
+
+/** Text right before a $ figure that makes it an old price ("increased from $19/day"): never a current daily rate. */
+const OLD_PRICE_BEFORE = /\b(?:from|was|were|previously|formerly|up from)\s*(?:about|around|~)?\s*$/i
+/** Not parking prices, even when written per-day. */
+const NOT_PARKING_KEY = /^(?:luggageStorage|baggageStorage)$/i
+
+const DOLLAR = /(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g
+
 /**
- * P3 price check (deny by default). `known` = the figures the writer prompt sees for this airport
- * (collectFigures(figureSource(data))) — NOT every number in the file. Inserted HTML is checked
- * paragraph by paragraph; a paragraph that links an EXTERNAL source is exempt. Field text (title,
- * meta, FAQ) has no exemption. A range "$12–18" checks both ends. Returns the figures that fail.
+ * The per-day prices in an object (airport data via figureSource, or a chart-prices.json row): numbers under a
+ * daily-rate key (nested objects inherit it: STL `dailyMax: { covered, uncovered }`), the leading $ figure of a
+ * string under one (HOU `dailyMax: "$25.00"`, `"$15.00 per day"`), and any $ figure in prose that is itself
+ * written as per-day (`rate: "$15/day ($3/hr)"`). Never a bare prose figure like a "$55 taxi" or "$5 surcharge".
  */
-/**
- * W1.8 P3c allow-list: the data-file prices, plus an N-day total (2–30 days) of every figure that can be a daily
- * rate (≤ $60), plus the prices the engine's own rate chart prints (data/chart-prices.json row for the airport).
- * The 3 Nov RIC test refused 5 of 5 posts, mostly on correct 7-day totals ($10.45 × 7 = $73.15) and the chart's
- * tax-inclusive per-day prices — neither is an invented price.
- */
-export function priceAllowList(dataPrices: number[], chartRow?: unknown): number[] {
-  const cents = new Set<number>()
-  const add = (n: number) => {
-    if (!Number.isFinite(n) || n < 0) return
-    const c = Math.round(n * 100)
-    cents.add(c)
-    if (n > 0 && n <= 60) for (let d = 2; d <= 30; d++) cents.add(c * d)
+export function collectDailyRates(data: unknown, out: number[] = [], key = '', underDaily = false): number[] {
+  if (NOT_PARKING_KEY.test(key)) return out
+  const daily = underDaily || DAILY_RATE_KEY.test(key)
+  if (typeof data === 'number' && Number.isFinite(data)) { if (daily) out.push(data) }
+  else if (typeof data === 'string') {
+    const lead = daily ? data.trim().match(/^~?\s?(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/) : null
+    if (lead) out.push(Number(lead[1].replace(/,/g, '')))
+    for (const m of data.matchAll(DOLLAR)) {
+      const end = (m.index ?? 0) + m[0].length
+      if (OLD_PRICE_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 20), m.index ?? 0))) continue
+      if (PER_DAY_AFTER.test(data.slice(end, end + 24)) || PER_DAY_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0))) out.push(Number(m[1].replace(/,/g, '')))
+    }
   }
+  else if (Array.isArray(data)) for (const v of data) collectDailyRates(v, out, key, daily)
+  else if (data && typeof data === 'object') for (const [k, v] of Object.entries(data as Record<string, unknown>)) collectDailyRates(v, out, k, daily)
+  return out
+}
+
+/**
+ * W1.8 P3c allow-list: the data-file prices, every price the engine's own rate chart prints (the airport's
+ * data/chart-prices.json row), and a 2–30 day total of each structured DAILY rate ($5–$100) from either source.
+ * Only daily rates are multiplied: multiplying prose figures ($1 toll, $2 fare) let nearly every whole-dollar
+ * price through (review, 4 Nov). The 3 Nov RIC test refused 5 of 5 posts on correct 7-day totals and chart prices.
+ */
+export function priceAllowList(dataPrices: number[], dailyRates: number[], chartRow?: unknown): { all: number[]; perDay: number[] } {
+  const cents = new Set<number>()
+  const add = (n: number) => { if (Number.isFinite(n) && n >= 0) cents.add(Math.round(n * 100)) }
   dataPrices.forEach(add)
   const walk = (v: unknown, key = '') => {
     if (typeof v === 'number') { if (!/days|listed|count/i.test(key)) add(v) }
@@ -383,18 +414,37 @@ export function priceAllowList(dataPrices: number[], chartRow?: unknown): number
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v as Record<string, unknown>)) walk(x, k)
   }
   walk(chartRow)
-  return [...cents].map((c) => c / 100)
+  const daily = [...dailyRates, ...collectDailyRates(chartRow)].filter((n) => Number.isFinite(n) && n >= 0)
+  // A figure written as per-day ("$X/day") must be one of the daily rates as written: never an N-day total, a fare or a fee.
+  const perDay = [...new Set(daily.map((n) => Math.round(n * 100)))].map((c) => c / 100)
+  for (const n of daily) {
+    cents.add(Math.round(n * 100))
+    if (n < 5 || n > 100) continue
+    const c = Math.round(n * 100)
+    for (let d = 2; d <= 30; d++) cents.add(c * d)
+  }
+  return { all: [...cents].map((c) => c / 100), perDay }
 }
 
-export function priceCheck(insertedHtml: string, fieldText: string, known: ReadonlySet<number>): string[] {
+/**
+ * P3 price check (deny by default). `known` = the figures the writer prompt sees for this airport
+ * (collectFigures(figureSource(data))) — NOT every number in the file. Inserted HTML is checked
+ * paragraph by paragraph; a paragraph that links an EXTERNAL source is exempt. Field text (title,
+ * meta, FAQ) has no exemption. A range "$12–18" checks both ends. Returns the figures that fail.
+ * `perDayKnown` (optional): a figure written as per-day (PER_DAY_AFTER / PER_DAY_BEFORE) must be in it instead.
+ */
+export function priceCheck(insertedHtml: string, fieldText: string, known: ReadonlySet<number>, perDayKnown?: ReadonlySet<number>): string[] {
   const bad: string[] = []
   const check = (text: string) => {
     for (const m of text.matchAll(MONEY)) {
+      const end = (m.index ?? 0) + m[0].length
+      const isPerDay = PER_DAY_AFTER.test(text.slice(end, end + 24)) || PER_DAY_BEFORE.test(text.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0))
+      const set = perDayKnown && isPerDay ? perDayKnown : known
       for (const raw of [m[1], m[2]]) {
         if (!raw) continue
         const cents = Math.round(Number(raw.replace(/,/g, '')) * 100)
         const label = `$${raw}`
-        if (!known.has(cents) && !bad.includes(label)) bad.push(label)
+        if (!set.has(cents) && !bad.includes(label)) bad.push(label)
       }
     }
   }
@@ -405,5 +455,3 @@ export function priceCheck(insertedHtml: string, fieldText: string, known: Reado
   check(fieldText)
   return bad
 }
-
-/** Link/image guard: the edit may add links and images, never lose one. */

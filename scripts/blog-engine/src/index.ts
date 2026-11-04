@@ -65,8 +65,8 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
-import { lintArticle, formatLint, collectFigures, collectMoneyFigures, priceAllowList } from './lint.js'
-import { loadPriceSnapshot, snapshotAgeDays, MAX_SNAPSHOT_AGE_DAYS } from './rate-chart.js'
+import { lintArticle, formatLint, collectFigures, collectMoneyFigures, collectDailyRates, priceAllowList } from './lint.js'
+import { loadPriceSnapshot, snapshotAgeDays, MAX_SNAPSHOT_AGE_DAYS, type PriceSnapshot } from './rate-chart.js'
 import { stampField } from './stamp.js'
 import { rankBySimilarity } from './similarity.js'
 
@@ -177,6 +177,8 @@ interface ArticleReport {
     steps: { step: string; input: number; output: number; cost: number }[]
   }
   error: string | null
+  /** W1.4/P3c lint warnings (incl. warn-only `unsourced-price`), saved for counting. */
+  lintWarnings?: string[]
 }
 
 function saveReport(report: ArticleReport) {
@@ -271,12 +273,21 @@ function printReport(report: ArticleReport) {
 }
 
 
-/** The rate chart's snapshot row for an airport, only while the chart would still print it (≤ MAX_SNAPSHOT_AGE_DAYS old). */
-function chartRowFor(airportCode: string): unknown {
-  const snap = loadPriceSnapshot()
-  if (!snap) return undefined
-  const age = snapshotAgeDays(snap, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
-  return age >= 0 && age <= MAX_SNAPSHOT_AGE_DAYS ? snap.airports[airportCode.toUpperCase()] : undefined
+/**
+ * The rate-chart snapshot, read once per run for the P3c allow-list, only while the chart would still print it
+ * (<= MAX_SNAPSHOT_AGE_DAYS old). A missing, stale or unreadable file means no chart prices are allowed, never a crash.
+ */
+function loadChartSnapshotForGate(): PriceSnapshot | undefined {
+  try {
+    const snap = loadPriceSnapshot()
+    if (!snap) return undefined
+    const age = snapshotAgeDays(snap, new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date()))
+    if (age >= 0 && age <= MAX_SNAPSHOT_AGE_DAYS) return snap
+    console.log(`  Price gate: rate-chart prices are dated ${snap.asOf} (${age} days old), not used for the allow-list`)
+  } catch (err) {
+    console.log(`  Price gate: could not read data/chart-prices.json (${err instanceof Error ? err.message : String(err)}), chart prices not allowed`)
+  }
+  return undefined
 }
 
 const program = new Command()
@@ -485,6 +496,7 @@ program
         }
       }
 
+      const chartSnap = loadChartSnapshotForGate() // once per run: the P3c allow-list's chart prices
       for (const item of items) {
         console.log(`\n━━━ Processing: ${item.keyword} ━━━`)
         console.log(`  Type: ${item.articleType} | Airport: ${item.airportCode} | Priority: ${item.priority}`)
@@ -723,15 +735,17 @@ program
           const existingPost = await findPostBySlug(item.slug)
 
           // W1.4 lint — fails the write. Year + answer-first checks apply to new posts only.
+          const priceList = airportData ? priceAllowList(collectMoneyFigures(figureSource(airportData, item.keyword)), collectDailyRates(figureSource(airportData, item.keyword)), chartSnap?.airports[item.airportCode.toUpperCase()]) : undefined // W1.8 P3c
           const lint = lintArticle({
             title: resolvedTitle, metaTitle: result.metaTitle, metaDescription: result.metaDescription,
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
             knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
-            knownPrices: airportData ? priceAllowList(collectMoneyFigures(figureSource(airportData, item.keyword)), chartRowFor(item.airportCode)) : undefined, // W1.8 P3c
+            knownPrices: priceList?.all, knownDailyPrices: priceList?.perDay, // W1.8 P3c
             priceGateWarnOnly: !options.priceGate, // blocks only with --price-gate until a test run shows the pass rate
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
+          report.lintWarnings = lint.warnings.map((w) => `${w.rule}: ${w.message}`) // saved so a warn-only run's price-gate hits can be counted
           if (!lint.ok) {
             console.log(`  ⛔ Lint failed (${lint.errors.length}) — not written to the CMS:\n${formatLint(lint)}`)
             throw new Error(`lint: ${lint.errors.map((e) => `${e.rule}: ${e.message}`).join(' | ')}`)

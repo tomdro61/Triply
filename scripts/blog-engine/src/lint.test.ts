@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lintArticle, isRatesPost, priceAllowList } from './lint.js'
+import { lintArticle, isRatesPost, priceAllowList, collectDailyRates } from './lint.js'
 
 const NOW = new Date('2026-10-30T12:00:00Z')
 const base = { title: 'EWR Airport Parking Rates: From $18/Day (2026)', metaTitle: 'EWR Parking Rates 2026', keyword: 'ewr airport parking rates', slug: 'ewr-airport-parking-rates', isNew: true, approvedCodes: ['TRIPLY10'], now: NOW }
@@ -119,13 +119,57 @@ test('W1.8 P3c rollout: priceGateWarnOnly reports the same figures as a warning 
   assert.match(r.warnings.find((w) => w.rule === 'unsourced-price')!.message, /\$9/)
 })
 
-test('W1.8 P3c: allow-list takes N-day totals of daily rates and the rate chart prices, not invented figures', () => {
-  const known = priceAllowList([10.45, 15, 120], { status: 'ok', lots: [{ perDay: 6.05, stayTotal: 42.33, billedDays: 7, baseRate: 5.2 }], listed: 3 })
-  const html = '<p>A week at the DoubleTree lot is $73.15, the garage runs $105 for 7 days, and the chart shows $6.05/day ($42.33 total).</p>'
-  const ok = lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html, knownPrices: known })
-  assert.ok(!rules(ok).includes('unsourced-price'), JSON.stringify(ok.errors))
-  const bad = lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html: '<p>Lots start at $4.80/day.</p>', knownPrices: known })
-  assert.ok(rules(bad).includes('unsourced-price'))
-  assert.ok(!known.includes(7), 'billedDays is a count, not a price')
-  assert.ok(!priceAllowList([61]).includes(122), 'figures over $60 are not treated as daily rates')
+const chartRow = { status: 'ok', lots: [{ perDay: 6.05, stayTotal: 42.33, billedDays: 7, baseRate: 5.2 }], listed: 3 }
+const ricData = { parkingLots: [{ dailyRate: 10.45, reservationRate: 10.45 }], onAirport: [{ dailyMax: 15 }], transit: { fare: '$1.50 per ride' }, toll: '$1 toll' }
+const ricKnown = () => priceAllowList([10.45, 15, 1.5, 1], collectDailyRates(ricData), chartRow)
+const gate = (html: string) => { const k = ricKnown(); return rules(lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html, knownPrices: k.all, knownDailyPrices: k.perDay })) }
+
+test('W1.8 P3c: N-day totals of daily rates and the rate chart prices pass', () => {
+  assert.ok(!gate('<p>A week at DoubleTree is $73.15, the garage runs $105 for 7 days, the chart shows $6.05/day ($42.33 total), and $36.40 a week at $5.20.</p>').includes('unsourced-price'))
+  assert.ok(!gate('<p>Rides cost $1.50 and the toll is $1.</p>').includes('unsourced-price'))
+})
+
+test('W1.8 P3c: prose figures are not multiplied, so invented whole-dollar prices still fail', () => {
+  for (const p of ['$9', '$12', '$25', '$3', '$4.80', '$33.60']) assert.ok(gate(`<p>Lots start at ${p}/day.</p>`).includes('unsourced-price'), p)
+})
+
+test('W1.8 P3c: collectDailyRates reads structured daily keys only; counts and tiny or huge rates are not multiplied', () => {
+  assert.deepEqual(collectDailyRates(ricData).sort((x, y) => x - y), [10.45, 10.45, 15])
+  assert.deepEqual(collectDailyRates({ minimumBookingDays: 3, dailyMaxCAD: 22 }), [22])
+  const k = ricKnown().all
+  assert.ok(!k.includes(7), 'billedDays is a count, not a price')
+  assert.ok(!priceAllowList([], [4]).all.includes(8), 'rates under $5 are not multiplied')
+  assert.ok(!priceAllowList([], [150]).all.includes(300), 'rates over $100 are not multiplied')
+  assert.deepEqual(priceAllowList([], [], undefined), { all: [], perDay: [] })
+})
+
+test('W1.8 P3c: a per-day figure cannot borrow an N-day total ($20/day at a $10 lot fails; $20 for 2 days passes)', () => {
+  const k = priceAllowList([10], [10])
+  const g = (html: string) => rules(lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html, knownPrices: k.all, knownDailyPrices: k.perDay }))
+  for (const p of ['$20/day', '$20 per day', '$20 a day', '$20 daily']) assert.ok(g(`<p>Economy is ${p}.</p>`).includes('unsourced-price'), p)
+  assert.ok(!g('<p>Two days in economy cost $20, or $10/day.</p>').includes('unsourced-price'))
+})
+
+test('W1.8 P3c: collectDailyRates follows nested daily keys, $ strings and the other per-day key names', () => {
+  assert.deepEqual(collectDailyRates({ dailyMax: { covered: 15, uncovered: 12 } }), [15, 12])
+  assert.deepEqual(collectDailyRates({ dailyMax: '$25.00', note: '$3' }), [25])
+  assert.deepEqual(collectDailyRates({ preBookRate: 18, advanceReservationRate: 20, onlineRate: 9, weeklyRate: 70 }), [18, 20, 9])
+})
+
+test('W1.8 P3c: per-day wording is caught before and after the figure; a fare or fee in the data is no daily rate', () => {
+  const data = { lots: [{ dailyRate: 10 }], taxi: { toMarietta: '$55-$70' }, fees: '$5 surcharge', onAirport: [{ rate: '$15/day ($3/hr)' }] }
+  const k = priceAllowList([10, 55, 70, 5, 15, 3], collectDailyRates(data))
+  const g = (html: string) => rules(lintArticle({ ...base, title: 'RIC parking', metaTitle: 'RIC parking', html, knownPrices: k.all, knownDailyPrices: k.perDay }))
+  for (const p of ['$55/day', '$5/day', '$20/night', '$20 per 24 hours', '$20 per-day', '$20 each day', '$20 a night']) assert.ok(g(`<p>Parking is ${p}.</p>`).includes('unsourced-price'), p)
+  assert.ok(g('<p>The daily rate of $20 applies.</p>').includes('unsourced-price'))
+  assert.ok(!g('<p>Garage parking is $15/day, economy $10 per day; a taxi is $55-$70.</p>').includes('unsourced-price'))
+  assert.ok(!g('<p>That is a $70 daily-parking total for the week.</p>').includes('unsourced-price'), 'daily- is not a per-day unit')
+  assert.deepEqual([...new Set(collectDailyRates({ dailyMax: '$15.00 per day', note: '$3', coveredRate: 12, rate: '~$38/day (saves ~36%)' }))].sort((x, y) => x - y), [12, 15, 38])
+})
+
+test('W1.8 P3c: "first 24 hours" is per-day; old prices and luggage storage are not daily rates', () => {
+  assert.deepEqual(collectDailyRates({ lot9: '$29 for first 24 hours' }), [29])
+  assert.deepEqual(collectDailyRates({ note: 'Increased from $19/day to $22/day' }), [22])
+  assert.deepEqual(collectDailyRates({ luggageStorage: { bounce: '$5.95/day' } }), [])
+  assert.deepEqual(collectDailyRates({ onAirportParking: { dailyParkT1: { parkingCost: 'C$235 (first 7 days)' } } }), [])
 })
