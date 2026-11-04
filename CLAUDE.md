@@ -166,6 +166,7 @@ Custom skills committed to this repo — invoke by name (`/<name>`). **Caveat:**
 | `/end-session` | Session-wrap ritual: update docs/notes + post a team digest to Discord. |
 | `/harden-plan` | **Heavy, opt-in.** Adversarial multi-agent review of a *plan / RFC / migration doc* before writing code — spawns 60+ agents, spends millions of tokens. For real designs, not small changes; catches money/concurrency/timezone bugs pre-code. |
 | `/triply-frontend` | Triply frontend conventions + guidance. |
+| `/support` | Work the support inbox (`/admin/support`): Claude drafts replies from `.claude/skills/support/playbook.md`, an owner approves each, and nothing is sent, refunded or cancelled without that. Runs on Max plans, no API calls. |
 
 ## Anti-patterns (hard rules — from bugs actually shipped here)
 
