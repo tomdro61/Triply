@@ -1,31 +1,37 @@
 import { AirportContent } from "./types";
 
 const bnaContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 6+ off-airport BNA parking lots from $7.95/day. Save vs $16–$26/day on-airport rates. Free shuttle to terminal, $25 flat-rate taxi to downtown Nashville. Free cancellation.",
+    "Compare bookable off-airport BNA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $16–$26/day on-airport rates. $25 flat-rate taxi to downtown Nashville. Free cancellation.",
 
   sections: [
     {
       heading: "Nashville Airport Parking — Music City's Fastest-Growing Airport",
       body: `Nashville International Airport (BNA) has been one of the fastest-growing major airports in America — passenger volume surged over 80% since 2014, hitting 23.7 million passengers in a record 2024. The boom is driven by Nashville's tourism economy: live music, food culture, NFL/MLB events, and the city's status as the #1 bachelorette party destination in the U.S.
 
-BNA sits 8 miles southeast of downtown Nashville with a single terminal, five concourses, and 53 gates. Southwest Airlines is the dominant carrier (Concourse D exclusive). On-airport parking is moderate by major-airport standards — Terminal Garages charge $26/day, Economy Lots $16/day, and Valet $40/day. Off-airport lots through Triply start at around $7.95/day pre-booked, saving up to 70% compared to terminal garages.
+BNA sits 8 miles southeast of downtown Nashville with a single terminal, five concourses, and 53 gates. Southwest Airlines is the dominant carrier (Concourse D exclusive). On-airport parking is moderate by major-airport standards — Terminal Garages charge $26/day, Economy Lots $16/day, and Valet $40/day. Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.
 
-For a 7-day trip for 2 travelers, off-site parking saves $116–$126 vs the on-airport Terminal Garage.`,
+Most bookable lots sit 1.3–1.7 miles from the terminal, but shuttle hours vary widely — three run around the clock, several stop around midnight, and one has no shuttle at all.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near BNA",
-      body: `**GLo Best Western Nashville Airport** — The cheapest at around $7.95/day. Hotel lot, 1.8 miles from BNA. No hotel stay required. Verify shuttle hours before booking — may not run 24/7.
+      body: `**Fly Away Airport Parking Nashville** — **Valet with a free 24/7 shuttle every 10 minutes**, 1.7 miles out on Murfreesboro Pike. Pull under the canopy and staff park your car (you leave your keys) and help with luggage. Fully fenced and gated. Arrive 30 minutes before you want to be at the terminal.
 
-**Comfort Suites BNA Airport** — Around $8.95/day pre-booked. Hotel parking at 2521 Elm Hill Pike, 2 miles out. Hourly shuttle frequency is the catch — works best when your schedule aligns with shuttle times.
+**Holiday Inn Express Nashville Airport** — Self-park 1.4 miles out with a **24/7 on-demand shuttle**. Call to schedule your shuttle 24 hours before your booking starts. Eight wheelchair-accessible spaces, including van-accessible.
 
-**Holiday Inn Express Nashville Airport** — Around $9/day pre-booked. Reliable IHG brand, 1.5 miles from BNA. Free shuttle during scheduled hours.
+**Radisson Hotel** — Hotel lot 1.4 miles out. Complimentary shuttle 24 hours a day, every 30 minutes to the airport, with on-demand pickups. No extra charge for full-size vans, pickups or large SUVs. Check availability for your dates.
 
-**Cambria Hotel Nashville Airport** — Around $9/day pre-booked. Modern hotel 1.5 miles out. Shuttle every 30 minutes from 5 AM to 11 PM. **WARNING:** No shuttle outside those hours — avoid for red-eye or very late flights.
+**Cambria Hotel Nashville Airport** — **Closest bookable lot** at 1.3 miles (tied with Avid). Uncovered self-park with a complimentary on-demand shuttle 4 AM–midnight — no shuttle overnight, so plan around those hours.
 
-**Executive Travel & Parking** — Around $9.50/day pre-booked. One of the most established off-site lots near BNA. 24/7 shuttle every 15–20 minutes is a major advantage. Fenced and continuously video-monitored.
+**Avid Hotel Nashville Airport** — Hotel lot 1.3 miles out. Complimentary on-demand shuttle 4 AM–midnight. Self-park.
 
-**Sheraton Music City Hotel** — Around $9.99/day. Full-service hotel parking with shuttle 2.5 miles from BNA. Premium hotel amenities available.`,
+**Comfort Suites Nashville Airport** — Hotel lot 1.7 miles out. Shuttle every 20 minutes from 4:20 AM (last shuttle 11:45 PM); book it at least an hour ahead. The shuttle is not wheelchair accessible. EV charging on site.
+
+**Best Western Plus Nashville Airport** — Hotel lot 1.6 miles out. Shuttle on request every hour on the hour, 4 AM–11 PM — no shuttle overnight. Sign up for your drop-off at the front desk and look for the "WOOSH" van.
+
+**Southwestern Airport Parking** — Open-air self-park 2.5 miles out, well lit, with security on site 7 AM–11 PM. **No shuttle** — plan on Uber or Lyft to the terminal. Display your printed confirmation on the dashboard or risk towing.`,
     },
     {
       heading: "BNA New Horizon — A $1.4 Billion Transformation",
@@ -51,7 +57,7 @@ For all of these, pre-book parking 1–2 weeks ahead and arrive 2.5–3 hours be
     },
     {
       heading: "Tips for Parking at BNA",
-      body: `• **Verify shuttle hours** — Several BNA off-site hotel lots have limited shuttle hours. Cambria Hotel runs 5 AM–11 PM only. Comfort Suites runs hourly. Executive Travel & Parking runs 24/7. Always confirm shuttle availability matches your flight times.
+      body: `• **Verify shuttle hours** — Several BNA off-site hotel lots have limited shuttle hours. Cambria and Avid run 4 AM–midnight, Comfort Suites 4:20 AM–11:45 PM, Best Western Plus hourly 4 AM–11 PM, and Southwestern has no shuttle. Fly Away, Holiday Inn Express and Radisson run 24/7. Always confirm shuttle availability matches your flight times.
 • **Watch for ice storms in winter** — Nashville is prone to ice storms (December–February). Even moderate ice can paralyze the airport for 1–2 days. Travel insurance is recommended for winter travel.
 • **Single security checkpoint** — All BNA passengers funnel through one centralized security checkpoint. During CMA Fest, holidays, and bachelorette season, waits can hit 30–45 minutes. TSA PreCheck or CLEAR significantly speeds this up.
 • **Rental cars are inside Terminal Garage 2** — Unlike many airports, BNA has all 11 rental car counters directly in Terminal Garage 2 on Level 1. Walk from baggage claim to your rental car — no shuttle needed.
@@ -64,17 +70,17 @@ For all of these, pre-book parking 1–2 weeks ahead and arrive 2.5–3 hours be
     {
       question: "What is the cheapest parking at Nashville airport?",
       answer:
-        "GLo Best Western Nashville Airport is the cheapest off-airport option at around $7.95/day. Comfort Suites at $8.95/day and Cambria Hotel at $9/day follow. The cheapest on-airport option is the Economy Lot at $16/day. All prices are based on a sample 7-day booking and may vary by date.",
+        "Off-airport lots are usually the lowest-cost way to park at BNA. Southwestern Airport Parking has no shuttle, so add an Uber or Lyft each way before comparing its rate. Fly Away, Holiday Inn Express and Radisson include a 24/7 shuttle. The cheapest on-airport option is the Economy Lot at $16/day. Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at BNA?",
       answer:
-        "On-airport parking at BNA ranges from $16/day (Economy Lots B and C with free shuttle) to $26/day (Terminal Garages 1 and 2). Valet parking is $40/day. Off-airport parking through Triply starts at around $7.95/day pre-booked — saving up to 70% compared to terminal garages.",
+        "On-airport parking at BNA ranges from $16/day (Economy Lots B and C with free shuttle) to $26/day (Terminal Garages 1 and 2). Valet parking is $40/day. Off-airport parking through Triply typically costs a fraction of the Terminal Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "Do BNA off-airport parking lots run shuttles 24/7?",
       answer:
-        "Some do. Executive Travel & Parking runs a 24/7 shuttle every 15–20 minutes. However, Cambria Hotel runs 5 AM–11 PM only, and Comfort Suites runs hourly. If you have a red-eye or very early-morning flight, choose Executive Travel & Parking or another 24/7 lot.",
+        "Three bookable lots do: Fly Away Airport Parking Nashville (every 10 minutes), Radisson Hotel (every 30 minutes, on-demand pickups) and Holiday Inn Express Nashville Airport (on demand, call 24 hours ahead). Cambria and Avid run 4 AM–midnight, Comfort Suites 4:20 AM–11:45 PM, Best Western Plus hourly 4 AM–11 PM, and Southwestern Airport Parking has no shuttle. If you have a red-eye or very early-morning flight, book one of the 24/7 lots.",
     },
     {
       question: "How early should I arrive at BNA?",

@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const lgaContent: AirportContent = {
+  publishedOn: "2026-03-20",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare off-airport LGA parking lots from $11/day. Save vs $55–$89/day on-airport garages. Free shuttle to all terminals. No AirTrain needed — the Q70 bus is free. Free cancellation.",
+    "Compare bookable off-airport LGA parking lots, including 24/7 shuttle lots, at today's prices. Save vs $55–$89/day on-airport garages. No AirTrain needed — the Q70 bus is free. Free cancellation.",
 
   sections: [
     {
@@ -11,19 +13,25 @@ const lgaContent: AirportContent = {
 
 On-airport parking at LGA is among the most expensive in the country. The Terminal B garage charges up to $80/day ($55 pre-booked), Terminal C runs up to $89/day ($60 pre-booked), and even the Economy Lot 3 costs $39/day at drive-up rates.
 
-Off-airport parking through Triply starts at around $11/day — saving up to 80% compared to on-airport garages. Most off-site lots include free shuttle service directly to your terminal. Unlike JFK, LaGuardia has no AirTrain, so there's no extra per-person transit cost to factor in — the comparison is purely parking rate vs. parking rate.`,
+Off-airport parking through Triply typically costs a fraction of the on-airport garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Most off-site lots shuttle you directly to your terminal. Unlike JFK, LaGuardia has no AirTrain, so there's no extra per-person transit cost to factor in — the comparison is purely parking rate vs. parking rate.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near LGA",
-      body: `**Carvia Parking** — One of the best values at around $15/day, just 0.6 miles from LGA. 24/7 shuttle every 15 minutes to all terminals. Newer lot with 800+ spaces, fenced perimeter, CCTV, floodlights, and a customer lounge with phone charging and complimentary water. Note: SUV surcharges apply ($6–$10/day).
+      body: `**Carvia Parking** — 0.6 miles from LGA. Valet lot (leave your keys) with a 24/7 shuttle every 15 minutes to all terminals. Fenced perimeter, CCTV, floodlights and on-site staff, plus a customer lounge with restrooms, phone charging and complimentary water. Small and midsize SUVs pay $6/day, minivans, large SUVs and trucks $10/day at the lot. Part of the total is paid at the lot — the lot page shows the split. Extensions go through the lot directly.
 
-**Parking Place** — The cheapest close-proximity option at around $15/day, just 0.7 miles out. 24/7 shuttle every 15 minutes. Same amenities as Carvia — customer lounge, restrooms, phone charging. A newer operation with limited reviews but strong on-paper value.
+**Parking Place** — 0.7 miles out. Open-air, valet-only lot with a 24/7 shuttle every 15 minutes. Fully fenced, floodlit, CCTV and on-site staff; customer lounge, restrooms, phone charging and drinking water. Same SUV surcharges as Carvia ($6–$10/day at the lot); part of the total is paid at the lot.
 
-**Purchase Park 2 Fly** — The most established LGA lot (since 2018) with 580+ Google reviews and a 4.3/5 rating. 24/7 on-demand shuttle, complimentary car wash included, just 0.6 miles from the airport. Higher rate around $29/day, but you're paying for a proven track record and extras. Does not accept full-size SUVs or oversized vehicles.
+**Purchase Park 2 Fly LaGuardia Airport** — 0.6 miles from the airport. Valet parking with a car wash included, a 24/7 on-demand shuttle, a fenced lot and staff on duty 24/7. Regular SUVs are fine, but full-size SUVs and large pickups are not accepted (tight space). Part of the total is paid at the lot.
 
-**Queens Crossing & Hyatt Place Flushing (LAZ Parking)** — Budget covered/indoor garage parking at $11–12/day in Flushing, 2.5–2.6 miles from LGA. The only covered parking options near LaGuardia. Shuttle hours are limited (roughly 6:30 AM–10:30 PM) with no overnight service, so these work best for morning departures and daytime returns.
+**New York LaGuardia Marriott Airport Hotel** — 0.6 miles out on Ditmars Blvd. Self-park, first come first served; reservations are for uncovered spaces, but covered spaces can be used at no extra cost if open. 24/7 shuttle every 15 minutes. No re-entry once you exit, and no pickups, large vans or commercial vehicles.
 
-**Park N Depart** — The cheapest option at around $11/day, but buyer beware: it has a BBB F rating, reports of hidden surcharges (4% credit card fee, 3.75% service charge), and no shuttle after 8 PM. Budget-friendly on paper but read reviews carefully.`,
+**Park For U LaGuardia** — 1.3 miles out at the Bulova Corporate Center. No shuttle: a valet drives you to your terminal **in your own car**, 24/7, and picks you up the same way. Fenced lot. Take time-stamped photos of your car before handing it over — the lot doesn't keep its own.
+
+**Queens Crossing (LAZ Parking)** — Covered valet garage in Flushing, 2.6 miles out, with EV charging and a 7'6" clearance. Shuttle every hour on the half-hour, 6:30 AM–10:30 PM only — **no overnight shuttle**. Bring a printed receipt. SUVs may pay $5/day and oversized vehicles $10/day extra at the garage.
+
+**Hyatt Place Flushing (LAZ Parking)** — Indoor valet garage with security cameras, 2.5 miles out. Shuttle every hour on the hour, 7 AM–10 PM only. Bring a printed receipt. No pickups, vans or oversized vehicles.
+
+**Hearthstone Garage** — Covered valet garage 2.8 miles out with 24/7 security. **No shuttle** — plan an Uber/Lyft to and from the terminal. Oversized vehicles pay $10/day at the lot.`,
     },
     {
       heading: "LGA's $8 Billion Transformation — What's New",
@@ -33,9 +41,7 @@ Off-airport parking through Triply starts at around $11/day — saving up to 80%
 • **Terminal C** ($4B) — Delta's flagship LGA terminal opened June 2022 with 37 gates across 4 concourses. Features the largest Delta Sky Club in the entire network (~600 seats).
 • **Terminal A (Marine Air Terminal)** — The historic 1939 building remains active for Spirit Airlines. Passenger facility replacement is planned under the 2026–2035 capital plan while preserving the landmark rotunda.
 • **AirTrain LGA** — Cancelled by Governor Hochul. Instead, $160 million was invested in enhancing the Q70 LaGuardia Link bus, which is now free and runs 24/7.
-• **EV Charging** — A new 12-charger fast-charging hub (350 kW) opened February 2026, the largest in NYPA's EVolve NY network.
-
-Note: The LaGuardia Marriott parking lot closed indefinitely on January 31, 2026 due to construction. If it still appears as bookable, it may be a data issue.`,
+• **EV Charging** — A new 12-charger fast-charging hub (350 kW) opened February 2026, the largest in NYPA's EVolve NY network.`,
     },
     {
       heading: "How LGA Parking Compares — Real Cost Breakdown",
@@ -44,18 +50,17 @@ Note: The LaGuardia Marriott parking lot closed indefinitely on January 31, 2026
 **On-Airport Terminal C Garage (pre-booked):** $360 parking = **$360 total**
 **On-Airport Terminal B Garage (pre-booked):** $330 parking = **$330 total**
 **On-Airport Economy Lot 3:** ~$234 parking + shuttle = **~$234 total**
-**Off-site via Triply (Queens Crossing):** ~$69 parking + free shuttle = **~$69 total** (save ~$165 vs Economy Lot)
-**Off-site via Triply (Carvia Parking):** ~$93 parking + free shuttle = **~$93 total** (save ~$141 vs Economy Lot)
+**Off-site via Triply:** the lot list on this page shows current per-day rates; a search with your dates shows the total with taxes and fees
 **Public Transit (Subway + FREE Q70):** $11.60 for 2 round trip — but 45–75 min each way
 
-The Q70 LaGuardia Link bus is free, making public transit to LGA just $2.90 per person (subway fare only). That's far cheaper than JFK's $11.40+ per person (subway + AirTrain). But if you're driving, off-site parking through Triply saves $165–$265 compared to on-airport options.`,
+The Q70 LaGuardia Link bus is free, making public transit to LGA just $2.90 per person (subway fare only). That's far cheaper than JFK's $11.40+ per person (subway + AirTrain). But if you're driving, off-site parking through Triply typically costs a fraction of the on-airport options.`,
     },
     {
       heading: "Tips for Parking at LaGuardia Airport",
       body: `• **Book ahead** — LGA parking rates are dynamic. Booking in advance through Triply locks in a lower rate vs. drive-up pricing.
-• **Check shuttle hours carefully** — Most LGA off-site lots do NOT run overnight shuttles. If you have a red-eye or early morning flight before 5 AM, choose Purchase Park 2 Fly or Carvia (both 24/7). Avoid Queens Crossing or Hyatt Place for late/early flights.
+• **Check shuttle hours carefully** — Queens Crossing and Hyatt Place Flushing do NOT run overnight shuttles, and Hearthstone Garage has none. If you have a red-eye or early morning flight, choose a 24/7 lot: Carvia, Parking Place, Purchase Park 2 Fly, the LaGuardia Marriott, or Park For U's drive-you-in-your-car valet.
 • **Know which terminal you need** — Terminal A (Spirit), Terminal B (American, United, JetBlue, Southwest, Frontier), Terminal C (Delta only). Double-check before you go.
-• **Watch for surcharges** — Several LGA lots charge extra for SUVs ($6–$10/day) and some add credit card surcharges (3–4%). Factor these into your total cost.
+• **Watch for surcharges** — Several LGA lots charge extra for SUVs ($5–$10/day, paid at the lot), and some don't accept full-size SUVs or pickups at all. Factor these into your total cost.
 • **Consider the Grand Central Parkway** — Most off-site lots are just off the Grand Central Parkway. Traffic can be heavy during rush hour (7–9 AM, 4–7 PM). Allow extra time.
 • **Arrive 2 hours early** — Standard recommendation for domestic flights at LGA. During holiday periods, allow 2.5 hours.`,
     },
@@ -65,22 +70,22 @@ The Q70 LaGuardia Link bus is free, making public transit to LGA just $2.90 per 
     {
       question: "What is the cheapest parking near LaGuardia Airport?",
       answer:
-        "The cheapest options near LGA are Queens Crossing ($10.95/day) and Hyatt Place Flushing ($11.95/day), both offering covered indoor garage parking in Flushing about 2.5 miles from the airport. For lots closer to LGA, Parking Place and Carvia Parking are around $15/day and just 0.6–0.7 miles away with 24/7 shuttle service. All prices are based on a sample booking and may vary by date.",
+        "Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Off-airport lots typically cost a fraction of the on-airport garages; the cheapest on-airport option is Economy Lot 3 at $39/day drive-up. Before comparing, check for SUV surcharges paid at the lot and the shuttle hours — Queens Crossing and Hyatt Place Flushing have no overnight shuttle, and Hearthstone Garage has none.",
     },
     {
       question: "How much does it cost to park at LaGuardia Airport?",
       answer:
-        "On-airport parking at LGA ranges from $39/day (Economy Lot 3) to $89/day (Terminal C garage). Pre-booking brings garages down to $55–$60/day. Off-airport parking through Triply starts at around $11/day — saving up to 80%. Unlike JFK, LGA has no AirTrain cost, so the comparison is purely parking rate vs. parking rate.",
+        "On-airport parking at LGA ranges from $39/day (Economy Lot 3) to $89/day (Terminal C garage). Pre-booking brings garages down to $55–$60/day. Off-airport parking through Triply typically costs a fraction of that — see the lot list on this page for current rates. Unlike JFK, LGA has no AirTrain cost, so the comparison is purely parking rate vs. parking rate.",
     },
     {
       question: "Do LGA off-airport parking lots run shuttles overnight?",
       answer:
-        "Not all of them. Purchase Park 2 Fly and Carvia Parking offer 24/7 shuttle service. However, Queens Crossing (6:30 AM–10:30 PM), Hyatt Place Flushing (7 AM–10 PM), and Park N Depart (4 AM–8 PM) have limited shuttle hours with no overnight service. If you have a late-night or early-morning flight, choose a lot with 24/7 shuttle.",
+        "Not all of them. Carvia Parking, Parking Place and the LaGuardia Marriott run 24/7 shuttles every 15 minutes, Purchase Park 2 Fly runs 24/7 on demand, and Park For U's valet drives you to the terminal in your own car around the clock. Queens Crossing (6:30 AM–10:30 PM) and Hyatt Place Flushing (7 AM–10 PM) have no overnight shuttle, and Hearthstone Garage has no shuttle at all. If you have a late-night or early-morning flight, choose a 24/7 lot.",
     },
     {
       question: "Is off-airport parking at LaGuardia safe?",
       answer:
-        "Reputable LGA lots like Carvia Parking, Purchase Park 2 Fly, and Parking Place are fully fenced, staffed, and monitored with CCTV and floodlights. We recommend checking reviews before booking — some budget lots have mixed ratings. All lots on Triply offer free cancellation so you can book risk-free.",
+        "Check each lot's details for its security features. Carvia Parking and Parking Place are fully fenced with CCTV, floodlights and on-site staff; Purchase Park 2 Fly is fenced with staff on duty 24/7; Hearthstone Garage has 24/7 security; Hyatt Place Flushing has security cameras. Most LGA reservations on Triply include free cancellation, so you can book risk-free.",
     },
     {
       question: "Does LaGuardia have an AirTrain?",
@@ -100,7 +105,7 @@ The Q70 LaGuardia Link bus is free, making public transit to LGA just $2.90 per 
     {
       question: "Which LGA parking lot is closest to the airport?",
       answer:
-        "Purchase Park 2 Fly, Carvia Parking, and the LaGuardia Marriott are all about 0.6 miles from LGA (note: the Marriott lot is closed indefinitely as of January 2026). Parking Place is 0.7 miles away. All offer shuttle rides under 10 minutes to the terminals.",
+        "Purchase Park 2 Fly, Carvia Parking, and the New York LaGuardia Marriott Airport Hotel are all about 0.6 miles from LGA, and Parking Place is 0.7 miles away. All four run 24/7 shuttles to the terminals.",
     },
   ],
 };

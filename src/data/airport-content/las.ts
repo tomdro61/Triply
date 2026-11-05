@@ -1,8 +1,10 @@
 import { AirportContent } from "./types";
 
 const lasContent: AirportContent = {
+  publishedOn: "2026-04-25",
+  updatedOn: "2026-11-05",
   metaDescription:
-    "Compare 7+ off-airport LAS parking lots from $5/day. Save vs $12–$36/day on-airport rates. Free shuttle, the Strip is just 1.5 miles away. Skip surge pricing during major events. Free cancellation.",
+    "Compare bookable off-airport LAS parking lots, including a 24/7 shuttle lot, at today's prices. Save vs $18–$36/day on-airport garages. The Strip is just 1.5 miles away. Skip surge pricing during major events. Free cancellation.",
 
   sections: [
     {
@@ -11,23 +13,15 @@ const lasContent: AirportContent = {
 
 Southwest Airlines is the largest focus city operator, with Spirit, Frontier, and Allegiant also operating significant focus city operations. Two terminals (Terminal 1 with 96 gates across Concourses A, B, C, D and Terminal 3 with Concourse E for international and full-service domestic).
 
-On-airport parking at LAS is reasonable. Economy Lots are $12/day, Long-Term Garages $18/day, Short-Term Garages cap at $36/day. Off-airport parking through Triply starts at around $5/day pre-booked — saving up to 86% compared to short-term garages. For a 7-day trip for 2 travelers, off-site parking saves $84–$130 vs the Long-Term Garage.`,
+On-airport parking at LAS is reasonable. Economy Lots are $12/day, Long-Term Garages $18/day, Short-Term Garages cap at $36/day. Off-airport parking through Triply typically costs a fraction of the Short-Term Garage rate; the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees. Shuttle service varies a lot between the bookable hotel lots — 24/7, split daytime hours, or no shuttle at all — so check the shuttle line before you book.`,
     },
     {
       heading: "Best Off-Airport Parking Lots Near LAS",
-      body: `**Super 8 by Wyndham Las Vegas Strip Area** — Around $5/day pre-booked. Cheapest pre-book rate near LAS. Basic budget hotel, 2.2 miles out.
+      body: `**DoubleTree by Hilton Las Vegas Airport** — Hotel lot 1.8 miles out with a **complimentary 24/7 shuttle** every 30 minutes; call the hotel for pickup on return. If you're traveling with more than two people, call ahead to make sure there's room on the shuttle. Register your car at the front desk when you arrive.
 
-**Red Roof Inn Las Vegas** — Around $5.49/day pre-booked. 1.8 miles out. Budget-friendly with park-sleep-fly packages.
+**Best Western McCarran Inn** — **Closest bookable lot** at 1.1 miles. Shuttle every 30 minutes from 6:15 AM–1 PM and 4:30–10:30 PM only — **no shuttle 1–4:30 PM or overnight**. Check in at the front desk first and display the parking pass on your dashboard, or your car may be towed.
 
-**Best Western McCarran Inn** — Around $5.99/day pre-booked. The closest budget option at 1.5 miles. Park-sleep-fly packages include 1 night + up to 7 days parking.
-
-**Fairfield Inn & Suites Las Vegas Convention Center** — Around $5.95/day pre-booked. Marriott property near the Convention Center, 1.8 miles out. Ideal for convention attendees.
-
-**Fortune Hotel and Suites** — Around $6.50/day pre-booked. All-suite hotel 2 miles out. Pool. Good for families.
-
-**Tahiti All-Suite Resort** — Around $6.95/day pre-booked. Suites with kitchenettes — useful for early departures (make breakfast). 2.5 miles out.
-
-**DoubleTree by Hilton Las Vegas Airport** — Around $7.95/day pre-booked. Best quality hotel option. 1.2 miles from LAS with 24/7 shuttle. Pool, restaurant, fitness center. 4.3/5 rating.`,
+**Fairfield Inn Las Vegas Convention Center** — Hotel lot 2.5 miles out near the Convention Center. **No shuttle** — you'll need a rideshare to and from the airport. Handy for convention attendees.`,
     },
     {
       heading: "Surge Pricing — Why Pre-Booked Parking Wins at LAS",
@@ -76,12 +70,12 @@ The airport remains fully operational throughout. Reserved Parking is worth book
     {
       question: "What is the cheapest parking at Las Vegas airport?",
       answer:
-        "Super 8 by Wyndham Las Vegas Strip Area is the cheapest off-airport option at around $5/day pre-booked. Red Roof Inn Las Vegas at $5.49/day and Best Western McCarran Inn at $5.99/day are also very competitive. The cheapest on-airport option is the Economy Lots at $12/day with free 24/7 shuttle. All prices are based on a sample 7-day booking and may vary.",
+        "The cheapest on-airport option is the Economy Lots at $12/day with free 24/7 shuttle. Off-airport, DoubleTree by Hilton Las Vegas Airport includes a 24/7 shuttle, Best Western McCarran Inn's shuttle runs set daytime and evening hours, and Fairfield Inn Las Vegas Convention Center has no shuttle (add a rideshare each way). Off-airport prices change with your dates: the lot list on this page shows current per-day rates, and a search with your dates shows your total with taxes and fees.",
     },
     {
       question: "How much does it cost to park at LAS?",
       answer:
-        "On-airport parking at LAS ranges from $12/day (Economy Lots) to $36/day (Short-Term Garages). Long-Term Garages are $18/day, Valet $30/day. Reserved Parking is $21/day at Terminal 3 or $28/day at Terminal 1. Off-airport parking through Triply starts at around $5/day pre-booked — saving up to 86% compared to short-term garages.",
+        "On-airport parking at LAS ranges from $12/day (Economy Lots) to $36/day (Short-Term Garages). Long-Term Garages are $18/day, Valet $30/day. Reserved Parking is $21/day at Terminal 3 or $28/day at Terminal 1. Off-airport parking through Triply typically costs a fraction of the Short-Term Garage rate — see the lot list on this page for current rates.",
     },
     {
       question: "How do I get from LAS to the Strip?",
@@ -96,7 +90,7 @@ The airport remains fully operational throughout. Reserved Parking is worth book
     {
       question: "Do LAS off-airport lots run shuttles 24/7?",
       answer:
-        "Most major hotel-based lots offer airport shuttles, but hours vary. DoubleTree by Hilton runs 24/7. Best Western McCarran Inn shuttle hours are limited. Verify before booking if you have a red-eye or early-morning flight. The on-airport Economy Lots have free 24/7 shuttle service.",
+        "Only one bookable lot does: DoubleTree by Hilton Las Vegas Airport, every 30 minutes around the clock. Best Western McCarran Inn runs its shuttle 6:15 AM–1 PM and 4:30–10:30 PM only, and Fairfield Inn Las Vegas Convention Center has no shuttle. If you have a red-eye or early-morning flight, book DoubleTree. The on-airport Economy Lots have free 24/7 shuttle service.",
     },
     {
       question: "How early should I arrive at LAS?",

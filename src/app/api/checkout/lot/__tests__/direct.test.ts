@@ -7,13 +7,21 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { NextRequest } from "next/server";
 
-const { lookup, createPI, getLotById, getCost, promoSingle, promoEq } = vi.hoisted(() => ({
+const { lookup, createPI, getLotById, getCost, getLocation, promoSingle, promoEq, channel } = vi.hoisted(() => ({
   lookup: vi.fn(),
   createPI: vi.fn(),
   getLotById: vi.fn(),
   getCost: vi.fn(),
+  getLocation: vi.fn(),
   promoSingle: vi.fn(),
   promoEq: vi.fn(),
+  // The ResLab location list the instance holds, which the POST reads for the
+  // lot's currency; `fails` = no list held (getChannelLocationsNoSweep → null).
+  channel: { data: [] as { id: number; currency?: { code: string } }[], fails: false },
+}));
+vi.mock("@/lib/reslab/search", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/reslab/search")>()),
+  getChannelLocationsNoSweep: async () => (channel.fails ? null : channel.data),
 }));
 
 vi.mock("@/lib/direct/flag", async (importOriginal) =>
@@ -27,7 +35,7 @@ vi.mock("@/lib/stripe/client", () => ({ createPaymentIntent: createPI }));
 vi.mock("@/lib/reslab/get-lot", () => ({ getLotById }));
 vi.mock("@/lib/reslab/client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/reslab/client")>()),
-  reslab: { getCost },
+  reslab: { getCost, getLocation },
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createAdminClient: async () => ({
@@ -81,6 +89,10 @@ const post = (body: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  channel.data = [];
+  channel.fails = false;
+  // A lot missing from the list is read on its own: USD unless a test says otherwise.
+  getLocation.mockImplementation(async (id: number) => ({ id, currency: { code: "USD" } }));
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-09T16:00:00Z")); // noon at JFK
   vi.stubEnv("NEXT_PUBLIC_APP_ENV", "staging");
@@ -195,6 +207,61 @@ describe("POST /api/checkout/lot — ResLab body is unchanged except the explici
     expect(res.status).toBe(200);
     expect(createPI.mock.calls[0][1]).toMatchObject({ inventorySource: "reslab", locationId: "42" });
     expect(createPI.mock.calls[0][1]).not.toHaveProperty("directSurcharges");
+  });
+
+  it("a lot priced in CAD (our Canadian lots) is 404 before any ResLab call or PaymentIntent — the charge is USD", async () => {
+    channel.data = [
+      { id: 558, currency: { code: "CAD" } },
+      { id: 42, currency: { code: "USD" } },
+    ];
+    const body = {
+      lotId: "reslab-558",
+      locationId: 558,
+      checkin: "2026-12-02",
+      checkout: "2026-12-05",
+      checkinTime: "10:00 AM",
+      checkoutTime: "10:00 AM",
+      parkingTypeId: 7,
+      customerEmail: "ada@example.com",
+      protectionPlanCode: null,
+    };
+    expect((await post(body)).status).toBe(404);
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+    // A USD lot in the same list still prices.
+    getCost.mockResolvedValue({
+      costs_token: "tok",
+      reservation: { sold_out: false, sub_total: 50, fees_total: 0, tax_total: 5, grand_total: 55, due_at_location: 0 },
+    });
+    expect((await post({ ...body, lotId: "reslab-42", locationId: 42 })).status).toBe(200);
+  });
+
+  it("fails closed: a lot missing from the list is read on its own; when neither answers → 503, no PaymentIntent (Codex)", async () => {
+    const body = {
+      lotId: "reslab-558",
+      locationId: 558,
+      checkin: "2026-12-02",
+      checkout: "2026-12-05",
+      checkinTime: "10:00 AM",
+      checkoutTime: "10:00 AM",
+      parkingTypeId: 7,
+      customerEmail: "ada@example.com",
+      protectionPlanCode: null,
+    };
+    // Missing from an incomplete list → the single read says CAD → 404.
+    getLocation.mockResolvedValueOnce({ id: 558, currency: { code: "CAD" } });
+    expect((await post(body)).status).toBe(404);
+    // No list held AND the single read fails → 503 "try again", nothing charged.
+    channel.fails = true;
+    getLocation.mockRejectedValueOnce(new Error("ResLab 502"));
+    const res = await post(body);
+    expect(res.status).toBe(503);
+    expect(getCost).not.toHaveBeenCalled();
+    expect(createPI).not.toHaveBeenCalled();
+    expect(vi.mocked(captureAPIError)).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ stage: "currency_check_unverified" })
+    );
   });
 
   it("a hidden lot (blocked, or a ResLab test lot in production) is 404 before any ResLab call or PaymentIntent", async () => {
