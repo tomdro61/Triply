@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { lintArticle, isRatesPost, priceAllowList, collectDailyRates } from './lint.js'
+import { lintArticle, isRatesPost, priceAllowList, collectDailyRates, collectMoneyFigures, collectRangeEnds } from './lint.js'
+import { chartAlt, onAirportRows, type ChartInput } from './rate-chart.js'
 
 const NOW = new Date('2026-10-30T12:00:00Z')
 const base = { title: 'EWR Airport Parking Rates: From $18/Day (2026)', metaTitle: 'EWR Parking Rates 2026', keyword: 'ewr airport parking rates', slug: 'ewr-airport-parking-rates', isNew: true, approvedCodes: ['TRIPLY10'], now: NOW }
@@ -172,4 +173,42 @@ test('W1.8 P3c: "first 24 hours" is per-day; old prices and luggage storage are 
   assert.deepEqual(collectDailyRates({ note: 'Increased from $19/day to $22/day' }), [22])
   assert.deepEqual(collectDailyRates({ luggageStorage: { bounce: '$5.95/day' } }), [])
   assert.deepEqual(collectDailyRates({ onAirportParking: { dailyParkT1: { parkingCost: 'C$235 (first 7 days)' } } }), [])
+})
+
+// Review of #158, 5 Nov: the gate refused the engine's own chart caption, the top of a sourced range and a sourced
+// old price, and let plural "Daily rates: $20" through as a 2-day total.
+const gateWith = (k: { all: number[]; perDay: number[] }, html: string, title = 'RIC parking') =>
+  rules(lintArticle({ ...base, title, metaTitle: 'RIC parking', html, knownPrices: k.all, knownDailyPrices: k.perDay }))
+
+test('W1.8 P3c: the rate chart caption passes, both the daily chart and the 7-day table', () => {
+  const lot = { name: 'PARK AC JFK Airport Parking', perDay: 15.13, stayTotal: 105.92, billedDays: 7, transfer: 'shuttle' as const, mayLead: true }
+  const chart: ChartInput = { code: 'JFK', currency: 'USD', asOf: '2026-11-02', checkin: '2026-11-23', checkout: '2026-11-30', lots: [lot], onAirport: onAirportRows('JFK'), onAirportChecked: 'October 2026' }
+  const k = priceAllowList([], [], { lots: [lot] }, onAirportRows('JFK'))
+  for (const kind of ['daily', 'week'] as const) {
+    const caption = chartAlt(chart, kind)
+    assert.ok(!gateWith(k, `<figure><img src="x" alt="" /><figcaption>${caption}</figcaption></figure>`).includes('unsourced-price'), caption)
+  }
+  assert.ok(gateWith(priceAllowList([], [], { lots: [lot] }), `<figure><figcaption>${chartAlt(chart, 'daily')}</figcaption></figure>`).includes('unsourced-price'), 'without the on-airport rows the caption fails')
+  assert.ok(priceAllowList([], [], undefined, [{ lo: 15, hi: 15, week: 90 }]).all.includes(90), 'an explicit weekly figure is sourced')
+})
+
+test('W1.8 P3c: both ends of a sourced range pass; a per-day range in the data is two daily rates', () => {
+  assert.deepEqual(collectRangeEnds({ taxi: '$15-25 each way', bus: 'C$8–10 per 20 minutes', fare: '$55-$70', lone: '$12' }), [25, 10, 70])
+  const data = { taxi: '$15-25 each way', onAirport: { rate: '$18–24/day' } }
+  const k = priceAllowList([...collectMoneyFigures(data), ...collectRangeEnds(data)], collectDailyRates(data))
+  assert.ok(!gateWith(k, '<p>A taxi is $15-25 each way and the garage is $18–$24/day.</p>').includes('unsourced-price'))
+  assert.ok(gateWith(priceAllowList(collectMoneyFigures(data), collectDailyRates(data)), '<p>A taxi is $15-25 each way.</p>').includes('unsourced-price'), 'collectMoneyFigures alone misses $25')
+})
+
+test('W1.8 P3c: a sourced old price written per-day passes; a bare "from $X/day" is still a current rate', () => {
+  const k = priceAllowList([19, 30], collectDailyRates({ note: 'Increased from $19/day to $30/day' }))
+  for (const p of ['rose from $19/day to $30/day', 'were previously $19/day', 'went up from $19/day']) assert.ok(!gateWith(k, `<p>Daily Decks ${p}.</p>`).includes('unsourced-price'), p)
+  for (const p of ['are $19/day', 'start from $19/day']) assert.ok(gateWith(k, `<p>Daily Decks ${p}.</p>`).includes('unsourced-price'), p)
+})
+
+test('W1.8 P3c: plural and "parking" per-day labels are per-day, in the body and the title', () => {
+  const k = priceAllowList([10], [10]) // $20 is a 2-day total here, never a daily rate
+  for (const t of ['Daily rates: $20', 'Daily parking rates: from $20', 'Daily prices start at $20', 'Daily rates are $20']) assert.ok(gateWith(k, `<p>${t}.</p>`).includes('unsourced-price'), t)
+  assert.ok(gateWith(k, '<p>Parking is cheap.</p>', 'RIC Daily Parking Rates: From $20 (2026)').includes('unsourced-price'))
+  assert.ok(!gateWith(k, '<p>Two days cost $20.</p>').includes('unsourced-price'), 'a total that is not labelled per-day still passes')
 })

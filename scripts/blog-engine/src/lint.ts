@@ -364,15 +364,38 @@ const DAILY_RATE_KEY = /(?:^|[a-z])(?:[Dd]ailyRate|[Dd]ailyMax)|^(?:reservationR
 
 /** Text right after a $ figure that makes it a per-day price ("$12/day", "$12 per day", "$12 a night", "$12 daily"). */
 export const PER_DAY_AFTER = /^\s*(?:\/\s*(?:day|night|24\s*h(?:ou)?rs?)\b|per[-\s]+(?:day|night|24\s*h(?:ou)?rs?)\b|(?:for|per|\/)\s*(?:the\s+)?first\s+24\s*h(?:ou)?rs?\b|an?\s+(?:day|night)\b|each\s+day\b|daily(?![-\w]))/i
-/** Text right before a $ figure that makes it a per-day price ("daily rate of $12", "per-day price: $12"). */
-export const PER_DAY_BEFORE = /\b(?:daily|per[-\s]day|nightly)\s+(?:rate|price|max(?:imum)?|cost|fee)\s*(?:of|is|was|:)?\s*(?:about|around|from|only|just|~)?\s*$/i
+/**
+ * Text right before a $ figure that makes it a per-day price ("daily rate of $12", "per-day price: $12"). Plural and
+ * "parking" forms too: "Daily rates: $20" and the title "Daily Parking Rates: From $20" passed as 2-day totals (review, 5 Nov).
+ */
+export const PER_DAY_BEFORE = /\b(?:daily|per[-\s]day|nightly)\s+(?:parking\s+)?(?:rates?|prices?|max(?:imum)?|costs?|fees?)\s*(?:of|is|are|was|were|:)?\s*(?:about|around|from|only|just|start(?:s|ing)?\s+at|~)?\s*$/i
 
 /** Text right before a $ figure that makes it an old price ("increased from $19/day"): never a current daily rate. */
 const OLD_PRICE_BEFORE = /\b(?:from|was|were|previously|formerly|up from)\s*(?:about|around|~)?\s*$/i
+/**
+ * The same in a post, narrower: a bare "from $18/day" is how a post states a current low rate, so only explicit
+ * past-price wording ("rose from $19/day", "previously $19/day") moves a per-day figure to the full list.
+ */
+const OLD_PRICE_IN_POST = /\b(?:(?:increased|rose|raised|went\s+up|jumped|climbed|up)\s+from|previously|formerly|used\s+to\s+(?:be|cost))\s*(?:about|around|~)?\s*$/i
 /** Not parking prices, even when written per-day. */
 const NOT_PARKING_KEY = /^(?:luggageStorage|baggageStorage)$/i
 
 const DOLLAR = /(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)/g
+/** A price range in source data ("$15-25 each way", "C$8–10", "$55–$70"): the second end's currency mark is optional. */
+const SOURCE_RANGE = /(?:C\$|CA\$|US\$|\$)\s?(\d[\d,]*(?:\.\d{1,2})?)\s?[-–—]\s?(?:C\$|CA\$|US\$|\$)?\s?(\d[\d,]*(?:\.\d{1,2})?)/g
+const num = (raw: string) => Number(raw.replace(/,/g, ''))
+
+/**
+ * The upper end of every $ range in the data the writer saw. collectMoneyFigures (shared with apply-edit) reads only
+ * figures with their own $ sign, so "$15-25 each way" gave the gate $15 but not $25 and a post quoting the range was
+ * flagged (review, 5 Nov). `generate` adds these to its allow-list; apply-edit's is unchanged.
+ */
+export function collectRangeEnds(data: unknown, out: number[] = []): number[] {
+  if (typeof data === 'string') for (const m of data.matchAll(SOURCE_RANGE)) out.push(num(m[2]))
+  else if (Array.isArray(data)) for (const v of data) collectRangeEnds(v, out)
+  else if (data && typeof data === 'object') for (const v of Object.values(data as Record<string, unknown>)) collectRangeEnds(v, out)
+  return out
+}
 
 /**
  * The per-day prices in an object (airport data via figureSource, or a chart-prices.json row): numbers under a
@@ -392,6 +415,12 @@ export function collectDailyRates(data: unknown, out: number[] = [], key = '', u
       if (OLD_PRICE_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 20), m.index ?? 0))) continue
       if (PER_DAY_AFTER.test(data.slice(end, end + 24)) || PER_DAY_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0))) out.push(Number(m[1].replace(/,/g, '')))
     }
+    // A per-day range ("$15–25/day"): both ends are daily rates. The loop above sees only "$15", and not as per-day.
+    for (const m of data.matchAll(SOURCE_RANGE)) {
+      const end = (m.index ?? 0) + m[0].length
+      if (OLD_PRICE_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 20), m.index ?? 0))) continue
+      if (PER_DAY_AFTER.test(data.slice(end, end + 24)) || PER_DAY_BEFORE.test(data.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0))) out.push(num(m[1]), num(m[2]))
+    }
   }
   else if (Array.isArray(data)) for (const v of data) collectDailyRates(v, out, key, daily)
   else if (data && typeof data === 'object') for (const [k, v] of Object.entries(data as Record<string, unknown>)) collectDailyRates(v, out, k, daily)
@@ -403,18 +432,22 @@ export function collectDailyRates(data: unknown, out: number[] = [], key = '', u
  * data/chart-prices.json row), and a 2–30 day total of each structured DAILY rate ($5–$100) from either source.
  * Only daily rates are multiplied: multiplying prose figures ($1 toll, $2 fare) let nearly every whole-dollar
  * price through (review, 4 Nov). The 3 Nov RIC test refused 5 of 5 posts on correct 7-day totals and chart prices.
+ * `onAirport`: the rate chart's posted on-airport rows (rate-chart.ts ON_AIRPORT_RATES). The chart caption prints
+ * them as "$35/day" (and a weekly figure on the 7-day table), so without them the gate refused the engine's own
+ * caption at JFK, LGA and BNA (review, 5 Nov).
  */
-export function priceAllowList(dataPrices: number[], dailyRates: number[], chartRow?: unknown): { all: number[]; perDay: number[] } {
+export function priceAllowList(dataPrices: number[], dailyRates: number[], chartRow?: unknown, onAirport?: readonly { lo: number; hi: number; week?: number }[]): { all: number[]; perDay: number[] } {
   const cents = new Set<number>()
   const add = (n: number) => { if (Number.isFinite(n) && n >= 0) cents.add(Math.round(n * 100)) }
   dataPrices.forEach(add)
+  for (const r of onAirport ?? []) if (r.week !== undefined) add(r.week)
   const walk = (v: unknown, key = '') => {
     if (typeof v === 'number') { if (!/days|listed|count/i.test(key)) add(v) }
     else if (Array.isArray(v)) v.forEach((x) => walk(x, key))
     else if (v && typeof v === 'object') for (const [k, x] of Object.entries(v as Record<string, unknown>)) walk(x, k)
   }
   walk(chartRow)
-  const daily = [...dailyRates, ...collectDailyRates(chartRow)].filter((n) => Number.isFinite(n) && n >= 0)
+  const daily = [...dailyRates, ...collectDailyRates(chartRow), ...(onAirport ?? []).flatMap((r) => [r.lo, r.hi])].filter((n) => Number.isFinite(n) && n >= 0)
   // A figure written as per-day ("$X/day") must be one of the daily rates as written: never an N-day total, a fare or a fee.
   const perDay = [...new Set(daily.map((n) => Math.round(n * 100)))].map((c) => c / 100)
   for (const n of daily) {
@@ -438,8 +471,10 @@ export function priceCheck(insertedHtml: string, fieldText: string, known: Reado
   const check = (text: string) => {
     for (const m of text.matchAll(MONEY)) {
       const end = (m.index ?? 0) + m[0].length
-      const isPerDay = PER_DAY_AFTER.test(text.slice(end, end + 24)) || PER_DAY_BEFORE.test(text.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0))
-      const set = perDayKnown && isPerDay ? perDayKnown : known
+      const before = text.slice(Math.max(0, (m.index ?? 0) - 30), m.index ?? 0)
+      const isPerDay = PER_DAY_AFTER.test(text.slice(end, end + 24)) || PER_DAY_BEFORE.test(before)
+      // A past price ("rose from $19/day") is sourced but is no current daily rate: check it against every sourced price.
+      const set = perDayKnown && isPerDay && !OLD_PRICE_IN_POST.test(before) ? perDayKnown : known
       for (const raw of [m[1], m[2]]) {
         if (!raw) continue
         const cents = Math.round(Number(raw.replace(/,/g, '')) * 100)

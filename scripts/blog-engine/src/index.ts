@@ -65,8 +65,8 @@ import { lexicalToHtml } from './lexical-to-html.js'
 import { bootstrapAirport, verifyUrls, saveBootstrapData, printBootstrapSummary } from './bootstrap-airport.js'
 import { submitUrls, postUrlFor } from './indexnow.js'
 import { findDuplicate, loadRedirectMap, logRefusal, REFUSAL_LOG_PATH } from './duplicate-guard.js'
-import { lintArticle, formatLint, collectFigures, collectMoneyFigures, collectDailyRates, priceAllowList } from './lint.js'
-import { loadPriceSnapshot, snapshotAgeDays, MAX_SNAPSHOT_AGE_DAYS, type PriceSnapshot } from './rate-chart.js'
+import { lintArticle, formatLint, collectFigures, collectMoneyFigures, collectRangeEnds, collectDailyRates, priceAllowList } from './lint.js'
+import { loadPriceSnapshot, snapshotAgeDays, onAirportRows, MAX_SNAPSHOT_AGE_DAYS, type PriceSnapshot } from './rate-chart.js'
 import { stampField } from './stamp.js'
 import { rankBySimilarity } from './similarity.js'
 
@@ -735,7 +735,9 @@ program
           const existingPost = await findPostBySlug(item.slug)
 
           // W1.4 lint — fails the write. Year + answer-first checks apply to new posts only.
-          const priceList = airportData ? priceAllowList(collectMoneyFigures(figureSource(airportData, item.keyword)), collectDailyRates(figureSource(airportData, item.keyword)), chartSnap?.airports[item.airportCode.toUpperCase()]) : undefined // W1.8 P3c
+          // W1.8 P3c allow-list. On-airport chart rows only while the chart can be drawn (fresh snapshot), as its caption prints them.
+          const priceSource = airportData ? figureSource(airportData, item.keyword) : undefined
+          const priceList = priceSource ? priceAllowList([...collectMoneyFigures(priceSource), ...collectRangeEnds(priceSource)], collectDailyRates(priceSource), chartSnap?.airports[item.airportCode.toUpperCase()], chartSnap ? onAirportRows(item.airportCode) : undefined) : undefined
           const lint = lintArticle({
             title: resolvedTitle, metaTitle: result.metaTitle, metaDescription: result.metaDescription,
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
