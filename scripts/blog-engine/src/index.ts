@@ -743,7 +743,7 @@ program
             html: contentHtml, excerpt: result.excerpt, faqItems: result.faqItems,
             keyword: item.keyword, slug: item.slug, isNew: !existingPost,
             knownFigures: airportData ? collectFigures(figureSource(airportData, item.keyword)) : undefined, // the data as the writer saw it
-            knownPrices: priceList?.all, knownDailyPrices: priceList?.perDay, // W1.8 P3c
+            knownPrices: priceList?.all, knownDailyPrices: priceList?.perDay, knownSourcedPrices: priceList?.sourced, // W1.8 P3c
             priceGateWarnOnly: !options.priceGate, // blocks only with --price-gate until a test run shows the pass rate
           })
           if (lint.warnings.length) console.log(formatLint({ ok: true, errors: [], warnings: lint.warnings }))
