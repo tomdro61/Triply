@@ -196,8 +196,8 @@
       "triplyListingName": "Autoparc RM Montreal Airport",
       "freeCancellation": true,
       "rateVerified": "2026-11-02",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "minimumBookingDays": 3,
       "taxesFor8Days": 11.45,
       "paymentMethod": "Pay Online"
@@ -227,8 +227,8 @@
       "triplyListingName": "AutoParc Prime",
       "freeCancellation": true,
       "rateVerified": "2026-11-02",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "minimumBookingDays": 7,
       "taxesFor8Days": 16.71,
       "paymentMethod": "Pay Online"
@@ -261,8 +261,8 @@
       "triplyListingName": "Baymont Inn",
       "freeCancellation": true,
       "rateVerified": "2026-11-02",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "minimumBookingDays": 3,
       "taxesFor8Days": 14.33,
       "paymentMethod": "Pay Online"
@@ -296,8 +296,8 @@
       "triplyListingName": "Quality Hotel Montreal Airport",
       "freeCancellation": true,
       "rateVerified": "2026-11-02",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "minimumBookingDays": 4,
       "taxesFor8Days": 17.91,
       "paymentMethod": "Pay Online"
@@ -328,8 +328,8 @@
       "triplyListingName": "Eyepark Airport",
       "freeCancellation": true,
       "rateVerified": "2026-11-02",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "taxesFor8Days": 19.12,
       "paymentMethod": "Pay Online"
     }

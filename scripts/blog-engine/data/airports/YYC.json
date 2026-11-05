@@ -307,8 +307,8 @@
       "triplyListingName": "Radisson Hotel Calgary Airport",
       "freeCancellation": true,
       "notes": "Lowest total at YYC on Triply (C$69.32 for Nov 2-9). Shuttle-hour conflict in the listing (7:00 AM-10:30 PM schedule vs 5 AM-11 PM in the description). yyc.com's hotel-shuttle page lists (403) 291-4666 for this hotel, which is the DoubleTree number; use the listing number 403-475-1111.",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "taxesFor8Days": 2.54,
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02"
@@ -340,8 +340,8 @@
       "freeCancellation": true,
       "minimumBookingDays": 4,
       "notes": "Same daily rate as Radisson (C$8.35) but C$69.96 total. 4-day minimum. Farthest of the three (3.7 mi), on 16 Ave NE (Trans-Canada). No shuttle 11 PM-6 AM.",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "taxesFor8Days": 3.18,
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02"
@@ -372,8 +372,8 @@
       "freeCancellation": true,
       "minimumBookingDays": 4,
       "notes": "Only Triply YYC lot with a 24/7 shuttle, but the outbound ride must be booked by phone 24 hours ahead. 4-day minimum.",
-      "sellable": true,
-      "sellableCheckedOn": "2026-11-02",
+      "sellable": false,
+      "sellableCheckedOn": "2026-11-05",
       "taxesFor8Days": 2.88,
       "paymentMethod": "Pay Online",
       "rateVerified": "2026-11-02"
@@ -384,7 +384,7 @@
       "dailyRateCAD": 16,
       "notes": "Airport product (yyc.com). Not sold on Triply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-05"
     },
     {
       "name": "YYC Long-term Parkades P1 and P2",
@@ -392,7 +392,7 @@
       "dailyRateCAD": 32,
       "notes": "Airport product (yyc.com). Not sold on Triply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-05"
     },
     {
       "name": "YYC Overheight Lot",
@@ -400,7 +400,7 @@
       "dailyRateCAD": 27,
       "notes": "Airport product (yyc.com). Not sold on Triply.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-05"
     },
     {
       "name": "Park & Jet",
@@ -408,7 +408,7 @@
       "location": "Airport Trail and Barlow Trail area, NE Calgary",
       "notes": "Independent off-site lot near YYC. Not sold on Triply; rates not checked.",
       "sellable": false,
-      "sellableCheckedOn": "2026-11-02"
+      "sellableCheckedOn": "2026-11-05"
     }
   ],
   "shuttleInfo": "On-airport: YYC runs no shuttle to its surface lots or parkades (Economy Lot is terminal adjacent). YYC Link shuttle connects the two terminals. Off-site: Triply's three YYC hotel lots are 1.6-3.7 mi away. Hilton Garden Inn runs 24/7 hourly but the hotel-to-airport ride must be booked by phone 24 hours ahead; Radisson runs hourly 7 AM-10:30 PM (none 10:30 PM-7 AM); DoubleTree runs hourly 6 AM-1 PM and on demand 1-11 PM (none 11 PM-6 AM). Call the hotel after collecting bags.",
