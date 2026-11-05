@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLotById } from "@/lib/reslab/get-lot";
-import { isHiddenReslabLocation, isLocationBackoffError } from "@/lib/reslab/search";
+import {
+  getChannelLocationsNoSweep,
+  isHiddenReslabLocation,
+  isLocationBackoffError,
+  isUsdPricedLocation,
+} from "@/lib/reslab/search";
 import { reslab, ReslabError } from "@/lib/reslab/client";
 import { createPaymentIntent } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/server";
@@ -280,6 +285,19 @@ export async function POST(request: NextRequest) {
     if (isHiddenReslabLocation(locationId)) {
       return NextResponse.json({ error: "Lot not found" }, { status: 404 });
     }
+    // Same for a lot not priced in USD (our Canadian lots, isUsdPricedLocation):
+    // the charge below is USD with no conversion. Fails CLOSED — a stale
+    // checkout or a hand-built POST never reaches the GET's 404.
+    const currency = await reslabLotCurrency(locationId);
+    if (currency === "not_usd") {
+      return NextResponse.json({ error: "Lot not found" }, { status: 404 });
+    }
+    if (currency === "unverified") {
+      return NextResponse.json(
+        { error: "We couldn't load this lot's price right now. Please try again in a moment." },
+        { status: 503, headers: { "Cache-Control": "no-store" } }
+      );
+    }
 
     // Build dates for ResLab API
     const checkinTime24 = convertTo24Hour(checkinTime);
@@ -425,6 +443,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
+
+/**
+ * Whether a ResLab lot is priced in USD: the channel list this instance
+ * already holds first (getChannelLocationsNoSweep never calls ResLab — never
+ * the 54-page sweep while a customer waits to pay); no list, or the lot not in
+ * it → one /locations/{id} read. "unverified" when that fails too — the caller
+ * refuses rather than charge an unknown currency as USD.
+ */
+async function reslabLotCurrency(locationId: number): Promise<"usd" | "not_usd" | "unverified"> {
+  const listed = (await getChannelLocationsNoSweep())?.find((loc) => loc.id === locationId);
+  if (listed) return isUsdPricedLocation(listed) ? "usd" : "not_usd";
+  try {
+    const location = await reslab.getLocation(locationId);
+    return isUsdPricedLocation(location) ? "usd" : "not_usd";
+  } catch (error) {
+    captureAPIError(error instanceof Error ? error : new Error(String(error)), {
+      endpoint: "/api/checkout/lot",
+      method: "POST",
+      stage: "currency_check_unverified",
+    });
+    return "unverified";
+  }
+}
 
 /**
  * The promo's discount percentage if the code exists and is usable, else null.

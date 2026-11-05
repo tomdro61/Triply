@@ -2,6 +2,8 @@
 // is at src/instrumentation-client.ts (next 15.3+ convention).
 
 import * as Sentry from "@sentry/nextjs";
+import { scrubBreadcrumbUrls, scrubEventCredentials } from "@/lib/sentry-scrub";
+import { hasRecordedUrlSecret } from "@/lib/privacy/recorded-url-params";
 
 Sentry.init({
   dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
@@ -27,6 +29,19 @@ Sentry.init({
 
   // Send application logs ingested via Sentry.logger.* alongside events.
   enableLogs: true,
+
+  // Page and request URLs can carry a guest's email (?email= on an emailed
+  // confirmation link) or a Stripe client secret (the 3-D Secure return), and
+  // the browser SDK records URLs in events, transactions, breadcrumbs and
+  // logs. Same scrub as the server (src/lib/sentry-scrub.ts); these hooks run
+  // after Sentry normalises the event. Breadcrumbs arrive raw, so only their
+  // URL strings are scrubbed. Replay events are covered by the event processor
+  // below; recordings by beforeAddRecordingEvent and by not starting replay on
+  // such a URL.
+  beforeSend: (event) => scrubEventCredentials(event),
+  beforeSendTransaction: (event) => scrubEventCredentials(event),
+  beforeSendLog: (log) => scrubEventCredentials(log),
+  beforeBreadcrumb: (breadcrumb) => scrubBreadcrumbUrls(breadcrumb),
 
   // Filter out noise that we don't act on.
   ignoreErrors: [
@@ -79,6 +94,11 @@ Sentry.init({
   ],
 });
 
+// Replay events (their `urls` list) skip beforeSend but pass event processors.
+// Only those: processors run BEFORE normalisation, where the JSON round-trip
+// would empty an Error carried in an error event's extra/contexts.
+Sentry.addEventProcessor((event) => (event.type === "replay_event" ? scrubEventCredentials(event) : event));
+
 // Session replay, loaded after the page is idle.
 //
 // Replay (the rrweb recorder) is the largest part of Sentry's browser code.
@@ -99,6 +119,10 @@ function loadReplay() {
         replayIntegration({
           maskAllText: true,
           blockAllMedia: true,
+          // Navigations and breadcrumbs inside a recording (custom events)
+          // carry URLs too. The recording's first page URL is not passed
+          // here — hence replay never starts on a URL with a secret (below).
+          beforeAddRecordingEvent: (event) => scrubEventCredentials(event),
         })
       );
     })
@@ -119,19 +143,31 @@ function loadReplay() {
  */
 const REPLAY_EAGER_PATHS = /^\/(checkout|confirmation)(\/|$)/;
 
+/**
+ * The recorder's first event holds the page URL as it is when replay starts,
+ * and no hook can scrub it. An emailed confirmation link (?email=) or the 3-D
+ * Secure return (?payment_intent_client_secret=) is stripped by the page
+ * after hydration, so on such a URL replay waits for load + idle and starts
+ * only if the address bar is clean by then (storage blocked → the page keeps
+ * ?email= → no replay for this page load).
+ */
 if (typeof window !== "undefined" && process.env.NODE_ENV !== "development") {
-  if (REPLAY_EAGER_PATHS.test(window.location.pathname)) {
-    loadReplay();
-  } else {
-    const whenIdle = (cb: () => void) =>
+  const whenLoadedAndIdle = (cb: () => void) => {
+    const whenIdle = () =>
       "requestIdleCallback" in window
         ? window.requestIdleCallback(cb, { timeout: 5000 })
         : setTimeout(cb, 3000);
-    if (document.readyState === "complete") {
-      whenIdle(loadReplay);
-    } else {
-      window.addEventListener("load", () => whenIdle(loadReplay), { once: true });
-    }
+    if (document.readyState === "complete") whenIdle();
+    else window.addEventListener("load", whenIdle, { once: true });
+  };
+  const loadReplayIfClean = () => {
+    if (!hasRecordedUrlSecret(window.location.href)) loadReplay();
+  };
+
+  if (REPLAY_EAGER_PATHS.test(window.location.pathname) && !hasRecordedUrlSecret(window.location.href)) {
+    loadReplay();
+  } else {
+    whenLoadedAndIdle(loadReplayIfClean);
   }
 }
 

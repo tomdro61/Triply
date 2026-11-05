@@ -59,7 +59,8 @@ export function ConfirmationHeader({
       {email && !cancelled && (
         <div className="flex items-center justify-center text-sm text-gray-600">
           <Mail size={16} className="mr-2 text-brand-orange" />
-          <span>
+          {/* Masked in Clarity recordings: the guest's email (see /privacy). */}
+          <span data-clarity-mask="true">
             Confirmation sent to <strong>{email}</strong>
           </span>
         </div>
